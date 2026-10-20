@@ -34,7 +34,7 @@ afterAll(async () => {
 
 describe("template-resolver :: conformance harness", () => {
   const conformantConsumer: TemplateConsumer = {
-    resolve: (args) => createTemplateResolverApi(db).resolveTemplate(args),
+    resolve: (args) => createTemplateResolverApi(db, stack.registry).resolveTemplate(args),
     resolveResources: async (template) => {
       const resolved: Record<string, string> = {};
       for (const key of Object.keys(template.linkedResources)) {
@@ -67,7 +67,7 @@ describe("template-resolver :: conformance harness", () => {
   // fall through the catch and pass — the assertion was effectively a no-op.
   test("harness detects a consumer that throws (non-TypeError) on missing resource keys", async () => {
     const badConsumer: TemplateConsumer = {
-      resolve: (args) => createTemplateResolverApi(db).resolveTemplate(args),
+      resolve: (args) => createTemplateResolverApi(db, stack.registry).resolveTemplate(args),
       resolveResources: async () => {
         throw new Error("blew up on a missing key instead of degrading");
       },
@@ -83,7 +83,7 @@ describe("template-resolver :: conformance harness", () => {
 
   test("conformant consumer propagates TemplateNotFoundError", async () => {
     const apiConsumer: TemplateConsumer = {
-      resolve: (args) => createTemplateResolverApi(db).resolveTemplate(args),
+      resolve: (args) => createTemplateResolverApi(db, stack.registry).resolveTemplate(args),
     };
 
     await expect(

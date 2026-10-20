@@ -7,8 +7,10 @@ import {
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
+import { systemTemplateExists } from "../api.ts";
 import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "../constants.ts";
 import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.ts";
+import { refuseTemplateEdit, type TemplateEditPolicy } from "../template-edit-policy.ts";
 import { type CollectionEntryRow, collectionStore } from "./collection-shared.ts";
 import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.ts";
 
@@ -19,7 +21,10 @@ import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./s
 //
 // Like set.write this publishes on save (status active, empty variableSchema)
 // — the draft stage lives on upsertTenant + publish.
-export function makeCollectionSetWrite(collection: ContentCollectionDefinition) {
+export function makeCollectionSetWrite(
+  collection: ContentCollectionDefinition,
+  editPolicy: TemplateEditPolicy,
+) {
   const store = collectionStore(collection);
   return defineWriteHandler({
     name: `${collection.id}-set`,
@@ -73,6 +78,18 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
         return writeFailure(
           new ValidationError({ fields: documentViolationsToFieldIssues(body.violations) }),
         );
+      }
+
+      // The collection's access must not open a system template that the app did not unlock.
+      if (
+        collection.ownership !== "user" &&
+        (await systemTemplateExists(db, collection.kind, event.payload.slug))
+      ) {
+        const refused = refuseTemplateEdit(editPolicy, event.user, {
+          slug: event.payload.slug,
+          kind: collection.kind,
+        });
+        if (refused) return refused;
       }
 
       const existing = await fetchOne<CollectionEntryRow>(db, store.table, {

@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TEMPLATE_KINDS } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { templateSlugSchema } from "../template-meta.ts";
 import { collectTemplateUsage } from "../template-usage.ts";
 import { effectiveMailLayoutSlugs } from "./overview.query.ts";
@@ -25,7 +26,12 @@ export const usageQuery = defineQueryHandler({
       { limit: MAIL_ROW_LIMIT },
     );
     return {
-      usedBy: collectTemplateUsage(ctx.registry, slug, kind, effectiveMailLayoutSlugs(mailRows)),
+      usedBy: collectTemplateUsage(
+        ctx.registry,
+        slug,
+        kind,
+        effectiveMailLayoutSlugs(mailRows, deliveryPolicyOf(ctx.registry)),
+      ),
     };
   },
 });

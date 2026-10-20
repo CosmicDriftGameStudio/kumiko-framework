@@ -305,7 +305,7 @@ export function buildBootExtraContext(opts: BootExtraContextOptions): Record<str
   const bootConfigResolver = resolveDeliveryConfigResolver(opts, hasDeliveryFeature, crypto);
   const configResolver = opts.hasAuth ? bootConfigResolver : undefined;
   return {
-    templateResolver: createTemplateResolverApi(opts.db),
+    templateResolver: createTemplateResolverApi(opts.db, opts.registry),
     ...(opts.kms && { kms: opts.kms }),
     ...(escapeHatchAuditSink && { _escapeHatchAuditSink: escapeHatchAuditSink }),
     ...bootDeliveryContext(opts, {

@@ -4,7 +4,7 @@
 
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { FileAttachmentRef } from "../renderer-foundation/index.ts";
@@ -18,7 +18,13 @@ import {
   type TemplatePdfAttachmentLink,
 } from "./linked-resources.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
-import { activeVersionOf, servedVersionOf } from "./template-draft.ts";
+import {
+  deliveryPolicyOf,
+  isRowServed,
+  isServedByCollectionOnly,
+  type TemplateDeliveryPolicy,
+} from "./template-delivery-policy.ts";
+import { activeVersionOf, isSystemAdmin, servedVersionOf } from "./template-draft.ts";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.ts";
 
 // Public TemplateResource: what consumers see. Hides DB-internal columns
@@ -68,15 +74,11 @@ export type ResolveLayoutRequest = {
 
 export type TemplateResolverApi = {
   /**
-   * Findet ein konkretes Template by (tenantId, slug, kind, locale).
-   * Kein Locale-Fallback, keine Override-Hierarchie — Raw-Lookup für
-   * Admin-UI-Edits und Konformitäts-Tests. Für Render-Aufrufe immer
-   * `resolveTemplate` nutzen.
+   * Raw lookup by (tenantId, slug, kind, locale): no locale fallback, no override
+   * hierarchy. Render paths must use `resolveTemplate`. `scope: "system"` forces
+   * SYSTEM_TENANT_ID and ignores the passed tenantId.
    *
-   * `scope: "system"` zwingt Lookup gegen SYSTEM_TENANT_ID (ignoriert
-   * den übergebenen tenantId). Default = Lookup gegen den übergebenen
-   * tenantId direkt (Caller wählt entweder Tenant oder System per
-   * tenantId).
+   * Tenant rows of a template that is not tenantEditable are not returned.
    */
   readonly findExact: (args: {
     readonly tenantId: TenantId;
@@ -87,18 +89,10 @@ export type TemplateResolverApi = {
   }) => Promise<TemplateResource | null>;
 
   /**
-   * Resolver mit 4-Stufen-Fallback (siehe template-resolver.md):
-   *   1. tenant + requested-locale
-   *   2. system + requested-locale
-   *   3. tenant + FALLBACK_LOCALE
-   *   4. system + FALLBACK_LOCALE
-   * Resource-Substitution wird hier NICHT ausgeführt — das macht der
-   * Caller (renderer-foundation-Plugin) je nach kind-passendem Modus
-   * (inline-base64 vs. signed-url). API liefert TemplateResource pur.
-   *
-   * **Caller-Invariante:** `tenantId` MUSS vom Server kommen (typisch
-   * `ctx.user.tenantId`). Niemals direkt aus User-Input — sonst kann
-   * User cross-tenant Templates abfragen (Tenant-Isolation gebrochen).
+   * Four-step fallback: tenant+locale, system+locale, tenant+FALLBACK_LOCALE,
+   * system+FALLBACK_LOCALE (see template-resolver.md).
+   * Tenant rows count only for templates unlocked for tenants (tenantEditable,
+   * or a collection with access); locked overrides are skipped but stay stored.
    */
   readonly resolveTemplate: (args: ResolveRequest) => Promise<TemplateResource>;
 
@@ -114,12 +108,18 @@ export type TemplateResolverApi = {
   readonly resolveLayout: (args: ResolveLayoutRequest) => Promise<TemplateResource>;
 };
 
-export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateResolverApi {
+export function createTemplateResolverApi(
+  db: DbRunner | TenantDb,
+  registry: Registry,
+): TemplateResolverApi {
+  const deliveryPolicy = deliveryPolicyOf(registry);
+  // A collection entry must not shadow a system template of the same slug that the app did not unlock.
+  const isServed = (row: TemplateResourceRow) => isRowDelivered(db, deliveryPolicy, row);
   return {
     findExact: async ({ tenantId, slug, kind, locale, scope }) => {
       const effectiveTenantId = scope === "system" ? SYSTEM_TENANT_ID : tenantId;
       const row = await fetchTemplate(db, effectiveTenantId, slug, kind, locale);
-      return row ? toPublic(row) : null;
+      return row && (await isServed(row)) ? toPublic(row) : null;
     },
 
     resolveTemplate: async ({ tenantId, slug, kind, locale }) => {
@@ -135,14 +135,16 @@ export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateReso
           : []),
       ];
       for (const c of candidates) {
+        if (!isRowServed(deliveryPolicy, { tenantId: c.tid, kind, slug })) continue;
         const row = await fetchTemplate(db, c.tid, slug, kind, c.loc);
-        if (row && row.status === "active") return toPublic(row);
+        if (row && row.status === "active" && (await isServed(row))) return toPublic(row);
       }
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
 
     resolveLayout: async ({ tenantId, slug, kind, locale }) => {
       for (const tid of [tenantId, SYSTEM_TENANT_ID]) {
+        if (!isRowServed(deliveryPolicy, { tenantId: tid, kind, slug })) continue;
         const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
           tenantId: tid,
           slug,
@@ -154,6 +156,51 @@ export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateReso
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
   };
+}
+
+// The one delivery rule for a stored row: unlocked, and a collection entry never shadows a system
+// template of the same slug that the app did not unlock.
+export async function isRowDelivered(
+  db: DbRunner | TenantDb,
+  policy: TemplateDeliveryPolicy,
+  row: TemplateResourceRow,
+): Promise<boolean> {
+  if (!isRowServed(policy, row)) return false;
+  if (row.tenantId === SYSTEM_TENANT_ID || !isServedByCollectionOnly(policy, row)) return true;
+  return !(await systemTemplateExists(db, row.kind, row.slug));
+}
+
+export async function isRowDeliveredTo(
+  db: DbRunner | TenantDb,
+  policy: TemplateDeliveryPolicy,
+  user: { readonly roles: readonly string[] },
+  row: TemplateResourceRow,
+): Promise<boolean> {
+  return isSystemAdmin(user) || (await isRowDelivered(db, policy, row));
+}
+
+export async function filterDeliveredTo(
+  db: DbRunner | TenantDb,
+  policy: TemplateDeliveryPolicy,
+  user: { readonly roles: readonly string[] },
+  rows: readonly TemplateResourceRow[],
+): Promise<TemplateResourceRow[]> {
+  const flags = await Promise.all(rows.map((row) => isRowDeliveredTo(db, policy, user, row)));
+  return rows.filter((_, index) => flags[index]);
+}
+
+export async function systemTemplateExists(
+  db: DbRunner | TenantDb,
+  kind: string,
+  slug: string,
+): Promise<boolean> {
+  const rows = await selectMany(
+    db,
+    templateResourcesTable,
+    { tenantId: SYSTEM_TENANT_ID, slug, kind },
+    { limit: 1 },
+  );
+  return rows.length > 0;
 }
 
 function pickActiveLayoutRow(
@@ -268,7 +315,7 @@ export function requireTemplateResolver(
     throw new InternalError({
       message:
         `[${callerName}] ctx.templateResolver missing — App-Bootstrap muss ` +
-        `extraContext: { templateResolver: createTemplateResolverApi(db) } setzen ` +
+        `extraContext: { templateResolver: createTemplateResolverApi(db, registry) } setzen ` +
         `(siehe template-resolver/README.md).`,
     });
   }

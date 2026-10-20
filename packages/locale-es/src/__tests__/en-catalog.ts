@@ -1216,6 +1216,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.systemOnlyTemplate":
     "Only the platform maintains this template; it cannot be overridden per tenant.",
   "templateResolver.errors.templateNotTenantEditable": "Only the platform may edit this template.",
+  "templateResolver.overview.lockedOverride":
+    "Own version stored but not delivered: the template is not unlocked for tenants.",
   "templateResolver.errors.template.targetExists":
     "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
   "templateResolver.warnings.resourceNotUploaded": "Image not uploaded: {detail}",

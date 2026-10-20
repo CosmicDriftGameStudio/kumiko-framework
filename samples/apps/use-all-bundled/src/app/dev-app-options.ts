@@ -34,7 +34,9 @@ export const devAppOptions = {
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-  extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
+  extraContext: ({ db, registry }) => ({
+    templateResolver: createTemplateResolverApi(db, registry),
+  }),
   seeds: [seedScreenshotData],
   auth: {
     admin: {

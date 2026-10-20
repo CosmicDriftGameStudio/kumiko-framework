@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { draftViewerTenantId, isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 
@@ -15,7 +16,7 @@ export const findByIdQuery = defineQueryHandler({
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
   description:
-    "Reads the version of one template resource an editor works on, by row id: the open draft if there is one (status draft), else the stored version, with content, variable schema and scope, but only when it belongs to the caller's tenant or is a served system default (a never-served system draft is visible to a SystemAdmin only); `active` is the version number and since-time the resolver serves, null when none is served. Use it to load a template into the admin editor.",
+    "Reads the version of one template resource an editor works on, by row id: the open draft if there is one (status draft), else the stored version, with content, variable schema and scope, but only when it belongs to the caller's tenant or is a served system default (an override of a template that is not tenantEditable is not delivered and is visible to a SystemAdmin only) (a never-served system draft is visible to a SystemAdmin only); `active` is the version number and since-time the resolver serves, null when none is served. Use it to load a template into the admin editor.",
   handler: async (query, ctx) => {
     const stored = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       id: query.payload.id,
@@ -23,7 +24,8 @@ export const findByIdQuery = defineQueryHandler({
     if (
       !stored ||
       isHiddenSystemDraft(query.user, stored) ||
-      isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, stored)
+      isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, stored) ||
+      !isRowServedTo(deliveryPolicyOf(ctx.registry), query.user, stored)
     ) {
       return null;
     }

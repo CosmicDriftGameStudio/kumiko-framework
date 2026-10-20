@@ -1259,6 +1259,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Seule la plateforme gère ce modèle ; il ne peut pas être remplacé par organisation.",
   "templateResolver.errors.templateNotTenantEditable":
     "Seule la plateforme peut modifier ce modèle.",
+  "templateResolver.overview.lockedOverride":
+    "Version propre enregistrée mais non diffusée : le modèle n’est pas activé pour les organisations.",
   "templateResolver.errors.template.targetExists":
     "Un modèle existe déjà pour la langue « {detail} » ; écrasez-le explicitement pour le remplacer.",
   "templateResolver.warnings.resourceNotUploaded": "Image non téléversée : {detail}",

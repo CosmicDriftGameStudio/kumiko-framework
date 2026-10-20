@@ -14,12 +14,21 @@ export {
   buildDemoModeRoute,
   withDemoReadOnlyFetch,
 } from "./boot-options/demo-mode.ts";
+export {
+  type FeatureTogglesBinding,
+  type FeatureTogglesWiring,
+  resolveFeatureTogglesOption,
+} from "./boot-options/feature-toggles-option.ts";
 export type {
   FileStorageBootOption,
   FileStorageProviderName,
 } from "./boot-options/file-storage-option.ts";
 export type { KmsMode } from "./boot-options/kms-mode.ts";
-export type { MailBootOption, MailRecipientScope } from "./boot-options/mail-option.ts";
+export {
+  type MailBootOption,
+  type MailRecipientScope,
+  resolveStoredUserEmail,
+} from "./boot-options/mail-option.ts";
 export { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.ts";
 export type { SignalsOption } from "./boot-options/process-signals.ts";
 export {

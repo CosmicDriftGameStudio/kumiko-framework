@@ -35,8 +35,8 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [textFeature, legalFeature],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-    extraContext: ({ db }) => ({
-      templateResolver: createTemplateResolverApi(db),
+    extraContext: ({ db, registry }) => ({
+      templateResolver: createTemplateResolverApi(db, registry),
     }),
   });
   db = stack.db;
@@ -274,8 +274,8 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
         resolverTrust: "authoritative",
         tenantExists: async (id) => id === otherTenantId || id === SYSTEM_TENANT_ID,
       },
-      extraContext: ({ db }) => ({
-        templateResolver: createTemplateResolverApi(db),
+      extraContext: ({ db, registry }) => ({
+        templateResolver: createTemplateResolverApi(db, registry),
       }),
     });
     try {
@@ -315,8 +315,8 @@ describe("legal-pages :: wrapLayout erhält route.slug (alt-lang-switch-regressi
         }),
       ],
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-      extraContext: ({ db }) => ({
-        templateResolver: createTemplateResolverApi(db),
+      extraContext: ({ db, registry }) => ({
+        templateResolver: createTemplateResolverApi(db, registry),
       }),
     });
     try {
@@ -369,8 +369,8 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
         }),
       ],
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-      extraContext: ({ db }) => ({
-        templateResolver: createTemplateResolverApi(db),
+      extraContext: ({ db, registry }) => ({
+        templateResolver: createTemplateResolverApi(db, registry),
       }),
     });
     try {
@@ -417,8 +417,8 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
         }),
       ],
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-      extraContext: ({ db }) => ({
-        templateResolver: createTemplateResolverApi(db),
+      extraContext: ({ db, registry }) => ({
+        templateResolver: createTemplateResolverApi(db, registry),
       }),
     });
     try {
@@ -731,7 +731,9 @@ describe("legal-pages :: trailing-slash redirect", () => {
         }),
       ],
       anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-      extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
+      extraContext: ({ db, registry }) => ({
+        templateResolver: createTemplateResolverApi(db, registry),
+      }),
     });
     try {
       await unsafeCreateEntityTable(slashStack.db, templateResourceEntity);

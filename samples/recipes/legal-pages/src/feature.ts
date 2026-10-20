@@ -27,7 +27,7 @@
 //  - `anonymousAccess` muss in runProdApp/runDevApp konfiguriert sein
 //    (defaultTenantId = SYSTEM_TENANT_ID), sonst antworten die
 //    legal-pages-Routes mit 503
-//  - `extraContext.templateResolver = createTemplateResolverApi(db)` muss
+//  - `extraContext.templateResolver = createTemplateResolverApi(db, registry)` muss
 //    gewired sein, sonst wirft der Boot-Check mit Wiring-Hinweis
 //  - Beim ersten Boot müssen die TextBlocks geseedet sein —
 //    template-resolver/seeding `seedTextBlock` oder via API

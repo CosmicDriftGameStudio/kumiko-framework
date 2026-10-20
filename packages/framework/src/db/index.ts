@@ -134,6 +134,7 @@ export {
   type PgErrorInfo,
 } from "./pg-error.ts";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
+export { readDatabaseNow } from "./queries/database-now.ts";
 export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
 export type {

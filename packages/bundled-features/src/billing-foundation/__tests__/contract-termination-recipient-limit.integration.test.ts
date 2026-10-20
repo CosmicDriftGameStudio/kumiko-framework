@@ -120,7 +120,7 @@ beforeAll(async () => {
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
-      templateResolver: createTemplateResolverApi(deps.db),
+      templateResolver: createTemplateResolverApi(deps.db, deps.registry),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
     anonymousAccess: { defaultTenantId: ANONYMOUS_TENANT },

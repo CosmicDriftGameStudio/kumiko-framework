@@ -61,7 +61,7 @@ const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 //     nicht gegen Cross-Feature-Coupling
 //
 // Voraussetzungen für Production:
-//   • App-Bootstrap muss extraContext: { templateResolver: createTemplateResolverApi(db) }
+//   • App-Bootstrap muss extraContext: { templateResolver: createTemplateResolverApi(db, registry) }
 //     setzen — sonst wirft Boot-Check beim Start
 //   • anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID } — sonst
 //     antworten die Routes mit 503

@@ -306,25 +306,32 @@ function validateRowActionNavigateParams(
   if (target.screen.type === "dashboard") {
     const targetDescriptor =
       action.screen !== undefined ? `"${action.screen}"` : `entity "${action.entity}"`;
-    const filter = target.screen.filter;
-    if (filter === undefined) {
+    const { filter, record, timeRange } = target.screen;
+    const readIds = [filter?.id, record?.param, timeRange?.id].filter(
+      (id): id is string => id !== undefined,
+    );
+    if (readIds.length === 0) {
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
           `params on navigate-target ${targetDescriptor} (dashboard) — target dashboard declares no ` +
-          `filter — params would be a no-op. Remove the params extractor, or add a \`filter\` to the ` +
+          `filter, time range or record binding — params would be a no-op. Remove the params extractor, or add a \`filter\` (or a \`record\` binding) to the ` +
           `target dashboard so it has somewhere to read the value from.`,
       );
     }
     const extractedKeys = rowFieldExtractorKeys(action.params);
-    if (!extractedKeys.includes(filter.id)) {
+    if (!readIds.some((id) => extractedKeys.includes(id))) {
+      const readDescriptor =
+        filter !== undefined && readIds.length === 1
+          ? `filter id is "${filter.id}"`
+          : `URL params are [${readIds.join(", ")}]`;
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" sets ` +
           `params [${extractedKeys.join(", ")}] on navigate-target ${targetDescriptor} (dashboard) whose ` +
-          `filter id is "${filter.id}" — none of the extracted keys match, so the filter would stay ` +
-          `unset. Fix the params extractor to produce a "${filter.id}" key, or remove it.`,
+          `${readDescriptor} — none of the extracted keys match, so the value would stay ` +
+          `unset. Fix the params extractor to produce one of these keys, or remove it.`,
       );
     }
-    // skip: filter present and the extractor's keys cover it — valid dashboard deep-link.
+    // skip: a read id is present and the extractor's keys cover it — valid dashboard deep-link.
     return;
   }
 

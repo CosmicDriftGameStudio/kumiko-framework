@@ -7,7 +7,7 @@ import { mergeExtraContext } from "../setup-test-stack-from-features.ts";
 // directly instead.
 
 const fakeDeps = {
-  registry: {} as never,
+  registry: { getFeature: () => undefined } as never,
   db: { marker: "fake-db" } as never,
   sseBroker: {} as never,
   redis: {} as never,

@@ -43,7 +43,7 @@ describe("seedSystemTemplate", () => {
       contentFormat: "plain",
     });
 
-    const api = createTemplateResolverApi(stack.db);
+    const api = createTemplateResolverApi(stack.db, stack.registry);
     const resolved = await api.resolveTemplate({
       tenantId: TENANT_ID,
       slug,

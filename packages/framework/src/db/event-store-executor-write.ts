@@ -63,6 +63,12 @@ import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.ts";
 import { tenantDbWriteRunner } from "./tenant-db-runner.ts";
 
+// The echoed event carries entity PII and must never reach a handler's JSON response, while
+// hooks and projections still read it by property. Non-enumerable keeps it out of spread/stringify.
+function withoutEventInJson<T extends { readonly event: unknown }>(result: T): T {
+  return Object.defineProperty(result, "event", { value: result.event, enumerable: false });
+}
+
 // Custom projections for a write that did not go through the dispatcher (hook or
 // job writing a second aggregate). Savepoint like applyEntityEvent: a throwing
 // projection fails the write and the caller's transaction rolls it back.
@@ -533,7 +539,7 @@ export function createWriteVerbs(
 
       return {
         isSuccess: true,
-        data: {
+        data: withoutEventInJson({
           kind: "save",
           id: aggregateId,
           data: projection,
@@ -544,7 +550,7 @@ export function createWriteVerbs(
           // Persisted event carries ciphertext by design — the caller-facing
           // echo must be plaintext like every other response field (#820).
           event: echoEvent,
-        },
+        }),
       };
     },
 
@@ -810,7 +816,7 @@ export function createWriteVerbs(
 
         return {
           isSuccess: true,
-          data: {
+          data: withoutEventInJson({
             kind: "save",
             id: data["id"] as EntityId, // @cast-boundary engine-payload
             data,
@@ -819,7 +825,7 @@ export function createWriteVerbs(
             isNew: false,
             entityName,
             event: echoEvent,
-          },
+          }),
         };
       } catch (e) {
         // The pre-check above eliminates the common stale-version case; this
@@ -955,14 +961,14 @@ export function createWriteVerbs(
 
       return {
         isSuccess: true,
-        data: {
+        data: withoutEventInJson({
           kind: "delete",
           id: payload.id,
           data: existing,
           entityName,
           event: echoEvent,
           ...(isLockGuardBypassed(user, options) && { lockGuardBypassed: true }),
-        },
+        }),
       };
     },
 
@@ -1069,14 +1075,14 @@ export function createWriteVerbs(
 
       return {
         isSuccess: true,
-        data: {
+        data: withoutEventInJson({
           kind: "delete",
           id: payload.id,
           data: existing,
           entityName,
           event: echoEvent,
           lockGuardBypassed: true,
-        },
+        }),
       };
     },
 
@@ -1181,7 +1187,7 @@ export function createWriteVerbs(
       await projectEntityEvent(db, runner, echoEvent);
       return {
         isSuccess: true,
-        data: {
+        data: withoutEventInJson({
           kind: "save",
           id: payload.id,
           data: restoredHydrated,
@@ -1190,7 +1196,7 @@ export function createWriteVerbs(
           isNew: false,
           entityName,
           event: echoEvent,
-        },
+        }),
       };
     },
   };

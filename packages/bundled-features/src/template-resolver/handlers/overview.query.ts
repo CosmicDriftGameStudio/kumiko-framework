@@ -4,6 +4,11 @@ import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
+  deliveryPolicyOf,
+  isTenantOverrideServed,
+  type TemplateDeliveryPolicy,
+} from "../template-delivery-policy.ts";
+import {
   activeSinceOf,
   activeVersionOf,
   draftViewerTenantId,
@@ -20,6 +25,7 @@ const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as 
 type OverviewKind = (typeof OVERVIEW_KINDS)[number];
 
 const OVERVIEW_ROW_LIMIT = 5000;
+const LOCKED_OVERRIDE_I18N_KEY = "templateResolver.overview.lockedOverride";
 
 export type OverviewOrigin = "tenant" | "system";
 export type OverviewKindGroup = "mail" | "pdf" | "layout";
@@ -45,6 +51,9 @@ export type OverviewRow = {
   readonly activeSince: string | null;
   readonly systemVersion: number | null;
   readonly layoutSlug: string | null;
+  /** SystemAdmin only: a tenant override is stored but not delivered because the template is not unlocked for tenants. */
+  readonly lockedOverride: boolean;
+  readonly lockedOverrideI18nKey: string | null;
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsage[];
   readonly usedByCount: number;
@@ -88,23 +97,49 @@ function preferredRow(rows: readonly TemplateResourceRow[]): TemplateResourceRow
   );
 }
 
-type EffectiveRows = { readonly origin: OverviewOrigin; readonly rows: TemplateResourceRow[] };
+type EffectiveRows = {
+  readonly origin: OverviewOrigin;
+  readonly rows: TemplateResourceRow[];
+  readonly lockedOverride: boolean;
+};
 
-function effectiveRowsOf(rows: readonly TemplateResourceRow[]): EffectiveRows | null {
+// A tenant row of a template that is not unlocked is not delivered, so the system version is the effective one.
+function effectiveRowsOf(
+  rows: readonly TemplateResourceRow[],
+  policy: TemplateDeliveryPolicy,
+): EffectiveRows | null {
   const tenantRows = rows.filter((row) => row.scope === "tenant");
   const systemRows = rows.filter((row) => row.scope === "system");
   const live = (list: TemplateResourceRow[]) => list.filter((row) => row.status !== "archived");
   const liveTenant = live(tenantRows);
-  if (liveTenant.length > 0) return { origin: "tenant", rows: liveTenant };
+  const tenantServed = tenantRows.every((row) => isTenantOverrideServed(policy, row));
+  if (!tenantServed && liveTenant.length > 0) {
+    const liveSystem = live(systemRows);
+    if (systemRows.length === 0)
+      return { origin: "tenant", rows: liveTenant, lockedOverride: true };
+    return {
+      origin: "system",
+      rows: liveSystem.length > 0 ? liveSystem : systemRows,
+      lockedOverride: true,
+    };
+  }
+  if (liveTenant.length > 0) return { origin: "tenant", rows: liveTenant, lockedOverride: false };
   if (systemRows.length > 0) {
     const liveSystem = live(systemRows);
-    return { origin: "system", rows: liveSystem.length > 0 ? liveSystem : systemRows };
+    return {
+      origin: "system",
+      rows: liveSystem.length > 0 ? liveSystem : systemRows,
+      lockedOverride: false,
+    };
   }
-  return tenantRows.length > 0 ? { origin: "tenant", rows: tenantRows } : null;
+  return tenantRows.length > 0
+    ? { origin: "tenant", rows: tenantRows, lockedOverride: false }
+    : null;
 }
 
 export function effectiveMailLayoutSlugs(
   rows: readonly TemplateResourceRow[],
+  policy: TemplateDeliveryPolicy,
 ): EffectiveMailLayoutSlugs {
   const byLocale = new Map<string, TemplateResourceRow[]>();
   for (const row of rows) {
@@ -114,7 +149,10 @@ export function effectiveMailLayoutSlugs(
   }
   const bySlug = new Map<string, Map<string, string>>();
   for (const group of byLocale.values()) {
-    const effective = effectiveRowsOf(group)?.rows[0];
+    const effectiveRows = effectiveRowsOf(group, policy);
+    // A locked tenant row without a system row is not delivered, so it names no layout.
+    if (effectiveRows?.lockedOverride && effectiveRows.origin === "tenant") continue;
+    const effective = effectiveRows?.rows[0];
     // All-archived: the renderer falls back to the code-registered template.
     if (effective === undefined || effective.status === "archived") continue;
     const locales = bySlug.get(effective.slug) ?? new Map<string, string>();
@@ -191,6 +229,7 @@ function versionFieldsOf(
 function buildDrafts(
   groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
   user: { readonly tenantId: string; readonly roles: readonly string[] },
+  policy: TemplateDeliveryPolicy,
 ): {
   readonly drafts: OverviewDraft[];
   readonly layoutSlugByDocument: Map<string, string>;
@@ -198,7 +237,7 @@ function buildDrafts(
   const layoutSlugByDocument = new Map<string, string>();
   const drafts: OverviewDraft[] = [];
   for (const [id, groupRows] of groups) {
-    const effective = effectiveRowsOf(groupRows);
+    const effective = effectiveRowsOf(groupRows, policy);
     const preferred = effective === null ? undefined : preferredRow(effective.rows);
     if (effective === null || preferred === undefined) continue;
     if (!isOverviewKind(preferred.kind) || !isTemplateStatus(preferred.status)) continue;
@@ -218,6 +257,8 @@ function buildDrafts(
       status: preferred.status,
       ...versionFieldsOf(user, preferred, groupRows),
       layoutSlug,
+      lockedOverride: effective.lockedOverride,
+      lockedOverrideI18nKey: effective.lockedOverride ? LOCKED_OVERRIDE_I18N_KEY : null,
       modifiedAt: modifiedAtOf(preferred),
     });
   }
@@ -287,7 +328,7 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
     }),
     access: { roles: ["TenantAdmin", "SystemAdmin"] },
     description:
-      "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only, and a TenantAdmin sees only the templates the app lists in tenantEditable; use it to browse and filter all templates at a glance.",
+      "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only, and a TenantAdmin sees only the templates the app lists in tenantEditable; a tenant override of a template that is not listed is not delivered, so the row shows the system version with `lockedOverride` true (SystemAdmin only); use it to browse and filter all templates at a glance.",
     handler: async (query, ctx) => {
       const payload = query.payload;
       const fetchedRows = await selectMany<TemplateResourceRow>(
@@ -310,11 +351,13 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
           !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row) &&
           mayEditTemplate(policy, query.user, row),
       );
+      const deliveryPolicy = deliveryPolicyOf(ctx.registry);
       const { drafts, layoutSlugByDocument } = buildDrafts(
         groupBySlugAndKind(visibleRows),
         query.user,
+        deliveryPolicy,
       );
-      const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows);
+      const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows, deliveryPolicy);
       const overviewRows = drafts.map((draft) =>
         withUsage(draft, layoutSlugByDocument, ctx.registry, effectiveLayouts),
       );

@@ -36,7 +36,7 @@ runProdApp({
   //      only uses the API via ctx)
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   extraContext: ({ db }) => ({
-    templateResolver: createTemplateResolverApi(db),
+    templateResolver: createTemplateResolverApi(db, registry),
   }),
 });
 ```

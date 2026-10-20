@@ -27,8 +27,8 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [templateResolverFeature, legalPagesFeature],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-    extraContext: ({ db }) => ({
-      templateResolver: createTemplateResolverApi(db),
+    extraContext: ({ db, registry }) => ({
+      templateResolver: createTemplateResolverApi(db, registry),
     }),
   });
   db = stack.db;

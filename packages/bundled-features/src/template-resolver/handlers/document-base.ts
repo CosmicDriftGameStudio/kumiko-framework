@@ -7,6 +7,7 @@ import {
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DocumentHtmlKind } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { parseStoredJson } from "./template-gates.ts";
@@ -45,7 +46,12 @@ export async function loadDocumentBase(
     tenantId: user.tenantId,
     ...where,
   });
-  if (own !== undefined && !isSystemOnlyTemplateHiddenFrom(user, ctx.registry, own)) {
+  // A locked override is neither shown nor edited by a non-SystemAdmin; the served system default is.
+  const ownIsVisible =
+    own !== undefined &&
+    !isSystemOnlyTemplateHiddenFrom(user, ctx.registry, own) &&
+    isRowServedTo(deliveryPolicyOf(ctx.registry), user, own);
+  if (own !== undefined && ownIsVisible) {
     const working = toWorkingRow(own, user.tenantId);
     return {
       rowId: String(own.id),

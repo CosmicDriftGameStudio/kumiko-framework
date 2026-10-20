@@ -9,7 +9,12 @@ import {
 import { TenantHandlers, TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
-import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EffectiveFeaturesResolver,
+  FeatureDefinition,
+  TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { resolveFeatureTogglesOption } from "@cosmicdrift/kumiko-server-runtime";
 import {
   type InProcessSeededTenant,
   type PersistedTenant,
@@ -32,21 +37,55 @@ import {
 
 export type SetupAppTestStackOptions = SetupTestStackFromFeaturesOptions & {
   readonly registryTables?: boolean;
+  /** Same as `RunDevAppOptions["featureToggles"]`: mounts `feature-toggles` (do not list it in `features`)
+   *  and layers its operator switches over the dispatcher's feature gate. Replaces `effectiveFeatures`. */
+  readonly featureToggles?: boolean;
 };
 
 export async function setupAppTestStack(
   features: readonly FeatureDefinition[],
   options: SetupAppTestStackOptions = {},
 ): Promise<TestStack> {
-  const { registryTables = true, includeBundled = true, ...stackOptions } = options;
-  const stack = await setupTestStackFromFeatures(features, {
-    ...stackOptions,
-    includeBundled,
-    entityTables: registryTables,
-  });
-  if (!registryTables) return stack;
+  const {
+    registryTables = true,
+    includeBundled = true,
+    featureToggles = false,
+    ...stackOptions
+  } = options;
+  if (featureToggles && stackOptions.effectiveFeatures !== undefined) {
+    throw new Error(
+      "setupAppTestStack: featureToggles replaces effectiveFeatures, set only one of them.",
+    );
+  }
+  const toggles = featureToggles ? resolveFeatureTogglesOption() : undefined;
+  const toggleResolver: { current: EffectiveFeaturesResolver | undefined } = { current: undefined };
+  const stack = await setupTestStackFromFeatures(
+    toggles === undefined ? features : [...features, toggles.feature],
+    {
+      ...stackOptions,
+      includeBundled,
+      entityTables: registryTables,
+      ...(toggles !== undefined && {
+        effectiveFeatures: (tenantId: TenantId) => {
+          if (toggleResolver.current === undefined) {
+            throw new Error("feature-toggles: resolver not bound yet (boot order).");
+          }
+          return toggleResolver.current(tenantId);
+        },
+      }),
+    },
+  );
   try {
-    await pushEntityProjectionTables(stack, stack.registry);
+    if (registryTables) await pushEntityProjectionTables(stack, stack.registry);
+    if (toggles !== undefined) {
+      const bound = await toggles.bind({
+        db: stack.db,
+        registry: stack.registry,
+        cacheSync: stack.cacheSync,
+        tierResolver: undefined,
+      });
+      toggleResolver.current = bound.resolver;
+    }
   } catch (error) {
     await stack.cleanup();
     throw error;
