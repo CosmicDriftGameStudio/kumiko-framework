@@ -120,11 +120,12 @@ function effectiveRowsOf(
     const liveSystem = live(systemRows);
     if (systemRows.length === 0)
       return { origin: "tenant", rows: liveTenant, lockedOverride: true, lockedOverrideId: null };
+    const lockedRow = preferredRow(liveTenant);
     return {
       origin: "system",
       rows: liveSystem.length > 0 ? liveSystem : systemRows,
       lockedOverride: true,
-      lockedOverrideId: String(preferredRow(liveTenant)?.id ?? ""),
+      lockedOverrideId: lockedRow === undefined ? null : String(lockedRow.id),
     };
   }
   if (liveTenant.length > 0)
@@ -265,7 +266,7 @@ function buildDrafts(
       layoutSlug,
       lockedOverride: effective.lockedOverride,
       lockedOverrideI18nKey: effective.lockedOverride ? LOCKED_OVERRIDE_I18N_KEY : null,
-      lockedOverrideId: effective.lockedOverrideId === "" ? null : effective.lockedOverrideId,
+      lockedOverrideId: effective.lockedOverrideId,
       modifiedAt: modifiedAtOf(preferred),
     });
   }
