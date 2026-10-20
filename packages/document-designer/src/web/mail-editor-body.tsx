@@ -228,7 +228,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const footer =
     locked || validation === undefined || validation === null
       ? null
-      : footerMessage(t, validation, mode === "preview");
+      : footerMessage(t, validation, mode === "preview" && testMail.availability.canSend);
 
   const fieldErrors = locked ? {} : metaFieldMessages(t, validation ?? null);
   const publish = (): void => void saveAndReload(true);

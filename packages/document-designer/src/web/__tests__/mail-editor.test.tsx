@@ -697,6 +697,9 @@ describe("MailEditor", () => {
       await screen.findByText("No email address is stored for you, so no test mail can be sent."),
     ).toBeTruthy();
     expect((screen.getByTestId("mail-test-send") as HTMLButtonElement).disabled).toBe(true);
+    const footer = screen.getByTestId("mail-editor-footer-message").textContent;
+    expect(footer).toContain("Publishing is blocked");
+    expect(footer).not.toContain("test mail");
   });
 
   test("the test mail button is enabled when the server can send", async () => {

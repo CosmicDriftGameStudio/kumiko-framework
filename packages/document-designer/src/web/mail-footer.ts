@@ -21,13 +21,13 @@ function missingLabels(t: Translate, validation: MailValidation): string {
 export function footerMessage(
   t: Translate,
   validation: MailValidation,
-  previewMode: boolean,
+  offersTestMail: boolean,
 ): { readonly tone: "bad" | "warn" | "ok"; readonly text: string } {
   if (validation.missingRequired.length > 0) {
     return {
       tone: "bad",
       text: t(
-        previewMode
+        offersTestMail
           ? "documentDesigner.mail.footer.missingPreview"
           : "documentDesigner.mail.footer.missing",
         { names: missingLabels(t, validation) },

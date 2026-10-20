@@ -15,12 +15,12 @@ export function RailSection({
 }): ReactNode {
   return (
     <section className="flex flex-col border-b pb-1" data-testid={testId}>
-      <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-1">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      {/* A narrow rail wraps the action below the title instead of clipping it. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 pt-2.5 pb-1">
+        <span className="min-w-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {title}
         </span>
-        <div className="grow" />
-        {action}
+        {action !== undefined && <div className="ml-auto">{action}</div>}
       </div>
       {children}
     </section>
@@ -84,7 +84,9 @@ export function RailRow({
       )}
       <span
         className={cn(
-          "min-w-0 grow break-words text-sm",
+          // anywhere, not break-word: only it lets a file name without spaces narrow the min-content
+          // width, so the label wraps instead of running under the action.
+          "min-w-0 grow wrap-anywhere text-sm",
           trailing !== undefined && "min-w-min max-w-[65%] shrink-0",
           bad === true && "text-status-bad",
         )}
@@ -95,7 +97,8 @@ export function RailRow({
       {trailing !== undefined && (
         <span
           className={cn(
-            "min-w-0 truncate text-right text-xs",
+            "min-w-0 text-xs",
+            action !== undefined ? "basis-full wrap-anywhere" : "truncate text-right",
             bad === true ? "text-status-bad" : TRAILING_TONE[trailingTone],
           )}
           title={typeof trailing === "string" ? trailing : undefined}
@@ -105,7 +108,12 @@ export function RailRow({
       )}
     </>
   );
-  const rowClass = "flex min-h-10 min-w-0 grow items-center gap-2 px-3.5 text-left";
+  // Beside an action the row is too narrow for label and trailing text: the trailing text takes its
+  // own line and wraps there instead of being clipped to an ellipsis.
+  const rowClass = cn(
+    "flex min-h-10 min-w-0 grow items-center gap-2 px-3.5 text-left",
+    action !== undefined && "flex-wrap gap-y-0.5 py-1",
+  );
   return (
     <div
       className={cn("flex items-center border-b", bad === true && "bg-status-bad-surface")}

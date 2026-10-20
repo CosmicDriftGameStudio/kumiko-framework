@@ -132,7 +132,9 @@ function LineEditorBody({
         flat ? "min-h-10" : "min-h-9 rounded-md border border-input px-3",
         "[&_.ProseMirror]:w-full [&_.ProseMirror]:whitespace-nowrap [&_.ProseMirror]:outline-none",
         "[&_p]:m-0",
-        "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
+        // Absolute and truncated: a hint longer than the field ends in an ellipsis instead of
+        // running past the frame or over the text below it.
+        "[&_.is-editor-empty]:relative [&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:absolute [&_.is-editor-empty]:before:inset-x-0 [&_.is-editor-empty]:before:truncate [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
         readOnly && "opacity-60",
       )}
     />

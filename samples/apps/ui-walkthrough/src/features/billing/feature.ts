@@ -66,16 +66,44 @@ const INVOICE_ISSUED_VARIABLES = {
 } as const;
 
 const PAYMENT_REMINDER_VARIABLES = {
-  customerName: templateVariable.text({ required: true }),
-  invoiceNumber: templateVariable.text({ required: true }),
-  amount: templateVariable.money({ required: true }),
-  dueDate: templateVariable.date({ required: true }),
-  invoiceUrl: templateVariable.link({ required: true }),
+  customerName: templateVariable.text({
+    label: "billing:mail.variable.customerName",
+    required: true,
+    example: "Familie Yilmaz",
+  }),
+  invoiceNumber: templateVariable.text({
+    label: "billing:mail.variable.invoiceNumber",
+    required: true,
+    example: "RE-2026-0142",
+  }),
+  amount: templateVariable.money({
+    label: "billing:mail.variable.amountDue",
+    required: true,
+    example: { amount: 128450, currency: "EUR" },
+  }),
+  dueDate: templateVariable.date({
+    label: "billing:mail.variable.dueDate",
+    required: true,
+    example: "2026-10-30",
+  }),
+  invoiceUrl: templateVariable.link({
+    label: "billing:mail.variable.invoiceUrl",
+    required: true,
+    example: "https://nordlicht-immobilien.de/rechnungen/RE-2026-0142",
+  }),
 } as const;
 
 const TERMS_CHANGED_VARIABLES = {
-  customerName: templateVariable.text({ required: true, example: "Familie Yilmaz" }),
-  effectiveDate: templateVariable.date({ required: true, example: "2026-12-01" }),
+  customerName: templateVariable.text({
+    label: "billing:mail.variable.customerName",
+    required: true,
+    example: "Familie Yilmaz",
+  }),
+  effectiveDate: templateVariable.date({
+    label: "billing:mail.variable.effectiveDate",
+    required: true,
+    example: "2026-12-01",
+  }),
 } as const;
 
 export const billingFeature = defineFeature("billing", (r) => {

@@ -43,6 +43,7 @@ import { upsertSystemWrite } from "./handlers/upsert-system.write.ts";
 import { makeUpsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
 import { usageQuery } from "./handlers/usage.query.ts";
 import { validateQuery } from "./handlers/validate.query.ts";
+import { TEMPLATE_RESOLVER_I18N } from "./i18n.ts";
 import { templateResourceEntity } from "./table.ts";
 import type { TenantEditableTemplate } from "./template-edit-policy.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
@@ -138,6 +139,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         resourceMaxBytes: createSystemConfig("number", { default: 2_097_152, bounds: { min: 1 } }),
       },
     });
+    r.translations({ keys: TEMPLATE_RESOLVER_I18N });
     r.entity({ name: "template-resource", ...templateResourceEntity });
     // Only when the app actually mounts a user-owned collection: the entity's
     // `content` is `userOwned`, which makes it subject data — the boot guard

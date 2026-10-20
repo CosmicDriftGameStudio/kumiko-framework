@@ -116,7 +116,8 @@ export function ShellHeader({
         compact && "relative",
       )}
     >
-      <div className={cn("flex min-w-0 items-center gap-3", compact && "flex-1")}>
+      {/* A size container: what the actions leave over decides whether the parent crumb still fits. */}
+      <div className="@container flex min-w-0 flex-1 items-center gap-3">
         <SidebarTrigger label={t("kumiko.sidebar.toggle")} />
         {shownCrumbs !== undefined && shownCrumbs.length > 0 && (
           <Breadcrumb className="min-w-0" aria-label={t("kumiko.breadcrumb.label")}>
@@ -127,9 +128,13 @@ export function ShellHeader({
                 return (
                   <Fragment key={screenId ?? crumb.label}>
                     {index > 0 && (
-                      <BreadcrumbSeparator className="hidden text-muted-foreground sm:inline-flex [&>svg]:size-3.5" />
+                      <BreadcrumbSeparator className="hidden text-muted-foreground @xs:inline-flex [&>svg]:size-3.5" />
                     )}
-                    <BreadcrumbItem className={cn("min-w-0", !isLast && "hidden sm:inline-flex")}>
+                    {/* Only the page title truncates; a shrinking parent crumb would slide under it,
+                        so it stays whole and leaves when the space gets too narrow for both. */}
+                    <BreadcrumbItem
+                      className={cn(isLast ? "min-w-0" : "hidden shrink-0 @xs:inline-flex")}
+                    >
                       {screenId !== undefined && !isLast ? (
                         <BreadcrumbLink
                           href="#"
@@ -144,6 +149,7 @@ export function ShellHeader({
                       ) : isLast ? (
                         <h1
                           aria-current="page"
+                          title={titleOverride ?? crumb.label}
                           className="truncate text-lg font-semibold text-foreground"
                         >
                           {titleOverride ?? crumb.label}

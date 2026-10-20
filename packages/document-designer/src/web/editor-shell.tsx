@@ -88,21 +88,33 @@ export function EditorBody({
   readonly right: ReactNode;
   readonly testId?: string;
 }): ReactNode {
+  const centerColumn = (
+    <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted">{center}</div>
+  );
+  if (left === undefined) {
+    return (
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_280px]" data-testid={testId}>
+        {centerColumn}
+        <aside className="min-h-0 overflow-y-auto border-l bg-background">{right}</aside>
+      </div>
+    );
+  }
+  // Three columns leave a narrow window (1024px beside the app sidebar) too little room for the
+  // page: there both rails share the left column, one below the other, and the center keeps its width.
+  // The rail column is display:contents while wide, so both rails stay grid items of their own.
   return (
-    <div
-      className={cn(
-        "grid min-h-0 flex-1",
-        left === undefined
-          ? "grid-cols-[minmax(0,1fr)_280px]"
-          : "grid-cols-[240px_minmax(0,1fr)_280px]",
-      )}
-      data-testid={testId}
-    >
-      {left !== undefined && (
-        <aside className="min-h-0 overflow-y-auto border-r bg-background">{left}</aside>
-      )}
-      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted">{center}</div>
-      <aside className="min-h-0 overflow-y-auto border-l bg-background">{right}</aside>
+    <div className="@container flex min-h-0 min-w-0 flex-1" data-testid={testId}>
+      <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[240px_minmax(0,1fr)_280px] @max-4xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="contents @max-4xl:block @max-4xl:min-h-0 @max-4xl:overflow-y-auto @max-4xl:border-r @max-4xl:bg-background">
+          <aside className="min-h-0 overflow-y-auto border-r bg-background @max-4xl:overflow-visible @max-4xl:border-r-0 @max-4xl:border-b">
+            {left}
+          </aside>
+          <aside className="order-last min-h-0 overflow-y-auto border-l bg-background @max-4xl:overflow-visible @max-4xl:border-l-0">
+            {right}
+          </aside>
+        </div>
+        {centerColumn}
+      </div>
     </div>
   );
 }

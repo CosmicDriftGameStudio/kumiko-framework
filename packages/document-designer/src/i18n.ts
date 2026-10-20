@@ -573,8 +573,8 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Kennzeichen im Kopf",
   },
   "documentDesigner.mail.chrome.headerChipPlaceholder": {
-    en: "e.g. New incident",
-    de: "z. B. Neuer Incident",
+    en: "e.g. Reminder",
+    de: "z. B. Erinnerung",
   },
   "documentDesigner.mail.chrome.tone": {
     en: "Tone",

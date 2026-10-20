@@ -113,7 +113,7 @@ describe("ShellHeader", () => {
     expect(items[2]?.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
     for (const parent of items.slice(0, 2)) {
       expect(parent.className).toContain("hidden");
-      expect(parent.className).toContain("sm:inline-flex");
+      expect(parent.className).toContain("@xs:inline-flex");
     }
     expect(items[2]?.className).not.toContain("hidden");
   });

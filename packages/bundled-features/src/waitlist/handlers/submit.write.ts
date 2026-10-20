@@ -10,7 +10,6 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../constants.ts";
 import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
 import {
-  resolveWaitlistAdminMailLocale,
   resolveWaitlistMailLocale,
   waitlistAdminNoticeVariables,
   waitlistConfirmationVariables,
@@ -176,7 +175,8 @@ export function createSubmitHandler(opts: WaitlistOptions) {
             message: payload.message,
           }),
           priority: "normal",
-          locale: resolveWaitlistAdminMailLocale(ctx.locale),
+          // Operator-facing: the request locale, not the one the entrant picked in the form.
+          locale: resolveWaitlistMailLocale(ctx.locale),
         });
       });
 

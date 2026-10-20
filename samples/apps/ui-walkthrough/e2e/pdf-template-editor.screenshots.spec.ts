@@ -1,8 +1,7 @@
 // @runtime test
 // Screenshots of the PDF template editor for the design review. Runs only with
 // SCREENSHOT_DIR set. Shows the seeded system template "Rechnung" (billing:invoice).
-// ui-walkthrough has no puppeteer service, so the preview state shows the
-// "not available" notice instead of a rendered page.
+// The preview prints through the puppeteer service that playwright.config.ts starts.
 
 import {
   captureScreenshot,
@@ -88,6 +87,49 @@ test("pdf-template-editor-edit", async ({ page }) => {
       if (scroller !== null) scroller.scrollTop = 0;
     });
   await shot(page, "pdf-template-editor-edit");
+});
+
+// No seeded template has a title this long, so the heading text is swapped in place: what is
+// checked is how the header lays out a title that does not fit next to the actions.
+test("a long template title truncates without sliding over the parent crumb", async ({ page }) => {
+  await openEditor(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  const header = page.locator('[data-kumiko-layout="shell-header"]');
+  await header.locator("h1").evaluate((heading) => {
+    heading.textContent = "Kündigungsbestätigung des Betreibers für einen Vertrag mit Verlängerung";
+  });
+  const parentCrumb = header.getByRole("link", { name: "Vorlagen" });
+  await expect(parentCrumb).toBeVisible();
+  const crumbFits = await parentCrumb.evaluate(
+    (element) => element.scrollWidth <= element.clientWidth,
+  );
+  expect(crumbFits).toBe(true);
+  const crumbBox = await parentCrumb.boundingBox();
+  const titleBox = await header.locator("h1").boundingBox();
+  expect(crumbBox).not.toBeNull();
+  expect(titleBox).not.toBeNull();
+  if (crumbBox === null || titleBox === null) return;
+  expect(crumbBox.x + crumbBox.width).toBeLessThanOrEqual(titleBox.x);
+});
+
+// At 1024px beside the app sidebar three columns would squeeze the page to a strip: the header
+// leaves save and publish to the footer, and both rails share the left column.
+test("in a narrow window the title stays readable and the page keeps its room", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 820 });
+  await openEditor(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await expect(page.getByTestId("document-designer-header-save")).toBeHidden();
+  await expect(page.getByTestId("document-designer-save")).toBeVisible();
+  const header = page.locator('[data-kumiko-layout="shell-header"]');
+  const titleBox = await header.locator("h1").boundingBox();
+  const statusBox = await header.locator('[data-kumiko-layout="page-header-status"]').boundingBox();
+  expect(titleBox).not.toBeNull();
+  expect(statusBox).not.toBeNull();
+  if (titleBox === null || statusBox === null) return;
+  expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(statusBox.x);
+  const pageBox = await page.getByTestId("document-designer-page").boundingBox();
+  expect(pageBox?.width ?? 0).toBeGreaterThan(450);
+  await shot(page, "pdf-template-editor-narrow-header");
 });
 
 test("pdf-template-editor-preview", async ({ page }) => {
