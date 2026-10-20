@@ -4,6 +4,8 @@ import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServed } from "../template-delivery-policy.ts";
+import { isSystemAdmin } from "../template-draft.ts";
 
 // All text-blocks of one tenant — feeds the public content tree sidebar.
 // Anonymous is listed explicitly so no-JWT visitors get the sidebar on public
@@ -39,8 +41,12 @@ export const byTenantQuery = defineQueryHandler({
     const rows = castTenantRows<TemplateResourceRow>(
       await selectMany(ctx.db, templateResourcesTable, { tenantId, kind: TEXT_BLOCK_KIND }),
     );
+    const policy = deliveryPolicyOf(ctx.registry);
+    const served = isSystemAdmin(query.user)
+      ? rows
+      : rows.filter((row) => isRowServed(policy, row));
     return {
-      blocks: rows.map((row) => ({
+      blocks: served.map((row) => ({
         slug: row.slug,
         locale: row.locale,
         title: row.title,

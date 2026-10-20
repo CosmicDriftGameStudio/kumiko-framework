@@ -38,7 +38,9 @@ beforeAll(async () => {
       }),
     ],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-    extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
+    extraContext: ({ db, registry }) => ({
+      templateResolver: createTemplateResolverApi(db, registry),
+    }),
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await legalContentSeed({ path: FIXTURE_PATH })({ db: stack.db });

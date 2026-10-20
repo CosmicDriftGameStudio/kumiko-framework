@@ -211,7 +211,7 @@ describe("renderer-mail-html :: seeded template", () => {
   });
 
   test("the response names the seeded system row it was rendered from", async () => {
-    const seeded = await createTemplateResolverApi(stack.db).findExact({
+    const seeded = await createTemplateResolverApi(stack.db, stack.registry).findExact({
       tenantId: SYSTEM_TENANT_ID,
       slug: SLUG,
       kind: "mail",
@@ -354,7 +354,7 @@ describe("renderer-mail-html :: layout resolution", () => {
     const result = await renderMail(tenantId(1));
     expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
     expect(result.html).toContain("Hallo Anna");
-    const systemLayout = await createTemplateResolverApi(stack.db).findExact({
+    const systemLayout = await createTemplateResolverApi(stack.db, stack.registry).findExact({
       tenantId: SYSTEM_TENANT_ID,
       slug: "default",
       kind: "mail-layout",
@@ -616,7 +616,7 @@ describe("renderer-mail-html :: layout resolution", () => {
   test("seedSystemMailLayout is idempotent and stores the default layout as a system row", async () => {
     await seedSystemMailLayout(stack.db, { locale: "fr" });
     await seedSystemMailLayout(stack.db, { locale: "fr" });
-    const layout = await createTemplateResolverApi(stack.db).resolveTemplate({
+    const layout = await createTemplateResolverApi(stack.db, stack.registry).resolveTemplate({
       tenantId: tenantId(1),
       slug: "default",
       kind: "mail-layout",

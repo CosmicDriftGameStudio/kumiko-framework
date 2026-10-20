@@ -47,6 +47,7 @@ import {
 import type { DbRunner } from "./connection.ts";
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
 import { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
+import { queryDatabaseNow } from "./queries/database-now.ts";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
   bindTenantDbRunner,
@@ -819,6 +820,10 @@ function buildTenantDb(
 
     advisoryXactLock(namespace: number, key: string): Promise<void> {
       return acquireNamespacedAdvisoryLock(db, namespace, `${tenantId}:${key}`);
+    },
+
+    databaseNow(): Promise<Date> {
+      return queryDatabaseNow(db);
     },
 
     aggregate(

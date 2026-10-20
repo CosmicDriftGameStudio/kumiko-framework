@@ -1248,6 +1248,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Solo la piattaforma gestisce questo modello; non può essere sostituito per singola organizzazione.",
   "templateResolver.errors.templateNotTenantEditable":
     "Solo la piattaforma può modificare questo modello.",
+  "templateResolver.overview.lockedOverride":
+    "Versione propria salvata ma non consegnata: il modello non è abilitato per le organizzazioni.",
   "templateResolver.errors.template.targetExists":
     "Esiste già un modello per la lingua «{detail}»; sovrascrivilo esplicitamente per sostituirlo.",
   "templateResolver.warnings.resourceNotUploaded": "Immagine non caricata: {detail}",

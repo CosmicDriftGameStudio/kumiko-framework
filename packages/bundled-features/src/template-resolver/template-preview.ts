@@ -234,7 +234,7 @@ async function loadStoredDraft(
   input: TemplatePreviewInput,
 ): Promise<TemplateResource | null> {
   try {
-    return await createTemplateResolverApi(ctx.db).resolveTemplate({
+    return await createTemplateResolverApi(ctx.db, ctx.registry).resolveTemplate({
       tenantId: user.tenantId,
       slug: input.slug,
       kind: input.kind,
@@ -335,7 +335,7 @@ async function resolvePdfLayout(
   slug: string,
   locale: string,
 ): Promise<PreviewLayout | null> {
-  const api = createTemplateResolverApi(ctx.db);
+  const api = createTemplateResolverApi(ctx.db, ctx.registry);
   const find = async (tenantId: string): Promise<TemplateResource | null> => {
     try {
       return await api.resolveLayout({ tenantId, slug, kind: "pdf-layout", locale });

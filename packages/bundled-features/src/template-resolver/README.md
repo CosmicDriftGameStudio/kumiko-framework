@@ -23,7 +23,7 @@ const features = [
 const app = createKumikoApp({
   features,
   extraContext: ({ db }) => ({
-    templateResolver: createTemplateResolverApi(db),
+    templateResolver: createTemplateResolverApi(db, registry),
   }),
 });
 ```

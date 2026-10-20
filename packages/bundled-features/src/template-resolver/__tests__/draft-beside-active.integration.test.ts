@@ -132,7 +132,7 @@ function findWorking(id: string, user = admin): Promise<WorkingVersion> {
 }
 
 async function servedContent(name: string, locale = "de"): Promise<string> {
-  const resolved = await createTemplateResolverApi(stack.db).resolveTemplate({
+  const resolved = await createTemplateResolverApi(stack.db, stack.registry).resolveTemplate({
     tenantId,
     slug: slugOf(name),
     kind: "mail",
@@ -272,7 +272,7 @@ describe("template-resolver :: draft beside the active version", () => {
 
     const err = await stack.http.writeErr(TemplateResolverHandlers.publish, { id }, admin);
     expect(validationCodes(err)).toEqual(["missing_required_placeholder"]);
-    const resolved = await createTemplateResolverApi(stack.db).resolveTemplate({
+    const resolved = await createTemplateResolverApi(stack.db, stack.registry).resolveTemplate({
       tenantId,
       slug: slugOf("gated"),
       kind: "mail",
@@ -302,7 +302,7 @@ describe("template-resolver :: draft beside the active version", () => {
       admin,
     );
 
-    const served = await createTemplateResolverApi(stack.db).resolveLayout({
+    const served = await createTemplateResolverApi(stack.db, stack.registry).resolveLayout({
       tenantId,
       slug: "dd-layout",
       kind: "mail-layout",
@@ -365,7 +365,7 @@ describe("template-resolver :: draft beside the active version", () => {
       admin,
     );
 
-    const served = await createTemplateResolverApi(stack.db).resolveTemplate({
+    const served = await createTemplateResolverApi(stack.db, stack.registry).resolveTemplate({
       tenantId,
       slug: doc.slug,
       kind: "document-pdf",

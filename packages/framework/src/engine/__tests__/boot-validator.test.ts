@@ -6643,6 +6643,102 @@ describe("boot-validator — config key backing × scope", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("navigate with params targeting a record-bound dashboard without a filter → no throw (record.param is read from the URL)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity({
+        name: "product",
+        ...createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      });
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "actions.view",
+            screen: "product-dashboard",
+            params: { map: { productId: "name" } },
+          },
+        ],
+      });
+      r.queryHandler({
+        name: "count",
+        schema: z.object({}),
+        handler: async () => ({ total: 0 }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "product-dashboard",
+        type: "dashboard",
+        record: { param: "productId" },
+        panels: [
+          {
+            kind: "stat",
+            id: "count",
+            label: "Products",
+            query: "shop:query:count",
+            valueField: "total",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("navigate with params targeting a record-bound dashboard whose record.param is not extracted → Throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity({
+        name: "product",
+        ...createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      });
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "view",
+            label: "actions.view",
+            screen: "product-dashboard",
+            params: { map: { other: "name" } },
+          },
+        ],
+      });
+      r.queryHandler({
+        name: "count",
+        schema: z.object({}),
+        handler: async () => ({ total: 0 }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "product-dashboard",
+        type: "dashboard",
+        record: { param: "productId" },
+        panels: [
+          {
+            kind: "stat",
+            id: "count",
+            label: "Products",
+            query: "shop:query:count",
+            valueField: "total",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /URL params are \[productId\].*none of the extracted keys match/,
+    );
+  });
+
   test("navigate with params targeting a dashboard screen whose filter id doesn't match any extracted key → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({

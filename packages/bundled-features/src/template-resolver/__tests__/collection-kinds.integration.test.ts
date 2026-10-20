@@ -43,7 +43,10 @@ const PROMPTS_LIST = collectionQueryName("ai-prompts", "list");
 const PROMPTS_SET = collectionHandlerName("ai-prompts");
 
 const feature = createTemplateResolverFeature({
-  tenantEditable: [{ kind: "text-block", slug: "imprint", access: { roles: ["TenantAdmin"] } }],
+  tenantEditable: [
+    { kind: "text-block", slug: "imprint", access: { roles: ["TenantAdmin"] } },
+    { kind: "text-block", slug: "welcome", access: { roles: ["TenantAdmin"] } },
+  ],
   collections: [
     {
       id: "reply-snippets",

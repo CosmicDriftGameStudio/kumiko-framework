@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 
 // Public read of a single text-block by (tenantId, slug, locale). Anonymous
 // must be listed explicitly — `openToAll` alone is auth-only (regression
@@ -39,6 +40,7 @@ export const bySlugQuery = defineQueryHandler({
     });
 
     if (!row) return null;
+    if (!isRowServedTo(deliveryPolicyOf(ctx.registry), query.user, row)) return null;
     return {
       slug: row.slug,
       locale: row.locale,

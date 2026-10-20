@@ -1,0 +1,201 @@
+import { afterAll, describe, expect, test } from "bun:test";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createTemplateResolverApi } from "../api.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import type { OverviewResponse } from "../index.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
+import { templateResourceEntity } from "../table.ts";
+import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
+
+const MAIL_SLUG = "locked-ov:notify:welcome";
+const PDF_SLUG = "locked-ov:invoice";
+const LAYOUT_SLUG = "default";
+
+const systemAdmin = TestUsers.systemAdmin;
+// Same tenant as the SystemAdmin so the locked rows it writes are the tenant's own.
+const tenantAdmin = createTestUser({
+  id: 2,
+  roles: ["TenantAdmin"],
+  tenantId: systemAdmin.tenantId,
+});
+const tenantId = testTenantId(1);
+
+const SYSTEM_LAYOUT =
+  "<mjml><mj-body><mj-section><mj-column><mj-text>system layout</mj-text><mj-raw>{{{content}}}</mj-raw></mj-column></mj-section></mj-body></mjml>";
+const TENANT_LAYOUT =
+  "<div data-header><p>override layout</p></div><div data-content></div><div data-signature><p>Gruß</p></div><div data-footer><p>Impressum</p></div>";
+
+function layoutDocument(scope: "system" | "override") {
+  return {
+    slug: LAYOUT_SLUG,
+    kind: "mail-layout",
+    locale: "en",
+    contentFormat: scope === "system" ? ("mjml" as const) : ("html" as const),
+    variableSchema: {},
+    linkedResources: {},
+    content: scope === "system" ? SYSTEM_LAYOUT : TENANT_LAYOUT,
+    status: "active" as const,
+    meta: {},
+  };
+}
+
+function document(slug: string, kind: string, content: string) {
+  if (kind === "mail-layout")
+    return layoutDocument(content.startsWith("system") ? "system" : "override");
+  return {
+    slug,
+    kind,
+    locale: "de",
+    contentFormat: "html" as const,
+    variableSchema: {},
+    linkedResources: {},
+    content,
+    status: "active" as const,
+    ...(kind === "mail" ? { meta: { subject: "Betreff" } } : { meta: {} }),
+  };
+}
+
+const DOCUMENTS = [
+  [MAIL_SLUG, "mail"],
+  [PDF_SLUG, "document-pdf"],
+  [LAYOUT_SLUG, "mail-layout"],
+] as const;
+
+// Every template gets a system version and a tenant override, so only the lock decides who is served.
+async function stackWith(
+  editable: Parameters<typeof tenantEditableTemplates>,
+): Promise<{ stack: TestStack; overrideIds: Record<string, string> }> {
+  const stack = await setupTestStack({
+    features: [
+      createTemplateResolverFeature({ tenantEditable: tenantEditableTemplates(...editable) }),
+    ],
+  });
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+  const overrideIds: Record<string, string> = {};
+  for (const [slug, kind] of DOCUMENTS) {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      document(slug, kind, `system ${slug}`),
+      systemAdmin,
+    );
+    const override = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      document(slug, kind, `override ${slug}`),
+      systemAdmin,
+    );
+    overrideIds[slug] = override.id;
+  }
+  return { stack, overrideIds };
+}
+
+function resolveContent(stack: TestStack, slug: string, kind: "mail" | "document-pdf") {
+  return createTemplateResolverApi(stack.db, stack.registry)
+    .resolveTemplate({ tenantId, slug, kind, locale: "de" })
+    .then((template) => template.content);
+}
+
+function resolveLayoutContent(stack: TestStack) {
+  return createTemplateResolverApi(stack.db, stack.registry)
+    .resolveLayout({ tenantId, slug: LAYOUT_SLUG, kind: "mail-layout", locale: "en" })
+    .then((layout) => layout.content);
+}
+
+function overview(stack: TestStack, user: typeof tenantAdmin | typeof systemAdmin) {
+  return stack.http.queryOk<OverviewResponse>(TemplateResolverQueries.overview, {}, user);
+}
+
+describe("locked template overrides :: mail free, linked PDF and layout locked", () => {
+  let current: { stack: TestStack; overrideIds: Record<string, string> };
+  const ready = stackWith([["mail"], [MAIL_SLUG]]).then((value) => {
+    current = value;
+  });
+  afterAll(async () => {
+    await ready;
+    await current.stack.cleanup();
+  });
+
+  test("the unlocked mail serves the override, the locked PDF serves the system version", async () => {
+    await ready;
+    expect(await resolveContent(current.stack, MAIL_SLUG, "mail")).toContain(
+      `override ${MAIL_SLUG}`,
+    );
+    expect(await resolveContent(current.stack, PDF_SLUG, "document-pdf")).toContain(
+      `system ${PDF_SLUG}`,
+    );
+  });
+
+  test("a locked layout override gives the system layout", async () => {
+    await ready;
+    expect(await resolveLayoutContent(current.stack)).toBe(SYSTEM_LAYOUT);
+  });
+
+  test("a SystemAdmin sees the locked override flagged and may reset it, a TenantAdmin does not see it", async () => {
+    await ready;
+    const { stack, overrideIds } = current;
+    const asSystemAdmin = await overview(stack, systemAdmin);
+    const locked = asSystemAdmin.rows.find((row) => row.id === `document-pdf|${PDF_SLUG}`);
+    expect(locked).toMatchObject({
+      lockedOverride: true,
+      origin: "system",
+      lockedOverrideI18nKey: "templateResolver.overview.lockedOverride",
+    });
+    const free = asSystemAdmin.rows.find((row) => row.id === `mail|${MAIL_SLUG}`);
+    expect(free).toMatchObject({ lockedOverride: false, origin: "tenant" });
+
+    const asTenantAdmin = await overview(stack, tenantAdmin);
+    expect(asTenantAdmin.rows.map((row) => row.id)).toEqual([`mail|${MAIL_SLUG}`]);
+    expect(JSON.stringify(asTenantAdmin)).not.toContain('lockedOverride":true');
+
+    const readById = (user: typeof tenantAdmin | typeof systemAdmin) =>
+      stack.http.queryOk<{ slug: string } | null>(
+        TemplateResolverQueries.findById,
+        { id: overrideIds[PDF_SLUG] },
+        user,
+      );
+    expect((await readById(systemAdmin))?.slug).toBe(PDF_SLUG);
+    expect(await readById(tenantAdmin)).toBeNull();
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resetToSystem,
+      { id: overrideIds[PDF_SLUG] },
+      systemAdmin,
+    );
+    const afterReset = await overview(stack, systemAdmin);
+    expect(
+      afterReset.rows.find((row) => row.id === `document-pdf|${PDF_SLUG}`)?.lockedOverride,
+    ).toBe(false);
+  });
+});
+
+describe("locked template overrides :: nothing unlocked, then unlocked", () => {
+  test("a locked override gives the system version in mail and PDF", async () => {
+    const { stack } = await stackWith([[], []]);
+    try {
+      expect(await resolveContent(stack, MAIL_SLUG, "mail")).toContain(`system ${MAIL_SLUG}`);
+      expect(await resolveContent(stack, PDF_SLUG, "document-pdf")).toContain(`system ${PDF_SLUG}`);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("after unlocking, the stored override is active again", async () => {
+    const { stack } = await stackWith([
+      ["mail", "document-pdf", "mail-layout"],
+      [MAIL_SLUG, PDF_SLUG, LAYOUT_SLUG],
+    ]);
+    try {
+      expect(await resolveContent(stack, MAIL_SLUG, "mail")).toContain(`override ${MAIL_SLUG}`);
+      expect(await resolveContent(stack, PDF_SLUG, "document-pdf")).toContain(
+        `override ${PDF_SLUG}`,
+      );
+      expect(await resolveLayoutContent(stack)).toBe(TENANT_LAYOUT);
+    } finally {
+      await stack.cleanup();
+    }
+  });
+});

@@ -145,7 +145,7 @@ function pdfPayload(slug: string, extra: Record<string, unknown> = {}) {
 }
 
 function resolve(tenantIndex: number, slug: string) {
-  return createTemplateResolverApi(stack.db).resolveTemplate({
+  return createTemplateResolverApi(stack.db, stack.registry).resolveTemplate({
     tenantId: testTenantId(tenantIndex),
     slug,
     kind: "mail",

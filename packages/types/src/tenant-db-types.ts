@@ -84,6 +84,8 @@ export type TenantDb = {
    * commit or rollback. Keys of different tenants never contend. Only serialises inside a transaction.
    */
   advisoryXactLock(namespace: number, key: string): Promise<void>;
+  /** Postgres `now()`; inside a transaction this is the transaction start. */
+  databaseNow(): Promise<Date>;
   aggregate(
     table: SchemaTable | EntityTableMeta,
     spec: AggregateSpec,

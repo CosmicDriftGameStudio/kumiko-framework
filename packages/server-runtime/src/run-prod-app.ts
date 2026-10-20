@@ -595,7 +595,7 @@ export type RunProdAppOptions = {
   readonly migrations?: { readonly dir: string } | false;
   /** Extra AppContext keys. Framework-Defaults werden zur Boot-Zeit
    *  unter den Factory-Werten ergänzt, App-Werte gewinnen immer:
-   *    - `templateResolver` (createTemplateResolverApi(db)) — immer
+   *    - `templateResolver` (createTemplateResolverApi(db, registry)) — immer
    *    - `secrets` (createSecretsContext) — nur wenn das `secrets`-Feature
    *      gemountet ist (sonst kein KEK-env-Zwang für Apps ohne secrets)
    *    - `configResolver` — im Auth-Mode (env-config-overrides)

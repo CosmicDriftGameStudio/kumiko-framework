@@ -53,7 +53,7 @@ beforeAll(async () => {
     extraContext: ({ registry, db }) => ({
       configResolver: resolver,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-      templateResolver: createTemplateResolverApi(db),
+      templateResolver: createTemplateResolverApi(db, registry),
     }),
   });
   await unsafeCreateEntityTable(stack.db, pageEntity);

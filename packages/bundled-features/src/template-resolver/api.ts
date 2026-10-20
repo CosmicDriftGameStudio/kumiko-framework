@@ -4,7 +4,7 @@
 
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { FileAttachmentRef } from "../renderer-foundation/index.ts";
@@ -18,6 +18,7 @@ import {
   type TemplatePdfAttachmentLink,
 } from "./linked-resources.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
+import { deliveryPolicyOf, isRowServed } from "./template-delivery-policy.ts";
 import { activeVersionOf, servedVersionOf } from "./template-draft.ts";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.ts";
 
@@ -92,6 +93,9 @@ export type TemplateResolverApi = {
    *   2. system + requested-locale
    *   3. tenant + FALLBACK_LOCALE
    *   4. system + FALLBACK_LOCALE
+   * Tenant-Zeilen zählen nur für Vorlagen, die für Tenants freigeschaltet sind
+   * (tenantEditable, bzw. Collection mit access); gesperrte Overrides werden
+   * übersprungen, bleiben aber gespeichert.
    * Resource-Substitution wird hier NICHT ausgeführt — das macht der
    * Caller (renderer-foundation-Plugin) je nach kind-passendem Modus
    * (inline-base64 vs. signed-url). API liefert TemplateResource pur.
@@ -114,7 +118,11 @@ export type TemplateResolverApi = {
   readonly resolveLayout: (args: ResolveLayoutRequest) => Promise<TemplateResource>;
 };
 
-export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateResolverApi {
+export function createTemplateResolverApi(
+  db: DbRunner | TenantDb,
+  registry: Registry,
+): TemplateResolverApi {
+  const deliveryPolicy = deliveryPolicyOf(registry);
   return {
     findExact: async ({ tenantId, slug, kind, locale, scope }) => {
       const effectiveTenantId = scope === "system" ? SYSTEM_TENANT_ID : tenantId;
@@ -135,6 +143,7 @@ export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateReso
           : []),
       ];
       for (const c of candidates) {
+        if (!isRowServed(deliveryPolicy, { tenantId: c.tid, kind, slug })) continue;
         const row = await fetchTemplate(db, c.tid, slug, kind, c.loc);
         if (row && row.status === "active") return toPublic(row);
       }
@@ -143,6 +152,7 @@ export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateReso
 
     resolveLayout: async ({ tenantId, slug, kind, locale }) => {
       for (const tid of [tenantId, SYSTEM_TENANT_ID]) {
+        if (!isRowServed(deliveryPolicy, { tenantId: tid, kind, slug })) continue;
         const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
           tenantId: tid,
           slug,
@@ -268,7 +278,7 @@ export function requireTemplateResolver(
     throw new InternalError({
       message:
         `[${callerName}] ctx.templateResolver missing — App-Bootstrap muss ` +
-        `extraContext: { templateResolver: createTemplateResolverApi(db) } setzen ` +
+        `extraContext: { templateResolver: createTemplateResolverApi(db, registry) } setzen ` +
         `(siehe template-resolver/README.md).`,
     });
   }

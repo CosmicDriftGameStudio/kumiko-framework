@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 
@@ -45,11 +46,13 @@ export const listQuery = defineQueryHandler({
       limit: 500,
     })) as TemplateResourceRow[];
 
+    const deliveryPolicy = deliveryPolicyOf(ctx.registry);
     return rows
       .filter(
         (row) =>
           !isHiddenSystemDraft(query.user, row) &&
-          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row),
+          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row) &&
+          isRowServedTo(deliveryPolicy, query.user, row),
       )
       .map((row) => ({
         id: String(row.id),

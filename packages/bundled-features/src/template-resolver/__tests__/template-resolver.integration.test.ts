@@ -31,13 +31,47 @@ let api: TemplateResolverApi;
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
 
-const feature = createTemplateResolverFeature();
+// Tenant overrides are only delivered for unlocked templates, so every slug whose tenant row this
+// file expects to win is listed here.
+const unlockedSlugs: readonly (readonly [TemplateKind, readonly string[]])[] = [
+  [
+    "mail",
+    [
+      "active-test",
+      "archived-test",
+      "draft-test",
+      "exact-1",
+      "fallback-1",
+      "fallback-2",
+      "fallback-3",
+      "fallback-4",
+      "isolation-find",
+      "isolation-test",
+      "json-test",
+      "locale-priority",
+      "parent-test",
+      "priority-test",
+      "skip-1",
+      "skip-2",
+      "skip-3",
+      "skip-4",
+    ],
+  ],
+  ["document-pdf", ["exact-system", "json-empty"]],
+  ["mail-layout", ["rl-1", "rl-2", "rl-3", "rl-4", "rl-5", "rl-6", "rl-none"]],
+];
+
+const feature = createTemplateResolverFeature({
+  tenantEditable: unlockedSlugs.flatMap(([kind, slugs]) =>
+    slugs.map((slug) => ({ kind, slug, access: { roles: ["TenantAdmin"] } })),
+  ),
+});
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
-  api = createTemplateResolverApi(db);
+  api = createTemplateResolverApi(db, stack.registry);
 });
 
 afterAll(async () => {

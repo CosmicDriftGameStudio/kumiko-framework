@@ -3,6 +3,7 @@ import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framew
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft } from "../template-draft.ts";
 import { buildOverrideDiff } from "./override-diff.ts";
 
@@ -16,7 +17,12 @@ export const diffToSystemQuery = defineQueryHandler({
     const tenantRow = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       id: query.payload.id,
     });
-    if (!tenantRow || tenantRow.tenantId !== query.user.tenantId || tenantRow.scope !== "tenant") {
+    if (
+      !tenantRow ||
+      tenantRow.tenantId !== query.user.tenantId ||
+      tenantRow.scope !== "tenant" ||
+      !isRowServedTo(deliveryPolicyOf(ctx.registry), query.user, tenantRow)
+    ) {
       throw new NotFoundError("template-resource", query.payload.id);
     }
     const systemRow = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {

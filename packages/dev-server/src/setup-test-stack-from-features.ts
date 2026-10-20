@@ -61,7 +61,7 @@ export function mergeExtraContext(
       Object.assign(merged, addConfigAccessorFactory({ configResolver }, deps.registry));
     }
     if (presets.includes("template-resolver")) {
-      merged["templateResolver"] = createTemplateResolverApi(deps.db);
+      merged["templateResolver"] = createTemplateResolverApi(deps.db, deps.registry);
     }
 
     return merged;

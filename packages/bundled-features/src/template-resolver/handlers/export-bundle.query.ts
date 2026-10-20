@@ -12,6 +12,7 @@ import {
 import { TemplateResolverErrors } from "../qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import type { TemplateBundle } from "../template-bundle.ts";
+import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
 import { readTemplateResource } from "../template-resources.ts";
 import { kindSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson, storedRecord } from "./template-gates.ts";
@@ -94,7 +95,9 @@ export const exportBundleQuery = defineQueryHandler({
         ? { tenantId: SYSTEM_TENANT_ID, slug, kind, scope: "system", status: "active" }
         : { tenantId: query.user.tenantId, slug, kind, scope: "tenant" },
     );
+    const policy = deliveryPolicyOf(ctx.registry);
     const rows = found
+      .filter((row) => isRowServedTo(policy, query.user, row))
       .filter((row) => row.status !== "archived")
       .sort((a, b) => a.locale.localeCompare(b.locale));
     const first = rows[0];

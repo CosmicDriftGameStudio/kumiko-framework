@@ -72,7 +72,7 @@ await runDevApp({
   },
   extraContext: (deps) => ({
     ...createDeliveryTestContext(deps),
-    templateResolver: createTemplateResolverApi(deps.db),
+    templateResolver: createTemplateResolverApi(deps.db, deps.registry),
   }),
   extraRoutes: [
     ...createE2eSeedRoutes({ mailOutbox: galleryMailTransport }),

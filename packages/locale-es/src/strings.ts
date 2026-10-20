@@ -1247,6 +1247,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Solo la plataforma mantiene esta plantilla; no se puede sobrescribir por cliente.",
   "templateResolver.errors.templateNotTenantEditable":
     "Solo la plataforma puede editar esta plantilla.",
+  "templateResolver.overview.lockedOverride":
+    "Versión propia guardada, pero no se entrega: la plantilla no está habilitada para los clientes.",
   "templateResolver.errors.template.targetExists":
     "Ya existe una plantilla para el idioma «{detail}»; sobrescríbela de forma explícita para reemplazarla.",
   "templateResolver.warnings.resourceNotUploaded": "Imagen no subida: {detail}",

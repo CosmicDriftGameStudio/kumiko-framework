@@ -475,8 +475,8 @@ describe("template edit policy :: tenantEditable for one mail slug", () => {
     );
   });
 
-  test("overrides keep being delivered: the unlocked edit and the existing closed override", async () => {
-    const api = createTemplateResolverApi(stack.db);
+  test("the unlocked edit is delivered, the existing override of the locked template is not", async () => {
+    const api = createTemplateResolverApi(stack.db, stack.registry);
     const openId = await upsertAs(stack, tenantAdmin, OPEN_SLUG, {
       content: "<p>Vom Tenant</p>",
       status: "active",
@@ -497,24 +497,24 @@ describe("template edit policy :: tenantEditable for one mail slug", () => {
       kind: "mail",
       locale: "de",
     });
-    expect(closed.scope).toBe("tenant");
-    expect(closed.content).toContain("Admin der Plattform");
+    expect(closed.scope).toBe("system");
+    expect(closed.content).not.toContain("Admin der Plattform");
   });
 
-  test("find-by-id and list read the closed template for a TenantAdmin and a user", async () => {
+  test("find-by-id and list hide the locked override from a TenantAdmin and a user", async () => {
     for (const reader of [tenantAdmin, plainUser]) {
       const found = await stack.http.queryOk<{ slug: string } | null>(
         TemplateResolverQueries.findById,
         { id: closedRowId },
         reader,
       );
-      expect(found?.slug).toBe(CLOSED_SLUG);
-      const rows = await stack.http.queryOk<readonly { slug: string }[]>(
+      expect(found).toBeNull();
+      const rows = await stack.http.queryOk<readonly { id: string }[]>(
         TemplateResolverQueries.list,
         { kind: "mail" },
         reader,
       );
-      expect(rows.map((row) => row.slug)).toContain(CLOSED_SLUG);
+      expect(rows.map((row) => row.id)).not.toContain(closedRowId);
     }
   });
 

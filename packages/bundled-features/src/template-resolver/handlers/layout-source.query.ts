@@ -4,6 +4,7 @@ import * as z from "zod";
 import { FALLBACK_LOCALE } from "../constants.ts";
 import { type LayoutRegions, readLayoutRegions } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, isRowServed } from "../template-delivery-policy.ts";
 import {
   type ActiveInfo,
   draftViewerTenantId,
@@ -141,10 +142,10 @@ export const layoutSourceQuery = defineQueryHandler({
   handler: async (query, ctx): Promise<LayoutSourceResponse> => {
     const { kind, slug, locale } = query.payload;
     const isSystemAdmin = query.user.roles.includes("SystemAdmin");
-    const rows = await selectMany<TemplateResourceRow>(ctx.db, templateResourcesTable, {
-      kind,
-      slug,
-    });
+    const policy = deliveryPolicyOf(ctx.registry);
+    const rows = (
+      await selectMany<TemplateResourceRow>(ctx.db, templateResourcesTable, { kind, slug })
+    ).filter((row) => isSystemAdmin || isRowServed(policy, row));
     const { tenantRow, systemRow } = pickEditedRows(rows, query.user, locale);
     return buildLayoutSource({ kind, locale, isSystemAdmin, tenantRow, systemRow });
   },

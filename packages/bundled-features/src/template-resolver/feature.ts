@@ -45,6 +45,7 @@ import { usageQuery } from "./handlers/usage.query.ts";
 import { validateQuery } from "./handlers/validate.query.ts";
 import { TEMPLATE_RESOLVER_I18N } from "./i18n.ts";
 import { templateResourceEntity } from "./table.ts";
+import type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 import type { TenantEditableTemplate } from "./template-edit-policy.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
 
@@ -113,13 +114,19 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
   const tenantEditable = opts.tenantEditable ?? [];
   assertTenantEditableValid(tenantEditable);
   const policy = { tenantEditable };
+  const deliveryPolicy: TemplateDeliveryPolicy = {
+    tenantEditable: tenantEditable.map(({ kind, slug }) => ({ kind, slug })),
+    collectionKinds: collections
+      .filter((c) => c.ownership !== "user" && c.access !== undefined)
+      .map((c) => c.kind),
+  };
   const hasUserOwned = collections.some((c) => c.ownership === "user");
   return defineFeature("template-resolver", (r) => {
     r.describe(
       [
         "Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks. What a record is used for is the `kind` (`notification`, `mail`, `mail-layout`, `document-pdf`, `pdf-layout`, `ai-prompt`, `text-block`, `snippet`, `image-snapshot`).",
         "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`. Saving a draft over an active template keeps the active version served and stores the edit beside it (column `draft`); `publish` makes it the served version, `discardDraft` / `discardDraftSystem` throws it away.",
-        'Editing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: "mail", slug: "status-update", access: { roles: ["TenantAdmin"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host\'s roles. Reading and delivery do not depend on it: a tenant override that exists is served. A collection mounted without `access` is SystemAdmin only.',
+        'Editing templates is for SystemAdmin only. A TenantAdmin edits only the templates the app unlocks at the mount site, `createTemplateResolverFeature({ tenantEditable: [{ kind: "mail", slug: "status-update", access: { roles: ["TenantAdmin"] } }] })`, and every write handler enforces that on the server (override, draft, publish, archive, reset, copy-locale, import, resources, `set`). Each entry carries the `access` roles allowed to edit it, because a bundled feature cannot know the host\'s roles. The same list decides delivery: a tenant override is served (mail, PDF, layouts, text blocks) only while its template is listed in tenantEditable; otherwise the system version is served. A locked override stays stored, a SystemAdmin sees it in the overview marked as not delivered, and listing the template makes it effective again. Tenant rows of a collection mounted with `access` are always served. A collection mounted without `access` is SystemAdmin only.',
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
@@ -206,6 +213,6 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       create: { args: { folder: emptyString } },
     });
 
-    return { handlers, queries, treeHandle };
+    return { handlers, queries, treeHandle, deliveryPolicy };
   });
 }

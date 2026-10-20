@@ -473,7 +473,7 @@ async function assembleDocument(
   recordImages: RecordImages = "placeholder",
 ): Promise<AssembledDocument> {
   const { slug, locale, variables } = input;
-  const tplApi = createTemplateResolverApi(ctx.db);
+  const tplApi = createTemplateResolverApi(ctx.db, ctx.registry);
   const template =
     input.draft === undefined
       ? await resolvePdfTemplate(tplApi, ctx, slug, locale)

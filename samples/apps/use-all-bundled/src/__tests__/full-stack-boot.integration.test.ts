@@ -28,7 +28,9 @@ describe("use-all-bundled full-stack boot", () => {
       ],
       // legal-pages' boot gate resolves text blocks through ctx.templateResolver;
       // the app wires it in app/server.ts and this test boots without that file.
-      extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
+      extraContext: ({ db, registry }) => ({
+        templateResolver: createTemplateResolverApi(db, registry),
+      }),
       port: 0,
       installSignalHandlers: false,
     });

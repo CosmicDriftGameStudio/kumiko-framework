@@ -829,7 +829,7 @@ export async function mailHtmlRender(
   }
   const { slug, locale, variables, unsubscribeUrl, draft } = req.payload;
 
-  const tplApi = createTemplateResolverApi(ctx.db);
+  const tplApi = createTemplateResolverApi(ctx.db, ctx.registry);
   const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale, draft);
   const [format, tenantName, footer, siteUrl, brandSuffix, brandingLogoUrl] = await Promise.all([
     readDocumentFormat(ctx, locale),

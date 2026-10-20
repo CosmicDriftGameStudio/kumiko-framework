@@ -165,7 +165,7 @@ export type ImageOptions = {
 //
 // **Beispiel renderer-mail-html:**
 //   import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-//   const tplApi = createTemplateResolverApi(ctx.db);
+//   const tplApi = createTemplateResolverApi(ctx.db, ctx.registry);
 //   const layout = await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind });
 export type RendererContext = {
   readonly db: DbRunner | TenantDb;

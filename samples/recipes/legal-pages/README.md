@@ -73,7 +73,7 @@ await runProdApp({
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   // Required (2): boot check + internal lookup use ctx.templateResolver
   extraContext: ({ db }) => ({
-    templateResolver: createTemplateResolverApi(db),
+    templateResolver: createTemplateResolverApi(db, registry),
   }),
 });
 ```
@@ -207,7 +207,7 @@ from SYSTEM_TENANT:
 | Symptom | Cause | Fix |
 |---|---|---|
 | Route returns `503 legal page unavailable` | `anonymousAccess` not configured in `runProdApp` | Set `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` |
-| Boot check throws `ctx.templateResolver missing` | `extraContext.templateResolver` not wired | Set `extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) })` |
+| Boot check throws `ctx.templateResolver missing` | `extraContext.templateResolver` not wired | Set `extraContext: ({ db, registry }) => ({ templateResolver: createTemplateResolverApi(db, registry) })` |
 | Route returns `404 not configured` | Required block doesn't exist or has `content=null` | `seedTextBlock` with a content string |
 | Multi-tenant app: tenant subdomain shows an empty page | (Bug regression?) Routes should ALWAYS show SYSTEM_TENANT texts | The `legal-pages.integration.test.ts` test "SYSTEM_TENANT routing" covers this — should be green |
 | `<script>` tags in a Markdown body land 1:1 in the HTML | Deliberately accepted right now — see [legal-pages/README.md XSS section](../../../packages/bundled-features/src/legal-pages/README.md#xss--currently-not-secured-by-design) | DOMPurify is a Phase 2 once a multi-author setup arrives |
