@@ -14,12 +14,21 @@ beforeEach(() => {
     return new Response(null, { status: 204 });
   }) as typeof fetch;
   window.history.replaceState(null, "", "/rent/edit?secret=1#frag");
+  clearCsrfCookie();
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  document.cookie = "kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+  clearCsrfCookie();
 });
+
+// The DOM run shares one document across files: a csrf cookie another file set without a path
+// landed on "/" or on the directory of the URL it left behind, so both get cleared.
+function clearCsrfCookie(): void {
+  for (const path of ["/", "/rent"]) {
+    document.cookie = `kumiko_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}`;
+  }
+}
 
 const lastBody = (): Record<string, unknown> =>
   JSON.parse(String(calls[calls.length - 1]?.init.body));
