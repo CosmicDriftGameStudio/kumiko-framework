@@ -18,14 +18,25 @@ const REDACTED_KEYS = [
   "cookie",
   "iban",
   "email",
+  "set-cookie",
+  "x-api-key",
+  "sessionToken",
+  "privateKey",
+  "credentials",
+  "otp",
 ] as const;
 
+// pino/fast-redact needs bracket notation for keys that are not plain identifiers.
+function redactPathSegment(key: string): string {
+  return /^[A-Za-z_$][\w$]*$/.test(key) ? key : `["${key}"]`;
+}
+
 // Depth 0-2: pino wildcards match exactly one level, so each depth needs its own path.
-export const REDACT_PATHS: readonly string[] = REDACTED_KEYS.flatMap((key) => [
-  key,
-  `*.${key}`,
-  `*.*.${key}`,
-]);
+export const REDACT_PATHS: readonly string[] = REDACTED_KEYS.flatMap((key) => {
+  const segment = redactPathSegment(key);
+  const dotted = segment.startsWith("[") ? segment : `.${segment}`;
+  return [segment, `*${dotted}`, `*.*${dotted}`];
+});
 
 export type LoggerOptions = {
   level?: "debug" | "info" | "warn" | "error";

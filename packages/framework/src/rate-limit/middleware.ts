@@ -8,7 +8,7 @@ import {
 import { requestContext } from "../api/request-context.ts";
 import type { HttpRouteRateLimit } from "../engine/types/http-route.ts";
 import { RateLimitError, serializeError } from "../errors/index.ts";
-import { createFallbackLogger } from "../logging/index.ts";
+import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import { emitRateLimitFailOpen } from "../observability/standard-metrics.ts";
 import type { Meter } from "../observability/types/index.ts";
 import { toPublicBucketName } from "./bucket.ts";
@@ -198,7 +198,7 @@ export function createFailOpenReporter(
     logger.warn("rate limiter unavailable, failing open", {
       label,
       // ioredis errors can carry the command args, i.e. the bucket key with IP/target.
-      error: err instanceof Error ? err.message : String(err),
+      error: scrubLogText(err instanceof Error ? err.message : String(err)),
     });
   };
 }
@@ -228,7 +228,7 @@ function setRateLimitHeaders(c: Context, decision: RateLimitDecision): void {
   c.header("X-RateLimit-Reset", String(Math.floor(decision.resetAt.epochMilliseconds / 1000)));
 }
 
-function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: string): Response {
+export function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: string): Response {
   // Build a RateLimitError so the wire shape is identical to the L3
   // dispatcher path. serializeError adds i18nKey, requestId, timestamp —
   // fields a hand-rolled body would silently miss.

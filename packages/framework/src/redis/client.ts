@@ -12,6 +12,7 @@
 // without a same-directory cycle back through the barrel.
 
 import { Redis, type RedisOptions } from "ioredis";
+import { scrubLogText } from "../logging/scrub.ts";
 import type { Logger } from "../logging/types.ts";
 import { readPositiveIntEnv } from "../utils/env-parse.ts";
 
@@ -65,7 +66,7 @@ export function logRedisConnectionState(redis: Redis, logger: Pick<Logger, "warn
     // skip: only the transition is logged, ioredis repeats the error on every retry
     if (connectionLost) return;
     connectionLost = true;
-    logger.warn("redis connection lost, reconnecting", { error: err.message });
+    logger.warn("redis connection lost, reconnecting", { error: scrubLogText(err.message) });
   });
   redis.on("ready", () => {
     // skip: the initial connect is not a recovery

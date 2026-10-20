@@ -34,6 +34,15 @@ describe("scrubLogText", () => {
     );
   });
 
+  test("masks JWTs and bearer tokens", () => {
+    expect(scrubLogText("token eyJhbGciOi.eyJzdWIiOiIx.sig_-1 rejected")).toBe(
+      "token [jwt] rejected",
+    );
+    expect(scrubLogText("sent Bearer abc.def123 to upstream")).toBe(
+      "sent Bearer [redacted] to upstream",
+    );
+  });
+
   test("leaves text without personal data untouched", () => {
     expect(scrubLogText("handler failed at step 3")).toBe("handler failed at step 3");
   });
@@ -70,6 +79,12 @@ describe("createLogger redaction", () => {
       email: "a@b.de",
       passwordHash: "h",
       newPassword: "n",
+      "set-cookie": "sid=2",
+      "x-api-key": "xk",
+      sessionToken: "st",
+      privateKey: "pk",
+      credentials: "cr",
+      otp: "123456",
       job: "keep-me",
     });
 
@@ -89,9 +104,25 @@ describe("createLogger redaction", () => {
       "email",
       "passwordHash",
       "newPassword",
+      "set-cookie",
+      "x-api-key",
+      "sessionToken",
+      "privateKey",
+      "credentials",
+      "otp",
     ]) {
       expect(line[key]).toBe("[redacted]");
     }
+  });
+});
+
+describe("createLogger redaction of hyphenated keys at depth", () => {
+  test("redacts set-cookie in a nested headers object", () => {
+    const { logger, lines } = captureLogger();
+
+    logger.info("x", { headers: { "set-cookie": "sid=2" } });
+
+    expect(JSON.stringify(lines[0])).not.toContain("sid=2");
   });
 });
 

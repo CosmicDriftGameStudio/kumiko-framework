@@ -1,12 +1,13 @@
-import { type Context, Hono } from "hono";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import * as z from "zod";
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import type { Meter } from "../observability/types/index.ts";
-import { httpRouteRateLimit } from "../rate-limit/middleware.ts";
-import type { RateLimitResolver } from "../rate-limit/resolver.ts";
+import { httpRouteRateLimit, respondRateLimited } from "../rate-limit/middleware.ts";
+import type { RateLimitDecision, RateLimitResolver } from "../rate-limit/resolver.ts";
 import { Routes } from "./api-constants.ts";
-import type { ClientIpResolver } from "./client-ip.ts";
+import { type ClientIpResolver, clientIpSourceFromHonoContext } from "./client-ip.ts";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const REPORTS_PER_WINDOW = 10;
@@ -19,7 +20,10 @@ const clientErrorReportSchema = z.strictObject({
   stack: z.string().max(4000).optional(),
   screen: z.string().max(200).optional(),
   path: z.string().max(300).optional(),
-  buildVersion: z.string().max(64).optional(),
+  buildVersion: z
+    .string()
+    .regex(/^[\w.+-]{1,64}$/)
+    .optional(),
 });
 
 // Query and fragment can carry tokens or personal data; only the route shape is useful for triage.
@@ -27,10 +31,55 @@ function stripQueryAndFragment(path: string): string {
   return path.split(/[?#]/, 1)[0] ?? "";
 }
 
+const MAX_TRACKED_IPS = 10_000;
+
+// Without Redis there is no shared limiter; a per-process window still bounds log flooding.
+function inMemoryIpRateLimit(
+  clientIpResolver: ClientIpResolver,
+  now: () => number,
+): MiddlewareHandler {
+  const windowMs = WINDOW_SECONDS * 1000;
+  const windows = new Map<string, { count: number; startedAt: number }>();
+
+  function evictExpired(nowMs: number): void {
+    if (windows.size > MAX_TRACKED_IPS) {
+      for (const [ip, window] of windows) {
+        if (nowMs - window.startedAt >= windowMs) windows.delete(ip);
+      }
+    }
+    if (windows.size > MAX_TRACKED_IPS) windows.clear();
+  }
+
+  return async (c, next) => {
+    const ip = clientIpResolver.resolve(clientIpSourceFromHonoContext(c));
+    const nowMs = now();
+    evictExpired(nowMs);
+    const existing = windows.get(ip);
+    const window =
+      existing && nowMs - existing.startedAt < windowMs ? existing : { count: 0, startedAt: nowMs };
+    window.count += 1;
+    windows.set(ip, window);
+    if (window.count > REPORTS_PER_WINDOW) {
+      const resetAtMs = window.startedAt + windowMs;
+      const decision: RateLimitDecision = {
+        allowed: false,
+        limit: REPORTS_PER_WINDOW,
+        remaining: 0,
+        retryAfterSeconds: Math.max(1, Math.ceil((resetAtMs - nowMs) / 1000)),
+        windowSeconds: WINDOW_SECONDS,
+        resetAt: Temporal.Instant.fromEpochMilliseconds(resetAtMs),
+      };
+      return respondRateLimited(c, decision, `http:${ip}`);
+    }
+    await next();
+  };
+}
+
 export type ClientErrorRouteOptions = {
   readonly resolver: RateLimitResolver | undefined;
   readonly clientIpResolver: ClientIpResolver;
   readonly meter?: Meter;
+  readonly now?: () => number;
   // Attaches tenantId/userId to the log line when the caller happens to hold a session.
   readonly identifySession: (c: Context) => Promise<void>;
 };
@@ -50,6 +99,11 @@ export function createClientErrorRoute(options: ClientErrorRouteOptions): Hono {
         clientIpResolver: options.clientIpResolver,
         ...(options.meter && { meter: options.meter }),
       }),
+    );
+  } else {
+    app.post(
+      Routes.clientErrors,
+      inMemoryIpRateLimit(options.clientIpResolver, options.now ?? Date.now),
     );
   }
   app.post(

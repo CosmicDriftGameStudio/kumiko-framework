@@ -66,8 +66,13 @@ export function createDbConnection({
   if (Object.keys(serverParameters).length > 0) pgOptions.connection = serverParameters;
 
   const client = postgres(url, pgOptions);
+  // Two connections are enough for lock-in-tx plus DDL; the cap keeps parallel rebuilds from exhausting max_connections.
   unboundedSiblingFactories.set(client, () =>
-    postgres(url, { ...pgOptions, connection: { ...pgOptions.connection, statement_timeout: 0 } }),
+    postgres(url, {
+      ...pgOptions,
+      max: 4,
+      connection: { ...pgOptions.connection, statement_timeout: 0 },
+    }),
   );
 
   return {
@@ -108,7 +113,8 @@ export function dbConnectionOptionsFromEnv(
 }
 
 export const DEFAULT_SERVER_STATEMENT_TIMEOUT_MS = 60_000;
-export const DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS = 60_000;
+// Handlers that await external calls inside a tx must not be killed; five minutes still ends leaked transactions.
+export const DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS = 300_000;
 
 // Long-running servers (prod app, worker) bound runaway statements and tx held
 // open by a stuck handler; one-shot CLIs keep the unbounded driver default.

@@ -4,11 +4,16 @@ const EMAIL_PATTERN =
 const PG_KEY_DETAIL_PATTERN = /Key \(([^)]*)\)=\(.*?\)(?=\s|$|[.,;])/g;
 const PG_FAILING_ROW_PATTERN = /Failing row contains \(.*\)/g;
 
+const JWT_PATTERN = /eyJ[\w-]+\.[\w-]+\.[\w-]+/g;
+const BEARER_PATTERN = /Bearer\s+\S+/g;
+
 export function scrubLogText(text: string): string {
   return text
     .replace(PG_KEY_DETAIL_PATTERN, "Key ($1)=(***)")
     .replace(PG_FAILING_ROW_PATTERN, "Failing row contains (***)")
-    .replace(EMAIL_PATTERN, "$1***@$2");
+    .replace(EMAIL_PATTERN, "$1***@$2")
+    .replace(JWT_PATTERN, "[jwt]")
+    .replace(BEARER_PATTERN, "Bearer [redacted]");
 }
 
 export function scrubLogValue(value: unknown): unknown {

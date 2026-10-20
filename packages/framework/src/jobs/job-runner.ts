@@ -1510,6 +1510,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             );
           }
           deferred.deferral = handlerResult;
+          // skip: the deferral is applied after the span closes, below
           return;
         }
         // Stamped before the observer hook: a throwing onJobComplete must not

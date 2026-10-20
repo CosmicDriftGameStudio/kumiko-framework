@@ -5,13 +5,13 @@
 "@cosmicdrift/kumiko-bundled-features": minor
 ---
 
-Database load and pagination hardening plus a job-defer API: server-side statement and idle-in-transaction timeouts, concurrent session lookups, page-only tenant decryption, keyset scans in reindex, purge and escape-hatch retention, and `ctx.defer(ms)` for jobs.
+Database load and pagination hardening plus a job-defer API: server-side statement (60 s) and idle-in-transaction (300 s) timeouts, concurrent session lookups, page-only tenant decryption, keyset scans in reindex, purge and escape-hatch retention, and `ctx.defer(ms)` for jobs.
 
 <!-- kumiko-changes
-feature: database
+feature: framework
 type: improvement
-title: Prod and worker pools cap statements and idle transactions at 60 s
-detail: Behavior change, not an API break. runProdApp and runWorkerApp now open their Postgres pools with statement_timeout 60 s and idle_in_transaction_session_timeout 60 s, so one runaway query or a transaction left open no longer holds a connection indefinitely. lock_timeout stays off. Override or disable (0 = off) with DATABASE_STATEMENT_TIMEOUT_MS, DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS and DATABASE_LOCK_TIMEOUT_MS; createDbConnection takes statementTimeoutMs, idleInTransactionSessionTimeoutMs and lockTimeoutMs. Migrations, projection and multi-stream rebuilds, search reindex, PII backfills and the CREATE INDEX CONCURRENTLY helpers run without the statement cap (withoutStatementTimeout). A custom long-running statement on the app pool now needs the same helper or a higher limit.
+title: Prod and worker pools cap statements at 60 s and idle transactions at 300 s
+detail: Behavior change, not an API break. runProdApp and runWorkerApp now open their Postgres pools with statement_timeout 60 s and idle_in_transaction_session_timeout 300 s (handlers that await external calls inside a transaction are not killed early, leaked transactions still end), so one runaway query or a transaction left open no longer holds a connection indefinitely. lock_timeout stays off. Opt out per limit by setting the variable to 0, or change it, with DATABASE_STATEMENT_TIMEOUT_MS, DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS and DATABASE_LOCK_TIMEOUT_MS (for example DATABASE_STATEMENT_TIMEOUT_MS=0); createDbConnection takes statementTimeoutMs, idleInTransactionSessionTimeoutMs and lockTimeoutMs. Migrations, projection and multi-stream rebuilds, search reindex, PII backfills and the CREATE INDEX CONCURRENTLY helpers run without the statement cap (withoutStatementTimeout). A custom long-running statement on the app pool now needs the same helper or a higher limit.
 -->
 
 <!-- kumiko-changes
@@ -36,7 +36,7 @@ detail: Tenant names are encrypted and not in the search index, so the directory
 -->
 
 <!-- kumiko-changes
-feature: search
+feature: framework
 type: fix
 title: Reindex and subject purge scan by keyset instead of OFFSET
 detail: reindexEntity and the subject purge page with WHERE id > last ORDER BY id LIMIT n, so rows deleted or changed while the scan runs no longer make it skip later rows.

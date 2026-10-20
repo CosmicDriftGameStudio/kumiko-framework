@@ -64,13 +64,13 @@ describe("server statement_timeout", () => {
 });
 
 describe("serverTimeoutOptionsFromEnv", () => {
-  test("defaults cap statements and idle transactions at 60s and leave lock_timeout off", () => {
+  test("defaults cap statements at 60s, idle transactions at 300s and leave lock_timeout off", () => {
     expect(serverTimeoutOptionsFromEnv({})).toEqual({
       statementTimeoutMs: DEFAULT_SERVER_STATEMENT_TIMEOUT_MS,
       idleInTransactionSessionTimeoutMs: DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS,
     });
     expect(DEFAULT_SERVER_STATEMENT_TIMEOUT_MS).toBe(60_000);
-    expect(DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS).toBe(60_000);
+    expect(DEFAULT_SERVER_IDLE_IN_TRANSACTION_TIMEOUT_MS).toBe(300_000);
   });
 
   test("env overrides each limit and 0 switches it off", () => {

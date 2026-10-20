@@ -9,17 +9,24 @@
 Production logging and shutdown hardening: one process logger with redaction and request context, a client-error endpoint, a required trusted-proxy setting, fatal-error handlers, a graceful server stop, fail-open rate limits during a Redis outage and masked delivery-log addresses.
 
 <!-- kumiko-changes
-feature: logging
+feature: framework
 type: improvement
 title: Process logger, request context fields and redaction
-detail: runProdApp and runWorkerApp install a pino process logger (JSON in production) that every createFallbackLogger without an explicit logger resolves lazily, with a component field. Log lines carry requestId, correlationId, tenantId, userId, feature and handler from the request context; jobs carry tenantId and userId too. Keys such as password, token, secret, apiKey, authorization, cookie, iban and email are redacted to [redacted] up to depth 2. New scrubLogText masks e-mail addresses and Postgres key details in server-fault, job-failure and client-error logs.
+detail: runProdApp and runWorkerApp install a pino process logger (JSON in production) that every createFallbackLogger without an explicit logger resolves lazily, with a component field. Log lines carry requestId, correlationId, tenantId, userId, feature and handler from the request context; jobs carry tenantId and userId too. Keys such as password, token, secret, apiKey, authorization, cookie, set-cookie, x-api-key, sessionToken, privateKey, credentials, otp, iban and email are redacted to [redacted] up to depth 2. New scrubLogText masks e-mail addresses, JWTs, bearer tokens and Postgres key details in server-fault, job-failure and client-error logs.
 -->
 
 <!-- kumiko-changes
-feature: api
+feature: server-runtime
+type: improvement
+title: Production logs are plain JSON without the [runProdApp] prefix
+detail: Behavior change for log parsers and alert rules: runProdApp and runWorkerApp now write one JSON object per line from the process logger, without the former "[runProdApp]" text prefix. Match on the component field instead of the prefix.
+-->
+
+<!-- kumiko-changes
+feature: framework
 type: improvement
 title: POST /api/client-errors collects browser error reports
-detail: Anonymous endpoint with a strict body (errorId, kind, message, stack, screen, path, buildVersion), an 8 KB cap (413), 400 without echo, a per-IP limit of 10 per minute (429) and 204 on success. The report is logged as a scrubbed warning; the query and hash of the path are cut. With a session the report carries tenantId and userId.
+detail: Anonymous endpoint with a strict body (errorId, kind, message, stack, screen, path, buildVersion), an 8 KB cap (413), 400 without echo, a per-IP limit of 10 per minute (429, in memory per process when Redis is absent) and 204 on success. The report is logged as a scrubbed warning; the query and hash of the path are cut. With a session the report carries tenantId and userId.
 -->
 
 <!-- kumiko-changes
@@ -38,14 +45,22 @@ detail: New installFatalErrorHandlers logs uncaughtException and unhandledReject
 -->
 
 <!-- kumiko-changes
-feature: rate-limit
+feature: framework
 type: improvement
 title: Global IP and http-route limits fail open when Redis is down
-detail: The l1-global-ip and http-route limits let the request through on a Redis error instead of answering 503, count it in kumiko_rate_limit_fail_open_total{label} and log a warning at most every 30 s. The l2-auth-endpoints and login/MFA limits stay fail-closed. A Redis client that is not ready fails fast instead of waiting for the command timeout. Redis connection loss and recovery are logged once per state change. The option onFailClosed of globalIpRateLimit and httpRouteRateLimit is now onFailOpen (plus meter).
+detail: Behavior change: previously a Redis error answered 503 on these two limits. The l1-global-ip and http-route limits let the request through on a Redis error instead of answering 503, count it in kumiko_rate_limit_fail_open_total{label} and log a warning at most every 30 s. The l2-auth-endpoints and login/MFA limits stay fail-closed. A Redis client that is not ready fails fast instead of waiting for the command timeout. Redis connection loss and recovery are logged once per state change.
 -->
 
 <!-- kumiko-changes
-feature: auth
+feature: framework
+type: breaking
+title: globalIpRateLimit and httpRouteRateLimit option onFailClosed is now onFailOpen
+detail: The option is renamed because both limits now let the request through on a Redis error; the callback receives the error and is throttled to one warning per 30 s. Both limits also accept a meter for kumiko_rate_limit_fail_open_total.
+migration: rename onFailClosed to onFailOpen in globalIpRateLimit and httpRouteRateLimit options; the callback no longer implies a 503, the request continues
+-->
+
+<!-- kumiko-changes
+feature: auth-email-password
 type: improvement
 title: Warning when the login limiter falls back to memory in production
 detail: The in-memory login and MFA rate limiter logs one warning per process in production, because its limits are per replica.

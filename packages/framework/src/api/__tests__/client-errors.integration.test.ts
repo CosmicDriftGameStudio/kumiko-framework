@@ -125,6 +125,7 @@ describe("POST /api/client-errors", () => {
     ["message too long", validReport({ message: "m".repeat(501) })],
     ["stack too long", validReport({ stack: "s".repeat(4001) })],
     ["path too long", validReport({ path: "/".repeat(301) })],
+    ["buildVersion with unsafe characters", validReport({ buildVersion: "1.0 <script>" })],
   ])("rejects %s with 400 and does not echo the input", async (_name, body) => {
     const res = await report(body);
 

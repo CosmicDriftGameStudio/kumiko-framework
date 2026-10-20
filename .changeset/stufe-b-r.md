@@ -42,7 +42,7 @@ detail: navigateWithReturnTo, navigateToReturn, the metric tab navigation, closi
 -->
 
 <!-- kumiko-changes
-feature: fields
+feature: framework
 type: improvement
 title: Text field format "iban"
 detail: createTextField({ format: "iban" }) validates the value server-side (spaces ignored, case-insensitive, country and check digits shape plus mod-97) and reports invalid_format with format iban, which the form maps to errors.validation.invalid_format.iban (texts in en, de, es, fr, it). The value is stored as typed.
