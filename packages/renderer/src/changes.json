@@ -1,5 +1,44 @@
 [
   {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Non-modal drawers narrow the content instead of covering it",
+    "detail": "A Drawer with modal={false} on a wide viewport now publishes the width it occupies as --kumiko-drawer-inset-right or --kumiko-drawer-inset-left on the document root, and the shell content area (main next to the sidebar) takes it as inline padding, so error banners, right columns and the pinned form footer end beside the drawer. Modal drawers and narrow viewports keep overlaying. Two non-modal drawers open on the same side overwrite each other's value."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Files fields show download and PDF preview",
+    "detail": "A read-only detail field with renderer { format: \"file\" } (projectionDetail, readOnly edit field) lists each file with its name and a download link; PDFs get an inline preview toggle. New optional primitive FileValueList, and PdfPreview (moved here from the document designer) with a per-source bounded document cache so several PDFs can share a page. i18n keys kumiko.field.file-list.download/preview/hidePreview and kumiko.widget.pdf-preview.* ship in de, es, fr and it.",
+    "migration": "PdfPreview is now exported from @cosmicdrift/kumiko-renderer/web (props: source {base64}|{url}, testId)."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "FormScreenLayout gives custom screens the standard form screen layout",
+    "detail": "New universal component FormScreenLayout (children, description, actions, secondaryActions, onSubmit, width, testId) renders the same left-aligned form column, section stack and pinned footer as an entityEdit screen. Fill it with Section primitives (title, icon, subtitle); description becomes the form subtitle.",
+    "migration": "Custom form screens can replace FormScreenShell + Card with FormScreenLayout + Section."
+  },
+  {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Card renders no footer bar for an empty footer slot",
+    "detail": "slots.footer set to false or null (for example `hasDone && <Button/>`) left an empty grey footer bar. The bar now renders only when the footer slot has content."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "flow-diagram subpath",
+    "detail": "\"@cosmicdrift/kumiko-renderer/flow-diagram\" exports renderFlow(spec) and the FlowSpec, FlowNode, FlowEdge, FlowIcon types, a pure string function that renders an animated SVG flow diagram."
+  },
+  {
+    "version": "0.378.0",
+    "type": "breaking",
+    "title": "Renderer stylesheet no longer scans the document designer",
+    "detail": "The renderer stylesheet stopped scanning the document designer sources by relative path, which broke in isolated installs.",
+    "migration": "Apps that embed the document designer add `@import \"@cosmicdrift/kumiko-document-designer/web/styles.css\";` after the renderer stylesheet import in their styles.css."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "PlanCard ctaLink",

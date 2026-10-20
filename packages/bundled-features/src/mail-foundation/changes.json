@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Email sending offers a platform default and an own SMTP server",
+    "detail": "The provider field is labelled \"Send via\" with the options \"Platform sending (default)\" (empty, saved as \"\") and \"Own SMTP server\"; the SMTP fields show only while the own server is picked."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated mailFoundationFeature constant is removed",

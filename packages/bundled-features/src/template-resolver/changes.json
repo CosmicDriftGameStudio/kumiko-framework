@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Document PDFs embed the images of a record",
+    "detail": "A template variable of type images (templateVariable.images()) holds FileRef ids of the record. The new Images block (div[data-images], PDF templates only, rejected for mail kinds) renders them as data-URI images in the real PDF render. Only files of the rendering tenant are read, only png, jpeg, gif and webp, at most 24 images and 20 MB per document; missing, foreign, oversized or non-image ids are dropped silently. Previews and draft PDFs never read files and show one placeholder box per block. An images variable never renders as inline text. i18n keys template-resolver.documentEditor.images, template-resolver.documentEditor.imagesVariable and templateResolver.errors.document.imagesBlockPdfOnly ship in de, es, fr and it.",
+    "migration": "Declare a template variable with type `images`, place the Images block, and pass FileRef ids of the record in `variables`. Images resolve only in the real PDF render, previews show placeholders. The ids must come from the record on the server, never from client input: a resolved id is read for the whole tenant without an entity access check."
+  },
+  {
+    "version": "0.378.0",
+    "type": "breaking",
+    "title": "Template editing is SystemAdmin-only unless the app unlocks it",
+    "detail": "Every tenant write handler, the overview and resource upload accept SystemAdmin only, plus the roles of the tenantEditable entries. A write on a template that is not unlocked fails with templateNotTenantEditable. The test send follows the same rule. For a non-SystemAdmin an unknown template id answers 403 like a locked one, so the response does not reveal whether it exists. Collections without an access rule default to SystemAdmin.",
+    "migration": "Where TenantAdmins must keep editing a template, pass tenantEditable to createTemplateResolverFeature, for example tenantEditable: [{ kind: \"mail\", slug: \"billing:notify:invoice-issued\", access: { roles: [\"TenantAdmin\"] } }]. Give template collections an explicit access rule if tenants should manage them."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "send-test-status query for the template test mail",
+    "detail": "template-resolver:query:send-test-status answers whether a test mail can be sent (canSend) and, if not, why (no_channel or no_address), so clients can disable the action instead of failing on send."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "seedSystemTemplateBundle sets a title per template",

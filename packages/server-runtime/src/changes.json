@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "diskFileRoute for allowlisted disk files",
+    "detail": "diskFileRoute({ path, resolveFile }) returns an anonymous GET extra route with a :file parameter. resolveFile maps the raw name to a disk path or null for 404; the file is served with mime type, ETag and 304 handling."
+  },
+  {
     "version": "0.376.0",
     "type": "breaking",
     "title": "effectiveFeatures is gone from runProdApp, runDevApp and runWorkerApp",

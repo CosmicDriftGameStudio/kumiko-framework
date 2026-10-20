@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-renderer-puppeteer-client
 
+## 0.378.0
+
+### Minor Changes
+
+- 2d7ee3e: Document PDFs can embed the images of a record
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Document PDFs embed the images of a record
+  detail: A template variable of type images (templateVariable.images()) holds FileRef ids of the record. The new Images block (div[data-images], PDF templates only, rejected for mail kinds) renders them as data-URI images in the real PDF render. Only files of the rendering tenant are read, only png, jpeg, gif and webp, at most 24 images and 20 MB per document; missing, foreign, oversized or non-image ids are dropped silently. Previews and draft PDFs never read files and show one placeholder box per block. An images variable never renders as inline text. i18n keys template-resolver.documentEditor.images, template-resolver.documentEditor.imagesVariable and templateResolver.errors.document.imagesBlockPdfOnly ship in de, es, fr and it.
+  migration: Declare a template variable with type `images`, place the Images block, and pass FileRef ids of the record in `variables`. Images resolve only in the real PDF render, previews show placeholders. The ids must come from the record on the server, never from client input: a resolved id is read for the whole tenant without an entity access check.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [2d7ee3e]
+- Updated dependencies [0250376]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [e75268c]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [6352d97]
+  - @cosmicdrift/kumiko-types@0.378.0
+  - @cosmicdrift/kumiko-framework@0.378.0
+  - @cosmicdrift/kumiko-bundled-features@0.378.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.378.0
+
 ## 0.377.0
 
 ### Patch Changes

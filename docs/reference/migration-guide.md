@@ -2,13 +2,47 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-19
+verified: 2026-10-20
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.378.0
+
+### @cosmicdrift/kumiko-document-designer
+
+**Designer screens are SystemAdmin-only unless the app passes access**
+
+The templates screen, layout, PDF and mail editors are visible to SystemAdmin only by default. createDocumentDesignerFeature takes an optional access rule whose roles are added.
+
+**Migration:** Pass createDocumentDesignerFeature({ access: templateEditAccess(tenantEditable) }) with the same entries given to the template resolver when TenantAdmins edit templates.
+
+### @cosmicdrift/kumiko-renderer
+
+**Renderer stylesheet no longer scans the document designer**
+
+The renderer stylesheet stopped scanning the document designer sources by relative path, which broke in isolated installs.
+
+**Migration:** Apps that embed the document designer add `@import "@cosmicdrift/kumiko-document-designer/web/styles.css";` after the renderer stylesheet import in their styles.css.
+
+### framework-core
+
+**Boot check for projectionList writeHandler actions**
+
+Boot now rejects projectionList rowActions and toolbarActions of kind writeHandler whose handler is not a registered write-handler QN. Such actions only failed on click before.
+
+**Migration:** Fix the handler QN to "<feature>:write:<short>" of a handler declared via r.writeHandler(...), or remove the action. Apps that fail to boot name the screen and action id in the error.
+
+### template-resolver
+
+**Template editing is SystemAdmin-only unless the app unlocks it**
+
+Every tenant write handler, the overview and resource upload accept SystemAdmin only, plus the roles of the tenantEditable entries. A write on a template that is not unlocked fails with templateNotTenantEditable. The test send follows the same rule. For a non-SystemAdmin an unknown template id answers 403 like a locked one, so the response does not reveal whether it exists. Collections without an access rule default to SystemAdmin.
+
+**Migration:** Where TenantAdmins must keep editing a template, pass tenantEditable to createTemplateResolverFeature, for example tenantEditable: [{ kind: "mail", slug: "billing:notify:invoice-issued", access: { roles: ["TenantAdmin"] } }]. Give template collections an explicit access rule if tenants should manage them.
 
 ## 0.377.0
 

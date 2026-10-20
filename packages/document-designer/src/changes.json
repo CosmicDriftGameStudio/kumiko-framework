@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Mail preview fills the editor column",
+    "detail": "The preview frame (HTML and plain text) had a fixed height of 560px, so long mails were cut off mid-sentence with an empty grey area below. The frame now grows with the center column (at least 420px) and scrolls inside."
+  },
+  {
+    "version": "0.378.0",
+    "type": "breaking",
+    "title": "Designer screens are SystemAdmin-only unless the app passes access",
+    "detail": "The templates screen, layout, PDF and mail editors are visible to SystemAdmin only by default. createDocumentDesignerFeature takes an optional access rule whose roles are added.",
+    "migration": "Pass createDocumentDesignerFeature({ access: templateEditAccess(tenantEditable) }) with the same entries given to the template resolver when TenantAdmins edit templates."
+  },
+  {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "Stylesheet export for the designer",
+    "detail": "\"@cosmicdrift/kumiko-document-designer/web/styles.css\" registers the designer's own Tailwind sources. Apps that embed the designer import it after the renderer stylesheet."
+  },
+  {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Upload and test mail follow the server's capabilities",
+    "detail": "Upload is disabled with a hint when the files feature is not mounted, and the test mail button is disabled with a hint when the server has no email channel or no address for the user."
+  },
+  {
     "version": "0.372.0",
     "type": "fix",
     "title": "The designer names placeholders by their label everywhere",

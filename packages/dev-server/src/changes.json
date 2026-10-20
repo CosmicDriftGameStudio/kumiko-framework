@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.378.0",
+    "type": "improvement",
+    "title": "composeRendererStack forwards templateResolver options",
+    "detail": "RendererStackOptions.templateResolver is passed to createTemplateResolverFeature, so an app can set tenantEditable."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "composeSaasStack with stripe warns instead of requiring billing",
