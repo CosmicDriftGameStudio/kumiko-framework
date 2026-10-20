@@ -185,6 +185,14 @@ file_rejected:
     type, content or attach target). `details.error` carries the same error
     string `POST /files` answers with.
 
+file_violates_bind_target:
+  endUser: |
+    This file doesn't fit where it should be stored.
+  developer: |
+    `UnprocessableError`: `bindPendingFileRef` with `bindTo` found that the
+    pending upload breaks the target field's `accept` or `maxSize`.
+    `details.error` carries the validation error.
+
 public_intake_required:
   endUser: |
     This action isn't allowed.

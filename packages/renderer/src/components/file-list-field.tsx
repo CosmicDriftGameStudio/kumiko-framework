@@ -45,12 +45,35 @@ export function FileListField({
     ...(field.accept !== undefined && { accept: field.accept }),
     ...(field.maxSize !== undefined && { maxSize: field.maxSize }),
     ...(field.entityType !== undefined && { entityType: field.entityType }),
+    ...(field.uploadActionForm !== undefined && { uploadActionForm: field.uploadActionForm }),
     ...(field.entityId !== undefined && { entityId: field.entityId }),
     ...(field.fieldName !== undefined && { fieldName: field.fieldName }),
     ...(kind === "image" &&
       field.imageVariant !== undefined && { imageVariant: field.imageVariant }),
     ...(kind === "image" && field.capture !== undefined && { capture: field.capture }),
   } as const;
+
+  if (field.fileDisplay === "dropzone") {
+    return (
+      <Input
+        kind="files-dropzone"
+        id={id}
+        name={field.field}
+        value={fileIds}
+        onChange={onChange}
+        disabled={disabled}
+        hasError={hasError}
+        testId={`${id}-file-list`}
+        {...(field.accept !== undefined && { accept: field.accept })}
+        {...(field.maxSize !== undefined && { maxSize: field.maxSize })}
+        {...(field.maxCount !== undefined && { maxCount: field.maxCount })}
+        {...(field.entityType !== undefined && { entityType: field.entityType })}
+        {...(field.uploadActionForm !== undefined && { uploadActionForm: field.uploadActionForm })}
+        {...(field.entityId !== undefined && { entityId: field.entityId })}
+        {...(field.fieldName !== undefined && { fieldName: field.fieldName })}
+      />
+    );
+  }
 
   function move(fromIndex: number, toIndex: number): void {
     const next = [...fileIds];

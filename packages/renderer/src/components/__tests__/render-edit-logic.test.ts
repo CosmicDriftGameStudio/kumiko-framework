@@ -265,6 +265,26 @@ describe("hasIssueWithoutRenderedField", () => {
     expect(hasIssueWithoutRenderedField(["version"], [namedFieldsSection("title")])).toBe(true);
   });
 
+  test("an unrendered derived total next to a rendered-field issue → false", () => {
+    expect(
+      hasIssueWithoutRenderedField(
+        ["lines", "vatTotal"],
+        [namedFieldsSection("lines")],
+        new Set(["vatTotal"]),
+      ),
+    ).toBe(false);
+  });
+
+  test("an unrendered derived total alone keeps the banner", () => {
+    expect(
+      hasIssueWithoutRenderedField(
+        ["vatTotal"],
+        [namedFieldsSection("lines")],
+        new Set(["vatTotal"]),
+      ),
+    ).toBe(true);
+  });
+
   test("(root) path → true", () => {
     expect(hasIssueWithoutRenderedField(["(root)"], [namedFieldsSection("title")])).toBe(true);
   });

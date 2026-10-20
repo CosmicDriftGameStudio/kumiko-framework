@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { z } from "zod";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
-import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
+import { leaseEntity, leasePartyEntity, leasePositionEntity, receiptEntity } from "./entities";
 import { rentalTranslations } from "./i18n";
 import { receiveInvoicePayloadSchema } from "./invoice-receive";
 import {
@@ -29,6 +29,7 @@ import {
   recordPositionsPayloadSchema,
   rentAdjustPayloadSchema,
 } from "./lease-support";
+import { receiptsUploadPayloadSchema, uploadReceipts } from "./receipts-upload";
 import {
   adjustRentScreen,
   leaseDetailGapsScreen,
@@ -45,6 +46,7 @@ import {
   receiveInvoiceScreen,
   recordPositionsScreen,
   rentalDashboardScreen,
+  uploadReceiptsScreen,
 } from "./screens";
 
 export { leaseEntity, leasePartyEntity, leasePositionEntity };
@@ -237,6 +239,14 @@ export const rentalFeature = defineFeature("rental", (r) => {
     ...open,
   });
 
+  r.entity({ name: "receipt", ...receiptEntity });
+  r.writeHandler({
+    name: "receipts-upload",
+    schema: receiptsUploadPayloadSchema,
+    handler: uploadReceipts,
+    ...open,
+  });
+
   r.writeHandler({
     name: "invoice:receive",
     schema: receiveInvoicePayloadSchema,
@@ -314,12 +324,7 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(recordPositionsScreen);
   r.screen(receiveInvoiceScreen);
   r.screen(leaseUnterlagenScreen);
-  r.screen({
-    id: "upload-standard-layout",
-    type: "custom",
-    renderer: { react: { __component: "upload-standard-layout" } },
-    description: "Receipt upload on the standard form screen layout.",
-  });
+  r.screen(uploadReceiptsScreen);
 
   r.nav({
     id: "contracts",

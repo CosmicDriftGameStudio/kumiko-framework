@@ -193,6 +193,14 @@ file_rejected:
     (Größe, Typ, Inhalt oder Anhang-Ziel). `details.error` trägt denselben
     Fehlertext, mit dem `POST /files` antwortet.
 
+file_violates_bind_target:
+  endUser: |
+    Diese Datei passt nicht an den Ort, an dem sie gespeichert werden soll.
+  developer: |
+    `UnprocessableError`: `bindPendingFileRef` mit `bindTo` hat festgestellt,
+    dass der ausstehende Upload `accept` oder `maxSize` des Zielfelds verletzt.
+    `details.error` trägt den Validierungsfehler.
+
 public_intake_required:
   endUser: |
     Diese Aktion ist nicht erlaubt.

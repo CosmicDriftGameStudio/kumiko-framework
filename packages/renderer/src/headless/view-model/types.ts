@@ -291,7 +291,12 @@ export type EditFieldViewModel = {
    *  upload POST (`/api/files`), so the endpoint can check maxSize/accept
    *  against the right field def. */
   readonly entityType?: string;
+  /** Only for file fields of an actionForm — the screen QN the upload POST names as
+   *  `actionForm` instead of `entityType`; the server resolves the field through that screen. */
+  readonly uploadActionForm?: string;
   readonly fieldName?: string;
+  /** Only for `type: "files" | "images"` — how the field is shown. Absent = list. */
+  readonly fileDisplay?: "list" | "dropzone";
   /** Record being edited (update mode only). Sent with the upload so the
    *  FileRef is attached to the record. */
   readonly entityId?: string;
@@ -331,8 +336,11 @@ export type EditFieldViewModel = {
       { readonly op: "multiply" | "sum" | "subtract" | "percent"; readonly from: readonly string[] }
     >
   >;
-  /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
-  readonly embeddedListTotals?: readonly string[];
+  /** Footer totals: a sub-field name, or a labelled sum of several. From EmbeddedFieldDef.totals. */
+  readonly embeddedListTotals?: readonly (
+    | string
+    | { readonly label: string; readonly from: readonly string[] }
+  )[];
   /** No add, remove, duplicate or move; cells stay editable. From
    *  EditFieldSpec.embeddedList.fixedRows. */
   readonly embeddedListFixedRows?: boolean;

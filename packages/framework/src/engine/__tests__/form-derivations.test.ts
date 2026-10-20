@@ -137,6 +137,41 @@ describe("isUnusedFallbackOperand", () => {
   });
 });
 
+describe("money units as the form holds them", () => {
+  // A money Input yields major units ({ amount: 1234.56 }); embedded money cells hold minor units.
+  const grossOnly: FormDerivationScreen = {
+    fields: screen.fields,
+    derive: { grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] } },
+  };
+
+  test("1.234,56 EUR plus 234,57 EUR sums to 1.469,13 EUR without float drift", () => {
+    const result = applyFormDerivations(
+      { netTotal: eur(1234.56), vatTotal: eur(234.57) },
+      grossOnly,
+    );
+    expect(result).toMatchObject({ grossTotal: eur(1469.13) });
+  });
+
+  test("0,10 EUR plus 0,20 EUR is exactly 0,30 EUR", () => {
+    const result = applyFormDerivations({ netTotal: eur(0.1), vatTotal: eur(0.2) }, grossOnly);
+    expect(result).toMatchObject({ grossTotal: eur(0.3) });
+  });
+
+  test("listSum of minor-unit cells lands as major units on the head field", () => {
+    const result = applyFormDerivations(
+      {
+        lines: [
+          { amount: 123456, vatRate: 19 },
+          { amount: 1, vatRate: 19 },
+        ],
+        vatRate: 19,
+      },
+      screen,
+    );
+    expect(result).toMatchObject({ netTotal: eur(1234.57) });
+  });
+});
+
 describe("withFormDerivations", () => {
   test("the parsed output carries recomputed totals, not the client's", () => {
     const money = z.object({ amount: z.number(), currency: z.string() });

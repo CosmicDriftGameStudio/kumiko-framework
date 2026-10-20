@@ -162,6 +162,8 @@ export function WriteFormSection({
             allIssues={snapshot.errors}
             valueDisplay="form"
             row={snapshot.values}
+            {...(hideTitle !== true &&
+              section.title !== undefined && { sectionTitle: section.title })}
           />
         ))}
       </Grid>

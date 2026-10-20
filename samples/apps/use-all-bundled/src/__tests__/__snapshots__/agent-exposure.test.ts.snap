@@ -3,7 +3,9 @@
 exports[`use-all-bundled agent exposure every bundled handler keeps its recorded expose and risk 1`] = `
 [
   "audit:query:details expose=true risk=low",
+  "audit:query:details-all-tenants expose=true risk=low",
   "audit:query:list expose=true risk=low",
+  "audit:query:list-all-tenants expose=true risk=low",
   "auth-email-password:query:invite-info expose=false risk=low",
   "auth-email-password:query:signup-registration-status expose=true risk=low",
   "auth-email-password:write:change-password expose=false risk=mid",

@@ -158,6 +158,7 @@ import { EmbeddedListInput } from "./embedded-list-input.tsx";
 import { CardLeadingImage, FileDisplayCell } from "./file-thumbnail.tsx";
 import { FileUploadInput } from "./file-upload.tsx";
 import { FileValueList } from "./file-value-list.tsx";
+import { FilesDropzoneInput } from "./files-dropzone.tsx";
 import { DefaultJsonView } from "./json-view.tsx";
 import {
   screenFormColumnWidthClassName,
@@ -1046,6 +1047,9 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.accept !== undefined && { accept: props.accept })}
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.entityType !== undefined && { entityType: props.entityType })}
+          {...(props.uploadActionForm !== undefined && {
+            uploadActionForm: props.uploadActionForm,
+          })}
           {...(props.entityId !== undefined && { entityId: props.entityId })}
           {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
           {...(props.imageVariant !== undefined && { imageVariant: props.imageVariant })}
@@ -1053,6 +1057,25 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.directory !== undefined && { directory: props.directory })}
           {...(props.onFilesPicked !== undefined && { onFilesPicked: props.onFilesPicked })}
           {...(props.pickLabel !== undefined && { pickLabel: props.pickLabel })}
+          {...(props.testId !== undefined && { testId: props.testId })}
+        />
+      );
+    case "files-dropzone":
+      return (
+        <FilesDropzoneInput
+          id={props.id}
+          value={props.value}
+          onChange={props.onChange}
+          {...(props.accept !== undefined && { accept: props.accept })}
+          {...(props.maxSize !== undefined && { maxSize: props.maxSize })}
+          {...(props.maxCount !== undefined && { maxCount: props.maxCount })}
+          {...(props.disabled !== undefined && { disabled: props.disabled })}
+          {...(props.entityType !== undefined && { entityType: props.entityType })}
+          {...(props.uploadActionForm !== undefined && {
+            uploadActionForm: props.uploadActionForm,
+          })}
+          {...(props.entityId !== undefined && { entityId: props.entityId })}
+          {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
           {...(props.testId !== undefined && { testId: props.testId })}
         />
       );

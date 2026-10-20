@@ -2,6 +2,7 @@ import {
   createDateField,
   createDecimalField,
   createEmbeddedListField,
+  createFilesField,
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -12,6 +13,7 @@ import type {
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { RECEIPT_ACCEPT } from "./entities";
 import { PAYMENT_METHODS, POSITION_KINDS, POSITION_MEASURES } from "./lease-support";
 import { RENTAL_QUERIES, RENTAL_WRITES } from "./qualified-names";
 
@@ -474,7 +476,11 @@ export const receiveInvoiceLines = createEmbeddedListField(
   },
   {
     derived: { vatAmount: { op: "percent", from: ["amount", "vatRate"] } },
-    totals: ["amount", "vatAmount"],
+    totals: [
+      { label: "rental.total.net", from: ["amount"] },
+      { label: "rental.total.vat", from: ["vatAmount"] },
+      { label: "rental.total.gross", from: ["amount", "vatAmount"] },
+    ],
   },
 );
 
@@ -595,5 +601,41 @@ export const leaseUnterlagenScreen: ProjectionDetailScreenDefinition = {
       },
     ],
   },
+  access: OPEN_ACCESS,
+};
+
+export const uploadReceiptsScreen: ActionFormScreenDefinition = {
+  id: "upload-standard-layout",
+  type: "actionForm",
+  description: "rental.upload.screenDescription",
+  handler: RENTAL_WRITES.receiptsUpload,
+  fields: {
+    belege: createFilesField({
+      personal: false,
+      reason: "is_business_data",
+      accept: RECEIPT_ACCEPT,
+      maxSize: "10MB",
+      maxCount: 10,
+      display: "dropzone",
+    }),
+  },
+  fieldLabels: { belege: "rental:entity:__action-form__:field:belege" },
+  layout: {
+    sections: [
+      {
+        icon: "upload",
+        title: "rental.upload.zoneTitle",
+        description: "rental.upload.description",
+        fields: ["belege"],
+      },
+    ],
+  },
+  submitLabel: "rental.upload.submit",
+  successFacts: [
+    { field: "count", label: "rental.upload.factCount" },
+    { field: "belege", label: "rental.upload.factFiles" },
+  ],
+  resetOnSuccess: true,
+  cancelTarget: false,
   access: OPEN_ACCESS,
 };

@@ -1,4 +1,3 @@
-import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
 import type {
   AccessRule,
   WriteHandlerDef,
@@ -23,8 +22,6 @@ import { readSubjectReference } from "../subject-reference.ts";
 // pg_advisory_xact_lock namespace (int4): 'lcsp' as ASCII, disjoint from the
 // framework's other fixed advisory-lock keys.
 const CONFIRM_PERIOD_LOCK_NAMESPACE = 0x6c637370;
-const CONFIRM_PERIOD_LOCK_REASON =
-  "takes the per-(tenant, reference) advisory lock so parallel confirms cannot both pass the already-booked check; TenantDb has no lock API";
 
 // confirm-schedule-period — turn ONE projected period of a schedule into a posted,
 // balanced transaction (debit +amount / credit −amount), tagged with
@@ -42,7 +39,6 @@ export function createConfirmSchedulePeriodHandler(
     name: "confirm-schedule-period",
     schema: confirmSchedulePeriodPayloadSchema,
     access,
-    escapeHatch: { grants: ["unsafeRaw"], reason: CONFIRM_PERIOD_LOCK_REASON },
     description:
       "Turns one month of a recurring schedule into a posted balanced entry between its debit and credit account, returning the existing booking instead when that period is already booked and not reversed; use it to move a forecast period into the actual books.",
     handler: async (event, ctx) => {
@@ -78,11 +74,7 @@ export function createConfirmSchedulePeriodHandler(
       // tx's `reference` names its id).
       // No unique index on (tenantId, reference): a Storno makes re-confirming the
       // same reference legitimate, so the check-then-write is serialized by a lock.
-      await acquireNamespacedAdvisoryLock(
-        ctx.db.unsafeRaw(),
-        CONFIRM_PERIOD_LOCK_NAMESPACE,
-        `${event.user.tenantId}:${reference}`,
-      );
+      await ctx.db.advisoryXactLock(CONFIRM_PERIOD_LOCK_NAMESPACE, reference);
       const candidates = await ctx.db.selectMany(transactionTable, {
         tenantId: event.user.tenantId,
         reference,

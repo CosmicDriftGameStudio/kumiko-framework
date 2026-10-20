@@ -23,6 +23,7 @@ import {
   FILE_REF_ENTITY_NAME,
   fileRefEntity,
   fileRefsTable,
+  listActionFormFileFields,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
   collectSingleFileHolders,
@@ -213,7 +214,7 @@ export async function purgeFilesReachingSubject(args: {
     db,
     registry,
     subject,
-    fileFieldKeys: pendingFieldKeys(fileEntities),
+    fileFieldKeys: pendingFieldKeys(fileEntities, registry),
     fileHolders,
     storageByTenant,
     resolveDeleteBytes,
@@ -226,8 +227,15 @@ export async function purgeFilesReachingSubject(args: {
 const pendingFieldKey = (entityType: unknown, fieldName: unknown) =>
   `${entityType}\u0000${fieldName}`;
 
-function pendingFieldKeys(fileEntities: readonly FileEntity[]): ReadonlySet<string> {
+// A pending upload of an actionForm files field is keyed by the screen QN, like an entity's by its name.
+function pendingFieldKeys(
+  fileEntities: readonly FileEntity[],
+  registry: Registry,
+): ReadonlySet<string> {
   const keys = new Set<string>();
+  for (const { screenQn, fieldName } of listActionFormFileFields(registry)) {
+    keys.add(pendingFieldKey(screenQn, fieldName));
+  }
   for (const { entityName, fileFields } of fileEntities) {
     for (const fieldName of fileFields) keys.add(pendingFieldKey(entityName, fieldName));
   }

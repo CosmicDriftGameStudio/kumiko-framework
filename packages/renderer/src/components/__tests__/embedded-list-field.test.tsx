@@ -632,3 +632,32 @@ describe("EmbeddedListField — read-only cells, fixed rows, segmented select", 
     expect(result[0]?.["quantity"]).toBe(2);
   });
 });
+
+describe("EmbeddedListField — labelled footer totals", () => {
+  test("a labelled entry sums its from columns under the translated label; a string keeps the column label", async () => {
+    const cells: EditFieldViewModel["embeddedListCells"] = [
+      { field: "amount", label: "Amount", type: "money", required: true },
+      { field: "vatAmount", label: "VAT amount", type: "money", required: false },
+    ];
+    const rows = [
+      { amount: 10000, vatAmount: 1900 },
+      { amount: 5000, vatAmount: 950 },
+    ];
+    await renderEmbeddedListField(
+      invoiceLinesField({
+        value: rows,
+        embeddedListCells: cells,
+        embeddedListDerived: {},
+        embeddedListTotals: [
+          "amount",
+          { label: "kumiko.actionForm.success", from: ["amount", "vatAmount"] },
+        ],
+      }),
+      () => {},
+    );
+    expect(captured?.totals).toEqual([
+      { field: "amount", label: "Amount", value: 15000 },
+      { field: "amount+vatAmount", label: "Done.", value: 17850, money: true },
+    ]);
+  });
+});

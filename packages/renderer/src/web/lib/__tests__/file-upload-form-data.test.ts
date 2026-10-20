@@ -22,4 +22,16 @@ describe("buildFileUploadFormData", () => {
     expect(formData.has("entityId")).toBe(false);
     expect(buildFileUploadFormData({ file }).has("entityType")).toBe(false);
   });
+
+  test("an actionForm upload names the screen and carries no entityType", () => {
+    const formData = buildFileUploadFormData({
+      file,
+      actionForm: "rental:screen:upload-standard-layout",
+      fieldName: "belege",
+    });
+    expect(formData.get("actionForm")).toBe("rental:screen:upload-standard-layout");
+    expect(formData.get("fieldName")).toBe("belege");
+    expect(formData.has("entityType")).toBe(false);
+    expect(buildFileUploadFormData({ file }).has("actionForm")).toBe(false);
+  });
 });

@@ -18,6 +18,7 @@ import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createEntity,
   createFileField,
+  createFilesField,
   createImageField,
   createTextField,
   defineFeature,
@@ -35,6 +36,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
@@ -80,6 +82,20 @@ const vehicleEntity = createEntity({
 
 const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
   r.entity({ name: "vehicle", ...vehicleEntity });
+  r.writeHandler({
+    name: "submit-intake",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+  });
+  r.screen({
+    id: "intake-form",
+    type: "actionForm",
+    dormant: true,
+    handler: "test-vehicle-file-fields:write:submit-intake",
+    fields: { attachments: createFilesField() },
+    layout: { sections: [{ fields: ["attachments"] }] },
+  });
 });
 
 // The vehicle fixture's image/file fields make server.ts's boot guard require
@@ -179,6 +195,7 @@ async function seedFileRefWithField(
   entityType: string | null,
   fieldName: string | null,
   fileName: string,
+  isBound = entityType !== null,
 ): Promise<void> {
   await asRawClient(stack.db).unsafe(
     `
@@ -192,7 +209,7 @@ async function seedFileRefWithField(
       `storage/${id}`,
       fileName,
       entityType,
-      entityType !== null ? "1" : null,
+      isBound ? "1" : null,
       fieldName,
       insertedById,
     ],
@@ -560,6 +577,32 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
 
     const remaining = await fetchFileRefs(TENANT_A);
     expect(remaining.find((f: { id: string }) => f.id === uuid(603))).toBeUndefined();
+  });
+
+  test('strategy="delete" — pending upload of an actionForm files field: hard-deleted', async () => {
+    const userId = "user-pending-form-upload";
+    await seedFileRefWithField(
+      uuid(620),
+      TENANT_A,
+      userId,
+      "test-vehicle-file-fields:screen:intake-form",
+      "attachments",
+      "beleg.pdf",
+      false,
+    );
+
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+
+    const remaining = await fetchFileRefs(TENANT_A);
+    expect(remaining.find((f: { id: string }) => f.id === uuid(620))).toBeUndefined();
   });
 
   test('strategy="delete" — field exists but carries no annotation: anonymized, not hard-deleted', async () => {

@@ -33,6 +33,7 @@ export type { ParsedRefTarget } from "../engine/parse-ref-target.ts";
 export { parseRefTarget } from "../engine/parse-ref-target.ts";
 export type { FieldsOrGroupsSection, UnavailableSelectOption } from "../engine/screen-helpers.ts";
 export {
+  ACTION_FORM_PSEUDO_ENTITY,
   availableSelectOptions,
   evalFieldCondition,
   explicitListScreenId,

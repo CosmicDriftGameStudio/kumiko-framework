@@ -165,20 +165,45 @@ export function resolveSuccessFacts(
   return resolved;
 }
 
+// Lines can repeat (two files with one name), so the position is the only stable key.
+function positionedLines(
+  lines: readonly string[],
+): readonly { readonly position: string; readonly line: string }[] {
+  return lines.map((line, position) => ({ position: String(position), line }));
+}
+
 export function ActionFormSuccessBanner({
   success,
 }: {
   readonly success: ActionFormSuccessState;
 }): ReactNode {
-  const { Banner, Link, Text } = usePrimitives();
+  const { Banner, Grid, Link, Text } = usePrimitives();
+  // Text renders inline, so the message and each fact sit in a one-column grid to get their own lines.
   return (
     <Banner variant="info" testId="action-form-success">
-      {success.text}
-      {success.facts.map((fact) => (
-        <Text key={fact.key} testId={`action-form-success-fact-${fact.key}`}>
-          {fact.label}: {fact.lines.join(", ")}
-        </Text>
-      ))}
+      <Grid columns={1}>
+        <Text testId="action-form-success-text">{success.text}</Text>
+        {success.facts.map((fact) => {
+          const factTestId = `action-form-success-fact-${fact.key}`;
+          if (fact.lines.length === 1) {
+            return (
+              <Text key={fact.key} testId={factTestId}>
+                {fact.label}: {fact.lines[0]}
+              </Text>
+            );
+          }
+          return (
+            <Grid key={fact.key} columns={1} testId={factTestId}>
+              <Text>{fact.label}:</Text>
+              {positionedLines(fact.lines).map(({ position, line }) => (
+                <Text key={position} testId={`${factTestId}-line-${position}`}>
+                  {line}
+                </Text>
+              ))}
+            </Grid>
+          );
+        })}
+      </Grid>
       {success.links.map((link) => (
         <Link
           key={link.key}

@@ -88,6 +88,10 @@ export const FrameworkReasons = {
   // UnprocessableError: createFileRefFromBytes refused the file (size, type,
   // content or attach target). `details.error` carries the upload-route error string.
   fileRejected: "file_rejected",
+
+  // UnprocessableError: bindPendingFileRef({ bindTo }) found the pending upload outside the
+  // target field's accept/maxSize. `details.error` carries the validator's error string.
+  fileViolatesBindTarget: "file_violates_bind_target",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

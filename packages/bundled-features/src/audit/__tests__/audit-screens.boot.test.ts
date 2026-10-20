@@ -10,7 +10,13 @@ import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.ts";
+import {
+  AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID,
+  AUDIT_LOG_ALL_TENANTS_SCREEN_ID,
+  AUDIT_LOG_DETAIL_SCREEN_ID,
+  AUDIT_LOG_SCREEN_ID,
+  AuditQueries,
+} from "../constants.ts";
 import { createAuditFeature } from "../feature.ts";
 import { AUDIT_I18N } from "../i18n.ts";
 
@@ -63,6 +69,27 @@ describe("audit log screen + handler access alignment", () => {
       throw new Error(`expected role-gated access on ${AUDIT_LOG_DETAIL_SCREEN_ID}`);
     }
     expect(screen.access.roles).toEqual(access.admin);
+  });
+
+  test("all-tenants screens are systemAdmin-gated, tenant column and facet are references", () => {
+    const audit = createAuditFeature();
+    const list = audit.screens[AUDIT_LOG_ALL_TENANTS_SCREEN_ID];
+    const detail = audit.screens[AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID];
+    if (list?.type !== "projectionList" || detail?.type !== "projectionDetail") {
+      throw new Error("expected projectionList + projectionDetail for the all-tenants log");
+    }
+    if (!("access" in list) || !list.access || !("roles" in list.access)) {
+      throw new Error("expected role-gated access on the all-tenants list");
+    }
+    if (!("access" in detail) || !detail.access || !("roles" in detail.access)) {
+      throw new Error("expected role-gated access on the all-tenants detail");
+    }
+    expect(list.access.roles).toEqual(access.systemAdmin);
+    expect(detail.access.roles).toEqual(access.systemAdmin);
+    expect(list.columns.map((c) => normalizeListColumn(c).field)).toContain("tenantId");
+    expect(list.query).toBe(AuditQueries.listAllTenants);
+    expect(detail.query).toBe(AuditQueries.detailsAllTenants);
+    expect(detail.listScreenId).toBe(AUDIT_LOG_ALL_TENANTS_SCREEN_ID);
   });
 
   test("audit-log-detail: aggregate type and aggregate id resolve to distinct labels", () => {

@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot as validateBootRaw } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  FILE_STORAGE_PROVIDER_ENV,
+  validateBoot as validateBootRaw,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { ENTITY_METAS, FEATURES } from "../../kumiko/schema";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
-  validateBootRaw(withBootValidatorFixture(features));
+  // The sample server passes an in-memory provider at runtime; the guard only checks the env name.
+  validateBootRaw(withBootValidatorFixture(features), {
+    env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory" },
+  });
 }
 
 describe("kumiko/schema.ts aligns with run-config boot", () => {

@@ -153,8 +153,8 @@ function formatTotalValue(
   currency: string,
   locale: string,
 ): string {
-  const column = columns.find((c) => c.field === total.field);
-  if (column?.type === "money") return formatMoney(total.value, currency, locale);
+  const isMoney = total.money ?? columns.find((c) => c.field === total.field)?.type === "money";
+  if (isMoney) return formatMoney(total.value, currency, locale);
   return total.value.toLocaleString(locale);
 }
 
@@ -664,24 +664,27 @@ export function EmbeddedListInput({
 
   if (rows.length === 0) {
     return (
-      <div
-        ref={containerRef}
-        data-testid={testId !== undefined ? `${testId}-empty` : "embedded-list-empty"}
-        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"
-      >
-        <span>{emptyLabel}</span>
-        {showControls && (
-          <UiButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onAddRow}
-            data-testid={testId !== undefined ? `${testId}-empty-add` : "embedded-list-empty-add"}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            {emptyCtaLabel}
-          </UiButton>
-        )}
+      <div className="flex flex-col gap-2">
+        <div
+          ref={containerRef}
+          data-testid={testId !== undefined ? `${testId}-empty` : "embedded-list-empty"}
+          className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"
+        >
+          <span>{emptyLabel}</span>
+          {showControls && (
+            <UiButton
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddRow}
+              data-testid={testId !== undefined ? `${testId}-empty-add` : "embedded-list-empty-add"}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              {emptyCtaLabel}
+            </UiButton>
+          )}
+        </div>
+        <IssueMessages issues={listIssues} testId={testIdFor("list-issues")} />
       </div>
     );
   }

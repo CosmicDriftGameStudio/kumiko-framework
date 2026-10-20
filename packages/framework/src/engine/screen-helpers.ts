@@ -18,6 +18,10 @@ import type {
   ToolbarAction,
 } from "./types/screen.ts";
 
+// Entity name the renderer gives the synthesized entity of an actionForm, secretMint or confirm
+// step. It is not registered, so nothing server-side may treat it as a real entity.
+export const ACTION_FORM_PSEUDO_ENTITY = "__action-form__";
+
 // Every screen type carrying `listScreenId` declares it identically; centralizing
 // here keeps the switch the only place that grows for a new screen type.
 export function explicitListScreenId(screen: ScreenDefinition): string | undefined {

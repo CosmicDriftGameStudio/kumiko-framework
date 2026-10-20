@@ -2731,6 +2731,7 @@ function EntityListBody({
         refetch: refreshRowsAfterWrite,
         openDrawer,
         host,
+        access: { appFeatures, userRoles },
       }),
     [
       screen.toolbarActions,
@@ -2740,6 +2741,8 @@ function EntityListBody({
       dispatcher,
       refreshRowsAfterWrite,
       openDrawer,
+      appFeatures,
+      userRoles,
     ],
   );
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
@@ -3157,6 +3160,7 @@ function ProjectionListBody({
         refetch: rowsQuery.refetch,
         openDrawer,
         host,
+        access: { appFeatures, userRoles },
       }),
     [
       screen.toolbarActions,
@@ -3166,6 +3170,8 @@ function ProjectionListBody({
       dispatcher,
       rowsQuery.refetch,
       openDrawer,
+      appFeatures,
+      userRoles,
     ],
   );
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
@@ -3646,14 +3652,14 @@ function ProjectionDetailBody({
         host,
         dispatcher,
         openDrawer,
-        onWriteSuccess: detailQuery.refetch,
+        onWriteSuccess: reloadDetail,
         onRecordLeft: handleRecordLeft,
         sameEntityScreenId,
         clientActions,
       }),
     [
       detailQuery.data,
-      detailQuery.refetch,
+      reloadDetail,
       effectiveTranslate,
       nav,
       host,
@@ -3674,7 +3680,7 @@ function ProjectionDetailBody({
       host,
       dispatcher,
       openDrawer,
-      onWriteSuccess: detailQuery.refetch,
+      onWriteSuccess: reloadDetail,
       onRecordLeft: handleRecordLeft,
       sameEntityScreenId,
       clientActions,
@@ -3690,7 +3696,7 @@ function ProjectionDetailBody({
     dispatcher,
     clientActions,
     detailQuery.data,
-    detailQuery.refetch,
+    reloadDetail,
     openDrawer,
     handleRecordLeft,
     sameEntityScreenId,
@@ -4520,6 +4526,7 @@ function ActionFormBody({
       featureName={schema.featureName}
       initial={derivedInitial}
       {...(screen.derive !== undefined && { formDerivation: screen })}
+      actionFormScreenQn={qualifyScreenId(schema.featureName, screen.id)}
       // Extension-Sections im actionForm sehen die initialen Form-Values
       // (inkl. searchParams-Prefill, z.B. ?incidentId=…) als initialValues
       // — anders als im entityEdit gibt es hier keinen record, aus dem

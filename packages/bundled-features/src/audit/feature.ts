@@ -7,6 +7,9 @@ import {
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID,
+  AUDIT_LOG_ALL_TENANTS_NAV_ID,
+  AUDIT_LOG_ALL_TENANTS_SCREEN_ID,
   AUDIT_LOG_DETAIL_SCREEN_ID,
   AUDIT_LOG_SCREEN_ID,
   AuditQueries,
@@ -14,9 +17,19 @@ import {
 } from "./constants.ts";
 import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.ts";
 import { detailsQuery } from "./handlers/details.query.ts";
+import { detailsAllTenantsQuery } from "./handlers/details-all-tenants.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
+import { listAllTenantsQuery } from "./handlers/list-all-tenants.query.ts";
 import { AUDIT_I18N } from "./i18n.ts";
 import { runEscapeHatchRetention } from "./run-escape-hatch-retention.ts";
+import {
+  AUDIT_LOG_ALL_TENANTS_COLUMNS,
+  AUDIT_LOG_COLUMNS,
+  AUDIT_LOG_DATE_RANGE_FACET,
+  AUDIT_LOG_DETAIL_FIELD_LABELS,
+  AUDIT_LOG_TENANT_FACET,
+  auditLogDetailLayout,
+} from "./screens.ts";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //
@@ -36,7 +49,7 @@ export function createAuditFeature(): FeatureDefinition {
     "audit",
     (r) => {
       r.describe(
-        "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection \u2014 the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).",
+        "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection \u2014 the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).",
       );
       r.uiHints({
         displayLabel: "Audit Log",
@@ -44,6 +57,9 @@ export function createAuditFeature(): FeatureDefinition {
         recommended: false,
       });
       r.translations({ keys: AUDIT_I18N });
+      // The all-tenants queries read through ctx.systemDb.acknowledgeCrossTenant; the own-tenant
+      // queries use assertTenantMatch on the same handle.
+      r.systemScope();
       r.requires({ features: ["tenant", "user", "config"] });
 
       // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
@@ -84,36 +100,18 @@ export function createAuditFeature(): FeatureDefinition {
       const queries = {
         list: r.queryHandler(listQuery),
         details: r.queryHandler(detailsQuery),
+        listAllTenants: r.queryHandler(listAllTenantsQuery),
+        detailsAllTenants: r.queryHandler(detailsAllTenantsQuery),
       };
 
       r.screen({
         id: AUDIT_LOG_SCREEN_ID,
         type: "projectionList",
         query: AuditQueries.list,
-        columns: [
-          {
-            field: "createdAt",
-            label: i18nKey("audit.log.col.when"),
-            renderer: { format: "timestamp" },
-          },
-          { field: "type", label: i18nKey("audit.log.col.type") },
-          {
-            field: "createdBy",
-            label: i18nKey("audit.log.col.actor"),
-            refEntity: "user:user",
-            refLabelField: "displayName",
-          },
-        ],
+        columns: AUDIT_LOG_COLUMNS,
         searchable: true,
         defaultSort: { field: "createdAt", dir: "desc" },
-        facets: [
-          {
-            type: "dateRange",
-            field: "createdAt",
-            label: i18nKey("audit.log.col.when"),
-            params: { from: "from", to: "to" },
-          },
-        ],
+        facets: [AUDIT_LOG_DATE_RANGE_FACET],
         rowActions: [
           {
             kind: "navigate",
@@ -125,8 +123,7 @@ export function createAuditFeature(): FeatureDefinition {
           },
         ],
         pagination: "infinite",
-        description:
-          "Admin table of the tenant's audit-trail events with actor names and event-type/date filters; open it to browse recent changes and drill into a single event.",
+        description: "audit.log.description",
         access: { roles: access.admin },
       });
       r.screen({
@@ -134,42 +131,46 @@ export function createAuditFeature(): FeatureDefinition {
         type: "projectionDetail",
         query: AuditQueries.details,
         idParam: "id",
-        fieldLabels: {
-          type: i18nKey("audit.log.col.type"),
-          createdAt: i18nKey("audit.log.col.when"),
-          aggregateType: i18nKey("audit.log.col.aggregateType"),
-          aggregateId: i18nKey("audit.log.col.aggregateId"),
-          createdBy: i18nKey("audit.log.col.actor"),
-          id: i18nKey("audit.log.detail.field.id"),
-          payload: i18nKey("audit.log.detail.payload"),
-          metadata: i18nKey("audit.log.detail.metadata"),
-        },
-        layout: {
-          sections: [
-            {
-              fields: [
-                "type",
-                { field: "createdAt", renderer: { format: "timestamp" } },
-                "aggregateType",
-                "aggregateId",
-                { field: "createdBy", refEntity: "user:user", refLabelField: "displayName" },
-                "id",
-              ],
-            },
-            // No section `title` here (fw#2312 label-dedup fix): each section
-            // holds exactly one field, so a title would repeat the field's own
-            // label (rendered by RenderField as the Field's heading) verbatim.
-            {
-              fields: [{ field: "payload", renderer: { format: "json" } }],
-            },
-            {
-              fields: [{ field: "metadata", renderer: { format: "json" } }],
-            },
-          ],
-        },
+        fieldLabels: AUDIT_LOG_DETAIL_FIELD_LABELS,
+        layout: auditLogDetailLayout({ withTenant: false }),
         description: "audit.log.detail.subtitle",
         listScreenId: AUDIT_LOG_SCREEN_ID,
         access: { roles: access.admin },
+      });
+      r.screen({
+        id: AUDIT_LOG_ALL_TENANTS_SCREEN_ID,
+        type: "projectionList",
+        query: AuditQueries.listAllTenants,
+        columns: AUDIT_LOG_ALL_TENANTS_COLUMNS,
+        defaultSort: { field: "createdAt", dir: "desc" },
+        facets: [AUDIT_LOG_DATE_RANGE_FACET, AUDIT_LOG_TENANT_FACET],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "details",
+            label: i18nKey("audit.log.details"),
+            screen: AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID,
+            entityId: "id",
+            rowClick: true,
+          },
+        ],
+        pagination: "infinite",
+        description: "audit.log.allTenants.description",
+        access: { roles: access.systemAdmin },
+      });
+      r.screen({
+        id: AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID,
+        type: "projectionDetail",
+        query: AuditQueries.detailsAllTenants,
+        idParam: "id",
+        fieldLabels: {
+          ...AUDIT_LOG_DETAIL_FIELD_LABELS,
+          tenantId: i18nKey("audit.log.col.tenant"),
+        },
+        layout: auditLogDetailLayout({ withTenant: true }),
+        description: "audit.log.detail.subtitle",
+        listScreenId: AUDIT_LOG_ALL_TENANTS_SCREEN_ID,
+        access: { roles: access.systemAdmin },
       });
       r.nav({
         id: "audit-log",
@@ -177,6 +178,13 @@ export function createAuditFeature(): FeatureDefinition {
         icon: "file",
         screen: "audit:screen:audit-log",
         order: 30,
+      });
+      r.nav({
+        id: AUDIT_LOG_ALL_TENANTS_NAV_ID,
+        label: "audit:nav.auditLogAllTenants",
+        icon: "file",
+        screen: "audit:screen:audit-log-all-tenants",
+        order: 31,
       });
 
       return { queries };

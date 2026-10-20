@@ -84,6 +84,10 @@ export type ComputeEditViewModelInput<
   /** actionForm `derive`: computed fields render read-only (and never block submit
    *  as required) unless their derivation currently leaves them to the user. */
   readonly derivation?: FormDerivationScreen;
+  /** Qualified name of the actionForm screen this form belongs to. File fields then upload
+   *  as pending for that screen (`uploadActionForm`) instead of for an entity. Set explicitly:
+   *  secretMint and confirm forms share the pseudo-entity but cannot take uploads. */
+  readonly actionFormScreenQn?: string;
 };
 
 export type EditFormMode = "create" | "update";
@@ -437,10 +441,12 @@ type FileFieldHints = Pick<
   | "maxSize"
   | "maxCount"
   | "entityType"
+  | "uploadActionForm"
   | "entityId"
   | "fieldName"
   | "imageVariant"
   | "capture"
+  | "fileDisplay"
 >;
 
 // file/image: entityType/fieldName travel with the upload POST so the
@@ -470,15 +476,20 @@ function deriveFileFieldHints(
   entityName: string,
   fieldName: string,
   entityId: string | undefined,
+  actionFormScreenQn: string | undefined,
 ): FileFieldHints {
   if (!isFileFieldType(fieldDef)) return {};
-  const maxCount =
-    fieldDef.type === "files" || fieldDef.type === "images" ? fieldDef.maxCount : undefined;
+  const isList = fieldDef.type === "files" || fieldDef.type === "images";
+  const maxCount = isList ? fieldDef.maxCount : undefined;
+  const fileDisplay = isList ? fieldDef.display : undefined;
   return {
+    ...(fileDisplay !== undefined && { fileDisplay }),
     ...(fieldDef.accept !== undefined && { accept: fieldDef.accept }),
     ...(fieldDef.maxSize !== undefined && { maxSize: fieldDef.maxSize }),
     ...(maxCount !== undefined && { maxCount }),
-    entityType: entityName,
+    ...(actionFormScreenQn !== undefined
+      ? { uploadActionForm: actionFormScreenQn }
+      : { entityType: entityName }),
     fieldName,
     ...(entityId !== undefined && { entityId }),
     ...deriveImageHints(fieldDef),
@@ -676,7 +687,17 @@ function isLockedByDerivation(
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
-  const { screen, entity, values, translate, featureName, mode, entityId, derivation } = input;
+  const {
+    screen,
+    entity,
+    values,
+    translate,
+    featureName,
+    mode,
+    entityId,
+    derivation,
+    actionFormScreenQn,
+  } = input;
   const excludedFields = new Set(mode === undefined ? [] : screen.writeExcludedFields?.[mode]);
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
@@ -767,7 +788,13 @@ export function computeEditViewModel<
           declaredRefTarget,
           featureName,
         );
-        const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field, entityId);
+        const fileHints = deriveFileFieldHints(
+          fieldDef,
+          screen.entity,
+          normalized.field,
+          entityId,
+          actionFormScreenQn,
+        );
         const embeddedListHints = deriveEmbeddedListHints(
           fieldDef,
           translate,

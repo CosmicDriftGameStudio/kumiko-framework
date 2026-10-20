@@ -1,4 +1,9 @@
-export type { BindPendingFileRefOutcome, PendingFileRef } from "./bind-pending-file-refs.ts";
+export { listActionFormFileFields, resolveActionFormFileField } from "./action-form-upload.ts";
+export type {
+  BindPendingFileRefOutcome,
+  PendingFileRef,
+  PendingFileRefBindTarget,
+} from "./bind-pending-file-refs.ts";
 export { bindPendingFileRef, loadPendingFileRef } from "./bind-pending-file-refs.ts";
 export type {
   CreatedFileRef,

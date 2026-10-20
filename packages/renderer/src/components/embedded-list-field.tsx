@@ -206,12 +206,20 @@ function EmbeddedListFieldInner({
     };
   });
 
-  const totals: EmbeddedListTotal[] = (field.embeddedListTotals ?? []).map((subFieldName) => {
-    const cell = cells.find((c) => c.field === subFieldName);
+  const totals: EmbeddedListTotal[] = (field.embeddedListTotals ?? []).map((entry) => {
+    if (typeof entry === "string") {
+      const cell = cells.find((c) => c.field === entry);
+      return {
+        field: entry,
+        label: cell?.label ?? entry,
+        value: sumEmbeddedListColumn(rows, entry),
+      };
+    }
     return {
-      field: subFieldName,
-      label: cell?.label ?? subFieldName,
-      value: sumEmbeddedListColumn(rows, subFieldName),
+      field: entry.from.join("+"),
+      label: t(entry.label),
+      value: entry.from.reduce((sum, name) => sum + sumEmbeddedListColumn(rows, name), 0),
+      money: entry.from.every((name) => cells.find((c) => c.field === name)?.type === "money"),
     };
   });
 

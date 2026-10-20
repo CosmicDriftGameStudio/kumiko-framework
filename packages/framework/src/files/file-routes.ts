@@ -18,7 +18,7 @@ import {
   resolveFieldVariant,
   resolveRenderer,
 } from "../derivatives/index.ts";
-import { SYSTEM_USER_ID } from "../engine/system-user.ts";
+import { isAnonymousSessionUser, SYSTEM_USER_ID } from "../engine/system-user.ts";
 import {
   isFileField,
   isUuid,
@@ -26,6 +26,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "../engine/types/index.ts";
+import { listActionFormFileFields, mayUseActionForm } from "./action-form-upload.ts";
 import { buildContentDispositionHeader } from "./content-disposition.ts";
 import {
   DEFAULT_MAX_UPLOAD_SIZE,
@@ -166,6 +167,9 @@ export function resolveMaxUploadBodyBytes(
       }
     }
   }
+  for (const { fieldDef } of listActionFormFileFields(options.registry)) {
+    if (fieldDef.maxSize) maxBytes = Math.max(maxBytes, parseMaxSize(fieldDef.maxSize));
+  }
   return maxBytes + MULTIPART_OVERHEAD_MARGIN_BYTES;
 }
 
@@ -274,6 +278,27 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // store it in the text entityId column.
     const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
+    const actionForm = typeof body["actionForm"] === "string" ? body["actionForm"] : undefined;
+
+    // Ahead of the record check below, which would answer 404/403 for the entity half.
+    if (actionForm !== undefined && (entityType !== undefined || entityId !== undefined)) {
+      return c.json(
+        { error: "invalid_action_form: actionForm cannot be combined with entityType or entityId" },
+        400,
+      );
+    }
+
+    // Before any bytes are written, like the record check below. An unresolvable screen falls
+    // through to storeFileAsFileRef, which answers 400; a known one must be submittable by the
+    // caller. Anonymous callers cannot bind pending uploads, so they get no upload either.
+    if (
+      actionForm !== undefined &&
+      options.registry !== undefined &&
+      options.registry.getScreen(actionForm)?.type === "actionForm" &&
+      (isAnonymousSessionUser(user) || !mayUseActionForm(options.registry, actionForm, user))
+    ) {
+      return c.json({ error: "forbidden: no access to this form" }, 403);
+    }
 
     if (entityId !== undefined) {
       if (entityType === undefined) {
@@ -315,7 +340,15 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         },
         deleteBytes: (key) => storageProvider.delete(key),
       },
-      { fileName: file.name, declaredMimeType: file.type, data, entityType, entityId, fieldName },
+      {
+        fileName: file.name,
+        declaredMimeType: file.type,
+        data,
+        entityType,
+        entityId,
+        fieldName,
+        actionForm,
+      },
     );
     if (outcome.kind === "rejected") return c.json({ error: outcome.error }, 400);
     if (outcome.kind === "failed") return c.json({ error: "upload_failed" }, 500);

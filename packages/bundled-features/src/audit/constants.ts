@@ -17,6 +17,8 @@ export const SYSTEM_ACTOR_IDS: ReadonlySet<string> = new Set([
 export const AuditQueries = {
   list: "audit:query:list",
   details: "audit:query:details",
+  listAllTenants: "audit:query:list-all-tenants",
+  detailsAllTenants: "audit:query:details-all-tenants",
 } as const;
 
 /** Read scope of the audit queries: the caller's own tenant (default) or the system tenant (SystemAdmin only). */
@@ -29,6 +31,15 @@ export const AUDIT_LOG_SCREEN_ID = "audit-log" as const;
 
 /** Single-event detail screen, breadcrumb-linked to the audit-log list. */
 export const AUDIT_LOG_DETAIL_SCREEN_ID = "audit-log-detail" as const;
+
+/** SystemAdmin audit log across every tenant. Nav: `audit:nav:audit-log-all-tenants`. */
+export const AUDIT_LOG_ALL_TENANTS_SCREEN_ID = "audit-log-all-tenants" as const;
+
+/** Single-event detail screen of the all-tenants log. */
+export const AUDIT_LOG_ALL_TENANTS_DETAIL_SCREEN_ID = "audit-log-all-tenants-detail" as const;
+
+/** Nav entry of the all-tenants log (short id; QN `audit:nav:audit-log-all-tenants`). */
+export const AUDIT_LOG_ALL_TENANTS_NAV_ID = "audit-log-all-tenants" as const;
 
 /**
  * Config key (system scope) for how long `escapeHatchUse` audit events are kept. Only a fallback
