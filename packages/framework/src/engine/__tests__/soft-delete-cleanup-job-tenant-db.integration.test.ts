@@ -10,6 +10,7 @@ import {
 
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   createEntity,
@@ -54,6 +55,9 @@ const feature = defineFeature("sdcjob", (r) => {
   r.writeHandler(defineEntityCreateHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityDeleteHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
 });
+
+const ITEM_PROJECTION = "sdcjob:projection:item-entity";
+const GLOBAL_ITEM_PROJECTION = "sdcjob:projection:global-item-entity";
 
 let stack: TestStack;
 
@@ -117,6 +121,10 @@ describe("soft-delete cleanup job smoke run on a tenant-filtered JobContext.db (
     const foreign = await selectMany(stack.db, itemTable, { id: foreignId });
     expect(foreign).toHaveLength(1);
     expect(foreign[0]?.["isDeleted"]).toBe(true);
+
+    await rebuildProjection(ITEM_PROJECTION, { db: stack.db, registry: stack.registry });
+    expect(await selectMany(stack.db, itemTable, { id: ownId })).toHaveLength(0);
+    expect(await selectMany(stack.db, itemTable, { id: foreignId })).toHaveLength(1);
   });
 });
 
@@ -148,6 +156,10 @@ describe("soft-delete cleanup with a tenancy: global entity (fw#3529)", () => {
     await waitFor(async () => {
       expect(await selectMany(stack.db, globalItemTable, { id: expiredGlobalId })).toHaveLength(0);
     });
+    expect(await selectMany(stack.db, globalItemTable, { id: freshGlobalId })).toHaveLength(1);
+
+    await rebuildProjection(GLOBAL_ITEM_PROJECTION, { db: stack.db, registry: stack.registry });
+    expect(await selectMany(stack.db, globalItemTable, { id: expiredGlobalId })).toHaveLength(0);
     expect(await selectMany(stack.db, globalItemTable, { id: freshGlobalId })).toHaveLength(1);
   });
 });

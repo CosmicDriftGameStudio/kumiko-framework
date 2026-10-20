@@ -40,33 +40,35 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { seedReferenceData, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestDb, type TestDb, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
-import { categoryFeature, categoryTable } from "../feature";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import { categoryEntity, categoryFeature, categoryTable } from "../feature";
 
-let testDb: TestDb;
+let stack: TestStack;
 
 beforeAll(async () => {
-  testDb = await createTestDb();
-  await unsafePushTables(testDb.db, { categoryTable });
+  stack = await setupTestStack({ features: [categoryFeature] });
+  await unsafeCreateEntityTable(stack.db, categoryEntity, "category");
 });
 
 afterAll(async () => {
-  await testDb?.cleanup();
+  await stack?.cleanup();
 });
 
 type CategoryRow = { code: string; name: string; description: string | null };
 
 async function readCategories(): Promise<CategoryRow[]> {
-  const rows = await selectMany(testDb.db, categoryTable);
+  const rows = await selectMany(stack.db, categoryTable);
   return [...rows].sort((a: CategoryRow, b: CategoryRow) => a.code.localeCompare(b.code));
 }
 
 describe("reference data seeding", () => {
   test("inserts initial seed data", async () => {
-    const tables = new Map([["category", categoryTable]]);
-
-    // seedReferenceData(defs, tables, db)
-    await seedReferenceData(categoryFeature.referenceData, tables, testDb.db);
+    await seedReferenceData(categoryFeature.referenceData, stack.registry, stack.db);
 
     const rows = await readCategories();
     expect(rows).toHaveLength(4);
@@ -77,8 +79,6 @@ describe("reference data seeding", () => {
   });
 
   test("upsert updates existing rows without duplicating", async () => {
-    const tables = new Map([["category", categoryTable]]);
-
     // Modified seed data: changed name for "books", added new category
     const updatedDefs: ReferenceDataDef[] = [
       {
@@ -94,7 +94,7 @@ describe("reference data seeding", () => {
       },
     ];
 
-    await seedReferenceData(updatedDefs, tables, testDb.db);
+    await seedReferenceData(updatedDefs, stack.registry, stack.db);
 
     const rows = await readCategories();
     expect(rows).toHaveLength(5);
@@ -104,6 +104,15 @@ describe("reference data seeding", () => {
 
     const sports = rows.find((r: CategoryRow) => r.code === "sports");
     expect(sports?.name).toBe("Sports");
+
+    // Seeded rows are event-sourced: a projection rebuild keeps them.
+    await rebuildProjection("catalog:projection:category-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    const rebuilt = await readCategories();
+    expect(rebuilt).toHaveLength(5);
+    expect(rebuilt.find((r: CategoryRow) => r.code === "books")?.name).toBe("Books & Media");
   });
 });
 ```
@@ -114,7 +123,7 @@ describe("reference data seeding", () => {
 // Reference Data Sample
 // Shows: r.referenceData() for static seed data with upsert logic
 
-import { table, text } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const categoryEntity = createEntity({
@@ -126,12 +135,8 @@ export const categoryEntity = createEntity({
   },
 });
 
-// Drizzle table for direct DB queries in tests
-export const categoryTable = table("read_sample_categories", {
-  code: text("code").notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-});
+// Read-model table for direct DB queries in tests
+export const categoryTable = buildEntityTable("category", categoryEntity);
 
 export const categoryFeature = defineFeature("catalog", (r) => {
   r.entity({ name: "category", ...categoryEntity });

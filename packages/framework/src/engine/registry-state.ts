@@ -1,5 +1,6 @@
 import { applyEntityEvent } from "../db/apply-entity-event.ts";
 import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-table-meta.ts";
+import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { asEntityTableMeta } from "../db/query.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { type QnType, qualifyEntityName } from "./qualified-name.ts";
@@ -96,6 +97,7 @@ export function buildImplicitProjection(
     backingTable !== undefined
       ? resolveBackingTable(entityName, entity, backingTable)
       : buildEntityTable(entityName, entity);
+  markExecutorManagedTable(drizzleTable);
   // applyEntityEvent gibt ApplyResult zurück; SingleStreamApplyFn erwartet
   // Promise<void>. Im rebuild-Pfad ist die Row irrelevant — wir discarden.
   const handler = async (

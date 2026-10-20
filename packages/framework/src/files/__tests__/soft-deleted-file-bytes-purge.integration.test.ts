@@ -7,13 +7,21 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { selectMany } from "../../db/query.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
+import { createSystemUser, type EntityId } from "../../engine/index.ts";
 import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.ts";
 import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.ts";
-import { createFileContext, createFilesFeature, deriveKey, fileRefsTable } from "../index.ts";
+import {
+  createFileContext,
+  createFilesFeature,
+  deriveKey,
+  fileRefEntity,
+  fileRefsTable,
+} from "../index.ts";
 import { purgeExpiredFileRefsWithBytes } from "../purge-expired-file-ref-bytes.ts";
 import { FILE_REF_ENTITY_NAME } from "../types.ts";
 
@@ -179,8 +187,20 @@ describe("soft-delete cleanup of fileRef bytes", () => {
     const healthy = await uploadAndSoftDelete("behind-poison.png", 400);
     failDeleteForKeys = new Set(poison.map((file) => file.storageKey));
 
+    const purgeDb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
+    const executor = createEventStoreExecutor(fileRefProjectionTable(), fileRefEntity, {
+      entityName: FILE_REF_ENTITY_NAME,
+    });
     await purgeExpiredFileRefsWithBytes({
-      db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
+      db: purgeDb,
+      forgetRow: async (id) => {
+        const result = await executor.forget(
+          { id: id as EntityId },
+          createSystemUser(admin.tenantId),
+          purgeDb,
+        );
+        if (!result.isSuccess) throw new Error(result.error.message);
+      },
       table: fileRefProjectionTable(),
       where: { isDeleted: true, deletedAt: { lt: expiredBefore }, tenantId: admin.tenantId },
       expiredBefore,

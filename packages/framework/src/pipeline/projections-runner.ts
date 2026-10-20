@@ -1,4 +1,5 @@
 import type { DbRunner } from "../db/index.ts";
+import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { LifecycleResult, Registry } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
@@ -72,7 +73,7 @@ export async function runProjectionsForEvent(
   if (projectedEvents.has(event)) return;
   for (const proj of liveProjectionsForEvent(event, registry)) {
     const applyFn = proj.apply[event.type];
-    if (applyFn) await applyFn(event, tx, proj.table);
+    if (applyFn) await applyFn(event, withExecutorManagedWrites(tx), proj.table);
   }
   projectedEvents.add(event);
 }

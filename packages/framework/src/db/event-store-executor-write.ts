@@ -60,7 +60,7 @@ import {
 import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
 import { projectionRegistryOf } from "./projection-registry-binding.ts";
 import { runInSavepointIfSupported } from "./query.ts";
-import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.ts";
+import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
 import { tenantDbWriteRunner } from "./tenant-db-runner.ts";
 
 // The echoed event carries entity PII and must never reach a handler's JSON response, while
@@ -510,7 +510,7 @@ export function createWriteVerbs(
       // failed INSERT back; the error still propagates and stays catchable.
       let result: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
-        result = await runInSavepointIfSupported(runner, async (sp) =>
+        result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>
           applyEntityEvent(event, table, entity, sp),
         );
       } catch (e) {
@@ -787,7 +787,7 @@ export function createWriteVerbs(
         // failed nested one throws 500 instead of failing cleanly.
         let result: Awaited<ReturnType<typeof applyEntityEvent>>;
         try {
-          result = await runInSavepointIfSupported(runner, async (sp) =>
+          result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>
             applyEntityEvent(event, table, entity, sp),
           );
         } catch (e) {
@@ -943,8 +943,9 @@ export function createWriteVerbs(
       }
 
       // Live==Rebuild via applyEntityEvent. Savepoint like create/update.
-      const deleteResult = await runInSavepointIfSupported(runner, async (sp) =>
-        applyEntityEvent(event, table, entity, sp),
+      const deleteResult = await runInSavepointIfSupported(
+        withExecutorManagedWrites(runner),
+        async (sp) => applyEntityEvent(event, table, entity, sp),
       );
       if (deleteResult.kind !== "applied") {
         return writeFailure(
@@ -1057,8 +1058,9 @@ export function createWriteVerbs(
         throw e;
       }
 
-      const forgetResult = await runInSavepointIfSupported(runner, async (sp) =>
-        applyEntityEvent(event, table, entity, sp),
+      const forgetResult = await runInSavepointIfSupported(
+        withExecutorManagedWrites(runner),
+        async (sp) => applyEntityEvent(event, table, entity, sp),
       );
       if (forgetResult.kind !== "applied") {
         return writeFailure(
@@ -1157,8 +1159,9 @@ export function createWriteVerbs(
       // Soft-delete unique indexes are partial (WHERE is_deleted = false), so a live row may have re-taken the value this restore brings back.
       let restoreResult: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
-        restoreResult = await runInSavepointIfSupported(runner, async (sp) =>
-          applyEntityEvent(event, table, entity, sp),
+        restoreResult = await runInSavepointIfSupported(
+          withExecutorManagedWrites(runner),
+          async (sp) => applyEntityEvent(event, table, entity, sp),
         );
       } catch (e) {
         const mapped = tryMapUniqueViolation(e, entityName);

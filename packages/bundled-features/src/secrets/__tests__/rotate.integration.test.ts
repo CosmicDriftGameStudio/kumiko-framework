@@ -5,7 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -15,6 +15,7 @@ import {
   type MasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -106,7 +107,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Clean up the seeded fixtures so downstream suites don't see them.
-  await deleteMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
+  await deleteRows(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
   await stack.cleanup();
 });
 

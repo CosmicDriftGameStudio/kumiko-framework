@@ -97,7 +97,7 @@ Six integration tests pin everything at once:
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   append,
   loadAggregate as loadAggregateRaw,
@@ -107,6 +107,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { getAllProjectionProgress } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -270,7 +271,7 @@ describe("Event Sourcing Showcase", () => {
     // on disk today — the upcaster walks them to v2 on read.
     const invoiceId = "00000000-0000-4000-8000-00000000f001";
     await stack.db.begin(async (tx: DbTx) => {
-      await insertOne(tx, invoiceDetailTable, {
+      await seedRow(tx, invoiceDetailTable, {
         invoiceId,
         tenantId: admin.tenantId,
         customer: "Legacy Co",
@@ -388,7 +389,7 @@ describe("Event Sourcing Showcase", () => {
     // Seed only v1-shaped events directly to prove upcasting walks delta.
     const invoiceId = "00000000-0000-4000-8000-00000000f002";
     await stack.db.begin(async (tx: DbTx) => {
-      await insertOne(tx, invoiceDetailTable, {
+      await seedRow(tx, invoiceDetailTable, {
         invoiceId,
         tenantId: admin.tenantId,
         customer: "Upcast Co",
@@ -528,7 +529,7 @@ describe("Event Sourcing Showcase", () => {
 
   test("async upcaster: invoice-acknowledged v1 enriches via directory DB lookup at read time", async () => {
     // Seed the directory so the async upcaster can find a name.
-    await insertOne(stack.db, approverDirectoryTable, {
+    await seedRow(stack.db, approverDirectoryTable, {
       approverId: "u-42",
       displayName: "Quincy Acknowledger",
     });
@@ -539,7 +540,7 @@ describe("Event Sourcing Showcase", () => {
     // shape via the raw event-store.
     const invoiceId = "00000000-0000-4000-8000-00000000ac01";
     await stack.db.begin(async (tx: DbTx) => {
-      await insertOne(tx, invoiceDetailTable, {
+      await seedRow(tx, invoiceDetailTable, {
         invoiceId,
         tenantId: admin.tenantId,
         customer: "AckCo",

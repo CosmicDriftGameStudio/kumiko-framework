@@ -108,64 +108,6 @@ const FN_WRITE_HELPERS = new Map<string, "insert" | "update" | "delete">([
   ["deleteManyBatched", "delete"],
 ]);
 
-// Writes that are deliberately outside the event-store executor. Match on file + enclosing function + table so the exception cannot widen silently.
-type DirectWriteException = {
-  readonly file: RegExp;
-  readonly functionName: string;
-  readonly table: string;
-  readonly justification: string;
-};
-
-const DIRECT_WRITE_EXCEPTIONS: readonly DirectWriteException[] = [
-  {
-    file: /(^|\/)packages\/bundled-features\/src\/template-resolver\/seeding\.ts$/,
-    functionName: "resolveExistingForEventStoreSeed",
-    table: "templateResourcesTable",
-    justification: "Orphan projection row without events, no event-store verb possible",
-  },
-  {
-    file: /(^|\/)packages\/bundled-features\/src\/delivery\/attempt-log-retention\.ts$/,
-    functionName: "runAttemptLogRetention",
-    table: "deliveryAttemptsTable",
-    justification:
-      "Retention: pruneEvents removes the events first, so a rebuild cannot resurrect the rows",
-  },
-  {
-    file: /(^|\/)packages\/bundled-features\/src\/inbound-mail-foundation\/retention-sweep\.ts$/,
-    functionName: "purgeExpiredMessages",
-    table: "inboundMessagesProjectionTable",
-    justification:
-      "Retention: each stream is archived before its row is deleted, so a rebuild skips it",
-  },
-];
-
-// First named container: `function f`, `const f = () =>`, or `run: () =>` in an object literal.
-function enclosingFunctionName(node: Node): string | undefined {
-  for (const ancestor of node.getAncestors()) {
-    if (Node.isFunctionDeclaration(ancestor)) return ancestor.getName();
-    if (Node.isVariableDeclaration(ancestor) || Node.isPropertyAssignment(ancestor)) {
-      // `const rows = await deleteMany(...)` names a result, not the enclosing function.
-      const initializer = ancestor.getInitializer();
-      if (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer)) {
-        return ancestor.getName();
-      }
-    }
-  }
-  return undefined;
-}
-
-function isDirectWriteException(call: CallExpression, table: string): boolean {
-  const functionName = enclosingFunctionName(call);
-  if (functionName === undefined) return false;
-  const file = call.getSourceFile().getFilePath();
-  return DIRECT_WRITE_EXCEPTIONS.some(
-    (exception) =>
-      exception.file.test(file) &&
-      exception.functionName === functionName &&
-      exception.table === table,
-  );
-}
-
 // `table as EntityTableMeta`, `(table)`, `table!`, `<T>table`, `table satisfies T` all name the same table.
 export function unwrapTableExpression(node: Node): Node {
   let current = node;
@@ -755,7 +697,6 @@ export function scanDirectWrites(
     if (!esTables.has(did)) {
       if (!isExternalSourcePath(tableIdFilePath(did)) || !externalEsTables.has(did)) continue;
     }
-    if (isDirectWriteException(call, w.tableArg.getText())) continue;
 
     if (TX_RECEIVER_NAMES.has(receiverName)) {
       // A tx receiver is only legitimate when the write actually sits

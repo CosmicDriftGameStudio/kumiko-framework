@@ -1,5 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteRowsWithoutReplayableStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { type PruneEventsOptions, pruneEvents } from "@cosmicdrift/kumiko-framework/pipeline";
 import { deliveryAttemptsTable } from "./tables.ts";
 
@@ -30,11 +31,26 @@ export async function runAttemptLogRetention(
   options: AttemptLogRetentionOptions,
 ): Promise<{ readonly deletedEvents: number; readonly deletedRows: number }> {
   const pruned = await pruneEvents(db, { ...options, aggregateTypes: ["deliveryAttempt"] });
-  const rows = await deleteManyBatched(
-    db,
-    deliveryAttemptsTable,
-    { createdAt: { lt: pruned.cutoff } },
-    { limit: ROW_DELETE_BATCH_SIZE },
-  );
-  return { deletedEvents: pruned.deletedCount, deletedRows: rows.deleted };
+  let deletedRows = 0;
+  let afterId: string | undefined;
+  for (;;) {
+    const page = await selectMany<{ id: string }>(
+      db,
+      deliveryAttemptsTable,
+      {
+        createdAt: { lt: pruned.cutoff },
+        ...(afterId === undefined ? {} : { id: { gt: afterId } }),
+      },
+      { fields: ["id"], orderBy: { col: "id", direction: "asc" }, limit: ROW_DELETE_BATCH_SIZE },
+    );
+    if (page.length === 0) break;
+    const deleted = await deleteRowsWithoutReplayableStream(db, {
+      table: deliveryAttemptsTable,
+      ids: page.map((row) => row.id),
+    });
+    deletedRows += deleted.length;
+    if (page.length < ROW_DELETE_BATCH_SIZE) break;
+    afterId = page[page.length - 1]?.id;
+  }
+  return { deletedEvents: pruned.deletedCount, deletedRows };
 }

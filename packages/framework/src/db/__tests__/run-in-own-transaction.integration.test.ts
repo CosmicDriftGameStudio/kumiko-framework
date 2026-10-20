@@ -8,8 +8,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
 import { AccessDeniedError, InternalError } from "../../errors/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
-import type { TableColumns } from "../dialect.ts";
-import { buildEntityTable } from "../table-builder.ts";
+import { deriveEntityTableMeta } from "../entity-table-meta.ts";
 import {
   assertPersonalDataWrite,
   createTenantDb,
@@ -26,7 +25,7 @@ const entity = createEntity({
   softDelete: true,
 });
 
-const table: TableColumns = buildEntityTable("runInOwnTxItem", entity);
+const table = deriveEntityTableMeta("runInOwnTxItem", entity, { source: "unmanaged" });
 
 let testDb: TestDb;
 const tenant1 = TestUsers.admin; // tenantId: 1

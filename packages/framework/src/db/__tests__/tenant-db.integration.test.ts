@@ -9,8 +9,8 @@ import {
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { createBooleanField, createEntity, createTextField } from "../../engine/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
-import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect.ts";
-import { buildEntityTable } from "../table-builder.ts";
+import { table as pgTable, serial, text, timestamp } from "../dialect.ts";
+import { deriveEntityTableMeta } from "../entity-table-meta.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
@@ -25,11 +25,7 @@ const entity = createEntity({
   softDelete: true,
 });
 
-// The ES-write brand (#742) is a compile-time phantom — no runtime property. This
-// suite exercises TenantDb method-form scoping on a real entity table, so the handle
-// is held at the unbranded TableColumns view: identical runtime shape, and both reads
-// and method-form writes accept it (a branded EntityTable is now rejected).
-const table: TableColumns = buildEntityTable("tenantDbItem", entity);
+const table = deriveEntityTableMeta("tenantDbItem", entity, { source: "unmanaged" });
 
 // --- System table (no tenantId — like job_runs) ---
 

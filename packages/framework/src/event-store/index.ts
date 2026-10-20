@@ -10,6 +10,10 @@ export {
   type PiiBackfillScanCache,
 } from "../db/queries/backfill-pii.ts";
 export {
+  type DeleteRowsWithoutReplayableStreamArgs,
+  deleteRowsWithoutReplayableStream,
+} from "../db/queries/event-store-orphan-rows.ts";
+export {
   type ArchiveStreamArgs,
   archivedStreamsTable,
   archiveStream,

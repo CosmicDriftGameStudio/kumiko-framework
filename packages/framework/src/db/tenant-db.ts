@@ -45,6 +45,10 @@ import {
   type Tracer,
 } from "../observability/index.ts";
 import type { DbRunner } from "./connection.ts";
+import {
+  executorManagedWriteDenied,
+  registerExecutorManagedWriteRunner,
+} from "./executor-managed-tables.ts";
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
 import { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 import { queryDatabaseNow } from "./queries/database-now.ts";
@@ -83,8 +87,9 @@ function boundRunner(
   runner: DbRunner,
   gate: PersonalDataGate | undefined,
   projectionRegistry: Registry | undefined,
+  executorManagedWrites: boolean,
 ): DbRunner {
-  if (!gate && !projectionRegistry) return runner;
+  if (!gate && !projectionRegistry && !executorManagedWrites) return runner;
   const proxy = new Proxy(runner, {
     // Tagged-template calls need the real driver object as `this`.
     apply(target, _thisArg, args) {
@@ -97,7 +102,7 @@ function boundRunner(
         // Bun.SQL and postgres.js hand back a raw connection; re-wrap it so the gate survives.
         return async (...args: unknown[]) => {
           const reserved: DbRunner = await Reflect.apply(value, target, args);
-          return boundRunner(reserved, gate, projectionRegistry);
+          return boundRunner(reserved, gate, projectionRegistry, executorManagedWrites);
         };
       }
       if (
@@ -114,7 +119,10 @@ function boundRunner(
           }
           const gatedArgs = [
             ...args.slice(0, -1),
-            (tx: unknown) => callback(boundRunner(tx as DbRunner, gate, projectionRegistry)),
+            (tx: unknown) =>
+              callback(
+                boundRunner(tx as DbRunner, gate, projectionRegistry, executorManagedWrites),
+              ),
           ];
           return Reflect.apply(value, target, gatedArgs);
         };
@@ -124,7 +132,35 @@ function boundRunner(
   });
   if (gate) runnerPersonalDataGates.set(proxy, gate);
   if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
+  if (executorManagedWrites) {
+    registerExecutorManagedWriteRunner(proxy);
+    capableRunnerInners.set(proxy, runner);
+  }
   return proxy;
+}
+
+const capableRunnerInners = new WeakMap<DbRunner, DbRunner>();
+const capableRunnerByInner = new WeakMap<DbRunner, DbRunner>();
+
+// Framework-private (not re-exported from db/index.ts): the only way to obtain a runner that may
+// write executor-managed tables. Only the framework's own event-apply paths call it.
+export function withExecutorManagedWrites(runner: DbRunner): DbRunner {
+  if (capableRunnerInners.has(runner)) return runner;
+  const cached = capableRunnerByInner.get(runner);
+  if (cached) return cached;
+  const capable = boundRunner(
+    runner,
+    runnerPersonalDataGates.get(runner),
+    projectionRegistryOf(runner),
+    true,
+  );
+  capableRunnerByInner.set(runner, capable);
+  return capable;
+}
+
+// unsafeRaw must not hand out the executor-only write capability, even from a capable runner.
+export function withoutExecutorManagedWrites(runner: DbRunner): DbRunner {
+  return capableRunnerInners.get(runner) ?? runner;
 }
 
 // The executor passes its entity so the check does not depend on the table-name lookup.
@@ -235,8 +271,8 @@ function buildUncheckedSystemDb(
     }
     // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
     report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
-    const runner = tenantDbRunner(db);
-    return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db));
+    const runner = withoutExecutorManagedWrites(tenantDbRunner(db));
+    return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db), false);
   }
 
   const uncheckedSystemDb: UncheckedSystemDb = {
@@ -531,6 +567,11 @@ export function createTenantDb(options: CreateTenantDbOptions): TenantDb {
   return buildTenantDb(options);
 }
 
+// Tenant-destroy hooks purge their own tenant's event-fed rows; the pinned tenant is the only reach and unsafeRaw stays without the write capability.
+export function createTenantDataDestroyDb(options: Omit<CreateTenantDbOptions, "mode">): TenantDb {
+  return buildTenantDb({ ...options, db: withExecutorManagedWrites(options.db), mode: "tenant" });
+}
+
 // Untyped JS callers or an `as` cast can still hand in undefined; a scoped handle
 // without a tenant would bind `tenant_id = NULL` instead of failing loudly.
 function buildTenantDb(
@@ -641,16 +682,6 @@ function buildTenantDb(
     });
   }
 
-  // The ExecutorOnly brand is type-only; a type-erased table must still not reach the read model without an event.
-  function executorManagedWriteDenied(
-    table: Table | EntityTableMeta,
-  ): AccessDeniedError | undefined {
-    if (asEntityTableMeta(table)?.source === "unmanaged") return undefined;
-    return new AccessDeniedError({
-      message: `db.global(${tableNameOf(table)}): writes on executor-managed entity tables must go through the entity executor`,
-    });
-  }
-
   function writesDenied(operation: string): InternalError | undefined {
     const reason = grants?.writesDeniedReason;
     return reason === undefined ? undefined : tenantDbWritesDeniedError(operation, reason);
@@ -722,7 +753,7 @@ function buildTenantDb(
         const denied =
           writesDenied("ctx.db.global().insertOne") ??
           missingEscapeHatch(table) ??
-          executorManagedWriteDenied(table) ??
+          executorManagedWriteDenied(db, table, "db.global().insertOne") ??
           foreignTenantOnGlobalWrite(table, values["tenantId"]) ??
           personalDataDenied(table, Object.keys(values));
         if (denied) return Promise.reject(denied);
@@ -736,7 +767,7 @@ function buildTenantDb(
         const denied =
           writesDenied("ctx.db.global().updateMany") ??
           missingEscapeHatch(table) ??
-          executorManagedWriteDenied(table) ??
+          executorManagedWriteDenied(db, table, "db.global().updateMany") ??
           foreignTenantOnGlobalWrite(table, set["tenantId"]) ??
           personalDataDenied(table, Object.keys(set));
         if (denied) return Promise.reject(denied);
@@ -754,7 +785,7 @@ function buildTenantDb(
         const denied =
           writesDenied("ctx.db.global().deleteMany") ??
           missingEscapeHatch(table) ??
-          executorManagedWriteDenied(table);
+          executorManagedWriteDenied(db, table, "db.global().deleteMany");
         if (denied) return Promise.reject(denied);
         if (!where || Object.keys(where).length === 0) {
           return Promise.reject(
@@ -786,7 +817,12 @@ function buildTenantDb(
     }
     // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
     report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
-    return boundRunner(db, personalDataGate, projectionRegistry);
+    return boundRunner(
+      withoutExecutorManagedWrites(db),
+      personalDataGate,
+      projectionRegistry,
+      false,
+    );
   }
 
   const tenantDb: TenantDb = {
@@ -856,6 +892,8 @@ function buildTenantDb(
       }
       const personalDenied = personalDataDenied(table, Object.keys(values));
       if (personalDenied) return Promise.reject(personalDenied);
+      const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.insertOne");
+      if (managedDenied) return Promise.reject(managedDenied);
       const data = insertValues(table, values);
       return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, data));
     },
@@ -878,6 +916,8 @@ function buildTenantDb(
       if (globalDenied) return Promise.reject(globalDenied);
       const personalDenied = personalDataDenied(table, Object.keys(set));
       if (personalDenied) return Promise.reject(personalDenied);
+      const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.updateMany");
+      if (managedDenied) return Promise.reject(managedDenied);
       const filter = writeWhere(table, where);
       return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, filter));
     },
@@ -894,6 +934,8 @@ function buildTenantDb(
       }
       const globalDenied = tenantWriteOnGlobalTable(table, "deleteMany");
       if (globalDenied) return Promise.reject(globalDenied);
+      const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.deleteMany");
+      if (managedDenied) return Promise.reject(managedDenied);
       const filter = writeWhere(table, where);
       return withDbSpan("delete", table, async () => bunDeleteMany(db, table, filter));
     },

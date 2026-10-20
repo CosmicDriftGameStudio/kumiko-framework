@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertOne } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -46,7 +46,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   for (const attempt of attempts) {
-    await insertOne(stack.db, deliveryAttemptsTable, {
+    await seedRow(stack.db, deliveryAttemptsTable, {
       id: crypto.randomUUID(),
       tenantId: attempt.tenantId,
       notificationType: "metrics:test",

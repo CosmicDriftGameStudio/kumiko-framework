@@ -11,7 +11,7 @@
 //   - never-rebuilt projection has sensible default state
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
@@ -22,7 +22,7 @@ import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.ts";
-import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
@@ -165,7 +165,7 @@ describe("rebuildProjection — happy path", () => {
     await appendCreatedEvent(group, "b");
 
     // Seed the projection table with a stale/wrong value.
-    await insertOne(testDb.db, itemsPerGroupTable, {
+    await seedRow(testDb.db, itemsPerGroupTable, {
       groupId: group,
       tenantId: admin.tenantId,
       itemCount: 999,
@@ -691,7 +691,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     expect(await getCount(group)).toBe(1);
 
     const other = "00000000-0000-4000-8000-0000000000e2";
-    await insertOne(testDb.db, itemsPerGroupTable, {
+    await seedRow(testDb.db, itemsPerGroupTable, {
       groupId: other,
       tenantId: admin.tenantId,
       itemCount: 5,
@@ -815,7 +815,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
         `SELECT count(*)::int AS n FROM "read_rebuild_items_per_group"`,
       );
       // Separate pooled connection commits a row mid-transaction.
-      await insertOne(testDb.db, itemsPerGroupTable, {
+      await seedRow(testDb.db, itemsPerGroupTable, {
         groupId: group,
         tenantId: admin.tenantId,
         itemCount: 1,

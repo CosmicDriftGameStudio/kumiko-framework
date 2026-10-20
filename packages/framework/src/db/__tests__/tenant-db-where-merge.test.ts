@@ -4,7 +4,6 @@ import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import type { TableColumns } from "../dialect.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
-import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 // Tenant-isolation: a caller-supplied `where.tenantId` must NEVER override the
@@ -16,9 +15,7 @@ const entity = createEntity({
   table: "merge_items",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-// Brand (#742) is compile-time-only; hold the handle at the unbranded TableColumns
-// view so the method-form scoping test still compiles (runtime shape is identical).
-const table: TableColumns = buildEntityTable("mergeItem", entity);
+const table = deriveEntityTableMeta("mergeItem", entity, { source: "unmanaged" });
 
 const own = testTenantId(1);
 const foreign = testTenantId(2);

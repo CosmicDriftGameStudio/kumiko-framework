@@ -4,7 +4,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { SchemaTable } from "@cosmicdrift/kumiko-framework/db";
-import { asRawClient, entityTableFromRegistry, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  deriveEntityTableMeta,
+  entityTableFromRegistry,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import type {
   EntityId,
   HandlerContext,
@@ -26,6 +31,7 @@ import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
   resetTestTables,
+  seedRow,
   updateRows,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -77,6 +83,19 @@ const noteEntity = createEntity({
     read: { Admin: "all", User: from("user:id", "ownerId") },
     write: { Admin: "all", User: from("user:id", "ownerId") },
   },
+});
+
+// Unmanaged store: the runtime ES-write lock would deny a direct write on the
+// event-fed note table before the DB-level READ ONLY guard under test is reached.
+const guardNoteEntity = createEntity({
+  table: "store_qam_guard_notes",
+  fields: {
+    body: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
+  access: { read: { Admin: "all" }, write: { Admin: "all" } },
+});
+const guardNoteTable = deriveEntityTableMeta("guardNote", guardNoteEntity, {
+  source: "unmanaged",
 });
 
 // Needs stack.registry — assigned in beforeAll.
@@ -245,7 +264,11 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-db-write",
     schema: z.object({}),
     handler: async (query, ctx) => {
-      await ctx.db.updateMany(noteTable, { body: "tampered" }, { tenantId: query.user.tenantId });
+      await ctx.db.updateMany(
+        guardNoteTable,
+        { body: "tampered" },
+        { tenantId: query.user.tenantId },
+      );
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
@@ -518,6 +541,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, noteEntity);
+  await unsafeCreateEntityTable(stack.db, guardNoteEntity, "guardNote");
   noteTable = entityTableFromRegistry(stack.registry, "note", noteEntity);
   await unsafeCreateEntityTable(stack.db, hookNoteAEntity);
   await unsafeCreateEntityTable(stack.db, hookNoteBEntity);
@@ -633,6 +657,11 @@ async function readAsMemberViaQueryErr(
   payload: Record<string, unknown> = {},
 ) {
   return stack.http.queryErr(READ_AS_MEMBER_QUERY_QN, { userId, targetQn, payload }, admin);
+}
+
+async function readGuardBodies(): Promise<readonly string[]> {
+  const rows = await selectMany<{ body: string }>(stack.db, guardNoteTable);
+  return rows.map((row) => row.body);
 }
 
 async function readNoteBodies(): Promise<readonly string[]> {
@@ -1008,7 +1037,8 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
 
 describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)", () => {
   beforeEach(async () => {
-    await resetTestTables(stack.db, [noteTable]);
+    await resetTestTables(stack.db, [noteTable, guardNoteTable]);
+    await seedRow(stack.db, guardNoteTable, { tenantId: TENANT_A, body: "untouched" });
   });
 
   test("a) tries-db-write via a write-caller (savepoint path) is denied, notes unchanged", async () => {
@@ -1022,6 +1052,7 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1", "note-2"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("b) tries-db-write via a query-caller (pool path) is denied, notes unchanged", async () => {
@@ -1034,6 +1065,7 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("c1) tries-unsafe-raw-write via a write-caller (savepoint path) is denied, notes unchanged", async () => {
@@ -1095,6 +1127,7 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("e2) nested-db-write via a query-caller (pool path) → denied with member_resolution_read_only, notes unchanged", async () => {
@@ -1107,6 +1140,7 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
     expect(await readNoteBodies()).toEqual(["note-1"]);
+    expect(await readGuardBodies()).toEqual(["untouched"]);
   });
 
   test("f) note:list via a query-caller (pool path) returns only the resolved member's own rows", async () => {

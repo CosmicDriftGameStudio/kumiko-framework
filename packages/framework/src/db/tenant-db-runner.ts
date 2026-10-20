@@ -1,8 +1,17 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { InternalError } from "../errors/index.ts";
 import type { DbRunner } from "./connection.ts";
 
-const tenantDbRunners = new WeakMap<TenantDb, DbRunner>();
+const tenantDbRunners = new WeakMap<object, DbRunner>();
+
+export function isBoundTenantDb(value: unknown): value is TenantDb {
+  return typeof value === "object" && value !== null && tenantDbRunners.has(value);
+}
+
+export function isDbRunner(value: unknown): value is DbRunner {
+  return typeof propertyOf(value, "unsafe") === "function";
+}
 
 export function bindTenantDbRunner(tenantDb: TenantDb, runner: DbRunner): void {
   tenantDbRunners.set(tenantDb, runner);

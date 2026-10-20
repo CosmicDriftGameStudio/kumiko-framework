@@ -5,19 +5,21 @@
 // true buys an entity restore + trash (ctx.includeDeleted) + this cleanup, with
 // no feature to wire.
 //
-// Hard-deleting the projection row leaves the event stream intact (source of
-// truth) — a full projection rebuild would replay created+deleted and
-// resurrect the row as isDeleted=true. That's acceptable: cleanup bounds LIVE
-// table growth; irreversible event-log purging is data-retention's job
-// (pruneEvents), a separate, consumer-lag-guarded path.
+// Each expired row is purged through the executor's forget verb: the `<entity>.forgotten`
+// event replays on a projection rebuild, so the purged row stays gone. The earlier events stay
+// in the log; irreversible event-log purging is data-retention's job (pruneEvents), a separate,
+// consumer-lag-guarded path.
 
-import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.ts";
+import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
+import { asEntityTableMeta, selectMany, type WhereObject } from "../db/query.ts";
 import { hasFieldProperty } from "../db/table-introspection.ts";
+import { reraiseAsKumikoError } from "../errors/index.ts";
 import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.ts";
 import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
-import { SYSTEM_USER_ID } from "./system-user.ts";
+import { createSystemUser, SYSTEM_USER_ID } from "./system-user.ts";
 import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.ts";
-import type { EntityDefinition } from "./types/index.ts";
+import { SYSTEM_TENANT_ID } from "./types/identifiers.ts";
+import type { EntityDefinition, SessionUser } from "./types/index.ts";
 
 // qualifyEntityName convention (feature:type:kebab-name) with a reserved
 // "soft-delete" owner — no real feature owns these; the framework synthesizes
@@ -58,6 +60,21 @@ function isGlobalTenancyTable(table: unknown): boolean {
   return asEntityTableMeta(table)?.tenancy === "global";
 }
 
+async function resolveGraceDays(
+  ctx: Pick<JobContext, "configResolver">,
+  tenantId: string,
+  db: NonNullable<JobContext["db"]>,
+): Promise<number> {
+  const resolved = await ctx.configResolver?.get(
+    SOFT_DELETE_GRACE_DAYS_KEY,
+    softDeleteGraceDaysConfig,
+    tenantId,
+    SYSTEM_USER_ID,
+    db,
+  );
+  return typeof resolved === "number" && resolved >= 1 ? resolved : DEFAULT_GRACE_DAYS;
+}
+
 export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
   const { db, registry } = ctx;
   if (!db || !registry) {
@@ -74,16 +91,7 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     return;
   }
 
-  const resolved = ctx.configResolver
-    ? await ctx.configResolver.get(
-        SOFT_DELETE_GRACE_DAYS_KEY,
-        softDeleteGraceDaysConfig,
-        tenantId,
-        SYSTEM_USER_ID,
-        db,
-      )
-    : undefined;
-  const graceDays = typeof resolved === "number" && resolved >= 1 ? resolved : DEFAULT_GRACE_DAYS;
+  const graceDays = await resolveGraceDays(ctx, tenantId, db);
   const cutoff = Temporal.Now.instant().subtract({ hours: graceDays * 24 });
 
   for (const proj of registry.getAllProjections().values()) {
@@ -97,32 +105,87 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     // these separately, once, with a fixed grace period.
     if (isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff }, tenantId };
-    await purgeExpiredRows(db, proj.source, proj.table, where, cutoff, ctx);
+    const executor = createEventStoreExecutor(proj.table, entity, { entityName: proj.source });
+    await purgeExpiredRows(
+      { db, executor, user: ctx.systemUser ?? createSystemUser(tenantId) },
+      proj.source,
+      proj.table,
+      where,
+      cutoff,
+      ctx,
+    );
   }
 };
 
 type JobContext = Parameters<JobHandlerFn>[1];
+type PurgeTable = Parameters<typeof selectMany>[1];
+type PurgeWriter = {
+  readonly db: NonNullable<JobContext["db"]>;
+  readonly executor: EventStoreExecutor;
+  readonly user: SessionUser;
+};
+
+const PURGE_PAGE_SIZE = 500;
+
+async function forgetRow(writer: PurgeWriter, id: string): Promise<void> {
+  // ponytail: one append per expired row, batch when purge volume needs it
+  const result = await writer.executor.forget({ id }, writer.user, writer.db);
+  if (!result.isSuccess) throw reraiseAsKumikoError(result.error);
+}
 
 async function purgeExpiredRows(
-  db: NonNullable<JobContext["db"]>,
+  writer: PurgeWriter,
   source: string,
-  table: Parameters<typeof deleteMany>[1],
+  table: PurgeTable,
   where: WhereObject,
   cutoff: Temporal.Instant,
   ctx: Pick<JobContext, "files" | "log">,
+  readDb: unknown = writer.db,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
     // The row is the only record of the storageKey, so its bytes go first.
-    await purgeExpiredFileRefsWithBytes({
-      db,
+    return await purgeExpiredFileRefsWithBytes({
+      db: writer.db,
       table,
       where,
       expiredBefore: cutoff,
       files: ctx.files,
       log: ctx.log,
+      forgetRow: (id) => forgetRow(writer, id),
     });
-  } else {
-    await deleteMany(db, table, where);
+  }
+  await forgetExpiredPages(writer, source, table, where, ctx, readDb);
+}
+
+// Keyset on id: a row whose forget fails is logged and skipped, it must not hide the rows behind it.
+async function forgetExpiredPages(
+  writer: PurgeWriter,
+  source: string,
+  table: PurgeTable,
+  where: WhereObject,
+  ctx: Pick<JobContext, "log">,
+  readDb: unknown,
+): Promise<void> {
+  let afterId: string | undefined;
+  for (;;) {
+    const page = await selectMany<{ id: string }>(
+      readDb,
+      table,
+      { ...where, ...(afterId === undefined ? {} : { id: { gt: afterId } }) },
+      { orderBy: { col: "id", direction: "asc" }, limit: PURGE_PAGE_SIZE },
+    );
+    const last = page[page.length - 1];
+    if (last === undefined) break;
+    for (const row of page) {
+      try {
+        await forgetRow(writer, row.id);
+      } catch (err) {
+        ctx.log?.warn(
+          `[soft-delete-cleanup] ${source} ${row.id} not purged: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    afterId = last.id;
   }
 }
 
@@ -145,12 +208,21 @@ export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) =>
     if (!entity?.softDelete) continue;
     if (!isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff } };
-    if (isGlobalTenancyTable(proj.table)) {
-      // db.global() rejects writes on executor-managed tables; a retention purge has no event to append.
-      await deleteMany(db.unsafeRaw(), proj.table, where);
-    } else {
-      await deleteMany(db, proj.table, where);
-    }
+    const writer: PurgeWriter = {
+      db,
+      executor: createEventStoreExecutor(proj.table, entity, { entityName: proj.source }),
+      user: ctx.systemUser ?? createSystemUser(SYSTEM_TENANT_ID),
+    };
+    // A global-tenancy table is invisible to a tenant-mode ctx.db, so its candidates are read unscoped.
+    await purgeExpiredRows(
+      writer,
+      proj.source,
+      proj.table,
+      where,
+      cutoff,
+      ctx,
+      isGlobalTenancyTable(proj.table) ? db.unsafeRaw() : db,
+    );
   }
 };
 

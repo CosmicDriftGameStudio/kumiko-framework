@@ -195,7 +195,10 @@ produces code that compiles and then fails in production.
 - Never `INSERT`, `UPDATE` or `DELETE` on an entity table or the events
   table, and never call a raw database client for it. Write through a
   handler: `r.crud`, the `defineEntity*Handler` helpers, the executor from
-  `createEntityExecutor`, or `emitEvent` / `ctx.appendEvent`.
+  `createEntityExecutor`, or `emitEvent` / `ctx.appendEvent`. The query
+  helpers and `ctx.db` throw `AccessDeniedError` on such a write, also
+  through `ctx.db.unsafeRaw()`. Test seeds use `seedRow` / `deleteRows` from
+  `@cosmicdrift/kumiko-testing`.
 - Never store a value that can be computed. Derive it in a query or a
   projection.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.

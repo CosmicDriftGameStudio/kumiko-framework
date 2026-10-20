@@ -222,6 +222,7 @@ export type {
 export {
   castTenantRows,
   createSystemDbView,
+  createTenantDataDestroyDb,
   createTenantDb,
   hasOutsideTransactionDb,
   requireOutsideTransactionDb,

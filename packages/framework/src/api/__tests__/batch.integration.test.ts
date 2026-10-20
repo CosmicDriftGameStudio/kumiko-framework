@@ -6,7 +6,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { TableColumns } from "../../db/dialect.ts";
+import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
@@ -43,9 +43,7 @@ const auditEntity = createEntity({
     itemId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-// Brand (#742) is compile-time-only; the postSave hook writes this sink via method-form,
-// so hold it at the unbranded TableColumns view (identical runtime shape).
-const auditTable: TableColumns = buildEntityTable("audit", auditEntity);
+const auditTable = deriveEntityTableMeta("audit", auditEntity, { source: "unmanaged" });
 
 // Hook invocation logs — reset per test. Captures which phase each hook saw.
 const inTxHookLog: Array<{ id: EntityId; name: string }> = [];

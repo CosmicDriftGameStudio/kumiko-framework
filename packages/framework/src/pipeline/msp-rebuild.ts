@@ -16,6 +16,7 @@ import {
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
+import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.ts";
@@ -212,6 +213,7 @@ export async function rebuildMultiStreamProjection(
         );
 
         const upcasters = registry.getEventUpcasters();
+        const applyTx = withExecutorManagedWrites(tx);
         for (const row of events) {
           deps.signal?.throwIfAborted();
           const raw: StoredEvent = {
@@ -240,7 +242,7 @@ export async function rebuildMultiStreamProjection(
             // reject the whole begin() even after a caught error. Apply +
             // ctx run on the savepoint-scoped handle.
             try {
-              await runInSavepoint(tx, async (sp) => {
+              await runInSavepoint(applyTx, async (sp) => {
                 const rebuildCtx = createRebuildCtx(registry, sp as DbRunner, row.tenantId);
                 await applyFn(storedEvent, sp as DbRunner, rebuildCtx);
               });
@@ -248,8 +250,8 @@ export async function rebuildMultiStreamProjection(
               skipped.push({ event: storedEvent, error: e });
             }
           } else {
-            const rebuildCtx = createRebuildCtx(registry, tx, row.tenantId);
-            await applyFn(storedEvent, tx, rebuildCtx);
+            const rebuildCtx = createRebuildCtx(registry, applyTx, row.tenantId);
+            await applyFn(storedEvent, applyTx, rebuildCtx);
           }
           eventsProcessed++;
           lastProcessedEventId = row.id;

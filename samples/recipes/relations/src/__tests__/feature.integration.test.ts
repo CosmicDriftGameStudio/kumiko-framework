@@ -2,6 +2,7 @@
 // Proves: hasMany relations, cascade delete, restrict delete
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -142,7 +143,7 @@ describe("cascade: deleting member removes tasks", () => {
         entityName: "member",
         event: createTestStoredEvent(),
       },
-      { db: stack.db },
+      { db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }) },
     );
 
     // Tasks should be gone

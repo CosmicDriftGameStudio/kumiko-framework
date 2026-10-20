@@ -24,14 +24,12 @@
 // erst bei tenant-destroy (Key-Erase). Read-Row + Body-File sind nach dem
 // Sweep weg; das Event-Log ist append-only by design.
 
-import {
-  type DbRunner,
-  deleteMany,
-  type EntityTableMeta,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  archiveStream,
+  deleteRowsWithoutReplayableStream,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
@@ -136,10 +134,12 @@ async function purgeExpiredMessages(
       ids.push(row.id);
     }
     if (ids.length > 0) {
-      await deleteMany(args.db, inboundMessagesProjectionTable as EntityTableMeta, {
-        id: { in: ids },
+      const deleted = await deleteRowsWithoutReplayableStream(args.db, {
+        table: inboundMessagesProjectionTable,
+        ids,
+        tenantId: args.tenantId,
       });
-      messagesPurged += ids.length;
+      messagesPurged += deleted.length;
     }
 
     if (rows.length < BATCH_LIMIT) break;

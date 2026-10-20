@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
+import { rolesOf, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -78,7 +77,7 @@ describe("delivery log tenant isolation", () => {
   test("TenantAdmin only sees their own tenant's delivery attempts", async () => {
     const tenantA = testTenantId(1); // createTestUser default tenant
     const tenantB = testTenantId(2);
-    await insertMany(stack.db, deliveryAttemptsTable, [
+    await seedRows(stack.db, deliveryAttemptsTable, [
       {
         id: crypto.randomUUID(),
         tenantId: tenantA,
@@ -124,7 +123,7 @@ describe("delivery log SystemAdmin cross-tenant scope", () => {
     const otherTenantId = crypto.randomUUID();
     const failedConfirmationId = crypto.randomUUID();
 
-    await insertMany(stack.db, deliveryAttemptsTable, [
+    await seedRows(stack.db, deliveryAttemptsTable, [
       {
         id: systemConfirmationId,
         tenantId: SYSTEM_TENANT_ID,
@@ -208,7 +207,7 @@ describe("delivery log SystemAdmin cross-tenant scope", () => {
       recipientAddress: null,
       status: "sent",
     }));
-    await insertMany(stack.db, deliveryAttemptsTable, seededRows);
+    await seedRows(stack.db, deliveryAttemptsTable, seededRows);
 
     const systemAdmin = createTestUser({
       id: 52,
@@ -248,7 +247,7 @@ describe("delivery log SystemAdmin cross-tenant scope", () => {
     const systemScopedId = crypto.randomUUID();
     const otherTenantRowId = crypto.randomUUID();
 
-    await insertMany(stack.db, deliveryAttemptsTable, [
+    await seedRows(stack.db, deliveryAttemptsTable, [
       {
         id: systemScopedId,
         tenantId: SYSTEM_TENANT_ID,
@@ -288,7 +287,7 @@ describe("delivery log SystemAdmin cross-tenant scope", () => {
   test("TenantAdmin cannot read SYSTEM_TENANT_ID or foreign-tenant delivery attempts", async () => {
     const demoTenant = testTenantId(61);
     const otherTenant = testTenantId(62);
-    await insertMany(stack.db, deliveryAttemptsTable, [
+    await seedRows(stack.db, deliveryAttemptsTable, [
       {
         id: crypto.randomUUID(),
         tenantId: SYSTEM_TENANT_ID,

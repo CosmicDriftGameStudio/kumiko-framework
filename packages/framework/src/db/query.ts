@@ -40,6 +40,7 @@ import { createFallbackLogger } from "../logging/index.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import { SQL_EXPR_BRAND } from "./dialect.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
+import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
 import { type NotExecutorOnly, toSnakeCase } from "./table-builder.ts";
 import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
@@ -287,15 +288,10 @@ function isWhereOperator(v: unknown): v is WhereOperator {
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;
 
-// Write param: everything TableLike accepts EXCEPT a branded
-// EntityTable (managed projection). A direct write to an Entity is a
-// compile error — the only write path is the executor (event ->
-// rebuild-safe). Unmanaged EntityTableMeta plus the table erased to
-// TableColumns<any> at the executor seam don't carry the brand -> allowed.
-// Test seeds go through the sanctioned testing seam (seedRow/…), which
-// strips the brand.
-// Method-form writes (ctx.db.insertOne/…) keep an erased param and are covered
-// by the guard-direct-entity-writes AST guard instead (see tenant-db.ts).
+// Write param: everything TableLike accepts EXCEPT a branded EntityTable (managed projection), so a
+// direct write is a compile error. The brand is type-only and erased at the executor seam, so the
+// helpers below also check the runtime mark (executor-managed-tables.ts): a marked table needs a
+// runner that carries the framework-issued write capability. Unmanaged tables are unmarked and stay open.
 type WritableTable = EntityTableMeta & NotExecutorOnly;
 
 export type TableInfo = {
@@ -1231,6 +1227,8 @@ export async function insertMany<TRow = any>(
 ): Promise<readonly TRow[]> {
   if (rows.length === 0) return [];
   assertNotTenantScoped(db, "insertMany");
+  const managedDenied = executorManagedWriteDenied(db, table, "insertMany");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   // Use the column-set from the first row; assume all rows share keys.
   const firstRow = rows[0];
@@ -1274,6 +1272,8 @@ export async function insertOne<TRow = any>(
   if (scoped) {
     return scoped.insertOne<TRow>(table, values);
   }
+  const managedDenied = executorManagedWriteDenied(db, table, "insertOne");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const entries = Object.entries(values)
     .filter(([k]) => info.hasColumn(k))
@@ -1313,6 +1313,8 @@ export async function updateMany<TRow = any>(
   if (scoped) {
     return scoped.updateMany<TRow>(table, set, where);
   }
+  const managedDenied = executorManagedWriteDenied(db, table, "updateMany");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const setEntries = Object.entries(set).map(([k, v]) => {
     const col = info.columnOf(k);
@@ -1354,6 +1356,8 @@ export async function deleteMany(
   if (scoped) {
     return scoped.deleteMany(table, where);
   }
+  const managedDenied = executorManagedWriteDenied(db, table, "deleteMany");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
@@ -1589,6 +1593,8 @@ export async function upsertOnConflict<TRow = any>(
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined> {
   assertNotTenantScoped(db, "upsertOnConflict");
+  const managedDenied = executorManagedWriteDenied(db, table, "upsertOnConflict");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
@@ -1638,6 +1644,8 @@ export async function upsertByPk<TRow = any>(
   values: Record<string, unknown>,
   updateOnConflict?: Record<string, unknown>,
 ): Promise<TRow | undefined> {
+  const managedDenied = executorManagedWriteDenied(db, table, "upsertByPk");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const conflictKeys = resolveConflictColumns(table, info, undefined);
   const fieldKeys = conflictKeys.map((col) => info.fieldOf(col));
@@ -1657,6 +1665,8 @@ export async function insertOnConflictDoNothing<TRow = any>(
   options?: InsertOnConflictDoNothingOptions,
 ): Promise<TRow | undefined> {
   assertNotTenantScoped(db, "insertOnConflictDoNothing");
+  const managedDenied = executorManagedWriteDenied(db, table, "insertOnConflictDoNothing");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options?.conflictKeys);
@@ -1687,6 +1697,8 @@ export async function incrementCounter<TRow = any>(
   options: IncrementCounterOptions = {},
 ): Promise<TRow | undefined> {
   assertNotTenantScoped(db, "incrementCounter");
+  const managedDenied = executorManagedWriteDenied(db, table, "incrementCounter");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const entries = insertEntries(info, values);
   const conflictCols = resolveConflictColumns(table, info, options.conflictKeys);
@@ -1744,6 +1756,8 @@ export async function deleteManyBatched(
   where: WhereObject,
   options: DeleteManyBatchedOptions,
 ): Promise<DeleteManyBatchedResult> {
+  const managedDenied = executorManagedWriteDenied(db, table, "deleteManyBatched");
+  if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
   const w = buildWhereClause(info, where, 1);
   if (!w.sqlText) {

@@ -7,7 +7,6 @@ import {
   createEventStoreExecutor,
   createSystemDbView,
   createTenantDb,
-  deleteMany,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -27,6 +26,7 @@ import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/j
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
+  deleteRows,
   expectSuccess,
   resetBlindIndexKeyForTests,
   waitFor,
@@ -1555,7 +1555,7 @@ describe("flow 13: tenant kill switch", () => {
 describe("flow 14: wildcard-only preference conflicts resolve deterministically", () => {
   test("conflicting wildcards (type=*, false vs channel=*, true) → disabled wins", async () => {
     // Clean slate for user2 on this type/channel
-    await deleteMany(db, notificationPreferencesTable, { userId: user2.id });
+    await deleteRows(db, notificationPreferencesTable, { userId: user2.id });
 
     // Wildcard A: disable inApp globally
     await stack.http.writeOk(
@@ -1623,7 +1623,7 @@ describe("flow 14: wildcard-only preference conflicts resolve deterministically"
     expect(inAppEvents.filter((e) => e.data["userId"] === user2.id)).toHaveLength(1);
 
     // Clean up for later tests
-    await deleteMany(db, notificationPreferencesTable, { userId: user2.id });
+    await deleteRows(db, notificationPreferencesTable, { userId: user2.id });
   });
 });
 
