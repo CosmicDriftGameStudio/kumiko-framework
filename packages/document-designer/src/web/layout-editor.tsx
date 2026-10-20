@@ -1,9 +1,8 @@
-// @runtime client
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useNav, useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
 import { ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
-import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
+import { DEFAULT_LAYOUT_SLUG } from "./constants.ts";
 import { LayoutEditorBody } from "./layout-editor-body.tsx";
 import type { LayoutKind, LayoutSourceView, TenantOverrideCounts } from "./layout-types.ts";
 import { layoutUserKind } from "./layout-users.ts";

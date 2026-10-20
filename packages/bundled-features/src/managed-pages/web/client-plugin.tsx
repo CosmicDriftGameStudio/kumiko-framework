@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Feature-Factory für managed-pages. Bringt NUR die Übersetzungen mit —
 // die Screens (page-list/page-edit/branding-settings) sind schema-driven
 // (entityList/entityEdit/configEdit), also keine custom-React-Components zu
@@ -7,7 +6,7 @@
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { defaultTranslations } from "./i18n.ts";
+import { defaultTranslations } from "./default-translations.ts";
 
 export type ManagedPagesClientOptions = {
   /** Key-wise Overrides über die Default-Bundles (de/en). */

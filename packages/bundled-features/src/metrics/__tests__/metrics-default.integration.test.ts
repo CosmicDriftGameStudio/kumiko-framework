@@ -11,10 +11,10 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createDeliveryFeature } from "../../delivery/feature.ts";
 import { deliveryAttemptsTable } from "../../delivery/tables.ts";
 import { createTenantFeature, tenantEntity } from "../../tenant/index.ts";
-import { metricQueryName } from "../constants.ts";
 import { deliveriesByChannelMetric, failedDeliveriesMetric } from "../default-metrics.ts";
 import { createMetricsFeature, createSystemMetricsFeature } from "../feature.ts";
 import type { MetricResult } from "../types.ts";
+import { metricQueryName } from "../web/constants.ts";
 import { fixedClock, TENANT_A, TENANT_B } from "./metrics-fixtures.ts";
 
 type Attempt = { tenantId: string; channel: string; status: string; createdAt: string };

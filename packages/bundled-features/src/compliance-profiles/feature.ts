@@ -4,11 +4,6 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME,
-  COMPLIANCE_PROFILE_SCREEN_ID,
-  ComplianceProfileHandlers,
-} from "./constants.ts";
 import { forTenantQuery } from "./handlers/for-tenant.query.ts";
 import { listProfilesQuery } from "./handlers/list-profiles.query.ts";
 import { createNeedsProfileQuery } from "./handlers/needs-profile.query.ts";
@@ -16,6 +11,11 @@ import { setProfileWrite } from "./handlers/set-profile.write.ts";
 import { subProcessorsQuery } from "./handlers/sub-processors.query.ts";
 import { COMPLIANCE_PROFILES_I18N } from "./i18n.ts";
 import { tenantComplianceProfileEntity } from "./schema/profile-selection.ts";
+import {
+  COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME,
+  COMPLIANCE_PROFILE_SCREEN_ID,
+  ComplianceProfileHandlers,
+} from "./web/constants.ts";
 
 export {
   tenantComplianceProfileEntity,

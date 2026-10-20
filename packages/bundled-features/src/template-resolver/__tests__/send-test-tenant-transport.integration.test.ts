@@ -12,10 +12,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createMailFoundationFeature } from "../../mail-foundation/feature.ts";
@@ -32,9 +32,9 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 
 const LOCALE = "en";
 const TENANT_ROUTED_SLUG = "status-mailer:notify:incident";

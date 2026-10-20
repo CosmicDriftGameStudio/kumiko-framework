@@ -12,37 +12,10 @@ export {
   resolveProviderPlugin,
 } from "./checkout-core.ts";
 export {
-  BILLING_FOUNDATION_FEATURE,
-  BILLING_PLANS_PANEL_COMPONENT,
-  BILLING_PLANS_SCREEN_ID,
-  type BillingEventKind,
-  BillingEventKinds,
-  type BillingPlanAction,
-  BillingPlanActions,
-  DEFAULT_PURCHASE_ROLES,
-  isSwitchableSubscriptionStatus,
-  isTerminalSubscriptionStatus,
-  parseProviderConsentId,
-  SUBSCRIPTION_PROVIDER_EXTENSION,
-  type SubscriptionCancelTiming,
-  SubscriptionCancelTimings,
-  type SubscriptionEventType,
-  SubscriptionEventTypes,
-  SubscriptionFoundationHandlers,
-  SubscriptionFoundationQueries,
-  type SubscriptionStatus,
-  SubscriptionStatuses,
-} from "./constants.ts";
-export {
   type ConsentPayload,
   consentPayloadSchema,
   type OrderItem,
 } from "./consumer-protection/consent-gate.ts";
-export {
-  CONSENT_LOCALES,
-  type ConsentLocale,
-  resolveConsentLocale,
-} from "./consumer-protection/consent-locale.ts";
 export {
   type ContractTerminationRoutesOptions,
   createContractTerminationRoutes,
@@ -99,6 +72,33 @@ export {
   type SubscriptionEvent,
   type SubscriptionProviderPlugin,
 } from "./types.ts";
+export {
+  BILLING_FOUNDATION_FEATURE,
+  BILLING_PLANS_PANEL_COMPONENT,
+  BILLING_PLANS_SCREEN_ID,
+  type BillingEventKind,
+  BillingEventKinds,
+  type BillingPlanAction,
+  BillingPlanActions,
+  DEFAULT_PURCHASE_ROLES,
+  isSwitchableSubscriptionStatus,
+  isTerminalSubscriptionStatus,
+  parseProviderConsentId,
+  SUBSCRIPTION_PROVIDER_EXTENSION,
+  type SubscriptionCancelTiming,
+  SubscriptionCancelTimings,
+  type SubscriptionEventType,
+  SubscriptionEventTypes,
+  SubscriptionFoundationHandlers,
+  SubscriptionFoundationQueries,
+  type SubscriptionStatus,
+  SubscriptionStatuses,
+} from "./web/constants.ts";
+export {
+  CONSENT_LOCALES,
+  type ConsentLocale,
+  resolveConsentLocale,
+} from "./web/consumer-protection/consent-locale.ts";
 export {
   createSubscriptionWebhookRoute,
   type SubscriptionWebhookRouteOptions,

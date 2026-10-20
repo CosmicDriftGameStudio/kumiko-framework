@@ -1,6 +1,5 @@
 import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_LEDGER_ACCESS } from "../constants.ts";
 import { accountTable, transactionTable } from "../executor.ts";
 import {
   accountBalances,
@@ -11,6 +10,7 @@ import {
   toAccounts,
   toEntries,
 } from "../reports.ts";
+import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
 // Reports take an optional reporting period. Balance-sheet is cumulative → pass
 // { to: asOf }; income-statement is a period → { from, to }.

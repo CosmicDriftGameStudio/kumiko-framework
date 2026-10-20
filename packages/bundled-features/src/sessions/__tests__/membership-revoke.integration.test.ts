@@ -20,16 +20,16 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { TenantHandlers, TenantQueries } from "../../tenant/constants.ts";
 import { collectAssignableAppRoles, createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { TenantHandlers, TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";

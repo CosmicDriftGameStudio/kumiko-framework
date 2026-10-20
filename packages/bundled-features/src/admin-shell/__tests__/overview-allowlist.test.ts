@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { CapOverviewQueries } from "../../cap-overview/constants.ts";
-import { JobQueries } from "../../jobs/constants.ts";
+import { CapOverviewQueries } from "../../cap-overview/web/constants.ts";
+import { JobQueries } from "../../jobs/web/constants.ts";
 import { DEFAULT_METRICS, metricQueryName } from "../../metrics/index.ts";
-import { TenantQueries } from "../../tenant/constants.ts";
-import { UserQueries } from "../../user/constants.ts";
-import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.ts";
+import { TenantQueries } from "../../tenant/web/constants.ts";
+import { UserQueries } from "../../user/web/constants.ts";
 import { createAdminShellFeature } from "../feature.ts";
 import {
   isOverviewQueryAllowed,
@@ -12,6 +11,7 @@ import {
   TENANT_OVERVIEW_ALLOWED_QUERIES,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
 } from "../overview-allowlist.ts";
+import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../web/constants.ts";
 
 // Every screen dispatches only the queries baked into its own panel
 // definitions (no client-side allowlist gate anymore, fw#2312) — the

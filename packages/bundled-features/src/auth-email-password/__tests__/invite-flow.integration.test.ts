@@ -56,10 +56,10 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthErrors, AuthHandlers, AuthQueries } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { storeInviteToken } from "../invite-token-store.ts";
 import { seedUser } from "../seeding.ts";
+import { AuthErrors, AuthHandlers, AuthQueries } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

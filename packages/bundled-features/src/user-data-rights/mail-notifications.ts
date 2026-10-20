@@ -14,7 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { mailParagraph } from "../shared/index.ts";
-import { USER_DATA_RIGHTS_FEATURE } from "./constants.ts";
+import { USER_DATA_RIGHTS_FEATURE } from "./web/constants.ts";
 
 const ALL_GDPR_MAIL_KINDS = [
   "exportReady",

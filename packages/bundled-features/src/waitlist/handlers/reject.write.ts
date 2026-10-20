@@ -17,7 +17,6 @@ import {
   INVITATION_STATUS,
   tenantInvitationsTable,
 } from "../../tenant/index.ts";
-import { WAITLIST_STATUS, WaitlistErrors } from "../constants.ts";
 import { isOpenWaitlistStatus } from "../entity.ts";
 import {
   adminAccess,
@@ -28,6 +27,7 @@ import {
   waitlistExecutor,
 } from "../lib.ts";
 import { WaitlistIdSchema } from "../payloads.ts";
+import { WAITLIST_STATUS, WaitlistErrors } from "../web/constants.ts";
 
 export type WaitlistRejectData = { readonly kind: "rejected"; readonly id: string };
 

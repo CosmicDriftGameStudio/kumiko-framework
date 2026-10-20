@@ -7,14 +7,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { globalFeatureStateTable } from "../global-feature-state-table.ts";
+import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
 import {
   FEATURE_TOGGLE_AGGREGATE_TYPE,
   FEATURE_TOGGLE_CROSS_TENANT_REASON,
   FEATURE_TOGGLE_SET_EVENT_NAME,
   FeatureToggleErrors,
-} from "../constants.ts";
-import { globalFeatureStateTable } from "../global-feature-state-table.ts";
-import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
+} from "../web/constants.ts";
 
 // Factory: binds a runtime accessor to the handler at registration time.
 // The runtime holds the in-memory snapshot that the dispatcher's gate

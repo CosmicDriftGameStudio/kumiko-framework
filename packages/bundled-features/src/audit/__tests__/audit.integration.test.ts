@@ -25,8 +25,8 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.ts";
 import { createAuditFeature } from "../feature.ts";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",

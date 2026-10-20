@@ -1,4 +1,3 @@
-// @runtime client
 // Extension-section component for the profile-picker actionForm's catalog
 // block — read-only list of the selectable compliance profiles (region +
 // supervisory authority). The select field above owns the actual choice;
@@ -10,7 +9,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { ComplianceProfileQueries } from "../constants.ts";
+import { ComplianceProfileQueries } from "./constants.ts";
 
 type ProfileSummary = {
   readonly key: string;

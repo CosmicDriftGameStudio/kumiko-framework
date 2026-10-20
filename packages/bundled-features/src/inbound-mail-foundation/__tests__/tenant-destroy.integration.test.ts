@@ -28,10 +28,10 @@ import {
   seedInboundMessage,
 } from "../../inbound-provider-inmemory/feature.ts";
 import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   driveDestructionToCompletion,

@@ -35,8 +35,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { createAuthFoundationFeature, resolveTokenVerifier } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
@@ -51,11 +51,16 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, UserHandlers, UserQueries } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors, PatHandlers, PatQueries } from "../constants.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { revokeAllPatTokensForUser } from "../revoke-for-user.ts";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.ts";
-import type { PatScopeConfig } from "../scopes.ts";
+import {
+  PAT_DEFAULT_EXPIRES_IN_DAYS,
+  PatErrors,
+  PatHandlers,
+  PatQueries,
+} from "../web/constants.ts";
+import type { PatScopeConfig } from "../web/scopes.ts";
 
 // Full loop, no mocks: mint a PAT via the create handler → use it as a bearer
 // token over real HTTP. The resolver hashes it, resolves live roles, and the

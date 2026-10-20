@@ -36,9 +36,9 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { seedUser } from "../seeding.ts";
+import { AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";

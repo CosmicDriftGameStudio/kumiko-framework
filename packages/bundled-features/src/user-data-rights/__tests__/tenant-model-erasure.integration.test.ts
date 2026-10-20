@@ -54,10 +54,10 @@ import { createSessionsFeature } from "../../sessions/index.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature, userEntity } from "../../user/index.ts";
-import { TENANT_MODEL_CONFIG_KEY } from "../constants.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 import { resolveAppTenantModel } from "../lib/resolve-tenant-model.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { TENANT_MODEL_CONFIG_KEY } from "../web/constants.ts";
 import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000c1";

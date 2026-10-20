@@ -22,14 +22,14 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { subscriptionsProjectionTable } from "../projection.ts";
+import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
 import {
   SubscriptionEventTypes,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "../constants.ts";
-import { createBillingFoundationFeature } from "../feature.ts";
-import { subscriptionsProjectionTable } from "../projection.ts";
-import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
+} from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 const stripeLikePlugin: SubscriptionProviderPlugin = {

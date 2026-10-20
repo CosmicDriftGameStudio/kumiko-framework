@@ -1,4 +1,3 @@
-// @runtime client
 // EntityTags — read-only colored tag row for ANY entity. Drop it on a card or
 // detail view: <EntityTags entityName="note" entityId={id} />. Loads the
 // catalog (for name+color) and the entity's assignments, renders a TagChip per
@@ -6,7 +5,7 @@
 
 import { useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { TagsQueries } from "../constants.ts";
+import { TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };

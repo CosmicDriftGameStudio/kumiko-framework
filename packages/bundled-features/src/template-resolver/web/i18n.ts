@@ -1,4 +1,3 @@
-// @runtime client
 // Default translation bundle for the text-block editor. textBlocksClient()
 // hangs it into the LocaleProvider as a fallback bundle — apps override
 // individual keys via mergeTranslations at the createKumikoApp level.

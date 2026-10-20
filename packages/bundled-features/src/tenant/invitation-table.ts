@@ -32,7 +32,7 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import { GLOBAL_ROLE_OPTIONS } from "../user/constants.ts";
+import { GLOBAL_ROLE_OPTIONS } from "../user/web/constants.ts";
 
 // Status-const-Object damit Handler-Code keine Magic-Strings nutzt.
 // Bei rename (z.B. "cancelled" → "revoked") fällt jeder caller auf

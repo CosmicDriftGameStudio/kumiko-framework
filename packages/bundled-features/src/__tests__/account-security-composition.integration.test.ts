@@ -17,8 +17,8 @@ import {
   accountSecurityMfaStatusVisibility,
   createAccountSecurityFeature,
 } from "../account-security/index.ts";
-import { AuthHandlers } from "../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.ts";
+import { AuthHandlers } from "../auth-email-password/web/constants.ts";
 import { createAuthFoundationFeature } from "../auth-foundation/index.ts";
 import { base32Decode } from "../auth-mfa/base32.ts";
 import { AuthMfaHandlers, createAuthMfaFeature } from "../auth-mfa/index.ts";

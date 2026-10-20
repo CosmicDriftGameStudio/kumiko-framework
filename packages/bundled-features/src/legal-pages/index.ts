@@ -1,15 +1,4 @@
 export {
-  LEGAL_OPTIONAL_BLOCKS,
-  LEGAL_PAGES_FEATURE,
-  LEGAL_REQUIRED_BLOCKS,
-  LEGAL_ROUTES,
-  LEGAL_TERMS_ROUTES,
-  type LegalPageRoute,
-  LegalPagesErrors,
-  type LegalRequiredBlock,
-  legalPagePath,
-} from "./constants.ts";
-export {
   createLegalPagesFeature,
   type LegalPagesBootCheckCtx,
   type LegalPagesOptions,
@@ -23,3 +12,14 @@ export {
   type LegalContentSeedSource,
   legalContentSeed,
 } from "./seed.ts";
+export {
+  LEGAL_OPTIONAL_BLOCKS,
+  LEGAL_PAGES_FEATURE,
+  LEGAL_REQUIRED_BLOCKS,
+  LEGAL_ROUTES,
+  LEGAL_TERMS_ROUTES,
+  type LegalPageRoute,
+  LegalPagesErrors,
+  type LegalRequiredBlock,
+  legalPagePath,
+} from "./web/constants.ts";

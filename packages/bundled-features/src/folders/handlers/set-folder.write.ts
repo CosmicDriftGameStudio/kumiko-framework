@@ -2,9 +2,9 @@ import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
-import { DEFAULT_FOLDER_ACCESS } from "../constants.ts";
 import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
 import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas.ts";
+import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
 
 // set-folder — puts a host entity into a folder. Single-membership: the
 // assignment id is deterministic over (tenant, entity) WITHOUT folderId, so an

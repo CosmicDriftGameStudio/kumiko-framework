@@ -1,4 +1,3 @@
-// @runtime client
 // Public exports für die Browser-Seite des auth-mfa Features. Sub-Path-
 // Export `@cosmicdrift/kumiko-bundled-features/auth-mfa/web` — Server-Seite
 // (defineFeature) bleibt frei von React-/DOM-Deps, siehe auth-email-

@@ -1,4 +1,3 @@
-// @runtime client
 import type { DocumentEditorHandle } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useRef } from "react";
 

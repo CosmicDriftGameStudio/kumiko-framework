@@ -32,12 +32,12 @@ import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
 } from "../self-registration-toggle.ts";
+import { AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";

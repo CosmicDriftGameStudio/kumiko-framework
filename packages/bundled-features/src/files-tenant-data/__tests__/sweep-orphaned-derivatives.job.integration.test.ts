@@ -34,9 +34,9 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createFilesFeature } from "../../files/index.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { sweepOrphanedDerivativesJob } from "../handlers/sweep-orphaned-derivatives.job.ts";
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {

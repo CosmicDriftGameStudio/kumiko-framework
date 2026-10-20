@@ -4,7 +4,7 @@ import {
   type TemplateResolverApi,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { LEGAL_REQUIRED_BLOCKS, type LegalRequiredBlock } from "../constants.ts";
+import { LEGAL_REQUIRED_BLOCKS, type LegalRequiredBlock } from "../web/constants.ts";
 
 // Only the fields the check reads, so HandlerContext, AppContext or a hand-built
 // object in a unit test all fit.

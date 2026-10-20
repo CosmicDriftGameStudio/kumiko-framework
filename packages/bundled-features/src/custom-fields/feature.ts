@@ -53,14 +53,6 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import {
-  CUSTOM_FIELD_CLEARED_EVENT,
-  CUSTOM_FIELD_SET_EVENT,
-  CUSTOM_FIELDS_EXTENSION,
-  CUSTOM_FIELDS_FEATURE_NAME,
-  DEFAULT_FIELD_DEFINITION_LIST_ROLES,
-  FIELD_DEFINITION_DELETED_EVENT,
-} from "./constants.ts";
 import { fieldDefinitionEntity } from "./entity.ts";
 import { customFieldClearedSchema, customFieldSetSchema } from "./events.ts";
 import {
@@ -85,6 +77,14 @@ import {
   createUpdateTenantFieldHandler,
   updateTenantFieldHandler,
 } from "./handlers/update-tenant-field.write.ts";
+import {
+  CUSTOM_FIELD_CLEARED_EVENT,
+  CUSTOM_FIELD_SET_EVENT,
+  CUSTOM_FIELDS_EXTENSION,
+  CUSTOM_FIELDS_FEATURE_NAME,
+  DEFAULT_FIELD_DEFINITION_LIST_ROLES,
+  FIELD_DEFINITION_DELETED_EVENT,
+} from "./web/constants.ts";
 
 const fieldDefinitionDeletedSchema = z.object({
   entityName: z.string(),

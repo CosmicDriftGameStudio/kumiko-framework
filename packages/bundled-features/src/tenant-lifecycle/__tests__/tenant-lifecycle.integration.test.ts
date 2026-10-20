@@ -27,11 +27,11 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { userSessionTable } from "../../sessions/schema/user-session.ts";
-import { TenantHandlers, TenantQueries } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
+import { TenantHandlers, TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import {
   DESTRUCTION_STAGE_TICK_BUDGET_MS,

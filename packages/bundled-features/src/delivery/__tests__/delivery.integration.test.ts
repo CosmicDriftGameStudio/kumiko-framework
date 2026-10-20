@@ -49,10 +49,10 @@ import { configValuesTable } from "../../config/table.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
-import { TenantQueries } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { TenantQueries } from "../../tenant/web/constants.ts";
 import {
   addressOptOutAggregateIdForTests,
   hashUnsubscribeAddress,

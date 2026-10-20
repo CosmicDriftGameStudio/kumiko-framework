@@ -1,4 +1,3 @@
-// @runtime client
 // InviteAcceptScreen — Magic-Link-Accept für Tenant-Invitations.
 //
 // Liest `?token=...` aus der URL und branched intern je nach session-state:

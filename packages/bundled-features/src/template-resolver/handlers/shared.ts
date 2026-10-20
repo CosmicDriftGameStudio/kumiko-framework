@@ -1,8 +1,8 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import * as z from "zod";
-import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../constants.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import { templateSlugSchema } from "../template-meta.ts";
+import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../web/constants.ts";
 
 // One executor per bundle, shared by all four handlers for create/update via
 // event store + optimistic lock.

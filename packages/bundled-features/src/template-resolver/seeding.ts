@@ -30,15 +30,15 @@ import {
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.ts";
 import { executor } from "./handlers/shared.ts";
 import { evaluateTemplateWrite } from "./handlers/template-gates.ts";
-import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import type { TemplateBundle } from "./template-bundle.ts";
 import { activeStampChanges, servedStampChanges } from "./template-draft.ts";
 import { templateSlugSchema } from "./template-meta.ts";
 import { variablesFromSchema } from "./template-validation.ts";
+import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./web/constants.ts";
+import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./web/qualified-names.ts";
 
 /** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(

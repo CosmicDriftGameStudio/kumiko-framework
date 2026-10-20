@@ -1,12 +1,6 @@
 import type { Registry, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import {
-  CONTENT_FORMATS,
-  type ContentFormat,
-  TEMPLATE_KINDS,
-  type TemplateKind,
-} from "../constants.ts";
 import { documentViolationsToFieldIssues } from "../document-sanitizer.ts";
 import { sanitizeTemplateWriteBody, type TemplateWriteScope } from "../layout-regions.ts";
 import { imageResourceKeysOf } from "../linked-resources.ts";
@@ -17,6 +11,12 @@ import {
   type TemplateValidation,
   validateTemplatePlaceholders,
 } from "../template-validation.ts";
+import {
+  CONTENT_FORMATS,
+  type ContentFormat,
+  TEMPLATE_KINDS,
+  type TemplateKind,
+} from "../web/constants.ts";
 
 const PLACEHOLDER_VALIDATED_KINDS: ReadonlySet<TemplateKind> = new Set([
   "mail",

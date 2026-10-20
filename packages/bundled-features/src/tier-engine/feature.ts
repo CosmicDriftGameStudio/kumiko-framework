@@ -76,18 +76,18 @@ import * as z from "zod";
 import { tenantTable } from "../tenant/index.ts";
 import { tierAssignmentAggregateId } from "./aggregate-id.ts";
 import type { TierMap } from "./compose-app.ts";
+import { tierAssignmentEntity } from "./entity.ts";
+import { getActiveTierQuery } from "./handlers/active-tier.query.ts";
+import { getTenantTierQuery } from "./handlers/get-tenant-tier.query.ts";
+import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write.ts";
+import { isTrialActive, type TrialPolicy } from "./trial.ts";
 import {
   TIER_ADMIN_SCREEN_ID,
   TIER_ENGINE_FEATURE,
   TierAssignmentSources,
   TierEngineHandlers,
-} from "./constants.ts";
-import { tierAssignmentEntity } from "./entity.ts";
-import { getActiveTierQuery } from "./handlers/active-tier.query.ts";
-import { getTenantTierQuery } from "./handlers/get-tenant-tier.query.ts";
-import { createSetTenantTierWrite } from "./handlers/set-tenant-tier.write.ts";
-import { TIER_ENGINE_I18N } from "./i18n.ts";
-import { isTrialActive, type TrialPolicy } from "./trial.ts";
+} from "./web/constants.ts";
+import { TIER_ENGINE_I18N } from "./web/i18n.ts";
 
 // Drizzle-table for the tier-assignment-entity. Built once at module-load
 // from the entity definition — same shape buildEntityTable would produce

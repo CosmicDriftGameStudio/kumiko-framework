@@ -13,8 +13,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(

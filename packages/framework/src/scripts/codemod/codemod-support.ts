@@ -180,7 +180,7 @@ function findBiomeBinary(startDir: string): string | undefined {
 
 const FORMAT_BATCH_SIZE = 50;
 
-async function formatWithBiome(
+export async function formatWithBiome(
   codemodName: string,
   files: readonly string[],
   cwd: string,

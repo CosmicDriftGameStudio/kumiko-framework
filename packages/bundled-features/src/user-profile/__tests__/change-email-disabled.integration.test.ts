@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
@@ -16,8 +16,8 @@ import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
-import { UserProfileHandlers } from "../constants.ts";
 import { createUserProfileFeature } from "../feature.ts";
+import { UserProfileHandlers } from "../web/constants.ts";
 
 const TENANT = testTenantId(1);
 

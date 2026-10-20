@@ -8,6 +8,7 @@ import {
   isAssignableByRole,
   type ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { memberRoleOptions } from "./member-role-options.ts";
 import {
   DEFAULT_INVITE_ROLE_OPTIONS,
   INVITE_CREATE_SCREEN_ID,
@@ -17,8 +18,7 @@ import {
   MEMBERS_SCREEN_ID,
   TenantHandlers,
   TenantQueries,
-} from "./constants.ts";
-import { memberRoleOptions } from "./member-role-options.ts";
+} from "./web/constants.ts";
 
 // Cross-tenant SystemAdmin platform view of the tenants themselves. The tenant
 // feature runs with `r.systemScope()`, so the entityList returns every tenant.

@@ -1,4 +1,4 @@
-import { SECRETS_ERROR_KEYS } from "./constants.ts";
+import { SECRETS_ERROR_KEYS } from "./web/constants.ts";
 
 export const SECRETS_I18N = {
   [SECRETS_ERROR_KEYS.unknownKey]: {

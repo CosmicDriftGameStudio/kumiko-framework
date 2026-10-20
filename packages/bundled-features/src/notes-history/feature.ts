@@ -21,11 +21,11 @@ import {
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.ts";
-import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants.ts";
 import { createNoteEntryEntity, noteMentionEntity } from "./entity.ts";
 import { createNoteEntryExecutor } from "./executor.ts";
 import { createAddNoteHandler } from "./handlers/add-note.write.ts";
 import { NOTES_HISTORY_FEATURE_I18N } from "./i18n.ts";
+import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./web/constants.ts";
 
 function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,

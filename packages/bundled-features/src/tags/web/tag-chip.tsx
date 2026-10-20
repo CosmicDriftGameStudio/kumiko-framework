@@ -1,4 +1,3 @@
-// @runtime client
 // TagChip — read-only colored label pill, GitLab-labels style. The tag's `color`
 // (a hex like "#22cc88") drives the background; the text color is chosen for
 // contrast (YIQ luminance) so light and dark labels both stay legible. A tag

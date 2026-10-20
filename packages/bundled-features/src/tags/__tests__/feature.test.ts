@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_TAG_ROLES } from "../constants.ts";
 import { createTagsFeature } from "../feature.ts";
 import {
   assignTagPayloadSchema,
@@ -8,6 +7,7 @@ import {
   removeTagPayloadSchema,
   updateTagPayloadSchema,
 } from "../schemas.ts";
+import { DEFAULT_TAG_ROLES } from "../web/constants.ts";
 
 // Unit tests: feature-shape, role-options, schema-validation. The ES-loop
 // behaviour (idempotent assign/remove, projection, tenant-isolation, read

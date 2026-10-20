@@ -8,7 +8,7 @@ import {
   DocumentDesignerCells,
   TEMPLATE_EDITOR_SCREENS,
   type TemplateEditorKind,
-} from "./constants.ts";
+} from "./web/constants.ts";
 
 function cell(component: string): { readonly react: { readonly __component: string } } {
   return { react: { __component: component } };

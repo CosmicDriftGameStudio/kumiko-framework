@@ -1,4 +1,3 @@
-// @runtime client
 import {
   DocumentContentEditor,
   type DocumentResourcePreview,

@@ -1,8 +1,8 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { FORM_DRAFT_ACCESS } from "../constants.ts";
 import { lookupDraft } from "../lookup.ts";
 import type { FormDraftBlob } from "../schemas.ts";
 import { getDraftPayloadSchema } from "../schemas.ts";
+import { FORM_DRAFT_ACCESS } from "../web/constants.ts";
 
 export type GetDraftResult = { readonly draft: FormDraftBlob | null };
 

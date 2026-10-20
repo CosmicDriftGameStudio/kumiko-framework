@@ -1,4 +1,3 @@
-// @runtime client
 import type { LayoutMeta } from "./layout-meta.ts";
 import type { ServedVersionView } from "./types.ts";
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { sanitizeDocumentHtml, sanitizeTemplateBody } from "../document-sanitizer";
-import { DOCUMENT_TEXT_ALIGNMENTS, documentExtensions } from "../document-schema";
+import { DOCUMENT_TEXT_ALIGNMENTS, documentExtensions } from "../web/document-schema";
 import { documentBodyFixture } from "./document-body-fixture";
 
 function violationCodes(html: string): string[] {

@@ -40,15 +40,15 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.ts";
+import type { PaymentEvent, SubscriptionProviderPlugin } from "../types.ts";
 import {
   BillingEventKinds,
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "../constants.ts";
-import { createBillingFoundationFeature } from "../feature.ts";
-import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.ts";
-import type { PaymentEvent, SubscriptionProviderPlugin } from "../types.ts";
+} from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 // =============================================================================

@@ -1,4 +1,3 @@
-// @runtime client
 // SignupScreen — Magic-Link-Self-Signup, Step 1.
 //
 // Form mit Email-Input. Submit triggert /api/auth/signup-request

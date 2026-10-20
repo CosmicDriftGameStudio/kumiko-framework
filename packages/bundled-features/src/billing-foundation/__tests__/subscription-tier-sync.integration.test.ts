@@ -32,17 +32,17 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import type { TierMap } from "../../tier-engine/compose-app.ts";
+import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
+import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import {
   TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,
-} from "../../tier-engine/constants.ts";
-import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
-import { createTierEngineFeature } from "../../tier-engine/feature.ts";
-import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.ts";
+} from "../../tier-engine/web/constants.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { createSubscriptionTierSync } from "../subscription-tier-sync.ts";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
+import { SubscriptionEventTypes, SubscriptionStatuses } from "../web/constants.ts";
 
 type TestTier = "free" | "pro" | "enterprise";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "pro" || v === "enterprise";

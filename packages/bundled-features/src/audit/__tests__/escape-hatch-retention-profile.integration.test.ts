@@ -23,13 +23,13 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
-import { ESCAPE_HATCH_RETENTION_DAYS_KEY } from "../constants.ts";
 import {
   ESCAPE_HATCH_USE_AGGREGATE_TYPE,
   ESCAPE_HATCH_USED_EVENT,
 } from "../escape-hatch-audit-sink.ts";
 import { createAuditFeature } from "../feature.ts";
 import { runEscapeHatchRetention } from "../run-escape-hatch-retention.ts";
+import { ESCAPE_HATCH_RETENTION_DAYS_KEY } from "../web/constants.ts";
 
 const RETENTION_JOB = "audit:job:escape-hatch-retention";
 const SET_PROFILE = "compliance-profiles:write:set-profile";

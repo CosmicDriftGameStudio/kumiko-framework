@@ -1,11 +1,9 @@
-// @runtime client
 // Public exports für die Browser-Seite des auth-email-password Features.
 // Wird über den Sub-Path-Export `@cosmicdrift/kumiko-bundled-features/auth-email-
 // password/web` konsumiert — die Server-Seite (defineFeature) lebt in
 // `@cosmicdrift/kumiko-bundled-features/auth-email-password` und hat keine
 // React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer/web.
 
-export { defaultTranslations, mergeTranslations } from "../i18n.ts";
 export type {
   AuthTokenFailure,
   CurrentUserProfile,
@@ -56,6 +54,7 @@ export type { DefaultTopbarActionsProps } from "./default-topbar-actions.tsx";
 export { DefaultTopbarActions } from "./default-topbar-actions.tsx";
 export type { ForgotPasswordScreenProps } from "./forgot-password-screen.tsx";
 export { ForgotPasswordScreen } from "./forgot-password-screen.tsx";
+export { defaultTranslations, mergeTranslations } from "./i18n.ts";
 export type { InviteAcceptScreenProps } from "./invite-accept-screen.tsx";
 export { InviteAcceptScreen } from "./invite-accept-screen.tsx";
 export type { AuthLegalLink, LoginScreenProps } from "./login-screen.tsx";

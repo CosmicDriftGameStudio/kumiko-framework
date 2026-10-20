@@ -1,4 +1,3 @@
-// @runtime client
 import type { useTranslation } from "@cosmicdrift/kumiko-renderer";
 
 type Translate = ReturnType<typeof useTranslation>;

@@ -26,10 +26,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers, ConfigQueries } from "../constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
 import { createConfigResolver } from "../resolver.ts";
 import { configValuesTable } from "../table.ts";
+import { ConfigHandlers, ConfigQueries } from "../web/constants.ts";
 
 const BILLING_ADDRESS_KEY = "pii-cfg-test:config:billing-address";
 const PHONE_NUMBER_KEY = "pii-cfg-test:config:phone-number";

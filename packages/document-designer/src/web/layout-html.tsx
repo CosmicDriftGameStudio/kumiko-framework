@@ -1,4 +1,3 @@
-// @runtime client
 import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import { createElement, type ReactNode, useMemo } from "react";
 

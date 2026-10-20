@@ -2,8 +2,8 @@ import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { hostRowIsGone } from "../../shared/index.ts";
-import { DEFAULT_FOLDER_ACCESS } from "../constants.ts";
 import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
+import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
 
 const deleteFolderPayloadSchema = z.object({ id: z.uuid() });
 

@@ -20,7 +20,6 @@ export type {
   BootstrapTenantOutcome,
 } from "./bootstrap.ts";
 export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.ts";
-export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants.ts";
 export type { AuthMailLocale } from "./email-templates.ts";
 export type {
   AccountLockoutOptions,
@@ -55,3 +54,9 @@ export {
   SIGNUP_TOKEN_KEY_PREFIXES,
   storeSignupToken,
 } from "./signup-token-store.ts";
+export {
+  AUTH_EMAIL_PASSWORD_FEATURE,
+  AuthErrors,
+  AuthHandlers,
+  AuthQueries,
+} from "./web/constants.ts";

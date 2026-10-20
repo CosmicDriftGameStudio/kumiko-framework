@@ -15,8 +15,8 @@ import {
   ACCOUNT_SECURITY_NAV_LABEL,
   ACCOUNT_SECURITY_SCREEN_ID,
   ACCOUNT_SECURITY_SCREEN_QN,
-} from "./constants.ts";
-import { ACCOUNT_SECURITY_I18N } from "./i18n.ts";
+} from "./web/constants.ts";
+import { ACCOUNT_SECURITY_I18N } from "./web/i18n.ts";
 
 export interface AccountSecurityNavOptions {
   readonly order?: number;

@@ -36,13 +36,13 @@ import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { base32Decode } from "../base32.ts";
 import { mfaRequiredConfigHandle } from "../config.ts";
-import { AuthMfaHandlers } from "../constants.ts";
 import { createAuthMfaFeature } from "../feature.ts";
 import { mfaStatusCheckerFromFeature } from "../feature-exports.ts";
 import { signMfaPreauthSetupToken } from "../mfa-preauth-setup-token.ts";
 import { verifyMfaSetupToken } from "../mfa-setup-token.ts";
 import { userMfaEntity } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
+import { AuthMfaHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 

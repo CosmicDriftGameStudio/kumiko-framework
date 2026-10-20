@@ -1,5 +1,5 @@
 import { handlerTitleKey } from "@cosmicdrift/kumiko-framework/engine";
-import { TemplateResolverHandlers as H } from "./qualified-names.ts";
+import { TemplateResolverHandlers as H } from "./web/qualified-names.ts";
 
 // The AI assistant and its approval prompts name a handler by its title key; without
 // one the user reads the raw handler name. de/es/fr/it live in the locale packages.

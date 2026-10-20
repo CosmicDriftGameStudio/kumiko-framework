@@ -43,8 +43,8 @@ import {
   userEntity,
   userTable,
 } from "../../user/index.ts";
-import { AuthErrors, AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 

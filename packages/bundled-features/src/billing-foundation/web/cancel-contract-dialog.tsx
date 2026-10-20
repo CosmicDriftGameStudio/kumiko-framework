@@ -1,5 +1,3 @@
-// @runtime client
-
 import {
   useLocale,
   useMutation,
@@ -9,8 +7,8 @@ import {
 import { toInstant } from "@cosmicdrift/kumiko-renderer/headless";
 import { ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
-import { SubscriptionFoundationHandlers } from "../constants.ts";
 import type { ContractTerminationDeclarationType, ContractTerminationKind } from "../events.ts";
+import { SubscriptionFoundationHandlers } from "./constants.ts";
 
 type TerminateContractReceipt = {
   readonly requestId: string;

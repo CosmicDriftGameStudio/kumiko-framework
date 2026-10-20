@@ -8,9 +8,9 @@ import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/err
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import { systemTemplateExists } from "../api.ts";
-import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "../constants.ts";
 import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.ts";
 import { refuseTemplateEdit, type TemplateEditPolicy } from "../template-edit-policy.ts";
+import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "../web/constants.ts";
 import { type CollectionEntryRow, collectionStore } from "./collection-shared.ts";
 import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.ts";
 

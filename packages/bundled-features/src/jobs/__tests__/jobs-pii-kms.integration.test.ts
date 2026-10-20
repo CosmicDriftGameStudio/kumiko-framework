@@ -38,12 +38,12 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { JobHandlers, JobQueries } from "../constants.ts";
 import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.ts";
 import { createJobsFeature } from "../feature.ts";
 import { createJobRunLogger } from "../job-run-logger.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 import { tenantJobRunsTable } from "../tenant-job-run-table.ts";
+import { JobHandlers, JobQueries } from "../web/constants.ts";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

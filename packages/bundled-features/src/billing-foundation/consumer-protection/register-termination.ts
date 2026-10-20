@@ -1,5 +1,4 @@
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { SubscriptionCancelTimings, SubscriptionFoundationHandlers } from "../constants.ts";
 import {
   CONTRACT_TERMINATION_DECLARED_EVENT_QN,
   CONTRACT_TERMINATION_DECLARED_EVENT_SHORT,
@@ -12,6 +11,7 @@ import {
   contractTerminationUnmatchedPayloadSchema,
 } from "../events.ts";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.ts";
+import { SubscriptionCancelTimings, SubscriptionFoundationHandlers } from "../web/constants.ts";
 import {
   createDeclareContractTerminationHandler,
   createRecordContractTerminationHandler,

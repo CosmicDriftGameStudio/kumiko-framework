@@ -1,12 +1,4 @@
 export {
-  DEFAULT_SECRETS_ACCESS,
-  DEFAULT_SECRETS_ROLES,
-  INVALID_SECRET_VALUE_CODE,
-  SECRETS_ERROR_KEYS,
-  SecretsHandlers,
-  SecretsQueries,
-} from "./constants.ts";
-export {
   createSecretsContext,
   createSecretsFeature,
   requireSecretsContext,
@@ -29,4 +21,12 @@ export {
   rotateJob,
 } from "./handlers/rotate.job.ts";
 export { createSetHandler } from "./handlers/set.write.ts";
+export {
+  DEFAULT_SECRETS_ACCESS,
+  DEFAULT_SECRETS_ROLES,
+  INVALID_SECRET_VALUE_CODE,
+  SECRETS_ERROR_KEYS,
+  SecretsHandlers,
+  SecretsQueries,
+} from "./web/constants.ts";
 export { isInvalidSecretValueError } from "./write-gate.ts";

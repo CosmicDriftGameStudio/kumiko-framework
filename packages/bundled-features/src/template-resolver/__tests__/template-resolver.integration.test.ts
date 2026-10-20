@@ -11,6 +11,8 @@ import {
   TemplateNotFoundError,
   type TemplateResolverApi,
 } from "../api.ts";
+import { createTemplateResolverFeature } from "../feature.ts";
+import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import {
   type ContentFormat,
   FALLBACK_LOCALE,
@@ -18,9 +20,7 @@ import {
   type TemplateKind,
   type TemplateScope,
   type TemplateStatus,
-} from "../constants.ts";
-import { createTemplateResolverFeature } from "../feature.ts";
-import { templateResourceEntity, templateResourcesTable } from "../table.ts";
+} from "../web/constants.ts";
 
 let stack: TestStack;
 let db: DbConnection;

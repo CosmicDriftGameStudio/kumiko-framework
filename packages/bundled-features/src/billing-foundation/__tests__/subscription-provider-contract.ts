@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { BillingEventKinds, SubscriptionCancelTimings } from "../constants.ts";
 import type { SubscriptionProviderPlugin } from "../types.ts";
+import { BillingEventKinds, SubscriptionCancelTimings } from "../web/constants.ts";
 
 export type SubscriptionProviderContractFixture = {
   readonly plugin: SubscriptionProviderPlugin;

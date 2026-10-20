@@ -1,4 +1,3 @@
-// @runtime client
 // Default labels for the auto-generated Settings-Hub. The generator
 // (buildConfigFeatureSchema) emits `config.settings.<scope>` for the audience
 // groups and `config.settings.title` for the synthetic workspace — generic

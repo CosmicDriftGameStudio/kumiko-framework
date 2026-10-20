@@ -7,13 +7,13 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type MfaRequiredPolicy, mfaRequiredConfigHandle, mfaRequiredConfigKey } from "./config.ts";
-import {
-  MFA_CHALLENGE_TOKEN_TTL_MINUTES,
-  MFA_PREAUTH_SETUP_TOKEN_TTL_MINUTES,
-} from "./constants.ts";
 import { findUserMfaRow } from "./db/queries.ts";
 import { signMfaChallengeToken } from "./mfa-challenge-token.ts";
 import { signMfaPreauthSetupToken } from "./mfa-preauth-setup-token.ts";
+import {
+  MFA_CHALLENGE_TOKEN_TTL_MINUTES,
+  MFA_PREAUTH_SETUP_TOKEN_TTL_MINUTES,
+} from "./web/constants.ts";
 
 export type MfaStatusCheckResult =
   | { readonly required: false }

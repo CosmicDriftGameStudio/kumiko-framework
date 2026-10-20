@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { Editor, getSchema } from "@tiptap/core";
 import { documentBodyFixture } from "../../__tests__/document-body-fixture.ts";
 import { sanitizeDocumentHtml } from "../../document-sanitizer.ts";
-import { documentExtensions } from "../../document-schema.ts";
 import { createDocumentEditorExtensions } from "../document-editor-extensions.ts";
+import { documentExtensions } from "../document-schema.ts";
 
 const labels = { placeholder: "Write", image: "Image", pageBreak: "Page break" };
 

@@ -69,7 +69,7 @@ describe("scaffoldAppFeature", () => {
   test("web/index.ts ist Client-Stub, __tests__ enthält validateBoot-Test", () => {
     scaffoldAppFeature({ name: "product-catalog", appRoot });
     const web = readFileSync(join(appRoot, "src/features/product-catalog/web/index.ts"), "utf-8");
-    expect(web).toContain("@runtime client");
+    expect(web).not.toContain("@runtime");
     expect(web).toContain("export const productCatalogClient: ClientFeatureDefinition");
     const bootTest = readFileSync(
       join(appRoot, "src/features/product-catalog/__tests__/feature.boot.test.ts"),

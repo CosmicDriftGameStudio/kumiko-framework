@@ -28,12 +28,12 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity } from "../../user/schema/user.ts";
-import { AuthHandlers } from "../constants.ts";
 import {
   AUTH_EMAIL_RATE_LIMIT_MAX_REQUESTS,
   AUTH_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
 } from "../email-rate-limits.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const emailTransport = createInMemoryTransport();

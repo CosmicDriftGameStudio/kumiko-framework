@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createUserProfileFeature } from "../../feature.ts";
-import { defaultTranslations } from "../../i18n.ts";
+import { defaultTranslations } from "../i18n.ts";
 
 describe("user-profile server/client translation parity", () => {
   const clientEn = defaultTranslations["en"] ?? {};

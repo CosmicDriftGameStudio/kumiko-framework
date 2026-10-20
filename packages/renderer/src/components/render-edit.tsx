@@ -90,7 +90,7 @@ const FORM_DRAFT_GET = "form-draft:query:get";
 const FORM_DRAFT_SAVE = "form-draft:write:save";
 const FORM_DRAFT_DISCARD = "form-draft:write:discard";
 const FORM_DRAFT_LIST = "form-draft:query:list";
-// Mirrors bundled-features/src/form-draft/constants.ts's FORM_DRAFT_KEY_MAX_LENGTH
+// Mirrors bundled-features/src/form-draft/web/constants.ts's FORM_DRAFT_KEY_MAX_LENGTH
 // — same hardcoding rationale as the QNs above (no dependency on that package).
 const FORM_DRAFT_KEY_MAX_LENGTH = 256;
 

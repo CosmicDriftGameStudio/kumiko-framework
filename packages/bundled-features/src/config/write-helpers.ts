@@ -30,9 +30,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
-import { ConfigErrors } from "./constants.ts";
 import { decryptStoredValue } from "./resolver.ts";
 import { configValuesTable } from "./table.ts";
+import { ConfigErrors } from "./web/constants.ts";
 
 export type ConfigRowLookup = {
   readonly id: string;

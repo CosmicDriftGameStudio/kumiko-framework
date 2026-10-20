@@ -1,4 +1,3 @@
-// @runtime client
 // MfaDisableDialog — confirm-with-code before turning MFA off. Uses the
 // generic Dialog primitive (unlike MfaRegenerateRecoveryDialog): disable is
 // single-step, no state to preserve after confirm, so
@@ -12,7 +11,7 @@
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { AuthMfaHandlers } from "../constants.ts";
+import { AuthMfaHandlers } from "./constants.ts";
 
 export type MfaDisableDialogProps = {
   readonly open: boolean;

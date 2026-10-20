@@ -1,3 +1,4 @@
+export { createDocumentDesignerFeature, type DocumentDesignerOptions } from "./feature.ts";
 export {
   DEFAULT_TEMPLATE_LOCALES,
   DOCUMENT_DESIGNER_FEATURE,
@@ -10,5 +11,4 @@ export {
   TEMPLATES_NAV_ID,
   TEMPLATES_SCREEN_ID,
   type TemplateEditorKind,
-} from "./constants.ts";
-export { createDocumentDesignerFeature, type DocumentDesignerOptions } from "./feature.ts";
+} from "./web/constants.ts";

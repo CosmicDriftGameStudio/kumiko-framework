@@ -15,8 +15,8 @@ import {
   authMailRendererFeatures,
   seedAuthMailTemplates,
 } from "../../auth-email-password/__tests__/auth-mail-stack.ts";
-import { AuthHandlers, AuthQueries } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers, AuthQueries } from "../../auth-email-password/web/constants.ts";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,

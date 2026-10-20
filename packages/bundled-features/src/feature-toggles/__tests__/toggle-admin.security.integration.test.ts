@@ -2,12 +2,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createFeatureTogglesFeature } from "../feature.ts";
 import {
   FeatureToggleHandlers,
   FeatureToggleQueries,
   TOGGLE_ADMIN_SCREEN_ID,
-} from "../constants.ts";
-import { createFeatureTogglesFeature } from "../feature.ts";
+} from "../web/constants.ts";
 
 let stack: TestStack;
 

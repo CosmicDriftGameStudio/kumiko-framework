@@ -21,10 +21,10 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.ts";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenant } from "../../tenant/seeding.ts";
@@ -34,9 +34,9 @@ import {
   TierEngineHandlers,
   tierAssignmentEntity,
 } from "../../tier-engine/index.ts";
-import { CapOverviewQueries } from "../constants.ts";
 import { createCapOverviewFeature } from "../feature.ts";
 import type { CapSpec } from "../types.ts";
+import { CapOverviewQueries } from "../web/constants.ts";
 
 const SEATS_KEY = "cap-seats-probe:config:seats";
 const SEATS_DEFAULT = 10;

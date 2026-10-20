@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "../i18n.ts";
-import type { PatScopeConfig } from "../scopes.ts";
 import { patListScreen } from "../screens.ts";
+import type { PatScopeConfig } from "../web/scopes.ts";
 
 const PAT_STATUSES = ["active", "revoked", "expired"] as const;
 

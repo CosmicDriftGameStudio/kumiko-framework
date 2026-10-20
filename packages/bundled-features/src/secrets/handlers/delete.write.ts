@@ -2,8 +2,8 @@ import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framewo
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { announceSecretChange } from "../announce-secret-change.ts";
-import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../constants.ts";
 import { JOIN_REQUEST_TRANSACTION_REASON, requireSecretsContext } from "../feature.ts";
+import { DEFAULT_SECRETS_ACCESS, SecretsHandlers } from "../web/constants.ts";
 import { checkSecretKeyWrite } from "../write-gate.ts";
 
 export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {

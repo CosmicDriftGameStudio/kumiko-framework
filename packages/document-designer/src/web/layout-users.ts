@@ -1,5 +1,4 @@
-// @runtime client
-import { DEFAULT_LAYOUT_SLUG } from "../constants.ts";
+import { DEFAULT_LAYOUT_SLUG } from "./constants.ts";
 import type { LayoutKind } from "./layout-types.ts";
 import type { OverviewRowView } from "./overview-row.ts";
 

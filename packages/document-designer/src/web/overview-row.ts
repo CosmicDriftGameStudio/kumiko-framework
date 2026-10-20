@@ -1,5 +1,4 @@
-// @runtime client
-import type { TemplateEditorKind } from "../constants.ts";
+import type { TemplateEditorKind } from "./constants.ts";
 
 export type OverviewUsageView = {
   readonly feature: string;

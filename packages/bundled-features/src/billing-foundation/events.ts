@@ -11,8 +11,8 @@
 // type ohne payload-discriminator.
 
 import * as z from "zod";
-import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants.ts";
-import { CONSENT_LOCALES } from "./consumer-protection/consent-locale.ts";
+import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./web/constants.ts";
+import { CONSENT_LOCALES } from "./web/consumer-protection/consent-locale.ts";
 
 // Aggregate-type für den event-store. Eine subscription pro Tenant ist
 // ein stream; der subscriptionAggregateId-helper liefert die stream-id.

@@ -1,8 +1,8 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { SYSTEM_TENANT_ID } from "./constants.ts";
-import { TEMPLATE_RESOLVER_FEATURE } from "./qualified-names.ts";
 import { isSystemAdmin } from "./template-draft.ts";
+import { SYSTEM_TENANT_ID } from "./web/constants.ts";
+import { TEMPLATE_RESOLVER_FEATURE } from "./web/qualified-names.ts";
 
 type DeliveryTarget = { readonly kind: string; readonly slug: string };
 

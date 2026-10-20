@@ -18,11 +18,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.ts";
-import { FormDraftHandlers, FormDraftQueries } from "../constants.ts";
 import { formDraftEntity } from "../entity.ts";
 import { createFormDraftFeature } from "../feature.ts";
 import type { GetDraftResult } from "../handlers/get.query.ts";
 import type { ListDraftsResult } from "../handlers/list.query.ts";
+import { FormDraftHandlers, FormDraftQueries } from "../web/constants.ts";
 
 let stack: TestStack;
 

@@ -11,16 +11,16 @@ import {
   redirectToCanonicalPath,
   slashVariantOf,
 } from "../page-render/index.ts";
+import { runLegalPagesBootCheck } from "./lib/boot-check.ts";
+import { validateRoutes } from "./lib/validate-routes.ts";
+import { renderMarkdownToHtml, wrapInLayout } from "./markdown.ts";
 import {
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
   LEGAL_TERMS_ROUTES,
   type LegalPageRoute,
   type LegalRequiredBlock,
-} from "./constants.ts";
-import { runLegalPagesBootCheck } from "./lib/boot-check.ts";
-import { validateRoutes } from "./lib/validate-routes.ts";
-import { renderMarkdownToHtml, wrapInLayout } from "./markdown.ts";
+} from "./web/constants.ts";
 
 export { type LegalPagesBootCheckCtx, runLegalPagesBootCheck } from "./lib/boot-check.ts";
 

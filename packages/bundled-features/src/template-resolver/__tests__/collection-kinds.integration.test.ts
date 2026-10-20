@@ -14,18 +14,18 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
-import {
-  collectionHandlerName,
-  collectionQueryName,
-  TemplateResolverHandlers,
-  TemplateResolverQueries,
-} from "../qualified-names.ts";
 import { seedTextBlock } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import {
+  collectionHandlerName,
+  collectionQueryName,
+  TemplateResolverHandlers,
+  TemplateResolverQueries,
+} from "../web/qualified-names.ts";
 
 let stack: TestStack;
 let db: DbConnection;

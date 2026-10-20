@@ -2,14 +2,14 @@ import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-fra
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import { listAllWaitlistRows, purgeWaitlistRows } from "../entries-admin.ts";
+import { adminAccess, waitlistDb } from "../lib.ts";
 import {
   WAITLIST_AUDIT_AGGREGATE_TYPE,
   WAITLIST_EXPORTED_EVENT_QN,
   WAITLIST_PURGED_EVENT_QN,
   WaitlistErrors,
-} from "../constants.ts";
-import { listAllWaitlistRows, purgeWaitlistRows } from "../entries-admin.ts";
-import { adminAccess, waitlistDb } from "../lib.ts";
+} from "../web/constants.ts";
 
 export type WaitlistExportData = {
   readonly count: number;

@@ -1,13 +1,5 @@
 export { base32Decode } from "./base32.ts";
 export { type MfaRequiredPolicy, mfaRequiredConfigHandle } from "./config.ts";
-export {
-  AUTH_MFA_FEATURE,
-  AuthMfaHandlers,
-  AuthMfaQueries,
-  MFA_DISABLE_SCREEN_ID,
-  MFA_ENABLE_SCREEN_ID,
-  MFA_REGENERATE_RECOVERY_SCREEN_ID,
-} from "./constants.ts";
 export { authMfaEnvSchema, mfaTokenSecretsEnvSchema } from "./env.ts";
 export type { AuthMfaFeatureOptions } from "./feature.ts";
 export { createAuthMfaFeature } from "./feature.ts";
@@ -33,3 +25,11 @@ export {
   resolveMfaTokenSecrets,
   resolveMfaTokenSecretsFromEnv,
 } from "./token-secrets.ts";
+export {
+  AUTH_MFA_FEATURE,
+  AuthMfaHandlers,
+  AuthMfaQueries,
+  MFA_DISABLE_SCREEN_ID,
+  MFA_ENABLE_SCREEN_ID,
+  MFA_REGENERATE_RECOVERY_SCREEN_ID,
+} from "./web/constants.ts";

@@ -21,7 +21,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { fileContextForTenant } from "../file-foundation/index.ts";
 import { extensionForResourceContentType, requireForTenant } from "../shared/index.ts";
-import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./constants.ts";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
   MAX_FILE_ATTACHMENTS_PER_TEMPLATE,
@@ -34,10 +33,11 @@ import {
   parseLinkedResourceEntries,
   templatePdfAttachmentLinkSchema,
 } from "./linked-resources.ts";
-import { TemplateResolverErrors } from "./qualified-names.ts";
 import { normalizeResourceImage } from "./resource-image.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import { readTemplateResource } from "./template-resources.ts";
+import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./web/constants.ts";
+import { TemplateResolverErrors } from "./web/qualified-names.ts";
 
 export async function readTemplateResourceMaxBytes(
   config: ConfigAccessor | undefined,

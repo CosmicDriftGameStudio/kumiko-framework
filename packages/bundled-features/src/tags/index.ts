@@ -1,16 +1,4 @@
 export { tagAssignmentAggregateId } from "./aggregate-id.ts";
-export {
-  DEFAULT_TAG_ACCESS,
-  DEFAULT_TAG_ROLES,
-  TAGS_COLUMN_RENDERER_NAME,
-  TAGS_EDIT_SCREEN_ID,
-  TAGS_FEATURE_NAME,
-  TAGS_FILTER_EXTENSION_NAME,
-  TAGS_SCREEN_ID,
-  TAGS_SECTION_EXTENSION_NAME,
-  TagsHandlers,
-  TagsQueries,
-} from "./constants.ts";
 export { tagAssignmentEntity, tagEntity } from "./entity.ts";
 export { createTagsFeature, type TagsFeatureOptions } from "./feature.ts";
 export {
@@ -46,3 +34,15 @@ export {
   updateTagPayloadSchema,
 } from "./schemas.ts";
 export { createTagEditScreen, createTagListScreen } from "./screens.ts";
+export {
+  DEFAULT_TAG_ACCESS,
+  DEFAULT_TAG_ROLES,
+  TAGS_COLUMN_RENDERER_NAME,
+  TAGS_EDIT_SCREEN_ID,
+  TAGS_FEATURE_NAME,
+  TAGS_FILTER_EXTENSION_NAME,
+  TAGS_SCREEN_ID,
+  TAGS_SECTION_EXTENSION_NAME,
+  TagsHandlers,
+  TagsQueries,
+} from "./web/constants.ts";

@@ -1,4 +1,3 @@
-// @runtime client
 // SignupCompleteScreen — Magic-Link-Self-Signup, Step 2.
 //
 // Reads `?token=...` from the URL, shows a form with password + confirm.

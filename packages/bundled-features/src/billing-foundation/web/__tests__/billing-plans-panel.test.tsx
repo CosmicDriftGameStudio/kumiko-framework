@@ -1,4 +1,3 @@
-// @runtime test
 import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
@@ -10,9 +9,9 @@ import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-renderer/
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { BillingPlanActions, SubscriptionFoundationHandlers } from "../../constants.ts";
 import type { BillingPlansResult, BillingPlanView } from "../../types.ts";
 import { BillingPlansPanel } from "../billing-plans-panel.tsx";
+import { BillingPlanActions, SubscriptionFoundationHandlers } from "../constants.ts";
 
 type QueryState = {
   readonly data: BillingPlansResult | null;

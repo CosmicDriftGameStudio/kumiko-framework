@@ -54,10 +54,10 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createFilesFeature } from "../../files/index.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,

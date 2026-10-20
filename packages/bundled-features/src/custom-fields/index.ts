@@ -1,12 +1,4 @@
 export { fieldDefinitionAggregateId } from "./aggregate-id.ts";
-export {
-  CUSTOM_FIELDS_EXTENSION,
-  CUSTOM_FIELDS_FEATURE_NAME,
-  FIELD_DEFINITION_CREATED_EVENT,
-  FIELD_DEFINITION_UPDATED_EVENT,
-  SUPPORTED_FIELD_TYPES,
-  type SupportedFieldType,
-} from "./constants.ts";
 export { fieldDefinitionEntity } from "./entity.ts";
 export {
   type CustomFieldClearedPayload,
@@ -36,4 +28,12 @@ export {
   defineFieldPayloadSchema,
   deleteFieldPayloadSchema,
 } from "./schemas.ts";
+export {
+  CUSTOM_FIELDS_EXTENSION,
+  CUSTOM_FIELDS_FEATURE_NAME,
+  FIELD_DEFINITION_CREATED_EVENT,
+  FIELD_DEFINITION_UPDATED_EVENT,
+  SUPPORTED_FIELD_TYPES,
+  type SupportedFieldType,
+} from "./web/constants.ts";
 export { customFieldsField, wireCustomFieldsFor } from "./wire-for-entity.ts";

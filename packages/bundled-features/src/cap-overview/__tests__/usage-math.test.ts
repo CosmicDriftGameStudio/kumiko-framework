@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math.ts";
+import { computeFraction, computeTone, computeUnclampedFraction } from "../web/usage-math.ts";
 
 describe("computeFraction", () => {
   test("used 3 of limit 5 -> 0.6", () => {

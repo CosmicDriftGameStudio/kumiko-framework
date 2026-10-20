@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Seite des Content-Stresstests: der navProvider hängt sich an den
 // statischen `content`-Nav-Knoten (QN "content:nav:content"), lädt die Seiten
 // per /api/query und emittiert sie als Tree-Leaves. navEntities ["page"]

@@ -6,11 +6,11 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DEFAULT_LEDGER_ACCESS } from "../constants.ts";
 import { transactionExecutor, transactionTable } from "../executor.ts";
 import { normalizeLines } from "../reports.ts";
 import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from "../schemas.ts";
 import { readSubjectReference } from "../subject-reference.ts";
+import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
 // reverse-transaction (Storno) — the ONLY correction path for a posted entry.
 // Books the mirror image (every amount negated) as a new posted entry that

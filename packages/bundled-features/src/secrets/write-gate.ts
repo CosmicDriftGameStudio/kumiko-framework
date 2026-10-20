@@ -11,7 +11,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { INVALID_SECRET_VALUE_CODE, SECRETS_ERROR_KEYS } from "./constants.ts";
+import { INVALID_SECRET_VALUE_CODE, SECRETS_ERROR_KEYS } from "./web/constants.ts";
 
 // Fixed keys carry their definition (redact fn, writeRoles); namespace keys
 // only the namespace, which has no redact fn.

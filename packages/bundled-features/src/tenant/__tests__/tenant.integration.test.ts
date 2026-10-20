@@ -14,13 +14,13 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers, ConfigQueries } from "../../config/constants.ts";
 import { createConfigAccessor, createConfigFeature } from "../../config/index.ts";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { TenantHandlers, TenantQueries } from "../constants.ts";
+import { ConfigHandlers, ConfigQueries } from "../../config/web/constants.ts";
 import { createTenantFeature } from "../feature.ts";
 import { tenantEntity } from "../schema/tenant.ts";
+import { TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 // --- Setup ---
 

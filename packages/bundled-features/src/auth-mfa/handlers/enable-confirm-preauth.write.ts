@@ -12,7 +12,6 @@ import * as z from "zod";
 import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
 import { USER_STATUS, UserQueries } from "../../user/index.ts";
 import { base32Decode } from "../base32.ts";
-import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../constants.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import {
   invalidSetupToken,
@@ -28,6 +27,7 @@ import {
 } from "../mfa-verify-attempts.ts";
 import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { verifyTotp } from "../totp.ts";
+import { MFA_VERIFY_LOCKOUT_MINUTES, MFA_VERIFY_MAX_ATTEMPTS } from "../web/constants.ts";
 
 export type EnableConfirmPreauthOptions = {
   // Must match the secret enable-start-preauth.write.ts signs setupTokens

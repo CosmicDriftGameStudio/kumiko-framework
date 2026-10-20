@@ -5,7 +5,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DEFAULT_LEDGER_ACCESS } from "../constants.ts";
 import {
   accountExecutor,
   scheduleExecutor,
@@ -18,6 +17,7 @@ import {
   confirmSchedulePeriodPayloadSchema,
 } from "../schemas.ts";
 import { readSubjectReference } from "../subject-reference.ts";
+import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
 // pg_advisory_xact_lock namespace (int4): 'lcsp' as ASCII, disjoint from the
 // framework's other fixed advisory-lock keys.

@@ -45,11 +45,11 @@ import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessorFactory } from "../../config/feature.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,

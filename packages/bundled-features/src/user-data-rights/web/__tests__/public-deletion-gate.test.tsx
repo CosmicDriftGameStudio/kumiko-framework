@@ -17,7 +17,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../i18n.ts";
+import { defaultTranslations } from "../default-translations.ts";
 import { makePublicDeletionGate } from "../public-deletion-gate.tsx";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });

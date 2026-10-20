@@ -1,4 +1,3 @@
-// @runtime client
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { TemplateListRow, TemplateScope } from "./types.ts";
 

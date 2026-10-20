@@ -1,4 +1,3 @@
-// @runtime client
 // Client-Feature-Factory für auth-email-password. Wird vom App-Code
 // in createKumikoApp({ clientFeatures: [emailPasswordClient()] })
 // eingehängt und bringt Session-Context + AuthGate + Default-UI-
@@ -7,7 +6,6 @@
 
 import type { ClientActionHandler, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
-import { defaultTranslations, mergeTranslations } from "../i18n.ts";
 import {
   type AuthGateOptions,
   type MfaSetupComponentProps,
@@ -15,6 +13,7 @@ import {
   makeSessionAuthGate,
 } from "./auth-gate.tsx";
 import { emailPasswordClientActions } from "./client-actions.ts";
+import { defaultTranslations, mergeTranslations } from "./i18n.ts";
 import type { LoginScreenProps } from "./login-screen.tsx";
 
 export type EmailPasswordClientOptions = {

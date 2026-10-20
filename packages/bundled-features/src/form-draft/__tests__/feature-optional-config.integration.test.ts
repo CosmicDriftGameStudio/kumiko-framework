@@ -16,9 +16,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { FormDraftHandlers } from "../constants.ts";
 import { formDraftEntity } from "../entity.ts";
 import { createFormDraftFeature } from "../feature.ts";
+import { FormDraftHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 const owner = createTestUser({ id: 1, roles: ["TenantMember"] });

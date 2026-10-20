@@ -1,4 +1,3 @@
-// @runtime client
 // Mirrors the mail-layout meta of template-resolver (template-meta.ts); the server parses it again on every write and render.
 
 export const LAYOUT_WIDTHS = [560, 600, 640] as const;

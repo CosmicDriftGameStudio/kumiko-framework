@@ -8,7 +8,7 @@ import * as z from "zod";
 import { AuthErrors } from "../../auth-email-password/index.ts";
 import { decryptStoredPii, verifyPassword } from "../../shared/index.ts";
 import { UserErrors, UserHandlers, UserQueries } from "../../user/index.ts";
-import { UserProfileErrors } from "../constants.ts";
+import { UserProfileErrors } from "../web/constants.ts";
 
 // Gleiche Failure-Shape wie auth-email-password (anti-enumeration):
 // dessen errors.ts ist nicht Teil des Feature-Barrels, der Reason-Code

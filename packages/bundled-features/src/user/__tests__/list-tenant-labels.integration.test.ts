@@ -15,12 +15,12 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
-import { UserHandlers, UserQueries } from "../constants.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../feature.ts";
 import { userEntity } from "../schema/user.ts";
+import { UserHandlers, UserQueries } from "../web/constants.ts";
 
 const systemAdmin = TestUsers.systemAdmin;
 

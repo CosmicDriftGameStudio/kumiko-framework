@@ -31,11 +31,11 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import * as z from "zod";
-import { JobQueries } from "../constants.ts";
 import { createJobsFeature } from "../feature.ts";
 import { createJobRunLogger } from "../job-run-logger.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
 import { tenantJobFailuresTable } from "../tenant-job-failure-table.ts";
+import { JobQueries } from "../web/constants.ts";
 
 const JWT_SECRET = "tenant-job-failures-integration-secret-key-0123456789";
 const DECLARED_KEY = "app:errors.generationFailed";

@@ -1,14 +1,6 @@
 // Public API of the metrics bundled-feature.
 
 export {
-  METRIC_RANGES,
-  METRICS_FEATURE,
-  METRICS_SYSTEM_FEATURE,
-  type MetricRange,
-  type MetricScope,
-  metricQueryName,
-} from "./constants.ts";
-export {
   activeTenantsMetric,
   activeUsersMetric,
   auditWritesMetric,
@@ -32,3 +24,11 @@ export {
   type MetricSeries,
   type MetricsFeatureOptions,
 } from "./types.ts";
+export {
+  METRIC_RANGES,
+  METRICS_FEATURE,
+  METRICS_SYSTEM_FEATURE,
+  type MetricRange,
+  type MetricScope,
+  metricQueryName,
+} from "./web/constants.ts";

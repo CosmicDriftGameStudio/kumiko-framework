@@ -1,4 +1,3 @@
-// @runtime client
 // NotesSection — drop-in note history for ANY entity. Shows every note
 // chronologically (newest first) with author + timestamp, plus a textarea to
 // append a new one. Append-only: there is no edit/delete affordance because
@@ -19,7 +18,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "./constants.ts";
 
 type NoteRow = {
   readonly id: string;
@@ -33,7 +32,7 @@ type NoteRow = {
 };
 
 // Matches @cosmicdrift/kumiko-framework/crypto PII_ERASED_SENTINEL — cannot
-// import that module from @runtime client (runtime-isolation).
+// import that module from client code (runtime-isolation).
 const PII_ERASED_SENTINEL = "[[erased]]";
 
 function displayAuthorName(authorName: string | null, unknownLabel: string): string {

@@ -28,7 +28,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { ConfigHandlers, ConfigQueries } from "../constants.ts";
 import {
   createConfigAccessor,
   createConfigAccessorFactory,
@@ -36,6 +35,7 @@ import {
 } from "../feature.ts";
 import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
+import { ConfigHandlers, ConfigQueries } from "../web/constants.ts";
 
 // --- Setup ---
 

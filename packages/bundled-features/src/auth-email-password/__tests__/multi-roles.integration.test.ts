@@ -29,8 +29,8 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers, UserQueries } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthErrors, AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 const systemAdmin = TestUsers.systemAdmin;

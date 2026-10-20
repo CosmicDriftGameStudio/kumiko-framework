@@ -1,7 +1,7 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../constants.ts";
 import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
 import { type DeleteTagPayload, deleteTagPayloadSchema } from "../schemas.ts";
+import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const CASCADE_PAGE = 200;
 

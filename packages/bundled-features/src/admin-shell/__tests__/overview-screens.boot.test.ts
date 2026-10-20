@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
 import type { DashboardPanelDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { CapOverviewQueries } from "../../cap-overview/constants.ts";
-import { JobQueries } from "../../jobs/constants.ts";
+import { CapOverviewQueries } from "../../cap-overview/web/constants.ts";
+import { JobQueries } from "../../jobs/web/constants.ts";
 import {
   activeTenantsMetric,
   auditWritesMetric,
   DEFAULT_METRICS,
   metricQueryName,
 } from "../../metrics/index.ts";
-import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.ts";
 import { createAdminShellFeature } from "../feature.ts";
+import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../web/constants.ts";
 
 function dashboard(shell: ReturnType<typeof createAdminShellFeature>, screenId: string) {
   const screen = shell.screens[screenId];

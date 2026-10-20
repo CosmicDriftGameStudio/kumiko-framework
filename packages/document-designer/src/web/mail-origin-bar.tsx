@@ -1,4 +1,3 @@
-// @runtime client
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   dispatcherErrorText,

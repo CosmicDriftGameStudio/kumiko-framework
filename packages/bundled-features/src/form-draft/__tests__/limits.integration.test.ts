@@ -12,13 +12,13 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.ts";
+import { formDraftEntity } from "../entity.ts";
+import { createFormDraftFeature } from "../feature.ts";
 import {
   FORM_DRAFT_MAX_PER_OWNER,
   FORM_DRAFT_VALUES_MAX_BYTES,
   FormDraftHandlers,
-} from "../constants.ts";
-import { formDraftEntity } from "../entity.ts";
-import { createFormDraftFeature } from "../feature.ts";
+} from "../web/constants.ts";
 
 let stack: TestStack;
 

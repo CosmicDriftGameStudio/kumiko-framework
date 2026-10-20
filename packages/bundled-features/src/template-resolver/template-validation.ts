@@ -7,12 +7,12 @@ import type {
 import type { Element as ScanElement } from "happy-dom";
 import * as z from "zod";
 import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.ts";
+import type { TemplateMeta } from "./template-meta.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
-} from "./document-schema.ts";
-import type { TemplateMeta } from "./template-meta.ts";
+} from "./web/document-schema.ts";
 
 export const SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set([
   "tenantName",

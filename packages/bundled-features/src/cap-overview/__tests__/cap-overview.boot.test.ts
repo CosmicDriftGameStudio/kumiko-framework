@@ -8,13 +8,13 @@ import { createTenantFeature } from "../../tenant/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createTierEngineFeature } from "../../tier-engine/index.ts";
 import { DEFAULT_CAP_USAGE_ROLES } from "../access.ts";
+import { createCapOverviewFeature } from "../feature.ts";
+import type { CapSpec } from "../types.ts";
 import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
   TENANT_CAP_LIST_SCREEN_ID,
-} from "../constants.ts";
-import { createCapOverviewFeature } from "../feature.ts";
-import type { CapSpec } from "../types.ts";
+} from "../web/constants.ts";
 
 const testCap: CapSpec = {
   id: "widgets",

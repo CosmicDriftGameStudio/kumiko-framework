@@ -1,6 +1,10 @@
-// @runtime client
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
+import { DeliveryChannelCell } from "./delivery-channel-cell.tsx";
+import { DeliveryErrorCell } from "./delivery-error-cell.tsx";
+import { DeliveryStatusCell } from "./delivery-status-cell.tsx";
+import { DeliveryTimeCell } from "./delivery-time-cell.tsx";
+import { DeliveryTypeCell } from "./delivery-type-cell.tsx";
 import {
   DELIVERY_CHANNEL_CELL_COMPONENT,
   DELIVERY_ERROR_CELL_COMPONENT,
@@ -8,12 +12,7 @@ import {
   DELIVERY_STATUS_CELL_COMPONENT,
   DELIVERY_TIME_CELL_COMPONENT,
   DELIVERY_TYPE_CELL_COMPONENT,
-} from "../public-names.ts";
-import { DeliveryChannelCell } from "./delivery-channel-cell.tsx";
-import { DeliveryErrorCell } from "./delivery-error-cell.tsx";
-import { DeliveryStatusCell } from "./delivery-status-cell.tsx";
-import { DeliveryTimeCell } from "./delivery-time-cell.tsx";
-import { DeliveryTypeCell } from "./delivery-type-cell.tsx";
+} from "./public-names.ts";
 
 export type DeliveryClientOptions = {
   readonly translations?: TranslationsByLocale;

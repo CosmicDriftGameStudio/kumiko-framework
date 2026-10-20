@@ -31,9 +31,9 @@ import {
   TierEngineHandlers,
   tierAssignmentEntity,
 } from "../../tier-engine/index.ts";
-import { CapOverviewQueries, capFieldName } from "../constants.ts";
 import { createCapOverviewFeature } from "../feature.ts";
 import type { CapSpec } from "../types.ts";
+import { CapOverviewQueries, capFieldName } from "../web/constants.ts";
 
 const TENANT_A = testTenantId(9101);
 const TENANT_B = testTenantId(9102);

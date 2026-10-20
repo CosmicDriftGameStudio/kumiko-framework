@@ -1,14 +1,14 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { TEST_MAIL_SUBJECT_PREFIX } from "../constants.ts";
-import { TemplateResolverErrors } from "../qualified-names.ts";
 import {
   refuseTemplateEdit,
   type TemplateEditPolicy,
   templateEditAccess,
 } from "../template-edit-policy.ts";
 import { renderTemplatePreview } from "../template-preview.ts";
+import { TEST_MAIL_SUBJECT_PREFIX } from "../web/constants.ts";
+import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import {
   emailChannelOf,
   resolveTestMailAddress,

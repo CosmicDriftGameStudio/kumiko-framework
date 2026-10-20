@@ -1,4 +1,3 @@
-// @runtime client
 import { useCallback, useRef, useState } from "react";
 
 export const SETTLE_DELAY_MS = 400;

@@ -7,7 +7,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
-import { TagsQueries } from "../../constants.ts";
+import { TagsQueries } from "../constants.ts";
 import { defaultTranslations } from "../i18n.ts";
 import type { TagPicker as TagPickerComponent } from "../tag-picker.tsx";
 

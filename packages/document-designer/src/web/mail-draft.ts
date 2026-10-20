@@ -1,4 +1,3 @@
-// @runtime client
 import {
   DOCUMENT_FALLBACK_CURRENCY,
   formatDocumentDate,

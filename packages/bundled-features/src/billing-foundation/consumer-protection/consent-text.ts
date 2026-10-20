@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import type { ConsentLocale } from "./consent-locale.ts";
+import type { ConsentLocale } from "../web/consumer-protection/consent-locale.ts";
 
 export {
   CONSENT_LOCALES,
   type ConsentLocale,
   FALLBACK_CONSENT_LOCALE,
   resolveConsentLocale,
-} from "./consent-locale.ts";
+} from "../web/consumer-protection/consent-locale.ts";
 
 // Legal texts, deliberately inline de/en: the wording is part of the recorded
 // consent, so it cannot follow the en-only i18n convention.

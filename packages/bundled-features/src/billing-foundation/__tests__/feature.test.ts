@@ -2,6 +2,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { paymentAggregateId, paymentRowId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { createBillingFoundationFeature } from "../feature.ts";
+import type { BillingPlanCatalog } from "../types.ts";
 import {
   BILLING_FOUNDATION_FEATURE,
   BILLING_PLANS_SCREEN_ID,
@@ -9,9 +11,7 @@ import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "../constants.ts";
-import { createBillingFoundationFeature } from "../feature.ts";
-import type { BillingPlanCatalog } from "../types.ts";
+} from "../web/constants.ts";
 
 function catalog(overrides: Partial<BillingPlanCatalog> = {}): BillingPlanCatalog {
   return {

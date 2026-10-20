@@ -1,4 +1,3 @@
-// @runtime client
 // Rendered by auth-gate's LoginRoute when the session bootstrap failed for a reason other than "not logged in".
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";

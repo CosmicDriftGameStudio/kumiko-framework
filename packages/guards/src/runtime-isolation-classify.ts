@@ -49,6 +49,7 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   // sample and import kumiko-testing/e2e; without this rule they read as
   // runtime code importing the test tier. Deliberately not any nested e2e/.
   [/^(?:e2e|packages\/[^/]+\/e2e|samples\/(?:.+\/)?e2e)\//, "test"],
+  [/(?:^|\/)dev\//, "dev"],
   [/(?:^|\/)scripts\//, "tooling"],
   [/(?:^|\/)bin\//, "tooling"],
   [/\/drizzle\/[^/]+\.ts$/, "tooling"],
@@ -347,7 +348,10 @@ export function classifyByDirective(
   readHead: HeadReader = readFileHead,
 ): Runtime | null {
   const head = readHead(filePath);
-  if (head === null) return null;
+  return head === null ? null : directiveInHead(head);
+}
+
+export function directiveInHead(head: string): Runtime | null {
   for (const line of head.split("\n").slice(0, DIRECTIVE_HEAD_LINES)) {
     const m = line.match(/\/\/\s*@runtime\s+(\w+)/);
     const declared = m?.[1];

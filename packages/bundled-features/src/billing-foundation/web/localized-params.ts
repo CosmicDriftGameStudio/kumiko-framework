@@ -1,5 +1,3 @@
-// @runtime client
-
 export function localizedParams(
   params: Readonly<Record<string, string | number>> | undefined,
   locale: string,

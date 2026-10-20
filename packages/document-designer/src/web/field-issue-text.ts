@@ -1,5 +1,3 @@
-// @runtime client
-
 import { dispatcherErrorText } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 

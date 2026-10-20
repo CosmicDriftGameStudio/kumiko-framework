@@ -48,9 +48,9 @@ import {
   tenantInvitationDeleteHook,
   tenantInvitationExportHook,
 } from "../../user-data-rights-defaults/index.ts";
-import { AuthErrors, AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { seedUser } from "../seeding.ts";
+import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

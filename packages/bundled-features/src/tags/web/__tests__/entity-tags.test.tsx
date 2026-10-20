@@ -7,7 +7,7 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { TagsQueries } from "../../constants.ts";
+import { TagsQueries } from "../constants.ts";
 import { EntityTags } from "../entity-tags.tsx";
 import { defaultTranslations } from "../i18n.ts";
 

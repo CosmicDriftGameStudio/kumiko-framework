@@ -1,4 +1,3 @@
-// @runtime client
 // Tenant choices as dropdown entries — the TenantSwitcher's list for a user
 // menu that carries the shell controls. Renders nothing for a single tenant.
 

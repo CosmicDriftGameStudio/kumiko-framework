@@ -1,4 +1,3 @@
-// @runtime client
 // RequestAccountDeletionScreen — anonymer Apex-Screen Schritt 1. Email-Form
 // → user-data-rights:write:request-deletion-by-email. Enumeration-safe: zeigt
 // unconditional ein "Falls Account existiert, Mail unterwegs"-Confirm, auch

@@ -1,4 +1,4 @@
-// @runtime client
+export { tagsClient } from "./client-plugin.tsx";
 export {
   TAGS_COLUMN_RENDERER_NAME,
   TAGS_EDIT_SCREEN_ID,
@@ -7,8 +7,7 @@ export {
   TAGS_SECTION_EXTENSION_NAME,
   TagsHandlers,
   TagsQueries,
-} from "../constants.ts";
-export { tagsClient } from "./client-plugin.tsx";
+} from "./constants.ts";
 export { EntityTags } from "./entity-tags.tsx";
 export { contrastText, TagChip } from "./tag-chip.tsx";
 export { TagFilter } from "./tag-filter.tsx";

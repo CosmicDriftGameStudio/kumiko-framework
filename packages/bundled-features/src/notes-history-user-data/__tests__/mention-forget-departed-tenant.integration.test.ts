@@ -47,12 +47,12 @@ import {
   noteMentionEntity,
 } from "../../notes-history/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
-import { TenantHandlers } from "../../tenant/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";

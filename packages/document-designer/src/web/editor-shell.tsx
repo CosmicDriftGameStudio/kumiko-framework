@@ -1,4 +1,3 @@
-// @runtime client
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";

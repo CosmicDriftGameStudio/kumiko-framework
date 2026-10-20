@@ -5,10 +5,10 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { AuthErrors } from "../constants.ts";
 import { invalidUnlockToken } from "../errors.ts";
 import { clearLockoutState } from "../lockout-store.ts";
 import { verifyUnlockToken } from "../unlock-token.ts";
+import { AuthErrors } from "../web/constants.ts";
 
 export type ConfirmAccountUnlockOptions = {
   readonly hmacSecret: string;

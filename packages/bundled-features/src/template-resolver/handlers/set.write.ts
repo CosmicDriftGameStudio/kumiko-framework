@@ -7,7 +7,6 @@ import {
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
-import { TEMPLATE_KINDS, TEXT_BLOCK_KIND, UPSERT_KINDS } from "../constants.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
   refuseTemplateEdit,
@@ -15,6 +14,7 @@ import {
   templateEditAccess,
 } from "../template-edit-policy.ts";
 import { resolveTemplateVariables } from "../template-validation.ts";
+import { TEMPLATE_KINDS, TEXT_BLOCK_KIND, UPSERT_KINDS } from "../web/constants.ts";
 import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.ts";
 import { parseStoredJson, storedRecord } from "./template-gates.ts";
 import { gateTemplateWrite } from "./template-write.ts";

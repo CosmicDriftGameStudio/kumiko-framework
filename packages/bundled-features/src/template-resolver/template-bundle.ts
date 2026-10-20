@@ -1,8 +1,8 @@
 import * as z from "zod";
-import { CONTENT_FORMATS, UPSERT_KINDS } from "./constants.ts";
-import { isDocumentResourceKey } from "./document-schema.ts";
 import { templatePdfAttachmentLinkSchema } from "./linked-resources.ts";
 import { templateSlugSchema } from "./template-meta.ts";
+import { CONTENT_FORMATS, UPSERT_KINDS } from "./web/constants.ts";
+import { isDocumentResourceKey } from "./web/document-schema.ts";
 
 const MAX_RESOURCES = 20;
 const MAX_LOCALES = 50;

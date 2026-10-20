@@ -27,10 +27,10 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers } from "../../config/constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { ConfigHandlers } from "../../config/web/constants.ts";
 import { createPlainFallbackEmailFeature } from "../../delivery/__tests__/plain-email-channel.ts";
 import { collectChannels, createDeliveryService } from "../../delivery/delivery-service.ts";
 import { createDeliveryFeature } from "../../delivery/feature.ts";

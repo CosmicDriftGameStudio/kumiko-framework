@@ -1,4 +1,3 @@
-// @runtime client
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   mergeTranslations,
@@ -7,15 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
-import {
-  DEFAULT_TEMPLATE_LOCALES,
-  DOCUMENT_DESIGNER_FEATURE,
-  DocumentDesignerCells,
-  LAYOUT_EDITOR_SCREEN_ID,
-  MAIL_EDITOR_SCREEN_ID,
-  PDF_TEMPLATE_EDITOR_SCREEN_ID,
-} from "../constants.ts";
-import { DOCUMENT_DESIGNER_I18N } from "../i18n.ts";
 import {
   createLocalesCell,
   KindCell,
@@ -26,7 +16,16 @@ import {
   TitleCell,
   UsedByCell,
 } from "./cells.tsx";
-import { documentDesignerTranslations } from "./i18n.ts";
+import {
+  DEFAULT_TEMPLATE_LOCALES,
+  DOCUMENT_DESIGNER_FEATURE,
+  DocumentDesignerCells,
+  LAYOUT_EDITOR_SCREEN_ID,
+  MAIL_EDITOR_SCREEN_ID,
+  PDF_TEMPLATE_EDITOR_SCREEN_ID,
+} from "./constants.ts";
+import { documentDesignerTranslations } from "./default-translations.ts";
+import { DOCUMENT_DESIGNER_I18N } from "./i18n.ts";
 import { LayoutEditor } from "./layout-editor.tsx";
 import { createMailEditor } from "./mail-editor.tsx";
 import { PdfTemplateEditor } from "./pdf-template-editor.tsx";

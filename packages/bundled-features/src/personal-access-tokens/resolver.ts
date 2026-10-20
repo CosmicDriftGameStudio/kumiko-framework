@@ -6,7 +6,7 @@ import { isExpiredAt } from "./expiry.ts";
 import { hashPatToken } from "./hash.ts";
 import { resolvePatRoles } from "./roles.ts";
 import { apiTokenTable } from "./schema/api-token.ts";
-import { expandScopes, type PatScopeConfig } from "./scopes.ts";
+import { expandScopes, type PatScopeConfig } from "./web/scopes.ts";
 
 // Hot-path resolver — raw-DB like session-callbacks (a dispatcher roundtrip on
 // every request buys nothing here). Hash the bearer token, point-read the row,

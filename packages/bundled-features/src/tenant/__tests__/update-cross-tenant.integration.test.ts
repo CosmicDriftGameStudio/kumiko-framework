@@ -15,9 +15,9 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { TenantHandlers } from "../constants.ts";
 import { createTenantFeature } from "../feature.ts";
 import { tenantEntity } from "../schema/tenant.ts";
+import { TenantHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 

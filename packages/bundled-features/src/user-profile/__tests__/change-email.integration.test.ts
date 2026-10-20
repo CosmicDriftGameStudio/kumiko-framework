@@ -16,8 +16,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -38,13 +38,13 @@ import { UserErrors, UserHandlers, UserQueries } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+import { createUserProfileFeature } from "../feature.ts";
 import {
   UserDataRightsHandlers,
   UserProfileErrors,
   UserProfileHandlers,
   UserProfileQueries,
-} from "../constants.ts";
-import { createUserProfileFeature } from "../feature.ts";
+} from "../web/constants.ts";
 
 let stack: TestStack;
 

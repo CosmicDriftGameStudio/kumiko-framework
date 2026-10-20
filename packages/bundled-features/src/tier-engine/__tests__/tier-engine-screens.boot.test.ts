@@ -4,8 +4,8 @@ import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import type { TierMap } from "../compose-app.ts";
-import { TIER_ADMIN_SCREEN_ID } from "../constants.ts";
 import { createTierEngineFeature } from "../feature.ts";
+import { TIER_ADMIN_SCREEN_ID } from "../web/constants.ts";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 

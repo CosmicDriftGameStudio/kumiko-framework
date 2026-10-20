@@ -8,8 +8,8 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(

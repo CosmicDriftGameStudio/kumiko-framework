@@ -4,8 +4,8 @@ import {
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
   type TemplateKind,
-} from "./constants.ts";
-import { MAIL_TONES, type MailTone } from "./mail-constants.ts";
+} from "./web/constants.ts";
+import { MAIL_TONES, type MailTone } from "./web/mail-constants.ts";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.

@@ -28,7 +28,7 @@ import {
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../i18n.ts";
+import { defaultTranslations } from "../web/i18n.ts";
 import { ChangeEmailSection, ChangePasswordSection } from "../web/profile-screen.tsx";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};

@@ -1,4 +1,3 @@
-// @runtime client
 // ConfirmAccountUnlockScreen — reads `?token=...` from the URL, auto-posts
 // it to /api/auth/confirm-account-unlock on mount, shows success/error.
 // Idempotent server-side (clearLockoutState is a no-op when already

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { type TemplateVariables, templateVariable } from "@cosmicdrift/kumiko-framework/engine";
-import { MAIL_PREVIEW_MAX_BYTES } from "../constants.ts";
 import {
   encodedAttachmentBytes,
   estimateMailBytes,
   MIME_PART_OVERHEAD_BYTES,
   sampleValuesFor,
 } from "../template-preview.ts";
+import { MAIL_PREVIEW_MAX_BYTES } from "../web/constants.ts";
 
 describe("sampleValuesFor", () => {
   test("uses the declared example of a scalar variable", () => {

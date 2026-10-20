@@ -22,15 +22,14 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
-import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.ts";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/web/constants.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
-import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.ts";
 import { consentTextVersion } from "../consumer-protection/consent-text.ts";
 import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
@@ -39,6 +38,7 @@ import type {
   ConsumerProtectionOptions,
   SubscriptionProviderPlugin,
 } from "../types.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../web/constants.ts";
 
 const TERMS_SLUG = "billing-terms";
 const TERMS_CONTENT_DE = "Allgemeine Geschäftsbedingungen, Fassung 1";

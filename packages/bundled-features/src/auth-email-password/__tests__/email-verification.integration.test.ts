@@ -25,10 +25,10 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthErrors, AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { signResetToken } from "../reset-token.ts";
 import { signVerificationToken } from "../verification-token.ts";
+import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 // Verify mails now go through delivery (ctx.notify → channel-email); the

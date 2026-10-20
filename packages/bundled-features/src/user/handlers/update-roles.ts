@@ -22,8 +22,8 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { UserErrors } from "../constants.ts";
 import { USER_STATUS, userEntity, userTable } from "../schema/user.ts";
+import { UserErrors } from "../web/constants.ts";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

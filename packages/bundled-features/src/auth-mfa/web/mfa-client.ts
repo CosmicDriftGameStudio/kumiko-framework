@@ -1,4 +1,3 @@
-// @runtime client
 // Browser-Seite von POST /api/auth/mfa/verify — completes the two-step
 // login LoginScreen started when the server responded mfaRequired. Same
 // fetch/CSRF pattern as auth-email-password's login() (pre-session, no

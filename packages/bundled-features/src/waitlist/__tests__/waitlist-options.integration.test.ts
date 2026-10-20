@@ -5,7 +5,6 @@ import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { deleteRows, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { WAITLIST_STATUS, WaitlistHandlers } from "../constants.ts";
 import { waitlistEntryTable } from "../entity.ts";
 import { importWaitlistEntry, waitlistImportId } from "../import.ts";
 import {
@@ -14,6 +13,7 @@ import {
   publicstatusLegacyTable,
 } from "../legacy-migrate.ts";
 import { platformActor, waitlistExecutor } from "../lib.ts";
+import { WAITLIST_STATUS, WaitlistHandlers } from "../web/constants.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,

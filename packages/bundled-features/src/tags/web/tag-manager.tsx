@@ -1,4 +1,3 @@
-// @runtime client
 // TagManager — the shared tag-catalog UI, GitLab-labels style. Built ONCE,
 // mounted twice:
 //   - standalone:  <TagManager />                       → the Tags admin screen
@@ -18,7 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
-import { TagsHandlers, TagsQueries } from "../constants.ts";
+import { TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 
 type TagRow = {

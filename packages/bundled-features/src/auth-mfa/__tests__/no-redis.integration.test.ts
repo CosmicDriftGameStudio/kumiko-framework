@@ -32,12 +32,12 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { base32Encode } from "../base32.ts";
-import { AuthMfaHandlers } from "../constants.ts";
 import { createAuthMfaFeature } from "../feature.ts";
 import { signMfaChallengeToken } from "../mfa-challenge-token.ts";
 import { signMfaSetupToken } from "../mfa-setup-token.ts";
 import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { generateTotpSecret } from "../totp.ts";
+import { AuthMfaHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 

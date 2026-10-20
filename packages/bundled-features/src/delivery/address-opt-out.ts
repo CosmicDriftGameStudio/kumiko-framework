@@ -7,8 +7,8 @@ import {
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
-import { DeliveryErrors } from "./public-names.ts";
 import { notificationAddressOptOutEntity, notificationAddressOptOutsTable } from "./tables.ts";
+import { DeliveryErrors } from "./web/public-names.ts";
 
 const executor = createEventStoreExecutor(
   notificationAddressOptOutsTable,

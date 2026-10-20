@@ -8,13 +8,13 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { collectionHandlerName, TemplateResolverHandlers } from "../qualified-names.ts";
 import { seedSystemTemplate } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { collectionHandlerName, TemplateResolverHandlers } from "../web/qualified-names.ts";
 import { documentBodyFixture } from "./document-body-fixture";
 
 let stack: TestStack;

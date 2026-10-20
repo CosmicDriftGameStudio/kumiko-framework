@@ -1,4 +1,3 @@
-// @runtime client
 // MfaRegenerateRecoveryDialog — confirm-with-code, then the caller reveals
 // the new codes. The reveal itself can't live inside this Dialog: Dialog
 // closes in a `finally` right after onConfirm resolves (see profile-screen.
@@ -9,7 +8,7 @@
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { AuthMfaHandlers } from "../constants.ts";
+import { AuthMfaHandlers } from "./constants.ts";
 
 export type MfaRegenerateRecoveryDialogProps = {
   readonly open: boolean;

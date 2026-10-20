@@ -8,8 +8,8 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { TemplateResolverHandlers } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TemplateResolverHandlers } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(["mail"], ["gate-mailer:notify:hello"]);

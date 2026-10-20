@@ -24,13 +24,13 @@ import { createRendererFoundationFeature } from "../../renderer-foundation/featu
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { seedSystemTemplate, seedTextBlock } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const PLAIN_NAMES = [

@@ -1,4 +1,3 @@
-// @runtime test
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
@@ -10,9 +9,9 @@ import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { CapOverviewQueries } from "../../constants.ts";
 import type { CapUsageTone, CapUsageWithMeta } from "../../types.ts";
 import { CapCardsPanel } from "../cap-cards-panel.tsx";
+import { CapOverviewQueries } from "../constants.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 

@@ -8,16 +8,16 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import {
-  COMPLIANCE_PROFILE_SCREEN_ID,
-  ComplianceProfileHandlers,
-  ComplianceProfileQueries,
-} from "../constants.ts";
 import { createComplianceProfilesFeature } from "../feature.ts";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../schema/profile-selection.ts";
+import {
+  COMPLIANCE_PROFILE_SCREEN_ID,
+  ComplianceProfileHandlers,
+  ComplianceProfileQueries,
+} from "../web/constants.ts";
 
 let stack: TestStack;
 

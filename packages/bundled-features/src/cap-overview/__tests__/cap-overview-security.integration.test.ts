@@ -24,9 +24,9 @@ import {
   TierEngineHandlers,
   tierAssignmentEntity,
 } from "../../tier-engine/index.ts";
-import { CapOverviewQueries } from "../constants.ts";
 import { createCapOverviewFeature } from "../feature.ts";
 import type { CapSpec } from "../types.ts";
+import { CapOverviewQueries } from "../web/constants.ts";
 
 // Two tenants with distinct usage numbers — proves reads are scoped by
 // tenantId, not "whichever row comes back first" or a summed total.

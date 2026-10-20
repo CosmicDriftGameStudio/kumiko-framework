@@ -1,8 +1,6 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_DEFAULT_RATE_LIMIT, type PatRateLimit } from "./constants.ts";
+import { PAT_DEFAULT_RATE_LIMIT, type PatRateLimit } from "./web/constants.ts";
 
-export type { PatRateLimit } from "./constants.ts";
-export { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PatHandlers, PatQueries } from "./constants.ts";
 export type { BindPatAutoRevokeOnPasswordChange, PersonalAccessTokensOptions } from "./feature.ts";
 export {
   bindPatAutoRevokeOnPasswordChangeFromFeature,
@@ -20,8 +18,10 @@ export {
 export { createPatResolver } from "./resolver.ts";
 export { revokeAllPatTokensForUser } from "./revoke-for-user.ts";
 export { apiTokenEntity, apiTokenTable } from "./schema/api-token.ts";
-export type { PatScopeConfig, PatScopeDef } from "./scopes.ts";
-export { expandScopes } from "./scopes.ts";
+export type { PatRateLimit } from "./web/constants.ts";
+export { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, PatHandlers, PatQueries } from "./web/constants.ts";
+export type { PatScopeConfig, PatScopeDef } from "./web/scopes.ts";
+export { expandScopes } from "./web/scopes.ts";
 
 // Reads the per-token rate-limit config off a mounted PAT feature's exports.
 // Falls back to the default when absent. run-prod-app uses this to build the

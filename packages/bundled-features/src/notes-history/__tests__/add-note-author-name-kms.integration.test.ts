@@ -33,9 +33,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.ts";
 import { noteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
 const notesHistoryFeature = createNotesHistoryFeature();
 const tenantId = testTenantId(1);

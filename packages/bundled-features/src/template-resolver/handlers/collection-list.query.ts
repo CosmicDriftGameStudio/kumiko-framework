@@ -4,7 +4,7 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_COLLECTION_ACCESS } from "../constants.ts";
+import { DEFAULT_COLLECTION_ACCESS } from "../web/constants.ts";
 import {
   type CollectionEntryRow,
   collectionStore,

@@ -1,4 +1,3 @@
-// @runtime client
 import {
   type ExtensionSectionComponent,
   mergeTranslations,
@@ -8,8 +7,8 @@ import type { ComponentType, ReactNode } from "react";
 import {
   CHANGE_EMAIL_SECTION_EXTENSION_NAME,
   CHANGE_PASSWORD_SECTION_EXTENSION_NAME,
-} from "../constants.ts";
-import { defaultTranslations } from "../i18n.ts";
+} from "./constants.ts";
+import { defaultTranslations } from "./i18n.ts";
 import { ChangeEmailSection, ChangePasswordSection } from "./profile-screen.tsx";
 
 export type UserProfileClientOptions = {

@@ -1,4 +1,3 @@
-// @runtime client
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   useLocale,
@@ -9,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ComponentType, type ReactNode, useState } from "react";
-import { DEFAULT_TEMPLATE_LOCALES } from "../constants.ts";
+import { DEFAULT_TEMPLATE_LOCALES } from "./constants.ts";
 import { defaultLocaleOf } from "./editor-locale.ts";
 import { MailEditorBody } from "./mail-editor-body.tsx";
 import type { TemplateRowSummary, TemplateRowView } from "./mail-types.ts";

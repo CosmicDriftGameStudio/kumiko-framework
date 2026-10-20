@@ -21,8 +21,8 @@ import { createConfigFeature } from "../../config/index.ts";
 import { REDACTED_PII_PLACEHOLDER } from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
-import { AuditQueries } from "../constants.ts";
 import { createAuditFeature } from "../feature.ts";
+import { AuditQueries } from "../web/constants.ts";
 
 const memberEntity = createEntity({
   table: "audit_kms_members",

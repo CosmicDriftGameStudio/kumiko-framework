@@ -23,9 +23,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { NotesHistoryHandlers } from "../constants.ts";
 import { createNoteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
+import { NotesHistoryHandlers } from "../web/constants.ts";
 
 const PROJECT_TABLE = "notes_pv_test_projects";
 

@@ -1,4 +1,3 @@
-// @runtime client
 // Client-feature factory for user-data-rights. Provides the ExportSection
 // extension component for the privacy-center screen (registered server-side
 // declaratively as `type: "projectionDetail"`, see feature.ts — restriction
@@ -17,8 +16,8 @@
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { EXPORT_SECTION_EXTENSION_NAME, USER_DATA_RIGHTS_FEATURE } from "../constants.ts";
-import { defaultTranslations } from "./i18n.ts";
+import { EXPORT_SECTION_EXTENSION_NAME, USER_DATA_RIGHTS_FEATURE } from "./constants.ts";
+import { defaultTranslations } from "./default-translations.ts";
 import { ExportSection } from "./privacy-center-screen.tsx";
 import { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate.tsx";
 

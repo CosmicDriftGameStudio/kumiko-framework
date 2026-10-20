@@ -1,11 +1,11 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { DOCUMENT_HTML_KINDS } from "../constants.ts";
-import { documentBlocksForKind } from "../document-blocks.ts";
 import { documentBlocksOf } from "../document-ops.ts";
 import { parseDocumentJson } from "../document-sanitizer.ts";
 import { resolveTemplateVariables } from "../template-validation.ts";
+import { DOCUMENT_HTML_KINDS } from "../web/constants.ts";
+import { documentBlocksForKind } from "../web/document-blocks.ts";
 import { loadDocumentBase } from "./document-base.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
 import { knownResourceKeysFor } from "./validate.query.ts";

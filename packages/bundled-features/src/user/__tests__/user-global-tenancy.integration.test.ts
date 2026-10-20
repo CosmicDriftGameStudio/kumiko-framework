@@ -13,9 +13,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { UserHandlers } from "../constants.ts";
 import { createUserFeature } from "../feature.ts";
 import { userEntity, userTable } from "../schema/user.ts";
+import { UserHandlers } from "../web/constants.ts";
 
 const globalUserAccessFeature = defineFeature("user-global-access-probe", (r) => {
   r.queryHandler({

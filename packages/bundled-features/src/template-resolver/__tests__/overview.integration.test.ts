@@ -9,8 +9,8 @@ import {
 import * as z from "zod";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.ts";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const MAIL_SLUG = "billing-ov:notify:invoice-issued";

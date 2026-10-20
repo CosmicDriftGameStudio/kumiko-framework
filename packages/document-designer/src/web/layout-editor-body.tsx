@@ -1,4 +1,3 @@
-// @runtime client
 import {
   DocumentContentEditor,
   MAIL_DOCUMENT_BLOCKS,
@@ -16,8 +15,8 @@ import {
 import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
-import { BRANDING_QUERY_QN } from "../constants.ts";
 import { composeLayoutHtml } from "./compose-layout.ts";
+import { BRANDING_QUERY_QN } from "./constants.ts";
 import { EditorHeader } from "./editor-header.tsx";
 import { EditorBody, EditorFooter, EditorFrame, type FooterTone } from "./editor-shell.tsx";
 import { fileUrl } from "./file-name.ts";

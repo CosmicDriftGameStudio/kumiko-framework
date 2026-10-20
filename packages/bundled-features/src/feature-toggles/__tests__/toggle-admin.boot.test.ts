@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
+import { createFeatureTogglesFeature } from "../feature.ts";
 import {
   FeatureToggleHandlers,
   FeatureToggleQueries,
   TOGGLE_ADMIN_SCREEN_ID,
-} from "../constants.ts";
-import { createFeatureTogglesFeature } from "../feature.ts";
+} from "../web/constants.ts";
 
 describe("feature-toggles screen + handler access alignment", () => {
   const features = [createFeatureTogglesFeature()];

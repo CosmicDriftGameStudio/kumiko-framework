@@ -50,16 +50,16 @@ import {
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
 } from "../../tenant/membership-roles.ts";
-// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
-import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/constants.ts";
 // kumiko-lint-ignore cross-feature-import invitee lookup by email reads the user row
 import { userTable } from "../../user/schema/user.ts";
-import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.ts";
+// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
+import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "../../user/web/constants.ts";
 import type { AuthMailLocale } from "../email-templates.ts";
 import { inviteAlreadyAccepted } from "../errors.ts";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.ts";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.ts";
 import { AuthMailNotificationTypes } from "../mail-notifications.ts";
+import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../web/constants.ts";
 
 const InviteCreateSchema = z.object({
   email: z.email(),

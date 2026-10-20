@@ -6,13 +6,13 @@
 
 import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import type { Context } from "hono";
+import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.ts";
 import {
   BILLING_FOUNDATION_FEATURE,
   BillingEventKinds,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
-} from "./constants.ts";
-import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.ts";
+} from "./web/constants.ts";
 
 export type SubscriptionWebhookRouteOptions = {
   /** Route path — MUST carry the `:providerName` path-param. Default

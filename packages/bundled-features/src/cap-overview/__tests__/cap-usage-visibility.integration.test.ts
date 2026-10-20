@@ -22,9 +22,9 @@ import {
   TierEngineHandlers,
   tierAssignmentEntity,
 } from "../../tier-engine/index.ts";
-import { CapOverviewQueries } from "../constants.ts";
 import { type CreateCapOverviewOptions, createCapOverviewFeature } from "../feature.ts";
 import type { CapSpec } from "../types.ts";
+import { CapOverviewQueries } from "../web/constants.ts";
 
 const TENANT = testTenantId(9301);
 

@@ -52,10 +52,6 @@ import {
 } from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import login-style password-check
 import { userTable } from "../../user/schema/user.ts";
-import {
-  AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
-  AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
-} from "../constants.ts";
 import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors.ts";
 import {
   burnInviteToken,
@@ -64,6 +60,10 @@ import {
   unburnInviteToken,
 } from "../invite-token-store.ts";
 import { passwordSchema } from "../password-policy.ts";
+import {
+  AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
+  AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
+} from "../web/constants.ts";
 import {
   gateEnforceAccountStatus,
   gateEnforceEmailVerified,

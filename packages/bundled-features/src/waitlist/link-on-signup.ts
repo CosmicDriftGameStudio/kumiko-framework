@@ -10,8 +10,8 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { decryptStoredPii } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { userTable } from "../user/index.ts";
-import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS } from "./constants.ts";
 import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
+import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS } from "./web/constants.ts";
 
 const PII_DECRYPT_REASON = "waitlist:link-on-signup";
 

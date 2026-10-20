@@ -1,4 +1,3 @@
-// @runtime client
 // FolderManager — in-screen folder tree the user manages directly: create root
 // folders + subfolders, rename, delete, collapse/expand. KPI-agnostic: a host
 // passes `renderMeta` to hang its own per-folder badges (e.g. money-horse's
@@ -35,7 +34,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useState } from "react";
-import { FoldersHandlers, FoldersQueries } from "../constants.ts";
+import { FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { buildFolderTree, type FolderNode, type FolderRow } from "./tree.ts";
 
 type FolderListResponse = { readonly rows: readonly FolderRow[] };

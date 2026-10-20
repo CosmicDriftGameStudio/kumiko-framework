@@ -40,8 +40,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { AuthHandlers } from "../../auth-email-password/constants.ts";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.ts";
+import { AuthHandlers } from "../../auth-email-password/web/constants.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -59,8 +59,8 @@ import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature, tenantMembershipsTable } from "../../tenant/index.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
-import { UserHandlers } from "../../user/constants.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { UserHandlers } from "../../user/web/constants.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 import { backfillUserLifecycleEvents, updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 

@@ -15,10 +15,6 @@ import { verifyDummyPassword, verifyPassword } from "../../shared/index.ts";
 import { USER_STATUS, UserQueries } from "../../user/index.ts";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import {
-  AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
-  AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
-} from "../constants.ts";
-import {
   accountLocked,
   accountRestricted,
   emailNotVerified,
@@ -26,6 +22,10 @@ import {
   noMembership,
 } from "../errors.ts";
 import { clearLockoutState, getLockoutState, recordFailedAttempt } from "../lockout-store.ts";
+import {
+  AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
+  AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
+} from "../web/constants.ts";
 
 export type LoginHandlerOptions = {
   // When true, a valid (email + password) login fails with email_not_verified

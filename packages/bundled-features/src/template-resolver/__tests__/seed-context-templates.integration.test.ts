@@ -8,9 +8,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { TemplateResolverHandlers } from "../qualified-names.ts";
 import { seedSystemTemplate } from "../seeding.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TemplateResolverHandlers } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(["mail", "ai-prompt"], ["seed-context-welcome"]);

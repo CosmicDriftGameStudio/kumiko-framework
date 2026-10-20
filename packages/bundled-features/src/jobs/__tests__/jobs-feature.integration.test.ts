@@ -17,10 +17,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
-import { JobHandlers, JobQueries } from "../constants.ts";
 import { createJobsFeature } from "../feature.ts";
 import { createJobRunLogger } from "../job-run-logger.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
+import { JobHandlers, JobQueries } from "../web/constants.ts";
 
 // --- Setup ---
 

@@ -1,11 +1,10 @@
-// @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import {
   MEMBER_ROLES_CELL_COMPONENT,
   MEMBER_STATUS_CELL_COMPONENT,
   TENANT_FEATURE,
-} from "../constants.ts";
+} from "./constants.ts";
 import { MemberRolesCell } from "./member-roles-cell.tsx";
 import { MemberStatusCell } from "./member-status-cell.tsx";
 

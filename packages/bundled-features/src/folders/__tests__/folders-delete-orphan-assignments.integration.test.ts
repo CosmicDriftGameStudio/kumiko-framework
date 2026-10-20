@@ -17,9 +17,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { FoldersHandlers } from "../constants.ts";
 import { folderAssignmentEntity, folderEntity } from "../entity.ts";
 import { createFoldersFeature } from "../feature.ts";
+import { FoldersHandlers } from "../web/constants.ts";
 
 const DOC_TABLE = "folders_orphan_test_docs";
 

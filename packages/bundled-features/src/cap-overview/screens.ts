@@ -1,4 +1,5 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { CapSpec } from "./types.ts";
 import {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_USAGE_CELL_COMPONENT,
@@ -7,8 +8,7 @@ import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
   TENANT_CAP_LIST_SCREEN_ID,
-} from "./constants.ts";
-import type { CapSpec } from "./types.ts";
+} from "./web/constants.ts";
 
 // `tiers` has no room for a separate per-tier display label (it's just
 // `readonly string[]`) — tier-engine itself has no enumerated tier list to

@@ -1,11 +1,14 @@
 #!/usr/bin/env bun
 // App features follow the bundled-features convention (reference: tenant/):
 // feature.ts = registration only, screens under web/, handlers under handlers/.
-// This guard flags the three most expensive deviations:
+// A feature file's runtime follows from its path (web/** is client, the rest is server or
+// isomorphic), so a runtime-client marker is never needed: outside web/ it hides client code
+// in the server tree, inside web/ it is redundant. This guard flags the four most expensive deviations:
 //   1. web.tsx/web.ts monolith or JSX screens directly at the feature root
 //   2. feature.ts as a logic dump (> MAX_FEATURE_TS_LINES lines)
 //   3. r.screen({ type: "custom" }) without an allowlist tag — declarative
 //      screen types (entityList/dashboard/data-table) are the default.
+//   4. a runtime-client marker instead of the web/ path.
 //
 // ponytail: the handler file convention (*.query.ts/*.write.ts under handlers/)
 // is not enforced yet — add it once the registration API shapes are
@@ -17,6 +20,7 @@ import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
+import { directiveInHead } from "./runtime-isolation-classify";
 
 const SCAN: ScanSpec = {
   scope: "source",
@@ -111,6 +115,27 @@ function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void 
   }
 }
 
+const DIRECTIVE_HEAD_CHARS = 600;
+const FEATURE_RELATIVE_PATH = /(?:src\/features|packages\/bundled-features\/src)\/[^/]+\/(.+)$/;
+
+// 4. runtime-client marker instead of the path
+function clientMarkerViolation(sf: SourceFile): GuardViolation | undefined {
+  const filePath = sf.getFilePath();
+  const featureRelative = FEATURE_RELATIVE_PATH.exec(filePath)?.[1];
+  const hasClientMarker =
+    featureRelative !== undefined &&
+    directiveInHead(sf.getFullText().slice(0, DIRECTIVE_HEAD_CHARS)) === "client";
+  if (!hasClientMarker || isIgnoredFile(sf)) return undefined;
+  const underWeb = featureRelative.startsWith("web/") || /^web\.tsx?$/.test(featureRelative);
+  return {
+    file: filePath,
+    line: 1,
+    message: underWeb
+      ? "redundant @runtime client marker — files under web/ are client by path"
+      : "client code outside web/ — move it under web/ (bun kumiko codemod feature-layout . --write)",
+  };
+}
+
 export const guard: AstGuard = {
   name: "App-Feature-Structure Guard (App-Repos)",
   scan: SCAN,
@@ -127,6 +152,8 @@ export const guard: AstGuard = {
       checkRootJsx(sf, base, violations);
       checkFeatureTsSize(sf, base, violations);
       checkCustomScreens(sf, violations);
+      const markerViolation = clientMarkerViolation(sf);
+      if (markerViolation !== undefined) violations.push(markerViolation);
     }
     return { violations };
   },

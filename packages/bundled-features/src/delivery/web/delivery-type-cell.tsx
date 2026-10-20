@@ -1,4 +1,3 @@
-// @runtime client
 // Notification type column. Types are QNs like `<scope>:notify:<name>`; the
 // translation key is `<scope>.notification.<name>`, registered by the app that
 // owns the notification (bundled features register none). Falls back to the short

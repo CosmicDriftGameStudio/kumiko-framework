@@ -30,10 +30,10 @@ import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { base32Decode } from "../base32.ts";
-import { AuthMfaHandlers } from "../constants.ts";
 import { createAuthMfaFeature } from "../feature.ts";
 import { userMfaEntity } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
+import { AuthMfaHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 

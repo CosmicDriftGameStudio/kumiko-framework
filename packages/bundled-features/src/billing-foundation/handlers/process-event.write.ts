@@ -21,13 +21,6 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
-import {
-  BILLING_SUBSCRIPTION_LOCK_NAMESPACE,
-  isSubscriptionBlockingCheckout,
-  isSwitchableSubscriptionStatus,
-  SubscriptionEventTypes,
-  SubscriptionStatuses,
-} from "../constants.ts";
 import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities.ts";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -40,6 +33,13 @@ import {
   type SubscriptionEventPayload,
 } from "../events.ts";
 import { getSubscriptionForTenant, type SubscriptionView } from "../get-subscription-for-tenant.ts";
+import {
+  BILLING_SUBSCRIPTION_LOCK_NAMESPACE,
+  isSubscriptionBlockingCheckout,
+  isSwitchableSubscriptionStatus,
+  SubscriptionEventTypes,
+  SubscriptionStatuses,
+} from "../web/constants.ts";
 
 // =============================================================================
 // Input-Schema = der normalisierte SubscriptionEvent (ohne tenantId, der

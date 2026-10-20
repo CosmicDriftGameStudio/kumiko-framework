@@ -17,10 +17,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { SecretsHandlers, SecretsQueries } from "../constants.ts";
 import { createSecretsFeature } from "../feature.ts";
 import { createSecretsContext } from "../secrets-context.ts";
 import { type StoredEnvelope, tenantSecretsTable } from "../table.ts";
+import { SecretsHandlers, SecretsQueries } from "../web/constants.ts";
 import { createDeclaredKeysFeature } from "./declared-keys-feature.ts";
 
 const admin = createTestUser({

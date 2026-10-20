@@ -16,7 +16,6 @@ import {
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.ts";
 import { TenantHandlers, tenantTable } from "../../tenant/index.ts";
-import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS, WaitlistErrors } from "../constants.ts";
 import { isOpenWaitlistStatus } from "../entity.ts";
 import {
   adminAccess,
@@ -27,6 +26,11 @@ import {
 } from "../lib.ts";
 import type { WaitlistInviteOptions } from "../options.ts";
 import { WaitlistIdSchema } from "../payloads.ts";
+import {
+  DEFAULT_OWN_TENANT_INVITE_ROLE,
+  WAITLIST_STATUS,
+  WaitlistErrors,
+} from "../web/constants.ts";
 
 export type WaitlistInviteData = {
   readonly kind: "invited";

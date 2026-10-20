@@ -7,8 +7,8 @@ import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import { tierAssignmentAggregateId } from "../aggregate-id.ts";
-import { type TierAssignmentSource, TierAssignmentSources } from "../constants.ts";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.ts";
+import { type TierAssignmentSource, TierAssignmentSources } from "../web/constants.ts";
 
 // SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
 // Billing. Cross-tenant, daher SystemAdmin-only (kein TenantAdmin: sonst

@@ -24,10 +24,10 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
-import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";
 import type { BillingPlanCatalog, ProviderPrice, SubscriptionProviderPlugin } from "../types.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../web/constants.ts";
 
 const PRICE_TO_TIER: Readonly<Record<string, string>> = { price_pro: "pro" };
 

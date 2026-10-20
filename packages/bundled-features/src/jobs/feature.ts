@@ -3,12 +3,6 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  JOB_RUN_DETAIL_SCREEN_ID,
-  JOB_RUNS_SCREEN_ID,
-  JobHandlers,
-  JobQueries,
-} from "./constants.ts";
 import { catalogQuery } from "./handlers/catalog.query.ts";
 import { detailQuery } from "./handlers/detail.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
@@ -29,10 +23,16 @@ import {
 import { tenantFailuresQuery } from "./handlers/tenant-failures.query.ts";
 import { tenantRunsQuery } from "./handlers/tenant-runs.query.ts";
 import { triggerWrite } from "./handlers/trigger.write.ts";
-import { JOBS_I18N } from "./i18n.ts";
 import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.ts";
 import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.ts";
 import { tenantJobRunsTableMeta } from "./tenant-job-run-table.ts";
+import {
+  JOB_RUN_DETAIL_SCREEN_ID,
+  JOB_RUNS_SCREEN_ID,
+  JobHandlers,
+  JobQueries,
+} from "./web/constants.ts";
+import { JOBS_I18N } from "./web/i18n.ts";
 
 export type JobsFeatureOptions = {
   // How long a job run (and its logs) stays in store_job_runs/

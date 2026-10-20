@@ -1,4 +1,3 @@
-// @runtime client
 // UserMenu — Avatar-Dropdown für die Topbar (variant="pill", Default) oder den
 // Sidebar-Footer (variant="sidebar" = die sidebar-07-NavUser-Row). Zeigt
 // Name/Email + Logout. Auf Radix-DropdownMenu, damit Click-outside, Escape,

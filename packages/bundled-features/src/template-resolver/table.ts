@@ -14,7 +14,7 @@ import {
   TEMPLATE_KINDS,
   TEMPLATE_SCOPES,
   TEMPLATE_STATUSES,
-} from "./constants.ts";
+} from "./web/constants.ts";
 
 // Stored v1 events name the kind "mail-html", which is now "mail".
 const renameMailHtmlKind: EntityEventMigration = {

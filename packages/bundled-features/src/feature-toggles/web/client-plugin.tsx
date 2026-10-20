@@ -1,7 +1,6 @@
-// @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { FEATURE_TOGGLES_FEATURE } from "../constants.ts";
+import { FEATURE_TOGGLES_FEATURE } from "./constants.ts";
 import { defaultTranslations } from "./i18n.ts";
 
 export type FeatureTogglesClientOptions = {

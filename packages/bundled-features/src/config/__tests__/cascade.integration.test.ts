@@ -20,10 +20,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { ConfigHandlers, ConfigQueries } from "../constants.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../feature.ts";
 import { buildEnvConfigOverrides, type ConfigResolver, createConfigResolver } from "../resolver.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
+import { ConfigHandlers, ConfigQueries } from "../web/constants.ts";
 
 let stack: TestStack;
 let db: import("@cosmicdrift/kumiko-framework/db").DbConnection;

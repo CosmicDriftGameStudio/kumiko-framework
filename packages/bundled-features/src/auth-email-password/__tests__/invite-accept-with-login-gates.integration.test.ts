@@ -44,8 +44,8 @@ import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

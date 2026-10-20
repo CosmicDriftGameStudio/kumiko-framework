@@ -14,8 +14,8 @@ import { decryptStoredPii } from "../../shared/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import login-style account lookup, same as invite-accept-with-login
 import { userTable } from "../../user/schema/user.ts";
-import { AuthErrors } from "../constants.ts";
 import { getInvitationIdForToken } from "../invite-token-store.ts";
+import { AuthErrors } from "../web/constants.ts";
 
 const InviteInfoSchema = z.object({
   token: z.string().min(1),

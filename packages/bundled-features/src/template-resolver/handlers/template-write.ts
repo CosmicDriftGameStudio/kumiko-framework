@@ -16,13 +16,13 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { requireForTenant } from "../../shared/index.ts";
-import type { ContentFormat, TemplateKind } from "../constants.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
-import { TemplateResolverErrors } from "../qualified-names.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { activationChanges, serializeTemplateDraft } from "../template-draft.ts";
 import { isSystemOnlyTemplate } from "../template-system-only.ts";
 import type { TemplateValidation } from "../template-validation.ts";
+import type { ContentFormat, TemplateKind } from "../web/constants.ts";
+import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { executor } from "./shared.ts";
 import {
   evaluateTemplateWrite,

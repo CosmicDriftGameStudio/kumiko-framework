@@ -29,8 +29,8 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { AuthErrors, AuthHandlers } from "../constants.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
+import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
 const encryptionKey = randomBytes(32).toString("base64");

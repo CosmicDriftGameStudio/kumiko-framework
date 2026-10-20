@@ -1,8 +1,7 @@
-// @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { JOBS_FEATURE } from "../constants.ts";
-import { defaultTranslations } from "./i18n.ts";
+import { JOBS_FEATURE } from "./constants.ts";
+import { defaultTranslations } from "./default-translations.ts";
 
 export type JobsClientOptions = {
   readonly translations?: TranslationsByLocale;

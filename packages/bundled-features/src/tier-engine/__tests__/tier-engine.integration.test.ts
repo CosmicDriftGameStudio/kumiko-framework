@@ -14,9 +14,9 @@ import { type ConfigResolver, createConfigResolver } from "../../config/resolver
 import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
-import { TierEngineHandlers, TierEngineQueries } from "../constants.ts";
 import { tierAssignmentEntity } from "../entity.ts";
 import { createTierEngineFeature } from "../feature.ts";
+import { TierEngineHandlers, TierEngineQueries } from "../web/constants.ts";
 
 // --- Setup ---
 //

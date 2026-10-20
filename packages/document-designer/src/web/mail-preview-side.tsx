@@ -1,4 +1,3 @@
-// @runtime client
 import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { useNav, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { DOCUMENT_FALLBACK_CURRENCY } from "@cosmicdrift/kumiko-renderer/headless";

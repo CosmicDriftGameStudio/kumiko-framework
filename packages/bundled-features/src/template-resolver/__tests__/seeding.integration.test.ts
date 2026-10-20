@@ -8,7 +8,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverApi } from "../api.ts";
-import { SYSTEM_TENANT_ID } from "../constants.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { seedSystemTemplate } from "../seeding.ts";
 import {
@@ -16,6 +15,7 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
+import { SYSTEM_TENANT_ID } from "../web/constants.ts";
 
 let stack: TestStack;
 

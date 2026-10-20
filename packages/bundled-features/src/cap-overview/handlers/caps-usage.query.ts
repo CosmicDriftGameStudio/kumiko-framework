@@ -13,7 +13,7 @@ import {
 import * as z from "zod";
 import { tierAssignmentEntity } from "../../tier-engine/index.ts";
 import type { CapSpec, CapUsageWithMeta } from "../types.ts";
-import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math.ts";
+import { computeFraction, computeTone, computeUnclampedFraction } from "../web/usage-math.ts";
 
 type TierAssignmentRow = { readonly tenantId: string; readonly tier: string };
 

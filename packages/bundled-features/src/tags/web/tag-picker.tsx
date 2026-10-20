@@ -1,4 +1,3 @@
-// @runtime client
 // TagPicker — the shared "manage + pick labels" modal. Wraps TagManager in
 // select-mode inside a Dialog: the user can create/recolor/delete labels (those
 // hit the catalog immediately) and toggle which ones apply (buffered). On

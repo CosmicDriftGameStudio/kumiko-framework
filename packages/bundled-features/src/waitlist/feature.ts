@@ -4,11 +4,6 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  WAITLIST_EXPORTED_EVENT_SHORT,
-  WAITLIST_FEATURE,
-  WAITLIST_PURGED_EVENT_SHORT,
-} from "./constants.ts";
 import { waitlistEntryEntity } from "./entity.ts";
 import { exportHandler, purgeHandler } from "./handlers/export-purge.write.ts";
 import { createInviteHandler } from "./handlers/invite.write.ts";
@@ -29,6 +24,11 @@ import type { WaitlistOptions } from "./options.ts";
 import { WaitlistAuditEventSchema } from "./payloads.ts";
 import { waitlistListScreen } from "./screens.ts";
 import { waitlistEntryDeleteHook, waitlistEntryExportHook } from "./user-data-hooks.ts";
+import {
+  WAITLIST_EXPORTED_EVENT_SHORT,
+  WAITLIST_FEATURE,
+  WAITLIST_PURGED_EVENT_SHORT,
+} from "./web/constants.ts";
 
 export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefinition {
   return defineFeature(WAITLIST_FEATURE, (r) => {

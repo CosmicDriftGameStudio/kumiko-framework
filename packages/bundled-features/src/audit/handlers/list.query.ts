@@ -11,7 +11,7 @@
 
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { AUDIT_SCOPE_VALUES } from "../constants.ts";
+import { AUDIT_SCOPE_VALUES } from "../web/constants.ts";
 import {
   AUDIT_DATE_RANGE_CHECK,
   auditListPayloadShape,

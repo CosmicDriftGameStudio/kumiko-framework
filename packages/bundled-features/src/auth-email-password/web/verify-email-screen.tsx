@@ -1,4 +1,3 @@
-// @runtime client
 // VerifyEmailScreen — liest `?token=...` aus URL, schickt ihn auto an
 // /api/auth/verify-email beim Mount, zeigt success/error. Idempotent
 // auf Server-Seite (mehrfaches Klicken setzt emailVerified=true erneut),
