@@ -138,14 +138,28 @@ describe("createUncheckedSystemDb", () => {
       const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
-      expect(() => unchecked.acknowledgeCrossTenant("")).toThrow(/non-empty reason/);
+      expect(() => unchecked.acknowledgeCrossTenant("")).toThrow(/non-empty/);
+    });
+
+    test("throws on a placeholder reason", () => {
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+      const unchecked = createUncheckedSystemDb(systemDb);
+
+      expect(() => unchecked.acknowledgeCrossTenant("todo")).toThrow(/placeholder/);
+    });
+
+    test("unsafeRaw throws on a placeholder reason", () => {
+      const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
+      const unchecked = createUncheckedSystemDb(systemDb);
+
+      expect(() => unchecked.unsafeRaw("legacy")).toThrow(/placeholder/);
     });
 
     test("throws on a whitespace-only reason", () => {
       const systemDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
       const unchecked = createUncheckedSystemDb(systemDb);
 
-      expect(() => unchecked.acknowledgeCrossTenant("   ")).toThrow(/non-empty reason/);
+      expect(() => unchecked.acknowledgeCrossTenant("   ")).toThrow(/non-empty/);
     });
 
     test("reports acknowledge-cross-tenant once with the reason", () => {
@@ -223,9 +237,7 @@ describe("createUncheckedSystemDb", () => {
         const outsideTxDb = createTenantDb({ db: unusedRunner(), tenantId: own, mode: "system" });
         const unchecked = createUncheckedSystemDb(systemDb, outsideTxDb);
 
-        expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("")).toThrow(
-          /non-empty reason/,
-        );
+        expect(() => unchecked.outsideTransaction.acknowledgeCrossTenant("")).toThrow(/non-empty/);
       });
 
       test("throws when no outside-transaction db was configured, even with a valid reason", () => {

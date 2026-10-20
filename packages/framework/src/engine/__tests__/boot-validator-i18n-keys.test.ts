@@ -117,7 +117,6 @@ describe("validateBoot — i18n surface keys from section.groups (fw#2986)", () 
         layout: {
           sections: [
             {
-              fields: [],
               groups: [{ title: "demo:group.basics", fields: ["name"] }],
             },
           ],

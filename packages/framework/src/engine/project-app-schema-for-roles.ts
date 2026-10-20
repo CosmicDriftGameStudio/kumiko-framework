@@ -577,7 +577,7 @@ function projectMetrics(
   if (metrics === undefined) return undefined;
   let changed = false;
   const next = metrics.map((m) => {
-    if (typeof m === "string" || m.navigate === undefined) return m;
+    if (m.navigate === undefined) return m;
     if (keepMetricNavigate(m.navigate, indices, keptScreenQns)) return m;
     changed = true;
     const { navigate, ...rest } = m;

@@ -11,7 +11,6 @@ import {
   IdempotentAppendConflictError,
   loadAggregate,
   loadAggregateAsOf,
-  loadAllEventsByType,
   loadEventsAfterVersion,
   type StoredEvent,
   streamAllEventsByType,
@@ -661,7 +660,7 @@ describe("event-store: asOf + after-version reads", () => {
   });
 });
 
-describe("event-store: loadAllEventsByType", () => {
+describe("event-store: streamAllEventsByType (replay order and scope)", () => {
   // Backbone of projection-rebuild replay: all events of one aggregateType,
   // cross-tenant, in chronological order. Flagged as untested in a prior
   // audit — these tests close the gap.
@@ -689,8 +688,8 @@ describe("event-store: loadAllEventsByType", () => {
       metadata: { userId: userA },
     });
 
-    const taskEvents = await loadAllEventsByType(testDb.db, "task");
-    const invoiceEvents = await loadAllEventsByType(testDb.db, "invoice");
+    const taskEvents = await Array.fromAsync(streamAllEventsByType(testDb.db, "task"));
+    const invoiceEvents = await Array.fromAsync(streamAllEventsByType(testDb.db, "invoice"));
 
     expect(taskEvents).toHaveLength(1);
     expect(taskEvents[0]?.aggregateId).toBe(taskId);
@@ -725,7 +724,7 @@ describe("event-store: loadAllEventsByType", () => {
       metadata: { userId: userA },
     });
 
-    const all = await loadAllEventsByType(testDb.db, "task");
+    const all = await Array.fromAsync(streamAllEventsByType(testDb.db, "task"));
     expect(all).toHaveLength(2);
     const tenants = new Set(all.map((e) => e.tenantId));
     expect(tenants).toEqual(new Set([tenantA, tenantB]));
@@ -769,7 +768,7 @@ describe("event-store: loadAllEventsByType", () => {
       metadata: { userId: userA },
     });
 
-    const all = await loadAllEventsByType(testDb.db, "task");
+    const all = await Array.fromAsync(streamAllEventsByType(testDb.db, "task"));
     expect(all.map((e) => e.id)).toEqual([e1.id, e2.id, e3.id]);
     // createdAt strictly non-decreasing
     for (let i = 1; i < all.length; i++) {
@@ -781,7 +780,7 @@ describe("event-store: loadAllEventsByType", () => {
   });
 
   test("returns empty array when no events of that type exist", async () => {
-    const events = await loadAllEventsByType(testDb.db, "nonexistent-type");
+    const events = await Array.fromAsync(streamAllEventsByType(testDb.db, "nonexistent-type"));
     expect(events).toEqual([]);
   });
 
@@ -801,41 +800,10 @@ describe("event-store: loadAllEventsByType", () => {
       });
     }
 
-    const all = await loadAllEventsByType(testDb.db, "task");
+    const all = await Array.fromAsync(streamAllEventsByType(testDb.db, "task"));
     expect(all).toHaveLength(4);
     expect(all.map((e) => e.version)).toEqual([1, 2, 3, 4]);
     expect(all.map((e) => (e.payload as { v: number }).v)).toEqual([0, 1, 2, 3]);
-  });
-
-  test("throws once rows exceed the given rowLimit", async () => {
-    for (let v = 0; v < 3; v++) {
-      await append(testDb.db, {
-        aggregateId: uuid(),
-        aggregateType: "task",
-        tenantId: tenantA,
-        expectedVersion: 0,
-        type: "task.created",
-        payload: { v },
-        metadata: { userId: userA },
-      });
-    }
-    await expect(loadAllEventsByType(testDb.db, "task", 2)).rejects.toThrow(/exceeds 2 rows/);
-  });
-
-  test("does not throw when rows equal the given rowLimit", async () => {
-    for (let v = 0; v < 2; v++) {
-      await append(testDb.db, {
-        aggregateId: uuid(),
-        aggregateType: "task",
-        tenantId: tenantA,
-        expectedVersion: 0,
-        type: "task.created",
-        payload: { v },
-        metadata: { userId: userA },
-      });
-    }
-    const all = await loadAllEventsByType(testDb.db, "task", 2);
-    expect(all).toHaveLength(2);
   });
 });
 

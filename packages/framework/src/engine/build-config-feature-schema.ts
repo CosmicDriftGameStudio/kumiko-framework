@@ -32,7 +32,11 @@ import {
   createTextField,
 } from "./factories.ts";
 import { isKebabSegment, toKebab } from "./qualified-name.ts";
-import { isFieldsEditSection, sectionFieldSpecs } from "./screen-helpers.ts";
+import {
+  type FieldsOrGroupsSection,
+  isFieldsEditSection,
+  sectionFieldSpecs,
+} from "./screen-helpers.ts";
 import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config.ts";
 import type { Registry, SecretKeyDefinition } from "./types/feature.ts";
 import type { FieldCondition, FieldDefinition, OptionsQueryPayload } from "./types/fields.ts";
@@ -539,9 +543,10 @@ class ProviderFormBuilder {
     this.requiredFields.push(...(pluginScreen.requiredFields ?? []));
     const section = pluginScreen.layout.sections.find(isFieldsEditSection);
     if (section === undefined) return undefined;
-    const { groups: _groups, ...flatSection } = section;
+    const widened: typeof section & FieldsOrGroupsSection = section;
+    const { groups: _groups, fields: _fields, ...sectionBase } = widened;
     const gated: EditFieldsSection = {
-      ...flatSection,
+      ...sectionBase,
       fields: gateFields(sectionFieldSpecs(section), visible),
     };
     this.sections.push(gated);
@@ -570,7 +575,6 @@ class ProviderFormBuilder {
     this.requiredFields.push(...(secretsScreen.requiredFields ?? []));
     const secretsTitleKey = `${feature}.settings.secrets`;
     for (const section of secretsScreen.sections) {
-      // kumiko-lint-ignore section-fields-raw a secretsEdit section is a flat key list without groups
       const fields = gateFields(section.fields, visible);
       const ownSection = section.title === secretsTitleKey || pluginSection === undefined;
       if (ownSection) {

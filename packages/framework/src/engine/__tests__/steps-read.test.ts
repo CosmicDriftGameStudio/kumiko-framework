@@ -204,6 +204,24 @@ describe("read.findOne run", () => {
     expect(unsafeMock).not.toHaveBeenCalled();
   });
 
+  it("rejects a placeholder unsafeAllTenants reason before touching the db", async () => {
+    const stepDef = getStep("read.findOne");
+
+    await expect(
+      stepDef!.run(
+        {
+          name: "lookup",
+          table: testTable,
+          where: { id: "x" },
+          unsafeAllTenants: { reason: "todo" },
+        },
+        mockCtx,
+      ),
+    ).rejects.toThrow(/placeholder/);
+
+    expect(unsafeMock).not.toHaveBeenCalled();
+  });
+
   it("rejects a boolean unsafeAllTenants with a framework error instead of a TypeError", async () => {
     const stepDef = getStep("read.findOne");
     const args = {
@@ -395,7 +413,7 @@ describe("read steps in a systemScope handler", () => {
         { name: "list", table: testTable, unsafeAllTenants: { reason: "  " } },
         systemScopeCtx,
       ),
-    ).rejects.toThrow("non-empty reason");
+    ).rejects.toThrow("non-empty");
 
     expect(unsafeMock).not.toHaveBeenCalled();
   });

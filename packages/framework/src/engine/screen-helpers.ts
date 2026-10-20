@@ -122,10 +122,10 @@ export function isWriteFormEditSection(section: EditSectionSpec): section is Edi
   return section.kind === "writeForm";
 }
 
-/** Structural shape of every section that can carry `fields` and/or `groups` —
- *  matches EditWriteFormSection (no `groups`) too, so callers need no narrowing. */
+/** Structural reader contract for every section that can carry `fields` and/or `groups`: the
+ *  `EditFieldsSection` union members and `EditWriteFormSection` all assign without narrowing. */
 export type FieldsOrGroupsSection = {
-  readonly fields: readonly EditFieldSpec[];
+  readonly fields?: readonly EditFieldSpec[];
   readonly groups?: readonly {
     readonly title: string;
     readonly fields: readonly EditFieldSpec[];
@@ -136,8 +136,7 @@ export type FieldsOrGroupsSection = {
 // one runs after the fields-XOR-groups check, collectors run without it and must
 // not drop a source (fw#2986).
 export function sectionFieldSpecs(section: FieldsOrGroupsSection): readonly EditFieldSpec[] {
-  // kumiko-lint-ignore section-fields-raw this IS the union reader — the groups source is added on the same line
-  return [...section.fields, ...(section.groups?.flatMap((group) => group.fields) ?? [])];
+  return [...(section.fields ?? []), ...(section.groups?.flatMap((group) => group.fields) ?? [])];
 }
 
 // Type guard — narrows FieldRenderer to FormatSpec. Useful for renderer

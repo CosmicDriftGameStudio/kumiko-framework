@@ -5,6 +5,7 @@
 // re-narrow at read time instead of trusting the shape.
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { reasonProblem } from "../escape-hatch-reason.ts";
 import type { RegistrarExtensionRegistration } from "../types/config.ts";
 
 export function extensionUsageEscapeHatchReason(
@@ -14,5 +15,5 @@ export function extensionUsageEscapeHatchReason(
   if (!isPlainObject(escapeHatch)) return undefined;
   const { reason, grants } = escapeHatch;
   if (Array.isArray(grants) && !grants.includes("unsafeRaw")) return undefined;
-  return typeof reason === "string" && reason.trim().length > 0 ? reason : undefined;
+  return typeof reason === "string" && reasonProblem(reason) === undefined ? reason : undefined;
 }

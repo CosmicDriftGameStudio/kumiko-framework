@@ -293,7 +293,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
         sections: [
           {
             title: "publicstatus:section.basics",
-            fields: [],
             groups: [
               { title: "publicstatus:group.identity", fields: ["name"] },
               { title: "publicstatus:group.state", fields: [{ field: "status" }] },
@@ -340,7 +339,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
       layout: {
         sections: [
           {
-            fields: [],
             groups: [{ title: "publicstatus:group.body", fields: ["title", "note"] }],
           },
         ],
@@ -360,7 +358,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
       layout: {
         sections: [
           {
-            fields: [],
             groups: [{ title: "publicstatus:group.mint", fields: ["label"] }],
           },
         ],
@@ -372,7 +369,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
         layout: {
           sections: [
             {
-              fields: [],
               groups: [{ title: "publicstatus:group.confirm", fields: ["ack"] }],
             },
           ],
@@ -399,7 +395,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
       layout: {
         sections: [
           {
-            fields: [],
             groups: [{ title: "publicstatus:group.retention", fields: ["days", "mode"] }],
           },
         ],
@@ -421,7 +416,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
       layout: {
         sections: [
           {
-            fields: [],
             groups: [{ title: "publicstatus.group.retention", fields: ["days"] }],
           },
         ],
@@ -444,7 +438,6 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
       layout: {
         sections: [
           {
-            fields: [],
             groups: [{ title: "publicstatus:group.facts", fields: ["severity", "openedAt"] }],
           },
         ],

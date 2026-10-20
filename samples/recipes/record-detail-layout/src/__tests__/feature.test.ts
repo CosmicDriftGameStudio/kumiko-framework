@@ -4,7 +4,7 @@
 //     exactly as declared (column names, not literals)
 //   - relatedList columns collapse the string shorthand like entityList columns do
 //   - the boot-validator catches the two mistakes the projectionDetail tabs
-//     layout introduces: a metric without a fieldLabels entry, and a tabs
+//     layout introduces: a metric with an empty label, and a tabs
 //     layout with fewer than two sections
 
 import { describe, expect, test } from "bun:test";
@@ -43,7 +43,12 @@ describe("record-detail-layout showcase — registration", () => {
       subtitle: "orderNumber",
       status: "status",
     });
-    expect(screen.metrics).toEqual(["totalAmount", "outstandingAmount", "itemCount", "placedAt"]);
+    expect(screen.metrics?.map((metric) => metric.field)).toEqual([
+      "totalAmount",
+      "outstandingAmount",
+      "itemCount",
+      "placedAt",
+    ]);
   });
 
   test("layout.mode is tabs with two relatedList sections, one fields section, and one extension section", () => {
@@ -74,7 +79,7 @@ describe("record-detail-layout showcase — registration", () => {
 });
 
 describe("record-detail-layout showcase — boot-validator catches author mistakes", () => {
-  test("metric without a fieldLabels entry fails boot — no fallback to the raw column name", () => {
+  test("metric with an empty label fails boot — no fallback to the raw column name", () => {
     const broken = defineFeature("broken-order-desk", (r) => {
       r.queryHandler({
         name: "order:detail",
@@ -86,13 +91,11 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
         id: "order-detail",
         type: "projectionDetail",
         query: "broken-order-desk:query:order:detail",
-        metrics: ["totalAmount"],
+        metrics: [{ field: "totalAmount", label: "" }],
         layout: { sections: [{ title: "Details", fields: ["id"] }] },
       });
     });
-    expect(() => validateBoot([broken])).toThrow(
-      /metric "totalAmount" has no entry in fieldLabels/,
-    );
+    expect(() => validateBoot([broken])).toThrow(/metric "totalAmount" has no "label"/);
   });
 
   test("tabs with only one section fails boot", () => {

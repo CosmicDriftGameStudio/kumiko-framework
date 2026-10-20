@@ -171,7 +171,13 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
     statusToneField: "status",
     statusTones: { active: "ok", terminated: "bad" },
   },
-  metrics: ["grundmiete", "beginn", "kuendigungsfrist", "zahltag", "mieter"],
+  metrics: [
+    { field: "grundmiete", label: "rental:entity:lease:field:grundmiete" },
+    { field: "beginn", label: "rental:entity:lease:field:beginn" },
+    { field: "kuendigungsfrist", label: "rental:entity:lease:field:kuendigungsfrist" },
+    { field: "zahltag", label: "rental:entity:lease:field:zahltag" },
+    { field: "mieter", label: "rental:entity:lease:field:mieter" },
+  ],
   fieldLabels: {
     grundmiete: "rental:entity:lease:field:grundmiete",
     beginn: "rental:entity:lease:field:beginn",

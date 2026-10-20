@@ -31,6 +31,7 @@ import {
   type SelectOptions,
   type WhereObject,
 } from "../db/query.ts";
+import { assertReason } from "../engine/escape-hatch-reason.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers.ts";
 import type { Registry } from "../engine/types/index.ts";
@@ -269,9 +270,7 @@ function buildUncheckedSystemDb(
       }
       return sourceRunner(forwardedDeclaredStep ? reason : undefined);
     }
-    if (reason.trim().length === 0) {
-      throw new Error("unsafeRaw requires a non-empty reason");
-    }
+    assertReason("ctx.systemDb.unsafeRaw(reason)", reason);
     if (gate && !hasGrant(gate.grant)) {
       throw new AccessDeniedError({
         message:
@@ -313,9 +312,7 @@ function buildUncheckedSystemDb(
     },
 
     acknowledgeCrossTenant(reason) {
-      if (reason.trim().length === 0) {
-        throw new Error("acknowledgeCrossTenant requires a non-empty reason");
-      }
+      assertReason("acknowledgeCrossTenant(reason)", reason);
       report("acknowledge-cross-tenant", reason);
       return db;
     },
@@ -333,9 +330,7 @@ function buildUncheckedSystemDb(
       },
 
       acknowledgeCrossTenant(reason) {
-        if (reason.trim().length === 0) {
-          throw new Error("acknowledgeCrossTenant requires a non-empty reason");
-        }
+        assertReason("acknowledgeCrossTenant(reason)", reason);
         const result = requireSystemOutsideTransactionDb();
         report("acknowledge-cross-tenant", reason);
         return result;
@@ -494,9 +489,7 @@ export function acknowledgeConventionCrossTenant(
   reason: string,
   options?: { readonly deferReport?: boolean },
 ): TenantDb {
-  if (reason.trim().length === 0) {
-    throw new Error("acknowledgeConventionCrossTenant requires a non-empty reason");
-  }
+  assertReason("acknowledgeConventionCrossTenant", reason);
   const rebind = crossTenantRebinders.get(tenantDb);
   if (!rebind) {
     throw new InternalError({

@@ -1,5 +1,5 @@
 import { escapeHatchGrantsProblem, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
-import { codemodPlaceholderReasonProblem } from "../escape-hatch-reason.ts";
+import { reasonProblem } from "../escape-hatch-reason.ts";
 import {
   accessAllowsAnonymous,
   declaredPersonalData,
@@ -45,13 +45,13 @@ function candidatePersonalFieldNames(
   return names;
 }
 
-// Not an object with a non-empty string `reason` (incl. deprecated `openToAll: true`) counts as "empty".
-function openToAllReasonIsEmpty(access: AccessRule): boolean {
-  if (!("openToAll" in access)) return false;
+// Not an object with a string `reason` (incl. deprecated `openToAll: true`) counts as malformed.
+function openToAllReasonOf(access: AccessRule): string | undefined {
+  if (!("openToAll" in access)) return undefined;
   const openToAll: unknown = access.openToAll;
-  if (typeof openToAll !== "object" || openToAll === null) return true;
-  if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return true;
-  return openToAll.reason.trim().length === 0;
+  if (typeof openToAll !== "object" || openToAll === null) return "";
+  if (!("reason" in openToAll) || typeof openToAll.reason !== "string") return "";
+  return openToAll.reason;
 }
 
 function hasOpenToAll(access: AccessRule): boolean {
@@ -68,11 +68,15 @@ function validateOpenToAllReason(
   handlerName: string,
   access: AccessRule,
 ): void {
+  const reason = openToAllReasonOf(access);
+  // skip: no openToAll declared
+  if (reason === undefined) return;
+  const problem = reasonProblem(reason);
   // skip: reason is well-formed, nothing to validate
-  if (!openToAllReasonIsEmpty(access)) return;
+  if (problem === undefined) return;
   throw new Error(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid ` +
-      '{ openToAll: ... } — must be { reason: "<non-empty explanation>" } for why any ' +
+      `{ openToAll: ... } — ${problem}. Must be { reason: "<explanation>" } for why any ` +
       "authenticated user may call this handler. `{ openToAll: true }` is no longer accepted.",
   );
 }
@@ -93,18 +97,10 @@ function validateEscapeHatchReason(
         `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${grantsProblem}`,
       );
     }
-    if (escapeHatch.reason.trim().length === 0) {
+    const problem = reasonProblem(escapeHatch.reason);
+    if (problem !== undefined) {
       throw new Error(
-        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
-          `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +
-          "explaining why this handler needs db.global() write access, a SYSTEM identity switch " +
-          "or a cross-tenant ctx.queryProjection({ unsafeAllTenants: true }) read.",
-      );
-    }
-    const placeholderProblem = codemodPlaceholderReasonProblem(escapeHatch.reason);
-    if (placeholderProblem !== undefined) {
-      throw new Error(
-        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${placeholderProblem}`,
+        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${problem}`,
       );
     }
   }

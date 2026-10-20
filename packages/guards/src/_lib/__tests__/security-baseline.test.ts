@@ -628,7 +628,7 @@ describe("buildSecurityBaseline", () => {
       "money-horse",
       [
         {
-          guardName: "Escape-Hatch-Declared Guard",
+          guardName: "Tenant-Escalation Guard",
           violations: [
             { file: fileA, line: 1, message: "concrete finding" },
             { file: fileA, line: 2, message: "placeholder reason", neverFrozen: true },
@@ -640,7 +640,7 @@ describe("buildSecurityBaseline", () => {
     );
     expect(baseline.total).toBe(1);
     expect(baseline.findings).toEqual({
-      "Escape-Hatch-Declared Guard": { "src/a.ts": 1 },
+      "Tenant-Escalation Guard": { "src/a.ts": 1 },
     });
   });
 

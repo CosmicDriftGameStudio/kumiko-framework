@@ -120,7 +120,6 @@ describe("generateE2ESpec", () => {
           sections: [
             {
               title: "tasks:section.basics",
-              fields: [],
               groups: [
                 { title: "tasks:group.core", fields: ["title", "status"] },
                 { title: "tasks:group.state", fields: ["done"] },

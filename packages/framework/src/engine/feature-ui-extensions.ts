@@ -10,6 +10,7 @@ import type { EntityTableMeta } from "../db/entity-table-meta.ts";
 import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
 import { LifecycleHookTypes } from "./constants.ts";
+import { reasonProblem } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
@@ -193,14 +194,13 @@ export function buildUiExtensionsMethods<TName extends string>(
               "validation hooks receive no context to switch identity with.",
           );
         }
-      } else if (
-        options?.escapeHatch !== undefined &&
-        options.escapeHatch.reason.trim().length === 0
-      ) {
-        throw new Error(
-          `[Feature ${name}] r.hook({ type: "${type}", … }) declares escapeHatch: { reason: "" } — ` +
-            "the reason must be a non-empty string explaining why this hook switches identity to SYSTEM.",
-        );
+      } else if (options?.escapeHatch !== undefined) {
+        const hookReasonProblem = reasonProblem(options.escapeHatch.reason);
+        if (hookReasonProblem !== undefined) {
+          throw new Error(
+            `[Feature ${name}] r.hook({ type: "${type}", … }) declares an invalid escapeHatch — ${hookReasonProblem}`,
+          );
+        }
       }
       const hookGrantsProblem =
         options?.escapeHatch && escapeHatchGrantsProblem(options.escapeHatch);
@@ -321,10 +321,16 @@ export function buildUiExtensionsMethods<TName extends string>(
       const escapeHatch = optionsBag?.["escapeHatch"];
       if (escapeHatch !== undefined) {
         const reason = isPlainObject(escapeHatch) ? escapeHatch["reason"] : undefined;
-        if (typeof reason !== "string" || reason.trim().length === 0) {
+        if (typeof reason !== "string") {
           throw new Error(
             `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
-              `must be { reason: "<non-empty string>" } explaining why this usage needs unfiltered db access.`,
+              `must be { reason: "<explanation>" } explaining why this usage needs unfiltered db access.`,
+          );
+        }
+        const extReasonProblem = reasonProblem(reason);
+        if (extReasonProblem !== undefined) {
+          throw new Error(
+            `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extReasonProblem}`,
           );
         }
         const extGrantsProblem = escapeHatchGrantsProblem(escapeHatch as { grants?: unknown });

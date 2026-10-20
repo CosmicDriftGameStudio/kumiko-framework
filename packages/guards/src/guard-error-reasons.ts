@@ -23,7 +23,7 @@
  *      Skips `openToAll: { reason: "..." }` / `escapeHatch: { reason: "..." }`
  *      and `declareEscapeHatch({ reason: "..." })` — those are prose
  *      access-declaration justifications, enforced instead by
- *      guard-open-to-all-reason.ts / guard-escape-hatch-declared.ts.
+ *      the boot validator and the runtime reasonProblem check.
  *
  * Non-literal reasons (computed, template strings with interpolation,
  * identifier references) are assumed to be typed-from-a-const and pass.

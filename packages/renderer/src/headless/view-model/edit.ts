@@ -833,7 +833,7 @@ export function computeEditViewModel<
     // better than the single-column default a stacked form keeps. Applies to
     // entityEdit tabs as well since fw#3134, not just projectionDetail.
     const defaultColumns = screen.layout.mode === "tabs" ? 2 : 1;
-    const groups = sectionSpec.groups
+    const groups = ("groups" in sectionSpec ? sectionSpec.groups : undefined)
       ?.map((group) => ({ ...group, fields: group.fields.filter((f) => !isHiddenByExclusion(f)) }))
       .filter((group) => group.fields.length > 0)
       .map((group) => ({

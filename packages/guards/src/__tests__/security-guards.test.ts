@@ -12,14 +12,12 @@ const SECURITY_GUARD_NAMES = [
   "Admin-API Guard",
   "Direct-Entity-Writes Guard",
   "Direct-Fetch Guard",
-  "Escape-Hatch-Declared Guard",
   "No-Direct-Fs Guard",
-  "Open-To-All-Reason Guard",
   "Tenant-Escalation Guard",
 ];
 
 describe("security guards — infra#787", () => {
-  test("all eight named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
+  test("all six named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
     for (const name of SECURITY_GUARD_NAMES) {
       const guard = GUARDS.find((g) => g.name === name);
       expect(guard).toBeDefined();

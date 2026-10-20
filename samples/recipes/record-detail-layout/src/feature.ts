@@ -3,8 +3,8 @@
 //   1. `header` renders the query row's customer/order/status columns above
 //      the layout — the identity a support agent scans first.
 //   2. `metrics` renders a labeled band of key numbers from the same row —
-//      labels come from `fieldLabels`, there is no fallback to the raw
-//      column name.
+//      each metric carries its own i18n `label`, there is no fallback to the
+//      raw column name.
 //   3. `layout.mode: "tabs"` splits the record into four tabs: two
 //      `relatedList` sections (own query, own pagination, mounts only when
 //      active), one `fields` section (master data from the detail row), and
@@ -76,13 +76,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
       header: { title: "customerName", subtitle: "orderNumber", status: "status" },
-      metrics: ["totalAmount", "outstandingAmount", "itemCount", "placedAt"],
-      fieldLabels: {
-        totalAmount: "order-desk.metric.totalAmount",
-        outstandingAmount: "order-desk.metric.outstandingAmount",
-        itemCount: "order-desk.metric.itemCount",
-        placedAt: "order-desk.metric.placedAt",
-      },
+      metrics: [
+        { field: "totalAmount", label: "order-desk.metric.totalAmount" },
+        { field: "outstandingAmount", label: "order-desk.metric.outstandingAmount" },
+        { field: "itemCount", label: "order-desk.metric.itemCount" },
+        { field: "placedAt", label: "order-desk.metric.placedAt" },
+      ],
       layout: {
         mode: "tabs",
         sections: [

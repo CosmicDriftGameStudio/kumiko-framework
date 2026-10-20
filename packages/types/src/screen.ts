@@ -820,20 +820,12 @@ export type MetricNavigate = {
   readonly tab?: string;
 };
 
-// A metric can navigate on click, so the plain string shorthand (field name,
-// same as before) sits alongside an object form carrying an explicit i18n
-// `label` and a `navigate` target.
-export type MetricSpec =
-  | string
-  | {
-      readonly field: string;
-      readonly label?: string;
-      readonly navigate?: MetricNavigate;
-    };
-
-export function metricField(metric: MetricSpec): string {
-  return typeof metric === "string" ? metric : metric.field;
-}
+// `label` is an i18n key and required: there is no fallback to the raw column name.
+export type MetricSpec = {
+  readonly field: string;
+  readonly label: string;
+  readonly navigate?: MetricNavigate;
+};
 
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;
@@ -880,8 +872,7 @@ export type ProjectionDetailScreenDefinition = {
   /** Record header above the layout — title/subtitle/status name columns
    *  in the query row (not literals). Rendered only when set. */
   readonly header?: RecordHeaderSpec;
-  /** Metric band above the layout — column names in the query row, labeled
-   *  via `fieldLabels` (string shorthand) or the object form's own `label`.
+  /** Metric band above the layout — column names in the query row, each with its own i18n `label`.
    *  Rendered only when set. */
   readonly metrics?: readonly MetricSpec[];
   /** Parent list screen (kurze id) für eine "Zurück"-Navigation. */
@@ -1485,7 +1476,7 @@ export type EditSectionSpec =
   | EditRelatedListSection
   | EditWriteFormSection;
 
-export type EditFieldsSection = {
+type EditFieldsSectionBase = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
@@ -1501,17 +1492,6 @@ export type EditFieldsSection = {
    *  (subtitle-only section). */
   readonly description?: string;
   readonly columns?: number;
-  /** Mutually exclusive with `groups` — pass `[]` when using `groups`; the
-   *  boot-validator rejects both non-empty or both empty. */
-  readonly fields: readonly EditFieldSpec[];
-  /** Splits the section into multiple titled cards instead of one flat grid.
-   *  Mutually exclusive with `fields`; fields named here still need to exist. */
-  readonly groups?: readonly {
-    readonly title: string;
-    readonly fields: readonly EditFieldSpec[];
-    /** Default 2. */
-    readonly columns?: number;
-  }[];
   /** Rendered left of the section title, `text-muted-foreground` — closed
    *  IconKey vocabulary into the ICONS registry (renderer/web), analogous
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives
@@ -1532,6 +1512,25 @@ export type EditFieldsSection = {
    *  (declared or id-derived); the boot-validator rejects one that doesn't. */
   readonly actions?: readonly RowAction[];
 };
+
+export type EditFieldGroup = {
+  readonly title: string;
+  readonly fields: readonly EditFieldSpec[];
+  /** Default 2. */
+  readonly columns?: number;
+};
+
+/** Either a flat `fields` grid or titled `groups` cards, never both: the groups branch has no
+ *  `fields` key, so a raw `.fields` read on a section does not compile — use `sectionFieldSpecs`. */
+export type EditFieldsSection = EditFieldsSectionBase &
+  (
+    | { readonly fields: readonly EditFieldSpec[] }
+    | {
+        /** Splits the section into multiple titled cards instead of one flat grid; fields named
+         *  here still need to exist. */
+        readonly groups: readonly EditFieldGroup[];
+      }
+  );
 
 export type EditExtensionSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the

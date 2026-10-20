@@ -154,7 +154,7 @@ describe("JobContext.db (fw#2914)", () => {
       defineFeature("jobtenantdb-empty", (r) => {
         r.job("bad", { trigger: { manual: true }, escapeHatch: { reason: "   " } }, async () => {});
       });
-    expect(register).toThrow(/r\.job\("bad"\) declares \{ escapeHatch: \{ reason: "" \} \}/);
+    expect(register).toThrow(/r\.job\("bad"\) declares an invalid escapeHatch — .*non-empty/);
   });
 
   test("JobContext.db is not assignable to a raw DbRunner", () => {

@@ -13,7 +13,6 @@ import type {
   QueryHandlerDef,
   ScreenDefinition,
 } from "../types/index.ts";
-import { metricField } from "../types/index.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 import { validateActionFieldRefs } from "./screens.ts";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
@@ -193,7 +192,7 @@ function checkProjectionDetailOutputFields(
     );
   }
   for (const metric of screen.metrics ?? []) {
-    const field = metricField(metric);
+    const field = metric.field;
     checkFieldExists(
       recordShape,
       field,

@@ -2,6 +2,7 @@ import type { DbRunner } from "../../db/connection.ts";
 import type { WhereObject } from "../../db/query.ts";
 import { requestedTenantIds, type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.ts";
 import { InternalError } from "../../errors/classes.ts";
+import { assertReason } from "../escape-hatch-reason.ts";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
 import type { PipelineCtx } from "../types/step.ts";
 
@@ -18,6 +19,7 @@ export function readSourceFor(
       message: "unsafeAllTenants on a read step must be { reason: string }",
     });
   }
+  assertReason("unsafeAllTenants", unsafeAllTenants.reason);
   return unsafeRawForDeclaredStep(ctx.systemDb ?? ctx.db, unsafeAllTenants.reason);
 }
 

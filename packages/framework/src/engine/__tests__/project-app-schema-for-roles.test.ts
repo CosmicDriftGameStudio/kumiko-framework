@@ -241,7 +241,9 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       actions: [
         { kind: "navigate", id: "detail-header-action", label: "Header", screen: SECRET_SCREEN_ID },
       ],
-      metrics: [{ field: "label", navigate: { screen: SECRET_SCREEN_ID } }],
+      metrics: [
+        { field: "label", label: "host.metric.label", navigate: { screen: SECRET_SCREEN_ID } },
+      ],
       header: {
         title: "label",
         subtitle: [{ field: "label", navigate: { screen: SECRET_SCREEN_ID } }],
@@ -327,7 +329,11 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     const detail = host.screens.find((s) => s.id === "detail");
     expect(detail?.type).toBe("projectionDetail");
     if (detail?.type !== "projectionDetail") throw new Error("unreachable");
-    expect(detail.metrics?.[0]).toEqual({ field: "label", navigate: { screen: SECRET_SCREEN_ID } });
+    expect(detail.metrics?.[0]).toEqual({
+      field: "label",
+      label: "host.metric.label",
+      navigate: { screen: SECRET_SCREEN_ID },
+    });
     expect(detail.header?.subtitle).toEqual([
       { field: "label", navigate: { screen: SECRET_SCREEN_ID } },
     ]);
@@ -426,7 +432,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     const detail = host.screens.find((s) => s.id === "detail");
     expect(detail?.type).toBe("projectionDetail");
     if (detail?.type !== "projectionDetail") throw new Error("unreachable");
-    expect(detail.metrics?.[0]).toEqual({ field: "label" });
+    expect(detail.metrics?.[0]).toEqual({ field: "label", label: "host.metric.label" });
     expect(detail.header?.subtitle).toEqual(["label"]);
     expect(detail.actions).toBeUndefined();
     expect(detail.listScreenId).toBeUndefined();
