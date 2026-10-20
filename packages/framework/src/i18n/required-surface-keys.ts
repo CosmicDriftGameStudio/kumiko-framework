@@ -23,6 +23,7 @@ import type {
   ToolbarAction,
   WorkspaceDefinition,
 } from "../engine/types/index.ts";
+import type { TranslationValue } from "../ui-types/plural.ts";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
 export const ACTION_FORM_ENTITY = "__action-form__";
@@ -565,9 +566,32 @@ export type TranslationLocaleGap = {
   readonly missingLocales: readonly string[];
 };
 
-/** Locale completeness is opt-in via @cosmicdrift/kumiko-locale-* packages. */
+function hasLocaleValue(value: TranslationValue | undefined): boolean {
+  if (value === undefined) return false;
+  return typeof value === "string" ? value !== "" : true;
+}
+
+/**
+ * Per feature, every translation key must carry every locale that any key of the
+ * same feature carries. A feature with a single locale across all keys is
+ * consistent by definition (locale packages, en-only framework features).
+ */
 export function findTranslationLocaleGaps(
-  _features: readonly FeatureDefinition[],
+  features: readonly FeatureDefinition[],
 ): readonly TranslationLocaleGap[] {
-  return [];
+  const gaps: TranslationLocaleGap[] = [];
+  for (const feature of features) {
+    const entries = Object.entries(feature.translations ?? {});
+    const featureLocales = new Set<string>();
+    for (const [, byLocale] of entries) {
+      for (const locale of Object.keys(byLocale)) featureLocales.add(locale);
+    }
+    if (featureLocales.size < 2) continue;
+    const sortedLocales = [...featureLocales].sort();
+    for (const [key, byLocale] of entries) {
+      const missingLocales = sortedLocales.filter((locale) => !hasLocaleValue(byLocale[locale]));
+      if (missingLocales.length > 0) gaps.push({ featureName: feature.name, key, missingLocales });
+    }
+  }
+  return gaps;
 }

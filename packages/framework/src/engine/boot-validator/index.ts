@@ -48,7 +48,7 @@ import { validateEntityListScreens } from "./entity-list-screens.ts";
 import { validateGdprStoragePersistence } from "./gdpr-storage.ts";
 import { validateGlobalTenancyEntities } from "./global-tenancy.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
-import { validateI18nSurfaceKeys } from "./i18n-keys.ts";
+import { validateI18nSurfaceKeys, validateTranslationLocaleConsistency } from "./i18n-keys.ts";
 import {
   collectKnownRoles,
   collectNavQns,
@@ -340,6 +340,7 @@ export function validateBoot(
   }
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
+  validateTranslationLocaleConsistency(features);
   validateEntityListScreens(features);
   validateSubmitPrefilledHiddenFields(features);
   validateCardMetaOverflow(features);

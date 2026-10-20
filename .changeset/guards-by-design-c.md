@@ -1,4 +1,6 @@
 ---
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-guards": minor
 "@cosmicdrift/kumiko-testing": minor
 ---
@@ -19,4 +21,20 @@ type: improvement
 title: Access-Denied-Test guard replaced by a contract test helper
 detail: Roles are checked centrally before the payload is parsed. The new `expectRoleRestrictedHandlersDenyForeignRole` test helper proves this over HTTP for every role-restricted write and query handler, so the guard that searched for a matching test per handler is removed.
 migration: In an app integration test with setupTestStack and the app features, call `expectRoleRestrictedHandlersDenyForeignRole(stack)` and remove the "Access-Denied-Test Guard" entry from `.kumiko-security-baseline.json`.
+-->
+
+<!-- kumiko-changes
+feature: guards
+type: improvement
+title: i18n-Keys guard no longer checks locales
+detail: The guard only reports keys that are used without a definition. Locale completeness moved to the boot validator, which sees the real registered translations of every feature.
+migration: Delete `src/i18n-guard-locales.ts` if it exists.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: Boot fails when a feature leaves a locale out of some of its translation keys
+detail: Within one feature, every translation key must carry every locale that any key of the same feature carries. A missing locale or an empty string fails boot with one error listing all gaps. Features with a single locale across all keys are unaffected, as are locale packages. A plural object counts as present.
+migration: Add the missing locale to each listed key, or move that locale out of the feature into a locale package.
 -->
