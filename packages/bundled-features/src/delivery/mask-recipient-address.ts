@@ -46,7 +46,9 @@ function isMaskedRecipientAddress(address: string): boolean {
   return /^[^@]\*\*\*@[^@]+$/.test(address);
 }
 
+// Ciphertext passes through: it is decrypted at read time and a key erase removes it.
 export function maskRecipientAddressOnce(address: string | null): string | null {
-  if (address === null || isMaskedRecipientAddress(address)) return address;
+  if (address === null || isPiiCiphertext(address)) return address;
+  if (isMaskedRecipientAddress(address)) return address;
   return maskPlainAddress(address);
 }
