@@ -77,6 +77,8 @@ function mockLoginBackend(loginBody: Record<string, unknown> = {}): void {
     const user = { id: "u1", email: "u@example.com", displayName: "U", roles: [] };
     if (url === "/api/auth/login") {
       loggedIn = true;
+      // The server sets the csrf cookie with the session; the gate only refreshes when it is present.
+      document.cookie = "kumiko_csrf=login-mock-token; path=/";
       if (Object.keys(loginBody).length > 0) {
         return new Response(JSON.stringify({ isSuccess: true, ...loginBody }), { status: 200 });
       }
@@ -150,7 +152,7 @@ describe("auth gate with loginUrl", () => {
   });
 
   test("authenticated session does not redirect", async () => {
-    document.cookie = "kumiko_csrf=login-url-test-token";
+    document.cookie = "kumiko_csrf=login-url-test-token; path=/";
     mockBackend({ signedIn: true });
 
     renderGate({ loginUrl: "/login" });
@@ -293,7 +295,7 @@ describe("auth gate login route and builder", () => {
 
 describe("logout target", () => {
   async function signInAndLogout(options: SessionAuthGateOptions): Promise<void> {
-    document.cookie = "kumiko_csrf=logout-test-token";
+    document.cookie = "kumiko_csrf=logout-test-token; path=/";
     mockBackend({ signedIn: true });
     renderGate(options);
     await waitFor(() => screen.getByTestId("protected"));
