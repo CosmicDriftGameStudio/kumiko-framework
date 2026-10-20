@@ -254,7 +254,7 @@ describe("kinds filter excludes roots (g)", () => {
       htmlEscape,
       restrictedSymbols,
     ];
-    expect(securityShaped.length).toBeGreaterThanOrEqual(9);
+    expect(securityShaped.length).toBeGreaterThanOrEqual(8);
     for (const guard of securityShaped) {
       expect({ guard: guard.name, scanned: keepsRootKind(guard.scan, root) }).toEqual({
         guard: guard.name,

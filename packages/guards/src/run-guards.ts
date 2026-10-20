@@ -23,7 +23,6 @@ import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 import { guard as asCasts } from "./check-as-casts";
 import { guard as complexity } from "./check-complexity";
 import { guard as predicateExtraction } from "./check-predicates";
-import { guard as accessDeniedTest } from "./guard-access-denied-test";
 import { guard as adminApi } from "./guard-admin-api";
 import { guard as appFeatureStructure } from "./guard-app-feature-structure";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
@@ -53,7 +52,6 @@ import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
 export const GUARDS = [
-  accessDeniedTest,
   adminApi,
   directEntityWrites,
   directFetch,

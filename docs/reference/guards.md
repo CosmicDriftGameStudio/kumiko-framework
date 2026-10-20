@@ -23,7 +23,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `check-security` | Security check: `bun audit` over the lockfile of ONE repo. | - |
 | `check-single-runtime-instance` | Single-Runtime-Instance Guard (kumiko-studio#229). | - |
 | `check-subpath-exports` | A published package that ships `src/<feature>/web.ts` must list `./<feature>/web` in its package.json `exports`; otherwise every standalone app build fails with "Could not resolve". | - |
-| `guard-access-denied-test` | Guard: role-restricted write handlers need an access-denied test. | - |
 | `guard-admin-api` | Guard: blocks calls to the event-store admin API (`appendRaw`/`appendRawBatch`) outside allowed paths. | - |
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
 | `guard-app-feature-structure` | App features follow the bundled-features convention (reference: tenant/): feature.ts = registration only, screens under web/, handlers under handlers/. | `kumiko-lint-ignore app-feature-structure` |

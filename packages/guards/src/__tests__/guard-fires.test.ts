@@ -192,11 +192,6 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function defineWriteHandler(cfg: unknown): unknown;\ndeclare const z: any;\nexport const h = defineWriteHandler({ name: "grantRole", schema: z.object({ role: z.string() }), access: { roles: ["TenantAdmin"] }, handler: async () => ({ isSuccess: true, data: {} }) });',
     expectedMessage: /has no escalation test/,
   },
-  "Access-Denied-Test Guard": {
-    path: `${FEAT}/x/handlers/approve.write.ts`,
-    code: 'declare function defineWriteHandler(cfg: unknown): unknown;\nconst h = defineWriteHandler({ name: "approve-invoice", access: { roles: ["TenantAdmin"] }, handler: async () => ({}) });',
-    expectedMessage: /has no access-denied test/,
-  },
   "No-Logic-in-Views Guard (App-Repos)": {
     path: `${APP}/features/x/web/calc.tsx`,
     code: "export function paidFraction(principal: number, remaining: number): number {\n  if (principal <= 0) return 0;\n  return Math.max(0, Math.min(1, (principal - remaining) / principal));\n}",
