@@ -116,7 +116,7 @@ const RESET_LOCKED_OVERRIDE_ACTION: RowAction = {
   confirm: i18nKey("documentDesigner.action.resetLockedOverride.confirm"),
   confirmLabel: i18nKey("documentDesigner.action.resetLockedOverride.confirmLabel"),
   style: "danger",
-  visible: { field: "lockedOverride", eq: true },
+  visible: { field: "canResetLockedOverride", eq: true },
 };
 
 export function templateRowActions(): RowAction[] {

@@ -56,6 +56,8 @@ export type OverviewRow = {
   readonly lockedOverrideI18nKey: string | null;
   /** Tenant row a reset acts on (resetToSystem takes a row id, the overview row is a slug group); set only while a system version exists to fall back to. */
   readonly lockedOverrideId: string | null;
+  /** False when a locked override has no system version to fall back to, so a reset would be refused. */
+  readonly canResetLockedOverride: boolean;
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsage[];
   readonly usedByCount: number;
@@ -267,6 +269,7 @@ function buildDrafts(
       lockedOverride: effective.lockedOverride,
       lockedOverrideI18nKey: effective.lockedOverride ? LOCKED_OVERRIDE_I18N_KEY : null,
       lockedOverrideId: effective.lockedOverrideId,
+      canResetLockedOverride: effective.lockedOverrideId !== null,
       modifiedAt: modifiedAtOf(preferred),
     });
   }

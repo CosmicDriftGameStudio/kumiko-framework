@@ -1520,6 +1520,11 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.screen.layoutEditor.description": "Edit the mail layout or the PDF letterhead.",
   "documentDesigner.search": "Search templates",
   "documentDesigner.action.edit": "Edit",
+  "documentDesigner.status.lockedOverride": "Not delivered",
+  "documentDesigner.action.resetLockedOverride": "Remove own version",
+  "documentDesigner.action.resetLockedOverride.confirm":
+    "The stored own version of one language (German first) is archived and the platform version stays in use. If the template has more languages, repeat this for each one.",
+  "documentDesigner.action.resetLockedOverride.confirmLabel": "Remove",
   "documentDesigner.col.template": "Template",
   "documentDesigner.col.kind": "Kind",
   "documentDesigner.col.origin": "Origin",

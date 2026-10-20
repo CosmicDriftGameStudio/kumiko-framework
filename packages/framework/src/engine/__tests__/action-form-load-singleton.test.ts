@@ -8,11 +8,14 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
 }
 
-function settingsFeature(load: { readonly singleton?: boolean; readonly idParam?: string }) {
+function settingsFeature(
+  load: { readonly singleton?: boolean; readonly idParam?: string },
+  querySchema: z.ZodType = z.object({}),
+) {
   return defineFeature("app", (r) => {
     r.queryHandler({
       name: "settings",
-      schema: z.object({}),
+      schema: querySchema,
       handler: async () => ({ domain: "status.example.de" }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
@@ -42,6 +45,12 @@ describe("validateBoot — actionForm load.singleton", () => {
 
   test("singleton without idParam boots cleanly", () => {
     expect(() => validateBoot([settingsFeature({ singleton: true })])).not.toThrow();
+  });
+
+  test("singleton against a query that requires input throws", () => {
+    expect(() =>
+      validateBoot([settingsFeature({ singleton: true }, z.object({ tenantId: z.string() }))]),
+    ).toThrow(/load\.singleton query "app:query:settings" requires input/);
   });
 
   test("idParam without singleton still boots", () => {

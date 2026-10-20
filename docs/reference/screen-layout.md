@@ -88,7 +88,7 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `placeholder` | edit field | i18n key for the empty-input hint of single-line text, number and textarea fields |
 | `prefix`, `suffix` | edit field | text before or after a single-line text or number input: an i18n key (literal as fallback) or `{ field }` for the live value of another form field |
 | `fillAction` | edit field | button beside a single-line text or number input: `{ label, query, field, params? }` runs `query` with the form values picked by `params` and writes `result[field]` into the field |
-| `load` | actionForm | `{ query, idParam? }` loads the initial values from a query keyed by the record id (route id, else the clicked row's `id`); URL search params never seed the form |
+| `load` | actionForm | `{ query, idParam?, singleton? }` loads the initial values from a query keyed by the record id (route id, else the clicked row's `id`); URL search params never seed the form. `singleton: true` sends no id, so the query picks the tenant's single row (like projectionDetail `singleton`); it excludes `idParam`, and the boot validator rejects a query that requires input |
 | `rowClick` | row action | `true` on a `navigate` or `drawer` action makes a click on the row body fire it; at most one per list, rejected on projectionDetail header actions |
 | `submitPrefilled` | actionForm, secretMint | `true` enables submit without edits, so values seeded from navigate `params` count as intent |
 | `groupBy`, `rowTone` | relatedList | collapsible row groups and a row tint rule |

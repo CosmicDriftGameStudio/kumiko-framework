@@ -1579,6 +1579,11 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Modifiez la mise en page des e-mails ou le papier à en-tête PDF.",
   "documentDesigner.search": "Rechercher des modèles",
   "documentDesigner.action.edit": "Modifier",
+  "documentDesigner.status.lockedOverride": "Non livrée",
+  "documentDesigner.action.resetLockedOverride": "Retirer la version propre",
+  "documentDesigner.action.resetLockedOverride.confirm":
+    "La version propre enregistrée d'une langue (l'allemand en premier) est archivée et la version de la plateforme reste utilisée. Si le modèle compte plusieurs langues, l'opération est à répéter pour chacune.",
+  "documentDesigner.action.resetLockedOverride.confirmLabel": "Retirer",
   "documentDesigner.col.template": "Modèle",
   "documentDesigner.col.kind": "Type",
   "documentDesigner.col.origin": "Origine",

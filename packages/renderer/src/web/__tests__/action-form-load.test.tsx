@@ -196,7 +196,7 @@ describe("actionForm load", () => {
         id: "rename-form",
         type: "actionForm",
         handler: "shop:write:rename",
-        fields: { name: { type: "text", required: true } as TextFieldDef },
+        fields: { name: { type: "text", required: true } satisfies TextFieldDef },
         layout: { sections: [{ fields: ["name"] }] },
         load: { query: "shop:query:shop-settings:detail", singleton: true },
       },

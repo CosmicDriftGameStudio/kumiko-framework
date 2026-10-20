@@ -174,6 +174,8 @@ describe("locked template overrides :: mail free, linked PDF and layout locked",
     // The overview row carries the id the row action sends to resetToSystem.
     expect(locked?.lockedOverrideId).toBe(overrideIds[PDF_SLUG]);
     expect(free?.lockedOverrideId).toBeNull();
+    expect(locked?.canResetLockedOverride).toBe(true);
+    expect(free?.canResetLockedOverride).toBe(false);
     await stack.http.writeOk(
       TemplateResolverHandlers.resetToSystem,
       { id: locked?.lockedOverrideId },
@@ -183,6 +185,42 @@ describe("locked template overrides :: mail free, linked PDF and layout locked",
     expect(
       afterReset.rows.find((row) => row.id === `document-pdf|${PDF_SLUG}`)?.lockedOverride,
     ).toBe(false);
+  });
+});
+
+describe("locked template overrides :: no system version to fall back to", () => {
+  const ORPHAN_SLUG = "locked-ov:orphan";
+  let stack: TestStack;
+  const ready = (async () => {
+    stack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature({
+          tenantEditable: tenantEditableTemplates(["mail"], [MAIL_SLUG]),
+        }),
+      ],
+    });
+    await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      document(ORPHAN_SLUG, "document-pdf", `override ${ORPHAN_SLUG}`),
+      systemAdmin,
+    );
+  })();
+  afterAll(async () => {
+    await ready;
+    await stack.cleanup();
+  });
+
+  test("the row is flagged locked but offers no reset, because resetToSystem would be refused", async () => {
+    await ready;
+    const row = (await overview(stack, systemAdmin)).rows.find(
+      (candidate) => candidate.id === `document-pdf|${ORPHAN_SLUG}`,
+    );
+    expect(row).toMatchObject({
+      lockedOverride: true,
+      lockedOverrideId: null,
+      canResetLockedOverride: false,
+    });
   });
 });
 

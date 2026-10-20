@@ -1561,6 +1561,11 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Edita el diseño del correo o el papel de carta del PDF.",
   "documentDesigner.search": "Buscar plantillas",
   "documentDesigner.action.edit": "Editar",
+  "documentDesigner.status.lockedOverride": "No entregada",
+  "documentDesigner.action.resetLockedOverride": "Quitar versión propia",
+  "documentDesigner.action.resetLockedOverride.confirm":
+    "Se archiva la versión propia guardada de un idioma (primero alemán) y sigue en uso la versión de la plataforma. Si la plantilla tiene más idiomas, hay que repetirlo para cada uno.",
+  "documentDesigner.action.resetLockedOverride.confirmLabel": "Quitar",
   "documentDesigner.col.template": "Plantilla",
   "documentDesigner.col.kind": "Tipo",
   "documentDesigner.col.origin": "Origen",

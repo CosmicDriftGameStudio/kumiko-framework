@@ -10,21 +10,21 @@ Four UI gaps from wave 3: an actionForm can load a singleton row, the dashboard 
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: actionForm loads a singleton row without a record id
 detail: load.singleton: true on an actionForm sends the load query without idParam and prefills the form from the tenant's single row, like projectionDetail. A route id is never forwarded. The boot validator rejects singleton together with idParam.
 -->
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: Dashboard text block link shown only to given roles
 detail: A text block of kind link ({ text, screen, roles? }) renders a link to a screen and is hidden unless the user holds one of the roles. This only gates the display; the target screen still checks access on the server. The boot validator rejects an unknown target screen and an empty roles list.
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
-type: feature
+feature: template-resolver
+type: improvement
 title: seedSystemTemplate accepts titleI18nKey
 detail: A seeded template can store an i18n key as its title (titleI18nKey, exclusive with title). The overview returns the key; the document-designer overview, mail editor and PDF link modal translate it and fall back to the raw text. Templates without a key behave as before; no migration.
 -->
