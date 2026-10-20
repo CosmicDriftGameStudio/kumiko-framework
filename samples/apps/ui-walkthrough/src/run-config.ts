@@ -9,6 +9,7 @@ import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
@@ -18,6 +19,7 @@ import {
   type TenantEditableTemplate,
   templateEditAccess,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
@@ -26,6 +28,10 @@ import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-render
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
 import { billingFeature } from "./features/billing";
 import { rentalFeature } from "./features/rental";
+import {
+  createPortalBillingFeature,
+  subscriptionPlansFeature,
+} from "./features/subscription-plans";
 import { taskFeature } from "./features/tasks";
 import { vehiclesFeature } from "./features/vehicles";
 
@@ -58,6 +64,11 @@ export const APP_FEATURES = [
   rentalFeature,
   vehiclesFeature,
   billingFeature,
+  createPortalBillingFeature(`http://localhost:${process.env["PORT"] ?? "4173"}`),
+  subscriptionPlansFeature,
+  // billing-foundation stores the subscription as tenant data and keeps the compliance profile.
+  createComplianceProfilesFeature(),
+  createTenantLifecycleFeature(),
   createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE_TEMPLATES }),
   // Only the branding rail of the layout editor needs managed-pages; the sample
   // serves no public pages, so no host resolves to a tenant.

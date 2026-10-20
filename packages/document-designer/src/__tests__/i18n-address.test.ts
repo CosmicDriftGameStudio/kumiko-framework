@@ -17,7 +17,7 @@ describe("document-designer German strings", () => {
 
   test("web translations use du, not Sie", () => {
     const offenders = Object.entries(documentDesignerTranslations["de"] ?? {})
-      .filter(([, value]) => formalAddressRegex.test(value))
+      .filter(([, value]) => typeof value === "string" && formalAddressRegex.test(value))
       .map(([key]) => key);
     expect(offenders).toEqual([]);
   });

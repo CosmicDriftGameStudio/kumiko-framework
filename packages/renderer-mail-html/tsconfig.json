@@ -6,7 +6,6 @@
     "composite": true
   },
   "include": ["./src"],
-  "exclude": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
   "references": [
     {
       "path": "../framework"

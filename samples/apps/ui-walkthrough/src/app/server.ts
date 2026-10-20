@@ -13,6 +13,7 @@ import { createUnsubscribeRoutes } from "@cosmicdrift/kumiko-bundled-features/de
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import { seedPlanTerms } from "../features/subscription-plans";
 import { APP_FEATURES } from "../run-config";
 import {
   ADMIN_EMAIL,
@@ -34,7 +35,7 @@ import { seedVehicles } from "./seed-vehicles";
 
 await runDevApp({
   features: [...APP_FEATURES],
-  seeds: [seedTasks, seedRental, seedVehicles, seedTemplates],
+  seeds: [seedTasks, seedRental, seedVehicles, seedTemplates, seedPlanTerms],
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
   // sonst lokal-Default 4173.
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),

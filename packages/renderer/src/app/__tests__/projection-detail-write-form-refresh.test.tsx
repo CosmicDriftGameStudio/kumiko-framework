@@ -3,7 +3,7 @@
 // the other writeForm section survives (rule: never lose input silently).
 
 import { describe, expect, test } from "bun:test";
-import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
@@ -163,7 +163,7 @@ function stubDispatcher(calls: Calls, state: { name: string }): Dispatcher {
   };
 }
 
-function renderOrderScreen(calls: Calls, state: { name: string }): void {
+async function renderOrderScreen(calls: Calls, state: { name: string }): Promise<void> {
   const schema: FeatureSchema = { featureName: "app", entities: {}, screens: [orderScreen] };
   const navApi: NavApi = {
     route: { screenId: "app:screen:order-detail" },
@@ -173,23 +173,28 @@ function renderOrderScreen(calls: Calls, state: { name: string }): void {
     searchParams: {},
     setSearchParams: () => {},
   };
-  render(
-    <LocaleProvider
-      resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
-    >
-      <DispatcherProvider dispatcher={stubDispatcher(calls, state)}>
-        <AppFeaturesProvider features={[schema]}>
-          <UserRolesProvider roles={[]}>
-            <NavProvider value={navApi}>
-              <PrimitivesProvider value={testPrimitives}>
-                <KumikoScreen schema={schema} qn="app:screen:order-detail" entityId="o1" />
-              </PrimitivesProvider>
-            </NavProvider>
-          </UserRolesProvider>
-        </AppFeaturesProvider>
-      </DispatcherProvider>
-    </LocaleProvider>,
+  // Render inside act so the detail query, the commit and the mount effects
+  // (store subscription, dirty reporting) settle before the test types; a
+  // waitFor on the input only proves the commit, not the passive effects.
+  await act(async () =>
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={stubDispatcher(calls, state)}>
+          <AppFeaturesProvider features={[schema]}>
+            <UserRolesProvider roles={[]}>
+              <NavProvider value={navApi}>
+                <PrimitivesProvider value={testPrimitives}>
+                  <KumikoScreen schema={schema} qn="app:screen:order-detail" entityId="o1" />
+                </PrimitivesProvider>
+              </NavProvider>
+            </UserRolesProvider>
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    ),
   );
 }
 
@@ -214,9 +219,7 @@ describe("projectionDetail writeForm submit refreshes instead of remounting", ()
   test("submitted section is reset, the other keeps its input, the detail shows the new record", async () => {
     const calls: Calls = { queries: [], writes: [] };
     const state = { name: "Original" };
-    renderOrderScreen(calls, state);
-
-    await waitFor(() => expect(rtlScreen.getByLabelText("noteA")).toBeTruthy());
+    await renderOrderScreen(calls, state);
     expect(infoText()).toBe("Original");
 
     fireEvent.change(rtlScreen.getByLabelText("noteA"), { target: { value: "first" } });
@@ -233,7 +236,7 @@ describe("projectionDetail writeForm submit refreshes instead of remounting", ()
 
   test("the relatedList section refetches after the submit", async () => {
     const calls: Calls = { queries: [], writes: [] };
-    renderOrderScreen(calls, { name: "Original" });
+    await renderOrderScreen(calls, { name: "Original" });
     const notesCalls = (): number => calls.queries.filter((q) => q.type === NOTES_QUERY).length;
 
     await waitFor(() => expect(notesCalls()).toBe(1));
