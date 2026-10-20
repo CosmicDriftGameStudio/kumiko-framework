@@ -29,12 +29,12 @@ export const taskEntity = {
   table: "read_ui_walkthrough_tasks",
 
   fields: {
-    title: { type: "text", required: true, sortable: true },
+    title: { type: "text", required: true, sortable: true, allowPlaintext: "is_business_data" },
     status: { type: "select", options: TASK_STATUSES, display: "radio", sortable: true },
     area: { type: "select", options: TASK_AREAS },
     priority: { type: "number" },
     isUrgent: { type: "boolean", default: false },
-    notes: { type: "text" },
+    notes: { type: "text", allowPlaintext: "is_business_data" },
   },
 } as unknown as EntityDefinition;
 

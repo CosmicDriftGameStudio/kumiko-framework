@@ -103,8 +103,14 @@ function stubTranslations(feature: FeatureDefinition): FeatureDefinition {
       Object.entries(feature.translations ?? {}).map(([key, value]) => [key, { ...value }]),
     ),
   };
+  // Stub only the locales the feature already maintains, otherwise an en-only
+  // feature would become locale-inconsistent and trip the boot check.
+  const existingLocales = new Set(Object.values(keys).flatMap((entry) => Object.keys(entry)));
+  const stubLocales = existingLocales.size > 0 ? [...existingLocales] : ["de", "en"];
   for (const key of requiredKeysFromFeature(feature)) {
-    if (keys[key] === undefined) keys[key] = { de: "stub", en: "stub" };
+    if (keys[key] === undefined) {
+      keys[key] = Object.fromEntries(stubLocales.map((locale) => [locale, "stub"]));
+    }
   }
   return { ...feature, translations: keys };
 }

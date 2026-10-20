@@ -12,8 +12,8 @@ import type {
 export const orderEntity = {
   table: "read_ws_orders",
   fields: {
-    label: { type: "text", required: true, sortable: true },
-    status: { type: "text", sortable: true },
+    label: { type: "text", required: true, sortable: true, allowPlaintext: "is_business_data" },
+    status: { type: "text", sortable: true, allowPlaintext: "is_business_data" },
     notes: { type: "text", allowPlaintext: "is_business_data" },
   },
 } as unknown as EntityDefinition;

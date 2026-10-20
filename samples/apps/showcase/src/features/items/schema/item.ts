@@ -19,8 +19,14 @@ export const itemEntity = {
   description:
     "A showcase task item carrying a title, free-text notes, a numeric priority, a done flag, a due date and a draft/active/blocked/done status, plus an optional parent item and a list of related items.",
   fields: {
-    title: { type: "text", required: true, sortable: true, searchable: true },
-    notes: { type: "text", multiline: { rows: 4 } },
+    title: {
+      type: "text",
+      required: true,
+      sortable: true,
+      searchable: true,
+      allowPlaintext: "is_business_data",
+    },
+    notes: { type: "text", multiline: { rows: 4 }, allowPlaintext: "is_business_data" },
     priority: { type: "number", default: 1, sortable: true, filterable: true },
     isDone: { type: "boolean", default: false, sortable: true, filterable: true },
     dueDate: { type: "date", sortable: true, filterable: true },

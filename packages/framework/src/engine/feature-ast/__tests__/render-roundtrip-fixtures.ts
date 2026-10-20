@@ -11,8 +11,8 @@ defineFeature("inventory", (r) => {
   r.toggleable({ default: true });
 
   r.entity({ name: "item", fields: {
-      name: { type: "text", required: true },
-      sku: { type: "text" },
+      name: { type: "text", required: true, allowPlaintext: "fixture_value" },
+      sku: { type: "text", allowPlaintext: "fixture_value" },
       onHand: { type: "number" },
     } });
 

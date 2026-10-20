@@ -24,7 +24,7 @@ import {
   wireCustomFieldsFor,
 } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // --- Entity ---
@@ -39,12 +39,12 @@ import { z } from "zod";
 export const propertyEntity = createEntity({
   table: "read_sample_cf_properties",
   fields: {
-    name: {
-      type: "text",
+    name: createTextField({
       required: true,
       maxLength: 200,
-      allowPlaintext: "property name is business data, not personal data",
-    },
+      personal: false,
+      reason: "property_name_is_business_data",
+    }),
     customFields: customFieldsField(),
   },
 });
@@ -64,12 +64,12 @@ export const propertyFeature = defineFeature("property-management", (r) => {
     name: "property",
     table: "read_sample_cf_properties",
     fields: {
-      name: {
-        type: "text",
+      name: createTextField({
         required: true,
         maxLength: 200,
-        allowPlaintext: "property name is business data, not personal data",
-      },
+        personal: false,
+        reason: "property_name_is_business_data",
+      }),
       customFields: { type: "jsonb" },
     },
   });

@@ -36,7 +36,7 @@ No dedicated automated tests in this folder yet — use it as a composition samp
 //   - nav         → ID/Label/Screen-Card
 // Plus optionalRequires + metric als JSON-Dump-Fallback.
 
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("designerDemo", (r) => {
@@ -45,11 +45,11 @@ defineFeature("designerDemo", (r) => {
   r.entity({
     name: "task",
     fields: {
-      title: {
-        type: "text",
+      title: createTextField({
         required: true,
-        allowPlaintext: "demo task title, not personal data",
-      },
+        personal: false,
+        reason: "demo_task_title_is_not_personal_data",
+      }),
       done: { type: "boolean", default: false },
       priority: { type: "select", options: ["low", "medium", "high"], default: "medium" },
     },
