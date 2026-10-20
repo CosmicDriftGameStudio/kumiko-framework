@@ -6,9 +6,9 @@ import {
   integer,
   table as pgTable,
   requireEntityTableMeta,
-  type SchemaTable,
   sql,
   text,
+  type WritableSchemaTable,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 
@@ -20,18 +20,19 @@ import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 // name IS the identity here. No tenantId: this is a global override that
 // applies across every tenant (per-tenant toggles are intentionally out of
 // scope, see core-feature-toggles.md).
-export const globalFeatureStateTable: SchemaTable & TenancyBrand<"global"> = declareGlobalTenancy(
-  pgTable("store_global_feature_state", {
-    featureName: text("feature_name").primaryKey(),
-    enabled: boolean("enabled").notNull(),
-    // Optimistic-lock column: the set-handler updates `WHERE feature_name = ? AND
-    // version = ?`; a 0-row update means a concurrent write, so it retries the fetch.
-    version: integer("version").notNull().default(1),
-    updatedAt: instant("updated_at").default(sql`now()`).notNull(),
-    // UserId (text — SessionUser.id is a uuid string post-ES).
-    updatedBy: text("updated_by"),
-  }),
-);
+export const globalFeatureStateTable: WritableSchemaTable & TenancyBrand<"global"> =
+  declareGlobalTenancy(
+    pgTable("store_global_feature_state", {
+      featureName: text("feature_name").primaryKey(),
+      enabled: boolean("enabled").notNull(),
+      // Optimistic-lock column: the set-handler updates `WHERE feature_name = ? AND
+      // version = ?`; a 0-row update means a concurrent write, so it retries the fetch.
+      version: integer("version").notNull().default(1),
+      updatedAt: instant("updated_at").default(sql`now()`).notNull(),
+      // UserId (text — SessionUser.id is a uuid string post-ES).
+      updatedBy: text("updated_by"),
+    }),
+  );
 
 // r.storeTable meta — without this, collectTableMetas(FEATURES) never
 // sees the table, so `kumiko schema generate` reports no changes and no

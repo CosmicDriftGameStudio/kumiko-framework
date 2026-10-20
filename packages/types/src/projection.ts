@@ -1,6 +1,6 @@
 import type { RunIn } from "./config.ts";
-import type { DbRunner } from "./db-connection.ts";
 import type { StoredEvent } from "./event-store-types.ts";
+import type { ExecutorManagedRunner } from "./executor-brand.ts";
 import type { EntityDefinition } from "./fields.ts";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context-types.ts";
 import type { SchemaTable } from "./schema-table-types.ts";
@@ -14,7 +14,7 @@ import type { SchemaTable } from "./schema-table-types.ts";
 export type ProjectionTable = SchemaTable;
 
 // Single-stream projection apply: runs inline in the write-TX of the event
-// it projects. Gets the event, the TX-scoped DbRunner, and the projection's
+// it projects. Gets the event, the TX-scoped ExecutorManagedRunner, and the projection's
 // own `table` (already erased to ProjectionTable). Write through THAT table —
 // it is the only ES-blessed write into a managed projection outside the
 // executor, and it is reachable only here (an arbitrary handler has no such
@@ -29,7 +29,7 @@ export type ProjectionTable = SchemaTable;
 // `table`-Param ist additiv — 2-arg-Applies (event, tx) bleiben gültig.
 export type SingleStreamApplyFn<TPayload = Record<string, unknown>> = (
   event: StoredEvent<TPayload>,
-  tx: DbRunner,
+  tx: ExecutorManagedRunner,
   table: ProjectionTable,
 ) => Promise<void>;
 
@@ -40,7 +40,7 @@ export type SingleStreamApplyFn<TPayload = Record<string, unknown>> = (
 // cross-aggregate reactions here, not in single-stream projections.
 export type MultiStreamApplyFn<TPayload = Record<string, unknown>> = (
   event: StoredEvent<TPayload>,
-  tx: DbRunner,
+  tx: ExecutorManagedRunner,
   ctx: MultiStreamApplyContext,
 ) => Promise<void>;
 

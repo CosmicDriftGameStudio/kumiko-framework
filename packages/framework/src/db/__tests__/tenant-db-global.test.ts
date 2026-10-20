@@ -6,9 +6,9 @@ import { createEntity, createTextField } from "../../engine/index.ts";
 import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
-import type { TableColumns } from "../dialect.ts";
 import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.ts";
 import { buildEntityTable } from "../table-builder.ts";
+import { brandWritable } from "../table-introspection.ts";
 import {
   createTenantDb,
   createUncheckedSystemDb,
@@ -192,9 +192,7 @@ describe("TenantDb.global()", () => {
         globalWrites: { reason: "cross-tenant backfill job" },
       },
     });
-    const erased = tdb.global(
-      globalManagedTable as unknown as EntityTableMeta & TenancyBrand<"global">,
-    );
+    const erased = tdb.global(brandWritable(globalManagedTable));
     await expect(erased.insertOne({ name: "x" })).rejects.toThrow(/entity executor/);
     await expect(erased.updateMany({ name: "y" }, { id: "x" })).rejects.toThrow(/entity executor/);
     await expect(erased.deleteMany({ id: "x" })).rejects.toThrow(/entity executor/);
@@ -256,7 +254,7 @@ describe("TenantDb.global()", () => {
 
   test("tenant-mode updateMany/deleteMany on a global-tenancy table reject instead of silently matching nothing", async () => {
     const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
-    const erasedTable = globalManagedTable as unknown as TableColumns;
+    const erasedTable = brandWritable(globalManagedTable);
     await expect(tdb.updateMany(erasedTable, { name: "y" }, { id: "x" })).rejects.toThrow(
       /db\.global/,
     );
@@ -265,12 +263,10 @@ describe("TenantDb.global()", () => {
 
   test("plain (non-global) insertOne on a global-tenancy managed table (has tenant_id) with a foreign tenant rejects before touching the runner", async () => {
     const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
-    // insertOne's WritableTable param types out branded EntityTables — same
-    // unbranded-view cast as tenant-db-global.integration.test.ts; runtime
-    // behavior only reads the table's EntityTableMeta, not the type brand.
-    await expect(
-      tdb.insertOne(globalManagedTable as unknown as TableColumns, { name: "x" }),
-    ).rejects.toThrow(/SYSTEM/);
+    // brandWritable on a managed table is deliberate: the runtime guard is under test.
+    await expect(tdb.insertOne(brandWritable(globalManagedTable), { name: "x" })).rejects.toThrow(
+      /SYSTEM/,
+    );
   });
 });
 
@@ -411,7 +407,7 @@ describe("unsafeRaw gate inheritance", () => {
     });
     const derived = await derive(tdb.unsafeRaw());
     return createTenantDb({ db: derived, tenantId: own, mode: "system" })
-      .insertOne(tenantEntityTable as unknown as TableColumns, { name: "x" })
+      .insertOne(brandWritable(tenantEntityTable), { name: "x" })
       .then(
         () => "inserted",
         (e: unknown) => (e instanceof AccessDeniedError ? "denied" : e),

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import { aggregateWhere } from "../../query.ts";
+import { brandWritable } from "../../table-introspection.ts";
 
-const meta: EntityTableMeta = {
+const meta = brandWritable<EntityTableMeta>({
   source: "unmanaged",
   tableName: "store_aggregate_guard_items",
   indexes: [],
@@ -12,7 +13,7 @@ const meta: EntityTableMeta = {
     { name: "amount", pgType: "integer", notNull: true },
     { name: "created_at", pgType: "timestamptz", notNull: true },
   ],
-};
+});
 
 const explodingDb = {
   unsafe: async () => {

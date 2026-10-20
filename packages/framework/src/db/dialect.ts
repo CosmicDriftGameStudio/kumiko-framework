@@ -17,6 +17,7 @@
 // global may be absent (Hermes/Safari) or torn down in tests, and instantToDriver
 // crashed on timestamptz writes without it (#1480).
 
+import type { WritableSchemaTable } from "@cosmicdrift/kumiko-types/executor-brand";
 import {
   type ColumnHandle,
   KUMIKO_COLUMNS_SYMBOL,
@@ -32,7 +33,7 @@ import type {
   IndexMeta,
   PgType,
 } from "./entity-table-meta.ts";
-import { schemaTableName } from "./table-introspection.ts";
+import { brandWritable, schemaTableName } from "./table-introspection.ts";
 
 export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 
@@ -459,7 +460,7 @@ export function table<TCols extends ColumnMap>(
   optsFn?: (
     t: { [K in keyof TCols]: ColumnHandle },
   ) => Record<string, IndexOrPk> | ReadonlyArray<IndexOrPk>,
-): SchemaTable {
+): WritableSchemaTable {
   // Finalise columns + build the column-handle map.
   const handles: Record<string, ColumnHandle> = {};
   const columnMetas: ColumnMeta[] = [];
@@ -538,7 +539,7 @@ export function table<TCols extends ColumnMap>(
     [KUMIKO_COLUMNS_SYMBOL]: handles,
     [KUMIKO_META_SYMBOL]: base,
   }) as SchemaTable;
-  return out;
+  return brandWritable(out);
 }
 
 /** Reads the `kumiko:schema:Name` symbol from a table object.

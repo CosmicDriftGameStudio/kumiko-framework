@@ -16,8 +16,8 @@
 // must commit in the same TX as the aggregate-mutation that triggered
 // it (stronger consistency than an async projection). Reviewer judges.
 
-import type { EntityTableMeta } from "../../db/entity-table-meta.ts";
 import { deleteMany, type WhereObject } from "../../db/query.ts";
+import { requireEntityTableMeta } from "../../db/table-introspection.ts";
 import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { tenantDbWriteRunner } from "../../db/tenant-db-runner.ts";
 import { defineStep } from "../define-step.ts";
@@ -41,10 +41,10 @@ defineStep<UnsafeProjectionDeleteArgs, void>({
     const where = resolveRequired(args.where, ctx);
     // The `unsafe*`-step IS the sanctioned direct projection write — it exists
     // to bypass the executor deliberately (boot-validated allowlist + reviewer
-    // gate). The brand-strip cast makes that explicit at the one blessed seam.
+    // gate).
     await deleteMany(
       withExecutorManagedWrites(tenantDbWriteRunner(ctx.db, "unsafe projection delete")),
-      args.table as EntityTableMeta,
+      requireEntityTableMeta(args.table, "unsafeProjectionDelete"),
       where,
     );
   },

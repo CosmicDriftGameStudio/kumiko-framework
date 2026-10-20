@@ -1,6 +1,5 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
-import type { ExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import type {
@@ -472,7 +471,13 @@ export type EntityRow<E extends EntityDefinition = EntityDefinition> =
     : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>;
 
 // ── ES-write brand ──────────────────────────────────────────────────────
-export type { ExecutorOnly, NotExecutorOnly } from "@cosmicdrift/kumiko-types/executor-brand";
+export type {
+  ExecutorManagedRunner,
+  ExecutorManagedWriteCapability,
+  Writable,
+  WritableSchemaTable,
+  WritableTable,
+} from "@cosmicdrift/kumiko-types/executor-brand";
 // ── Tenancy brand ────────────────────────────────────────────────────────
 export type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 
@@ -492,7 +497,6 @@ export type EntityTable<E extends EntityDefinition = EntityDefinition> =
     BaseColumnsType<E> &
     SoftDeleteColumnsType &
     ColumnsForEntity<E["fields"]> &
-    ExecutorOnly &
     TenancyBrand<EntityTableTenancy<E>>;
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {

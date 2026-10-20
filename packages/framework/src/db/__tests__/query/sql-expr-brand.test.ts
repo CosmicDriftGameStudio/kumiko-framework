@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { type SqlExpression, sql, uuid } from "../../dialect.ts";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import { insertOne, updateMany } from "../../query.ts";
+import { brandWritable } from "../../table-introspection.ts";
 
-const meta: EntityTableMeta = {
+const meta = brandWritable<EntityTableMeta>({
   source: "unmanaged",
   tableName: "sql_expr_brand_items",
   indexes: [],
@@ -12,7 +13,7 @@ const meta: EntityTableMeta = {
     { name: "payload", pgType: "jsonb", notNull: false },
     { name: "created_at", pgType: "timestamptz", notNull: false },
   ],
-};
+});
 
 // Captures exactly what insertOne/updateMany hand to the driver, so the
 // assertions below check the actual SQL text + bound params — not just that

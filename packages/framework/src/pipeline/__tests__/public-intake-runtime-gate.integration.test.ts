@@ -12,9 +12,9 @@ import * as z from "zod";
 import type { DbRunner } from "../../db/connection.ts";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import type { SchemaTable } from "../../db/index.ts";
 import { asRawClient, runInSavepoint, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { brandWritable } from "../../db/table-introspection.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
@@ -107,9 +107,9 @@ const featureA = defineFeature("intakea", (r) => {
     name: "direct-insert-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      // @cast-boundary test-fixture — proving the RUNTIME gate stops this
-      // write, not the compile-time ExecutorOnly brand on contactTable.
-      await ctx.db.insertOne(contactDirectTable as unknown as SchemaTable, {
+      // brandWritable on a managed table is deliberate: the compile-time lock would
+      // reject this write, and the test proves the RUNTIME gate stops it.
+      await ctx.db.insertOne(contactDirectTable, {
         email: "leak-direct@example.com",
         note: event.payload.note,
       });
@@ -123,8 +123,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "direct-insert-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      // @cast-boundary test-fixture — see direct-insert-no-declare above.
-      await ctx.db.insertOne(contactDirectTable as unknown as SchemaTable, {
+      await ctx.db.insertOne(contactDirectTable, {
         email: "leak-direct-declared@example.com",
         note: event.payload.note,
       });
@@ -191,7 +190,7 @@ const featureA = defineFeature("intakea", (r) => {
       // AppContext, whose `db` is typed as the DbConnection|TenantDb union
       // (fail-closed at the outer boundary); at runtime it's always the
       // TenantDb built for this write. See direct-insert-no-declare above.
-      await (ctx.db as TenantDb).insertOne(contactDirectTable as unknown as SchemaTable, {
+      await (ctx.db as TenantDb).insertOne(contactDirectTable, {
         email: "leak-hook@example.com",
         note: "from-afterCommit-hook",
       });
@@ -202,7 +201,7 @@ const featureA = defineFeature("intakea", (r) => {
     target: "hook-declare",
     handler: async (_result, ctx) => {
       // @cast-boundary test-fixture — see hook-no-declare above.
-      await (ctx.db as TenantDb).insertOne(contactDirectTable as unknown as SchemaTable, {
+      await (ctx.db as TenantDb).insertOne(contactDirectTable, {
         email: "leak-hook-declared@example.com",
         note: "from-afterCommit-hook",
       });
@@ -254,8 +253,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "default-table-insert-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (_event, ctx) => {
-      // @cast-boundary test-fixture — see direct-insert-no-declare above.
-      await ctx.db.insertOne(leadTable as unknown as SchemaTable, { phone: "+49 30 1234" });
+      await ctx.db.insertOne(brandWritable(leadTable), { phone: "+49 30 1234" });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
     access: { roles: ["anonymous"] },
@@ -284,9 +282,8 @@ const featureA = defineFeature("intakea", (r) => {
       name: `update-many-${suffix}`,
       schema: z.object({ id: z.uuid() }),
       handler: async (event, ctx) => {
-        // @cast-boundary test-fixture — see direct-insert-no-declare above.
         await ctx.db.updateMany(
-          contactDirectTable as unknown as SchemaTable,
+          contactDirectTable,
           { email: "overwritten@example.com" },
           { id: event.payload.id },
         );
@@ -327,9 +324,8 @@ const featureA = defineFeature("intakea", (r) => {
       name: `global-insert-${suffix}`,
       schema: z.object({ note: z.string() }),
       handler: async (_event, ctx) => {
-        // @cast-boundary test-fixture — see direct-insert-no-declare above.
         await ctx.db
-          .global(globalContactTable as unknown as Parameters<typeof ctx.db.global>[0])
+          .global(brandWritable(globalContactTable))
           .insertOne({ tenantId: SYSTEM_TENANT_ID, email: "leak-global@example.com" });
         return { isSuccess: true as const, data: { ok: true as const } };
       },
@@ -342,9 +338,8 @@ const featureA = defineFeature("intakea", (r) => {
       name: `global-update-many-${suffix}`,
       schema: z.object({ id: z.uuid() }),
       handler: async (event, ctx) => {
-        // @cast-boundary test-fixture — see direct-insert-no-declare above.
         await ctx.db
-          .global(globalContactTable as unknown as Parameters<typeof ctx.db.global>[0])
+          .global(brandWritable(globalContactTable))
           .updateMany({ email: "overwritten-global@example.com" }, { id: event.payload.id });
         return { isSuccess: true as const, data: { ok: true as const } };
       },
@@ -401,10 +396,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "non-pii-insert",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      // @cast-boundary test-fixture — only the non-PII `note` column is
-      // written here; `email` is deliberately absent so the gate has
-      // nothing to block.
-      await ctx.db.insertOne(contactDirectTable as unknown as SchemaTable, {
+      await ctx.db.insertOne(contactDirectTable, {
         note: event.payload.note,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
@@ -417,8 +409,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "mixed-role-insert",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      // @cast-boundary test-fixture — see direct-insert-no-declare above.
-      await ctx.db.insertOne(contactDirectTable as unknown as SchemaTable, {
+      await ctx.db.insertOne(contactDirectTable, {
         email: "leak-mixed-role@example.com",
         note: event.payload.note,
       });
@@ -440,7 +431,7 @@ const featureA = defineFeature("intakea", (r) => {
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
       await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
-        contactDirectTable as unknown as SchemaTable,
+        contactDirectTable,
         { email: "leak-unsafe-raw@example.com", note: event.payload.note },
       );
       return { isSuccess: true as const, data: { ok: true as const } };
@@ -456,7 +447,7 @@ const featureA = defineFeature("intakea", (r) => {
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
       await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
-        contactDirectTable as unknown as SchemaTable,
+        contactDirectTable,
         { email: "leak-unsafe-raw-declared@example.com", note: event.payload.note },
       );
       return { isSuccess: true as const, data: { ok: true as const } };
@@ -480,7 +471,7 @@ const featureA = defineFeature("intakea", (r) => {
           db: sp as DbRunner,
           tenantId: event.user.tenantId,
           mode: "system",
-        }).insertOne(contactDirectTable as unknown as SchemaTable, {
+        }).insertOne(contactDirectTable, {
           email: "leak-unsafe-raw-tx@example.com",
           note: event.payload.note,
         });
@@ -502,7 +493,7 @@ const featureA = defineFeature("intakea", (r) => {
           db: sp as DbRunner,
           tenantId: event.user.tenantId,
           mode: "system",
-        }).insertOne(contactDirectTable as unknown as SchemaTable, {
+        }).insertOne(contactDirectTable, {
           email: "leak-unsafe-raw-tx-declared@example.com",
           note: event.payload.note,
         });
@@ -531,7 +522,7 @@ const featureA = defineFeature("intakea", (r) => {
       const rows = await tagged`SELECT 1 AS one`;
       if (rows[0]?.["one"] !== 1) throw new Error("tagged query through the proxy failed");
       await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
-        contactDirectTable as unknown as SchemaTable,
+        contactDirectTable,
         { email: "leak-unsafe-raw-tagged@example.com", note: event.payload.note },
       );
       return { isSuccess: true as const, data: { ok: true as const } };
@@ -549,7 +540,7 @@ const featureA = defineFeature("intakea", (r) => {
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
       await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
-        contactDirectTable as unknown as SchemaTable,
+        contactDirectTable,
         { email: "leak-unsafe-raw-authenticated@example.com", note: event.payload.note },
       );
       return { isSuccess: true as const, data: { ok: true as const } };

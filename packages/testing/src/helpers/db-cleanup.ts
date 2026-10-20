@@ -1,5 +1,5 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import { deleteMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { AnyDb } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { withExecutorManagedWritesForTests } from "@cosmicdrift/kumiko-framework/internal/testing";
 
@@ -13,30 +13,16 @@ function tableFromName(name: string): EntityTableMeta {
   return { tableName: name, columns: [], indexes: [], source: "unmanaged" };
 }
 
-function resolveClearableTable(table: ClearableTable): unknown {
+function resolveClearableTable(table: ClearableTable): EntityTableMeta {
   if (typeof table === "string") return tableFromName(table);
-  if (
-    typeof table === "object" &&
-    table !== null &&
-    "tableName" in table &&
-    typeof table.tableName === "string"
-  ) {
-    return table;
-  }
-  return table;
+  return requireEntityTableMeta(table, "clearTables");
 }
 
 /** Delete all rows from each table (order preserved — FK-sensitive callers order explicitly). */
 export async function clearTables(db: AnyDb, tables: readonly ClearableTable[]): Promise<void> {
   for (const table of tables) {
-    // Test-teardown truncate: resolveClearableTable returns `unknown` (string
-    // name or table object). The brand-strip cast is the sanctioned bypass —
-    // clearing a managed projection between tests is not a production write.
-    await deleteMany(
-      withExecutorManagedWritesForTests(db),
-      resolveClearableTable(table) as EntityTableMeta,
-      {},
-    );
+    // Test teardown: clearing a managed projection between tests is not a production write.
+    await deleteMany(withExecutorManagedWritesForTests(db), resolveClearableTable(table), {});
   }
 }
 

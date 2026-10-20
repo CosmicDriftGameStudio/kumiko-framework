@@ -1,19 +1,24 @@
-// A managed projection is only writable through the executor (event →
-// rebuild-safe). To make a direct write a *compile* error rather than a
-// convention, EntityTable carries a phantom `unique symbol` prop; the public
-// write helpers reject anything that has it (see NotExecutorOnly + query.ts).
-// The symbol key dodges SchemaTable's `[field: string]: unknown` index
-// signature (string index sigs don't cover symbol keys), so the brand
-// survives the type-erasure that would swallow a plain marker prop — and the
-// executor seam (applyEntityEvent) erases `table` to TableColumns<any>, which
-// carries no such prop, so the one legitimate writer stays green.
-declare const EXECUTOR_ONLY: unique symbol;
-export interface ExecutorOnly {
-  readonly [EXECUTOR_ONLY]: true;
+import type { DbRunner } from "./db-connection.ts";
+import type { EntityTableMeta } from "./entity-table-meta-types.ts";
+import type { SchemaTable } from "./schema-table-types.ts";
+
+// Positive brands: a write compiles only for a table carrying `Writable` or a
+// runner carrying the executor capability. Symbol keys dodge SchemaTable's
+// string index signature; widening a table to plain SchemaTable drops the
+// brand, so erasure fails closed instead of open.
+declare const WRITABLE: unique symbol;
+export interface Writable {
+  readonly [WRITABLE]: true;
 }
-// Negative brand for write-helper params: a branded EntityTable is NOT
-// assignable (its `true` clashes with `never`), while unmanaged EntityTableMeta
-// and erased SchemaTable pass (they lack the prop, so `?: never` is satisfied).
-export type NotExecutorOnly = {
-  readonly [EXECUTOR_ONLY]?: never;
-};
+export type WritableTable = EntityTableMeta & Writable;
+
+// Type-level mirror of the runtime capability registered in
+// framework/src/db/executor-managed-tables.ts.
+declare const EXECUTOR_MANAGED_WRITE: unique symbol;
+export interface ExecutorManagedWriteCapability {
+  readonly [EXECUTOR_MANAGED_WRITE]: true;
+}
+export type ExecutorManagedRunner = DbRunner & ExecutorManagedWriteCapability;
+
+// Named so declaration emit prints the alias instead of expanding SchemaTable's symbol keys.
+export type WritableSchemaTable = SchemaTable & Writable;

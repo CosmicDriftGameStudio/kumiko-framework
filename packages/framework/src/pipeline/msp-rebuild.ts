@@ -243,8 +243,8 @@ export async function rebuildMultiStreamProjection(
             // ctx run on the savepoint-scoped handle.
             try {
               await runInSavepoint(applyTx, async (sp) => {
-                const rebuildCtx = createRebuildCtx(registry, sp as DbRunner, row.tenantId);
-                await applyFn(storedEvent, sp as DbRunner, rebuildCtx);
+                const rebuildCtx = createRebuildCtx(registry, sp, row.tenantId);
+                await applyFn(storedEvent, sp, rebuildCtx);
               });
             } catch (e) {
               skipped.push({ event: storedEvent, error: e });

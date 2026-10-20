@@ -1,5 +1,6 @@
 import type { AggregateRow, AggregateSpec } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import type {
   EscapeHatchDeclaration,
   EscapeHatchReporter,
@@ -8,6 +9,7 @@ import type {
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import {
+  type ExecutorManagedTenantDb,
   type GlobalTableDb,
   SYSTEM_SCOPE_CHECK_BRAND,
   type TenantDb,
@@ -46,7 +48,9 @@ import {
 } from "../observability/index.ts";
 import type { DbRunner } from "./connection.ts";
 import {
+  assertWritableTable,
   executorManagedWriteDenied,
+  hasExecutorManagedWriteCapability,
   registerExecutorManagedWriteRunner,
 } from "./executor-managed-tables.ts";
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
@@ -63,6 +67,7 @@ import {
 type Table = SchemaTable;
 
 export {
+  type ExecutorManagedTenantDb,
   SYSTEM_SCOPE_CHECK_BRAND,
   type TenantDb,
   type TenantDbMode,
@@ -140,12 +145,12 @@ function boundRunner(
 }
 
 const capableRunnerInners = new WeakMap<DbRunner, DbRunner>();
-const capableRunnerByInner = new WeakMap<DbRunner, DbRunner>();
+const capableRunnerByInner = new WeakMap<DbRunner, ExecutorManagedRunner>();
 
 // Framework-private (not re-exported from db/index.ts): the only way to obtain a runner that may
 // write executor-managed tables. Only the framework's own event-apply paths call it.
-export function withExecutorManagedWrites(runner: DbRunner): DbRunner {
-  if (capableRunnerInners.has(runner)) return runner;
+export function withExecutorManagedWrites(runner: DbRunner): ExecutorManagedRunner {
+  if (hasExecutorManagedWriteCapability(runner)) return runner;
   const cached = capableRunnerByInner.get(runner);
   if (cached) return cached;
   const capable = boundRunner(
@@ -154,6 +159,11 @@ export function withExecutorManagedWrites(runner: DbRunner): DbRunner {
     projectionRegistryOf(runner),
     true,
   );
+  if (!hasExecutorManagedWriteCapability(capable)) {
+    throw new InternalError({
+      message: "boundRunner did not register the executor write capability",
+    });
+  }
   capableRunnerByInner.set(runner, capable);
   return capable;
 }
@@ -563,13 +573,19 @@ export type CreateTenantDbOptions = {
   readonly grants?: TenantDbGrants;
 };
 
+export function createTenantDb(
+  options: CreateTenantDbOptions & { readonly db: ExecutorManagedRunner },
+): ExecutorManagedTenantDb;
+export function createTenantDb(options: CreateTenantDbOptions): TenantDb;
 export function createTenantDb(options: CreateTenantDbOptions): TenantDb {
   return buildTenantDb(options);
 }
 
 // Tenant-destroy hooks purge their own tenant's event-fed rows; the pinned tenant is the only reach and unsafeRaw stays without the write capability.
-export function createTenantDataDestroyDb(options: Omit<CreateTenantDbOptions, "mode">): TenantDb {
-  return buildTenantDb({ ...options, db: withExecutorManagedWrites(options.db), mode: "tenant" });
+export function createTenantDataDestroyDb(
+  options: Omit<CreateTenantDbOptions, "mode">,
+): ExecutorManagedTenantDb {
+  return createTenantDb({ ...options, db: withExecutorManagedWrites(options.db), mode: "tenant" });
 }
 
 // Untyped JS callers or an `as` cast can still hand in undefined; a scoped handle
@@ -661,12 +677,15 @@ function buildTenantDb(
     return where ? { ...where, ...tenantFilter } : tenantFilter;
   }
 
-  function writeWhere(table: Table, where: WhereObject): WhereObject {
+  function writeWhere(table: Table | EntityTableMeta, where: WhereObject): WhereObject {
     if (!hasTenantColumn(table) || mode === "system") return where;
     return { ...where, tenantId };
   }
 
-  function insertValues(table: Table, data: Record<string, unknown>): Record<string, unknown> {
+  function insertValues(
+    table: Table | EntityTableMeta,
+    data: Record<string, unknown>,
+  ): Record<string, unknown> {
     if (!hasTenantColumn(table)) return data;
     if (mode === "system") return { tenantId, ...data };
     return { ...data, tenantId };
@@ -716,7 +735,7 @@ function buildTenantDb(
 
   // A tenant-mode write against a "global" table can never match (rows carry SYSTEM_TENANT_ID, writeWhere pins the caller's tenant), so reject loudly instead of silently affecting zero rows.
   function tenantWriteOnGlobalTable(
-    table: Table,
+    table: Table | EntityTableMeta,
     method: "updateMany" | "deleteMany",
   ): AccessDeniedError | undefined {
     if (mode !== "tenant" || !hasTenantColumn(table)) return undefined;
@@ -726,6 +745,33 @@ function buildTenantDb(
         `${method}(${tableNameOf(table)}): "global" table rows carry SYSTEM_TENANT_ID and never match the caller's tenant; ` +
         "use db.global(table) with escapeHatch instead.",
     });
+  }
+
+  // Callers ran executorManagedWriteDenied first: either db holds the capability or the table is
+  // unmanaged. The split only proves to the compiler which overload of the free writers applies.
+  function insertRow<T>(
+    table: Table | EntityTableMeta,
+    values: Record<string, unknown>,
+  ): Promise<T | undefined> {
+    if (hasExecutorManagedWriteCapability(db)) return bunInsertOne<T>(db, table, values);
+    assertWritableTable(table);
+    return bunInsertOne<T>(db, table, values);
+  }
+
+  function updateRows<T>(
+    table: Table | EntityTableMeta,
+    set: Record<string, unknown>,
+    where: WhereObject,
+  ): Promise<readonly T[]> {
+    if (hasExecutorManagedWriteCapability(db)) return bunUpdateMany<T>(db, table, set, where);
+    assertWritableTable(table);
+    return bunUpdateMany<T>(db, table, set, where);
+  }
+
+  function deleteRows(table: Table | EntityTableMeta, where: WhereObject): Promise<number> {
+    if (hasExecutorManagedWriteCapability(db)) return bunDeleteMany(db, table, where);
+    assertWritableTable(table);
+    return bunDeleteMany(db, table, where);
   }
 
   function globalTable<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
@@ -758,7 +804,7 @@ function buildTenantDb(
           personalDataDenied(table, Object.keys(values));
         if (denied) return Promise.reject(denied);
         report("global-write", globalWriteReason());
-        return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, values));
+        return withDbSpan("insert", table, async () => insertRow<T>(table, values));
       },
       updateMany<T = Record<string, unknown>>(
         set: Record<string, unknown>,
@@ -779,7 +825,7 @@ function buildTenantDb(
           );
         }
         report("global-write", globalWriteReason());
-        return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, where));
+        return withDbSpan("update", table, async () => updateRows<T>(table, set, where));
       },
       deleteMany(where: WhereObject): Promise<void> {
         const denied =
@@ -796,10 +842,10 @@ function buildTenantDb(
         }
         report("global-write", globalWriteReason());
         return withDbSpan("delete", table, async () => {
-          await bunDeleteMany(db, table, where);
+          await deleteRows(table, where);
         });
       },
-      // @cast-boundary phantom-brand — GlobalWrites is only present in the type when TTable is not ExecutorOnly; the object above always carries the methods.
+      // @cast-boundary phantom-brand — GlobalWrites is only present in the type when TTable carries Writable; the object above always carries the methods.
     } as GlobalTableDb<TTable>;
   }
 
@@ -872,7 +918,7 @@ function buildTenantDb(
     },
 
     insertOne<T = Record<string, unknown>>(
-      table: Table,
+      table: Table | EntityTableMeta,
       values: Record<string, unknown>,
     ): Promise<T | undefined> {
       const writeDenied = writesDenied("ctx.db.insertOne");
@@ -895,11 +941,11 @@ function buildTenantDb(
       const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.insertOne");
       if (managedDenied) return Promise.reject(managedDenied);
       const data = insertValues(table, values);
-      return withDbSpan("insert", table, async () => bunInsertOne<T>(db, table, data));
+      return withDbSpan("insert", table, async () => insertRow<T>(table, data));
     },
 
     updateMany<T = Record<string, unknown>>(
-      table: Table,
+      table: Table | EntityTableMeta,
       set: Record<string, unknown>,
       where: WhereObject,
     ): Promise<readonly T[]> {
@@ -919,10 +965,10 @@ function buildTenantDb(
       const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.updateMany");
       if (managedDenied) return Promise.reject(managedDenied);
       const filter = writeWhere(table, where);
-      return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, filter));
+      return withDbSpan("update", table, async () => updateRows<T>(table, set, filter));
     },
 
-    deleteMany(table: Table, where: WhereObject): Promise<number> {
+    deleteMany(table: Table | EntityTableMeta, where: WhereObject): Promise<number> {
       const writeDenied = writesDenied("ctx.db.deleteMany");
       if (writeDenied) return Promise.reject(writeDenied);
       if (!where || Object.keys(where).length === 0) {
@@ -937,7 +983,7 @@ function buildTenantDb(
       const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.deleteMany");
       if (managedDenied) return Promise.reject(managedDenied);
       const filter = writeWhere(table, where);
-      return withDbSpan("delete", table, async () => bunDeleteMany(db, table, filter));
+      return withDbSpan("delete", table, async () => deleteRows(table, filter));
     },
   };
 

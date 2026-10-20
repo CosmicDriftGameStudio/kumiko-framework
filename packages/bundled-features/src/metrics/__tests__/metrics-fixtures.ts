@@ -1,4 +1,8 @@
-import { defineUnmanagedTable, insertOne } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type DbConnection,
+  defineUnmanagedTable,
+  insertOne,
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -83,7 +87,7 @@ const seedRows: readonly SeedRow[] = [
   ),
 ];
 
-type TestDb = Parameters<typeof insertOne>[0];
+type TestDb = DbConnection;
 
 export async function seedMetricRows(db: TestDb): Promise<void> {
   for (const seed of seedRows) {

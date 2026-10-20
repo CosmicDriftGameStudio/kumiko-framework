@@ -3,9 +3,10 @@ import { testTenantId } from "../../../seeding/seed-users.ts";
 import type { DbRunner } from "../../connection.ts";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import { asRawClient, countWhere, incrementCounter, selectMany, transaction } from "../../query.ts";
+import { brandWritable } from "../../table-introspection.ts";
 import { createTenantDb } from "../../tenant-db.ts";
 
-const meta: EntityTableMeta = {
+const meta = brandWritable<EntityTableMeta>({
   source: "unmanaged",
   tableName: "read_items",
   indexes: [],
@@ -14,7 +15,7 @@ const meta: EntityTableMeta = {
     { name: "tenant_id", pgType: "uuid", notNull: true },
     { name: "count", pgType: "integer", notNull: true },
   ],
-};
+});
 
 // A db whose unsafe() blows up — proves the guard throws BEFORE any SQL runs.
 const explodingDb = {

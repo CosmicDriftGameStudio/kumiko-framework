@@ -305,7 +305,7 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
       payload: corruptedPayload,
       metadata: { userId: admin.id },
     });
-    // mailThreadsProjectionTable ist executor-only (WritableTable-Typecheck
+    // mailThreadsProjectionTable ist nicht Writable (der Typecheck
     // lehnt raw updateMany ab) — die Test-Korruption geht bewusst am
     // Type-Guard vorbei, genau wie die Race-Situation die sie simuliert.
     await asRawClient(db).unsafe(`UPDATE "read_mail_threads" SET message_count = 1 WHERE id = $1`, [

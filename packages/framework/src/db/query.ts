@@ -21,6 +21,11 @@ import type {
   AggregateTimeBucket,
 } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { DbRunner, DbTx } from "@cosmicdrift/kumiko-types/db-connection";
+import type {
+  ExecutorManagedRunner,
+  ExecutorManagedWriteCapability,
+  WritableTable,
+} from "@cosmicdrift/kumiko-types/executor-brand";
 // Static import (not getTemporal()): coercion works without an installed
 // global and returns the same Temporal classes as the rest of the repo (#1480).
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -42,7 +47,7 @@ import { SQL_EXPR_BRAND } from "./dialect.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
-import { type NotExecutorOnly, toSnakeCase } from "./table-builder.ts";
+import { toSnakeCase } from "./table-builder.ts";
 import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
 
 // Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
@@ -128,19 +133,32 @@ export function runnerCanBeginTransaction(db: unknown): boolean {
   return hasBegin(asRawClient(db));
 }
 
+function savepointRunnerOf<TRunner extends DbRunner>(sp: unknown): TRunner {
+  // @cast-boundary db-runner savepoint handle → TRunner at the single seam (boundRunner re-wraps savepoint handles with the caller's capability)
+  return sp as TRunner;
+}
+
 // postgres.js rejects the WHOLE begin() when any statement inside
 // it errored — even if the JS error was caught (the driver tracks per-block
 // query failures). Error confinement therefore must go through the driver's
 // own savepoint(), not manual SAVEPOINT statements. The callback receives
 // the savepoint-scoped tx; run every confined statement on THAT handle.
-export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promise<T>): Promise<T> {
+export function runInSavepoint<T>(
+  tx: ExecutorManagedRunner,
+  fn: (sp: ExecutorManagedRunner) => Promise<T>,
+): Promise<T>;
+export function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promise<T>): Promise<T>;
+export async function runInSavepoint<T, TRunner extends DbRunner>(
+  tx: unknown,
+  fn: (sp: TRunner) => Promise<T>,
+): Promise<T> {
   const raw = asRawClient(tx);
   if (typeof raw.savepoint !== "function") {
     throw new Error(
       "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql).",
     );
   }
-  return raw.savepoint(fn);
+  return raw.savepoint((sp) => fn(savepointRunnerOf<TRunner>(sp)));
 }
 
 // Same error-confinement as runInSavepoint, but for call sites that don't
@@ -155,20 +173,26 @@ export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promis
 // it fails with PG 25P01 ("no active sql transaction") since there's no
 // BEGIN left to nest into. That is now a programming error, not something
 // to paper over by re-running `fn` without the savepoint's isolation.
-export async function runInSavepointIfSupported<T>(
+export function runInSavepointIfSupported<T>(
+  db: ExecutorManagedRunner,
+  fn: (sp: ExecutorManagedRunner) => Promise<T>,
+): Promise<T>;
+export function runInSavepointIfSupported<T>(
   db: unknown,
   fn: (sp: DbRunner) => Promise<T>,
+): Promise<T>;
+export async function runInSavepointIfSupported<T, TRunner extends DbRunner>(
+  db: unknown,
+  fn: (sp: TRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(db);
-  // @cast-boundary db-runner savepoint handle → DbRunner at the single seam
-  const asRunner = (sp: unknown): DbRunner => sp as DbRunner;
-  if (typeof raw.savepoint !== "function") return fn(asRunner(db));
+  if (typeof raw.savepoint !== "function") return fn(savepointRunnerOf<TRunner>(db));
   // An error from inside fn must never be remapped, even if it carries a closed-connection code.
   let fnStarted = false;
   try {
     return await raw.savepoint((sp) => {
       fnStarted = true;
-      return fn(asRunner(sp));
+      return fn(savepointRunnerOf<TRunner>(sp));
     });
   } catch (e) {
     const code = extractPgError(e)?.code;
@@ -251,6 +275,9 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
 
 export type AnyDb = DbRunner | unknown;
 
+// biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
+type AnyRow = any;
+
 export type {
   JsonTextMatch,
   OrderByClause,
@@ -287,12 +314,6 @@ function isWhereOperator(v: unknown): v is WhereOperator {
 // Accepts EITHER. Both have a tableName and field→column mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
 type TableLike = EntityTableMeta | any;
-
-// Write param: everything TableLike accepts EXCEPT a branded EntityTable (managed projection), so a
-// direct write is a compile error. The brand is type-only and erased at the executor seam, so the
-// helpers below also check the runtime mark (executor-managed-tables.ts): a marked table needs a
-// runner that carries the framework-issued write capability. Unmanaged tables are unmarked and stay open.
-type WritableTable = EntityTableMeta & NotExecutorOnly;
 
 export type TableInfo = {
   readonly name: string;
@@ -1062,8 +1083,7 @@ function selectColumnList(info: TableInfo, fields: readonly string[] | undefined
     .join(", ");
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
-export async function selectMany<TRow = any>(
+export async function selectMany<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
   where?: WhereObject,
@@ -1102,8 +1122,7 @@ export async function selectMany<TRow = any>(
   return coerceRows<TRow>(raw, info);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function fetchOne<TRow = any>(
+export async function fetchOne<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
   where: WhereObject,
@@ -1219,10 +1238,19 @@ export async function selectInnerJoin<
 // Bulk INSERT — same shape as insertOne but takes an array of rows and
 // produces one multi-VALUES statement. Mirrors drizzle's
 // `db.insert(t).values(rows[])`. Empty input is a no-op.
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function insertMany<TRow = any>(
+export function insertMany<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): Promise<readonly TRow[]>;
+export function insertMany<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): Promise<readonly TRow[]>;
+export async function insertMany<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
   if (rows.length === 0) return [];
@@ -1262,10 +1290,19 @@ export async function insertMany<TRow = any>(
   return coerceRows<TRow>(raw, info);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function insertOne<TRow = any>(
+export function insertOne<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  values: Record<string, unknown>,
+): Promise<TRow | undefined>;
+export function insertOne<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  values: Record<string, unknown>,
+): Promise<TRow | undefined>;
+export async function insertOne<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
   const scoped = tenantDbDelegate(db);
@@ -1302,10 +1339,21 @@ export async function insertOne<TRow = any>(
   return coerceRow<TRow>(first, info);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function updateMany<TRow = any>(
+export function updateMany<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  set: Record<string, unknown>,
+  where: WhereObject,
+): Promise<readonly TRow[]>;
+export function updateMany<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  set: Record<string, unknown>,
+  where: WhereObject,
+): Promise<readonly TRow[]>;
+export async function updateMany<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   set: Record<string, unknown>,
   where: WhereObject,
 ): Promise<readonly TRow[]> {
@@ -1347,9 +1395,15 @@ export async function updateMany<TRow = any>(
   return coerceRows<TRow>(raw, info);
 }
 
+export function deleteMany(db: AnyDb, table: WritableTable, where: WhereObject): Promise<number>;
+export function deleteMany(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  where: WhereObject,
+): Promise<number>;
 export async function deleteMany(
   db: AnyDb,
-  table: WritableTable,
+  table: EntityTableMeta,
   where: WhereObject,
 ): Promise<number> {
   const scoped = tenantDbDelegate(db);
@@ -1585,10 +1639,31 @@ export async function aggregateWhere(
   });
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function upsertOnConflict<TRow = any>(
+export function upsertOnConflict<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  values: Record<string, unknown>,
+  options: UpsertOnConflictOptions,
+): Promise<TRow | undefined>;
+export function upsertOnConflict<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  values: Record<string, unknown>,
+  options: UpsertOnConflictOptions,
+): Promise<TRow | undefined>;
+export function upsertOnConflict<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
+  values: Record<string, unknown>,
+  options: UpsertOnConflictOptions,
+): Promise<TRow | undefined> {
+  return upsertOnConflictChecked<TRow>(db, table, values, options);
+}
+
+// upsertByPk shares this body; the checks inside gate the write, so it needs no overload pair.
+async function upsertOnConflictChecked<TRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined> {
@@ -1637,10 +1712,21 @@ export async function upsertOnConflict<TRow = any>(
   return coerceRow<TRow>(first, info);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function upsertByPk<TRow = any>(
+export function upsertByPk<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  values: Record<string, unknown>,
+  updateOnConflict?: Record<string, unknown>,
+): Promise<TRow | undefined>;
+export function upsertByPk<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  values: Record<string, unknown>,
+  updateOnConflict?: Record<string, unknown>,
+): Promise<TRow | undefined>;
+export async function upsertByPk<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   values: Record<string, unknown>,
   updateOnConflict?: Record<string, unknown>,
 ): Promise<TRow | undefined> {
@@ -1649,7 +1735,7 @@ export async function upsertByPk<TRow = any>(
   const info = extractTableInfo(table);
   const conflictKeys = resolveConflictColumns(table, info, undefined);
   const fieldKeys = conflictKeys.map((col) => info.fieldOf(col));
-  return upsertOnConflict<TRow>(db, table, values, {
+  return upsertOnConflictChecked<TRow>(db, table, values, {
     conflictKeys: fieldKeys,
     ...(updateOnConflict !== undefined ? { update: updateOnConflict } : {}),
   });
@@ -1657,10 +1743,21 @@ export async function upsertByPk<TRow = any>(
 
 export type InsertOnConflictDoNothingOptions = { readonly conflictKeys?: readonly string[] };
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function insertOnConflictDoNothing<TRow = any>(
+export function insertOnConflictDoNothing<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  values: Record<string, unknown>,
+  options?: InsertOnConflictDoNothingOptions,
+): Promise<TRow | undefined>;
+export function insertOnConflictDoNothing<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  values: Record<string, unknown>,
+  options?: InsertOnConflictDoNothingOptions,
+): Promise<TRow | undefined>;
+export async function insertOnConflictDoNothing<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   values: Record<string, unknown>,
   options?: InsertOnConflictDoNothingOptions,
 ): Promise<TRow | undefined> {
@@ -1688,10 +1785,23 @@ export type IncrementCounterOptions = {
   readonly set?: Record<string, unknown>;
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
-export async function incrementCounter<TRow = any>(
+export function incrementCounter<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
+  values: Record<string, unknown>,
+  increments: Record<string, number>,
+  options?: IncrementCounterOptions,
+): Promise<TRow | undefined>;
+export function incrementCounter<TRow = AnyRow>(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  values: Record<string, unknown>,
+  increments: Record<string, number>,
+  options?: IncrementCounterOptions,
+): Promise<TRow | undefined>;
+export async function incrementCounter<TRow = AnyRow>(
+  db: AnyDb,
+  table: EntityTableMeta,
   values: Record<string, unknown>,
   increments: Record<string, number>,
   options: IncrementCounterOptions = {},
@@ -1750,9 +1860,21 @@ export async function incrementCounter<TRow = any>(
   return coerceRow<TRow>(first, info);
 }
 
-export async function deleteManyBatched(
+export function deleteManyBatched(
   db: AnyDb,
   table: WritableTable,
+  where: WhereObject,
+  options: DeleteManyBatchedOptions,
+): Promise<DeleteManyBatchedResult>;
+export function deleteManyBatched(
+  db: ExecutorManagedWriteCapability,
+  table: EntityTableMeta,
+  where: WhereObject,
+  options: DeleteManyBatchedOptions,
+): Promise<DeleteManyBatchedResult>;
+export async function deleteManyBatched(
+  db: AnyDb,
+  table: EntityTableMeta,
   where: WhereObject,
   options: DeleteManyBatchedOptions,
 ): Promise<DeleteManyBatchedResult> {
