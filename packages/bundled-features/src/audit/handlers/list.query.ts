@@ -16,7 +16,10 @@ import {
   AUDIT_DATE_RANGE_CHECK,
   auditListPayloadShape,
   buildAuditWhere,
+  createEntityNounKeyResolver,
+  includesTechnicalEntries,
   listAuditEvents,
+  technicalEntriesFilterSchema,
 } from "./audit-events.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
@@ -26,7 +29,11 @@ export const listQuery = defineQueryHandler({
   description:
     'Lists the tenant\'s audit-trail events newest-first with cursor paging, filterable by aggregate type, aggregate id, event type, actor and time range; use it to answer who changed what and when. A SystemAdmin can set scope "system" to read the app-instance system events (e.g. app.started) instead of the own tenant.',
   schema: z
-    .object({ ...auditListPayloadShape, scope: z.enum(AUDIT_SCOPE_VALUES).optional() })
+    .object({
+      ...auditListPayloadShape,
+      scope: z.enum(AUDIT_SCOPE_VALUES).optional(),
+      filters: z.array(technicalEntriesFilterSchema).max(1).optional(),
+    })
     .refine(AUDIT_DATE_RANGE_CHECK.isValid, AUDIT_DATE_RANGE_CHECK.params),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
@@ -35,12 +42,16 @@ export const listQuery = defineQueryHandler({
     const direction = p.sortDirection ?? "desc";
     const where = buildAuditWhere(
       scopeFilter.tenantId,
-      { ...p, aggregateType: scopeFilter.aggregateType ?? p.aggregateType },
+      {
+        ...p,
+        aggregateType: scopeFilter.aggregateType ?? p.aggregateType,
+        includeTechnical: includesTechnicalEntries(p.filters),
+      },
       direction,
     );
     const db = requireAuditSystemDb(ctx.systemDb, "audit:query:list").assertTenantMatch(
       query.user.tenantId,
     );
-    return listAuditEvents(db, where, p, direction);
+    return listAuditEvents(db, where, p, direction, createEntityNounKeyResolver(ctx.registry));
   },
 });

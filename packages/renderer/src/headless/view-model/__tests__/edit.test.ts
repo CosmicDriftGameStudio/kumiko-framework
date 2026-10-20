@@ -200,6 +200,38 @@ describe("computeEditViewModel", () => {
     expect(reasonShown?.required).toBe(true);
   });
 
+  test("section with every field hidden stays visible while one of its actions is visible", () => {
+    const screen = editScreen({
+      sections: [
+        {
+          title: "Danger",
+          fields: [{ field: "notes", visible: { field: "kind", eq: "company" } }],
+          actions: [
+            {
+              id: "remove",
+              label: "Remove",
+              handler: "orders:write:remove",
+              visible: { field: "kind", ne: "company" },
+            },
+          ],
+        },
+      ],
+    });
+    const visibleOf = (kind: string): boolean =>
+      asFields(
+        computeEditViewModel({
+          screen,
+          entity: orderEntity,
+          values: { kind },
+          translate,
+          featureName: "orders",
+        }).sections[0],
+      ).visible;
+
+    expect(visibleOf("person")).toBe(true);
+    expect(visibleOf("company")).toBe(true);
+  });
+
   test("section with all fields hidden by visible condition → section.visible is false but section stays in the array (key stability)", () => {
     const screen = editScreen({
       sections: [

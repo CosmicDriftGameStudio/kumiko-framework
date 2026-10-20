@@ -14,10 +14,10 @@ export const USER_DATA_RIGHTS_I18N: Readonly<Record<string, LocalizedString>> = 
   "screen:download-attempt-list.title": { en: "Download attempts" },
   "screen:privacy-center.title": { en: "Privacy" },
   "userDataRights.privacyCenter.subtitle": {
-    en: "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
+    en: "Download a copy of your data (Art. 20), restrict processing of your account (Art. 18) or delete it (Art. 17).",
   },
   "userDataRights.privacyCenter.subtitleWithoutDeletion": {
-    en: "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20) and restricts processing of their account (Art. 18).",
+    en: "Download a copy of your data (Art. 20) or restrict processing of your account (Art. 18).",
   },
   "user-data-rights:entity:export-job:field:userId": { en: "User" },
   "user-data-rights:entity:export-job:field:status": { en: "Status" },

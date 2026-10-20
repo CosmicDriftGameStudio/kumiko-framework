@@ -4,6 +4,13 @@ import {
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { catalogQuery } from "./handlers/catalog.query.ts";
+import {
+  consumerDisableWrite,
+  consumerEnableWrite,
+  consumerRestartWrite,
+  consumerSkipWrite,
+} from "./handlers/consumer.write.ts";
+import { consumerDetailQuery, consumersQuery } from "./handlers/consumers.query.ts";
 import { detailQuery } from "./handlers/detail.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
 import {
@@ -27,6 +34,11 @@ import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.ts";
 import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.ts";
 import { tenantJobRunsTableMeta } from "./tenant-job-run-table.ts";
 import {
+  CONSUMER_INSTANCE_OPTION_KEY_PREFIX,
+  CONSUMER_STATUS_OPTION_KEY_PREFIX,
+  CONSUMER_STATUSES,
+  EVENT_CONSUMER_DETAIL_SCREEN_ID,
+  EVENT_CONSUMERS_SCREEN_ID,
   JOB_RUN_DETAIL_SCREEN_ID,
   JOB_RUNS_SCREEN_ID,
   JobHandlers,
@@ -124,6 +136,10 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     const handlers = {
       trigger: r.writeHandler(triggerWrite),
       retry: r.writeHandler(retryWrite),
+      consumerRestart: r.writeHandler(consumerRestartWrite),
+      consumerSkip: r.writeHandler(consumerSkipWrite),
+      consumerDisable: r.writeHandler(consumerDisableWrite),
+      consumerEnable: r.writeHandler(consumerEnableWrite),
     };
 
     const queries = {
@@ -132,6 +148,8 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       catalog: r.queryHandler(catalogQuery),
       failures: r.queryHandler(tenantFailuresQuery),
       tenantRuns: r.queryHandler(tenantRunsQuery),
+      consumers: r.queryHandler(consumersQuery),
+      consumerDetails: r.queryHandler(consumerDetailQuery),
     };
 
     const systemAdminAccess = { roles: ["SystemAdmin"] as const };
@@ -258,6 +276,138 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       icon: "list",
       screen: "jobs:screen:job-runs",
       order: 10,
+    });
+
+    r.screen({
+      id: EVENT_CONSUMERS_SCREEN_ID,
+      type: "projectionList",
+      query: JobQueries.consumers,
+      columns: [
+        { field: "name", label: i18nKey("jobs.consumers.col.name") },
+        {
+          field: "status",
+          label: i18nKey("jobs.consumers.col.status"),
+          renderer: { format: "enumOption", keyPrefix: CONSUMER_STATUS_OPTION_KEY_PREFIX },
+        },
+        { field: "lag", label: i18nKey("jobs.consumers.col.lag"), hideOnNarrow: true },
+        { field: "attempts", label: i18nKey("jobs.consumers.col.attempts"), hideOnNarrow: true },
+        { field: "lastError", label: i18nKey("jobs.consumers.col.lastError") },
+      ],
+      defaultSort: { field: "status", dir: "asc" },
+      facets: [
+        {
+          field: "status",
+          type: "select",
+          label: i18nKey("jobs.consumers.col.status"),
+          options: CONSUMER_STATUSES.map((status) => ({
+            value: status,
+            label: i18nKey(`${CONSUMER_STATUS_OPTION_KEY_PREFIX}${status}`),
+          })),
+        },
+      ],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "open",
+          label: i18nKey("jobs.runs.open"),
+          screen: EVENT_CONSUMER_DETAIL_SCREEN_ID,
+          entityId: "id",
+          rowClick: true,
+        },
+      ],
+      pagination: "infinite",
+      access: systemAdminAccess,
+      description: "jobs.screen.event-consumers.subtitle",
+    });
+    r.screen({
+      id: EVENT_CONSUMER_DETAIL_SCREEN_ID,
+      type: "projectionDetail",
+      query: JobQueries.consumerDetails,
+      idParam: "consumerId",
+      fieldLabels: {
+        name: i18nKey("jobs.consumers.col.name"),
+        instanceId: i18nKey("jobs.consumers.field.instanceId"),
+        status: i18nKey("jobs.consumers.col.status"),
+        lag: i18nKey("jobs.consumers.col.lag"),
+        attempts: i18nKey("jobs.consumers.col.attempts"),
+        lastError: i18nKey("jobs.consumers.col.lastError"),
+        updatedAt: i18nKey("jobs.consumers.field.updatedAt"),
+      },
+      layout: {
+        sections: [
+          {
+            fields: [
+              "name",
+              {
+                field: "instanceId",
+                renderer: { format: "enumOption", keyPrefix: CONSUMER_INSTANCE_OPTION_KEY_PREFIX },
+              },
+              {
+                field: "status",
+                renderer: { format: "enumOption", keyPrefix: CONSUMER_STATUS_OPTION_KEY_PREFIX },
+              },
+              "lag",
+              "attempts",
+              { field: "updatedAt", renderer: { format: "timestamp" } },
+            ],
+          },
+          { fields: ["lastError"] },
+        ],
+      },
+      actions: [
+        {
+          kind: "writeHandler",
+          id: "restart",
+          icon: "refresh",
+          label: i18nKey("jobs.consumers.restart"),
+          handler: JobHandlers.consumerRestart,
+          payload: { map: { name: "name", instanceId: "instanceId" } },
+          visible: { field: "status", eq: "dead" },
+          style: "primary",
+        },
+        {
+          kind: "writeHandler",
+          id: "skip",
+          icon: "arrow-right",
+          label: i18nKey("jobs.consumers.skip"),
+          handler: JobHandlers.consumerSkip,
+          payload: { map: { name: "name", instanceId: "instanceId" } },
+          visible: { field: "status", eq: "dead" },
+          confirm: i18nKey("jobs.consumers.skip.confirm"),
+          style: "danger",
+        },
+        {
+          kind: "writeHandler",
+          id: "disable",
+          icon: "x",
+          label: i18nKey("jobs.consumers.disable"),
+          handler: JobHandlers.consumerDisable,
+          payload: { map: { name: "name", instanceId: "instanceId" } },
+          visible: { field: "status", ne: "disabled" },
+          style: "secondary",
+        },
+        {
+          kind: "writeHandler",
+          id: "enable",
+          icon: "check",
+          label: i18nKey("jobs.consumers.enable"),
+          handler: JobHandlers.consumerEnable,
+          payload: { map: { name: "name", instanceId: "instanceId" } },
+          visible: { field: "status", eq: "disabled" },
+          style: "primary",
+        },
+      ],
+      primaryAction: "restart",
+      description: "jobs.screen.event-consumer-detail.subtitle",
+      listScreenId: EVENT_CONSUMERS_SCREEN_ID,
+      access: systemAdminAccess,
+    });
+    r.nav({
+      id: "event-consumers",
+      label: "jobs:nav.eventConsumers",
+      icon: "list",
+      screen: "jobs:screen:event-consumers",
+      order: 11,
     });
 
     return { handlers, queries };

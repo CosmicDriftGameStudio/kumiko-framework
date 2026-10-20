@@ -122,6 +122,7 @@
     "./presets": "./src/presets/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./sessions": "./src/sessions/index.ts",
+    "./sessions/web": "./src/sessions/web/index.ts",
     "./auth-mfa": "./src/auth-mfa/index.ts",
     "./auth-mfa-user-data": "./src/auth-mfa-user-data/index.ts",
     "./auth-mfa/web": "./src/auth-mfa/web/index.ts",
@@ -593,6 +594,10 @@
       "./sessions": {
         "types": "./dist/sessions/index.d.ts",
         "default": "./dist/sessions/index.js"
+      },
+      "./sessions/web": {
+        "types": "./dist/sessions/web/index.d.ts",
+        "default": "./dist/sessions/web/index.js"
       },
       "./auth-mfa": {
         "types": "./dist/auth-mfa/index.d.ts",

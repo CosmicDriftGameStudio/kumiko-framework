@@ -1,6 +1,11 @@
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { AUDIT_FEATURE } from "./constants.ts";
+import { AuditEventCell, AuditObjectCell } from "./audit-event-cell.tsx";
+import {
+  AUDIT_EVENT_CELL_COMPONENT,
+  AUDIT_FEATURE,
+  AUDIT_OBJECT_CELL_COMPONENT,
+} from "./constants.ts";
 import { defaultTranslations } from "./default-translations.ts";
 
 export type AuditClientOptions = {
@@ -11,5 +16,9 @@ export function auditClient(options?: AuditClientOptions): ClientFeatureDefiniti
   return {
     name: AUDIT_FEATURE,
     translations: mergeTranslations(defaultTranslations, options?.translations ?? {}),
+    columnRenderers: {
+      [AUDIT_EVENT_CELL_COMPONENT]: AuditEventCell,
+      [AUDIT_OBJECT_CELL_COMPONENT]: AuditObjectCell,
+    },
   };
 }

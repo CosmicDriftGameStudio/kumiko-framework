@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { access, type RowAction, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { computeEditViewModel } from "@cosmicdrift/kumiko-renderer/headless";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.ts";
 import { createConfigFeature } from "../../config/feature.ts";
@@ -87,6 +88,12 @@ describe("user-data-rights read-only inspector screens", () => {
 // which handler each action dispatches, the confirm-dialog description,
 // and the visibility conditions carried over from the pre-#2312 custom
 // screen (restrict.tsx/deletion.tsx RestrictionSection/DeletionSection).
+function sectionActionsOf(screen: {
+  readonly layout: { readonly sections: readonly { readonly actions?: readonly RowAction[] }[] };
+}): readonly RowAction[] {
+  return screen.layout.sections.flatMap((s) => s.actions ?? []);
+}
+
 describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
   test("is a projectionDetail bound to the user's own `me` query", () => {
     const f = createUserDataRightsFeature();
@@ -146,7 +153,7 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
     const f = createUserDataRightsFeature();
     const screen = f.screens["privacy-center"];
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
-    const byId = Object.fromEntries((screen.actions ?? []).map((a) => [a.id, a]));
+    const byId = Object.fromEntries(sectionActionsOf(screen).map((a) => [a.id, a]));
 
     expect(byId["restrict"]).toMatchObject({
       handler: "user-data-rights:write:restrict-account",
@@ -179,11 +186,34 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
     expect(
       screen.layout.sections.some((s) => s.title === "userDataRights.privacyCenter.deletion.title"),
     ).toBe(false);
-    const actionIds = (screen.actions ?? []).map((a) => a.id);
+    const actionIds = sectionActionsOf(screen).map((a) => a.id);
     expect(actionIds).not.toContain("request-deletion");
     expect(actionIds).not.toContain("cancel-deletion");
     expect(actionIds).toContain("restrict");
     expect(screen.description).toBe("userDataRights.privacyCenter.subtitleWithoutDeletion");
+  });
+
+  test("deletion configured: the deletion section is visible for every status; not configured: no section", () => {
+    const sectionsShown = (showDeletion: boolean, status: string): readonly string[] => {
+      const screen = createUserDataRightsFeature({ privacyCenterShowDeletion: showDeletion })
+        .screens["privacy-center"];
+      if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+      const vm = computeEditViewModel({
+        screen: { id: screen.id, type: "entityEdit", entity: "me", layout: screen.layout },
+        entity: {
+          fields: { status: { type: "text" }, gracePeriodEnd: { type: "text" } },
+        },
+        values: { status },
+        translate: (key) => key,
+        featureName: "user-data-rights",
+      });
+      return vm.sections.filter((s) => s.kind === "fields" && s.visible).map((s) => s.title ?? "");
+    };
+    const deletionTitle = "userDataRights.privacyCenter.deletion.title";
+
+    expect(sectionsShown(true, "none")).toContain(deletionTitle);
+    expect(sectionsShown(true, "deletionRequested")).toContain(deletionTitle);
+    expect(sectionsShown(false, "none")).not.toContain(deletionTitle);
   });
 
   test("subtitle keeps the deletion wording while deletion is shown", () => {

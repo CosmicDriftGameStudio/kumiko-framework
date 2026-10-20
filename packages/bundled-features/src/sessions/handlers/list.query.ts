@@ -8,6 +8,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
+import { parsedDeviceSchema, parseUserAgent } from "../user-agent.ts";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy
 // has no column-existence check — an unrecognised field just gets
@@ -47,6 +48,7 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
           revokedAt: z.unknown(),
           ip: z.string().nullable(),
           userAgent: z.string().nullable(),
+          device: parsedDeviceSchema,
         }),
       ),
       nextCursor: z.string().nullable(),
@@ -79,17 +81,21 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
         ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
       });
       const decryptedRows = await Promise.all(
-        rows.map(async (r) => ({
-          id: r.id,
-          userId: r.userId,
-          createdAt: r.createdAt,
-          expiresAt: r.expiresAt,
-          revokedAt: r.revokedAt,
-          ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
-          userAgent: r.userAgent
+        rows.map(async (r) => {
+          const userAgent = r.userAgent
             ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
-            : r.userAgent,
-        })),
+            : r.userAgent;
+          return {
+            id: r.id,
+            userId: r.userId,
+            createdAt: r.createdAt,
+            expiresAt: r.expiresAt,
+            revokedAt: r.revokedAt,
+            ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
+            userAgent,
+            device: parseUserAgent(userAgent),
+          };
+        }),
       );
       return { rows: decryptedRows, nextCursor: null };
     },

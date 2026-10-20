@@ -828,7 +828,11 @@ export function computeEditViewModel<
       });
     // The boot-validator rejects declared-empty sections (screens.ts), but a
     // create-excluded field list can still empty one here: then `visible` is false.
-    const visible = fields.some((field) => field.visible);
+    // A section whose only content is an action (a conditional field plus a delete button) stays on the screen.
+    const hasVisibleAction = (sectionSpec.actions ?? []).some(
+      (action) => action.visible === undefined || evalFieldCondition(action.visible, values),
+    );
+    const visible = fields.some((field) => field.visible) || hasVisibleAction;
     // Tabs mode renders this section as its own panel, where two columns reads
     // better than the single-column default a stacked form keeps. Applies to
     // entityEdit tabs as well since fw#3134, not just projectionDetail.

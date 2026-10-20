@@ -30,6 +30,7 @@ import {
   type DbConnection,
   fetchOne,
   insertOne,
+  upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
@@ -37,11 +38,17 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  ConsumerStatuses,
+  eventConsumerStateTable,
+  SHARED_INSTANCE_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { ADMIN_EMAIL, BETA_TENANT_ID, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
+import { INVOICE_TOTALS_CONSUMER, OVERDUE_REMINDERS_CONSUMER } from "./invoice-reports-feature";
 import { noteEntity } from "./notes-feature";
 import { seedPdfDocuments } from "./seed-documents";
 
@@ -266,6 +273,48 @@ const PRIVACY_BODY = [
   "Access, rectification, erasure, restriction, portability, objection.",
 ].join("\n");
 
+// Dispatcher state, not an event-sourced table: parks two invoice consumers the
+// way a failing handler and an operator pause would leave them, so the
+// jobs:event-consumers screens have a dead and a paused row to show.
+async function seedEventConsumerStates(stack: Parameters<SeedFn>[0]): Promise<void> {
+  const qualifiedNameOf = (consumer: string): string => {
+    const found = [...stack.registry.getAllMultiStreamProjections().keys()].find(
+      (name) => name === consumer || name.endsWith(`:${consumer}`),
+    );
+    if (!found) throw new Error(`seedEventConsumerStates: consumer "${consumer}" not registered`);
+    return found;
+  };
+  const parked = [
+    {
+      consumer: INVOICE_TOTALS_CONSUMER,
+      status: ConsumerStatuses.dead,
+      attempts: 5,
+      lastError:
+        'TypeError: Cannot read properties of undefined (reading "amount") while applying invoice.created (event 48213): payload.lineItems[2].netPrice.amount is missing',
+    },
+    {
+      consumer: OVERDUE_REMINDERS_CONSUMER,
+      status: ConsumerStatuses.disabled,
+      attempts: 0,
+      lastError: null,
+    },
+  ];
+  for (const { consumer, status, attempts, lastError } of parked) {
+    await upsertOnConflict(
+      stack.db,
+      eventConsumerStateTable,
+      {
+        name: qualifiedNameOf(consumer),
+        instanceId: SHARED_INSTANCE_SENTINEL,
+        status,
+        attempts,
+        lastError,
+      },
+      { conflictKeys: ["name", "instanceId"], update: { status, attempts, lastError } },
+    );
+  }
+}
+
 export const seedScreenshotData: SeedFn = async (stack) => {
   const devTenant = DEV_TENANT_ID as TenantId;
   const betaTenant = BETA_TENANT_ID as TenantId;
@@ -383,6 +432,8 @@ export const seedScreenshotData: SeedFn = async (stack) => {
 
   // custom-fields + folders extension sections on note-edit.
   await seedCustomFieldsAndFolders(stack, devTenant, devAdminId);
+
+  await seedEventConsumerStates(stack);
 
   // personal-access-tokens list for the admin (active tenant = dev).
   await seedApiTokens(stack.db, devTenant);
