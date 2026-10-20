@@ -394,6 +394,7 @@
   },
   "files": [
     "dist",
+    "kumiko-es-tables.json",
     "presets",
     "src/changes.json",
     "src/scripts/codemod",

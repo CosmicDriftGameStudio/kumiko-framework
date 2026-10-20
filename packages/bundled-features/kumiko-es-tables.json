@@ -1,0 +1,102 @@
+[
+  {
+    "module": "auth-mfa/schema/user-mfa",
+    "export": "userMfaTable"
+  },
+  {
+    "module": "billing-foundation/projection",
+    "export": "paymentsProjectionTable"
+  },
+  {
+    "module": "billing-foundation/projection",
+    "export": "subscriptionsProjectionTable"
+  },
+  {
+    "module": "compliance-profiles/schema/profile-selection",
+    "export": "tenantComplianceProfileTable"
+  },
+  {
+    "module": "config/table",
+    "export": "configValuesTable"
+  },
+  {
+    "module": "data-retention/schema/tenant-retention-override",
+    "export": "tenantRetentionOverrideTable"
+  },
+  {
+    "module": "delivery/tables",
+    "export": "deliveryAttemptsTable"
+  },
+  {
+    "module": "delivery/tables",
+    "export": "notificationAddressOptOutsTable"
+  },
+  {
+    "module": "delivery/tables",
+    "export": "notificationPreferencesTable"
+  },
+  {
+    "module": "document-ingest-foundation/entity",
+    "export": "documentExtractsTable"
+  },
+  {
+    "module": "inbound-mail-foundation/projection",
+    "export": "inboundMessagesProjectionTable"
+  },
+  {
+    "module": "inbound-mail-foundation/projection",
+    "export": "mailAccountsProjectionTable"
+  },
+  {
+    "module": "inbound-mail-foundation/projection",
+    "export": "mailThreadsProjectionTable"
+  },
+  {
+    "module": "managed-pages/table",
+    "export": "pagesTable"
+  },
+  {
+    "module": "secrets/table",
+    "export": "tenantSecretsTable"
+  },
+  {
+    "module": "template-resolver/table",
+    "export": "templateResourcesTable"
+  },
+  {
+    "module": "template-resolver/user-content-table",
+    "export": "userContentEntriesTable"
+  },
+  {
+    "module": "tenant/invitation-table",
+    "export": "tenantInvitationsTable"
+  },
+  {
+    "module": "tenant/membership-table",
+    "export": "tenantMembershipsTable"
+  },
+  {
+    "module": "tenant/schema/tenant",
+    "export": "tenantTable"
+  },
+  {
+    "module": "user-data-rights/schema/download-attempt",
+    "export": "downloadAttemptsTable"
+  },
+  {
+    "module": "user-data-rights/schema/download-token",
+    "export": "exportDownloadTokensTable"
+  },
+  {
+    "module": "user-data-rights/schema/export-job",
+    "export": "exportJobsTable"
+  },
+  {
+    "module": "user/schema/user",
+    "export": "userTable"
+  },
+  {
+    "module": "waitlist/entity",
+    "export": "waitlistEntryTable"
+  }
+]
