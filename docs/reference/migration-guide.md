@@ -10,6 +10,72 @@ verified: 2026-10-20
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.383.0
+
+### @cosmicdrift/kumiko-renderer
+
+**HeaderActionsBar onError receives an ErrorNotice instead of a string**
+
+The onError prop of HeaderActionsBar is now (notice: ErrorNotice | null) => void, where ErrorNotice is { message, requestId? }, so the error reference can be shown next to the message.
+
+**Migration:** change the handler to read notice.message (and notice.requestId); a handler that stores the string only needs `notice?.message ?? null`
+
+### @cosmicdrift/kumiko-server-runtime
+
+**runProdApp requires trustedProxyHops in production**
+
+In production runProdApp refuses to boot when neither the trustedProxyHops option, the auth option nor KUMIKO_TRUSTED_PROXY_HOPS is set. An explicit 0 is allowed. create-kumiko-app templates write KUMIKO_TRUSTED_PROXY_HOPS=0 into .env.example.
+
+**Migration:** set KUMIKO_TRUSTED_PROXY_HOPS=<hops> (0 when the app is exposed directly) or pass trustedProxyHops
+
+### @cosmicdrift/kumiko-types
+
+**MetricSpec requires the object form with a label**
+
+The plain string shorthand for projectionDetail `metrics` is removed and `label` (an i18n key) is required, so a metric can no longer render as a bare column name. `metricField()` is removed from the screen exports because it is trivial now; read `metric.field`. The `metrics` entry without label check in the Screen-Conventions guard is dropped, the type enforces it.
+
+**Migration:** Replace `metrics: ["balance"]` with `metrics: [{ field: "balance", label: "<i18n key>" }]`, reusing the key you had in `fieldLabels` for that column. Replace `metricField(metric)` with `metric.field`.
+
+**EditFieldsSection is either fields or groups**
+
+EditFieldsSection is now a union of a section with `fields` and a section with `groups`; the groups branch has no `fields` key, so a raw `section.fields` read on a section does not compile and `fields: []` next to `groups` is no longer needed. The boot validator rejects a section that declares both, including `fields: []`. FieldsOrGroupsSection now has optional `fields` and `groups`. Read a section's fields through `sectionFieldSpecs`, which the Section-Fields-Raw guard used to enforce.
+
+**Migration:** Remove `fields: []` from every section that declares `groups`. Code that reads `section.fields` or `section.groups` of a fields section uses `sectionFieldSpecs(section)` or narrows with `"groups" in section`.
+
+### framework-core
+
+**Placeholder reasons are rejected at boot and at runtime**
+
+An empty, whitespace-only or placeholder reason ("todo", "tbd", "fixme", "legacy", "temp", "wip", "n/a", "none", "xxx", a "todo:" / "fixme:" / "tbd:" prefix, or the migrate-cross-tenant codemod marker) now fails boot for `openToAll.reason` and `escapeHatch.reason`, and throws at call time for `ctx.systemDb.unsafeRaw(reason)`, `acknowledgeCrossTenant(reason)`, `unsafeAllTenants: { reason }` on read steps and `declareEscapeHatch({ reason })`, which is no longer a no-op. The Escape-Hatch-Declared and Open-To-All-Reason guards that checked this statically are removed.
+
+**Migration:** Replace every placeholder reason with the real justification (why this access is needed and on whose right). Reasons held in imported constants were never judged by the guards and surface now, at boot or on first use.
+
+**loadAllEventsByType and LOAD_ALL_EVENTS_ROW_LIMIT are removed**
+
+loadAllEventsByType buffered every event of an aggregate type in memory and had no production caller. It is removed together with LOAD_ALL_EVENTS_ROW_LIMIT and the Loadall-Events guard.
+
+**Migration:** Use `await Array.fromAsync(streamAllEventsByType(db, aggregateType))`, or iterate the stream with `for await` to stay memory-bounded. The stream is ordered by event id; loadAllEventsByType ordered by (createdAt, id).
+
+**metricField is removed from the screen type exports**
+
+metricField is removed from the engine types and ui-types exports because MetricSpec is always an object now.
+
+**Migration:** Replace `metricField(metric)` with `metric.field`.
+
+**globalIpRateLimit and httpRouteRateLimit option onFailClosed is now onFailOpen**
+
+The option is renamed because both limits now let the request through on a Redis error; the callback receives the error and is throttled to one warning per 30 s. Both limits also accept a meter for kumiko_rate_limit_fail_open_total.
+
+**Migration:** rename onFailClosed to onFailOpen in globalIpRateLimit and httpRouteRateLimit options; the callback no longer implies a 503, the request continues
+
+### jobs
+
+**Job handlers can return ctx.defer(ms)**
+
+A handler that returns ctx.defer(ms) moves the queue job to delayed and runs again after ms, like the maxPerTenant defer. It consumes no retry attempt and records no failure, failure log or failed run; the run row of the deferred pass is removed and a tenantVisibleRun record goes back to queued. maxDefers on the job (default 100, shared counter with maxPerTenant defers) bounds the loop; exceeding it fails the run for good (no retry) with a clear message. Inline runs (boot gates) throw. New run-logger hook onJobDeferred, passed through the entrypoint jobs options. JobHandlerFn may now return a JobDeferral. JobContext has a required defer member.
+
+**Migration:** add defer to every hand-built JobContext object (tests, seeds), e.g. defer: (delayMs) => ({ kind: "job-deferral", delayMs })
+
 ## 0.380.0
 
 ### framework-core

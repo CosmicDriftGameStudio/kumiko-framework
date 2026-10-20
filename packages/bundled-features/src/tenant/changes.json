@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Tenant directory search stops decrypting once the limit is reached",
+    "detail": "Tenant names are encrypted and not in the search index, so the directory search decrypts in small batches and stops after limit matches; the 1000-row scan cap stays. With more matches than the limit, the first matches in key order are returned (sorted by label), not the best alphabetical ones. The missing-profile list drops tenants that already have a profile before decrypting."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "Post-save seed hooks use the after-commit notify factory",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Warning when the login limiter falls back to memory in production",
+    "detail": "The in-memory login and MFA rate limiter logs one warning per process in production, because its limits are per replica."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "Unknown e-mail addresses count towards the login lockout",

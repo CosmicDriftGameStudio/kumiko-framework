@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.383.0",
+    "type": "fix",
+    "title": "delivery-log projection masks the recipient address",
+    "detail": "The inline projection now masks the address with the same helper as the write path, also on rebuild, so legacy events with a full address no longer reach the attempt log. Already masked addresses and connection-name channels stay unchanged. Swallowed errors in the snapshot save, queue-depth poll and channel pre-resolve now log a scrubbed warning."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "Package ships its event-store table catalog",

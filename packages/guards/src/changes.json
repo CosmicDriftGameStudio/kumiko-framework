@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "Nine guards are removed because types and boot checks replace them",
+    "detail": "Removed guards and their replacement. Text-Field Personal-Stance: the field factories require `personal`. API-Object-Form: the registrar only has the object form. Table-DDL (warning only), Pre-ES-Patterns and No-Broker-Subscribe (the broker is not exported). Open-To-All-Reason and Escape-Hatch-Declared: boot and runtime reason validation. Loadall-Events: the function is removed. Section-Fields-Raw: EditFieldsSection is a union. Screen-Conventions loses rule R1 (metrics without label), the type enforces it.",
+    "migration": "Delete `.kumiko-text-field-stance-baseline.json` and `.kumiko-section-fields-raw-baseline.json`. In `.kumiko-security-baseline.json` the \"Escape-Hatch-Declared Guard\" and \"Open-To-All-Reason Guard\" entries in `hardFail` can be removed (they are ignored now). Remove leftover `kumiko-lint-ignore section-fields-raw` markers."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "App-feature-structure guard flags runtime-client markers",

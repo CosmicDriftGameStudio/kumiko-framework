@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.383.0",
+    "type": "improvement",
+    "title": "sessionChecker looks up the user and the membership concurrently",
+    "detail": "The session check starts the user lookup together with the session read and the membership lookup together with the last-seen refresh. Results and the fail-open behavior are unchanged; a failed lookup that is not needed no longer raises an unhandled rejection."
+  },
+  {
     "version": "0.336.0",
     "type": "fix",
     "title": "Session revoke (single, mass, all-others) and its revoked-event commit atomically",

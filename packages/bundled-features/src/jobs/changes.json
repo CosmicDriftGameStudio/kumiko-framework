@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.383.0",
+    "type": "breaking",
+    "title": "Job handlers can return ctx.defer(ms)",
+    "detail": "A handler that returns ctx.defer(ms) moves the queue job to delayed and runs again after ms, like the maxPerTenant defer. It consumes no retry attempt and records no failure, failure log or failed run; the run row of the deferred pass is removed and a tenantVisibleRun record goes back to queued. maxDefers on the job (default 100, shared counter with maxPerTenant defers) bounds the loop; exceeding it fails the run for good (no retry) with a clear message. Inline runs (boot gates) throw. New run-logger hook onJobDeferred, passed through the entrypoint jobs options. JobHandlerFn may now return a JobDeferral. JobContext has a required defer member.",
+    "migration": "add defer to every hand-built JobContext object (tests, seeds), e.g. defer: (delayMs) => ({ kind: \"job-deferral\", delayMs })"
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "Finished tenant run reads its timestamp under the lock",
