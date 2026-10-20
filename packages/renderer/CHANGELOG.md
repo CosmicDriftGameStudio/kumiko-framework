@@ -1,5 +1,159 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.378.0
+
+### Minor Changes
+
+- f47cbd1: Files fields show download and PDF preview on detail screens
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Files fields show download and PDF preview
+  detail: A read-only detail field with renderer { format: "file" } (projectionDetail, readOnly edit field) lists each file with its name and a download link; PDFs get an inline preview toggle. New optional primitive FileValueList, and PdfPreview (moved here from the document designer) with a per-source bounded document cache so several PDFs can share a page. i18n keys kumiko.field.file-list.download/preview/hidePreview and kumiko.widget.pdf-preview.* ship in de, es, fr and it.
+  migration: PdfPreview is now exported from @cosmicdrift/kumiko-renderer/web (props: source {base64}|{url}, testId).
+  -->
+- 0250376: actionForm can derive head totals from an embedded list
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm can derive head totals from an embedded list
+  detail: An actionForm screen declares `derive` for head fields: sum, subtract, multiply, percent over other fields, or listSum over one cell of an embedded list with an optional whenEmpty fallback. The renderer recomputes them live and shows them read-only; a listSum without whenEmpty becomes an input while the list is empty. withFormDerivations(schema, screen) recomputes them on the server before validation, so client totals are never trusted; boot fails when the handler schema is not wrapped with the screen's own derive. A field that only feeds a `whenEmpty` fallback is read-only while the lists have rows. New embedded derived op `percent` (from[0] * from[1] / 100).
+  migration: Add `derive` to the actionForm screen and wrap the handler schema with `withFormDerivations(schema, screen)`; new embedded derived op `percent`.
+  -->
+- bde6050: FormScreenLayout puts custom screens on the standard form screen layout, and a Card without footer content no longer draws an empty footer bar
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: FormScreenLayout gives custom screens the standard form screen layout
+  detail: New universal component FormScreenLayout (children, description, actions, secondaryActions, onSubmit, width, testId) renders the same left-aligned form column, section stack and pinned footer as an entityEdit screen. Fill it with Section primitives (title, icon, subtitle); description becomes the form subtitle.
+  migration: Custom form screens can replace FormScreenShell + Card with FormScreenLayout + Section.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Card renders no footer bar for an empty footer slot
+  detail: slots.footer set to false or null (for example `hasDone && <Button/>`) left an empty grey footer bar. The bar now renders only when the footer slot has content.
+  -->
+- 6352d97: The pre-push shim no longer executes a `kumiko-pre-push` from an untrusted ancestor. The upward walk ends at `$HOME` (inclusive) and skips ancestors owned by another user or writable by group or others, such as `/tmp`.
+  
+  `@cosmicdrift/kumiko-framework/search` exports `collectSearchableFieldNames` and `configureTenantSearchIndex`, so apps stop copying the per-tenant index setup. `@cosmicdrift/kumiko-server-runtime` exports `diskFileRoute`, an anonymous GET route that serves allowlisted disk files with ETag and 304. `@cosmicdrift/kumiko-renderer/flow-diagram` exports `renderFlow` and the `FlowSpec` types for static animated SVG flow diagrams.
+  
+  Stock caps reserve atomically under a per-tenant advisory lock, so two parallel writes can no longer both pass the cap. The document designer ships its own stylesheet, disables Upload when the files feature is not mounted, and disables the test mail with a hint when the server cannot resolve an address (new `send-test-status` query).
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Pre-push shim skips untrusted ancestors and stops at $HOME
+  detail: The shim walked up to / and could exec a kumiko-pre-push planted in /tmp or another shared directory. The walk now ends at $HOME and skips ancestors that another user owns or that group or others can write to.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Search index setup helpers
+  detail: collectSearchableFieldNames(registry) returns the deduplicated searchable fields of all entities and configureTenantSearchIndex(adapter, registry, tenantId) configures a tenant index with them, both exported from the search entry.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: diskFileRoute for allowlisted disk files
+  detail: diskFileRoute({ path, resolveFile }) returns an anonymous GET extra route with a :file parameter. resolveFile maps the raw name to a disk path or null for 404; the file is served with mime type, ETag and 304 handling.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: flow-diagram subpath
+  detail: "@cosmicdrift/kumiko-renderer/flow-diagram" exports renderFlow(spec) and the FlowSpec, FlowNode, FlowEdge, FlowIcon types, a pure string function that renders an animated SVG flow diagram.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Stock caps are atomic under parallel writes
+  detail: withStockCap now takes a transaction-scoped advisory lock per tenant and cap, so concurrent creates cannot both pass the check and exceed the cap.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: send-test-status query for the template test mail
+  detail: template-resolver:query:send-test-status answers whether a test mail can be sent (canSend) and, if not, why (no_channel or no_address), so clients can disable the action instead of failing on send.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Stylesheet export for the designer
+  detail: "@cosmicdrift/kumiko-document-designer/web/styles.css" registers the designer's own Tailwind sources. Apps that embed the designer import it after the renderer stylesheet.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Upload and test mail follow the server's capabilities
+  detail: Upload is disabled with a hint when the files feature is not mounted, and the test mail button is disabled with a hint when the server has no email channel or no address for the user.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Renderer stylesheet no longer scans the document designer
+  detail: The renderer stylesheet stopped scanning the document designer sources by relative path, which broke in isolated installs.
+  migration: Apps that embed the document designer add `@import "@cosmicdrift/kumiko-document-designer/web/styles.css";` after the renderer stylesheet import in their styles.css.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: TenantDb.advisoryXactLock
+  detail: ctx.db.advisoryXactLock(namespace, key) takes a transaction-scoped pg_advisory_xact_lock keyed on the handle's own tenantId plus key, so tenants never contend and the caller cannot pick another tenant. It needs no unsafeRaw grant.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: withStockCap no longer widens the handler's grants
+  detail: withStockCap serialises through TenantDb.advisoryXactLock instead of ctx.db.unsafeRaw(), so wrapped handlers no longer receive an implicit unsafeRaw grant.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot check for projectionList writeHandler actions
+  detail: Boot now rejects projectionList rowActions and toolbarActions of kind writeHandler whose handler is not a registered write-handler QN. Such actions only failed on click before.
+  migration: Fix the handler QN to "<feature>:write:<short>" of a handler declared via r.writeHandler(...), or remove the action. Apps that fail to boot name the screen and action id in the error.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Pre-push shim also vets node_modules/.bin
+  detail: The shim now requires node_modules/.bin itself to be owned by the user and not group or world writable before executing kumiko-pre-push from it, in the guards hook and the dev-server husky template.
+  -->
+
+### Patch Changes
+
+- ebdac5c: Non-modal drawers narrow the content instead of covering it
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Non-modal drawers narrow the content instead of covering it
+  detail: A Drawer with modal={false} on a wide viewport now publishes the width it occupies as --kumiko-drawer-inset-right or --kumiko-drawer-inset-left on the document root, and the shell content area (main next to the sidebar) takes it as inline padding, so error banners, right columns and the pinned form footer end beside the drawer. Modal drawers and narrow viewports keep overlaying. Two non-modal drawers open on the same side overwrite each other's value.
+  -->
+- Updated dependencies [2d7ee3e]
+- Updated dependencies [0250376]
+- Updated dependencies [a08f6d6]
+- Updated dependencies [6352d97]
+  - @cosmicdrift/kumiko-types@0.378.0
+  - @cosmicdrift/kumiko-framework@0.378.0
+
 ## 0.377.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.378.0",
+    "type": "fix",
+    "title": "Mailbox list accepts the screen's limit",
+    "detail": "account:list accepted an empty payload only, so the projectionList screen's limit was rejected. It now takes limit up to MAX_LIST_LIMIT and returns the visible mailboxes ordered by id."
+  },
+  {
     "version": "0.377.0",
     "type": "improvement",
     "title": "Declarative mailbox list and rename screens",
