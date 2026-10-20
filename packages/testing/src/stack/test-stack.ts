@@ -61,6 +61,8 @@ export type TestStack = {
   jwt: JwtHelper;
   registry: Registry;
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
+  /** Resolved connection pool size of `db`. */
+  readonly dbPoolMax: number;
   redis: TestRedis;
   // The bus this stack publishes/subscribes on; pass to TierResolverPlugin.build
   // so a tier-engine resolver built outside buildServer joins the same sync.
@@ -686,6 +688,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       jwt: server.jwt,
       registry,
       db: testDb.db,
+      dbPoolMax: testDb.poolMax,
       redis: testRedis,
       cacheSync,
       search: searchAdapter,

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-09
+verified: 2026-10-20
 ---
 
 # The test standard
@@ -126,6 +126,32 @@ them: on a small (1.5-CPU) CI runner, 1/2/4 workers measured 2.6/2.6/2.7 min,
 so the run is already saturated at one worker and more only adds Chromium
 processes. A project that sets its own
 `workers` throws.
+
+## Concurrency
+
+Tests in one file run one after another, so two handler calls only overlap when a single test fires them together. `Promise.all` over `stack.http.write` is the whole mechanism. Two helpers in `@cosmicdrift/kumiko-testing/helpers` make the recurring shapes deterministic.
+
+`burst` fires N requests at once and tallies the statuses. It throws before sending anything when N exceeds `stack.dbPoolMax`: every request inside a transaction holds a pool connection, so a larger burst queues on the pool instead of running concurrently, and a handler that waits for a peer deadlocks. Raise `dbPoolMax` in `setupTestStack` or lower N.
+
+```ts illustration
+const { statuses } = await burst(stack, 6, () => stack.http.write(QN, {}, user));
+expect(statuses[200]).toBe(3);
+expect(statuses[429]).toBe(3);
+```
+
+`createBarrier` proves that calls were inside the handler at the same time. The handler under test calls `arrive()` and continues once `expected` calls have arrived. When a request is refused before it reaches the handler (a cap gate, for example), the refusing path calls `skip()` so the arrived calls are not left waiting. The barrier rejects after `timeoutMs` (default 5000) with the arrival count, so serialized calls fail loudly instead of passing by accident.
+
+```ts illustration
+const barrier = createBarrier({ expected: 2 });
+// inside the handler under test:
+await barrier.arrive();
+// in the test:
+const { statuses } = await burst(stack, 2, () => stack.http.write(QN, {}, user));
+expect(statuses[200]).toBe(2);
+expect(barrier.arrived).toBe(2);
+```
+
+A `sleep` is no substitute for the barrier. It passes when the calls happen to overlap and fails when the machine is slow, which is exactly the flakiness this document rules out.
 
 ## Apps with MFA
 
