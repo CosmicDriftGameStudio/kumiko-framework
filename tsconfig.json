@@ -79,22 +79,10 @@
       "path": "./packages/types"
     },
     {
-      "path": "./packages/http"
-    },
-    {
       "path": "./packages/bundled-features"
     },
     {
-      "path": "./packages/headless"
-    },
-    {
-      "path": "./packages/dispatcher-live"
-    },
-    {
       "path": "./packages/renderer"
-    },
-    {
-      "path": "./packages/renderer-web"
     },
     {
       "path": "./packages/server-runtime"
@@ -104,9 +92,6 @@
     },
     {
       "path": "./packages/cli"
-    },
-    {
-      "path": "./packages/repo-manifest"
     },
     {
       "path": "./packages/guards"

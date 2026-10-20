@@ -28,7 +28,7 @@ const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
 const EXPECTED_HELD_BACK = new Set([
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
-  "presets", // deprecated feature-bundle helpers (dsgvoSelfServiceFeatures, securityBaselineFeatures), kein defineFeature
+  "presets", // deprecated feature-bundle helpers (securityBaselineFeatures), kein defineFeature
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

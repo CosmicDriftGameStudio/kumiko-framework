@@ -264,7 +264,7 @@ export function deriveEntityTableMeta(
   const tableName = resolveTableName(entityName, entity, options?.featureName);
   const source = options?.source ?? "managed";
   if (source === "unmanaged") {
-    assertUnmanagedTableName(tableName, "deriveEntityTableMeta/buildEntityTableMeta");
+    assertUnmanagedTableName(tableName, "deriveEntityTableMeta");
   }
   const idType = entity.idType ?? "uuid";
   if (source === "unmanaged" && idType === "serial") {
@@ -410,9 +410,6 @@ export function deriveEntityTableMeta(
     ...(entity.tenancy === "global" && { tenancy: "global" as const }),
   };
 }
-
-/** @deprecated Use {@link deriveEntityTableMeta} — the old name read as an unmanaged escape hatch (#1208). Removed in 0.390.0. */
-export const buildEntityTableMeta = deriveEntityTableMeta;
 
 function sqlExpressionText(where: unknown): string | undefined {
   return isSqlExpression(where) ? where.text : undefined;

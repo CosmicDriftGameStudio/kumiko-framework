@@ -68,7 +68,7 @@ describe("Direct-Fetch Guard", () => {
     expect(guard.run(sfs).violations).toHaveLength(0);
   });
 
-  test("guard-allow marker needs a specific reason; a bare or generic one still reports", () => {
+  test("kumiko-lint-ignore marker needs a specific reason; a bare or generic one still reports", () => {
     const withMarker = (comment: string) =>
       files({
         "packages/bundled-features/src/rogue/feature.ts": `
@@ -79,11 +79,11 @@ describe("Direct-Fetch Guard", () => {
 			`,
       });
     expect(
-      guard.run(withMarker("// guard-allow: same-origin fetch — own SSE endpoint")).violations,
+      guard.run(withMarker("// kumiko-lint-ignore direct-fetch own SSE endpoint")).violations,
     ).toHaveLength(0);
-    expect(guard.run(withMarker("// guard-allow: same-origin fetch")).violations).toHaveLength(1);
+    expect(guard.run(withMarker("// kumiko-lint-ignore direct-fetch")).violations).toHaveLength(1);
     expect(
-      guard.run(withMarker("// guard-allow: same-origin fetch - todo")).violations,
+      guard.run(withMarker("// kumiko-lint-ignore direct-fetch todo")).violations,
     ).toHaveLength(1);
   });
 

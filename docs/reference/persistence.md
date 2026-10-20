@@ -20,8 +20,7 @@ reconstruct it. Details and failure modes: [entity write patterns](entity-write-
 `read_` is reserved for event-sourced tables. Store and unmanaged tables use another
 prefix, `store_` by convention.
 
-`deriveEntityTableMeta` turns an entity into table meta. `buildEntityTableMeta` is its
-deprecated alias and goes away in the next major.
+`deriveEntityTableMeta` turns an entity into table meta.
 
 ## Database handles on `HandlerContext`
 

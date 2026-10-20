@@ -8,7 +8,7 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import { requireOutsideTransactionDb } from "../../db/tenant-db.ts";
+import { requireOutsideTransactionDb, runInOwnTransaction } from "../../db/tenant-db.ts";
 import {
   access,
   createEntity,
@@ -172,11 +172,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
-      const outsideTransaction = ctx.outsideTransaction;
-      if (!outsideTransaction) {
-        throw new Error("bag:outside-transaction-then-throw requires ctx.outsideTransaction");
-      }
-      await outsideTransaction((txDb) =>
+      await runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
         crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, txDb),
       );
       throw new Error("handler fails after the outside transaction committed");
@@ -208,11 +204,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await ctx.db?.selectMany(bagTable, {});
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
-      const outsideTransaction = ctx.outsideTransaction;
-      if (!outsideTransaction) {
-        throw new Error("bag:create-signal-probe requires ctx.outsideTransaction");
-      }
-      await outsideTransaction((txDb) =>
+      await runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
         crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, txDb),
       );
       return { isSuccess: true as const, data: { signalSeen: ctx.signal !== undefined } };
@@ -409,7 +401,7 @@ describe("ctx.writeAs shares the outer transaction", () => {
   });
 });
 
-describe("ctx.outsideTransaction", () => {
+describe("runInOwnTransaction(ctx.dbOutsideTransaction)", () => {
   test("a write inside it survives a handler that throws afterwards", async () => {
     const res = await stack.http.write(
       "ctxbridge:write:bag:outside-transaction-then-throw",
@@ -438,7 +430,7 @@ describe("ctx.dbOutsideTransaction", () => {
     expect(labels).toEqual(["probe-outside-tx"]);
   });
 
-  test("an already-aborted request signal still commits both ctx.db and ctx.outsideTransaction writes", async () => {
+  test("an already-aborted request signal still commits both ctx.db and runInOwnTransaction writes", async () => {
     const controller = new AbortController();
     controller.abort();
     const token = await stack.jwt.sign(admin);

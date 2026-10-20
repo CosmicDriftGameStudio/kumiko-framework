@@ -21,6 +21,7 @@ export {
   type ScanSpec,
   type SuiteInventory,
 } from "./_lib/guard-kit";
+export { GUARDS_DOC_REL, renderGuardsDoc, writeGuardsDoc } from "./_lib/guards-doc";
 export { findLocalRepo, type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 export { type RootScan, type ScanOptions, scanFiles, scanRoots } from "./_lib/scan-scope";
 export {

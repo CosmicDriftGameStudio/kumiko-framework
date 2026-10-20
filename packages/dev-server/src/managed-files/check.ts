@@ -7,8 +7,8 @@ import { renderLineDiff } from "./line-diff.ts";
 import { readManagedMarker, stripManagedMarker } from "./marker.ts";
 import {
   BIOME_PRESET,
+  listManagedErrors,
   listManagedFiles,
-  listManagedWarnings,
   type ManagedAppFacts,
   type ManagedBunfigFile,
   type ManagedFile,
@@ -37,8 +37,8 @@ export type ManagedCheckResult = {
   /** kumiko.config.ts calls defineAppConfig: drift fails the check from then on. */
   readonly adopted: boolean;
   readonly files: readonly ManagedFileReport[];
-  /** Findings that do not fail the check. */
-  readonly warnings: readonly string[];
+  /** Findings that fail the check on their own. */
+  readonly errors: readonly string[];
 };
 
 function readIfExists(path: string): string | undefined {
@@ -145,7 +145,7 @@ export function checkManagedFiles(facts: ManagedAppFacts): ManagedCheckResult {
       kind: file.kind,
       ...checkFile(file, facts),
     })),
-    warnings: listManagedWarnings(facts),
+    errors: listManagedErrors(facts),
   };
 }
 

@@ -42,17 +42,6 @@ export const PACKAGE_MERGE_MAPPINGS: readonly PackageMergeMapping[] = [
 const DEPENDENCY_BLOCKS = ["dependencies", "devDependencies", "peerDependencies"] as const;
 
 const SKIPPED_PATH_SUFFIXES: readonly string[] = [
-  "packages/http/src/index.ts",
-  "packages/repo-manifest/src/index.ts",
-  "packages/repo-manifest/src/app-ports/index.ts",
-  "packages/headless/src/index.ts",
-  "packages/headless/src/apex/index.ts",
-  "packages/headless/src/dispatcher/index.ts",
-  "packages/headless/src/locale-routing/index.ts",
-  "packages/dispatcher-live/src/index.ts",
-  "packages/renderer-web/src/index.ts",
-  "packages/renderer-web/src/theme-plugin.ts",
-  "packages/renderer-web/src/styles.css",
   "packages/framework/src/scripts/codemod/package-merge.ts",
   "packages/framework/src/__tests__/package-merge-codemod.test.ts",
 ];

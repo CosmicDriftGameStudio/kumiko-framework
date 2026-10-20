@@ -1,18 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding";
+import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
+import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import {
   createRegistry,
   defineFeature,
   SECURITY_BASELINE_FEATURE_NAMES,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { dsgvoSelfServiceFeatures } from "../dsgvo-self-service.ts";
 import { securityBaselineFeatures } from "../security-baseline.ts";
 
 // Minimal host every combo below needs: sessions requires user +
@@ -23,6 +26,16 @@ const HOST_FEATURES = [
   createTenantFeature(),
   createAuthFoundationFeature(),
 ];
+
+function selfServiceFeatures() {
+  return [
+    createDataRetentionFeature(),
+    createComplianceProfilesFeature(),
+    createSessionsFeature(),
+    createUserDataRightsFeature({}),
+    createUserProfileFeature(),
+  ];
+}
 
 describe("securityBaselineFeatures", () => {
   test("returns exactly the SECURITY_BASELINE_FEATURE_NAMES feature names", () => {
@@ -36,9 +49,9 @@ describe("securityBaselineFeatures", () => {
     expect(names).toEqual(["crypto-shredding", "rate-limiting", "audit"]);
   });
 
-  test("combined with dsgvoSelfServiceFeatures({ includeSessions: false }) has no duplicate names and covers the baseline", () => {
+  test("combined with the self-service features has no duplicate names and covers the baseline", () => {
     const combined = [
-      ...dsgvoSelfServiceFeatures(),
+      ...selfServiceFeatures(),
       ...securityBaselineFeatures({ includeSessions: false }),
     ];
     const names = combined.map((f) => f.name);
@@ -64,7 +77,7 @@ describe("securityBaselineFeatures", () => {
     });
   });
 
-  test("dsgvoSelfServiceFeatures() + securityBaselineFeatures() boots with exactly one sessions", () => {
+  test("self-service features + securityBaselineFeatures() boots with exactly one sessions", () => {
     // user-data-rights-defaults additionally requires "files" — a bare stub
     // is enough here, its own domain logic isn't exercised by this test.
     const filesStub = defineFeature("files", () => {});
@@ -73,7 +86,7 @@ describe("securityBaselineFeatures", () => {
       createAuthEmailPasswordFeature({}),
       filesStub,
       createUserDataRightsDefaultsFeature(),
-      ...dsgvoSelfServiceFeatures(),
+      ...selfServiceFeatures(),
       ...securityBaselineFeatures(),
     ]);
 

@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import {
-  dsgvoSelfServiceFeatures,
-  securityBaselineFeatures,
-} from "@cosmicdrift/kumiko-bundled-features/presets";
+import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import type { CreateTierEngineOptions } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { type FeatureDefinition, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -394,10 +391,14 @@ describe("auth, saas and security stacks", () => {
     ]);
   });
 
-  test("composeGdprStack selfService keeps the dsgvoSelfServiceFeatures order", () => {
-    expect(stackFeatureNames(composeGdprStack({ selfService: {} }))).toEqual(
-      stackFeatureNames(dsgvoSelfServiceFeatures()),
-    );
+  test("composeGdprStack selfService keeps the require-order of the self-service features", () => {
+    expect(stackFeatureNames(composeGdprStack({ selfService: {} }))).toEqual([
+      "data-retention",
+      "compliance-profiles",
+      "sessions",
+      "user-data-rights",
+      "user-profile",
+    ]);
   });
 
   test("auth + security + gdpr + ops + saas boot together without duplicates", () => {

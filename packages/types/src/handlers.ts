@@ -715,21 +715,12 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
    * Same tenant scoping as `db`, but never bound to the handler's tx: writes through it survive
    * a rollback. `undefined` only in the denial phases (member-resolution, before-transaction)
    * and in platform-metering tenant mode; narrow with `hasOutsideTransactionDb(ctx)` or take it
-   * via `requireOutsideTransactionDb(ctx)` (`@cosmicdrift/kumiko-framework/db`). For
+   * via `requireOutsideTransactionDb(ctx)` (`@cosmicdrift/kumiko-framework/db`). For atomic
+   * multi-statement writes outside the tx use `runInOwnTransaction(ctx.dbOutsideTransaction, fn)`; `fn`
+   * must not touch rows the handler's own tx has locked. For
    * r.systemScope() handlers it is a fail-closed Proxy; use `systemDb.outsideTransaction`.
    */
   readonly dbOutsideTransaction: TenantDb | undefined;
-  // Runs `fn` in its own transaction, committed on return regardless of how the
-  // handler ends: event and projection writes stay atomic (unlike writing through
-  // `dbOutsideTransaction`, where every statement commits alone). Deadlock risk:
-  // `fn` must not touch rows the handler's own tx has locked, it would wait on them
-  // forever. Undefined where `dbOutsideTransaction` is unavailable, and for
-  // r.systemScope() handlers (use `systemDb.outsideTransaction` there).
-  /**
-   * @deprecated Use `runInOwnTransaction(ctx.dbOutsideTransaction, fn)` from
-   * `@cosmicdrift/kumiko-framework/db`; removed in 0.390.0.
-   */
-  readonly outsideTransaction?: <T>(fn: (db: TenantDb) => Promise<T>) => Promise<T>;
   // Only present for r.systemScope() handlers. Non-system handlers never
   // receive this — reach for `db` instead, which is fail-closed for them.
   readonly systemDb?: UncheckedSystemDb;

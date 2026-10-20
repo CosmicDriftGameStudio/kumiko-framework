@@ -90,7 +90,7 @@
         "unpdf": "^1.8.1",
       },
       "peerDependencies": {
-        "@cosmicdrift/kumiko-testing": ">=0.366.0 <1.0.0",
+        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
       "optionalPeers": [
         "@cosmicdrift/kumiko-testing",
@@ -118,9 +118,9 @@
         "sharp": "^0.35.5",
       },
       "peerDependencies": {
-        "@cosmicdrift/kumiko-bundled-features": ">=0.353.0 <1.0.0",
-        "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0",
-        "@cosmicdrift/kumiko-renderer": ">=0.353.0 <1.0.0",
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
         "sharp": "^0.35.5",
       },
       "optionalPeers": [
@@ -167,13 +167,6 @@
         "bun-types": "^1.3.13",
         "ts-morph": "^28.0.0",
         "zod": "^4.4.3",
-      },
-    },
-    "packages/dispatcher-live": {
-      "name": "@cosmicdrift/kumiko-dispatcher-live",
-      "version": "0.378.0",
-      "dependencies": {
-        "@cosmicdrift/kumiko-renderer": "workspace:*",
       },
     },
     "packages/document-designer": {
@@ -232,25 +225,11 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "peerDependencies": {
-        "@cosmicdrift/kumiko-framework": ">=0.366.0 <1.0.0",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "optionalPeers": [
         "@cosmicdrift/kumiko-framework",
       ],
-    },
-    "packages/headless": {
-      "name": "@cosmicdrift/kumiko-headless",
-      "version": "0.378.0",
-      "dependencies": {
-        "@cosmicdrift/kumiko-renderer": "workspace:*",
-      },
-    },
-    "packages/http": {
-      "name": "@cosmicdrift/kumiko-http",
-      "version": "0.378.0",
-      "dependencies": {
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-      },
     },
     "packages/locale-de": {
       "name": "@cosmicdrift/kumiko-locale-de",
@@ -361,20 +340,6 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-testing": "workspace:*",
-      },
-    },
-    "packages/renderer-web": {
-      "name": "@cosmicdrift/kumiko-renderer-web",
-      "version": "0.378.0",
-      "dependencies": {
-        "@cosmicdrift/kumiko-renderer": "workspace:*",
-      },
-    },
-    "packages/repo-manifest": {
-      "name": "@cosmicdrift/kumiko-repo-manifest",
-      "version": "0.378.0",
-      "dependencies": {
-        "@cosmicdrift/kumiko-guards": "workspace:*",
       },
     },
     "packages/samples": {
@@ -1413,17 +1378,11 @@
 
     "@cosmicdrift/kumiko-dev-server": ["@cosmicdrift/kumiko-dev-server@workspace:packages/dev-server"],
 
-    "@cosmicdrift/kumiko-dispatcher-live": ["@cosmicdrift/kumiko-dispatcher-live@workspace:packages/dispatcher-live"],
-
     "@cosmicdrift/kumiko-document-designer": ["@cosmicdrift/kumiko-document-designer@workspace:packages/document-designer"],
 
     "@cosmicdrift/kumiko-framework": ["@cosmicdrift/kumiko-framework@workspace:packages/framework"],
 
     "@cosmicdrift/kumiko-guards": ["@cosmicdrift/kumiko-guards@workspace:packages/guards"],
-
-    "@cosmicdrift/kumiko-headless": ["@cosmicdrift/kumiko-headless@workspace:packages/headless"],
-
-    "@cosmicdrift/kumiko-http": ["@cosmicdrift/kumiko-http@workspace:packages/http"],
 
     "@cosmicdrift/kumiko-locale-de": ["@cosmicdrift/kumiko-locale-de@workspace:packages/locale-de"],
 
@@ -1442,10 +1401,6 @@
     "@cosmicdrift/kumiko-renderer-mail-html": ["@cosmicdrift/kumiko-renderer-mail-html@workspace:packages/renderer-mail-html"],
 
     "@cosmicdrift/kumiko-renderer-puppeteer-client": ["@cosmicdrift/kumiko-renderer-puppeteer-client@workspace:packages/renderer-puppeteer-client"],
-
-    "@cosmicdrift/kumiko-renderer-web": ["@cosmicdrift/kumiko-renderer-web@workspace:packages/renderer-web"],
-
-    "@cosmicdrift/kumiko-repo-manifest": ["@cosmicdrift/kumiko-repo-manifest@workspace:packages/repo-manifest"],
 
     "@cosmicdrift/kumiko-sample-access-control": ["@cosmicdrift/kumiko-sample-access-control@workspace:samples/recipes/access-control"],
 

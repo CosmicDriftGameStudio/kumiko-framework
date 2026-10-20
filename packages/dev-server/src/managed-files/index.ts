@@ -30,10 +30,12 @@ export {
   readManagedMarker,
   stripManagedMarker,
 } from "./marker.ts";
+export { findKumikoPinErrors } from "./pins.ts";
 export {
   BIOME_PRESET,
+  CURRENT_INFRA_REF,
+  listManagedErrors,
   listManagedFiles,
-  listManagedWarnings,
   type ManagedAppFacts,
   type ManagedAppInput,
   type ManagedFile,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isUiAccessGranted } from "../handlers.ts";
+import { type HandlerContext, isUiAccessGranted } from "../handlers.ts";
 
 describe("isUiAccessGranted", () => {
   test("unset access is visible to every signed-in user", () => {
@@ -36,5 +36,14 @@ describe("isUiAccessGranted", () => {
 
   test("empty roles rule denies everyone (explicit default-deny opt-in)", () => {
     expect(isUiAccessGranted({ roles: [] }, ["Admin"])).toBe(false);
+  });
+});
+
+describe("HandlerContext surface", () => {
+  test("the deprecated outsideTransaction field is gone", () => {
+    const outsideTransactionRemoved: "outsideTransaction" extends keyof HandlerContext
+      ? never
+      : true = true;
+    expect(outsideTransactionRemoved).toBe(true);
   });
 });

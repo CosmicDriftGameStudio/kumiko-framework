@@ -1028,12 +1028,6 @@ The boot validator rejects a `listScreenId` that matches no mounted screen, a `s
 
 **Migration:** A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel.
 
-### @cosmicdrift/kumiko-renderer-web
-
-**MFA setup and recovery-code buttons moved from Section actions to the section body**
-
-**Migration:** Section actions always render in the title row. Put a footer button into the section children instead of Section actions.
-
 ### auth-email-password
 
 **Invitations pin the invitee's membership version; superseded accept no longer relies on timestamps**
@@ -1388,14 +1382,6 @@ Consumers: `NotifyFn` implementations in tests and mocks must now return a `Noti
 
 ## 0.338.0
 
-### @cosmicdrift/kumiko-repo-manifest
-
-**manifest patterns reject symlinks escaping the repo root behind wildcard segments**
-
-repo-manifest: the root-containment check also resolves wildcard segments. A symlink such as `packages/evil -> /` matched by `packages/*/src` is now rejected; before, only the static prefix before the first glob segment was checked. Segments below a `**` are still not walked, so glob consumers must not follow symlinks inside such a tree.
-
-**Migration:** A kumiko.json whose wildcard pattern matches a symlink that leaves the repo root now fails to load. Point the pattern at paths inside the repo or remove the symlink.
-
 ### billing-foundation
 
 **SubscriptionProviderPlugin.cancelSubscription takes { providerSubscriptionId, when }**
@@ -1495,17 +1481,6 @@ The SSE broadcast consumer no longer puts the event payload (changes, previous) 
 Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.
 
 **Migration:** Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into "record not found"; set `redirect` to choose another target. List row actions are unchanged.
-
-### @cosmicdrift/kumiko-renderer-web
-
-**InfinityList live defaults to false**
-
-Review round 2 fixes for renderer-web.
-- `InfinityList` now defaults `live` to `false` (it was `true`). Lists that relied on the implicit realtime refresh no longer update on SSE events until they pass `live={true}`.
-- A number input with a `unit` exposes the unit to screen readers through `aria-describedby` instead of hiding it with `aria-hidden`.
-- `Drawer` with an explicit `width` is capped at `85vw`, the same limit as the default width.
-
-**Migration:** Pass `live={true}` to every `<InfinityList>` that should refresh from SSE events. Without it the list only loads on mount and on pagination.
 
 ### agent-tools
 
@@ -1682,14 +1657,6 @@ The new i18n-parity test in `use-all-bundled` harvests the English copy from the
 
 **Migration:** Same as locale-de: register any removed key your app still calls in the app's own translations, or switch to the key the framework screen uses now.
 
-### @cosmicdrift/kumiko-renderer-web
-
-**Dashboard screens show screen.description only when it is an i18n key; plain-text descriptions stay agent-facing and are no longer rendered**
-
-Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.
-
-**Migration:** To keep a visible subtitle under a dashboard title, set screen.description to an i18n key (for example "my-feature:screen.overview.description") and register its translations.
-
 ### admin-shell
 
 **admin-shell requires the metrics and metrics-system features and builds its overview dashboards from a metrics list**
@@ -1701,14 +1668,6 @@ Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacke
 If you do not mount all of them, pass the same reduced list to all three: createMetricsFeature({ metrics }), createSystemMetricsFeature({ metrics }) and createAdminShellFeature({ metrics }). Overview panels exist only for metric ids in that list.
 
 ## 0.328.0
-
-### @cosmicdrift/kumiko-headless
-
-**Dates format with two-digit day and month**
-
-`formatValue` for date values passes `day: "2-digit"` and `month: "2-digit"`, so German output is 01.10.2026 instead of 1.10.2026 in lists, details and related lists. List view models carry `hideOnNarrow` onto columns.
-
-**Migration:** Update tests and snapshots that expect single-digit day or month.
 
 ### @cosmicdrift/kumiko-renderer
 
@@ -1735,38 +1694,6 @@ With `rowActionMode: "adaptive"` (the default), a table with `onRowClick` render
 Screen forms have no card, sections are separated by lines, fields flow in rows with widths by type (text 240px, number 96px, money 160px, date and select 200px, textarea full row) and the page title lives in the shell header. Delete and Copy link move into the header kebab, the footer reads status, Cancel, Save, and the wizard footer has no Cancel. Wizard steps sit in a vertical rail from the lg breakpoint. The first detail header action is a button, further ones sit in the kebab. Detail screens have no header card and use the full width: metrics render as a dl band, tabs are underlined only when active, related lists are full-bleed with a count footer. Required-field asterisks are omitted when every field is required and "All fields are required." is shown instead.
 
 **Migration:** Adjust screenshots and DOM tests that pin the old card layout. `fillHeight: false` restores page scrolling only; the footer order, the moved actions and the new field layout apply in both modes. Empty list cells render a dash.
-
-### @cosmicdrift/kumiko-renderer-web
-
-**IBM Plex replaces Inter as the default typeface**
-
-renderer-web ships IBM Plex Sans (400, 500, 600) and IBM Plex Mono (400, 500) as self-hosted woff2 files under the SIL Open Font License. `--font-sans` and `--font-mono` default to Plex. Inter is no longer wired in.
-
-**Migration:** Apps that expect Inter set `--font-sans` (and load the font themselves) in their styles.css or through the theme plugin. Nothing else is needed for apps happy with Plex. Custom server setups that do not use the dev server or the prod build of server-runtime must serve `/assets/kumiko/fonts/*.woff2` from the renderer-web `fonts` folder with the MIME type `font/woff2`, and `font-src 'self'` covers it.
-
-**Warm-neutral design tokens, 6px radius, content on the surface color**
-
-Light and dark themes were rebuilt. Light: surface #FFFFFF, page #F3F2EE, sunken #F6F5F1, line #E2E0D9, strong line #CFCCC3, row line #ECEAE4, control border #908D85, text #1A1C1E, text 2 #474B50, text 3 #5F6368, disabled #8A8E93. New tokens: `--color-foreground-secondary`, `--color-foreground-disabled`, `--color-border-strong`, `--color-border-row`, `--color-status-*-surface` (ok, warn, bad, critical), `--color-status-neutral` and `--color-status-neutral-surface`, `--color-sidebar-muted`, `--color-sidebar-input`. `--radius` is 0.5rem so controls use 6px. The shell content, header and toolbars sit on the card surface, the sidebar (232px wide) takes the page color. Buttons: the secondary variant is a surface with a border, a ghost variant was added. Controls are 36px high (32px small), at least 44px below md.
-
-**Migration:** Apps that override tokens keep working, but check contrast pairs for the new roles and add overrides for the new tokens if the brand needs them. Apps with hard-coded colors that relied on the page color behind content, on grey secondary buttons or on the 10px radius must adjust. Screenshot tests need new baselines.
-
-**Field presentation follows option count, label length and type**
-
-A select without an explicit `display` renders as a segmented control for up to 3 options with labels of at most 16 characters, as a vertical radio list for up to 3 longer options and as a dropdown for 4 or more. MoneyInput has no stepper, right-aligns its value and shows the currency as a suffix. Number inputs are left-aligned. Fields get a control width by type (number 96px, money 160px, date 200px, select at least 200px, text 240px), labels never wrap, radio lists and textareas take their own row.
-
-**Migration:** Set `display: "radio"` or `display: "dropdown"` on the select field to pin a presentation. Selects with 4 options no longer render as radio groups by default. Tests that spin a money value with the stepper buttons must type the value instead.
-
-**Drawer widget defaults to the flush variant, Link with target _blank sets rel**
-
-The `Drawer` widget renders flush against the right edge with full height, no margin, no radius and a strong left border unless `variant="floating"` is passed. Every `<Drawer>` without `variant` changes its look. `Link` now forwards `rel` and `target`; with `target="_blank"` the default `rel` is `noopener noreferrer`.
-
-**Migration:** Pass `variant="floating"` to keep the detached panel look. Tests that assert a missing `rel` on `target="_blank"` links need updating.
-
-**Money field shows the currency symbol as a suffix inside the field, date field has its calendar button inside the input**
-
-MoneyInput renders the value right-aligned with the currency symbol as a separate muted adornment (`<id>-currency`), placed before the number for locales that put it there. The input text no longer contains the symbol ("1.234,56", not "1.234,56 €"); parsing and the stored minor-unit value are unchanged. DateField and TimestampInput draw the calendar button as an icon inside the right edge of the input instead of a separate square button; the button keeps its aria-label and keyboard operation.
-
-**Migration:** Tests that read the money input value and expect the symbol must read the `<id>-currency` element or drop the symbol from the expected text. Selectors that find the calendar button by role and label keep working.
 
 ## 0.327.0
 
