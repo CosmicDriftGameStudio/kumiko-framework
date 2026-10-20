@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import type { RelatedListToolbarAction, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  FeatureSchema,
+  RelatedListToolbarAction,
+  RowAction,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { compactHeaderPrimary, primaryHeaderAction } from "../header-actions.ts";
 import type { NavApi } from "../nav.tsx";
@@ -121,5 +125,50 @@ describe("declared primaryAction hidden by its visible condition", () => {
     const [edit] = hidden;
     if (edit === undefined) throw new Error("edit action missing");
     expect(compactHeaderPrimary(hidden, "terminate")).toEqual({ action: edit, iconOnly: true });
+  });
+});
+
+describe("buildProjectionToolbarActions navigate access", () => {
+  const appFeatures: readonly FeatureSchema[] = [
+    {
+      featureName: "shop",
+      entities: {},
+      screens: [
+        {
+          id: "shop:screen:audit",
+          type: "projectionList",
+          query: "q",
+          columns: [],
+          access: { roles: ["Admin"] },
+        },
+        { id: "shop:screen:orders", type: "projectionList", query: "q", columns: [] },
+      ],
+    },
+  ] as unknown as readonly FeatureSchema[];
+  const toolbarActions: readonly RelatedListToolbarAction[] = [
+    { kind: "navigate", id: "audit", label: "audit", screen: "audit" },
+    { kind: "navigate", id: "orders", label: "orders", screen: "orders" },
+  ];
+
+  function idsFor(userRoles: readonly string[]): readonly string[] {
+    return (
+      buildProjectionToolbarActions({
+        toolbarActions,
+        translate: (key) => key,
+        dispatcher: undefined,
+        nav,
+        refetch: async () => {},
+        host: undefined,
+        access: { appFeatures, userRoles },
+      })?.map((action) => action.id) ?? []
+    );
+  }
+
+  test("hides a navigate action whose target screen the user may not open", () => {
+    expect(idsFor(["User"])).toEqual(["orders"]);
+  });
+
+  test("keeps it for a user with the target's role", () => {
+    expect(idsFor(["Admin"])).toEqual(["audit", "orders"]);
   });
 });

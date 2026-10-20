@@ -1,5 +1,6 @@
 import type {
   EntityEditScreenDefinition,
+  FeatureSchema,
   RelatedListToolbarAction,
   RowAction,
   RowActionClientAction,
@@ -20,6 +21,7 @@ import { type ClientActionRuntime, runClientAction } from "./client-actions.tsx"
 import type { NavApi, ScreenTarget } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { navigateWithReturnTo, type ReturnHost } from "./return-to.tsx";
+import { navigateTargetAllows } from "./screen-access.ts";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.ts";
 
 // entityId is explicit: the edit screen may live in another feature than
@@ -466,6 +468,12 @@ export function buildProjectionToolbarActions(options: {
    *  entityList/projectionList toolbars have no record and omit this. */
   readonly record?: Readonly<Record<string, unknown>>;
   readonly host: ReturnHost | undefined;
+  /** With the user's roles, a navigate action is dropped when the user may not open its target
+   *  screen. Omitted (embedded or test hosts without a screen registry) keeps every action. */
+  readonly access?: {
+    readonly appFeatures: readonly FeatureSchema[];
+    readonly userRoles: readonly string[] | undefined;
+  };
 }): readonly ToolbarActionButton[] | undefined {
   const {
     toolbarActions,
@@ -477,6 +485,7 @@ export function buildProjectionToolbarActions(options: {
     navigatePrefill,
     record,
     host,
+    access,
   } = options;
   if (toolbarActions === undefined) return undefined;
   const out: ToolbarActionButton[] = [];
@@ -489,6 +498,12 @@ export function buildProjectionToolbarActions(options: {
       continue;
     }
     if (action.kind === "navigate") {
+      if (
+        access !== undefined &&
+        !navigateTargetAllows({ screen: action.screen }, access.appFeatures, access.userRoles)
+      ) {
+        continue;
+      }
       out.push(buildNavigateToolbarAction(action, translate, nav, host, navigatePrefill, record));
       continue;
     }

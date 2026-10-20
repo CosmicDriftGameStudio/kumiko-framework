@@ -435,11 +435,14 @@ export function RelatedListSection({
             : { [section.parentParam ?? "id"]: parentId },
         record,
         host,
+        access: { appFeatures, userRoles },
         ...(onOpenDrawer !== undefined && {
           openDrawer: (action) => onOpenDrawer(action, undefined),
         }),
       }),
     [
+      appFeatures,
+      userRoles,
       section.toolbarActions,
       section.parentParam,
       section.parentFilter,

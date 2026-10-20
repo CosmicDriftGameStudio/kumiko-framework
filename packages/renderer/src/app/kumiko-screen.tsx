@@ -2750,6 +2750,7 @@ function EntityListBody({
         refetch: refreshRowsAfterWrite,
         openDrawer,
         host,
+        access: { appFeatures, userRoles },
       }),
     [
       screen.toolbarActions,
@@ -2759,6 +2760,8 @@ function EntityListBody({
       dispatcher,
       refreshRowsAfterWrite,
       openDrawer,
+      appFeatures,
+      userRoles,
     ],
   );
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
@@ -3179,6 +3182,7 @@ function ProjectionListBody({
         refetch: rowsQuery.refetch,
         openDrawer,
         host,
+        access: { appFeatures, userRoles },
       }),
     [
       screen.toolbarActions,
@@ -3188,6 +3192,8 @@ function ProjectionListBody({
       dispatcher,
       rowsQuery.refetch,
       openDrawer,
+      appFeatures,
+      userRoles,
     ],
   );
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
