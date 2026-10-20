@@ -85,7 +85,7 @@ export type ReservedClient = {
 export type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: readonly unknown[]) => Promise<readonly TRow[]>;
   begin?: <T>(fn: (tx: DbTx) => Promise<T>) => Promise<T>;
-  savepoint?: <T, TSp = unknown>(fn: (sp: TSp) => Promise<T>) => Promise<T>;
+  savepoint?: <T>(fn: (sp: unknown) => Promise<T>) => Promise<T>;
   release?: unknown;
   reserve?: () => Promise<ReservedClient>;
 };
@@ -133,6 +133,11 @@ export function runnerCanBeginTransaction(db: unknown): boolean {
   return hasBegin(asRawClient(db));
 }
 
+function savepointRunnerOf<TRunner extends DbRunner>(sp: unknown): TRunner {
+  // @cast-boundary db-runner savepoint handle → TRunner at the single seam (boundRunner re-wraps savepoint handles with the caller's capability)
+  return sp as TRunner;
+}
+
 // postgres.js rejects the WHOLE begin() when any statement inside
 // it errored — even if the JS error was caught (the driver tracks per-block
 // query failures). Error confinement therefore must go through the driver's
@@ -143,14 +148,17 @@ export function runInSavepoint<T>(
   fn: (sp: ExecutorManagedRunner) => Promise<T>,
 ): Promise<T>;
 export function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promise<T>): Promise<T>;
-export async function runInSavepoint<T, TSp>(tx: unknown, fn: (sp: TSp) => Promise<T>): Promise<T> {
+export async function runInSavepoint<T, TRunner extends DbRunner>(
+  tx: unknown,
+  fn: (sp: TRunner) => Promise<T>,
+): Promise<T> {
   const raw = asRawClient(tx);
   if (typeof raw.savepoint !== "function") {
     throw new Error(
       "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql).",
     );
   }
-  return raw.savepoint(fn);
+  return raw.savepoint((sp) => fn(savepointRunnerOf<TRunner>(sp)));
 }
 
 // Same error-confinement as runInSavepoint, but for call sites that don't
@@ -178,15 +186,13 @@ export async function runInSavepointIfSupported<T, TRunner extends DbRunner>(
   fn: (sp: TRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(db);
-  // @cast-boundary db-runner savepoint handle → TRunner at the single seam (boundRunner re-wraps savepoint handles with the caller's capability)
-  const asRunner = (sp: unknown): TRunner => sp as TRunner;
-  if (typeof raw.savepoint !== "function") return fn(asRunner(db));
+  if (typeof raw.savepoint !== "function") return fn(savepointRunnerOf<TRunner>(db));
   // An error from inside fn must never be remapped, even if it carries a closed-connection code.
   let fnStarted = false;
   try {
     return await raw.savepoint((sp) => {
       fnStarted = true;
-      return fn(asRunner(sp));
+      return fn(savepointRunnerOf<TRunner>(sp));
     });
   } catch (e) {
     const code = extractPgError(e)?.code;

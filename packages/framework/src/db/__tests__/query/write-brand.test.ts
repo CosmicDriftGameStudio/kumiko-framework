@@ -10,6 +10,7 @@ import { expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import type { MultiStreamApplyFn, SingleStreamApplyFn } from "@cosmicdrift/kumiko-types/projection";
 import { createEntity, createTextField, type Registry } from "../../../engine/index.ts";
+import { TestUsers } from "../../../seeding/seed-users.ts";
 import type { DbRunner } from "../../connection.ts";
 import {
   table as pgTable,
@@ -134,7 +135,7 @@ async function _tenantDestroyDbWritesManaged(
 ): Promise<void> {
   await destroyDb.insertOne(brandedEntity, { title: "x" });
   await deleteMany(destroyDb, brandedEntity, { id: "1" });
-  const created = createTenantDataDestroyDb({ db: runner, tenantId: "t" as never });
+  const created = createTenantDataDestroyDb({ db: runner, tenantId: TestUsers.admin.tenantId });
   await created.deleteMany(brandedEntity, { id: "1" });
 }
 
