@@ -36,6 +36,17 @@ describe("Restricted-Symbols Guard", () => {
     expect(guard.run(stage).violations).toHaveLength(0);
   });
 
+  test("flags withExecutorManagedWritesForTests outside the kumiko-testing seed helpers", () => {
+    const source = `
+					import { withExecutorManagedWritesForTests } from "@cosmicdrift/kumiko-framework/internal/testing";
+					void withExecutorManagedWritesForTests;
+				`;
+    const rogue = files({ "packages/bundled-features/src/rogue/feature.ts": source });
+    expect(guard.run(rogue).violations).toHaveLength(1);
+    const seed = files({ "packages/testing/src/helpers/seed.ts": source });
+    expect(guard.run(seed).violations).toHaveLength(0);
+  });
+
   test("flags a renamed import (alias does not evade the guard)", () => {
     const sfs = files({
       "packages/bundled-features/src/rogue/feature.ts": `
