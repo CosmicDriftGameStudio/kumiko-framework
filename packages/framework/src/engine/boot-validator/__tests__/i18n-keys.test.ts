@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { findTranslationLocaleGaps } from "../../../i18n/required-surface-keys.ts";
+import {
+  findRequiredLocaleGaps,
+  findTranslationLocaleGaps,
+} from "../../../i18n/required-surface-keys.ts";
 import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys.ts";
 import { buildConfigFeatureSchema } from "../../build-config-feature-schema.ts";
 import { access, createTenantConfig } from "../../config-helpers.ts";
@@ -387,11 +390,69 @@ describe("translation locale consistency per feature", () => {
     expect(() => validateBoot([complete, englishOnly])).not.toThrow();
   });
 
+  test("a locale package's flat plural keys cover the feature's plural key", () => {
+    const shop = featureWith("shop", { items: { en: { one: "1 item", other: "{count} items" } } });
+    const localeEs = featureWith("locale-es", {
+      "shop:items.one": { es: "1 artículo" },
+      "shop:items.other": { es: "{count} artículos" },
+    });
+    expect(findRequiredLocaleGaps([shop, localeEs], ["en", "es"])).toEqual([]);
+  });
+
+  test("two regular features sharing a plain key do not cover each other", () => {
+    const shop = featureWith("shop", { title: { en: "T" } });
+    const blog = featureWith("blog", { title: { en: "T", de: "T" } });
+    expect(findRequiredLocaleGaps([shop, blog], ["en", "de"])).toEqual([
+      { featureName: "shop", key: "title", missingLocales: ["de"] },
+    ]);
+  });
+
   test("an empty string counts as missing", () => {
     const blank = featureWith("blank", { a: { en: "A", de: "A" }, b: { en: "B", de: "" } });
 
     expect(findTranslationLocaleGaps([blank])).toEqual([
       { featureName: "blank", key: "b", missingLocales: ["de"] },
     ]);
+  });
+});
+
+describe("requiredLocales", () => {
+  function featureWith(name: string, keys: Record<string, Record<string, unknown>>) {
+    return defineFeature(name, (r) => {
+      // Deliberately loose: the empty-string case is not expressible as a stricter type.
+      r.translations({ keys: keys as Parameters<typeof r.translations>[0]["keys"] });
+    });
+  }
+
+  test("a key without a required locale is a gap attributed to the defining feature", () => {
+    const shop = featureWith("shop", { title: { en: "T", de: "T" } });
+    expect(findRequiredLocaleGaps([shop], ["en", "de", "es"])).toEqual([
+      { featureName: "shop", key: "title", missingLocales: ["es"] },
+    ]);
+  });
+
+  test("a locale package translating the full feature:key closes the gap", () => {
+    const shop = featureWith("shop", { title: { en: "T" }, "other:x": { en: "X" } });
+    const localeDe = featureWith("locale-de", { "shop:title": { de: "T" } });
+    expect(findRequiredLocaleGaps([shop, localeDe], ["en", "de"])).toEqual([
+      { featureName: "shop", key: "other:x", missingLocales: ["de"] },
+    ]);
+    expect(findRequiredLocaleGaps([shop, localeDe], ["en"])).toEqual([]);
+  });
+
+  test("an empty string counts as missing", () => {
+    const blank = featureWith("blank", { a: { en: "A", de: "" } });
+    expect(findRequiredLocaleGaps([blank], ["en", "de"])).toEqual([
+      { featureName: "blank", key: "a", missingLocales: ["de"] },
+    ]);
+  });
+
+  test("validateBoot throws with requiredLocales and passes without", () => {
+    const shop = featureWith("shop", { title: { en: "T" } });
+    expect(() => validateBoot([shop], { requiredLocales: ["en", "de"] })).toThrow(
+      /key "title" is missing required locale\(s\) de[\s\S]*locale package/,
+    );
+    expect(() => validateBoot([shop])).not.toThrow();
+    expect(() => validateBoot([shop], { requiredLocales: ["en"] })).not.toThrow();
   });
 });

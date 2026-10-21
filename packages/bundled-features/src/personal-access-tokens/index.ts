@@ -8,6 +8,7 @@ export {
 } from "./feature.ts";
 export type { CreatePatOptions, PatMfaVerifyResult } from "./handlers/create.write.ts";
 export { hashPatToken, mintPatToken } from "./hash.ts";
+export { patScopeOptionKey } from "./i18n.ts";
 export {
   PAT_REVOKED_AGGREGATE_TYPE,
   PAT_REVOKED_EVENT_QN,

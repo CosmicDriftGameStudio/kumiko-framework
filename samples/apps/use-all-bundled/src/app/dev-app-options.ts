@@ -13,7 +13,7 @@
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { AUTH_COMPOSE_OPTIONS, BOOT_FEATURES } from "../run-config";
+import { AUTH_COMPOSE_OPTIONS, BOOT_FEATURES, VALIDATE_BOOT_OPTIONS } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { invoiceReportsFeature } from "./invoice-reports-feature";
 import { notesFeature } from "./notes-feature";
@@ -30,6 +30,7 @@ export const devAppOptions = {
   // it stays out of APP_FEATURES. appScreensFeature places the user-profile screen.
   features: [...BOOT_FEATURES, appScreensFeature, notesFeature, invoiceReportsFeature],
   featureToggles: true,
+  validateBootOptions: VALIDATE_BOOT_OPTIONS,
   port: Number.parseInt(process.env["PORT"] ?? "4186", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",

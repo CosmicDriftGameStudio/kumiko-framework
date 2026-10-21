@@ -1,6 +1,7 @@
 import {
   buildEffectiveTranslationKeys,
   featureHasI18nSurface,
+  findRequiredLocaleGaps,
   findTranslationLocaleGaps,
   requiredKeysFromFeature,
   requiredKeysFromNav,
@@ -112,6 +113,22 @@ export function validateTranslationLocaleConsistency(features: readonly FeatureD
     );
     throw new Error(
       `${lines.join("\n")}\nEvery locale a feature uses must be maintained for every one of its translation keys; otherwise move that locale into a locale package.`,
+    );
+  }
+}
+
+export function validateRequiredLocales(
+  features: readonly FeatureDefinition[],
+  requiredLocales: readonly string[] | undefined,
+): void {
+  const gaps = findRequiredLocaleGaps(features, requiredLocales ?? []);
+  if (gaps.length > 0) {
+    const lines = gaps.map(
+      (gap) =>
+        `[i18n] Feature "${gap.featureName}": translation key "${gap.key}" is missing required locale(s) ${gap.missingLocales.join(", ")}.`,
+    );
+    throw new Error(
+      `${lines.join("\n")}\nThe app requires locales [${(requiredLocales ?? []).join(", ")}] for every translation key; load the matching locale package or add the missing translations.`,
     );
   }
 }

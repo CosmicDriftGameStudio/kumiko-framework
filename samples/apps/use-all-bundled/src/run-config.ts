@@ -102,6 +102,7 @@ import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
 import { capOverviewLabelsFeature } from "./app/cap-overview-labels-feature";
 import { collectionLabelsFeature } from "./app/collection-labels-feature";
+import { patScopeLabelsFeature } from "./app/pat-scope-labels-feature";
 
 // Smoke-only stubs. Boot-mode skipt jede operative Methode — diese werden
 // nie aufgerufen, nur typecheck'd.
@@ -161,6 +162,7 @@ export const APP_FEATURES = [
       ledger: { label: "Ledger", read: ["ledger:query:*"], write: ["ledger:write:*"] },
     },
   }),
+  patScopeLabelsFeature,
   createReadinessFeature(),
 
   // delivery + channels
@@ -417,6 +419,9 @@ export const BOOT_FEATURES = APP_FEATURES.filter(
 // Smoke signup — enables createAuthSelfRegistrationToggleFeature via
 // composeFeatures when passed as authOptions (#1521 Option A). Same shape
 // as run{Dev,Prod}App's auth.signup; appUrl is a stub (no real mail in boot).
+// locale-de is mounted, so every translation key must exist in German and English.
+export const VALIDATE_BOOT_OPTIONS = { requiredLocales: ["de", "en"] } as const;
+
 export const AUTH_COMPOSE_OPTIONS = {
   signup: {
     appUrl: "http://localhost:4186/signup",

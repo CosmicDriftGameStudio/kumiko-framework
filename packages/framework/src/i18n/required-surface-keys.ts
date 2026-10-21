@@ -595,3 +595,79 @@ export function findTranslationLocaleGaps(
   }
   return gaps;
 }
+
+const LOCALE_PACKAGE_PREFIX = "locale-";
+
+export type RequiredLocaleGap = {
+  readonly featureName: string;
+  readonly key: string;
+  readonly missingLocales: readonly string[];
+};
+
+function collectLocalesByName(
+  features: readonly FeatureDefinition[],
+): ReadonlyMap<string, ReadonlySet<string>> {
+  // A plain key of a regular feature is only its own; registering it raw would let two
+  // features with the same plain key cover each other's missing locales.
+  const namesOf = (featureName: string, key: string): readonly string[] =>
+    featureName.startsWith(LOCALE_PACKAGE_PREFIX) || key.includes(":")
+      ? [`${featureName}:${key}`, key]
+      : [`${featureName}:${key}`];
+  const localesByName = new Map<string, Set<string>>();
+  for (const feature of features) {
+    for (const [key, byLocale] of Object.entries(feature.translations ?? {})) {
+      const present = Object.entries(byLocale)
+        .filter(([, value]) => hasLocaleValue(value))
+        .map(([locale]) => locale);
+      for (const name of namesOf(feature.name, key)) {
+        const locales = localesByName.get(name) ?? new Set<string>();
+        for (const locale of present) locales.add(locale);
+        localesByName.set(name, locales);
+      }
+    }
+  }
+  return localesByName;
+}
+
+/**
+ * Per translation key, the union of locales over ALL features must cover
+ * `requiredLocales`. Locale packages translate other features' keys under the
+ * full `feature:key` name, so the lookup unions by effective name. Raw names
+ * only come from locale packages and already-prefixed keys. Entries that only translate another
+ * mounted feature's key are not reported separately; the defining feature is.
+ * Locale packages (`locale-*`) only contribute locales: their keys often belong to
+ * client bundles (e.g. `auth.errors.*`) that no feature defines, so they are never
+ * reported as gap owners.
+ */
+export function findRequiredLocaleGaps(
+  features: readonly FeatureDefinition[],
+  requiredLocales: readonly string[],
+): readonly RequiredLocaleGap[] {
+  const featureNames = new Set(features.map((feature) => feature.name));
+  const localesByName = collectLocalesByName(features);
+  const gaps: RequiredLocaleGap[] = [];
+  const reported = new Set<string>();
+  for (const feature of features) {
+    if (feature.name.startsWith(LOCALE_PACKAGE_PREFIX)) continue;
+    for (const key of Object.keys(feature.translations ?? {})) {
+      const prefix = key.includes(":") ? key.slice(0, key.indexOf(":")) : undefined;
+      const translatesOtherFeature =
+        prefix !== undefined && prefix !== feature.name && featureNames.has(prefix);
+      if (translatesOtherFeature) continue;
+      const effective = key.includes(":") ? key : `${feature.name}:${key}`;
+      if (reported.has(effective)) continue;
+      // Locale packages spell plurals as flat `.one`/`.other` keys; `other` is the form every locale has.
+      const present = new Set<string>(
+        [effective, key, `${effective}.other`, `${key}.other`].flatMap((name) => [
+          ...(localesByName.get(name) ?? []),
+        ]),
+      );
+      const missingLocales = requiredLocales.filter((locale) => !present.has(locale));
+      if (missingLocales.length > 0) {
+        reported.add(effective);
+        gaps.push({ featureName: feature.name, key, missingLocales });
+      }
+    }
+  }
+  return gaps;
+}

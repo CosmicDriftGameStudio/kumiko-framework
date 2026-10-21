@@ -11,20 +11,24 @@ export const greetingFeature = defineFeature("greeting", (r) => {
         de: "Willkommen",
         en: "Welcome",
         fr: "Bienvenue",
+        pl: "Witamy",
       },
       "greeting.goodbye": {
         de: "Auf Wiedersehen",
         en: "Goodbye",
         fr: "Au revoir",
+        pl: "Do widzenia",
       },
       "greeting.hello_name": {
         de: "Hallo, {name}!",
         en: "Hello, {name}!",
         fr: "Bonjour, {name}!",
+        pl: "Cześć, {name}!",
       },
       "greeting.unread_count": {
         de: { one: "{count} ungelesene Nachricht", other: "{count} ungelesene Nachrichten" },
         en: { one: "{count} unread message", other: "{count} unread messages" },
+        fr: { one: "{count} message non lu", other: "{count} messages non lus" },
         pl: {
           one: "{count} nieprzeczytana wiadomość",
           few: "{count} nieprzeczytane wiadomości",
