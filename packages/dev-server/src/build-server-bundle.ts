@@ -203,7 +203,7 @@ export async function buildServerBundle(
   await mkdir(outDir, { recursive: true });
 
   // One Bun.build call with all entries plus splitting stores the framework
-  // // once as a shared chunk instead of inlining it into every entry.
+  // once as a shared chunk instead of inlining it into every entry.
   const optionalSiblingEntries = OPTIONAL_SIBLING_ENTRY_NAMES.map((baseName) =>
     discoverSiblingEntry(dirname(serverEntry), baseName),
   ).filter((path): path is string => path !== undefined);
@@ -229,7 +229,7 @@ export async function buildServerBundle(
   }
 
   // Read the size from disk rather than out.size — the latter is unreliable for
-  // // split entry points and sometimes reports ~0 for the entry stub.
+  // split entry points and sometimes reports ~0 for the entry stub.
   const entries: BuildServerBundleEntry[] = [];
   const chunks: BuildServerBundleEntry[] = [];
   for (const out of result.outputs) {
