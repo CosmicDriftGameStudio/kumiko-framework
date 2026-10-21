@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-renderer-puppeteer-client
 
+## 0.384.0
+
+### Patch Changes
+
+- Updated dependencies [c28119a]
+- Updated dependencies [f516b5d]
+- Updated dependencies [26cd745]
+- Updated dependencies [26cd745]
+- Updated dependencies [26cd745]
+  - @cosmicdrift/kumiko-framework@0.384.0
+  - @cosmicdrift/kumiko-bundled-features@0.384.0
+  - @cosmicdrift/kumiko-types@0.384.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.384.0
+
 ## 0.383.1
 
 ### Patch Changes

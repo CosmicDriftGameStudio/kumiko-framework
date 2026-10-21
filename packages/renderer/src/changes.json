@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.384.0",
+    "type": "fix",
+    "title": "A section with a visible action is not hidden when all its fields are",
+    "detail": "Edit and detail sections (entityEdit, projectionDetail, in every app) whose fields are all hidden by visibility conditions now stay on screen while at least one of their actions is visible. Before, such a section vanished together with its action buttons; apps that relied on that to hide a section must hide the action with its own visible condition."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Fraction digits for number and decimal formats",
+    "detail": "{ format: \"number\" | \"decimal\", maximumFractionDigits: 4 } renders 0.0004 as 0.0004 (de: 0,0004) instead of 0; minimumFractionDigits pads. Integers 0 to 20 with min not above max; anything else is ignored and the Intl default (3 digits) applies, so existing formats render unchanged."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "DayPicker and QR code load on demand",
+    "detail": "The calendar popover and the QR secret value import react-day-picker and qrcode lazily, so screens without a date input or an MFA setup no longer ship them. Date popovers render their grid one tick later; tests should use findBy queries."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "projectionDetail metrics render their own label",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Audit log shows a label for every event type and hides technical entries",
+    "detail": "Events that are not entity lifecycle events get a readable label (for example \"Custom field value set\") or are classified technical (delivery attempts, counters, tenant-destruction stages) and hidden by default behind \"Show technical entries\". New event types of bundled features need an entry in the audit classification; a test over all registered events fails without one. Apps that add their own event types are unaffected, they keep the entity and action wording or the raw type."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Escape-hatch retention loads only needed columns, in keyset pages",

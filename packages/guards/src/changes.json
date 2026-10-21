@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Unsafe-Append-Event guard removed",
+    "detail": "The event store rejects unregistered event types and validates every payload against its schema at runtime, for appendEvent and unsafeAppendEvent alike, so the static guard is redundant.",
+    "migration": "Delete `.kumiko-unsafe-append-event-baseline.json`."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Access-Denied-Test guard replaced by a contract test helper",
+    "detail": "Roles are checked centrally before the payload is parsed. The new `expectRoleRestrictedHandlersDenyForeignRole` test helper proves this over HTTP for every role-restricted write and query handler, so the guard that searched for a matching test per handler is removed.",
+    "migration": "In an app integration test with setupTestStack and the app features, call `expectRoleRestrictedHandlersDenyForeignRole(stack)` and remove the \"Access-Denied-Test Guard\" entry from `.kumiko-security-baseline.json`."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "i18n-Keys guard no longer checks locales",
+    "detail": "The guard only reports keys that are used without a definition. Locale completeness moved to the boot validator, which sees the real registered translations of every feature.",
+    "migration": "Delete `src/i18n-guard-locales.ts` if it exists."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "PII-Annotations guard removed",
+    "detail": "Entity text and longText fields now have to declare their personal stance by type and at boot, so the static guard that searched for unannotated fields is redundant.",
+    "migration": "Delete `.kumiko-pii-annotations-baseline.json`."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Nine guards are removed because types and boot checks replace them",
