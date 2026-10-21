@@ -32,7 +32,7 @@ const localeClaimSchema = z
   .optional();
 
 // Shape of verified JWT payloads. `tenantId` arrives from jose as a string and
-// // becomes a branded `TenantId` only after successful `parse()`—never via a blind cast.
+// becomes a branded `TenantId` only after successful `parse()`—never via a blind cast.
 //
 // `kind` is explicitly typed as "absent or undefined, nothing else" here
 // (not bare `.optional()`, which would also accept any other value on an

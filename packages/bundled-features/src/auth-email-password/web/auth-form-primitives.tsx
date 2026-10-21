@@ -15,9 +15,9 @@ import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer/web";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Wraps the centered auth card in its surrounding layout. The default is
-// // fullscreen-centered for standalone auth pages. Apex/marketing chrome can
-// // provide its own variant through AuthShellProvider without `min-h-screen`
-// // covering that chrome.
+// fullscreen-centered for standalone auth pages. Apex/marketing chrome can
+// provide its own variant through AuthShellProvider without `min-h-screen`
+// covering that chrome.
 export type AuthShellRenderer = (card: ReactNode) => ReactNode;
 
 const defaultAuthShell: AuthShellRenderer = (card) => (
@@ -96,12 +96,12 @@ export function AuthCard({
 }
 
 // Reads `?<paramName>=<value>` from the current URL, as used by token-bearing
-// // pages (reset, verify). Returns "" during SSR or when the parameter is absent.
+// pages (reset, verify). Returns "" during SSR or when the parameter is absent.
 //
-// // This is intentionally not read through useState/useEffect: that would be a
-// // read-once-on-mount pattern, while URL changes are irrelevant here because
-// // token pages reload for new tokens. Callers can use
-// // useState(() => parseUrlToken(...)) when needed.
+// This is intentionally not read through useState/useEffect: that would be a
+// read-once-on-mount pattern, while URL changes are irrelevant here because
+// token pages reload for new tokens. Callers can use
+// useState(() => parseUrlToken(...)) when needed.
 export function parseUrlToken(paramName = "token"): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get(paramName) ?? "";
