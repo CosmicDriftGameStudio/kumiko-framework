@@ -1,49 +1,6 @@
-import type {
-  EntityEditScreenDefinition,
-  FieldCondition,
-  PlatformComponent,
-} from "@cosmicdrift/kumiko-framework/ui-types";
-import {
-  evalFieldCondition,
-  isFieldsEditSection,
-  normalizeEditField,
-  PROJECTION_DETAIL_ENTITY,
-  sectionFieldSpecs,
-} from "@cosmicdrift/kumiko-framework/ui-types";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
-import type {
-  DispatcherError,
-  EditExtensionSectionViewModel,
-  EditFieldViewModel,
-  EditSectionViewModel,
-  FieldConditions,
-  FieldIssue,
-  FormValues,
-  SubmitResult,
-  Translate,
-} from "../headless/index.ts";
-import {
-  computeEditViewModel,
-  groupIssuesByPath,
-  relevantFieldIssues,
-  zodErrorToFieldIssues,
-} from "../headless/index.ts";
-import { changedDerivedValues } from "./form-derivation-patch.ts";
-import { RenderEditActionButton } from "./render-edit-action-button.tsx";
-import type { RenderEditProps } from "./render-edit-types.ts";
-import { AllFieldsRequiredProvider } from "./render-field.tsx";
-import { useActionMenuItems } from "./use-action-menu-items.tsx";
-
-export type {
-  RenderEditAction,
-  RenderEditChangeState,
-  RenderEditControls,
-  RenderEditProps,
-} from "./render-edit-types.ts";
-
+import { PROJECTION_DETAIL_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type * as z from "zod";
+import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
 import {
   ExtensionFormRegistryProvider,
   useExtensionFormHost,
@@ -53,6 +10,15 @@ import { layoutEditFields } from "../app/layout-fields.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useDraftStorage } from "../context/draft-storage-context.tsx";
 import { formatWhen } from "../format-when.ts";
+import type {
+  DispatcherError,
+  EditFieldViewModel,
+  EditSectionViewModel,
+  FieldIssue,
+  FormValues,
+  SubmitResult,
+} from "../headless/index.ts";
+import { computeEditViewModel, groupIssuesByPath } from "../headless/index.ts";
 import { useForm } from "../hooks/use-form.ts";
 import { useTranslation } from "../i18n.tsx";
 import { useInsideDrawer } from "../inside-drawer.ts";
@@ -64,12 +30,26 @@ import {
   type FormSectionNavItem,
   NARROW_LABEL_PROP,
   STICKY_PRIMARY_ACTION_PROP,
-  type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
   usePrimitives,
 } from "../primitives.tsx";
+import { EditSlotMount, ExtensionSectionMount } from "./edit-mounts.tsx";
+import { changedDerivedValues } from "./form-derivation-patch.ts";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
 import { RelatedListSection } from "./related-list-section.tsx";
+import { RenderEditActionButton } from "./render-edit-action-button.tsx";
+import {
+  deriveFormFields,
+  dryRunFieldIssues,
+  dryRunParse,
+  type FormErrorSource,
+  formSectionDomId,
+  isFieldsStepFilled,
+  resolveRecordTitle,
+  resolveTitleTemplate,
+  tabIdAt,
+  wizardStepKey,
+} from "./render-edit-helpers.tsx";
 import {
   filterEditSections,
   findFirstErroringSectionIndex,
@@ -81,379 +61,23 @@ import {
   resolveExtensionEntityId,
   shouldNotifyCaller,
 } from "./render-edit-logic.ts";
+import type { RenderEditProps } from "./render-edit-types.ts";
+import { AllFieldsRequiredProvider } from "./render-field.tsx";
+import { useActionMenuItems } from "./use-action-menu-items.tsx";
+import {
+  buildWizardDraftActions,
+  PATCH_DRAFT_SAVE_DEBOUNCE_MS,
+  useWizardFormDraftRestore,
+  useWizardFormDraftState,
+} from "./use-wizard-form-draft.ts";
 import { WriteFormSection } from "./write-form-section.tsx";
 
-// Qualified names of the bundled `form-draft` feature. Hardcoded because the
-// renderer must not depend on @cosmicdrift/kumiko-bundled-features; a screen
-// with `layout.draft: true` and that feature unmounted is a boot error, so
-// these can never dangle silently.
-const FORM_DRAFT_GET = "form-draft:query:get";
-const FORM_DRAFT_SAVE = "form-draft:write:save";
-const FORM_DRAFT_DISCARD = "form-draft:write:discard";
-const FORM_DRAFT_LIST = "form-draft:query:list";
-// Mirrors bundled-features/src/form-draft/web/constants.ts's FORM_DRAFT_KEY_MAX_LENGTH
-// — same hardcoding rationale as the QNs above (no dependency on that package).
-const FORM_DRAFT_KEY_MAX_LENGTH = 256;
-
-// Trailing-edge debounce for patch()-triggered draft saves (#1914). A single
-// patch() call (VIN-decode, an extension section) should not save immediately
-// per call, but patch() can also fire from inside onChange on every keystroke
-// (the #1888 derived-field shape) — 500ms collapses a typing burst into one
-// save instead of one per keystroke, while still saving well before a user
-// abandons the tab.
-export const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
-
-type FormDraftBlob = {
-  readonly values: Record<string, unknown>;
-  readonly stepIndex: number;
-};
-
-type DraftCandidate = {
-  readonly id: string;
-  readonly draftKey: string;
-  readonly stepIndex: number;
-  readonly savedAt: string;
-};
-
-// draftKey convention for a create-mode draft (framework-wizard-mode.md,
-// lookup.ts): `${screenId}:new:${draftId}`. Shared by the mount-time list
-// fallback (strip the prefix to recover a candidate's draftId) and the
-// list query itself (filter out edit-mode drafts, which share the same
-// `${screenId}:%` LIKE-prefix scan server-side).
-function newDraftPrefix(screenId: string): string {
-  return `${screenId}:new:`;
-}
-
-// `crypto.randomUUID` is missing in non-secure contexts and React Native/Hermes
-// without a polyfill — guard like generateRequestId in headless/dispatcher/request-id.ts.
-function mintDraftId(): string {
-  const webCrypto = propertyOf(globalThis, "crypto");
-  const randomUUID = propertyOf(webCrypto, "randomUUID");
-  if (typeof randomUUID === "function") {
-    const id: unknown = Reflect.apply(randomUUID, webCrypto, []);
-    if (typeof id === "string") return id;
-  }
-  return `draft-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
-}
-
-// End-to-end renderer für einen entityEdit screen. Rendert aus-
-// schließlich über Primitives — kein raw HTML. Ein Native-Renderer
-// der dieselbe Primitives-Registry füllt kriegt das Form ohne weitere
-// Änderungen.
-
-function toConditionValue<TValues extends FormValues, TCtx>(
-  cond: FieldCondition,
-): NonNullable<FieldConditions<TValues, TCtx>["visible"]> {
-  if (typeof cond === "boolean") return cond;
-  // @cast-boundary form-values: TValues ist strukturell ein Record.
-  return (values: TValues) => evalFieldCondition(cond, values as Record<string, unknown>);
-}
-
-// Tab-strip key. The boot-validator makes `id` mandatory on a tabs layout and
-// entityEdit only ever has "fields"/"extension" sections (relatedList and
-// writeForm are rejected outright), so the positional fallback is unreachable
-// for a tabs screen — it only keeps this total for other layouts.
-function tabIdAt(section: EditSectionViewModel | undefined, index: number): string {
-  const declared =
-    section?.kind === "fields" || section?.kind === "extension" ? section.id : undefined;
-  return declared ?? `section-${index}`;
-}
-
-function deriveFormFields<TValues extends FormValues, TCtx>(
-  screen: EntityEditScreenDefinition,
-): Record<string, FieldConditions<TValues, TCtx>> {
-  const out: Record<string, FieldConditions<TValues, TCtx>> = {};
-  for (const section of screen.layout.sections) {
-    // relatedList carries no `fields` for the form-condition map either.
-    if (!isFieldsEditSection(section)) continue;
-    for (const spec of sectionFieldSpecs(section)) {
-      const normalized = normalizeEditField(spec);
-      out[normalized.field] = {
-        ...(normalized.visible !== undefined && {
-          visible: toConditionValue<TValues, TCtx>(normalized.visible),
-        }),
-        ...(normalized.readOnly !== undefined && {
-          readonly: toConditionValue<TValues, TCtx>(normalized.readOnly),
-        }),
-        ...(normalized.required !== undefined && {
-          required: toConditionValue<TValues, TCtx>(normalized.required),
-        }),
-      };
-    }
-  }
-  return out;
-}
-
-type FieldsSectionViewModel = Extract<EditSectionViewModel, { readonly kind: "fields" }>;
-
-type DryRunSnapshot = {
-  readonly values: unknown;
-  readonly fields: Readonly<Record<string, { readonly visible: boolean }>>;
-};
-
-type DryRunParse = {
-  readonly issues: ReturnType<typeof zodErrorToFieldIssues>;
-  readonly hiddenFields: ReadonlySet<string>;
-};
-
-// Dry-run parse against `schema` — NOT controller.validate(), which writes
-// field errors into the snapshot. Undefined when the values parse cleanly.
-// Parse once, then narrow per scope with scopedDryRunIssues: the wizard step
-// check would otherwise re-parse the whole form per section on every keystroke.
-function dryRunParse(schema: z.ZodType, snapshot: DryRunSnapshot): DryRunParse | undefined {
-  const parsed = schema.safeParse(snapshot.values);
-  if (parsed.success) return undefined;
-  const hiddenFields = new Set(
-    Object.entries(snapshot.fields)
-      .filter(([, state]) => !state.visible)
-      .map(([fieldKey]) => fieldKey),
-  );
-  return { issues: zodErrorToFieldIssues(parsed.error), hiddenFields };
-}
-
-// Issues are filtered exactly like the controller's validate(): hidden
-// fields never count, `scope` narrows.
-function scopedDryRunIssues(
-  parse: DryRunParse | undefined,
-  scope: readonly string[] | undefined,
-  includeRoot: boolean,
-): ReturnType<typeof relevantFieldIssues> {
-  if (parse === undefined) return [];
-  return relevantFieldIssues(parse.issues, {
-    hiddenFields: parse.hiddenFields,
-    ...(scope !== undefined && { scope }),
-    includeRoot,
-  });
-}
-
-function dryRunFieldIssues(
-  schema: z.ZodType,
-  snapshot: DryRunSnapshot,
-  scope: readonly string[] | undefined,
-  includeRoot: boolean,
-): ReturnType<typeof relevantFieldIssues> {
-  return scopedDryRunIssues(dryRunParse(schema, snapshot), scope, includeRoot);
-}
-
-// Index-independent: indices shift when a fields section hides.
-function wizardStepKey(section: EditSectionViewModel, index: number): string {
-  const declaredId =
-    section.kind === "fields" || section.kind === "extension" ? section.id : undefined;
-  return declaredId ?? section.title ?? `step-${index}`;
-}
-
-function isMoneyValue(value: unknown): value is { readonly amount: unknown } {
-  return typeof value === "object" && value !== null && "amount" in value;
-}
-
-// The seeds buildInitialValues writes for NULL columns of an existing record.
-function isEmptyFormValue(value: unknown): boolean {
-  if (value === null || value === undefined || value === "" || value === 0 || value === false) {
-    return true;
-  }
-  if (Array.isArray(value)) return value.length === 0;
-  return isMoneyValue(value) && value.amount === 0;
-}
-
-// select/boolean are excluded from the "holds user data" check: they are
-// often pre-filled (defaults, server-set values), so they say nothing about
-// whether the step was filled in. They still count through the validation.
-function isFieldsStepFilled(
-  section: FieldsSectionViewModel,
-  parse: DryRunParse | undefined,
-): boolean {
-  const fieldNames = section.fields.map((f) => f.field);
-  if (scopedDryRunIssues(parse, fieldNames, false).length > 0) return false;
-  return section.fields.some(
-    (f) =>
-      f.visible &&
-      !f.readOnly &&
-      f.type !== "boolean" &&
-      f.type !== "select" &&
-      !isEmptyFormValue(f.value),
-  );
-}
-
-// Resolves an extension-section's `{ react: { __component: "X" } }` marker
-// to a registered React component via ExtensionSectionsProvider (filled in
-// createKumikoApp from clientFeatures.extensionSectionComponents) and
-// mounts it with the host entity name + id. Hook lives in its own
-// component so we don't call `use*` inside vm.sections.map (rules-of-
-// hooks would punish reordering sections between renders).
-function ExtensionSectionMount({
-  section,
-  entityName: hostEntityName,
-  entityId,
-  initialValues,
-  values,
-  patch,
-  validate,
-  markSaved,
-  hideTitle,
-  actions,
-  stepKey,
-  onReportStepComplete,
-}: {
-  readonly section: EditExtensionSectionViewModel;
-  readonly entityName: string;
-  readonly entityId: string | null;
-  readonly initialValues?: Readonly<Record<string, unknown>>;
-  readonly values?: Readonly<Record<string, unknown>>;
-  readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
-  readonly validate?: () => boolean;
-  readonly markSaved?: () => void;
-  readonly hideTitle?: boolean;
-  /** section.actions, already resolved into buttons by the caller. */
-  readonly actions?: ReactNode;
-  readonly stepKey?: string;
-  readonly onReportStepComplete?: (stepKey: string, complete: boolean) => void;
-}): ReactNode {
-  const { Banner, FillContainer, Section, Text } = usePrimitives();
-  const name = extensionSectionName(section.component);
-  const Component = useExtensionSectionComponent(name);
-  const reportStepComplete = useCallback(
-    (complete: boolean) => {
-      if (stepKey !== undefined) onReportStepComplete?.(stepKey, complete);
-    },
-    [stepKey, onReportStepComplete],
-  );
-  const testId = `section-extension-${section.title}`;
-  if (Component === undefined) {
-    const placeholder = (
-      <Banner variant="info" testId={`section-extension-placeholder-${section.title}`}>
-        <Text>
-          Extension section component <Text variant="code">{name ?? "(no __component name)"}</Text>{" "}
-          not registered in clientFeatures.extensionSectionComponents.
-        </Text>
-      </Banner>
-    );
-    // Tabs mode already frames this in the caller's own Card — a Section
-    // here would add a second, unwanted divider inset (px-6 py-4) on top of
-    // the Card's own padding, misaligning this tab's content against the
-    // fields tab (Grid sits directly in the Card there). FillContainer keeps
-    // the testId without adding chrome (same primitive RelatedListSection
-    // uses for its own hideTitle branch).
-    return hideTitle === true ? (
-      FillContainer !== undefined ? (
-        <FillContainer testId={testId}>{placeholder}</FillContainer>
-      ) : (
-        placeholder
-      )
-    ) : (
-      <Section key={section.title} title={section.title} testId={testId}>
-        {placeholder}
-      </Section>
-    );
-  }
-  const mounted = (
-    <Component
-      entityName={section.entityName ?? hostEntityName}
-      entityId={entityId}
-      initialValues={initialValues}
-      values={values}
-      patch={patch}
-      validate={validate}
-      markSaved={markSaved}
-      {...(onReportStepComplete !== undefined && { reportStepComplete })}
-    />
-  );
-  // Same reasoning as the placeholder branch above: tabs mode's outer Card
-  // is the only frame this content gets, no nested Section divider.
-  return hideTitle === true ? (
-    FillContainer !== undefined ? (
-      <FillContainer testId={testId}>{mounted}</FillContainer>
-    ) : (
-      mounted
-    )
-  ) : (
-    <Section {...(actions !== undefined && { actions })} title={section.title} testId={testId}>
-      {mounted}
-    </Section>
-  );
-}
-
-// Resolves an entityEdit slot's (`screen.slots.header` / `.footer`)
-// `{ react: { __component: "X" } }` marker via the same ExtensionSectionsProvider
-// registry as ExtensionSectionMount / ListHeaderSlotMount and mounts it. One
-// component for both slots — header passes no hasUnsavedChanges/wizardStep,
-// footer does. Own component for rules-of-hooks (useExtensionSectionComponent
-// must not run conditionally inside RenderEdit's render body).
-function EditSlotMount({
-  slot,
-  slotName,
-  screenId,
-  entityName,
-  entityId,
-  values,
-  markSaved,
-  hasUnsavedChanges,
-  wizardStep,
-}: {
-  readonly slot: PlatformComponent;
-  readonly slotName: "header" | "titleAction" | "footer";
-  readonly screenId: string;
-  readonly entityName: string;
-  readonly entityId: string | null;
-  readonly values: Readonly<Record<string, unknown>>;
-  readonly markSaved?: () => void;
-  readonly hasUnsavedChanges?: boolean;
-  readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
-} & StickyPrimaryActionMarker): ReactNode {
-  const name = extensionSectionName(slot);
-  const Component = useExtensionSectionComponent(name);
-  useEffect(() => {
-    if (name !== undefined && Component === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev warning for a setup error
-      console.warn(
-        `[kumiko] Edit ${slotName} slot component "${name}" on screen "${screenId}" is not registered in clientFeatures.extensionSectionComponents — the ${slotName} slot renders nothing.`,
-      );
-    }
-  }, [name, Component, screenId, slotName]);
-  if (Component === undefined) return null;
-  return (
-    <Component
-      entityName={entityName}
-      entityId={entityId}
-      values={values}
-      {...(markSaved !== undefined && { markSaved })}
-      {...(hasUnsavedChanges !== undefined && { hasUnsavedChanges })}
-      {...(wizardStep !== undefined && { wizardStep })}
-    />
-  );
-}
-
-type FormErrorSource = "submit" | "delete";
-
-function formSectionDomId(sectionIndex: number): string {
-  return `form-section-${sectionIndex}`;
-}
-
-/** A record title is a non-blank string; anything else leaves the screen title alone. */
-export function resolveRecordTitle(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() !== "" ? value : undefined;
-}
-
-const TITLE_PLACEHOLDER_PATTERN = /\{(\w+)\}/g;
-
-// Falls back to the plain title while any placeholder value is still empty,
-// so the header never shows "Add  " mid-typing.
-function resolveTitleTemplate(
-  template: string | undefined,
-  values: FormValues,
-  translate: Translate,
-  fallback: string,
-): string {
-  if (template === undefined) return fallback;
-  const placeholders = [...translate(template).matchAll(TITLE_PLACEHOLDER_PATTERN)].map(
-    (match) => match[1] ?? "",
-  );
-  const isFilled = (name: string): boolean => {
-    const value = values[name];
-    return value !== undefined && value !== null && String(value).trim() !== "";
-  };
-  if (!placeholders.every(isFilled)) return fallback;
-  return translate(template, values);
-}
+export type {
+  RenderEditAction,
+  RenderEditChangeState,
+  RenderEditControls,
+  RenderEditProps,
+} from "./render-edit-types.ts";
 
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   props: RenderEditProps<TValues, TCtx>,
@@ -563,26 +187,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Tabs have stable ids, so the active tab follows its id: a field change
   // that hides an earlier tab must not shift the index onto another tab.
   const [activeTabId, setActiveTabId] = useState<string | undefined>(undefined);
-  // Create-mode draftId (issue #1913) — resumed from `sessionStorage` (web)
-  // on mount so a same-tab reload finds the right one of several parallel
-  // create-sessions on this screen; `null` until the first step change
-  // mints one (saveDraft), or the mount-time `form-draft:query:list`
-  // fallback below adopts an existing one. Edit-mode never touches this —
-  // its draftKey is `${screen.id}:${entityIdProp}` unconditionally.
-  const [draftId, setDraftId] = useState<string | null>(() =>
-    isCreateMode ? draftStorage.getDraftId(screen.id) : null,
-  );
-  // Marks a draftId this instance minted itself (saveDraft, first step
-  // change) so the restore effect below doesn't immediately re-fetch what
-  // it just wrote — there is nothing to restore, the row is brand new.
-  const mintedDraftIdRef = useRef<string | null>(null);
-  // Marks that the mount-time `form-draft:query:list` fallback already ran
-  // once for this mount. Without this, a create-mode discard resets `draftId`
-  // to `null` (see discardDraft below) and would re-arm the list effect —
-  // silently adopting an unrelated parallel draft on the same screen right
-  // after the user just submitted (#1908).
-  const didListRef = useRef(false);
-  const [draftCandidates, setDraftCandidates] = useState<readonly DraftCandidate[] | null>(null);
+  const draftState = useWizardFormDraftState({
+    screenId: screen.id,
+    entityId: entityIdProp,
+    isCreateMode,
+    draftStorage,
+  });
+  const { draftCandidates, setDraftCandidates } = draftState;
   // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
   // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
   // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
@@ -717,23 +328,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     controller.rebase();
   }, [refreshToken, controller, initial]);
 
-  // Derived from the screen id + the host entity id only — never from
-  // `vm.id`, which lives in the form values a restore mutates (load under one
-  // key, save under another). Edit-mode: `${screen.id}:${entityIdProp}`,
-  // unchanged. Create-mode: `${screen.id}:new:${draftId}` once a draftId
-  // exists (resumed, adopted, or minted), `undefined` before that — two
-  // parallel create sessions on the same screen must never collapse onto
-  // the same key (kumiko-framework#1908).
-  const draftKey = useMemo(
-    () =>
-      isCreateMode
-        ? draftId !== null
-          ? `${screen.id}:new:${draftId}`
-          : undefined
-        : `${screen.id}:${entityIdProp}`,
-    [screen.id, entityIdProp, isCreateMode, draftId],
-  );
-
   // Controlled mode (Issue #1887). Both callbacks live in refs so a
   // re-rendering caller (identity-unstable `onChange`/`onControlsReady`
   // closures, e.g. inline arrows) doesn't retrigger these effects — only a
@@ -774,8 +368,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // wizard step without depending on `currentStep` (computed further down,
   // from `filteredSections`) at the point patchAndScheduleDraftSave itself
   // is defined — kept fresh where `currentStep` is computed below.
-  const saveDraftRef = useRef(saveDraft);
-  saveDraftRef.current = saveDraft;
+  const saveDraftRef = useRef<(stepIndex: number) => void>(() => {});
   // `handleSubmit` (defined below) is a fresh closure over this render's
   // snapshot/extensionDirty, while the onControlsReady effect fires once per
   // mount — the ref lets controls.submit() always reach the current one.
@@ -892,110 +485,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     () => !persistsDraft && (controller.getSnapshot().isDirty || extensionDirtyRef.current),
   );
 
-  useEffect(() => {
-    // skip: this screen does not persist a draft.
-    if (!draftEnabled || dispatcher === undefined) return;
-    // skip: create-mode with no draftId yet — nothing to restore, either
-    // the list-fallback effect below finds one or the first step change
-    // mints a fresh one.
-    if (draftKey === undefined) return;
-    // skip: this draftId was just minted by saveDraft — the row it wrote
-    // is exactly the current form state, re-fetching it would be a no-op
-    // round-trip at best and a stale-echo clobber at worst.
-    if (draftId !== null && draftId === mintedDraftIdRef.current) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await dispatcher.query<{ readonly draft: FormDraftBlob | null }>(
-          FORM_DRAFT_GET,
-          { draftKey },
-        );
-        // skip: superseded by a newer mount, or the draft lookup failed — an
-        // unreachable draft store must not break the form itself.
-        if (cancelled || !result.isSuccess) return;
-        const draft = result.data?.draft ?? null;
-        // skip: nothing saved yet for this key.
-        if (draft === null) return;
-        // skip: the user already typed or wizard-navigated while the lookup
-        // was in flight — their input wins over the stored draft.
-        if (controller.getSnapshot().isDirty || hasNavigatedRef.current) return;
-        // @cast-boundary form-values draft blob: `values` round-trips through an opaque
-        // jsonb column and comes back untyped.
-        controller.setValues(draft.values as Partial<TValues>);
-        setRawStep(Math.max(draft.stepIndex, 0));
-      } catch (err: unknown) {
-        // biome-ignore lint/suspicious/noConsole: draft restore must not red-screen the form
-        console.warn("render-edit: draft restore query failed", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [draftEnabled, draftKey, draftId, dispatcher, controller]);
-
-  // Mount-time fallback (issue #1913) for create-mode when no draftId
-  // survived in storage (new tab, cleared storage): ask the server for this
-  // screen's open drafts and let the user choose via a picker (below) —
-  // even for exactly one candidate. Auto-adopting a lone candidate would
-  // silently hand this tab someone else's in-progress draft from a parallel
-  // session on the same screen (cross-tab hijack); the picker's "start new"
-  // action covers the common case (it really was this tab's own draft) with
-  // one extra click. Zero candidates → stay null, saveDraft mints a fresh
-  // draftId on the first step change same as any other fresh create.
-  useEffect(() => {
-    // skip: this screen does not persist a draft, this is edit-mode, a
-    // draftId is already known (from storage or an earlier adoption), or
-    // this mount already ran the list lookup once (didListRef).
-    if (
-      !draftEnabled ||
-      !isCreateMode ||
-      draftId !== null ||
-      didListRef.current ||
-      dispatcher === undefined
-    )
-      return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await dispatcher.query<{ readonly drafts: readonly DraftCandidate[] }>(
-          FORM_DRAFT_LIST,
-          { screenId: screen.id },
-        );
-        // skip: superseded by a newer mount, or the lookup failed — an
-        // unreachable draft store must not break a fresh create.
-        if (cancelled || !result.isSuccess) return;
-        didListRef.current = true;
-        const prefix = newDraftPrefix(screen.id);
-        // list's LIKE-prefix scan also matches edit-mode drafts
-        // (`${screenId}:${entityId}`) — keep only create-mode ones.
-        const candidates = (result.data?.drafts ?? []).filter((d) => d.draftKey.startsWith(prefix));
-        // skip: no open drafts for this screen — stay null, saveDraft mints a
-        // fresh draftId on the first step change same as any other create.
-        if (candidates.length === 0) return;
-        setDraftCandidates(candidates);
-      } catch (err: unknown) {
-        // biome-ignore lint/suspicious/noConsole: draft lookup must not red-screen the form
-        console.warn("render-edit: draft list query failed", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [draftEnabled, isCreateMode, draftId, dispatcher, screen.id]);
-
-  // User picked one of several open drafts from the mount-time picker
-  // (see draftCandidates below) — adopt it the same way a single
-  // auto-adopted candidate would be.
-  function adoptDraft(candidate: DraftCandidate): void {
-    // Locked state (#1896/fw#1909): `disabled` means "no write possible" —
-    // repointing draftKey and patching in the candidate's values is exactly
-    // that, so a locked form must not adopt a draft.
-    if (disabled) return;
-    const adoptedId = candidate.draftKey.slice(newDraftPrefix(screen.id).length);
-    draftStorage.setDraftId(screen.id, adoptedId);
-    setDraftId(adoptedId);
-    setDraftCandidates(null);
-  }
+  useWizardFormDraftRestore<TValues>({
+    screenId: screen.id,
+    isCreateMode,
+    draftEnabled,
+    dispatcher,
+    controller,
+    hasNavigatedRef,
+    setRawStep,
+    draftState,
+  });
 
   const vm = useMemo(
     () =>
@@ -1152,73 +651,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     if (isTabs) setActiveTabId(tabIdAt(filteredSections[index], index));
   }
 
-  // Step transitions only — never per keystroke. Deliberately not awaited: a
-  // failed draft save must not block the step change.
-  //
-  // Create-mode, first draft save (step change OR a debounced patch() from
-  // controlled mode / extension sections, see patchAndScheduleDraftSave
-  // above — both call this on step 0 too): mints the draftId here (issue
-  // #1913) rather than at mount, so a form nobody ever interacted with
-  // never claims a draftId or writes a row. `draftKey`/`draftId` state
-  // won't reflect the mint until the next render, so the just-minted key is
-  // computed inline instead of read from the memoized `draftKey`.
-  function saveDraft(stepIndex: number): void {
-    // skip: this screen does not persist a draft.
-    if (!draftEnabled || dispatcher === undefined) return;
-    let key = draftKey;
-    if (isCreateMode && draftId === null) {
-      const mintedId = mintDraftId();
-      mintedDraftIdRef.current = mintedId;
-      draftStorage.setDraftId(screen.id, mintedId);
-      setDraftId(mintedId);
-      key = `${screen.id}:new:${mintedId}`;
-      // A stale picker from the mount-time list fallback must not survive a
-      // mint — picking a candidate afterwards would repoint draftKey at an
-      // unrelated draft mid-edit and overwrite it (#1908).
-      setDraftCandidates(null);
-    }
-    // skip: create-mode with a draftId that failed to mint — unreachable
-    // in practice (mint above always produces one), kept as a type-level
-    // guard against a stale `undefined` key ever reaching the write.
-    if (key === undefined) return;
-    // draftKeySchema.max(FORM_DRAFT_KEY_MAX_LENGTH) rejects this server-side —
-    // catch it here instead of losing the save silently to the fire-and-forget
-    // write below (the user would only notice on resume, with nothing to resume).
-    if (key.length > FORM_DRAFT_KEY_MAX_LENGTH) {
-      // biome-ignore lint/suspicious/noConsole: no error-surfacing path exists for a fire-and-forget draft save.
-      console.warn(
-        `RenderEdit: draftKey "${key}" is ${key.length} chars, over the server's ${FORM_DRAFT_KEY_MAX_LENGTH}-char limit — skipping this draft save. Shorten screen.id or entity id.`,
-      );
-      return;
-    }
-    const secretFieldNames = new Set(
-      vm.sections.flatMap((section) =>
-        section.kind === "fields"
-          ? section.fields
-              .filter(
-                (f) => f.format === "password" || f.writeOnly === true || f.sensitive === true,
-              )
-              .map((f) => f.field)
-          : [],
-      ),
-    );
-    // A password, writeOnly or sensitive field never enters the persisted draft blob — it would be stored in the clear and restored on resume.
-    const draftValues = Object.fromEntries(
-      Object.entries(controller.getSnapshot().values).filter(
-        ([field]) => !secretFieldNames.has(field),
-      ),
-    );
-    void dispatcher
-      .write(FORM_DRAFT_SAVE, {
-        draftKey: key,
-        values: draftValues,
-        stepIndex,
-      })
-      .catch((err: unknown) => {
-        // biome-ignore lint/suspicious/noConsole: fire-and-forget draft save must not red-screen
-        console.warn("render-edit: draft save failed", err);
-      });
-  }
+  const { adoptDraft, saveDraft, discardDraft } = buildWizardDraftActions<TValues>({
+    screenId: screen.id,
+    isCreateMode,
+    draftEnabled,
+    disabled,
+    dispatcher,
+    draftStorage,
+    controller,
+    sections: vm.sections,
+    draftSaveTimerRef,
+    draftState,
+  });
+  saveDraftRef.current = saveDraft;
 
   // Next: scoped validate() on the current step's fields — errors stay
   // attached to the field and block the step transition. Extension steps
@@ -1273,38 +718,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     hasNavigatedRef.current = true;
     setRawStep(clampedTarget);
     if (!disabled) saveDraft(clampedTarget);
-  }
-
-  async function discardDraft(): Promise<void> {
-    // skip: this screen does not persist a draft.
-    if (!draftEnabled || dispatcher === undefined) return;
-    // A pending debounced patch-save must not fire after discard — it would
-    // resurrect the draft it just deleted.
-    if (draftSaveTimerRef.current !== null) {
-      clearTimeout(draftSaveTimerRef.current);
-      draftSaveTimerRef.current = null;
-    }
-    // skip: create-mode, no step change happened yet — no draftId was ever
-    // minted, so no row exists to discard.
-    if (draftKey === undefined) return;
-    // Best-effort: a rejected write (e.g. network error) must not propagate
-    // out of handleSubmit AFTER the entity write already succeeded — that
-    // would break onSubmit/navigation/toast and risk a duplicate submit on
-    // retry. An orphaned draft row is swept later by cleanup.job.ts. Local
-    // cleanup below still runs on failure so this instance doesn't try to
-    // resume a draft it already considers submitted.
-    try {
-      await dispatcher.write(FORM_DRAFT_DISCARD, { draftKey });
-    } catch {
-      // best-effort, see comment above.
-    }
-    // A successful submit ends this draftId's life — a subsequent create on
-    // the same screen (new mount) must mint its own, not resume this one.
-    if (isCreateMode) {
-      draftStorage.clearDraftId(screen.id);
-      mintedDraftIdRef.current = null;
-      setDraftId(null);
-    }
   }
 
   // Stepped modes (wizard, tabs): locates the first step whose "fields"

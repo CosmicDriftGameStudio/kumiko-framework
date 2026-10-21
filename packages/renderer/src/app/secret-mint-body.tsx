@@ -10,13 +10,13 @@ import {
   synthesizeActionFormScreen,
   synthesizeSecretMintConfirmScreen,
 } from "./action-form-shim.ts";
-import type { FeatureSchema } from "./feature-schema.ts";
 import {
   buildInitialValues,
   mergeSearchParamsIntoInitial,
   tenantCurrencyMoneyFieldNames,
   useMoneyCurrencyOverrides,
-} from "./kumiko-screen.tsx";
+} from "./entity-edit-prefill.ts";
+import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
 import { useInitialValuesHandoff, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";

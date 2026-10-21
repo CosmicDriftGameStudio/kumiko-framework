@@ -84,12 +84,7 @@ export type {
 export { isAppSchema, toAppSchema } from "./app/feature-schema.ts";
 export { HeaderActionsBar } from "./app/header-actions-bar.tsx";
 export type { KumikoScreenProps } from "./app/kumiko-screen.tsx";
-export {
-  KumikoScreen,
-  qualifyNavId,
-  qualifyScreenId,
-  ScreenMissingState,
-} from "./app/kumiko-screen.tsx";
+export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen.tsx";
 export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.ts";
 export {
   buildDateRangePayload,
@@ -129,6 +124,7 @@ export {
   useReturnHost,
   useReturnTarget,
 } from "./app/return-to.tsx";
+export { ScreenMissingState } from "./app/screen-shared.tsx";
 export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.ts";
 export { useEmbeddedScreen } from "./app/use-embedded-screen.ts";
 export { useRecordActions } from "./app/use-record-actions.ts";
