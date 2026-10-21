@@ -1,5 +1,6 @@
 // ctx.crossTenantReads on handlers: only present with a crossTenantReads/unsafeRaw grant,
-// read-only, tenant-unfiltered (incl. the events table) and audited per call. Real HTTP + setupTestStack.
+// read-only, tenant-unfiltered (incl. the events table) and audited per call, never inside an
+// agent tool call. Real HTTP + setupTestStack; the agent cases use the scope dispatchToolCall sets.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -9,10 +10,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { runAsDirectCallEntry } from "../../api/request-context.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
-import type { EscapeHatchUseEvent } from "../../engine/types/index.ts";
+import type { EscapeHatchUseEvent, HandlerContext } from "../../engine/types/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
@@ -34,6 +36,36 @@ type ReadsOutcome = {
   readonly foreignEventTenants?: readonly string[];
   readonly unsafeRawCode?: string;
 };
+
+async function readAcrossTenants(
+  ctx: HandlerContext,
+  foreignTenantId: string,
+): Promise<ReadsOutcome> {
+  const reads = ctx.crossTenantReads;
+  if (!reads) return { hasReads: false };
+  const all = await reads.selectMany<{ title: string }>(noteTable);
+  const foreign = await reads.fetchOne<{ title: string }>(noteTable, {
+    tenantId: foreignTenantId,
+  });
+  const count = await reads.count(noteTable);
+  const events = await reads.selectMany<{ tenantId: string }>(eventsTable, {
+    tenantId: foreignTenantId,
+  });
+  let unsafeRawCode: string | undefined;
+  try {
+    ctx.db.unsafeRaw();
+  } catch (err) {
+    unsafeRawCode = err instanceof Error && "code" in err ? String(err.code) : "unknown";
+  }
+  return {
+    hasReads: true,
+    titles: all.map((n) => n.title).sort(),
+    foreignTitle: foreign?.title,
+    count,
+    foreignEventTenants: events.map((e) => e.tenantId),
+    ...(unsafeRawCode !== undefined && { unsafeRawCode }),
+  };
+}
 
 const probeFeature = defineFeature(FEATURE, (r) => {
   r.entity({ name: "note", ...noteEntity });
@@ -63,33 +95,22 @@ const probeFeature = defineFeature(FEATURE, (r) => {
     schema: z.object({ foreignTenantId: z.string() }),
     access: { roles: ["Admin"] },
     escapeHatch: { reason: GRANT_REASON, grants: ["crossTenantReads"] },
-    handler: async (query, ctx): Promise<ReadsOutcome> => {
-      const reads = ctx.crossTenantReads;
-      if (!reads) return { hasReads: false };
-      const foreignTenantId = query.payload.foreignTenantId;
-      const all = await reads.selectMany<{ title: string }>(noteTable);
-      const foreign = await reads.fetchOne<{ title: string }>(noteTable, {
-        tenantId: foreignTenantId,
-      });
-      const count = await reads.count(noteTable);
-      const events = await reads.selectMany<{ tenantId: string }>(eventsTable, {
-        tenantId: foreignTenantId,
-      });
-      let unsafeRawCode: string | undefined;
-      try {
-        ctx.db.unsafeRaw();
-      } catch (err) {
-        unsafeRawCode = err instanceof Error && "code" in err ? String(err.code) : "unknown";
-      }
-      return {
-        hasReads: true,
-        titles: all.map((n) => n.title).sort(),
-        foreignTitle: foreign?.title,
-        count,
-        foreignEventTenants: events.map((e) => e.tenantId),
-        ...(unsafeRawCode !== undefined && { unsafeRawCode }),
-      };
-    },
+    handler: (query, ctx) => readAcrossTenants(ctx, query.payload.foreignTenantId),
+  });
+
+  r.queryHandler({
+    name: "implied",
+    schema: z.object({ foreignTenantId: z.string() }),
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: GRANT_REASON, grants: ["unsafeRaw"] },
+    handler: (query, ctx) => readAcrossTenants(ctx, query.payload.foreignTenantId),
+  });
+
+  r.queryHandler({
+    name: "delegating",
+    schema: z.object({ foreignTenantId: z.string() }),
+    access: { roles: ["Admin"] },
+    handler: (query, ctx) => ctx.query(`${FEATURE}:query:granted`, query.payload),
   });
 });
 
@@ -169,5 +190,30 @@ describe("ctx.crossTenantReads on handlers", () => {
 
     expect(result.foreignEventTenants?.length).toBeGreaterThan(0);
     expect(new Set(result.foreignEventTenants)).toEqual(new Set([foreignTenant]));
+  });
+
+  for (const handler of ["granted", "implied", "delegating"]) {
+    test(`an agent tool call on ${handler} gets no crossTenantReads`, async () => {
+      const result = await runAsDirectCallEntry(() =>
+        stack.dispatcher.query(
+          `${FEATURE}:query:${handler}`,
+          { foreignTenantId: foreignTenant },
+          ownAdmin,
+        ),
+      );
+
+      expect(result).toEqual({ hasReads: false });
+      expect(auditEvents.filter((e) => e.kind === "cross-tenant-read")).toEqual([]);
+    });
+  }
+
+  test("the same dispatch outside an agent tool call gets crossTenantReads", async () => {
+    const result = await stack.dispatcher.query(
+      `${FEATURE}:query:implied`,
+      { foreignTenantId: foreignTenant },
+      ownAdmin,
+    );
+
+    expect(result).toMatchObject({ hasReads: true, count: 2 });
   });
 });
