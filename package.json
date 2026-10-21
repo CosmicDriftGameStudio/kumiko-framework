@@ -6,7 +6,7 @@
   "engines": {
     "bun": ">=1.4.0"
   },
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",

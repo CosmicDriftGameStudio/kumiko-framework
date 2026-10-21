@@ -59,8 +59,10 @@ likely be green in CI too.
 
 ## License
 
-By contributing, you agree your contributions are licensed under the same
-[BUSL-1.1](./LICENSE) terms as the rest of the project.
+By contributing, you agree your contributions are licensed under the
+[MIT License](./LICENSE) like the rest of the project. Sign off each commit
+(`git commit -s`) to certify the
+[Developer Certificate of Origin](https://developercertificate.org/).
 
 ## Reporting security issues
 

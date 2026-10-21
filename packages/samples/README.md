@@ -11,4 +11,4 @@ packages/bundled-features/src/**
 
 This package contains plain sources only. It has no runtime API and no entry point; tests, build output and dotfiles are left out. Point tooling at the installed package directory (resolve `@cosmicdrift/kumiko-samples/package.json`), for example `buildFewShotCorpus({ repoRoot })` from `@cosmicdrift/kumiko-dev-server`, to get the same entry ids and source paths as in the monorepo.
 
-License: BUSL-1.1
+License: MIT

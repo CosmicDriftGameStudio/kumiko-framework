@@ -2,7 +2,7 @@
   "name": "@cosmicdrift/kumiko-samples",
   "version": "0.386.0",
   "description": "Source trees of the Kumiko sample recipes, sample apps and bundled features in repo layout, for tooling such as few-shot corpus builds.",
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
