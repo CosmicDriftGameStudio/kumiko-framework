@@ -4,13 +4,19 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runGit } from "../../_git-test-helpers";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
-import { runStatus, statusCommand } from "../status";
+import { defaultStatusDeps, runStatus, statusCommand } from "../status";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
   for (const c of cleanups) c();
   cleanups.length = 0;
 });
+
+// Real git against a throwaway repo; only the docker daemon is stubbed so the test never waits on it.
+const realGitDeps = {
+  ...defaultStatusDeps,
+  probeDocker: async () => ({ status: 1, stdout: "", stderr: "", timedOut: false }),
+};
 
 function tmp(files?: Record<string, string>): string {
   const t = makeTempCwd(files);
@@ -31,6 +37,12 @@ describe("status command", () => {
     const spy = makeSpyOutput();
     const exit = await runStatus(makeContext({ cwd, out: spy.out }), {
       probeDocker: async () => ({ status: 1, stdout: "", stderr: "", timedOut: false }),
+      runGit: async () => ({
+        status: 128,
+        stdout: "",
+        stderr: "fatal: not a git repository",
+        timedOut: false,
+      }),
     });
     expect(exit).toBe(0);
     const joined = spy.logs.join("\n");
@@ -92,7 +104,7 @@ describe("status command", () => {
     runGit(["commit", "--allow-empty", "-m", "init"], cwd);
 
     const spy = makeSpyOutput();
-    const exit = await statusCommand.run(makeContext({ cwd, out: spy.out }));
+    const exit = await runStatus(makeContext({ cwd, out: spy.out }), realGitDeps);
     expect(exit).toBe(0);
     const joined = spy.logs.join("\n");
     expect(joined).toMatch(/Branch: main/);
@@ -107,7 +119,7 @@ describe("status command", () => {
     // Don't commit — file.txt stays untracked.
 
     const spy = makeSpyOutput();
-    await statusCommand.run(makeContext({ cwd, out: spy.out }));
+    await runStatus(makeContext({ cwd, out: spy.out }), realGitDeps);
     const joined = spy.logs.join("\n");
     expect(joined).toMatch(/Changes:/);
     expect(joined).toMatch(/\?\? file\.txt/);

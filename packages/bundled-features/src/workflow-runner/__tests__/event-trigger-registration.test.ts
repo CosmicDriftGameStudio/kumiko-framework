@@ -57,6 +57,28 @@ describe("registerEventTrigger step validation", () => {
     expect(() => register(workflow)).toThrow(/uses step "callFeature"/);
   });
 
+  test("rejects a malformed sub-step with workflow name, path and index instead of skipping it", () => {
+    const workflow = eventWorkflow("reg-garbage", () => [
+      { kind: "workflow.retry", args: { times: 2, backoff: "linear", do: ["garbage"] } },
+    ]);
+
+    expect(() => register(workflow)).toThrow(
+      /workflow "reg-garbage" eventTrigger step\[0\] "workflow.retry" sub-path "do"\[0\] is not a step/,
+    );
+  });
+
+  test("accepts a valid pipeline nested two levels deep", () => {
+    const workflow = eventWorkflow("reg-nested", (r) => [
+      r.step.retry({
+        times: 2,
+        backoff: "linear",
+        do: [r.step.retry({ times: 1, backoff: "linear", do: [r.step.compute("z", () => 3)] })],
+      }),
+    ]);
+
+    expect(() => register(workflow)).not.toThrow();
+  });
+
   test("a closure that reads the event payload at build time fails loudly", () => {
     const workflow = defineWorkflow({
       name: "reg-payload-read",

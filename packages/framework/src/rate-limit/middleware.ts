@@ -197,11 +197,14 @@ export function createFailOpenReporter(
     lastWarnAt = nowMs;
     logger.warn("rate limiter unavailable, failing open", {
       label,
-      // ioredis errors can carry the command args, i.e. the bucket key with IP/target.
+      // ioredis errors can carry the command args, i.e. the bucket key. scrubLogText masks an e-mail
+      // address in it; the client IP stays in the line as an operational datum.
       error: scrubLogText(err instanceof Error ? err.message : String(err)),
     });
   };
 }
+
+const failClosedLogger = createFallbackLogger("rate-limit");
 
 function defaultOnFailClosed(label: string): (err: unknown) => void {
   return (err) => {
@@ -209,9 +212,11 @@ function defaultOnFailClosed(label: string): (err: unknown) => void {
     // signal, not something to swallow silently. Production deploys
     // override this with a structured logger; the default keeps the
     // noise visible if no logger is wired.
-    createFallbackLogger(`rate-limit ${label}`).error("fail-closed (refusing request)", {
-      // ioredis errors can carry the command args, i.e. the bucket key with IP/target.
-      error: err instanceof Error ? err.message : String(err),
+    failClosedLogger.error("fail-closed (refusing request)", {
+      label,
+      // ioredis errors can carry the command args, i.e. the bucket key. scrubLogText masks an e-mail
+      // address in it; the client IP stays in the line as an operational datum.
+      error: scrubLogText(err instanceof Error ? err.message : String(err)),
     });
   };
 }

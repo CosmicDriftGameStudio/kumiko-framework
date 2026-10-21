@@ -26,6 +26,7 @@ import {
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
   WorkflowStepError,
+  walkStepInstances,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { workflowRunAggregateId } from "./aggregate-id.ts";
@@ -51,18 +52,6 @@ const STEP_KINDS_NEEDING_HANDLER_CONTEXT: ReadonlySet<string> = new Set([
   "unsafeProjectionDelete",
 ]);
 
-function* walkStepInstances(steps: readonly StepInstance[]): Generator<StepInstance, void, void> {
-  for (const step of steps) {
-    yield step;
-    const { args } = step;
-    if (typeof args !== "object" || args === null) continue;
-    for (const path of getStep(step.kind)?.subPaths ?? []) {
-      const nested: unknown = path in args ? Reflect.get(args, path) : undefined;
-      if (Array.isArray(nested)) yield* walkStepInstances(nested);
-    }
-  }
-}
-
 export function assertEventTriggerStepsSupported(workflow: WorkflowDefinition): void {
   let steps: readonly StepInstance[];
   try {
@@ -80,7 +69,7 @@ export function assertEventTriggerStepsSupported(workflow: WorkflowDefinition): 
       { cause: error },
     );
   }
-  for (const step of walkStepInstances(steps)) {
+  for (const step of walkStepInstances(steps, `workflow "${workflow.name}" eventTrigger`)) {
     if (getStep(step.kind) === undefined) {
       throw new Error(`Workflow "${workflow.name}" uses unknown step kind "${step.kind}"`);
     }

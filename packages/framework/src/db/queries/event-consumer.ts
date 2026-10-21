@@ -199,7 +199,7 @@ export async function markConsumerProcessing(
 // repeated infra blips (the exact case this backoff exists for) dead-letter
 // the consumer on the next real handler failure instead of after
 // maxAttempts. Visibility is covered by last_error, updated_at, and the
-// caller's console.error — status and the cursor are left as-is too, since
+// caller's error log — status and the cursor are left as-is too, since
 // we don't know at this point whether the consumer should be "dead" (that's
 // the deliverEvents/maxAttempts contract, which never ran this pass).
 //

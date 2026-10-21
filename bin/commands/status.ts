@@ -4,14 +4,16 @@ import type { CommandContext } from "./types";
 
 type StatusDeps = {
   readonly probeDocker: (cwd: string) => Promise<RunResult>;
+  readonly runGit: (cwd: string, args: readonly string[]) => Promise<RunResult>;
 };
 
-const defaultStatusDeps: StatusDeps = {
+export const defaultStatusDeps: StatusDeps = {
   probeDocker: (cwd) =>
     run("docker", ["compose", "ps", "--format", "json"], {
       cwd,
       timeoutMs: DOCKER_PROBE_TIMEOUT_MS,
     }),
+  runGit: (cwd, args) => run("git", args, { cwd }),
 };
 
 export const statusCommand = defineCommand({
@@ -49,12 +51,12 @@ export async function runStatus(
 
   ctx.out.log("");
   ctx.out.log("--- Git ---");
-  const branch = await run("git", ["branch", "--show-current"], { cwd: ctx.cwd });
+  const branch = await deps.runGit(ctx.cwd, ["branch", "--show-current"]);
   if (branch.status !== 0) {
     ctx.out.log("  Not a git repository");
     return 0;
   }
-  const statusRes = await run("git", ["status", "--short"], { cwd: ctx.cwd });
+  const statusRes = await deps.runGit(ctx.cwd, ["status", "--short"]);
   ctx.out.log(`  Branch: ${branch.stdout.trim()}`);
   const changes = statusRes.stdout.trim();
   if (changes) {

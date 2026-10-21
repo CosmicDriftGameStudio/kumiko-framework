@@ -9,7 +9,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import type { DbRunner } from "../../db/connection.ts";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { asRawClient, runInSavepoint, selectMany } from "../../db/query.ts";
@@ -468,7 +467,7 @@ const featureA = defineFeature("intakea", (r) => {
       const raw = ctx.db.unsafeRaw();
       await runInSavepoint(raw, async (sp) => {
         await createTenantDb({
-          db: sp as DbRunner,
+          db: sp,
           tenantId: event.user.tenantId,
           mode: "system",
         }).insertOne(contactDirectTable, {
@@ -490,7 +489,7 @@ const featureA = defineFeature("intakea", (r) => {
       const raw = ctx.db.unsafeRaw();
       await runInSavepoint(raw, async (sp) => {
         await createTenantDb({
-          db: sp as DbRunner,
+          db: sp,
           tenantId: event.user.tenantId,
           mode: "system",
         }).insertOne(contactDirectTable, {

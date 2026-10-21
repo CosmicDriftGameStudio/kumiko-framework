@@ -114,9 +114,10 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
       // skip: sibling pod already built a valid index — this race loser is done.
       if ((await indexValidity(client)) === true) return;
       log.warn(
-        `ensureIdempotencyKeyIndex: backed off on a "benign" race (${String(e)}) but ` +
+        `ensureIdempotencyKeyIndex: backed off on a "benign" race but ` +
           `"events_idempotency_uq" is still missing/invalid afterward — likely a ` +
           `lock_timeout during CREATE INDEX CONCURRENTLY, not an actual winner/loser race.`,
+        { err: e },
       );
       throw e;
     }

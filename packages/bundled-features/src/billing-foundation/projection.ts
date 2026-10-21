@@ -38,11 +38,11 @@ export const paymentsProjectionTable = buildEntityTable("payment", paymentEntity
 
 // Unbranded metas: the apply functions below ARE the executor of these
 // projections, so they may write through the typed helpers.
-const subscriptionsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+export const subscriptionsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
   subscriptionsProjectionTable,
   "subscription",
 );
-const paymentsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+export const paymentsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
   paymentsProjectionTable,
   "payment",
 );

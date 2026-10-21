@@ -21,7 +21,7 @@
 
 import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { connect } from "node:net";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { type Browser, chromium, type Page } from "playwright";

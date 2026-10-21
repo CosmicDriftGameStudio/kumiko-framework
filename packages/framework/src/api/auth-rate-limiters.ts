@@ -121,7 +121,7 @@ export function createRedisLoginRateLimiter(
         redisKey,
         windowMs,
       );
-      const attempts = typeof count === "string" ? Number(count) : count;
+      const attempts = typeof count === "string" && /^\d+$/.test(count) ? Number(count) : count;
       if (typeof attempts !== "number" || !Number.isInteger(attempts)) {
         throw new TypeError(`redis INCR script returned ${String(count)}, expected an integer`);
       }

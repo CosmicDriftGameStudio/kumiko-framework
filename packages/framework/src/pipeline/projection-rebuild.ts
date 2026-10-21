@@ -207,7 +207,7 @@ function warnOnColumnDrift(
       ? `${drift.rowCount} (sample truncated)`
       : String(drift.rowCount);
   log.warn(
-    `projection-rebuild "${projectionName}": ${countLabel} live row(s) in "${tableName}" have ` +
+    `projection "${projectionName}": ${countLabel} live row(s) in "${tableName}" have ` +
       `column values that differ from the freshly-replayed shadow (sample: ${drift.sample.join(", ")}). ` +
       "Not blocking — replay wins on swap. Likely cause: a legacy direct-write predating the row's " +
       "event history (#494), or a sensitive custom field pending #972. Investigate if unexpected.",

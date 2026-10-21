@@ -347,6 +347,130 @@ describe("validateProjectionAllowlist", () => {
     );
   });
 
+  describe("fail-closed walk over malformed sub-steps", () => {
+    const registerSubPathKind = (): string => {
+      const kind = `test:sub-walker:${randomUUID()}`;
+      defineStep({
+        kind,
+        defaultFailureStrategy: "throw",
+        subPaths: ["children"],
+        run: () => undefined,
+      });
+      return kind;
+    };
+
+    const featureWithArgs = (kind: string, args: unknown) =>
+      defineFeature(`vproj-malformed-${randomUUID()}`, (r) => {
+        r.writeHandler(
+          defineWriteHandler({
+            name: "malformed",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              // Hand-crafted instance: args shape is deliberately outside the typed builders.
+              { kind, args },
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+    it("throws with path and index when a malformed entry precedes an undeclared nested unsafeProjection", () => {
+      const kind = registerSubPathKind();
+      const feature = defineFeature(`vproj-malformed-first-${randomUUID()}`, (r) => {
+        r.writeHandler(
+          defineWriteHandler({
+            name: "malformed",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              {
+                kind,
+                args: {
+                  children: [
+                    "garbage",
+                    r.step.unsafeProjectionUpsert({
+                      table: demoLogTable,
+                      on: ["id"],
+                      row: () => ({ message: "x" }),
+                    }),
+                  ],
+                },
+              },
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+      expect(() => validateProjectionAllowlist([feature])).toThrow(
+        /step\[0\] "test:sub-walker:[^"]+" sub-path "children"\[0\] is not a step/,
+      );
+    });
+
+    it("throws when a later entry is malformed even though an earlier nested unsafeProjection is valid", () => {
+      const kind = registerSubPathKind();
+      const feature = defineFeature(`vproj-malformed-late-${randomUUID()}`, (r) => {
+        r.requires.projection("validate_demo_log");
+        r.writeHandler(
+          defineWriteHandler({
+            name: "malformed",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              {
+                kind,
+                args: {
+                  children: [
+                    r.step.unsafeProjectionUpsert({
+                      table: demoLogTable,
+                      on: ["id"],
+                      row: () => ({ message: "x" }),
+                    }),
+                    { kind: 42 },
+                  ],
+                },
+              },
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+      expect(() => validateProjectionAllowlist([feature])).toThrow(/"children"\[1\] is not a step/);
+    });
+
+    it("throws when a step with sub-paths has non-object args", () => {
+      const kind = registerSubPathKind();
+      const feature = featureWithArgs(kind, "nope");
+
+      expect(() => validateProjectionAllowlist([feature])).toThrow(/args is not an object/);
+    });
+
+    it("throws when a sub-path is not a list", () => {
+      const kind = registerSubPathKind();
+      const feature = featureWithArgs(kind, { children: { kind: "x" } });
+
+      expect(() => validateProjectionAllowlist([feature])).toThrow(
+        /sub-path "children" must be a list of steps/,
+      );
+    });
+
+    it("accepts an absent optional sub-path", () => {
+      const kind = registerSubPathKind();
+      const feature = featureWithArgs(kind, {});
+
+      expect(() => validateProjectionAllowlist([feature])).not.toThrow();
+    });
+
+    it("treats a null optional sub-path like an absent one", () => {
+      const kind = registerSubPathKind();
+      const feature = featureWithArgs(kind, { children: null });
+
+      expect(() => validateProjectionAllowlist([feature])).not.toThrow();
+    });
+  });
+
   it("rejects two features registering r.entity on the same table (#8)", () => {
     // Without this guard, the second r.entity() silently overwrites the
     // first in the validator's aggregate-tables map — and a later

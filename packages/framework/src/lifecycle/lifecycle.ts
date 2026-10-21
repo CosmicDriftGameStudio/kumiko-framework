@@ -30,7 +30,7 @@ export type LifecycleOptions = {
   /** @internal Test-only clock injection for deterministic uptimeSec assertions. */
   readonly now?: () => number;
   // Structured logger for hook / listener failures. Falls back to
-  // console.error when absent — matches the pattern in pipeline/lifecycle-pipeline.ts
+  // the process logger when absent — matches the pattern in pipeline/lifecycle-pipeline.ts
   // so one-file scripts and test setups don't need to wire a logger.
   readonly logger?: Pick<Logger, "error">;
 };

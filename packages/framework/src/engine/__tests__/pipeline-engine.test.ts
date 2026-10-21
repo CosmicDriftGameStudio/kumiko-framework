@@ -6,6 +6,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import * as z from "zod";
+import { InternalError } from "../../errors/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineWriteHandler } from "../define-handler.ts";
 import { defineStep } from "../define-step.ts";
@@ -211,5 +212,46 @@ describe("pipeline engine (return / compute / registry guards)", () => {
     expect(() =>
       defineStep({ kind, defaultFailureStrategy: "throw", run: () => "different" }),
     ).toThrow(/already registered/);
+  });
+
+  it("rejects a return step whose resolver yields something that is not a WriteResult", async () => {
+    const handlerDef = defineWriteHandler({
+      name: "demo:bad-return",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
+        // JSON.parse yields an untyped value, which stands in for a JS caller that skipped the types.
+        r.step.return(() => JSON.parse('{"id":1}')),
+      ]),
+    });
+
+    const failure = await handlerDef
+      .handler({ type: "demo:bad-return", payload: {}, user: TestUsers.admin }, buildMinimalCtx())
+      .catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(InternalError);
+    expect(failure).toMatchObject({
+      message: expect.stringContaining(
+        'Step "return" at index 0 must return a WriteResult, got object with keys [id]',
+      ),
+    });
+  });
+
+  it("accepts a return step whose resolver yields a failure WriteResult", async () => {
+    const handlerDef = defineWriteHandler({
+      name: "demo:failure-return",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
+        r.step.return(() => JSON.parse('{"isSuccess":false,"error":{"code":"x"}}')),
+      ]),
+    });
+
+    const result = await handlerDef.handler(
+      { type: "demo:failure-return", payload: {}, user: TestUsers.admin },
+      buildMinimalCtx(),
+    );
+
+    expect(result.isSuccess).toBe(false);
   });
 });

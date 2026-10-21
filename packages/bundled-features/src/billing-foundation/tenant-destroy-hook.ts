@@ -1,10 +1,9 @@
-import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.ts";
 import { PAYMENT_AGGREGATE_TYPE, SUBSCRIPTION_AGGREGATE_TYPE } from "./events.ts";
-import { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.ts";
+import { paymentsProjectionMeta, subscriptionsProjectionMeta } from "./projection.ts";
 
 // providerCustomerId/providerSubscriptionId are `personal: "tenant"` on the
 // entity (envelope-encrypted with the tenant subject key, see entities.ts) —
@@ -12,10 +11,6 @@ import { paymentsProjectionTable, subscriptionsProjectionTable } from "./project
 // can not: it needs the accounting facts (status/tier/period) to survive, so
 // it redacts the projection row directly instead of relying on key erasure.
 const REDACTED_PII_VALUE = "[erased]";
-
-const subscriptionsTable = () =>
-  requireEntityTableMeta(subscriptionsProjectionTable, "billing-subscriptions");
-const paymentsTable = () => requireEntityTableMeta(paymentsProjectionTable, "billing-payments");
 
 // Compliance-profile lookup and event-stream archive both sit outside TenantDb's own methods — need the escape hatch.
 export const SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON =
@@ -36,12 +31,12 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
   const aggregateId = subscriptionAggregateId(ctx.tenantId);
   if (profile.key === "de-hr-dsgvo-hgb") {
     await ctx.db.updateMany(
-      subscriptionsTable(),
+      subscriptionsProjectionMeta,
       { providerCustomerId: REDACTED_PII_VALUE, providerSubscriptionId: REDACTED_PII_VALUE },
       { id: aggregateId },
     );
   } else {
-    await ctx.db.deleteMany(subscriptionsTable(), { id: aggregateId });
+    await ctx.db.deleteMany(subscriptionsProjectionMeta, { id: aggregateId });
   }
   await archiveStream(ctx.db.unsafeRaw(), {
     tenantId: ctx.tenantId,
@@ -66,12 +61,12 @@ export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<
   const aggregateId = paymentAggregateId(ctx.tenantId);
   if (profile.key === "de-hr-dsgvo-hgb") {
     await ctx.db.updateMany(
-      paymentsTable(),
+      paymentsProjectionMeta,
       { providerCustomerId: REDACTED_PII_VALUE },
       { tenantId: ctx.tenantId },
     );
   } else {
-    await ctx.db.deleteMany(paymentsTable(), {
+    await ctx.db.deleteMany(paymentsProjectionMeta, {
       tenantId: ctx.tenantId,
     });
   }

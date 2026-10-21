@@ -83,7 +83,6 @@ export async function runInMemberReadOnlyTransaction<T>(
     }
     // Savepoint even on the pool path: Postgres rejects a READ WRITE reset (SQLSTATE 25001) inside a subtransaction.
     return await transaction(pool, (outer) =>
-      // @cast-boundary driver begin() handle — structurally a DbTx, same shape runInSavepoint's caller relies on
       runInDiscardedReadOnlySavepoint(outer, timeoutMs, true, fn),
     );
   } catch (e) {

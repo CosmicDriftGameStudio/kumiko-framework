@@ -22,12 +22,12 @@ export function requireArgument<T>(
   return value;
 }
 
-// `optionalRequires` and `readConfig` still accept variadic strings next to a
-// single object wrapping the same string array under `key`.
 function isStringList(args: readonly unknown[]): args is readonly string[] {
   return args.every((arg) => typeof arg === "string");
 }
 
+// `optionalRequires` and `readConfig` still accept variadic strings next to a
+// single object wrapping the same string array under `key`.
 export function unwrapArrayForm<K extends string>(
   args: readonly [Record<K, readonly string[]>] | readonly string[],
   key: K,

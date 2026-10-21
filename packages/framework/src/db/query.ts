@@ -148,7 +148,7 @@ export function runInSavepoint<T>(
   tx: ExecutorManagedRunner,
   fn: (sp: ExecutorManagedRunner) => Promise<T>,
 ): Promise<T>;
-export function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promise<T>): Promise<T>;
+export function runInSavepoint<T>(tx: unknown, fn: (sp: DbRunner) => Promise<T>): Promise<T>;
 export async function runInSavepoint<T, TRunner extends DbRunner>(
   tx: unknown,
   fn: (sp: TRunner) => Promise<T>,

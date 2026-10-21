@@ -51,7 +51,9 @@ describe("default rate-limit failure logging", () => {
     expect(errorSpy).toHaveBeenCalledTimes(1);
     const logged = errorSpy.mock.calls[0] ?? [];
     expect(logged.some((arg) => JSON.stringify(arg)?.includes(CLIENT_IP))).toBe(false);
-    expect(logged).toContainEqual({ error: "connection refused" });
+    expect(logged[0]).toBe("[rate-limit] fail-closed (refusing request)");
+    expect(logged[1]).toMatchObject({ error: "connection refused" });
+    expect(logged[1]).toHaveProperty("label");
   });
 
   test("L1 fails open and its warn carries only the error message", async () => {

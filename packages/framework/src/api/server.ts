@@ -390,6 +390,7 @@ function assertNoPayloadRateLimitsWithoutResolver(registry: Registry): void {
 
 export function buildServer(options: ServerOptions): KumikoServer {
   assertSeedModeNotInProduction();
+  const bootLog = createFallbackLogger("kumiko:boot", options.context.log);
   // Single effective hop-count for every IP-derived rate-limit + requestMeta
   // below — the top-level option wins over the deprecated
   // `auth.trustedProxyHops` fallback.
@@ -1520,7 +1521,6 @@ type WebSocketRouteHandlerDeps = {
   readonly connectionLimiter: WebSocketConnectionLimiter;
 };
 
-const bootLog = createFallbackLogger("kumiko:boot");
 const webSocketLog = createFallbackLogger("websocket");
 const extraRouteLog = createFallbackLogger("extra-route");
 

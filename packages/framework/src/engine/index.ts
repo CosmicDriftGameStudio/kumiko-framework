@@ -713,4 +713,5 @@ export type {
   StepResolver,
 } from "./types/step.ts";
 export { runValidation } from "./validation.ts";
+export { walkStepInstances } from "./walk-step-instances.ts";
 export { formDerivationsOfSchema, withFormDerivations } from "./with-form-derivations.ts";

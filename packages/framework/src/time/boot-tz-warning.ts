@@ -14,6 +14,7 @@ function resolvedServerTimeZone(): string {
  */
 export function warnIfNonUtcServerTimeZone(
   resolvedTimeZone: string = resolvedServerTimeZone(),
+  // biome-ignore lint/suspicious/noConsole: runs before any logger exists; the default is the only console sink
   warn: (message: string) => void = console.warn,
 ): boolean {
   // GMT and Etc/UTC are UTC-equivalent (no offset, no DST) — TZ=GMT is a
