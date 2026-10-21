@@ -16,17 +16,18 @@ Each package keeps its own changelog, generated on every release:
 | `@cosmicdrift/kumiko-bundled-features` | [packages/bundled-features/CHANGELOG.md](packages/bundled-features/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-server-runtime` | [packages/server-runtime/CHANGELOG.md](packages/server-runtime/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-dev-server` | [packages/dev-server/CHANGELOG.md](packages/dev-server/CHANGELOG.md) |
-| `@cosmicdrift/kumiko-http` | [packages/http/CHANGELOG.md](packages/http/CHANGELOG.md) |
-| `@cosmicdrift/kumiko-dispatcher-live` | [packages/dispatcher-live/CHANGELOG.md](packages/dispatcher-live/CHANGELOG.md) |
-| `@cosmicdrift/kumiko-headless` | [packages/headless/CHANGELOG.md](packages/headless/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-renderer` | [packages/renderer/CHANGELOG.md](packages/renderer/CHANGELOG.md) |
-| `@cosmicdrift/kumiko-renderer-web` | [packages/renderer-web/CHANGELOG.md](packages/renderer-web/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-renderer-mail-html` | [packages/renderer-mail-html/CHANGELOG.md](packages/renderer-mail-html/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-renderer-puppeteer-client` | [packages/renderer-puppeteer-client/CHANGELOG.md](packages/renderer-puppeteer-client/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-document-designer` | [packages/document-designer/CHANGELOG.md](packages/document-designer/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-locale-de` | [packages/locale-de/CHANGELOG.md](packages/locale-de/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-locale-es` | [packages/locale-es/CHANGELOG.md](packages/locale-es/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-locale-fr` | [packages/locale-fr/CHANGELOG.md](packages/locale-fr/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-locale-it` | [packages/locale-it/CHANGELOG.md](packages/locale-it/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-cli` | [packages/cli/CHANGELOG.md](packages/cli/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-testing` | [packages/testing/CHANGELOG.md](packages/testing/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-guards` | [packages/guards/CHANGELOG.md](packages/guards/CHANGELOG.md) |
-| `@cosmicdrift/kumiko-repo-manifest` | [packages/repo-manifest/CHANGELOG.md](packages/repo-manifest/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-samples` | [packages/samples/CHANGELOG.md](packages/samples/CHANGELOG.md) |
 | `create-kumiko-app` | [packages/create-kumiko-app/CHANGELOG.md](packages/create-kumiko-app/CHANGELOG.md) |
 
 Most API changes land in `kumiko-framework`, `kumiko-types` and

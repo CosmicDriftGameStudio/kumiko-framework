@@ -432,8 +432,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (!options.context.searchAdapter) {
     const unwiredEntities = entitiesWithSearchableScreen(options.registry);
     if (unwiredEntities.length > 0) {
-      console.warn(
-        `[kumiko:boot] ${unwiredEntities.length} entit${unwiredEntities.length === 1 ? "y" : "ies"} ` +
+      bootLog.warn(
+        `${unwiredEntities.length} entit${unwiredEntities.length === 1 ? "y" : "ies"} ` +
           `have a searchable list screen but no SearchAdapter is wired on context.searchAdapter: ` +
           `${unwiredEntities.join(", ")}. Search requests against ${unwiredEntities.length === 1 ? "it" : "them"} will fail with a 422 (search_adapter_not_wired) at runtime. ` +
           "Wire a SearchAdapter (e.g. createMeilisearchAdapter) on context.searchAdapter, or remove `searchable: true` from the affected fields.",
@@ -464,8 +464,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
     sseBroker = defaults.sseBroker;
     ownedRedisSseBroker = defaults.ownedRedisSseBroker;
     if (!ownedRedisSseBroker) {
-      console.warn(
-        "[kumiko:boot] REDIS_URL is not set: cross-replica fanout disabled. SSE, access-invalidation and toggle-sync reach only the cursor-owning process, so with more than one replica clients on the other replicas miss events and revoked sessions stay open there.",
+      bootLog.warn(
+        "REDIS_URL is not set: cross-replica fanout disabled. SSE, access-invalidation and toggle-sync reach only the cursor-owning process, so with more than one replica clients on the other replicas miss events and revoked sessions stay open there.",
       );
     }
   }
@@ -502,8 +502,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const instanceIdWasRandom =
     options.instanceId === undefined && !process.env["KUMIKO_INSTANCE_ID"];
   if (instanceIdWasRandom) {
-    console.warn(
-      `[kumiko:boot] No ServerOptions.instanceId / KUMIKO_INSTANCE_ID set — generated a random UUID (${resolvedInstanceId}). ` +
+    bootLog.warn(
+      `No ServerOptions.instanceId / KUMIKO_INSTANCE_ID set — generated a random UUID (${resolvedInstanceId}). ` +
         `SSE no longer needs a per-instance cursor, but the id labels this process in the app.started event and in per-instance consumers; without a stable id each restart leaves an orphaned cursor-row behind for those and pins events-retention on its last cursor. ` +
         `Set KUMIKO_INSTANCE_ID to the pod name (e.g. from the Kubernetes downward API metadata.name) in production.`,
     );
@@ -582,8 +582,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
       )
       .map((feature) => feature.name);
     if (unlimitedSystemScopeFeatures.length > 0) {
-      console.warn(
-        `[kumiko:boot] r.systemScope() features have handlers but no RateLimitResolver is configured, ` +
+      bootLog.warn(
+        `r.systemScope() features have handlers but no RateLimitResolver is configured, ` +
           `so their default rate limit is not enforced: ${unlimitedSystemScopeFeatures.join(", ")}. ` +
           "Wire a Redis client on context.redis and declare rateLimit on at least one handler (or pass " +
           "context.rateLimit) to enable the resolver.",
@@ -841,8 +841,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (options.metrics) {
     registerMetricsRoute(app, observability.meter, options.metrics);
   } else if (process.env["NODE_ENV"] === "production") {
-    console.warn(
-      "[kumiko:boot] /metrics is off: no `metrics` option, so nothing is measured or scraped. " +
+    bootLog.warn(
+      "/metrics is off: no `metrics` option, so nothing is measured or scraped. " +
         "Set PROMETHEUS_METRICS_TOKEN (min 32 chars) and spread resolveObservabilityWiring(token) into the server options.",
     );
   }
@@ -1520,6 +1520,7 @@ type WebSocketRouteHandlerDeps = {
   readonly connectionLimiter: WebSocketConnectionLimiter;
 };
 
+const bootLog = createFallbackLogger("kumiko:boot");
 const webSocketLog = createFallbackLogger("websocket");
 const extraRouteLog = createFallbackLogger("extra-route");
 

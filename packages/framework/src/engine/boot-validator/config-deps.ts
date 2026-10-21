@@ -1,6 +1,9 @@
 import { optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
+import { createFallbackLogger } from "../../logging/utils.ts";
 import { isEncryptedAtRest } from "../config-helpers.ts";
 import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 // --- Toggleable-dependency warnings ---
 //
@@ -19,9 +22,8 @@ export function warnOnToggleableDependencies(
       const depFeature = featureMap.get(dep);
       if (!depFeature) continue; // requires-target-missing is handled elsewhere
       if (depFeature.toggleableDefault === false) {
-        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-        console.warn(
-          `[kumiko:boot] Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
+        log.warn(
+          `Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
             `"${f.name}" will be effectively disabled until "${dep}" is enabled globally via the feature-toggles feature. ` +
             `If this is intentional, ignore this warning; otherwise consider r.optionalRequires() or default=true.`,
         );

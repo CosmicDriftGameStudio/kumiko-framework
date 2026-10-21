@@ -1,4 +1,7 @@
 import type { Context } from "hono";
+import { createFallbackLogger } from "../logging/utils.ts";
+
+const log = createFallbackLogger("kumiko");
 
 // Single source for client-IP extraction, shared by every IP-keyed rate
 // limit and audit field. Deriving the caller IP independently per call site
@@ -95,8 +98,8 @@ export function createClientIpResolver(
     if (trustedProxyHops === 0) {
       if (xff !== undefined && xff.trim().length > 0 && !warnedUnexpectedForwardedFor) {
         warnedUnexpectedForwardedFor = true;
-        console.warn(
-          "[kumiko] received X-Forwarded-For but trustedProxyHops is 0 (no proxy trusted) — " +
+        log.warn(
+          "received X-Forwarded-For but trustedProxyHops is 0 (no proxy trusted) — " +
             "ignoring it. Running behind a proxy? Set trustedProxyHops, otherwise all clients " +
             "share one rate-limit bucket.",
         );

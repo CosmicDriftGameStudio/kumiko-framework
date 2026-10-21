@@ -5,7 +5,8 @@
 // nicht divergieren (Log-Parser/Grep-Konsistenz).
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
-import { createFallbackLogger } from "../utils.ts";
+import type { Logger } from "../types.ts";
+import { createFallbackLogger, setProcessLogger } from "../utils.ts";
 
 describe("createFallbackLogger", () => {
   describe("mit wrapped logger", () => {
@@ -83,6 +84,42 @@ describe("createFallbackLogger", () => {
         expect(spy).toHaveBeenCalledTimes(1);
         expect(spy).toHaveBeenCalledWith("[boot] no logger wired", { phase: "init" });
       } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
+  describe("Prozess-Logger wechselt nach erster Nutzung", () => {
+    const recordingLogger = (calls: string[]): Logger => {
+      const logger: Logger = {
+        info: (msg) => void calls.push(`info:${msg}`),
+        warn: (msg) => void calls.push(`warn:${msg}`),
+        error: (msg) => void calls.push(`error:${msg}`),
+        debug: (msg) => void calls.push(`debug:${msg}`),
+        child: () => logger,
+      };
+      return logger;
+    };
+
+    test("folgt dem aktuellen Prozess-Logger und fällt nach null auf console zurück", () => {
+      const first: string[] = [];
+      const second: string[] = [];
+      const spy = spyOn(console, "info").mockImplementation(() => {});
+      try {
+        const fallback = createFallbackLogger("switch");
+
+        setProcessLogger(recordingLogger(first));
+        fallback.info("one");
+        setProcessLogger(recordingLogger(second));
+        fallback.info("two");
+        setProcessLogger(null);
+        fallback.info("three");
+
+        expect(first).toEqual(["info:one"]);
+        expect(second).toEqual(["info:two"]);
+        expect(spy).toHaveBeenCalledWith("[switch] three", undefined);
+      } finally {
+        setProcessLogger(null);
         spy.mockRestore();
       }
     });

@@ -26,6 +26,7 @@ import type { DbConnection, DbRunner } from "../db/index.ts";
 import { acquireEsOpsAdvisoryLock, esOperationExists } from "../db/queries/es-ops.ts";
 import { insertOne, selectMany } from "../db/query.ts";
 import type { Registry } from "../engine/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import { esOperationsTable } from "./operations-schema.ts";
 import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "./types.ts";
 
@@ -56,10 +57,8 @@ export type RunPendingSeedMigrationsResult = {
   readonly skippedIds: readonly string[];
 };
 
-const DEFAULT_LOGGER = (line: string): void => {
-  // biome-ignore lint/suspicious/noConsole: boot-time-output, kein Logger-Inject hier
-  console.log(line);
-};
+const bootLog = createFallbackLogger("kumiko:boot");
+const DEFAULT_LOGGER = (line: string): void => bootLog.info(line);
 
 const LOG_PREFIX = "[es-ops/seed-migration]";
 

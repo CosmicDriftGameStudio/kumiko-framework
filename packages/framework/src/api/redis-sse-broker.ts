@@ -1,4 +1,5 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { createFallbackLogger } from "../logging/utils.ts";
 import {
   type RedisClientOptions,
   redisChannelPrefixFromEnv,
@@ -12,6 +13,8 @@ import {
   type SseBroker,
   type SseEvent,
 } from "./sse-broker.ts";
+
+const log = createFallbackLogger("kumiko:sse-broker");
 
 // Channel namespace for cross-replica fanout (fw#2625). Every pod publishes
 // here and every pod's psubscribe listens here, so a push on one instance
@@ -147,7 +150,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
   signal.onMessage((channel, payload) => {
     if (channel.startsWith(channelPrefix)) {
       if (!isSseEvent(payload)) {
-        console.error(`[kumiko:sse-broker] dropping malformed event on "${channel}"`);
+        log.error(`dropping malformed event on "${channel}"`);
         // skip: malformed payload already logged above, nothing to deliver
         return;
       }

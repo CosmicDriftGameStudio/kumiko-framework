@@ -3,7 +3,10 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { NotFoundError } from "../errors/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
+
+const log = createFallbackLogger("kumiko");
 
 // 429 comes from the per-route rate limit; handler errors map to the rest.
 export type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
@@ -98,9 +101,7 @@ export function registerTokenRequestRoute(opts: {
     // rate_limited is an expected, attacker-triggerable outcome; logging it
     // would flood the sink and bury real misconfiguration errors.
     if (!result.isSuccess && result.error.code !== "rate_limited") {
-      console.error(
-        `[kumiko] token request handler "${opts.requestHandler}" failed: ${result.error.code}`,
-      );
+      log.error(`token request handler "${opts.requestHandler}" failed: ${result.error.code}`);
     }
 
     return c.json({ isSuccess: true });

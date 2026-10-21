@@ -103,9 +103,9 @@
     },
     {
       "includes": [
-        "packages/framework/src/api/**",
-        "packages/framework/src/pipeline/**",
-        "packages/framework/src/db/**",
+        "packages/framework/src/engine/codemod/pipeline-codemod.ts",
+        "packages/framework/src/logging/utils.ts",
+        "packages/framework/src/time/boot-tz-warning.ts",
         "packages/create-kumiko-app/**",
         "packages/guards/**",
         "packages/dev-server/src/schema-apply.ts",

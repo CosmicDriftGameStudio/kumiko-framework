@@ -1,3 +1,4 @@
+import { createFallbackLogger } from "../logging/utils.ts";
 import type { FieldDefinition, SelectFieldDef } from "./types/fields.ts";
 import type {
   ActionFormScreenDefinition,
@@ -17,6 +18,8 @@ import type {
   SecretMintScreenDefinition,
   ToolbarAction,
 } from "./types/screen.ts";
+
+const log = createFallbackLogger("kumiko");
 
 // Entity name the renderer gives the synthesized entity of an actionForm, secretMint or confirm
 // step. It is not registered, so nothing server-side may treat it as a real entity.
@@ -157,9 +160,8 @@ export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, 
     col.renderer !== undefined &&
     typeof col.renderer === "function"
   ) {
-    // biome-ignore lint/suspicious/noConsole: dev-only warning
-    console.warn(
-      `[kumiko] normalizeListColumn: Feld "${col.field}" hat einen Funktions-Renderer — dieser wird von JSON.stringify verworfen. Bitte auf FormatSpec ({ format: "..." }) migrieren.`,
+    log.warn(
+      `normalizeListColumn: Feld "${col.field}" hat einen Funktions-Renderer — dieser wird von JSON.stringify verworfen. Bitte auf FormatSpec ({ format: "..." }) migrieren.`,
     );
   }
   return col;

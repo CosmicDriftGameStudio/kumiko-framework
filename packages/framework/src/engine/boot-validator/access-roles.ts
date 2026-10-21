@@ -1,5 +1,8 @@
+import { createFallbackLogger } from "../../logging/utils.ts";
 import { normalizeAccessEntry } from "../ownership.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 const BUILTIN_ROLES = new Set(["all", "system"]);
 
@@ -75,9 +78,8 @@ export function warnOnUniqueAccessRoles(features: readonly FeatureDefinition[]):
     if (BUILTIN_ROLES.has(role)) continue;
     if (handlers.size !== 1) continue;
     const [identifier] = handlers;
-    // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-    console.warn(
-      `[kumiko:boot] Access role "${role}" is only used by one handler (${identifier}). ` +
+    log.warn(
+      `Access role "${role}" is only used by one handler (${identifier}). ` +
         `This is often a typo — the role is unknown to every other handler in the boot scan. ` +
         `If this is intentional, ignore this warning.`,
     );

@@ -2,6 +2,7 @@
 // Signal wiring lives in signal-handlers.ts; v1 scope in architecture/lifecycle.md.
 
 import type { Logger } from "../logging/types.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 
 export type LifecycleState = "starting" | "ready" | "draining" | "stopped";
 
@@ -149,9 +150,6 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
 function makeErrorLogger(
   logger: Pick<Logger, "error"> | undefined,
 ): (msg: string, err: unknown) => void {
-  if (logger) {
-    return (msg, err) => logger.error(`[lifecycle] ${msg}`, { err });
-  }
-  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-  return (msg, err) => console.error(`[lifecycle] ${msg}:`, err);
+  const log = createFallbackLogger("lifecycle", logger);
+  return (msg, err) => log.error(msg, { err });
 }

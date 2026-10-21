@@ -1,3 +1,4 @@
+import { createFallbackLogger } from "../../logging/utils.ts";
 import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import {
@@ -5,6 +6,8 @@ import {
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
 } from "./entity-handler.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 // Framework-managed Timestamp-Spalten — dürfen als retention.reference
 // genutzt werden auch wenn nicht in entity.fields deklariert.
@@ -312,9 +315,8 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           const refTarget = ownerField.entity;
           const targetEntity = refTarget.includes(":") ? refTarget.split(":")[1] : refTarget;
           if (targetEntity !== "user") {
-            // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-            console.warn(
-              `[kumiko:boot] [Feature ${feature.name}] personal.of "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
+            log.warn(
+              `[Feature ${feature.name}] personal.of "${ownerName}" on entity "${entityName}" targets reference "${refTarget}" — typically should be a user reference. If intentional (custom subject-entity like employee/patient), ignore.`,
             );
           }
         }
@@ -328,28 +330,24 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (noAnnotation) {
         const lower = fieldName.toLowerCase();
         if (FILE_FIELD_TYPES.has(field.type)) {
-          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-          console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] File field "${fieldName}" on entity "${entityName}" has no personal annotation. A forget with strategy "delete" then only severs the uploader link and keeps the binary. If the file holds personal data, mark it { personal: "self" } or { personal: { of: "<ownerField>" } }. If it is business data, set { personal: false, reason: "is_business_data" } to silence.`,
+          log.warn(
+            `[Feature ${feature.name}] File field "${fieldName}" on entity "${entityName}" has no personal annotation. A forget with strategy "delete" then only severs the uploader link and keeps the binary. If the file holds personal data, mark it { personal: "self" } or { personal: { of: "<ownerField>" } }. If it is business data, set { personal: false, reason: "is_business_data" } to silence.`,
           );
         } else if (PII_DIRECT_NAME_HINTS.has(lower)) {
-          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-          console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a PII-typical name but no personal annotation. If this is PII, mark it { personal: "self", find: ... }. If business data, set { personal: false, reason: "is_business_data" } to silence.`,
+          log.warn(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a PII-typical name but no personal annotation. If this is PII, mark it { personal: "self", find: ... }. If business data, set { personal: false, reason: "is_business_data" } to silence.`,
           );
         } else if (PII_USER_OWNED_NAME_HINTS.has(lower)) {
-          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-          console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no personal annotation. If this contains user-generated content, mark it { personal: { of: "<authorIdField>" }, find: ... }. If business data, set { personal: false, reason: "..." } to silence.`,
+          log.warn(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no personal annotation. If this contains user-generated content, mark it { personal: { of: "<authorIdField>" }, find: ... }. If business data, set { personal: false, reason: "..." } to silence.`,
           );
         } else if (
           PII_USER_REFERENCE_NAME_HINTS.has(lower) &&
           !annot.subjectRef &&
           !personalOfOwnerFieldNames.has(fieldName)
         ) {
-          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-          console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
+          log.warn(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
           );
         }
       }
@@ -359,9 +357,8 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
     const retention = entity.retention;
     if (retention) {
       if (!KEEP_FOR_PATTERN.test(retention.keepFor)) {
-        // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-        console.warn(
-          `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" has an invalid format. Expected: <number><h|d|w|m|y> (e.g. "30d", "10y", "6m"). The cleanup job cannot parse anything else; fix keepFor.`,
+        log.warn(
+          `[Feature ${feature.name}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" has an invalid format. Expected: <number><h|d|w|m|y> (e.g. "30d", "10y", "6m"). The cleanup job cannot parse anything else; fix keepFor.`,
         );
       }
 
@@ -386,9 +383,8 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           return Boolean(a.anonymize);
         });
         if (entityHasAnonymizableField && !hasAnonymize) {
-          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-          console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. Once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
+          log.warn(
+            `[Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. Once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
           );
         }
       }

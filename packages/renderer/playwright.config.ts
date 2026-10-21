@@ -8,7 +8,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_PORTS } from "../../samples/e2e/e2e-ports";
 
-const PORT = E2E_PORTS["framework/renderer-web"];
+const PORT = E2E_PORTS["framework/renderer"];
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({

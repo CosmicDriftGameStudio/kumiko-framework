@@ -454,6 +454,9 @@ describe("nav access inversion warning (fw#2640)", () => {
     warnSpy.mockRestore();
   });
 
+  const warnedAbout = (fragment: string): boolean =>
+    warnSpy.mock.calls.some(([message]) => String(message).includes(fragment));
+
   test("leaf role-gate disjoint from its parent section's → warns but boot still succeeds", () => {
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "section", label: "s", access: { roles: ["Manager"] } });
@@ -465,9 +468,7 @@ describe("nav access inversion warning (fw#2640)", () => {
       });
     });
     expect(() => validateBoot([feature])).not.toThrow();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Nav entry "shop:nav:leaf" requires roles [Admin]'),
-    );
+    expect(warnedAbout('Nav entry "shop:nav:leaf" requires roles [Admin]')).toBe(true);
   });
 
   test("leaf role-gate overlapping its parent's → no warning", () => {
@@ -481,7 +482,7 @@ describe("nav access inversion warning (fw#2640)", () => {
       });
     });
     expect(() => validateBoot([feature])).not.toThrow();
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("Nav entry"));
+    expect(warnedAbout("Nav entry")).toBe(false);
   });
 
   test("parent open to everyone (unset access) → a role-gated leaf never warns", () => {
@@ -495,6 +496,6 @@ describe("nav access inversion warning (fw#2640)", () => {
       });
     });
     expect(() => validateBoot([feature])).not.toThrow();
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("Nav entry"));
+    expect(warnedAbout("Nav entry")).toBe(false);
   });
 });

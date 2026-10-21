@@ -25,8 +25,11 @@ import type {
 } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import type { SearchAdapter, SearchDocument } from "../search/types.ts";
 import type { EventConsumer } from "./event-dispatcher.ts";
+
+const log = createFallbackLogger("kumiko:search");
 
 // --- Search Index Consumer (async, via event-dispatcher) ---
 //
@@ -320,10 +323,10 @@ export async function decryptSearchableSubjectFields(
       requestId: "system:consumer:search",
     });
   } catch (err) {
-    console.warn(
-      `[kumiko:search] decryptSearchableSubjectFields failed for "${entityName}" — ` +
+    log.warn(
+      `decryptSearchableSubjectFields failed for "${entityName}" — ` +
         `dropping ciphertext fields for this document instead of wedging the consumer.`,
-      err,
+      { err },
     );
     const out = { ...state };
     for (const name of fields) {
@@ -388,8 +391,8 @@ function warnOncePerKeyCollision(
   if (warned.has(dedupKey)) return;
   warned.add(dedupKey);
   const collidesWith = isBaseField ? `base field "${key}"` : `earlier contributor key "${key}"`;
-  console.warn(
-    `[kumiko:search] searchPayloadExtension on "${entityName}" tried to overwrite ` +
+  log.warn(
+    `searchPayloadExtension on "${entityName}" tried to overwrite ` +
       `${collidesWith} — keeping the first value. Rename the contributor key.`,
   );
 }

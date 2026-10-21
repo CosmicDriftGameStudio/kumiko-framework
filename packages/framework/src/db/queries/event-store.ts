@@ -1,4 +1,5 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
+import { createFallbackLogger } from "../../logging/utils.ts";
 import {
   constraintOf,
   isLockNotAvailable,
@@ -14,6 +15,8 @@ import {
 } from "../query.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
+
+const log = createFallbackLogger("event-store");
 
 // Gap-finality (event-dispatcher pending_gaps) needs every holder of an
 // event id to already have a *real* xact id by the time it inserts — Postgres
@@ -110,7 +113,7 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
       // trusting the error class alone.
       // skip: sibling pod already built a valid index — this race loser is done.
       if ((await indexValidity(client)) === true) return;
-      console.warn(
+      log.warn(
         `ensureIdempotencyKeyIndex: backed off on a "benign" race (${String(e)}) but ` +
           `"events_idempotency_uq" is still missing/invalid afterward — likely a ` +
           `lock_timeout during CREATE INDEX CONCURRENTLY, not an actual winner/loser race.`,

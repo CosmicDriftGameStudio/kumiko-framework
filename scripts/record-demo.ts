@@ -192,14 +192,8 @@ const SESSION = "kumiko-demo";
 const RECORD_WORKDIR =
   process.env.RECORD_DEMO_WORKDIR ?? join("/tmp", "kumiko-hero-recording");
 
-const PATCH_SCRIPT_SRC = join(import.meta.dir, "demos", "patch-published-scaffold-tasks.ts");
-
 function seedRecordingWorkdir(): void {
   mkdirSync(RECORD_WORKDIR, { recursive: true });
-  writeFileSync(
-    join(RECORD_WORKDIR, "patch-published-scaffold-tasks.ts"),
-    readFileSync(PATCH_SCRIPT_SRC),
-  );
 }
 
 const OSASCRIPT_MS = 8_000;

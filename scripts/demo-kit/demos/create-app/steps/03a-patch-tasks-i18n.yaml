@@ -1,8 +1,0 @@
-id: patch-tasks-i18n
-kind: cli
-command: bun ./patch-published-scaffold-tasks.ts hero-app
-caption:
-  de: Tasks-Übersetzungen nachziehen
-  en: Wire tasks translations
-verify: skip
-

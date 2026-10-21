@@ -1,4 +1,7 @@
+import { createFallbackLogger } from "../../logging/utils.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 // --- Cross-feature API exposure / usage matching ---
 //
@@ -28,9 +31,8 @@ export function validateApiExposureMatching(
     }
 
     if (providerFeature === feature.name) {
-      // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-      console.warn(
-        `[kumiko:boot] [Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
+      log.warn(
+        `[Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
       );
       continue;
     }
