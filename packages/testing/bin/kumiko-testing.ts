@@ -8,6 +8,7 @@ import {
   buildIntegrationTestArgs,
   listIntegrationTestFiles,
   resolveRequestedIntegrationFiles,
+  runWithTestDbTemplates,
   selectIntegrationFiles,
 } from "../src/integration-runner";
 
@@ -99,8 +100,15 @@ async function runIntegration(args: readonly string[]): Promise<number> {
     ...(values.timings !== undefined && { timings: values.timings }),
     ...(values["update-timings"] === true && { updateTimings: true }),
   });
-  const proc = Bun.spawn(["bun", ...testArgs], { stdio: ["inherit", "inherit", "inherit"] });
-  return proc.exited;
+  return runWithTestDbTemplates(
+    // Bun.spawn defaults to the env from process start; pass the live one so the
+    // template run id set by runWithTestDbTemplates reaches the test process.
+    () =>
+      Bun.spawn(["bun", ...testArgs], {
+        stdio: ["inherit", "inherit", "inherit"],
+        env: process.env,
+      }).exited,
+  );
 }
 
 const [command, ...rest] = process.argv.slice(2);

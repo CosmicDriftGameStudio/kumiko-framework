@@ -1,6 +1,8 @@
 // @runtime dev
+import { createHash } from "node:crypto";
 import type { AuthRoutesConfig, JwtHelper } from "@cosmicdrift/kumiko-framework/api";
 import { buildServer, createSseBroker, type SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   AppContext,
@@ -50,7 +52,12 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { createInMemorySearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Hono } from "hono";
-import { createTestDb } from "./db.ts";
+import {
+  createTestDb,
+  ensureTestDbTemplate,
+  TEST_DB_TEMPLATE_RUN_ENV,
+  testDbTemplatePrefix,
+} from "./db.ts";
 import { createJobFailureTracker, drainJobs } from "./drain-jobs.ts";
 import { createEventCollector, type EventCollector } from "./event-collector.ts";
 import { createTestRedis, queueNamePrefixForTestRedis, type TestRedis } from "./redis.ts";
@@ -304,6 +311,87 @@ function bindMfaTokenSecrets(features: readonly FeatureDefinition[], jwtSecret: 
   }
 }
 
+// Same table list as `kumiko schema generate` (collectTableMetas) — divergence
+// was the #255 prod-crash and the #3102 missing r.entity() tables.
+async function collectStackTableMetas(
+  options: TestStackOptions,
+): Promise<readonly EntityTableMeta[]> {
+  const { collectTableMetas, enumerateFeatureTableSources, extractTableInfo } = await import(
+    "@cosmicdrift/kumiko-framework/db"
+  );
+  const metas = collectTableMetas(options.features);
+  if (options.entityTables !== false) return metas;
+  const nonEntityNames = new Set(
+    options.features.flatMap((f) =>
+      enumerateFeatureTableSources(f).map((s) => extractTableInfo(s.table).name),
+    ),
+  );
+  return metas.filter((m) => nonEntityNames.has(m.tableName));
+}
+
+async function pushStackSchema(
+  db: DbConnection,
+  metas: readonly EntityTableMeta[],
+  withFileTables: boolean,
+): Promise<void> {
+  // Every ES-entity writes events via createEventStoreExecutor in the
+  // feature's write handlers. Auto-create the events table so every
+  // setupTestStack call is ready for writes without needing a manual
+  // createEventsTable().
+  await createEventsTable(db);
+  // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
+  // loadAggregate's default-skip. Idempotent, so production boot running
+  // the same call is fine.
+  await createArchivedStreamsTable(db);
+
+  // Framework state for projection rebuild/status + event-consumer cursors.
+  // Idempotent — production boot flows run the same calls.
+  const { createProjectionStateTable, createEventConsumerStateTable } = await import(
+    "@cosmicdrift/kumiko-framework/pipeline"
+  );
+  await createProjectionStateTable(db);
+  await createEventConsumerStateTable(db);
+
+  // Files support: when a provider is registered, the fileRefs table must
+  // exist before the first upload. Skipped when no provider — the table
+  // stays off tenant test DBs that never touch files.
+  if (withFileTables) {
+    const { fileRefsTable, fileUploadLedgerTable } = await import(
+      "@cosmicdrift/kumiko-framework/files"
+    );
+    await unsafePushTables(db, { fileRefsTable, fileUploadLedgerTable });
+  }
+
+  const { tableExists } = await import("@cosmicdrift/kumiko-framework/db");
+  const missing: Record<string, unknown> = {};
+  for (const meta of metas) {
+    if (await tableExists(db, `public.${meta.tableName}`)) continue;
+    missing[meta.tableName] = meta;
+  }
+  if (Object.keys(missing).length > 0) {
+    await unsafePushTables(db, missing);
+  }
+}
+
+// Only inside an integration-runner run: the framework tables above are not part
+// of the fingerprint, which holds because one run never sees two framework versions.
+async function resolveTestDbTemplateName(
+  options: TestStackOptions,
+  metas: readonly EntityTableMeta[],
+  withFileTables: boolean,
+): Promise<string | undefined> {
+  const runId = process.env[TEST_DB_TEMPLATE_RUN_ENV];
+  if (runId === undefined || options.persistentDb === true || options.dbName !== undefined) {
+    return undefined;
+  }
+  const { renderTablesDdl } = await import("@cosmicdrift/kumiko-framework/db");
+  const fingerprint = createHash("sha256")
+    .update(JSON.stringify({ withFileTables, ddl: renderTablesDdl(metas) }))
+    .digest("hex")
+    .slice(0, 16);
+  return `${testDbTemplatePrefix(runId)}${fingerprint}`;
+}
+
 export async function setupTestStack(options: TestStackOptions): Promise<TestStack> {
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
   const enabledHooks = options.systemHooks ?? ["sse", "search"];
@@ -325,6 +413,13 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   if (options.validateBoot === "full") validateBoot(options.features);
   bindMfaTokenSecrets(options.features, jwtSecret);
 
+  const stackTableMetas = await collectStackTableMetas(options);
+  const withFileTables = options.files !== undefined;
+  const buildStackSchema = (db: DbConnection): Promise<void> =>
+    pushStackSchema(db, stackTableMetas, withFileTables);
+  const templateDbName = await resolveTestDbTemplateName(options, stackTableMetas, withFileTables);
+  if (templateDbName !== undefined) await ensureTestDbTemplate(templateDbName, buildStackSchema);
+
   // Forward db-name/persistent-flag through to createTestDb. The
   // defaults (undefined dbName, persistent:false) keep the legacy
   // test contract: fresh kumiko_test_<random> DB per setup, dropped
@@ -337,6 +432,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.outsideTransactionPoolMax !== undefined && {
         outsideTransactionPoolMax: options.outsideTransactionPoolMax,
       }),
+      ...(templateDbName !== undefined && { templateDbName }),
     }),
     createTestRedis(
       options.sharedRedisWith && { borrowKeyPrefix: options.sharedRedisWith.redis.keyPrefix },
@@ -347,70 +443,22 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // DB/Redis — the caller never gets the stack object back to call
   // cleanup() itself (same "leaked ephemeral DB" failure class as the later
   // try/catch below, but for setup that runs before that try starts).
-  try {
-    // Every ES-entity writes events via createEventStoreExecutor in the
-    // feature's write handlers. Auto-create the events table so every
-    // setupTestStack call is ready for writes without needing a manual
-    // createEventsTable().
-    await createEventsTable(testDb.db);
-    // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
-    // loadAggregate's default-skip. Idempotent, so production boot running
-    // the same call is fine.
-    await createArchivedStreamsTable(testDb.db);
-
-    // Framework state for projection rebuild/status + event-consumer cursors.
-    // Idempotent — production boot flows run the same calls.
-    const { createProjectionStateTable, createEventConsumerStateTable } = await import(
-      "@cosmicdrift/kumiko-framework/pipeline"
-    );
-    await createProjectionStateTable(testDb.db);
-    await createEventConsumerStateTable(testDb.db);
-
-    // Files support: when a provider is registered, the fileRefs table must
-    // exist before the first upload. Skipped when no provider — the table
-    // stays off tenant test DBs that never touch files.
-    if (options.files) {
-      const { fileRefsTable, fileUploadLedgerTable } = await import(
-        "@cosmicdrift/kumiko-framework/files"
-      );
-      await unsafePushTables(testDb.db, { fileRefsTable, fileUploadLedgerTable });
-    }
-
-    // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
-    // was the #255 prod-crash and the #3102 missing r.entity() tables.
-    const { collectTableMetas } = await import("@cosmicdrift/kumiko-framework/db");
-    const { tableExists } = await import("@cosmicdrift/kumiko-framework/db");
-    let metas = collectTableMetas(options.features);
-    if (options.entityTables === false) {
-      const { enumerateFeatureTableSources } = await import("@cosmicdrift/kumiko-framework/db");
-      const { extractTableInfo } = await import("@cosmicdrift/kumiko-framework/db");
-      const nonEntityNames = new Set(
-        options.features.flatMap((f) =>
-          enumerateFeatureTableSources(f).map((s) => extractTableInfo(s.table).name),
-        ),
-      );
-      metas = metas.filter((m) => nonEntityNames.has(m.tableName));
-    }
-    const missing: Record<string, unknown> = {};
-    for (const meta of metas) {
-      if (await tableExists(testDb.db, `public.${meta.tableName}`)) continue;
-      missing[meta.tableName] = meta;
-    }
-    if (Object.keys(missing).length > 0) {
-      await unsafePushTables(testDb.db, missing);
-    }
-  } catch (error) {
+  if (templateDbName === undefined) {
     try {
-      await testDb.cleanup();
-    } catch {
-      // ignore — `error` is the one that matters
+      await buildStackSchema(testDb.db);
+    } catch (error) {
+      try {
+        await testDb.cleanup();
+      } catch {
+        // ignore — `error` is the one that matters
+      }
+      try {
+        await testRedis.cleanup();
+      } catch {
+        // ignore — `error` is the one that matters
+      }
+      throw error;
     }
-    try {
-      await testRedis.cleanup();
-    } catch {
-      // ignore — `error` is the one that matters
-    }
-    throw error;
   }
 
   // Redis only where two stacks can actually disagree (avoids two extra

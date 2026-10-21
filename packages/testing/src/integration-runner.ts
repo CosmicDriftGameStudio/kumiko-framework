@@ -1,6 +1,9 @@
+import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { BUNFIG_FILES, TEST_TIMEOUT_MS } from "./bunfig";
+import { withEnv } from "./helpers/with-env";
+import { SERVICE_ENV_DEFAULTS } from "./preload/service-env-defaults-values";
 
 export type IntegrationRunOptions = {
   readonly files: readonly string[];
@@ -84,4 +87,22 @@ export function buildIntegrationTestArgs(opts: IntegrationRunOptions): string[] 
     ...(opts.updateTimings === true ? ["--update-timings"] : []),
     ...opts.files,
   ];
+}
+
+// Test stacks of this run clone migrated template databases instead of repeating
+// the DDL per stack; the templates live exactly as long as the run.
+export async function runWithTestDbTemplates(run: () => Promise<number>): Promise<number> {
+  const { TEST_DB_TEMPLATE_RUN_ENV, dropTestDbTemplates } = await import("./stack/db.ts");
+  const runId = randomBytes(4).toString("hex");
+  try {
+    return await withEnv({ [TEST_DB_TEMPLATE_RUN_ENV]: runId }, run);
+  } finally {
+    const baseUrl = process.env["TEST_DATABASE_URL"] ?? SERVICE_ENV_DEFAULTS.TEST_DATABASE_URL;
+    try {
+      await dropTestDbTemplates(baseUrl, runId);
+    } catch (error) {
+      // biome-ignore lint/suspicious/noConsole: runner output is the interface
+      console.warn(`kumiko-testing: could not drop the test DB templates of run ${runId}:`, error);
+    }
+  }
 }

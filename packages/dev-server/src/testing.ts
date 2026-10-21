@@ -76,7 +76,11 @@ export async function setupAppTestStack(
     },
   );
   try {
-    if (registryTables) await pushEntityProjectionTables(stack, stack.registry);
+    // setupTestStack already created every entity table on a fresh DB (entityTables);
+    // only a persistent DB can predate a column or index the sync backfills.
+    if (registryTables && stackOptions.persistentDb === true) {
+      await pushEntityProjectionTables(stack, stack.registry);
+    }
     if (toggles !== undefined) {
       const bound = await toggles.bind({
         db: stack.db,
