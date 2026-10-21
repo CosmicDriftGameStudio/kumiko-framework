@@ -51,7 +51,7 @@ import { needsActionConfirm } from "./render-edit-action-button.tsx";
 
 export type RenderListProps = {
   readonly screen: EntityListScreenDefinition;
-  readonly entity: EntityDefinition;
+  readonly entity: Pick<EntityDefinition, "fields" | "derivedFields">;
   readonly rows: readonly Readonly<Record<string, unknown>>[];
   readonly featureName: string;
   readonly translate?: Translate;
