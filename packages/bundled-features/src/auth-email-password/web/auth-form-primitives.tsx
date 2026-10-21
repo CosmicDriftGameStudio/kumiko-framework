@@ -1,14 +1,14 @@
-// Shared Web-Primitives für die Auth-Screens. Nur noch Layout/Style-
-// Helpers — Form/Field/Input/Button/Banner kommen jetzt über
-// usePrimitives() aus dem Framework-Vertrag, damit Apps und Tests die
-// Implementations per PrimitivesProvider überschreiben können.
+// Shared web primitives for the auth screens. Only layout/style helpers are
+// left here; Form/Field/Input/Button/Banner come through usePrimitives() from
+// the framework contract, so apps and tests can override the implementations
+// via PrimitivesProvider.
 //
-//   <AuthCard>          — Card-Wrapper für die Auth-Screen-Layouts
-//                         (full-screen, zentriert, max-w-sm). Web-only.
-//   parseUrlToken       — URL-Param-Helper (window.location.search).
+//   <AuthCard>          — card wrapper for the auth screen layouts
+//                         (full-screen, centered, max-w-sm). Web-only.
+//   parseUrlToken       — URL param helper (window.location.search).
 //
-// Link-Styles laufen über das Link-Primitive (variant="button"/"muted") —
-// die früheren authButtonClass/authMutedLinkClass sind dorthin gewandert.
+// Link styles go through the Link primitive (variant="button"/"muted"); the
+// former authButtonClass/authMutedLinkClass moved there.
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer/web";

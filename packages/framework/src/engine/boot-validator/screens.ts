@@ -95,13 +95,13 @@ export function validateScreens(
     { readonly featureName: string; readonly screen: ScreenDefinition }
   >,
 ): void {
-  // navigate-Targets (rowAction/toolbarAction) dürfen cross-feature zeigen —
-  // der Runtime-Router (create-app) löst eine bare screenId app-weit über ALLE
-  // Features auf (eine deklarative Liste im owning-Feature der Entity navigiert
-  // so zu den Custom-Editoren der Consumer-App). Der Validator spiegelt das:
-  // same-feature ODER irgendein Feature. redirect/cancelTarget akzeptieren
-  // zusätzlich eine voll-qualifizierte Cross-Feature-QN (resolveScreenTargetQn,
-  // #1946) — kurze IDs bleiben same-feature wie zuvor.
+  // navigate targets (rowAction/toolbarAction) may point cross-feature: the
+  // runtime router (create-app) resolves a bare screenId app-wide across ALL
+  // features (a declarative list in the entity's owning feature navigates to
+  // the consumer app's custom editors this way). The validator mirrors that:
+  // same feature OR any feature. redirect/cancelTarget additionally accept a
+  // fully qualified cross-feature QN (resolveScreenTargetQn, #1946); short IDs
+  // stay same-feature as before.
   const navTargetShortIds = screenShortIdsFrom(allScreenQns);
   const navigateLookups: NavigateTargetLookups = {
     allScreenQns,
@@ -173,9 +173,9 @@ export function validateScreens(
     }
 
     if (screen.type === "projectionList") {
-      // Query-getrieben, keine Entity → nur query + columns prüfen (die
-      // Column-Felder können nicht gegen eine Entity gecheckt werden; sie
-      // werden zur Render-Zeit gegen die Projection-Rows aufgelöst).
+      // Query-driven, no entity, so only query + columns are checked (the
+      // column fields cannot be checked against an entity; they resolve
+      // against the projection rows at render time).
       if (!screen.query || typeof screen.query !== "string") {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionList) has empty or non-string query. Set query to a registered query name.`,
@@ -306,9 +306,9 @@ export function validateScreens(
     }
 
     if (screen.type === "projectionDetail") {
-      // Query-getrieben wie projectionList, aber Single-Row + Layout statt
-      // Columns. Kein Entity-Check möglich — Felder werden render-seitig
-      // gegen die Query-Response aufgelöst, nicht gegen eine Entity.
+      // Query-driven like projectionList, but a single row plus layout instead
+      // of columns. No entity check is possible: fields resolve against the
+      // query response at render time, not against an entity.
       if (!screen.query || typeof screen.query !== "string") {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has empty or non-string query. Set query to a registered query name.`,
