@@ -1,4 +1,4 @@
-// T1.5e — per-tenant fieldDefinition quota.
+// Per-tenant fieldDefinition quota.
 //
 // `createCustomFieldsFeature({ fieldDefinitionLimitPerTenant: N })`
 // installs a quota-aware `define-tenant-field` handler. The handler

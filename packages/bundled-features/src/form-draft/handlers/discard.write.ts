@@ -79,7 +79,7 @@ export const discardDraftWrite = defineWriteHandler({
       // Fail-closed erase of file_refs rows FIRST (outside the best-effort
       // storage-hygiene loop). releaseDraftFileRefs swallows per-key errors
       // by design — routing forget through it would report discarded:true
-      // while leaving the row behind (#1922 / review #2009).
+      // while leaving the row behind.
       for (const ref of ownedRefs) {
         const forgetResult = await fileRefExecutor.forget({ id: ref.id }, event.user, ctx.db);
         if (!forgetResult.isSuccess) return forgetResult;

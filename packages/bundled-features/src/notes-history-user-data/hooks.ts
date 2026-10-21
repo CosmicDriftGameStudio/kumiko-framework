@@ -74,7 +74,7 @@ async function selectNotesReachingSubject(
 // (entity.ts), so forgetting the AUTHOR already crypto-shreds that field on
 // its own. `body` is Row-Subject (`personal: { of: "id" }`): its key is per
 // note, so forgetting a subject only reaches a body when the note structurally
-// @-mentions the subject (`note-mention`, fw#2787) or hangs on it as host.
+// @-mentions the subject (`note-mention`) or hangs on it as host.
 // Free-text mentions are NOT detected — the documented gap in entity.ts.
 //
 // Reached bodies are shredded regardless of the host entity's retention strategy:

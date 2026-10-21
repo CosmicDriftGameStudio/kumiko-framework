@@ -44,7 +44,7 @@ export type JobsFeatureOptions = {
   // which a tenant-visible "queued" row counts as lost and is dropped by the stale-run sweep.
   readonly retentionDays?: number;
   // How long a run can sit at status "running" before the hourly
-  // stale-run-sweep job marks it "failed" (#2246 — a process kill mid-run
+  // stale-run-sweep job marks it "failed" — a process kill mid-run
   // never fires onJobComplete/onJobFailed, so nothing else ever revisits
   // it). Must clear any legitimately long-running job (reindexEntity,
   // projectionRebuild) — set high, not tight.
@@ -67,11 +67,10 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     r.storeTable(jobRunsTableMeta, {
       reason: "direct_write.job_runs",
       // payload/error carry personal:{of:"triggeredById"} (job-run-table.ts): encrypted under the
-      // triggering user's DEK, or the system tenant key when triggeredById is null
-      // (whenAbsent: "tenant", fw#3654).
+      // triggering user's DEK, or the system tenant key when triggeredById is null.
       // job-run-logger.ts manually encrypts both before every insert/update
       // (encryptStartedPayload/encryptFailureError) since this store bypasses
-      // the executor's automatic PII pipeline (#2243).
+      // the executor's automatic PII pipeline.
       piiEncryptedOnWrite: true,
     });
     r.storeTable(jobRunLogsTableMeta, {
@@ -91,7 +90,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       projectionRebuildJob,
     );
 
-    // Retroactive search backfill (#1206/#1215) — manual + perTenant, so one
+    // Retroactive search backfill — manual + perTenant, so one
     // `jobs:write:trigger` call with { entity } fans out to every active
     // tenant (job-runner.ts perTenant dispatch applies to manual triggers
     // too, not just cron).
@@ -107,7 +106,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     );
 
     // store_job_runs/store_job_run_logs are direct-write, unbounded-growth
-    // stores (#2243) — nothing else purges them.
+    // stores — nothing else purges them.
     r.job(
       "retention-cleanup",
       { trigger: { cron: "0 3 * * *" }, concurrency: "skip" },
@@ -115,7 +114,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     );
 
     // Sweeps store_job_runs for rows stuck at status "running" past the
-    // timeout (#2246). Hourly matches the timeout's own granularity —
+    // timeout. Hourly matches the timeout's own granularity —
     // frequent enough to catch a stuck run soon after it crosses the
     // threshold, cheap enough that an (almost always empty) result set
     // doesn't matter.

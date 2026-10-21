@@ -521,8 +521,8 @@ export function FolderManager({
 
   // The bucket itself must stay in the tree even when nothing is currently
   // unfiled — it's the only drop target to un-file a leaf back out of a
-  // folder. Regression: #671/5 — an empty `unfiled` array made the bucket
-  // vanish entirely, silently removing that escape hatch.
+  // folder. An empty `unfiled` array made the bucket vanish entirely, silently
+  // removing that escape hatch.
   const hasUnfiled = filing !== undefined;
   if (hasUnfiled) {
     out.push(bucketRow(stripeNext()));

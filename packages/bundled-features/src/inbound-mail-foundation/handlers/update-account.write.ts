@@ -1,7 +1,7 @@
-// update-account — Account-Status-Übergänge: Watch-Supervisor meldet
-// error/backoff, OAuth-Refresh scheitert (auth_error), Tenant-Admin
-// re-enabled nach Credential-Fix. Full-snapshot-Event: lädt den letzten
-// Stand, merged die Delta-Felder, appendet den neuen Snapshot.
+// update-account — Account status transitions: the watch supervisor reports
+// error/backoff, OAuth refresh fails (auth_error), or a tenant admin re-enables
+// the account after fixing its credentials. Full-snapshot event: loads the
+// latest state, merges the delta fields, and appends the new snapshot.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
@@ -27,7 +27,7 @@ export const updateAccountSchema = z.object({
   /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
   watchState: z.string().max(100).optional(),
   displayName: z.string().max(200).optional(),
-  /** Audit-Grund für metadata.headers ("watch_supervisor",
+  /** Audit reason for metadata.headers ("watch_supervisor",
    *  "oauth_refresh", "tenant_admin"). */
   reason: z.string().min(1).max(100),
 });
@@ -48,15 +48,15 @@ export const updateAccountHandler: WriteHandlerDef = {
       return failNotFound("mail-account", payload.accountId);
     }
     if (current.status === InboundMailAccountStatuses.disconnected) {
-      // Getrennte Accounts sind final — Re-Enable läuft über einen
-      // frischen connect (neuer Stream, neuer Secret-Slot). Verhindert
-      // dass ein nachzügelnder Supervisor-Tick einen disconnected
-      // Account wieder auf active hebt (Race Disconnect vs. Poll).
+      // Disconnected accounts are final; re-enabling requires a fresh connect
+      // (new stream, new secret slot). This prevents a delayed supervisor tick
+      // from restoring a disconnected account to active (disconnect vs. poll
+      // race).
       return failUnprocessable("account_disconnected", { accountId: payload.accountId });
     }
 
-    // Merge: address/provider/authMethod kommen 1:1 aus dem letzten
-    // Snapshot (address bleibt Ciphertext — nie re-encrypten).
+    // address/provider/authMethod come unchanged from the latest snapshot
+    // (address remains ciphertext—never re-encrypt it).
     const eventPayload: MailAccountEventPayload = {
       ...current,
       ...(payload.status !== undefined ? { status: payload.status } : {}),

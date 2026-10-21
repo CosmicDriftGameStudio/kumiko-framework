@@ -9,8 +9,8 @@
 // `workflowRunnerFeature` documents that dependency and reserves the
 // picker/manifest slot.
 //
-// It also registers the resume loop (framework#2513 Phase 2 + 3b):
-//   - the workflow_run_pending MSP (Phase 1) materialises suspended
+// It also registers the resume loop:
+//   - the workflow_run_pending MSP materialises suspended
 //     wait/waitForEvent/retry steps into a pending-set table
 //   - the `resume-due-runs` cron job (perTenant) scans that table for
 //     `wakeAt < now()` rows and dispatches `resume-run` per row — the job

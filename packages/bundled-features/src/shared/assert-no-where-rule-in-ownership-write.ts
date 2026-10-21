@@ -1,6 +1,6 @@
 import type { OwnershipMap } from "@cosmicdrift/kumiko-framework/engine";
 
-// Boot validation rejects `{ kind: "where" }` in access.write too (fw#2626);
+// Boot validation rejects `{ kind: "where" }` in access.write too;
 // failing at factory time names the option instead of an entity scope.
 export function assertNoWhereRuleInOwnershipWrite(
   factoryName: string,

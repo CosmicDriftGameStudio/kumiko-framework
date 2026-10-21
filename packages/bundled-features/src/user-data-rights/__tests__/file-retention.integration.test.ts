@@ -1,19 +1,19 @@
-// File-Retention Integration-Test.
+// File-retention integration test.
 //
-// Beweist, dass die BESTEHENDE data-retention + Forget-Pipeline auch für
-// `fileRef` greift — kein file-spezifischer Retention-Mechanismus. fileRef ist
-// ein normales softDelete-ES-Entity; sein Forget-/Retention-Verhalten kommt
-// aus genau derselben Kette wie bei jedem anderen Entity:
+// Verifies that the existing data-retention and Forget pipeline also applies to
+// `fileRef`; there is no file-specific retention mechanism. `fileRef` is a
+// regular soft-delete event-sourced entity, so its Forget and retention behavior
+// uses the same chain as every other entity:
 //
 //   runForgetCleanup → resolveRetentionPolicyForTenant(entityName="fileRef")
-//   → policyToStrategy → fileRef userData delete-Hook (delete | anonymize)
+//   → policyToStrategy → fileRef userData delete hook (delete | anonymize)
 //
-// Abgedeckt:
-//   1. Default (keine Override-Policy) → Forget HARD-löscht die Datei (Art. 17).
-//   2. Tenant-Retention-Override fileRef→anonymize → Forget anonymisiert
-//      (insertedById=null, Row bleibt) statt zu löschen.
-//   3. Per-Tenant: derselbe User, anonymize in Tenant A, delete in Tenant B —
-//      die Policy entscheidet pro Tenant.
+// Covered:
+//   1. No override policy → Forget hard-deletes the file (Art. 17).
+//   2. Tenant retention override fileRef→anonymize → Forget anonymizes the file
+//      (insertedById=null; the row remains) instead of deleting it.
+//   3. Per tenant: the same user is anonymized in Tenant A and deleted in Tenant B;
+//      the policy is evaluated per tenant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -139,8 +139,8 @@ async function seedFileRef(id: string, tenantId: string, insertedById: string): 
   );
 }
 
-// Setzt einen Tenant-Retention-Override über die GLEICHE API die der
-// Forget-Resolver liest — kein Test-Sonderpfad.
+// Creates a tenant retention override through the same API read by the
+// Forget resolver, avoiding a test-specific path.
 async function seedFileRetentionOverride(
   tenantId: string,
   config: { keepFor: string; strategy: string; reference?: string },
@@ -196,7 +196,8 @@ describe("file-retention :: Forget-Pipeline greift für fileRef", () => {
 
     expect(result.processedUserIds).toContain(userId);
     const row = await fetchFileRow(uuid(201));
-    // Anonymize: Row existiert weiter, aber ohne Personenbezug (insertedById null).
+    // Anonymization keeps the row but removes its person reference
+    // (insertedById is null).
     expect(row).not.toBeNull();
     expect(row?.inserted_by_id).toBeNull();
     expect(row?.is_deleted).toBe(false);
@@ -210,7 +211,7 @@ describe("file-retention :: Forget-Pipeline greift für fileRef", () => {
     await seedFileRef(uuid(301), TENANT_A, userId);
     await seedFileRef(uuid(302), TENANT_B, userId);
     await seedFileRetentionOverride(TENANT_A, { keepFor: "30d", strategy: "anonymize" });
-    // TENANT_B: kein Override → Default-Delete.
+    // No override for TENANT_B, so the default is deletion.
 
     await runForgetCleanup({ db, registry: stack.registry, now: NOW() });
 

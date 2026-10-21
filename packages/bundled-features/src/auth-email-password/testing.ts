@@ -1,5 +1,5 @@
-// /testing re-exportiert /seeding. Siehe ../tenant/testing.ts für die
-// Begründung — Helpers sind shared zwischen Tests und Dev-Server-
-// Bootstrap, /seeding ist die stabile Heimat.
+// /testing re-exports /seeding. See ../tenant/testing.ts for the reason:
+// Helpers are shared between tests and Dev-Server bootstrap, so /seeding is
+// the stable home.
 
 export * from "./seeding.ts";

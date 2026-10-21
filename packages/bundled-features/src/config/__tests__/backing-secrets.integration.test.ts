@@ -237,7 +237,7 @@ describe("config backing=secrets — fail-loud when secrets unwired", () => {
     // Direct resolver call is deliberate here, not a bypass: stack.http always
     // uses a properly-wired resolver (secretsReader present) — there's no
     // HTTP path that reaches an unwired resolver, so this is the only way to
-    // exercise the missing-secretsReader failure mode (kumiko-framework#1437).
+    // exercise the missing-secretsReader failure mode.
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: API_KEY, value: "sk-live-planted", scope: "system" },

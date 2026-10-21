@@ -32,12 +32,12 @@ export const detailQuery = defineQueryHandler({
 
     if (!row) return null;
 
-    // payload is stored encrypted under the triggering user's DEK (#799).
+    // payload is stored encrypted under the triggering user's DEK.
     if (typeof row["payload"] === "string") {
       row["payload"] = await decryptStoredPii(row["payload"], "payload", "job-run-detail");
     }
 
-    // error is stored encrypted under the triggering user's DEK (#2307),
+    // error is stored encrypted under the triggering user's DEK,
     // same mechanism as row.payload above.
     if (typeof row["error"] === "string") {
       row["error"] = await decryptStoredPii(row["error"], "error", "job-run-detail");
@@ -52,8 +52,8 @@ export const detailQuery = defineQueryHandler({
       },
     );
 
-    // message is stored encrypted under the triggering user's DEK (#2247),
-    // same mechanism as row.payload above. Bounded concurrency (#2307) —
+    // message is stored encrypted under the triggering user's DEK,
+    // same mechanism as row.payload above. Bounded concurrency —
     // unbounded Promise.all would fire one decrypt per log line at once
     // against the KMS adapter's pool.
     const decryptedLogs = await mapWithConcurrency(logs, KMS_POOL_CONCURRENCY, async (log) => {

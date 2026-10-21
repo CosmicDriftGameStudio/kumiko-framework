@@ -22,10 +22,9 @@ import { type PageRow, pageEntity, pagesTable } from "../table.ts";
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
 
-// Authenticated Admin-Authoring-User. `createTestUser` ohne explizite
-// tenantId teilt den Default-Tenant (nur `id` variiert die User-Id) — für
-// die Cross-Tenant-Isolation braucht `otherAdmin` daher eine EXPLIZITE,
-// distinkte tenantId.
+// Authenticated admin author. Without an explicit `tenantId`, `createTestUser`
+// uses the default tenant and only varies the user ID; `otherAdmin` therefore
+// needs an explicit, distinct `tenantId` for cross-tenant isolation.
 const tenantAdmin = createTestUser({ id: 10, roles: ["TenantAdmin"] });
 const otherAdmin = createTestUser({
   id: 11,
@@ -38,8 +37,8 @@ let stack: TestStack;
 // Frozen only by the rate-limit test: no token refills while the 61 requests run.
 let frozenNowMs: number | undefined;
 
-// Host → Tenant: a.* → A, b.* → B, sonst kein Tenant (404). Steht für
-// publicstatus' Subdomain-Auflösung bzw. studios eigene.
+// Host → tenant: a.* → A, b.* → B, otherwise no tenant (404). This models
+// publicstatus' and studios' subdomain resolution.
 const managed = createManagedPagesFeature({
   resolveApexTenant: (host) => {
     if (host.startsWith("a.")) return TENANT_A;
@@ -53,11 +52,10 @@ const managed = createManagedPagesFeature({
 const configFeature = createConfigFeature();
 
 beforeAll(async () => {
-  // KEIN defaultTenantId — der lockt Single-Tenant-Modus und würde den
-  // per-Page-Route gesetzten X-Tenant (≠ default) mit 400 tenant_mismatch
-  // ablehnen. Multi-Tenant nutzt den X-Tenant-Header (clientTenant gewinnt),
-  // tenantExists validiert ihn. Spiegelt publicstatus (host-basierter
-  // tenantResolver, kein fixer default).
+  // No defaultTenantId: it enables single-tenant mode and would reject the
+  // per-page X-Tenant (≠ default) with 400 tenant_mismatch. Multi-tenant mode
+  // uses the X-Tenant header (clientTenant wins), and tenantExists validates it.
+  // This mirrors publicstatus' host-based tenantResolver without a fixed default.
   const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [configFeature, managed],
@@ -235,7 +233,8 @@ describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
       tenantAdmin,
     );
 
-    // id robust über die Liste holen (unabhängig von der create-Return-Shape).
+    // Retrieve the ID from the list so this test does not depend on the create
+    // response shape.
     const list = await stack.http.queryOk<{ rows: Array<{ id: string; slug: string }> }>(
       "managed-pages:query:page:list",
       {},
@@ -252,7 +251,7 @@ describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
     );
     expect(detail).toMatchObject({ title: "CRUD", published: false });
 
-    // Draft ist über die Public-Query (published-only) unsichtbar.
+    // The published-only public query does not expose drafts.
     const draftRead = await stack.http.queryOk<unknown>(
       "managed-pages:query:by-slug",
       { slug: "crud", lang: "en" },
@@ -260,14 +259,12 @@ describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
     );
     expect(draftRead).toBeFalsy();
 
-    // update: publish + Title ändern.
     await stack.http.writeOk(
       "managed-pages:write:page:update",
       { id, version: detail.version, changes: { published: true, title: "CRUD v2" } },
       tenantAdmin,
     );
 
-    // Public-Query liefert die Page jetzt (published) mit neuem Title.
     const pubRead = await stack.http.queryOk<{ title: string }>(
       "managed-pages:query:by-slug",
       { slug: "crud", lang: "en" },
@@ -275,7 +272,6 @@ describe("managed-pages :: Convention-CRUD (Admin-Authoring)", () => {
     );
     expect(pubRead).toMatchObject({ title: "CRUD v2" });
 
-    // delete → detail ist weg.
     await stack.http.writeOk("managed-pages:write:page:delete", { id }, tenantAdmin);
     const afterDelete = await stack.http.queryOk<unknown>(
       "managed-pages:query:page:detail",
@@ -318,7 +314,7 @@ describe("managed-pages :: set (Provisioning-API)", () => {
     );
     expect(first).toMatchObject({ isNew: true });
 
-    // Zweiter Call = Update (selber slug+lang); published bei Omit erhalten.
+    // The second call updates the same slug+lang; omitting published preserves its value.
     const second = await stack.http.writeOk<{ isNew: boolean }>(
       "managed-pages:write:set",
       { slug: "prov", lang: "en", title: "Prov v2", body: "b" },
@@ -326,8 +322,8 @@ describe("managed-pages :: set (Provisioning-API)", () => {
     );
     expect(second).toMatchObject({ isNew: false });
 
-    // Beweis: published blieb true (preserve-on-omit) → Public-Query liefert
-    // die Page mit aktualisiertem Title.
+    // Verify that published was preserved when omitted: the public query returns
+    // the page with its updated title.
     const read = await stack.http.queryOk<{ title: string }>(
       "managed-pages:query:by-slug",
       { slug: "prov", lang: "en" },
@@ -338,7 +334,7 @@ describe("managed-pages :: set (Provisioning-API)", () => {
 });
 
 // The SystemAdmin-only `tenantIdOverride` cross-tenant write path had zero
-// coverage (#382/2): not the happy path, not the access guard, not the
+// coverage: not the happy path, not the access guard, not the
 // documented `executorUser`-rebase fix (the override must rebase the executor's
 // tenant or getStreamVersion runs against the wrong tenant → version_conflict
 // on the second write).
@@ -464,8 +460,8 @@ describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
 });
 
 describe("managed-pages :: Branding (Config + Render)", () => {
-  // config:write:set leitet tenantId aus user.tenantId ab → tenant-spezifische
-  // Admins, damit das Branding auf TENANT_A bzw. TENANT_B landet (Host a.*/b.*).
+  // config:write:set derives tenantId from user.tenantId, so tenant-specific
+  // admins store branding for TENANT_A or TENANT_B (hosts a.*/b.*).
   const adminA = createTestUser({ id: 20, roles: ["TenantAdmin"], tenantId: TENANT_A });
   const adminB = createTestUser({ id: 21, roles: ["TenantAdmin"], tenantId: TENANT_B });
 
@@ -474,9 +470,9 @@ describe("managed-pages :: Branding (Config + Render)", () => {
   });
 
   test("Custom-CSS-Key NICHT registriert ohne allowCustomCss (fail-closed-by-construction)", async () => {
-    // Default `managed` stack hat allowCustomCss=false → der branding-custom-css
-    // Key existiert nicht → ein Write darauf wird abgelehnt. Sperrt die
-    // Fail-closed-Eigenschaft gegen eine künftige "Key-immer-registrieren"-Regression.
+    // With allowCustomCss=false, the branding-custom-css key is not registered and
+    // writes are rejected. This preserves the fail-closed behavior if keys are
+    // ever registered unconditionally.
     const error = await stack.http.writeErr(
       "config:write:set",
       { key: BRANDING_QN.customCss, value: ".x { color: red; }" },
@@ -513,14 +509,14 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     );
 
     const html = await (await stack.app.request("http://a.example.com/p/about")).text();
-    // scoped :root-Override mit Accent + Preset-max-width
+    // Scoped :root override with the accent color and preset max-width.
     expect(html).toContain('<style id="tenant-theme">');
     expect(html).toContain("--accent:#ff8800");
     expect(html).toContain("--page-max-width:1100px");
     // Logo + Titel im Branding-Header
     expect(html).toContain('src="https://cdn-a.example.com/logo.png"');
     expect(html).toContain("Acme A");
-    // branding-description als Site-Default-Meta (Seite "about" hat keine eigene)
+    // The branding description becomes site-default metadata because "about" has none.
     expect(html).toContain('<meta name="description" content="Acme status and docs">');
   });
 
@@ -575,7 +571,7 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     expect(htmlB).not.toContain("Acme A");
   });
 
-  // #396 — the actual gate: a provisioning/migration seed sets a tenant
+  // The actual gate: a provisioning/migration seed sets a tenant
   // branding key via the system executor. createSystemUser(tenant) is the
   // exact identity ctx.systemWriteAs injects (roles=[SYSTEM_ROLE]); stack.
   // dispatcher is the same command path systemWriteAs drives. Before the
@@ -600,11 +596,12 @@ describe("managed-pages :: Branding (Config + Render)", () => {
   });
 });
 
-// Eigener Stack mit allowCustomCss:true + dem Companion-Toggle-Feature. Der
-// per-Tenant-Gate wird über `effectiveFeatures` simuliert: TENANT_A hat
-// `managed-pages-css` AN, TENANT_B AUS — gleiche App-Opt-in (allowCustomCss),
-// unterschiedlicher Operator-/Tier-Toggle. Beweist End-to-End-Render + den
-// Kill-Switch + dass der Render-Sanitizer Write-Bypass-Werte abfängt.
+// Separate stack with allowCustomCss:true and the companion toggle feature. The
+// per-tenant gate is simulated through `effectiveFeatures`: TENANT_A enables
+// `managed-pages-css`, while TENANT_B disables it: same app opt-in
+// (allowCustomCss), different operator/tier toggle. This verifies end-to-end
+// rendering, the kill switch, and that the render sanitizer catches values that
+// bypassed the write-path validation.
 describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
   let cssStack: TestStack;
   const cssAdminA = createTestUser({ id: 30, roles: ["TenantAdmin"], tenantId: TENANT_A });
@@ -668,9 +665,8 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
       { key: BRANDING_QN.customCss, value: ".note { color: red; }" },
       cssAdminA,
     );
-    // Gate AN → die branding-Query gibt den (rohen) customCss zurück; beweist
-    // dass der Key registriert ist UND der Wert persistiert (nicht nur „kein
-    // Write-Fehler").
+    // The branding query returns the raw customCss, proving both that the key is
+    // registered and that its value persists—not merely that the write succeeds.
     const branding = await cssStack.http.queryOk<{ customCss?: string }>(
       BRANDING_QUERY_QN,
       {},
@@ -698,8 +694,8 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
   });
 
   test("gespeichertes Angriffs-CSS wird am Render sanitized (Write-Gate-Bypass-Abwehr)", async () => {
-    // Der Längen-Cap-Pattern lässt das speichern; der Render-Sanitizer ist der
-    // eigentliche Allowlist-Gate. Jeder Vektor einzeln exerziert.
+    // The length-cap pattern permits storage; the render sanitizer is the actual
+    // allowlist gate, so each attack vector is tested separately.
     const attack =
       ".evil { position: fixed; top: 0; } .ok { color: red; } @import url('http://evil.test');";
     await cssStack.http.writeOk(
@@ -711,7 +707,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     expect(html).not.toContain("position: fixed");
     expect(html).not.toContain("@import");
     expect(html).not.toContain("evil.test");
-    // die eine sichere Regel überlebt, gescoped
+    // The one safe rule survives, scoped to tenant content.
     expect(html).toContain("[data-tenant-content] .ok");
     expect(html).toContain("color: red");
   });
@@ -736,24 +732,18 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
   });
 });
 
-// resolverTrust: "authoritative" (kumiko-platform#278/1, show-pony#51):
-// diese Suite verdrahtet einen ECHTEN host-basierten anonymousAccess.
-// tenantResolver (nicht nur tenantExists wie die Suite oben) — genau die
-// Konfiguration, unter der publicstatus/show-pony laufen.
+// resolverTrust: "authoritative": this suite wires a real host-based
+// anonymousAccess. It uses tenantResolver rather than only tenantExists, matching
+// the configuration used by publicstatus/show-pony.
 //
-// Mechanismus: ein interner Self-Fetch (der alte app.fetch-Pfad) trägt
-// KEINEN Host-Header — Host steckt nur implizit in der Request-URL, nicht
-// in Headers. Ein Resolver, der (wie publicstatus' echter Resolver) nur
-// c.req.header("host") liest, löst für den inneren Request also null auf;
-// unter resolverTrust: "authoritative" gibt es dafür keinen Client-Tenant-
-// Fallback → tenant_required → "page unavailable" 503, obwohl der äußere
-// Request (Host da) den Tenant längst korrekt aufgelöst hätte. systemQuery
-// (siehe feature.ts) entfernt den internen HTTP-Roundtrip komplett und
-// erzwingt den bereits aufgelösten tenantId in-process — kein Header mehr,
-// der fehlen könnte. Rot/Grün verifiziert: mit dem alten app.fetch-Pfad UND
-// einem fallback-freien Resolver (wie hier) schlagen 4 der Tests in dieser
-// Datei/seo.integration.test.ts fehl (503/leere sitemap-Einträge); mit
-// systemQuery sind alle grün.
+// An internal self-fetch (the former app.fetch path) has no Host header; the host
+// exists only in the request URL. A resolver that, like publicstatus' real
+// resolver, reads only c.req.header("host") therefore resolves null for the
+// internal request. With resolverTrust: "authoritative", there is no client-tenant
+// fallback, producing tenant_required and then "page unavailable" 503 even though
+// the outer request resolved the tenant correctly. systemQuery (see feature.ts)
+// removes the internal HTTP round trip and passes the resolved tenantId in-process.
+// The fallback-free resolver and systemQuery path verify this behavior end to end.
 describe("managed-pages :: resolverTrust authoritative (host-based, wie publicstatus/show-pony)", () => {
   let authStack: TestStack;
   const authManaged = createManagedPagesFeature({
@@ -775,12 +765,11 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
     authStack = await setupTestStack({
       features: [authConfigFeature, authManaged],
       anonymousAccess: {
-        // KEIN URL-Fallback — spiegelt publicstatus' echten Resolver
-        // (resolveSubdomain(c.req.header("Host") ?? "")). Ein interner
-        // Self-Fetch trägt keinen Host-Header (Host steckt nur in der URL,
-        // nicht in Headers) — ein Resolver, der nur den Header liest, löst
-        // für den inneren Request also null auf. Mit URL-Fallback würde
-        // dieser Test den Bug maskieren.
+        // No URL fallback—this mirrors publicstatus' real resolver
+        // (resolveSubdomain(c.req.header("Host") ?? "")). An internal
+        // self-fetch has no Host header; the host exists only in the URL, not
+        // in Headers, so a header-only resolver returns null. A URL fallback
+        // would mask this bug.
         tenantResolver: (c) => hostTenant(c.req.header("host") ?? ""),
         resolverTrust: "authoritative",
         tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
@@ -832,10 +821,10 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
   });
 
   test("X-Tenant-Header auf der Render-Route ist wirkungslos — Host bleibt allein maßgeblich", async () => {
-    // Die Render-Route liest den Tenant NUR über resolveApexTenant(host),
-    // nie über den Client-Header — anders als bei Query/Write-Dispatch gibt
-    // es hier also gar keinen X-Tenant-Override-Vektor. Ein gesetzter,
-    // abweichender Header wird schlicht ignoriert: 200, weiterhin A's Page.
+    // The render route resolves the tenant only through resolveApexTenant(host),
+    // never through the client header. Unlike query/write dispatch, it has no
+    // X-Tenant override path, so a conflicting header is ignored: the response
+    // remains 200 and serves A's page.
     const res = await authStack.app.request("http://a.example.com/p/about", {
       headers: { "X-Tenant": TENANT_B },
     });

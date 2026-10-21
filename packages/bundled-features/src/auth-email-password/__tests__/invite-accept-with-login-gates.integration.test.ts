@@ -233,7 +233,7 @@ describe("invite-accept-with-login: MFA gate", () => {
     expect(body.token).toBeUndefined();
   });
 
-  // fw#2333 — completing the challenge via auth-mfa:write:verify must carry
+  // Completing the challenge via auth-mfa:write:verify must carry
   // the invitee's locale into the minted session, same as a plain login.
   async function acceptWithLoginThenVerifyMfa(opts: {
     actorId: number;

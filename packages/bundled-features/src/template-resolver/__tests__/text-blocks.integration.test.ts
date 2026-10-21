@@ -612,8 +612,8 @@ describe("text-blocks :: seedTextBlock", () => {
   // platform seeds use this for "page:index:hero.title" etc.), but
   // a user edit of the same block via set.write would fail with
   // validation_error (regex `^[a-z0-9][a-z0-9-]*$`). The drift is
-  // **deliberate** in V.1.3 — seedTextBlock is system-trusted (boot fixture,
-  // no user input). V.1.4 plans a real `folder` field instead of a
+  // **deliberate** — seedTextBlock is system-trusted (boot fixture,
+  // no user input). A real `folder` field is planned instead of a
   // `:` separator in the slug, then the drift goes away.
   //
   // This test pins the status quo: the editor form via set.write rejects

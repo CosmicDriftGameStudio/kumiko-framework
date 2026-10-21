@@ -6,22 +6,20 @@ export {
   TARGET_USER_NOT_IN_ADMIN_TENANT,
 } from "./lib/deny-if-target-outside-admin-tenant.ts";
 export { isSystemAdminActor } from "./lib/is-admin-actor.ts";
-// #494 Bestandsdaten-Reconcile — Apps rufen das einmalig vor dem Re-Enable
-// von read_users-Rebuilds (siehe lib-Doc).
+// Reconcile existing data once before re-enabling read_users rebuilds.
+// See the library documentation for the required procedure.
 export { backfillUserLifecycleEvents, updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
 export type {
   SendExportFailedEmailFn,
   SendExportReadyEmailFn,
 } from "./run-export-jobs.ts";
 export type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup.ts";
-// Runner-Exports — App-Tests dürfen export/forget deterministisch laufen
-// lassen, statt über den Job-Cron zu warten (siehe sample
-// user-data-rights-demo).
-// Shared retention→strategy mapping (single source of truth per its own
-// doc comment) — other EXT_USER_DATA delete hooks that must independently
-// consult a DIFFERENT entity's retention (e.g. notes-history-user-data's
-// host-entity check) reuse this instead of re-deriving the anonymize/delete
-// split.
+// Exported so app tests can run export/forget deterministically instead of
+// waiting for the job cron.
+// Shared retention-to-strategy mapping: other EXT_USER_DATA delete hooks that
+// independently consult a DIFFERENT entity's retention (for example,
+// notes-history-user-data's host-entity check) reuse this instead of
+// re-deriving the anonymize/delete split.
 export { policyToStrategy, runForgetCleanup } from "./run-forget-cleanup.ts";
 export type { UserExportBundle } from "./run-user-export.ts";
 export { runUserExport } from "./run-user-export.ts";

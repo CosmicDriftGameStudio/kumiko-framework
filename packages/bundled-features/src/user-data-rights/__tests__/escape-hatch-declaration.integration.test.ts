@@ -1,4 +1,4 @@
-// fw#2914 — proves the escapeHatch declaration gate, not just its type.
+// Proves the escapeHatch declaration gate, not just its type.
 //
 // TenantDataHookCtx/UserDataHookCtx.db is a tenant-filtered TenantDb. A hook
 // that declares `escapeHatch: { reason }` on its `r.useExtension(...)`
@@ -135,7 +135,7 @@ describe("escape-hatch declaration :: undeclared hook is denied, not silently un
     r.useExtension(EXT_USER_DATA, "leaky-undeclared", {
       export: async () => null,
       delete: undeclaredLeakHook,
-      // fw#2914 — deliberately NOT declared: this is the case under test.
+      // Deliberately NOT declared: this is the case under test.
     });
   });
 

@@ -11,8 +11,8 @@ import { FORM_DRAFT_KEY_MAX_LENGTH, FORM_DRAFT_UNIQUE_KEY_CONSTRAINT } from "./w
 // (tenant, ownerId): the same key from two different users, or the same
 // user in two different tenants, is a different draft.
 //
-// Boundary (issue #1889): form-draft never holds anything that already
-// lives in a domain stream — it's a Zwischenstand BEFORE the domain entity
+// Boundary: form-draft never holds anything that already
+// lives in a domain stream — it's an intermediate state BEFORE the domain entity
 // is created. Consumers delete the draft (discard handler) once the real
 // submit succeeds; partially-created domain data past that point is the
 // consuming app's concern, not this feature's.
@@ -34,7 +34,7 @@ export const formDraftEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    // The blob shape is fixed by issue #1889, not left to the caller:
+    // The blob shape is fixed, not left to the caller:
     // { values: Record<string, unknown>, stepIndex: number, savedAt: string }.
     // Free-form because `values` mirrors whatever fields the in-progress
     // form has, so it can carry arbitrary user-entered PII. Encrypted under

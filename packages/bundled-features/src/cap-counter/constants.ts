@@ -3,20 +3,19 @@ export const CAP_COUNTER_FEATURE = "cap-counter" as const;
 
 export const CAP_COUNTER_LIST_SCREEN_ID = "cap-list" as const;
 
-// Aggregate types — calendar-period-Counter benutzt CRUD-Events der
-// projection-row. Rolling-Window-Counter benutzt einen eigenen
-// aggregate-type mit custom increment-events (no projection — der
-// Read summiert über die letzten N Tage Events). Sind getrennt damit
-// die r.entity-projection nicht auch noch rolling-counter-rows tracken
-// muss.
+// Aggregate types: calendar-period counters use CRUD events for the
+// projection row. Rolling-window counters use a separate aggregate type
+// with custom increment events (no projection—the read sums events from
+// the last N days). They are separate so `r.entity-projection` does not
+// also have to track rolling-counter rows.
 export const CAP_COUNTER_ROLLING_AGGREGATE_TYPE = "cap-counter-rolling" as const;
 
-// Custom event-type für Rolling-Window-Counter. Symmetrisches Paar:
-//   _SHORT  — passt zu `r.defineEvent(short, schema)` im Registrar
-//             (Framework prefixt automatisch zu QN)
-//   _QN     — qualifizierte Form für `ctx.unsafeAppendEvent({type})`
-//             + `events.type`-Spalte + `registry.getEvent(qn)`-Lookup
-// Beide MÜSSEN konsistent sein (drift-pin im feature-test).
+// Custom event types for rolling-window counters. The pair is symmetric:
+//   _SHORT  — matches `r.defineEvent(short, schema)` in the registrar
+//             (the framework automatically prefixes it to the QN)
+//   _QN     — qualified form for `ctx.unsafeAppendEvent({type})`, the
+//             `events.type` column, and `registry.getEvent(qn)` lookups
+// Both MUST stay consistent; the feature test pins against drift.
 export const ROLLING_INCREMENTED_EVENT_SHORT = "rolling-incremented" as const;
 export const ROLLING_INCREMENTED_EVENT_QN = "cap-counter:event:rolling-incremented" as const;
 

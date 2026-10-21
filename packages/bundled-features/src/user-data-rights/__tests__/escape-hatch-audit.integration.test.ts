@@ -1,4 +1,4 @@
-// fw#2914 — proves the escape-hatch audit trail is wired end-to-end on the
+// proves the escape-hatch audit trail is wired end-to-end on the
 // REAL production path: the registered "run-forget-cleanup" cron job (not
 // runForgetCleanup called directly, not a hand-fed sink) forwards its
 // JobContext's `_escapeHatchAuditSink` + `systemUser.id` down through

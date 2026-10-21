@@ -1,8 +1,8 @@
-// createAccessInvalidationEventConsumer (kumiko-framework#1560) — the last
-// leg of #1524's push-based mid-stream access revocation. Proves the
+// createAccessInvalidationEventConsumer — the last
+// leg of the push-based mid-stream access revocation. Proves the
 // consumer reacts to the two real event sources it's specced against:
 //
-//   - sessions:event:session-revoked (#1559), both the self-service revoke
+//   - sessions:event:session-revoked, both the self-service revoke
 //     path AND the privileged, cross-tenant revoke-all-for-user (DSGVO
 //     Art.18 account-freeze, appended anchored on SYSTEM_TENANT_ID).
 //   - tenant-membership.updated / .deleted (role change / member removal),
@@ -12,7 +12,7 @@
 // Asserted directly against stack.sseBroker.subscribeAccessInvalidation —
 // no real SSE connection or HTTP-stream needed, mirrors how sse-broker.test.ts
 // tests the broker itself. Mid-stream teardown (the actual AccessDeniedError
-// thrown into an open dispatch-stream) is #1561's job, not this one.
+// thrown into an open dispatch-stream) is not this one.
 //
 // Every write below MUST go through the real write handlers (never a
 // hand-crafted StoredEvent) — that's what pins the hardcoded event-type
@@ -174,7 +174,7 @@ describe("access-invalidation event consumer", () => {
     expectSuccess(result);
 
     // The write itself is anchored on SYSTEM_TENANT_ID (not TENANT) — this
-    // is exactly the asymmetry #1559's handoff comment warns about. If the
+    // is exactly the asymmetry the handoff comment warns about. If the
     // consumer routed on event.tenantId instead of payload.userId, this
     // event would never surface here.
     const events = await selectMany(stack.db, eventsTable, {
@@ -256,7 +256,7 @@ describe("access-invalidation event consumer", () => {
     // The industry-standard "password change signs you out everywhere" flow
     // — goes through the sessionMassRevoker callback (feature.ts's postSave
     // hook on passwordHash changes), NOT one of the *.write.ts handlers.
-    // This is exactly the gap a security review of #1560 caught: that
+    // This is exactly the gap a security review caught: that
     // callback did a raw updateMany with no event, so an already-open SSE
     // stream survived a password change.
     const res = await h.authedPost("/api/write", token, {

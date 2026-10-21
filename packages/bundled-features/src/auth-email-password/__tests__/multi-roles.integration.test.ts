@@ -1,12 +1,12 @@
-// Multi-Rollen — globale user.roles parallel zu tenant-membership.roles.
+// Global `users.roles` are merged with tenant membership roles.
 //
-// Pin: ein User mit `users.roles = ["SystemAdmin"]` + Membership auf
-// Tenant A mit ["Admin"] hat in der Session BEIDE Rollen. Switch zu
-// Tenant B mit ["User"] → Session hat ["SystemAdmin", "User"]. Globale
-// Rollen bleiben tenant-unabhängig stabil.
+// A user with `users.roles = ["SystemAdmin"]` and an ["Admin"] membership
+// on Tenant A has both roles in the session. Switching to Tenant B with
+// ["User"] produces ["SystemAdmin", "User"] while the global role remains
+// unchanged.
 //
-// Gegen-Beweis: User OHNE globale Rollen verhält sich wie vorher
-// (nur tenant-membership-roles in der Session).
+// A user without global roles still receives only the tenant membership
+// roles in the session.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -50,9 +50,8 @@ beforeAll(async () => {
     extraContext: { configResolver: resolver },
     authConfig: {
       membershipQuery: "tenant:query:memberships",
-      // KRITISCH: ohne userQuery wired ruft switch-tenant keinen
-      // user-row-lookup → globale Rollen leaken nicht durch zum neuen
-      // tenant. Hier explizit setzen damit der merge greift.
+      // Without userQuery, switch-tenant cannot load the user row, so global roles
+      // do not reach the new tenant. Set it explicitly so the merge is applied.
       userQuery: UserQueries.findForAuth,
       loginHandler: AuthHandlers.login,
       loginErrorStatusMap: {
@@ -88,8 +87,8 @@ async function seedUser(
       email,
       passwordHash: hash,
       displayName: email.split("@")[0] ?? "user",
-      // user.roles im create wird privileged geprüft — systemAdmin hat
-      // SystemAdmin-Rolle (siehe TestUsers.systemAdmin).
+      // user.roles is privilege-checked during create; systemAdmin has the
+      // SystemAdmin role (see TestUsers.systemAdmin).
       roles: globalRoles,
     },
     systemAdmin,
@@ -127,9 +126,9 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
     const userId = await seedUser("syadmin@example.com", "pw-long-enough", ["SystemAdmin"]);
     await addMembership(userId, tenantA, ["Admin"]);
 
-    // Pin write-path: roles MUSS in DB landen, sonst ist der session-merge
-    // nur Zufall (z.B. wenn login-handler hardcoded SystemAdmin reinpacken
-    // würde). Direct DB-read schließt das aus.
+    // roles must be persisted in the database; otherwise the session merge could
+    // appear to work only because the login handler hardcodes SystemAdmin. The
+    // direct database read rules that out.
     const dbRow = await selectMany(stack.db, userTable, { id: userId });
     expect(dbRow[0]?.roles).toEqual(["SystemAdmin"]);
 
@@ -157,14 +156,14 @@ describe("multi-roles: login mergt globale + membership-roles", () => {
 
 describe("multi-roles: privilege-escalation blocked via field-level write-access", () => {
   test("Tenant-Admin (ohne SystemAdmin) kann user.roles NICHT setzen via update", async () => {
-    // Setup: User mit ["Admin"] auf tenantA (Tenant-Admin) + ein Target-User
-    // mit leeren globalRoles. Tenant-Admin versucht den Target via
-    // user:write:user:update auf SystemAdmin zu eskalieren.
+    // A Tenant-Admin with ["Admin"] on tenantA attempts to grant SystemAdmin to
+    // a target user through user:write:user:update. The target starts with no
+    // globalRoles.
     const adminId = await seedUser("ta@example.com", "pw-long-enough");
     await addMembership(adminId, tenantA, ["Admin"]);
     const tenantAdminSession = { id: adminId, tenantId: tenantA, roles: ["Admin"] };
 
-    // Target user mit version 1 (frisch erstellt).
+    // Freshly created target user, so its version is 1.
     const targetId = await seedUser("victim@example.com", "pw-long-enough");
 
     const res = await stack.http.write(
@@ -176,8 +175,9 @@ describe("multi-roles: privilege-escalation blocked via field-level write-access
       },
       tenantAdminSession,
     );
-    // Field-level guard greift VOR dem handler — AccessDeniedError mit
-    // field=roles. Das pinst: kein "silent drop", sondern hard-fail.
+    // The field-level guard runs before the handler and returns an
+    // AccessDeniedError with field=roles, so the update fails rather than being
+    // silently dropped.
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
     const body = (await res.json()) as {
@@ -188,9 +188,9 @@ describe("multi-roles: privilege-escalation blocked via field-level write-access
   });
 
   test("Self-update mit roles → blocked (kein Privilege-Selbst-Erteilung)", async () => {
-    // Auch wenn isSelf-check im handler den ownership-guard umgeht,
-    // greift der field-level write-access auf roles unabhängig: User
-    // kann sich nicht selbst zum SystemAdmin machen.
+    // Even if the handler's isSelf check bypasses the ownership guard, field-level
+    // write access on roles still prevents a user from granting themselves
+    // SystemAdmin.
     const userId = await seedUser("selfescalate@example.com", "pw-long-enough");
     await addMembership(userId, tenantA, ["User"]);
     const userSession = { id: userId, tenantId: tenantA, roles: ["User"] };

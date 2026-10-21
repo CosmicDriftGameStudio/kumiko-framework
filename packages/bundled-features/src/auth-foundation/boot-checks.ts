@@ -1,5 +1,5 @@
 // Multiplicity boot-check for auth-foundation's `tokenVerifier` extension
-// point (#1368, #1570). Two static-shape conflicts a boot-check CAN catch (a
+// point. Two static-shape conflicts a boot-check CAN catch (a
 // runtime shape-match predicate's overlap can't be proven at boot): a
 // malformed plugin registration, and two providers both claiming the same
 // shape (resolveTokenVerifier can't tell them apart). Zero tokenVerifier
@@ -46,7 +46,7 @@ export function validateTokenVerifierMultiplicity(features: readonly FeatureDefi
 
   if (namesByShape.size === 0) {
     // Session-only apps (email-password + sessions) never hit tokenVerifier —
-    // cookie JWT auth uses sessionStore alone (#1570 / phronexsis#296).
+    // cookie JWT auth uses sessionStore alone.
     for (const feature of features) {
       for (const usage of feature.extensionUsages) {
         // skip: sessionStore present — tokenVerifier optional for cookie-session apps.
@@ -114,7 +114,7 @@ function validateSingleProvider(
   }
 }
 
-// Multiplicity boot-check for the `sessionStore` extension point (#1370).
+// Multiplicity boot-check for the `sessionStore` extension point.
 // Single-provider, unlike tokenVerifier — no shape to route on, so ≥2 fails
 // boot. Zero registrations is a valid configuration (see
 // validateSingleProvider doc) — a pure machine API using auth-foundation for
@@ -129,7 +129,7 @@ export function validateSessionStoreMultiplicity(features: readonly FeatureDefin
   });
 }
 
-// Optional single-provider (#1373). Zero registrations = OK (single-tenant /
+// Optional single-provider. Zero registrations = OK (single-tenant /
 // header-cookie path). ≥2 or malformed = boot fail.
 export function validateTenantResolverMultiplicity(features: readonly FeatureDefinition[]): void {
   validateSingleProvider(features, {

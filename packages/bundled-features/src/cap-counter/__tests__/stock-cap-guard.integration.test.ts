@@ -1,10 +1,10 @@
 // Regression test for the tenant-scope override bug: checkStockCap used to
 // spread `spec.where` AFTER the injected `tenantId`, so a `where` object
 // carrying its own `tenantId` key silently overrode the caller's real tenant
-// and the count ran against the wrong tenant's rows. fw#2854: checkStockCap
-// now takes a TenantDb (not a raw DbRunner + explicit tenantId) — the
-// tenant-scoping guarantee comes from TenantDb.count's own readWhere
-// narrowing instead of a hand-rolled spread order.
+// and the count ran against the wrong tenant's rows. checkStockCap now takes a
+// TenantDb (not a raw DbRunner + explicit tenantId) — the tenant-scoping
+// guarantee comes from TenantDb.count's own readWhere narrowing instead of a
+// hand-rolled spread order.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -113,7 +113,7 @@ describe("checkStockCap tenant scoping", () => {
 
 // =============================================================================
 // withStockCap over HTTP — proves the guard works end-to-end through the
-// real dispatcher for a TenantAdmin-only handler with no escapeHatch (fw#2854
+// real dispatcher for a TenantAdmin-only handler with no escapeHatch (
 // withStockCap no longer declares one — checkStockCap resolves through the
 // caller's own TenantDb, no unfiltered read needed).
 // =============================================================================

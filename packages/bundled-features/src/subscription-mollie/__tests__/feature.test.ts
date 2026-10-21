@@ -60,7 +60,7 @@ describe("createSubscriptionMollieFeature — module-load validation", () => {
       createSubscriptionMollieFeature({
         ...VALID_OPTIONS,
         priceToTier: { plan_pro: "pro", plan_business: "business" },
-        // plan_business fehlt in config
+        // plan_business is missing from config
       }),
     ).toThrow(/missing config:.*plan_business/);
   });
@@ -78,7 +78,7 @@ describe("createSubscriptionMollieFeature — module-load validation", () => {
             description: "Extra",
           },
         },
-        // plan_extra fehlt in tier
+        // plan_extra is missing from tier
       }),
     ).toThrow(/missing tier:.*plan_extra/);
   });
@@ -95,10 +95,10 @@ describe("subscription-mollie — plugin-registration", () => {
   });
 
   test("plugin has verifyAndParseWebhook + createCheckoutSession; KEIN portal/cancel (Mollie-Limit)", () => {
-    // Drift-Pin: Mollie's Plugin-shape ist intentional schmaler als Stripe.
-    // Wenn jemand einen createPortalSession-stub hinzufügt der "not-supported"
-    // wirft, würde das die foundation-error-Story ändern. Phase-5.3-MVP
-    // lässt die optional-Fields KOMPLETT weg.
+    // Keep Mollie's plugin shape intentionally narrower than Stripe.
+    // Adding a createPortalSession stub that throws "not-supported" would
+    // change the foundation error behavior, so the optional fields are
+    // omitted completely.
     const feature = createSubscriptionMollieFeature(VALID_OPTIONS);
     const usage = feature.extensionUsages.find((u) => u.entityName === MOLLIE_PROVIDER_NAME);
     const plugin = usage?.options as {

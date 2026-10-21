@@ -1,12 +1,12 @@
-// list-messages — tenant-scoped Message-Liste (Inbox-Cockpit).
-// Optionale Filter: accountId (ein Postfach), threadKey (eine
-// Konversation), scope (Folder-Hint). PII (from/to/cc/subject/snippet)
-// wird beim Read decrypted; to/cc bleiben JSON-stringified strings —
-// der Client parsed sie (dokumentiert im Event-Payload).
+// list-messages — tenant-scoped message list for the inbox cockpit.
+// Optional filters: accountId (one mailbox), threadKey (one conversation),
+// scope (folder hint). PII (from/to/cc/subject/snippet) is decrypted on read;
+// to/cc remain JSON-stringified strings, which the client parses as documented
+// in the event payload.
 //
-// Bewusst KEINE Pagination in V1: die Projection ist tenant-scoped und
-// das Inbox-Cockpit lädt begrenzte Zeiträume; ein `limit`-Feld ist
-// vorwärtskompatibel ergänzbar ohne den QN zu brechen.
+// Deliberately no pagination in V1: the projection is tenant-scoped and the
+// inbox cockpit loads bounded time ranges; a `limit` field can be added
+// compatibly without breaking the QN.
 
 import {
   configuredPiiSubjectKms,
@@ -42,8 +42,8 @@ export const listMessagesQuery: QueryHandlerDef = {
     if (payload.scope) filter["scope"] = payload.scope;
 
     const allRows = await ctx.db.selectMany(inboundMessagesProjectionTable, filter);
-    // Scope-Sichtbarkeit (Plan Entscheidung 2): Messages persönlicher
-    // Postfächer nur für Owner + TenantAdmin/SystemAdmin.
+    // Scope visibility: messages in personal mailboxes are visible only to the
+    // owner or TenantAdmin/SystemAdmin.
     const rows = allRows.filter((row) => isVisibleToCaller(row, ctx.user));
     const piiKms = configuredPiiSubjectKms();
     if (!piiKms) return { rows };

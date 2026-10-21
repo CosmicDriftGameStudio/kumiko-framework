@@ -1,5 +1,5 @@
 // GDPR tenant-destroy + orphaned-derivative backfill coverage for the `files`
-// feature's `fileRef` entity (#2474). Kept apart from `files` — like
+// feature's `fileRef` entity. Kept apart from `files` — like
 // folders-user-data does for EXT_USER_DATA — so file consumers without the
 // tenant-lifecycle pipeline don't pull a hard dependency; `files` stays usable
 // standalone (e.g. user-data-rights-demo mounts `files` + user-data-rights

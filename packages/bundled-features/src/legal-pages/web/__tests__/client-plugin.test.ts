@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import { legalPagesClient } from "../client-plugin.ts";
 
-// Deckt die drei neuen Migrations-Pfade (advisor-Gap): navId-Attach,
-// no-leak ohne navId, und der Unwrap (Provider emittiert die slug-Folder
-// direkt, NICHT mehr unter einem "Legal"-Wrapper — der App-r.nav-Knoten
-// IST der Container). legal-pages ist fetch-frei → Provider direkt aufrufbar.
+// Covers the three migration paths: attaching by navId, preventing leaks without
+// navId, and unwrapping (the provider emits slug folders directly, NOT under a
+// "Legal" wrapper—the App-r.nav node IS the container). legal-pages does not
+// fetch, so the provider can be called directly.
 
 function collect(
   provider: () => (emit: (n: readonly TreeNode[]) => void) => () => void,
@@ -38,12 +38,12 @@ describe("legalPagesClient", () => {
     if (provider === undefined) throw new Error("provider missing");
     const emitted = collect(provider);
 
-    // Kein "Legal"-Wrapper mehr — der App-Knoten ist der Container.
+    // No "Legal" wrapper—the App node is the container.
     expect(emitted.some((n) => n.label === "Legal")).toBe(false);
     expect(emitted.length).toBeGreaterThan(0);
 
-    // Jeder Top-Level-Knoten ist ein slug-Folder mit lang-Leaves, die per
-    // Cross-Link auf template-resolver:edit zeigen.
+    // Each top-level node is a slug folder with language leaves that cross-link to
+    // template-resolver:edit.
     const folder = emitted[0];
     expect(Array.isArray(folder?.children)).toBe(true);
     const langLeaf = Array.isArray(folder?.children) ? folder?.children[0] : undefined;

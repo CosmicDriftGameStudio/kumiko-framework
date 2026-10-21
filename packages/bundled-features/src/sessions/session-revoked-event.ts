@@ -2,11 +2,11 @@ import * as z from "zod";
 
 // Lightweight custom event appended alongside the direct-write
 // updateMany() in revoke.write.ts / revoke-all-others.write.ts /
-// revoke-all-for-user.write.ts (#1559). store_user_sessions itself stays
+// revoke-all-for-user.write.ts. store_user_sessions itself stays
 // an unmanaged direct-write store (see feature.ts) — the row columns are
 // the audit trail, this event is NOT a CRUD/lifecycle event for that
 // table and carries no projection. Its only job is to give cross-instance
-// consumers (access-invalidation, #1560) something to LISTEN for via the
+// consumers (access-invalidation) something to LISTEN for via the
 // existing event-store NOTIFY, keyed by the affected userId.
 //
 // _SHORT/_QN pair mirrors cap-counter's rolling-incremented event:

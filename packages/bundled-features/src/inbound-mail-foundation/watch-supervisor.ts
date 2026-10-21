@@ -1,17 +1,16 @@
-// createInboundMailSupervisor — der langlebige Sync-Prozess der
-// Foundation: startet pro aktivem Account `plugin.watch()` (IMAP IDLE,
-// Push in Sekunden) mit Reconnect-Backoff und fährt zusätzlich den
-// periodischen Reconciliation-Poll (Default 5 min) über `plugin.fetch()`.
-// Dedup im ingest-Handler macht Watch/Poll-Überschneidung idempotent —
-// der Poll ist Korrektheits-Anker, watch nur Latenz-Optimierung.
+// createInboundMailSupervisor — the long-lived Foundation sync process:
+// starts `plugin.watch()` (IMAP IDLE, seconds-level push) for each active
+// account with reconnect backoff, and also runs the periodic reconciliation
+// poll (default: 5 min) through `plugin.fetch()`.
+// Deduplication in the ingest handler makes watch/poll overlap idempotent:
+// the poll is the correctness anchor, while watch only reduces latency.
 //
-// **Plan deviation (documented):** the plan had the poll as an `r.job`
-// cron trigger. At the time this was written, JobContext had no
-// dispatcher (verified against run-export-jobs.ts). It now does
-// (`ctx.write`/`ctx.queryAs`, job-runner.ts) — but converting the poll to
-// a cron job is a separate migration (job concurrency instead of this
-// dispatcher contract), not part of #1719, and stays untouched here. The
-// app owner still wires the supervisor in bin/server.ts:
+// **Documented deviation:** the poll was originally intended as an `r.job`
+// cron trigger. JobContext previously had no dispatcher (see
+// run-export-jobs.ts), but now has one (`ctx.write`/`ctx.queryAs`,
+// job-runner.ts). Converting the poll to a cron job is a separate migration
+// because it changes the concurrency model, so this dispatcher contract
+// remains in place. The app owner wires the supervisor in bin/server.ts:
 //
 //   const supervisor = createInboundMailSupervisor({
 //     providerCtx: { registry: deps.registry, secrets, metricsFor: deps.metricsFor },
@@ -20,29 +19,29 @@
 //       deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
 //     // Multi-worker deployments: share one DistributedLock (same Redis,
 //     // same key prefix) across every worker process so only one of them
-//     // holds the IMAP IDLE connection per account (#1719). Omit `lock`
+//     // holds the IMAP IDLE connection per account. Omit `lock`
 //     // for a single-process deployment — every active account gets
-//     // watched locally, same as before.
+//     // watched locally, as before.
 //     lock: createDistributedLock(redis, `${RedisKeys.lock}inbound-mail:watch:`),
 //   });
 //   await supervisor.start();
 //   // shutdown-hook: await supervisor.stop();
 //
-// **IDLE operational risk (plan §7.3):** long-lived sockets in-process.
-// Mitigated here via backoff-restart on onError, a clean stop() of every
-// watcher on shutdown, and the poll covering every gap.
+// **IDLE operational risk:** long-lived sockets run in-process.
+// Backoff restart on onError, clean shutdown of every watcher, and the poll
+// covering every gap mitigate this risk.
 //
-// **Multi-worker coordination (#1719):** the reconciliation poll stays
-// deliberately N-fold — every worker polls every active account, which
-// is idempotent and cheap. Only `plugin.watch()` holds a long-lived
-// connection, and only one worker may hold it per account. With
-// `deps.lock`, `ensureWatcher` claims a TTL lease (`lock.acquire`) for
-// the account before connecting; a worker that doesn't get it leaves the
-// account to its current holder — the poll still covers it. The holder
-// renews the claim via heartbeat (`lock.renew`, every ttl/3) for as long
-// as the watcher state lives, including across reconnect backoff, not
-// only while the connection is open. Losing the claim (Redis outage, TTL
-// exceeded) tears down the local watcher instead of racing a new holder.
+// **Multi-worker coordination:** the reconciliation poll remains deliberately
+// N-fold: every worker polls every active account, which is idempotent and
+// cheap. Only `plugin.watch()` holds a long-lived connection, and only one
+// worker may hold it per account. With `deps.lock`, `ensureWatcher` claims a
+// TTL lease (`lock.acquire`) before connecting; a worker that fails to claim
+// it leaves the account to its current holder, while the poll still covers
+// it. The holder renews the lease via heartbeat (`lock.renew`, every ttl/3)
+// for as long as the watcher state exists, including reconnect backoff, not
+// only while the connection is open. Losing the claim (for example through
+// a Redis outage or expired TTL) tears down the local watcher instead of
+// racing a new holder.
 
 import {
   configuredPiiSubjectKms,
@@ -85,18 +84,18 @@ const DEFAULT_MAX_MESSAGES_PER_POLL = 200;
 const DEFAULT_WATCH_BACKOFF_INITIAL_MS = 5_000;
 const DEFAULT_WATCH_BACKOFF_MAX_MS = 5 * 60 * 1000;
 const DEFAULT_WATCH_LEASE_TTL_SECONDS = 90;
-/** V1: ein Cursor pro Account (eine Mailbox-Inbox). Multi-Folder später
- *  über weitere scopes ohne Schema-Änderung. */
+/** One cursor per account (one mailbox inbox) for now; multi-folder support
+ *  can add further scopes later without a schema change. */
 const CURSOR_SCOPE = "default";
 
 export type InboundMailSupervisorDeps = {
-  /** Slim-Context für Provider-Calls (registry Pflicht, secrets für
-   *  Credential-Reads der Provider). */
+  /** Slim context for provider calls (`registry` is required; `secrets` is
+   *  used for provider credential reads). */
   readonly providerCtx: InboundMailContext;
-  /** App-DB — direct reads auf read_mail_accounts (Account-Snapshot)
-   *  + direct writes auf store_mail_sync_cursors (unmanaged store). */
+  /** App database — direct reads from read_mail_accounts (account snapshot)
+   *  and direct writes to store_mail_sync_cursors (unmanaged store). */
   readonly db: DbConnection;
-  /** Standard-Dispatcher mit SystemUser — trägt ingest-message +
+  /** Standard dispatcher with SystemUser — carries ingest-message and
    *  update-account. */
   readonly dispatchWrite: (args: {
     readonly handlerQn: string;
@@ -107,8 +106,8 @@ export type InboundMailSupervisorDeps = {
     readonly data?: unknown;
     readonly error?: unknown;
   }>;
-  /** Persisted den raw MIME-Body (file-foundation) und liefert den
-   *  bodyRef fürs Event. Fehlt der Hook, läuft snippet-only-Mode
+  /** Persists the raw MIME body (file-foundation) and returns its bodyRef
+   *  for the event. Without this hook, runs in snippet-only mode
    *  (bodyRef = ""). */
   readonly storeBody?: (account: MailAccountRecord, msg: RawInboundMessage) => Promise<string>;
   readonly pollIntervalMs?: number;
@@ -120,7 +119,7 @@ export type InboundMailSupervisorDeps = {
    *  before `plugin.watch()`, ensureWatcher claims a TTL lease for the
    *  account via `lock.acquire` and renews it via `lock.renew` while the
    *  watcher lives. Omit for single-process deployments — every active
-   *  account is watched locally, same as before #1719. */
+   *  account is watched locally, same as before. */
   readonly lock?: DistributedLock;
   /** Access-token lifecycle for OAuth accounts. Defaults to a manager built
    *  from `db` + `providerCtx.secrets`; pass the instance shared with
@@ -136,8 +135,8 @@ type WatcherState = {
   stop: (() => Promise<void>) | null;
   backoffMs: number;
   restartTimer: ReturnType<typeof setTimeout> | null;
-  /** Bump beim stop() — verhindert dass ein nachzügelnder Restart einen
-   *  bereits gestoppten Watcher wiederbelebt. */
+  /** Incremented by stop() to prevent a delayed restart from reviving
+   *  an already stopped watcher. */
   generation: number;
   /** Token from `deps.lock.acquire` while this worker owns the account's
    *  watch lease; null when unclaimed (no `deps.lock`, or claim lost). */
@@ -153,8 +152,8 @@ type WatchLeaseResult = "acquired" | "no-token" | "stale";
 
 export type InboundMailSupervisor = {
   readonly start: () => Promise<void>;
-  /** Ein Reconciliation-Durchlauf über alle aktiven Accounts — auch
-   *  standalone nutzbar (Tests, manueller Ops-Trigger). */
+  /** Reconciliation run across all active accounts; also usable standalone
+   *  for tests and manual operational triggers. */
   readonly pollOnce: () => Promise<void>;
   readonly stop: () => Promise<void>;
 };
@@ -214,8 +213,8 @@ export function createInboundMailSupervisor(
   const watchers = new Map<string, WatcherState>();
 
   // ---------------------------------------------------------------
-  // Account-Snapshot: aktive Accounts aller Tenants, address decrypted
-  // (Provider arbeiten nie mit Ciphertext).
+  // Account snapshot: active accounts of all tenants with the address
+  // decrypted (providers never work with ciphertext).
   // ---------------------------------------------------------------
   async function listActiveAccounts(): Promise<readonly MailAccountRecord[]> {
     const rows = await selectMany<ActiveMailAccountRow>(deps.db, mailAccountsProjectionTable, {
@@ -264,7 +263,7 @@ export function createInboundMailSupervisor(
       const parsed: unknown = JSON.parse(row.cursor);
       return isPlainObject(parsed) ? parsed : null;
     } catch {
-      return null; // korrupter Cursor = wie kein Cursor → Backfill, Dedup fängt Dubletten
+      return null; // a corrupt cursor counts as none → backfill; dedup catches duplicates
     }
   }
 
@@ -286,7 +285,7 @@ export function createInboundMailSupervisor(
         { cursor: serialized, updatedAt: now },
         { accountId, scope: CURSOR_SCOPE },
       );
-      // skip: update-Pfad fertig — nicht in den insert-Zweig durchfallen.
+      // skip: the update path is complete; do not fall through to the insert branch.
       return;
     }
     await insertOne(deps.db, syncCursorTable, {
@@ -301,8 +300,8 @@ export function createInboundMailSupervisor(
   }
 
   async function resetCursor(accountId: string): Promise<void> {
-    // Kein deleteMany-Import nötig: leerer Cursor-String parsed zu null
-    // → nächster fetch läuft als Backfill.
+    // No deleteMany import is needed: an empty cursor parses to null, so the
+    // next fetch runs as a backfill.
     await updateMany(
       deps.db,
       syncCursorTable,
@@ -312,7 +311,7 @@ export function createInboundMailSupervisor(
   }
 
   // ---------------------------------------------------------------
-  // Ingest — jede Message durch den Standard-Write-Handler.
+  // Ingest: every message goes through the standard write handler.
   // ---------------------------------------------------------------
   async function ingestBatch(
     account: MailAccountRecord,
@@ -344,9 +343,9 @@ export function createInboundMailSupervisor(
         },
       });
       if (!result.isSuccess) {
-        // Einzel-Message-Fehler bricht den Batch: Cursor wird NICHT
-        // persistiert → nächster Tick re-fetcht ab altem Cursor, Dedup
-        // überspringt die bereits verarbeiteten.
+        // A single-message failure aborts the batch without persisting the cursor.
+        // The next tick refetches from the old cursor, and deduplication skips
+        // messages that were already processed.
         throw new Error(
           `ingest-message failed for account ${account.id}: ${JSON.stringify(result.error ?? {})}`,
         );
@@ -367,8 +366,8 @@ export function createInboundMailSupervisor(
   }
 
   // ---------------------------------------------------------------
-  // Fehler-Semantik (Plan §2-Tabelle) — geteilt von Poll und Watch.
-  // Liefert true wenn der Account weiterlaufen darf.
+  // Error semantics, shared by poll and watch. Returns true when the
+  // account may keep running.
   // ---------------------------------------------------------------
   async function handleSyncError(account: MailAccountRecord, err: unknown): Promise<boolean> {
     if (isInboundAuthError(err)) {
@@ -383,14 +382,14 @@ export function createInboundMailSupervisor(
     }
     if (isInboundRateLimitError(err)) {
       log(`inbound-mail: account ${account.id} rate-limited (retryAfter ${err.retryAfterMs}ms)`);
-      return true; // nächster Tick versucht es erneut
+      return true; // The next tick retries it
     }
     if (isInboundCursorInvalidError(err)) {
       log(`inbound-mail: account ${account.id} cursor invalid — full resync in backfill window`);
       await resetCursor(account.id);
       return true;
     }
-    // Transient/unbekannt: loggen, nächster Tick retried.
+    // Transient or unknown error: log it and retry on the next tick.
     log(`inbound-mail: account ${account.id} sync error: ${describeError(err)}`);
     return true;
   }
@@ -423,7 +422,8 @@ export function createInboundMailSupervisor(
     let cursor = await loadCursor(account.id);
     let budget = maxMessagesPerPoll;
     try {
-      // hasMore-Schleife: Pagination innerhalb eines Ticks bis Budget.
+      // hasMore loop: paginate within this tick until the message budget is
+      // exhausted.
       for (;;) {
         const accessToken = await resolveAccessToken(account, plugin);
         const result = await plugin.fetch(deps.providerCtx, account, cursor, {
@@ -456,7 +456,7 @@ export function createInboundMailSupervisor(
       await pollAccount(account, plugin);
       if (running) await ensureWatcher(account, plugin);
     }
-    // Accounts die nicht mehr aktiv sind: Watcher abbauen.
+    // Remove watchers for accounts that are no longer active.
     const activeIds = new Set(accounts.map((a) => a.id));
     for (const accountId of watchers.keys()) {
       if (!activeIds.has(accountId)) await stopWatcher(accountId);
@@ -464,7 +464,7 @@ export function createInboundMailSupervisor(
   }
 
   // ---------------------------------------------------------------
-  // Watch-Lifecycle mit Backoff-Restart.
+  // Watch lifecycle with backoff restart.
   // ---------------------------------------------------------------
   // Heartbeat for a held watch lease. Independent of the connection's own
   // lifecycle — it keeps renewing across reconnect backoff, not just while
@@ -538,7 +538,7 @@ export function createInboundMailSupervisor(
     }
   }
 
-  // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional (#2460)
+  // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional
   async function acquireWatchLease(
     account: MailAccountRecord,
     state: WatcherState,
@@ -565,10 +565,10 @@ export function createInboundMailSupervisor(
     account: MailAccountRecord,
     plugin: InboundMailProviderPlugin,
   ): Promise<void> {
-    // skip: Provider ohne Live-Push — der Reconciliation-Poll deckt den Account ab.
+    // skip: provider without live push; the reconciliation poll covers the account.
     if (!plugin.watch) return;
     const existing = watchers.get(account.id);
-    // skip: Watcher läuft bereits, startet gerade, oder Restart ist geplant.
+    // skip: the watcher is already running, starting, or scheduled for restart.
     if (existing?.stop || existing?.restartTimer || existing?.starting) return;
 
     const state: WatcherState = existing ?? {
@@ -601,7 +601,8 @@ export function createInboundMailSupervisor(
     const generation = state.generation;
 
     const scheduleRestart = (err: unknown) => {
-      // skip: Supervisor gestoppt oder Watcher-Generation gewechselt — Restart wäre ein Zombie.
+      // skip: the supervisor stopped or the watcher generation changed; a restart
+      // would create a zombie watcher.
       if (!running || state.generation !== generation) return;
       state.stop = null;
       const delay = state.backoffMs;
@@ -647,7 +648,7 @@ export function createInboundMailSupervisor(
       );
       if (state.generation !== generation || !running) {
         await stop();
-        // skip: stop() kam während des Connects — Watcher wurde sofort wieder abgebaut.
+        // skip: stop() ran while connecting; the watcher was torn down right away.
         return;
       }
       state.stop = stop;
@@ -674,7 +675,7 @@ export function createInboundMailSupervisor(
 
   async function stopWatcher(accountId: string): Promise<void> {
     const state = watchers.get(accountId);
-    // skip: kein Watcher-State für diesen Account — bereits abgebaut.
+    // skip: no watcher state for this account; it is already torn down.
     if (!state) return;
     state.generation += 1;
     if (state.restartTimer) {
@@ -715,7 +716,7 @@ export function createInboundMailSupervisor(
   // Lifecycle.
   // ---------------------------------------------------------------
   function scheduleNextPoll(): void {
-    // skip: Supervisor gestoppt — keinen weiteren Poll-Tick planen.
+    // skip: the supervisor is stopped; do not schedule another poll tick.
     if (!running) return;
     pollTimer = setTimeout(() => {
       pollTimer = null;
@@ -730,7 +731,7 @@ export function createInboundMailSupervisor(
 
   return {
     async start() {
-      // skip: bereits gestartet — start() ist idempotent.
+      // skip: already started; start() is idempotent.
       if (running) return;
       running = true;
       await pollOnce();

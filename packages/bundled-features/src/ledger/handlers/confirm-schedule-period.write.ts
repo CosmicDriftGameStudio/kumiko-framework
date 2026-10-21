@@ -27,11 +27,11 @@ const CONFIRM_PERIOD_LOCK_NAMESPACE = 0x6c637370;
 // balanced transaction (debit +amount / credit −amount), tagged with
 // scheduleReference(scheduleId, period) so the host can merge Soll vs. Ist.
 //
-// Idempotent + reversal-aware: if an ACTIVE (non-reversed) booking for this
+// Idempotent and reversal-aware: if an ACTIVE (non-reversed) booking for this
 // reference already exists, it's a no-op; a booking that was reversed (Storno)
 // leaves the period re-confirmable. Referential integrity (both accounts must
-// exist) mirrors create-transaction — a schedule could name a bogus account, the
-// generic CRUD create doesn't check.
+// exist) mirrors create-transaction because a schedule could name a bogus
+// account that the generic CRUD create does not check.
 export function createConfirmSchedulePeriodHandler(
   access: AccessRule = DEFAULT_LEDGER_ACCESS,
 ): WriteHandlerDef {

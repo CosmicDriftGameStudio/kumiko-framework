@@ -1,5 +1,5 @@
-// #1561 — mid-stream access revocation tears down an open HTTP SSE stream.
-// Complements access-invalidation-consumer.integration.test.ts (#1560), which
+// Mid-stream access revocation tears down an open HTTP SSE stream.
+// Complements access-invalidation-consumer.integration.test.ts, which
 // only asserts broker.publishAccessInvalidation. Here we open a real
 // POST /api/stream via createLiveDispatcher + setupTestStack, revoke access
 // while the generator is gated between chunks, and assert the client sees

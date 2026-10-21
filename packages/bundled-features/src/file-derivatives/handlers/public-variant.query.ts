@@ -1,5 +1,5 @@
 // Public-Read of a derived FileRef variant — the anonymous counterpart to
-// GET /files/:id/variant/:name (#1950, auth-gated). Both routes resolve the
+// GET /files/:id/variant/:name (auth-gated). Both routes resolve the
 // same way: the variant spec comes from the FileRef's field declaration
 // (`createImageField({ variants: {...} })`), not a fixed list — an app that
 // declares its own variant name gets it served here too. This route never

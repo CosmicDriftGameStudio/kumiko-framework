@@ -1,17 +1,16 @@
-// Zod-Schema fuer RetentionOverride mit .strict() — Sprint 2.D2.5 (M2+M3).
+// Strict Zod schema for RetentionOverride.
 //
-// Symmetrisch zu compliance-profiles override-schema.ts (S1.9 Z3).
-// Sub-Sprint-Pattern (advisor-pinned): bei jedem User-konfigurierbarem
-// JSON-Override → strict-Zod + enum-validated.
+// Symmetric with compliance-profiles override-schema.ts.
+// Every user-configurable JSON override uses strict Zod validation
+// with enum validation.
 //
-// Schuetzt vor:
-//   - Top-Level-Tippfehler ("keepfor" statt "keepFor") — strict()-Reject
-//   - Strategy-Enum-Drift ("delete" statt "hardDelete") — z.enum-Reject
-//   - keepFor-Format-Drift ("30days" statt "30d") — regex-Reject
+// Protects against:
+//   - Top-level typos ("keepfor" instead of "keepFor") — strict() rejects them
+//   - Strategy enum drift ("delete" instead of "hardDelete") — z.enum rejects it
+//   - keepFor format drift ("30days" instead of "30d") — regex rejects it
 //
-// Tenant-Override darf alle drei Properties weglassen (Resolver
-// fallback auf Preset/Entity-Default), aber WAS gesetzt ist muss
-// gueltig sein.
+// A tenant override may omit all three properties (the resolver falls back
+// to the preset/entity default), but every property that is set must be valid.
 
 import * as z from "zod";
 
@@ -20,10 +19,9 @@ const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 const retentionStrategySchema = z.enum(["hardDelete", "softDelete", "anonymize", "blockDelete"]);
 
 /**
- * RetentionOverride-Zod-Schema mit .strict() — fuer (a) set-override-
- * Handler-Validation (S2.D3) und (b) DB-Loader im Cleanup-Job (S2.D2b)
- * der invalides JSON aus der config-Spalte loggt + skipt statt mit
- * undefined behavior weiterzumachen.
+ * Strict Zod schema for RetentionOverride, used by the set-override handler
+ * and the cleanup job's DB loader. The loader logs invalid JSON from the
+ * config column and skips it instead of continuing with undefined behavior.
  */
 export const retentionOverrideSchema = z
   .object({

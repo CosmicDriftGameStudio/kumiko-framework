@@ -1,4 +1,4 @@
-// #608 trap-closed regression: uploads and erasure resolve the file provider
+// Trap-closed regression: uploads and erasure resolve the file provider
 // through ONE source (file-foundation), end-to-end through the real server.
 //
 // The stack mounts file-foundation + a provider plugin but does NOT inject a

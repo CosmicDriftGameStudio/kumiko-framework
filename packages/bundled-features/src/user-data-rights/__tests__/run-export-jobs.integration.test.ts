@@ -1,16 +1,15 @@
-// runExportJobs Worker Integration-Test (S2.U3 Atom 3b).
+// runExportJobs worker integration test.
 //
-// Pinst die Worker-Pipeline end-to-end mit dem in-memory-Storage-Provider:
+// Exercises the worker pipeline end to end with the in-memory storage provider:
 //
-//   1. Happy path: pending Job → Worker pickt → Bundle gebaut → ZIP an
-//      Storage geschrieben → Job=done mit downloadStorageKey + expiresAt
-//      + bytesWritten
-//   2. ZIP wirklich entpackbar (Info-ZIP) und enthaelt das Bundle
-//   3. Stale-Detection: running-Job ueber TTL → failed
-//   4. Worker-Throw: failing Hook → Job=failed mit errorMessage
-//   5. Storage-Cleanup: done-Job mit expiresAt+grace im Past →
-//      downloadStorageKey wird genullt + storage-key geloescht
-//   6. Idempotency: 2× run → kein Re-Processing von done/failed-Jobs
+//   1. Happy path: pending job → worker claims → bundle built → ZIP written to
+//      storage → job=done with downloadStorageKey, expiresAt, and bytesWritten
+//   2. ZIP is extractable with Info-ZIP and contains the bundle
+//   3. Stale detection: running job past its TTL → failed
+//   4. Worker throw: failing hook → job=failed with errorMessage
+//   5. Storage cleanup: done job past expiresAt+grace → downloadStorageKey is
+//      nulled and the storage key is deleted
+//   6. Idempotency: two runs do not reprocess done/failed jobs
 
 import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { spawn } from "node:child_process";
@@ -93,8 +92,8 @@ beforeEach(async () => {
   ]);
   providerPerTenant = new Map();
 
-  // Atom 5: aliceUser-Row mit email seeden — Worker-Notification-Callback
-  // schaut email via lookupUserEmail an.
+  // Seed the aliceUser row with an email because the worker notification
+  // callback retrieves it through lookupUserEmail.
   await seedRow(stack.db, userTable, {
     id: String(aliceUser.id),
     tenantId: tenantA,
@@ -133,10 +132,9 @@ function createRecordingMetricsHandle(): MetricsHandle & { readonly values: Map<
   };
 }
 
-// Seedet einen pending Job via realen request-export-Handler — echter
-// ES-Pfad (crud.create emittiert event "export-job.created"), nicht
-// direct-INSERT. Direct-INSERT wuerde stream-version=0/row-version=1
-// drift erzeugen + Worker-claim mit version-conflict failen.
+// Seed a pending job through the real request-export handler so the event
+// stream exists. A direct INSERT would create stream-version=0/row-version=1
+// drift and make the worker claim fail with a version conflict.
 async function seedPendingJob(opts: { user?: typeof aliceUser } = {}): Promise<string> {
   const result = await stack.http.writeOk<{ jobId: string }>(
     "user-data-rights:write:request-export",
@@ -175,7 +173,6 @@ describe("runExportJobs :: happy path", () => {
     expect(result.completedJobIds).toContain(jobId);
     expect(result.errors).toEqual([]);
 
-    // Job-Row ist done
     const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
       downloadStorageKey: string | null;
@@ -229,8 +226,8 @@ describe("runExportJobs :: happy path", () => {
 
 describe("runExportJobs :: stale-detection", () => {
   test("running-Job mit startedAt > exportStaleTimeoutMinutes → failed", async () => {
-    // Seed via echten Pfad damit event-stream existiert; dann direct-
-    // update auf running mit alter startedAt (Test-Exemption vom Guard).
+    // Seed through the real path so the event stream exists, then directly update
+    // startedAt and status for this test fixture.
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
@@ -284,17 +281,15 @@ describe("runExportJobs :: stale-detection", () => {
   });
 
   test("stale-Job mit downloadStorageKey (real-Pfad nach 4a.fix path-pre-claim) → ZIP cleanup im selben Pass", async () => {
-    // Real-prod-Pfad-Pin (Atom 4a.fix2): nach path-pre-claim hat ein
-    // running-Job downloadStorageKey gesetzt. Wenn Stale-Detection den
-    // Job auf failed flippt, sollte storageCleanupPass im selben Worker-
-    // Pass den orphan-ZIP entfernen.
+    // A claimed running job already has downloadStorageKey persisted. If stale
+    // detection marks it failed, the same worker pass must remove the orphan ZIP.
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
     const storageKey = `exports/${tenantA}/${jobId}.zip`;
 
-    // Simuliert real-Pfad: claim-update hatte status=running + storageKey
-    // gesetzt + ZIP geschrieben. Worker dann gecrashed (kein done-flip).
+    // Simulate the production path: the claim set status=running and storageKey,
+    // and the ZIP was written before the worker crashed without marking the job done.
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
     await updateRows(
@@ -577,7 +572,6 @@ describe("runExportJobs :: idempotency", () => {
       buildStorageProvider: buildProvider,
       now: NOW(),
     });
-    // 2nd Run findet keine pending Jobs mehr (status=done)
     expect(second.completedJobIds).toEqual([]);
     expect(second.failedJobIds).toEqual([]);
   });
@@ -585,10 +579,8 @@ describe("runExportJobs :: idempotency", () => {
 
 describe("runExportJobs :: concurrency", () => {
   test("zwei parallele Runner mit 1 pending-Job → genau ein done, ein skipped", async () => {
-    // Pinst die zentrale Korrektheits-Behauptung von Atom 3b: optimistic-
-    // locking via crud.update mit version-conflict gewinnt EXAKT ein
-    // Worker-Replica den claim, der zweite skipped silent. Vor dem Fix
-    // war der "skipped"-Pfad totes coverage.
+    // Verifies the concurrency invariant: optimistic locking allows exactly one
+    // worker replica to claim the job; the other silently skips it.
     const jobId = await seedPendingJob();
 
     const [resultA, resultB] = await Promise.all([
@@ -606,14 +598,12 @@ describe("runExportJobs :: concurrency", () => {
       }),
     ]);
 
-    // Genau ein Runner hat den Job als completed verbucht
     const completedAcrossBoth = [...resultA.completedJobIds, ...resultB.completedJobIds];
     expect(completedAcrossBoth.filter((id) => id === jobId)).toHaveLength(1);
 
     // Keine doppelten failures
     expect([...resultA.failedJobIds, ...resultB.failedJobIds]).toEqual([]);
 
-    // DB hat genau eine done-Row
     const rows = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
       downloadStorageKey: string | null;
@@ -622,7 +612,7 @@ describe("runExportJobs :: concurrency", () => {
     expect(rows[0]?.status).toBe(EXPORT_JOB_STATUS.Done);
     expect(rows[0]?.downloadStorageKey).toBe(`exports/${tenantA}/${jobId}.zip`);
 
-    // Storage hat genau ein ZIP — kein Race-induziertes Doppel-Schreiben
+    // Exactly one ZIP in storage: the race must not write it twice.
     const provider = await buildProvider(tenantA);
     expect(await provider.exists(`exports/${tenantA}/${jobId}.zip`)).toBe(true);
   });
@@ -630,11 +620,9 @@ describe("runExportJobs :: concurrency", () => {
 
 describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
   test("running-Job 45min ago + Profile-Default 30min → wird gefailed (kein 60min-coarse-filter mehr)", async () => {
-    // Regression-Pin: vor 3b.fix hatte staleDetectionPass einen
-    // hardcoded `startedAt <= now-1h` Coarse-Filter. Default-Profile
-    // exportStaleTimeoutMinutes = 30, also waeren 30-60min-alte
-    // Stale-Jobs nicht erkannt worden. Mit Filter raus + per-Job
-    // profile-resolve im Loop wird das jetzt korrekt gefangen.
+    // The per-job profile timeout must be applied without a coarse one-hour
+    // filter; otherwise jobs 30–60 minutes old would escape the default
+    // exportStaleTimeoutMinutes = 30 cutoff.
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const fortyFiveMinAgo = T.Instant.fromEpochMilliseconds(Date.now() - 45 * 60 * 1000);
@@ -673,7 +661,6 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 
     expect(result.completedJobIds).toContain(jobId);
 
-    // Plain-Token im Result fuer Atom 5
     const plainToken = result.tokenByJobId.get(jobId);
     expect(plainToken).toBeDefined();
     expect(plainToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -690,8 +677,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows).toHaveLength(1);
     expect(tokenRows[0]?.tokenHash).toBe(await hashDownloadToken(plainToken as string));
     expect(tokenRows[0]?.lastUsedAt).toBeNull();
-    // Atom 4a.fix: useCount explicit 0 statt null — 4b's Increment ist
-    // dadurch trivial (useCount + 1 ohne COALESCE).
+    // useCount is explicitly initialized to 0 so incrementing it requires no
+    // COALESCE.
     expect(tokenRows[0]?.useCount).toBe(0);
 
     // expiresAt im Token = job.expiresAt (denormalized)
@@ -702,10 +689,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   });
 
   test("ES via crud.create — Token-Created-Event in kumiko_events", async () => {
-    // Pinst dass Worker den Token via Event-Sourcing erstellt, nicht
-    // direct-INSERT (Memory `feedback_no_fake_dispatcher`). Ohne Event
-    // koennten Atom-5-Notification-Hooks nicht aufs Token-Created-Event
-    // hooken.
+    // The token must be created through event sourcing rather than a direct INSERT
+    // so notification hooks can observe the token-created event.
     await seedPendingJob();
     await runExportJobs({
       db: stack.db,
@@ -717,7 +702,6 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     const events = (await asRawClient(stack.db).unsafe(
       `SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`,
     )) as unknown as Array<{ type: string }>;
-    // Mindestens 1 created-Event fuer den Token
     expect(events.some((e) => e.type === "export-download-token.created")).toBe(true);
   });
 
@@ -730,7 +714,6 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       now: NOW(),
     });
 
-    // 2nd run: pending-Loop ist leer (status=done), kein 2. Token-Insert
     const second = await runExportJobs({
       db: stack.db,
       registry: stack.registry,
@@ -761,10 +744,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       jobId,
     })) as Array<{ id: string }>;
 
-    // Operator-Recovery (Email-Fail, plain verloren): NUR den Job auf
-    // pending flippen — die Token-Row bleibt liegen. Vor fw#832 created
-    // der Worker dann ein ZWEITES Aggregat fuers gleiche jobId und der
-    // Projection-Rebuild kollidierte dauerhaft am one_per_job-Index.
+    // Operator recovery after an email failure flips only the job back to pending;
+    // the existing token row remains. Creating a second aggregate for the same
+    // jobId would make projection rebuilds collide with the one_per_job index.
     await updateRows(
       stack.db,
       exportJobsTable,
@@ -783,7 +765,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(secondPlain).toBeDefined();
     expect(secondPlain).not.toBe(firstPlain);
 
-    // Genau EINE Row, GLEICHES Aggregat, frischer Hash, Audit-Reset.
+    // Exactly one row, the same aggregate, a fresh hash, and reset audit fields.
     const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, {
       jobId,
     })) as Array<{
@@ -798,8 +780,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows[0]?.useCount).toBe(0);
     expect(tokenRows[0]?.lastUsedAt).toBeNull();
 
-    // Rebuild-Invariante: genau EIN created-Event — der one_per_job-
-    // Index kann beim Replay nie kollidieren.
+    // Rebuild invariant: exactly one created event prevents the one_per_job index
+    // from colliding during replay.
     const events = (await asRawClient(stack.db).unsafe(
       `SELECT type FROM kumiko_events WHERE aggregate_type = 'export-download-token'`,
     )) as unknown as Array<{ type: string }>;
@@ -808,9 +790,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   });
 
   test("failed-Job: kein Token wird generiert", async () => {
-    // Bewusst keinen Job — leerer Pending-Pass. Aber wir koennen den
-    // failure-Pfad pinnen via runUserExport-Fehler. Einfacher: nur
-    // verifizieren dass tokenByJobId leer bleibt wenn keine completed-Jobs.
+    // No pending job is available, so verify that no token is generated when there
+    // are no completed jobs.
     const result = await runExportJobs({
       db: stack.db,
       registry: stack.registry,
@@ -825,15 +806,12 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   });
 
   test("Token-create UNIQUE-violation → Job=failed (NICHT done) — Sequencing-Pin", async () => {
-    // Atom 4a.fix Sequence-Garantie: Token wird VOR done-flip erstellt.
-    // Wenn Token-create failt (z.B. UNIQUE-violation auf jobId), faellt
-    // der Worker in catch-Pfad → Job auf failed (NICHT done). Vorher
-    // war die Reihenfolge gefaehrlich: Job=done dann Token-create-fail
-    // → catch flippt done→failed (nicht-monoton + verwirrend).
+    // The token is created before the job is marked done. If token creation fails,
+    // the worker marks the job failed rather than first committing done and then
+    // reverting it.
     //
-    // Setup: pending Job seeden, dann eine duplicate-Token-Row mit
-    // demselben jobId direct-INSERT (test-fixture). Worker pickt Job,
-    // schreibt ZIP, versucht Token-create → UNIQUE hits → throw.
+    // Seed a pending job and a duplicate token row for the same jobId, then let
+    // the worker write the ZIP and fail on the token's UNIQUE constraint.
     const jobId = await seedPendingJob();
 
     await seedConflictingDownloadToken(jobId);
@@ -845,7 +823,6 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       now: NOW(),
     });
 
-    // Job ist failed, NICHT done — Sequence-Garantie
     expect(result.completedJobIds).not.toContain(jobId);
     expect(result.failedJobIds).toContain(jobId);
 
@@ -900,10 +877,10 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
       registry: stack.registry,
       buildStorageProvider: buildProvider,
       now: NOW(),
-      // Kein sendExportFailedEmail
+      // No sendExportFailedEmail.
     });
     expect(result.failedJobIds).toContain(jobId);
-    // Kein Email, kein Throw — Worker laeuft normal durch
+    // No email and no throw: the worker run completes normally.
   });
 
   test("failed-Job, sendExportFailedEmail-Throw wird abgefangen (best-effort, kein Batch-Abbruch)", async () => {
@@ -985,15 +962,14 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   });
 
   test("failed-Job mit downloadStorageKey → ZIP wird im Cleanup-Pass entfernt (orphan-fix)", async () => {
-    // Atom 4a.fix orphan-cleanup: failed-Jobs haben downloadStorageKey
-    // gesetzt (path-pre-claim) — der ZIP-Pfad ist persistiert ab claim.
-    // Storage-Cleanup-Pass fuer failed-Jobs: sofort ZIP loeschen (kein
-    // Grace), DB-Spalte nullen.
+    // Failed jobs can retain a downloadStorageKey because it is set during the
+    // claim. Their cleanup pass deletes the ZIP immediately, without a grace
+    // period, and clears the database column.
     const jobId = await seedPendingJob();
     const storageKey = `exports/${tenantA}/${jobId}.zip`;
 
-    // ZIP in storage seeden + Job manuell auf failed mit storageKey
-    // (simuliert orphan-state nach Worker-crash).
+    // Seed a ZIP and mark the job failed with its storage key to simulate an
+    // orphaned file left by a worker crash.
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([99, 99, 99]));
     await updateRows(
@@ -1025,9 +1001,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 });
 
 describe("runExportJobs :: Atom 3c file-binaries", () => {
-  // Helper: spy auf buildProvider damit wir verifizieren koennen, dass
-  // multi-tenant-fileRefs ZWEI separate Provider-Builds triggern (Cache-
-  // Invariant: pro tenant nur einmal).
+  // Spy on buildProvider to verify the per-tenant cache invariant: each tenant
+  // requires only one provider build.
   let providerCallsByTenant: Map<string, number>;
 
   function spiedBuildProvider(tenantId: string): Promise<FileStorageProvider> {
@@ -1035,11 +1010,8 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     return buildProvider(tenantId);
   }
 
-  // Pre-seed eine fileRef-Row in read_user_files damit der user-Hook in
-  // user-data-rights-defaults sie findet. Aber: wir mounten diesen
-  // defaults-Feature NICHT, weil dann file-foundation + files-Feature
-  // mit dazukommen muessen. Stattdessen: ein test-only Feature das einen
-  // userData-export-Hook mit fileRefs[] direkt zurueckgibt.
+  // This fixture returns fileRefs directly from a user-data export hook, avoiding
+  // the defaults feature and its file-foundation/files dependencies.
   function seedFileBytes(tenantId: string, storageKey: string, bytes: Uint8Array) {
     return buildProvider(tenantId).then((p) => p.write(storageKey, bytes));
   }
@@ -1048,11 +1020,11 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     providerCallsByTenant = new Map();
   });
 
-  // Stack mit Test-Feature das fileRefs liefert. Ueberschreibt das outer
-  // stack via local setupTestStack — nur fuer diesen describe-Block.
+  // Use a separate local stack for this describe block so the fixture can provide
+  // fileRefs.
   let localStack: TestStack;
-  // Module-level mutable damit der malicious-filename-Test den User-Input
-  // pro Test variieren kann ohne neuen Stack aufzubauen. Default sicher.
+  // Mutable test input lets the malicious-filename test vary the user-provided
+  // name without rebuilding the stack.
   let currentTestFileName = "report.pdf";
   beforeAll(async () => {
     const { defineFeature, EXT_USER_DATA } = await import("@cosmicdrift/kumiko-framework/engine");
@@ -1106,7 +1078,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
       tenantComplianceProfileTable,
       tenantMembershipsTable,
     ]);
-    // Reset zu safe Default damit kein Test den State an den naechsten leakt.
+    // Reset the default so test state cannot leak into the next test.
     currentTestFileName = "report.pdf";
   });
 
@@ -1164,7 +1136,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
       const expectedZipPath = `files/${tenantA}/f1-report.pdf`;
       expect(bundle.fileRefs[0].zipPath).toBe(expectedZipPath);
 
-      // File-bytes liegen unter genau diesem Pfad
+      // The file bytes are stored at exactly this path.
       const fileBytes = await readFile(join(dir, "out", expectedZipPath));
       expect(Array.from(fileBytes)).toEqual([1, 2, 3, 4, 5]);
     } finally {
@@ -1190,18 +1162,17 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
 
     expect(result.completedJobIds).toContain(jobId);
 
-    // Cache-Invariant: Tenant A Provider wurde 1x gebaut (Job-Tenant fuer
-    // writeStream + 1. fileRef-Read), Tenant B nur fuer den 2. fileRef-Read.
-    // Mehrere fileRef-Reads pro Tenant duerfen aber NICHT mehrere builds
-    // triggern.
+    // The job tenant's provider serves both the output write and its fileRef read;
+    // the second tenant requires one provider for its fileRef read. Additional
+    // reads for either tenant must reuse the cached provider.
     expect(providerCallsByTenant.get(tenantA)).toBe(1);
     expect(providerCallsByTenant.get(tenantB)).toBe(1);
   });
 
   test("missing-file: storage-key gibt's nicht → job=failed mit klarem error", async () => {
     await seedMembership(tenantA, aliceUser.id);
-    // Bewusst KEIN seedFileBytes — der storage-key existiert nicht im
-    // in-memory-provider; readStream throw't beim ersten chunk-pull.
+    // Deliberately omit seedFileBytes so the missing storage key causes readStream
+    // to throw on the first chunk pull.
     const jobId = await seedPendingJobLocal(aliceUser);
 
     const result = await runExportJobs({
@@ -1224,14 +1195,12 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   });
 
   test("malicious filename: '../../etc/passwd' bleibt im ZIP-Root (defense-in-depth e2e)", async () => {
-    // Defense-in-depth: pinst die ganze Chain
+    // Defense in depth: exercise the full chain
     //   user-input fileName → buildFileRefZipPath → bundle.fileRefs[].zipPath
     //   → bundleToZipEntries → ZipEntry.path → unzip.
-    // Ein User-uploaded-fileName mit "../../etc/passwd" darf NIEMALS
-    // ein ZIP-Reader dazu bringen, ausserhalb des extract-Roots zu
-    // schreiben. Das wird unit-getestet auf zip-path-Ebene; der
-    // Integration-Test hier pinst dass der Sanitize-Pfad WIRKLICH
-    // durchgaengig wirkt.
+    // A user-provided "../../etc/passwd" must never make a ZIP reader write
+    // outside the extraction root. The unit test covers path construction; this
+    // integration test verifies that sanitization survives the complete pipeline.
     currentTestFileName = "../../etc/passwd";
     await seedMembership(tenantA, aliceUser.id);
     await seedFileBytes(
@@ -1264,21 +1233,19 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         proc.on("error", reject);
       });
 
-      // Bundle hat zipPath ohne ".." gespeichert
       const bundle = JSON.parse(await readFile(join(extractRoot, "bundle.json"), "utf8"));
       expect(bundle.fileRefs[0].zipPath).not.toContain("..");
       expect(bundle.fileRefs[0].zipPath).toMatch(/^files\//);
 
-      // ZIP-Entry-Pfad ist DERSELBE wie zipPath in bundle.json
-      // → Reader hat KEINE Datei outside extractRoot geschrieben.
-      // unzip wuerde mit warning skipen wenn der path-traversal greifen
-      // wuerde; wir verifizieren via filesystem-check ausserhalb.
+      // The ZIP entry path must match bundle.json's zipPath, so extraction cannot
+      // write a file outside extractRoot. unzip would only skip a traversing entry
+      // with a warning, so check the filesystem outside extractRoot directly.
       const dirAbove = join(dir, "..");
       const escapedFile = join(dirAbove, "etc", "passwd");
       const { access } = await import("node:fs/promises");
       await expect(access(escapedFile)).rejects.toThrow();
 
-      // Die Bytes sind unter dem sanitized-Path im ZIP-Root.
+      // The bytes sit under the sanitized path in the ZIP root.
       const fileBytes = await readFile(join(extractRoot, bundle.fileRefs[0].zipPath));
       expect(Array.from(fileBytes)).toEqual([0xde, 0xad, 0xbe, 0xef]);
     } finally {
@@ -1323,7 +1290,6 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(sent.downloadUrl).toMatch(
       /^https:\/\/app\.example\.com\/user-export\/by-token#token=[A-Za-z0-9_%-]+$/,
     );
-    // plain-token aus dem callback-arg entspricht dem result.tokenByJobId
     const plainFromResult = result.tokenByJobId.get(jobId);
     expect(plainFromResult).toBeDefined();
     expect(sent.downloadUrl).toContain(encodeURIComponent(plainFromResult ?? ""));
@@ -1339,13 +1305,11 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       // Kein sendExportReadyEmail/appExportDownloadUrl
     });
     expect(result.completedJobIds).toContain(jobId);
-    // Kein Email, kein Throw — Worker laeuft normal durch
   });
 
   test("done-Job mit Callback aber ohne appExportDownloadUrl → throw bubbelt zum r.job", async () => {
-    // Boot-Misconfig-Detection: wer Callback setzt aber URL vergisst
-    // soll einen klaren Error sehen. Worker wirft direkt — r.job-Wrap
-    // markiert Worker-Run als failed in jobRunsTable.
+    // Reject this configuration clearly when a callback is supplied without its
+    // required URL; the worker error is wrapped by r.job in jobRunsTable.
     await seedPendingJob();
     await expect(
       runExportJobs({
@@ -1354,16 +1318,16 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
         buildStorageProvider: buildProvider,
         now: NOW(),
         sendExportReadyEmail: async () => {
-          // wird nicht erreicht — fireExportReadyCallback throws vorher
+          // unreachable — fireExportReadyCallback throws first
         },
-        // appExportDownloadUrl absichtlich fehlt
+        // appExportDownloadUrl is intentionally omitted
       }),
     ).rejects.toThrow(/appExportDownloadUrl fehlt/);
   });
 
   test("user ohne email → Callback skipped + console.warn (kein Throw)", async () => {
-    // User-Row mit email=null seeden (override). Worker logged warn,
-    // Callback wird NICHT gerufen, Worker-Run bleibt successful.
+    // Seed a user row with email=null (override). The worker logs a warning,
+    // skips the callback, and the worker run remains successful.
     await resetTestTables(stack.db, [userTable]);
     await seedRow(stack.db, userTable, {
       id: String(aliceUser.id),
@@ -1388,10 +1352,10 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       },
       appExportDownloadUrl: "https://app/user-export/by-token",
     });
-    // Callback NICHT aufgerufen weil userEmail leer
+    // The callback is not invoked because userEmail is empty
     expect(callbackInvoked).toBe(false);
-    // Job ist trotzdem done (Notification ist best-effort, Audit-Trail
-    // existiert via Token-DB-row)
+    // The job is still done because notification is best-effort; the token DB row
+    // provides the audit trail.
     const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
     }>;
@@ -1399,13 +1363,12 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
   });
 
   test("Atom 5.fix3 best-effort: callback-Throw fuer Job A killt Batch NICHT — Job B trotzdem verarbeitet", async () => {
-    // Vor fix3 wuerde ein Throw aus sendExportReadyEmail die for-Schleife
-    // abwuergen. Job A's Status ist bereits done committed, retry findet
-    // niemand mehr (alle pending-Jobs done) → silent miss + ZIP laeuft
-    // nach TTL ab ohne dass User je die Email bekommt.
+    // If sendExportReadyEmail throws, the batch must continue. Job A's status is
+    // already committed as done, so a retry finds no pending jobs; without
+    // continuation, the failure would be silent and the ZIP would expire
+    // without the user receiving the email.
     //
-    // Mit fix3: try/catch faengt den Throw, console.warn macht's
-    // operator-sichtbar, Schleife laeuft weiter zu Job B.
+    // The try/catch logs the error with console.warn and continues to Job B.
     const bobUser = createTestUser({
       id: 7,
       tenantId: tenantA,
@@ -1441,14 +1404,14 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       appExportDownloadUrl: "https://app.example.com/user-export/by-token",
     });
 
-    // Beide Jobs durchgegangen — Throw bei Job A hat Job B nicht
-    // mitgerissen. Beweis fuer try/catch-Continuation.
+    // Both jobs are processed; Job A's throw does not stop Job B. This verifies
+    // continuation after the try/catch.
     expect(result.completedJobIds).toContain(jobAId);
     expect(result.completedJobIds).toContain(jobBId);
     expect(calls.sort()).toEqual([jobAId, jobBId].sort());
 
-    // Beide DB-Rows tatsaechlich done (Job A's Status wurde VOR dem
-    // Email-Versand committed — der Throw aenderte daran nichts).
+    // Both database rows are actually done because Job A's status was committed
+    // before the email was sent; the throw cannot change it.
     const rows = (await selectMany(stack.db, exportJobsTable, {})) as Array<{
       id: string;
       status: string;

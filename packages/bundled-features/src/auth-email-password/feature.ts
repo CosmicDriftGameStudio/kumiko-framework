@@ -120,13 +120,13 @@ export type AccountLockoutOptions = {
 // (256 bit) and Redis is the source of truth, so tokenTtlMinutes is the only knob.
 export type SignupOptions = SignupRequestOptions;
 
-// Tenant-Invite Magic-Link. Wenn gesetzt, registriert das Feature die
-// invite-create + invite-accept-Handler. Branch 2+3 (anon-flows) kommen
-// als separate Handler in einem Folge-Schritt. tokenTtlMinutes Default
-// 7 Tage (industry standard).
+// Tenant-invite magic link. When set, the feature registers the
+// invite-create and invite-accept handlers. Branches 2 and 3 (anonymous
+// flows) will be added as separate handlers later. The default
+// tokenTtlMinutes is 7 days (industry standard).
 export type InviteOptions = InviteCreateOptions;
 
-// Account-Unlock Magic-Link (#1266). When set, registers the
+// Account-Unlock Magic-Link. When set, registers the
 // request-account-unlock + confirm-account-unlock handlers — the
 // self-service escape hatch for the monotonic lockout counter (see
 // lockout-store.ts). Only meaningful paired with `accountLockout`, but
@@ -180,7 +180,7 @@ export function createAuthEmailPasswordFeature(
     r.describe(
       "Provides email+password authentication: the always-on handlers are `login`, `changePassword`, and `logout`; optional flows — password reset, email verification, magic-link self-signup, tenant invite, and account-unlock — are registered only when you pass their respective option objects (`passwordReset`, `emailVerification`, `signup`, `invite`, `accountUnlock`) to `createAuthEmailPasswordFeature(opts)`. All five magic-link flows dispatch their mail through the `delivery` feature via `ctx.notify`, so mounting any of them additionally requires `delivery`. Tokens are HMAC-signed (reset/verify/unlock) or opaque-random in Redis (signup/invite). `accountUnlock` is the self-service escape hatch for `accountLockout`'s monotonic failure-counter (#1266): confirming the mailed token clears the Redis lockout state without touching the user entity. Requires the `user` and `tenant` features, and declares `JWT_SECRET` (≥ 32 chars) in `authEmailPasswordEnvSchema` so a missing secret surfaces at boot validation rather than on the first login attempt.",
     );
-    // kumiko-lint-ignore i18n-ui-strings uiHints labels are feature-registry metadata for the admin feature catalog, not yet wired to the i18n system, see #2312
+    // kumiko-lint-ignore i18n-ui-strings uiHints labels are feature-registry metadata for the admin feature catalog, not yet wired to the i18n system
     r.uiHints({
       displayLabel: "Auth \u00b7 Email + Password",
       category: "identity",

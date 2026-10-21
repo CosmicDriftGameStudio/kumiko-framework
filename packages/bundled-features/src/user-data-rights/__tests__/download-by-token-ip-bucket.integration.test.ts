@@ -1,4 +1,4 @@
-// #1307 regression: the `/user-export/by-token` httpRoute wrapper re-dispatches
+// Regression: the `/user-export/by-token` httpRoute wrapper re-dispatches
 // to `download-by-token` (rateLimit: { per: "ip", limit: 30 }) via an internal
 // `app.fetch(new Request(...))` call. That internal request has no socket of
 // its own, so the L3 per-ip bucket only sees a real client IP if the wrapper

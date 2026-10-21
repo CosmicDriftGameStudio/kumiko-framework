@@ -1,10 +1,10 @@
-// RequestAccountDeletionScreen — anonymer Apex-Screen Schritt 1. Email-Form
-// → user-data-rights:write:request-deletion-by-email. Enumeration-safe: zeigt
-// unconditional ein "Falls Account existiert, Mail unterwegs"-Confirm, auch
-// wenn der Server intern erkannt hat dass die Email nicht existiert.
+// RequestAccountDeletionScreen — anonymous Apex screen, step 1: email form
+// → user-data-rights:write:request-deletion-by-email. Enumeration-safe: always
+// shows a "If an account exists, the email is on its way" confirmation, even
+// when the server has determined internally that the email does not exist.
 //
-// App mountet den Screen unter einer Apex-Route (z.B. /delete-account) via
-// createPublicSurface; die Page-Shell liefert die Chrome.
+// The app mounts this screen at an Apex route (e.g. /delete-account) via
+// createPublicSurface; the page shell provides the surrounding chrome.
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";

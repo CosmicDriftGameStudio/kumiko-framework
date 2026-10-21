@@ -1,6 +1,6 @@
-// retention:query:policy-for Integration-Test (S2.D3) — Cross-Feature-
-// API für Forget-Flow + Cleanup-Job. Round-trip: Override in DB seeden,
-// Query rufen, verify dass resolver Override greift.
+// retention:query:policy-for Integration-Test — Cross-Feature-
+// API for the Forget-Flow and Cleanup-Job. Round-trip: seed an override
+// in the DB, run the query, and verify that the resolver uses the override.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -108,7 +108,7 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     await seedOverride(
       tenantId,
       "ghost-incomplete",
-      { strategy: "hardDelete" }, // keepFor fehlt, kein Preset, kein Entity-Default
+      { strategy: "hardDelete" }, // keepFor is missing; there is no preset or entity default
     );
 
     const result = await stack.http.queryOk<{
@@ -124,11 +124,10 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     const tenantId = testTenantId(4);
     const user = createTestUser({ id: 4, tenantId, roles: ["TenantAdmin"] });
 
-    // Test-Name korrigiert in S2.D2.5-Audit (N3): "invalid JSON" war
-    // missleading — der Test prueft Schema-Violation (gueltiges JSON
-    // mit ungueltigem strategy-Enum-Wert), nicht JSON-Parse-Fehler.
-    // DB-Direct-Insert via seedOverride mit strategy="delete" — Zod
-    // retentionOverrideSchema rejected das.
+    // "invalid JSON" was misleading: this test checks a schema violation
+    // (valid JSON with an invalid strategy enum value), not a JSON parse error.
+    // DB direct insert via seedOverride with strategy="delete" —
+    // retentionOverrideSchema rejects it.
     await seedOverride(
       tenantId,
       "ghost-corrupt",
@@ -140,8 +139,8 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
       source: string;
     }>(POLICY_FOR, { entityName: "ghost-corrupt" }, user);
 
-    // Schema-Validation rejected → policy=null + source=none (kein
-    // Override betrachtet, faellt auf Layer 2/1 zurueck — beide leer)
+    // Schema validation rejects it → policy=null + source=none (the override
+    // is ignored and Layers 2 and 1 are empty)
     expect(result.source).toBe("none");
   });
 
@@ -165,6 +164,6 @@ describe("data-retention :: policy-for query (S2.D3)", () => {
     );
 
     expect(resultA.source).toBe("override");
-    expect(resultB.source).toBe("none"); // Tenant B sieht Tenant A's Override nicht
+    expect(resultB.source).toBe("none"); // Tenant B cannot see Tenant A's override
   });
 });

@@ -21,9 +21,9 @@ const LIST_PROFILES = "compliance-profiles:query:list-profiles";
 const SUB_PROCESSORS = "compliance-profiles:query:sub-processors";
 const NEEDS_PROFILE = "compliance-profiles:query:needs-profile";
 
-// S1.8 N5: Isolierten Tenant-Admin pro Test bauen — verhindert
-// Cross-Test-Interferenz uber gemeinsamen Default-tenantId aus
-// TestUsers.admin. Eindeutige numerische ID + parallele tenantId.
+// Build an isolated tenant admin for each test to prevent
+// cross-test interference from the shared default tenantId in
+// TestUsers.admin. Use a unique numeric ID and matching tenantId.
 function createIsolatedTenantAdmin(n: number, roles: string[] = ["TenantAdmin"]) {
   return createTestUser({ id: n, tenantId: testTenantId(n), roles });
 }
@@ -121,7 +121,7 @@ describe("compliance-profiles :: set-profile", () => {
       profile: { userRights: { gracePeriod: { days: number }; portabilityFormat: string[] } };
     }>(FOR_TENANT, {}, tenantAdmin);
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 60 });
-    // Andere userRights-Felder bleiben aus eu-dsgvo
+    // Other userRights fields are preserved from eu-dsgvo
     expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
   });
 
@@ -148,7 +148,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.status).toBeGreaterThanOrEqual(400);
   });
 
-  // S1.7 X1: Schema engt sich auf SELECTABLE_PROFILE_KEYS
+  // The schema restricts values to SELECTABLE_PROFILE_KEYS
   test("set-profile mit minimal-no-region wird abgelehnt (X1)", async () => {
     const result = await stack.http.write(
       SET_PROFILE,
@@ -158,7 +158,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.status).toBeGreaterThanOrEqual(400);
   });
 
-  // S1.7 X2: Override mit unbekannten Top-Level-Keys
+  // Reject overrides with unknown top-level keys
   test("set-profile mit unbekanntem Top-Level-Override-Key wirft Error (X2)", async () => {
     const result = await stack.http.write(
       SET_PROFILE,
@@ -171,14 +171,14 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.status).toBeGreaterThanOrEqual(400);
   });
 
-  // S1.9 Z3 + S1.10 M3: Override-Sub-Level-Tippfehler (Schema-Strict)
-  // mit path-spezifischer Assertion via ValidationError.details.fields.
+  // Sub-level typos are checked with a path-specific assertion via
+  // ValidationError.details.fields.
   test("set-profile mit Sub-Level-Tippfehler liefert validation_error mit Path (Z3+M3)", async () => {
     const err = await stack.http.writeErr(
       SET_PROFILE,
       {
         profileKey: "eu-dsgvo",
-        override: JSON.stringify({ userRights: { weeks: 3 } }), // weeks gibt's nicht
+        override: JSON.stringify({ userRights: { weeks: 3 } }), // weeks does not exist
       },
       tenantAdmin,
     );
@@ -186,9 +186,9 @@ describe("compliance-profiles :: set-profile", () => {
     expect(err.httpStatus).toBe(400);
     const fields = (err.details as { fields: Array<{ path: string }> })?.fields;
     expect(fields).toBeDefined();
-    // Schema-strict wirft auf "userRights.weeks" als unrecognized_keys — ODER
-    // generelle "userRights" wenn Zod das so reportet. Beide Pfade decken den
-    // Bug ab.
+    // Schema strictness reports either "userRights.weeks" as unrecognized_keys
+    // or the general "userRights" path, depending on how Zod reports it. Both
+    // paths cover the bug.
     expect(fields?.some((f) => f.path.includes("userRights"))).toBe(true);
   });
 
@@ -208,14 +208,14 @@ describe("compliance-profiles :: set-profile", () => {
     expect(fields?.some((f) => f.path.includes("gracePeriod"))).toBe(true);
   });
 
-  // S1.7 F2: SystemAdmin kann Profile setzen
+  // SystemAdmin can set profiles
   test("SystemAdmin kann Profile setzen (Plattform-Operator-Pfad)", async () => {
     const sysAdmin = createIsolatedTenantAdmin(50, ["SystemAdmin"]);
     const result = await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, sysAdmin);
     expect(result).toMatchObject({ profileKey: "eu-dsgvo", isNew: true });
   });
 
-  // S1.7 F3: tenantIdOverride als SystemAdmin → für Customer-Tenant
+  // SystemAdmin can set profiles for a customer tenant via tenantIdOverride
   test("SystemAdmin kann mit tenantIdOverride für anderen Tenant Profile setzen (F3)", async () => {
     const sysAdmin = createIsolatedTenantAdmin(51, ["SystemAdmin"]);
     const targetTenantAdmin = createIsolatedTenantAdmin(52);
@@ -243,7 +243,7 @@ describe("compliance-profiles :: set-profile", () => {
     expect(events.every((event) => event.createdBy === sysAdmin.id)).toBe(true);
   });
 
-  // S1.7 F3: tenantIdOverride als TenantAdmin → 403
+  // tenantIdOverride as TenantAdmin → 403
   test("TenantAdmin mit tenantIdOverride bekommt 403 (F3)", async () => {
     const someTenantAdmin = createIsolatedTenantAdmin(53);
     const result = await stack.http.write(
@@ -285,8 +285,8 @@ describe("compliance-profiles :: sub-processors (S1.4)", () => {
 
 describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", () => {
   test("Tenant ohne Profile-Wahl → needsSelection=true, reason=no_profile_selected", async () => {
-    // Frischer Tenant-Admin (eigener Tenant ID damit kein Profile gesetzt
-    // ist — sonst sieht er den Eintrag aus den vorherigen set-profile-Tests).
+    // Use a fresh tenant so no profile has been selected; otherwise this test
+    // would see the entry created by the preceding set-profile tests.
     const freshTenantAdmin = createIsolatedTenantAdmin(99);
     const result = await stack.http.queryOk<{
       needsSelection: boolean;
@@ -310,10 +310,10 @@ describe("compliance-profiles :: needs-profile (S1.5 — Onboarding-Banner)", ()
     expect(result.currentProfile).toBe("eu-dsgvo");
   });
 
-  // S1.8 O3: minimal-no-region-Defensiv-Pfad in needs-profile.query.ts
-  // entfernt (toter Code nach S1.7 X1 — Zod blockt minimal-no-region).
-  // Wenn Sprint 2 einen seedComplianceProfile-Helper bringt der den
-  // Migration-Edge-Case einführt, kommt hier ein neuer Test rein.
+  // The minimal-no-region defensive path was removed from
+  // needs-profile.query.ts because Zod blocks minimal-no-region.
+  // If a seedComplianceProfile helper introduces a migration edge case,
+  // add a new test here.
 
   test("Member-Rolle bekommt 403 (Banner ist Admin-only)", async () => {
     const result = await stack.http.query(NEEDS_PROFILE, {}, normalUser);
@@ -373,7 +373,7 @@ describe("compliance-profiles :: needs-profile mit access.systemAdmin-Narrowing 
   // The needs-profile call access itself stays TenantAdmin-only — the
   // `access` option is not passed 1:1 to the query dispatcher (otherwise
   // SystemAdmin could now call an endpoint only TenantAdmin used to be
-  // allowed to call — a widening #2063 does not ask for).
+  // allowed to call — widening access is not requested).
   test("SystemAdmin darf needs-profile weiterhin nicht aufrufen (Call-Access unveraendert)", async () => {
     const systemAdmin = createTestUser({
       id: 201,

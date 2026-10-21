@@ -1,4 +1,4 @@
-// kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
+// kumiko-lint-ignore app-feature-structure conversion (feature.ts > 300 lines)
 import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import {
   createSystemConfig,
@@ -83,87 +83,85 @@ import {
 } from "./web/constants.ts";
 import { USER_DATA_RIGHTS_I18N } from "./web/i18n.ts";
 
-// user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
-// Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.
+// user-data-rights — GDPR Articles 15 (access), 17 (erasure),
+// 18 (restriction), and 20 (portability) as a core feature.
 //
-// Pattern (Plan-Roadmap docs/plans/datenschutz/user-data-rights.md):
-// Statt jedes Feature seine eigene Forget-/Export-Logik schreibt,
-// haengt es sich via `r.useExtension(EXT_USER_DATA, "<entity>", {
-// export, delete })` an. user-data-rights orchestriert:
-//   - Export-Job: iteriert alle Extension-Registrierungen, sammelt JSON
-//   - Forget-Job: iteriert alle, ruft delete-Hook mit Strategy aus
-//                 retention.policyFor (data-retention)
-//   - Restriction: status-Flip auf user-Schema, Auth-Middleware-Guard
+// Instead of making each feature implement its own forget/export logic,
+// it registers through `r.useExtension(EXT_USER_DATA, "<entity>", {
+// export, delete })`. user-data-rights orchestrates:
+//   - Export job: iterates over all extension registrations and collects JSON
+//   - Forget job: iterates over all registrations and calls each delete hook
+//     with the strategy from `retention.policyFor` (data-retention)
+//   - Restriction: flips the user-schema status and enables the auth guard
 /**
- * Options fuer createUserDataRightsFeature. Notification-Callbacks
- * (Atom 5) folgen dem password-reset-Pattern aus auth-routes.ts.
+ * Options for createUserDataRightsFeature. Notification callbacks follow
+ * the password-reset pattern in auth-routes.ts.
  *
- * Plain-Token landet NIE in DB/event-store/jobRunsTable — Worker reicht
- * ihn ephemeral via Callback-arg an die App-Author-Implementation
- * (typisch: `delivery.notify(...)` mit `r.notification`-Templates,
- * `mailFoundation.send` direkt, oder Custom Resend/SES).
+ * The plain token is never stored in the DB, event store, or jobRunsTable.
+ * The worker passes it ephemerally as a callback argument to the app-author
+ * implementation (typically `delivery.notify(...)` with `r.notification`
+ * templates, `mailFoundation.send` directly, or custom Resend/SES).
  *
- * Worker-Run-Tracking + Retry kommt automatisch via existing
- * `jobs`-Feature (siehe CLAUDE.md "Bundled-Features by Concern").
+ * Worker-run tracking and retries are provided automatically by the existing
+ * `jobs` feature.
  */
 export type UserDataRightsOptions = {
-  /** Email-Notification beim Export-done. App-Author wired das an seinen
-   *  Email-Provider. Best-effort (Atom 5.fix3): send-Throw fuer Job A
-   *  killt den Batch nicht — restliche pending-Jobs werden weiter
-   *  verarbeitet, Failure wird via console.warn sichtbar. (Vorher
-   *  bubbelte der Throw zum r.job-Wrap, was bei mehreren pending Jobs
-   *  zum silent-miss fuehrte: Job A done committed, B/C/D nie
-   *  verarbeitet, retry findet niemand.) */
+  /** Email notification when the export completes. The app author connects it
+   * to an email provider. Best effort: a send failure for Job A does not stop
+   * the batch; remaining pending jobs continue, and the failure is exposed via
+   * console.warn. Previously, the error reached the r.job wrapper, so with
+   * multiple pending jobs A could commit while B/C/D were never processed and
+   * no retry could find them. */
   readonly sendExportReadyEmail?: SendExportReadyEmailFn;
   /** Email-Notification beim Export-failed. Best-effort analog
    *  sendExportReadyEmail. */
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
-  /** Base-URL fuer den Magic-Link, z.B.
-   *  "https://app.example.com/user-export/by-token". Worker bauen
-   *  a URL fragment (`#token=<plain>`, issue #1271). Required wenn
-   *  sendExportReadyEmail gesetzt. Per-Tenant via reverse-proxy host
-   *  routing — nicht via per-Tenant-config-key (App-Author-Decision). */
+  /** Base URL for the magic link, e.g.
+   *  "https://app.example.com/user-export/by-token". The worker builds
+   *  a URL fragment (`#token=<plain>`). Required when
+   *  sendExportReadyEmail is set. Routing uses the reverse-proxy host per
+   *  tenant rather than a per-tenant config key. */
   readonly appExportDownloadUrl?: string;
-  /** Atom 5b — Email-Notification beim deletion-requested-flip
-   *  ("Account-Loeschung in 30 Tagen"). Best-effort: send-failure killt
-   *  den Status-Flip nicht (siehe handlers/request-deletion.write.ts). */
+  /** Email notification when deletion is requested ("account deletion in
+   *  30 days"). Best effort: a send failure does not abort the status flip
+   *  (see handlers/request-deletion.write.ts). */
   readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
-  /** Atom 5b — Email-Notification beim Cleanup-Runner-done-Pfad
-   *  ("Account wurde geloescht"). Best-effort. Der Versand passiert NACH
-   *  dem User-Hook-Anonymisieren, deshalb cached der Worker
-   *  userEmail+tenantIds PRE-tx und reicht sie ephemeral an die
-   *  Callback-Implementation (siehe run-forget-cleanup.ts). */
+  /** Email notification after the cleanup runner completes ("account deleted").
+   *  Best effort. Delivery occurs after the user hook anonymizes the user, so
+   *  the worker caches userEmail+tenantIds before the transaction and passes
+   *  them ephemerally to the callback implementation (see
+   *  run-forget-cleanup.ts). */
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
-  /** Anonymer, email-verifizierter Apex-Deletion-Flow (Lockout-sicher).
-   *  HMAC-Secret zum Signieren des Verify-Tokens. Ohne Secret bleibt der
-   *  Flow deaktiviert (request-by-email antwortet still success, confirm-
-   *  by-token weist generisch ab). */
+  /** Anonymous, email-verified apex deletion flow that is safe against lockout.
+   *  HMAC secret for signing the verification token. Without a secret, the
+   *  flow remains disabled: request-by-email returns success silently, while
+   *  confirm-by-token rejects generically. */
   readonly deletionTokenSecret?: string;
-  /** Basis-URL des Apex-Confirm-Screens, z.B.
-   *  "https://app.example.com/delete-account/confirm". Der Handler hängt das
-   *  Token als URL-Fragment an (`#token=<token>`, fw#1554). Required wenn
-   *  deletionTokenSecret gesetzt. */
+  /** Base URL of the apex confirmation screen, e.g.
+   *  "https://app.example.com/delete-account/confirm". The handler appends
+   *  the token as a URL fragment (`#token=<token>`). Required when
+   *  deletionTokenSecret is set. */
   readonly deletionVerifyUrl?: string;
-  /** Versand des Verify-Magic-Links (Schritt 1 des anonymen Flows).
-   *  Best-effort, app-author-wired. MUSS non-blocking sein (enqueue, z.B.
-   *  delivery.notify) — ein synchroner Send reintroduziert ein Timing-Oracle
-   *  für Account-Enumeration (siehe SendDeletionVerificationEmailFn-Doc).
-   *  Bewusst KEINE mail-foundation-Default: ein synchroner Default-Send
-   *  brächte genau dieses Enumeration-Oracle zurück, deshalb app-wired. */
+  /** Sends the verification magic link (step 1 of the anonymous flow).
+   *  Best effort and wired by the app author. It MUST be non-blocking (enqueue,
+   *  e.g. via delivery.notify): a synchronous send would reintroduce a timing
+   *  oracle for account enumeration (see SendDeletionVerificationEmailFn-doc).
+   *  There is deliberately no mail-foundation default because a synchronous
+   *  default send would restore that enumeration oracle. */
   readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
-  /** C6 — Zero-Callback-GDPR-Mails: ist mail-foundation + ein mail-transport-*
-   *  gemountet, versendet user-data-rights die Export-/Loesch-Notifications
-   *  selbst (Export-ready/-failed, Deletion-requested/-executed) ueber die
-   *  Default-Templates (email-templates.ts) — die App schreibt keinen Callback.
-   *  `mailDefaults` brandet diese Default-Mails (Locale + App-Name). Greift NUR
-   *  wenn der jeweilige send*Email-Opt NICHT gesetzt ist; Export-ready braucht
-   *  zusaetzlich appExportDownloadUrl. */
+  /** Zero-callback GDPR mail: when mail-foundation and a mail-transport-* are
+   *  mounted, user-data-rights sends export and deletion notifications itself
+   *  (export-ready/-failed, deletion-requested/-executed) using the default
+   *  templates (email-templates.ts), without an app callback.
+   *  `mailDefaults` brands these default messages (locale and app name). It
+   *  applies only when the relevant send*Email option is unset; export-ready
+   *  also requires appExportDownloadUrl. */
   readonly mailDefaults?: GdprMailDefaults;
   /** Hides the Art. 17 deletion section + its request-deletion/cancel-deletion
    *  actions on the privacy-center screen — for apps that already offer
    *  account deletion elsewhere (e.g. a profile danger-zone), against
    *  duplication. Default `true` (deletion section shown).
-   *  BREAKING (fw#2312): replaces the removed client-side
+   *  BREAKING: replaces the removed client-side
    *  `userDataRightsClient({ privacyCenter: { showDeletion } })` option —
    *  the screen is now declared once, server-side (`type: "projectionDetail"`),
    *  so per-app visibility can only be a boot-time option, not a client-side
@@ -202,18 +200,18 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.envSchema(deletionTokenSecretEnvSchema);
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
-    // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.
-    // r.usesApi sorgt fuer Boot-Validation: App ohne sessions-feature wirft
-    // beim Boot, statt erst beim ersten Restrict-Call ein opaque "handler
-    // not found" zu werfen.
+    // restrict-account calls sessions.revokeAllForUser across features.
+    // r.usesApi enables boot validation: without the sessions feature, the app
+    // fails at boot instead of raising an opaque "handler not found" error
+    // on the first restrict call.
     r.usesApi("sessions.revokeAllForUser");
-    // file-foundation ist soft-dep: nur der Export-Worker (Atom 3b)
-    // braucht ihn fuer Storage-Schreiben. Apps die nur Forget nutzen
-    // (kein Export) muessen file-foundation nicht mounten.
+    // file-foundation is a soft dependency: only the export worker needs it
+    // for storage writes. Apps that use only forget (not export) do not need
+    // to mount file-foundation.
 
     r.extendsRegistrar(EXT_USER_DATA, {});
 
-    // GDPR-storage guards V2+V3 (#1314) — moved off the framework-internal
+    // GDPR-storage guards V2+V3 — moved off the framework-internal
     // boot-validator onto this feature's own r.bootCheck(), since it's the
     // EXT_USER_DATA channel owner: any r.useExtension(EXT_USER_DATA, ...)
     // usage already requires user-data-rights to be mounted.
@@ -243,24 +241,24 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       }),
     );
 
-    // S2.U3 Atom 1b — ExportJob-Lifecycle-Entity.
+    // ExportJob-Lifecycle-Entity.
     r.entity({ name: "export-job", ...exportJobEntity });
 
-    // S2.U3 Atom 4a — Download-Token-Entity. Worker generiert Token beim
-    // Flip auf done (siehe run-export-jobs.ts). Hash in DB, plain im
-    // RunExportJobsResult fuer Atom 5 (Notification per Email).
+    // The worker generates the token when flipping the job to done (see
+    // run-export-jobs.ts). The hash is stored in the database, while the plain
+    // token is kept in RunExportJobsResult for email notification.
     r.entity({ name: "export-download-token", ...exportDownloadTokenEntity });
 
-    // S2.U7 — Audit-Trail invalid Download-Attempts (DPO Brute-Force-Detection).
+    // Audit-Trail invalid Download-Attempts (DPO Brute-Force-Detection).
     r.entity({ name: "download-attempt", ...downloadAttemptEntity });
 
-    // S2.U6 — DSGVO Art. 18 Account-Freeze (Verarbeitungs-Pause).
-    // Endpoints fuer Restrict + Lift. Login-Block fuer Restricted Users
-    // lebt in auth-email-password/login.write.ts.
+    // GDPR Article 18 account freeze (pause processing).
+    // The endpoints restrict and lift the restriction. The login block for
+    // restricted users lives in auth-email-password/login.write.ts.
     r.writeHandler(restrictAccountWrite);
     r.writeHandler(liftRestrictionWrite);
 
-    // S2.U5a — Endpoints fuer DSGVO Art. 17 Forget-Pfad mit Grace.
+    // Endpoints for the GDPR Article 17 forget path with a grace period.
     r.writeHandler(
       createRequestDeletionHandler({
         ...(opts.sendDeletionRequestedEmail && {
@@ -293,10 +291,10 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       ),
     );
 
-    // S2.U5b — Cleanup-Runner als privileged-Handler. Atom 5b: Wenn
-    // sendDeletionExecutedEmail gesetzt, reicht der Handler den Callback
-    // an runForgetCleanup weiter (Worker cached userEmail+tenantIds
-    // PRE-tx, siehe run-forget-cleanup.ts).
+    // Cleanup runner as a privileged handler. When
+    // sendDeletionExecutedEmail is set, the handler passes the callback to
+    // runForgetCleanup; the worker caches userEmail+tenantIds before the
+    // transaction (see run-forget-cleanup.ts).
     r.writeHandler(
       createRunForgetCleanupHandler(
         opts.sendDeletionExecutedEmail
@@ -306,20 +304,20 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     );
     r.exposesApi("userDataRights.runForget");
 
-    // S2.U3 Atom 2 — User-Touchpoints fuer Async Export-Pipeline.
+    // User touchpoints for the asynchronous export pipeline.
     r.writeHandler(requestExportWrite);
     r.queryHandler(exportStatusQuery);
     r.exposesApi("userDataRights.runExport");
 
-    // S2.U3 Atom 4b — Download-Endpoints (Token-Pfad + Session-Pfad).
-    // Beide query-handlers verifizieren Token/Session, holen signed-URL
-    // vom Storage-Provider, und persistieren Audit-Felder am Token-Row.
-    // r.httpRoute-Wrapper unten machen den 302-Redirect zu signedUrl.
+    // Download endpoints for token and session paths.
+    // Both query handlers verify the token or session, obtain a signed URL
+    // from the storage provider, and persist audit fields on the token row.
+    // The r.httpRoute wrappers below issue the 302 redirect to signedUrl.
     r.queryHandler(downloadByTokenQuery);
     r.queryHandler(downloadByJobQuery);
 
-    // S2.U7 — User-Selbstauskunft (Art. 15) + Operator-Sicht auf
-    // invalid Download-Attempts (DPO).
+    // User self-access under Article 15 and operator access to invalid download
+    // attempts (DPO).
     r.queryHandler(myAuditLogQuery);
     r.queryHandler(listDownloadAttemptsQuery);
 
@@ -483,12 +481,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // Magic-link path (anonymous): the email link carries the token as a
     // URL fragment (`#token=<plain>`) instead of a query param — fragments
     // never leave the browser, so they never hit proxy/access logs
-    // (issue #1271). This route only serves the interstitial page; the
+    // This route only serves the interstitial page; the
     // external script reads the fragment client-side and exchanges the
     // token via POST for the signed URL.
     //
-    // No `?token=` query fallback: framework is zero-legacy (#1512) — no
-    // live customer data / no pre-#1271 emails in flight that would need
+    // No `?token=` query fallback: framework is zero-legacy — no
+    // live customer data / no emails in flight that would need
     // bridging, so there's nothing a fallback would need to cover. A query
     // param reaches the server as part of the request URL and gets written
     // to proxy/access logs regardless of what the handler does with it
@@ -532,7 +530,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     });
 
     // Exchange endpoint for the interstitial page: the token arrives here
-    // as a POST body instead of a query string (issue #1271). A dedicated
+    // as a POST body instead of a query string. A dedicated
     // route rather than letting the browser JS call /api/query directly,
     // for two reasons:
     //   1. IP/UA audit — extractAuditMeta needs the raw request headers and
@@ -571,7 +569,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           // defaults to 0, ignoring headers entirely) nor a socket, so every
           // fragment-POST download would fall to the shared "unknown" bucket,
           // turning the per-user 30/min backstop into one global bucket an
-          // attacker can exhaust for everyone (#1307). Passing `clientIp`
+          // attacker can exhaust for everyone. Passing `clientIp`
           // directly as env — the same server-resolved, trustedProxyHops-
           // aware value the outer request already trusted — reaches
           // extractSocketAddress() without going through header/hop-count
@@ -602,7 +600,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding the cron interval plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops.",
     });
 
-    // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert.
+    // Worker for the asynchronous export pipeline, triggered by a cron job.
     const RUN_EXPORT_JOBS_REASON = "processes pending export jobs across every tenant";
     r.job({
       name: "run-export-jobs",
@@ -614,9 +612,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           throw new Error("run-export-jobs: ctx.registry required (JobContext incomplete)");
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-        // SYSTEM_USER_ID ist die framework-weite Konvention. Der job-
-        // Discriminator wird via handlerName="user-data-rights:run-export-
-        // jobs" im Secret-Read-Audit erfasst.
+        // SYSTEM_USER_ID is the framework-wide convention. The job discriminator is
+        // recorded in the secret-read audit through
+        // handlerName="user-data-rights:run-export-jobs".
         const exportUserId = SYSTEM_USER_ID;
         const exportDb =
           ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
@@ -628,12 +626,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           ? createMetricsHandle(ctx.meter, "user-data-rights")
           : createNoopMetricsHandle();
 
-        // C6 — ohne eigene send*Email-Opts aber mit gemountetem mail-transport
-        // versendet der Cron die Export-Notifications selbst (Default-Templates).
-        // Der Resolver baut den per-Tenant-Transport aus configResolver — gleiche
-        // Bruecke wie buildStorageProvider.
-        // The cron runs across tenants: each mail needs a notify bound to the
-        // recipient's tenant (template override, channel config).
+        // Without explicit send*Email options, a mounted mail transport sends the
+        // export notifications itself using the default templates. The resolver
+        // builds the per-tenant transport from configResolver, bridging it in
+        // the same way as buildStorageProvider.
+        // The cron runs across tenants, so each mail needs a notify function
+        // bound to the recipient's tenant for template overrides and channel
+        // configuration.
         const notifyFactory = ctx._notifyFactory;
         const exportNotifyFor =
           notifyFactory !== undefined && isGdprMailDeliveryAvailable(exportRegistry)
@@ -678,9 +677,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             handlerName: "user-data-rights:run-export-jobs",
           }),
           now: T.Now.instant(),
-          // App-Author-Callbacks haben Vorrang; sonst greift die mail-foundation-
-          // Default oben. Beide optional: ohne mail-transport + ohne Callback
-          // bleibt es bei Polling via export-status.query.
+          // App-author callbacks take precedence; otherwise the mail-foundation default
+          // is used. Both are optional: without a mail transport or callback,
+          // clients continue polling via export-status.query.
           ...(sendExportReadyEmail && { sendExportReadyEmail }),
           ...(sendExportFailedEmail && { sendExportFailedEmail }),
           ...(opts.appExportDownloadUrl !== undefined && {
@@ -694,11 +693,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       },
     });
 
-    // Autonomer Art.17-Forget-Cron. Spiegelt run-export-jobs: nach Ablauf der
-    // Grace-Period laeuft runForgetCleanup unbeaufsichtigt (der manuelle
-    // userDataRights.runForget-API bleibt fuer Operator-Runs). Ohne diesen
-    // Cron bleibt jeder Loesch-Antrag fuer immer in DeletionRequested haengen
-    // — Art.17 wuerde nie ausgefuehrt.
+    // Automatic Article 17 forget cron. After the grace period, it runs
+    // runForgetCleanup without supervision; the manual
+    // userDataRights.runForget API remains available for operator runs.
+    // Without this cron, deletion requests would remain in
+    // DeletionRequested indefinitely and Article 17 erasure would never run.
     const RUN_FORGET_CLEANUP_REASON = "executes overdue Art.17 forget requests across every tenant";
     r.job({
       name: "run-forget-cleanup",
@@ -779,7 +778,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           actor: ctx.systemUser.id,
         });
 
-        // Persist each incomplete report on the job-run log (#1572). The write
+        // Persist each incomplete report on the job-run log. The write
         // handler returns incomplete[] in its response; the cron path used to
         // discard the array (only a console.warn for rolledBack cases).
         // ctx.log feeds createJobRunLogger → store_job_run_logs.

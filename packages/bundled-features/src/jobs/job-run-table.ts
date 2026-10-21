@@ -18,10 +18,10 @@ import {
 export type JobRunStatus = "queued" | "running" | "completed" | "failed";
 export type JobLogLevel = "info" | "warn" | "error";
 
-// jobRun is a system-scoped direct-write store (#2243): every job execution
+// jobRun is a system-scoped direct-write store: every job execution
 // writes straight into jobRunsTable / jobRunLogsTable from the BullMQ
 // callbacks (onJobStart / -Complete / -Failed, see job-run-logger.ts) —
-// no event-store detour. Pre-#2243 this was an events-only aggregate
+// no event-store detour. Previously this was an events-only aggregate
 // replayed through two inline projections; that generated two permanent
 // `kumiko_events` rows per run for data that is itself already the
 // system of record (no other consumer replays or MSP-subscribes to it).
@@ -38,7 +38,7 @@ export type JobLogLevel = "info" | "warn" | "error";
 // app boundary (same pattern as template-resolver kind/scope).
 // `table: "store_job_runs"` (not `read_*`) because this is no longer a
 // rebuildable projection — `defineUnmanagedTable`/`deriveEntityTableMeta`
-// reject the `read_` prefix for `source: "unmanaged"` (#1208/#1220).
+// reject the `read_` prefix for `source: "unmanaged"`.
 export const jobRunEntity = createEntity({
   table: "store_job_runs",
   fields: {

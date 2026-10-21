@@ -1,7 +1,7 @@
-// Regression for framework#347: the migration generator (collectTableMetas)
+// Regression: the migration generator (collectTableMetas)
 // must see the ride-along columns/indexes that live only on a feature's
 // backing Drizzle table, not just the entity fields. Before the fix the
-// generated migration omitted them → prod-500 (publicstatus#116). Guards the
+// generated migration omitted them → prod-500. Guards the
 // `r.entity(name, def, { table })` wiring on the two real ride-along features
 // so a future removal of the `{ table }` arg fails here.
 

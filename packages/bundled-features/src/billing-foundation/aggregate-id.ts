@@ -1,12 +1,11 @@
 import { v5 as uuidv5 } from "uuid";
 
-// Fixed UUID-namespace für die deterministic aggregate-id-Ableitung.
-// Generiert einmalig (2026-05-03), in Stein gemeißelt: ein Wechsel
-// würde jeden existing aggregate-Stream re-keyen → kaputter
-// Subscription-State, kaputte Audit-History. Drift-Pin in
-// __tests__/feature.test.ts pinnt die UUID.
+// Fixed UUID namespace for deterministic aggregate-id derivation.
+// Generated once and immutable: changing it would re-key every existing
+// aggregate stream, breaking subscription state and audit history. The drift
+// pin in __tests__/feature.test.ts locks the UUID.
 
-/** Pro Plattform-Tenant existiert genau EIN subscription-Aggregate. */
+/** Exactly one subscription aggregate exists per platform tenant. */
 const SUBSCRIPTION_NAMESPACE = "5c3b2d1e-9a4f-4e8c-b7a3-1f8d6c2e9a4b";
 
 /** Exactly ONE payment-aggregate-stream exists per platform tenant (it
@@ -26,11 +25,11 @@ const PAYMENT_ROW_NAMESPACE = "3a1c9f4e-6b2d-4c8a-9e5f-7d4b1a2c8e6f";
 const TERMINATION_UNMATCHED_NAMESPACE = "7e2f4b9a-3c1d-4a68-8d05-b6c9e1f27a34";
 
 /**
- * Deterministic aggregate-id für die subscription eines Plattform-
- * Tenants. EINE Subscription pro Tenant (Add-Ons sind line-items in
- * derselben subscription, nicht eigene). Provider-Wechsel (z.B.
- * Stripe→Mollie-Migration) appended einen neuen event auf denselben
- * Stream — selber Tenant, selber Aggregate-Stream.
+ * Deterministic aggregate ID for a platform tenant's subscription. Exactly
+ * one subscription exists per tenant; add-ons are line items in that
+ * subscription, not separate aggregates. A provider change, such as a
+ * Stripe→Mollie migration, appends a new event to the same stream because
+ * the tenant and aggregate stream remain the same.
  */
 // @wrapper-known uuid-domain
 export function subscriptionAggregateId(tenantId: string): string {

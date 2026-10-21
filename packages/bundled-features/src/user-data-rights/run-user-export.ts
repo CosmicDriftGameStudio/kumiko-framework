@@ -1,25 +1,24 @@
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
-// User-Data-Export-Pipeline (S2.U3) — DSGVO Art. 15 (Auskunft) +
-// Art. 20 (Datenportabilität).
+// User data export pipeline — GDPR Art. 15 (access) +
+// Art. 20 (data portability).
 //
-// Pure Pipeline-Function: ruft alle EXT_USER_DATA-export-Hooks ueber
-// alle Tenant-Memberships eines Users + sammelt das Ergebnis als
-// strukturiertes Bundle.
+// Pure pipeline function: invokes all EXT_USER_DATA export hooks for
+// all of a user's tenant memberships and collects the results into a
+// structured bundle.
 //
-// **Async ZIP + Storage (S2.U3-ext) bewusst spaeter:** Diese Foundation
-// gibt das Bundle inline zurueck (JSON-Object). Apps mit grossen
-// File-Mengen brauchen einen Job-Wrap der das Bundle nach S3 / lokalem
-// Storage schreibt + signed-URLs ergibt — kommt drauf wenn ein realer
-// User-Case >10MB Output produziert. Bis dahin reicht inline fuer
-// 99% der Apps (User-Profil + Files-Metadata + Aktivitaeten-History).
+// **Async ZIP + storage deferred:** This foundation returns the bundle
+// inline as a JSON object. Apps with large file collections need a job
+// wrapper that writes the bundle to S3 or local storage and produces
+// signed URLs; that can be added when a real use case produces more than
+// 10 MB of output. Until then, inline output covers 99% of apps
+// (user profiles, file metadata, and activity history).
 //
-// **Cross-Tenant-Iteration:** Wie beim Forget-Pfad — User-Daten in
-// Tenant A + B kommen in dasselbe Bundle. Plan-Doc:
-// docs/plans/architecture/user-data-rights.md "Cross-Tenant-Semantik".
+// **Cross-tenant iteration:** As with the forget path, data from Tenant A
+// and Tenant B is included in the same bundle.
 //
-// **PII-Surface:** Hooks definieren selbst welche Felder ins Bundle
-// landen. user-data-rights-defaults/hooks/user.userdata-hook expose
-// expliziert KEIN passwordHash + KEINE roles (privileged columns).
+// **PII surface:** Hooks decide which fields enter the bundle.
+// user-data-rights-defaults/hooks/user.userdata-hook explicitly exposes
+// neither passwordHash nor roles (privileged columns).
 
 import {
   configuredPiiSubjectKms,
@@ -59,7 +58,7 @@ export interface RunUserExportArgs {
   readonly registry: Registry;
   readonly userId: string;
   readonly now: Instant;
-  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // Sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
   // escapeHatch when its export hook calls ctx.db.unsafeRaw().
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
@@ -71,33 +70,33 @@ export interface UserExportFileRef {
   readonly fileRefId: string;
   readonly storageKey: string;
   readonly fileName: string;
-  /** Tenant in dem die Datei haengt — gleicher fileRefId kann nicht ueber Tenants geteilt sein. */
+  /** Tenant containing the file; the same fileRefId cannot be shared across tenants. */
   readonly tenantId: TenantId;
   /**
-   * ZIP-internal Pfad unter dem die Datei im Export-ZIP landet. Reader-
-   * Tools (Compliance-Audit, Self-Service-Portal) verlinken bundle.json
-   * fileRefs[] auf die files/-Pfade ueber dieses Feld. Garantiert
-   * path-traversal-frei via sanitizeZipFilename.
+   * ZIP-internal path under which the file is placed in the export ZIP.
+   * Reader tools (compliance audit, self-service portal) use this field
+   * to link bundle.json fileRefs[] to the files/-paths. Guaranteed to be
+   * safe from path traversal via sanitizeZipFilename.
    */
   readonly zipPath: string;
 }
 
 export interface UserExportTenantSection {
   readonly tenantId: TenantId;
-  /** Pro Entity ein Snippet ({entity, rows[]}). Empty wenn Hook null returned. */
+  /** One snippet per entity ({entity, rows[]}); empty when the hook returns null. */
   readonly entities: ReadonlyArray<UserDataExportSnippet>;
 }
 
 export interface UserExportBundle {
   readonly userId: string;
-  /** ISO-8601 Generation-Timestamp — fuer Audit-Trail. */
+  /** ISO-8601 generation timestamp for the audit trail. */
   readonly generatedAt: string;
-  /** Pro Tenant in dem User Mitglied ist eine Section. Orphan-User → tenants=[]. */
+  /** One section for each tenant the user belongs to; orphan users have tenants=[]. */
   readonly tenants: ReadonlyArray<UserExportTenantSection>;
   /**
-   * Flat-Liste aller fileRefs aus allen Tenant-Sections — der spaetere
-   * ZIP-Bau-Job iteriert hier durch + zieht Binaries aus dem Storage-
-   * Provider. Bis dahin ist das die Stueckliste fuer den Operator.
+   * Flat list of all fileRefs from every tenant section. The later ZIP
+   * construction job iterates over this list and retrieves binaries from
+   * the storage provider. Until then, it is the operator's manifest.
    */
   readonly fileRefs: ReadonlyArray<UserExportFileRef>;
 }
@@ -134,39 +133,39 @@ function buildHookDb(
 }
 
 /**
- * Pure function: iteriert alle EXT_USER_DATA-Hooks pro Tenant (Cross-
- * Tenant-Memberships) + sammelt Snippets in ein UserExportBundle.
+ * Pure function: invokes all EXT_USER_DATA hooks for each tenant
+ * membership and collects snippets into a UserExportBundle.
  *
- * **Memory-Footprint:**
+ * **Memory footprint:**
  *
- * Der gesamte Storage-Pfad ist streaming-bound:
- *   - File-Binaries via provider.readStream → chunk-streaming, skaliert
- *     auf beliebige File-Sizes ohne Heap-Spike.
- *   - ZIP-Schreiben via provider.writeStream — local nutzt fs.createWriteStream,
- *     S3 nutzt lib-storage.Upload (multipart, ~20MB Heap-Bound bei 4
- *     concurrent parts).
+ * The entire storage path is streaming-bound:
+ *   - File binaries use provider.readStream and chunk streaming, scaling
+ *     to arbitrary file sizes without a heap spike.
+ *   - ZIP writing uses provider.writeStream; local storage uses
+ *     fs.createWriteStream, while S3 uses lib-storage.Upload (multipart,
+ *     with an approximately 20 MB heap bound at 4 concurrent parts).
  *
- * **EINZIGER nicht-streaming Pfad:** das Bundle-Object selbst (bundle.json
- * Inhalt). Es wird komplett in-memory gebaut bevor `bundleToZipEntries`
- * es als ZIP-Entry yieldet. Hooks geben Snippets als Plain-Objects
- * zurueck (siehe UserDataExportSnippet).
+ * **Only non-streaming path:** the bundle object itself (the bundle.json
+ * content). It is built entirely in memory before `bundleToZipEntries`
+ * yields it as a ZIP entry. Hooks return snippets as plain objects
+ * (see UserDataExportSnippet).
  *
- * **Threshold:** Web-App mit ~500 Tabellen-Rows pro User ≈ 500 KB JSON.
- * 50k Rows ≈ 50 MB. 100k+ Rows pro User (z.B. langjaehrige Mietportal-
- * Logs) macht Heap-Druck merkbar.
+ * **Threshold:** A web app with approximately 500 table rows per user
+ * produces about 500 KB of JSON. 50k rows produce about 50 MB. 100k+
+ * rows per user (for example, long-running rental-portal logs) create
+ * noticeable heap pressure.
  *
- * **Wenn das knapp wird:** runUserExport auf AsyncIterable-Form refactoren —
- * Hooks yielden snippets statt Object-Returns; Bundle-Schema bekommt
- * JSON-Lines-Format. bundleToZipEntries wuerde line-by-line streamen.
- * Eigener Sprint, nicht-trivialer Schema-Bruch.
+ * **If this becomes a problem:** refactor runUserExport to use an
+ * AsyncIterable; hooks would yield snippets instead of returning objects,
+ * and the bundle schema would use JSON Lines. bundleToZipEntries would
+ * stream entries line by line. This is a non-trivial schema change.
  *
- * **Operator-Signal:** wenn bundle.json im ZIP > 100 MB ist, sollte
- * Telemetry triggern + Schema-Refactor evaluieren.
+ * **Operator signal:** if bundle.json exceeds 100 MB in the ZIP, trigger
+ * telemetry and evaluate a schema refactor.
  */
 export async function runUserExport(args: RunUserExportArgs): Promise<UserExportBundle> {
   const { db, registry, userId, now } = args;
 
-  // Memberships → Tenant-Liste fuer Hook-Iteration.
   const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
     userId,
   });
@@ -220,15 +219,15 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
     tenants.push({ tenantId, entities });
   }
 
-  // Edge-Case "0 Memberships": Tenant-agnostische Hooks (z.B. user-Hook)
-  // wuerden bei Cross-Tenant-Iteration mehrfach laufen. Bei orphan-User
-  // (kein Membership) wuerden sie gar nicht laufen. Loesung wie beim
-  // Forget-Runner: einen Sonder-Lauf mit einem Pseudo-Tenant ergaenzen
-  // damit die globale User-Row IM Bundle landet. Tenant-scoped Hooks
-  // sind no-op.
+  // Edge case "0 memberships": tenant-agnostic hooks (for example, the
+  // user hook) would run multiple times during cross-tenant iteration.
+  // An orphan user with no membership would otherwise skip them entirely.
+  // As in the forget runner, add a special run with a pseudo-tenant so
+  // the global user row is included in the bundle. Tenant-scoped hooks
+  // are no-ops.
   //
-  // Das Pattern matched run-forget-cleanup.ts; Memory: Cross-Tenant-
-  // Konsistenz darf nicht silent kippen wenn Memberships leer sind.
+  // Cross-tenant consistency must not silently break when memberships are
+  // empty.
   if (tenantList.length === 0 && hookEntries.length > 0) {
     const orphanEntities: UserDataExportSnippet[] = [];
     for (const entry of hookEntries) {
@@ -268,15 +267,15 @@ export async function runUserExport(args: RunUserExportArgs): Promise<UserExport
   };
 }
 
-// Art. 20 verlangt die DATEN, nicht deren Ciphertext: Export-Hooks lesen
-// raw rows an der Executor-Decrypt-Schicht vorbei, darum entschluesselt
-// dieser zentrale Pass encrypted entity fields nach jedem Hook. Ohne
-// konfigurierten Cipher wird ein expliziter Marker exportiert statt den
-// base64-Blob als "Wert" auszuliefern (leak-by-confusion).
+// Art. 20 requires the data, not its ciphertext: export hooks read raw
+// rows outside the executor's decryption layer, so this central pass
+// decrypts encrypted entity fields after each hook. Without a configured
+// cipher, it exports an explicit marker instead of presenting the base64
+// blob as a value (leak by confusion).
 const ENCRYPTED_UNAVAILABLE = "[encrypted:unavailable]";
 
 // Shared decrypt sweep, used for both `snippet.rows` and `snippet.fileRefs`
-// (#1955) — `encryptedFields` is keyed by field NAME, so it stays a no-op
+// `encryptedFields` is keyed by field NAME, so it stays a no-op
 // for today's `fileRef` entity but covers a future generically-encrypted
 // side-channel field too.
 async function decryptRecords(
@@ -348,7 +347,6 @@ async function decryptSnippetFields(
   return { ...snippet, rows, fileRefs };
 }
 
-// Pseudo-Tenant fuer User ohne aktive Memberships. Identisch zum
-// Pattern in run-forget-cleanup.ts — RFC4122-Null-UUID. Tenant-scoped
-// Hooks finden hier nichts (no-op).
+// Pseudo-tenant for users without active memberships. It uses an
+// RFC4122 null UUID; tenant-scoped hooks find no data here (no-op).
 const SYSTEM_TENANT_ID_FOR_ORPHANS = "00000000-0000-0000-0000-000000000000" as TenantId;

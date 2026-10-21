@@ -8,17 +8,17 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 const APPEND_LIFECYCLE_EVENT_REASON =
   "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream";
 
-// POST /api/user/cancel-deletion (S2.U5).
+// POST /api/user/cancel-deletion.
 //
-// Innerhalb der Grace-Period kann User seinen Forget-Antrag zurueck-
-// nehmen. Setzt:
+// During the grace period, the user can withdraw a pending deletion request.
+// This restores:
 //   - status = "active"
 //   - gracePeriodEnd = null
 //
-// Nach Grace-Period: 422 (run-forget-cleanup hat in der Zwischenzeit
-// die Hooks schon getriggert — Reversal nicht moeglich).
+// After the grace period, return 422 because cleanup may already have triggered
+// irreversible hooks.
 //
-// Sonderfall: Cancel als "active"-User → 422 (kein pending Forget).
+// Cancelling as an "active" user also returns 422 because no deletion is pending.
 export const cancelDeletionWrite = defineWriteHandler({
   name: "cancel-deletion",
   schema: z.object({}),
@@ -64,13 +64,13 @@ export const cancelDeletionWrite = defineWriteHandler({
     await updateUserLifecycle(ctx.db.unsafeRaw(), event.user.id, {
       status: USER_STATUS.Active,
       gracePeriodEnd: null,
-      // #354/1: closes the replay-after-cancel window — a still-TTL-valid email
+      // Closes the replay-after-cancel window — a still-TTL-valid email
       // token verified against the nulled requestId can no longer arm a second grace period.
       pendingDeletionRequestId: null,
     });
 
-    // gracePeriodEnd=null im Response symmetrisch zu request-deletion's
-    // ISO-Timestamp — Frontend kann beide Endpoints uniform behandeln.
+    // gracePeriodEnd=null in the response mirrors request-deletion's
+    // ISO timestamp so the frontend can handle both endpoints uniformly.
     const gracePeriodEnd: string | null = null;
     return {
       isSuccess: true as const,

@@ -11,7 +11,7 @@ import {
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 
-// The tenant's own view of a failed job (fw#3079). Direct-write store like
+// The tenant's own view of a failed job. Direct-write store like
 // store_job_runs: job-run-logger.ts writes it from the BullMQ callbacks,
 // outside any dispatcher transaction.
 //

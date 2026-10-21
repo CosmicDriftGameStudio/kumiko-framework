@@ -1,18 +1,18 @@
-// Inline-projection für `read_subscriptions`. Materialisiert die 5
-// subscription-events in eine row pro Tenant.
+// Inline projection for `read_subscriptions`. Materializes the 5
+// subscription events into one row per tenant.
 //
-// Apply läuft in derselben TX wie ctx.unsafeAppendEvent — Caller sieht
-// seinen Schreib-State sofort (kein dispatcher-tick nötig). PK = event.
-// aggregateId (= deterministic uuidv5 pro Tenant) → replays kollidieren
-// auf der PK statt doppelte rows zu erzeugen.
+// Apply runs in the same transaction as ctx.unsafeAppendEvent, so the caller
+// sees its write state immediately (no dispatcher tick required). The PK is
+// event.aggregateId (= deterministic uuidv5 per tenant), so replays collide
+// on the PK instead of creating duplicate rows.
 //
-// **Production-deployment caveat:** der Generator in
-// `samples/apps/platform/drizzle/generate.ts` scant `feature.entities` —
-// `subscriptionsProjectionTable` ist als raw drizzle-pgTable in der
-// projection registriert, NICHT als r.entity. Apps die subscription-
-// foundation production mounten müssen die Tabelle in ihre eigene
-// `drizzle/generate.ts` ergänzen (= via subscriptionsProjectionTable-
-// import). setupTestStack pusht sie automatisch via r.projection.table.
+// **Production-deployment caveat:** the generator in
+// `samples/apps/platform/drizzle/generate.ts` scans `feature.entities` —
+// `subscriptionsProjectionTable` is registered in the projection as a raw
+// drizzle-pgTable, NOT as r.entity. Apps mounting subscription-foundation in
+// production must add the table to their own `drizzle/generate.ts` (via an
+// import of subscriptionsProjectionTable). setupTestStack pushes it
+// automatically via r.projection.table.
 
 import {
   buildEntityTable,
@@ -26,9 +26,9 @@ import { paymentRowId } from "./aggregate-id.ts";
 import { paymentEntity, subscriptionEntity } from "./entities.ts";
 import type { PaymentEventPayload, SubscriptionEventPayload } from "./events.ts";
 
-// Drizzle-table-instance aus dem entity-shape. Wird sowohl von der
-// projection-apply als auch von list-query / get-helper genutzt damit
-// alle drei Stellen denselben column-namespace teilen.
+// This Drizzle table instance is derived from the entity shape and is shared
+// by the projection apply, list query, and get helper so all three use the
+// same column namespace.
 export const subscriptionsProjectionTable = buildEntityTable("subscription", subscriptionEntity);
 
 // Same production-deployment caveat as subscriptionsProjectionTable above:
@@ -99,10 +99,10 @@ async function upsert(
   }>,
   fullPayload: SubscriptionEventPayload,
 ): Promise<void> {
-  // INSERT-fallback braucht ALL fields (NOT NULL constraints). Wenn
-  // jemand nur teil-felder updated (z.B. invoice-payment-failed nur
-  // status+tier), nutzen wir trotzdem den vollen payload für den
-  // INSERT-Pfad und nur den teil-`set` für ON CONFLICT.
+  // The INSERT fallback requires ALL fields because of NOT NULL constraints.
+  // If an update changes only some fields (for example, invoice-payment-failed
+  // changes only status+tier), the full payload is still used for the INSERT
+  // path, while only the partial `set` is used for ON CONFLICT.
   const insertCols = {
     id: event.aggregateId,
     tenantId: event.tenantId,
@@ -123,23 +123,23 @@ async function upsert(
 }
 
 // =============================================================================
-// Apply-functions — eine pro event-typ
+// Apply functions — one per event type
 //
-// Alle UPSERT für defensive consistency: ein out-of-order event
-// (z.B. rebuild-from-events) kann in jeder Reihenfolge ankommen
-// und die row korrekt materialisieren.
+// All use UPSERT for defensive consistency: an out-of-order event (for
+// example, during a rebuild-from-events) can arrive in any order and still
+// materialize the row correctly.
 // =============================================================================
 
-/** subscription-created → UPSERT mit allen Feldern. PK = aggregateId =
- *  subscriptionAggregateId(tenantId), one row pro Tenant. UPSERT damit
- *  Disney+-Wechsel-Pattern (= zweiter Provider sendet create für selben
- *  Tenant) den existing row überschreibt statt PK-conflict. */
+/** subscription-created → UPSERT with all fields. PK = aggregateId =
+ *  subscriptionAggregateId(tenantId), with one row per tenant. UPSERT allows
+ *  the Disney+-change pattern (a second provider sends create for the same
+ *  tenant) to overwrite the existing row instead of causing a PK conflict. */
 export const applySubscriptionCreated = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const full = fullSetFromPayload(event.payload);
   await upsert(tx, event, { ...full, ...cancelAtSetFromPayload(event.payload) }, event.payload);
 });
 
-/** subscription-updated → UPSERT mit allen Feldern. */
+/** subscription-updated → UPSERT with all fields. */
 export const applySubscriptionUpdated = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const full = fullSetFromPayload(event.payload);
   await upsert(tx, event, { ...full, ...cancelAtSetFromPayload(event.payload) }, event.payload);
@@ -163,8 +163,9 @@ export const applySubscriptionCanceled = defineApply<SubscriptionEventPayload>(
   },
 );
 
-/** invoice-paid → state-update (status, tier, currentPeriodEnd).
- *  Invoice-history selbst lebt im event-store (= Replay-fähig). */
+/** invoice-paid → state update (status, tier, currentPeriodEnd).
+ *  The invoice history itself lives in the event store, so it remains
+ *  replayable. */
 export const applyInvoicePaid = defineApply<SubscriptionEventPayload>(async (event, tx) => {
   const p = event.payload;
   await upsert(
@@ -180,10 +181,10 @@ export const applyInvoicePaid = defineApply<SubscriptionEventPayload>(async (eve
   );
 });
 
-/** invoice-payment-failed → status (typisch past_due) + tier. tier-
- *  engine liest die row + entscheidet ob downgrade. currentPeriodEnd
- *  bewusst nicht — die Period ist noch nicht "vorbei", payment hat
- *  nur nicht geklappt. */
+/** invoice-payment-failed → status (typically past_due) + tier. The tier
+ *  engine reads the row and decides whether to downgrade. currentPeriodEnd is
+ *  intentionally unchanged: the period has not "ended"; payment simply
+ *  failed. */
 export const applyInvoicePaymentFailed = defineApply<SubscriptionEventPayload>(
   async (event, tx) => {
     const p = event.payload;

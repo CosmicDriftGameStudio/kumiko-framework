@@ -1,8 +1,8 @@
-// DSGVO forget hook-ordering — a redaction hook with order
+// GDPR forget hook-ordering — a redaction hook with order
 // EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER must run before any host hook that
 // nulls the owner column it filters on, regardless of feature registration
 // order. (Originally proven via the custom-fields sensitive strip; that strip
-// was removed in #972, so this test pins the generic runner guarantee with a
+// was removed, so this test pins the generic runner guarantee with a
 // synthetic redact hook.)
 //
 // Two host entities are wired with the OPPOSITE EXT_USER_DATA registration
@@ -47,7 +47,7 @@ import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000aa";
 
-// fw#2914 — both host entities are managed r.entity tables (not
+// Both host entities are managed r.entity tables (not
 // Writable), so TenantDb's typed write methods reject them; these hooks need
 // raw SQL, still filtered by inserted_by_id + tenant_id.
 const HOST_DELETE_REASON =

@@ -1,4 +1,4 @@
-// The point of #1621: `documentExtract.pages` carries the full extracted
+// `documentExtract.pages` carries the full extracted
 // text of invoices, IDs and contracts, and used to be `encrypted: true` —
 // master-key ciphertext with no erasure subject, so no destroy path could
 // ever make it unreadable. These tests pin the three properties the swap to

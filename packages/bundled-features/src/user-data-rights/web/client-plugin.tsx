@@ -6,7 +6,7 @@
 // createKumikoApp({ clientFeatures: [userDataRightsClient()] }); the screen
 // has no own r.nav, the app places it via r.nav.
 //
-// fw#2312: the former `privacyCenter: { showDeletion }` option is gone — a
+// The former `privacyCenter: { showDeletion }` option is gone — a
 // declarative screen is now registered server-side once for all apps, so a
 // client prop can no longer toggle its sections/actions per app. Its
 // replacement is the server-side
@@ -22,12 +22,12 @@ import { ExportSection } from "./privacy-center-screen.tsx";
 import { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate.tsx";
 
 export type UserDataRightsClientOptions = {
-  /** Key-weise Overrides über die Default-Bundles (de/en). */
+  /** Overrides merged into the default bundles (de/en). */
   readonly translations?: TranslationsByLocale;
-  /** Wenn gesetzt: registriert die anonymen (login-freien) Lösch-Screens als
-   *  Gate auf den angegebenen Pfaden. Weglassen → nur der eingeloggte
-   *  privacy-center-Screen. Den Client VOR dem Auth-Client listen, sonst
-   *  landet der anonyme Besucher auf der Login-Maske. */
+  /** When set, registers the anonymous (login-free) deletion screens as a
+   *  gate on the specified paths. If omitted, only the authenticated
+   *  privacy-center screen is available. Register this client BEFORE the auth
+   *  client; otherwise, anonymous visitors are redirected to the login screen. */
   readonly publicDeletion?: PublicDeletionRoutes;
 };
 

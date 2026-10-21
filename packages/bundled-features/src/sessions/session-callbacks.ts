@@ -256,11 +256,11 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         );
 
         // Lightweight append alongside the direct-write above, same pattern
-        // as revoke.write.ts (#1559) — this callback is the password-change
+        // as revoke.write.ts — this callback is the password-change
         // auto-revoke path (sessions/feature.ts postSave hook) and has no
         // dispatcher ctx to call unsafeAppendEvent from, so it uses the raw
         // append() like revoke-all-for-user.write.ts does. Without this, the
-        // access-invalidation consumer (#1560) never hears about a password
+        // access-invalidation consumer never hears about a password
         // change and an already-open SSE stream survives it — the exact
         // "stale JWT mid-stream" gap this feature exists to close.
         if (result.length > 0) {

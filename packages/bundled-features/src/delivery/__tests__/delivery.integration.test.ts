@@ -2000,7 +2000,7 @@ describe("flow 17: async render→send pipeline", () => {
   });
 
   // Mirrors what job-runner.ts's handleJob really builds for a
-  // r.systemScope()'d job (framework#2105) — a real TenantDb wrapped by
+  // r.systemScope()'d job — a real TenantDb wrapped by
   // createSystemDbView, not a mock, so requireTenantScopedDeps'
   // assertTenantMatch() call exercises the actual production code path.
   // The unsafeRaw grant mirrors the systemScope() grant that job-runner.ts's

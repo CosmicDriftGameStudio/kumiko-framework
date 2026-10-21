@@ -1,5 +1,4 @@
-// members.query.ts's decrypt-on-read fix (#1252): before the fix, an
-// active PII-subject KMS meant the query returned raw ciphertext for
+// Before the fix, an active PII-subject KMS meant the query returned raw ciphertext for
 // email/displayName instead of decrypting them like every other PII read
 // path. This pins the decrypt-on-read roundtrip with a real KMS adapter
 // configured, so a later refactor can't silently re-introduce the

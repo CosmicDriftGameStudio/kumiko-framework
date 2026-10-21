@@ -1,4 +1,4 @@
-// #1467: verify / enable-confirm / enable-confirm-preauth used to silently
+// verify / enable-confirm / enable-confirm-preauth used to silently
 // skip their brute-force cap and single-use burn when ctx.redis was
 // unavailable, instead of failing closed. Real HTTP through setupTestStack
 // with redis explicitly unwired (same pattern as
@@ -85,7 +85,7 @@ afterAll(async () => {
 
 // disable/regenerate-recovery are session-authed and only reachable once
 // MFA is already enabled — but enable-confirm itself now requires
-// ctx.redis (#1467), so it can't run against this no-redis stack to seed
+// ctx.redis, so it can't run against this no-redis stack to seed
 // the row. Insert the row directly via the same executor.create the
 // handler uses, bypassing the HTTP layer entirely (irrelevant to what
 // this test is pinning: the handler's own ctx.redis gate).
@@ -173,7 +173,7 @@ describe("auth-mfa handlers — ctx.redis unset (#1467)", () => {
     expect(err.message).toContain("requires ctx.redis");
   });
 
-  // kumiko-framework#1534: disable/regenerate-recovery used to keep the
+  // disable/regenerate-recovery used to keep the
   // old two-factor-authenticate-then-verify flow working even without
   // ctx.redis (verifyMfaFactor's replay-burn silently no-ops), so an
   // observed TOTP code could be replayed within the ±1-step window against

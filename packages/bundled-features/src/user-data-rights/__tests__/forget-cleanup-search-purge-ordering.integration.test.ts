@@ -1,4 +1,4 @@
-// fw#1611: purgeSearchDocumentsForSubject must run BEFORE the EXT_USER_DATA
+// purgeSearchDocumentsForSubject must run BEFORE the EXT_USER_DATA
 // delete-hooks, not after. purge discovers candidate rows via a live SELECT
 // on each entity's read-table; a hook with UserDataDeleteStrategy "delete"
 // hard-deletes matching rows inside the same sub-tx. If purge ran after the
@@ -57,7 +57,7 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 
-// fw#2914 — "note" is a managed r.entity table (not Writable), so
+// "note" is a managed r.entity table (not Writable), so
 // TenantDb's typed write methods reject it; this delete is raw SQL, still
 // filtered by author_id + tenant_id.
 const HARD_DELETE_NOTE_REASON =

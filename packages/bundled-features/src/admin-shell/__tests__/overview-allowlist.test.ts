@@ -14,7 +14,7 @@ import {
 import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../web/constants.ts";
 
 // Every screen dispatches only the queries baked into its own panel
-// definitions (no client-side allowlist gate anymore, fw#2312) — the
+// definitions (no client-side allowlist gate anymore) — the
 // allowlist's regression value now lives in this static cross-check instead
 // of a runtime guard.
 function panelQueries(screenId: string): readonly string[] {

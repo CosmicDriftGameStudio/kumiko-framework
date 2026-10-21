@@ -1,4 +1,4 @@
-// fw#2933: a `money` field's `currency: { kind: "tenant" }` declaration
+// A `money` field's `currency: { kind: "tenant" }` declaration
 // resolves in the renderer via config:query:values — this pins that a
 // normal (non-admin) tenant user, not just an Admin, can read
 // tenant-settings:config:currency through that query. Real HTTP via

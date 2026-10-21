@@ -9,25 +9,24 @@ import {
   type RenderResponse,
 } from "../types.ts";
 
-// Stub-Context für Plugin-Render-Calls in Unit-Tests. makePlugin ignoriert
-// ctx; db+registry sind hier null-cast weil Unit-Tests keinen echten
-// Stack haben — Integration-Tests (collect-plugins.integration.ts) nutzen
-// echte stack.db / stack.registry. tenantId ist valid UUID (Memory-Lesson
-// feedback_system_tenant_id_is_uuid).
+// Stub context for plugin render calls in unit tests. makePlugin ignores
+// ctx; db and registry are null-cast because unit tests have no real
+// stack. Integration tests (collect-plugins.integration.ts) use the real
+// stack.db / stack.registry. tenantId is a valid UUID.
 const STUB_CTX: RendererContext = {
   db: null as never,
   registry: null as never,
   tenantId: "11111111-1111-4111-8111-111111111111" as TenantId,
 };
 
-// Test-Helper: minimal Plugin mit fix-Response. Mehrere im Pool für
-// Multi-Kind- + Tenant-Override-Tests.
+// Test helper: minimal plugin with a fixed response. Multiple plugins are
+// used for multi-kind and tenant-override tests.
 function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugin {
   return {
     name,
     kinds,
     render: async (req: RenderRequest): Promise<RenderResponse> => {
-      // shape-by-kind, gibt name in der response damit Tests sehen welcher plugin lief
+      // Return the name in the response so tests can identify which plugin ran
       switch (req.kind) {
         case "mail":
           return { kind: "mail", subject: name, html: `from:${name}`, text: `from:${name}` };

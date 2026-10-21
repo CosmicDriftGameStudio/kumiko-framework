@@ -19,11 +19,11 @@ import { ConfigHandlers, ConfigQueries } from "../web/constants.ts";
 
 // Proves the ENV→app-override bridge end-to-end over real HTTP:
 //   - a transparently-inherited key (default inheritedToTenant) surfaces the
-//     ENV-bridged app-override to a tenant (the D3 fix — values.query used to
-//     fall to keyDef.default and never showed the inherited app-override);
+//     ENV-bridged app-override to a tenant (values.query used to fall to
+//     keyDef.default and never showed the inherited app-override);
 //   - an inheritedToTenant:false key must NOT leak the platform ENV value to a
 //     tenant-side viewer through the app-override rung (the regression guard
-//     for the #376 redaction, which previously only stripped system-row);
+//     for the redaction, which previously only stripped system-row);
 //   - a tenant's own row still beats the app-override.
 
 let stack: TestStack;

@@ -1,15 +1,15 @@
 import { escapeHtml, isSafeHref } from "@cosmicdrift/kumiko-renderer/headless";
 import { Marked } from "marked";
 
-// Geteilter, gehärteter Markdown→HTML-Kern für server-gerenderte Public-
-// Pages (legal-pages, managed-pages). Annahme: untrusted Tenant-Authoren.
-// Raw-HTML-Tokens werden als Text escaped (kein <script>/<img onerror>-
-// Passthrough), und link/image-hrefs auf http(s)/mailto/relativ beschränkt
-// (kein javascript:/data:). Markdown-Struktur (Headings, Listen, Links,
-// Code) bleibt intakt — das neutralisiert die XSS-Vektoren ohne Sanitizer-
-// Dependency. Defense-in-Depth ergänzt `securePageHeaders` (`script-src
-// 'none'`). GFM aus, breaks aus — strukturierte Pages brauchen keine
-// Tables/Strikethrough/Task-Lists.
+// Shared, hardened Markdown→HTML core for server-rendered public
+// pages (legal-pages, managed-pages). Assumption: untrusted tenant authors.
+// Raw HTML tokens are escaped as text (no <script>/<img onerror>-
+// passthrough), and link/image hrefs are restricted to http(s)/mailto/relative
+// (no javascript:/data:). Markdown structure (headings, lists, links,
+// code) remains intact—this neutralizes XSS vectors without a sanitizer
+// dependency. Defense in depth complements `securePageHeaders` (`script-src
+// 'none'`). GFM and breaks are disabled—structured pages do not need
+// tables/strikethrough/task lists.
 const safeRenderer = new Marked({ gfm: false, breaks: false });
 safeRenderer.use({
   walkTokens(token) {
@@ -25,7 +25,7 @@ safeRenderer.use({
 });
 
 export function renderSafeMarkdown(markdown: string): string {
-  // @cast-boundary third-party-type-gap marked.parse return-type ist `string | Promise<string>`;
-  // `{ async: false }` garantiert sync (string) — Cast nur API-Vertragsfix.
+  // @cast-boundary third-party-type-gap marked.parse return type is `string | Promise<string>`;
+  // `{ async: false }` guarantees synchronous output (string)—the cast only fixes the API contract.
   return safeRenderer.parse(markdown, { async: false }) as string;
 }

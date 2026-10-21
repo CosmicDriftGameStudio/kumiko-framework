@@ -23,7 +23,7 @@ let stack: TestStack;
 const author = createTestUser({ id: 1, roles: ["TenantMember"] });
 const other = createTestUser({ id: 2, roles: ["TenantMember"] });
 
-// fw#2627 made add-note's parent-visibility check unconditional — entityType
+// add-note's parent-visibility check is unconditional — entityType
 // must name a registered entity whose row is visible to the caller. This
 // fixture stands in for that parent; it deliberately has no `access` (PASS_CLAUSE)
 // so it never gates on its own, keeping this file focused on author filtering.

@@ -1,8 +1,7 @@
-// Client-Feature-Factory für auth-email-password. Wird vom App-Code
-// in createKumikoApp({ clientFeatures: [emailPasswordClient()] })
-// eingehängt und bringt Session-Context + AuthGate + Default-UI-
-// Translations (de/en) mit. Alles ist overridbar — Login-Screen,
-// Strings pro Locale, pro Key.
+// Client feature factory for auth-email-password. App code mounts it in
+// createKumikoApp({ clientFeatures: [emailPasswordClient()] }) to provide
+// session context, AuthGate, and default UI translations (de/en). All of
+// these can be overridden: the login screen and strings per locale and key.
 
 import type { ClientActionHandler, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
@@ -18,9 +17,9 @@ import { defaultTranslations, mergeTranslations } from "./i18n.ts";
 import type { LoginScreenProps } from "./login-screen.tsx";
 
 export type EmailPasswordClientOptions = {
-  /** Eigener Login-Screen. Default: der shadcn-stylte LoginScreen
-   *  aus diesem Modul. Für Branding- oder Layout-Overrides einfach
-   *  eine eigene Komponente mit derselben Signatur reichen. */
+  /** Custom login screen. Default: the shadcn-styled LoginScreen
+   *  from this module. Provide a component with the same signature for
+   *  branding or layout overrides. */
   readonly loginScreen?: ComponentType<LoginScreenProps>;
   readonly loginScreenProps?: LoginScreenProps;
   /** auth-mfa's MfaVerifyScreen, wired in from the app so this feature
@@ -41,10 +40,10 @@ export type EmailPasswordClientOptions = {
   readonly loginUrl?: AuthGateOptions["loginUrl"];
   /** Where logout navigates to (root-relative path or http(s) URL). Default: reload. */
   readonly postLogoutUrl?: string;
-  /** Key-Overrides pro Locale. Wird mit den Default-Bundles (de/en)
-   *  aus `translations.ts` gemerged — jeder hier gesetzte Key gewinnt.
-   *  Für Branding ("Sign in" → "Login to Acme") oder weitere Sprachen
-   *  (`fr`, `es`, …) zusätzlich. */
+  /** Per-locale key overrides. Merged with the default bundles (de/en)
+   *  from `translations.ts`; each key supplied here takes precedence.
+   *  Use this for branding ("Sign in" → "Login to Acme") or to add
+   *  further languages (`fr`, `es`, …). */
   readonly translations?: TranslationsByLocale;
   /** Serve the forgot-password, reset-password and unlock-account pages at
    *  their convention paths for signed-out visitors. Apps with their own

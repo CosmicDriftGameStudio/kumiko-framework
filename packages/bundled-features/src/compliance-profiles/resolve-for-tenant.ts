@@ -1,12 +1,12 @@
-// Direkter Resolver-Helper fuer Bulk-Iteration ohne dispatcher-Roundtrip.
+// Direct resolver helper for bulk iteration without a dispatcher round trip.
 //
-// `for-tenant`-Query (handlers/for-tenant.query.ts) ist die Cross-Feature-
-// API fuer Handler-Pfade. Worker (S2.U3 Atom 3b) lebt im JobContext
-// ohne `queryAs` — braucht direkten DB-Lookup + resolveComplianceProfile.
+// The `for-tenant` query (handlers/for-tenant.query.ts) is the cross-feature
+// API for handler paths. Workers run in JobContext (without `queryAs`), so
+// they need a direct database lookup followed by `resolveComplianceProfile`.
 //
-// Pattern matched data-retention's `resolveRetentionPolicyForTenant`.
-// Beide Pfade nutzen `resolveComplianceProfile` aus framework/compliance,
-// also kein Drift zwischen Query-API und Worker-Pfad.
+// This follows data-retention's `resolveRetentionPolicyForTenant` pattern.
+// Both paths use `resolveComplianceProfile` from framework/compliance, keeping
+// the query API and worker path consistent.
 
 import {
   type ComplianceProfileKey,

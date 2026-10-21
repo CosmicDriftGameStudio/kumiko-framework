@@ -1,14 +1,14 @@
-// keepFor-Format-Parser: "30d" / "10y" / "6m" / "1w" / "24h" → Cutoff-Instant.
+// keepFor format parser: "30d" / "10y" / "6m" / "1w" / "24h" → cutoff instant.
 //
-// Nicht millisekunden-praezise — DSGVO-Aufbewahrungspflichten haben
-// Tag-/Monat-Granularitaet. "6m" = 6×30d, "10y" = 10×365d. Cleanup-Job
-// laeuft taeglich, ein paar Tage Differenz beim Cutoff sind akzeptabel.
+// Not millisecond-precise — GDPR retention requirements use day/month
+// granularity. "6m" = 6×30d, "10y" = 10×365d. The cleanup job runs daily,
+// so a difference of a few days at the cutoff is acceptable.
 //
-// Boot-Validator (S0.2) hat das Format schon gegen /^\d+[hdwmy]$/
-// gecheckt — hier defensiv nochmal validiert fuer Migration-Edge-Cases.
+// The boot validator already checked the format against /^\d+[hdwmy]$/
+// — validate defensively again here for migration edge cases.
 //
-// Temporal kommt via globalThis (Polyfill in framework-Boot installiert).
-// `getTemporal()` aus framework/time gibt typed Zugriff.
+// Temporal is provided via globalThis (the polyfill is installed during framework boot).
+// `getTemporal()` from framework/time provides typed access.
 
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 
@@ -29,17 +29,17 @@ export class InvalidKeepForError extends Error {
   }
 }
 
-// Re-export von Temporal.Instant als Type-Alias damit Caller den Type
-// nicht selbst aus globalThis ziehen muessen.
+// Re-export Temporal.Instant as a type alias so callers do not have to obtain
+// the type from globalThis themselves.
 export type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 /**
- * Berechnet den Cutoff-Instant — Rows mit reference < cutoff sind
- * abgelaufen und werden vom Cleanup-Job geraeumt.
+ * Computes the cutoff instant — rows with reference < cutoff are expired
+ * and removed by the cleanup job.
  *
- * @param spec keepFor-String wie "30d", "10y", "6m", "1w", "24h"
- * @param now Aktueller Zeitpunkt (advisor-Pattern: injection-Parameter
- *            fuer Time-Travel-Tests, kein global Temporal.Now)
+ * @param spec keepFor string such as "30d", "10y", "6m", "1w", "24h"
+ * @param now Current point in time (injection parameter for time-travel tests;
+ *            not global Temporal.Now)
  */
 export function computeCutoff(spec: string, now: Instant): Instant {
   const match = KEEP_FOR_PATTERN.exec(spec);
@@ -61,8 +61,8 @@ export function computeCutoff(spec: string, now: Instant): Instant {
 }
 
 /**
- * Ist referenceTimestamp aelter als der keepFor-Cutoff bei now?
- * Cleanup-Job nutzt das pro Row.
+ * Determines whether referenceTimestamp is older than the keepFor cutoff at now.
+ * The cleanup job uses this for each row.
  */
 export function isPastCutoff(args: {
   readonly referenceTimestamp: Instant;

@@ -1,7 +1,7 @@
-// Public exports für die Browser-Seite des auth-mfa Features. Sub-Path-
-// Export `@cosmicdrift/kumiko-bundled-features/auth-mfa/web` — Server-Seite
-// (defineFeature) bleibt frei von React-/DOM-Deps, siehe auth-email-
-// password/web/index.ts für die selbe Trennung.
+// Public exports for the browser side of the auth-mfa feature. The subpath
+// export `@cosmicdrift/kumiko-bundled-features/auth-mfa/web` keeps the server
+// side (`defineFeature`) free of React/DOM dependencies, matching the same
+// separation in auth-email-password/web/index.ts.
 
 export type { AuthMfaClientFeature, AuthMfaClientOptions } from "./client-plugin.ts";
 export { authMfaClient } from "./client-plugin.ts";

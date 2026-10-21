@@ -16,7 +16,7 @@ const log = createFallbackLogger("kumiko:boot");
 
 // V4: tenantOwned-entity-without-hook gate. Mirrors user-data-rights' V3
 // (validateGdprPiiHookCoverage) but for EXT_TENANT_DATA. Registered as this
-// feature's own `r.bootCheck()` (#1314, moved off the framework-internal
+// feature's own `r.bootCheck()` (moved off the framework-internal
 // boot-validator) — tenant-lifecycle owns EXT_TENANT_DATA
 // (r.extendsRegistrar), so its own mount is the trigger, matching the
 // original guard's "tenant-lifecycle mounted" gate exactly (unlike gating on

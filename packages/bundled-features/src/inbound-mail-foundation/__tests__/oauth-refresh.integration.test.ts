@@ -1,4 +1,4 @@
-// OAuth access-token refresh (#3491) — real foundation, real secrets, real
+// OAuth access-token refresh — real foundation, real secrets, real
 // connect-callback HTTP route, fake OAuth provider registered via
 // r.useExtension. The clock is an injected Temporal instant.
 

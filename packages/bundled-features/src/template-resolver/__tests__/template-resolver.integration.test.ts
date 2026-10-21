@@ -26,8 +26,8 @@ let stack: TestStack;
 let db: DbConnection;
 let api: TemplateResolverApi;
 
-// Fixed UUIDs für reproducierbare Tests. tenantId-Spalte ist UUID-Typ
-// (per buildBaseColumns), String-Sentinels werden von Postgres rejected.
+// Fixed UUIDs for reproducible tests. The tenantId column uses the UUID type
+// (via buildBaseColumns), so Postgres rejects string sentinels.
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";
 
@@ -78,9 +78,9 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-// Direct-DB-Seed-Helper. Umgeht Write-Handlers (kommen in späterem Sprint).
-// Pro Aufruf eine eindeutige (tenantId, slug, kind, locale)-Kombination
-// erwartet — sonst Unique-Constraint-Verletzung.
+// Seeds the database directly to bypass write handlers.
+// Each call requires a unique (tenantId, slug, kind, locale) combination;
+// otherwise the unique constraint is violated.
 async function seedTemplate(args: {
   tenantId: string;
   slug: string;
@@ -203,7 +203,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
   });
 
   test("Stufe 3: tenant + FALLBACK_LOCALE (wenn requested locale fehlt überall)", async () => {
-    // Kein tr und kein system-tr — nur tenant-de existiert
+    // No tr or system-tr row exists; only tenant-de exists.
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "fallback-3",
@@ -501,7 +501,8 @@ describe("template-resolver :: tenant-isolation", () => {
       scope: "tenant",
       content: "tenant-a-only",
     });
-    // Tenant B kennt das Template nicht, fällt durch alle 4 Stufen → TemplateNotFoundError
+    // Tenant B cannot find the template and falls through all 4 stages →
+    // TemplateNotFoundError
     await expect(
       api.resolveTemplate({
         tenantId: TENANT_B,

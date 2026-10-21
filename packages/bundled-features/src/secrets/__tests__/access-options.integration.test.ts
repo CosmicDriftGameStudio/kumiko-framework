@@ -1,4 +1,4 @@
-// #2296 — createSecretsFeature() took no options at all: set/delete/list were
+// createSecretsFeature() took no options at all: set/delete/list were
 // hard-wired to ["TenantAdmin"], so an app with its own role vocabulary
 // (e.g. ["Admin","Editor"]) could not let its own admins manage secrets
 // without also granting the framework "TenantAdmin" role — the same

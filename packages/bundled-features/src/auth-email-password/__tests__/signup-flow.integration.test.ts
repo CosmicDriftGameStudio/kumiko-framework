@@ -1,29 +1,29 @@
-// Magic-Link-Self-Signup Full-Stack Integration-Test. Spec ist der
-// Test selbst (advisor-Empfehlung). Geht durch HTTP, weil
-// stack.dispatcher nicht exposed ist und die Routes ohnehin der
-// reale User-Pfad sind.
+// Magic-link self-signup full-stack integration test. The test itself is the
+// specification (per the advisor recommendation). It uses HTTP because
+// stack.dispatcher is not exposed, and the routes are the actual user path.
 //
-// Pinst:
-//   1. POST signup-request mit valid email → 200, Activation-Mail via
-//      delivery (channel-email in-memory transport) mit Token-URL.
-//   2. Resend: second request for the same email → a NEW token, and
-//      the previous token is invalidated (#2174 — Redis never stores
-//      the raw token as a value, so it can't be recovered/reused).
-//   3. POST signup-confirm mit captured Token + Password → 200, Cookies
-//      gesetzt (kumiko_auth + kumiko_csrf), Body mit user + tenantKey,
-//      DB hat user (emailVerified=true) + tenant + Admin-membership.
-//   4. POST /api/auth/login mit demselben Password → 200 (Authority-
-//      Beweis: tenant + user + membership wirklich da, Auto-Login
-//      könnte stattdessen den JWT aus signup-confirm verwenden, aber
-//      dieser zweite Login schließt aus dass die signup-confirm-
-//      pipeline irgendetwas verschluckt hat).
-//   5. Replay: zweiter signup-confirm mit gleichem Token → 422
+// Pins:
+//   1. POST signup-request with a valid email → 200, with the activation mail
+//      sent through delivery (channel-email in-memory transport) containing a
+//      token URL.
+//   2. Resend: a second request for the same email → a NEW token, and the
+//      previous token is invalidated (Redis never stores the raw token as a
+//      value, so it cannot be recovered or reused).
+//   3. POST signup-confirm with the captured token and password → 200, cookies
+//      set (kumiko_auth + kumiko_csrf), a body containing user + tenantKey,
+//      and the DB containing the user (emailVerified=true), tenant, and
+//      Admin membership.
+//   4. POST /api/auth/login with the same password → 200. This proves that
+//      the tenant, user, and membership really exist. Although auto-login
+//      could instead use the JWT from signup-confirm, this second login rules
+//      out the signup-confirm pipeline silently dropping anything.
+//   5. Replay: a second signup-confirm with the same token → 422
 //      invalid_signup_token (single-use burn).
-//   6. Token-not-found / abgelaufen → 422 invalid_signup_token
-//      (uniformer Code, kein Enumeration-leak).
-//   7. Sequential Signups → unique tenantKey-Slugs (TOCTOU-Schutz
-//      via DB-unique-index + generateUniqueName-isAvailable-check
-//      zusammen).
+//   6. Token not found or expired → 422 invalid_signup_token, using a uniform
+//      code to prevent enumeration leaks.
+//   7. Sequential signups → unique tenantKey slugs (TOCTOU protection from
+//      the DB unique index together with the generateUniqueName-
+//      isAvailable check).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
@@ -47,7 +47,7 @@ import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-// kumiko-lint-ignore cross-feature-import regression-proof for #1463: seedTenant
+// kumiko-lint-ignore cross-feature-import regression-proof: seedTenant
 // must fire tier-engine's entity postSave hook on self-signup, not just on the
 // TenantHandlers.create HTTP path.
 import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
@@ -60,10 +60,10 @@ import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-sta
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
-// Regression-proof for #1478: provisionSignupAccount only threaded `hooks`
+// Regression-proof: provisionSignupAccount only threaded `hooks`
 // into seedTenant, leaving seedUserWithPassword's `user`-entity and
 // seedTenantMembership's `tenantMembership`-entity postSave hooks unfired
-// on self-signup — same bug class as #1463, just for the other two
+// on self-signup — same bug class as the other issue, just for the other two
 // entities in the same call. This vendor feature's hook is the user-side
 // analog of tier-engine's tenant hook above.
 const userPostSaveFired = { count: 0 };
@@ -78,11 +78,11 @@ const userHookVendorFeature = defineFeature("user-hook-vendor-test", (r) => {
   });
 });
 
-// Regression-proof for #1478/#1526: seedTenantMembership must fire the
+// Regression-proof: seedTenantMembership must fire the
 // `tenantMembership` entity's postSave hooks (e.g. a Welcome-notification
 // hook) on self-signup too — pins the `fireEntityPostSave` call added at
 // seeding.ts's seedTenantMembership, not just the `user`/`tenant` ones.
-// #1566: also record ctx._tenantId so a shallow-only rescope regresses.
+// Also record ctx._tenantId so a shallow-only rescope regresses.
 const tenantMembershipPostSaveFired = { count: 0, seenTenantIds: [] as string[] };
 const tenantMembershipHookVendorFeature = defineFeature(
   "tenant-membership-hook-vendor-test",
@@ -131,7 +131,7 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature({
         signup: { tokenTtlMinutes: 60, appUrl: APP_ACTIVATION_URL },
       }),
-      // Regression-proof for #1463: seedTenant must fire the entity postSave
+      // Regression-proof: seedTenant must fire the entity postSave
       // hook on self-signup too, not just on the TenantHandlers.create path.
       createTierEngineFeature({
         defaultTier: "free",
@@ -164,9 +164,9 @@ beforeAll(async () => {
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
-  // tenant-entity hat den unique-constraint auf .key (siehe
-  // tenant.schema.indexes). unsafeCreateEntityTable baut das via
-  // buildEntityTable nach — pinst den TOCTOU-Schutz für signup-confirm.
+  // The tenant entity has a unique constraint on .key (see
+  // tenant.schema.indexes). unsafeCreateEntityTable builds it through
+  // buildEntityTable, pinning the TOCTOU protection for signup-confirm.
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, {
     configValuesTable,
@@ -190,7 +190,7 @@ beforeEach(async () => {
   userPostSaveFired.count = 0;
   tenantMembershipPostSaveFired.count = 0;
   tenantMembershipPostSaveFired.seenTenantIds = [];
-  // Redis-cleanup damit Resend-Tests keine state-leaks haben.
+  // Clear Redis so resend tests do not leak state.
   const allKeys = await stack.redis.redis.keys("signup:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
 });
@@ -325,7 +325,7 @@ describe("POST /api/auth/signup-confirm", () => {
       expect(JSON.parse(rolesRaw) as string[]).toContain("TenantAdmin");
     }
 
-    // #1463 regression: seedTenant fires the tenant entity's postSave
+    // Regression: seedTenant fires the tenant entity's postSave
     // hooks — tier-engine's auto-default-tier hook must run on self-signup
     // exactly like it does on the regular TenantHandlers.create HTTP path.
     const tierRows = await selectMany(stack.db, tierAssignmentTable, {
@@ -334,20 +334,20 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(tierRows).toHaveLength(1);
     expect(tierRows[0]?.["tier"]).toBe("free");
 
-    // #1478 regression: seedUserWithPassword (called from
+    // Regression: seedUserWithPassword (called from
     // provisionSignupAccount) fires the `user` entity's postSave hooks too —
     // before this fix, only seedTenant's hooks param was wired through.
     expect(userPostSaveFired.count).toBe(1);
 
-    // #1478/#1526 regression: seedTenantMembership (called from
+    // Regression: seedTenantMembership (called from
     // provisionSignupAccount) fires the `tenant-membership` entity's postSave
     // hooks too — before this fix, only seedTenant's hooks param was wired.
     expect(tenantMembershipPostSaveFired.count).toBe(1);
-    // #1566: rescope must put the new tenant on the hook context, not the
+    // Rescope must put the new tenant on the hook context, not the
     // anonymous/system caller's tenantId.
     expect(tenantMembershipPostSaveFired.seenTenantIds).toEqual([body.user?.tenantId ?? ""]);
 
-    // Authority-Beweis: Login mit dem gesetzten Password funktioniert.
+    // Proves that login with the password set during signup works.
     const loginRes = await postLogin(email, password);
     expect(loginRes.status).toBe(200);
   });
@@ -443,20 +443,20 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(userBefore).toHaveLength(1);
     const passwordHashBefore = userBefore[0]?.["passwordHash"];
 
-    // 2. Zweiter Signup-Versuch für DIESELBE Email mit Angreifer-Passwort.
-    //    Request bleibt always-200 (Anti-Enumeration); nach dem Burn des
-    //    ersten Tokens mintet er einen frischen.
+    // 2. Attempt signup again for THE SAME email with an attacker-chosen
+    //    password. The request remains 200 (anti-enumeration); after the
+    //    first token is burned, it mints a fresh one.
     const attackerToken = await requestSignup(email);
     const attackerPassword = "attacker-chosen-pw-9999";
     const confirmRes = await postSignupConfirm(attackerToken, attackerPassword);
 
-    // 3. Sauberer Fehler, KEINE Session (kein auth-Cookie).
+    // 3. Return a clean error and create NO session (no auth cookie).
     expect(confirmRes.status).toBe(422);
     const body = (await confirmRes.json()) as { error?: { details?: { reason?: string } } };
     expect(body.error?.details?.reason).toBe(AuthErrors.signupEmailAlreadyRegistered);
     expect(confirmRes.headers.get("set-cookie") ?? "").not.toContain("kumiko_auth=");
 
-    // 4. Kein neuer Tenant (auch kein verwaister), keine neue Membership.
+    // 4. Create no new tenant, including no orphaned tenant, or membership.
     const allTenants = await selectMany(stack.db, tenantTable);
     expect(allTenants).toHaveLength(1);
     const memberships = await selectMany(stack.db, tenantMembershipsTable, {
@@ -464,14 +464,15 @@ describe("POST /api/auth/signup-confirm", () => {
     });
     expect(memberships).toHaveLength(1);
 
-    // 5. Account nicht übernommen: ein User, Passwort-Hash unverändert (NICHT
-    //    auf das Angreifer-Passwort überschrieben).
+    // 5. The account is not taken over: there is one user, and the password
+    //    hash remains unchanged (it is NOT overwritten with the attacker's
+    //    password).
     const userAfter = await selectMany(stack.db, userTable, { email });
     expect(userAfter).toHaveLength(1);
     expect(userAfter[0]?.["passwordHash"]).toBe(passwordHashBefore);
 
-    // 6. Authority-Beweis: der bestehende Account hängt weiter am Original-
-    //    Passwort, das Angreifer-Passwort loggt nicht ein.
+    // 6. Authority proof: the existing account still uses the original
+    //    password, while the attacker's password does not authenticate.
     const loginVictim = await postLogin(email, victimPassword);
     expect(loginVictim.status).toBe(200);
     const loginAttacker = await postLogin(email, attackerPassword);

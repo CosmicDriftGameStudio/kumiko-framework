@@ -1,9 +1,9 @@
-// Login-Challenge-Step, gerendert wenn LoginScreen's onMfaChallenge feuert
-// (/auth/login antwortete mfaRequired). Stilistisch wie login-screen.tsx:
-// useState + direkter fetch-Call, kein Dispatcher — es existiert noch kein
-// JWT. Nach Erfolg ruft es session.refresh() statt eines Hard-Reloads, weil
-// der Aufrufer (typisch ein Wizard-State im App-Root) sofort neu rendern
-// will, sobald status:"authenticated" ankommt.
+// Login challenge step, rendered when LoginScreen's onMfaChallenge fires
+// (/auth/login returned mfaRequired). It follows login-screen.tsx:
+// useState plus a direct fetch call, without a dispatcher because no JWT
+// exists yet. After success, it calls session.refresh() instead of a hard
+// reload so the caller (typically wizard state in the app root) can render
+// immediately when status:"authenticated" arrives.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";

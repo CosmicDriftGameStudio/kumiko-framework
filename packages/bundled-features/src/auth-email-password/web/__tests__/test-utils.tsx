@@ -1,7 +1,7 @@
 //
-// Shared test setup für die Web-UI-Components. Mountet das Minimum
-// an Provider-Tree den die Components zur Laufzeit voraussetzen
-// (LocaleProvider mit Bundle, SessionContext mit injizierbarem Wert).
+// Shared test setup for the Web UI components. Mounts the minimum
+// provider tree required by the components at runtime
+// (LocaleProvider with a bundle, SessionContext with an injectable value).
 
 import { mock } from "bun:test";
 import {
@@ -18,10 +18,9 @@ import { defaultTranslations } from "../i18n.ts";
 import type { SessionApi, SessionState } from "../session.tsx";
 import { SessionContext } from "../session.tsx";
 
-// Stateless Resolver — module-level cached, weil renderWithProviders
-// ihn pro Mount sonst neu konstruiert (~0.5ms × N Tests). Tests die
-// einen *anderen* Locale brauchen, übergeben ihren eigenen Resolver
-// über options.resolver.
+// Stateless resolver — cached at module scope because renderWithProviders
+// would otherwise construct it for every mount (~0.5ms × N tests). Tests that
+// need a *different* locale pass their own resolver through options.resolver.
 const sharedEnResolver = createStaticLocaleResolver({ locale: "en" });
 export type MakeSessionApiOptions = Partial<SessionState> & {
   readonly login?: SessionApi["login"];

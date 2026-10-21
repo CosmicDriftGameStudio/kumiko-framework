@@ -1,8 +1,8 @@
-// #362: das `jobs`-Feature registriert den framework-eigenen Single-Run-Job
-// `jobs:job:projection-rebuild`. Sobald jobs komponiert ist, dispatcht
-// `enqueueProjectionRebuild` einen getrackten, retrybaren Rebuild über BullMQ;
-// der Worker ruft `rebuildProjection`. Ohne jobs fällt der Helper auf einen
-// inline-Rebuild zurück (in migrations/__tests__/pending-rebuilds.* abgedeckt).
+// The `jobs` feature registers the framework-owned single-run job
+// `jobs:job:projection-rebuild`. Once jobs is composed,
+// `enqueueProjectionRebuild` dispatches a tracked, retryable rebuild through BullMQ;
+// the worker calls `rebuildProjection`. Without jobs, the helper falls back to an
+// inline rebuild (covered in migrations/__tests__/pending-rebuilds.*).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -66,9 +66,9 @@ const countsTable = pgTable("read_rebuild_counts", {
   itemCount: integer("item_count").notNull().default(0),
 });
 
-// Eigene (explizite) Projektion — der Executor füllt sie NICHT live, sie wird
-// ausschließlich vom Rebuild materialisiert. Count==2 nach dem Job beweist also
-// den Replay, nicht den Live-Write.
+// This explicit projection is not populated live by the executor; it is materialized
+// exclusively by the rebuild. Therefore, Count==2 after the job proves the replay,
+// not a live write.
 const countsProjection: ProjectionDefinition = {
   name: "rebuild-counts",
   source: "rebuild-item",
@@ -169,7 +169,7 @@ describe("projection-rebuild job (jobs feature composed)", () => {
   test("enqueueProjectionRebuild dispatches a tracked job that refills the projection", async () => {
     await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
     await executor.create({ groupId: GROUP, name: "b" }, admin, tdb);
-    // Live executor füllt die explizite Projektion nicht — Rebuild ist der einzige Weg.
+    // The live executor does not populate the explicit projection; rebuild is the only way.
     expect(await getCount()).toBeUndefined();
 
     const outcome = await enqueueProjectionRebuild(PROJECTION, { db, registry, jobRunner });

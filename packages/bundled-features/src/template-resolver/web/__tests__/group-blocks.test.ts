@@ -5,12 +5,12 @@ import { type BlockSummary, groupBlocksByFolder } from "../client-plugin.tsx";
 // TreeNode.children is `readonly TreeNode[] | TreeChildrenSubscribe` —
 // in the provider output, the subscribe form is only meant for
 // deferred children; groupBlocksByFolder produces exclusively static
-// array children. TypeGuard instead of an as-cast (memory `[Type Assertions]`).
+// array children. A type guard instead of an as-cast.
 function childrenArray(children: TreeNode["children"] | undefined): readonly TreeNode[] {
   if (!Array.isArray(children)) throw new Error("expected static children-array");
   return children;
 }
-// V.1.5d helper: groupBlocksByFolder now returns a single "Content" wrapper
+// Helper: groupBlocksByFolder now returns a single "Content" wrapper
 // folder. Tests want to check the content UNDER the wrapper.
 function inside(result: readonly TreeNode[]): readonly TreeNode[] {
   expect(result).toHaveLength(1);
@@ -216,7 +216,7 @@ describe("groupBlocksByFolder", () => {
     expect(nodes[0]?.target?.args).toEqual({ slug: "imprint", locale: "de" });
   });
   test("Wrapper-Folder 'Content' umschließt alle blocks", () => {
-    // V.1.5d wrapper convention: groupBlocksByFolder returns ONE node
+    // Wrapper convention: groupBlocksByFolder returns ONE node
     // (the wrapper), content sits one level deeper.
     const result = groupBlocksByFolder([block({ slug: "imprint" })]);
     expect(result).toHaveLength(1);

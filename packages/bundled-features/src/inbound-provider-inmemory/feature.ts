@@ -1,15 +1,15 @@
 // kumiko-feature-version: 1
 //
-// inbound-provider-inmemory — scriptbarer In-Memory-Provider für die
-// inbound-mail-foundation Plugin-API. Für Tests, Demos und Sample-Apps:
-// Messages werden per `seedInboundMessage()` eingespeist statt von einem
-// echten Postfach gefetcht; `watch()` pusht geseedete Messages sofort
-// (IDLE-Simulation), `fetch()` liefert sie cursor-basiert nach
-// (Reconciliation-Pfad) — beide Pfade zusammen exercisen exakt die
-// Dedup-Garantie der Foundation.
+// inbound-provider-inmemory — scriptable in-memory provider for the
+// inbound-mail-foundation plugin API. For tests, demos, and sample apps:
+// messages are supplied via `seedInboundMessage()` instead of being fetched
+// from a real mailbox; `watch()` immediately pushes seeded messages
+// (IDLE simulation), while `fetch()` returns them by cursor
+// (reconciliation path). Together, both paths exercise the foundation's
+// deduplication guarantee exactly.
 //
-// **Pattern-Vorbild:** mail-transport-inmemory (module-level State +
-// Test-Helper-Exports). NICHT für Production.
+// **Pattern basis:** mail-transport-inmemory (module-level state +
+// test-helper exports). Not for production.
 
 import type {
   InboundFetchResult,
@@ -24,8 +24,8 @@ const FEATURE_NAME = "inbound-provider-inmemory";
 export const INMEMORY_PROVIDER_KEY = "inmemory";
 
 // =============================================================================
-// Module-level State — pro Account: Message-Log (append-only, wie ein
-// echtes Postfach), aktive Watch-Handler, One-Shot-Fehlerinjektion.
+// Module-level state — per account: an append-only message log, like a real
+// mailbox; active watch handlers and one-shot error injection.
 // =============================================================================
 
 type WatchHandlers = {
@@ -51,28 +51,28 @@ function stateFor(accountId: string): AccountState {
   return state;
 }
 
-/** Test-Helper: Message ins Postfach legen. Läuft ein watch, wird sie
- *  sofort gepusht (IDLE-Simulation); der nächste fetch liefert sie
- *  cursor-basiert ebenfalls — Dedup der Foundation macht das idempotent. */
+/** Test helper: adds a message to the mailbox. If a watch is active, it is
+ *  pushed immediately (IDLE simulation); the next fetch also returns it by
+ *  cursor — the foundation's deduplication makes this idempotent. */
 export async function seedInboundMessage(accountId: string, msg: RawInboundMessage): Promise<void> {
   const state = stateFor(accountId);
   state.log.push(msg);
   if (state.watch) await state.watch.onMessages([msg]);
 }
 
-/** Test-Helper: One-Shot-Fehler für den nächsten fetch (z.B.
- *  InboundAuthError, InboundCursorInvalidError). */
+/** Test helper: injects a one-shot error into the next fetch (e.g.
+ *  InboundAuthError or InboundCursorInvalidError). */
 export function failNextFetchWith(accountId: string, err: unknown): void {
   stateFor(accountId).nextFetchError = err;
 }
 
-/** Test-Helper: One-Shot-Fehler für das nächste verify. */
+/** Test helper: injects a one-shot error into the next verify. */
 export function failNextVerifyWith(accountId: string, err: unknown): void {
   stateFor(accountId).nextVerifyError = err;
 }
 
-/** Test-Helper: Tod der Live-Verbindung simulieren (Supervisor muss
- *  mit Backoff neu starten). */
+/** Test helper: simulates the live connection terminating (the supervisor
+ *  must restart with backoff). */
 export function emitWatchError(accountId: string, err: unknown): void {
   const state = accounts.get(accountId);
   if (state?.watch) {
@@ -82,7 +82,7 @@ export function emitWatchError(accountId: string, err: unknown): void {
   }
 }
 
-/** Test-Helper: läuft gerade ein watch für den Account? */
+/** Test helper: reports whether an account currently has an active watch. */
 export function isWatching(accountId: string): boolean {
   return accounts.get(accountId)?.watch != null;
 }
@@ -94,7 +94,7 @@ export function resetInboundInMemory(): void {
 }
 
 // =============================================================================
-// Plugin — cursor = { offset: number } über das append-only-Log.
+// Plugin — cursor = { offset: number } over the append-only log.
 // =============================================================================
 
 function offsetOf(cursor: SyncCursorPayload | null): number {

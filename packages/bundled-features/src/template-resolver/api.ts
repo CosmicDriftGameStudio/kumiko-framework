@@ -232,20 +232,20 @@ async function fetchTemplate(
     { limit: 1 },
   );
   // @cast-boundary db-row — db.select returnt unbenanntes unknown[],
-  // Row-Shape ist via templateResourcesTable + buildBaseColumns garantiert.
+  // The row shape is guaranteed by templateResourcesTable + buildBaseColumns.
   return (rows[0] as TemplateResourceRow | undefined) ?? null;
 }
 
 function toPublic(row: TemplateResourceRow): TemplateResource {
   // @cast-boundary db-row — Drizzle-Schema typisiert kind/contentFormat/
-  // scope/status als generic text. CHECK-Constraints in der DB schränken
-  // sie auf die Union-Types ein; Cast assertet das Schema-Wissen.
+  // scope/status as generic text. Database CHECK constraints restrict
+  // them to the union types; the cast asserts that schema knowledge.
   const kind = row.kind as TemplateKind;
-  // @cast-boundary db-row — siehe kind.
+  // @cast-boundary db-row — see kind.
   const contentFormat = row.contentFormat as ContentFormat;
-  // @cast-boundary db-row — siehe kind.
+  // @cast-boundary db-row — see kind.
   const scope = row.scope as "system" | "tenant";
-  // @cast-boundary db-row — siehe kind.
+  // @cast-boundary db-row — see kind.
   const status = row.status as "draft" | "active" | "archived";
   const linkedEntries = parseLinkedResourceEntries(row.linkedResources);
   return {
@@ -286,7 +286,7 @@ function parseJson(raw: string | null): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw);
     // @cast-boundary engine-payload — JSON.parse returnt unknown, typeof-Guard
-    // grenzt auf object ein; Record<string, unknown> ist der minimale common-shape.
+    // narrows it to object; Record<string, unknown> is the minimal common shape.
     return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};
@@ -302,14 +302,14 @@ export class TemplateNotFoundError extends Error {
   }
 }
 
-// Single point of truth für "dieser Handler braucht template-resolver".
-// Pattern symmetrisch zu requireTextContent.
+// Single source of truth for "this handler requires template-resolver".
+// Pattern symmetric with requireTextContent.
 export function requireTemplateResolver(
   ctx: { readonly templateResolver?: TemplateResolverApi } | object,
   callerName: string,
 ): TemplateResolverApi {
   // @cast-boundary engine-bridge — templateResolver kommt per extraContext
-  // aus App-Bootstrap, Framework-Container kennt das Feld nicht von sich aus.
+  // from App-Bootstrap; the framework container does not know this field on its own.
   const api = (ctx as { templateResolver?: TemplateResolverApi }).templateResolver;
   if (!api) {
     throw new InternalError({

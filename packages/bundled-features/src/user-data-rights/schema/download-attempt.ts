@@ -5,10 +5,10 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Audit-Trail invalid Download-Attempts (S2.U7).
-// Schreibt eine Row pro 4xx im download-by-{token,job}-Pfad. DPO erkennt
-// damit Brute-Force / Anomalien (gleiche IP, viele invalid-Versuche).
-// Success-Downloads landen in download-token.lastUsedAt — nicht hier.
+// Audit trail for rejected download attempts.
+// Writes one row per 4xx response on the download-by-{token,job} path, allowing the DPO
+// to detect brute-force probing and anomalies such as many invalid attempts from one IP.
+// Successful downloads are recorded in download-token.lastUsedAt instead.
 export const downloadAttemptEntity = createEntity({
   table: "read_download_attempts",
   idType: "uuid",
@@ -29,11 +29,11 @@ export const downloadAttemptEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    // Token-Hash (token-Pfad) oder NULL (job-Pfad / unbekannter Token).
+    // Token hash for the token path, or NULL for the job path or an unknown token.
     tokenHash: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
-    // Job-ID wenn der attempt einen kannte. NULL bei unbekanntem Token.
+    // Job ID when the attempt identified one; NULL for an unknown token.
     jobId: createTextField({ personal: false, reason: "technical_reference" }),
-    // User-ID wenn auth-Pfad (job). NULL bei anonymous (token-Pfad).
+    // User ID for the authenticated job path; NULL for anonymous token-path requests.
     attemptedByUserId: createTextField({ personal: false, reason: "pseudonymous_fk" }),
     // The anonymous token path has no owner, so those rows fall back to the tenant key;
     // find "exact" on ip because list-download-attempts filters by IP.
@@ -49,10 +49,10 @@ export const downloadAttemptEntity = createEntity({
     }),
     attemptedAt: createTimestampField({ required: true }),
   },
-  // 90d hardDelete: unbounded growth = disk-bomb genau gegen das System
-  // das den Brute-Force erkennen soll. Brute-Force-Patterns sind kurzfristig
-  // (Stunden bis Tage) — 90d Window deckt forensik-Reviews + DPO-quartal-
-  // Audits. Tenant kann via override verlängern (HR-Compliance).
+  // 90d hardDelete: unbounded growth would create a disk bomb targeting the system
+  // that detects brute-force activity. Brute-force patterns are short-lived (hours to days),
+  // while a 90d window covers forensic reviews and quarterly DPO audits.
+  // The tenant can extend retention through an override for HR compliance.
   retention: { keepFor: "90d", strategy: "hardDelete", reference: "attemptedAt" },
 });
 

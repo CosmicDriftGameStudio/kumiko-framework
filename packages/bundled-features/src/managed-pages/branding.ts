@@ -20,13 +20,13 @@ import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.ts";
 // `write: access.withSystem(access.admin)` — tenant admins self-service via
 // configEdit AND the system actor (ctx.systemWriteAs) may provision/migrate
 // these keys. The scope default (`access.admin`, admin-only) has no system
-// path, so a continuity migration could not set them (issue #396). Adding
-// SYSTEM_ROLE keeps the keys human-writable (checkWriteAccess collapses to
+// path, so a continuity migration could not set them. Adding SYSTEM_ROLE
+// keeps the keys human-writable (checkWriteAccess collapses to
 // system-only only when system is the SOLE writer), so self-service survives.
 //
-// CONTINUITY (Phase 5 — Prod trap): these keys land under
+// CONTINUITY (Prod trap): these keys land under
 // `managed-pages:config:branding-*`, NOT the live `publicstatus:config:
-// branding-*`. The publicstatus consumer (Phase 5) MUST migrate the existing
+// branding-*`. The publicstatus consumer MUST migrate the existing
 // read_config_values rows to the new QNs per tenant BEFORE switching the read
 // path, or every tenant resets to defaults on deploy. The migration is
 // deliberately NOT built here — the source QNs belong to the consumer app.
@@ -37,7 +37,7 @@ import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.ts";
 // also renders. text keys carry an explicit length cap too — `validateType`
 // only checks the JS type, and the configEdit `maxLength` is client-side, so a
 // direct config:write:set would otherwise be unbounded (the page body is
-// likewise capped in Phase 2).
+// likewise capped).
 const HEX_PATTERN = {
   regex: "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
 } as const;
@@ -67,7 +67,7 @@ export const MANAGED_PAGES_CSS_FEATURE = "managed-pages-css";
 // site-url`. BRANDING_QN below is the single source those QN strings are read
 // from (configEdit screen + render read); the integration test pins write-
 // target == read-source end-to-end.
-// Admin self-service + system provisioning (see write-access note above, #396).
+// Admin self-service + system provisioning.
 const BRANDING_WRITE = access.withSystem(access.admin);
 
 export const BRANDING_KEYS = {

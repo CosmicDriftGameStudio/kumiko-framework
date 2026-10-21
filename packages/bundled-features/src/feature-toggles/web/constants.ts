@@ -11,7 +11,7 @@ export const FEATURE_TOGGLE_AGGREGATE_TYPE = "feature-toggles";
 
 // Shared acknowledgeCrossTenant() reason across all three handlers that read
 // or write globalFeatureStateTable — one string so the three call sites
-// can't drift (framework#2076).
+// can't drift.
 export const FEATURE_TOGGLE_CROSS_TENANT_REASON =
   "global feature-toggle state, no tenant scope by design";
 

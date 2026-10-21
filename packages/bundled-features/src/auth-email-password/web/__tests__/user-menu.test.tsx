@@ -7,9 +7,8 @@ import { TenantMenuItems } from "../tenant-menu-items.tsx";
 import { UserMenu } from "../user-menu.tsx";
 import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 
-// Radix-DropdownMenu reagiert auf pointerdown — fireEvent.click greift
-// dort nicht. userEvent simuliert die volle Pointer-Sequenz und Radix
-// öffnet sauber.
+// Radix-DropdownMenu responds to pointerdown — fireEvent.click does not.
+// userEvent simulates the complete pointer sequence so Radix opens correctly.
 describe("UserMenu", () => {
   test("renders nothing when user is null", () => {
     const session = makeSessionApi({ status: "unauthenticated", user: null });
@@ -30,7 +29,7 @@ describe("UserMenu", () => {
       user: { id: "u1", email: "bob@example.com", displayName: "", globalRoles: [] },
     });
     renderWithProviders(<UserMenu />, { session });
-    // Trim "" → leerer displayName → fallback auf email → erste 2 Chars
+    // Trimming "" leaves displayName empty, so it falls back to the email's first 2 chars.
     expect(screen.getByText("BO")).toBeTruthy();
   });
   test("no displayName → dropdown label shows the email exactly once (not duplicated)", async () => {
@@ -81,7 +80,7 @@ describe("UserMenu", () => {
       </SidebarProvider>,
       { session },
     );
-    // Anders als die Pill: die Row zeigt Name UND Email direkt.
+    // Unlike the pill, the row displays both the name and email directly.
     expect(screen.getByText("Alice Wonder")).toBeTruthy();
     expect(screen.getByText("alice@example.com")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Alice Wonder/ }));

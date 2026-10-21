@@ -1,4 +1,4 @@
-// Manual, perTenant backfill job (#1206/#1215) — indexes existing rows for
+// Manual, perTenant backfill job — indexes existing rows for
 // an entity that only got `searchable: true` after rows already existed.
 // perTenant fan-out (job-runner.ts) also applies to a manual dispatch, not
 // just cron: one `jobs:write:trigger` call with { entity } re-runs once per

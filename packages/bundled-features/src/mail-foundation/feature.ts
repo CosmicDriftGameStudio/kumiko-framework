@@ -2,34 +2,33 @@
 //
 // mail-foundation as a Kumiko bundled feature.
 //
-// **Was diese Feature liefert:**
-//   1. **Plugin-API** für Mail-Transport-Provider via `r.extendsRegistrar
-//      ("mailTransport", ...)`. Provider-Features (mail-transport-smtp,
-//      mail-transport-brevo-api, ...) registrieren sich namentlich.
-//   2. **Tenant-Config-key** `provider`: select-Wert der zur Runtime
-//      bestimmt welcher registrierte Plugin verwendet wird.
-//   3. **createTransportForTenant(ctx, tenantId)** Factory die den
-//      gewählten Plugin im Registry sucht und seine `build`-Methode
-//      aufruft.
+// **What this feature provides:**
+//   1. **Plugin API** for mail transport providers via `r.extendsRegistrar
+//      ("mailTransport", ...)`. Provider features (mail-transport-smtp,
+//      mail-transport-brevo-api, ...) register by name.
+//   2. **Tenant config key** `provider`: a selection value that determines at
+//      runtime which registered plugin is used.
+//   3. **createTransportForTenant(ctx, tenantId)** factory that looks up the
+//      selected plugin in the registry and calls its `build` method.
 //
-// **Was diese Foundation NICHT mehr macht (im Vergleich zur ersten
-// Iteration):**
-//   - Keine SMTP/Brevo/Postmark-spezifischen Config-Keys mehr in
-//     mail-foundation. Provider-spezifische Config (host/port/from/
-//     authUser für SMTP, apiUrl/accountId für Brevo etc.) lebt im
-//     jeweiligen Provider-Plugin-Feature.
-//   - Kein direkter Import von `createSmtpTransport`. Die Foundation
-//     kennt nur das `EmailTransport`-Interface (Type-Import, kein
-//     runtime-coupling), nicht die konkrete Implementation.
+// **What this foundation no longer does (compared with the first
+// iteration):**
+//   - No SMTP/Brevo/Postmark-specific config keys in mail-foundation.
+//     Provider-specific config (host/port/from/authUser for SMTP,
+//     apiUrl/accountId for Brevo, etc.) lives in the respective provider
+//     plugin feature.
+//   - No direct import of `createSmtpTransport`. The foundation knows only
+//     the `EmailTransport` interface (type import, no runtime coupling), not
+//     the concrete implementation.
 //
-// **Pattern-Vorbild:** identisch zu `delivery` + `channel-email`. Die
-// delivery-feature deklariert `r.extendsRegistrar("deliveryChannel")`,
-// channel-email registriert sich via `r.useExtension("deliveryChannel",
-// "email", {...})`. Selbe Trennung Foundation ↔ Provider.
+// **Pattern precedent:** identical to `delivery` + `channel-email`. The
+// delivery feature declares `r.extendsRegistrar("deliveryChannel")`, and
+// channel-email registers via `r.useExtension("deliveryChannel",
+// "email", {...})`. The foundation ↔ provider separation is the same.
 //
-// **Standalone:** Foundation ist ohne tier-engine nutzbar. Existing
-// `channel-email` (App-wide-Mail-Sender via delivery) bleibt unangetastet
-// — additive Feature.
+// **Standalone:** The foundation can be used without tier-engine. Existing
+// `channel-email` (app-wide mail sender via delivery) remains unchanged—an
+// additive feature.
 
 import {
   type EmailTransport,
@@ -97,8 +96,8 @@ export type MailTransportContext = {
  * an EmailTransport. Per-call construction so a tenant editing config
  * sees the change on the next mail.
  *
- * **Plugin-Author-Warnung:** `ctx` ist EXPLIZIT ein MailTransportContext,
- * nicht ein voller HandlerContext (siehe MailTransportContext-Doc).
+ * **Plugin-author warning:** `ctx` is EXPLICITLY a MailTransportContext,
+ * not a full HandlerContext (see the MailTransportContext doc).
  */
 export type MailTransportPlugin = {
   readonly build: (ctx: MailTransportContext, tenantId: string) => Promise<EmailTransport>;

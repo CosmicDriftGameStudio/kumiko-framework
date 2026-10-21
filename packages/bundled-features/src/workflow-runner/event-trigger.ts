@@ -84,13 +84,13 @@ export function assertEventTriggerStepsSupported(workflow: WorkflowDefinition): 
 
 export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefinition): void {
   // Populate the workflow-registry unconditionally, before the event-trigger
-  // guard below — resume-run (framework#2513 Phase 2) looks workflows up by
+  // guard below — resume-run looks workflows up by
   // name regardless of trigger kind, and a cron-triggered workflow that never
   // reaches the MSP branch still needs to be resumable.
   registerWorkflow(workflow);
 
   // Independent of trigger.kind — a cron-triggered workflow can still have
-  // waitForEvent steps in its pipeline (framework#2513 Phase 3b, D4).
+  // waitForEvent steps in its pipeline.
   registerEventWakeup(r, workflow);
 
   // skip: cron-triggered workflows have no domain event to project off — they

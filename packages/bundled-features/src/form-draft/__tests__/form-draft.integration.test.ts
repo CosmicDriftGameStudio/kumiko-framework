@@ -5,7 +5,7 @@
 //   - get resolves { draft: null } for a foreign user / foreign tenant,
 //     never leaking the other owner's row
 //   - discard only ever removes the caller's own row
-//   - stepIndex + savedAt round-trip through the blob shape fixed by #1889
+//   - stepIndex + savedAt round-trip through the blob shape
 //   - list resolves a user's open drafts for a screenId (draftKey prefix
 //     match), never another user's/tenant's rows and never the blob values
 
@@ -182,7 +182,7 @@ describe("form-draft integration — ownership isolation", () => {
 describe("form-draft integration — list", () => {
   test("list returns open drafts for a screenId, newest first, without the blob's values", async () => {
     await saveDraft("wizard:a", { name: "First" }, 0);
-    // savedAt is a millisecond stamp (#1960) — sleep is best-effort only;
+    // savedAt is a millisecond stamp — sleep is best-effort only;
     // under CI load two saves can still tie, so assert the comparator
     // contract (savedAt desc, then id desc) rather than a fixed key order.
     await Bun.sleep(20);

@@ -5,35 +5,36 @@ import {
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// fieldDefinition — Tenant- oder System-scoped Custom-Field-Definition.
+// fieldDefinition — Tenant- or system-scoped custom-field definition.
 //
-// **Tenant-Scope:** `tenantId`-Base-Column wird vom Framework automatisch
-// gesetzt. Bei system-scope-Definitionen ist `tenantId = SYSTEM_TENANT_ID`;
-// bei tenant-scope der current-tenant. Beide leben in derselben Tabelle,
-// Scope ergibt sich aus dem tenantId-Wert (no separate `scope`-column).
+// **Tenant scope:** The `tenantId` base column is set automatically by the
+// framework. For system-scope definitions, `tenantId = SYSTEM_TENANT_ID`;
+// for tenant-scope definitions, it is the current tenant. Both use the same
+// table; the scope is determined by the tenantId value (no separate `scope`
+// column).
 //
-// **Conflict-Rule:** pro (entityName, fieldKey) darf nur eine Definition
-// existieren — entweder system oder tenant, nicht beide. Resolution beim
-// Read = `WHERE tenantId IN (SYSTEM_TENANT_ID, <current-tenant>)`.
-// Conflict-Check ist write-handler-side, NICHT DB-constraint (DB hat
-// natürliche UNIQUE auf (tenantId, entityName, fieldKey) durch Aggregate-
-// ID-Konstruktion).
+// **Conflict rule:** only one definition may exist per (entityName, fieldKey)
+// — either system or tenant, not both. Resolution on read = `WHERE tenantId IN
+// (SYSTEM_TENANT_ID, <current-tenant>)`. The conflict check is performed by
+// the write handler, NOT enforced by a DB constraint (the DB has a natural
+// UNIQUE constraint on (tenantId, entityName, fieldKey) through aggregate-ID
+// construction).
 //
-// **Spec-Drift**: Spec Z.40-54 hat eine separate `custom_field_value`-
-// Tabelle. Plan-Doc v2 hat das durch jsonb-on-host-entity ersetzt
-// (D2-pur-Storage). Hier definieren wir NUR die definition-Entity; values
-// landen in `read_<entity>.customFields` jsonb via MSP (B2).
+// **Spec drift**: Spec Z.40-54 defines a separate `custom_field_value` table.
+// Plan-Doc v2 replaced it with jsonb on the host entity (pure jsonb storage).
+// This defines ONLY the definition entity; values land in
+// `read_<entity>.customFields` jsonb via MSP.
 //
-// **Was hier NICHT als Stammfeld-Spalte landet**:
-//   - `defaultValue`, `options`, `fieldAccess`, `label` — alles in
-//     `serializedField` jsonb gepackt (Builder-Reuse: dehydrierter
-//     r.field.X()-Output). Spec Z.18-38 listet sie als separate Spalten,
-//     aber Builder-Reuse macht das redundant — der serialized Builder
-//     enthält alle diese Aspekte type-safe.
-//   - `version` (optimistic-lock) — ES-redundant, wir nutzen aggregate-
-//     stream-version (Sprint E-Pattern).
-//   - `createdAt/updatedAt/createdBy/updatedBy` — automatic via base-
-//     columns + events.
+// **What is NOT stored as a base-field column here**:
+//   - `defaultValue`, `options`, `fieldAccess`, `label` — all packed into
+//     `serializedField` jsonb (builder reuse: dehydrated
+//     r.field.X()-output). Spec Z.18-38 lists them as separate columns, but
+//     builder reuse makes that redundant — the serialized builder contains all
+//     these aspects in a type-safe form.
+//   - `version` (optimistic lock) — redundant with event sourcing; we use the
+//     aggregate stream version.
+//   - `createdAt/updatedAt/createdBy/updatedBy` — automatic through base
+//     columns and events.
 export const fieldDefinitionEntity = createEntity({
   table: "read_custom_field_definitions",
   description:
@@ -47,20 +48,21 @@ export const fieldDefinitionEntity = createEntity({
   // NB: `retention.strategy` below is the data-retention purge policy, a
   // SEPARATE knob from this executor flag — it does not drive executor.delete.
   softDelete: true,
-  // B1.5 retention-policy — fieldDefinitions sind tenant-Schema-Metadaten,
-  // keine PII-Daten. Lange Retention für Audit (Compliance kann "wann hat
-  // Tenant das Feld definiert / geändert / gelöscht" fragen).
+  // Retention policy — field definitions are tenant-schema metadata, not PII.
+  // Long retention supports audits (compliance can ask when a tenant defined,
+  // changed, or deleted the field).
   //
-  // 10-Jahre keepFor ist konservativer Default; per-Tenant kann via
-  // tenantRetentionOverride für eigene Edge-Cases gesetzt werden
-  // (z.B. shorter für test-tenants).
+  // The 10-year keepFor is a conservative default; tenants can override it
+  // through tenantRetentionOverride for their own edge cases
+  // (e.g. shorter retention for test tenants).
   retention: {
     keepFor: "10y",
     strategy: "softDelete",
   },
   fields: {
-    // Ziel-Entity-Name, für die dieses Field definiert wird (z.B. "property",
-    // "customer"). Max 64 char passt zu Kumiko's entity-name-Convention.
+    // The entity name for which this field is defined (e.g. "property",
+    // "customer"). The 64-character maximum follows Kumiko's entity-name
+    // convention.
     entityName: createTextField({
       required: true,
       maxLength: 64,
@@ -68,8 +70,8 @@ export const fieldDefinitionEntity = createEntity({
       reason: "technical_reference",
     }),
 
-    // Field-Key (z.B. "internalNumber", "vipFlag") — kebab-case oder camelCase
-    // erlaubt; UI-rendering nutzt label statt fieldKey.
+    // Field key (e.g. "internalNumber", "vipFlag") — kebab-case and camelCase
+    // are allowed; UI rendering uses label instead of fieldKey.
     fieldKey: createTextField({
       required: true,
       maxLength: 64,
@@ -77,8 +79,8 @@ export const fieldDefinitionEntity = createEntity({
       reason: "technical_reference",
     }),
 
-    // Field-Type aus dem SUPPORTED_FIELD_TYPES-Set. Validiert via Zod im
-    // write-handler.
+    // Field type from the SUPPORTED_FIELD_TYPES set. Validated with Zod in the
+    // write handler.
     type: createTextField({
       required: true,
       maxLength: 16,
@@ -86,22 +88,22 @@ export const fieldDefinitionEntity = createEntity({
       reason: "technical_reference",
     }),
 
-    // Required-Flag — wird beim Entity-Write gegen den value gecheckt
-    // (Stammfeld-identische Semantik, Spec-Promise Z.4).
+    // Required flag — checked against the value during entity writes
+    // (the same semantics as a base field).
     required: createBooleanField({ required: true }),
 
-    // Searchable-Flag — wenn true, contribuiert das Field zum Search-Doc
-    // via F3 search-payload-extension.
+    // Searchable flag — when true, the field contributes to the search document
+    // through the search-payload extension.
     searchable: createBooleanField({ required: true }),
 
-    // UI-Display-Order. Tenant kann seine Felder via UI sortieren.
+    // UI display order, allowing tenants to sort their fields in the UI.
     displayOrder: createNumberField({ required: true, integer: true }),
 
-    // Builder-Reuse: serialisierter r.field.X(opts)-Output als jsonb.
-    // Beinhaltet type-options (enum-values, money-currency, embedded-schema),
-    // defaultValue, fieldAccess, i18n-labels. Beim Write-Validation
-    // dehydriert der handler dies zurück zu einer r.field.X()-Instanz und
-    // nutzt deren .schema für value-Validation.
+    // Builder reuse: serialized r.field.X(opts) output stored as jsonb.
+    // It includes type options (enum values, money currency, embedded schema),
+    // defaultValue, fieldAccess, and i18n labels. During write validation, the
+    // handler dehydrates this back into an r.field.X() instance and uses its
+    // .schema for value validation.
     serializedField: createTextField({
       required: true,
       maxLength: 65536,

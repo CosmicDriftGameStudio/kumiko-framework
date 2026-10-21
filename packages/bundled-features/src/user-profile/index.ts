@@ -1,6 +1,6 @@
-// Bewusst OHNE i18n-Export: das Server-Barrel muss von Server-Samples
-// ohne jsx-tsconfig kompilierbar bleiben (i18n zieht kumiko-renderer →
-// .tsx). Translations kommen via ./web (userProfileClient).
+// Deliberately no i18n export: the server barrel must remain compilable by server samples
+// without a JSX tsconfig (i18n pulls in kumiko-renderer → .tsx). Translations are provided
+// through ./web (userProfileClient).
 
 export { createUserProfileFeature, type UserProfileFeatureOptions } from "./feature.ts";
 export {

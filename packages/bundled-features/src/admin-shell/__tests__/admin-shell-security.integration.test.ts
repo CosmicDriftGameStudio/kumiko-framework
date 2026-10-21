@@ -179,7 +179,7 @@ describe("SystemAdmin platform queries", () => {
 
 describe("tenant overview query allowlist", () => {
   // The tenant-overview screen dispatches only the queries baked into its
-  // own dashboard panels (no client-side allowlist gate anymore, fw#2312) —
+  // own dashboard panels (no client-side allowlist gate anymore) —
   // this checks the actual screen definition against the allowlist instead
   // of the allowlist against itself.
   test("tenant-overview screen panels stay inside the allowlist and off the forbidden list", () => {

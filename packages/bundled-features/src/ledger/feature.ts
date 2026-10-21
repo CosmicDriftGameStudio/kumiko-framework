@@ -7,8 +7,8 @@
 //      corrections are reverse-transaction (Storno) entries.
 //
 // Everything financial — banking, accounting, rent cashflow, credits, invoices —
-// is accounts + balanced transactions on top. Balances and reports (Bilanz, GuV,
-// Cashflow) are pure queries over the postings (Phase 1), never stored state.
+// is accounts + balanced transactions on top. Balances and reports (balance
+// sheet, P&L, cashflow) are pure queries over the postings, never stored state.
 //
 // Spec: kumiko-platform/docs/plans/ledger-feature.md
 
@@ -60,7 +60,7 @@ function registerLedger(
 
   // Chart of accounts — plain CRUD, no custom logic. No delete in v1: removing an
   // account that has postings would orphan them; a posting-aware guard lands with
-  // the postings projection (Phase 1).
+  // the postings projection.
   r.writeHandler(
     defineEntityCreateHandler("account", accountEntity, {
       access,

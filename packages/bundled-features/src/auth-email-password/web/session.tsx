@@ -1,12 +1,12 @@
-// Session-State für den Browser-Renderer. Hält den aktuell eingeloggten
-// User (Profile + aktive Tenant-Zuordnung + Memberships), reagiert auf
-// Login/Logout/Switch-Tenant und refresh't die Daten automatisch.
+// Session state for the browser renderer. Holds the currently signed-in
+// user (profile + active tenant assignment + memberships), responds to
+// login/logout/tenant switching, and refreshes the data automatically.
 //
-// Warum Context + useReducer statt z.B. Zustand? Weil die State-Menge
-// klein ist (ein Handful Felder, ein paar Transitionen) und wir damit
-// eine Dependency weniger im Browser-Bundle haben. Die Consumer leben
-// unter `<SessionProvider>`; der `useSession()`-Hook liefert den State
-// und die Transitions.
+// Context + useReducer is used instead of, for example, Zustand because
+// the state is small (a handful of fields and a few transitions), avoiding
+// another dependency in the browser bundle. Consumers live under
+// `<SessionProvider>`; the `useSession()` hook provides the state
+// and transitions.
 
 import {
   type CurrentUser,
@@ -50,11 +50,12 @@ export type SessionState = {
   readonly user: CurrentUserProfile | null;
   readonly activeTenantId: string | null;
   readonly tenants: readonly TenantSummary[];
-  /** Merged session-roles für den active tenant: globalRoles (z.B.
-   *  SystemAdmin) + membership-roles des activeTenant. Server hat sie
-   *  schon im JWT gemerged, aber das JWT ist HttpOnly + nicht JS-lesbar;
-   *  Client computed dieselbe merge-Logik aus user.globalRoles +
-   *  tenants[active].roles damit nav-filtering greift. Dedupliziert. */
+  /** Merged session roles for the active tenant: globalRoles (for example,
+   *  SystemAdmin) plus the active tenant's membership roles. The server has
+   *  already merged them into the JWT, but the JWT is HttpOnly and cannot be
+   *  read by JavaScript; the client computes the same merge from
+   *  user.globalRoles + tenants[active].roles so navigation filtering works.
+   *  The result is deduplicated. */
   readonly roles: readonly string[];
   readonly bootstrapFailure: SessionBootstrapFailure | null;
   /** Set when an authenticated session was ended server-side (revoked,
@@ -97,15 +98,15 @@ const INITIAL: SessionState = {
   signedOutReason: null,
 };
 
-// kumiko_auth ist HttpOnly — kumiko_csrf wird beim Login gemeinsam gesetzt.
+// kumiko_auth is HttpOnly; kumiko_csrf is set together with it at login.
 export function hasLikelyAuthSession(cookieSource?: string): boolean {
   return readCsrfToken(cookieSource) !== undefined;
 }
 
-// Exported damit tests den merge-pfad direkt pinnen können — der hier
-// muss byte-identisch zum server-side merge in auth-routes.ts +
-// login.write.ts sein, sonst sieht der Client andere session-rollen
-// als der Server.
+// Exported so tests can pin the merge path directly: this must be
+// byte-identical to the server-side merge in auth-routes.ts +
+// login.write.ts, otherwise the client sees different session roles
+// from the server.
 export function computeActiveRoles(
   user: CurrentUserProfile | null,
   activeTenantId: string | null,
@@ -120,14 +121,14 @@ export function computeActiveRoles(
   return Array.from(new Set([...user.globalRoles, ...membershipRoles]));
 }
 
-/** Internal — exposed for tests die einen Mock-SessionApi-Wert reinreichen
- *  wollen, ohne durch SessionProvider's refresh-Lifecycle zu müssen. App-
- *  Code nutzt SessionProvider + useSession; direkter Context-Zugriff ist
- *  für Tests/Stories. */
+/** Internal — exposed so tests can pass a mock SessionApi value
+ *  without going through SessionProvider's refresh lifecycle. Application
+ *  code uses SessionProvider + useSession; direct context access is
+ *  intended for tests/stories. */
 export const SessionContext = createContext<SessionApi | undefined>(undefined);
 
-// Eine Refresh-Runde: /auth/tenants → wenn 401 nicht-eingeloggt, sonst
-// /user:me. Beides zusammen ergibt den vollen SessionState.
+// One refresh round: /auth/tenants → if 401, unauthenticated; otherwise
+// /user:me. Together, both requests produce the complete SessionState.
 async function refresh(): Promise<SessionState> {
   if (!hasLikelyAuthSession()) {
     return UNAUTHENTICATED;
@@ -183,7 +184,7 @@ export function SessionProvider({
     }
   }, []);
 
-  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+  // kumiko-lint-ignore no-raw-hooks
   useEffect(() => {
     void doRefresh();
   }, [doRefresh]);
@@ -191,7 +192,7 @@ export function SessionProvider({
   const sessionEndedSignal = useSessionEndedSignal();
   // Only an authenticated session can "end": an anonymous 401 on a public
   // surface must not show the hint.
-  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+  // kumiko-lint-ignore no-raw-hooks
   useEffect(() => {
     return sessionEndedSignal?.subscribe(() => {
       setState((prev) =>
@@ -222,10 +223,10 @@ export function SessionProvider({
       return;
     }
     setState(UNAUTHENTICATED);
-    // Hard-Reload: React-Tree, dispatcher-live-Caches, EventSource —
-    // alles fliegt auf Null. Nach Logout ist das der billigste Weg zu
-    // sauberer Ausgangslage, ohne dass wir jeden einzelnen Consumer
-    // per Context-Bust invalidieren müssen.
+    // Hard reload: the React tree, dispatcher live caches, and EventSource
+    // are all reset. After logout, this is the cheapest way to reach a clean
+    // state without having to invalidate every consumer through a context
+    // reset.
     if (typeof window !== "undefined") {
       window.location.reload();
     }
@@ -233,10 +234,9 @@ export function SessionProvider({
 
   const switchTenant = useCallback<SessionApi["switchTenant"]>(async (tenantId) => {
     await switchTenantApi(tenantId);
-    // Tenant-Wechsel rotiert JWT + Cookies. React-Tree enthält
-    // tenant-gebundene Caches (Queries, Live-Events) — simpler
-    // Reload ist konsistent mit dem Logout-Pfad und vermeidet
-    // halbe State-Übergänge.
+    // Tenant switching rotates the JWT + cookies. The React tree contains
+    // tenant-bound caches (queries, live events), so a simple reload is
+    // consistent with the logout path and avoids partial state transitions.
     if (typeof window !== "undefined") {
       window.location.reload();
     }

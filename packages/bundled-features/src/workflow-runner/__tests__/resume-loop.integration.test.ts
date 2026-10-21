@@ -1,5 +1,4 @@
-// resume-loop — the time-based resume path (framework#2513 Phase 2)
-// against real Postgres.
+// resume-loop — the time-based resume path against real Postgres.
 //
 // Drives `resume-due-runs` directly via stack.registry.getJob(...) (same
 // style as data-retention/__tests__/retention-cleanup.integration.test.ts)
@@ -95,7 +94,7 @@ const retryWorkflow: WorkflowDefinition = defineWorkflow({
 // Counts real side-effect executions of the step AFTER the suspension point
 // — distinct from the recorded event log, so a double-resume that somehow
 // wrote a deduplicated event log but still re-ran the pipeline would still
-// be caught (framework#2552/1).
+// be caught.
 let sideEffectCount = 0;
 
 const idempotentResumeWorkflow: WorkflowDefinition = defineWorkflow({
@@ -394,7 +393,7 @@ describe("workflow-runner resume loop", () => {
 
     // pending-projection.ts only deletes this row on a LATER dispatcher pass
     // reacting to WORKFLOW_RESUMED — deliberately not run here, reproducing
-    // the framework#2552/1 race window where a second resume-due-runs tick
+    // the race window where a second resume-due-runs tick
     // lands inside that async-delete gap and still finds the row.
     expect(await pendingRowExists(runId, 0)).toBe(true);
 

@@ -1,27 +1,27 @@
 // kumiko-feature-version: 1
 //
-// inbound-provider-imap — IMAP-Implementierung der inbound-mail-
-// foundation Plugin-API. Deckt den DACH-Long-Tail (IONOS, Telekom,
-// Strato, GMX/Web.de, mailbox.org, Hetzner, all-inkl) via Passwort/
-// App-Passwort ab — komplett OHNE OAuth. XOAUTH2 als Fallback für
-// M365-/Gmail-Konten (Access-Token aus dem Secret-Slot; Token-Refresh
-// gehört den OAuth-Providern, Phase 4/5).
+// inbound-provider-imap — IMAP implementation of the inbound-mail-
+// foundation plugin API. Covers the DACH long tail (IONOS, Telekom,
+// Strato, GMX/Web.de, mailbox.org, Hetzner, all-inkl) via password/
+// app-password authentication, without OAuth. XOAUTH2 is available as
+// a fallback for M365/Gmail accounts (access token from the secret slot;
+// token refresh is handled by the OAuth providers).
 //
-// **Was diese Feature liefert:**
-//   1. Plugin-Registration via r.useExtension("inboundMailProvider",
+// **What this feature provides:**
+//   1. Plugin registration via r.useExtension("inboundMailProvider",
 //      "imap", { verify, fetch, watch }).
-//   2. verify: connect+logout mit typisiertem Fehler-Mapping.
-//   3. fetch: inkrementeller Sync über UIDVALIDITY:lastUid-Cursor —
-//      UIDVALIDITY-Wechsel wirft InboundCursorInvalidError (Foundation
-//      resettet + resynct im Backfill-Fenster). Erst-Befüllung via
-//      SEARCH since=backfillWindowDays.
-//   4. watch: IMAP IDLE via imapflow — 'exists'-Event → neue UIDs
-//      fetchen → onMessages; Verbindungs-Tod → onError (Supervisor
-//      restartet mit Backoff, der Provider reconnected NICHT selbst).
+//   2. verify: connect+logout with typed error mapping.
+//   3. fetch: incremental sync using a UIDVALIDITY:lastUid cursor —
+//      a UIDVALIDITY change throws InboundCursorInvalidError (the
+//      foundation resets and resyncs within the backfill window). Initial
+//      population uses SEARCH since=backfillWindowDays.
+//   4. watch: IMAP IDLE via imapflow — the 'exists' event triggers fetching
+//      new UIDs and then onMessages; connection loss triggers onError (the
+//      supervisor restarts with backoff; the provider does not reconnect).
 //
-// Credentials: JSON-Dokument im per-Account-Secret-Slot
-// (credential-document.ts) — kein Tenant-Config, weil mehrere Accounts
-// pro Tenant verschiedene Hosts haben.
+// Credentials: JSON document in the per-account secret slot
+// (credential-document.ts), not tenant configuration, because one tenant
+// can have multiple accounts with different hosts.
 
 import { mailAllowedPrivateHostsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
@@ -102,17 +102,17 @@ async function fetchMessages(
     const parsedCursor = parseImapCursor(cursor);
     assertUidValidity(parsedCursor, serverUidValidity);
 
-    // UID-Menge bestimmen: inkrementell ab lastUid+1, sonst Backfill
-    // über SEARCH since (Fenster begrenzt die Erst-Befüllung).
+    // Determine the UID set: incrementally from lastUid+1, or use a backfill
+    // via SEARCH since (the window limits the initial population).
     let uids: number[];
     if (parsedCursor) {
       const found = await client.search({ uid: `${parsedCursor.lastUid + 1}:*` }, { uid: true });
-      // `N:*`-Gotcha: liegt N über der höchsten UID, liefert IMAP
-      // trotzdem die letzte Message — rausfiltern.
+      // `N:*` gotcha: when N exceeds the highest UID, IMAP still returns the
+      // last message, so filter it out.
       uids = (found || []).filter((uid) => uid > parsedCursor.lastUid);
     } else {
       const since = Temporal.Now.instant().subtract({ hours: opts.backfillWindowDays * 24 });
-      // imapflow-API-Boundary: search() verlangt ein JS-Date.
+      // imapflow API boundary: search() requires a JS Date.
       uids = (await client.search({ since: instantToLegacyDate(since) }, { uid: true })) || [];
     }
     uids.sort((a, b) => a - b);
@@ -155,8 +155,8 @@ async function fetchMessages(
 }
 
 // =============================================================================
-// watch — IMAP IDLE (imapflow idlet automatisch bei offener Mailbox und
-// emittet 'exists' bei neuen Messages).
+// watch — IMAP IDLE (imapflow idles automatically while the mailbox is open
+// and emits 'exists' for new messages).
 // =============================================================================
 
 async function watchMailbox(
@@ -175,7 +175,8 @@ async function watchMailbox(
     await client.connect();
     const mailbox = (await client.mailboxOpen(IMAP_MAILBOX)) as MailboxObject;
     const uidValidity = String(mailbox.uidValidity);
-    // uidNext = nächste zu vergebende UID — alles ab hier ist "neu".
+    // uidNext is the next UID to be assigned, so everything from here is
+    // "new".
     let nextUid = Number(mailbox.uidNext ?? 1);
 
     const drainNew = async () => {
@@ -186,7 +187,7 @@ async function watchMailbox(
         { uid: true, internalDate: true, source: true },
         { uid: true },
       )) {
-        // `N:*`-Gotcha (siehe fetch): alte letzte Message rausfiltern.
+        // `N:*` gotcha (see fetch): filter out the previous last message.
         if (msg.uid < nextUid || !msg.source) continue;
         messages.push(
           await toRawInboundMessage({
@@ -203,14 +204,14 @@ async function watchMailbox(
     };
 
     client.on("exists", () => {
-      // skip: Watcher gestoppt — exists-Nachzügler ignorieren.
+      // skip: ignore delayed exists events after the watcher has stopped.
       if (stopped) return;
       void drainNew().catch((err) => {
         if (!stopped) handlers.onError(mapImapError(err, doc.host));
       });
     });
     const die = (err: unknown) => {
-      // skip: bereits gestoppt/gestorben — onError nur einmal feuern.
+      // skip: already stopped or terminated; fire onError only once.
       if (stopped) return;
       stopped = true;
       handlers.onError(mapImapError(err, doc.host));
@@ -218,17 +219,18 @@ async function watchMailbox(
     client.on("error", die);
     client.on("close", () => die(new Error("connection closed")));
 
-    // IDLE-Loop: 'exists' feuert NUR während client.idle() läuft
-    // (empirisch gegen greenmail verifiziert). Jedes zwischengeschobene
-    // Kommando (drainNew-fetch) beendet idle() — die Loop re-idlet,
-    // bis stop() die Verbindung schließt.
+    // IDLE loop: 'exists' fires ONLY while client.idle() is running
+    // (verified empirically against greenmail). Each intervening command
+    // (drainNew-fetch) ends idle(), so the loop re-enters idle() until
+    // stop() closes the connection.
     void (async () => {
       while (!stopped) {
         try {
           await client.idle();
         } catch (err) {
           if (!stopped) die(err);
-          // skip: idle-Loop endet — die() hat den Supervisor informiert (bzw. stop() war die Ursache).
+          // skip: the idle loop ends; die() has informed the supervisor (or stop()
+          // was the cause).
           return;
         }
       }
@@ -251,8 +253,8 @@ async function watchMailbox(
 // Plugin + Feature-definition
 // =============================================================================
 
-/** Exportiert für den Live-Test (imap-live.integration.test.ts) —
- *  Apps nutzen das Feature, nie das Plugin direkt. */
+/** Exported for the live test (imap-live.integration.test.ts) —
+ *  applications use the feature, never the plugin directly. */
 export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   verify: async (ctx, account) => {
     const doc = await readCredentialDocument(ctx, account);
@@ -267,9 +269,9 @@ export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   },
   fetch: fetchMessages,
   watch: watchMailbox,
-  // Kein oauth-Block: Passwort-Connect läuft über das Credential-
-  // Formular (connect-account + Secret-Write); XOAUTH2-Token-Flows
-  // gehören den OAuth-Providern (M365/Gmail).
+  // No oauth block: password authentication runs through the credential
+  // form (connect-account + Secret-Write); XOAUTH2 token flows belong to
+  // the OAuth providers (M365/Gmail).
 };
 
 export function createInboundProviderImapFeature() {

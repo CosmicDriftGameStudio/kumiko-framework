@@ -41,7 +41,7 @@ export type LoginScreenProps = {
    *  default path once the server offers the reset flow (login-options);
    *  `null` hides the link deliberately. */
   readonly forgotPasswordHref?: string | null;
-  /** Optional href to RequestAccountUnlockScreen (#1266). When set, an
+  /** Optional href to RequestAccountUnlockScreen. When set, an
    *  account_locked login error renders an "Unlock account?" link inline —
    *  the account-lockout escape hatch, since forgotPasswordHref does NOT
    *  help here: the lockout gate blocks login before password verify even
@@ -71,9 +71,8 @@ export type LoginScreenProps = {
   readonly onMfaSetupRequired?: (preauthSetupToken: string, accountLabel: string) => void;
 };
 
-// Map vom Reason-Code des Login-Handlers auf einen i18n-Key plus
-// optional extrahierte Interpolations-Parameter. Ungekannte Codes
-// fallen auf `auth.errors.loginFailed` zurück.
+// Maps login-handler reason codes to i18n keys and optional interpolation parameters.
+// Unknown codes fall back to `auth.errors.loginFailed`.
 function reasonToKey(failure: LoginFailure): {
   readonly key: string;
   readonly params?: Readonly<Record<string, unknown>>;

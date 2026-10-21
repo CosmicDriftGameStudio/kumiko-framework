@@ -1,7 +1,7 @@
 // user-profile change-email — Re-Auth + Uniqueness + Verified-Reset,
-// bewiesen über echten Login (alte Email 401, neue Email 200). Plus
-// QN-Pin der user-data-rights-Konstanten (Danger-Zone des ProfileScreen
-// dispatcht genau diese Strings).
+// proven through a real login (old email 401, new email 200). Plus
+// a QN pin for the user-data-rights constants (the ProfileScreen's
+// danger zone dispatches exactly these strings).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -215,9 +215,9 @@ describe("change-email guards", () => {
 
 describe("QN-Drift-Pins (client-Konstanten vs. Feature-Originale)", () => {
   test("UserProfileQueries.me spiegelt UserQueries.me", () => {
-    // Der ProfileScreen darf das runtime-Barrel des user-Features nicht
-    // importieren (Runtime-Isolation) und pinnt die QN lokal — dieser
-    // Vergleich macht stillen Drift unmöglich.
+    // The ProfileScreen must not import the user feature's runtime barrel
+    // (runtime isolation) and pins the QN locally—this comparison makes
+    // silent drift impossible.
     expect(UserProfileQueries.me).toBe(UserQueries.me);
   });
 });

@@ -1,7 +1,7 @@
-// list-subscriptions — sysadmin-cross-tenant list-query auf der
-// `read_subscriptions`-projection. Tenant-Admins lesen ihre eigene
-// subscription via getSubscriptionForTenant-helper (= ctx.db ist
-// tenant-scoped, gibt automatisch nur die row des Callers zurück).
+// list-subscriptions — sysadmin cross-tenant list query on the
+// `read_subscriptions` projection. Tenant admins read their own
+// subscription through the getSubscriptionForTenant helper (= ctx.db is
+// tenant-scoped and automatically returns only the caller's row).
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,

@@ -43,7 +43,7 @@ export async function verifyPassword(hashString: string, password: string): Prom
   }
 }
 
-// Anti-enumeration timing equaliser (#774). The login handler runs this on
+// Anti-enumeration timing equaliser. The login handler runs this on
 // the no-user / no-hash path so a missing account costs the same argon2
 // latency as a real verify — otherwise response timing leaks whether an
 // email is registered. Derived from hashPassword once and cached, so it

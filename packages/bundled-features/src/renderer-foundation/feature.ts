@@ -24,9 +24,9 @@ export function createRendererFoundationFeature() {
 
     r.extendsRegistrar(RENDERER_EXTENSION, {
       onRegister: () => {
-        // Plugin-Konformitäts-Check könnte hier: shape-validation der
-        // options (kinds, render-Funktion present). Aktuell kein
-        // shape-check — Caller's TypeScript-Type-Sicherheit greift.
+        // Plugin conformance check could go here: validate the shape of
+        // options (kinds, render function present). No shape check currently —
+        // the caller's TypeScript type safety applies.
       },
     });
 
@@ -34,11 +34,11 @@ export function createRendererFoundationFeature() {
   });
 }
 
-// Plugin-Pool-Aufbau zur Boot-Zeit. App-Bootstrap ruft das nach
-// Feature-Registration auf, baut den Pool, gibt ihn via extraContext
-// an die Handlers weiter.
+// Build the plugin pool at boot time. App bootstrap calls this after
+// feature registration, builds the pool, and passes it to handlers via
+// extraContext.
 //
-// Symmetrisch zu collectChannels / collectRenderers in delivery-service.
+// Symmetric to collectChannels / collectRenderers in delivery-service.
 export function collectRendererPlugins(registry: Registry): RendererPlugin[] {
   const usages = registry.getExtensionUsages(RENDERER_EXTENSION);
   return usages.map((usage) => {

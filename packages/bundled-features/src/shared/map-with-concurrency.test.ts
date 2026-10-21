@@ -37,11 +37,11 @@ describe("mapWithConcurrency", () => {
   });
 
   // Two workers rejecting at different times, under 4-way concurrency —
-  // regression guard for the #1398 hazard (an eagerly-fired, never-awaited
-  // Promise surfacing as an unattributed unhandled rejection). Every
-  // worker promise here is an element of the internal `Promise.all` array,
-  // so both rejections are always handled even though the aggregate
-  // `mapWithConcurrency` call already settled on the first one.
+  // this guards against an eagerly-fired, never-awaited Promise surfacing
+  // as an unattributed unhandled rejection. Every worker promise here is
+  // an element of the internal `Promise.all` array, so both rejections are
+  // always handled even though the aggregate `mapWithConcurrency` call
+  // already settled on the first one.
   test("a second rejection after the first doesn't surface as an unhandled rejection", async () => {
     const unhandled: unknown[] = [];
     const onUnhandledRejection = (reason: unknown, _promise: Promise<unknown>): void => {

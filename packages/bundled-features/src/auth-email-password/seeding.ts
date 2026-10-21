@@ -1,16 +1,16 @@
-// Stable seeding helpers fürs auth-email-password-Feature. Liegen unter
-// `/seeding` (nicht `/testing`) damit der Vertrag klar ist: hier ist
-// non-test code der bei jedem Dev-Boot + jedem Integration-Test läuft.
-// Test-spezifische Variationen (account-locked-Setup, expired-token,
-// race-conditions) werden NICHT als Knöpfe an diesen Helpers angebaut —
-// sie kommen als neue Funktionen daneben oder inline ins Test-File.
+// Stable seeding helpers for the auth-email-password feature. They live under
+// `/seeding` rather than `/testing` to make the contract clear: this is
+// non-test code that runs on every dev boot and integration test.
+// Test-specific variations (account-locked setup, expired-token,
+// race-conditions) are NOT added as options to these helpers —
+// they belong in separate functions or inline in the test file.
 //
-// Bündelt drei Schritte in einem Aufruf:
-//   1. argon2-Hash des Plain-Passworts
-//   2. seedUser() aus user/seeding
-//   3. seedTenant + seedTenantMembership aus tenant/seeding
-// Damit Sample-Server und Tests keine drei sub-paths zusammensammeln
-// müssen.
+// Bundles three steps into one call:
+//   1. argon2 hash of the plaintext password
+//   2. seedUser() from user/seeding
+//   3. seedTenant + seedTenantMembership from tenant/seeding
+// This keeps sample servers and tests from having to assemble three
+// sub-paths themselves.
 
 import {
   configuredBlindIndexKey,
@@ -38,10 +38,10 @@ import {
 
 const log = createFallbackLogger("auth-email-password-seeding");
 
-// Re-export für ergonomische Single-Import-Site in tests/seed-scripts.
-// Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit
-// password + tenant + membership" — wer das nutzt soll nicht aus drei
-// verschiedenen sub-paths zusammensammeln müssen.
+// Re-export for a convenient single import site in tests/seed-scripts.
+// The auth feature is the natural caller for "seed admin user with
+// password + tenant + membership", so consumers do not need to assemble
+// these helpers from three different sub-paths.
 // kumiko-lint-ignore cross-feature-import re-export of test-helpers
 export { seedTenant, seedTenantMembership } from "../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import re-export of test-helpers
@@ -52,24 +52,24 @@ export type SeedUserWithPasswordOptions = {
   readonly password: string;
   readonly displayName: string;
   readonly locale?: string;
-  /** Globale Rollen — siehe SeedUserOptions.roles. */
+  /** Global roles — see SeedUserOptions.roles. */
   readonly roles?: readonly string[];
-  /** Initial-emailVerified-Flag. Default false (Verify-Flow läuft).
-   *  Magic-Link-Signup setzt true weil der Mail-Klick die Email-
-   *  Ownership beweist. Siehe SeedUserOptions.emailVerified. */
+  /** Initial emailVerified flag. Defaults to false (the verification flow runs).
+   *  Magic-link signup sets it to true because clicking the email proves
+   *  ownership. See SeedUserOptions.emailVerified. */
   readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };
 
 /**
- * Seed a user mit Plain-Password (wird vor dem Insert mit argon2
- * gehasht). Liefert die userId, idempotent über email.
+ * Seed a user with a plaintext password (hashed with argon2 before insertion).
+ * Returns the userId and is idempotent by email.
  */
 export async function seedUserWithPassword(
   db: DbConnection,
   options: SeedUserWithPasswordOptions,
   // Optional, append-only — same rationale as provisionSignupAccount's
-  // hooks param (#1478): the self-signup path passes it through so `user`'s
+  // hooks param: the self-signup path passes it through so `user`'s
   // postSave hooks fire on self-signup same as on the regular create path.
   hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
@@ -89,38 +89,36 @@ export async function seedUserWithPassword(
   );
 }
 
-/** Provisioning-Helper für Self-Signup-Confirm. Legt einen frischen
- *  Tenant + Admin-User + Membership in einem Rutsch an — verwendet die
- *  bestehende Event-Store-Pipeline (wie seedAdmin) und ist daher
- *  konsistent mit dem regulären create-Pfad: events werden geschrieben,
- *  Projections sind populated, MSPs/Audit sehen die neuen Rows.
+/** Provisions a fresh tenant, admin user, and membership for self-signup
+ *  confirmation in one operation. It uses the existing event-store pipeline
+ *  (as seedAdmin), keeping it consistent with the regular create path:
+ *  events are written, projections are populated, and MSPs/audit see the
+ *  new rows.
  *
- *  Naming-Hinweis: nutzt intern `seedTenant` / `seedUser*` —
- *  diese Helpers sind production-grade (event-store-pipeline), das "seed"
- *  im Namen ist historisch (zuerst für Tests + Bootstrap gebaut, dann
- *  als General-Purpose-Helper exportiert). Rename `seed*` → `provision*`
- *  ist als dedizierter Cleanup-PR geplant — disproportional zum Wert
- *  innerhalb dieses Sprints, weil alle existing tests berührt würden.
+ *  Naming note: internally uses `seedTenant` / `seedUser*`; these helpers are
+ *  production-grade (event-store pipeline), and "seed" is historical because
+ *  they were first built for tests and bootstrap before being exported as
+ *  general-purpose helpers.
  *
- *  Atomicity: läuft inside einer Drizzle-Tx wenn der Caller das angibt
- *  (db.begin(tx => provisionSignupAccount(tx, ...)) — die seed-
- *  helpers nehmen DbConnection|DbTx strukturell. Bei pure DbConnection
- *  sind die 3 writes nicht atomic; bei Failure zwischen Schritten kann
- *  ein orphan-Tenant zurückbleiben (Tenant ohne User → unused row;
- *  User ohne Membership → "no_membership" beim ersten Login).
+ *  Atomicity: runs inside a Drizzle transaction when the caller provides one
+ *  (db.begin(tx => provisionSignupAccount(tx, ...)); the seed helpers accept
+ *  DbConnection|DbTx structurally. With a plain DbConnection, the three writes
+ *  are not atomic; a failure between steps can leave an orphan tenant (tenant
+ *  without a user → unused row; user without a membership → "no_membership"
+ *  on first login).
  *
- *  Create-only: existiert bereits ein User mit dieser Email (Seeding oder
- *  früherer Signup), wirft die Funktion einen ConflictError BEVOR ein Tenant
- *  entsteht. Der Self-Signup-Pfad darf einen bestehenden User nicht still
- *  wiederverwenden — sonst würde der Confirm-Schritt eine Session für ihn
- *  minten (Account-Takeover, #365). `seedUser` selbst bleibt idempotent
- *  add-only (für Bootstrap/Tests); die create-only-Garantie sitzt hier.
- *  tenantKey-Kollisionen löst der Caller via generateUniqueName. */
+ *  Create-only: if a user with this email already exists (from seeding or an
+ *  earlier signup), the function throws a ConflictError BEFORE creating a
+ *  tenant. The self-signup path must not silently reuse an existing user —
+ *  otherwise the confirmation step could mint a session for that user
+ *  (account takeover). `seedUser` itself remains idempotent and add-only
+ *  (for bootstrap/tests); the create-only guarantee belongs here.
+ *  The caller resolves tenantKey collisions via generateUniqueName. */
 /** Default membership roles for self-signup tenant owners. Shared between
- *  provisionSignupAccount (DB-write) und signup-confirm-handler
- *  (SessionUser-Konstruktion für JWT-Mint) — sonst hätten zwei
- *  Stellen unabhängig "TenantAdmin" hardcoded und würden bei einem
- *  Refactor zu role-mismatch zwischen DB und Session leiden. */
+ *  provisionSignupAccount (DB write) and signup-confirm-handler
+ *  (SessionUser construction for JWT minting); otherwise two locations would
+ *  independently hardcode "TenantAdmin" and a refactor could cause a role
+ *  mismatch between the database and the session. */
 // TenantAdmin is the canonical owner role; Admin stays for handlers that still
 // gate on the legacy literal until those call sites move to access.admin.
 export const INITIAL_SIGNUP_ROLES = ["TenantAdmin", "Admin"] as const;
@@ -142,17 +140,17 @@ export async function provisionSignupAccount(
   options: ProvisionSignupAccountOptions,
   // Optional, append-only — existing callers (tests, seed scripts) that
   // don't pass hooks keep today's behavior. The real signup-confirm
-  // handler DOES pass it (#1463) so seedTenant/seedUserWithPassword/
+  // handler DOES pass it so seedTenant/seedUserWithPassword/
   // seedTenantMembership's postSave hooks (tier-engine's auto-default-tier,
   // app auto-default-compliance, a Welcome-notification hook, ...) fire on
   // self-signup for all three entities, same as they do on the regular
-  // create paths (#1478 — this was only wired for tenant before).
+  // create paths — this was only wired for tenant before.
   hooks?: SeedTenantHooks,
 ): Promise<{ readonly userId: string; readonly tenantId: TenantId }> {
   // Create-only guard BEFORE seedTenant: hard-abort on an already-registered
   // email, otherwise an orphaned tenant would be created and seedUser
   // (idempotent add-only) would silently return the existing userId ->
-  // confirm mints a session for the wrong account (#365).
+  // confirm mints a session for the wrong account.
   // isDeleted: false — the partial bidx unique index only covers live rows,
   // so a soft-deleted row must not block re-registering its email.
   const existingUser = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
@@ -195,20 +193,19 @@ export type SeedAdminOptions = {
   readonly email: string;
   readonly password: string;
   readonly displayName: string;
-  /** Tenants, in die der Admin als Mitglied eingetragen wird. Pro
-   *  Tenant kann eine eigene Rollenliste gesetzt werden — hilft beim
-   *  Sample-TenantSwitcher der pro Tenant unterschiedliche
-   *  Rollen-Listen zeigt. */
+  /** Tenants where the admin is added as a member. Each tenant can have
+   *  its own role list, which lets the sample TenantSwitcher show different
+   *  role lists for each tenant. */
   readonly memberships: ReadonlyArray<{
     readonly tenantId: TenantId;
     readonly tenantKey: string;
     readonly tenantName: string;
     readonly roles: readonly string[];
   }>;
-  /** Globale Rollen die in users.roles landen — tenant-unabhängig.
-   *  Login-Handler mergt sie in jede Session parallel zu den tenant-
-   *  membership-Rollen. Typischer use-case: `["SystemAdmin"]` für
-   *  einen Plattform-Operator. Default: leer. */
+  /** Global roles stored in users.roles, independent of the tenant.
+   *  The login handler merges them into every session alongside the tenant
+   *  membership roles. Typical use case: `["SystemAdmin"]` for a platform
+   *  operator. Default: empty. */
   readonly globalRoles?: readonly string[];
   /** Initial emailVerified state — defaults to false (unverified). Same
    *  mechanism as seedUserWithPassword.emailVerified. Re-running the seed
@@ -219,9 +216,9 @@ export type SeedAdminOptions = {
 };
 
 /**
- * Seed-Convenience für Sample-Server: Admin-User mit gehashtem
- * Password + N Tenants + N Memberships. Alles idempotent (Re-Run im
- * persistent-DB-Modus läuft durch). Liefert die userId zurück.
+ * Seeding convenience for sample servers: an admin user with a hashed
+ * password, N tenants, and N memberships. Idempotent, so rerunning it in
+ * persistent-DB mode succeeds. Returns the userId.
  */
 export async function seedAdmin(
   db: DbConnection,
@@ -254,7 +251,7 @@ export async function seedAdmin(
   return { id: userId };
 }
 
-// offlot#114 — seedAdmin's idempotency check is a plain fetchOne(email),
+// seedAdmin's idempotency check is a plain fetchOne(email),
 // which the query layer rewrites into `(email = $plaintext OR
 // email_bidx = $hmac)` once a blind-index key is configured. Under KMS
 // encryption `email` holds per-row ciphertext, so only the bidx arm can

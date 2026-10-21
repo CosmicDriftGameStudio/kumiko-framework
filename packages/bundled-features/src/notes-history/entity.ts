@@ -15,7 +15,7 @@ import {
 // Strictly append-only by design: no update/delete write-handler is
 // registered (see feature.ts). A correction is a new entry, not an edit —
 // that is the whole point of a note *history* instead of the single
-// overwritable textarea this bundle replaces (solon#13).
+// overwritable textarea this bundle replaces.
 //
 // `body` is about the HOST entity (entityType/entityId), not the author — the
 // author is never the data subject of a note's content, so it is deliberately
@@ -24,7 +24,7 @@ import {
 // employee leaving triggers a forget), garbling unrelated business notes
 // about customers/projects/etc. — data loss, not privacy.
 //
-// `body` is instead `personal: { of: "id" }` (Row-Subject, fw#2596/#2786):
+// `body` is instead `personal: { of: "id" }` (Row-Subject):
 // the note's OWN row is its content's subject, so `body` is encrypted under a
 // per-note key that nothing else shares. That key gets erased only when the
 // note is reached by a forgotten subject: `note-mention` (below) names the
@@ -34,7 +34,7 @@ import {
 // shreds `authorName` (`personal: { of: "authorId" }`, the name as stamped at
 // write time); the two erasures are independent.
 //
-// Known gap (fw#2596, not fixed by this entity): prose that names a third
+// Known gap (not fixed by this entity): prose that names a third
 // party without a structured @-mention is not tracked — regex/NLP over
 // free text is unreliable. An operator must erase such a note's own record
 // subject (`forget-subject` kind "record", entity "note-entry") to cover it.
@@ -86,7 +86,7 @@ export function createNoteEntryEntity(
       body: createLongTextField({
         required: true,
         maxLength: 20_000,
-        // Row-Subject (fw#2596/#2786): the note itself is the subject, so its
+        // Row-Subject: the note itself is the subject, so its
         // key is erased per-note via `note-mention` lookups, not tied to any
         // user's own forget.
         personal: { of: "id" },

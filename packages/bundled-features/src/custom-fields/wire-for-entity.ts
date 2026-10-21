@@ -17,8 +17,7 @@ import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events.
 import { createCustomFieldsFeature } from "./feature.ts";
 import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./web/constants.ts";
 
-// Helper für entity-definitions — fügt eine `customFields jsonb`-Spalte
-// hinzu. Consumer:
+// Adds a `customFields jsonb` column to an entity definition.
 //
 //   const propertyEntity = createEntity({
 //     fields: {
@@ -27,57 +26,58 @@ import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./web/
 //     },
 //   });
 //
-// Spec-Promise: customFields verhält sich wie Stammfelder. Default `{}`,
-// NOT NULL — analog zu embedded-Spalten.
+// `customFields` follows the same contract as regular fields: default `{}` and
+// NOT NULL, like embedded columns.
 // @wrapper-known semantic-alias
 export function customFieldsField(): JsonbFieldDef {
   return createJsonbField();
 }
 
-// Vollständige integration der custom-fields-Bundle für eine spezifische
-// host-entity. Eine einzige Aufruf-Stelle pro consumer registriert ALLE
-// wiring-Aspekte: extension-tracking, MSP für value-projection, rebuild-
-// replay via extendEntityProjection, postQuery-hook für API-flatten,
-// search-payload-extension für indexable customFields.
+// Complete integration of the custom-fields bundle for a specific host
+// entity. One call site per consumer registers all wiring aspects:
+// extension tracking, the value-projection MSP, rebuild replay via
+// extendEntityProjection, the postQuery hook for API flattening, and the
+// search-payload extension for indexable customFields.
 //
 // Consumer-side:
 //
 //   defineFeature("property-mgmt", (r) => {
-//     r.entity({ name: "property", ...propertyEntity });  // muss customFieldsField() haben
+//     r.entity({ name: "property", ...propertyEntity });  // must have customFieldsField()
 //     r.requires({ features: [CUSTOM_FIELDS_FEATURE_NAME] });
 //     wireCustomFieldsFor(r, "property", propertyTable);
 //   });
 //
-// Der `entityTable`-Parameter ist die Drizzle-Table-Instance (typically
-// `buildEntityTable(name, entity)`-Output). Die Closure über `entityTable`
-// erspart der MSP-apply-fn einen runtime-table-lookup über die Registry.
+// The `entityTable` parameter is the Drizzle table instance (typically the
+// output of `buildEntityTable(name, entity)`). Closing over `entityTable`
+// avoids a runtime table lookup through the registry in the MSP apply
+// function.
 //
-// **Was registriert wird**:
+// **What is registered**:
 //
-//   1. r.useExtension("customFields", entityName) — opt-in marker,
-//      ermöglicht boot-validation und usage-tracking via Registry.
+//   1. r.useExtension("customFields", entityName) — opt-in marker enabling
+//      boot validation and usage tracking through the registry.
 //
 //   2. r.multiStreamProjection — consumes customField.set/.cleared events
-//      die customer's set-custom-field / clear-custom-field write-handlers
-//      emittiert haben. Updated entityTable.customFields jsonb über
+//      emitted by the customer's set-custom-field / clear-custom-field write
+//      handlers. Updates entityTable.customFields jsonb through
 //      jsonb_set / jsonb-key-removal.
 //
-//   3. r.extendEntityProjection — hängt dieselben apply-Handler in die
-//      implicit projection der host-entity, damit rebuildProjection die
-//      customField-Events mit-replayt. Ohne das fällt customFields bei
-//      jedem Entity-Rebuild (Schema-Migration!) auf `{}` zurück (#759).
+//   3. r.extendEntityProjection — adds the same apply handlers to the host
+//      entity's implicit projection so rebuildProjection replays the
+//      customField events. Without this, customFields would reset to `{}` on
+//      every entity rebuild (for example, after a schema migration).
 //
-//   4. r.entityHook("postQuery", entity, flatten-fn) — bei JEDEM Read auf
-//      diese entity wird `row.customFields` jsonb auf root-level expanded
-//      damit die API-response wie Stammfelder aussieht.
+//   4. r.entityHook("postQuery", entity, flatten-fn) — on every read of
+//      this entity, expands `row.customFields` jsonb at the root level so
+//      the API response looks like it contains regular fields.
 //
-//   5. r.searchPayloadExtension(entity, contributor) — searchable
-//      customFields-keys werden flach ins Meilisearch-Index-Doc beigetragen
-//      (F3-wiring).
+//   5. r.searchPayloadExtension(entity, contributor) — contributes
+//      searchable customFields keys as flat fields in the Meilisearch index
+//      document.
 //
-//   6. fieldDefinition.deleted-Event-Handler im selben MSP — bei delete
-//      einer fieldDefinition werden orphan values aus allen entity-rows
-//      entfernt (key-removal pro fieldKey).
+//   6. fieldDefinition.deleted event handler in the same MSP — removes
+//      orphaned values from all entity rows when a fieldDefinition is deleted
+//      (one key removal per fieldKey).
 export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   r: TReg,
   entityName: string,
@@ -87,24 +87,24 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   r.useExtension(CUSTOM_FIELDS_EXTENSION, entityName);
 
   // Qualified event-type-names — sourced from typed EventDef.name handles
-  // (compile-time literal-typed, no Template-Literal-Drift à la toKebab-
-  // collapse-bug die T1 aufgedeckt hat).
+  // (compile-time literal-typed, no Template-Literal-Drift from the toKebab-
+  // collapse bug that exposed it).
   const setEventType = createCustomFieldsFeature().exports.setEvent.name;
   const clearedEventType = createCustomFieldsFeature().exports.clearedEvent.name;
   const fieldDefDeletedType = createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name;
 
-  // Geteilte apply-Bodies: die MSP liefert sie live (async cursor), die
-  // entity-projection-extension replayt sie in rebuildProjection — gleiche
-  // SQL-Helper, beide idempotent. 2-Param-Signatur ist die gemeinsame
-  // Teilmenge von MultiStreamApplyFn und SingleStreamApplyFn.
+  // Shared apply bodies: the MSP supplies them live through an async cursor,
+  // while the entity-projection extension replays them in rebuildProjection.
+  // Both use the same idempotent SQL helpers. The two-parameter signature is
+  // the common subset of MultiStreamApplyFn and SingleStreamApplyFn.
   const applyCustomFieldSet = async (event: StoredEvent, tx: DbRunner): Promise<void> => {
-    // skip: feuert für ALLE aggregate-types die customField.set emittieren —
-    // wir wollen nur die unserer wired host-entity. Andere consumers haben
-    // eigene Wirings für ihre Entities.
+    // skip: fires for every aggregate type that emits customField.set, but only
+    // events for the wired host entity should be processed. Other consumers
+    // have their own wiring for their entities.
     if (event.aggregateType !== entityName) return;
     const payload = event.payload as CustomFieldSetPayload; // @cast-boundary engine-payload
 
-    // skip: a value-less customField.set is an anomaly since #972 (every set
+    // skip: a value-less customField.set is an anomaly (every set
     // carries its value; the sensitive self-projection path was removed) —
     // warn and leave the row untouched instead of binding undefined.
     if (payload.value === undefined) {
@@ -116,9 +116,9 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
       return;
     }
 
-    // jsonb_set: setze key auf value. Wenn key noch nicht existiert →
-    // wird angelegt (create_missing=true ist default). value muss als
-    // jsonb-literal kommen.
+    // jsonb_set: assigns value to the key. If the key does not yet exist, it is
+    // created (`create_missing=true` is the default). value must be supplied
+    // as a jsonb literal.
     const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
     await setCustomFieldValue(
       tx,
@@ -131,28 +131,27 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   };
 
   const applyCustomFieldCleared = async (event: StoredEvent, tx: DbRunner): Promise<void> => {
-    // skip: feuert für alle aggregate-types — nur unsere host-entity
-    // verarbeiten.
+    // skip: fires for all aggregate types; process only our host entity.
     if (event.aggregateType !== entityName) return;
     const payload = event.payload as CustomFieldClearedPayload; // @cast-boundary engine-payload
 
-    // jsonb minus operator (`-`) entfernt key aus jsonb-object.
+    // The jsonb minus operator (`-`) removes a key from a jsonb object.
     const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
     await clearCustomFieldKey(tx, tableName, payload.fieldKey, event.aggregateId, event.tenantId);
   };
 
   const applyFieldDefinitionDeleted = async (event: StoredEvent, tx: DbRunner): Promise<void> => {
-    // fieldDefinition.deleted fires nur einmal pro fieldDef-delete
-    // (NICHT per-entity). Wir entfernen den key aus ALLEN rows der host-
-    // entity falls die deleted-fieldDef für diese entity galt.
+    // fieldDefinition.deleted fires once per field-definition deletion, not once
+    // per entity. Remove the key from all rows of the host entity if the
+    // deleted field definition belonged to this entity.
     const payload = event.payload as {
       entityName: string;
       fieldKey: string;
       tenantId?: TenantId;
     }; // @cast-boundary engine-payload
-    // skip: fieldDefinition.deleted feuert für ALLE fieldDefs cross-entity;
-    // nur wenn die deleted-fieldDef diese host-entity betraf, cleanen wir
-    // ihre Rows.
+    // skip: fieldDefinition.deleted fires for field definitions across all
+    // entities; clean rows only when the deleted definition belonged to this
+    // host entity.
     if (payload.entityName !== entityName) return;
 
     const tableName = extractTableName(entityTable, "custom-fields/wire-for-entity");
@@ -179,13 +178,12 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     },
   });
 
-  // Rebuild-wiring (#759): ohne das replayt rebuildProjection nur die
-  // entity-lifecycle-Events und resettet jede customFields-jsonb auf ihr
-  // Default `{}` — die Werte existieren ausschließlich als customField.set/
-  // .cleared-Events. set/cleared reiten auf dem HOST-entity-Stream
-  // (aggregateType = entityName, von source schon abgedeckt);
-  // fieldDefinition.deleted lebt auf dem "field-definition"-Stream und
-  // kommt deshalb als extra source dazu.
+  // Rebuild wiring: without it, rebuildProjection replays only entity
+  // lifecycle events and resets each customFields jsonb value to its default
+  // `{}`. The values exist only in customField.set/.cleared events. set/
+  // cleared events use the HOST entity stream (aggregateType = entityName,
+  // already covered by the source); fieldDefinition.deleted belongs to the
+  // "field-definition" stream and is therefore added as an extra source.
   r.extendEntityProjection(entityName, {
     sources: [FIELD_DEFINITION_AGGREGATE_TYPE],
     apply: {
@@ -195,8 +193,8 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     },
   });
 
-  // postQuery-hook: flatten row.customFields jsonb auf root-level der
-  // API-response. Spec-Promise Z.4 "indistinguishable von Stammfeldern".
+  // postQuery hook: expands row.customFields jsonb at the API response's root
+  // level so it is indistinguishable from regular fields.
   r.hook({
     type: "postQuery",
     target: { allOf: entityName },
@@ -214,11 +212,11 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     }),
   });
 
-  // Search-Payload-Extension: customFields-keys flach ins Index-Doc.
-  // Anders als postQuery-hook (der ALLE keys merged) trägt der Search-
-  // Contributor nur die als searchable=true definierten fields bei. v1
-  // ist conservatively: ALLES contribuieren — B2-follow-up filtert
-  // per fieldDefinition.searchable-flag.
+  // Search-payload extension: flattens customFields keys into the index
+  // document. Unlike the postQuery hook, which merges ALL keys, the search
+  // contributor should include only fields defined with searchable=true. The
+  // current version conservatively contributes everything; a later change
+  // will filter by the fieldDefinition.searchable flag.
   r.searchPayloadExtension(entityName, ({ state }) => {
     const customFields = state["customFields"];
     if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {

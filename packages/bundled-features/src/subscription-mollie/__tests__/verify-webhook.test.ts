@@ -1,7 +1,7 @@
-// Unit-Tests für verifyAndParseMollieWebhook — Mollie's classic
-// webhook-pattern (lazy-fetch, ohne sig-verify). Mollie-Client wird
-// als minimal-mock-shape (`MollieClientShape`) injiziert; Plugin-
-// Verhalten ist vom konkreten Mollie-SDK entkoppelt.
+// Unit tests for verifyAndParseMollieWebhook — Mollie's classic
+// webhook pattern (lazy fetch, without signature verification). The Mollie
+// client is injected as a minimal mock shape (`MollieClientShape`); plugin
+// behavior is decoupled from the concrete Mollie SDK.
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import {
@@ -29,7 +29,7 @@ function buildMockSubscription(overrides: Partial<Record<string, unknown>> = {})
     startDate: "2026-05-15",
     metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
     ...overrides,
-    // biome-ignore lint/suspicious/noExplicitAny: minimal mock — wir nutzen nur 4 Felder
+    // biome-ignore lint/suspicious/noExplicitAny: minimal mock — only 4 fields are used
   } as any;
 }
 
@@ -51,11 +51,11 @@ function buildClient(
     paymentReject?: Error;
     subResolve?: ReturnType<typeof buildMockSubscription>;
     subReject?: Error;
-    /** Bestehende subs die `customerSubscriptions.list` zurückgibt (für
-     *  mandate-setup-idempotency-tests). */
+    /** Existing subscriptions returned by `customerSubscriptions.list` (for
+     * mandate-setup idempotency tests). */
     listResolve?: ReturnType<typeof buildMockSubscription>[];
-    /** Was `customerSubscriptions.create` zurückgibt. Default: eine
-     *  neu-erstellte sub mit metadata vom payment. */
+    /** What `customerSubscriptions.create` returns. Default: a newly
+     * created subscription with metadata from the payment. */
     createResolve?: ReturnType<typeof buildMockSubscription>;
   } = {},
 ): MollieClientShape {
@@ -438,12 +438,12 @@ describe("verifyAndParseMollieWebhook — kumiko-framework#1525: no ambient Temp
 
 describe("mapMollieStatus — Mollie-status → normalized", () => {
   test("active/canceled/completed", () => {
-    // Mollie-status-strings sind ein typed enum, casts hier weil wir
-    // die Werte als plain literals testen (analog zu wie sie aus dem
-    // Mollie-API als `status: string` JSON kommen).
+    // Mollie status strings are a typed enum; casts are used here because we
+    // test the values as plain literals (analogous to how they arrive from
+    // the Mollie API as `status: string` JSON).
     expect(mapMollieStatus("active" as never)).toBe(SubscriptionStatuses.active);
     expect(mapMollieStatus("canceled" as never)).toBe(SubscriptionStatuses.canceled);
-    // completed = sub ist fertig (alle times-charges durch) — wie canceled
+    // completed = subscription is finished (all `times` charges are done) — like canceled
     expect(mapMollieStatus("completed" as never)).toBe(SubscriptionStatuses.canceled);
   });
 

@@ -6,11 +6,11 @@ import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts"
 import { draftViewerTenantId, isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 
-// Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/
-// archived Status. Tenant-Isolation: User sieht nur Templates des
-// eigenen Tenants oder SYSTEM_TENANT (system-defaults sind public-
-// readable); ctx.db is tenant-scoped for every role, so the check below is defense in depth. Anonymous bleibt aus — Public-
-// Read geht über resolveTemplate aus der API, nicht hier.
+// Admin lookup for the UI editing flow. Returns the raw template, including draft/
+// archived status. Tenant isolation: users see only templates belonging to their own
+// tenant or SYSTEM_TENANT (system defaults are publicly readable); ctx.db is tenant-
+// scoped for every role, so the check below is defense in depth. Anonymous access is
+// excluded—public reads go through resolveTemplate in the API, not here.
 export const findByIdQuery = defineQueryHandler({
   name: "find-by-id",
   schema: z.object({ id: z.string().min(1) }),

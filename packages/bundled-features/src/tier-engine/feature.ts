@@ -1,46 +1,45 @@
-// tier-engine — Pricing-Tier-Mechanik als reguläres Bundled-Feature.
+// tier-engine — pricing-tier mechanics as a regular bundled feature.
 //
-// **Was diese Feature macht:**
-//   Speichert pro Plattform-Tenant ein Tier-Assignment (welcher Tier ist
-//   aktiv). Optional (mit `tierMap` in Options): per-tenant feature-set
-//   resolution via Framework's `tenantTierResolver`-extension — das
-//   dispatcher-feature-gate fragt automatisch pro request den resolver
-//   nach dem effective Set für den aktiven Tenant.
+// **What this feature does:**
+//   Stores one tier assignment per platform tenant (the active tier). With
+//   `tierMap` in the options, it also resolves the per-tenant feature set via
+//   the framework's `tenantTierResolver` extension; the dispatcher feature gate
+//   automatically asks the resolver for the active tenant's effective set.
 //
-// **Zwei Use-Modes:**
-//   1. `createTierEngineFeature()` ohne opts — nur Storage (Standard-CRUD
-//      für tier-assignment-Entity). Apps die composeApp() oder eigene
-//      logic nutzen.
-//   2. `createTierEngineFeature({ defaultTier, tierMap })` — vollständige
-//      Tier-Composition. Sprint-8a Pattern für multi-tenant SaaS-Apps.
-//      Framework auto-wires effectiveFeatures via extension-pickup.
+// **Two usage modes:**
+//   1. `createTierEngineFeature()` without options — storage only (standard CRUD
+//      for the tier-assignment entity). Apps can use `composeApp()` or their
+//      own logic.
+//   2. `createTierEngineFeature({ defaultTier, tierMap })` — complete tier
+//      composition for multi-tenant SaaS apps. The framework auto-wires
+//      effectiveFeatures through extension pickup.
 //
-// **Generic über Tier-Werte:** das Feature kennt keine "free"/"pro"/etc.
-//   konkreten Tier-Werte. App definiert ihre TierMap.
+// **Generic over tier values:** the feature knows no concrete `free`/`pro`/etc.
+//   tier values. The app defines its tier map.
 //
-// **Auto-Default-Tier on Tenant-Signup:** wenn `opts.defaultTier` gesetzt
-//   ist, schreibt ein r.entityHook("postSave", "tenant", phase: inTransaction)
-//   automatisch eine tier-assignment für den neuen Tenant. Atomic mit
-//   tenant-create — wenn tier-assignment fail't, tenant-create rolled back.
-//   Idempotent via deterministic aggregate-id (re-replay re-checkt stream-
-//   version, skip wenn schon da). Plus: cache-miss-fallback returnt
-//   defaultTier-features wenn assignment-row fehlt (defense-in-depth gegen
-//   replay-races wo der hook noch nicht durch ist).
+// **Auto-default tier on tenant signup:** when `opts.defaultTier` is set, an
+//   `r.entityHook("postSave", "tenant", phase: inTransaction)` automatically
+//   writes a tier assignment for the new tenant. The write is atomic with
+//   tenant creation: if it fails, tenant creation is rolled back. It is
+//   idempotent through a deterministic aggregate ID; replay re-checks the
+//   stream version and skips the write if it already exists. A cache-miss
+//   fallback also returns the default tier's features when the assignment row
+//   is missing, protecting against races while the hook is still running.
 //
-// **In-Memory-Cache mit Push-Invalidation:**
-//   Closure-state pro feature-instance hält die effective Sets pro Tenant.
-//   r.entityHook auf tier-assignment:postSave/postDelete hält cache aktuell.
-//   Erste-Request-Cold-Cache: pre-load via build(deps) im extension-pickup
-//   Pfad (boot-time via runDevApp/runProdApp).
+// **In-memory cache with push invalidation:**
+//   Closure state per feature instance stores each tenant's effective sets.
+//   `r.entityHook` on tier-assignment postSave/postDelete keeps the cache
+//   current. The extension-pickup path pre-loads the cache through build(deps)
+//   at boot via runDevApp/runProdApp.
 //
-// **SYSTEM_TENANT_ID-Convention:**
-//   resolver-callback bei call mit SYSTEM_TENANT_ID returnt union aller
-//   tier-features (für event-dispatcher async-pass + operator-tooling).
-//   Siehe DispatcherOptions.effectiveFeatures-doc.
+// **SYSTEM_TENANT_ID convention:**
+//   A resolver callback invoked with SYSTEM_TENANT_ID returns the union of all
+//   tier features for asynchronous event dispatch and operator tooling.
+//   See the DispatcherOptions.effectiveFeatures documentation.
 //
-// **Boot-Dependencies:** config + tenant.
+// **Boot dependencies:** config + tenant.
 
-// kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
+// kumiko-lint-ignore app-feature-structure conversion tracked (feature.ts > 300 lines)
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -95,61 +94,63 @@ import { TIER_ENGINE_I18N } from "./web/i18n.ts";
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 const log = createFallbackLogger("tier-engine");
 
-// Event-store-executor für direct-write aus dem auto-default-tier-hook.
-// Pattern wie tenant/seeding.ts: hook sieht AppContext (kein ctx.write),
-// muss aber atomisch mit tenant-create im selben TX schreiben → executor
-// direkt aufrufen, nicht via dispatcher.
+// Event-store executor for direct writes from the auto-default-tier hook.
+// Like tenant/seeding.ts, the hook receives AppContext (not ctx.write), but it
+// must write atomically with tenant creation in the same transaction. Call the
+// executor directly rather than going through the dispatcher.
 const tierAssignmentExecutor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
   entityName: "tier-assignment",
 });
 
 const adminAccess = { access: { roles: ["TenantAdmin", "SystemAdmin"] } } as const;
-// Tier-Wechsel ist Plattform-/Billing-Hoheit — ein Tenant-Admin darf den
-// eigenen Tier NIE setzen (sonst Gratis-Self-Upgrade). Daher sind die
-// Writes SystemAdmin-only; Reads (list, get-active-tier) bleiben
-// TenantAdmin-sichtbar. Auto-default-Hook + Billing schreiben als System,
-// hängen also nicht an diesem Handler-Access.
+// Tier changes are controlled by the platform and billing: a TenantAdmin must
+// never set its own tier, which would allow a free self-upgrade. Writes are
+// therefore SystemAdmin-only, while reads (list, get-active-tier) remain visible
+// to TenantAdmin. The auto-default hook and billing write as the system, so they
+// are not subject to this handler access.
 const writeAccess = { access: { roles: ["SystemAdmin"] } } as const;
 
 /**
- * Options for createTierEngineFeature. Both fields optional — wenn beide
- * leer, ist die feature nur Storage (back-compat zu legacy `tierEngineFeature`).
+ * Options for createTierEngineFeature. Both fields are optional; when both are
+ * omitted, the feature provides storage only (backward compatibility with the
+ * legacy `tierEngineFeature`).
  *
- * @template TCaps - App-spezifischer Cap-Shape. Type-leakt durch tierMap →
- * future capsFor() resolver returnt diesen Shape exakt.
+ * @template TCaps - App-specific capability shape. It flows through tierMap,
+ * so a future capsFor() resolver returns this exact shape.
  */
 export type CreateTierEngineOptions<TCaps extends Readonly<Record<string, unknown>>> = {
   /**
-   * Tier-Name der bei Tenant-signup automatisch geschrieben wird. Erfordert
-   * dass `tierMap` diesen Tier-Namen kennt (Boot-Validation).
-   * Wenn weggelassen, kein auto-assign — App schreibt manuell.
+   * Tier name written automatically when a tenant signs up. `tierMap` must
+   * contain this tier name; this is validated at boot.
+   * When omitted, no tier is assigned automatically and the app writes it
+   * manually.
    */
   readonly defaultTier?: string;
 
   /**
-   * App-spezifische Tier-Map. Wenn gesetzt, registriert das feature sich
-   * als plugin für `tenantTierResolver`-extension → framework auto-wires
-   * effectiveFeatures pro tenant.
-   * Wenn weggelassen, keine Resolver-extension — App muss `composeApp`
-   * oder eigene resolution-logic nutzen (legacy-pattern).
+   * App-specific tier map. When set, the feature registers as a plugin for the
+   * `tenantTierResolver` extension, so the framework automatically wires
+   * effectiveFeatures per tenant.
+   * When omitted, no resolver extension is registered; the app must use
+   * `composeApp` or its own resolution logic.
    */
   readonly tierMap?: TierMap<TCaps>;
 
   /**
-   * Optionale Trial-Phase: jeder Tenant bekommt für `durationHours` ab seinem
-   * Anlage-Datum zusätzlich die Features von `trial.tier` freigeschaltet,
-   * danach fällt er automatisch auf sein gespeichertes Tier zurück. Erfordert
-   * `tierMap` (der Trial-Tier muss ein Key sein). Zeit-abgeleitet aus
-   * inserted_at — kein Stored-Flag, kein Scheduler.
+   * Optional trial phase: each tenant receives the features of `trial.tier` in
+   * addition to its stored tier for `durationHours` after creation, then
+   * automatically falls back to its stored tier. Requires `tierMap` to contain
+   * the trial tier. The result is derived from inserted_at; no stored flag or
+   * scheduler is used.
    */
   readonly trial?: TrialPolicy;
 };
 
 /**
- * Compute the union of features across all tiers — verwendet bei
- * SYSTEM_TENANT_ID-resolver-call (operator-tooling, async-event-dispatch).
- * Operator-UI sieht alle features unabhängig vom tier-cut, async-events
- * laufen tier-agnostic durch.
+ * Computes the union of features across all tiers for a
+ * SYSTEM_TENANT_ID resolver call used by operator tooling and asynchronous
+ * event dispatch. The operator UI sees every feature regardless of tier, and
+ * asynchronous events run without tier restrictions.
  */
 function unionAllTierFeatures<TCaps extends Readonly<Record<string, unknown>>>(
   tierMap: TierMap<TCaps>,
@@ -162,9 +163,9 @@ function unionAllTierFeatures<TCaps extends Readonly<Record<string, unknown>>>(
 }
 
 /**
- * Compute the feature-set for a given tier-name. Unknown tier → empty Set
- * (defensive — verwendete tier-namen werden nicht an boot-time validiert
- * weil tier-engine generic über tier-Werte ist).
+ * Computes the feature set for a tier name. An unknown tier returns an empty
+ * Set defensively because tier names are not validated at boot; tier-engine is
+ * generic over tier values.
  */
 function featuresForTier<TCaps extends Readonly<Record<string, unknown>>>(
   tierMap: TierMap<TCaps>,
@@ -176,10 +177,10 @@ function featuresForTier<TCaps extends Readonly<Record<string, unknown>>>(
 }
 
 /**
- * Merge always-on features (non-toggleable framework-base) mit tier-cut
- * features (toggleable per tier). Canonical Kumiko: dispatcher-gate
- * blockt nur features die explizit `r.toggleable()` haben — alle anderen
- * sind immer aktiv. Tier-resolver muss das selbe pattern liefern.
+ * Merges always-on features (non-toggleable framework base) with tier-specific
+ * features (toggleable per tier). The dispatcher gate blocks only features
+ * that explicitly register `r.toggleable()`; all others are always active.
+ * The tier resolver must provide the same shape.
  */
 function mergeAlwaysOn(
   alwaysOn: ReadonlySet<string>,
@@ -239,13 +240,14 @@ export function createTierEngineFeature<
       );
       r.queryHandler(getActiveTierQuery);
 
-      // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-      // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
-      // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
+      // ── Manual tier grant (SystemAdmin, without billing) ───────────────────────
+      // Cross-tenant set and read for the tier-admin screen. tier-options gives
+      // the client the app's tier names from the tierMap closure rather than
+      // hard-coding them.
       //
       // onAssigned runs after commit (the direct executor write fires no postSave
-      // hook). Late-bound: without tierMap it stays a no-op, the tierMap block
-      // below installs the real cache update + publish.
+      // hook). It is late-bound: without tierMap it remains a no-op; the tierMap
+      // block below installs the actual cache update and publication.
       const onTierAssigned: { fn: (tenantId: TenantId, tier: string) => void } = { fn: () => {} };
       r.writeHandler(
         createSetTenantTierWrite({
@@ -310,11 +312,11 @@ export function createTierEngineFeature<
       });
 
       // ───────────────────────────────────────────────────────────────────
-      // Resolver-extension (only when tierMap is configured)
+      // Resolver extension (only when tierMap is configured)
       // ───────────────────────────────────────────────────────────────────
-      // skip: ohne tierMap ist die feature nur Storage (legacy back-compat
-      // zu `tierEngineFeature`). Resolver-extension + invalidation-hooks
-      // brauchen die tierMap zum Mapping tier-name → feature-set.
+      // skip: without tierMap, the feature provides storage only (backward
+      // compatibility with `tierEngineFeature`). The resolver extension and
+      // invalidation hooks need tierMap to map tier names to feature sets.
       if (!opts.tierMap) return;
 
       const tierMap = opts.tierMap;
@@ -414,7 +416,7 @@ export function createTierEngineFeature<
       // tier-assignment.
       //
       // **Cross-tenant write:** the executor needs a systemUser WITH tenantId =
-      // the new tenant (memory `feedback_event_store_tenant_consistency`).
+      // the new tenant.
       if (opts.defaultTier !== undefined) {
         const defaultTier = opts.defaultTier;
         const autoDefaultTierHookReason =
@@ -459,8 +461,7 @@ export function createTierEngineFeature<
             // SystemUser for the NEW tenant — the hook is triggered by the signup
             // user (another tenant, or SystemAdmin), but the tier-assignment has
             // to land in the stream of the newly created tenant (= aggregate id
-            // deterministic on newTenantId). Memory
-            // `feedback_event_store_tenant_consistency`: by.tenantId must equal
+            // deterministic on newTenantId), so by.tenantId must equal
             // the target tenant.
             const systemUser: SessionUser = {
               id: "00000000-0000-4000-8000-000000000001",
@@ -506,7 +507,7 @@ export function createTierEngineFeature<
 
           // Pre-load all existing assignments into the cache. SaaS apps typically
           // have <100k tenants, so a single-pass scan is acceptable. The scaling
-          // path (lazy load + LRU) is Sprint-8b, once a real need arises.
+          // path (lazy load + LRU) is planned once a real need arises.
           type AssignmentRow = { tenantId: string; tier: string };
           const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
           for (const row of rows) {
@@ -586,8 +587,8 @@ export function createTierEngineFeature<
             }
             // Cache miss: the tenant is not in the cache yet (e.g. brand new after
             // boot, or the defaultTier hook has not fired yet). The default set
-            // is least-privileged — typically free-tier features. Memory
-            // `feedback_security_default_on`: secure by default. The trial is NOT
+            // is least-privileged, secure by default: typically free-tier features.
+            // The trial is NOT
             // added here (sync/boot-cached, cannot see the passage of time) — the
             // trialGate below does that on the disabled-gate path.
             const fallbackTier = opts.defaultTier;

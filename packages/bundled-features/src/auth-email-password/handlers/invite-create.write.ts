@@ -1,10 +1,10 @@
 // Tenant-Invite Step 1 (create).
 //
-// Admin invitet email → DB-Row entsteht via event-store-executor (oder
-// wird re-used bei Re-Invite), Random-Token in Redis bidirektional, und der
-// Handler schickt die Invite-Mail an den Invitee via delivery (ctx.notify) —
-// wie reset/verify/signup. Der Token geht NICHT an den Admin zurück (er soll
-// die Annahme nicht impersonieren können).
+// An admin invites an email address → a DB row is created via
+// event-store-executor (or reused for a re-invite), a random token is stored
+// bidirectionally in Redis, and the handler sends the invite email to the
+// invitee via delivery (ctx.notify), as with reset/verify/signup. The token
+// is NOT returned to the admin, so the admin cannot impersonate acceptance.
 //
 // Re-invite for the same (tenantId, email): the existing row is reused
 // regardless of its prior status (pending/cancelled/accepted), reset to
@@ -12,10 +12,10 @@
 // still live for that invitation is invalidated first, so the previous
 // mail's link stops working (see invite-token-store.ts).
 //
-// Always-200 für unbekannten User: bei invitee-Email die nicht in users
-// existiert wird trotzdem ein Invite erstellt — Branch-3-Accept-Flow
-// erlaubt new-user-signup mit dem Token. Keine Enumeration durchs
-// invite-create.
+// Always-200 for an unknown user: an invite is created even when the
+// invitee's email does not exist in users — the Branch-3-Accept-Flow
+// permits new-user-signup with the token. invite-create does not enable
+// enumeration.
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
@@ -35,7 +35,7 @@ import {
 import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-// kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
+// kumiko-lint-ignore cross-feature-import invite flow lives in auth-email-password (Magic-Link-Pattern); DB-row owner is the tenant feature
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -77,7 +77,7 @@ export type InviteCreateData = {
 };
 
 export type InviteCreateOptions = {
-  /** TTL für den Activation-Token. Default 7 Tage. */
+  /** TTL for the activation token. Default: 7 days. */
   readonly tokenTtlMinutes?: number;
   /** App page that receives the magic-link; the handler appends `?token=…`
    *  and dispatches the invite mail via delivery (ctx.notify). Apps with
@@ -95,7 +95,7 @@ export type InviteCreateOptions = {
   // further restrict assignable ranked roles.
   readonly canAssignRole?: (inviterRoles: readonly string[], targetRole: string) => boolean;
   /** Opt-in allow-list for app-defined (unranked) roles the elevation guard
-   *  would otherwise reject with unassignable_membership_role (fw#2398).
+   *  would otherwise reject with unassignable_membership_role.
    *  Rank-aware alternative: declare roles via EXT_ASSIGNABLE_ROLE. */
   readonly additionalAssignableRoles?: readonly string[];
 };

@@ -1,12 +1,12 @@
-// fw#2593 — the plaintext `read_users_email_unique` index used to be a full
+// The plaintext `read_users_email_unique` index used to be a full
 // unique index regardless of softDelete: a soft-deleted user permanently
 // blocked reuse of its email whenever PII/blind-index wasn't configured
-// (the *_bidx partial index from fw#2464 only helps once a blind-index key
-// is actually configured). buildEntityTable / deriveEntityTableMeta now
-// attach `WHERE "is_deleted" = false` to any explicitly declared unique
-// index on a softDelete entity that doesn't carry an author-provided
-// `where` of its own — this proves the plaintext path directly, with no
-// blind-index key configured at all.
+// (the *_bidx partial index only helps once a blind-index key is actually
+// configured). buildEntityTable / deriveEntityTableMeta now attach
+// `WHERE "is_deleted" = false` to any explicitly declared unique index on a
+// softDelete entity that doesn't carry an author-provided `where` of its own
+// — this proves the plaintext path directly, with no blind-index key
+// configured at all.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 

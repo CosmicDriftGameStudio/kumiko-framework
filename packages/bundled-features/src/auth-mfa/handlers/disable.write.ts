@@ -45,9 +45,9 @@ export function createDisableHandler(opts: DisableOptions) {
       if (!row) return mfaNotEnabled();
 
       // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts
-      // (#1467): without ctx.redis, verifyMfaFactor's TOTP-replay burn is
-      // skipped, and a code observed once (phishing proxy/shoulder-surfing)
-      // could be replayed within the ±1-step window to disable MFA outright.
+      // without ctx.redis, verifyMfaFactor's TOTP-replay burn is skipped, and
+      // a code observed once (phishing proxy/shoulder-surfing) could be
+      // replayed within the ±1-step window to disable MFA outright.
       // "no ctx.redis means no one gets through MFA login" doesn't cover
       // this route — it's session-authed, and JWTs issued before Redis was
       // unwired stay valid until they expire.

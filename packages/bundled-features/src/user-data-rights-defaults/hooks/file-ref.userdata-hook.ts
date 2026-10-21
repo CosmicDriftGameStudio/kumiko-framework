@@ -30,68 +30,64 @@ const ERROR_CONTEXT = "user-data-rights-defaults:fileRef";
 // per-user forget flows are rare, so per-row events are acceptable.
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
 
-// userData-Hook fuer fileRef-entity (S2.H2).
+// User-data hook for the fileRef entity.
 //
-// Export-Hook liefert Metadata aller FileRefs des Users mit Subject-
-// Resolver via insertedById. Storage-Provider-binary-Streams kommen
-// NICHT direkt — sie werden via signed-Download-URLs separat ins ZIP
-// gepackt (S2.U3 Export-Job-Pipeline orchestriert das).
+// The export hook returns metadata for all of the user's FileRefs, with the
+// subject resolved through insertedById. Storage-provider binary streams are
+// not included directly; signed download URLs package them into the ZIP
+// separately.
 //
-// Delete-hook removes the fileRef row + binary:
+// The delete hook removes the fileRef row and binary:
 //   "delete":    storageProvider.delete() per file + row hard-delete — but
 //                ONLY for rows whose field is marked as PII of the person
-//                (isPersonalFileRow, #3005). All other rows (business/
-//                tenant data, no resolvable field, no annotation) go
-//                through severPersonLink instead, even when the entity
-//                strategy is "delete" — the uploader axis (insertedById) is
-//                not the subject axis.
-//   "anonymize": insertedById=null, row + binary survive (FK refs can still
-//                point at it; person-link removed) — applies to ALL rows
+//                (isPersonalFileRow). All other rows (business/tenant data,
+//                no resolvable field, no annotation) go through
+//                severPersonLink instead, even when the entity strategy is
+//                "delete" — the uploader axis (insertedById) is not the
+//                subject axis.
+//   "anonymize": insertedById=null; row and binary survive (FK refs can still
+//                point at it; person-link removed). This applies to ALL rows
 //                when a retention override on fileRef (anonymize or
 //                blockDelete, e.g. a statutory retention duty) sets the
 //                strategy, regardless of the field.
 //
-// **Provider-Resolution:** der Provider kommt zur Lauf-Zeit aus
-// `ctx.buildStorageProvider(ctx.tenantId)` — der Forget-Orchestrator
-// (run-forget-cleanup) baut ihn aus dem gemounteten file-foundation, also aus
-// DEMSELBEN Store den Upload + Export nutzen (delete-target == upload-target by
-// construction). Kein bei-Mount captured Provider mehr.
+// **Provider resolution:** the provider is obtained at runtime from
+// `ctx.buildStorageProvider(ctx.tenantId)`. The forget orchestrator builds it
+// from the mounted file-foundation, using the SAME store as upload and export
+// (delete-target == upload-target by construction). No provider is captured at
+// mount time.
 //
-// **Zwei Fehlerklassen, bewusst verschieden behandelt:**
-//   1. Resolution schlaegt fehl (kein Provider konfiguriert / configResolver
-//      fehlt) → NICHT fail-closed: Warn pro Aufruf + row-only-delete. Ein
-//      fehlkonfigurierter Store darf die Art.-17-Loeschung nicht DAUERHAFT
-//      blockieren (sonst haengt jeder User fuer immer in DeletionRequested);
-//      der Boot-Guard macht die Fehlkonfiguration sichtbar, Binaries werden
-//      nachgeholt sobald ein Provider existiert.
-//   2. Binary-DELETE schlaegt fehl, OBWOHL ein Provider da ist → FAIL-CLOSED:
-//      der Hook wirft NACH dem Loop, die per-User-Sub-Tx von runForgetCleanup
-//      rollt zurueck, der User bleibt DeletionRequested, der naechste Run
-//      retried (delete ist idempotent → konvergiert). Den Fehler zu schlucken +
-//      die Row trotzdem zu loeschen wuerde Erasure als "done" markieren waehrend
-//      die Bytes liegen bleiben — falsche Compliance-Aussage. Das "KEIN globaler
-//      Rollback" der Sprint-2-Atomicity bleibt gewahrt: nur DIESE Sub-Tx rollt
-//      zurueck. Der anonymize-Pfad behaelt Row+binary, hat nichts zu schlucken.
+// **Two error classes are handled differently:**
+//   1. Resolution fails (no provider configured / configResolver missing) →
+//      NOT fail-closed: warn per invocation and perform a row-only delete. A
+//      misconfigured store must not permanently block the Art. 17 deletion;
+//      the boot guard exposes the misconfiguration, and binaries are removed
+//      once a provider exists.
+//   2. Binary DELETE fails even though a provider exists → FAIL-CLOSED: the
+//      hook throws after the loop, the per-user sub-transaction rolls back,
+//      the user remains DeletionRequested, and the next run retries (delete is
+//      idempotent → converges). Swallowing the error and deleting the row would
+//      mark erasure as "done" while leaving the bytes behind. Only this
+//      sub-transaction rolls back; there is no global rollback. The anonymize
+//      path retains the row and binary, so it has no error to swallow.
 //
-// Caveat: hard-delete via deleteMany emittiert KEIN fileRef.deleted —
-// die storage-tracking-MSP dekrementiert nicht. Wenn die zu loeschenden
-// Files vorher nicht soft-deleted waren, bleibt `tenant_storage_usage`
-// inflated. Forget-Flows sind selten (per-User-Art.-17) und damit
-// bounded; ein executor.purge-API folgt mit dem trashed-files-GC.
+// Caveat: hard-delete via deleteMany emits no fileRef.deleted event, so
+// storage-tracking does not decrement. If the files being deleted were not
+// soft-deleted first, `tenant_storage_usage` remains inflated. Forget flows are
+// rare and bounded; an executor.purge API will follow with trashed-files GC.
 
 export const fileRefExportHook: UserDataExportHook = async (ctx) => {
-  // isDeleted:false — soft-deleted (trashed) Files gehören nicht ins
-  // Auskunfts-Bundle. Forget (delete-Hook unten) erfasst sie trotzdem.
+  // isDeleted:false — soft-deleted (trashed) files are excluded from the
+  // export bundle. The forget hook below still processes them.
   const rawRows = await ctx.db.selectMany(fileRefsTable, {
     tenantId: ctx.tenantId,
     insertedById: ctx.userId,
     isDeleted: false,
   });
 
-  // @cast-boundary db-row: drizzle liefert insertedAt als Instant
-  // (framework-customType). Fuer JSON-Export brauchen wir String —
-  // .toString() funktioniert sowohl auf Temporal.Instant als auch
-  // Date.
+  // @cast-boundary db-row: drizzle returns insertedAt as an Instant
+  // (framework-customType). JSON export requires a string —
+  // .toString() works for both Temporal.Instant and Date.
   const rows = rawRows.map((r) => {
     const row = r as Record<string, unknown>; // @cast-boundary recursive-walk
     return {
@@ -115,9 +111,8 @@ export const fileRefExportHook: UserDataExportHook = async (ctx) => {
       size: r.size,
       insertedAt: r.insertedAt,
     })),
-    // Plus die fileRefs-Liste die Sprint-2-U3 dann zum Storage-Provider
-    // bringt + signed-URLs erzeugt + ins ZIP packt (siehe S1.9-Z1
-    // UserDataExportSnippet.fileRefs).
+    // The fileRefs list is passed to the storage provider, which generates
+    // signed URLs and adds the files to the ZIP.
     fileRefs: rows.map((r) => ({
       fileRefId: r.id,
       storageKey: r.storageKey,
@@ -142,7 +137,7 @@ async function resolveProvider(ctx: UserDataHookCtx): Promise<UserDataStoragePro
   }
 }
 
-// Per-row Art.17 decision (kumiko-framework#3005): whether THIS file's field
+// Per-row Art.17 decision: whether THIS file's field
 // carries personal data of the forgotten person, or is business/tenant data
 // that merely loses its uploader-attribution. insertedById names who
 // UPLOADED the file, not whose data it is — a dealer's vehicle photo
@@ -163,8 +158,7 @@ function isPersonalPiiField(field: FieldDefinition | undefined): boolean {
   );
 }
 
-// Three cases the field-lookup itself can't resolve (issue #3005's rule for
-// the non-resolvable cases):
+// Three cases the field-lookup itself can't resolve:
 //   1. Unattached upload (entityType/fieldName both null) → hard-delete: a
 //      file with no entity binding belongs to nobody but its uploader.
 //   2. Field exists but carries no PII annotation → anonymize (the
@@ -244,7 +238,7 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   }
 
   // strategy="delete" decides PER ROW based on the field, not uniformly
-  // (#3005): only rows whose field is marked as PII of the person (or
+  // only rows whose field is marked as PII of the person (or
   // unattached, see isPersonalFileRow) take the hard path. Everything else
   // only loses the uploader link.
   const personalRows: Record<string, unknown>[] = [];

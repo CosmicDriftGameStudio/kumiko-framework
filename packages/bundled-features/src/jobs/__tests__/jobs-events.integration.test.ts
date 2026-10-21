@@ -1,4 +1,4 @@
-// Direct-write shape contract for job runs (#2243). Pins onJobStart/
+// Direct-write shape contract for job runs. Pins onJobStart/
 // -Complete/-Failed against the tables they write — jobRunsTable status
 // transitions and jobRunLogsTable batched log rows. A silent shape drift
 // (missing field, wrong status string) fails here instead of breaking the

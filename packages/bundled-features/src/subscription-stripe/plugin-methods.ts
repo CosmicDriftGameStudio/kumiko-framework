@@ -1,19 +1,19 @@
-// Stripe-Plugin-Methoden für die POST-tenant-resolution-Phase:
+// Stripe plugin methods for the POST-tenant-resolution phase:
 // createCheckoutSession, createPortalSession, cancelSubscription,
-// retrieveSubscription, retrievePrices, planSwitchSession.
+// retrieveSubscription, retrievePrices, and planSwitchSession.
 //
-// Werden vom Plugin-build (feature.ts) als methods auf dem
-// SubscriptionProviderPlugin registriert. Anders als
-// verifyAndParseWebhook (= pre-tenant) bekommen diese den vollen
-// HandlerContext — sie lösen den Stripe-Client zur CALL-Zeit aus dem
-// runtime auf (api-key aus system-secrets, audited), statt aus einem
-// mount-time-Closure. Key-Rotation wirkt damit ohne Redeploy.
+// The plugin build (`feature.ts`) registers these as methods on
+// `SubscriptionProviderPlugin`. Unlike verifyAndParseWebhook (= pre-tenant),
+// they receive the full HandlerContext and resolve the Stripe client from
+// the runtime at call time (using the audited api-key from system-secrets),
+// rather than from a mount-time closure. Key rotation therefore works
+// without a redeploy.
 //
-// **Type-Ableitung:** die options-shapes der methods werden
-// **direkt vom Plugin-Contract** abgeleitet (`Parameters<NonNullable
-// <SubscriptionProviderPlugin["...method"]>>[1]`). Wenn Foundation den
-// Contract erweitert (z.B. neuer optionaler Field), bemerkt der
-// Stripe-Plugin das beim TS-Compile, nicht erst zur Laufzeit.
+// **Type derivation:** method option shapes are derived **directly from the
+// plugin contract** (`Parameters<NonNullable
+// <SubscriptionProviderPlugin["...method"]>>[1]`). If Foundation extends the
+// contract (for example, with a new optional field), the Stripe plugin detects
+// it at TypeScript compile time rather than at runtime.
 
 import { createHash } from "node:crypto";
 import {
@@ -30,15 +30,10 @@ import Stripe from "stripe";
 import type { StripeCtxRuntime } from "./runtime.ts";
 import { isResourceMissingStripeError, mapStripeSubscriptionState } from "./verify-webhook.ts";
 
-// =============================================================================
-// createCheckoutSession
-// =============================================================================
-//
-// Stripe-Checkout-Session erstellen. Der hosted-page-URL wird returnt;
-// der App-Builder redirected den Tenant-Admin dorthin. Nach erfolgreichem
-// checkout sendet Stripe `customer.subscription.created` mit
-// `metadata.tenantId` zurück — das ist wie der subsequent webhook den
-// Tenant resolved.
+// Create a Stripe Checkout Session and return its hosted-page URL for the
+// app builder to redirect the tenant admin. After checkout, Stripe sends
+// `customer.subscription.created` with `metadata.tenantId`; the subsequent
+// webhook uses it to resolve the tenant.
 
 export type StripeCheckoutOptions = Parameters<
   NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
@@ -120,11 +115,11 @@ export function createStripeCheckoutSession(
   { paymentInvoiceCreation = true }: StripeCheckoutSessionRuntimeOptions = {},
 ) {
   return async (ctx: HandlerContext, options: StripeCheckoutOptions): Promise<{ url: string }> => {
-    // #104-Invariante: ohne billing-live darf keine Stripe-Session
-    // entstehen (sk_test_-Keys in prod erzeugen sonst einen Test-Mode-
-    // Checkout). Throw VOR jedem Stripe-Call. Früher hielt diese Schranke
-    // das ungemountete Plugin; jetzt mountet stripe immer, also gatet der
-    // billing-live-config-key write-side.
+    // Invariant: without billing-live, no Stripe session may be created
+    // (sk_test_-keys in production would otherwise create a test-mode checkout).
+    // Throw before every Stripe call. The guard used to be provided by the
+    // unmounted plugin; Stripe is now always mounted, so the
+    // billing-live-config-key gates the write side.
     await runtime.assertBillingLive(ctx);
     const stripe = await runtime.clientForCtx(ctx);
     const mode = options.mode ?? "subscription";

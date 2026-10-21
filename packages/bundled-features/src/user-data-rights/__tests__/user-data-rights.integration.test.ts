@@ -1,10 +1,10 @@
-// Boot-Smoke-Test fuer user-data-rights (S2.U2).
+// Boot smoke test for user-data-rights.
 //
-// Pre-Commit-Checkliste-Item: Neues Feature → 5-Zeilen-Boot-Smoke-Test.
-// Faengt Drift an Schema-Definition oder Boot-Validation frueh.
+// Pre-commit checklist item: each new feature gets a five-line boot smoke test.
+// Catches drift in the schema definition or boot validation early.
 //
-// Tieferer Cross-Feature-Test (mit useExtension(EXT_USER_DATA, ...) +
-// Sprint-2-H1/H2-Hooks) kommt in S2.T1 (Cross-Data-Matrix).
+// A deeper cross-feature test using useExtension(EXT_USER_DATA, ...) and
+// the H1/H2 hooks is covered separately in the cross-data matrix.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";

@@ -1,9 +1,9 @@
-// End-to-end: ein migrierter User mit ASP.NET-Identity-V3-passwordHash kann
-// sich über den normalen `auth-email-password.login`-Handler einloggen, ohne
-// vorher Password-Reset durchlaufen zu müssen.
+// End-to-end: a migrated user with an ASP.NET-Identity-V3-passwordHash can
+// log in through the normal `auth-email-password.login` handler without
+// completing a password reset first.
 //
-// Das ist der Kern-Use-Case der BMC-Migration — Legacy-Hashes 1:1
-// übernommen, Login funktioniert weiter.
+// This is the core BMC migration use case: legacy hashes are preserved 1:1,
+// and login continues to work.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { pbkdf2Sync, randomBytes } from "node:crypto";
@@ -150,10 +150,10 @@ describe("Identity-V3 password-hash compatibility", () => {
   });
 });
 
-// 273/2: Changeset-Zusage "disabled Tenants verschwinden aus der
-// Login-Tenant-Wahl" — der Auto-Select (chosen = preferred ?? memberships[0])
-// darf nie auf einem disabled Tenant landen. Der disabled Tenant ist hier
-// bewusst die ERSTE Membership, also genau der memberships[0]-Kandidat.
+// Disabled tenants must not appear in the login tenant selection: the
+// auto-select (chosen = preferred ?? memberships[0]) must never choose a
+// disabled tenant. The disabled tenant is deliberately the FIRST membership,
+// making it the memberships[0] candidate.
 describe("login auto-select skips disabled tenants", () => {
   test("first membership disabled → login lands on the active tenant", async () => {
     const password = "Active!Tenant-2026";

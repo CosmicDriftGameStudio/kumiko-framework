@@ -28,10 +28,9 @@ const executor = createEventStoreExecutor(
   { entityName: "notification-preference" },
 );
 
-// Konkretes Lookup-Result-Shape — nur die Felder die der upsert
-// tatsächlich für den Update-Path braucht. Vermeidet `row["x"] as T` index-
-// access casts; der Generic-Param am fetchOne macht den Cast zentralisiert
-// im Helper (db-row-boundary), nicht 4× pro Callsite.
+// Concrete lookup result shape containing only the fields needed by the upsert update path. Avoids
+// `row["x"] as T` index-access casts; the generic parameter on fetchOne centralizes the cast in the
+// helper (`db-row-boundary`) instead of repeating it at each call site.
 type PreferenceLookupRow = {
   readonly id: string;
   readonly version: number;

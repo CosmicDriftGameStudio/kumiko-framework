@@ -1,4 +1,4 @@
-// resolveTokenVerifier + the tokenVerifier multiplicity boot-check (#1368).
+// resolveTokenVerifier + the tokenVerifier multiplicity boot-check.
 // Mock providers registered via r.useExtension(EXT_TOKEN_VERIFIER, ...) in
 // throwaway test-features — no real JWT/PAT provider exists yet.
 

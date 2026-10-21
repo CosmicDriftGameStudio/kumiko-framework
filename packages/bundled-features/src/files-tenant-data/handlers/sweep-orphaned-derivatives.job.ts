@@ -1,5 +1,5 @@
 // Backfill/GC job for derivatives orphaned by a forget/tenant-destroy that ran
-// before #2461 wired binary cleanup into those flows (#2474). Those older runs
+// before binary cleanup was wired into those flows. Those older runs
 // left the FileRef row gone with no audit trail of what was ever forgotten —
 // so this sweep works forward from the deterministic derivative-key grammar
 // alone: for every key under a tenant's storage prefix that parses as a
@@ -8,8 +8,8 @@
 // a soft-deleted one sitting in trash — means the derivative is still
 // legitimate; only genuinely unreferenced derivatives are swept.
 //
-// Manual trigger only (no cron) — an operator runs this once after upgrading
-// past #2461, or on demand for spot-checks.
+// Manual trigger only (no cron) — an operator runs this once after upgrading,
+// or on demand for spot-checks.
 //
 // Row unit for runChunkedMigration is a discovered derivative CANDIDATE KEY,
 // not a tenant: one tenant's storage listing produces a variable number of
@@ -131,7 +131,7 @@ export async function sweepOrphanedDerivativesJob(
   ): Promise<"migrated" | "skipped" | "failed"> {
     // No isDeleted filter: a soft-deleted (trashed, not yet forgotten) fileRef
     // still legitimately backs its derivatives — only an ABSENT row (forgotten,
-    // or a tenant destroyed before #2461 with no row left at all) makes a
+    // or a tenant destroyed with no row left at all) makes a
     // derivative orphaned.
     const owners = await selectMany(
       db,

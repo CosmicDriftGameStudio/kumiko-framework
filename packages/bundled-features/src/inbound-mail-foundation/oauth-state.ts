@@ -1,14 +1,15 @@
-// HMAC-signierter OAuth-`state`-Parameter für den Connect-Flow.
+// HMAC-signed OAuth-`state` parameter for the connect flow.
 //
-// Bindet {tenantId, ownerUserId?, providerKey, mailbox, nonce} an den
-// Redirect: der anonyme Callback (außerhalb /api/*) vertraut NUR dem
-// verifizierten state — verhindert CSRF und Fremd-Claiming (ein
-// Angreifer kann den Callback nicht auf einen fremden Tenant/User
-// umbiegen, ohne die Signatur zu brechen).
+// Binds {tenantId, ownerUserId?, providerKey, mailbox, nonce} to the
+// redirect: the anonymous callback (outside /api/*) trusts only the
+// verified state, preventing CSRF and cross-tenant or cross-user claiming
+// because an attacker cannot redirect the callback to another tenant or
+// user without breaking the signature.
 //
 // Format: <payload-base64url>.<expiresAtMs>.<hmac-base64url>
-// Muster: auth-email-password/signed-token.ts (HMAC-SHA256, purpose im
-// HMAC-Input, timing-safe compare, Expiry im Klartext-Segment).
+// Patterned after auth-email-password/signed-token.ts (HMAC-SHA256, purpose
+// in the HMAC input, timing-safe comparison, expiry in the clear-text
+// segment).
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -18,14 +19,14 @@ const STATE_PURPOSE = "inbound-mail-oauth-connect";
 
 export type OAuthStatePayload = {
   readonly tenantId: string;
-  /** null = shared-Postfach, sonst persönliches Postfach dieses Users. */
+  /** null = shared mailbox; otherwise this user's personal mailbox. */
   readonly ownerUserId: string | null;
   readonly providerKey: string;
-  /** Postfach-Adresse aus dem Connect-Request — landet nach dem
-   *  Token-Exchange im MailAccount. */
+  /** Mailbox address from the connect request; after token exchange, it is
+   * stored in the MailAccount. */
   readonly mailbox: string;
-  /** Einmal-Nonce — macht jeden state einzigartig (kein Replay über
-   *  zwei parallele Connect-Flows hinweg). */
+  /** One-time nonce makes each state unique, preventing replay across
+   * two parallel connect flows. */
   readonly nonce: string;
 };
 
@@ -72,8 +73,8 @@ export function verifyOAuthState(
   const expected = sign(hmacInput(payloadB64, expiresAtMs), secret);
   const expectedBuf = Buffer.from(expected, "base64url");
   const providedBuf = Buffer.from(providedSig, "base64url");
-  // Length-check VOR timingSafeEqual — die würde bei Längen-Mismatch
-  // werfen, und der Throw selbst leakt via Timing.
+  // Check the length before timingSafeEqual: it throws on a length mismatch,
+  // and the throw itself leaks information through timing.
   if (expectedBuf.length !== providedBuf.length) return { ok: false, reason: "bad_signature" };
   if (!timingSafeEqual(expectedBuf, providedBuf)) return { ok: false, reason: "bad_signature" };
 

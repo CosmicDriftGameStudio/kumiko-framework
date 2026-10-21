@@ -14,10 +14,10 @@ import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer/web";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
-// Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-
-// zentriert (Standalone-Auth-Page). Eine Apex-/Marketing-Chrome reicht über
-// AuthShellProvider eine eigene Variante rein, ohne dass `min-h-screen` die
-// Chrome übermalt.
+// Wraps the centered auth card in its surrounding layout. The default is
+// // fullscreen-centered for standalone auth pages. Apex/marketing chrome can
+// // provide its own variant through AuthShellProvider without `min-h-screen`
+// // covering that chrome.
 export type AuthShellRenderer = (card: ReactNode) => ReactNode;
 
 const defaultAuthShell: AuthShellRenderer = (card) => (
@@ -64,8 +64,9 @@ export function AuthCard({
 }: AuthCardProps): ReactNode {
   const { Card } = usePrimitives();
   const shell = useAuthShell() ?? defaultAuthShell;
-  // h1 (Seiten-Hauptüberschrift) via Header-Slot erhalten — die Card-Default-
-  // Header wäre h3. padded:false = Form sitzt randlos wie bisher (bare form).
+  // Keep an h1 (page heading) through the header slot; the Card's default
+  // header would be h3. padded:false keeps the form edge-to-edge as before
+  // (bare form).
   const card = (
     <Card
       className={cn("w-full max-w-sm", className)}
@@ -94,14 +95,13 @@ export function AuthCard({
   return shell(card);
 }
 
-// Liest `?<paramName>=<value>` aus der aktuellen URL — typisches
-// Pattern für Token-bearing Pages (reset, verify). Returnt "" wenn der
-// Browser nicht da ist (SSR-safety) oder der Parameter fehlt.
+// Reads `?<paramName>=<value>` from the current URL, as used by token-bearing
+// // pages (reset, verify). Returns "" during SSR or when the parameter is absent.
 //
-// Nicht über useState/useEffect - das wäre ein read-once-on-mount
-// pattern aber URL-changes sind hier irrelevant (Token-Pages re-loaden
-// für neue Tokens). Caller setzt useState(() => parseUrlToken(...)) wenn
-// gewünscht.
+// // This is intentionally not read through useState/useEffect: that would be a
+// // read-once-on-mount pattern, while URL changes are irrelevant here because
+// // token pages reload for new tokens. Callers can use
+// // useState(() => parseUrlToken(...)) when needed.
 export function parseUrlToken(paramName = "token"): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get(paramName) ?? "";
@@ -109,7 +109,7 @@ export function parseUrlToken(paramName = "token"): string {
 
 // Reads the magic-link token from `?<paramName>=` once on mount, then strips
 // that param from the URL via history.replaceState so the single-use token
-// doesn't linger in browser history / Referer (#774). An explicit `override`
+// doesn't linger in browser history / Referer. An explicit `override`
 // (server-injected token) short-circuits both the URL read and the scrub.
 export function useUrlToken(override?: string, paramName = "token"): string {
   const [token] = useState(() => override ?? parseUrlToken(paramName));

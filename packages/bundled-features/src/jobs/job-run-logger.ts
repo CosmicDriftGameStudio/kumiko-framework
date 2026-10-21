@@ -41,9 +41,9 @@ import { tenantJobRunsTable } from "./tenant-job-run-table.ts";
 // every connection in the pool.
 const KMS_POOL_CONCURRENCY = 4;
 
-// Direct-write job-run log (#2243): onJobStart/-Complete/-Failed write
+// Direct-write job-run log: onJobStart/-Complete/-Failed write
 // straight into jobRunsTable / jobRunLogsTable instead of appending to the
-// event store and replaying through inline projections. Pre-#2243 every run
+// event store and replaying through inline projections. Before this change every run
 // left two permanent `kumiko_events` rows that nothing else ever replayed
 // or MSP-subscribed to — in two production apps that was ~99% of all
 // events. Same tables, same shape, no event stream in between.
@@ -76,7 +76,7 @@ const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 // Run rows hang on SYSTEM_TENANT_ID and a null trigger is a cron/system run;
 // job-run-table.ts declares whenAbsent: "tenant" for exactly that case, so the
-// logger must resolve the same subject the entity chain would (fw#3654).
+// logger must resolve the same subject the entity chain would.
 function jobRunSubject(triggeredById: string | null): SubjectId {
   return triggeredById === null
     ? { kind: "tenant", tenantId: SYSTEM_TENANT_ID }
@@ -112,12 +112,12 @@ async function encryptOrSentinel(
 }
 
 // Same per-subject encryption as encryptStartedPayload, applied to each
-// batched log line's `message` (#2247) before insertMany into
+// batched log line's `message` before insertMany into
 // jobRunLogsTable — that table is unmanaged/direct-write, so there is no
 // event-piiFields catalog to lean on here either. "message" is the AAD
 // field name and must match the field passed to decryptStoredPii on read
 // (detail.query.ts) or decrypt fails loud. Same skip rule as the payload:
-// absent KMS (rollout mode) stays plaintext. Bounded concurrency (#2307) —
+// absent KMS (rollout mode) stays plaintext. Bounded concurrency —
 // unbounded Promise.all would fire one getOrCreateDek per log line at once
 // against the KMS adapter's pool.
 async function encryptLogMessages<T extends { readonly message: string }>(
@@ -133,7 +133,7 @@ async function encryptLogMessages<T extends { readonly message: string }>(
   }));
 }
 
-// Mirrors encryptFailureError for the failure-path `error` column (#2307):
+// Mirrors encryptFailureError for the failure-path `error` column:
 // stored alongside logs[].message under the same triggering user's DEK, so
 // a log/error pair from the same failed run decrypt together or erase
 // together. Exported so stale-run-sweep.ts's crash-recovery write (a
@@ -149,12 +149,12 @@ export async function encryptFailureError(
 }
 
 // The run-started payload can carry arbitrary user data; triggeredById
-// names its owning user. No event-PII catalog involved (#2243 removed the
-// jobRun r.defineEvent registrations, so there is nothing to catalog) —
-// the subject is known statically, so we encrypt directly. A null subject
+// names its owning user. No event-PII catalog involved (the
+// jobRun r.defineEvent registrations were removed, so there is nothing to
+// catalog) — the subject is known statically, so we encrypt directly. A null subject
 // (system cron runs, recipient-less triggers) encrypts under the system
 // tenant key. Absent KMS adapter stays plaintext (rollout mode, unchanged).
-// A key already erased by the time the trigger lands (#2307) must not fail
+// A key already erased by the time the trigger lands must not fail
 // the whole run-start write — sentinel like the log/error paths.
 async function encryptStartedPayload(
   payload: string | null,
@@ -173,13 +173,12 @@ const TENANT_JOB_FAILURE_LOCK_NAMESPACE = 0x746a666c;
 const TENANT_JOB_RUN_LOCK_NAMESPACE = 0x746a726c;
 const TENANT_RUN_CONFLICT_KEYS = ["tenantId", "jobName", "bullJobId"] as const;
 
-// fw#3079 — which row the tenant-visible failure record lives in: one per
+// Which row the tenant-visible failure record lives in: one per
 // (tenant, job, subject), so the next outcome of the same work replaces or
 // clears it. `subject` is null for a job that declares no subjectFields.
 // Null target = nothing to write or clear: the job did not opt in, the run
 // was tenant-less (cron resolves to SYSTEM_TENANT_ID, where no tenant-scoped
-// query could ever read the row), or the caller predates fw#3079 and passes
-// no outcome at all.
+// query could ever read the row), or the caller passes no outcome at all.
 function tenantJobFailureTarget(
   jobName: string,
   outcome: JobOutcomeMeta | undefined,
@@ -229,7 +228,7 @@ async function clearTenantJobFailure(
   await deleteMany(db, tenantJobFailuresTable, where);
 }
 
-// fw#3616 — tenant-visible run state. One row per BullMQ job in
+// Tenant-visible run state. One row per BullMQ job in
 // store_tenant_job_runs, addressed by (tenant, job name, bullJobId): BullMQ
 // ids are only unique per queue (api and worker lane both count from 1) and
 // restart after a Redis reset, so the id alone must never pick a row. The
@@ -445,7 +444,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
   // Bounded cache (LRU-ish with TTL) — worker-crash between start and
   // complete would otherwise leak entries. DB-lookup recovers evicted
   // entries via bull_job_id on jobRunsTable.
-  // triggeredById rides along with runId (#2247) — resolved once at start
+  // triggeredById rides along with runId — resolved once at start
   // (or on cache-miss DB fallback) so onJobComplete/-Failed know the log
   // subject without an extra always-on DB round trip.
   type CacheEntry = {

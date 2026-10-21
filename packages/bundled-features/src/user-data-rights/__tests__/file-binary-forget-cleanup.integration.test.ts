@@ -1,9 +1,8 @@
-// Forget-Hook binary-Cleanup Integration-Test.
+// Forget-hook binary-cleanup integration test.
 //
-// Beweist, dass der `fileRef`-Forget-Hook bei strategy="delete" die
-// Storage-Binaries via `storageProvider.delete()` entfernt, BEVOR die
-// row hard-gelöscht wird — ohne provider leakt sonst jede gelöschte
-// Datei ihre Bytes dauerhaft auf Disk (Issue gefunden im Review zu #177).
+// Verifies that the `fileRef` forget hook with strategy="delete" removes
+// storage binaries via `storageProvider.delete()` BEFORE the row is hard-deleted;
+// without a provider, every deleted file would otherwise leave its bytes on disk.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";

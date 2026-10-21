@@ -1,17 +1,17 @@
 // Recurring schedules on top of the ledger primitive. A `schedule` is a standing
-// booking template ("Miete ab 1.1.2026, 500 €/Monat") from which two things fall
-// out WITHOUT booking every month up front:
+// booking template ("Rent from 1/1/2026, €500/month") used without booking every
+// month up front:
 //
-//   • projectSchedule()      — the Soll (forecast): pure projection over a window,
-//                              no transactions needed (chart, "trägt sich das?").
-//   • mergeScheduleActuals() — Soll vs. Ist: the projection left-joined against
-//                              the posted confirmations (per `reference`), so each
-//                              month is posted | open | forecast.
+//   • projectSchedule()      — the forecast: a pure projection over a window with
+//                              no transactions required (chart, "does it pay for itself?").
+//   • mergeScheduleActuals() — forecast vs. actual: the projection left-joined
+//                              against posted confirmations (by `reference`), so
+//                              each month is posted | open | forecast.
 //
-// confirm-schedule-period (handler) turns one projected month into ONE balanced
+// The confirm-schedule-period handler turns one projected month into one balanced
 // transaction tagged with `scheduleReference(id, period)`. Both functions here are
-// pure — no DB, no Date API (windows/asOf come in as params) — so the no-date-api
-// guard stays green and the forecast is deterministic.
+// pure—no DB or Date API (windows/asOf are supplied as parameters)—so the forecast
+// remains deterministic and the no-date-api guard stays green.
 
 import type { Posting } from "./schemas.ts";
 import type { ScheduleInterval } from "./web/constants.ts";
@@ -109,8 +109,8 @@ export function projectSchedule(
   return periods;
 }
 
-// Soll vs. Ist. A month is `posted` when a confirmation for its reference exists
-// AND has not been reversed (Storno); a reversed confirmation drops the month back
+// Planned vs. actual. A month is `posted` when a confirmation for its reference exists
+// AND has not been reversed; a reversed confirmation drops the month back
 // to `open` so it can be re-confirmed. Past/current unbooked months are `open`,
 // future ones `forecast` (asOf is the boundary — month-granular).
 export function mergeScheduleActuals(

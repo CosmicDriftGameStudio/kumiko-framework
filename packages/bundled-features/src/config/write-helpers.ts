@@ -226,7 +226,7 @@ export function resolveScopeIds(
 }
 
 // The subject a piiEncrypted config value is encrypted under, for the scope
-// actually written to (kumiko-platform#231/#459). Pure — no I/O — so a bug
+// actually written to. Pure — no I/O — so a bug
 // here (e.g. picking the writer's identity instead of the row's target,
 // see entity fields' explicit userOwned.ownerField for why that
 // distinction matters) is caught by a fast unit test, not only the DB-

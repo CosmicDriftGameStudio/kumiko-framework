@@ -22,7 +22,7 @@ export type StaleDraftRow = {
 // once; a draft saved exactly once (create, never updated) has no
 // modified_at yet, so falls back to inserted_at.
 //
-// Reads the blob + tenantId BEFORE anything is deleted (issue #1915) — the
+// Reads the blob + tenantId BEFORE anything is deleted — the
 // caller (cleanup.job.ts) walks each row's blob for FileRefs and releases
 // them per-tenant via ctx._fileProviderResolver, then deletes the batch
 // per-row via formDraftExecutor.delete (event-sourced, not raw SQL — a

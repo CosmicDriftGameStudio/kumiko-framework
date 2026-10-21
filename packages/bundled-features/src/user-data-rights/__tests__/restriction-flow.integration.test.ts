@@ -1,14 +1,14 @@
-// S2.U6 — DSGVO Art. 18 Account-Freeze. End-to-End-Test ueber drei
-// Features (sessions + auth-email-password + user-data-rights):
+// GDPR Art. 18 account freeze: end-to-end test across three
+// features (sessions + auth-email-password + user-data-rights):
 //
-//   - restrict-account flippt Status + revoked alle Sessions cross-feature
-//   - lift-restriction flippt zurueck
-//   - Login-Pfad blockt Restricted (eigener error code) und collapsed
-//     DeletionRequested/Deleted auf invalid_credentials (anti-enum)
-//   - Existing JWTs einer restricted-User werden via sessionChecker
-//     abgelehnt (session-revocation greift)
-//   - State-Transition-Matrix: Active↔Restricted, andere Uebergaenge
-//     fehlgeschlagen mit klaren error codes
+//   - restrict-account changes the status and revokes all sessions across features
+//   - lift-restriction changes it back
+//   - The login path blocks Restricted with its own error code and collapses
+//     DeletionRequested/Deleted to invalid_credentials (anti-enumeration)
+//   - Existing JWTs for a restricted user are rejected by sessionChecker
+//     because session revocation takes effect
+//   - State-transition matrix: Active↔Restricted; other transitions fail
+//     with clear error codes
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -157,7 +157,7 @@ function reasonOf(err: { details?: unknown }): string | undefined {
 describe("S2.U6 :: restrict-account state-transitions", () => {
   test("Active → Restricted: status flippt + alle Sessions revoked", async () => {
     const { userId } = await seedAliceWithMembership();
-    // Login um eine Session zu erzeugen.
+    // Log in to create a session.
     const loginRes = await login(ALICE_EMAIL, ALICE_PW);
     expect(loginRes.status).toBe(200);
 
@@ -213,7 +213,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
-  // kumiko-framework#1545: mirrors the lift-restriction cross-tenant guard
+  // Mirrors the lift-restriction cross-tenant guard
   // below — an isAdminActor check alone lets an Admin/TenantAdmin from a
   // DIFFERENT tenant restrict (and force-revoke the sessions of) a user
   // who was never a member of the admin's tenant.
@@ -260,12 +260,12 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(reasonOf(err)).toBe("user_not_in_active_state");
   });
 
-  // kumiko-framework#1540: access.admin includes TenantAdmin/Admin, which
+  // access.admin includes TenantAdmin/Admin, which
   // are tenant-scoped roles, but the User-entity lookup uses ctx.db.raw
   // (no auto-tenant-filter — User status is intentionally global). Without
   // a membership check, an Admin from a DIFFERENT tenant than the target
   // user could still pass the isAdminActor gate and flip the target's
-  // status. Mirrors the sibling lift-restriction fix (kumiko-framework#1342).
+  // status.
   test("Admin aus fremdem Tenant: 403 target_user_not_in_admin_tenant, Status bleibt Active", async () => {
     const { userId: targetId } = await seedAliceWithMembership();
     const otherTenantAdmin = await mintActor(TestUsers.otherTenant);
@@ -336,7 +336,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     expect(reasonOf(err)).toBe("not_restricted");
   });
 
-  // kumiko-framework#1342: access.admin includes TenantAdmin/Admin, which
+  // access.admin includes TenantAdmin/Admin, which
   // are tenant-scoped roles, but the User-entity lookup uses ctx.db.raw
   // (no auto-tenant-filter — User status is intentionally global). Without
   // a membership check, an Admin from a DIFFERENT tenant than the target
@@ -400,10 +400,10 @@ describe("S2.U6 :: Login-Block fuer Restricted/DeletionRequested/Deleted", () =>
   });
 
   test("Wrong password vor Status-Check (timing-equivalence): 422 invalid_credentials, NICHT account_restricted", async () => {
-    // Restricted User mit FALSCHEM Passwort darf NICHT account_restricted
-    // erfahren — invalid_credentials kommt zuerst (siehe login.write.ts:
-    // Status-Check ist NACH password-verify). Sonst koennte ein Angreifer
-    // ohne valid Credentials den Restricted-Status enumerieren.
+    // A Restricted user with a WRONG password must NOT learn account_restricted:
+    // invalid_credentials is returned first (see login.write.ts: the status
+    // check occurs AFTER password-verify). Otherwise, an attacker without
+    // valid credentials could enumerate the Restricted status.
     await seedAliceWithMembership(USER_STATUS.Restricted);
     const res = await login(ALICE_EMAIL, "wrong-password-here");
     expect(res.status).toBe(422);
@@ -466,7 +466,7 @@ describe("S2.U6 :: Cross-Feature sessions.revokeAllForUser direct", () => {
     }>;
     expect(revoked.every((s) => s.revokedAt !== null)).toBe(true);
 
-    // #1559 — cross-tenant privileged revoke uses the low-level append(),
+    // Cross-tenant privileged revoke uses the low-level append(),
     // not ctx.unsafeAppendEvent (see revoke-all-for-user.write.ts for why:
     // the SystemAdmin caller's own tenantId has no relationship to the
     // target user's session tenant). One event, both sids listed.

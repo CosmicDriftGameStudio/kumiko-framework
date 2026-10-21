@@ -9,20 +9,17 @@ import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framewor
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 
-// #494 — Lifecycle-Mutationen der user-Entity MUESSEN als `user.updated`-Event
-// laufen. Roh per updateMany geschrieben, wischt ein read_users-Rebuild sie
-// weg (er replayt nur `user.created` -> status faellt auf den Default zurueck;
-// gracePeriodEnd/pendingDeletionRequestId/Deleted gehen verloren = DSGVO-
-// Datenverlust).
+// Lifecycle mutations of the user entity MUST be emitted as `user.updated` events.
+// Writing them directly with updateMany causes a read_users rebuild to erase them
+// (it replays only `user.created`, so status falls back to its default;
+// gracePeriodEnd/pendingDeletionRequestId/Deleted are lost, causing GDPR data loss).
 //
-// Das Event MUSS in denselben (tenant_id, aggregate_id)-Stream wie
-// `user.created` landen, sonst splittet das Aggregat ueber Tenants und der
-// Rebuild rekonstruiert nichts. Die user-Entity laeuft `r.systemScope()`, ihre
-// Events landen aber auf einem konkreten Tenant-Stream (siehe
-// auth-email-password/stream-tenant.ts; Root-Cause-Fix tracked in #497). Darum:
-// Rescope auf den Stream-Tenant des Users — den des `user.created`-Events,
-// NICHT `event.user.tenantId` (das ist der aktive Tenant zur Lifecycle-Zeit und
-// kann abweichen).
+// The event MUST use the same (tenant_id, aggregate_id) stream as `user.created`,
+// otherwise the aggregate is split across tenants and cannot be reconstructed.
+// The user entity runs under `r.systemScope()`, but its events use a concrete
+// tenant stream (see auth-email-password/stream-tenant.ts). Therefore, rescope to
+// the user's stream tenant—the tenant of the `user.created` event—not
+// `event.user.tenantId`, which is the active tenant at lifecycle time and may differ.
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
 export type UpdateUserLifecycleOptions = {
@@ -57,10 +54,10 @@ export async function updateUserLifecycle(
   changes: Record<string, unknown>,
   options?: UpdateUserLifecycleOptions,
 ): Promise<{ readonly applied: boolean }> {
-  // user ist systemStream (#497): der Executor-Choke-Point addressiert den
-  // Stream immer auf SYSTEM_TENANT_ID — ein Rescope auf die row-tenant_id
-  // waere wirkungslos. "system"-Mode, damit loadById auch Legacy-Rows findet,
-  // deren tenant_id noch vor dem #762-Backfill-Rebuild steht.
+  // The user is a system stream: the executor choke point always addresses the
+  // stream through SYSTEM_TENANT_ID; rescoping to row-tenant_id would have no
+  // effect. Use "system" mode so loadById also finds legacy rows whose tenant_id
+  // predates the backfill rebuild.
   // skipOptimisticLock: every caller is a server-side business transition
   // (restrict/lift-restriction/grace-period/cancel/forget) that holds no row
   // version to pass as `payload.version`, which update() requires otherwise.
@@ -92,16 +89,16 @@ export async function updateUserLifecycle(
   });
 }
 
-// #494 Bestandsdaten-Reconcile: Rows, deren Lifecycle-State der alte
-// raw-updateMany-Pfad gesetzt hat, haben kein `user.updated`-Event — ein
-// Rebuild wuerde sie auf die `user.created`-Defaults zuruecksetzen. Diese
-// Funktion emittiert pro divergenter Row ein `user.updated` mit dem aktuellen
-// Live-State, sodass Event-Log und Live-Tabelle wieder uebereinstimmen.
-// MUSS einmalig ueber den Bestand laufen, BEVOR eine App read_users-Rebuilds
-// re-enabled. Idempotent gegen State (ein zweiter Lauf haengt ein identisches
-// user.updated an — harmlos, last-write-wins beim Replay).
-// ponytail: full read_users-Scan, in JS gefiltert — einmalige Migration, kein
-// Index/Streaming noetig. Bei Millionen-Rows: batchen.
+// Reconcile existing data: rows whose lifecycle state was set by the old
+// raw-updateMany path have no `user.updated` event, so a rebuild would restore
+// their `user.created` defaults. This function emits one `user.updated` event per
+// divergent row with its current live state, bringing the event log and live table
+// back into agreement.
+// MUST run once over the existing data BEFORE an app re-enables read_users
+// rebuilds. State-idempotent: a second run appends an identical user.updated
+// event, which is harmless because replay uses last-write-wins.
+// ponytail: full read_users scan, filtered in JS—a one-time migration; no
+// index/streaming is needed. For millions of rows, batch the work.
 export type BackfillResult = {
   readonly backfilled: number;
   readonly failed: ReadonlyArray<{ readonly id: string; readonly error: string }>;

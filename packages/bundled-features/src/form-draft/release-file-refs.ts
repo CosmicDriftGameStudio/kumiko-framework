@@ -1,7 +1,7 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { FormDraftBlob } from "./schemas.ts";
 
-// The draft blob's `values` is free-form by design (issue #1889: form-draft
+// The draft blob's `values` is free-form by design: form-draft
 // never knows the consuming form's field schema, only { values, stepIndex,
 // savedAt }). A FileRef pointer is therefore recognised purely by shape —
 // any object anywhere in `values` carrying a non-empty string `storageKey`
@@ -48,11 +48,11 @@ export function collectDraftFileRefKeys(
 //
 // Takes an already-decided key list, not the draft blob — callers must run
 // collectDraftFileRefKeys() output through db/queries' owned-storage-key
-// filter first. `values` is free-form, client-supplied JSON (issue #1889);
-// releasing a key straight out of it without verifying a real, owned
-// file_refs row exists would let a crafted `{ storageKey: "<victim's key>" }`
-// delete someone else's file — the same ownership check file-routes.ts runs
-// before every read/delete (loadFileForTenant + FileAccessGuard).
+// filter first. `values` is free-form, client-supplied JSON; releasing a key
+// straight out of it without verifying a real, owned file_refs row exists
+// would let a crafted `{ storageKey: "<victim's key>" }` delete someone
+// else's file — the same ownership check file-routes.ts runs before every
+// read/delete (loadFileForTenant + FileAccessGuard).
 export async function releaseDraftFileRefs(
   keys: readonly string[],
   deleteBinary: (storageKey: string) => Promise<void>,

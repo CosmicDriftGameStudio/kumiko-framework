@@ -1,4 +1,4 @@
-// Proves kumiko-framework#3255: `publicTenantResolution: "fileRef"` lets a
+// `publicTenantResolution: "fileRef"` lets a
 // single shared platform host serve every tenant's public variants — the
 // variant is read from the FileRef row's own tenant, not the host's, while
 // resolveApexTenant still gates the host and the FileRef-tenant's own

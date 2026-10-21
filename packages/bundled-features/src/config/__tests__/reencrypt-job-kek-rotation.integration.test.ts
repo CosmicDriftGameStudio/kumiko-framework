@@ -1,11 +1,11 @@
-// Regression guard for kumiko-framework#1187: proves the config
+// Regression guard: proves the config
 // KEK-rotation job handles a real version-N → version-N+1 rotation. Modeled
 // directly on auth-mfa's
 // reencrypt-job.integration.test.ts, which is the reference regression
-// guard for this exact bug class (kumiko-framework#266 Step 8): rotation
-// must go through executor.update() (a real event), not a raw UPDATE on
-// the projection table — otherwise a full projection rebuild replays the
-// OLD event and resurrects the pre-rotation kekVersion.
+// guard for this exact bug class: rotation must go through
+// executor.update() (a real event), not a raw UPDATE on the projection
+// table — otherwise a full projection rebuild replays the OLD event and
+// resurrects the pre-rotation kekVersion.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -175,7 +175,7 @@ describe("config KEK-rotation job — unrecognized values are not silently skipp
     const beforeRow = await readRawValue(GARBAGE_KEY);
     expect(beforeRow.value).toBe(GARBAGE_VALUE);
 
-    // Runs before the #1187 rotation test below flips the master-key
+    // Runs before the rotation test below flips the master-key
     // version, so counts are deterministic: the V1 row is current, the
     // garbage row is unrecognized, nothing needs rotating yet.
     const captured: CapturedLog = { info: [], warn: [] };

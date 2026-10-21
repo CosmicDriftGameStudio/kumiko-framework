@@ -25,30 +25,27 @@ export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 const SET_CUSTOM_FIELD_REASON =
   "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
 
-// set-custom-field — schreibt einen Custom-Field-Wert auf eine host-entity.
+// set-custom-field — writes a custom-field value to a host entity.
 //
-// **ES-Option-B**: emittiert customField.set-Event auf dem host-aggregate
+// Emits a customField.set event on the host-aggregate
 // stream (aggregateType = host-entity-name, aggregateId = host-entity-id).
-// Last-Wins-Semantik: customField.set wird OHNE expectedVersion appended,
-// concurrent writes auf gleiches Field gehen beide durch (Plan-Doc v2
-// Concurrency-Tabelle).
+// Last-wins semantics: customField.set is appended WITHOUT expectedVersion,
+// so concurrent writes to the same field both succeed.
 //
-// **Write-Pfad (Single-Fetch)** — eine fieldDefinition-Ladung, drei Gates:
-//   1. Definition fehlt → 404.
-//   2. field-access (T1.5b): fieldAccess.write-Rollen müssen intersecten, sonst
-//      403/422. Handler-level RBAC (TenantAdmin/Member) bleibt zusätzlich.
-//   3. Value-Validation (Builder-Reuse): der Wert wird gegen das aus
-//      serializedField rehydrierte fieldToZod-Schema geparst. Type-Mismatch →
-//      422, KEIN Event entsteht (Projection bleibt typed — Plan-Doc
-//      Stammfeld-Identität). `value: null` ODER `value: undefined` auf einem
-//      typisierten Feld sind Type-Mismatches → 422; zum Entfernen eines Werts
-//      dient clear-custom-field.
+// **Write path (single fetch)** — one fieldDefinition load, three gates:
+//   1. Definition missing → 404.
+//   2. field-access: fieldAccess.write roles must intersect, otherwise
+//      403/422. Handler-level RBAC (TenantAdmin/Member) also applies.
+//   3. Value validation (builder reuse): the value is parsed against the
+//      fieldToZod schema rehydrated from serializedField. Type mismatch →
+//      422, NO event is created (the projection remains typed). `value: null`
+//      OR `value: undefined` on a typed field are type mismatches → 422; use
+//      clear-custom-field to remove a value.
 //
-// Scope: ECHTE type-only Validation. value-schema.ts strippt `required`,
-// `maxLength`, `format` und `default` aus dem serializedField bevor fieldToZod
-// daraus ein Schema baut — wir prüfen nur die Type-Shape. Required-on-set,
-// Default-Application und Length-/Format-Enforcement bleiben out-of-scope
-// (Plan-Doc "Stammfeld-Identität" listet sie als eigene Zeilen).
+// Scope: TRUE type-only validation. value-schema.ts strips `required`,
+// `maxLength`, `format`, and `default` from serializedField before building
+// a schema from fieldToZod — we check only the type shape. Required-on-set,
+// default application, and length/format enforcement remain out of scope.
 export const setCustomFieldHandler: WriteHandlerDef = {
   name: "set-custom-field",
   schema: setCustomFieldPayloadSchema,
@@ -95,11 +92,11 @@ export const setCustomFieldHandler: WriteHandlerDef = {
       }
     }
 
-    // Emit customField.set on host-aggregate stream. unsafeAppendEvent
-    // (statt strict appendEvent) weil event-type-map keine cross-feature-
-    // augmentation für diesen event-typ hat — wir nutzen den qualified
-    // string-namen direkt. Der Wert steht IMMER im Event (custom fields
-    // tragen keine PII, #972) — Replay reproduziert die Projection voll.
+    // Emit customField.set on the host-aggregate stream. unsafeAppendEvent
+    // is used instead of strict appendEvent because event-type-map has no
+    // cross-feature augmentation for this event type; the qualified string
+    // name is used directly. The value is ALWAYS included in the event
+    // (custom fields carry no PII), so replay fully reproduces the projection.
     await ctx.unsafeAppendEvent({
       aggregateId: payload.entityId,
       aggregateType: payload.entityName,
@@ -114,9 +111,9 @@ export const setCustomFieldHandler: WriteHandlerDef = {
   },
 };
 
-/** Value-Write mit App-Rollen statt der Bundle-Defaults — Apps mit eigenem
- *  Rollen-Vokabular (z.B. "Admin"/"Editor") reichen ihre Rollen über
- *  createCustomFieldsFeature({ valueWriteRoles }) hierher durch. */
+/** Value writes use app roles instead of the bundle defaults — apps with a
+ *  custom role vocabulary (e.g. "Admin"/"Editor") pass their roles here via
+ *  createCustomFieldsFeature({ valueWriteRoles }). */
 export function createSetCustomFieldHandler(
   roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
 ): WriteHandlerDef {

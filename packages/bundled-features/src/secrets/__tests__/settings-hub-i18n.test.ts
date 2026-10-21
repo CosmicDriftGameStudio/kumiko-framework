@@ -7,7 +7,7 @@ import { createSecretsFeature } from "../feature.ts";
 // (dev-server scaffold-app.ts FOUNDATION_FEATURES). A declared r.secret()
 // makes buildConfigFeatureSchema emit a secretsEdit screen + Settings-Hub
 // chrome navs, whose dot-form labels (config.settings.title, etc.) must
-// resolve at boot without the config feature present (fw#2577).
+// resolve at boot without the config feature present.
 function stripeSecret() {
   return defineFeature("stripe", (r) => {
     r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });

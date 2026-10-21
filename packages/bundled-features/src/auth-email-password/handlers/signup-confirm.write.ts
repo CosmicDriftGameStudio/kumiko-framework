@@ -1,23 +1,22 @@
-// Magic-Link-Signup, Step 2 (confirm).
+// Magic-Link signup, step 2 (confirmation).
 //
-// Token aus URL + Password vom User → wir lösen den Token in Redis ein
-// und legen Tenant + User + TenantAdmin membership atomically. emailVerified
-// wird sofort auf true gesetzt — der Magic-Link IST der Beweis.
+// Token from the URL + password from the user → redeem the token in Redis
+// and atomically create the tenant, user, and TenantAdmin membership.
+// emailVerified is set to true immediately—the magic link IS the proof.
 //
 // Pipeline:
 //   1. Redis check: token → email lookup
-//   2. Single-Use-Burn (SETNX) — gleichzeitiger Klick aus zwei Tabs
-//      gewinnt nur einer
-//   3. Tenant-Key generieren (generateUniqueName mit DB-isAvailable-
-//      check gegen tenants.key)
-//   4. provisionSignupAccount: Tenant + User + Membership in einem
-//      Rutsch (durch event-store-executor; events + projection +
-//      MSPs sehen das wie einen regulären create)
-//   5. Token-Keys löschen (burn-key bleibt für TTL-Replay-Protection)
+//   2. Single-use burn (SETNX)—only one of two simultaneous tab clicks wins
+//   3. Generate the tenant key (generateUniqueName with a DB isAvailable
+//      check against tenants.key)
+//   4. provisionSignupAccount: create the tenant, user, and membership in one
+//      operation (through event-store-executor; events, projection, and MSPs
+//      see this as a regular create)
+//   5. Delete the token keys (the burn key remains for TTL replay protection)
 //
-// Failure-Recovery: jeder Pfad nach dem burn checked `committed`-Flag;
-// bei !committed wird der burn released damit ein legitimer Retry
-// nicht durch einen stale Marker geblockt wird (wie reset/verify).
+// Failure recovery: every path after the burn checks the `committed` flag;
+// when !committed, the burn is released so a legitimate retry is not blocked
+// by a stale marker, as with reset/verify.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
@@ -155,21 +154,21 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         );
       }
 
-      // Token-Lookup: nicht-existent / abgelaufen / schon konsumiert →
-      // alle collapsen auf invalid_signup_token. Anti-enumeration.
+      // Token lookup: nonexistent, expired, and already-consumed tokens all
+      // collapse to invalid_signup_token to prevent enumeration.
       const email = await getEmailForSignupToken(ctx.redis, event.payload.token);
       if (!email) return invalidSignupToken();
 
-      // Single-Use-Burn: zwei parallele Confirms aus verschiedenen
-      // Tabs — einer wins, der andere kriegt invalid_signup_token.
+      // Single-use burn: of two parallel confirmations from different tabs,
+      // one succeeds and the other receives invalid_signup_token.
       const burn = await burnSignupToken(ctx.redis, event.payload.token);
       if (burn === "already-used") return invalidSignupToken();
 
       let committed = false;
       try {
-        // Tenant-Key: 2-Wort-Slug aus framework/random, mit DB-Conflict-
-        // Check gegen tenants.key. 22.500 Default-Combos + Suffix-
-        // Fallback bei Kollision (siehe generateUniqueName).
+        // Tenant key: a two-word slug from framework/random, with a DB conflict
+        // check against tenants.key. 22,500 default combinations plus a
+        // suffix fallback in case of collision (see generateUniqueName).
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
         const dbConn = ctx.db.unsafeRaw() as DbConnection;
@@ -182,8 +181,8 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         });
 
         const tenantId = generateId() as TenantId; // @cast-boundary engine-payload
-        // Display-Name aus email-prefix als sinnvolles Default; User kann
-        // den Tenant-Namen + sein eigenes displayName später ändern.
+        // Use the email prefix as a meaningful default display name; the user can
+        // change the tenant name and their own displayName later.
         const displayName = email.split("@")[0] ?? email;
 
         const registrationLocale = registrationLocaleFromRequest();
@@ -202,25 +201,24 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
               tenantName: tenantKey,
               ...registrationLocale,
             },
-            // #1463: seedTenant's postSave hooks (tier-engine's auto-default-
+            // seedTenant's postSave hooks (tier-engine's auto-default-
             // tier, an app's auto-default-compliance) must fire on self-signup
             // exactly like they do on the regular TenantHandlers.create path.
             { registry: ctx.registry, context: ctx },
           );
         } catch (err) {
-          // Email hat bereits ein Konto — provisionSignupAccount ist create-only
-          // (#365): sauberer User-Fehler, KEINE Session für den fremden Account.
-          // committed bleibt false → der burn wird im finally released (ein
-          // Retry scheitert wieder gleich, kein stale-Marker-Block).
+          // The email already has an account—provisionSignupAccount is create-only:
+          // return a clean user error and never create a session for that account.
+          // committed remains false, so finally releases the burn; a retry fails
+          // the same way without being blocked by a stale marker.
           if (err instanceof ConflictError) return signupEmailAlreadyRegistered();
           throw err;
         }
 
-        // SessionUser für JWT-Mint. Roles aus INITIAL_SIGNUP_ROLES
-        // damit DB-write (provisionSignupAccount) und Session-claim
-        // dieselbe Quelle teilen — sonst hätten zwei Stellen "TenantAdmin"
-        // hardcoded und ein Refactor würde role-mismatch zwischen DB
-        // und JWT erzeugen.
+        // Build the SessionUser for JWT minting. Use roles from INITIAL_SIGNUP_ROLES
+        // so the database write (provisionSignupAccount) and session claim share
+        // one source; otherwise two hardcoded "TenantAdmin" values could drift
+        // during a refactor and create a role mismatch between the DB and JWT.
         const session: SessionUser = {
           id: provisioned.userId,
           tenantId: provisioned.tenantId,
@@ -278,9 +276,8 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         };
       } finally {
         if (!committed && ctx.redis) {
-          // Burn-release damit ein retry nach DB-Hiccup nicht blockt.
-          // Token-Lookup-Keys bleiben — der User kann seinen Mail-Link
-          // erneut klicken.
+          // Release the burn so a retry after a DB hiccup is not blocked.
+          // Keep the token lookup keys so the user can click the email link again.
           await unburnSignupToken(ctx.redis, event.payload.token);
         }
       }

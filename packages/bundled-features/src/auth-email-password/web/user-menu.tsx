@@ -1,12 +1,11 @@
-// UserMenu — Avatar-Dropdown für die Topbar (variant="pill", Default) oder den
-// Sidebar-Footer (variant="sidebar" = die sidebar-07-NavUser-Row). Zeigt
-// Name/Email + Logout. Auf Radix-DropdownMenu, damit Click-outside, Escape,
-// Focus-Management, Keyboard-Nav (↑↓/Home/End) und ARIA-Roles aus der Kiste
-// funktionieren.
+// UserMenu — avatar dropdown for the top bar (variant="pill", default) or the
+// sidebar footer (variant="sidebar" = the sidebar-07-NavUser-Row). Shows
+// name/email and logout. Uses Radix-DropdownMenu so click-outside, Escape,
+// focus management, keyboard navigation (↑↓/Home/End), and ARIA roles work
+// out of the box.
 //
-// Rendert NICHTS wenn kein User eingeloggt ist — Hosts dürfen das
-// Component außerhalb des AuthGate einhängen ohne dass ein harter
-// Fehler entsteht.
+// Renders nothing when no user is logged in, so hosts can mount the component
+// outside AuthGate without causing a hard error.
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -28,20 +27,20 @@ import { useSession } from "./session.tsx";
 export type UserMenuVariant = "pill" | "sidebar";
 
 export type UserMenuProps = {
-  /** Zusätzliche Menu-Items über dem Logout. Per-item class/behaviour
-   *  controlliert der Caller — wir packen nur den Frame drumrum. */
+  /** Additional menu items above logout. The caller controls per-item
+   *  classes and behavior; this component only provides the surrounding frame. */
   readonly children?: ReactNode;
-  /** "pill" (Default) = kompakter Topbar-Trigger; "sidebar" = volle NavUser-
-   *  Row (Avatar + Name + Email) für den `sidebarFooter`-Slot der App-Shell.
+  /** "pill" (default) = compact top-bar trigger; "sidebar" = full NavUser-
+   *  row (avatar + name + email) for the App-Shell's `sidebarFooter` slot.
    *  Requires a `SidebarProvider` ancestor — the default App-Shell
    *  `sidebarFooter` slot already provides one. */
   readonly variant?: UserMenuVariant;
 };
 
 function initials(value: string): string {
-  // Vor- und Nachname falls Displayname einen Spacebar hat, sonst
-  // erste zwei Chars der Email-Lokalseite. Deterministisch,
-  // damit der Avatar-Content nicht bei jedem Re-Render flattert.
+  // Uses the first and last name when the display name contains a space;
+  // otherwise uses the first two characters of the email local part. This is
+  // deterministic, so the avatar content does not change between re-renders.
   const trimmed = value.trim();
   if (trimmed.length === 0) return "?";
   const parts = trimmed.split(/\s+/);
@@ -84,8 +83,8 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
     </DropdownMenuContent>
   );
 
-  // Sidebar-Footer: volle NavUser-Row (sidebar-07) als Dropdown-Trigger —
-  // gleiche Optik wie SidebarUser, aber klickbar mit Logout/Profil.
+  // Sidebar footer: full NavUser row (sidebar-07) as the dropdown trigger —
+  // matches SidebarUser visually while providing clickable logout/profile actions.
   if (variant === "sidebar") {
     return (
       <SidebarMenu>
@@ -123,7 +122,7 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* kumiko-lint-ignore primitives-discipline radix-asChild braucht DOM-Element als Trigger; Native kriegt eigene .native.tsx-Variante mit ActionSheet */}
+        {/* kumiko-lint-ignore primitives-discipline radix-asChild requires a DOM element as the trigger; the native version in .native.tsx uses ActionSheet */}
         <button
           type="button"
           className={cn(

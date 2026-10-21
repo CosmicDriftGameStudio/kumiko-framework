@@ -167,9 +167,9 @@ export function makeDefaultDeletionExecutedEmail(
   defaults: GdprMailDefaults = {},
 ): SendDeletionExecutedEmailFn {
   return async (args) => {
-    // Der User ist global, der Mail-Transport per-Tenant — wir senden ueber den
-    // Transport des ersten Memberships. Orphan-User (0 Memberships) liefert
-    // keine Tenant-Identitaet → kein Transport aufloesbar, Mail entfaellt.
+    // The user is global, but the mail transport is tenant-specific, so use the
+    // first membership's transport. An orphan user has no tenant identity, so no
+    // transport can be resolved and the mail is omitted.
     const tenantId = args.tenantIds[0];
     if (tenantId === undefined) {
       // skip: orphan user has no tenant whose transport could send the mail

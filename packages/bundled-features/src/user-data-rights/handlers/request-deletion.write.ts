@@ -9,13 +9,12 @@ import {
 } from "../lib/default-mailers.ts";
 import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.ts";
 
-// Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
-// password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim
-// Send wird gefangen + per console.warn geloggt, der Status-Flip selbst
-// bleibt erfolgreich. Reasoning: user-Aktion ist abgeschlossen sobald
-// die DB-Row geflipt ist; Email-Versand ist Beleg, keine Vorbedingung.
-// Wenn Email broken ist soll der User nicht erneut "Account löschen"
-// klicken muessen.
+// Sends a best-effort email after the deletion-requested status flip, following the
+// password-reset callback pattern in auth-routes.ts. Send failures are caught and logged
+// with console.warn so the status change remains successful: the user's action is complete
+// once the database row is updated, while email delivery is confirmation rather than a
+// prerequisite. This prevents users from having to click "Delete account" again when
+// email delivery fails.
 export type SendDeletionRequestedEmailFn = (args: {
   readonly userId: string;
   readonly userEmail: string;
@@ -28,16 +27,15 @@ export type SendDeletionRequestedEmailFn = (args: {
 
 export type RequestDeletionOptions = {
   readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
-  /** Branding fuer die Default-Mail wenn kein sendDeletionRequestedEmail
-   *  gesetzt ist + mail-foundation gemountet ist. */
+  /** Branding for the default email when sendDeletionRequestedEmail is not set
+   *  and mail-foundation is mounted. */
   readonly mailDefaults?: GdprMailDefaults;
 };
 
-// POST /api/user/request-deletion (S2.U5a) — DSGVO Art. 17 Forget-Antrag.
-// Flippt status=Active → deletionRequested, setzt gracePeriodEnd aus dem
-// Compliance-Profile (geteilte Logik: startDeletionGracePeriod). Account-
-// weite Semantik (1 User-Row global), siehe docs/plans/architecture/
-// user-data-rights.md "Cross-Tenant-Semantik".
+// POST /api/user/request-deletion — GDPR Art. 17 erasure request.
+// Changes status=Active → deletionRequested and sets gracePeriodEnd from the compliance
+// profile using the shared startDeletionGracePeriod logic. The operation applies to the
+// account-wide user row, so the user identity is global across tenants.
 export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) {
   return defineWriteHandler({
     name: "request-deletion",
@@ -78,8 +76,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
           ? makeDefaultDeletionRequestedEmail(ctx.notify, opts.mailDefaults)
           : undefined);
 
-      // Best-effort Email-Notification. Send-Failure darf das Write nicht
-      // killen — siehe Type-Doc oben.
+      // Best-effort email notification: a send failure must not abort the write.
       if (send && userEmail.length > 0) {
         try {
           await send({
@@ -97,8 +94,8 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
         }
       }
 
-      // Response liefert den absoluten gracePeriodEnd-Timestamp damit
-      // Frontend/Audit/Cleanup-Runner alle denselben Wert lesen.
+      // Returns the absolute gracePeriodEnd timestamp so the frontend, audit, and cleanup
+      // runner all use the same value.
       return {
         isSuccess: true as const,
         data: {

@@ -1,21 +1,21 @@
-// Tenant-Invite Step 2 — Branch 3 (anon User, Email NICHT registriert).
+// Tenant-Invite Step 2 — Branch 3 (anonymous user, email NOT registered).
 //
-// Anders als signup-confirm: KEIN neuer Tenant entsteht. Der Tenant
-// existiert schon (im invitation-row), wir legen NUR User+Membership an.
+// Unlike signup-confirm, no new tenant is created. The tenant already
+// exists in the invitation row; only the user and membership are created.
 //
 // Flow:
-//   1. User klickt Invite-Link → /invite/signup?token=...
-//   2. Frontend zeigt Password-Form (email kommt aus invitation, kein
-//      User-Input damit kein Email-Mismatch möglich)
-//   3. User submitted password + token
+//   1. User clicks the invite link → /invite/signup?token=...
+//   2. The frontend shows the password form (the email comes from the
+//      invitation, not user input, so an email mismatch is impossible)
+//   3. User submits the password and token
 //   4. Server:
 //      a. Token → invitationId → invitation row
-//      b. User-Existence-Check: invitation.email darf NICHT in userTable
-//         existieren (sonst soll Branch 2 oder Branch 1 genutzt werden)
-//      c. Create user (emailVerified=true wegen Magic-Link)
-//      d. Add membership im invited Tenant
-//      e. Invitation → accepted, Token gelöscht
-//   5. Response: SessionUser + tenantId für Auto-Login
+//      b. User-existence check: invitation.email must NOT exist in userTable
+//         (otherwise Branch 2 or Branch 1 must be used)
+//      c. Create the user (emailVerified=true because of the magic link)
+//      d. Add membership to the invited tenant
+//      e. Mark the invitation accepted and delete the token
+//   5. Response: SessionUser + tenantId for automatic login
 
 import {
   createEventStoreExecutor,
@@ -44,7 +44,7 @@ import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
 } from "../../tenant/membership-roles.ts";
-// kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
+// kumiko-lint-ignore cross-feature-import membership-seed-helper for privileged cross-tenant addition
 import { seedTenantMembership } from "../../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
 import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.ts";
@@ -144,20 +144,19 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
         const invitationGlobalRoles = parseInvitedGlobalRoles(invitation.globalRoles);
         const invitationVersion = invitation.version;
 
-        // User-Not-Exists-Check: wenn die Email schon registriert ist,
-        // muss der User Branch 2 (acceptWithLogin) nutzen. Hier ist
-        // explizit "neue Email" — sonst hätten wir zwei Wege ein
-        // Password zu setzen für denselben User.
-        // Email uniqueness is partial on live rows (framework#2593) — without
-        // this filter the lookup can resolve a soft-deleted row.
+        // If the email is already registered, the user must use Branch 2
+        // (acceptWithLogin). This flow explicitly requires a new email;
+        // otherwise there would be two ways to set a password for the same user.
+        // Email uniqueness is partial on live rows — without this filter,
+        // the lookup can resolve a soft-deleted row.
         const existingUser = await ctx.db.global(userTable).fetchOne({
           email: invitationEmail,
           isDeleted: false,
         });
         if (existingUser) return invalidInviteToken();
 
-        // User anlegen via seedUserWithPassword (gleiches Pattern wie
-        // signup-confirm), emailVerified=true wegen Magic-Link.
+        // Create the user through seedUserWithPassword so the magic-link flow
+        // records emailVerified=true.
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
         const dbConn = ctx.db.unsafeRaw() as DbConnection;
@@ -171,9 +170,8 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           ...(invitationGlobalRoles.length > 0 && { roles: invitationGlobalRoles }),
         });
 
-        // Membership-Add via seed-helper (gleiches Pattern wie
-        // provisionSignupAccount — bypassed addMember access-check
-        // weil createSystemUser nicht ["SystemAdmin"] matcht).
+        // The seed helper bypasses addMember's access check because
+        // createSystemUser does not match ["SystemAdmin"].
         const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);
         if (forbiddenInviteRole !== undefined) {
           return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
@@ -184,7 +182,7 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           roles: [invitationRole],
         });
 
-        // Invitation → accepted: TenantDb für invitation-tenant
+        // Update the invitation in the invited tenant's database context.
         const invitationTdb = createTenantDb({
           db: dbConn,
           tenantId: invitationTenantId,

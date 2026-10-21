@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildDeletionVerifyUrl } from "../handlers/request-deletion-by-email.write.ts";
 
 describe("buildDeletionVerifyUrl", () => {
-  // fw#1554: the token goes in the URL fragment, not a query param —
+  // The token goes in the URL fragment, not a query param —
   // fragments never leave the browser, so they never land in proxy/access
   // logs (unlike ?token=, which does).
   test("puts the token in the URL fragment, not a query param", () => {

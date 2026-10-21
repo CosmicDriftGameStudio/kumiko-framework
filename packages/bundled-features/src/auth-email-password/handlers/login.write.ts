@@ -93,7 +93,7 @@ function ok<T>(value: T): GateOk<T> {
 
 type AuthenticatableUserRow = AuthUserRow & { readonly passwordHash: string };
 
-/** Uniform response on any credential miss — burns argon2 cost (#774). */
+/** Uniform response on any credential miss — burns argon2 cost. */
 export async function gateResolveAuthUser(
   found: AuthUserRow | null,
   password: string,

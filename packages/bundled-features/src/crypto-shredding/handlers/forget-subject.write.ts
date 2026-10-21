@@ -112,7 +112,7 @@ function subjectAggregateId(raw: SubjectIdInput): string {
 }
 
 // The record subject names its own entity — resolve it against the registry
-// instead of trusting the payload straight into resolveTableName/SQL (#2786).
+// instead of trusting the payload straight into resolveTableName/SQL.
 function findRegisteredEntity(
   features: ReadonlyMap<string, FeatureDefinition>,
   entityName: string,
@@ -124,7 +124,7 @@ function findRegisteredEntity(
   return undefined;
 }
 
-// Tenant-scope guard (mh#349): DataProtectionOfficer is a tenant-scoped role,
+// Tenant-scope guard: DataProtectionOfficer is a tenant-scoped role,
 // but the handler otherwise erases ANY subject cross-tenant on a raw
 // (un-scoped) client — a Tenant-A DPO who learns a Tenant-B subject id
 // (export, support ticket, log line) could destroy it. SystemAdmin
@@ -182,7 +182,7 @@ async function resolveTenantScopeDenial(
   return ownedInTenant ? undefined : memberDenied;
 }
 
-// fw#2789/#2805: blockDelete (legally mandated physical retention, e.g.
+// blockDelete (legally mandated physical retention, e.g.
 // ledger/invoice text) means this command must refuse, not silently
 // anonymize or proceed. Refused when the host entity itself declares
 // blockDelete OR the owning tenant's effective data-retention policy
@@ -241,8 +241,8 @@ function denialReasonOf(failure: WriteFailure): string {
   return failure.error.code;
 }
 
-// Denied cross-tenant probes must still leave an audit trail (fw#2348).
-// Appended outside the handler tx (fw#2592): the caller's
+// Denied cross-tenant probes must still leave an audit trail.
+// Appended outside the handler tx: the caller's
 // `return tenantScopeDenial` rolls that tx back.
 async function appendDenialAuditEvent(
   ctx: HandlerContext,
@@ -285,7 +285,7 @@ async function appendDenialAuditEvent(
       registry: ctx.registry,
       db: denialAuditRunner,
       // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw
-      // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event (fw#2452).
+      // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event.
       tenantId: event.user.tenantId,
       userId: String(event.user.id),
       callSiteLabel: "forget-subject denial audit",
@@ -339,11 +339,11 @@ async function sweepDerivedSubjectData(
   };
 
   await runStep(async (crossTenantSubjectRunner) => {
-    // Blind-index sweep (#818): nulls bidx columns now so the deterministic
+    // Blind-index sweep: nulls bidx columns now so the deterministic
     // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
     await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
 
-    // Derived search index still holds plaintext (#1610) — purge next to the
+    // Derived search index still holds plaintext — purge next to the
     // blind-index sweep. No adapter → no-op (apps without search).
     if (ctx.searchAdapter) {
       await purgeSearchDocumentsForSubject(
@@ -442,7 +442,8 @@ async function appendSubjectForgotten(
       {
         registry: ctx.registry,
         db: outsideRunner,
-        // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw bypasses TenantDb's scoping (fw#2452).
+        // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw bypasses TenantDb's
+        // scoping.
         tenantId: event.user.tenantId,
         userId: String(event.user.id),
         callSiteLabel: "forget-subject audit",
@@ -466,7 +467,7 @@ async function appendSubjectForgotten(
 // The automated Art.-17 path (user-data-rights forget-cleanup) calls
 // kms.eraseKey directly inside its per-user sub-tx; this command is the
 // standalone trigger for cases outside that pipeline (authority requests,
-// tenant-destroy in Sprint 5, operator recovery).
+// tenant-destroy, operator recovery).
 export const forgetSubjectWrite = defineWriteHandler({
   name: "forget-subject",
   schema: forgetSubjectSchema,
@@ -558,7 +559,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     // callable. Mirror of the automated Art.-17 path (userDeleteHook:
     // status=Deleted; apiTokenDeleteHook: revoke):
     //   - user.updated as lifecycle event (updateUserLifecycle), so a
-    //     read_users rebuild doesn't wipe the flip (#494)
+    //     read_users rebuild doesn't wipe the flip
     //   - sessions don't need active revocation — session-callbacks
     //     re-validate user.status on every request (isPrincipalBlocked
     //     blocks Deleted).

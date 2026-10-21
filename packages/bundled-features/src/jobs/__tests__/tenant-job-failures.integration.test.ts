@@ -1,4 +1,4 @@
-// Tenant-visible job failures (fw#3079) end to end: a write triggers a job,
+// Tenant-visible job failures end to end: a write triggers a job,
 // the job fails, and the triggering tenant reads the failure back through
 // `jobs:query:failures` — over real HTTP, a real BullMQ worker and a real
 // Postgres, with the real createJobRunLogger callbacks wired in.

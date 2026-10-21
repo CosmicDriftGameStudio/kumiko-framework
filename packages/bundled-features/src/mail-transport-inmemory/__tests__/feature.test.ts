@@ -53,8 +53,8 @@ describe("getInbox / clearInbox — per-tenant buffer helpers", () => {
   });
 
   test("clearInbox auf nicht-existierenden Tenant ist no-op (kein throw)", () => {
-    // Defensive — wenn ein Demo-Test clearInbox vor dem ersten send aufruft,
-    // soll das nicht crashen.
+    // Defensive: a demo test may call clearInbox before the first send,
+    // so the call must not throw.
     expect(() => clearInbox("not-yet-existing")).not.toThrow();
   });
 });

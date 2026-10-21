@@ -1,6 +1,6 @@
-// Backfill/GC job coverage (#2474): sweeps derivative-shaped storage keys
-// with no owning fileRef row, for tenants forgotten/destroyed before #2461
-// wired binary cleanup into forget/tenant-destroy. Manual job (not perTenant,
+// Backfill/GC job coverage: sweeps derivative-shaped storage keys
+// with no owning fileRef row, for tenants forgotten/destroyed before binary cleanup
+// was wired into forget/tenant-destroy. Manual job (not perTenant,
 // not fanned-out) — called directly with a hand-built JobContext, same
 // pattern as jobs/__tests__/reindex-entity-job.integration.test.ts, since
 // setupTestStack's jobRunner has nothing extra to wire for a plain manual job.

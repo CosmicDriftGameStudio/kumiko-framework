@@ -1,16 +1,16 @@
-// process-event — programmatic write-handler den der webhook-handler
-// (createSubscriptionWebhookRoute) aufruft NACHDEM Plugin den raw-body
-// verifiziert + zu SubscriptionEvent normalisiert hat.
+// process-event — programmatic write handler called by the webhook handler
+// (createSubscriptionWebhookRoute) AFTER the plugin has verified the raw body
+// and normalized it into a SubscriptionEvent.
 //
-// **ES-Pattern:**
-//   1. Idempotency-check: lädt subscription-stream + scannt nach
-//      bereits gesehenem `metadata.providerEventId`. Provider-Replay
-//      (Stripe-Retry-Storm) sieht denselben event-id → duplicate=true,
-//      kein zweiter append.
-//   2. Type-mapping: SubscriptionEvent.type (= normalisiert vom Plugin)
-//      → einer der 5 ES-event-typen.
-//   3. ctx.unsafeAppendEvent — Inline-projection materialisiert die
-//      `read_subscriptions`-row in derselben TX.
+// **ES pattern:**
+//   1. Idempotency check: loads the subscription stream and scans for an
+//      already-seen `metadata.providerEventId`. A provider replay
+//      (Stripe retry storm) has the same event ID → duplicate=true,
+//      with no second append.
+//   2. Type mapping: SubscriptionEvent.type (= normalized by the plugin)
+//      → one of the 5 ES event types.
+//   3. ctx.unsafeAppendEvent — the inline projection materializes the
+//      `read_subscriptions` row in the same TX.
 
 import {
   configuredPiiSubjectKms,
@@ -42,9 +42,9 @@ import {
 } from "../web/constants.ts";
 
 // =============================================================================
-// Input-Schema = der normalisierte SubscriptionEvent (ohne tenantId, der
-// kommt aus event.user.tenantId — der webhook-handler setzt den
-// programmatic-user mit der vom Plugin aufgelösten tenantId).
+// Input schema = the normalized SubscriptionEvent (without tenantId, which
+// comes from event.user.tenantId — the webhook handler sets the
+// programmatic user with the tenantId resolved by the plugin).
 // =============================================================================
 
 const eventTypeSchema = z.enum([
@@ -208,9 +208,9 @@ export async function appendSubscriptionEvent(
   //    read_subscriptions row with a single call. The subject is the
   //    TENANT (tenantOwned) — tenant-destroy's subject-keys stage
   //    (eraseSubjectKeys) erases exactly this key, so both copies become
-  //    genuinely unreadable (#800) once that stage runs, not just
+  //    genuinely unreadable once that stage runs, not just
   //    "encrypted at rest". No adapter configured = engine off (fields
-  //    stay plaintext, pre-#724-phase-C behavior) — mirrors how the
+  //    stay plaintext) — mirrors how the
   //    event-store-executor treats an absent piiKms().
   // ---------------------------------------------------------------
   const piiKms = configuredPiiSubjectKms();
@@ -268,9 +268,9 @@ export async function appendSubscriptionEvent(
 // Handler
 // =============================================================================
 //
-// SystemAdmin-only: dieser handler wird ausschließlich vom programmatic
-// webhook-handler aufgerufen (mit einem internal SystemUser), nie vom
-// Tenant-Admin direkt.
+// SystemAdmin-only: this handler is called exclusively by the programmatic
+// webhook handler (with an internal SystemUser), never directly by the
+// tenant admin.
 // One subscription aggregate exists per tenant, but a tenant can legitimately hold two provider
 // subscriptions over time (a stale `incomplete` one superseded by a fresh checkout). A late or
 // retried event of the old subscription must not overwrite the row of the live one, so an event of a

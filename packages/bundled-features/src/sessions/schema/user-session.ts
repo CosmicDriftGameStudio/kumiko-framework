@@ -18,9 +18,9 @@ import { USER_SESSION_ENTITY_NAME } from "../constants.ts";
 // mutate them via ctx.db inside a transaction, but no user request can bypass
 // the revocation flow by poking the column directly.
 export const userSessionEntity = createEntity({
-  // Entity-Key ist "user-session" (mit Dash), toTableName's snake-case-
-  // Transform käme auf "read_user-sessions" → kein valides SQL ohne Quoting.
-  // Deshalb expliziter Override auf den read_-konformen Namen.
+  // The entity key is "user-session"; snake-casing it would produce
+  // "read_user-sessions", which is invalid SQL without quoting. Use an explicit
+  // override with a valid read_-prefixed table name.
   table: "store_user_sessions",
   // sid-as-PK: the sessionCreator callback generates the UUID, returns it to
   // the framework; the framework stamps it as `jti`; here the same value is
@@ -84,7 +84,7 @@ export const userSessionEntity = createEntity({
 // Unmanaged direct-write store (r.storeTable in feature.ts, no event stream —
 // revocation is a column write, not an aggregate). Handlers write via ctx.db;
 // source: "unmanaged" makes the meta Writable so those writes compile. See
-// feature.ts for the rebuild-exclusion rationale (#494/#498).
+// feature.ts for the rebuild-exclusion rationale.
 export const userSessionTable = deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, {
   source: "unmanaged",
 });

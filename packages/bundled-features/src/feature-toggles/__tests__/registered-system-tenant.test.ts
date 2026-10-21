@@ -1,15 +1,15 @@
-// Sprint 8a recipe-test pin: registered.query nutzt SYSTEM_TENANT_ID
-// statt event.user.tenantId. Operator-tooling muss PLATTFORM-truth
-// sehen, nicht den eigenen tier-cut. Convention ist in DispatcherOptions.
-// effectiveFeatures dokumentiert; dieser test pinst sie damit ein
-// future-refactor (z.B. mechanisches sed oder copy-paste) sie nicht
-// silent zurückdreht zu event.user.tenantId.
+// Pin the convention that registered.query uses SYSTEM_TENANT_ID
+// instead of event.user.tenantId. Operator tooling must see platform-wide
+// truth rather than its own tenant-scoped view. The convention is documented
+// in DispatcherOptions.effectiveFeatures; this test pins it so a future
+// refactor, such as mechanical sed or copy-paste, does not silently change
+// it back to event.user.tenantId.
 //
-// Pure unit-test ist nicht möglich weil registered.query einen DB-select
-// auf globalFeatureStateTable macht BEVOR der effectiveFeatures-call
-// läuft. Wir mocken den ctx.db.select-pfad damit der handler komplett
-// durchläuft. Die Convention-Pin ist die einzige Aussage des tests —
-// echtes integration-Verhalten deckt feature-toggles.integration.ts ab.
+// A pure unit test is not possible because registered.query performs a DB
+// select on globalFeatureStateTable BEFORE the effectiveFeatures call.
+// We mock the ctx.db select path so the handler can complete. The convention
+// pin is the test's only assertion; feature-toggles.integration.ts covers
+// actual integration behaviour.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -49,10 +49,10 @@ describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
 
     const registry = createRegistry([dummy, featureToggles]);
 
-    // Mock ctx.db via bun-db's asRawClient surface: handler ruft
-    // selectMany(ctx.db.raw, ...) → asRawClient(raw).unsafe(...). Wir
-    // liefern leere overrides damit der handler durch den DB-Pfad kommt
-    // und dann ctx.effectiveFeatures aufruft (das observable hier).
+    // Mock ctx.db through bun-db's asRawClient surface: the handler calls
+    // selectMany(ctx.db.raw, ...) → asRawClient(raw).unsafe(...). We provide
+    // empty overrides so the handler passes through the DB path and then
+    // calls ctx.effectiveFeatures, which is observable here.
     const mockDb = {
       unsafe: async () => [] as unknown[],
       begin: async () => undefined,
@@ -79,12 +79,11 @@ describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
 
     await dispatcher.query("feature-toggles:query:registered", {}, admin);
 
-    // Pin: registered.query call führt zu MINDESTENS zwei effectiveFeatures-
-    // calls:
-    //   1. dispatcher's checkFeatureEnabled (mit user.tenantId = callerTenant)
-    //   2. registered.query handler-body (mit SYSTEM_TENANT_ID)
-    // Wenn ein future-refactor SYSTEM_TENANT_ID zu event.user.tenantId zurück-
-    // dreht, fehlt der zweite call und dieser test fail't.
+    // Pin: registered.query causes at least two effectiveFeatures calls:
+    //   1. dispatcher's checkFeatureEnabled (with user.tenantId = callerTenant)
+    //   2. registered.query handler body (with SYSTEM_TENANT_ID)
+    // If a future refactor changes SYSTEM_TENANT_ID back to event.user.tenantId,
+    // the second call is missing and this test fails.
     expect(observed).toContain(callerTenant);
     expect(observed).toContain(SYSTEM_TENANT_ID);
   });

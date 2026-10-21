@@ -1,13 +1,13 @@
-// Geteilter State-Loader für update-account / disconnect-account.
+// Shared state loader for update-account / disconnect-account.
 //
-// Die mail-account-Events sind full-snapshots (Muster billing-foundation:
-// "Alle nutzen denselben payload-shape, der event-type taggt was
-// passiert ist") — ein Übergangs-Handler lädt den letzten Snapshot,
-// merged seine Delta-Felder rein und appendet den neuen Snapshot.
+// mail-account events are full snapshots (following the billing-foundation
+// pattern: "All events use the same payload shape; the event-type identifies
+// what happened") — a transitional handler loads the latest snapshot, merges
+// its delta fields into it, and appends the new snapshot.
 //
-// **PII-Disziplin:** `address` steht im geladenen Payload bereits als
-// Ciphertext und wird 1:1 durchkopiert — NIE re-encrypten (würde bei
-// fehlendem KMS decrypt erzwingen bzw. Double-Encryption produzieren).
+// **PII discipline:** `address` is already ciphertext in the loaded payload
+// and is copied byte-for-byte — NEVER re-encrypt it (that would require KMS
+// decryption when unavailable or produce double encryption).
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { MailAccountEventPayload } from "../events.ts";

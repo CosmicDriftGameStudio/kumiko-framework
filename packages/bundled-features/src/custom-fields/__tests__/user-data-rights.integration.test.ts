@@ -1,8 +1,8 @@
-// T1.5c — user-data-rights wiring for custom-fields, exercised through the
+// User-data-rights wiring for custom-fields, exercised through the
 // REAL export/forget runners (runUserExport / runForgetCleanup), not by
 // calling the registered hooks in isolation.
 //
-// Since #972 the wiring is EXPORT-ONLY: custom fields carry supplemental
+// The wiring is EXPORT-ONLY: custom fields carry supplemental
 // business data, not PII — runForgetCleanup has nothing to redact in the
 // customFields jsonb. The tests prove:
 //
@@ -73,8 +73,8 @@ const propertyTable = buildEntityTable("property", propertyEntity);
 
 // Host entity gets its own EXT_USER_DATA-registration too — that's the
 // canonical setup. The host's anonymize hook NULLS inserted_by_id; the
-// custom-fields wiring contributes export only (#972).
-// fw#2914 — "property" is a managed r.entity table (not Writable), so
+// custom-fields wiring contributes export only.
+// "property" is a managed r.entity table (not Writable), so
 // TenantDb's typed write methods reject it; these host hooks need raw SQL,
 // still filtered by inserted_by_id + tenant_id.
 const HOST_HOOK_REASON =

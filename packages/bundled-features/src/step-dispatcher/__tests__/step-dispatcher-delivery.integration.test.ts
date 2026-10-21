@@ -1,4 +1,4 @@
-// step-dispatcher delivery runs as a BullMQ job (fw#3787): the MSP only
+// step-dispatcher delivery runs as a BullMQ job: the MSP only
 // enqueues, the job retries transient failures, and the payload key survives
 // until the outcome is final.
 

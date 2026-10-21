@@ -1,18 +1,17 @@
-// Tenant-Invite-Flow Full-Stack Integration-Test. Spec für die 3
-// Accept-Branches via stack.http (echte HTTP-Routes durch).
+// Full-stack integration test for the three invite-accept branches via stack.http.
 //
 // Setup:
-//   - Tenant-A mit Admin "alice@" als Admin-Member
-//   - Tenant-B mit User "bob@" als Member (für Branch 1: Bob ist
-//     eingeloggt in Tenant-B und akzeptiert ein Tenant-A-Invite)
-//   - "carol@" existiert NICHT (für Branch 3: neue Email)
+//   - Tenant-A with Alice as an Admin member
+//   - Tenant-B with Bob as a member (Branch 1: Bob is logged in to Tenant-B and
+//     accepts a Tenant-A invite)
+//   - Carol does not exist (Branch 3: new email)
 //
-// Flow pro Test:
-//   1. Admin invitet email → invite-create (Admin-Auth)
-//   2. Invite-Mail via delivery (in-memory transport) an den Invitee
-//   3. Token aus dem Mail-HTML extrahieren (NICHT aus dem Admin-Result)
-//   4. Branch-spezifischer Accept-Endpoint
-//   5. DB-State + Membership + Cookies/JWT verifizieren
+// Flow for each test:
+//   1. Admin invites an email via invite-create (Admin authentication)
+//   2. delivery sends the invite email through the in-memory transport
+//   3. Extract the token from the email HTML, not from the admin response
+//   4. Call the branch-specific accept endpoint
+//   5. Verify database state, membership, and cookies/JWT
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -84,13 +83,12 @@ const assignableRolesAppFeature = defineFeature("invite-assignable-roles-app", (
 let stack: TestStack;
 let aliceId: string;
 let bobId: string;
-// Pro Test frische Tenant-IDs damit der event-store-stream beim
-// db.delete-cleanup nicht mit version_conflict beim Re-seed feuert.
+// Use fresh tenant IDs for each test because the event-store stream would
+// otherwise raise version_conflict when cleanup is followed by re-seeding.
 let TENANT_A_ID: TenantId;
 let TENANT_B_ID: TenantId;
 
 function newTenantId(_suffix: string): TenantId {
-  // UUIDv4 + suffix für Lesbarkeit in Logs.
   const rand = crypto.randomUUID();
   return rand as TenantId;
 }
@@ -167,8 +165,8 @@ beforeEach(async () => {
   // rate-limit test's own budget.
   await stack.redis.flushNamespace();
 
-  // Pro Test frische Tenant-IDs + tenant.key (sonst unique-violation
-  // auf read_tenants_key_unique beim 2. Run).
+  // Use fresh tenant IDs and tenant.key values for each test to avoid a
+  // unique-violation on read_tenants_key_unique during the second run.
   TENANT_A_ID = newTenantId("a");
   TENANT_B_ID = newTenantId("b");
   await seedTenant(stack.db, {
@@ -182,7 +180,6 @@ beforeEach(async () => {
     name: "Tenant B",
   });
 
-  // Alice = Admin von Tenant-A
   ({ id: aliceId } = await seedUser(stack.db, {
     email: ALICE_EMAIL,
     displayName: "Alice",
@@ -195,7 +192,6 @@ beforeEach(async () => {
     roles: ["Admin"],
   });
 
-  // Bob = Member von Tenant-B (für Branch 1 + 2 tests)
   ({ id: bobId } = await seedUser(stack.db, {
     email: BOB_EMAIL,
     displayName: "Bob",
@@ -256,9 +252,9 @@ async function expectInvitationSuperseded(res: Response): Promise<void> {
 }
 
 async function inviteEmail(email: string, role: string): Promise<string> {
-  // invite-create geht via /api/write (Admin-Auth via JWT). Der Handler
-  // dispatcht die Invite-Mail via delivery; der Token erreicht den Invitee
-  // NUR über die Mail (das Admin-Result enthält ihn nicht mehr).
+  // invite-create uses /api/write with JWT authentication. The handler sends
+  // the invite through delivery, so the token reaches the invitee only by email;
+  // it is no longer included in the admin response.
   await stack.http.writeOk(AuthHandlers.inviteCreate, { email, role }, aliceSession());
   const sent = emailTransport.sent.at(-1);
   if (!sent) throw new Error("invite-create didn't send a mail");
@@ -275,8 +271,8 @@ describe("invite-create", () => {
 
     expect(result.email).toBe(BOB_EMAIL);
     expect(result.role).toBe("Admin");
-    // Der Token geht NICHT an den Admin zurück (er soll die Annahme nicht
-    // impersonieren können) — nur an den Invitee per Mail.
+    // The token is not returned to the admin, preventing the admin from
+    // impersonating the invitee; it is sent only to the invitee by email.
     expect((result as { token?: string }).token).toBeUndefined();
 
     expect(emailTransport.sent).toHaveLength(1);
@@ -347,7 +343,6 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(result.role).toBe("Admin");
     expect(result.alreadyMember).toBe(false);
 
-    // Bob hat jetzt 2 Memberships
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(2);
     const tenantIds = memberships.map((m) => m["tenantId"]).sort();
@@ -551,7 +546,7 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(2);
 
-    // fw#2333 — Bob has no stored locale, so the JWT must carry no locale
+    // Bob has no stored locale, so the JWT must carry no locale
     // claim at all (not null, not "").
     const payload = await stack.jwt.verify(body.token as string);
     expect(payload.locale).toBeUndefined();
@@ -810,7 +805,6 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
 
-    // Bob hat keine zweite Membership erworben
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(1);
     void GUEST;
@@ -1104,7 +1098,7 @@ describe("cancel-invitation", () => {
     const updated = await selectMany(stack.db, tenantInvitationsTable, { id: invitationId });
     expect(updated[0]?.["status"]).toBe("cancelled");
 
-    // Accept mit dem gecancelten Token → invalid
+    // Accepting the cancelled token must fail.
     const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
     expect(res.status).toBe(422);
   });
@@ -1115,7 +1109,6 @@ describe("invitations-query (pending list)", () => {
     await inviteEmail(BOB_EMAIL, "Admin");
     await inviteEmail(CAROL_EMAIL, "Editor");
 
-    // Cancel das erste
     const allRows = await selectMany(stack.db, tenantInvitationsTable);
     const bobInv = allRows.find((r) => r["email"] === BOB_EMAIL);
     if (!bobInv) throw new Error("bob invitation missing");

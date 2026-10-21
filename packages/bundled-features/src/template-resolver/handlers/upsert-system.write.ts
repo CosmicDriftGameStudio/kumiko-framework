@@ -3,10 +3,9 @@ import { resolveTemplateVariables } from "../template-validation.ts";
 import { upsertPayloadSchema } from "./shared.ts";
 import { writeTemplateRow } from "./template-write.ts";
 
-// System-Template anlegen/updaten. Liegt unter SYSTEM_TENANT_ID,
-// scope='system'. Nur SystemAdmin (globale Rolle). TenantAdmin kann
-// keine System-Defaults überschreiben — der nutzt upsertTenant für
-// Overrides.
+// Creates or updates a system template under SYSTEM_TENANT_ID with
+// scope='system'. Only SystemAdmin can change these global defaults;
+// TenantAdmin uses upsertTenant for overrides instead.
 export const upsertSystemWrite = defineWriteHandler({
   name: "upsert-system",
   schema: upsertPayloadSchema,

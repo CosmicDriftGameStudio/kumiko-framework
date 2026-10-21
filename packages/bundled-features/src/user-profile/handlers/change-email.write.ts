@@ -10,9 +10,9 @@ import { decryptStoredPii, verifyPassword } from "../../shared/index.ts";
 import { UserErrors, UserHandlers, UserQueries } from "../../user/index.ts";
 import { UserProfileErrors } from "../web/constants.ts";
 
-// Gleiche Failure-Shape wie auth-email-password (anti-enumeration):
-// dessen errors.ts ist nicht Teil des Feature-Barrels, der Reason-Code
-// + i18nKey sind aber stabile Public-API.
+// Same failure shape as auth-email-password (anti-enumeration):
+// its errors.ts is not part of the feature barrel, but the reason code
+// and i18nKey are stable public API.
 // @wrapper-known error-helper
 function invalidCredentials() {
   return writeFailure(
@@ -22,13 +22,13 @@ function invalidCredentials() {
   );
 }
 
-// Change-email — authenticated, self-only. Der User bestätigt mit seinem
-// aktuellen Passwort (Re-Auth wie change-password); die neue Adresse wird
-// via ctx.writeAs(system) gegen den user-update-Handler geschrieben, weil
-// `email` field-level privileged ist und bei Self-Updates sonst silent
-// gestrippt würde. emailVerified flippt auf false — die App triggert
-// anschließend den Verification-Flow (request-email-verification ist
-// public; der ProfileScreen ruft ihn nach Erfolg auf).
+// Change-email — authenticated, self-only. The user confirms with their
+// current password (re-authentication as with change-password); the new
+// address is written through the user-update handler via ctx.writeAs(system)
+// because `email` is field-level privileged and would otherwise be silently
+// stripped during self-updates. emailVerified is set to false — the app then
+// triggers the verification flow (request-email-verification is public; the
+// ProfileScreen calls it after success).
 export const changeEmailWrite = defineWriteHandler({
   name: "change-email",
   schema: z.object({
@@ -88,9 +88,9 @@ export const changeEmailWrite = defineWriteHandler({
       );
     }
 
-    // user ist systemStream (#497): der Event-Stream liegt deterministisch
-    // auf SYSTEM_TENANT_ID. Pre-#497-Streams brauchen einmalig
-    // backfillUserStreamTenants (#762).
+    // user is systemStream: the event stream is deterministically located
+    // on SYSTEM_TENANT_ID. Older streams require a one-time
+    // backfillUserStreamTenants.
     const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     const writeRes = await ctx.writeAs(writer, UserHandlers.update, {

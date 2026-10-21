@@ -15,7 +15,7 @@ export type MailTransportContractOptions = {
   // Local providers (inmemory) can assert real delivery via readBack —
   // remote providers (smtp) can't (send() needs a live server), so their
   // delivery test must show as an explicit `skip` in test output, not a
-  // silently-passing green with zero assertions (#1334).
+  // silently-passing green with zero assertions.
   readonly verifiesDelivery: boolean;
 };
 

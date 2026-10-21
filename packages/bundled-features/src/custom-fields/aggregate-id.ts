@@ -1,28 +1,27 @@
 import { v5 as uuidv5 } from "uuid";
 
-// Fixed UUID-namespace für custom-field-definition aggregate-id-Ableitung.
-// Generiert einmalig (2026-05-22), in Stein gemeißelt: ein Wechsel würde
-// jeden existing fieldDefinition-Stream re-keyen → kaputter event-replay,
-// kaputte definition-history. Drift-Pin in __tests__/drift.test.ts.
+// Fixed UUID namespace for deriving custom-field definition aggregate IDs.
+// Generated once; changing it would re-key every existing fieldDefinition stream,
+// breaking event replay and definition history. Drift is pinned in
+// __tests__/drift.test.ts.
 const FIELD_DEFINITION_NAMESPACE = "f1d3b2c7-4e5a-4b9c-8d1f-2a3b4c5d6e7f";
 
 /**
- * Deterministic aggregate-id für ein fieldDefinition-Aggregate aus dem
- * Tripel (tenantId, entityName, fieldKey). Pro (Tenant|System, Entity,
- * FieldKey) existiert genau ein Aggregate.
+ * Deterministic aggregate ID for a fieldDefinition aggregate from the tuple
+ * (tenantId, entityName, fieldKey). Exactly one aggregate exists per
+ * (Tenant|System, Entity, FieldKey).
  *
- * **Scope-Semantik:**
- *   - System-Scope: `tenantId = SYSTEM_TENANT_ID` → die fieldDefinition
- *     gilt für alle Tenants (vendor-defined).
- *   - Tenant-Scope: `tenantId = <tenant-uuid>` → pro Tenant eigene
+ * **Scope semantics:**
+ *   - System scope: `tenantId = SYSTEM_TENANT_ID` → the fieldDefinition applies
+ *     to all tenants (vendor-defined).
+ *   - Tenant scope: `tenantId = <tenant-uuid>` → each tenant has its own
  *     fieldDefinition.
  *
- * **Conflict-Rule** (durchgesetzt im write-handler, NICHT via DB-constraint):
- *   Pro (entityName, fieldKey) darf nur EINE Definition existieren — entweder
- *   system oder tenant, nicht beide. Wenn system `customer.internalNumber`
- *   definiert, kann Tenant kein eigenes `customer.internalNumber` mehr
- *   definieren (422 `fieldKey_conflict`). Verhindert Resolution-Ambiguität
- *   beim Read.
+ * **Conflict rule** (enforced in the write handler, NOT via a DB constraint):
+ *   Only ONE definition may exist per (entityName, fieldKey)—system or tenant,
+ *   but not both. If system defines `customer.internalNumber`, a tenant cannot
+ *   define its own `customer.internalNumber` (422 `fieldKey_conflict`). This
+ *   prevents ambiguity when resolving the field during reads.
  */
 // @wrapper-known uuid-domain
 export function fieldDefinitionAggregateId(

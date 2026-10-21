@@ -1,12 +1,12 @@
-// Auth-Gate: rendert den LoginScreen solange der Session-Status
-// "unauthenticated" ist, sonst die Kinder. "loading" zeigt einen
-// minimalen Placeholder — die initiale Refresh-Runde liefert in der
-// Regel in <100ms, also kein Spinner-Overkill.
+// Auth gate: renders the LoginScreen while the session status is
+// "unauthenticated" and the children otherwise. "loading" shows a
+// minimal placeholder—the initial refresh usually completes in <100ms,
+// so a spinner would be excessive.
 //
-// Die Factory makeAuthGate schließt die LoginScreen-Komponente in,
-// damit das Gate der ClientFeatureDefinition-Signatur entspricht
-// (nur `{ children }`-Prop). Der Sample kann so einen eigenen Login-
-// Screen rein konfigurieren, ohne den Gate selbst ersetzen zu müssen.
+// The makeAuthGate factory closes over the LoginScreen component so the
+// gate matches the ClientFeatureDefinition signature (only a `{ children }`
+// prop). This lets the sample configure a custom login screen without
+// replacing the gate.
 
 import { useLocale } from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from "react";
@@ -57,12 +57,11 @@ export type LoginRouteOptions = {
 // their own standalone login route outside any gate (createPublicSurface
 // apex pages stack providers, not gates — see auth-mount.tsx recipes).
 // Handing an app raw LoginScreen + telling it to hand-roll the challenge-
-// token swap itself is exactly how kumiko-framework#266's login-time MFA
-// step went missing in a real apex surface; this prevents the *most common*
-// version of that mistake. MFA still only actually works once a consumer
-// wires `mfaVerifyScreen` — omitting it is a silent no-MFA fallback, not
-// something this route can catch on its own (auth-mfa is a separate,
-// optional package).
+// token swap itself is exactly how the login-time MFA step went missing in a
+// real apex surface; this prevents the *most common* version of that mistake.
+// MFA still only actually works once a consumer wires `mfaVerifyScreen` —
+// omitting it is a silent no-MFA fallback, not something this route can catch
+// on its own (auth-mfa is a separate, optional package).
 export function createLoginRoute(
   opts: LoginRouteOptions = {},
 ): ComponentType<Record<string, never>> {
@@ -82,7 +81,7 @@ export function createLoginRoute(
       readonly accountLabel: string;
     } | null>(null);
 
-    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+    // kumiko-lint-ignore no-raw-hooks
     useEffect(() => {
       if (status === "authenticated") onAuthenticated?.();
     }, [status]);
@@ -236,7 +235,7 @@ export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
       [status, locale, origin, pathname, search, hash],
     );
     const redirectUrl = loginRedirect?.kind === "redirect" ? loginRedirect.url : null;
-    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+    // kumiko-lint-ignore no-raw-hooks
     useEffect(() => {
       if (redirectUrl !== null) window.location.replace(redirectUrl);
     }, [redirectUrl]);

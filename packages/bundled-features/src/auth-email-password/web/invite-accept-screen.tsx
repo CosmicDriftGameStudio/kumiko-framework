@@ -1,19 +1,19 @@
-// InviteAcceptScreen — Magic-Link-Accept für Tenant-Invitations.
+// InviteAcceptScreen — accepts tenant invitations through a magic link.
 //
-// Liest `?token=...` aus der URL und branched intern je nach session-state:
-//   - Logged-in + Email-Match: 1-click accept (Branch 1, dispatcher
-//     invite-accept). Bei Email-Mismatch zeigen wir die fehlermeldung
-//     und einen "Mit anderem Account anmelden"-Link.
-//   - Anonymous: Email + Password-Form. Toggle "Schon einen Account?"
-//     entscheidet Branch 2 (existing user, login + accept) vs Branch 3
-//     (neuer user, signup + accept).
+// Reads `?token=...` from the URL and selects a flow based on session state:
+//   - Logged in with a matching email: one-click accept (Branch 1, via the
+//     invite-accept dispatcher). For an email mismatch, show an error and a
+//     "Sign in with a different account" link.
+//   - Anonymous: email and password form. The "Already have an account?" toggle
+//     selects Branch 2 (existing user, login + accept) or Branch 3 (new user,
+//     signup + accept).
 //
-// Anti-enumeration: invalidInviteToken collapsed alle Token/User/
-// Password-Failures auf einen Code (gleicher Trade-off wie reset).
+// Anti-enumeration: invalidInviteToken collapses token, user, and password
+// failures into one code, using the same trade-off as reset.
 //
-// Auto-Login: Branch 2+3 setzen Cookies via Server, Frontend redirected
-// zu loggedInHref. Branch 1 hat schon eine Session — Frontend redirected
-// auch zu loggedInHref damit der invitee in seinem neuen Tenant landet.
+// Auto-login: Branches 2 and 3 set cookies through the server, then the
+// frontend redirects to loggedInHref. Branch 1 already has a session, but the
+// frontend also redirects to loggedInHref so the invitee enters the new tenant.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
@@ -34,7 +34,7 @@ export type InviteAcceptScreenProps = {
   readonly loggedInHref?:
     | string
     | ((args: { tenantId: string; roles: readonly string[] }) => string);
-  /** Login-Href für "Mit anderem Account anmelden". Default "/login". */
+  /** Login href for "Mit anderem Account anmelden". Default "/login". */
   readonly loginHref?: string;
 };
 
@@ -112,7 +112,7 @@ export function InviteAcceptScreen({
   const acceptLoggedIn = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
-    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+    // kumiko-lint-ignore no-raw-hooks conversion
     const res = await fetch("/api/auth/invite-accept", {
       method: "POST",
       credentials: "same-origin",
@@ -132,7 +132,7 @@ export function InviteAcceptScreen({
   const acceptAnonExisting = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
-    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+    // kumiko-lint-ignore no-raw-hooks conversion
     const res = await fetch("/api/auth/invite-accept-with-login", {
       method: "POST",
       credentials: "same-origin",
@@ -152,7 +152,7 @@ export function InviteAcceptScreen({
   const acceptAnonNew = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
-    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+    // kumiko-lint-ignore no-raw-hooks conversion
     const res = await fetch("/api/auth/invite-signup-complete", {
       method: "POST",
       credentials: "same-origin",

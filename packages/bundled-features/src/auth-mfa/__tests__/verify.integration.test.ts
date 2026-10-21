@@ -398,7 +398,7 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
   test("user row homed in a DIFFERENT tenant than the challenge → verify succeeds (#1235)", async () => {
     const { user, secret } = await enableMfaFor(8);
 
-    // Re-home the read_users row into another tenant — the #1235 layout:
+    // Re-home the read_users row into another tenant — the layout where:
     // the user entity is tenant-agnostic (systemStream), so its row's
     // tenant_id need not match the tenant being logged into. The old
     // tenant-scoped UserQueries.detail lookup returned null here and every

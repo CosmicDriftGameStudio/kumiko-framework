@@ -56,8 +56,8 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // already rules that out).
       if (verify.payload.userId !== event.user.id) return invalidSetupToken();
 
-      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts
-      // (#1467): session-authed (lower risk — the caller already has a
+      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts:
+      // session-authed (lower risk — the caller already has a
       // valid JWT), but silently skipping the single-use burn here would
       // still let a double-confirm race complete twice instead of the
       // second seeing invalidSetupToken(). Checked before the TOTP verify

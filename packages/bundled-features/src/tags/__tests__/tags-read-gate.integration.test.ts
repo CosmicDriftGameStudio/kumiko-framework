@@ -1,6 +1,6 @@
-// The read twin of tags-parent-visibility.integration.test.ts (fw#2766).
-// assign/remove were gated against the host row's own read path since
-// #2721/#2745, but `tag-assignment:list` returned every row of the tenant —
+// The read twin of tags-parent-visibility.integration.test.ts.
+// assign/remove were gated against the host row's own read path, but
+// `tag-assignment:list` returned every row of the tenant —
 // including assignments on host rows the caller could never see. Closing that
 // is default-on: none of the mounts below set `ownership`, which used to be
 // the only lever.

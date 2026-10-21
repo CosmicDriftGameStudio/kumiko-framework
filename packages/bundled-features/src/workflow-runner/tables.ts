@@ -12,12 +12,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 
 // workflow_run_pending — one row per currently-suspended workflow step.
-// Read-side of the resume loop (framework#2513 Phase 1): the wait /
+// Read-side of the resume loop: the wait /
 // waitForEvent / retry steps already write their suspension onto the
 // workflow-run event stream, but scanning kumiko_events for due runs
 // doesn't scale (see samples/recipes/workflow-engine/postgres-resume-loop.ts,
 // which does exactly that). This table is kept in sync by
-// pending-projection.ts's MultiStreamProjection so Phase 2's resume job can
+// pending-projection.ts's MultiStreamProjection so the resume job can
 // do an indexed `wakeAt < now()` scan instead.
 //
 // **Unmanaged table** — same reasoning as delivery/tables.ts'
@@ -31,7 +31,7 @@ import {
 // key only, see aggregate-id.ts), so two tenants triggering the same
 // workflow with the same idempotencyKey get the SAME run_id. Without
 // tenant_id in the key, a same-stepIndex suspension from tenant B would
-// upsert onto tenant A's row and silently steal it (framework#2513).
+// upsert onto tenant A's row and silently steal it.
 export const workflowRunPendingTable = pgTable(
   "workflow_run_pending",
   {
@@ -45,14 +45,14 @@ export const workflowRunPendingTable = pgTable(
     // which step suspended.
     wakeAt: instant("wake_at").notNull(),
     retryAttempt: integer("retry_attempt"),
-    // Q7 snapshot fingerprint — Phase 2 compares this against the current
+    // Snapshot fingerprint — compares this against the current
     // workflow definition's fingerprint before resuming.
     definitionFingerprint: text("definition_fingerprint"),
     // Set only for waitForEvent suspensions; NULL for wait/retry.
     waitEventType: text("wait_event_type"),
     matchExpr: jsonb("match_expr"),
-    // Written by the Phase 3 event-subscriber when the awaited event
-    // arrives — always NULL in Phase 1/2. The row points at the awaited event
+    // Written by the event subscriber when the awaited event
+    // arrives — always NULL initially. The row points at the awaited event
     // ({ eventId, aggregateId, version }); resume-run re-reads it from the
     // event store, so erasing the event also covers the workflow.
     triggerEventType: text("trigger_event_type"),

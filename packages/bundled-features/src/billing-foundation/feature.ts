@@ -1,54 +1,53 @@
 // kumiko-feature-version: 1
 //
-// subscription-foundation als Kumiko bundled feature (Plugin-Host).
+// subscription-foundation as a Kumiko bundled feature (plugin host).
 //
-// **Multi-Provider von Tag 1** — der App-Builder kann mehrere Plugins
-// parallel mounten (subscription-stripe + subscription-paypal +
-// subscription-apple-iap + ...) und der Endkunde wählt beim Subscribe-
-// Klick zwischen Karte/PayPal/Apple-Pay/Klarna/SEPA (Disney+-Pattern).
-// KEIN globaler `provider`-config-key — alle gemounteten Plugins sind
-// aktiv.
+// **Multi-provider from day one** — the app builder can mount multiple plugins
+// in parallel (subscription-stripe + subscription-paypal +
+// subscription-apple-iap + ...), and the end user chooses between
+// card/PayPal/Apple Pay/Klarna/SEPA at checkout (Disney+ pattern).
+// There is no global `provider` config key — all mounted plugins are active.
 //
-// **Was diese Foundation liefert:**
-//   1. **Plugin-API** für Subscription-Provider via `r.extendsRegistrar(
+// **What this foundation provides:**
+//   1. **Plugin API** for subscription providers via `r.extendsRegistrar(
 //      "subscriptionProvider", ...)`.
-//   2. **5 Domain-Events** auf dem `subscription`-stream (eine
-//      stream-id pro Tenant): created/updated/canceled/invoice-paid/
-//      invoice-payment-failed. Audit-history kommt frei vom event-store.
-//   3. **Inline-Projection** auf `read_subscriptions` (= current state
-//      pro Tenant). Apply läuft in derselben TX wie der event-append
+//   2. **5 domain events** on the `subscription` stream (one stream ID per
+//      tenant): created/updated/canceled/invoice-paid/invoice-payment-failed.
+//      Audit history is provided automatically by the event store.
+//   3. **Inline projection** onto `read_subscriptions` (current state per
+//      tenant). Apply runs in the same TX as the event append
 //      → read-your-own-write semantics.
-//   4. **process-event-handler**: programmatic write-handler den der
-//      webhook-handler aufruft, dispatcht zu type-passendem appendEvent.
+//   4. **process-event handler**: a programmatic write handler called by the
+//      webhook handler that dispatches to the type-matched appendEvent.
 //   5. **createSubscriptionWebhookRoute**: factory for the `entry:"signature"`
 //      extraRoute `/api/subscription/webhook/:providerName`.
-//   6. **payment-received event + read_payments projection**: one-off-
-//      payments (checkout mode "payment") get their own event, own
-//      per-tenant aggregate, and own `process-payment-event` write-handler
-//      — not a sixth SubscriptionEventTypes value (fw#2791).
+//   6. **payment-received event + read_payments projection**: one-off payments
+//      (checkout mode "payment") get their own event, per-tenant aggregate,
+//      and `process-payment-event` write handler — not a sixth
+//      SubscriptionEventTypes value.
 //   7. **Optional billing-plans catalog** (`createBillingFoundationFeature({
 //      baseUrl, catalog })`): a `billing-foundation:query:billing-plans`
-//      query plus `start-plan-checkout`/`switch-plan` write-handlers and a
+//      query plus `start-plan-checkout`/`switch-plan` write handlers and a
 //      dormant `billing-plans` dashboard screen/panel, all derived from the
-//      one `catalog` option — no separate per-app price wiring.
+//      single `catalog` option — no separate per-app price wiring.
 //
-// **Was diese Foundation NICHT macht:**
-//   - Kein r.entity für `subscription`. Die Tabelle ist eine reine
-//     Read-Projection — kein CRUD-Pfad. Schreibt wird ausschließlich
-//     via projection-apply, getriggert von einem der 5 events.
-//   - Kein Tier-Sync zum tier-engine. App-Owner liest die subscription-
-//     row via `getSubscriptionForTenant(ctx, tenantId)` wenn er möchte.
-//   - Keine provider-spezifischen Configs.
-//   - Kein Marketplace-Use-Case (App-Tenant billed Endkunden via
-//     Stripe Connect). Kommt als separate `marketplace-foundation`.
+// **What this foundation does NOT do:**
+//   - No r.entity for `subscription`. The table is a read-only projection —
+//     there is no CRUD path. It is written exclusively via projection-apply,
+//     triggered by one of the 5 events.
+//   - No tier sync with tier-engine. App owners can read the subscription row
+//     via `getSubscriptionForTenant(ctx, tenantId)` if needed.
+//   - No provider-specific configs.
+//   - No marketplace use case (the app tenant bills end customers via Stripe
+//     Connect). That comes later as a separate `marketplace-foundation`.
 //
-// **Provider-Wechsel:** Disney+-Pattern (= Tenant cancelt Stripe-sub,
-// startet neue mit PayPal) wird heute als zweiter `subscription-created`-
-// event modelliert. UPSERT in der projection-apply überschreibt den
-// existing row mit dem neuen providerName. Reicht für MVP. Wenn das
-// business-fact "Provider-Wechsel" ein eigenes domain-event braucht
-// (z.B. für analytics: "wie viele Wechsel im Monat?"), kommt ein
-// `subscription-provider-changed`-event-type später.
+// **Provider changes:** The Disney+ pattern (the tenant cancels a Stripe
+// subscription and starts a new one with PayPal) is currently modeled as a
+// second `subscription-created` event. UPSERT in projection-apply overwrites
+// the existing row with the new providerName. This is sufficient for the MVP.
+// If the business fact "provider change" needs its own domain event (for
+// example, for analytics such as "how many changes per month?"), a
+// `subscription-provider-changed` event type can be added later.
 
 import {
   defineFeature,
@@ -199,19 +198,19 @@ export function createBillingFoundationFeature<TTier extends string = string>(
         },
       });
 
-      // Plugin extension-point. Provider-Plugins registrieren sich hier.
+      // Plugin extension point. Provider plugins register here.
       r.extendsRegistrar(SUBSCRIPTION_PROVIDER_EXTENSION, {
         onRegister: () => {
           // No side-effects at register-time.
         },
       });
 
-      // Custom write-handlers:
-      //   - process-event: programmatic entry-point vom webhook-handler;
-      //     dispatcht zu type-passendem appendEvent
+      // Custom write handlers:
+      //   - process-event: programmatic entry point called by the webhook
+      //     handler; dispatches to the type-matched appendEvent
       //   - create-checkout-session: bare priceId-driven checkout (hardened,
       //     see checkout-core)
-      //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
+      //   - create-portal-session: Tenant Admin "Manage Subscription" flow
       r.writeHandler(createProcessEventHandler(widened.now));
       r.writeHandler(createCheckoutSessionHandler(widened));
       r.writeHandler(createPortalSessionHandler(widened));

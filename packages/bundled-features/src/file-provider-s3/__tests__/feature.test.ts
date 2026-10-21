@@ -69,11 +69,10 @@ function s3Plugin(): FileProviderPlugin {
 
 describe("fileProviderS3Feature — build() guard", () => {
   test("build ohne ctx.config wirft (config-feature nicht gemountet)", async () => {
-    // Die tieferen Value-/Secret-Pfade (bucket/region/accessKeyId leer,
-    // secret fehlt, Happy-Path) hängen an der echten Config-/Secrets-
-    // Pipeline → S3-Integration-Test (setupTestStack + MinIO), nicht hier.
-    // Die requireNonEmpty-Werteprüfung selbst ist über
-    // foundation-shared/config-helpers abgedeckt.
+    // The deeper value/secret paths (empty bucket/region/accessKeyId,
+    // missing secret, happy path) depend on the real Config/Secrets pipeline
+    // and belong in an S3 integration test (setupTestStack + MinIO), not here.
+    // requireNonEmpty validation is covered by foundation-shared/config-helpers.
     await expect(s3Plugin().build({}, "tenant-x")).rejects.toThrow("ctx.config is missing");
   });
 });

@@ -1,5 +1,5 @@
 // Change-password and change-email sections for the declarative `profile`
-// projectionDetail screen (fw#2312, ../feature.ts). Both keep re-auth flows
+// projectionDetail screen (../feature.ts). Both keep re-auth flows
 // a declarative action can't express, so they stay React `EditExtensionSection`
 // components; account deletion moved to declarative fields/actions on the
 // screen itself — same split as user-data-rights' privacy-center

@@ -7,12 +7,12 @@ import {
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 
-// Liefert alle waehlbaren Compliance-Profile fuer das Tenant-Onboarding.
-// Pure In-Memory-Read der Constants — keine DB-Abfrage. Kein Caching
-// noetig (modulo Pre-Boot bereits aufgeloest).
+// Returns all selectable compliance profiles for tenant onboarding.
+// Pure in-memory read of the constants—no database query or caching is needed
+// because they are already resolved before boot.
 //
-// Filtert minimal-no-region raus — das ist Default-Fallback, nicht
-// auswählbar (Production soll explizite Wahl treffen).
+// Excludes minimal-no-region because it is the default fallback, not selectable;
+// production must make an explicit choice.
 export const listProfilesQuery = defineQueryHandler({
   name: "list-profiles",
   schema: z.object({}),

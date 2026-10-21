@@ -150,8 +150,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // re-enrollment until an operator manually disables MFA. NOT fixed by
       // this ordering: burnToken() above still runs before this check, so a
       // mid-flight restricted/deleted user still burns their setup token
-      // (framework#1523/5) — moving the burn later would need care around
-      // the existing userId-unique-constraint backstop between the
+      // — moving the burn later would need care around the
+      // existing userId-unique-constraint backstop between the
       // `existing` check above and executor.create() below.
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
       const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
@@ -207,10 +207,10 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         id: userId,
         tenantId,
         roles: mergedRoles,
-        // This endpoint logs the user in directly (fw#1760), so a stored
+        // This endpoint logs the user in directly, so a stored
         // timezone must survive the preauth-MFA-enrollment login just like
         // a plain password login does — same helper as verify.write.ts /
-        // invite-accept-with-login.write.ts (#1759).
+        // invite-accept-with-login.write.ts.
         ...sessionTimezoneField(userRow?.timezone),
         ...sessionLocaleField(userRow?.locale),
       };

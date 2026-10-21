@@ -1,4 +1,4 @@
-// T1.5d — per-field retention sweep.
+// Per-field retention sweep.
 //
 // `runCustomFieldsRetention(opts)` walks the host entity's rows, looks up
 // every fieldDefinition with a `retention` policy, and strips/nulls
@@ -342,10 +342,10 @@ describe("T1.5d: per-field retention sweep", () => {
       type: "text",
       retention: { keepFor: "30d", strategy: "delete" },
     });
-    // Pre-#972 legacy definition — parseSerializedField throws on `sensitive`.
-    // Simulate a pre-#972 legacy definition: define normally (valid shape),
+    // Legacy definition — parseSerializedField throws on `sensitive`.
+    // Simulate a legacy definition: define normally (valid shape),
     // then rewrite the stored column directly — write-time validation would
-    // reject `sensitive` today, but legacy rows written before #972 exist.
+    // reject `sensitive` today, but legacy rows written before support was removed exist.
     await defineField("legacyPii", { type: "text" });
     await asRawClient(stack.db).unsafe(
       `UPDATE read_custom_field_definitions SET serialized_field = '{"type":"text","sensitive":true}' WHERE field_key = 'legacyPii' AND entity_name = 'property'`,
@@ -354,7 +354,7 @@ describe("T1.5d: per-field retention sweep", () => {
     await setField(propertyId, "temp", "expired-value");
     // setField would now be denied (fail-closed on the corrupt/legacy
     // definition) — write the value directly to simulate data that was
-    // already stored before #972 removed `sensitive` support.
+    // already stored before `sensitive` support was removed.
     await asRawClient(stack.db).unsafe(
       `UPDATE read_t15d_properties SET custom_fields = custom_fields || '{"legacyPii":"untouched-value"}'::jsonb WHERE id = $1`,
       [propertyId],

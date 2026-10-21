@@ -12,7 +12,7 @@ const median = (samples: readonly number[]): number => {
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 };
 
-// #774: the login no-user path must cost the same argon2 latency as a real
+// The login no-user path must cost the same argon2 latency as a real
 // verify, otherwise response timing leaks whether an email is registered.
 describe("verifyDummyPassword (anti-enumeration timing)", () => {
   test("resolves to void, never matches", async () => {

@@ -12,9 +12,9 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // the old serial-id design and keeps duplicate-write protection at the
 // database level independent of the handler lookup.
 //
-// Single-Source-of-Truth: `tenantMembershipEntity`. Die DB-Tabelle wird
-// aus der EntityDefinition über buildEntityTable abgeleitet, der
-// unique-Index ist via entity.indexes deklariert.
+// Single source of truth: `tenantMembershipEntity`. The database table is
+// derived from the EntityDefinition through buildEntityTable, and the
+// unique index is declared via entity.indexes.
 export const tenantMembershipEntity = createEntity({
   table: "read_tenant_memberships",
   fields: {

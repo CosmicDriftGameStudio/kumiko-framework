@@ -34,7 +34,7 @@ import { createSessionCallbacks, type SessionCallbacks } from "../session-callba
 import { sessionCallbacksFromLateBound } from "../testing.ts";
 import { makeSessionHelpers } from "./test-helpers.ts";
 
-// Proves the #2220 lastSeenAt refresh: sessionChecker stamps a coarse
+// Proves the lastSeenAt refresh: sessionChecker stamps a coarse
 // activity marker on the session row, but only once per LAST_SEEN_REFRESH_MS
 // rather than on every authenticated request.
 

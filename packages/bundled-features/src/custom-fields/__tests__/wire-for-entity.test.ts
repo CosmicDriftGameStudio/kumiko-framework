@@ -3,9 +3,8 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
-// B2 wireCustomFieldsFor: einziger Aufruf registriert MSP + postQuery-hook +
-// search-payload-extension + useExtension-Marker. Tests pinnen die Surface
-// — Integration via setupTestStack kommt im T1 sprint.
+// wireCustomFieldsFor: a single call registers MSP + postQuery hook +
+// search-payload extension + useExtension marker. Tests pin the surface.
 
 const propertyEntity = createEntity({
   table: "read_test_properties",

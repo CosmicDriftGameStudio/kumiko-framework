@@ -1,10 +1,9 @@
-// Boot-Smoke-Test (S2.D2.5 M4) — verifiziert dass das data-retention-
-// Feature im setupTestStack hochfaehrt + Entity-Schema valide ist.
+// Boot smoke test — verifies that the data-retention feature starts in
+// setupTestStack and that its entity schema is valid.
 //
-// Tiefere Integration (Cleanup-Job mit DB-Operations + Strategy-Dispatch
-// + Cron-Trigger) kommt in S2.D2b. Dieser Smoke-Test fanngt frueh ab
-// ob Boot-Validation oder Entity-Definition gebrochen ist — pre-S2.D2b
-// Sicherheitsnetz.
+// Deeper integration (cleanup job with DB operations, strategy dispatch,
+// and cron trigger) is not covered here. This smoke test catches boot
+// validation or entity-definition failures early.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -29,8 +28,8 @@ afterAll(async () => {
 
 describe("data-retention :: feature-definition smoke", () => {
   test("Feature laedt clean (Boot-Validation passed)", () => {
-    // setupTestStack hat das Feature im beforeAll geladen — wenn Boot-
-    // Validation fehlschlaegt, waere dieser Block nie gelaufen.
+    // setupTestStack loaded the feature in beforeAll; if boot validation
+    // failed, this block would never run.
     expect(stack).toBeDefined();
     expect(feature.name).toBe("data-retention");
   });

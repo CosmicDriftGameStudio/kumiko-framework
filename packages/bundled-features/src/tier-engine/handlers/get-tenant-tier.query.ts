@@ -3,10 +3,10 @@ import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import * as z from "zod";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.ts";
 
-// Liest das Tier-Assignment eines BELIEBIGEN Tenants (cross-tenant) für den
-// tier-admin-Screen. SystemAdmin-only. get-active-tier liest nur den eigenen
-// Tenant — hier ein "system"-mode TenantDb auf den Ziel-Tenant (kein Filter),
-// damit der Admin das Tier fremder Tenants sehen kann. null wenn noch keins.
+// Reads the tier assignment of ANY tenant (cross-tenant) for the
+// tier-admin screen. SystemAdmin-only. get-active-tier reads only its own
+// tenant; this uses a "system"-mode TenantDb for the target tenant (no filter),
+// so the admin can view another tenant's tier. Returns null if none exists yet.
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 

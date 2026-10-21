@@ -32,7 +32,7 @@ async function loadMemberUserIds(db: TenantDb, tenantId: string): Promise<readon
   return [...new Set(memberships.map((row) => String(row["userId"])))].sort(compareIds);
 }
 
-// Label source behind every `user:user` reference column (fw#3107). The
+// Label source behind every `user:user` reference column. The
 // entity-convention lookup, user:query:user:list, is a SystemAdmin
 // cross-tenant roster, so a TenantAdmin got a 403 and every actor cell fell
 // back to the raw UUID. Deliberately narrower than tenant:query:members:

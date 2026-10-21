@@ -1,9 +1,11 @@
-// Anonymer, email-verifizierter Deletion-Flow (Apex, Lockout-sicher).
+// Anonymous, email-verified deletion flow (apex, lockout-safe).
 //
-// Schritt 1 (request-deletion-by-email): anonym, enumeration-safe, signt ein
-// HMAC-Token + ruft den Verify-Mail-Callback. Schritt 2 (confirm-deletion-by-
-// token): anonym, verifiziert das Token + startet die Grace-Period.
-// Beweist end-to-end via echte /api/write-Calls OHNE Auth (anonymousAccess).
+// Step 1 (request-deletion-by-email): anonymous and enumeration-safe; signs an
+// HMAC token and invokes the verification-email callback. Step 2
+// (confirm-deletion-by-token): anonymous; verifies the token and starts the
+// grace period.
+// Exercises the complete flow through real /api/write calls without auth
+// (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -140,7 +142,7 @@ describe("anonymous deletion flow", () => {
     expect(verifyCalls[0]?.email).toBe(ALICE_EMAIL);
     expect(verifyCalls[0]?.verifyUrl.startsWith(`${VERIFY_URL}#token=`)).toBe(true);
     expect(tokenFromLastVerifyCall().length).toBeGreaterThan(0);
-    // Status noch NICHT geflipt — erst confirm startet die Grace-Period.
+    // Status remains unchanged until confirm starts the grace period.
     expect(await statusOf()).toBe(USER_STATUS.Active);
   });
 
@@ -165,7 +167,6 @@ describe("anonymous deletion flow", () => {
     expect(body.data.status).toBe(USER_STATUS.DeletionRequested);
     expect(body.data.gracePeriodEnd.length).toBeGreaterThan(0);
 
-    // DB-State tatsächlich geflipt + gracePeriodEnd gesetzt.
     const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
       status: string;
       gracePeriodEnd: unknown;
@@ -189,9 +190,9 @@ describe("anonymous deletion flow", () => {
     expect(first.status).toBe(200);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
-    // Pre-cancel-Replay: zweites Confirm trifft den noch-pending User
-    // (DeletionRequested) → der Active-State-Guard schlägt zu → 422. (Den
-    // post-cancel-Replay deckt der requestId-Test darunter ab.)
+    // Pre-cancel replay: the second confirmation reaches the still-pending user
+    // (DeletionRequested), so the Active-state guard rejects it with 422. The
+    // requestId test below covers post-cancel replay.
     const second = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token },
@@ -271,13 +272,13 @@ describe("anonymous deletion flow", () => {
     ).toBe(200);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
-    // 2. User loggt sich (innerhalb der Grace) ein und bricht ab → Active,
-    //    pendingDeletionRequestId genullt.
+    // 2. The user logs in during the grace period and cancels → Active;
+    //    pendingDeletionRequestId is cleared.
     await stack.http.writeOk(CANCEL_DELETION, {}, aliceUser);
     expect(await statusOf()).toBe(USER_STATUS.Active);
 
-    // 3. Dasselbe, noch TTL-gültige Token nachspielen → die genullte requestId
-    //    lässt die HMAC-Purpose nicht mehr aufgehen → 422, kein re-arm.
+    // 3. Replaying the same token while it is still valid under its TTL cannot
+    //    satisfy the HMAC purpose after requestId was cleared → 422, no re-arm.
     const replay = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token },
@@ -287,10 +288,10 @@ describe("anonymous deletion flow", () => {
   });
 
   test("supersede (#354/1): altes Token re-armt NICHT, nachdem ein zweiter Antrag eine neue requestId setzt", async () => {
-    // Der diskriminierende Fall gegen einen presence-only-Check: nach cancel
-    // macht ein FRISCHER Antrag den marker wieder non-null (neue requestId).
-    // Ein presence-only-Guard würde das alte Token jetzt fälschlich akzeptieren;
-    // der requestId-Match lehnt es ab (token1 trägt R1, Row hält R2).
+    // This distinguishes the requestId check from a presence-only check: after
+    //    cancel, a fresh request sets the marker again with a new requestId.
+    // A presence-only guard would incorrectly accept the old token; the
+    // requestId match rejects it (token1 carries R1, while the row holds R2).
     await seedAlice();
 
     await stack.http.raw("POST", "/api/write", {
@@ -306,7 +307,7 @@ describe("anonymous deletion flow", () => {
     await stack.http.writeOk(CANCEL_DELETION, {}, aliceUser);
     expect(await statusOf()).toBe(USER_STATUS.Active);
 
-    // Zweiter Antrag → neue requestId R2 auf der Row + token2.
+    // A second request assigns requestId R2 to the row and produces token2.
     verifyCalls.length = 0;
     await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
@@ -315,7 +316,8 @@ describe("anonymous deletion flow", () => {
     const token2 = tokenFromLastVerifyCall();
     expect(token2).not.toBe(token1);
 
-    // Altes token1 (R1) gegen Row mit R2 → bad_signature → 422, kein re-arm.
+    // The old token1 (R1) is checked against a row containing R2 →
+    // bad_signature → 422, with no re-arm.
     const replayOld = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token: token1 },
@@ -323,7 +325,7 @@ describe("anonymous deletion flow", () => {
     expect(replayOld.status).toBe(422);
     expect(await statusOf()).toBe(USER_STATUS.Active);
 
-    // Gegenprobe: das aktuelle token2 (R2) armt regulär.
+    // Control case: the current token2 (R2) arms the grace period normally.
     const confirmNew = await stack.http.raw("POST", "/api/write", {
       type: CONFIRM_BY_TOKEN,
       payload: { token: token2 },
@@ -366,9 +368,9 @@ describe("anonymous deletion flow", () => {
 
   test("confirm mit falsch-signiertem Token → 422", async () => {
     await seedAlice();
-    // Erst einen echten Antrag stellen, damit eine requestId auf der Row liegt
-    // — sonst greift schon der no-outstanding-request-Guard und der Bad-
-    // Signature-Pfad würde nie erreicht.
+    // First create a genuine request so the row has a requestId; otherwise the
+    // no-outstanding-request guard would reject the call before reaching the
+    // bad-signature path.
     await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
       payload: { email: ALICE_EMAIL },

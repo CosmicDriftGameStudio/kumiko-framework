@@ -38,7 +38,7 @@ export const globalFeatureStateTable: WritableSchemaTable & TenancyBrand<"global
 // sees the table, so `kumiko schema generate` reports no changes and no
 // app ever gets a migration for it (framework gap, not app-local). Derived
 // from the pgTable above instead of hand-written a second time — the two
-// used to drift independently (framework#1529): a column added only to
+// used to drift independently: a column added only to
 // the pgTable made queries type-check while the migration generator stayed
 // blind to it, failing in prod with "column ... does not exist" while every
 // mocked-stack test stayed green.

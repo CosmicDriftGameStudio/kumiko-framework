@@ -1,7 +1,7 @@
-// Anonymer Deletion-Flow mit aktivem PII-KMS + Blind-Index (#818 PR 2):
-// die User-Row liegt verschlüsselt in der DB. request-deletion-by-email muss
-// den User über die email_bidx-Spalte finden und die Verify-Mail an den
-// KLARTEXT schicken (vorher: Ciphertext-Adresse → Mail unzustellbar).
+// Anonymous deletion flow with active PII KMS and blind index:
+// the user row is encrypted in the database. request-deletion-by-email must
+// find the user through the email_bidx column and send the verification email
+// to the plaintext address (previously, the ciphertext address made delivery fail).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -83,8 +83,8 @@ beforeEach(async () => {
   verifyCalls.length = 0;
   await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
 
-  // KMS + bidx-Key VOR dem Seed — seedUser läuft über den Executor, die
-  // Row soll den verschlüsselten Prod-Zustand abbilden.
+  // Configure KMS and the blind-index key before seeding because seedUser runs
+  // through the executor and the row must represent the encrypted production state.
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   configureBlindIndexKey(BIDX_KEY);
   ({ id: aliceId } = await seedUser(stack.db, {

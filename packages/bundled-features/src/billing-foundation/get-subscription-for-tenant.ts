@@ -1,6 +1,4 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-// Resolver-helper: liest die current subscription-row für einen Tenant
-// aus der read_subscriptions-projection.
 
 import {
   configuredPiiSubjectKms,
@@ -27,9 +25,9 @@ export type SubscriptionView = {
   readonly lastChangedAt: Temporal.Instant;
 };
 
-/** Liefert die einzige subscription-row für den Tenant (deterministic
- *  aggregate-id), oder null wenn der Tenant nie subscribed hat. Status
- *  kann active/canceled/past_due/etc sein — Caller entscheidet was tun. */
+/** Returns the tenant's only subscription row (deterministic
+ *  aggregate ID), or null if the tenant has never subscribed. The status
+ *  may be active/canceled/past_due/etc.; the caller decides what to do. */
 export async function getSubscriptionForTenant(
   ctx: HandlerContext,
   tenantId: string,

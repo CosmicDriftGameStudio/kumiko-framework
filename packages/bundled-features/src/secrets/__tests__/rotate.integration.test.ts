@@ -242,14 +242,14 @@ describe("rotate-job circuit-breaker", () => {
       expect(plaintext).toBe(`secret-${expectedIndex}`);
     }
 
-    // Regression guard (kumiko-framework#1189): rotate.job.ts's
+    // Regression guard: rotate.job.ts's
     // executor.update() call carries no options, so it deliberately
     // never sets skipUnchanged — every rotation writes a real .updated
     // event, not a raw UPDATE. A full projection rebuild replays those
     // events; if a future refactor added skipUnchanged (or swapped the
     // event write for a raw column update) the rebuild would resurrect
     // the pre-rotation V1 envelopes instead of landing on V2, exactly
-    // the #464 failure class config/auth-mfa already guard against.
+    // the failure class config/auth-mfa already guard against.
     //
     // Vacuous-rebuild guard: confirm the projection name actually exists
     // and the rebuild really replayed events, so a wrong projection name

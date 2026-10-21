@@ -1,14 +1,14 @@
-// POST /userDataRights/run-forget-cleanup (S2.U5b).
+// POST /userDataRights/run-forget-cleanup.
 //
-// Cron-Trigger fuer den Forget-Cleanup-Pipeline. Der Handler wrapt nur
-// `runForgetCleanup` damit er via dispatcher (System-User) aufrufbar
-// wird — die Pipeline-Logik selbst lebt im pure-function Modul
-// `run-forget-cleanup.ts` (testbar ohne dispatcher).
+// Cron trigger for the forget-cleanup pipeline. The handler only wraps
+// `runForgetCleanup` so the dispatcher can invoke it as the system user;
+// the pipeline logic itself lives in the pure-function module
+// `run-forget-cleanup.ts`, which can be tested without the dispatcher.
 //
-// Access: privileged — nur System-Caller (cron, ops-script). Im Cron-
-// Setup laeuft der Job mit `createSystemUser(...)` als executor.
+// Access: privileged — only system callers (cron, ops script). In the cron
+// setup, the job runs with `createSystemUser(...)` as executor.
 //
-// Rueckgabe: Stats fuer Operator-Monitoring (processed-count, error-list).
+// Returns stats for operator monitoring (processed count, error list).
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";

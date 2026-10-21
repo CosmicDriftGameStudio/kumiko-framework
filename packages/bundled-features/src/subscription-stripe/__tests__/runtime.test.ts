@@ -1,8 +1,8 @@
-// Unit-Tests für die Runtime-Key/Flag-Resolution (runtime.ts) — das Herz
-// des v2-Pivots weg von mount-time-Closures. Stub-ctx/SecretsContext
-// statt echter DB: wir testen die Resolution-Logik (secrets→fallback→throw,
-// billing-live-Gate, Client-Memoization), nicht die secrets-Persistenz
-// (das deckt der Integration-Test ab).
+// Unit tests for runtime key/flag resolution (runtime.ts), the core of the
+// v2 pivot away from mount-time closures. Stub ctx/SecretsContext instead of a
+// real database: these tests cover resolution (secrets→fallback→throw), the
+// billing-live gate, and client memoization, not secret persistence (covered by
+// the integration test).
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -22,10 +22,10 @@ import {
 } from "../constants.ts";
 import { createStripeClientCache, createStripeRuntimes } from "../runtime.ts";
 
-// Handle-Namen aus den kanonischen Konstanten + demselben Qualifier ableiten,
-// den r.config zur Build-Zeit anwendet (define-feature.ts: qn(toKebab(feature),
-// "config", toKebab(shortKey))). Eine hand-redeklarierte Fixture konnte still
-// von der Produktion driften (#421/2) — diese Ableitung macht das unmöglich.
+// Derive handle names from the canonical constants and the same qualifier
+// applied by r.config at build time (define-feature.ts: qn(toKebab(feature),
+// "config", toKebab(shortKey))). A manually redeclared fixture could silently
+// drift from production; deriving it this way makes that impossible.
 const configHandleName = (shortKey: string): string =>
   qn(toKebab(SUBSCRIPTION_STRIPE_FEATURE), "config", toKebab(shortKey));
 
@@ -42,15 +42,15 @@ const BILLING_LIVE_HANDLE: ConfigKeyHandle<"boolean"> = {
   type: "boolean",
 };
 
-/** Stub-SecretsContext: liest aus einer in-memory-map, matcht per
- *  qualified-name. backing:"secrets" persistiert config-Werte JSON-
- *  serialisiert — der Stub spiegelt das per Default, damit der Runtime-
- *  parseStoredSecret denselben Pfad nimmt wie gegen den echten Store.
- *  `raw: true` speichert UN-serialisiert (482/1) — um parseStoredSecret's
- *  Fehlerpfad zu treffen: ein Credential, das der Store un-JSON-kodiert
- *  zurückgibt (Korruption oder außerhalb des backing:"secrets"-Roundtrips
- *  geschrieben) muss laut failen, nicht still Müll liefern. Ignoriert
- *  auditCtx. */
+/** Stub SecretsContext: reads from an in-memory map and matches by
+ *  qualified name. backing:"secrets" persists config values as JSON, so the
+ *  default mirrors that behavior and makes the runtime parseStoredSecret take
+ *  the same path as it does with the real store.
+ *  `raw: true` stores values without serialization to exercise
+ *  parseStoredSecret's error path: a credential returned by the store without
+ *  JSON encoding (because of corruption or because it was written outside the
+ *  backing:"secrets" round trip) must fail rather than silently return garbage.
+ *  Ignores auditCtx. */
 function stubSecrets(
   values: Record<string, string>,
   opts?: { readonly raw?: boolean },
@@ -78,9 +78,9 @@ function stubCtx(opts: { secrets?: SecretsContext; billingLive?: boolean }): Han
   return {
     secrets: opts.secrets,
     auditUserId: "tester",
-    // Key-aware: antwortet NUR auf das billing-live-Handle. Liest
-    // assertBillingLive versehentlich einen anderen Config-Key, kommt undefined
-    // zurück → Gate schließt → der "passes when true"-Test schlägt fehl (#421/3).
+    // Key-aware: responds ONLY to the billing-live handle. If assertBillingLive
+    // accidentally reads another config key, it returns undefined, the gate
+    // closes, and the "passes when true" test fails.
     config: async (handle: ConfigKeyHandle<"boolean">) =>
       handle.name === BILLING_LIVE_HANDLE.name ? opts.billingLive : undefined,
   } as unknown as HandlerContext; // @cast-boundary test-stub — partial ctx
@@ -166,7 +166,7 @@ describe("StripeCtxRuntime.clientForCtx", () => {
 });
 
 // =============================================================================
-// ctx-runtime: billing-live gate (#104 invariant)
+// ctx-runtime: billing-live gate
 // =============================================================================
 
 describe("StripeCtxRuntime.assertBillingLive", () => {

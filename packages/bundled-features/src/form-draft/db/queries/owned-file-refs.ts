@@ -8,7 +8,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 // Narrows a draft blob's raw FileRef-shaped storageKeys (collectDraftFileRefKeys
-// output — extracted from free-form, client-supplied JSON, issue #1889) down to
+// output — extracted from free-form, client-supplied JSON) down to
 // the ones with a real, non-deleted file_refs row owned by this exact
 // (tenantId, ownerId). Without this, a crafted draft value like
 // { storageKey: "<someone-else's-real-key>" } would reach the storage

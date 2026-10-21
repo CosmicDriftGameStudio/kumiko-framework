@@ -1,4 +1,4 @@
-// T1.5d — per-field retention sweep for the customFields jsonb.
+// Per-field retention sweep for the customFields jsonb.
 //
 // Iterates one host entity's rows, looks up every fieldDefinition with a
 // `retention` policy, and strips/nulls customField values whose host-row
@@ -158,7 +158,7 @@ async function loadRetentionPolicies(
   for (const raw of rows) {
     // skip: see asHostRow rationale.
     if (!isFieldDefinitionRow(raw)) continue;
-    // parseSerializedField throws on a #972 legacy `sensitive` definition —
+    // parseSerializedField throws on a legacy `sensitive` definition —
     // one unmigrated field must not abort the whole tenant's retention sweep
     // for every other field; skip it (no retention policy to apply anyway).
     let parsed: ReturnType<typeof parseSerializedField>;
@@ -178,7 +178,7 @@ interface InstantLike {
   readonly epochMilliseconds: number;
 }
 
-// guard:dup-ok — false positive: gleiche TypeGuard-Struktur wie isFieldDefinitionRow, völlig andere Semantik
+// guard:dup-ok — false positive: same type-guard structure as isFieldDefinitionRow, but completely different semantics
 function isInstantLike(value: unknown): value is InstantLike {
   if (!value || typeof value !== "object") return false;
   if (!("epochMilliseconds" in value)) return false;

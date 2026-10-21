@@ -56,7 +56,7 @@ export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Delete this page?",
   },
 
-  // Nur bei allowCustomCss:true im Screen — unconditional geliefert
+  // Only used when allowCustomCss:true in the screen; supplied unconditionally
   "managed-pages:entity:__config-edit__:field:customCss": { en: "Custom CSS" },
   "managed-pages:branding.section.custom-css": { en: "Custom CSS" },
 };

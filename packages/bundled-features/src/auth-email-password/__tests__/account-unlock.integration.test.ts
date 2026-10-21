@@ -1,4 +1,4 @@
-// Account-unlock integration tests (#1266) — the self-service escape hatch
+// Account-unlock integration tests — the self-service escape hatch
 // for the account-lockout monotonic counter: after a lock expires, the next
 // wrong password immediately re-locks (see account-lockout.integration.test.ts
 // "expired lock + wrong password → immediate re-lock"). This flow gives a
@@ -184,7 +184,7 @@ describe("POST /auth/confirm-account-unlock", () => {
     expect(await readLockoutState(seed.id)).toBeNull();
   });
 
-  // This is the actual bug fix from #1266: the monotonic counter otherwise
+  // This is the actual bug fix: the monotonic counter otherwise
   // re-locks on the very next wrong password once the lock window expires.
   // Confirming the unlock token must clear the COUNT key, not just the
   // until key — otherwise the escape hatch doesn't actually escape anything.

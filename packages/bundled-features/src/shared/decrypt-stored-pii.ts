@@ -8,7 +8,7 @@ import {
 // active KMS that is ciphertext (self-describing: it names its own subject,
 // so no entity/field context is needed for key selection). `field` must
 // still match the field name used at encrypt time — it is part of the
-// AAD (#1263), so a mismatch fails decrypt loud rather than silently
+// AAD, so a mismatch fails decrypt loud rather than silently
 // letting ciphertext cut-and-pasted from another field decrypt. An erased
 // subject yields the sentinel, which matches no real value.
 export async function decryptStoredPii(

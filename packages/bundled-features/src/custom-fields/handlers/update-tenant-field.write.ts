@@ -15,10 +15,10 @@ import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../web/constants.ts";
 //
 // **type is immutable**; an omitted type keeps the stored one. A type change
 // would orphan existing values in the host entities' customFields jsonb (a
-// text value under a number field), so delete + re-define is the honest path
-// (Bug-Bash D2: deliberately no delete+redefine inside update, since that
-// destroys event history and field ids, which is exactly the break a type
-// change needs to make visible).
+// text value under a number field), so delete + re-define is the honest path.
+// There is deliberately no delete+redefine inside update, since that destroys
+// event history and field ids, which is exactly the break a type change needs
+// to make visible.
 //
 // **Known MVP limit (deliberate):** the edit does NOT reconcile existing host
 // values against the new definition. Narrowed constraints (enum value removed,
@@ -32,7 +32,7 @@ import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../web/constants.ts";
 // (same trade-off as the quota soft cap in define), so last write wins instead
 // of a version round trip through the edit screen.
 export interface UpdateTenantFieldOptions {
-  /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — see
+  /** Access roles for this handler. Default ["TenantAdmin"] — see
    *  DefineTenantFieldOptions.roles, the definition-CRUD triad shares one gate. */
   readonly roles?: readonly string[];
 }
@@ -87,7 +87,7 @@ export function createUpdateTenantFieldHandler(
         });
       }
 
-      // entityName/fieldKey sind die Identität — nicht Teil der changes.
+      // entityName/fieldKey define the identity and must not be included in changes.
       const {
         entityName: _entityName,
         fieldKey: _fieldKey,

@@ -6,11 +6,10 @@ import { createCustomFieldsFeature } from "../feature.ts";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas.ts";
 import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../web/constants.ts";
 
-// delete-system-field — SystemAdmin entfernt eine system-weite Field-
-// Definition. Konsequenz: KEIN Tenant kann mehr neue Werte dafür setzen,
-// existing Werte in read_<entity>.customFields jsonb bleiben aber bestehen
-// (B2's MSP wird sie via customFieldDefinition.deleted-Event aufräumen).
-// Events bleiben für Audit.
+// delete-system-field — SystemAdmin deletes a system-wide field definition.
+// Tenants can no longer set new values for it, but existing values remain in
+// read_<entity>.customFields jsonb until host-entity MSPs remove them in
+// response to the customFieldDefinition.deleted event. Events remain for audit.
 export const deleteSystemFieldHandler: WriteHandlerDef = {
   name: "delete-system-field",
   schema: deleteFieldPayloadSchema,
@@ -32,8 +31,8 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
       streamTenantId,
     });
 
-    // Cascade-cleanup-Event — host-entity-MSPs entfernen orphan values aus
-    // ihrer customFields jsonb. Im selben TX = atomic.
+    // Cascade-cleanup event — host-entity MSPs remove orphaned values from their
+    // customFields jsonb in the same transaction for atomicity.
     if (result.isSuccess) {
       await ctx.unsafeAppendEvent({
         aggregateId,

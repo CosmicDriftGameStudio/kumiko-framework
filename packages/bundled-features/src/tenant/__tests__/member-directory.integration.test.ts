@@ -1,8 +1,8 @@
 // tenant:query:member-directory backs every `user:user` reference label
-// (fw#3107). It replaced the SystemAdmin-only user:query:user:list as lookup
-// source, so the invariants that matter: a TenantAdmin reaches it, sees only
-// their own tenant and gets no more than id + display name, while a SystemAdmin
-// keeps the global reach the roster gave them.
+// It replaced the SystemAdmin-only user:query:user:list as lookup source, so
+// the invariants that matter: a TenantAdmin reaches it, sees only their own
+// tenant and gets no more than id + display name, while a SystemAdmin keeps the
+// global reach the roster gave them.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";

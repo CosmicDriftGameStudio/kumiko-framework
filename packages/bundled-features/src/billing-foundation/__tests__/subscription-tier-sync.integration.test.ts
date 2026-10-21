@@ -1,7 +1,6 @@
-// Integration test for createSubscriptionTierSync() (kumiko-framework
-// #3050 rewrite). No stubbed dispatchSystemWrite anymore — the sync reads
-// and writes through the real dispatcher via the extraRoute's
-// dispatchSystemQuery/dispatchSystemWrite, exercised with real HTTP.
+// Integration test for createSubscriptionTierSync(). No stubbed dispatchSystemWrite
+// anymore — the sync reads and writes through the real dispatcher via the
+// extraRoute's dispatchSystemQuery/dispatchSystemWrite, exercised with real HTTP.
 //
 // `createWebhookRoute()` has a fixed path (SUBSCRIPTION_WEBHOOK_PATH), so
 // the two onSyncError modes ("log" vs "fail-webhook") each need their own

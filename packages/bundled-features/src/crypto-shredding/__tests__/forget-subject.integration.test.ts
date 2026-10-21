@@ -163,7 +163,7 @@ describe("crypto-shredding :: forget-subject", () => {
     );
   });
 
-  // mh#349: DataProtectionOfficer is tenant-scoped — a DPO who learns a
+  // DataProtectionOfficer is tenant-scoped — a DPO who learns a
   // foreign tenant's id (export, support ticket, log line) must not be able
   // to destroy that tenant's subject key.
   test("DPO cannot forget a different tenant's subject → 403", async () => {
@@ -178,7 +178,7 @@ describe("crypto-shredding :: forget-subject", () => {
     ).resolves.toBeTruthy();
   });
 
-  // fw#2592 regression: the denial audit event used to be appended via
+  // The denial audit event used to be appended via
   // ctx.unsafeAppendEvent, inside the same tx the denial then rolled back —
   // the store stayed empty even though a cross-tenant probe was denied.
   test("cross-tenant denial (kind=tenant) still leaves an audit event that survives the rollback", async () => {
@@ -227,7 +227,7 @@ describe("crypto-shredding :: forget-subject", () => {
     expect(await forgottenEvents()).toHaveLength(2);
   });
 
-  // mh#349 continued: resolveTenantScopeDenial's `!features.has("tenant")`
+  // resolveTenantScopeDenial's `!features.has("tenant")`
   // branch is a deliberate fail-open for single-/no-tenant apps — this
   // block's stack (top of file) only mounts crypto-shredding, so there is no
   // membership table to check a "user" subject against. Every "user"-kind
@@ -276,7 +276,7 @@ describe("crypto-shredding :: forget-subject", () => {
   });
 });
 
-// fw#1611: forget-subject's ctx.searchAdapter wiring (forget-subject.write.ts
+// forget-subject's ctx.searchAdapter wiring (forget-subject.write.ts
 // → purgeSearchDocumentsForSubject) had zero end-to-end coverage — a broken
 // extension registration would silently turn the whole GDPR search purge
 // into a no-op. Own stack (own entity feature) so it doesn't perturb the
@@ -585,7 +585,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
   let kms: InMemoryKmsAdapter;
   const TENANT_B = testTenantId(3);
 
-  // mh#349: a "user"-kind subject isn't always a real user — a share-token
+  // A "user"-kind subject isn't always a real user — a share-token
   // recipient or email subscriber self-owns its PII the same way
   // (personal: "self", its own row id is the subject) but has no tenant-
   // membership row. The guard must fall back to the subject row's own
@@ -685,7 +685,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     expect(tokens[0]?.["revokedAt"]).not.toBeNull();
   });
 
-  // mh#349: a DPO must not be able to forget a user who has no membership in
+  // A DPO must not be able to forget a user who has no membership in
   // their own tenant (e.g. a Tenant-A DPO who learned a Tenant-B user id).
   test("DPO cannot forget a user with no membership in their tenant → 403", async () => {
     const { id: userId } = await seedUser(stack.db, {
@@ -706,7 +706,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
   });
 
-  // fw#2592 regression, kind=user variant of the top-level "cross-tenant
+  // Kind=user variant of the top-level "cross-tenant
   // denial ... survives the rollback" test: before the fix, deniedEvents()
   // would come back empty here too.
   test("cross-tenant denial (kind=user) still leaves an audit event that survives the rollback", async () => {
@@ -853,7 +853,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
   });
 });
 
-// mh#349 continued: subjectRowExistsInTenant prefills via to_regclass and
+// subjectRowExistsInTenant prefills via to_regclass and
 // skips missing tables (fail-closed deny, not 500). Unexpected query errors
 // propagate. Deliberately never creates this stack's probe table so the
 // existence probe returns null and that entity is skipped.
@@ -912,7 +912,7 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
   });
 });
 
-// PR#2412: user.email is `personal: "self"` (→ pii: true) + `searchable: true`,
+// user.email is `personal: "self"` (→ pii: true) + `searchable: true`,
 // so it is decrypted into the derived search index by design (screens.ts:30
 // documents that the *stored* column is ciphertext, not that search never
 // sees plaintext). The guarantee that actually protects that comment is

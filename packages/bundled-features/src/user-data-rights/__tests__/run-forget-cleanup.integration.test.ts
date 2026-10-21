@@ -1,19 +1,18 @@
-// Forget-Cleanup-Runner Integration-Test (S2.U5b).
+// Forget-cleanup runner integration test.
 //
-// User-Explicit-Anforderung "nach Löschfrist sollte es keine Daten mehr
-// haben + Cross-Data-Matrix": Dieser Test fuehrt den Pipeline-Lauf aus
-// und beweist:
-//   - Abgelaufene Grace + DeletionRequested → User-Row anonymisiert,
-//     status=Deleted, alle file_refs des Users in ALLEN Tenants weg.
-//   - Cross-Tenant: Alice in Tenant A + B, Forget triggert Hook-Iteration
-//     ueber beide Memberships.
-//   - Future-Grace: User mit gracePeriodEnd > now bleibt unangetastet.
-//   - Other-User-Isolation: Bob (active) keine Daten verloren.
-//   - Idempotent: zweiter Run ist no-op.
+// User requirement: after the deletion period, no data should remain, including
+// across tenants. This test runs the pipeline and verifies:
+//   - Expired grace period + DeletionRequested → user row anonymized,
+//     status=Deleted, and all of the user's file_refs removed in ALL tenants.
+//   - Cross-tenant: Alice belongs to Tenant A + B, so Forget iterates both
+//     memberships.
+//   - Future grace period: a user with gracePeriodEnd > now remains untouched.
+//   - Other-user isolation: Bob (active) loses no data.
+//   - Idempotency: the second run is a no-op.
 //
-// Strategy-Mapping (retention.strategy → UserDataDeleteStrategy) ist im
-// Unit-Test pinned (policy-to-strategy.test.ts), nicht hier. Hier nur
-// der end-to-end-Default-Pfad (delete).
+// Strategy mapping (retention.strategy → UserDataDeleteStrategy) is pinned in
+// the unit test (policy-to-strategy.test.ts), not here. This covers only the
+// end-to-end default path (delete).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -79,7 +78,7 @@ const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
 const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 
-// Deterministische UUIDs fuer Tests — gleiche Helper wie in
+// Deterministic UUIDs for tests — uses the same helper as
 // user-data-rights-defaults.
 function uuid(suffix: number): string {
   return `aaaaaaaa-aaaa-4aaa-8aaa-${suffix.toString(16).padStart(12, "0")}`;
@@ -104,14 +103,15 @@ beforeAll(async () => {
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
-  // sessions ist gemountet → der user-session-Hook der defaults läuft im Forget
-  // und braucht die Tabelle (#797).
+  // The sessions feature is mounted, so the defaults' user-session hook runs
+  // during Forget and requires this table.
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
-  // Kein tenant-feature im Stack, daher die Membership-Tabelle aus der Entity anlegen.
+  // The tenant feature is not in this stack, so create the membership table
+  // directly from its entity.
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  // fileRef ist buildEntityTable-getrieben (softDelete) — echte Entity-Tabelle
-  // pushen statt hand-CREATE, damit is_deleted/deleted_at/deleted_by_id da sind.
+  // fileRef is driven by buildEntityTable (softDelete), so push the real entity
+  // table instead of using hand-written SQL to include is_deleted/deleted_at/deleted_by_id.
   await unsafePushTables(stack.db, { fileRefsTable });
 });
 
@@ -228,7 +228,7 @@ async function fetchAllFileRefs(tenantId: string): Promise<unknown[]> {
 
 describe("runForgetCleanup :: happy path (Cross-Tenant Account-Deletion)", () => {
   test("Alice (DeletionRequested + grace expired) → user anonymized + files weg in beiden Tenants", async () => {
-    // Alice in Tenant A + B, mit files in beiden.
+    // Alice has files in both tenants.
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000), // 1min ago
@@ -241,8 +241,8 @@ describe("runForgetCleanup :: happy path (Cross-Tenant Account-Deletion)", () =>
     await seedFileRef(uuid(102), TENANT_A, ALICE_ID, "alice-a-other.pdf");
     await seedFileRef(uuid(103), TENANT_B, ALICE_ID, "alice-b-doc.pdf");
 
-    // Bob (active) als Negative-Control mit eigenen files — sollen NICHT
-    // angetastet werden.
+    // Bob (active) is a negative control with his own files — they must remain
+    // untouched.
     await seedUser(BOB_ID);
     await seedMembership(BOB_ID, TENANT_A);
     await seedFileRef(uuid(201), TENANT_A, BOB_ID, "bob-a-doc.pdf");
@@ -260,9 +260,9 @@ describe("runForgetCleanup :: happy path (Cross-Tenant Account-Deletion)", () =>
     const aliceRow = await fetchUser(ALICE_ID);
     expect(aliceRow).not.toBeNull();
     expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
-    // userDeleteHook setzt email/displayName auf Pseudonyme (siehe
-    // user-data-rights-defaults/hooks/user.userdata-hook). Pruefen dass
-    // ORIGINAL-PII raus ist — das ist der harte DSGVO-Punkt.
+    // userDeleteHook replaces email/displayName with pseudonyms (see
+    // user-data-rights-defaults/hooks/user.userdata-hook). Verify that the
+    // ORIGINAL PII is gone — this is the essential GDPR assertion.
     expect(aliceRow?.email).not.toContain("alice@example.com");
     expect(aliceRow?.email).toContain("anonymized.invalid");
     expect([USER_DELETED_DISPLAY_NAME, USER_ANONYMIZED_DISPLAY_NAME]).toContain(
@@ -284,11 +284,11 @@ describe("runForgetCleanup :: happy path (Cross-Tenant Account-Deletion)", () =>
 });
 
 describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
-  // Beweist C1: der Forget-Cleanup ist als autonomer Cron registriert, nicht
-  // nur als manueller runForget-API. Ohne die r.job-Registrierung liefert
-  // getJob undefined und die Loeschung laeuft nach Grace-Ablauf NIE. Wir
-  // treiben den ECHTEN registrierten Job durch den echten JobContext (db +
-  // registry, kein config) — nicht den inneren runForgetCleanup-Helper.
+  // Verifies that Forget cleanup is registered as an autonomous cron rather
+  // than only as a manual runForget API. Without the r.job registration,
+  // getJob returns undefined and deletion never runs after the grace period.
+  // Drive the actual registered job through the real JobContext (db + registry,
+  // no config), rather than the inner runForgetCleanup helper.
   function capturingJobLog() {
     const warns: string[] = [];
     const log: JobContext["log"] = {
@@ -455,8 +455,7 @@ describe("runForgetCleanup :: idempotenz", () => {
       registry: stack.registry,
       now: NOW(),
     });
-    // Keine User mehr im DeletionRequested-Status nach Run 1 → Run 2
-    // findet nichts.
+    // No users remain in DeletionRequested after Run 1, so Run 2 finds nothing.
     expect(secondRun.processedUserIds).toEqual([]);
     expect(secondRun.hookCallsAttempted).toBe(0);
   });
@@ -464,9 +463,8 @@ describe("runForgetCleanup :: idempotenz", () => {
 
 describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
   test("nach Cleanup ist KEINE Original-PII (email + displayName) mehr in DB", async () => {
-    // Cross-Data-Matrix-Check: simulieren dass mehrere Datenpunkte mit
-    // Alice's Identity verbunden sind, danach beweisen dass keine
-    // davon ihre Original-Werte traegt.
+    // Cross-data PII check: simulate multiple data points linked to Alice's
+    // identity, then verify that none still contain her original values.
     const ORIGINAL_EMAIL = "alice.unique.audit@example.com";
     const ORIGINAL_NAME = "Alice Audit Mueller";
     await seedUser(ALICE_ID, {
@@ -484,7 +482,7 @@ describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
       now: NOW(),
     });
 
-    // Cross-Tabellen-PII-Check: koennen wir noch IRGENDWO Original-Werte finden?
+    // Cross-table PII check: can any original values still be found anywhere?
     const userRows = await asRawClient(stack.db).unsafe(
       `
       SELECT id FROM read_users WHERE email = $1 OR display_name = $2
@@ -501,9 +499,9 @@ describe("runForgetCleanup :: PII-Audit nach Cleanup", () => {
 });
 
 describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
-  // Advisor-Finding S2.U5b.fix1: vor dem Fix flippte der orphan-Pfad
-  // status=Deleted ohne userDeleteHook → email/displayName/passwordHash
-  // blieben original. "Sah compliant aus, war es nicht."
+  // The orphan path previously flipped status=Deleted without running
+  // userDeleteHook, leaving email/displayName/passwordHash unchanged. It looked
+  // compliant but was not.
   test("User ohne Memberships → trotzdem PII anonymisiert (kein leerer status-Flip)", async () => {
     const ORIGINAL_EMAIL = "orphan.unique@example.com";
     const ORIGINAL_NAME = "Orphan Original";
@@ -513,7 +511,7 @@ describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
       email: ORIGINAL_EMAIL,
       displayName: ORIGINAL_NAME,
     });
-    // KEINE seedMembership-Aufrufe — User ist orphan.
+    // No seedMembership calls — this user is an orphan.
 
     const result = await runForgetCleanup({
       db: stack.db,
@@ -526,7 +524,7 @@ describe("runForgetCleanup :: 0-Memberships orphan-Pfad", () => {
 
     const aliceRow = await fetchUser(ALICE_ID);
     expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
-    // Harter PII-Check: Original-Werte sind weg, Pseudonyme sind drin.
+    // Essential PII check: the original values are gone and pseudonyms are present.
     expect(aliceRow?.email).not.toBe(ORIGINAL_EMAIL);
     expect(aliceRow?.email).toContain("anonymized.invalid");
     expect(aliceRow?.display_name).not.toBe(ORIGINAL_NAME);
@@ -566,8 +564,8 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     expect(result.processedUserIds).toContain(ALICE_ID);
     expect(calls).toHaveLength(1);
     expect(calls[0]?.userId).toBe(ALICE_ID);
-    // PRE-tx-Cache: Original-Email gereicht, NICHT die anonymized-Version
-    // die der user-Hook waehrend der Tx setzt.
+    // Pre-transaction cache: pass the original email, not the anonymized version
+    // that the user hook sets during the transaction.
     expect(calls[0]?.userEmail).toBe(ORIGINAL_EMAIL);
     // Cross-Tenant-Beweis: callback bekommt beide Tenants.
     expect(calls[0]?.tenantIds).toHaveLength(2);
@@ -575,7 +573,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     expect(calls[0]?.tenantIds).toContain(TENANT_B);
     expect(calls[0]?.executedAt).toBeTruthy();
 
-    // Anonymisierung lief trotzdem durch (Callback ist nach success).
+    // Anonymization still completed because the callback runs after success.
     const aliceRow = await fetchUser(ALICE_ID);
     expect(aliceRow?.email).not.toBe(ORIGINAL_EMAIL);
     expect(aliceRow?.email).toContain("anonymized.invalid");
@@ -643,10 +641,10 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
 
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.processedUserIds).not.toContain(ALICE_ID);
-      // Kern-Aussage: failed-Sub-Tx → keine Notification (sonst kommen
-      // Email-Versendungen fuer User die *nicht* tatsaechlich geloescht
-      // wurden, was DSGVO-Mismatch zwischen User-Erwartung + DB-State
-      // verursacht).
+      // Key assertion: a failed sub-transaction must not send a notification;
+      // otherwise users could receive deletion emails even though their data was
+      // not actually deleted, creating a GDPR mismatch between the user's
+      // expectation and the database state.
       expect(calls).toHaveLength(0);
     } finally {
       (
@@ -661,11 +659,10 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
   });
 
   test("best-effort: callback-Throw fuer User A killt Batch NICHT — User B trotzdem verarbeitet", async () => {
-    // Asymmetrie-Schutz analog request-deletion (Atom 5b): wenn sendEmail
-    // fuer User A throwt, Batch-Cleanup laeuft fuer User B weiter. Der
-    // erste User wurde bereits geloescht (Sub-Tx committed), Throw waere
-    // ein Bug — r.job-Wrap markiert den Run failed, retry findet keine
-    // expired-User mehr (alle Deleted) → silent miss.
+    // If sendEmail throws for User A, batch cleanup must continue for User B.
+    // User A's sub-transaction has already committed, so propagating the throw
+    // would make the job fail; a retry would find no expired users because all
+    // are already Deleted, causing a silent miss.
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
@@ -692,8 +689,8 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
       },
     });
 
-    // Beide User wurden processed — Throw bei Alice hat Bob nicht
-    // mitgerissen. Beweis dass try/catch das Bubbling stoppt.
+    // Both users were processed — Alice's callback error did not affect Bob,
+    // confirming that try/catch stops the error from bubbling.
     expect(result.processedUserIds).toContain(ALICE_ID);
     expect(result.processedUserIds).toContain(BOB_ID);
     expect(result.errors).toEqual([]);
@@ -701,18 +698,17 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     // Beide Callbacks angerufen.
     expect(calls.map((c) => c.userId).sort()).toEqual([ALICE_ID, BOB_ID].sort());
 
-    // Beide DB-Rows tatsaechlich geloescht (callback-throw hat den
-    // Cleanup nicht zurueckgerollt — Sub-Tx ist VOR dem callback-call
-    // committed).
+    // Both database rows were deleted: the callback throws after the cleanup
+    // sub-transaction has committed, so it cannot roll the cleanup back.
     expect((await fetchUser(ALICE_ID))?.status).toBe(USER_STATUS.Deleted);
     expect((await fetchUser(BOB_ID))?.status).toBe(USER_STATUS.Deleted);
   });
 
   test("User ohne email-Field (NULL) → callback NICHT gefeuert (skip ohne crash)", async () => {
-    // Edge-Case: Email-Spalte ist NULL (kann passieren wenn user-Hook in
-    // einem vorigen Run schon anonymisiert hat aber status haengen blieb,
-    // oder durch external Migration). Skip schuetzt vor crashing-callback
-    // mit invaliden Args.
+    // Edge case: the email column may be empty if a previous user hook already
+    // anonymized the user while leaving the status unchanged, or because of an
+    // external migration. Skipping the callback prevents invalid arguments from
+    // causing it to fail.
     await seedRow(stack.db, userTable, {
       id: ALICE_ID,
       tenantId: TENANT_SYSTEM,
@@ -743,9 +739,9 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
 });
 
 describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architektur)", () => {
-  // Pinst die load-bearing Property: ein failing Hook bei User A darf
-  // nicht User B mit zurueckrollen. Wenn jemand die Sub-Tx in
-  // run-forget-cleanup.ts wieder rausnimmt, faellt dieser Test um.
+  // Verifies the load-bearing property that a failing hook for User A cannot
+  // roll User B back with it. Removing the sub-transaction from
+  // run-forget-cleanup.ts must make this test fail.
   test("failing Hook bei User A → User B trotzdem cleaned, A bleibt im DeletionRequested", async () => {
     const ORIGINAL_A_EMAIL = "alice.failing.hook@example.com";
     const ORIGINAL_B_EMAIL = "bob.success.hook@example.com";
@@ -764,10 +760,9 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
     });
     await seedMembership(BOB_ID, TENANT_A);
 
-    // Failing Hook der nur fuer Alice wirft. Wir injizieren ihn
-    // ueber eine eigene Pseudo-Extension-Usage in der Registry.
-    // (registry.getExtensionUsages liefert Liste — wir nutzen einen
-    // Spy am ersten existierenden Hook.)
+    // Inject a failing hook that throws only for Alice through a custom
+    // pseudo-extension usage in the registry. registry.getExtensionUsages
+    // returns a list, so spy on the first existing hook.
     const usages = stack.registry.getExtensionUsages("userData");
     const userUsage = usages.find((u) => u.entityName === "user");
     if (!userUsage?.options) throw new Error("user usage not found");
@@ -800,13 +795,13 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
         now: NOW(),
       });
 
-      // Bob durchgegangen, Alice nicht.
+      // Bob was processed, but Alice was not.
       expect(result.processedUserIds).toContain(BOB_ID);
       expect(result.processedUserIds).not.toContain(ALICE_ID);
       expect(result.errors.some((e) => e.userId === ALICE_ID)).toBe(true);
 
-      // Alice unverändert (Sub-Tx zurueckgerollt → Original-PII intakt,
-      // status weiter DeletionRequested damit naechster Run retried).
+      // Alice is unchanged because the sub-transaction rolled back: her original
+      // PII remains and the status is still DeletionRequested for a retry.
       const aliceRow = await fetchUser(ALICE_ID);
       expect(aliceRow?.status).toBe(USER_STATUS.DeletionRequested);
       expect(aliceRow?.email).toBe(ORIGINAL_A_EMAIL);
@@ -817,15 +812,13 @@ describe("runForgetCleanup :: per-User-Sub-Tx-Isolation (advisor-pinned Architek
       expect(bobRow?.email).not.toBe(ORIGINAL_B_EMAIL);
       expect(bobRow?.email).toContain("anonymized.invalid");
 
-      // Error-Detail traegt den richtigen Tenant + Entity-Namen
-      // (advisor-Finding: vorher waren das "<sub-transaction>"-Pseudos).
+      // The error detail contains the correct tenant and entity name.
       const aliceError = result.errors.find((e) => e.userId === ALICE_ID);
       expect(aliceError?.tenantId).toBe(TENANT_A);
       expect(aliceError?.entityName).toBe("user");
     } finally {
-      // Hook-Spy zuruecksetzen damit andere Tests im selben File nicht
-      // davon betroffen sind. (beforeEach cleared eh die DB; aber die
-      // Registry ist ueber alle Tests dieselbe.)
+      // Restore the hook spy so other tests in this file are unaffected. The
+      // registry is shared across tests, even though beforeEach clears the DB.
       (
         userUsage.options as {
           delete: (
@@ -1141,7 +1134,7 @@ describe("run-forget-cleanup write handler (manual, risk high) via configuredPii
 // user.updated carries the pre-update row in `previous`. With a subject KMS the
 // executor encrypts it under the user's key, so the forget run's eraseKey must
 // shred every historical copy of the address, including the one an earlier
-// email change left behind (#3718).
+// email change left behind.
 describe("forget shreds user.updated.previous (email change before deletion)", () => {
   const OLD_EMAIL = "alice.old-address@example.com";
   const NEW_EMAIL = "alice.new-address@example.com";

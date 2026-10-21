@@ -1,4 +1,4 @@
-// T1.5b — per-field write access-check for the set/clear handlers.
+// Per-field write access-check for the set/clear handlers.
 // Plus single-fetch loader so set-custom-field can run access-check AND
 // value-validation off one DB read (no double fetch).
 
@@ -31,7 +31,7 @@ export async function loadFieldDefinition(
 ): Promise<LoadedFieldDefinition> {
   const serialized = await selectSerializedFieldDefinition(runner, tenantId, entityName, fieldKey);
   if (serialized === null) return { found: false };
-  // parseSerializedField throws on a #972 legacy `sensitive` definition —
+  // parseSerializedField throws on a legacy `sensitive` definition —
   // that's a corrupt/unprocessable row from this write-gate's perspective,
   // same fail-closed treatment as a shape that fails isShape().
   try {

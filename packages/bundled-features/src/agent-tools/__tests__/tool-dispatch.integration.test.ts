@@ -134,7 +134,7 @@ const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
 
 // prompt-store-like entity: `note` is read by a later run as an instruction —
 // writing it requires agent.risk "high" on the directly-dispatched entry
-// handler (kumiko-framework#3358), regardless of hard-vs-soft-delete.
+// handler, regardless of hard-vs-soft-delete.
 const scribeEntity = createEntity({
   table: "agent_tools_test_scribes",
   fields: {

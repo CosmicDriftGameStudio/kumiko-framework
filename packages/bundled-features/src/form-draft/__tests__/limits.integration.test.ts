@@ -1,4 +1,4 @@
-// Proves the two DoS-shaped caps on form-draft save (#1900/2): an unbounded
+// Proves the two DoS-shaped caps on form-draft save: an unbounded
 // `values` blob and unbounded drafts-per-owner both grow the append-only
 // event stream without limit. Real Postgres, real dispatch — not hand-fed
 // context.

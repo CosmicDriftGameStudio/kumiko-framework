@@ -166,7 +166,7 @@ export function createDocumentIngestFoundationFeature() {
           default: "deu+eng",
           // Tesseract -l argument syntax: one or more 3-letter language codes
           // joined by "+" (e.g. "deu+eng"). Unconstrained free text here would
-          // reach the OCR provider call unvalidated (#1501).
+          // reach the OCR provider call unvalidated.
           pattern: { regex: "^[a-z]{3}(\\+[a-z]{3})*$" },
           write: access.roles("TenantAdmin", "SystemAdmin"),
           read: access.roles("TenantAdmin", "SystemAdmin", "User"),
@@ -178,7 +178,7 @@ export function createDocumentIngestFoundationFeature() {
           default: 50,
           // Without a bound a tenant could set 0 (silently kills ingest) or an
           // unbounded value (OCR worker runs per-file for as long as the PDF
-          // has pages — job-queue starvation) (#1501).
+          // has pages — job-queue starvation).
           bounds: { min: 1, max: 500 },
           write: access.roles("TenantAdmin", "SystemAdmin"),
           read: access.roles("TenantAdmin", "SystemAdmin", "User"),

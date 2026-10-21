@@ -5,10 +5,10 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { redactPiiCiphertext } from "../../shared/index.ts";
 
-// DSGVO Art. 15 Selbstauskunft — User reads HIS OWN audit-log.
-// WHERE createdBy = ctx.user.id ist hard-coded (kein userId-Param,
-// anti-cross-user-Snooping). KEIN tenantId-Filter: User hat Anspruch
-// auf account-weite Sicht ueber alle Memberships — analog Forget-Pfad.
+// GDPR Art. 15 self-disclosure: users may read only their own audit log.
+// `createdBy = ctx.user.id` is hard-coded to prevent cross-user snooping;
+// no `tenantId` filter is applied because the user is entitled to an
+// account-wide view across all memberships, as in the forget path.
 const MAX_LIMIT = 100;
 
 const MY_AUDIT_LOG_REASON =

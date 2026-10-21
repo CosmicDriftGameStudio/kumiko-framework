@@ -1,10 +1,10 @@
 // resume-run — wakes one suspended workflow step. Dispatched by the
-// resume-due-runs job (framework#2513 Phase 2), never called directly by a
+// resume-due-runs job, never called directly by a
 // user — r.systemScope() + access: { roles: [SYSTEM_ROLE] } enforce that.
 //
 // The job does nothing but SELECT + dispatch; all resume logic lives here,
 // adapted from samples/recipes/workflow-engine/src/resume-loop.ts:
-//   1. Q7 fingerprint check FIRST — before claiming, before any pipeline
+//   1. Fingerprint check FIRST — before claiming, before any pipeline
 //      work. A changed workflow definition fails loud (WORKFLOW_RUN_FAILED,
 //      reason "workflow_definition_changed"), never a silent skip.
 //   2. Claim via a savepoint-scoped WORKFLOW_RESUMED append (ctx.tryAppendEvent,
@@ -23,8 +23,8 @@
 // shows up here in its shredded form, and an unloadable one (archived
 // stream) fails the run. The pending row's own
 // triggerEventType/triggerEventRef columns are a DIFFERENT thing: for a
-// waitForEvent suspension they point at the AWAITED event the Phase 3b
-// event-subscriber matched (NULL until then, and NULL forever on a
+// waitForEvent suspension they point at the AWAITED event the event-subscriber
+// matched (NULL until then, and NULL forever on a
 // timeout-without-a-match). That event's payload becomes the resumed
 // pipeline's result for the skipped waitForEvent step itself (see
 // resultKey on steps/wait-for-event.ts) — pre-seeded into stepsAcc below so

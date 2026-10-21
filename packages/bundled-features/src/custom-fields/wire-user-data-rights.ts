@@ -1,4 +1,4 @@
-// T1.5c — user-data-rights wiring for custom-fields.
+// User-data-rights wiring for custom-fields.
 
 import { type DbRunner, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { UserDataExportSnippet, UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
@@ -28,7 +28,7 @@ function asCustomFieldsHostRow(value: unknown): CustomFieldsHostRow | null {
   return { id, customFields: Object.fromEntries(Object.entries(cf)) };
 }
 
-// fw#2914 — selectCustomFieldsHostRows runs raw SQL against a dynamic host
+// selectCustomFieldsHostRows runs raw SQL against a dynamic host
 // table name (opts.entityTable varies per call site), so it can't go through
 // TenantDb's typed method API (table param must be a known SchemaTable). The
 // SQL text itself still filters `tenant_id = ctx.tenantId`, so this stays a
@@ -64,7 +64,7 @@ async function exportCustomFields(
 }
 
 // Export-only wiring: custom fields hold supplemental business data, not PII
-// (#972) — there is nothing to redact on user-forget, only Art. 20 export.
+// — there is nothing to redact on user-forget, only Art. 20 export.
 export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<string>>(
   r: TReg,
   opts: WireCustomFieldsUserDataRightsOptions,

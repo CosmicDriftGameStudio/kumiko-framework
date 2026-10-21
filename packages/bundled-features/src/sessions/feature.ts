@@ -51,7 +51,7 @@ export type SessionsFeatureOptions = {
   // runtime binding.
   readonly autoRevokeOnPasswordChange?: SessionMassRevoker;
   // Session JWT / store_user_sessions TTL. Was previously auth.sessions.expiresInMs
-  // (#1372) — lives on the sessions feature now that sessionStore is the wiring.
+  // — lives on the sessions feature now that sessionStore is the wiring.
   readonly expiresInMs?: number;
   // Access preset for the admin list/detail queries and screens; they expose decrypted
   // IP/user-agent of every session in the tenant. A preset name, not a role array, because
@@ -119,23 +119,23 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // events (the row columns ARE the audit trail). Registering it as
       // r.entity would make it a rebuildable implicit projection whose replay
       // finds zero session events and swaps an empty shadow over the live
-      // table — wiping every active session on the next projection rebuild
-      // (#498/#494). r.storeTable keeps the migration DDL but opts the
+      // table — wiping every active session on the next projection rebuild.
+      // r.storeTable keeps the migration DDL but opts the
       // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
       // which are direct-write stores too.
       r.storeTable(
         deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, { source: "unmanaged" }),
         {
           reason: "read_side.user_sessions_direct_write",
-          // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).
+          // sessionCreator encrypts ip/userAgent via encryptForDirectWrite.
           piiEncryptedOnWrite: true,
         },
       );
 
-      // Self-registers as auth-foundation's sessionStore provider (#1371) —
+      // Self-registers as auth-foundation's sessionStore provider —
       // wraps the same createSessionCallbacks() used by the manual
-      // buildServer({ auth: { ... } }) wiring above; a future issue (#1372)
-      // removes that manual wiring once the middleware resolves generically
+      // buildServer({ auth: { ... } }) wiring above; removes that manual
+      // wiring once the middleware resolves generically
       // via resolveSessionStore().
       r.useExtension(EXT_SESSION_STORE, "default", {
         build: (deps): SessionStore => {
@@ -153,7 +153,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         },
       } satisfies SessionStoreProvider);
 
-      // Custom domain-event for cross-instance access-invalidation (#1559).
+      // Custom domain-event for cross-instance access-invalidation.
       // r.defineEvent registers the schema so ctx.unsafeAppendEvent (revoke,
       // revoke-all-others) enforces it at append time. revoke-all-for-user
       // appends via the low-level append() instead (needs to anchor on
@@ -161,7 +161,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // consult the registry, so that callsite parses against
       // sessionRevokedSchema explicitly, same guarantee via a different path.
       // No projection: the payload IS the read, consumed directly off the
-      // event-store NOTIFY (#1560).
+      // event-store NOTIFY.
       r.defineEvent(SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema, { piiFields: "none" });
 
       const handlers = {

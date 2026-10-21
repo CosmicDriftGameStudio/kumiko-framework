@@ -100,8 +100,8 @@ describe("CustomFieldsFormSection", () => {
 
     const saveBtn = screen.getByTestId("custom-fields-form-save");
     await user.click(saveBtn);
-    // waitFor statt fester Promise.resolve()-Ticks — robust gegen zusätzliche
-    // Microtasks im async handleSave-Loop (z.B. ein neuer dispatch-Wrapper).
+    // `waitFor` is more robust than fixed `Promise.resolve()` ticks when additional microtasks are
+    // introduced into the async handleSave loop (for example, by a new dispatch wrapper).
     await waitFor(() => expect(dispatchSpy).toHaveBeenCalledTimes(1));
 
     expect(dispatchSpy).toHaveBeenCalledWith("custom-fields:write:set-custom-field", {
@@ -144,18 +144,18 @@ describe("CustomFieldsFormSection", () => {
       </Wrapper>,
     );
 
-    // Gespeicherte Werte sind in den Inputs sichtbar (kein write-only mehr).
+    // Saved values are visible in the inputs rather than being write-only.
     const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
     const tierInput = document.getElementById("custom-field-tier") as HTMLInputElement;
     expect(vendorInput.value).toBe("Hetzner");
     expect(tierInput.value).toBe("3");
 
-    // Save bleibt disabled bis zur ersten Änderung (pending trackt nur Edits) —
-    // sonst würde jeder Mount alle Werte sinnlos neu schreiben.
+    // Save stays disabled until the first edit because pending tracks only changes;
+    // otherwise every mount would rewrite all values unnecessarily.
     const saveBtn = screen.getByTestId("custom-fields-form-save") as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
 
-    // Nur das geänderte Feld wird geschrieben, nicht der unveränderte Bestand.
+    // Only the changed field is written; unchanged stored values are not.
     await user.clear(vendorInput);
     await user.type(vendorInput, "Netcup");
     expect(saveBtn.disabled).toBe(false);
@@ -301,13 +301,12 @@ describe("CustomFieldsFormSection — clear-Pfad", () => {
 
     const vendorInput = document.getElementById("custom-field-vendor") as HTMLInputElement;
     const saveBtn = screen.getByTestId("custom-fields-form-save") as HTMLButtonElement;
-    // Tippen + zurück auf den Bestandswert → nicht dirty, kein Write.
+    // Typing and then restoring the stored value leaves the field clean, so nothing is written.
     await user.type(vendorInput, "2");
     await user.type(vendorInput, "{Backspace}");
-    // Positiver Anker: erst abwarten, dass der Save-Button wieder disabled ist
-    // (beweist, dass die dirty-Neuberechnung durchgelaufen ist), statt direkt
-    // eine negative Assertion in waitFor zu pollen (die beim ersten Tick
-    // trivial besteht und keine ausstehenden Async-Effekte abwartet).
+    // Wait for the Save button to become disabled to confirm that dirty-state recalculation
+    // completed, rather than polling a negative assertion that passes on the first tick
+    // without waiting for pending async effects.
     await waitFor(() => expect(saveBtn.disabled).toBe(true));
     await user.click(saveBtn);
     expect(dispatchSpy).not.toHaveBeenCalled();
@@ -339,8 +338,8 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
       </Wrapper>,
     );
 
-    // boolean = vendored Radix-Checkbox → button[role=checkbox], Bestand steckt
-    // in aria-checked (kein natives .checked).
+    // boolean uses a vendored Radix Checkbox, so the value is in `aria-checked` rather than
+    // a native `.checked` property.
     const checkbox = document.getElementById("custom-field-active");
     if (checkbox === null) throw new Error("boolean checkbox not rendered");
     expect(checkbox.getAttribute("aria-checked")).toBe("true");
@@ -380,9 +379,8 @@ describe("CustomFieldsFormSection — boolean/date-Pfade", () => {
       </Wrapper>,
     );
 
-    // DateInput ist seit #369 ein tippbares Text-Input (locale-numerische
-    // Anzeige); der Kalender-Popover selbst ist jsdom-untauglich, hier zählt:
-    // der Bestand kommt als value an, nicht leer.
+    // DateInput is a typeable text input with locale-formatted output; its calendar popover
+    // is not supported by jsdom, so this verifies that the stored value reaches the input.
     const input = document.getElementById("custom-field-launchedAt") as HTMLInputElement;
     expect(input.value).toContain("2026");
     expect(input.value).not.toBe("");
@@ -409,9 +407,9 @@ describe("CustomFieldsFormSection — composed mode (Bug-Bash 3 #1)", () => {
         </ExtensionFormRegistryProvider>
       </Wrapper>,
     );
-    // Inputs sind da …
     expect(screen.getByTestId("custom-fields-form-section")).toBeTruthy();
-    // … aber KEIN standalone-Save-Button (composed: ein Save im Haupt-Form).
+    // The inputs remain available, but composed mode omits the standalone Save button because
+    // the main form provides the Save action.
     expect(screen.queryByTestId("custom-fields-form-save")).toBeNull();
   });
 });

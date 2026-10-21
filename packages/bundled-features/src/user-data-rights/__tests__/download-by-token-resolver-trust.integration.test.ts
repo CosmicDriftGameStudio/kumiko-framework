@@ -1,4 +1,4 @@
-// #1057 regression: anonymous GDPR magic-link download under
+// Regression: anonymous GDPR magic-link download under
 // `resolverTrust: "authoritative"` WITHOUT `defaultTenantId` (publicstatus's
 // real prod config — Host-Resolver-only, no single-tenant fallback).
 //

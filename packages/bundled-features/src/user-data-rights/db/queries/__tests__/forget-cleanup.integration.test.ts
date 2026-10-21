@@ -1,4 +1,4 @@
-// kumiko-framework#1525: selectUsersDueForForgetCleanup must not rely on
+// selectUsersDueForForgetCleanup must not rely on
 // globalThis.Temporal when the caller passes a string cutoff (the
 // run-forget-cleanup.integration.test.ts suite exercises the full
 // pipeline; this is the narrow seam for the ambient-global regression).

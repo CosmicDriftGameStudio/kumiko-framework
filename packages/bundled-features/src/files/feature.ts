@@ -1,7 +1,7 @@
-// files — full Event-Sourcing für File-Metadata. Die Implementierung (Entity,
-// files:event:*-Events, Inline-Projektion) lebt seit dem ES-Umbau im
-// Framework neben file-routes + fileRefsTable, weil file-routes hart davon
-// abhängt (appendDomainEventCore verlangt registrierte Events + Projektion).
-// Dieses Modul re-exportiert nur, damit der App-Import-Pfad
-// `@cosmicdrift/kumiko-bundled-features/files` stabil bleibt.
+// files — complete event sourcing for file metadata. The implementation (entity,
+// files:event:*-events, inline projection) lives in the framework alongside
+// file-routes and fileRefsTable because file-routes depends on registered events
+// and a projection, as required by appendDomainEventCore.
+// This module only re-exports the feature to keep the app import path
+// `@cosmicdrift/kumiko-bundled-features/files` stable.
 export { createFilesFeature, fileRefEntity } from "@cosmicdrift/kumiko-framework/files";

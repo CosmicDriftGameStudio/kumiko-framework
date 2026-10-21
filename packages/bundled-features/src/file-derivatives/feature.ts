@@ -35,13 +35,13 @@ const FEATURE_NAME = "file-derivatives";
 // charset constraint (`Readonly<Record<string, VariantSpec>>`), so this
 // stays permissive rather than guessing a convention — narrower than this
 // would silently 404 a legitimately declared name again. Do not reintroduce
-// a name list here "for safety" — see #1985.
+// a name list here "for safety".
 const VARIANT_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** Host → tenantId for the anonymous media route.
  *  MUST be cheap/synchronous (in-memory map or cached lookup): it runs
  *  *before* the query-handler rate limit, so a DB round-trip here is an
- *  unthrottled DoS surface for anonymous callers rotating Host headers (#1977). */
+ *  unthrottled DoS surface for anonymous callers rotating Host headers. */
 export type PublicVariantResolveApexTenant = (
   host: string,
 ) => Promise<TenantId | null> | TenantId | null;

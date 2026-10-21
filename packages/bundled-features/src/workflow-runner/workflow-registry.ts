@@ -1,6 +1,6 @@
 // workflow-registry — process-local lookup from workflow name to its
 // WorkflowDefinition. registerEventTrigger populates it at feature-
-// registration time; resume-run (Phase 2) is the only reader — it has
+// registration time; resume-run is the only reader — it has
 // nothing but a workflow name on the pending row and needs the live
 // definition to rebuild the pipeline + recompute the Q7 fingerprint.
 //

@@ -1,13 +1,13 @@
-// Treibt den ECHTEN registrierten Export-Cron-Job (r.job "run-export-jobs")
-// über seinen Job-Kontext — so wie der Job-Runner ihn in prod aufruft:
-// `ctx.configResolver` gesetzt (App-Override provider=inmemory), aber KEIN
-// per-request `ctx.config` (das baut nur der HTTP-Dispatcher).
+// Runs the real registered export cron job (r.job "run-export-jobs")
+// through the job context, as the production job runner invokes it:
+// `ctx.configResolver` is set (with the app override provider=inmemory), but
+// there is no per-request `ctx.config` (the HTTP dispatcher creates that).
 //
-// Der bestehende run-export-jobs-Test reicht `buildStorageProvider` MANUELL —
-// und übersprang damit genau diesen Pfad: der Wrapper baut providerCtx aus dem
-// Job-Kontext. Ohne den configResolver→ConfigAccessor-Bau wirft
-// createFileProviderForTenant "ctx.config is missing" (genau der prod-Bug, der
-// jeden Export auf "failed" setzte).
+// The existing run-export-jobs test passed `buildStorageProvider` manually,
+// bypassing this path: the wrapper builds providerCtx from the job context.
+// Without the configResolver→ConfigAccessor conversion,
+// createFileProviderForTenant throws "ctx.config is missing", causing every
+// export to become "failed".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -57,8 +57,9 @@ const TENANT = "00000000-0000-4000-8000-0000000009a1";
 const USER_ID = "00000000-0000-4000-8000-0000000009b1";
 const JOB_QN = "user-data-rights:job:run-export-jobs";
 
-// App-weiter Override wie money-horse's cashColtConfigResolver — provider=inmemory
-// ohne per-Tenant-config-Row. Der Job-Kontext trägt DIESEN resolver, kein config.
+// App-wide override like money-horse's cashColtConfigResolver: provider=inmemory
+// without a per-tenant config row. The job context carries this resolver, not
+// config.
 const configResolver = createConfigResolver({
   appOverrides: new Map([["file-foundation:config:provider", "inmemory"]]),
 });
@@ -90,7 +91,7 @@ beforeAll(async () => {
       createAuthFoundationFeature(),
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
-      // this also proves the export cron's mail bridge end-to-end (C6).
+      // this also proves the export cron's mail bridge end-to-end.
       createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
     ],
     extraContext: (deps) => {
@@ -136,7 +137,7 @@ beforeEach(async () => {
   emailTransport.sent.length = 0;
 });
 
-// Seedet einen pending Export-Job über den echten request-export-Handler.
+// Seeds a pending export job through the real request-export handler.
 async function seedPendingJob(): Promise<string> {
   const res = await stack.http.writeOk<{ jobId: string }>(
     "user-data-rights:write:request-export",
@@ -166,7 +167,7 @@ describe("run-export-jobs cron-context", () => {
     const job = stack.registry.getJob(JOB_QN);
     expect(job).toBeDefined();
 
-    // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
+    // Exact production job context: configResolver is set, while config is undefined.
     const jobCtx = {
       db: createTenantDb({
         db: stack.db,
@@ -182,10 +183,10 @@ describe("run-export-jobs cron-context", () => {
       systemUser: createSystemUser(TENANT),
       now: getTemporal().Now.instant(),
     };
-    // Vor dem Fix wirft der Wrapper hier "ctx.config is missing".
-    // jobCtx is a deliberately minimal prod-context replica (missing
-    // log/triggeredBy) — double-cast at this test boundary since the
-    // handler under test never touches those fields.
+    // Before the fix, the wrapper throws "ctx.config is missing".
+    // jobCtx deliberately replicates the minimal production context (without
+    // log/triggeredBy); double-cast at this test boundary because the handler
+    // under test never accesses those fields.
     await job?.handler({}, jobCtx as unknown as JobContext);
 
     const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{

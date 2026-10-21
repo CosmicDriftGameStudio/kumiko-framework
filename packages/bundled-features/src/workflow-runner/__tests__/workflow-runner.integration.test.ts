@@ -118,7 +118,7 @@ const suspendingWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
-// fw#2552/1 regression fixture — counts how often the step AFTER the wait
+// Regression fixture — counts how often the step AFTER the wait
 // actually runs, keyed by runKey, so a double resume-run call can prove the
 // step executed exactly once instead of just inferring it from event counts.
 const doubleResumeStepRuns = new Map<string, number>();
@@ -138,7 +138,7 @@ const doubleResumeWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
-// fw#2552/1 regression fixture (Aufgabe 1 bug) — times: 3 forces TWO
+// Regression fixture (task 1 bug) — times: 3 forces TWO
 // retry-scheduled suspensions (attempt 1 and 2 both fail, attempt 3
 // succeeds), so resuming both must each thread a distinct retryAttempt
 // instead of the second resume being swallowed as already-resumed.
@@ -311,7 +311,7 @@ describe("workflow-runner event-trigger", () => {
       createdBy: admin.id,
     });
 
-    // fw#2482/2: run-failed is durably recorded, so the dispatcher must count
+    // run-failed is durably recorded, so the dispatcher must count
     // the trigger event as delivered — not as a poison event to keep
     // retrying (which would re-run every side-effect step until dead-letter).
     const firstPass = await stack.eventDispatcher?.runOnce();

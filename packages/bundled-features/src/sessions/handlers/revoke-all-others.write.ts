@@ -46,8 +46,8 @@ export const revokeAllOthersWrite = defineWriteHandler({
       { userId: event.user.id, revokedAt: null, id: { ne: keepSid } },
     );
 
-    // Lightweight append alongside the direct-write above (#1559) — see
-    // revoke.write.ts for why this isn't a lifecycle event on
+    // Lightweight append alongside the direct-write above; see revoke.write.ts
+    // for why this isn't a lifecycle event on
     // store_user_sessions. Skipped when nothing was revoked (no other
     // live sessions) — a spurious invalidation would be the failure mode.
     if (updated.length > 0) {

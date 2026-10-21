@@ -1,10 +1,10 @@
-// Regression guard for kumiko-framework#1188: proves a write interleaved
+// Regression guard: proves a write interleaved
 // with a running rotation survives — the event-store executor's optimistic
 // concurrency check rejects the rotation job's stale-version update, so the
 // version_conflict branch in reencrypt.job.ts's migrateRow (currently just
 // "a concurrent config:set beat us; the row now holds a fresh envelope —
 // already fine.") is verified, not just an unverified comment. Modeled on
-// reencrypt-job-kek-rotation.integration.test.ts (kumiko-framework#1187)
+// reencrypt-job-kek-rotation.integration.test.ts
 // for the stack/rotation setup.
 //
 // The race is simulated deterministically: the job context's
@@ -201,7 +201,7 @@ describe("config KEK-rotation job — concurrent write race (kumiko-framework#11
     const seeded = await readRow();
     expect(JSON.parse(seeded.value as string).kekVersion).toBe(1);
 
-    // "ops flips CURRENT=2 mid-flight" — same rotation trigger as #1187's test.
+    // "ops flips CURRENT=2 mid-flight" — same rotation trigger as this test.
     mutableProvider.replace(
       createEnvMasterKeyProvider({
         env: {

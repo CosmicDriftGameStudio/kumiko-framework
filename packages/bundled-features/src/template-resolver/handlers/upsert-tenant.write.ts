@@ -9,11 +9,10 @@ import { resolveTemplateVariables } from "../template-validation.ts";
 import { upsertPayloadSchema } from "./shared.ts";
 import { writeTemplateRow } from "./template-write.ts";
 
-// Tenant-Override anlegen/updaten. Liegt unter event.user.tenantId,
-// scope='tenant'. Default-Status='draft' — User publisht explizit
-// via publish-Handler. SystemAdmin kann via tenantIdOverride für
-// einen anderen Tenant schreiben (typisch: Plattform-Admin-UI das
-// Tenant-Templates kuratiert).
+// Creates or updates a tenant override under event.user.tenantId with scope='tenant'.
+// The default status is 'draft'; users must publish explicitly via the publish handler.
+// SystemAdmin can write for another tenant through tenantIdOverride, typically to
+// curate tenant templates from a platform admin UI.
 export function makeUpsertTenantWrite(policy: TemplateEditPolicy) {
   return defineWriteHandler({
     name: "upsert-tenant",

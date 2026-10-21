@@ -16,7 +16,7 @@ import { createCacheSyncToggleSignal } from "./toggle-sync-signal.ts";
 
 const log = createFallbackLogger("kumiko:feature-toggles");
 
-// Cross-replica transport for a toggle flip (fw#2625). Deliberately narrow
+// Cross-replica transport for a toggle flip. Deliberately narrow
 // (featureName + enabled, not a generic channel/payload pair) so a caller
 // can't wire the wrong signal instance in by accident — see
 // createRedisToggleSyncSignal (toggle-sync-signal.ts) for the Redis-backed

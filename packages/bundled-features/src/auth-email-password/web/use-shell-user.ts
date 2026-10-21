@@ -1,18 +1,17 @@
-// Liest den eingeloggten User + die Rollen aus dem aktiven Tenant aus
-// der Session. Der Hook ist die Standard-Brücke zwischen Session-State
-// und Layout-Komponenten (WorkspaceShell.user, DefaultAppShell-Gates,
-// custom permission checks).
+// Reads the logged-in user and roles for the active tenant from the session.
+// This hook is the standard bridge between session state and layout components
+// (WorkspaceShell.user, DefaultAppShell gates, custom permission checks).
 //
-// Returns undefined solange:
-//   - die Session lädt (status="loading")
-//   - der User unauthenticated ist
-//   - der activeTenantId in der tenants-Liste fehlt (defensiver Pfad —
-//     sollte nicht passieren, schadet aber nicht zu prüfen)
+// Returns undefined while:
+//   - the session is loading (status="loading")
+//   - the user is unauthenticated
+//   - activeTenantId is missing from the tenants list (a defensive path that
+//     should not occur, but is harmless to check)
 //
-// WorkspaceShell + DefaultAppShell akzeptieren undefined als "keine
-// Workspaces sichtbar", was im Loading-/Logged-Out-Fall die richtige UX
-// ist. Apps die mehr brauchen (Loading-Indicator etc.) prüfen
-// useSession().status direkt.
+// WorkspaceShell and DefaultAppShell treat undefined as "no workspaces
+// visible", which is the correct UX while loading or logged out. Apps that
+// need more (such as a loading indicator) should check useSession().status
+// directly.
 
 import { useMemo } from "react";
 import { useSession } from "./session.tsx";

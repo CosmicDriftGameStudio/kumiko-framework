@@ -12,7 +12,7 @@ import { entitiesOf } from "../shared/index.ts";
 // only; runtime no-ops (a delete hook that silently skips) are not detectable
 // here — those are covered by the export/forget integration tests.
 //
-// Registered as an `r.bootCheck()` by this feature (#1314) — EXT_USER_DATA is
+// Registered as an `r.bootCheck()` by this feature — EXT_USER_DATA is
 // owned by user-data-rights (r.extendsRegistrar(EXT_USER_DATA, {})), so any
 // r.useExtension(EXT_USER_DATA, ...) usage across the app already requires
 // user-data-rights to be mounted (boot-validator's extension-provider check

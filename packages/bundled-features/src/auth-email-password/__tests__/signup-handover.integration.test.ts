@@ -1,6 +1,5 @@
-// Cross-device try-first handover, end-to-end (kumiko-framework#3035
-// follow-up, offlot-app#454): an anonymous visitor holds a tenant-handover
-// grant in one browser, but the magic-link activation may be opened in a
+// Cross-device try-first handover, end-to-end: an anonymous visitor holds a
+// tenant-handover grant in one browser, but the magic-link activation may be opened in a
 // DIFFERENT browser that never had it. signup-request verifies the grant and
 // binds it to the signup token server-side; signup-confirm redeems that
 // binding into the freshly provisioned tenant. Spec is this test itself.

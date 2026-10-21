@@ -137,8 +137,8 @@ beforeAll(async () => {
   // before any test's observation window opens — otherwise whichever
   // test happens to call seedUser() first would observe an extra
   // store.created entry for seed plumbing, not the auth-route behavior
-  // under test (#1452: authHeader() now mints one sid per user.id, not
-  // one per call, so this only ever fires here).
+  // under test: authHeader() now mints one sid per user.id, not
+  // one per call, so this only ever fires here.
   await seedUser({
     email: "warmup-seed-actor@example.com",
     password: "warmup-password-not-asserted-on",

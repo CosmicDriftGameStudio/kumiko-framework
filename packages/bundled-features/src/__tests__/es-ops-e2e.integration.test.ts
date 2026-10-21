@@ -1,20 +1,19 @@
-// @no-server-stack: seed-runner ist boot-time-Code, kein HTTP-route.
-// setupTestStack/buildServer würden eine Hono-app aufziehen die wir nicht
-// brauchen — der seed-runner ruft dispatcher.write direkt vor dem
-// entrypoint.start(). Pattern matched die echte run-prod-app.ts-Integration
-// (siehe run-prod-app.ts:632 — createDispatcher mit identical ctx-shape
-// inline gebaut bevor entrypoint.start()).
+// @no-server-stack: The seed runner is boot-time code, not an HTTP route.
+// setupTestStack/buildServer would create a Hono app that we do not need:
+// the seed runner calls dispatcher.write directly before entrypoint.start().
+// This matches the run-prod-app.ts integration, where createDispatcher is
+// built inline with the same context shape before entrypoint.start().
 //
-// End-to-End-Integration-Test gegen real-Stack (Phase 1.5 / A3).
-// Catched die Bug-Klassen die runner.integration.ts mit Mock-Dispatcher
-// NICHT abdeckt:
-//   - handler-QN-Resolution (Bug 3)
-//   - access-rule-realität (Bug 4)
-//   - tenantId-stream-matching (Bug 5)
+// End-to-end integration test against the real stack.
+// Covers bug classes that runner.integration.ts does not cover with its
+// mock dispatcher:
+//   - handler-QN resolution
+//   - access-rule behavior
+//   - tenantId stream matching
 //
-// Setup: createTestDb + tenant/config-features. Echtes Aggregate im
-// Demo-Tenant via TenantHandlers.addMember. Seed-migration ruft
-// updateMemberRoles auf — MUSS tenantIdOverride nutzen sonst
+// Setup: createTestDb plus tenant/config features. A real aggregate is created
+// in the demo tenant through TenantHandlers.addMember. The seed migration
+// calls updateMemberRoles and MUST use tenantIdOverride; otherwise it causes
 // version_conflict.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -50,8 +49,8 @@ let dispatcher: Dispatcher;
 let registry: ReturnType<typeof createRegistry>;
 
 const systemAdmin = TestUsers.systemAdmin;
-// Demo-Tenant — NICHT SYSTEM_TENANT. Echter App-Realität (publicstatus
-// hat seine Memberships in Demo-Tenants `...0001` / `...0002`).
+// Demo-Tenant — NOT SYSTEM_TENANT. This reflects the real app, where
+// publicstatus stores its memberships in Demo-Tenants `...0001` / `...0002`.
 const demoTenantId = "00000000-0000-4000-8000-000000000001" as TenantId;
 const adminUserId = "01900000-0000-7000-8000-000000000aaa";
 
@@ -106,8 +105,9 @@ describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
     );
     expect(addRes.isSuccess).toBe(true);
 
-    // Plant: seed migriert die Rolle. KEY: tenantIdOverride = demoTenantId,
-    // sonst greift SYSTEM_TENANT_ID-default und write geht in version_conflict.
+    // Plan: the seed migrates the role. KEY: tenantIdOverride = demoTenantId,
+    // otherwise the SYSTEM_TENANT_ID default is used and the write causes
+    // version_conflict.
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-21-add-tenant-admin.ts",
@@ -146,7 +146,7 @@ describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
       expect(markers).toHaveLength(1);
       expect(markers[0]?.id).toBe("2026-05-21-add-tenant-admin");
 
-      // Verify (b) event in store mit tenant-membership.updated
+      // Verify (b): event in the store with tenant-membership.updated
       const events = (await asRawClient(testDb.db).unsafe(
         `SELECT type, tenant_id::text AS tenant_id FROM kumiko_events ORDER BY id`,
       )) as unknown as readonly { type: string; tenant_id: string }[];
@@ -166,8 +166,8 @@ describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
   });
 
   test("seed-migration mit handler-QN-typo fail-t dry-run (vor write)", async () => {
-    // Phase 1.5 / A2 — seed-dry-run-validator soll camelCase-typo catchen
-    // BEVOR der dispatcher den write versucht.
+    // The seed dry-run validator must catch the camelCase typo
+    // BEFORE the dispatcher attempts the write.
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-21-bad-qn.ts",
@@ -191,13 +191,13 @@ describe("es-ops Phase 1.5 — E2E gegen real-Stack", () => {
           db: testDb.db,
           seedsDir: dir,
           appliedBy: "boot",
-          registry, // ← dry-run sieht den typo, wirft mit klarer message
+          registry, // ← dry-run catches the typo and throws a clear message
           createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
           logger: () => {},
         }),
       ).rejects.toThrow(
-        // Phase 1.5 / A2 — Dry-Run-validator wirft mit der spezifischen
-        // Phrase "dry-run found ... unknown handler-QN" + dem qn im body.
+        // The dry-run validator throws with the specific
+        // phrase "dry-run found ... unknown handler-QN" and the QN in the body.
         /dry-run found.*unknown handler-QN/,
       );
 

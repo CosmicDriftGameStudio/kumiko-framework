@@ -221,7 +221,7 @@ const integrationFeature = defineFeature("integration", (r) => {
 
 const configFeature = createConfigFeature();
 
-// Pattern-validated text key (managed-cms phase 3 core change): set.write runs
+// Pattern-validated text key (managed-cms core change): set.write runs
 // keyDef.pattern as a hard-reject gate, same posture as bounds. The regex
 // allows empty (clear) | a CSS hex color.
 const patternFeature = defineFeature("patterned", (r) => {
@@ -978,8 +978,8 @@ describe("config.schema query handler", () => {
 describe("config.readiness query handler", () => {
   type Missing = { missing: Array<{ key: string; scope: string; type: string }> };
 
-  // Pro Test ein frischer Tenant — die Tests mutieren required-Keys und
-  // dürfen sich nicht über Reihenfolge-Kopplung gegenseitig sehen (272/3).
+  // Each test uses a fresh tenant because the tests mutate required keys and
+  // must not depend on one another's execution order.
   function readinessAdminFor(n: number) {
     return createTestUser({
       id: 700 + n,
@@ -1588,8 +1588,8 @@ describe("scenario 9: computed resolver", () => {
 // --- Scenario 10: getWithSource — Debug/Ops-Introspection ---
 //
 // Same cascade as get() but also reports WHICH layer produced the value.
-// Ops-tooling needs this for "warum ist mein Wert X?" — debugging a
-// cascade with 6 possible sources by hand is no fun.
+// Ops tooling needs this to answer "why is my value X?"—debugging a
+// cascade with six possible sources by hand is no fun.
 
 describe("scenario 10: getWithSource reports source-of-truth", () => {
   const TENANT_KEY = "orders:config:max-order-count"; // default: 100, scope: tenant

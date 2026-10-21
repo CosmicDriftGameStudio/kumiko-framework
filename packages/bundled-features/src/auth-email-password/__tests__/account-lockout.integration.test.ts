@@ -1,4 +1,4 @@
-// Account-lockout integration tests — prod-readiness welle 3, step 3.4.
+// Account-lockout integration tests — prod-readiness.
 //
 // Covers the brute-force protection contract:
 //   - N wrong-password attempts lock the account for a configurable duration

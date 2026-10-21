@@ -9,28 +9,27 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // ============================================================================
-// Read-Models der drei event-sourced Aggregates
+// Read models for the three event-sourced aggregates
 // ============================================================================
 //
-// Inline-Projection-Targets. Geschrieben AUSSCHLIESSLICH von den
-// projection-applies (siehe feature.ts), nie direkt vom handler.
-// Source-of-truth sind die event-store-Streams `mail-account` /
-// `inbound-message` / `mail-thread` — die Tabellen sind rebuild-fähig.
+// Inline projection targets. Written EXCLUSIVELY by projection applies
+// (see feature.ts), never directly by the handler.
+// The event-store streams `mail-account` / `inbound-message` / `mail-thread`
+// are the source of truth, so these tables can be rebuilt.
 //
 // **PII convention:** `personal: "tenant"` (not `encrypted`): fields must
-// crypto-shred when eraseSubjectKeys deletes the tenant subject key on
-// tenant-destroy (#800 pattern from billing-foundation).
-// maxLength jeweils Ciphertext-budgetiert (`kumiko-pii:v1:<subject>:
-// <blob>` — Plaintext×~2.3 + Envelope-Overhead).
+// be crypto-shredded when eraseSubjectKeys deletes the tenant subject key on
+// tenant destruction (pattern from billing-foundation).
+// maxLength is budgeted for ciphertext (`kumiko-pii:v1:<subject>:
+// <blob>` — Plaintext×~2.3 + envelope overhead).
 //
-// **Offene Design-Frage aus dem Plan (§3.4):** PII-Subject einer
-// Inbound-Mail ist vorerst der TENANT (Postfach-Inhaber), nicht der
-// externe Absender — ein Absender-Forget-Flow bräuchte per-Sender-Keys
-// und ist bewusst NICHT Teil von Phase 1 (dokumentierte Entscheidung,
-// Erasure-Pfad ist tenant-destroy).
+// **Design decision:** The PII subject of an inbound mail is currently the
+// TENANT (mailbox owner), not the external sender. A sender-forget flow would
+// require per-sender keys and is deliberately not included; the erasure path
+// is tenant destruction.
 
-/** Ein verbundenes Postfach. Eine Row pro Account, PK = aggregateId
- *  (= accountId, random uuid beim connect). */
+/** A connected mailbox. One row per account, with PK = aggregateId
+ *  (= accountId, random uuid on connect). */
 export const mailAccountEntity = createEntity({
   table: "read_mail_accounts",
   fields: {
@@ -46,10 +45,10 @@ export const mailAccountEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    // null = tenant-geteiltes Postfach (info@), gesetzt = persönliches
-    // Postfach dieses Users. Sichtbarkeits-Filter in den list-queries:
-    // Owner + TenantAdmin (Compliance); KEIN Crypto-Subject-Wechsel in
-    // V1 (Subject bleibt Tenant, siehe Header).
+    // null = tenant-shared mailbox (info@), set = this user's personal
+    // mailbox. Visibility filters in the list queries:
+    // Owner + TenantAdmin (compliance); NO crypto-subject change in
+    // V1 (subject remains Tenant, see header).
     ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
     // Tenant-authored mailbox label, not a person's name.
     displayName: createTextField({
@@ -57,7 +56,7 @@ export const mailAccountEntity = createEntity({
       personal: false,
       reason: "tenant_config_not_personal",
     }),
-    // Postfach-Adresse — PII des Tenants.
+    // Mailbox address — tenant PII.
     address: createTextField({ required: true, maxLength: 1000, personal: "tenant", find: "none" }),
     status: createTextField({
       required: true,
@@ -70,8 +69,8 @@ export const mailAccountEntity = createEntity({
   },
 });
 
-/** Eine eingegangene Mail (Envelope + Snippet, KEIN Body — bodyRef
- *  zeigt auf file-foundation). PK = aggregateId =
+/** An incoming mail (envelope + snippet, NO body — bodyRef
+ *  points to file-foundation). PK = aggregateId =
  *  inboundMessageAggregateId(accountId, providerMessageId). */
 export const inboundMessageEntity = createEntity({
   table: "read_inbound_messages",
@@ -82,9 +81,9 @@ export const inboundMessageEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    // Scope-Vererbung vom Account zum Ingest-Zeitpunkt — Messages eines
-    // persönlichen Postfachs sind nur für den Owner (+ TenantAdmin)
-    // sichtbar, ohne Join auf read_mail_accounts.
+    // Scope is inherited from the account at ingest time: messages from a
+    // personal mailbox are visible only to the owner (+ TenantAdmin),
+    // without joining read_mail_accounts.
     ownerUserId: createTextField({ maxLength: 36, personal: false, reason: "pseudonymous_fk" }),
     messageIdHeader: createTextField({
       required: true,
@@ -127,29 +126,29 @@ export const mailThreadEntity = createEntity({
   },
 });
 
-// Single source of truth für die PII-Feld-Listen — encrypt (ingest/
-// connect-handler) und decrypt (list-queries) teilen dieselbe Liste,
-// damit ein künftiges weiteres tenantOwned-Feld nicht an einer der
-// Stellen vergessen wird (Muster billing-foundation entities.ts).
+// Single source of truth for the PII field lists — encrypt (ingest/
+// connect-handler) and decrypt (list-queries) share the same list,
+// so a future tenantOwned field cannot be omitted in either location
+// (pattern from billing-foundation entities.ts).
 export const MAIL_ACCOUNT_PII_FIELDS = collectPiiSubjectFields(mailAccountEntity);
 export const INBOUND_MESSAGE_PII_FIELDS = collectPiiSubjectFields(inboundMessageEntity);
 export const MAIL_THREAD_PII_FIELDS = collectPiiSubjectFields(mailThreadEntity);
 
 // ============================================================================
-// Unmanaged Direct-Write-Stores — Sync-Maschinerie, NICHT event-sourced
+// Unmanaged direct-write stores — sync machinery, NOT event-sourced
 // ============================================================================
 //
-// SyncCursor + SeenMessage sind technischer Tick-State des Watch/Sync-
-// Loops: hochfrequente Writes ohne Business-Fakt-Charakter. Als r.entity
-// würden sie (a) das Event-Log fluten und (b) beim Projection-Rebuild
-// gewischt (Direct-Write ohne Event → Rebuild findet nichts, #494/#498-
-// Klasse). Deshalb r.unmanagedTable — Migration-DDL ja, Rebuild-Target
-// nein (Muster sessions/feature.ts).
+// SyncCursor + SeenMessage are technical tick state for the watch/sync
+// loops: high-frequency writes without business-fact semantics. As
+// r.entity, they would (a) flood the event log and (b) be wiped during a
+// projection rebuild (direct write without an event means the rebuild finds
+// nothing). Therefore r.unmanagedTable — migration DDL, but not a rebuild
+// target (pattern from sessions/feature.ts).
 
-/** Provider-Cursor pro Account ("wo war ich?"): IMAP UIDVALIDITY:UIDNEXT,
- *  Graph deltaLink, Gmail historyId. Eine Row pro (accountId, scope).
- *  Write-locked auf privileged — nur Foundation-Handler/Supervisor
- *  schreiben, kein Tenant-Request. */
+/** Provider cursor per account ("where was I?"): IMAP UIDVALIDITY:UIDNEXT,
+ *  Graph deltaLink, Gmail historyId. One row per (accountId, scope).
+ *  Write-locked to privileged — only Foundation handlers/supervisors
+ *  write it; tenant requests cannot. */
 export const syncCursorEntity = createEntity({
   table: "store_mail_sync_cursors",
   softDelete: false,
@@ -182,10 +181,10 @@ export const syncCursorEntity = createEntity({
   },
 });
 
-/** Dedup-Anchor für O(1)-Idempotency ohne Stream-Scan bei sehr langen
- *  Message-Historien: (accountId, providerMessageId) UNIQUE. Der
- *  ingest-handler prüft zuerst hier (cheap), der Stream-Scan bleibt
- *  Defense-in-depth. */
+/** Deduplication anchor for O(1) idempotency without scanning the stream
+ *  for very long message histories: (accountId, providerMessageId) UNIQUE.
+ *  The ingest handler checks here first (cheap); the stream scan remains
+ *  defense-in-depth. */
 export const seenMessageEntity = createEntity({
   table: "store_mail_seen_messages",
   softDelete: false,
@@ -211,9 +210,9 @@ export const seenMessageEntity = createEntity({
   },
 });
 
-// Plain EntityTableMeta (kein branded EntityTable) — unmanaged Direct-
-// Write-Stores, Handler schreiben via ctx.db (siehe user-session.ts-
-// Rationale).
+// Plain EntityTableMeta (not a branded EntityTable) — unmanaged direct-
+// write stores; handlers write via ctx.db (see user-session.ts-
+// rationale).
 export const syncCursorTable = deriveEntityTableMeta("mail-sync-cursor", syncCursorEntity, {
   source: "unmanaged",
 });

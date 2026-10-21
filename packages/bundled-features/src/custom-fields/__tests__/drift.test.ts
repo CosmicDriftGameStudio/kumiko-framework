@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 
-// Drift-Pin-Tests — diese Werte sind Cross-File-Contracts, ein Wechsel muss
-// bewusst geschehen. Wenn diese Tests rot werden: stop, denk nach, revert.
-// aggregate-id.ts verweist namentlich auf diese Datei.
+// Drift-pin tests — these values are cross-file contracts; changing them must be deliberate.
+// If these tests fail: stop, think, revert.
+// aggregate-id.ts explicitly refers to this file.
 
 describe("custom-fields drift pins", () => {
   test("fieldDefinition aggregate-id namespace is stable across boots", () => {

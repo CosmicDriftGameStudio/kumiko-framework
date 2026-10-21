@@ -1,12 +1,12 @@
-// Integration-test for withCapEnforcement / withRollingCapEnforcement.
-// Beweist die Wrapper-Verdrahtung end-to-end:
-//   1. Pre-call: enforceCapAndMaybeNotify dispatched (notifier feuert,
-//      mark-soft-warned-handler kippt das DB-Flag)
-//   2. Handler runs — only when below hard-cap
-//   3. Atomic reservation before the handler — counter steigt um `amount`
-//   4. Hard-hit: handler runs NICHT, counter NICHT inkrementiert
-//   5. Failed handler: counter NICHT inkrementiert (cap-quota nicht
-//      verbrannt für gescheiterte writes)
+// Integration test for withCapEnforcement / withRollingCapEnforcement.
+// Proves the wrapper wiring end to end:
+//   1. Pre-call: enforceCapAndMaybeNotify is dispatched (the notifier fires,
+//      and the mark-soft-warned handler updates the database flag)
+//   2. The handler runs only below the hard cap
+//   3. Atomic reservation occurs before the handler; the counter increases by `amount`
+//   4. At the hard limit, the handler does not run and the counter does not increase
+//   5. A failed handler does not increase the counter (failed writes do not
+//      consume the cap quota)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -47,15 +47,15 @@ import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enfor
 import { fetchCounterRow } from "./read-counter.ts";
 
 // =============================================================================
-// Test-Probe — newsletter-send-Handler with cap-enforcement
+// Test probe — newsletter-send handler with cap enforcement
 // =============================================================================
 //
-// Module-level state für die Tests:
-//   - sendCallCount: wie oft der gewrappte Handler tatsächlich gerufen wurde
-//     (Drift-Pin: bei hard-hit darf das NICHT inkrementieren)
-//   - recordedNotifications: Notifier-callback firings
-//   - failNextSend: simuliert handler-Fehler — Drift-Pin: Counter darf
-//     bei failure nicht inkrementieren
+// Module-level state for the tests:
+//   - sendCallCount: how often the wrapped handler was actually called
+//     (regression guard: this must not increase on a hard hit)
+//   - recordedNotifications: notifier callback invocations
+//   - failNextSend: simulates a handler failure; the counter must not increase
+//     on failure
 let sendCallCount = 0;
 let failNextSend = false;
 const recordedNotifications: Array<{ capName: string; value: number }> = [];
@@ -104,7 +104,7 @@ const NEWSLETTER_QN = "newsletter:write:send-newsletter";
 const NEWSLETTER_ROLLING_QN = "newsletter:write:send-rolling";
 
 // =============================================================================
-// TenantAdmin-only probes (fw#2854 gap): the users above carry BOTH
+// TenantAdmin-only probes (access-control gap): the users above carry BOTH
 // TenantAdmin and SystemAdmin, which hid the bug that enforceCapAndMaybeNotify
 // / withCapEnforcement / withRollingCapEnforcement used to dispatch
 // SystemAdmin-only handlers (ctx.write(CapCounterHandlers.increment) etc.) —
@@ -386,10 +386,10 @@ describe("withCapEnforcement — calendar", () => {
   test("hard-hit: handler läuft NICHT, counter NICHT weiter inkrementiert", async () => {
     resetState();
     const admin = adminFor(1203);
-    // limit=5, soft=1.1×5=5.5, hard=1.2×5=6. Da Counter int ist, springt
-    // value(5)→6 direkt in den hard-Bereich (keine intermediate soft-zone
-    // bei limit=5). Soft-hit-Verhalten ist im enforce-cap-Integration-Test
-    // mit limit=1000 schon gepinnt; hier liegt der Fokus auf hard-block.
+    // limit=5, soft=1.1×5=5.5, hard=1.2×5=6. Because the counter is an integer,
+    // value(5)→6 enters the hard range directly (there is no intermediate soft zone
+    // at limit=5). Soft-hit behavior is covered by the enforce-cap integration test
+    // with limit=1000; this test focuses on hard blocking.
     for (let i = 0; i < 6; i++) {
       await stack.http.writeOk(NEWSLETTER_QN, { to: `${i}@x.de` }, admin);
     }
@@ -397,15 +397,15 @@ describe("withCapEnforcement — calendar", () => {
     const beforeBlocked = await readCounter(admin, "newsletter-cap", PERIOD);
     expect(beforeBlocked!["value"]).toBe(6);
 
-    // 7. send: pre-call sieht value=6 ≥ hard=6 → CapExceededError (extends
-    // KumikoError) → dispatcher mapped auto auf 429 + cap_exceeded.
+    // The seventh send sees value=6 ≥ hard=6 in the pre-call check → CapExceededError
+    // (extends KumikoError) → the dispatcher automatically maps it to 429 + cap_exceeded.
     const error = await stack.http.writeErr(NEWSLETTER_QN, { to: "blocked@x.de" }, admin);
     expect(error.code).toBe("cap_exceeded");
     expect(error.httpStatus).toBe(429);
 
-    // Drift-Pin: handler darf NICHT gelaufen sein (sendCallCount unverändert)
+    // Regression guard: the handler must not have run (sendCallCount is unchanged)
     expect(sendCallCount).toBe(6);
-    // Drift-Pin: counter NICHT weiter inkrementiert (immer noch 6)
+    // Regression guard: the counter must not have increased (it remains 6)
     const afterBlocked = await readCounter(admin, "newsletter-cap", PERIOD);
     expect(afterBlocked!["value"]).toBe(6);
   });
@@ -418,21 +418,21 @@ describe("withCapEnforcement — calendar", () => {
     await stack.http.writeOk(NEWSLETTER_QN, { to: "first@x.de" }, admin);
     expect(sendCallCount).toBe(1);
 
-    // Zweiter send schlägt fehl im inner-handler (failNextSend=true).
-    // Wrapper soll NICHT inkrementieren.
+    // The second send fails in the inner handler (failNextSend=true).
+    // The wrapper must not increment the counter.
     failNextSend = true;
     await stack.http.writeErr(NEWSLETTER_QN, { to: "fail@x.de" }, admin);
     expect(sendCallCount).toBe(2);
 
-    // Counter bleibt bei 1 — der gescheiterte send hat keine quota verbrannt.
+    // The counter remains at 1—the failed send did not consume any quota.
     const row = await readCounter(admin, "newsletter-cap", PERIOD);
     expect(row!["value"]).toBe(1);
   });
 });
 
 // =============================================================================
-// Rolling-wrapper scenarios — kürzer, weil Notification-Wiring + base-flow
-// schon vom calendar-Test abgedeckt sind.
+// Rolling-wrapper scenarios — shorter because notification wiring and the base flow
+// are already covered by the calendar test.
 // =============================================================================
 
 describe("withRollingCapEnforcement — rolling", () => {
@@ -443,9 +443,8 @@ describe("withRollingCapEnforcement — rolling", () => {
     await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "a@x.de" }, admin);
     await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "b@x.de" }, admin);
     expect(sendCallCount).toBe(2);
-    // Read via enforceRollingCap — kein direct-getter, aber wir können
-    // einen weiteren write absetzen und das Ergebnis prüfen ist
-    // upstream. Wichtig: handler ist aufgerufen.
+    // Read via enforceRollingCap—there is no direct getter, but we can issue
+    // another write and verify its result. The important point is that the handler ran.
   });
 
   test("hard-hit: rolling-counter blockiert weitere sends", async () => {
@@ -461,14 +460,13 @@ describe("withRollingCapEnforcement — rolling", () => {
     const error = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
     expect(error.code).toBe("cap_exceeded");
     expect(error.httpStatus).toBe(429);
-    expect(sendCallCount).toBe(6); // handler wurde NICHT erneut aufgerufen
+    expect(sendCallCount).toBe(6); // the handler was not called again
   });
 
   test("failed handler: kein increment-rolling-event hinzugefügt (cap-quota nicht verbrannt)", async () => {
-    // Symmetrisch zum calendar-Test "failed handler: counter NICHT
-    // inkrementiert". Beweist dass der rolling-Wrapper denselben
-    // Atomicity-Vertrag erfüllt: nur erfolgreiche handler verbrennen
-    // quota.
+    // Mirrors the calendar test "failed handler: counter not incremented". Proves
+    // that the rolling wrapper provides the same atomicity contract: only successful
+    // handlers consume quota.
     resetState();
     const admin = adminFor(1303);
 
@@ -476,37 +474,35 @@ describe("withRollingCapEnforcement — rolling", () => {
     await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "first@x.de" }, admin);
     expect(sendCallCount).toBe(1);
 
-    // 2. send: handler wirft → kein increment-rolling-event
+    // 2. send: the handler throws → no increment-rolling event
     failNextSend = true;
     await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "fail@x.de" }, admin);
     expect(sendCallCount).toBe(2);
 
-    // 3. send: success → increment-rolling-event #2 (Drift-Pin: counter
-    // steht bei 2, NICHT bei 3 — der gescheiterte send #2 hat keine
-    // quota verbrannt). Wir treiben den counter bis genau hard-1, das
-    // funktioniert NUR wenn #2 nicht gezählt wurde.
+    // 3. send: success → increment-rolling event #2 (regression guard: the counter
+    // is 2, not 3—the failed send #2 did not consume quota). We advance the counter
+    // to exactly hard-1, which works only if #2 was not counted.
     for (let i = 0; i < 4; i++) {
       await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: `s-${i}@x.de` }, admin);
     }
     expect(sendCallCount).toBe(6);
 
-    // 7. send (= hard@6): blockiert. counter steht bei 5 (1 + 4),
-    // pre-call sieht 5 < hard@6 → handler läuft + increment, counter
-    // steigt auf 6. Direkt danach blockiert der nächste send.
-    // Wenn der gescheiterte send fälschlich gezählt hätte, wäre der
-    // counter schon bei 6 und der jetzt-erlaubte send würde blockieren.
+    // Seventh send (= hard@6): the pre-call check sees 5 < hard@6, so the handler
+    // runs and increments the counter to 6; the next send is then blocked.
+    // If the failed send had been counted incorrectly, the counter would already
+    // be 6 and this allowed send would be blocked.
     await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "last-allowed@x.de" }, admin);
     expect(sendCallCount).toBe(7);
 
     const blocked = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
     expect(blocked.code).toBe("cap_exceeded");
     expect(blocked.httpStatus).toBe(429);
-    expect(sendCallCount).toBe(7); // wrapper hat den blockierten handler NICHT gerufen
+    expect(sendCallCount).toBe(7); // the wrapper did not call the blocked handler
   });
 });
 
 // =============================================================================
-// TenantAdmin-only calendar callers (no SystemAdmin, no escapeHatch) — fw#2854
+// TenantAdmin-only calendar callers (no SystemAdmin, no escapeHatch)
 // =============================================================================
 
 describe("withCapEnforcement — calendar, TenantAdmin-only callers", () => {

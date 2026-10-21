@@ -46,7 +46,7 @@ import {
 export type DeliveryFeatureOptions = {
   // Access gate for the delivery-log screen and the `log` query it reads —
   // both move together so the nav entry a role sees always matches a
-  // callable handler (#2033). Default access.admin includes TenantAdmin,
+  // callable handler. Default access.admin includes TenantAdmin,
   // who in a line-of-business app is the operator, not the platform — pass
   // access.systemAdmin to keep this platform-only and out of their nav.
   readonly access?: readonly string[];
@@ -99,10 +99,10 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // boot-validator accepts the projection below because at least one
     // apply-key is a registered domain-event (DELIVERY_ATTEMPT_EVENT).
     // recipientAddress is the real PII (email address); recipientId stays
-    // plaintext — pseudonymous fk, same line as config.userId (#821).
+    // plaintext — pseudonymous fk, same line as config.userId.
     // recipientId is nullable (system-triggered sends to non-users), so the
     // address falls back to the tenant key instead of the plaintext it used
-    // to be — still shreddable, one tenant wide (fw#2776).
+    // to be — still shreddable, one tenant wide.
     r.defineEvent("attempt", deliveryAttemptSchema, {
       piiFields: {
         recipientAddress: { personal: { of: "recipientId", whenAbsent: "tenant" } },

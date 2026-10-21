@@ -20,9 +20,9 @@ describe("inboundMailFoundationFeature — shape", () => {
   });
 
   test("does NOT require config — Multi-Provider, Provider-Config liegt in den Plugins", () => {
-    // Drift-Pin (Plan §1.3): KEIN globaler provider-config-key. Ein
-    // Tenant kann parallel IMAP + M365 + Gmail verbinden — der Provider
-    // steht pro MailAccount-Row.
+    // Drift pin: there is no global provider-config key. A tenant can connect
+    // IMAP, M365, and Gmail in parallel; the provider is stored per
+    // MailAccount row.
     expect(createInboundMailFoundationFeature().requires).not.toContain("config");
   });
 
@@ -44,16 +44,16 @@ describe("inboundMailFoundationFeature — shape", () => {
   });
 
   test("SyncCursor + SeenMessage sind unmanaged (NICHT event-sourced, Plan §3.4)", () => {
-    // Drift-Pin: als r.entity würden die Tick-State-Tabellen (a) das
-    // Event-Log fluten und (b) beim Projection-Rebuild gewischt.
+    // If modeled as r.entity, the tick-state tables would flood the event log
+    // and be wiped during projection rebuilds.
     const unmanaged = Object.keys(createInboundMailFoundationFeature().storeTables);
     expect(unmanaged.length).toBe(2);
   });
 });
 
 describe("aggregate-ids — deterministic drift-pins", () => {
-  // In Stein gemeißelt: ein Namespace-Wechsel würde jeden existing
-  // Stream re-keyen → kaputte Idempotency. Werte einmalig berechnet.
+  // A namespace change would re-key every existing stream and break
+  // idempotency, so these values are computed only once.
   test("inboundMessageAggregateId is stable", () => {
     expect(inboundMessageAggregateId("11111111-1111-1111-1111-111111111111", "uid-42")).toBe(
       "c3a5c3fc-706e-5c66-8617-d6c08e0f4a6b",

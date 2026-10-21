@@ -1,7 +1,7 @@
-// PII on the jobs run-logger, direct-write path (#2243, formerly #799):
+// PII on the jobs run-logger, direct-write path:
 // run-started payload can carry arbitrary user data and is written straight
-// into jobRunsTable (no event store, no event-PII catalog — #2243 removed
-// the jobRun r.defineEvent registrations). With a KMS active the stored row
+// into jobRunsTable (no event store or event-PII catalog: the jobRun
+// r.defineEvent registrations were removed). With a KMS active the stored row
 // carries ciphertext under the triggering user's DEK; erasing that key
 // makes the payload unreadable ([[erased]]) without touching the row.
 
@@ -163,7 +163,7 @@ describe("jobs run-started payload under KMS", () => {
   });
 });
 
-// #2247: store_job_run_logs is the same unmanaged direct-write path as
+// store_job_run_logs is the same unmanaged direct-write path as
 // jobRunsTable.payload above — onJobComplete/onJobFailed batch-insert log
 // lines straight from the BullMQ callback, with no event-PII catalog to
 // lean on. Same subject (triggeredById), same encrypt-under-DEK treatment,
@@ -247,7 +247,7 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
     expect(logs[0]?.["message"]).toBe(SECRET_LOG);
   });
 
-  // #2307: a key erased between onJobStart and onJobComplete no longer
+  // A key erased between onJobStart and onJobComplete no longer
   // blows up the callback. encryptLogMessages catches KeyErasedError per
   // log line and falls back to the sentinel (mirroring
   // decryptPiiValueForSubject on the read side) instead of throwing and
@@ -272,7 +272,7 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
   });
 });
 
-// #2307: onJobFailed's `error` argument was the one plaintext leak left in
+// onJobFailed's `error` argument was the one plaintext leak left in
 // this table — encryptLogMessages already encrypted logs[].message under
 // the same triggeredById, but the sibling `error` column (same underlying
 // string in job-runner.ts, since it pushes errorMsg into both the log
@@ -592,10 +592,10 @@ describe("jobs:query:details decrypts log messages and error end-to-end (#2247, 
   });
 });
 
-// #2465: jobs:write:retry read run.payload straight off the row and
+// jobs:write:retry read run.payload straight off the row and
 // JSON.parse'd it without decrypting first — broken on main for any retry
-// of a run whose payload was encrypted under the triggering user's DEK
-// (#799). This dispatches the real jobs:write:retry HTTP handler so a
+// of a run whose payload was encrypted under the triggering user's DEK.
+// This dispatches the real jobs:write:retry HTTP handler so a
 // regression (missing decrypt, wrong AAD field name, sentinel mishandled)
 // fails a test instead of shipping a crash to the retry button.
 describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
@@ -685,7 +685,7 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
     expect(errInfo.details).toMatchObject({ reason: "job_payload_erased" });
   });
 
-  // #2469: retry dispatched without a `meta` argument, so the retried run
+  // Retry dispatched without a `meta` argument, so the retried run
   // carried no triggeredById at all — job-run-logger's onJobStart then saw
   // triggeredById: null, skipped encryption entirely, and the retried run's
   // payload landed in job_runs as unshreddable plaintext. The asserted

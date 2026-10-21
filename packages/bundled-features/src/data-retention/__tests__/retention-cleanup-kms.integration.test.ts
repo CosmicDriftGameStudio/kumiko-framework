@@ -1,4 +1,4 @@
-// Refs #2057 (partial) — hardDelete must crypto-shred the purged row's own
+// hardDelete must crypto-shred the purged row's own
 // KMS subject key AFTER the forget, mirroring run-forget-cleanup.ts:477-503's
 // forget → eraseKey → nullBlindIndexesForSubject ordering. Only recordOwned
 // and self-pii subjects belong to the row being deleted; a userOwned field's

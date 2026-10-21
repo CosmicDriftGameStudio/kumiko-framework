@@ -1,4 +1,4 @@
-// framework#2076: set.write / registered.query / list.query all read/write
+// set.write / registered.query / list.query all read/write
 // globalFeatureStateTable via ctx.systemDb.acknowledgeCrossTenant(...) instead
 // of ctx.db directly. That only resolves correctly as long as the
 // feature-toggles feature stays r.systemScope() (feature.ts) — buildHandlerContext

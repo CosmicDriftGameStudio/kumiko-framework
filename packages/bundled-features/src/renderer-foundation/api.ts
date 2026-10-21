@@ -1,7 +1,7 @@
-// RendererFoundationApi — Cross-Feature-Schnittstelle. Konsumenten
-// (delivery, mail-Sender, Solon NKA-PDF-Generator) holen sich pro
-// Render-Call den passenden Plugin via `createRendererForTenant`.
-// Pattern symmetrisch zu ai-foundation's `createLLMProviderForTenant`.
+// RendererFoundationApi — cross-feature interface. Consumers
+// (delivery, mail sender, Solon NKA PDF generator) retrieve the appropriate
+// plugin for each render call via `createRendererForTenant`.
+// The pattern mirrors ai-foundation's `createLLMProviderForTenant`.
 
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
@@ -32,10 +32,9 @@ export type RendererFoundationApi = {
   }) => RendererPlugin;
 };
 
-// Plugin-Pool wird zur Boot-Zeit aus Extension-Usages aufgebaut.
-// Aus dem Registry kommen alle registrierten Plugins. Foundation-Feature
-// baut den Pool via `collectRendererPlugins(registry)` und steckt das
-// Result in extraContext.
+// The plugin pool is built at boot time from extension usages.
+// The registry provides all registered plugins. The foundation feature builds
+// the pool via `collectRendererPlugins(registry)` and puts it in extraContext.
 export function createRendererFoundationApi(
   plugins: ReadonlyArray<RendererPlugin>,
   tenantConfigLookup: (tenantId: TenantId) => Record<string, string> | null = () => null,
@@ -50,7 +49,7 @@ export function createRendererFoundationApi(
       if (tenantPluginName) {
         const plugin = plugins.find((p) => p.name === tenantPluginName && p.kinds.includes(kind));
         if (plugin) return plugin;
-        // Tenant-Config zeigt auf nicht-registriertes Plugin — fällt durch zu Default
+        // The tenant configuration points to an unregistered plugin; fall through to the default.
       }
 
       // 2. Default-Plugin
@@ -60,7 +59,7 @@ export function createRendererFoundationApi(
         if (plugin) return plugin;
       }
 
-      // 3. Erstes Plugin im Pool das das kind bedient
+      // 3. First plugin in the pool that serves the kind
       const first = byKind.get(kind)?.[0];
       if (first) return first;
 
@@ -85,14 +84,14 @@ function indexByKind(plugins: ReadonlyArray<RendererPlugin>): Map<RenderKind, Re
   return map;
 }
 
-// Single point of truth für "dieser Handler braucht renderer-foundation".
-// Pattern symmetrisch zu requireTemplateResolver + requireTextContent.
+// Single source of truth for handlers that require renderer-foundation.
+// The pattern mirrors requireTemplateResolver + requireTextContent.
 export function requireRendererFoundation(
   ctx: { readonly rendererFoundation?: RendererFoundationApi } | object,
   callerName: string,
 ): RendererFoundationApi {
   // @cast-boundary engine-bridge — rendererFoundation kommt per extraContext
-  // aus App-Bootstrap.
+  // from the app bootstrap.
   const api = (ctx as { rendererFoundation?: RendererFoundationApi }).rendererFoundation;
   if (!api) {
     throw new InternalError({

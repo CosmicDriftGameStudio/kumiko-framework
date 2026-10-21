@@ -1,9 +1,8 @@
 // form-draft — a per-user, per-tenant working copy of an in-progress form,
-// saved BEFORE the real domain entity exists. Backing for wizard-mode resume
-// (kumiko-framework#1884/#1883): a caller-assigned draftKey (typically
-// screenId + optional hostEntityId) round-trips { values, stepIndex,
-// savedAt } through save/discard/get. See entity.ts for the ownership +
-// uniqueness model.
+// saved BEFORE the real domain entity exists. Backing for wizard-mode resume.
+// A caller-assigned draftKey (typically screenId + optional hostEntityId)
+// round-trips { values, stepIndex, savedAt } through save/discard/get. See
+// entity.ts for the ownership + uniqueness model.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";

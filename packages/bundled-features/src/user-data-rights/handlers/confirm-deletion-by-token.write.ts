@@ -9,16 +9,16 @@ export type ConfirmDeletionByTokenOptions = {
   readonly deletionTokenSecret?: string;
 };
 
-// Generischer 422 für jeden Token-Fehlerpfad (malformed / bad_signature /
-// expired / kein Secret) — kein Signal ob ein Token zu einem User gehört.
+// Use the same generic 422 for every token-error path (malformed / bad_signature /
+// expired / missing secret) so callers cannot determine whether a token belongs to a user.
 function invalidToken(): UnprocessableError {
   return new UnprocessableError("invalid_or_expired_token");
 }
 
-// userId stammt aus dem noch-unverifizierten Token (Angreifer-Eingabe). Ein
-// fehlgeschlagener Lookup — z.B. eine typfremde id auf einer int/uuid-Spalte —
-// darf nicht als 500 durchschlagen; null behandelt der Caller wie "kein offener
-// Antrag" (generischer 422). Die HMAC-Prüfung bleibt der eigentliche Gate.
+// userId comes from the not-yet-verified token (attacker-controlled input). A failed
+// lookup—for example, a type-mismatched id on an int/uuid column—must not surface as a
+// 500; null is treated by the caller as "no pending request" (generic 422). HMAC
+// verification remains the actual gate.
 async function readPendingDeletionRequestId(
   ctx: HandlerContext,
   userId: string,
@@ -41,7 +41,7 @@ async function readPendingDeletionRequestId(
 // the actual grace-period transition, so a crash after the spend can no
 // longer lose the write step.
 //
-// Replay protection (#354/1): the row's requestId is part of the verify key.
+// Replay protection: the row's requestId is part of the verify key.
 // We read it via the (unverified, lookup-only) userId from the token, reject
 // a missing entry, and verify the token against the CURRENT requestId. After
 // a cancel-deletion (status → Active, pendingDeletionRequestId → null), a
@@ -51,7 +51,7 @@ async function readPendingDeletionRequestId(
 // the same requestId and both verify the HMAC — commitDeletion spends the
 // anchor AND writes the transition atomically (expect: status===Active &&
 // pendingDeletionRequestId===requestId), so exactly one wins. The loser gets
-// the same generic 422 as an invalid token — no status leak (#354/2).
+// the same generic 422 as an invalid token — no status leak.
 export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByTokenOptions = {}) {
   return defineWriteHandler({
     name: "confirm-deletion-by-token",

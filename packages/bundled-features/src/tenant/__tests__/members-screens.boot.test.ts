@@ -117,10 +117,10 @@ describe("tenant members screen + handler access alignment", () => {
     }
   });
 
-  // fw-2452 regression: the roles-edit multiSelect is prefilled with a
+  // The roles-edit multiSelect is prefilled with a
   // member's current roles, so it must list every rank updateMemberRoles can
   // actually assign (incl. TenantAdmin) — while the invite picker stays a
-  // closed allowlist without TenantAdmin (fw#2414), since inviting always
+  // closed allowlist without TenantAdmin, since inviting always
   // starts a brand-new membership rather than editing an existing one.
   test("member-roles-edit options can represent every assignable rank; invite picker stays TenantAdmin-free", () => {
     const tenant = createTenantFeature({ inviteScreen: true });

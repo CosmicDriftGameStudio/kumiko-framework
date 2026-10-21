@@ -60,7 +60,7 @@ export type DestructionStageCtx = {
   // Derived search docs of the tenant record (its name) live in the writer's
   // index, not the destroyed tenant's, so the subject-keys stage purges them.
   readonly searchAdapter?: SearchAdapter;
-  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // Sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); runTenantDataHooks uses them to attribute+audit any
   // EXT_TENANT_DATA usage's declared escapeHatch.
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;

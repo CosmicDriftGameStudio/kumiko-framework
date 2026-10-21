@@ -1,15 +1,14 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 
-// get-active-tier — return the current tier-assignment for the calling tenant.
+// get-active-tier — returns the current tier assignment for the calling tenant.
 //
-// **Convenience-wrapper** über `ctx.queryProjection` für die häufigste Frage
-// gegen die Engine: „welcher Tier ist gerade aktiv?". Returns null wenn
-// noch kein Tier gesetzt — der Caller (composeApp) mappt null → Default-Tier.
+// Wraps `ctx.queryProjection` for the most common engine query: which tier is
+// currently active. Returns null when no tier is assigned; the caller (composeApp)
+// maps null to the default tier.
 //
-// **Tenant-scope:** ctx.queryProjection filtert automatisch nach tenantId.
-// Pro Plattform-Tenant existiert per Konvention genau eine
-// tier-assignment-Row.
+// **Tenant scope:** `ctx.queryProjection` automatically filters by tenantId.
+// By convention, each platform tenant has exactly one tier-assignment row.
 export const getActiveTierQuery: QueryHandlerDef = {
   name: "get-active-tier",
   description:

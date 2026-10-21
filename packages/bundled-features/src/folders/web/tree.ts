@@ -47,11 +47,11 @@ export function buildFolderTree(rows: readonly FolderRow[]): readonly FolderNode
   return build(null, 0);
 }
 
-// "Immobilie Berlin / Person Müller" for a folder id, walking parentId up.
-// Empty string if the id is unknown. The row-count cap stops a (currently
-// impossible — no reparent yet) parent cycle from spinning forever — `< `,
-// not `<=` (658/4): a cycle of exactly rows.length nodes must stop AT the
-// cap, not run one iteration past it.
+// Returns a path such as "Properties / Berlin" for a folder id by walking
+// parentId upward, or an empty string if the id is unknown. The row-count cap
+// stops a parent cycle (currently impossible, since there is no reparent yet)
+// from spinning forever. Use `<`, not `<=`: a cycle of exactly rows.length
+// nodes must stop at the cap, not run one iteration past it.
 export function folderPath(rows: readonly FolderRow[], id: string, separator = " / "): string {
   const byId = new Map(rows.map((r) => [r.id, r]));
   const names: string[] = [];

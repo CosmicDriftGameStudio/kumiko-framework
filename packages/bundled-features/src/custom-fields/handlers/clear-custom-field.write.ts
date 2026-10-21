@@ -19,13 +19,13 @@ export type ClearCustomFieldPayload = z.infer<typeof clearCustomFieldPayloadSche
 const CLEAR_CUSTOM_FIELD_REASON =
   "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
 
-// clear-custom-field — entfernt einen Custom-Field-Wert von einer host-
-// entity. Emittiert customField.cleared-Event; MSP entfernt key aus
-// jsonb-column (key-removal, nicht null-set).
+// clear-custom-field — removes a custom-field value from a host entity.
+// Emits the customField.cleared event; MSP removes the key from the
+// jsonb column (key removal, not setting it to null).
 //
-// T1.5b: per-field fieldAccess.write gate — caller muss eine der definierten
-// Rollen halten falls fieldDefinition.serializedField.fieldAccess.write
-// gesetzt ist. Handler-level RBAC (TenantAdmin/Member) bleibt zusätzlich.
+// Per-field fieldAccess.write gate: the caller must hold one of the defined
+// roles when fieldDefinition.serializedField.fieldAccess.write is set.
+// Handler-level RBAC (TenantAdmin/Member) still applies as well.
 export const clearCustomFieldHandler: WriteHandlerDef = {
   name: "clear-custom-field",
   schema: clearCustomFieldPayloadSchema,
@@ -73,8 +73,9 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
   },
 };
 
-/** Pendant zu createSetCustomFieldHandler — gleiche Rollen für set + clear,
- *  ein Wert ohne Clear-Recht wäre nur halb beherrschbar. */
+/** Companion to createSetCustomFieldHandler: set and clear use the same roles;
+ *  allowing a value to be set without allowing it to be cleared would leave
+ *  access control incomplete. */
 export function createClearCustomFieldHandler(
   roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
 ): WriteHandlerDef {

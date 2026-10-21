@@ -74,7 +74,7 @@ const scopedEntity = createEntity({
   },
 });
 
-// fw#2914 — "tenant-scoped" is a managed r.entity table (not Writable),
+// "tenant-scoped" is a managed r.entity table (not Writable),
 // so TenantDb's typed write methods reject it; this delete is raw SQL, still
 // filtered by tenant_id.
 const TENANT_SCOPED_DELETE_REASON =
@@ -415,7 +415,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     });
 
     // A created-event whose userId payload cannot be read may name a second
-    // member — the fail-safe branch must survive the #2608 fix.
+    // member — the fail-safe branch must survive the fix.
     await append(stack.db, {
       tenantId: TENANT,
       aggregateId: "eeeeeeee-eeee-4eee-8eee-0000000000c8",

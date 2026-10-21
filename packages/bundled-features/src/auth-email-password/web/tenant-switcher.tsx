@@ -1,17 +1,16 @@
-// TenantSwitcher — kleines Dropdown, zeigt den aktiven Tenant und
-// erlaubt Wechsel zu anderen Memberships. Auf Radix-DropdownMenu für
-// konsistentes Verhalten (Click-outside/Escape/Keyboard-Nav).
+// TenantSwitcher — compact dropdown showing the active tenant and
+// allowing switches to other memberships. Uses Radix-DropdownMenu for
+// consistent click-outside, Escape, and keyboard-navigation behavior.
 //
-// Rendert NICHT wenn kein User eingeloggt ist und auch NICHT wenn der
-// User nur einen Tenant hat (Single-Tenant-Apps brauchen keinen
-// Switcher).
+// Does NOT render when no user is logged in or when the user has only one
+// tenant (single-tenant apps do not need a switcher).
 //
-// Der Display-Name kommt aus einem optionalen `tenantName`-Prop
-// oder fallback zum ID-Hash. Design-Entscheidung: der TenantSwitcher
-// holt NICHT selbst tenant:query:me — das würde Round-Trips pro Mount
-// kosten und bräuchte Query-Caching-Infrastruktur. Stattdessen reicht
-// der Host den Resolver rein (kommt z.B. aus einer useTenantNames()-
-// Hook die einmalig am App-Boot geladen wird).
+// The display name comes from the optional `tenantName` prop or falls back
+// to the ID hash. Design decision: TenantSwitcher does NOT fetch
+// tenant:query:me itself, which would cost round trips per mount and
+// require query-caching infrastructure. Instead, the host passes in the
+// resolver (for example, from a useTenantNames() hook loaded once at app
+// boot).
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
@@ -27,10 +26,10 @@ import { type ReactNode, useCallback, useState } from "react";
 import { useSession } from "./session.tsx";
 
 export type TenantSwitcherProps = {
-  /** Optional: liefert einen menschenlesbaren Namen pro Tenant-ID.
-   *  Default: die ID wird direkt angezeigt (kurze UUID genügt für
-   *  Dev-Umgebungen). Für prod sollte der Host z.B. die Tenant-Namen
-   *  beim Login cachen und hier durchreichen. */
+  /** Optional: provides a human-readable name for each tenant ID.
+   *  Default: displays the ID directly (a short UUID is sufficient for
+   *  development environments). In production, the host should cache
+   *  tenant names at login and pass them here. */
   readonly tenantName?: (tenantId: string) => string;
 };
 
@@ -46,28 +45,28 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
       try {
         await switchTenant(tenantId);
       } finally {
-        // In der Praxis führt switchTenant zu einem full-page reload,
-        // also sehen wir den cleared-state nie — das `finally` ist nur
-        // für den Edge-Case dass switchTenant throwt, damit die UI
-        // nicht mit dem Spinner hängen bleibt.
+        // In practice, switchTenant causes a full-page reload, so we never see
+        // the cleared state — `finally` only handles the edge case where
+        // switchTenant throws, preventing the UI from remaining stuck with
+        // the spinner.
         setSwitching(null);
       }
     },
     [activeTenantId, switchTenant],
   );
 
-  // Label-Priorität: App-eigener Resolver (Prop) > Server-geliefertes
-  // name/key aus /auth/tenants > UUID-Präfix. Letzteres ist nur noch der
-  // Notnagel — bei Seed-Tenants (00000000-…) ist es ununterscheidbar.
+  // Label priority: app-provided resolver (prop) > server-provided
+  // name/key from /auth/tenants > UUID prefix. The latter is only a
+  // last resort — it is indistinguishable for seeded tenants (00000000-…).
   const nameOf = (tenantId: string): string => {
     if (tenantName !== undefined) return tenantName(tenantId);
     const membership = tenants.find((m) => m.tenantId === tenantId);
-    // || statt ??: ein leerer name/key-String darf nicht als Label durchrutschen.
+    // || instead of ??: an empty name/key string must not be used as a label.
     return membership?.name || membership?.key || tenantId.slice(0, 8);
   };
 
-  // Rendering-Gate: kein User → nix; nur ein Tenant → auch nix
-  // (Single-Tenant-Apps brauchen keinen Switcher).
+  // Rendering gate: no user → nothing; only one tenant → nothing as well
+  // (single-tenant apps do not need a switcher).
   if (user === null || tenants.length <= 1) return null;
 
   const activeLabel =
@@ -76,7 +75,7 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* kumiko-lint-ignore primitives-discipline radix-asChild braucht DOM-Element als Trigger; Native kriegt eigene .native.tsx-Variante mit ActionSheet */}
+        {/* kumiko-lint-ignore primitives-discipline radix-asChild requires a DOM element as the trigger; Native has its own .native.tsx variant with ActionSheet */}
         <button
           type="button"
           className={cn(

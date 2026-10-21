@@ -1,4 +1,4 @@
-// Tenant-destroy hook for the documentExtract entity-projection (#1621).
+// Tenant-destroy hook for the documentExtract entity-projection.
 //
 // Per-row forget() through the executor, not a bulk deleteMany: documentExtract
 // is an ES-managed implicit projection, so a store-table write here would be
@@ -6,9 +6,9 @@
 // resurrect every row this hook removed. forget() (Art. 17 hard-purge) is
 // replayed by the implicit projection itself, which keeps the erasure
 // rebuild-safe — the same reasoning as tenant-lifecycle's membership stage,
-// and the reason the feature owns an r.entity instead of an r.projection
-// (kumiko-framework#1495). The `pages` ciphertext dies separately when the
-// pipeline's later `subject-keys` stage erases the tenant subject key.
+// and the reason the feature owns an r.entity instead of an r.projection.
+// The `pages` ciphertext dies separately when the pipeline's later
+// `subject-keys` stage erases the tenant subject key.
 
 import { createSystemUser, type TenantDataDestroyHook } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractsTable } from "./entity.ts";

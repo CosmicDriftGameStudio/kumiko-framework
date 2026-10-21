@@ -1,17 +1,16 @@
-// connect-account — Tenant-Admin verbindet ein Postfach. Legt den
-// mail-account-Stream an (aggregateId = random uuid = accountId =
-// Secret-Slot-Key für IMAP-Passwort/OAuth-Refresh-Token).
+// connect-account — A tenant admin connects a mailbox. Creates the
+// mail-account stream (aggregateId = random uuid = accountId =
+// secret-slot key for the IMAP password/OAuth refresh token).
 //
-// **Was hier NICHT passiert:**
-//   - Kein Secret-Write: IMAP-Credentials laufen über den secrets-Pfad,
-//     OAuth-Tokens über die generischen /inbound-mail/oauth-Routen —
-//     beides VOR bzw. NACH diesem Call, nie durch den Handler-Payload
-//     (Plain-Passwörter gehören nicht in einen Write-Payload, der im
-//     Dispatcher-Log landen kann).
-//   - Kein Verbindungs-Test: der Watch-Supervisor probiert den ersten
-//     fetch und schaltet bei Fehler via update-account auf auth_error —
-//     der Connect bleibt schnell und offline-fähig (Test-Ergebnis kommt
-//     asynchron als Status-Übergang).
+// **What does NOT happen here:**
+//   - No secret write: IMAP credentials use the secrets path, and OAuth
+//     tokens use the generic /inbound-mail/oauth routes—both before or
+//     after this call, never in the handler payload (plain passwords must
+//     not enter a write payload that can appear in the dispatcher log).
+//   - No connection test: the watch supervisor attempts the first fetch
+//     and switches to auth_error via update-account on failure—the connect
+//     stays fast and offline-capable (the test result arrives asynchronously
+//     as a status transition).
 
 import {
   configuredPiiSubjectKms,
@@ -30,7 +29,7 @@ import {
 } from "../events.ts";
 
 export const connectAccountSchema = z.object({
-  /** Provider-Key wie an der Extension registriert ("imap",
+  /** Provider key registered with the extension ("imap",
    *  "m365-graph", "gmail-rest"). */
   provider: z.string().min(1).max(50),
   authMethod: z.enum([
@@ -39,16 +38,16 @@ export const connectAccountSchema = z.object({
     InboundMailAuthMethods.oauth,
   ]),
   displayName: z.string().max(200),
-  /** Postfach-Adresse, Plaintext — wird hier encrypted. */
+  /** Mailbox address in plaintext; it is encrypted here. */
   address: z.string().min(1).max(320),
-  /** "shared" = tenant-geteilt (info@) · "user" = persönliches Postfach
-   *  des Callers (ownerUserId wird aus der Session gezogen, nie aus dem
-   *  Payload — kein Fremd-Claiming). */
+  /** "shared" = shared across the tenant (info@) · "user" = the caller's
+   *  personal mailbox (ownerUserId is taken from the session, never from
+   *  the payload—preventing claims on another user's mailbox). */
   scope: z.enum(["shared", "user"]),
-  /** NUR für den programmatic OAuth-Callback-Pfad (SystemAdmin): dort
-   *  ist der Dispatcher-User ein SystemUser, der echte Owner steht im
-   *  HMAC-verifizierten state. Tenant-Caller dürfen das Feld nicht
-   *  setzen (Fremd-Claiming-Sperre im Handler). */
+  /** Only for the programmatic OAuth callback path (SystemAdmin): there,
+   *  the dispatcher user is a SystemUser and the actual owner is in the
+   *  HMAC-verified state. Tenant callers must not set this field (the
+   *  handler prevents claims on another user's mailbox). */
   ownerUserIdOverride: z.string().max(36).nullable().optional(),
 });
 type ConnectAccountPayload = z.infer<typeof connectAccountSchema>;
@@ -75,8 +74,8 @@ export const connectAccountHandler: WriteHandlerDef = {
           ? event.user.id
           : null;
 
-    // PII-Encrypt der Adresse vor dem append — einziger Write-Pfad auf
-    // den Stream, deckt Event-Log UND Projection ab (#800-Muster).
+    // PII-encrypt the address before the append. This is the only write path to
+    // the stream, so it covers both the event log and the projection.
     const piiKms = configuredPiiSubjectKms();
     const plainPii = { tenantId, address: payload.address };
     const encryptedFields = piiKms
@@ -96,8 +95,8 @@ export const connectAccountHandler: WriteHandlerDef = {
       ownerUserId,
       displayName: payload.displayName,
       address: encryptedFields.address,
-      // active ab Connect — der Supervisor greift den Account beim
-      // nächsten Tick auf und degradiert ihn bei Credential-Fehlern.
+      // The account is active upon connection; the supervisor picks it up on
+      // the next tick and downgrades it when credentials fail.
       status: InboundMailAccountStatuses.active,
       watchState: "idle",
     };

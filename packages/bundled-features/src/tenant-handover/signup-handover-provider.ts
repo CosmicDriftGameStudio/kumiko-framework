@@ -1,6 +1,5 @@
 // tenant-handover's implementation of the shared signup-handover extension
-// point (kumiko-framework#3035 follow-up, offlot-app#454): lets
-// auth-email-password's signup-request verify a grant against its root row
+// point: lets auth-email-password's signup-request verify a grant against its root row
 // WITHOUT spending the anchor (the anchor is spent once, by the claim
 // signup-confirm runs afterwards, via a fresh short-lived grant this module
 // mints) — see shared/signup-handover.ts for the extension contract and

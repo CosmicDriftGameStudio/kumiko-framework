@@ -50,7 +50,7 @@ export const revokeWrite = defineWriteHandler({
     );
 
     if (updated.length > 0) {
-      // Lightweight append alongside the direct-write above (#1559) — NOT a
+      // Lightweight append alongside the direct-write above — NOT a
       // lifecycle event for store_user_sessions (that table stays an
       // unmanaged direct-write store, see feature.ts). Own aggregate id per
       // revoke, no predecessor to satisfy, no version_conflict against a

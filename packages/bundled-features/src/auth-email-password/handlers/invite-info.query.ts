@@ -10,7 +10,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
-// kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
+// kumiko-lint-ignore cross-feature-import invite-flow lives in auth-email-password (Magic-Link), DB-row-owner belongs to the tenant feature
 import { INVITATION_STATUS, tenantInvitationsTable } from "../../tenant/invitation-table.ts";
 // kumiko-lint-ignore cross-feature-import login-style account lookup, same as invite-accept-with-login
 import { userTable } from "../../user/schema/user.ts";

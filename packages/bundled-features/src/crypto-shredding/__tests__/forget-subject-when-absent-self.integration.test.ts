@@ -1,4 +1,4 @@
-// personal: { of, whenAbsent: "self" } (fw#3811): a record-forget shreds the
+// personal: { of, whenAbsent: "self" }: a record-forget shreds the
 // fields of an ownerless row (value + blind index) while owner-keyed values of
 // other rows and tenant-keyed fields of the same row stay readable.
 

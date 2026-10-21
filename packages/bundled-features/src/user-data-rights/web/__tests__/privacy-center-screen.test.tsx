@@ -1,7 +1,7 @@
 // Render test against real i18n bundles (catches missing keys — the Section
 // must never show raw "userDataRights.privacyCenter.*" keys) plus QN wiring
 // (the dispatched query/handler names). Restriction/deletion (status-driven
-// branches) moved to declarative fields/actions with fw#2312 (feature.ts,
+// branches) moved to declarative fields/actions (feature.ts,
 // booted in inspector-screens.boot.test.ts) — only Export (ExportSection) is
 // still a React component. Provider wrapper is local (the renderer/web →
 // bundled-features dependency direction forbids importing test-utils).
@@ -149,7 +149,7 @@ async function waitForDownloadReady(view: ReturnType<typeof render>): Promise<vo
 // shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. In the shared
 // single-process happy-dom, the global `afterEach` from the preload/dom module
 // plus accumulated global DOM/event state across ~30 prior DOM test files corrupts
-// these in-flight renders (#457-class). A fresh process has no such accumulation.
+// these in-flight renders. A fresh process has no such accumulation.
 // The QN-Drift-Pins + formatDate describes below are pure-logic and CI-stable.
 describe("ExportSection", () => {
   test("idle: Intro + Request-Button, Texte übersetzt (keine rohen Keys)", async () => {

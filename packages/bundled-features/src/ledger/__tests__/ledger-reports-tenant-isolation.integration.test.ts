@@ -1,4 +1,4 @@
-// Regression for fw#2858: reports.query.ts's loadBooks() reads accounts and
+// Regression: reports.query.ts's loadBooks() reads accounts and
 // transactions via a raw DbRunner with an explicit `tenantId` where-clause.
 // If that filter is ever dropped (e.g. a future refactor swaps back to an
 // unfiltered runner), a tenant's report would silently aggregate every other

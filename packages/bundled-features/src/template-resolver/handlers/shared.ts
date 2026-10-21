@@ -38,8 +38,8 @@ export const titleSchema = z.string().min(1).max(200);
 export const contentFormatSchema = z.enum(CONTENT_FORMATS);
 export const statusSchema = z.enum(TEMPLATE_STATUSES);
 
-// Common Upsert-Payload — geteilt zwischen upsertSystem + upsertTenant.
-// Unterschied: ACL + tenantId-Bestimmung, sonst identisch.
+// Common upsert payload shared by upsertSystem and upsertTenant.
+// Only ACL and tenantId determination differ.
 export const upsertPayloadSchema = z.object({
   slug: templateSlugSchema,
   kind: kindSchema,

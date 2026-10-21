@@ -18,7 +18,7 @@ const CHALLENGE_TOKEN_PURPOSE = "mfa-challenge-token-v1";
 
 // A blank or whitespace-only override is treated as absent — an empty env
 // var (MFA_SETUP_TOKEN_SECRET="") must fall back to derivation, not sign
-// tokens with an empty/near-empty HMAC key (fw#1623).
+// tokens with an empty/near-empty HMAC key.
 function resolveSecret(override: string | undefined, fallback: () => string): string {
   return override !== undefined && override.trim() !== "" ? override : fallback();
 }

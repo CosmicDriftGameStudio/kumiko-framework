@@ -1,5 +1,5 @@
 // EXT_TENANT_DATA + EXT_STORAGE_PROVIDER destroy hooks for the `fileRef`
-// entity (#2474). Kept apart from the `files` feature (like folders-user-data
+// entity. Kept apart from the `files` feature (like folders-user-data
 // does for EXT_USER_DATA) so file consumers without the tenant-lifecycle
 // pipeline don't pull a hard dependency — `files` stays usable standalone.
 //
@@ -10,18 +10,17 @@
 //     isDeleted filter: tenant-destroy purges trashed rows too, a destroyed
 //     tenant has no "restore from trash" future. ALSO sweeps, per row, any
 //     storageKey that does NOT sit under one of this tenant's own
-//     tenantStoragePrefixes() — the shape a tenant-handover (kumiko-
-//     framework#3035) leaves behind: the fileRef row's tenantId moved to
-//     this tenant, but the bytes stayed under the SOURCE tenant's prefix
-//     (moving them would mean copying bytes, which the handover design
-//     explicitly rejects). Must run here, not in the "files" stage below —
-//     that stage's own prefix sweep only reaches keys under ITS tenant's
-//     prefixes by construction, and by the time it runs this hook has
-//     already forgotten (hard-deleted) the rows it would need to read the
-//     storageKey off. Deleted by STEM prefix (storageKeyStemPrefix), not the
-//     exact key: a derived variant (thumbnail, resized render) has no
-//     `file_refs` row of its own, so only the stem reaches original +
-//     derivatives together.
+//     tenantStoragePrefixes() — the shape a tenant-handover leaves behind:
+//     the fileRef row's tenantId moved to this tenant, but the bytes stayed
+//     under the SOURCE tenant's prefix (moving them would mean copying bytes,
+//     which the handover design explicitly rejects). Must run here, not in
+//     the "files" stage below — that stage's own prefix sweep only reaches
+//     keys under ITS tenant's prefixes by construction, and by the time it
+//     runs this hook has already forgotten (hard-deleted) the rows it would
+//     need to read the storageKey off. Deleted by STEM prefix
+//     (storageKeyStemPrefix), not the exact key: a derived variant
+//     (thumbnail, resized render) has no `file_refs` row of its own, so only
+//     the stem reaches original + derivatives together.
 //   - fileRefStorageDestroyHook ("files" stage, EXT_STORAGE_PROVIDER): wipes
 //     every BINARY (original + derivatives + anything else) under the
 //     tenant's storage prefixes. A full prefix sweep per tenantStoragePrefixes()
@@ -32,19 +31,18 @@
 //     (the provider's own list() prefix already scopes it). Still catches a
 //     blob with no fileRef row at all (the orphan case the row-driven sweep
 //     above cannot see) — REFINED, not replaced, to skip a key a FOREIGN
-//     tenant's fileRef row still references (a tenant-handover, kumiko-
-//     framework#3035, leaves the row's tenantId moved but the storageKey
-//     under THIS tenant's prefix unchanged). By the time this stage runs,
-//     the "app-data" stage (stages.ts DESTRUCTION_STAGES: "app-data" before
-//     "files") has already hard-deleted every row THIS tenant owned, so any
-//     surviving row a listed key still matches is, by construction, a
-//     foreign tenant's — no tenant comparison needed, existence is enough.
-//     The exception is computed from the SURVIVING row's storageKeyStemPrefix
-//     (mirroring the deletion side above), not the listed key's exact match:
-//     a derivative has no fileRef row of its own, so excluding only exact
-//     matches would still delete it out from under the tenant that claimed
-//     its original. Batched: one existence query per chunk of listed keys,
-//     not one query per key.
+//     tenant's fileRef row still references (a tenant-handover leaves the
+//     row's tenantId moved but the storageKey under THIS tenant's prefix
+//     unchanged). By the time this stage runs, the "app-data" stage
+//     (stages.ts DESTRUCTION_STAGES: "app-data" before "files") has already
+//     hard-deleted every row THIS tenant owned, so any surviving row a listed
+//     key still matches is, by construction, a foreign tenant's — no tenant
+//     comparison needed, existence is enough. The exception is computed from
+//     the SURVIVING row's storageKeyStemPrefix (mirroring the deletion side
+//     above), not the listed key's exact match: a derivative has no fileRef row
+//     of its own, so excluding only exact matches would still delete it out
+//     from under the tenant that claimed its original. Batched: one existence
+//     query per chunk of listed keys, not one query per key.
 
 import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {

@@ -1,49 +1,48 @@
-// cap-counter — Counter-Storage + Increment-API + Soft-Warn-State.
+// cap-counter — Counter Storage + Increment API + Soft-Warn State.
 //
-// **Was diese Feature liefert:**
-//   1. r.entity({ name: "cap-counter" }) — Counter-Rows pro (tenant, capName,
-//      period) für Calendar-Period-Caps (Mails/Monat, Egress/Monat).
-//   2. increment-Handler — atomic counter increment via deterministic
-//      aggregate-id (try-create / executor-update). Race-frei via
-//      event-store optimistic-lock.
-//   3. increment-rolling-Handler (Sprint 4) — append-only Custom-Event-
-//      Stream für Rolling-Window-Caps (KI-Tokens-7d, Egress-24h). Kein
-//      projection — der Wert kommt im Read aus dem Event-Stream.
-//   4. mark-soft-warned-Handler — flippt das Anti-Notification-Storm-
-//      Flag (nur Calendar-Period-Counter).
-//   5. get-counter-Query — sync read der aktuellen Counter-Value
-//      (Calendar).
-//   6. enforceCap + enforceRollingCap-Helper (siehe enforce-cap.ts) —
-//      Pre-Save-Wrapper mit asymmetrischen Soft/Hard-Toleranzen pro
-//      Cap-Profile.
+// **What this feature provides:**
+//   1. r.entity({ name: "cap-counter" }) — counter rows per (tenant, capName,
+//      period) for calendar-period caps (mail/month, egress/month).
+//   2. increment handler — atomic counter increment via deterministic
+//      aggregate-id (try-create / executor-update), made race-free by the
+//      event-store optimistic lock.
+//   3. increment-rolling handler — append-only custom-event stream for
+//      rolling-window caps (AI-tokens-7d, egress-24h). No projection; the
+//      value is read from the event stream.
+//   4. mark-soft-warned handler — flips the anti-notification-storm flag
+//      (calendar-period counters only).
+//   5. get-counter query — synchronous read of the current counter value
+//      (calendar period).
+//   6. enforceCap + enforceRollingCap helpers (see enforce-cap.ts) —
+//      pre-save wrappers with asymmetric soft and hard tolerances per
+//      cap profile.
 //
-// **Calendar vs. Rolling — when to use which:**
+// **Calendar vs. rolling — when to use which:**
 //   - **Calendar period** (bookCapUsage + enforceCap): the cap resets at
-//     period start (1st of the month etc.). The counter is one row in the
-//     projection. Fast read.
+//     period start (the first of the month, etc.). The counter is one row in
+//     the projection, enabling fast reads.
 //   - **Rolling window** (CapCounterHandlers.incrementRolling + enforceRollingCap):
-//     the cap rolls continuously (e.g. "last 7 days"). Values expire
-//     event by event without a reset. No projection; the read sums the
-//     events of the last N days.
+//     the cap rolls continuously (e.g. "last 7 days"). Values expire event
+//     by event without a reset. There is no projection; reads sum the events
+//     from the last N days.
 //
 // **What this feature does NOT do:**
 //   - **No foundation wiring.** mail-foundation / file-foundation /
-//     ai-foundation are BYOK by default today and have no platform pool
+//     ai-foundation are BYOK by default and currently have no platform pool
 //     to count. cap-counter is generic: an app owner who wants to use the
 //     counter calls `bookCapUsage(...)` /
 //     `ctx.write(CapCounterHandlers.incrementRolling, ...)` from their own handler.
-//   - **No reset cron for the calendar period.** Works without one: the
-//     periodStartIso part of the aggregate id rolls over to a fresh
-//     counter at the period tick. Old rows stay for audit.
-//   - **Kein Notification-Pfad als Hard-Wiring.** Cap-counter
-//     entkoppelt — `enforceCapAndMaybeNotify` (siehe enforce-cap.ts)
-//     ist ein Convenience-Helper, der einen Caller-supplied
-//     emit-Callback ausführt; cap-counter kennt delivery-feature
-//     nicht direkt.
+//   - **No reset cron for the calendar period.** It works without one: the
+//     periodStartIso part of the aggregate id rolls over to a fresh counter
+//     at the period boundary. Old rows remain for auditing.
+//   - **No notification path is hard-wired.** cap-counter is decoupled —
+//     `enforceCapAndMaybeNotify` (see enforce-cap.ts) is a convenience helper
+//     that invokes a caller-supplied emit callback; cap-counter does not know
+//     the delivery feature directly.
 //
-// **Boot-Dependencies:** keine. cap-counter ist Plain-Vanilla — kein
-// config, kein secrets, kein tenant-feature nötig. Tenant-Scoping kommt
-// vom Framework-Default (Base-Column tenantId).
+// **Boot dependencies:** none. cap-counter is plain vanilla — it needs no
+// config, secrets, or tenant feature. Tenant scoping comes from the framework
+// default (Base-Column tenantId).
 
 import {
   access,

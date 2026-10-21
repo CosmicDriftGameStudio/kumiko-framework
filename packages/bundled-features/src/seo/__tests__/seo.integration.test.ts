@@ -187,7 +187,7 @@ describe("seo :: GET /llms.txt", () => {
     expect(text).toContain("> Acme builds things.");
     expect(text).toContain("## Pages");
     expect(text).toContain("http://a.example.com/p/about");
-    // #979: the managed-page's real title, not its URL, is the link text.
+    // The managed-page's real title, not its URL, is the link text.
     expect(text).toContain("[About](http://a.example.com/p/about)");
   });
 });
@@ -297,13 +297,13 @@ describe("seo :: runSeoBootCheck (direct unit-tests)", () => {
   });
 });
 
-// resolverTrust: "authoritative" (kumiko-platform#278/1, show-pony#51) —
-// dieselbe Regression wie managed-pages' Suite, für sitemap.xml/llms.txt.
-// gatherEntries' interner Self-Fetch für die by-tenant-published-Query trug
-// keinen Host-Header; ein fallback-freier Resolver (wie hier, wie
-// publicstatus' echter Resolver) löste dafür null auf → tenant_required
-// statt der Managed-Pages-Einträge. systemQuery behebt das (siehe
-// managed-pages' Suite für die volle Mechanismus-Erklärung + Rot/Grün-Beweis).
+// resolverTrust: "authoritative" —
+// The same regression as in the managed-pages suite, for sitemap.xml/llms.txt.
+// gatherEntries' internal self-fetch for the by-tenant-published query had no
+// Host header; a resolver without a fallback (like this one and
+// publicstatus' real resolver) therefore returned null → tenant_required
+// instead of the Managed-Pages entries. systemQuery fixes this (see the
+// managed-pages suite for the full mechanism explanation and red/green proof).
 describe("seo :: resolverTrust authoritative (host-based, wie publicstatus/show-pony)", () => {
   let authStack: TestStack;
   const authManaged = createManagedPagesFeature({
@@ -322,9 +322,9 @@ describe("seo :: resolverTrust authoritative (host-based, wie publicstatus/show-
     authStack = await setupTestStack({
       features: [authConfigFeature, authManaged, authSeo],
       anonymousAccess: {
-        // KEIN URL-Fallback — spiegelt publicstatus' echten Resolver. Ein
-        // interner Self-Fetch trägt keinen Host-Header; mit Fallback würde
-        // dieser Test den Bug maskieren (siehe managed-pages' Suite).
+        // No URL fallback — mirrors publicstatus' real resolver. An internal
+        // self-fetch has no Host header; with a fallback, this test would mask
+        // the bug (see the managed-pages suite).
         tenantResolver: (c) => ((c.req.header("host") ?? "").startsWith("a.") ? TENANT_A : null),
         resolverTrust: "authoritative",
         tenantExists: async (id) => id === TENANT_A,

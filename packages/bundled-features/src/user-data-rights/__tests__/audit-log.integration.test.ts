@@ -1,4 +1,4 @@
-// S2.U7 — my-audit-log + invalid-attempt-audit + list-download-attempts.
+// my-audit-log + invalid-attempt-audit + list-download-attempts.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -115,8 +115,8 @@ describe("my-audit-log", () => {
     );
     expect(aliceLog.rows.length).toBe(1);
     expect(bobLog.rows.length).toBe(1);
-    // Payload-pinning beweist die Cross-User-Filterung: alice sieht nur
-    // ihre Payload, bob nur seine.
+    // Checking the payloads confirms cross-user filtering: alice sees only
+    // her payload, and bob sees only his.
     const aliceRow = aliceLog.rows[0];
     const bobRow = bobLog.rows[0];
     if (!aliceRow || !bobRow) throw new Error("expected audit rows");
@@ -155,7 +155,7 @@ describe("my-audit-log", () => {
 describe("my-audit-log — kumiko-framework#1525: no ambient Temporal global", () => {
   test("from/to filter works without deleting globalThis.Temporal for handler-internal state", async () => {
     // Seed with Temporal intact — only the handler call runs ambient-free,
-    // mirroring the audit feature's #1525 regression test (going through
+    // mirroring the audit feature's regression test (going through
     // full HTTP dispatch would also break buildHandlerContext's unrelated
     // ctx.tz setup, which isn't what this pins down).
     await seedEvent(alice.id, tenantA, "user.x", { from: "range-test" });

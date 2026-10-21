@@ -1,5 +1,5 @@
-// fw#2376: the Members facet labels are i18n keys that the renderer resolves
-// through translate() (fw#2373). A key missing from a locale pack resolves to
+// The Members facet labels are i18n keys that the renderer resolves
+// through translate(). A key missing from a locale pack resolves to
 // nothing and the raw key ("tenant.members.filter.status") ends up in the UI —
 // which is exactly what shipping translate() without the es/de entries did.
 // The keys are read off the live screen definition instead of being hardcoded,
@@ -65,7 +65,7 @@ describe("members status filter labels are localized in every shipped locale (fw
   // members screen — instead of the clear "key not translated" failure a
   // missing en copy should produce. Reading the keys off the live screen
   // definition and checking each one resolves catches the real failure
-  // mode (fw#2376) without hardcoding an ever-growing key list.
+  // mode without hardcoding an ever-growing key list.
   test("every facet/column/nav-label key of the members screen has English copy", () => {
     expect(membersScreenI18nKeys.length).toBeGreaterThan(0);
     const translations = createTenantFeature().translations ?? {};

@@ -1,11 +1,11 @@
-// seedComplianceProfile-Helper-Tests (S1.9 Z2).
+// seedComplianceProfile helper tests.
 //
-// Beweist:
-//   1. Helper umgeht set-profile-Zod-Engung (kann minimal-no-region
-//      setzen für Migration-Edge-Case-Tests in Sprint 2+)
-//   2. Default skip: zweiter Boot-Call ohne ifExists="update" ändert nichts
-//   3. Override wird als JSON-String persistiert + via for-tenant
-//      korrekt zurueckgelesen
+// Proves:
+//   1. The helper bypasses the set-profile Zod restriction, allowing
+//      minimal-no-region for migration edge-case tests.
+//   2. By default, a second boot call without ifExists="update" changes nothing.
+//   3. The override is persisted as a JSON string and correctly read back via
+//      for-tenant.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -89,8 +89,8 @@ describe("seedComplianceProfile", () => {
     const tenantId = testTenantId(202);
     const user = createTestUser({ id: 202, tenantId, roles: ["TenantAdmin"] });
 
-    // set-profile (Sprint 1.7 X1) wuerde minimal-no-region rejecten —
-    // seedComplianceProfile umgeht das fuer Test-Migration-Szenarien.
+    // set-profile would reject minimal-no-region —
+    // seedComplianceProfile bypasses this for migration test scenarios.
     await seedComplianceProfile(stack.db, {
       tenantId,
       profileKey: "minimal-no-region",
@@ -114,7 +114,7 @@ describe("seedComplianceProfile", () => {
       profile: { userRights: { gracePeriod: { days: number }; portabilityFormat: string[] } };
     }>(FOR_TENANT, {}, user);
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 90 });
-    // Andere userRights bleiben aus eu-dsgvo
+    // Other userRights remain from eu-dsgvo
     expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
   });
 });

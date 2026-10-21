@@ -8,7 +8,7 @@ import * as z from "zod";
 
 export const projectionRebuildPayloadSchema = z.object({
   projection: z.string().min(1),
-  // Quarantine mode (#760): skip + dead-letter poison events instead of
+  // Quarantine mode: skip + dead-letter poison events instead of
   // failing the whole rebuild. Operator opt-in per run.
   skipApplyErrors: z.boolean().optional(),
 });

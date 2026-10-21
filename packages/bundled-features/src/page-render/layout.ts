@@ -51,19 +51,19 @@ const TENANT_CLIP = `${TENANT_SCOPE}{overflow:hidden}`;
 export function tenantStyleBlock(customCss: string): string {
   const sanitized = sanitizeTenantCss(customCss, TENANT_SCOPE);
   if (!sanitized) return "";
-  // html-ok: sanitizeTenantCss ist die Escaping-Boundary (Allowlist, strippt `<`).
+  // html-ok: sanitizeTenantCss is the escaping boundary (allowlist, strips `<`).
   return `\n<style data-tenant-css>${TENANT_CONTAINMENT}\n${TENANT_CLIP}\n${sanitized}</style>`;
 }
 
-// Minimaler HTML5-Skeleton mit Inline-CSS — Default-`wrapLayout` für
-// server-gerenderte Public-Pages, damit sie auch ohne App-Layout sauber
-// aussehen. Apps die ihr eigenes Marketing-Layout (Header/Footer/Theme)
-// um den Body legen wollen, übergeben ihre eigene Render-Function.
+// Minimal HTML5 skeleton with inline CSS — the default `wrapLayout` for
+// server-rendered public pages, so they look clean without an app layout.
+// Apps that want to wrap the body in their own marketing layout
+// (header/footer/theme) pass their own render function.
 //
-// Branding (optional): emittiert nach dem Base-`<style>` einen scoped
-// `:root`-Override (Accent-Farbe, Layout-Preset → max-width) plus einen
-// Logo-/Titel-Header. Alle Branding-Werte sind tenant-supplied + untrusted
-// und werden in branding.ts re-validiert/escaped, bevor sie ins Markup gehen.
+// Branding (optional): emits a scoped `:root` override after the base
+// `<style>` (accent color, layout preset → max-width) and a logo/title header.
+// All branding values are tenant-supplied and untrusted; branding.ts
+// revalidates/escapes them before they enter the markup.
 export function wrapInLayout(opts: {
   title: string;
   bodyHtml: string;

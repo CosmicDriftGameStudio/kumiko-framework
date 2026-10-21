@@ -1,18 +1,18 @@
-// verifyAndParseMollieWebhook — Mollie-spezifische lazy-fetch +
-// event-type-Heuristik. Wird vom Plugin-Build (feature.ts) als
-// `verifyAndParseWebhook` registriert.
+// verifyAndParseMollieWebhook: Mollie-specific lazy fetch plus event-type
+// heuristic. The plugin build (feature.ts) registers it as
+// `verifyAndParseWebhook`.
 //
-// Mollie's classic-webhook sendet nur eine `id` (form-urlencoded oder
-// JSON). Wir lazy-fetchen payment + subscription via Mollie-API. Sub-
-// xxx-events werden NICHT supported — App-Builder bekommt sie indirekt
-// via tr_xxx-payment-events (Mollie sendet beide parallel bei normalen
-// Lifecycle-Events).
+// Mollie's classic webhook sends only an `id` (form-urlencoded or JSON), so
+// the payment and subscription are lazily fetched through the Mollie API.
+// sub_xxx events are NOT supported; app builders get them indirectly through
+// tr_xxx payment events (Mollie sends both in parallel for normal lifecycle
+// events).
 //
-// **Mandate-setup-flow:** first-payment-paid kommt mit
-// `payment.subscriptionId === null` (Mollie's Pattern: App-Builder
-// muss `customerSubscriptions.create` selbst aufrufen). Wir machen
-// das im Plugin (idempotent via list-check), damit Foundation einen
-// Created-Event mit subscription-id bekommt.
+// **Mandate setup flow:** the first paid payment arrives with
+// `payment.subscriptionId === null` (Mollie's pattern: the app builder must
+// call `customerSubscriptions.create` itself). The plugin does that
+// (idempotent via a list check) so the foundation receives a created event
+// with a subscription id.
 
 import {
   parseProviderConsentId,
@@ -33,9 +33,9 @@ import type { MolliePriceConfig } from "./plugin-methods.ts";
 
 const log = createFallbackLogger("subscription-mollie");
 
-/** Minimal-Subset des Mollie-Clients, das der Plugin nutzt — separat
- *  damit Tests ohne den vollen MollieClient mocken können. Adapter in
- *  feature.ts bridged das gegen den echten SDK. */
+/** Minimal subset of the Mollie client used by the plugin — kept separate
+ *  so tests can mock it without the full MollieClient. The adapter in
+ *  feature.ts bridges it to the real SDK. */
 export type MollieClientShape = {
   readonly payments: { readonly get: (id: string) => Promise<MolliePayment> };
   readonly customerSubscriptions: {
@@ -54,11 +54,11 @@ export type MollieClientShape = {
 };
 
 export type MollieWebhookOptions = {
-  /** priceId (= virtueller Schlüssel aus subscription.metadata) → tier-name. */
+  /** priceId (= virtual key from subscription.metadata) → tier name. */
   readonly priceToTier: Readonly<Record<string, string>>;
-  /** priceId → amount/interval/description. Wird beim mandate-setup-
-   *  flow zum `customerSubscriptions.create`-Call gebraucht. App-
-   *  Builder pflegt die Map einmal in den factory-options. */
+  /** priceId → amount/interval/description. Needed for the mandate-setup
+   *  flow's `customerSubscriptions.create` call. The app builder maintains
+   *  this map once in the factory options. */
   readonly priceToConfig: Readonly<Record<string, MolliePriceConfig>>;
 };
 
@@ -97,7 +97,7 @@ export function verifyAndParseMollieWebhook(
         subscription = await ensureSubscriptionForMandate(client, options, payment);
         if (!subscription) return null;
       } else {
-        // One-shot oder first-payment-failed → nicht unsere Domain.
+        // One-shot or first-payment-failed events are outside our domain.
         return null;
       }
     } else if (id.startsWith("sub_")) {
@@ -121,8 +121,8 @@ export function verifyAndParseMollieWebhook(
     const status = mapMollieStatus(subscription.status);
     const periodEndSource = subscription.nextPaymentDate ?? subscription.startDate;
     if (!periodEndSource) {
-      // Mollie-API-Drift: valid Subs haben mindestens startDate. Loud-
-      // fail damit App-Owner's monitoring den drift sieht.
+      // Mollie API drift: valid subscriptions have at least startDate. Fail
+      // loudly so the app owner's monitoring can detect the drift.
       throw new Error(
         `subscription-mollie: subscription ${subscription.id} has neither nextPaymentDate nor startDate`,
       );
@@ -149,9 +149,9 @@ export function verifyAndParseMollieWebhook(
 // Mandate-setup: subscription on-the-fly erstellen
 // =============================================================================
 
-/** first-payment-paid OHNE subscriptionId → Mollie-Sub erstellen.
- *  Idempotent via list-check (replay-safe). Returns null bei
- *  unvollständiger metadata oder unbekanntem priceId. */
+/** `first-payment-paid` without subscriptionId → create a Mollie subscription.
+ *  Idempotent via a list check (replay-safe). Returns null for incomplete
+ *  metadata or an unknown priceId. */
 async function ensureSubscriptionForMandate(
   client: MollieClientShape,
   options: MollieWebhookOptions,
@@ -188,10 +188,10 @@ async function ensureSubscriptionForMandate(
 }
 
 // =============================================================================
-// Helpers (exported für Tests)
+// Helpers (exported for tests)
 // =============================================================================
 
-/** Extract `id` aus rawBody — handelt form-urlencoded + JSON. */
+/** Extracts `id` from rawBody — supports form-urlencoded and JSON. */
 export function extractMollieId(rawBody: string, headers: Record<string, string>): string | null {
   const contentType = headers["content-type"] ?? "";
   if (contentType.includes("application/json")) {
@@ -210,8 +210,8 @@ export function extractMollieId(rawBody: string, headers: Record<string, string>
   return params.get("id");
 }
 
-/** Mollie-subscription + optional payment → SubscriptionEventType.
- *  Heuristik (Mollie hat keine explicit-typed events). */
+/** Mollie subscription + optional payment → SubscriptionEventType.
+ *  Heuristic because Mollie has no explicitly typed events. */
 export function mapMollieEventType(
   subscription: MollieSubscription,
   triggerPayment: MolliePayment | null,
@@ -240,10 +240,10 @@ export function mapMollieStatus(mollieStatus: MollieSubscription["status"]): Sub
       return SubscriptionStatuses.active;
     case "canceled":
     case "completed":
-      // completed = alle `times`-charges durchgelaufen → wie canceled.
+      // completed = all `times` charges have run → treat it like canceled.
       return SubscriptionStatuses.canceled;
     case "suspended":
-      // Mandate ungültig / payment-method failed → grace-period.
+      // Invalid mandate / payment method failed → grace period.
       return SubscriptionStatuses.pastDue;
     case "pending":
       return SubscriptionStatuses.incomplete;
@@ -252,8 +252,8 @@ export function mapMollieStatus(mollieStatus: MollieSubscription["status"]): Sub
   }
 }
 
-/** Mollie liefert dates als YYYY-MM-DD; foundation will ISO-Instant.
- *  Throws bei malformed input (= Mollie-API-Drift, soll loud-fail). */
+/** Mollie provides dates as YYYY-MM-DD; Foundation requires an ISO Instant.
+ *  Throws on malformed input (= Mollie API drift, which should fail loudly). */
 function mollieDateStringToInstantIso(dateString: string): string {
   return Temporal.Instant.from(`${dateString.slice(0, 10)}T00:00:00Z`).toString();
 }

@@ -64,8 +64,8 @@ export const revokeAllForUserWrite = defineWriteHandler({
       },
     );
 
-    // Lightweight append alongside the direct-write above (#1559) — see
-    // revoke.write.ts for why this isn't a lifecycle event on
+    // Lightweight append alongside the direct-write above; see revoke.write.ts
+    // for why this isn't a lifecycle event on
     // store_user_sessions. Uses the low-level append() (not
     // ctx.unsafeAppendEvent) because this handler is deliberately
     // cross-tenant: the privileged caller's own tenantId (what

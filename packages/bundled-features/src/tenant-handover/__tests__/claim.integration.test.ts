@@ -1,9 +1,9 @@
-// tenant-handover's `claim` write end-to-end over real /api/write calls
-// (kumiko-framework#3035): an anonymous run (root entity + a parentRef-linked
-// child) created under a source tenant, claimed into a destination tenant's
-// account via a row-bound grant. Fixture entities stand in for offlot-app's
-// vehicle/photo pair — see ../grant.ts and ../move-entity-graph.ts headers
-// for the identity + same-transaction design this exercises.
+// tenant-handover's `claim` write end-to-end over real /api/write calls:
+// an anonymous run (root entity + a parentRef-linked child) created under a
+// source tenant, claimed into a destination tenant's account via a row-bound
+// grant. Fixture entities stand in for offlot-app's vehicle/photo pair — see
+// ../grant.ts and ../move-entity-graph.ts headers for the identity +
+// same-transaction design this exercises.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -74,8 +74,8 @@ const noteEntity: EntityDefinition = createEntity({
   },
 });
 
-// A second edge off the root (kumiko-framework#3131), so `campaign` below is
-// reachable both directly from the run and one hop further out through here.
+// A second edge off the root, so `campaign` below is reachable both directly
+// from the run and one hop further out through here.
 const bundleEntity: EntityDefinition = createEntity({
   table: "handover_bundle",
   idType: "uuid",
@@ -87,9 +87,9 @@ const bundleEntity: EntityDefinition = createEntity({
 });
 
 // Hangs off the root through a plain `reference` field rather than a parentRef
-// (kumiko-framework#3088) — offlot-app's campaign.vehicleId shape. Neither
-// reference is required: a campaign reached through the bundle names no run,
-// which is what puts it on the longer of the two paths (#3131).
+// — offlot-app's campaign.vehicleId shape. Neither reference is required: a
+// campaign reached through the bundle names no run, which is what puts it on the
+// longer of the two paths.
 const campaignEntity: EntityDefinition = createEntity({
   table: "handover_campaign",
   idType: "uuid",
@@ -113,11 +113,11 @@ const channelTextEntity: EntityDefinition = createEntity({
   },
 });
 
-// A two-type reference cycle (kumiko-framework#3131). Terminating on one is no
-// longer a property of the resolver — it follows from the mover's statements
-// only matching rows still in the source tenant — and a cycle is the one shape
-// the boot validator's depth check cannot measure, because how far it runs
-// depends on the rows rather than the declaration.
+// A two-type reference cycle. Terminating on one is no longer a property of the
+// resolver — it follows from the mover's statements only matching rows still in
+// the source tenant — and a cycle is the one shape the boot validator's depth
+// check cannot measure, because how far it runs depends on the rows rather than
+// the declaration.
 const linkAEntity: EntityDefinition = createEntity({
   table: "handover_link_a",
   idType: "uuid",
@@ -172,13 +172,13 @@ const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity({ name: "stayMemo", ...stayMemoEntity });
 });
 
-// kumiko-framework#3088 fix: a `reference` field's `entity` may carry a
-// feature prefix ("<feature>:<entity>", engine/parse-ref-target.ts) for
-// cross-feature refs — transfer-graph resolution must strip it, or an
-// entity linked this way is never reachable from the root and the claim
-// silently moves only the rows it happened to name directly. Root (run,
-// "handover-fixtures") -> child (own feature) -> grandchild (a THIRD
-// feature), both edges declared with a feature-prefixed target.
+// A `reference` field's `entity` may carry a feature prefix
+// ("<feature>:<entity>", engine/parse-ref-target.ts) for cross-feature refs —
+// transfer-graph resolution must strip it, or an entity linked this way is never
+// reachable from the root and the claim silently moves only the rows it happened
+// to name directly. Root (run, "handover-fixtures") -> child (own feature) ->
+// grandchild (a THIRD feature), both edges declared with a feature-prefixed
+// target.
 const prefixedChildEntity: EntityDefinition = createEntity({
   table: "handover_prefixed_child",
   idType: "uuid",
@@ -599,9 +599,9 @@ describe("tenant-handover :: claim", () => {
     expect(followUpWrite.isSuccess).toBe(true);
   });
 
-  // kumiko-framework#3088: before this, resolveChildCandidates only knew
-  // parentRef, so a graph hanging off `reference` fields moved the root row
-  // alone and left its children in the source tenant.
+  // Before this, resolveChildCandidates only knew parentRef, so a graph hanging
+  // off `reference` fields moved the root row alone and left its children in the
+  // source tenant.
   test("claims a two-level reference graph whole: root -> campaign -> channelText", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const campaignId = await seedCampaign(SOURCE_TENANT, runId, "spring");
@@ -640,11 +640,11 @@ describe("tenant-handover :: claim", () => {
     expect(await readTenantId("handover_channel_text", otherChannelTextId)).toBe(SOURCE_TENANT);
   });
 
-  // kumiko-framework#3131: `campaign` is reachable one hop from the run AND two
-  // hops through the bundle. The level-wise walk ran the campaign->channelText
-  // edge once, on the first level it was reachable, so the texts under the
-  // campaign found on the longer path stayed in the source tenant — silently,
-  // the same failure class as #3088 one level deeper.
+  // `campaign` is reachable one hop from the run AND two hops through the bundle.
+  // The level-wise walk ran the campaign->channelText edge once, on the first
+  // level it was reachable, so the texts under the campaign found on the longer
+  // path stayed in the source tenant — silently, the same failure class one level
+  // deeper.
   test("follows a type reached by two paths of different length down both", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const bundleId = await seedBundle(SOURCE_TENANT, runId, "bundle");
@@ -679,11 +679,11 @@ describe("tenant-handover :: claim", () => {
   });
 
   // A cycle used to terminate because each edge ran at most once. That rule is
-  // gone (kumiko-framework#3131) — termination now rests on every statement
-  // filtering `tenant_id = source` and returning only the rows it flipped, so a
-  // row enters the worklist exactly once. Nothing else bounds the walk, which is
-  // why the rows below point at each other BOTH ways: the return edge has to
-  // match `linkA` and be turned away by the tenant filter, not miss it.
+  // gone — termination now rests on every statement filtering `tenant_id = source`
+  // and returning only the rows it flipped, so a row enters the worklist exactly
+  // once. Nothing else bounds the walk, which is why the rows below point at each
+  // other BOTH ways: the return edge has to match `linkA` and be turned away by
+  // the tenant filter, not miss it.
   test("terminates on a reference cycle instead of running the rounds out", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const linkAId = await seedLinkA(SOURCE_TENANT, { runId });
@@ -705,7 +705,7 @@ describe("tenant-handover :: claim", () => {
   // The boot validator skips cycles when measuring depth, so this graph boots
   // clean and only the mover can catch it. Failing the whole claim is the
   // point: the alternative is moving the first five hops and leaving the rest,
-  // which is the silent partial move #3088 exists to end.
+  // which is the silent partial move this claim is meant to end.
   test("fails the claim when rows still hang below the last allowed hop", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const a1 = await seedLinkA(SOURCE_TENANT, { runId });
@@ -817,10 +817,10 @@ describe("tenant-handover :: claim", () => {
     expect(err.httpStatus).toBe(422);
   });
 
-  // kumiko-framework#3088 fix: transfer-graph resolution previously took a
-  // reference field's `entity` raw, so "<feature>:<entity>" targets never
-  // formed an edge and only the root ever moved. Root and child live in
-  // different features (both prefixed edges), grandchild in a third.
+  // Transfer-graph resolution previously took a reference field's `entity` raw,
+  // so "<feature>:<entity>" targets never formed an edge and only the root ever
+  // moved. Root and child live in different features (both prefixed edges),
+  // grandchild in a third.
   test("claims a chain of feature-prefixed reference edges whole: root -> child -> grandchild", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const childId = await seedPrefixedChild(SOURCE_TENANT, runId, "child");

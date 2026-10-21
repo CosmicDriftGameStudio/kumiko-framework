@@ -338,15 +338,13 @@ describe("enable-confirm burns the setup token on first success", () => {
   });
 
   // Not part of the mfa_already_enabled coverage above — this documents a
-  // separate, already-tracked gap: when both enable-confirms are truly
+  // separate gap: when both enable-confirms are truly
   // concurrent, findUserMfaRow's existing-row check can't see the other
   // request's uncommitted row, so the DB's userId+tenantId unique index
   // rejects the loser with a raw `unique_violation` instead of the
   // friendly mfaAlreadyEnabled() error. No duplicate row is ever created
   // (the invariant this test asserts), but the error surfaced to the
-  // client leaks a DB-internal code. Same class of gap as pr-review
-  // kumiko-framework#952 idx2 (needs-framework-savepoint-primitive) —
-  // tracked there, not fixed here.
+  // client leaks a DB-internal code. The gap is not fixed here.
   test("two concurrent enable-confirms for the same user never create two rows, 20x", async () => {
     for (let i = 0; i < 20; i++) {
       const user = createTestUser({ id: `concurrent-enable-${i}`, roles: ["User"] });

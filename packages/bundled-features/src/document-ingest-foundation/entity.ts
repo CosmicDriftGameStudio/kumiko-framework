@@ -6,7 +6,7 @@ import {
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Phase-1 (MVP) page shape — LiteParse fills this in (kumiko-enterprise#273).
+// (MVP) page shape — LiteParse fills this in.
 // Kept minimal on purpose: downstream themes (provider, recipe) extend it.
 // Stored as JSON.stringify(IngestPage[]) in the encrypted `pages` column —
 // jsonb has no encryption support in the engine, and this column holds the
@@ -29,7 +29,7 @@ export type DocumentExtractMeta = {
 
 // documentExtract — implicit entity-projection (r.entity, NOT r.projection):
 // an explicit r.projection would make `forget` non-rebuild-safe and require
-// archiveStream instead of the regular forget path (kumiko-framework#1495).
+// archiveStream instead of the regular forget path.
 // fileRefId points at the source file_refs row; storageKey duplicates it for
 // direct provider access without a join.
 export const documentExtractEntity = createEntity({
@@ -42,11 +42,11 @@ export const documentExtractEntity = createEntity({
       reason: "technical_reference",
     }),
     // Holds the full extracted document text (PII). `personal: "tenant"`,
-    // NOT `encrypted: true` (#1621): the master-key path has no erasure subject,
+    // NOT `encrypted: true`: the master-key path has no erasure subject,
     // so nothing here would ever be shreddable. Tenant-subject ciphertext
-    // dies with eraseSubjectKeys on tenant-destroy (#800 pattern). Whose
+    // dies with eraseSubjectKeys on tenant-destroy. Whose
     // subject a third party named inside a document is stays open, same as
-    // inbound-mail-foundation (#957). meta is provider telemetry only and
+    // inbound-mail-foundation. meta is provider telemetry only and
     // stays plaintext jsonb.
     pages: createLongTextField({
       personal: "tenant",

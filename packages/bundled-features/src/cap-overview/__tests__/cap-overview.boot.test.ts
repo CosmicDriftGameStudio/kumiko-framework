@@ -122,7 +122,7 @@ describe("cap-overview boot", () => {
   // Deep-link: clicking a row on tenant-cap-list must land on THAT tenant's
   // dashboard, not an empty one — the boot validator now lets a navigate
   // rowAction's params through onto a dashboard target when its extractor
-  // produces the target's own `filter.id` (framework#1708 follow-up).
+  // produces the target's own `filter.id`.
   test("row-click deep-links into platform-tenant-caps with a params extractor matching its filter id", () => {
     const features = [
       createConfigFeature(),

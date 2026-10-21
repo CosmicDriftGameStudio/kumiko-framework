@@ -2,7 +2,7 @@
 // longText (jsonb has no encryption support), so writers must persist
 // JSON.stringify(IngestPage[]) and readers must parse back. Centralising
 // the codec here keeps liteparse + recipe consumers lockstep with the
-// entity shape (kumiko-framework#1549/1).
+// entity shape.
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { IngestPage } from "./entity.ts";

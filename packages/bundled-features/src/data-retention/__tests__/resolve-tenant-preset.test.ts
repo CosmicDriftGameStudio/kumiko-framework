@@ -1,7 +1,7 @@
-// Unit-Test fuer die Preset-Ableitung aus dem Compliance-Profile (Layer 2).
-// Der DB-gebundene "present → derive"-Pfad wird im Integrationstest
-// (retention-cleanup.integration.test.ts) gegen echtes Postgres geprueft;
-// hier nur die pure Map + der Soft-Gate (compliance-profiles nicht gemountet).
+// Unit test for deriving the preset from the compliance profile (Layer 2).
+// The database-backed "present → derive" path is tested against real Postgres
+// in the integration test (retention-cleanup.integration.test.ts);
+// this covers only the pure map and the soft gate (compliance-profiles not mounted).
 
 import { describe, expect, test } from "bun:test";
 import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";

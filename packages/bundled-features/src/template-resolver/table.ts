@@ -23,16 +23,15 @@ const renameMailHtmlKind: EntityEventMigration = {
   transform: (fields) => (fields["kind"] === "mail-html" ? { ...fields, kind: "mail" } : fields),
 };
 
-// TemplateResource — strukturierte Template-Definition mit Tenant-
-// Override-Hierarchie, Locale-Fallback und Resource-Linking via
-// file-foundation. Pro (tenantId, slug, kind, locale) genau eine Row;
-// scope/status/version differenzieren Lifecycle. Der Entwurf neben einer
-// aktiven Fassung liegt in `draft`; die Hauptfelder bleiben die ausgelieferte
-// Fassung.
+// TemplateResource — structured template definition with tenant override
+// hierarchy, locale fallback, and resource linking via file-foundation. Exactly
+// one row per (tenantId, slug, kind, locale); scope/status/version distinguish
+// lifecycle states. The draft alongside an active revision is stored in `draft`;
+// the main fields remain the served revision.
 //
-// `variableSchema` + `linkedResources` sind JSON-Strings in longText
-// (Pattern aus compliance-profiles — kein dedizierter jsonbField im
-// createEntity-DSL). App-Layer parsed JSON, persistiert wieder als String.
+// `variableSchema` + `linkedResources` are JSON strings in longText
+// (following compliance-profiles because the createEntity DSL has no dedicated
+// jsonbField). The application layer parses the JSON and persists it as a string.
 export const templateResourceEntity = createEntity({
   table: "read_template_resources",
   fields: {
@@ -47,8 +46,8 @@ export const templateResourceEntity = createEntity({
     // Folder path for the content tree, `/`-separated ("page/marketing").
     // null = root node.
     folder: createTextField({ personal: false, reason: "technical_reference" }),
-    // Template-body is authored by TenantAdmin/Operator (email-templates etc.),
-    // business data — kein end-user UGC.
+    // Template body is authored by TenantAdmin/Operator (email-templates, etc.),
+    // and is business data—not end-user UGC.
     content: createLongTextField({
       personal: false,
       reason: "is_business_data",
@@ -90,9 +89,9 @@ export type EntityAuditColumns = {
   readonly modifiedById: string | null;
 };
 
-// Concrete Row-Type — single-source dafür dass die unknown-Werte die
-// Drizzle aus `Record<string, unknown>` liefert genau einmal benannt
-// werden (statt 12× `row["x"] as Y` Casts in Handlern + Resolver).
+// Concrete row type—the single source of truth for naming the unknown values
+// returned by Drizzle from `Record<string, unknown>` (instead of 12×
+// `row["x"] as Y` casts in handlers and resolvers).
 export type TemplateResourceRow = {
   readonly id: string | number;
   readonly version: number;

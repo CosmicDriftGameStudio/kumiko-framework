@@ -143,7 +143,7 @@ describe("scenario 1: login success", () => {
     );
     expect(meRes.status).toBe(200);
 
-    // fw#2333 — a user without a stored locale must not carry a locale
+    // A user without a stored locale must not carry a locale
     // claim at all (not null, not "").
     const payload = await stack.jwt.verify(body.token as string);
     expect(payload.locale).toBeUndefined();
@@ -222,7 +222,7 @@ describe("scenario 3: login without membership", () => {
 });
 
 // --- Scenario 3b: login resolves the live account when its email is shared
-// with a soft-deleted row (fw#2464 partial bidx index only covers live rows) ---
+// with a soft-deleted row (partial bidx index only covers live rows) ---
 
 describe("scenario 3b: login with an email shared by a soft-deleted row", () => {
   // The DB-level dedup that lets a soft-deleted row and a live row share an
@@ -724,9 +724,9 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
   });
 
   test("browser auth flow: login → /me → logout → /me 401", async () => {
-    // Bildet exakt den Pfad ab, den die Web-UI fährt: SessionProvider
-    // ruft refresh() (→ /auth/tenants + /me), nach Login funktioniert /me,
-    // nach Logout ist der Cookie weg → /me OHNE Cookie ist 401.
+    // Reproduces the exact path used by the web UI: SessionProvider
+    // calls refresh() (→ /auth/tenants + /me); after login, /me works,
+    // and after logout the cookie is gone, so /me WITHOUT a cookie returns 401.
     await seedLoginUser({ email: "flow@example.com", password: "correct-horse" });
 
     const loginRes = await stack.http.raw("POST", "/api/auth/login", {
@@ -741,7 +741,7 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
 
     const cookieHeader = `kumiko_auth=${authCookie}; kumiko_csrf=${csrfCookie}`;
 
-    // Eingeloggt: /me liefert User
+    // Signed in: /me returns the user
     const meOk = await stack.http.raw(
       "POST",
       "/api/query",
@@ -750,7 +750,7 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
     );
     expect(meOk.status).toBe(200);
 
-    // Logout: Server muss Cookies löschen (Set-Cookie mit Max-Age=0)
+    // Logout: the server must clear the cookies (Set-Cookie with Max-Age=0)
     const logoutRes = await stack.http.raw(
       "POST",
       "/api/auth/logout",
@@ -763,7 +763,7 @@ describe("scenario 7: cookie-auth + CSRF end-to-end", () => {
     expect(clearedAuth).toMatch(/Max-Age=0/);
     expect(clearedCsrf).toMatch(/Max-Age=0/);
 
-    // Nach Logout: kein Cookie mehr → /me ohne Cookie/Bearer = 401
+    // After logout: no cookie → /me without a cookie or bearer token returns 401
     const meAfter = await stack.http.raw("POST", "/api/query", {
       type: "user:query:user:me",
       payload: {},

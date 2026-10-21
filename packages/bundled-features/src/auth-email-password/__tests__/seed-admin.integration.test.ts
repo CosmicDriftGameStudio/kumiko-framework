@@ -1,14 +1,14 @@
-// Tests für die seedAdmin-Convenience aus auth-email-password/testing.
+// Tests for the seedAdmin convenience API from auth-email-password/testing.
 //
-// Wert: seedAdmin orchestriert seedTenant × N + seedUserWithPassword +
-// seedTenantMembership × N. Die Einzel-Helper haben jeweils eigene Tests
-// (tenant/seed-testing, user/seed-testing). Hier prüfen wir nur was
-// SEEDADMIN selber zusagt:
-//   1. Reihenfolge stimmt — Tenants vor User vor Memberships.
-//   2. Password wird mit argon2 gehasht und ist via verifyPassword(plain, hash) gültig.
-//   3. Re-Run ist idempotent (für persistent-DB-Modus im dev-server).
-//   4. Rollen pro Tenant landen korrekt (unterschiedliche Rollen-Listen
-//      pro Membership).
+// Scope: seedAdmin orchestrates seedTenant × N + seedUserWithPassword +
+// seedTenantMembership × N. The individual helpers have their own tests
+// (tenant/seed-testing, user/seed-testing). These tests cover only what
+// SEEDADMIN itself guarantees:
+//   1. The order is correct — tenants before the user before memberships.
+//   2. The password is hashed with argon2 and is valid via verifyPassword(plain, hash).
+//   3. Re-running is idempotent (for persistent-DB mode in the dev server).
+//   4. Roles are assigned correctly per tenant (different role lists per
+//      membership).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -84,19 +84,19 @@ describe("seedAdmin", () => {
     const tenants = await selectMany(stack.db, tenantTable);
     expect(tenants.map((t) => t["id"]).sort()).toEqual([TENANT_DEV, TENANT_BETA].sort());
 
-    // User angelegt mit Hash (NICHT plain-Password)
+    // User created with a hash (NOT the plain password)
     const [user] = await selectMany(stack.db, userTable, { email: "admin@example.com" });
     expect(user?.["id"]).toBe(userId);
     expect(user?.["passwordHash"]).not.toBe("secret-pw");
     expect(user?.["passwordHash"]).toMatch(/^\$argon2/);
 
-    // verifyPassword(hash, plain) — Login-Pfad würde durchgehen.
+    // verifyPassword(hash, plain) — the login path would succeed.
     const valid = await verifyPassword(user?.["passwordHash"] as string, "secret-pw");
     expect(valid).toBe(true);
     const invalid = await verifyPassword(user?.["passwordHash"] as string, "wrong-pw");
     expect(invalid).toBe(false);
 
-    // Memberships pro Tenant mit unterschiedlichen Rollen
+    // Memberships per tenant with different roles
     const devMembership = await selectMany(stack.db, tenantMembershipsTable, {
       userId: userId,
       tenantId: TENANT_DEV,
@@ -147,9 +147,9 @@ describe("seedAdmin", () => {
         { tenantId: TENANT_DEV, tenantKey: "dev", tenantName: "Dev", roles: ["Admin"] },
       ],
     });
-    // Zweiter Aufruf — gleicher Email, anderes Password (würde theoretisch
-    // einen neuen Hash erzeugen und neu schreiben, der idempotent-Check
-    // greift VOR dem Insert).
+    // Second call — same email, different password (would theoretically
+    // create and write a new hash, but the idempotency check
+    // runs BEFORE the insert).
     const { id: userId2 } = await seedAdmin(stack.db, {
       email: "admin@example.com",
       password: "pw2",
@@ -160,7 +160,7 @@ describe("seedAdmin", () => {
     });
     expect(userId2).toBe(userId1);
 
-    // Genau ein User-Row, original-Hash (passt zu pw1, nicht pw2).
+    // Exactly one user row, with the original hash (matches pw1, not pw2).
     const users = await selectMany(stack.db, userTable);
     expect(users).toHaveLength(1);
     const valid = await verifyPassword(users[0]?.["passwordHash"] as string, "pw1");
@@ -168,11 +168,11 @@ describe("seedAdmin", () => {
     const invalid = await verifyPassword(users[0]?.["passwordHash"] as string, "pw2");
     expect(invalid).toBe(false);
 
-    // Genau ein Membership-Row.
+    // Exactly one membership row.
     const memberships = await selectMany(stack.db, tenantMembershipsTable);
     expect(memberships).toHaveLength(1);
 
-    // Genau ein .created-Event pro Aggregat-Typ.
+    // Exactly one .created event per aggregate type.
     const events = await selectMany(stack.db, eventsTable);
     const createdByType = events
       .filter((e) => e.type.endsWith(".created"))

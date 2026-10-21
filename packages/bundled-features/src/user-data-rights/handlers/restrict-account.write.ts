@@ -10,15 +10,16 @@ import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-ad
 import { isAdminActor } from "../lib/is-admin-actor.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
-// POST /api/user/restrict (S2.U6) — DSGVO Art. 18 Account-Freeze.
-// Flippt status=Active → Restricted und revoked alle live sessions
-// des Users via cross-feature ctx.writeAs(sessions.revokeAllForUser).
+// POST /api/user/restrict — GDPR Art. 18 account freeze.
+// Flips status=Active → Restricted and revokes all live sessions
+// for the user via cross-feature ctx.writeAs(sessions.revokeAllForUser).
 //
-// Plan-Doc-Verhalten ("Schreib-API geblockt"):
-//   - Login geblockt: login.write.ts checked status=Restricted (Atom 3).
-//   - Active sessions: revoked durch cross-feature-call (sessions-feature
-//     muss gemountet sein). App-Author ohne sessions-feature kriegt einen
-//     Boot-Resolver-Error via r.usesApi("sessions.revokeAllForUser").
+// Write API behaviour:
+//   - Login is blocked: login.write.ts checks status=Restricted (Atom 3).
+//   - Active sessions are revoked through a cross-feature call (the
+//     sessions feature must be mounted). An app author without the
+//     sessions feature gets a boot resolver error via
+//     r.usesApi("sessions.revokeAllForUser").
 //
 // Self-service by default (userId omitted → event.user.id). An admin can
 // also target someone else's account — needed once a user is already
@@ -27,14 +28,16 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 // themselves; only an operator path reaches it at that point.
 //
 // Tenant scope: `isAdminActor` accepts access.admin, which includes TenantAdmin
-// (tenant-scoped) even though the User-entity is global — see user-data-rights.md "Cross-Tenant-Semantik". Without a membership check, a TenantAdmin from tenant A could restrict/unrestrict a user who
-// has never been a member of tenant A. Only SystemAdmin (platform-wide)
-// skips the check; the target must have a membership row in the acting
-// admin's `event.user.tenantId` (row existence only — no active-status field).
+// (tenant-scoped) even though the User entity is global — see user-data-rights.md
+// "Cross-Tenant-Semantik". Without a membership check, a TenantAdmin from tenant A
+// could restrict or unrestrict a user who has never been a member of tenant A.
+// Only SystemAdmin (platform-wide) skips the check; the target must have a
+// membership row in the acting admin's `event.user.tenantId` (row existence only —
+// no active-status field).
 //
-// State-Transitions:
-//   Active → Restricted        ✓ (dieser Handler)
-//   Restricted → Restricted    ✗ 422 already_restricted (Idempotenz-Guard)
+// State transitions:
+//   Active → Restricted        ✓ (this handler)
+//   Restricted → Restricted    ✗ 422 already_restricted (idempotency guard)
 //   DeletionRequested → ...    ✗ 422 user_not_in_active_state
 //   Deleted → ...              ✗ 422 user_not_in_active_state
 export const restrictAccountWrite = defineWriteHandler({
@@ -107,10 +110,10 @@ export const restrictAccountWrite = defineWriteHandler({
 
     await updateUserLifecycle(ctx.db.unsafeRaw(), targetUserId, { status: USER_STATUS.Restricted });
 
-    // Cross-Feature: alle live sessions revoken — sonst koennte der User
-    // mit existierendem JWT bis zur Token-Expiry weiter schreiben.
-    // ctx.writeAs(systemUser, ...) damit der privileged-Handler die
-    // System-User-Roles im access-gate hat.
+    // Cross-feature: all live sessions are revoked; otherwise the user could
+    // continue writing with an existing JWT until token expiry.
+    // ctx.writeAs(systemUser, ...) gives the privileged handler the
+    // System user roles required by its access gate.
     const systemUser = createSystemUser(event.user.tenantId);
     await ctx.writeAs(systemUser, "sessions:write:user-session:revoke-all-for-user", {
       userId: targetUserId,

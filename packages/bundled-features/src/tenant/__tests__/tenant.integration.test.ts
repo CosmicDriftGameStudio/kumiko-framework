@@ -377,7 +377,7 @@ describe("scenario 6: config integration with tenant", () => {
 
 describe("scenario 7: access rules on handlers", () => {
   test("all handlers have correct access rules", async () => {
-    // "system" für seed-migrations + ops-tooling, "SystemAdmin" für UI-Operator
+    // "system" for seed migrations and ops tooling; "SystemAdmin" for UI operators
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.create)?.access)).toEqual([
       "system",
       "SystemAdmin",
@@ -389,8 +389,8 @@ describe("scenario 7: access rules on handlers", () => {
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.disable)?.access)).toEqual([
       "SystemAdmin",
     ]);
-    // updateMemberRoles akzeptiert "system" (für seed-migrations + ops-tooling)
-    // PLUS access.admin ("TenantAdmin", "Admin", "SystemAdmin").
+    // updateMemberRoles accepts "system" for seed migrations and ops tooling.
+    // It also accepts access.admin ("TenantAdmin", "Admin", "SystemAdmin").
     expect(
       rolesOf(stack.registry.getWriteHandler(TenantHandlers.updateMemberRoles)?.access),
     ).toEqual(["system", ...access.admin]);

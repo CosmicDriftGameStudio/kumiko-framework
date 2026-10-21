@@ -51,9 +51,9 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
         default: 30,
         write: access.roles("TenantAdmin", "SystemAdmin"),
       }),
-      // Operator-Key: required, aber read/write über dem TenantAdmin —
-      // der Verdict muss ihn TROTZDEM zählen (277/1: der Per-Key-read-
-      // Filter droppte ihn still und log ready:true).
+      // Operator key: required, but read/write is restricted beyond TenantAdmin —
+      // the verdict must still count it; filtering it by per-key read access
+      // would silently omit it and incorrectly report ready:true.
       operatorEndpoint: createTenantConfig("text", {
         required: true,
         default: "",
@@ -177,8 +177,8 @@ function adminFor(tenantNumber: number) {
   });
 }
 
-// Der 277/1-Probe-Key ist SystemAdmin-gated — Tests, die ready:true
-// erwarten, setzen ihn über diesen Helper (gleicher Tenant, Operator-Rolle).
+// The probe key is restricted to SystemAdmin — tests expecting ready:true
+// set it through this helper using the same tenant and the operator role.
 async function setOperatorEndpoint(admin: ReturnType<typeof adminFor>): Promise<void> {
   await stack.http.writeOk(
     "config:write:set",
@@ -237,8 +237,8 @@ describe("readiness:query:status", () => {
 
     const status = await statusFor(admin);
 
-    // Der Caller darf den Key nicht LESEN — fürs Verdict muss er trotzdem
-    // als missing erscheinen, sonst lügt ready:true.
+    // The caller cannot READ the key, but the verdict must still report it
+    // as missing; otherwise it would incorrectly report ready:true.
     expect(status.missingConfig.map((k) => k.key)).toContain(
       "readiness-probe:config:operator-endpoint",
     );

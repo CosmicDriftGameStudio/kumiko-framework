@@ -13,7 +13,7 @@ import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
 import { createUserProfileFeature } from "../feature.ts";
 
-// fw#2312 — the `profile` screen converted from a custom React component to
+// The `profile` screen converted from a custom React component to
 // a declarative projectionDetail (change-password/change-email stay
 // EditExtensionSection components, deletion is fields+actions). `validateBoot`
 // below proves the screen clears every boot-validator rule for
@@ -103,7 +103,7 @@ describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
       visible: { field: "status", ne: "deletionRequested" },
       style: "danger",
     });
-    // Cancel has no confirm — the pre-#2312 custom screen executed it directly.
+    // Cancel has no confirm — the custom screen executed it directly.
     expect(byId["cancel-deletion"]).toMatchObject({
       handler: "user-data-rights:write:cancel-deletion",
       visible: { field: "status", eq: "deletionRequested" },

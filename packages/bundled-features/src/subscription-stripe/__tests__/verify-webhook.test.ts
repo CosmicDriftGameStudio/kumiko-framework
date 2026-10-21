@@ -1,11 +1,10 @@
-// Unit-Tests für verifyAndParseStripeWebhook. Nutzt stripe.webhooks.
-// generateTestHeaderString um valid sigs zu erzeugen — kein Mock,
-// echter Stripe-SDK-roundtrip.
+// Unit tests for verifyAndParseStripeWebhook using stripe.webhooks.
+// generateTestHeaderString to create valid signatures — no mock,
+// a real Stripe SDK round trip.
 //
-// Stripe-Event-Fixtures sind hier minimale Stripe-payloads die nur
-// die Felder enthalten die der Plugin tatsächlich liest. Real Stripe-
-// events sind >100 Felder; full-fidelity-fixtures wären Maintenance-
-// Aufwand ohne Test-Wert.
+// Stripe event fixtures are minimal payloads containing only the fields
+// the plugin reads. Real Stripe events have more than 100 fields; full-
+// fidelity fixtures would add maintenance effort without test value.
 
 import { describe, expect, test } from "bun:test";
 import type { SubscriptionEvent } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -32,8 +31,9 @@ const TEST_API_KEY = "sk_test_dummy_apikey";
 
 const stripeForFixtures = new Stripe(TEST_API_KEY);
 
-/** Test-runtime: liefert den fixture-Client + TEST_SECRET (statt sie aus
- *  system-secrets aufzulösen — die Resolution testet runtime.test.ts). */
+/** Test runtime: provides the fixture client and TEST_SECRET instead of
+ *  resolving them from system secrets — that resolution is tested in
+ *  runtime.test.ts. */
 function webhookRuntime(webhookSecret = TEST_SECRET): StripeWebhookRuntime {
   return { resolve: async () => ({ stripe: stripeForFixtures, webhookSecret }) };
 }
@@ -113,7 +113,6 @@ function buildSubscriptionEvent(overrides: {
   };
 }
 
-/** Erstellt einen valid Stripe-signed-Header für ein gegebenes payload. */
 async function signEvent(payload: string, secret = TEST_SECRET): Promise<string> {
   return stripeForFixtures.webhooks.generateTestHeaderStringAsync({
     payload,
@@ -181,8 +180,8 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
   );
 
   test("unbekannter event-type → null (foundation 200 ignored)", async () => {
-    // customer.created ist gültiger Stripe-event aber nicht in unserer
-    // 5-types-Whitelist.
+    // customer.created is a valid Stripe event but is not in our
+    // five-type whitelist.
     const payload = JSON.stringify(buildSubscriptionEvent({ eventType: "customer.created" }));
     const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
@@ -212,9 +211,9 @@ describe("verifyAndParseStripeWebhook — event-filter", () => {
   });
 
   test("invoice-event ohne subscription-reference → null (one-shot-invoice)", async () => {
-    // Drift-Pin: Stripe one-shot-invoice (nicht recurring). Plugin
-    // versucht NICHT zu lazy-fetchen weil's keine sub-id zum fetchen
-    // gibt. Foundation 200 ignored.
+    // Drift pin: a Stripe one-shot invoice is not recurring. The plugin
+    // does not lazy-fetch because there is no subscription ID to fetch.
+    // The foundation ignores it with a 200 response.
     const ev = {
       id: "evt_invoice_oneshot",
       object: "event",
@@ -252,7 +251,7 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
 
   test("metadata.tenantId fehlt → null (App-Owner-Bug, foundation 200 ignored)", async () => {
     const ev = buildSubscriptionEvent({});
-    // @ts-expect-error — entferne metadata für Test
+    // @ts-expect-error — remove metadata for the test
     ev.data.object.metadata = {};
     const payload = JSON.stringify(ev);
     const sig = await signEvent(payload);
@@ -279,8 +278,8 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     const payload = JSON.stringify(buildSubscriptionEvent({ currentPeriodEndUnix: periodEndUnix }));
     const sig = await signEvent(payload);
     const event = await verify(payload, { "stripe-signature": sig });
-    // 1_780_000_000 sec = 2026-05-28T20:26:40Z (in ms: 1.78e12)
-    // Temporal.Instant.toString() droppt Trailing-Zeros — keine .000Z
+    // 1_780_000_000 seconds = 2026-05-28T20:26:40Z (1.78e12 ms)
+    // Temporal.Instant.toString() drops trailing zeros — there is no .000Z
     expect(event?.currentPeriodEnd).toBe("2026-05-28T20:26:40Z");
   });
 });
@@ -367,10 +366,6 @@ describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temp
   });
 });
 
-// =============================================================================
-// Mapping-helpers (pure functions, kein Stripe-mock nötig)
-// =============================================================================
-
 describe("verifyAndParseStripeWebhook — transient Stripe lookup failure (#2793)", () => {
   test("checkout.sessions.retrieve answered 503 by Stripe → ExtraRouteRejection 503 subscription_provider_transient", async () => {
     const stripeApi = Bun.serve({
@@ -451,10 +446,10 @@ describe("mapStripeStatus — Stripe-status → normalized", () => {
   });
 
   test("past_due / unpaid / paused → past_due (= grace-period im Plattform-Tier)", () => {
-    // Drift-Pin: alle drei Stripe-grace-Status werden auf den einen
-    // normalisierten "past_due"-Status mapped. Wenn Stripe einen vierten
-    // grace-Status einführt müssen wir den explizit hinzufügen statt
-    // auf "incomplete" fallback'n (= würde tenant downgraden).
+    // Drift pin: all three Stripe grace statuses map to the single
+    // normalized "past_due" status. If Stripe introduces a fourth grace
+    // status, it must be added explicitly rather than falling back to
+    // "incomplete" (= would downgrade the tenant).
     expect(mapStripeStatus("past_due")).toBe(SubscriptionStatuses.pastDue);
     expect(mapStripeStatus("unpaid")).toBe(SubscriptionStatuses.pastDue);
     expect(mapStripeStatus("paused")).toBe(SubscriptionStatuses.pastDue);

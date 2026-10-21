@@ -1,12 +1,12 @@
-// list-accounts — tenant-scoped Liste der verbundenen Postfächer fürs
-// Connect-/Settings-UI. PII (address) wird beim Read decrypted (Muster
-// billing-foundation list-subscriptions).
+// list-accounts — tenant-scoped list of connected mailboxes for the
+// Connect/Settings UI. PII (address) is decrypted on read, following the
+// billing-foundation list-subscriptions pattern.
 //
-// **Scope-Sichtbarkeit (Plan Entscheidung 2):** shared-Postfächer
-// (ownerUserId=null) sieht jeder Berechtigte; persönliche nur der Owner
-// selbst + TenantAdmin/SystemAdmin (Compliance-Sicht). Filter läuft
-// in-memory nach dem tenant-scoped select — Volumen ist die Anzahl
-// verbundener Postfächer eines Tenants (einstellig bis zweistellig).
+// **Scope visibility:** authorized users can see shared mailboxes
+// (ownerUserId=null); personal mailboxes are visible only to their owner,
+// TenantAdmin, or SystemAdmin for compliance access. Filtering runs in memory
+// after the tenant-scoped select because a tenant has only a single- to
+// double-digit number of connected mailboxes.
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,

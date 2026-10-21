@@ -1,13 +1,12 @@
-// ResetPasswordScreen — liest `?token=...` aus der URL, zeigt Form mit
-// new + confirm-password. Submit triggert /api/auth/reset-password mit
-// dem Token. Server collapses alle Token-Verify-Failures auf einen
-// Code (anti-enumeration); UI zeigt unified "Link ungültig oder
-// abgelaufen"-message.
+// ResetPasswordScreen reads `?token=...` from the URL and shows fields for
+// a new and confirmed password. Submission calls /api/auth/reset-password
+// with the token. The server collapses all token-verification failures into
+// one code (anti-enumeration), so the UI shows the unified "link invalid or
+// expired" message.
 //
-// Token-Quelle ist read-once via useUrlToken(): liest `?token=...` beim
-// Mount und scrubbt den Param danach aus der URL (#774). Apps die das
-// anders brauchen (server-injected Token-Prop) reichen `token` als Prop
-// durch — dann bleibt die URL unangetastet.
+// The token is read once via useUrlToken(): `?token=...` is read on mount and
+// then scrubbed from the URL. Apps that need different behavior can pass a
+// server-injected token through the `token` prop; the URL is then left intact.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -17,11 +16,11 @@ import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
 
 export type ResetPasswordScreenProps = {
   readonly title?: string;
-  /** Override für den Token aus der URL — Apps die per server-side-
-   *  Render einen Token reinreichen, brauchen das. Default: parsed aus
-   *  `?token=...` in der URL. */
+  /** Override for the token from the URL. Apps that pass a token during
+   * server-side rendering need this. Default: parsed from `?token=...` in
+   * the URL. */
   readonly token?: string;
-  /** href für "Zum Login"-Link nach Success. Default "/login". */
+  /** href for the "Zum Login" link after success. Default "/login". */
   readonly loginHref?: string;
 };
 
@@ -75,10 +74,10 @@ export function ResetPasswordScreen({
 
   const effectiveTitle = title ?? t("auth.resetPassword.title");
 
-  // Kein Token in der URL → User soll den Link aus seiner Mail nochmal
-  // klicken oder einen neuen Reset anfordern. Form ohne Token zu
-  // submitten würde nur den invalidResetToken-Error zeigen — das ist
-  // verwirrend. Lieber upfront eine klare Message.
+  // No token in the URL: the user should click the link from their email again
+  // or request a new reset. Submitting without a token would only show the
+  // invalidResetToken error, which is confusing, so show a clear message
+  // immediately instead.
   if (token === "") {
     return (
       <AuthCard title={effectiveTitle}>

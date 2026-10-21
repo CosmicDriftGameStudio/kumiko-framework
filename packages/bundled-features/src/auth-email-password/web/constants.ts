@@ -17,7 +17,7 @@ export const AuthHandlers = {
   requestEmailVerification: "auth-email-password:write:request-email-verification",
   verifyEmail: "auth-email-password:write:verify-email",
   // Account-Unlock Magic-Link (fixes the lockout-DoS where the monotonic
-  // failure-counter re-locks immediately after expiry, #1266). Mirrors
+  // failure-counter re-locks immediately after expiry). Mirrors
   // reset: request mints an HMAC token + mails it, confirm clears the
   // Redis lockout state.
   requestAccountUnlock: "auth-email-password:write:request-account-unlock",
@@ -85,7 +85,7 @@ export const AuthErrors = {
   invalidSignupToken: "invalid_signup_token",
   signupNotConfigured: "signup_not_configured",
   // Self-signup: confirm rejects an already-registered email instead of
-  // reusing the existing user (account takeover, #365). NO
+  // reusing the existing user (account takeover). NO
   // anti-enumeration collapse like invalidSignupToken: whoever gets here
   // controls the inbox (has the magic link), so revealing "email exists"
   // is not new information.
@@ -105,7 +105,7 @@ export const AuthErrors = {
   // deliberate enumeration trade-off: the lockout event itself is already
   // observable to the attacker, and legit users benefit from a clear signal.
   accountLocked: "account_locked",
-  // S2.U6 (GDPR Art. 18) — account is in Restricted status. Login is
+  // (GDPR Art. 18) — account is in Restricted status. Login is
   // explicitly refused with its own code (not collapsed into
   // invalid_credentials) so the UI can say "account is currently paused,
   // click here to lift it". Enumeration leak accepted: restriction is

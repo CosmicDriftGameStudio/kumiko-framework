@@ -1,4 +1,4 @@
-// Proves #1977/2: createFileDerivativesFeature() mounted WITHOUT
+// Proves the gating behavior: createFileDerivativesFeature() mounted WITHOUT
 // resolveApexTenant must not expose `publicVariant` via ANY path — not just
 // "the httpRoute isn't mounted" (already true before the fix), but also not
 // via the generic `/api/query` dispatch an anonymous, host-only-scoped

@@ -18,7 +18,7 @@ export const SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON =
 export const PAYMENT_TENANT_DESTROY_ARCHIVE_REASON =
   "tenant-destroy looks up the compliance profile and archives the payment event-stream before the projection rows are redacted/deleted";
 
-/** Tenant-destroy hook for billing PII (#800). HGB retains the accounting
+/** Tenant-destroy hook for billing PII. HGB retains the accounting
  *  row but redacts the two provider-subject PII fields; other profiles
  *  hard-delete the row. Either way the subscription stream is archived so a
  *  future projection rebuild can't resurrect what was erased. */
@@ -47,7 +47,7 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
   });
 }
 
-/** Tenant-destroy hook for payment PII (#800). Unlike subscriptionTenantDestroyHook
+/** Tenant-destroy hook for payment PII. Unlike subscriptionTenantDestroyHook
  *  (one row per tenant, targeted by `id`), a tenant can have many payment
  *  rows — the predicate here is `tenantId`, not `id`. The payment-stream
  *  itself is still one stream per tenant (paymentAggregateId), so

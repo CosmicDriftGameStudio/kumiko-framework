@@ -17,7 +17,7 @@
 // semantics) live in shared/lockout-counter.ts — this file only wires the
 // account-lockout key prefixes onto it. See that file for why a lock
 // re-arms immediately after expiry, and why a successful login (or the
-// account-unlock magic-link flow, #1266, see
+// account-unlock magic-link flow in
 // handlers/confirm-account-unlock.write.ts) is what resets the streak.
 
 import { createLockoutCounter, type LockoutCounterState } from "../shared/index.ts";

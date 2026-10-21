@@ -1,4 +1,4 @@
-// #1215: the `jobs` feature registers `reindexEntity` as a manual + perTenant
+// The `jobs` feature registers `reindexEntity` as a manual + perTenant
 // job. perTenant jobs fan out through a BullMQ wrapper that needs
 // `getActiveTenantIds` (job-runner.ts) — setupTestStack's jobRunner doesn't
 // wire that, so this calls the exported handler directly with a constructed

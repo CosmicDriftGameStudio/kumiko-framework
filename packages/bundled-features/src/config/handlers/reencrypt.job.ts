@@ -16,8 +16,8 @@
 // the NEW envelope: after a full run even a from-scratch rebuild only
 // ever sees the current-KEK envelope.
 //
-// systemScope() fail-closed pattern (framework#2056): the initial scan is
-// intentionally cross-tenant (system-wide key rotation), acknowledged via
+// systemScope() fail-closed pattern: the initial scan is intentionally
+// cross-tenant (system-wide key rotation), acknowledged via
 // UncheckedSystemDb.acknowledgeCrossTenant(). Rows are bucketed by tenant,
 // and assertRowsTenant() re-verifies each row against its bucket's tenant
 // right before the write — both checks are built locally from the exported
@@ -226,9 +226,8 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     }
 
     // Re-verify the row's own tenantId against the bucket it was scanned
-    // into, right before the write (framework#2072) — a mismatch here
-    // fails this row only (via onRowError below), it does not abort the
-    // whole job.
+    // into, right before the write — a mismatch here fails this row only
+    // (via onRowError below), it does not abort the whole job.
     sdbFor(tenantId).assertRowsTenant([row], "tenantId");
 
     const plaintext = await cipher.decrypt(row.value, { tenantId });

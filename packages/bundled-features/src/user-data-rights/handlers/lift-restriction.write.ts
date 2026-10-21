@@ -8,7 +8,7 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
   "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.";
 
-// POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
+// POST /api/user/lift-restriction — GDPR Art. 18 Reverse.
 //
 // Operator-only. A Restricted user's own session is unconditionally
 // rejected by sessionChecker (BLOCKED_STATUSES) the moment their status
@@ -16,16 +16,15 @@ const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
 // endpoint. There is no self-service path today, so lifting a restriction
 // always targets someone else's account by id.
 //
-// Tenant scope: `access.admin` includes TenantAdmin (tenant-scoped) even
-// though the User-entity is global — see user-data-rights.md "Cross-Tenant-Semantik". Without a membership check, a TenantAdmin
-// from tenant A could unrestrict/reactivate a user who has never been a
-// member of tenant A. Only SystemAdmin (platform-wide) skips the check;
-// the target must have a membership row in the acting admin's
-// `event.user.tenantId` (row existence only — no active-status field).
+// Tenant scope: `access.admin` includes TenantAdmin (tenant-scoped) even though the User-entity is
+// global — see user-data-rights.md "Cross-Tenant Semantics". Without a membership check, a
+// TenantAdmin from tenant A could unrestrict/reactivate a user who has never been a member of
+// tenant A. Only SystemAdmin (platform-wide) skips the check; the target must have a membership row
+// in the acting admin's `event.user.tenantId` (row existence only — no active-status field).
 //
 // State-Transitions:
 //   Restricted → Active        ✓
-//   Active → ...               ✗ 422 not_restricted (Idempotenz-Guard)
+//   Active → ...               ✗ 422 not_restricted (Idempotency Guard)
 //   DeletionRequested → ...    ✗ 422 not_restricted
 //   Deleted → ...              ✗ 422 not_restricted
 export const liftRestrictionWrite = defineWriteHandler({

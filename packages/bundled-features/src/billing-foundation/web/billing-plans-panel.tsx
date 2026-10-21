@@ -78,10 +78,10 @@ function manageOrReactivateAction(
   };
 }
 
-/** `!canPurchase` hides every CTA outright (spec: "keine CTAs, Hinweis
- *  purchaseNotAllowed") — distinct from the `unavailable` action's disabled
- *  CTA, which still shows a button (e.g. for a plan whose price failed to
- *  load) so this check runs before the general unavailable-fallback. */
+/** `!canPurchase` hides every CTA outright (see `purchaseNotAllowed`) — distinct
+ *  from the `unavailable` action's disabled CTA, which still shows a button
+ *  (for example, when a plan's price failed to load), so this check runs
+ *  before the general unavailable fallback. */
 
 function planCta(
   plan: BillingPlanView,

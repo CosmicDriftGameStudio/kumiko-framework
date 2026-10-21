@@ -203,10 +203,10 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(preservedRevokedAt?.epochMilliseconds).toBe(originalRevokedAt?.epochMilliseconds);
   });
 
-  // #1559 — store_user_sessions stays a direct-write store (no CRUD
+  // store_user_sessions stays a direct-write store (no CRUD
   // lifecycle events, see feature.ts), but a successful revoke must still
   // append a lightweight session-revoked event so a cross-instance
-  // consumer (#1560) can react. Asserted directly against kumiko_events —
+  // consumer can react. Asserted directly against kumiko_events —
   // the response body carries no trace of it.
   test("revoke appends a session-revoked event carrying the userId + sid", async () => {
     const { userId } = await h.seedUser("event1@example.com", "pw-long-enough");
@@ -226,7 +226,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
   });
 
   // Negative case: an already-revoked sid must NOT emit a second event —
-  // a spurious invalidation is the failure mode #1559 guards against.
+  // a spurious invalidation is the failure mode this guards against.
   test("revoking an already-revoked sid emits no additional event", async () => {
     await h.seedUser("event2@example.com", "pw-long-enough");
     const first = await h.login("event2@example.com", "pw-long-enough");
@@ -594,7 +594,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
         nextCursor: string | null;
       };
     };
-    // PagedRows envelope (fw#2216) — the renderer reads data.rows, not a
+    // PagedRows envelope — the renderer reads data.rows, not a
     // bare array; asserting the shape here is the proof session-list
     // actually renders rows instead of silently falling back to [].
     expect(body.data.nextCursor).toBeNull();
@@ -613,7 +613,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.data.rows[0]?.id).toBe(aliceAsAdmin.sid);
   });
 
-  // fw#2230 — sort/sortDirection let the admin UI re-order the table client-
+  // sort/sortDirection let the admin UI re-order the table client-
   // side without a full refetch-and-sort round trip.
   test("session:list sorts by an allowlisted column and direction", async () => {
     const { userId: aliceId } = await h.seedUser("alice-sort@example.com", "pw-long-enough");
@@ -713,14 +713,13 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(body.data.rows[0]?.id).toBe(bobAsAdmin.sid);
   });
 
-  // fw#2198/PR#2208 (the sibling stable-ORDER-BY fix) found the repro shape
-  // for Postgres's Top-N-heapsort tie instability empirically: few rows on
-  // large pages stay green even with no tie-breaker at all, by luck — it
-  // took 25 rows sharing one sort value at page size 3 to make it flip
-  // reliably. Same recipe here: seed 25 sessions with an identical
-  // createdAt, then compare a small LIMIT (a Top-N heap) against a LIMIT
-  // covering everything (a full sort) — without an `id` tie-breaker the two
-  // heap sizes can disagree on tie order even though the underlying rows
+  // The repro shape for Postgres's Top-N-heapsort tie instability was found
+  // empirically: few rows on large pages stay green even with no tie-breaker
+  // at all, by luck — it took 25 rows sharing one sort value at page size 3
+  // to make it flip reliably. Same recipe here: seed 25 sessions with an
+  // identical createdAt, then compare a small LIMIT (a Top-N heap) against a
+  // LIMIT covering everything (a full sort) — without an `id` tie-breaker the
+  // two heap sizes can disagree on tie order even though the underlying rows
   // never change between the two calls.
   test("session:list keeps a stable order for tied createdAt values across page sizes", async () => {
     const { userId: adminId } = await h.seedUser("tiebreak-admin@example.com", "pw-long-enough");
@@ -767,7 +766,7 @@ describe("sessions feature — login → check → revoke → rejected", () => {
     expect(top3).toEqual(full.slice(0, 3));
   });
 
-  // Single-row inspector backing the session-detail screen (kumiko-framework#255).
+  // Single-row inspector backing the session-detail screen.
   // Same access-gate as session:list (admin-or-higher); verifies field-shape,
   // decryption of ip/userAgent, and the "unknown id" not-found path.
   test("session:detail returns one decrypted row for admins, null for an unknown id", async () => {
@@ -954,8 +953,8 @@ describe("sessions with active KMS (#820): ip/userAgent are userOwned PII", () =
       expect(isPiiCiphertext(stored[0]?.ip)).toBe(true);
       expect(isPiiCiphertext(stored[0]?.userAgent)).toBe(true);
 
-      // Login (bidx-Lookup auf verschluesselter user.email) + mine ueber HTTP:
-      // die manuell erzeugte Session kommt mit Klartext-ip/userAgent zurueck.
+      // Login (bidx-Lookup on encrypted user.email) + mine over HTTP:
+      // the manually created session returns plaintext ip/userAgent.
       const login = await h.login("kms-session@example.com", "pw-long-enough");
       const res = await h.authedPost("/api/query", login.token, {
         type: SessionQueries.mine,

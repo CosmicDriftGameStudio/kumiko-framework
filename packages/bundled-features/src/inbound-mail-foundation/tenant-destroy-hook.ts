@@ -1,21 +1,19 @@
-// Tenant-destroy hooks — räumen beim Tenant-Destroy alle Inbound-Mail-
-// Spuren des Tenants ab. Ein Hook PRO tenant-subject-Entity (der
-// gdpr-storage-Boot-Validator prüft die EXT_TENANT_DATA-Registrierung
-// entity-genau), jeweils:
+// Tenant-destroy hooks remove all inbound-mail traces belonging to the tenant.
+// One hook per tenant-subject entity (the gdpr-storage boot validator checks
+// the EXT_TENANT_DATA registration per entity), each of which:
 //
-//   1. Streams archivieren — ein künftiger Projection-Rebuild kann
-//      Gelöschtes nicht resurrecten (Muster billing-foundation #800).
-//      Message-Streams sind viele → Loop über die Projection-Rows
-//      (Row-PK = Stream-ID); tenant-destroy ist ein seltener
-//      Batch-Vorgang, O(n) ist ok.
-//   2. Projection-Rows löschen.
-//   3. Nur mail-account: unmanaged Sync-State (Cursors, Seen-Anchors)
-//      löschen — gekeyt per accountId, deshalb aus den Account-Rows
-//      VOR dem Delete eingesammelt.
+//   1. Archives streams so a future projection rebuild cannot resurrect
+//      deleted data. Message streams are numerous, so loop over the
+//      projection rows (row PK = stream ID); tenant-destroy is a rare batch
+//      operation, so O(n) is acceptable.
+//   2. Deletes the projection rows.
+//   3. For mail-account only, deletes unmanaged sync state (cursors,
+//      seen anchors), which is keyed by accountId and must therefore be
+//      collected from the account rows BEFORE deletion.
 //
-// Die eigentliche PII-Erasure macht crypto-shredding: eraseSubjectKeys
-// löscht den Tenant-Subject-Key, damit werden Event-Log-Payloads UND
-// etwaige Ciphertext-Kopien unlesbar. Diese Hooks entsorgen die Rows.
+// The actual PII erasure uses crypto-shredding: eraseSubjectKeys deletes the
+// tenant subject key, making event-log payloads AND any ciphertext copies
+// unreadable. These hooks dispose of the rows.
 
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";

@@ -1,16 +1,17 @@
-// Cross-Data-Matrix Integration-Test (S2.T1).
+// Cross-Data-Matrix integration test.
 //
-// Pinst dass eine App-eigene Domain-Entity ueber EXT_USER_DATA sauber in
-// Export- + Forget-Pipeline integriert. Synthetic "note"-Entity steht
-// stellvertretend fuer "Chat-Message", "Blog-Post", "Order-Line" etc.
+// Verifies that an app-specific domain entity integrates correctly with the
+// export and forget pipelines through EXT_USER_DATA. The synthetic "note"
+// entity represents "Chat-Message", "Blog-Post", "Order-Line", and similar
+// entities.
 //
 // Matrix:
-//   - Export bundelt user + fileRef + note (3 Provider-Features) cross-
-//     tenant fuer einen User.
-//   - Forget cleant user (anonymized) + fileRef (deleted) + note
-//     (deleted) cross-tenant fuer denselben User.
-//   - Other-User-Isolation: Bobs notes/files bleiben unangetastet bei
-//     Alices Forget; Bobs Daten landen NICHT in Alices Export-Bundle.
+//   - Export bundles user + fileRef + note (3 provider features) across
+//     tenants for one user.
+//   - Forget cleans up the user (anonymized) + fileRef (deleted) + note
+//     (deleted) across tenants for the same user.
+//   - Other-user isolation: Bob's notes/files remain untouched during Alice's
+//     forget operation; Bob's data does NOT appear in Alice's export bundle.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -77,9 +78,9 @@ const testNotesTable = defineUnmanagedTable({
   ],
 });
 
-// Synthetic third-party Domain-Feature: "note" mit export- + delete-Hook.
-// Stellvertretend fuer App-spezifische Entities (Chat-Message, Blog-Post
-// etc.), die ueber EXT_USER_DATA sauber in die Pipeline integrieren.
+// Synthetic third-party domain feature: "note" with export and delete hooks.
+// Represents app-specific entities (Chat-Message, Blog-Post, and similar
+// entities) that integrate with the pipeline through EXT_USER_DATA.
 const exportNotes: UserDataExportHook = async (ctx) => {
   const rows = await ctx.db.selectMany<{ id: string; title: string; body: string }>(
     testNotesTable,
@@ -126,8 +127,9 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  // fileRef ist buildEntityTable-getrieben (softDelete) — echte Entity-Tabelle
-  // pushen statt hand-CREATE, damit is_deleted/deleted_at/deleted_by_id da sind.
+  // fileRef is driven by buildEntityTable (softDelete), so the real entity
+  // table must be pushed instead of created manually to provide
+  // is_deleted/deleted_at/deleted_by_id.
   await unsafePushTables(stack.db, { fileRefsTable });
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS test_notes (

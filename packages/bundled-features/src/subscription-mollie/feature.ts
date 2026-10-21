@@ -1,26 +1,26 @@
 // kumiko-feature-version: 1
 //
-// subscription-mollie — Mollie-Plugin für die subscription-foundation
-// Plugin-API (EU-Compliance-Story für DACH-Mid-Market).
+// subscription-mollie — Mollie plugin for subscription-foundation
+// plugin API (EU compliance for the DACH mid-market).
 //
-// **Factory-Pattern (analog subscription-stripe):** liest API-key beim
-// mount-time aus den factory-options (typisch process.env aus dem App-
-// Builder-bin/server.ts). Mollie hat KEIN webhook-secret — Mollie-SDK
-// 4.5.0 bietet keine native HMAC-sig-verify-API. Sicherheit kommt aus
-// nicht-guessable IDs + API-Validation; App-Builder kann optional
-// einen URL-Token-Wrapper davor schalten.
+// **Factory pattern (analogous to subscription-stripe):** reads the API key
+// at mount time from the factory options (typically process.env from the app
+// builder's bin/server.ts). Mollie has NO webhook secret — Mollie SDK
+// 4.5.0 provides no native HMAC signature verification API. Security comes
+// from non-guessable IDs + API validation; the app builder can optionally
+// add a URL-token wrapper in front.
 //
-// **Phase-5.3-Scope:**
+// **Scope:**
 //   - verifyAndParseWebhook ✓ (lazy-fetch payment + subscription via
-//     Mollie-API, heuristisches event-type-mapping)
-//   - createCheckoutSession ✓ (Mollie's mehrstufiger flow: customer
-//     anlegen + first-payment mit sequenceType="first" → redirectUrl)
-//   - createPortalSession ✗ (Mollie hat keinen Customer-Portal)
-//   - cancelSubscription ✗ (Mollie braucht customerId zusätzlich zur
-//     subId; Plugin-Contract reicht's nicht durch — App-Builder cancelt
-//     via Mollie-Dashboard oder custom-route)
+//     Mollie API, heuristic event-type mapping)
+//   - createCheckoutSession ✓ (Mollie's multistep flow: create customer
+//     + first payment with sequenceType="first" → redirectUrl)
+//   - createPortalSession ✗ (Mollie has no customer portal)
+//   - cancelSubscription ✗ (Mollie additionally requires customerId besides
+//     subId; the plugin contract does not pass it through — the app builder
+//     cancels via the Mollie dashboard or a custom route)
 //
-// **Beispiel-Verwendung in run-config.ts:**
+// **Example usage in run-config.ts:**
 //
 //   const features = [
 //     billingFoundationFeature,
@@ -62,29 +62,28 @@ export const subscriptionMollieEnvSchema = z.object({
 });
 
 export type SubscriptionMollieOptions = {
-  /** Mollie-API-key (`test_...` oder `live_...`). App-wide, beim Plugin-
-   *  mount aus process.env oder system-config. */
+  /** Mollie API key (`test_...` or `live_...`). App-wide, mounted from
+   *  process.env or system configuration. */
   readonly apiKey: string;
-  /** Foundation-webhook-URL die der App-Builder unter Mollie-Dashboard
-   *  als webhook eingetragen hat. Plugin reicht das beim payment-
-   *  create an Mollie weiter — Mollie sendet beim payment-event
-   *  webhooks an diese URL. Typisch:
+  /** Foundation webhook URL registered by the app builder in the Mollie
+   *  dashboard. The plugin passes it to Mollie when creating a payment;
+   *  Mollie sends payment-event webhooks to this URL. Typically:
    *  `https://app.example.com/api/subscription/webhook/mollie`. */
   readonly webhookUrl: string;
-  /** Price-to-tier-Map. Plugin liest die priceId aus dem subscription-
-   *  metadata (= `metadata.priceId` den der App-Builder beim
-   *  createCheckoutSession setzt) und mappt auf einen tier-name. */
+  /** Price-to-tier map. The plugin reads the priceId from the subscription
+   *  metadata (= `metadata.priceId` set by the app builder when calling
+   *  createCheckoutSession) and maps it to a tier name. */
   readonly priceToTier: Readonly<Record<string, string>>;
-  /** Mollie-Subscription-Setup pro priceId. Mollie hat keinen nativen
-   *  price-id-Konzept — App-Builder muss pro virtuellem priceId einen
-   *  amount/interval/description bereitstellen. */
+  /** Mollie subscription setup per priceId. Mollie has no native price-ID
+   *  concept, so the app builder must provide an amount/interval/description
+   *  for each virtual priceId. */
   readonly priceToConfig: Readonly<Record<string, MolliePriceConfig>>;
-  /** @internal Test-only injection-port: ersetzt den verify-webhook-
-   *  fetch-client durch eine Mock-instance. Production left undefined —
-   *  factory baut den Adapter aus `createMollieClient(apiKey)`. Wird
-   *  vom IT (mollie-foundation.integration.ts) genutzt damit der echte
-   *  factory-Code (drift-validation, plugin-registration) im Test-pfad
-   *  durchläuft, ohne dass Mollie-API-Calls passieren. */
+  /** @internal Test-only injection port: replaces the verify-webhook fetch
+   *  client with a mock instance. Production leaves this undefined; the
+   *  factory builds the adapter from `createMollieClient(apiKey)`. The
+   *  integration test (mollie-foundation.integration.ts) uses it so the real
+   *  factory code (drift validation, plugin registration) runs in the test
+   *  path without making Mollie API calls. */
   readonly _clientShapeForTests?: MollieClientShape;
 };
 
@@ -102,8 +101,8 @@ export function createSubscriptionMollieFeature(
     );
   }
 
-  // Drift-Guard: priceToTier + priceToConfig müssen identische Keys
-  // haben — sonst silent-null-returns aus verifyAndParseWebhook.
+  // Drift guard: priceToTier and priceToConfig must have identical keys;
+  // otherwise verifyAndParseWebhook silently returns null.
   const tierKeys = new Set(Object.keys(options.priceToTier));
   const configKeys = new Set(Object.keys(options.priceToConfig));
   const missingInConfig = [...tierKeys].filter((k) => !configKeys.has(k));
@@ -118,9 +117,9 @@ export function createSubscriptionMollieFeature(
 
   const client = createMollieClient({ apiKey: options.apiKey });
 
-  // Adapter um den Plugin's verify-fetch-client an den vollen Mollie-
-  // Client zu binden. Plugin-fetch-API ist minimal damit Tests ohne
-  // den vollen MollieClient mocken können.
+  // Adapter that binds the plugin's minimal fetch client to the full Mollie
+  // client. The minimal plugin fetch API lets tests mock it without mocking
+  // the full MollieClient.
   const fetchAdapter: MollieClientShape = options._clientShapeForTests ?? {
     payments: { get: (id: string) => client.payments.get(id) },
     customerSubscriptions: {
@@ -160,8 +159,8 @@ export function createSubscriptionMollieFeature(
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: verifyAndParse,
       createCheckoutSession: checkoutSession,
-      // createPortalSession + cancelSubscription bewusst nicht — siehe
-      // plugin-methods.ts für Begründung.
+      // createPortalSession and cancelSubscription are intentionally omitted;
+      // see plugin-methods.ts for why.
       priceToTier: options.priceToTier,
     };
     r.useExtension("subscriptionProvider", MOLLIE_PROVIDER_NAME, plugin);

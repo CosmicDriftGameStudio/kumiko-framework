@@ -154,7 +154,7 @@ export async function mfaReencryptJob(
 
     // After PII peel (when configured), values must be current-cipher
     // envelopes — non-JSON/non-envelope is not a supported legacy decrypt
-    // path (#1541, mirrors config #1513).
+    // path, matching config behavior.
     const totpClass = classifyStoredEnvelope(envelopeValues.totpSecret, targetVersion);
     const recoveryClass = classifyStoredEnvelope(envelopeValues.recoveryCodes, targetVersion);
     if (totpClass === "unrecognized" || recoveryClass === "unrecognized") {

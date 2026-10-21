@@ -49,7 +49,7 @@ export function createStripeClientCache(): (apiKey: string) => Stripe {
     const cached = cache.get(apiKey);
     if (cached) return cached;
     // No apiVersion pin — a string literal breaks consumers' typecheck on newer
-    // stripe SDKs (#256); the SDK's own default keeps wire-version and types aligned.
+    // stripe SDKs; the SDK's own default keeps wire-version and types aligned.
     const client = new Stripe(apiKey);
     cache.set(apiKey, client);
     return client;
@@ -83,7 +83,7 @@ function parseStoredSecret(raw: string | undefined): string | undefined {
 export type StripeCtxRuntime = {
   readonly clientForCtx: (ctx: HandlerContext) => Promise<Stripe>;
   /** Throws FeatureDisabledError unless `billing-live` config is true. The
-   *  #104 invariant: no Stripe session may be created while billing is not
+   *  invariant: no Stripe session may be created while billing is not
    *  live (sk_test_ keys in prod must not produce a live checkout).
    *  `handlerName` names the write-handler in the thrown error — defaults to
    *  "create-checkout-session" for existing callers, but plan-switch/portal

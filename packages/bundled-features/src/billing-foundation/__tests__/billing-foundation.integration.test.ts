@@ -1,15 +1,15 @@
-// Integration-test for subscription-foundation. Treibt den process-
-// event-handler durch den full Dispatcher + DB.
+// Integration test for subscription-foundation. Drives the process-event handler
+// through the full Dispatcher + DB.
 //
-// **Mock-Plugin-Strategie (analog ai-foundation):** wir testen NICHT
-// die Stripe-/Mollie-spezifischen Plugins (das passiert in deren
-// eigenen feature.test.ts in Phase 5.2/5.3). Hier: direkter ctx.write
-// auf process-event mit normalisiertem SubscriptionEvent als payload —
-// beweist die Foundation-eigene Verdrahtung (atomic insert + upsert,
-// Idempotency via deterministic aggregate-ids, tenant-isolation).
+// **Mock-plugin strategy (analogous to ai-foundation):** we do NOT test the
+// Stripe-/Mollie-specific plugins here (their own feature.test.ts files cover
+// those). Instead, we call ctx.write directly on process-event with a
+// normalized SubscriptionEvent payload to verify the foundation wiring:
+// atomic insert + upsert, idempotency via deterministic aggregate IDs, and
+// tenant isolation.
 //
-// Webhook-route (createSubscriptionWebhookRoute) gets its own dedicated
-// coverage in webhook-handler.integration.test.ts.
+// The webhook route (createSubscriptionWebhookRoute) has dedicated coverage
+// in webhook-handler.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -52,10 +52,9 @@ import {
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
 
 // =============================================================================
-// Mock-plugin für create-checkout-session + create-portal-session-Tests.
-// **Pattern-Vorbild:** ai-foundation.integration.ts mit zwei inline-mock-
-// plugins. Vermeidet zweiten beforeAll/setupTestStack — selber stack,
-// einfach extra-feature im features-array.
+// Mock plugin for create-checkout-session and create-portal-session tests.
+// Uses the same stack with an additional feature instead of a second
+// beforeAll/setupTestStack call.
 // =============================================================================
 
 const mockCheckoutCalls: Array<{
@@ -144,8 +143,8 @@ beforeAll(async () => {
     extraRoutes: [createSubscriptionWebhookRoute()],
   });
   db = stack.db;
-  // subscriptionsProjectionTable wird von setupTestStack automatisch
-  // gepusht (r.projection mit `table`-Property → auto-push).
+  // setupTestStack automatically pushes subscriptionsProjectionTable
+  // (`r.projection` with a `table` property triggers auto-push).
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   // providerCustomerId/providerSubscriptionId are `personal: "tenant"`
@@ -228,8 +227,8 @@ describe("scenario 1: webhook-event creates subscription + audit-row", () => {
     expect(subs.rows[0]?.["tier"]).toBe("pro");
     expect(subs.rows[0]?.["providerCustomerId"]).toBe("cus_3001");
 
-    // ES-event archiviert (= audit lebt im event-store, kein separate
-    // subscription-event-Tabelle mehr).
+    // The event-store retains the audit history; no separate
+    // subscription-event table is used.
     const esEvents = await loadAggregate(
       db,
       subscriptionAggregateId(admin.tenantId),
@@ -275,7 +274,7 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
-    expect(subs.rows).toHaveLength(1); // immer noch 1 row, geupdated
+    expect(subs.rows).toHaveLength(1); // Still one row because the existing row is updated.
     expect(subs.rows[0]?.["tier"]).toBe("business");
 
     const esEvents = await loadAggregate(
@@ -308,15 +307,15 @@ describe("scenario 3: idempotency — webhook-retry mit selber providerEventId",
         providerEventId: "evt_3003_retry",
         providerCustomerId: "cus_3003",
         providerSubscriptionId: "sub_3003",
-        tier: "business", // anderer tier — sollte IGNORIERT werden weil duplicate
+        tier: "business", // A duplicate must not overwrite the existing tier.
       }),
       admin,
     )) as Record<string, unknown>;
     expect(second["duplicate"]).toBe(true);
 
-    // Drift-Pin: subscription bleibt beim ersten tier — der duplicate-
-    // event hat den state NICHT überschrieben (wäre data-loss bei
-    // out-of-order webhook-retries).
+    // Invariant: the subscription retains its initial tier because the duplicate
+    // event must not overwrite state; doing so would lose data on
+    // out-of-order webhook retries.
     const subs = (await stack.http.queryOk(
       "billing-foundation:query:subscription:list",
       {},
@@ -377,11 +376,11 @@ describe("scenario 4: tenant-isolation", () => {
   });
 
   test("Idempotency-Anker ist tenant-scoped — selber providerEventId für ZWEI Tenants ist NICHT duplicate", async () => {
-    // Edge-case: Stripe verteilt eventIds global eindeutig. Aber
-    // theoretisch könnte ein App-Owner mehrere Stripe-Accounts haben
-    // (z.B. test/prod-Mix in dev) und gleiche eventIds sehen. Unser
-    // aggregate-id ist (tenantId, providerName, providerEventId) — also
-    // ist eventId+tenant-A unabhängig von eventId+tenant-B.
+    // Edge case: although Stripe event IDs are globally unique, an app owner
+    // could use multiple Stripe accounts (for example, a test/production mix
+    // during development) and receive the same event ID. The aggregate ID is
+    // (tenantId, providerName, providerEventId), so the same event ID is
+    // independent for tenant A and tenant B.
     const adminA = adminFor(3006);
     const adminB = adminFor(3007);
     const SHARED_EVT = "evt_shared_id";
@@ -406,17 +405,17 @@ describe("scenario 4: tenant-isolation", () => {
     )) as Record<string, unknown>;
 
     expect(a["duplicate"]).toBe(false);
-    expect(b["duplicate"]).toBe(false); // anderer tenant → kein duplicate
+    expect(b["duplicate"]).toBe(false); // A different tenant is not a duplicate.
   });
 });
 
 describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
   test("Tenant switcht von Stripe zu PayPal: subscription-row updated providerName, subscription-event-history zeigt beide", async () => {
-    // **Disney+-Use-Case:** Tenant hat Stripe-sub, will umsteigen auf
-    // PayPal. Cancel des Stripe-sub + neue subscription via PayPal sind
-    // zwei getrennte Webhook-events vom Endkunden-Action ausgelöst.
-    // Foundation muss damit umgehen können — eine subscription-row
-    // pro Tenant, providerName tracked welcher Provider gerade hält.
+    // **Disney+ use case:** a tenant switches from Stripe to PayPal. Canceling
+    // the Stripe subscription and creating the PayPal subscription produce
+    // two separate webhook events from the customer's action. The foundation
+    // must support one subscription row per tenant while tracking the current
+    // provider in providerName.
     const admin = adminFor(3009);
 
     // Stripe-Sub erzeugt
@@ -439,8 +438,8 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["providerName"]).toBe("stripe");
 
-    // Stripe-Cancel + PayPal-Create kommen — PayPal-Plugin liefert
-    // SubscriptionEvent mit providerName="paypal".
+    // Stripe cancellation and PayPal creation arrive; the PayPal plugin
+    // supplies a SubscriptionEvent with providerName="paypal".
     const paypalEvent = {
       ...buildEvent({
         providerEventId: "I-PAYPAL-NEW",
@@ -452,10 +451,9 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     };
     await stack.http.writeOk(SubscriptionFoundationHandlers.processEvent, paypalEvent, admin);
 
-    // subscription-row geupdated, providerName ist jetzt "paypal".
-    // **Drift-Pin:** Eine subscription-row pro Tenant — der Wechsel
-    // überschreibt die alte Provider-Daten, history liegt in
-    // subscription-event-rows.
+    // The tenant retains one subscription row, so the provider switch replaces
+    // the current provider data while the event history remains in the
+    // subscription event stream.
     subs = (await stack.http.queryOk("billing-foundation:query:subscription:list", {}, admin)) as {
       rows: Array<Record<string, unknown>>;
     };
@@ -480,9 +478,10 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
 });
 
 // =============================================================================
-// Scenarios 6+7 — Phase-5.2b write-handlers (create-checkout-session +
-// create-portal-session). Foundation-routing-tests; provider-spezifisches
-// Verhalten (echte Stripe-checkout-URL) wird in subscription-stripe getestet.
+// Scenarios 6+7 — write handlers for create-checkout-session and
+// create-portal-session. These test foundation routing; provider-specific
+// behavior, such as a real Stripe checkout URL, is tested in
+// subscription-stripe.
 // =============================================================================
 
 describe("scenario 6: create-checkout-session — Plugin-routing", () => {
@@ -506,10 +505,10 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
     expect(result["url"]).toBe("https://mock.example/checkout/price_pro_test");
     expect(result["providerName"]).toBe("mock");
 
-    // Drift-pin: foundation-handler reicht alle payload-Felder + die
-    // resolved tenantId an den Plugin durch. Wenn jemand silent
-    // umbenennt (z.B. successUrl → success_url im handler), würde
-    // mockCheckoutCalls die alten Felder vermissen.
+    // The foundation handler must pass every payload field and the resolved
+    // tenantId to the plugin. Renaming a field silently (for example,
+    // successUrl → success_url in the handler) would make the mock calls
+    // lose the original field.
     expect(mockCheckoutCalls).toHaveLength(1);
     expect(mockCheckoutCalls[0]).toEqual({
       priceId: "price_pro_test",
@@ -664,8 +663,8 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
     mockPortalCalls.length = 0;
     const admin = adminFor(3013);
 
-    // Erst: subscription via process-event erzeugen — providerName "mock"
-    // damit Foundation-handler den Plugin via lookup findet.
+    // Create the subscription through process-event with providerName "mock"
+    // so the foundation handler can find the plugin.
     await stack.http.writeOk(
       SubscriptionFoundationHandlers.processEvent,
       {
@@ -688,12 +687,11 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
     expect(result["url"]).toBe("https://mock.example/portal/cus_3013");
     expect(result["providerName"]).toBe("mock");
 
-    // Drift-pin: portal-handler liest providerCustomerId AUS DER DB
-    // (subscription-row), nicht aus der payload. Wenn ein Refactor das
-    // umstellt (= Tenant könnte fremde portal-sessions öffnen), würde
-    // mockPortalCalls den falschen customer-id sehen. returnUrl is now
-    // server-computed (portalReturnUrl) — no catalog mounted here, so it
-    // collapses onto baseUrl itself.
+    // The portal handler reads providerCustomerId from the database
+    // (the subscription row), not from the payload. Reading it from the
+    // payload could let a tenant open another tenant's portal session.
+    // returnUrl is computed by the server (portalReturnUrl); without a
+    // mounted catalog here, it falls back to baseUrl.
     expect(mockPortalCalls).toHaveLength(1);
     expect(mockPortalCalls[0]).toEqual({
       providerCustomerId: "cus_3013",
@@ -736,7 +734,7 @@ describe("scenario 8: cancel-event setzt status auf canceled, behält subscripti
         providerCustomerId: "cus_3008",
         providerSubscriptionId: "sub_3008",
         status: SubscriptionStatuses.canceled,
-        tier: "free", // downgrade auf free
+        tier: "free", // Downgrade to the free tier.
       }),
       admin,
     );
@@ -746,7 +744,7 @@ describe("scenario 8: cancel-event setzt status auf canceled, behält subscripti
       {},
       admin,
     )) as { rows: Array<Record<string, unknown>> };
-    expect(subs.rows).toHaveLength(1); // row bleibt für audit-history
+    expect(subs.rows).toHaveLength(1); // The row remains so its audit history is preserved.
     expect(subs.rows[0]?.["status"]).toBe(SubscriptionStatuses.canceled);
     expect(subs.rows[0]?.["tier"]).toBe("free");
   });
@@ -895,7 +893,7 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
 
     // The DEK is gone — the SAME ciphertext that decrypted cleanly a moment
     // ago now resolves to the erased sentinel, not the original value and
-    // not a crash. That's the actual #800 guarantee: not "redacted in the
+    // not a crash. That's the actual guarantee: not "redacted in the
     // read model" but "cryptographically impossible to recover", including
     // from the raw event-log row nothing in this feature ever deletes.
     const decrypted = await decryptPiiFieldValues(
@@ -914,17 +912,17 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
   // is written through the encrypted path above. If that changes (billing-
   // foundation goes live before a KMS is configured somewhere), note for
   // whoever builds the backfill: the existing backfillEventPiiEncryption
-  // (#799, db/queries/backfill-pii.ts) does NOT cover this feature yet — its
+  // (db/queries/backfill-pii.ts) does NOT cover this feature yet — its
   // lifecycle-event matcher expects `<aggregateType>.<verb>` event names,
   // but billing's are `billing-foundation:event:subscription-created`. The
   // custom-event catalog branch itself already resolves user/tenant/self
-  // subjects (fw#2801/#2819) — no framework gap to close here, only the
+  // subjects — no framework gap to close here, only the
   // lifecycle-event matcher would need widening if this feature ever needs
   // a backfill.
 });
 
 // =============================================================================
-// Scenario 11 — one-off payments (fw#2791): own aggregate, own
+// Scenario 11 — one-off payments: own aggregate, own
 // read_payments-row, idempotent like process-event above.
 // =============================================================================
 

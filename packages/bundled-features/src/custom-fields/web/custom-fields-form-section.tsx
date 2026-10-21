@@ -1,13 +1,12 @@
-// CustomFieldsFormSection — extension-section component für entityEdit-
-// Screens. Lädt die fieldDefinition-Liste des Tenants, filtert auf die
-// host-Entity, rendert pro Definition einen typed Input, dispatched
-// `custom-fields:write:set-custom-field` pro non-empty Value beim Save.
+// CustomFieldsFormSection — extension-section component for entityEdit-
+// screens. Loads the tenant's fieldDefinition list, filters it to the
+// host entity, renders a typed input per definition, and dispatches
+// `custom-fields:write:set-custom-field` for each non-empty value on save.
 //
 // Mount via createKumikoApp({ clientFeatures: [customFieldsClient()] })
-// — der clientFeature-Factory registriert diese Component unter dem
-// Namen `CustomFieldsFormSection`, den die App im Screen-Schema via
-// `component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } }`
-// referenziert.
+// — the clientFeature factory registers this component under the name
+// `CustomFieldsFormSection`, which the app references in the screen schema
+// via `component: { react: { __component: CUSTOM_FIELDS_FORM_EXTENSION_NAME } }`.
 
 import {
   type ExtensionSubmitResult,
@@ -40,10 +39,10 @@ export function CustomFieldsFormSection({
 }: {
   readonly entityName: string;
   readonly entityId: string | null;
-  /** Bereits gespeicherte customField-Werte der Entity (aus der detail-
-   *  row durchgereicht). Ohne sie wäre die Section write-only — die Inputs
-   *  zeigen den Bestand beim Edit. `pending` trackt nur Änderungen, also
-   *  bleibt der Save-Button bis zur ersten Eingabe disabled. */
+  /** The entity's previously saved customField values, passed through from the
+   * detail row. Without them, the section would be write-only: the inputs
+   * would not show existing values while editing. `pending` tracks only
+   * changes, so the Save button remains disabled until the first edit. */
   readonly initialValues?: Readonly<Record<string, unknown>>;
 }): ReactNode {
   const { Banner, Button, Field, Input, Text } = usePrimitives();
@@ -58,11 +57,11 @@ export function CustomFieldsFormSection({
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
 
-  // Vor den early-returns berechnet, weil useExtensionFormSubmit (Hook) davor
-  // laufen muss. matchingFields ist während des Loadings []; dirty bleibt dann
-  // false. Dirty = weicht vom GESPEICHERTEN Wert ab (nicht von ""), sonst ist
-  // das Leeren eines Bestandswerts unsichtbar und würde übersprungen statt
-  // gecleart.
+  // Computed before the early returns because useExtensionFormSubmit (a Hook)
+  // must run before them. matchingFields is [] while loading, so dirty remains
+  // false. Dirty means differing from the SAVED value (not from ""); otherwise
+  // clearing an existing value would be invisible and skipped instead of
+  // cleared.
   const matchingFields = (query.data?.rows ?? [])
     .filter((f) => f.entityName === entityName)
     .slice()
@@ -75,9 +74,10 @@ export function CustomFieldsFormSection({
   });
   const dirty = changedFields.length > 0;
 
-  // Schreibt alle geänderten Felder via set/clear. Genutzt vom composed-Submit
-  // (Haupt-Form ruft den Handler nach dem Entity-Write) UND vom standalone-
-  // Button (wenn die Section ohne umgebende composed-Form gemountet ist).
+  // Writes all changed fields via set/clear. Used by the composed submit
+  // (the main form calls the handler after the entity write) and by the
+  // standalone button when the section is mounted without a surrounding
+  // composed form.
   const flushChanges = async (targetEntityId: string): Promise<ExtensionSubmitResult> => {
     for (const field of changedFields) {
       const raw = pending[field.fieldKey] ?? "";
@@ -105,9 +105,9 @@ export function CustomFieldsFormSection({
     return { isSuccess: true };
   };
 
-  // composed = innerhalb eines entityEdit-Forms → kein eigener Save-Button,
-  // die Section schreibt beim Haupt-Save mit (Bug-Bash 3 #1). Außerhalb einer
-  // composed-Form (composed === false) bleibt der standalone-Button.
+  // composed = inside an entityEdit form, so there is no separate Save button;
+  // the section writes along with the main save. Outside a composed form
+  // (composed === false), the standalone button remains available.
   const composed = useExtensionFormSubmit({
     dirty,
     onSubmit: (ctx) => flushChanges(ctx.entityId),
@@ -236,9 +236,9 @@ function coerceValue(type: string, raw: string): unknown {
   return raw;
 }
 
-// Umkehrung von coerceValue: gespeicherter jsonb-Wert → string-Form für den
-// Input. number/boolean/date/text werden so dargestellt, wie der Input sie
-// erwartet; fehlende Werte werden zu "".
+// Inverse of coerceValue: converts a stored jsonb value to the string form
+// expected by the input. number/boolean/date/text are represented as their
+// inputs expect; missing values become "".
 function displayValue(type: string, value: unknown): string {
   if (value === undefined || value === null) return "";
   if (type === "boolean") return value === true ? "true" : "false";

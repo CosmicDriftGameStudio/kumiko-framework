@@ -1,18 +1,18 @@
-// create-checkout-session — Tenant-Admin klickt "Upgrade to Pro" (oder
-// wählt zwischen Karte/PayPal/Apple-Pay). Handler findet den
-// providerName aus der payload, lookuppt den Plugin, ruft
-// `plugin.createCheckoutSession(ctx, ...)`, returnt hosted-page-URL.
-// Tenant-Admin wird dorthin redirected.
+// create-checkout-session — Tenant admin clicks "Upgrade to Pro" (or
+// chooses between card/PayPal/Apple Pay). The handler reads providerName
+// from the payload, looks up the plugin, calls
+// `plugin.createCheckoutSession(ctx, ...)`, and returns the hosted-page URL.
+// The tenant admin is redirected there.
 //
-// **Multi-Provider-Pfad:** payload.providerName ist der entityName
-// eines registrierten Plugins ("stripe" / "paypal" / "mollie" / ...).
-// App-Builder zeigt eine UI-Liste der gemounteten provider, Endkunde
-// pickt einen, dieser handler dispatched zum richtigen Plugin.
+// **Multi-provider path:** payload.providerName is the entityName
+// of a registered plugin ("stripe" / "paypal" / "mollie" / ...).
+// The app builder shows a UI list of mounted providers; the customer
+// selects one, and this handler dispatches to the matching plugin.
 //
-// **Tenant-resolution:** ctx.user.tenantId wird als metadata an den
-// Provider mitgegeben. Beim subsequent webhook (subscription.created)
-// liest verifyAndParseWebhook das aus dem provider-payload zurück und
-// resolved den Tenant.
+// **Tenant resolution:** ctx.user.tenantId is passed to the provider as
+// metadata. On the subsequent webhook (subscription.created),
+// verifyAndParseWebhook reads it back from the provider payload and
+// resolves the tenant.
 //
 // **Hardening:** successUrl/cancelUrl must share `options.baseUrl`'s
 // origin; mode:"subscription" requires priceId to be a known price of the
@@ -51,12 +51,13 @@ const createCheckoutSessionSchema = z.object({
   providerName: z.string().min(1).max(50),
   /** Provider-eigene price/plan-ID. */
   priceId: z.string().min(1).max(200),
-  /** Wo der Endkunde nach erfolgreichem checkout landed. */
+  /** Where the customer lands after a successful checkout. */
   successUrl: z.string().url(),
-  /** Wo der Endkunde landed wenn er abbricht. */
+  /** Where the customer lands if they cancel. */
   cancelUrl: z.string().url(),
-  /** Optional: existierender provider-customer wenn der Tenant schon
-   *  einen account beim Provider hat (= Plan-Wechsel statt Neuregistrierung). */
+  /** Optional: existing provider customer when the tenant already
+   *  has an account with the provider (= plan change instead of a new
+   *  registration). */
   providerCustomerId: z.string().max(200).optional(),
   /** Optional: `"payment"` for a one-off checkout (e.g. credit top-up)
    *  instead of a recurring subscription. Defaults to `"subscription"`. */

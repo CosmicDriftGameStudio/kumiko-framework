@@ -14,7 +14,7 @@ export const TENANT_SETTINGS_FEATURE_NAME = "tenant-settings";
 // strings (mirror tags' Handlers/Queries constants).
 export const TenantSettingsConfig = {
   // Shared with engine/constants.ts's TENANT_CURRENCY_CONFIG_KEY — a
-  // `money` field's `currency: { kind: "tenant" }` declaration (fw#2933)
+  // `money` field's `currency: { kind: "tenant" }` declaration
   // resolves against this same key.
   currency: TENANT_CURRENCY_CONFIG_KEY,
   locale: "tenant-settings:config:locale",

@@ -9,11 +9,9 @@ import {
 } from "../../delivery/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
 
-// userData-Hooks for delivery's attempt log (deferred from #797, closed by
-// #799). deliveryAttempt is an events-only aggregate — the export reads the
-// projected rows; recipientAddress may be ciphertext (kumiko-pii:), which
-// the export runner's central decrypt sweep resolves to plaintext (or
-// [[erased]] after a forget).
+// userData-Hooks for delivery's attempt log. deliveryAttempt is an events-only aggregate — the
+// export reads the projected rows; recipientAddress may be ciphertext (kumiko-pii:), which the
+// export runner's central decrypt sweep resolves to plaintext (or [[erased]] after a forget).
 
 export const deliveryAttemptExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "delivery")) return null;

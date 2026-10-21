@@ -31,7 +31,7 @@ function notTransferable(entityType: string): ReturnType<typeof writeFailure> {
   );
 }
 
-// The try-before-signup ownership handover (kumiko-framework#3035): claims an
+// The try-before-signup ownership handover: claims an
 // anonymous run into the caller's own tenant, legitimized by a row-bound
 // grant the anonymous flow minted (see ../grant.ts). Idempotent — a second
 // call with the same token fails the same way a forged one would, because

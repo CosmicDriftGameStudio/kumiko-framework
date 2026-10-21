@@ -1,26 +1,25 @@
-// Tenant-Invitations: Pre-Membership-Records mit Magic-Link-Token-Flow.
+// Tenant invitations are pre-membership records using a magic-link token flow.
 //
 // Lifecycle:
-//   1. Admin invitet email → DB-Row entsteht mit status="pending",
-//      Random-Token in Redis (signup-style bidirektional)
-//   2. Mail an die invited Email mit Activation-URL
-//   3. Klick auf Link → 3 Branches:
-//      a) Eingeloggt + Email matched session-user → Membership-Add
-//      b) Anonymous + Email existiert in users → Login → Auto-Accept
-//      c) Anonymous + Email neu → Password setzen → user+membership entstehen
-//   4. Bei Erfolg: status="accepted", token aus Redis gelöscht (single-use-burn)
-//   5. Bei Cancel durch Admin: status="cancelled", token aus Redis gelöscht
-//   6. Bei TTL-Ablauf: Redis räumt Token, DB-Row bleibt mit status="pending"
-//      (Cleanup-Job marked sie als "expired" — separater Concern)
+//   1. An admin invites an email → a DB row is created with status="pending",
+//      and a random token is stored in Redis (signup-style bidirectional flow).
+//   2. An email containing the activation URL is sent to the invitee.
+//   3. Clicking the link follows one of three branches:
+//      a) Logged in + email matches the session user → membership is added
+//      b) Anonymous + email exists in users → login → automatic acceptance
+//      c) Anonymous + new email → set a password → user and membership are created
+//   4. On success: status="accepted", and the Redis token is deleted (single-use).
+//   5. When cancelled by an admin: status="cancelled", and the Redis token is deleted.
+//   6. When the TTL expires: Redis removes the token, while the DB row remains
+//      status="pending" (a cleanup job marks it as "expired" separately).
 //
-// Single-Truth für expiry: Redis-TTL. DB-row.expiresAt ist nur UI-
-// Anzeige ("läuft in 6 Tagen ab"). Bei Lookup: pending in DB + token
-// nicht mehr in Redis → effectively expired, accept schlägt fehl mit
-// invalid-token.
+// Redis-TTL is the single source of truth for expiry. DB-row.expiresAt is only
+// for UI display ("expires in 6 days"). On lookup, a pending DB row without
+// a Redis token is effectively expired, so acceptance fails with invalid-token.
 //
-// Idempotenz: zweiter invite für gleiche (tenantId, email) während
-// pending → re-use existing row + refresh Redis-token + send mail
-// (analog zu signup-Resend).
+// Idempotency: a second invite for the same (tenantId, email) while pending
+// reuses the existing row, refreshes the Redis token, and sends the email
+// (analogous to signup resend).
 
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -34,9 +33,9 @@ import {
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
 import { GLOBAL_ROLE_OPTIONS } from "../user/web/constants.ts";
 
-// Status-const-Object damit Handler-Code keine Magic-Strings nutzt.
-// Bei rename (z.B. "cancelled" → "revoked") fällt jeder caller auf
-// einmal auf statt verstreut über 5 Stellen.
+// The status constant object prevents handler code from using magic strings.
+// If a value is renamed (for example, "cancelled" → "revoked"), every caller
+// fails at once instead of having stale values scattered across five locations.
 export const INVITATION_STATUS = {
   pending: "pending",
   accepted: "accepted",
@@ -45,11 +44,10 @@ export const INVITATION_STATUS = {
 } as const;
 export type InvitationStatus = (typeof INVITATION_STATUS)[keyof typeof INVITATION_STATUS];
 
-// Order MUSS bit-identisch zur DB-Migration sein. Object.values
-// bewahrt insertion-order (JS-spec-stable für string-keys). Wenn
-// jemand INVITATION_STATUS reordnet, generiert drizzle-kit eine
-// neue Migration. Hardcoded-Tuple zur Sicherheit gegen versehentliches
-// Refactoring der Object-Keys.
+// The order MUST be bit-for-bit identical to the database migration. Object.values
+// preserves insertion order (stable for string keys under the JS spec). Reordering
+// INVITATION_STATUS generates a new drizzle-kit migration. The hardcoded tuple
+// also guards against accidental refactoring of the object keys.
 export const INVITATION_STATUSES = [
   INVITATION_STATUS.pending,
   INVITATION_STATUS.accepted,
@@ -60,11 +58,11 @@ export const INVITATION_STATUSES = [
 export const tenantInvitationEntity = createEntity({
   table: "read_tenant_invitations",
   fields: {
-    // Eingeladene Email — case-insensitive normalisiert beim Insert.
-    // PII bis zur Annahme (danach hat der User selbst seine email in users).
+    // The invited email is normalized case-insensitively on insert.
+    // It remains PII until acceptance; afterward, the user owns the email in users.
     email: createTextField({ required: true, maxLength: 320, personal: "self", find: "exact" }),
-    // Membership-Rolle die dem User nach Accept gegeben wird. Default
-    // im handler ist "Admin" (Co-Admin-Pattern für kleine Teams).
+    // The membership role granted to the user on acceptance. The handler defaults
+    // to "Admin" (a co-admin pattern for small teams).
     role: createTextField({
       required: true,
       maxLength: 50,
@@ -85,11 +83,11 @@ export const tenantInvitationEntity = createEntity({
       required: true,
       default: "pending",
     }),
-    // userId des einladenden Admins (für Audit-Trail "wer hat eingeladen").
+    // ID of the inviting admin, retained for the audit trail ("who invited").
     // Self-referencing ownerField: the field's own value IS the owner userId.
-    // lookupable: the delete-hook filters "invitations sent by this user"
-    // via the generated blind-index column instead of a full-tenant
-    // decrypt-and-scan (see user-data-rights-defaults' invitation hook).
+    // lookupable: the delete hook filters "invitations sent by this user"
+    // through the generated blind-index column instead of decrypting and scanning
+    // the entire tenant (see user-data-rights-defaults' invitation hook).
     invitedBy: createTextField({
       required: true,
       personal: { of: "invitedBy" },
@@ -103,11 +101,10 @@ export const tenantInvitationEntity = createEntity({
     // UI-Anzeige — Wahrheit liegt in Redis-TTL.
     expiresAt: createTimestampField({ required: true }),
   },
-  // Eine Invitation-Row pro (tenantId, email). Bei Re-Invite (Admin
-  // invitet zweite Mal nach Cancel/Accept) wird die existing row
-  // updated: status pending → cancelled → pending zurück, expiresAt
-  // refreshed. Verhindert Token-Doppel-Gabe + macht Resend-Idempotenz
-  // im handler trivial.
+  // One invitation row per (tenantId, email). On re-invite after cancellation or
+  // acceptance, the existing row is updated: status pending → cancelled → pending,
+  // and expiresAt is refreshed. This prevents duplicate tokens and makes resend
+  // idempotency trivial in the handler.
   indexes: [
     {
       unique: true,

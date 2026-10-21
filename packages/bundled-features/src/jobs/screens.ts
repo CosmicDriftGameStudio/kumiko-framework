@@ -111,7 +111,7 @@ export const jobRunDetailScreen: ProjectionDetailScreenDefinition = {
           "error",
         ],
       },
-      // No section `title` here (fw#2312 label-dedup fix): the section
+      // No section `title` here (label-dedup fix): the section
       // holds exactly one field, so a title would repeat the field's own
       // label (rendered by RenderField as the Field's heading) verbatim.
       {

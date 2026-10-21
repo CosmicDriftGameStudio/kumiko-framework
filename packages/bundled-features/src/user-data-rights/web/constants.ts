@@ -17,7 +17,7 @@ export const PRIVACY_CENTER_SCREEN_ID = "privacy-center" as const;
 export const EXPORT_SECTION_EXTENSION_NAME = "UserDataRightsExportSection" as const;
 
 // enumOption keyPrefix for the privacy-center screen's `status` field
-// (fw#2315 pattern) — resolves the raw user-lifecycle enum value
+// pattern — resolves the raw user-lifecycle enum value
 // (active/restricted/deletionRequested/deleted) to a translated label
 // instead of showing the raw string.
 export const STATUS_OPTION_KEY_PREFIX =

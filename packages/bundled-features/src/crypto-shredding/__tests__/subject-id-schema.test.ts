@@ -1,9 +1,9 @@
-// Mint/shred parity (fw#2801 security review): a record subject key is
+// Mint/shred parity (security review): a record subject key is
 // minted via subjectKeyForRecord (framework crypto) but shredded via a
 // forget-subject request validated against subjectIdSchema (this feature).
 // If the two ever disagreed on which entity names are valid, a field could
 // encrypt cleanly and then never be reachable by forgetSubject — the
-// "encrypted but not shreddable" state fw#2809 was built to prevent. This
+// "encrypted but not shreddable" state was built to prevent. This
 // pins the invariant down without needing a DB.
 
 import { describe, expect, test } from "bun:test";

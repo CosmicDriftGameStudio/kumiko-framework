@@ -1,4 +1,4 @@
-// Tenant-visible job run state (fw#3616) end to end: writes and direct
+// Tenant-visible job run state end to end: writes and direct
 // dispatches enqueue jobs that opted in via tenantVisibleRun, and the tenant
 // reads queued/running/completed/failed back through jobs:query:tenant-runs —
 // over real HTTP, real BullMQ and a real Postgres with the real run-logger.

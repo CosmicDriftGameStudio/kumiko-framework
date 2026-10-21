@@ -1,14 +1,14 @@
-// Testing-Helper fürs user-Feature. `seedUser` legt einen User direkt
-// über den Event-Store-Executor an — gleicher Pfad wie der echte
-// `UserHandlers.create`, aber ohne Access-Check und ohne ConflictError
-// bei Duplikaten. Idempotent add-only über die `email`-Spalte: ein
-// existierender User → return ohne Event. Kein update-Pfad — Profilfelder
-// ändern läuft über den regulären Handler.
+// Testing helper for the user feature. `seedUser` creates a user directly
+// through the event-store executor—the same path as the real
+// `UserHandlers.create`, but without access checks or ConflictError on
+// duplicates. It is idempotent and add-only via the `email` column: an
+// existing user returns without emitting an event. There is no update path;
+// profile changes go through the regular handler.
 //
-// Warum nicht direkt `db.insert(userTable)`: das würde den Event-Store
-// umgehen, also kein `user.created`-Event und keine MSP-Konsumenten
-// (audit, search-index) sehen den Seed. Der Executor-Pfad emittiert
-// das Event UND schreibt die Projection-Zeile in einer TX.
+// Directly calling `db.insert(userTable)` would bypass the event store, so no
+// `user.created` event would be emitted and no MSP consumers (audit,
+// search-index) would see the seed. The executor path emits the event and
+// writes the projection row in one transaction.
 
 import { computeBlindIndex, configuredBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-// kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding (#1478)
+// kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding
 import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.ts";
 import { userEntity, userTable } from "./schema/user.ts";
 
@@ -28,48 +28,48 @@ const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityNam
 export type SeedUserOptions = {
   readonly email: string;
   readonly displayName: string;
-  /** Optional bereits-gehashtes Passwort. Für plain-password-Tests
-   *  besser den Convenience-Wrapper aus
-   *  `@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding` nutzen,
-   *  der argon2-Hashing übernimmt. */
+  /** Optional pre-hashed password. For plain-password tests, prefer the
+   * convenience wrapper from
+   * `@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding`,
+   * which performs argon2 hashing. */
   readonly passwordHash?: string;
   readonly locale?: string;
-  /** Global roles — land in users.roles as jsonb string[].
-   *  Werden vom login-handler in die Session-Roles parallel zu tenant-
-   *  membership-roles gemerged. Default: leer-array. Typisches Beispiel:
-   *  `["SystemAdmin"]` für den Plattform-Operator. */
+  /** Global roles—stored in users.roles as jsonb string[].
+   * The login handler merges them into the session roles alongside tenant-
+   * membership roles. Default: empty array. Typical example:
+   * `["SystemAdmin"]` for the platform operator. */
   readonly roles?: readonly string[];
-  /** Initial-State für emailVerified. Default false (Pflicht-Verify-Flow
-   *  muss explizit "true" setzen wenn Email-Ownership schon bewiesen ist —
-   *  z.B. Magic-Link-Signup, wo der User den Mail-Link klicken musste
-   *  bevor sein Account überhaupt entsteht). */
+  /** Initial state for emailVerified. Default: false. The required
+   * verification flow must explicitly set "true" when email ownership has
+   * already been proven—for example, in a Magic-Link signup where the user
+   * clicked the email link before the account was created. */
   readonly emailVerified?: boolean;
   readonly by?: SessionUser;
 };
 
 /**
- * Seed a user. Returns the userId (existing oder neu angelegt).
- * Idempotent add-only über die `email`-Spalte: wenn ein User mit dieser
- * Email existiert, kommt seine ID zurück ohne neuen Insert.
+ * Seeds a user. Returns the userId (existing or newly created).
+ * Idempotent and add-only via the `email` column: if a user with this
+ * email exists, its ID is returned without a new insert.
  */
 export async function seedUser(
   db: DbConnection,
   options: SeedUserOptions,
   // Optional, append-only — same rationale as tenant/seeding's seedTenant
-  // hooks param (#1478): fires user's postSave hooks (e.g. a Welcome-
+  // hooks param: fires user's postSave hooks (e.g. a Welcome-
   // notification hook keyed off `allOf: "user"`) for fixtures/self-signup
   // that opt in. Omit to keep today's hook-less behavior.
   hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
   const by = options.by ?? TestUsers.systemAdmin;
-  // executor.create erwartet eine TenantDb (mit .insert()-API). User
-  // ist zwar tenant-agnostic (kein tenant_id-Spalte), aber das runtime-
-  // Interface braucht den Wrap.
+  // executor.create expects a TenantDb (with an .insert() API). Although
+  // User is tenant-agnostic (it has no tenant_id column), the runtime
+  // interface requires this wrapper.
   const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
 
   const existing = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
-  // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
-  // liefert die Projection-Row als Record<string, unknown>.
+  // @cast-boundary db-row: users.id is a uuid column (string), and fetchOne
+  // returns the projection row as Record<string, unknown>.
   if (existing) {
     const id = existing["id"] as string;
     if (options.emailVerified === true) {
@@ -100,7 +100,7 @@ export async function seedUser(
 }
 
 // A re-run seed onto a row created before emailVerified flipped to true must
-// still set it (#1687) — via the executor, so it lands as a real `.updated` event.
+// still set it — via the executor, so it lands as a real `.updated` event.
 export async function reconcileSeededUserEmailVerified(
   db: DbConnection,
   existingRow: Record<string, unknown>,
@@ -108,8 +108,8 @@ export async function reconcileSeededUserEmailVerified(
 ): Promise<void> {
   // skip: already verified, nothing to reconcile
   if (existingRow["emailVerified"] === true) return;
-  // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
-  // liefert die Projection-Row als Record<string, unknown>.
+  // @cast-boundary db-row: users.id is a uuid column (string), and fetchOne
+  // returns the projection row as Record<string, unknown>.
   const id = existingRow["id"] as string;
   const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
   const result = await userExecutor.update(
@@ -173,11 +173,11 @@ export async function rewriteSeededUserEmail(
   }
 }
 
-// Extrahiert die `id`-Spalte aus dem executor.create-Result. Der
-// Executor liefert ein Record<string, unknown> (die Projection-Row), in
-// das die DB die Aggregat-id reinschreibt — wir prüfen runtime statt
-// blindem `as { id: string }`-Cast, damit ein API-Vertragsbruch sofort
-// als ehrlicher Throw rauskommt statt downstream als undefined-Bug.
+// Extracts the `id` column from the executor.create result. The executor
+// returns a Record<string, unknown> (the projection row), into which the DB
+// writes the aggregate ID. We validate it at runtime instead of using a
+// blind `as { id: string }` cast, so an API contract violation throws an
+// explicit error rather than surfacing downstream as an undefined-value bug.
 function extractId(data: unknown, who: string): string {
   if (typeof data === "object" && data !== null && "id" in data) {
     const id = (data as { id: unknown }).id; // @cast-boundary engine-bridge

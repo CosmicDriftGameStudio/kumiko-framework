@@ -4,12 +4,11 @@ import { markCapSoftWarned } from "../book-cap-usage.ts";
 
 // mark-soft-warned — sets lastSoftWarnedAt on the counter so subsequent
 // soft-cap-hits in the same period don't re-trigger notifications.
-// Anti-Notification-Storm-Schutz aus Memory `project_pricing_byok_caps`.
+// This prevents notification storms.
 //
-// **Caller-Pattern:** enforceCap-Helper checks if value crosses the
-// soft threshold AND lastSoftWarnedAt is null → calls this handler →
-// emits whatever notification (delivery-feature, ops-alert, etc.). The
-// emit-side is app-specific; this handler only sets the flag.
+// **Caller pattern:** enforceCap-Helper checks whether the value crosses the
+// soft threshold while lastSoftWarnedAt is null, then calls this handler and
+// emits the application-specific notification. This handler only sets the flag.
 const markSoftWarnedSchema = z.object({
   capName: z.string().min(1).max(100),
   periodStartIso: z.string().min(1),

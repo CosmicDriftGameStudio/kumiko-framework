@@ -1,4 +1,4 @@
-// Delivery-attempt log under KMS (#799): recipientAddress is written via
+// Delivery-attempt log under KMS: recipientAddress is written via
 // LOW-LEVEL append() in attempt-log.ts — the event-PII catalog must cover
 // it. Stored event + projected row carry ciphertext under the recipient's
 // DEK, the outgoing mail still reaches the PLAINTEXT address, the admin
@@ -181,7 +181,7 @@ describe("delivery attempt log under KMS", () => {
     expect(erased?.["recipient"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  // money-horse#330: route:{email} (no user account, e.g. a share-token
+  // route:{email} (no user account, e.g. a share-token
   // recipient) carries recipientId so recipientAddress is encrypted under
   // that subject too, not left plaintext.
   test("route:{email} with recipientId ciphers recipientAddress under that subject; erasing it doesn't touch other subjects", async () => {

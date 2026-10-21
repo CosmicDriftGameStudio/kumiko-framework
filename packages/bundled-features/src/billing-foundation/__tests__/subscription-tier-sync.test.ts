@@ -1,7 +1,7 @@
 // Unit-test for effectiveTierFromSubscription. The DB-touching half
 // (syncTierFromSubscription, the wired route) is exercised via the app-level
 // test suites of its two current consumers (show-pony, publicstatus) — those
-// migrate onto this factory in a follow-up PR (infra#446), carrying their
+// migrate onto this factory in a follow-up PR, carrying their
 // existing integration coverage with them.
 
 import { describe, expect, test } from "bun:test";

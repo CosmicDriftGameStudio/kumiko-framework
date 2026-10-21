@@ -1,4 +1,4 @@
-// #1456: completes both the enrollment #1465 started AND the login that
+// Completes both the enrollment and the login that
 // mfa-setup-required blocked. Real HTTP through setupTestStack, exercising
 // the full chain: login → preauthSetupToken → preauth-enable-start →
 // preauth-confirm → the minted JWT actually authenticates a follow-up
@@ -95,11 +95,11 @@ beforeAll(async () => {
 
   // Wire a spy in place of the real session-revoke callback (run-prod-app
   // only binds this once the sessions feature is mounted — not the case in
-  // this test stack) so #1467's regression can observe whether
+  // this test stack) so the regression can observe whether
   // revokeAllOtherSessions actually fires, instead of silently no-op'ing.
   const bind = bindMfaRevokeAllOtherSessionsFromFeature(authMfaFeature);
   // If the binder ever returns undefined, the spy below never wires up and
-  // the #1467 regression check further down would pass vacuously (nothing
+  // the regression check further down would pass vacuously (nothing
   // to revoke because nothing observed) instead of catching a real re-break.
   expect(bind).toBeDefined();
   bind?.((userId) => {
@@ -185,7 +185,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     );
     expect(meRes.status).toBe(200);
 
-    // Positive control for the #1467 regression below — proves the spy
+    // Positive control for the regression below — proves the spy
     // wiring actually observes a real revoke call, not just silent no-ops.
     expect(revokedForUserIds).toContain(body.user.id);
   });
@@ -296,7 +296,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     expect(body.error.details.reason).toBe("invalid_setup_token");
   });
 
-  // #1467: findForAuth's status check + membership lookup used to run AFTER
+  // findForAuth's status check + membership lookup used to run AFTER
   // the entity-write and the revokeAllOtherSessions call — an admin
   // restricting/deleting the account between preauth-enable-start and
   // preauth-confirm still got invalid_setup_token back correctly (the

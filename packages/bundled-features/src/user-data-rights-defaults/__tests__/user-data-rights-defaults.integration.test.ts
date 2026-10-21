@@ -1,14 +1,14 @@
-// userData-Hook Integration-Tests (S2.H1+H2).
+// user-data hook integration tests.
 //
-// User-Explicit-Checks aus der Sprint-2-Anfrage:
-//   - "alle daten enthalten" (Export-Bundle hat user-Profil + fileRefs)
-//   - "PII check in daten" (Forget anonymisiert email/displayName,
-//     Export-Bundle hat keine passwordHash/roles)
-//   - "exporte + fristen, nach loeschfrist sollte es keine daten mehr
-//     haben" (Forget mit strategy=delete entfernt PII; tieferer
-//     Frist-Test in S2.U5/S2.T1 wenn Cron-Pipeline da)
-//   - "cross data matrix checks" (Cross-Tenant-Isolation: Tenant A's
-//     fileRef-Forget beruehrt Tenant B's Files nicht)
+// Explicit checks:
+//   - all data included (the export bundle contains the user profile and fileRefs)
+//   - PII check in the data (forget anonymizes email/displayName, and the export
+//     bundle excludes passwordHash/roles)
+//   - exports and deadlines: no data remains after the deletion period (forget
+//     with strategy=delete removes PII; the deadline expiry itself runs in the
+//     cleanup cron pipeline)
+//   - cross-data matrix (cross-tenant isolation: Tenant A's fileRef forget does
+//     not affect Tenant B's files)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -57,7 +57,7 @@ import { fileRefDeleteHook, fileRefExportHook, userDeleteHook, userExportHook } 
 
 let stack: TestStack;
 
-// #3005 fixture: a business entity with file fields covering the three
+// Fixture: a business entity with file fields covering the three
 // field-annotation shapes fileRefDeleteHook must branch on — explicitly
 // non-personal (dealer's own business data), personal (self), and no
 // annotation at all (the conservative "no annotation" case) — plus the
@@ -127,14 +127,14 @@ const features = [
 beforeAll(async () => {
   stack = await setupTestStack({ features });
 
-  // userEntity via Framework-Helper migrieren (kennt softDelete +
-  // automatische tenant_id-Spalte — die manuell-CREATE wuerde mit
-  // Drizzle-Generated-Queries kollidieren).
+  // Migrate userEntity through the framework helper because it knows about softDelete and
+  // the automatic tenant_id column; manual CREATE would conflict with
+  // Drizzle-generated queries.
   await unsafeCreateEntityTable(stack.db, userEntity);
 
-  // file_refs ist jetzt das buildEntityTable-getriebene fileRef-Entity
-  // (softDelete → is_deleted/deleted_at/deleted_by_id). Echte Entity-Tabelle
-  // pushen statt hand-CREATE, damit der is_deleted-Filter der Hooks greift.
+  // file_refs is now the buildEntityTable-driven fileRef entity, including softDelete
+  // columns (is_deleted/deleted_at/deleted_by_id). Push the real entity table instead
+  // of using hand-written CREATE so the hooks' is_deleted filter applies.
   await unsafePushTables(stack.db, { fileRefsTable });
 });
 
@@ -145,17 +145,16 @@ afterAll(async () => {
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
 
-// fileRef-IDs muessen UUID sein (file_refs.id ist UUID per S0.1+S1.5).
-// Helper baut zaehlerbasierte UUIDs damit Tests deterministisch.
+// file_refs.id is a UUID, so the helper builds counter-based UUIDs to keep tests
+// deterministic.
 function uuid(suffix: number): string {
   return `aaaaaaaa-aaaa-4aaa-8aaa-${suffix.toString(16).padStart(12, "0")}`;
 }
 
 async function seedUser(id: string, overrides: Record<string, unknown> = {}): Promise<void> {
-  // Drizzle-Insert nutzt Schema (incl. framework-managed tenantId-Spalte).
-  // user-Entity ist tenant-agnostisch im Domain-Sinn, aber das DB-
-  // Schema hat tenant_id-Spalte automatisch (Framework-Default).
-  // Pragmatisch: SYSTEM_TENANT_ID fuer User-Rows in Tests.
+  // Drizzle inserts use the schema, including the framework-managed tenantId column.
+  // Although the user entity is tenant-agnostic in the domain, the database schema
+  // adds tenant_id automatically; tests therefore use SYSTEM_TENANT_ID for user rows.
   await seedRow(stack.db, userTable, {
     id,
     tenantId: SYSTEM_TENANT_ID,
@@ -186,7 +185,7 @@ async function seedFileRef(
   );
 }
 
-// #3005: seeds a fileRef attached to an entity/field, for testing the
+// Seeds a fileRef attached to an entity/field, for testing the
 // per-row PII-vs-business-data decision in fileRefDeleteHook.
 async function seedFileRefWithField(
   id: string,
@@ -338,8 +337,8 @@ describe("S2.H1 :: userDeleteHook", () => {
     if (!row) throw new Error("row should exist");
     expect(row.email).toContain("anonymized.invalid");
     expect(row.display_name).toBe(USER_ANONYMIZED_DISPLAY_NAME);
-    expect(row.status).toBe(USER_STATUS.Active); // NICHT auf deleted
-    expect(row.deleted_at).toBeNull(); // KEIN softDelete
+    expect(row.status).toBe(USER_STATUS.Active); // not flipped to deleted
+    expect(row.deleted_at).toBeNull(); // no soft delete
   });
 
   test("idempotent: zweiter delete-Call crasht nicht UND State bleibt korrekt deleted", async () => {
@@ -357,7 +356,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     const afterFirst = await fetchUser(uuid(1005));
     if (!afterFirst) throw new Error("user should exist after first delete");
 
-    // Zweiter Call: kein Crash + State unverändert
+    // The second call must not throw.
     await expect(
       userDeleteHook(
         {
@@ -370,14 +369,14 @@ describe("S2.H1 :: userDeleteHook", () => {
       ),
     ).resolves.toBeUndefined();
 
-    // State-Verifikation (S2.H1+H2-Audit N3): Row weiterhin deleted,
-    // kein Status-Reset, anonymisierte Werte unverändert.
+    // Verify idempotence: the row remains deleted, with no status reset or change to
+    // anonymized values.
     const afterSecond = await fetchUser(uuid(1005));
     if (!afterSecond) throw new Error("user should exist after second delete");
     expect(afterSecond.status).toBe(USER_STATUS.Deleted);
     expect(afterSecond.display_name).toBe(USER_DELETED_DISPLAY_NAME);
     expect(afterSecond.password_hash).toBeNull();
-    expect(afterSecond.email).toBe(afterFirst.email); // gleicher Wert, nicht "neu anonymisiert"
+    expect(afterSecond.email).toBe(afterFirst.email); // The value is unchanged rather than anonymized again
   });
 });
 
@@ -444,7 +443,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     );
 
     const ownedAfter = await fetchFileRefs(TENANT_A, "user-anon-files");
-    expect(ownedAfter).toHaveLength(0); // keiner mehr mit insertedById=user
+    expect(ownedAfter).toHaveLength(0); // No rows remain associated with insertedById=user
     const anonymized = await fetchFileRefs(TENANT_A, null);
     const file = anonymized.find((f: { id: string }) => f.id === uuid(203));
     expect(file).toBeDefined();
@@ -455,7 +454,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await seedFileRef(uuid(301), TENANT_A, "shared-user", "tenantA.pdf");
     await seedFileRef(uuid(302), TENANT_B, "shared-user", "tenantB.pdf");
 
-    // Tenant A loescht alle Files von "shared-user"
+    // Delete only Tenant A's files for "shared-user"
     await fileRefDeleteHook(
       {
         db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
@@ -489,7 +488,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     const afterFirst = await fetchFileRefs(TENANT_A, "user-idem-files");
     expect(afterFirst).toHaveLength(0);
 
-    // Zweiter Call: kein Crash + State weiter 0 Files
+    // The second call must not throw, and the database must still contain zero files.
     await expect(
       fileRefDeleteHook(
         {

@@ -1,5 +1,5 @@
 // buildHandlerContext resolves ctx.tz.tenant from tenant:config:timezone and
-// ctx.tz.user from SessionUser.timezone (fw#1636). "tenant" here is a
+// ctx.tz.user from SessionUser.timezone. "tenant" here is a
 // standalone probe feature registering the same qualified config key the
 // real bundled `tenant` feature uses — decoupled from that feature's
 // entities/handlers, but exercising the identical runtime path.

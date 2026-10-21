@@ -210,12 +210,13 @@ describe("enforceCap — egress profile", () => {
 });
 
 // =============================================================================
-// enforceRollingCap — Sprint 4: window-based read über Increment-Events
+// enforceRollingCap — window-based reads over increment events
 // =============================================================================
 
 describe("enforceRollingCap — burstable profile (KI-tokens-7d)", () => {
-  // limit=10000 chosen weil 10000 × 1.1 = 11000 und × 1.2 = 12000 als
-  // exact integer floating-point bleiben (50000 × 1.1 wäre 55000.00000000001).
+  // `limit=10000` keeps 10000 × 1.1 = 11000 and × 1.2 = 12000 as
+  // exact integers in floating-point arithmetic (50000 × 1.1 would be
+  // 55000.00000000001).
   const opts = {
     capName: "ai-tokens-7d",
     windowDays: 7,
@@ -247,7 +248,7 @@ describe("enforceRollingCap — burstable profile (KI-tokens-7d)", () => {
     expect(result.state).toBe("soft-hit");
     if (result.state === "soft-hit") {
       expect(result.value).toBe(11000);
-      // Rolling-counter trackt kein lastSoftWarnedAt — crossed ist immer false.
+      // The rolling counter does not track lastSoftWarnedAt, so crossed is always false.
       expect(result.crossed).toBe(false);
     }
   });
@@ -378,10 +379,10 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
   });
 
   test("zwei aufeinanderfolgende soft-hit-Calls → notifier 2× (kein Dedup)", async () => {
-    // Drift-Pin: rolling-counter trackt KEIN lastSoftWarnedAt; Caller
-    // muss selbst dedup'en (Cache-Eintrag, Hourly-Cron etc.). Wenn
-    // ein Refactor heimlich Dedup einbaut ohne projection-row, fällt
-    // das hier auf.
+    // The rolling counter does not track lastSoftWarnedAt; the caller must
+    // deduplicate notifications itself (for example, with a cache entry or
+    // hourly cron). This detects a refactor that adds deduplication without
+    // a projection row.
     const ctx = stubRollingCtx([{ amount: 11000 }]);
     const notify = mock();
     await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });
@@ -403,8 +404,8 @@ describe("currentCalendarMonthStartIso", () => {
 });
 
 // =============================================================================
-// Aggregate-ID drift-pins — Namespace-Wechsel würde tenant-stored
-// Counter-History komplett re-keyen. Pinning der UUIDs.
+// Aggregate-ID drift pins — changing the namespace would completely re-key
+// tenant-stored counter history. These tests pin the UUIDs.
 // =============================================================================
 
 describe("aggregate-id namespaces — drift-pin", () => {
@@ -417,9 +418,9 @@ describe("aggregate-id namespaces — drift-pin", () => {
 
   test("rolling rollingCapAggregateId stable für (tenant, capName)", async () => {
     const { rollingCapAggregateId } = await import("../aggregate-id.ts");
-    // Pinne den exakten UUID-output. Wenn jemand den Namespace-uuid in
-    // aggregate-id.ts ändert, kollabiert die ganze rolling-counter-
-    // history des Tenants — Test fängt's vor dem Deploy.
+    // Pin the exact UUID output. Changing the namespace UUID in
+    // aggregate-id.ts would invalidate the tenant's entire rolling-counter
+    // history, so this test catches the change before deployment.
     expect(rollingCapAggregateId("tenant-1", "ai-tokens-7d")).toBe(
       "7d3dc5df-561f-555f-96d7-e9542d0de679",
     );
@@ -427,10 +428,9 @@ describe("aggregate-id namespaces — drift-pin", () => {
 
   test("calendar und rolling produzieren UNTERSCHIEDLICHE UUIDs für gleiches Tupel", async () => {
     const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id.ts");
-    // Selbst wenn jemand "1970-01-01..." als periodStart in den
-    // calendar-Pfad reinpasst, soll die UUID NICHT mit dem rolling-
-    // aggregate kollidieren — sonst würden sich die beiden Streams
-    // vermischen und Counter wären falsch.
+    // Even if someone passes "1970-01-01..." as periodStart to the calendar
+    // path, its UUID must not collide with the rolling aggregate; otherwise
+    // the two streams would merge and counters would be incorrect.
     const calendarId = capCounterAggregateId("tenant-1", "ai-tokens-7d", "1970-01-01T00:00:00Z");
     const rollingId = rollingCapAggregateId("tenant-1", "ai-tokens-7d");
     expect(calendarId).not.toBe(rollingId);

@@ -5,21 +5,23 @@ import {
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// tenantRetentionOverride — Layer 3 im 3-Schicht-Resolver.
+// tenantRetentionOverride — Layer 3 in the three-layer resolver.
 //
-// Per (tenantId, entityName) eine optionale Override-Config die das
-// Preset (Layer 2) für genau diese eine Entity überschreibt. Use-Cases:
-//   - Anwaltskanzlei in DE: caseFile 6y blockDelete (nicht im Preset)
-//   - Pilot-Tenant der länger speichert für Test
-//   - Branchenspezifische verkürzte Fristen
+// One optional override config per (tenantId, entityName) replaces the
+// preset (Layer 2) for that entity only. Use cases:
+//   - Law firm in DE: caseFile 6y blockDelete (not in the preset)
+//   - Pilot tenant retaining data longer for testing
+//   - Industry-specific shorter retention periods
 //
-// reason ist Pflicht — Audit für DPO + Aufsichtsbehörde nachvollziehbar.
+// reason is required so the decision is auditable by the DPO and supervisory
+// authorities.
 //
-// config ist JSON-String mit `{ keepFor, strategy, reference? }`. Zod-
-// Schema validiert beim set-override-Call (S2.D2 ggf. erweitert).
+// config is a JSON string with `{ keepFor, strategy, reference? }`. The Zod
+// schema validates it when set-override is called.
 //
-// Tenant-1-zu-N: pro Tenant beliebig viele Entity-Overrides. UNIQUE-
-// Index auf (tenantId, entityName) damit pro Entity max ein Override.
+// Tenant one-to-many: each tenant can have any number of entity overrides.
+// A UNIQUE index on (tenantId, entityName) allows at most one override per
+// entity.
 export const tenantRetentionOverrideEntity = createEntity({
   table: "read_tenant_retention_overrides",
   fields: {

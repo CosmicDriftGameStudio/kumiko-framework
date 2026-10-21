@@ -1,15 +1,15 @@
-// KEK-rotation job for kumiko-framework#266 Step 8. Proves two things:
+// KEK-rotation job. Proves two things:
 //
 //   1. The job actually rewraps totpSecret onto the current KEK version.
 //   2. Advisor-flagged trap: rotation must not just touch the live
 //      projection — a FULL PROJECTION REBUILD after rotation must still
-//      decrypt correctly. Events store CIPHERTEXT (see #967 — "the
-//      immutable log never sees plaintext, replay reproduces the row
-//      byte-identically"), so a rebuild replays events in order and lands
-//      on the LATEST event's ciphertext. That's only true if the rotation
-//      job goes through executor.update() (which appends a real event)
-//      instead of a raw UPDATE on the projection table — this test is the
-//      regression guard for that specific design choice.
+//      decrypt correctly. Events store CIPHERTEXT ("the immutable log
+//      never sees plaintext, replay reproduces the row byte-identically"),
+//      so a rebuild replays events in order and lands on the LATEST event's
+//      ciphertext. That's only true if the rotation job goes through
+//      executor.update() (which appends a real event) instead of a raw
+//      UPDATE on the projection table — this test is the regression guard
+//      for that specific design choice.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";

@@ -15,7 +15,7 @@
 // Always-200 (enumeration-safe): the response looks the same for every
 // email, whether it's already registered or not. An email CAN already have
 // an account (seeding or an earlier signup) — the actual gate sits
-// deliberately in the confirm step (#365): signup-confirm rejects an
+// deliberately in the confirm step: signup-confirm rejects an
 // already-registered email instead of reusing the existing user. Here it
 // stays always-200 + resend-idempotent so the request path leaks nothing;
 // suppressing the link on the request side would be defense-in-depth, but
@@ -34,10 +34,9 @@ import { storeSignupHandover, takeOverSignupHandoverForResend } from "../signup-
 
 const SignupRequestSchema = z.object({
   email: z.email(),
-  // Cross-device try-first handover (kumiko-framework#3035 follow-up,
-  // offlot-app#454) — see shared/signup-handover.ts for why the grant is
-  // verified here and rebound to the signup token instead of the client
-  // carrying it through the activation link.
+  // Cross-device try-first handover: see shared/signup-handover.ts for why the
+  // grant is verified here and rebound to the signup token instead of the
+  // client carrying it through the activation link.
   handover: z
     .object({
       entityType: z.string().min(1),
@@ -96,8 +95,8 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // ctx.hasFeature() is fail-closed for *unregistered* names the moment
       // feature-toggles/tier-engine is wired, which silently kills
       // self-signup for every existing app that mounts auth-email-password
-      // without also composing createAuthSelfRegistrationToggleFeature()
-      // (#1468). Only gate when the toggle actually exists.
+      // without also composing createAuthSelfRegistrationToggleFeature().
+      // Only gate when the toggle actually exists.
       const gated = ctx.registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) !== undefined;
       if (gated && !(await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE))) {
         // No email address here — this fires on every no-op request, PII

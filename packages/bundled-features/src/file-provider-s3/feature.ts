@@ -1,22 +1,22 @@
 // kumiko-feature-version: 1
 //
-// file-provider-s3 — concrete S3-implementation for the
-// file-foundation plugin-API.
+// file-provider-s3 — concrete S3 implementation for the
+// file-foundation plugin API.
 //
-// **Was diese Feature liefert:**
-//   1. Provider-spezifische Tenant-Config (bucket/region/endpoint/
-//      forcePathStyle/accessKeyId) und Secret (s3.secretAccessKey).
-//      Self-contained — file-foundation kennt diese nicht.
-//   2. Plugin-Registration via `r.useExtension("fileProvider", "s3",
-//      { build })`. file-foundation's Factory findet den Plugin via
-//      registry.
-//   3. build(ctx, tenantId) liest config + secret, ruft `createS3Provider`
-//      aus ./lib auf. Der EINZIGE Cross-Feature-Import
-//      des Plugins — bewusst lokal gehalten.
+// **What this feature provides:**
+//   1. Provider-specific tenant config (bucket/region/endpoint/
+//      forcePathStyle/accessKeyId) and secret (s3.secretAccessKey).
+//      Self-contained — file-foundation does not know about these.
+//   2. Plugin registration via `r.useExtension("fileProvider", "s3",
+//      { build })`. file-foundation's factory finds the plugin through
+//      the registry.
+//   3. build(ctx, tenantId) reads the config and secret, then calls
+//      `createS3Provider` from ./lib. This is the plugin's only
+//      cross-feature import, intentionally kept local.
 //
-// **Pattern-Vorbild:** mirrors mail-transport-smtp.
+// **Pattern reference:** mirrors mail-transport-smtp.
 //
-// **Boot-Dependencies:** config + secrets + file-foundation.
+// **Boot dependencies:** config + secrets + file-foundation.
 
 import type {
   FileProviderContext,
@@ -101,8 +101,8 @@ function createTenantConfigFileProviderS3Feature() {
         },
       });
 
-      // Plugin-Registration. entityName "s3" ist was tenants in
-      // file-foundation's `provider` config-key setzen.
+      // Plugin registration. The entityName "s3" is what tenants set in
+      //      // file-foundation's `provider` config key.
       const plugin: FileProviderPlugin = {
         build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId), // @wrapper-known semantic-alias
       };

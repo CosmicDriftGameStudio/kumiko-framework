@@ -1,5 +1,5 @@
-// Unit-Tests für resolveRetentionPolicy — pure function, keine
-// Test-Stack-Abhängigkeit.
+// Unit tests for resolveRetentionPolicy — pure function, no
+// test-stack dependency.
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
@@ -81,7 +81,7 @@ describe("resolveRetentionPolicy — Layer-Resolution", () => {
     const result = resolveRetentionPolicy({
       entityName: "ticket",
       entityDef: entity,
-      tenantPreset: "dsgvo-basic", // hat kein "ticket" drin
+      tenantPreset: "dsgvo-basic", // has no "ticket" entry
       tenantOverride: null,
     });
 
@@ -137,8 +137,8 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
     const result = resolveRetentionPolicy({
       entityName: "ticket",
       entityDef: null,
-      tenantPreset: "dsgvo-basic", // hat kein "ticket"
-      tenantOverride: { strategy: "hardDelete" }, // keepFor fehlt
+      tenantPreset: "dsgvo-basic", // has no "ticket" entry
+      tenantOverride: { strategy: "hardDelete" }, // keepFor is missing
     });
 
     expect(result.source).toBe("override-incomplete");
@@ -162,7 +162,7 @@ describe("resolveRetentionPolicy — override-incomplete-Guard", () => {
       entityName: "session",
       entityDef: null,
       tenantPreset: "dsgvo-basic", // session: 30d
-      tenantOverride: { strategy: "softDelete" }, // keepFor erbt von Preset
+      tenantOverride: { strategy: "softDelete" }, // keepFor is inherited from the preset
     });
 
     expect(result.source).toBe("override");
@@ -193,7 +193,7 @@ describe("resolveRetentionPolicy — Edge-Cases", () => {
       entityName: "audit-log",
       entityDef: null,
       tenantPreset: "dsgvo-hgb",
-      tenantOverride: null, // kein override für audit-log
+      tenantOverride: null, // no override for audit-log
     });
 
     // dsgvo-hgb["audit-log"] = 1y / hardDelete

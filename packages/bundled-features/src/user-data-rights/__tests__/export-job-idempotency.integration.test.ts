@@ -1,13 +1,12 @@
-// ExportJob Partial-UNIQUE-Index Integration-Test (S2.U3 Atom 1b).
+// ExportJob partial-UNIQUE-index integration test.
 //
-// Pinst die DB-Constraint die Atom-2's request-export-Handler nutzt:
-// `UNIQUE(userId) WHERE status IN ('pending', 'running')`. Pro User
-// kann es maximal EINEN aktiven Job geben — done/failed-Historie ist
-// unbeschraenkt.
+// Pins the database constraint used by the request-export handler:
+// `UNIQUE(userId) WHERE status IN ('pending', 'running')`. Each user can
+// have at most one active job; done/failed history is unlimited.
 //
-// Plus DB-Roundtrip-Test fuer bigInt-Spalte (bytesWritten >2^31), der
-// in Atom 1a's pure unit-Test absichtlich ausgelassen wurde weil er
-// reale Postgres + Drizzle-customType-Codec-Path braucht.
+// Also tests a database round trip for the bigInt column (bytesWritten >2^31),
+// which the pure unit test intentionally omits because it requires a real
+// Postgres + Drizzle-customType codec path.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -63,10 +62,10 @@ beforeEach(async () => {
 
 const NOW = () => getTemporal().Now.instant();
 
-// postgres-js wirft PostgresError direkt; Drizzle wrappt in .cause.
-// extractPgError normalisiert beide Shapes. Constraint-Name pinnen damit
-// der Test nur unsere Idempotency-Constraint pinst, nicht zufaellig eine
-// andere unique-violation (z.B. UUID-Kollision auf id-PK).
+// postgres-js throws PostgresError directly; Drizzle wraps it in .cause.
+// extractPgError normalizes both shapes. Pin the constraint name so the test
+// checks only our idempotency constraint, not an unrelated unique violation
+// such as a UUID collision on the id primary key.
 async function expectUniqueViolation(
   promise: Promise<unknown>,
   expectedConstraint: string,
@@ -83,8 +82,8 @@ async function expectUniqueViolation(
   expect(pg?.constraint_name).toBe(expectedConstraint);
 }
 
-// Re-Export aus dem Schema — Single source of truth, Rename hier
-// braeuche kein Test-Edit.
+// Re-exported from the schema as the single source of truth, so renaming the
+// constraint does not require a test edit.
 const IDEMPOTENCY_CONSTRAINT = ACTIVE_JOB_CONSTRAINT;
 
 async function insertJob(
@@ -124,8 +123,8 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
   test("pending + running fuer denselben User → DB lehnt running ab", async () => {
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
-    // Zweiter "aktiver" Status (running) ist auch gesperrt — der Index
-    // greift fuer alle Status-Werte im WHERE-Set.
+    // The other active status (running) is also blocked because the index covers
+    // every status value in the WHERE set.
     await expectUniqueViolation(
       insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running),
       IDEMPOTENCY_CONSTRAINT,
@@ -146,8 +145,8 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
   test("done + neuer pending fuer denselben User → erlaubt (Done ausserhalb des Index-Filters)", async () => {
     // Erster Job done (Audit-Historie)
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
-    // Zweiter pending-Job fuer denselben User — neue Anfrage nach
-    // erfolgreichem Download
+    // A second pending job for the same user represents a new request after
+    // the successful download.
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
 
     const rows = await selectMany(stack.db, exportJobsTable);
@@ -173,7 +172,6 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
   test("Lifecycle: pending → running blockt weitere pending-Inserts; nach running → done wieder erlaubt", async () => {
     // Alice pending insert
     const aliceJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
-    // Worker pickt auf — Status flip
     await updateRows(
       stack.db,
       exportJobsTable,
@@ -181,14 +179,14 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
       { id: aliceJobId },
     );
 
-    // Zweiter pending-Insert fuer Alice → faellt weiter, weil bestehender
-    // Job in running auch im Index-Filter ist.
+    // A second pending insert still fails because a running job is also included
+    // in the index filter.
     await expectUniqueViolation(
       insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending),
       IDEMPOTENCY_CONSTRAINT,
     );
 
-    // Aber wenn der running-Job fertig wird (done), darf User wieder pending starten
+    // Once the running job finishes (done), the user may start another pending job.
     await updateRows(
       stack.db,
       exportJobsTable,
@@ -204,7 +202,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
 
 describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
   test("bytesWritten >2^31 schreibt + liest identisch zurueck", async () => {
-    const TWO_GB_PLUS = 3_000_000_000; // ~2.8 GB, weit ueber integer-Cap
+    const TWO_GB_PLUS = 3_000_000_000; // ~2.8 GB, well above the integer limit
     const id = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done, {
       bytesWritten: TWO_GB_PLUS,
     });
@@ -233,10 +231,9 @@ describe("ExportJob :: bigInt bytesWritten DB-Roundtrip", () => {
     const id = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done, {
       bytesWritten: 1,
     });
-    // information_schema-Lookup pinst den DB-Typ unabhaengig vom JS-
-    // Driver-Mapping — wenn jemand `case "bigInt"` zu `integer` zurueck-
-    // refactored, faellt dieser Test um obwohl die JS-Werte sich
-    // numerisch verhalten.
+    // The information_schema lookup pins the database type independently of the
+    // JS driver mapping. If `case "bigInt"` is refactored back to `integer`, this
+    // test fails even if the JS values still behave numerically.
     const result = await asRawClient(stack.db).unsafe(`
       SELECT data_type FROM information_schema.columns
       WHERE table_name = 'read_export_jobs' AND column_name = 'bytes_written'

@@ -1,21 +1,22 @@
-// Inline-projections für die drei event-sourced Streams:
+// Inline projections for the three event-sourced streams:
 //   mail-account     → read_mail_accounts     (UPSERT, current state)
 //   inbound-message  → read_inbound_messages  (INSERT-ignore, append-only)
-//   mail-thread      → read_mail_threads      (UPSERT, Rollup)
+//   mail-thread      → read_mail_threads      (UPSERT, rollup)
 //
-// Apply läuft in derselben TX wie ctx.unsafeAppendEvent — read-your-
-// own-write ohne dispatcher-tick (Muster billing-foundation).
+// Apply runs in the same transaction as ctx.unsafeAppendEvent, providing
+// read-your-own-write without waiting for a dispatcher tick (as in
+// billing-foundation).
 //
-// **Production-deployment caveat** (gleich wie billing-foundation):
-// die Tables sind als raw drizzle-pgTable in r.projection registriert,
-// NICHT als r.entity — Apps müssen sie in ihre drizzle/generate.ts
-// aufnehmen (via *-ProjectionTable-Imports). setupTestStack pusht sie
-// automatisch via r.projection.table.
+// **Production-deployment caveat** (same as billing-foundation):
+// The tables are registered as raw drizzle-pgTable instances in r.projection,
+// NOT as r.entity. Apps must include them in their drizzle/generate.ts
+// (via *-ProjectionTable imports). setupTestStack pushes them automatically
+// via r.projection.table.
 //
-// **PII:** die Payload-Felder (address/from/to/cc/subject/snippet)
-// kommen bereits als Ciphertext an — encrypted VOR dem append im
-// write-handler. Die applies kopieren nur durch; decrypted wird erst
-// in den list-queries.
+// **PII:** The payload fields (address/from/to/cc/subject/snippet) already
+// arrive as ciphertext because they are encrypted BEFORE the append in the
+// write handler. The applies only copy them through; decryption happens only
+// in the list queries.
 
 import {
   buildEntityTable,
@@ -32,8 +33,8 @@ import type {
   MailThreadEventPayload,
 } from "./events.ts";
 
-// Drizzle-table-instances aus den entity-shapes — geteilt zwischen
-// projection-applies und list-queries (ein column-namespace).
+// Drizzle table instances derived from the entity shapes, shared between
+// projection applies and list queries to provide one column namespace.
 export const mailAccountsProjectionTable = buildEntityTable("mail-account", mailAccountEntity);
 export const inboundMessagesProjectionTable = buildEntityTable(
   "inbound-message",
@@ -57,9 +58,10 @@ const mailThreadsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
 );
 
 // =============================================================================
-// mail-account — connected/updated/disconnected teilen den payload-shape,
-// der event-type taggt was passiert ist. Alle drei UPSERT-full für
-// defensive consistency (rebuild-aus-dem-Nichts, out-of-order).
+// mail-account — connected/updated/disconnected share the payload shape;
+// the event type identifies what happened. All three perform a full UPSERT
+// for defensive consistency during from-scratch rebuilds and out-of-order
+// processing.
 // =============================================================================
 
 const applyMailAccountUpsert = defineApply<MailAccountEventPayload>(async (event, tx) => {
@@ -91,16 +93,16 @@ const applyMailAccountUpsert = defineApply<MailAccountEventPayload>(async (event
 
 /** mail-account-connected → UPSERT full. */
 export const applyMailAccountConnected = applyMailAccountUpsert;
-/** mail-account-updated → UPSERT full (status/watchState-Übergänge). */
+/** mail-account-updated → full UPSERT for status/watchState transitions. */
 export const applyMailAccountUpdated = applyMailAccountUpsert;
-/** mail-account-disconnected → UPSERT full (payload.status=disconnected).
- *  Row bleibt (Audit-Sicht in der Account-Liste), Stream bleibt. */
+/** mail-account-disconnected → full UPSERT (payload.status=disconnected).
+ *  The row and stream remain for audit visibility in the account list. */
 export const applyMailAccountDisconnected = applyMailAccountUpsert;
 
 // =============================================================================
-// inbound-message — genau EIN received-event pro Stream (deterministic
-// aggregateId). INSERT-ignore: Replays no-op'en auf der PK statt zu
-// knallen; es gibt keinen update-Fall.
+// inbound-message — exactly one received event per stream (deterministic
+// aggregateId). INSERT-ignore makes replays no-ops on the primary key;
+// there is no update case.
 // =============================================================================
 
 /** inbound-message-received → INSERT ... ON CONFLICT DO NOTHING. */
@@ -127,13 +129,13 @@ export const applyInboundMessageReceived = defineApply<InboundMessageEventPayloa
 );
 
 // =============================================================================
-// mail-thread — Rollup pro (tenantId, threadKey). Der write-handler
-// berechnet messageCount/lastMessageAt und appendet den updated-event
-// mit dem NEUEN Stand — die apply ist ein dummer UPSERT-full (kein
-// increment in der apply: Replays wären sonst nicht idempotent).
+// mail-thread — rollup per (tenantId, threadKey). The write handler computes
+// messageCount/lastMessageAt and appends the updated event with the NEW state.
+// The apply performs a full UPSERT rather than incrementing, because
+// replays would otherwise not be idempotent.
 // =============================================================================
 
-/** mail-thread-updated → UPSERT full mit dem Payload-Snapshot. */
+/** mail-thread-updated → full UPSERT with the payload snapshot. */
 export const applyMailThreadUpdated = defineApply<MailThreadEventPayload>(async (event, tx) => {
   const p = event.payload;
   const mutable = {

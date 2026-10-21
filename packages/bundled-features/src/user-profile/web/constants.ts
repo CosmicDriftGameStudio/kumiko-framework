@@ -5,7 +5,7 @@ export const USER_PROFILE_FEATURE = "user-profile" as const;
 
 export const PROFILE_SCREEN_ID = "profile" as const;
 
-// EditExtensionSection `__component` markers (fw#2312) — change-password and
+// EditExtensionSection `__component` markers — change-password and
 // change-email stay React components (re-auth flows a declarative action
 // can't express); deletion moved to declarative fields/actions on the screen
 // itself (feature.ts), same split as user-data-rights' privacy-center.

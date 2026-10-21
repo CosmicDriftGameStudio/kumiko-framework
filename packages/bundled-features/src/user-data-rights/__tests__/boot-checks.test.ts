@@ -35,7 +35,7 @@ import { createUserDataRightsFeature } from "../feature.ts";
 
 // GDPR-storage guards V2 (export-without-erase) and V3 (pii-entity-without-
 // hook) moved off the framework-internal boot-validator onto user-data-
-// rights' own `r.bootCheck()` (#1314); V4 (tenantOwned-entity-without-hook)
+// rights' own `r.bootCheck()`; V4 (tenantOwned-entity-without-hook)
 // onto tenant-lifecycle's own `r.bootCheck()` — tenant-lifecycle owns
 // EXT_TENANT_DATA, so its own mount preserves the original guard's trigger
 // exactly (gating on a sibling feature would silently narrow coverage).
