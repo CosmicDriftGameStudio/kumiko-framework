@@ -201,7 +201,13 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
       const vm = computeEditViewModel({
         screen: { id: screen.id, type: "entityEdit", entity: "me", layout: screen.layout },
         entity: {
-          fields: { status: { type: "text" }, gracePeriodEnd: { type: "text" } },
+          fields: {
+            status: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+            gracePeriodEnd: {
+              type: "text",
+              allowPlaintext: "test fixture value, not personal data",
+            },
+          },
         },
         values: { status },
         translate: (key) => key,
