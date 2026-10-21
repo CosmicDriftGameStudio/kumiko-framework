@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.385.0
+
+### Minor Changes
+
+- 3b011a8: Apps can require every translation key to exist in a fixed set of locales.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: requiredLocales boot option
+  detail: `validateBootOptions.requiredLocales` (also `VALIDATE_BOOT_OPTIONS` in kumiko/schema.ts) makes boot fail when any translation key of the mounted features lacks one of the listed locales. Locales are combined across features, so locale packages close the gaps of the features they translate. Without the option nothing changes. This replaces the locale list the i18n-keys guard read from `src/i18n-guard-locales.ts` until 0.384.0; without that file it checked `["de", "en"]`.
+  migration: Define the option once, e.g. `{ requiredLocales: ["de", "en"] }`, pass it as `validateBootOptions` wherever the app boots (`runProdApp`, `runDevApp`, workers) and re-export it as `VALIDATE_BOOT_OPTIONS` from `kumiko/schema.ts` so `kumiko-schema validate` checks it in CI. The check covers framework and bundled keys too; a key missing a locale fails boot with the feature and key named.
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: patScopeOptionKey for translating token scope labels
+  detail: The scope labels personal-access-tokens generates from `scopes[domain].label` are English only. `patScopeOptionKey(domain, "read" | "write")` returns their translation key, so an app feature can add the other locales with `r.translations`.
+  migration: Apps that mount personal-access-tokens and set `requiredLocales` with a locale other than `en` translate each generated scope label (`read`, plus `write` where the domain offers it) under `patScopeOptionKey`.
+  -->
+
+### Patch Changes
+
+- 9950dd0: selectMany can read the newest row per key with `distinctOn`, the renderer view-model inputs accept a narrower entity, and two new ratchets cap oversized files and legit casts.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: selectMany distinctOn for newest-row-per-key reads
+  detail: SelectOptions.distinctOn takes field names and emits SELECT DISTINCT ON over them, keeping the first row per key by orderBy, so newest-row-per-key reads no longer need unsafeRaw. orderBy has to start with the distinctOn fields in the same order, otherwise selectMany throws; without orderBy it defaults to them ascending. Tenant scoping applies as for every selectMany. Error classification and driver detection drop the branches for the removed Bun.SQL driver (ERR_POSTGRES_* codes, SQLSTATE in errno, millisecond timeouts), which postgres-js never produces.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: SelectOptions.distinctOn and split screen types
+  detail: SelectOptions gains the optional distinctOn field. The screen type definitions are split into several files below 2000 lines; the import paths of the exported types are unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: View-model inputs take only the entity parts they read
+  detail: ComputeEditViewModelInput.entity and ComputeListViewModelInput.entity are typed as the Pick of EntityDefinition they actually read, so synthesized entities need no cast. Passing a full EntityDefinition keeps working. Renderer console output goes through one dev-console module.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: File Size guard and per-package ratchet for legit casts
+  detail: The File Size guard freezes production files above 2000 lines in `.kumiko-file-size-baseline.json` and fails when a file grows or a new one crosses the limit. The As-Casts Audit additionally caps legit-bridge and legit-boundary casts per package in `.kumiko-cast-legit-baseline.json`. Without the baseline files both only warn.
+  migration: Optional. Freeze both with `kumiko-guards guards --write-baseline --guard="File Size"` and `--guard="As-Casts Audit"`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Denser common-password list, comments name postgres-js as the only driver
+  detail: The common-password list is wrapped densely and split on whitespace; a test pins its 2086 entries. Comments across the bundled features that referred to the removed Bun.SQL driver now name postgres-js. No behavior change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Database wait ignores Bun.SQL error codes
+  detail: The transient connection error list no longer contains the ERR_POSTGRES_* codes of the removed Bun.SQL driver; postgres-js never raises them.
+  -->
+- e345be5: Tests use the shared `waitFor` and `sleep` helpers instead of inline timeout promises.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Tests use waitFor and sleep helpers instead of inline timers
+  detail: Fixed waits that back a TTL bound, an absence or an ordering gap use sleep with a reason; the combobox debounce test polls with waitFor.
+  -->
+- Updated dependencies [3b011a8]
+- Updated dependencies [9950dd0]
+- Updated dependencies [e345be5]
+  - @cosmicdrift/kumiko-framework@0.385.0
+  - @cosmicdrift/kumiko-types@0.385.0
+  - @cosmicdrift/kumiko-renderer@0.385.0
+  - @cosmicdrift/kumiko-testing@0.385.0
+
 ## 0.384.0
 
 ### Minor Changes

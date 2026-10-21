@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "File Size guard and per-package ratchet for legit casts",
+    "detail": "The File Size guard freezes production files above 2000 lines in `.kumiko-file-size-baseline.json` and fails when a file grows or a new one crosses the limit. The As-Casts Audit additionally caps legit-bridge and legit-boundary casts per package in `.kumiko-cast-legit-baseline.json`. Without the baseline files both only warn.",
+    "migration": "Optional. Freeze both with `kumiko-guards guards --write-baseline --guard=\"File Size\"` and `--guard=\"As-Casts Audit\"`."
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Unsafe-Append-Event guard removed",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "SelectOptions.distinctOn and split screen types",
+    "detail": "SelectOptions gains the optional distinctOn field. The screen type definitions are split into several files below 2000 lines; the import paths of the exported types are unchanged."
+  },
+  {
     "version": "0.383.0",
     "type": "breaking",
     "title": "MetricSpec requires the object form with a label",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.385.0",
+    "type": "fix",
+    "title": "Tests use waitFor and sleep helpers instead of inline timers",
+    "detail": "Fixed waits that back a TTL bound, an absence or an ordering gap use sleep with a reason; the combobox debounce test polls with waitFor."
+  },
+  {
     "version": "0.382.0",
     "type": "improvement",
     "title": "withEnv and readSseFrames test helpers",

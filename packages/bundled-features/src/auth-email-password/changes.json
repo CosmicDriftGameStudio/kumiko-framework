@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "Denser common-password list, comments name postgres-js as the only driver",
+    "detail": "The common-password list is wrapped densely and split on whitespace; a test pins its 2086 entries. Comments across the bundled features that referred to the removed Bun.SQL driver now name postgres-js. No behavior change."
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Forgot-password and account-unlock work without app wiring",
