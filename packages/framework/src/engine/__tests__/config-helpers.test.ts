@@ -289,11 +289,14 @@ describe("config helpers — validate (async write gate)", () => {
     const tenantId = testTenantId(1);
     // The validator under test never touches the db; a runner that throws on use
     // keeps the context fully typed without a real connection.
-    const unusedRunner = {
+    const unusedRunner: DbRunner = {
       unsafe: async () => {
         throw new Error("db not used in this test");
       },
-    } as DbRunner;
+      begin: async () => {
+        throw new Error("db not used in this test");
+      },
+    };
     await key.validate("https://example.com", {
       key: "demo:config:endpoint",
       scope: "tenant",

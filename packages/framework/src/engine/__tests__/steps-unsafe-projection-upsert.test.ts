@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import type { DbRunner } from "../../db/connection.ts";
+import type { RawDbClient } from "../../db/connection.ts";
 import { table, text, uuid } from "../../db/dialect.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
@@ -17,9 +17,8 @@ const testTable = table("test_projection", {
 // New bun-db path: step uses asRawClient(tenantDbRunner(ctx.db)).unsafe(sqlText, params).
 // Capture the raw SQL string + params per call instead of the old
 // insert/values/onConflictDoUpdate chain.
-const unsafeMock = mock(async (_sqlText: string, _params: unknown[]) => []);
-const beginMock = mock(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
-const rawDb = { unsafe: unsafeMock, begin: beginMock } as DbRunner;
+const unsafeMock = mock(async (_sqlText: string, _params?: readonly unknown[]) => []);
+const rawDb: RawDbClient = { unsafe: unsafeMock, begin: (fn) => fn(rawDb) };
 const ctxDb = createTenantDb({ db: rawDb, tenantId: testTenantId(1) });
 
 const mockCtx = {

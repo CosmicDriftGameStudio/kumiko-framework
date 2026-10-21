@@ -1,15 +1,10 @@
 import type postgres from "postgres";
 
-// Minimal structural surface of a raw SQL client (postgres-js) for
-// asRawClient() / query helpers. Avoid `| any` — TS unions with `any`
-// collapse to `any` and erase the postgres side entirely.
+// Structural surface of a raw SQL client; test fakes and non-postgres runners implement it.
+// Keep it typed: a union member with `any` signatures would erase the postgres side.
 export type RawDbClient = {
-  // Signatures are intentionally loose: postgres-js uses (string, values?),
-  // Call sites go through asRawClient() which normalizes at runtime.
-  // biome-ignore lint/suspicious/noExplicitAny: cross-provider unsafe arity
-  unsafe: (...args: any[]) => any;
-  // biome-ignore lint/suspicious/noExplicitAny: cross-provider begin arity
-  begin: (...args: any[]) => any;
+  unsafe: (sql: string, params?: readonly unknown[]) => PromiseLike<readonly unknown[]>;
+  begin: <T>(fn: (tx: DbTx) => Promise<T>) => Promise<T>;
   end?: (options?: { timeout?: number }) => Promise<void>;
 };
 

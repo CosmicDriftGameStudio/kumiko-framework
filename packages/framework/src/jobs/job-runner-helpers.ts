@@ -8,8 +8,6 @@ import { requestContext } from "../api/request-context.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import type {
   AppContext,
-  EscapeHatchReporter,
-  JobContext,
   JobDefinition,
   JobRunIn,
   JobTriggerEvent,
@@ -138,27 +136,6 @@ export function missingDbProxy(jobName: string): TenantDb {
       });
     },
   });
-}
-
-export function createCrossTenantReads(
-  systemModeDb: TenantDb,
-  reason: string,
-  report: EscapeHatchReporter,
-): NonNullable<JobContext["crossTenantReads"]> {
-  return {
-    selectMany(table, where, options) {
-      report("cross-tenant-read", reason);
-      return systemModeDb.selectMany(table, where, options);
-    },
-    fetchOne(table, where) {
-      report("cross-tenant-read", reason);
-      return systemModeDb.fetchOne(table, where);
-    },
-    count(table, where) {
-      report("cross-tenant-read", reason);
-      return systemModeDb.count(table, where);
-    },
-  };
 }
 
 export function priorAttemptsOf(data: Record<string, unknown>): number {

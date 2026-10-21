@@ -46,7 +46,12 @@ export type RoleAccessRule = {
 //   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
 export type AccessRule = RoleAccessRule | OpenToAllAccessRule;
 
-export const ESCAPE_HATCH_GRANTS = ["systemIdentity", "globalWrites", "unsafeRaw"] as const;
+export const ESCAPE_HATCH_GRANTS = [
+  "systemIdentity",
+  "globalWrites",
+  "unsafeRaw",
+  "crossTenantReads",
+] as const;
 
 export type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
 
@@ -75,6 +80,16 @@ export function escapeHatchFor(
   grant: EscapeHatchGrant,
 ): EscapeHatchDeclaration | undefined {
   return escapeHatchAllows(declaration, grant) ? declaration : undefined;
+}
+
+// unsafeRaw hands out a raw runner that reads everything anyway, so it implies the read-only grant.
+export function crossTenantReadsGrantFor(
+  declaration: EscapeHatchDeclaration | undefined,
+): EscapeHatchDeclaration | undefined {
+  return escapeHatchAllows(declaration, "crossTenantReads") ||
+    escapeHatchAllows(declaration, "unsafeRaw")
+    ? declaration
+    : undefined;
 }
 
 // Boot-time check of `grants` (untyped sources can carry anything): must be a non-empty list of known grants.
@@ -724,6 +739,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // Only present for r.systemScope() handlers. Non-system handlers never
   // receive this — reach for `db` instead, which is fail-closed for them.
   readonly systemDb?: UncheckedSystemDb;
+  // Present only when the handler's escapeHatch grants crossTenantReads or unsafeRaw; every call is audited as cross-tenant-read.
+  readonly crossTenantReads?: CrossTenantReads;
   readonly registry: Registry;
   /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
    *  `event.user`. Existiert weil Handler intuitiv `ctx.user.tenantId`
@@ -994,7 +1011,7 @@ export type JobContext = SharedContextFields & {
   // — only safe for a helper that filters by tenantId itself (e.g. reindexEntity).
   readonly systemDb?: UncheckedSystemDb;
   // Read-only reads across all tenants. Present only when the job's escapeHatch
-  // grants unsafeRaw; every call is reported as kind "cross-tenant-read".
+  // grants crossTenantReads or unsafeRaw; every call is audited as cross-tenant-read.
   readonly crossTenantReads?: CrossTenantReads;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;

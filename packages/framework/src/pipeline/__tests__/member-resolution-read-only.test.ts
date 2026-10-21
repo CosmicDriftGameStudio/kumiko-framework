@@ -7,7 +7,14 @@ import type { HandlerContext } from "../../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import { applyMemberResolutionReadOnly } from "../dispatch-shared.ts";
 
-const DROPPED_SURFACES = ["systemDb", "dbOutsideTransaction", "runPreSave", "files", "derivatives"];
+const DROPPED_SURFACES = [
+  "systemDb",
+  "crossTenantReads",
+  "dbOutsideTransaction",
+  "runPreSave",
+  "files",
+  "derivatives",
+];
 
 const DENIED_CALLS = [
   "write",

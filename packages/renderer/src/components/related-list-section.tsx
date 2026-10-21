@@ -23,6 +23,7 @@ import {
   resolveProjectionFacetSpecs,
 } from "../app/list-facets.ts";
 import { useNav } from "../app/nav.tsx";
+import { SYNTHESIZED_FIELD_PII_REASON } from "../app/projection-list-shim.ts";
 import {
   ReferenceFacetBridges,
   type ReferenceFacetOption,
@@ -61,6 +62,14 @@ import { sortByAccessor } from "../sort-by-accessor.ts";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { RenderList } from "./render-list.tsx";
 
+type SynthesizedField = EntityDefinition["fields"][string];
+
+type SortableCapableField = Extract<SynthesizedField, { readonly sortable?: boolean }>;
+
+function isSortableCapable(field: SynthesizedField): field is SortableCapableField {
+  return "sortable" in field;
+}
+
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
 
 // Same paged envelope as ProjectionListBody's PagedRows (kumiko-screen.tsx) —
@@ -82,18 +91,41 @@ type PagedRows = {
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
   sourceEntity: EntityDefinition | undefined,
-): EntityDefinition {
-  const fields: Record<string, unknown> = {};
+): Pick<EntityDefinition, "fields" | "derivedFields"> {
+  const fields: Record<string, SynthesizedField> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
     const sortable = normalized.sortable === true;
     const sourceField = sourceEntity?.fields[normalized.field];
     fields[normalized.field] =
-      sourceField !== undefined
-        ? { ...sourceField, sortable }
-        : { type: normalized.valueType ?? "text", sortable };
+      sourceField === undefined
+        ? valueTypeField(normalized.valueType, sortable)
+        : isSortableCapable(sourceField)
+          ? Object.assign({}, sourceField, { sortable })
+          : sourceField;
   }
-  return { ...sourceEntity, fields } as unknown as EntityDefinition;
+  return {
+    fields,
+    ...(sourceEntity?.derivedFields !== undefined && { derivedFields: sourceEntity.derivedFields }),
+  };
+}
+
+function valueTypeField(
+  valueType: "number" | "decimal" | "bigInt" | "money" | undefined,
+  sortable: boolean,
+): SynthesizedField {
+  switch (valueType) {
+    case "number":
+    // decimal renders through the same number formatter; digits come from the column spec, not scale
+    case "decimal":
+      return { type: "number", sortable };
+    case "bigInt":
+      return { type: "bigInt", sortable };
+    case "money":
+      return { type: "money", sortable };
+    case undefined:
+      return { type: "text", allowPlaintext: SYNTHESIZED_FIELD_PII_REASON, sortable };
+  }
 }
 
 // Mirrors row-actions.ts's own warnDrawerActionDropped (module-private

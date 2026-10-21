@@ -28,7 +28,7 @@ function createManualDb(): { readonly db: DbConnection; readonly pending: Pendin
   const pending: PendingQuery[] = [];
   const db: DbConnection = {
     unsafe: () =>
-      new Promise((resolve) => {
+      new Promise<readonly Record<string, unknown>[]>((resolve) => {
         pending.push({ resolve });
       }),
     begin: () => {
