@@ -96,16 +96,17 @@ export function stepsPipeline<
 // because pipelineDef.awaits only ever holds what defineWorkflow's `awaits`
 // carried in (D4, workflow-resume-loop.md), never an unchecked external
 // value.
-export function buildPipelineSteps<TPayload>(
-  pipelineDef: PipelineDef<TPayload, unknown, Record<string, AwaitedEventType>>,
+export function buildPipelineSteps<
+  TPayload,
+  TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>,
+>(
+  pipelineDef: PipelineDef<TPayload, unknown, TAwaits>,
   event: WriteEvent<TPayload>,
 ): readonly StepInstance[] {
   const steps = pipelineDef.build({
     event,
     r: stepBuilder,
-    awaits: Object.fromEntries(
-      Object.entries(pipelineDef.awaits ?? {}).map(([key, raw]) => [key, raw as AwaitedEventType]),
-    ),
+    awaits: (pipelineDef.awaits ?? {}) as TAwaits,
   });
   assertUniqueWaitForEventTypes(steps);
   return steps;

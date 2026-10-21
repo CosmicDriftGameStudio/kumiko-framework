@@ -68,7 +68,7 @@
       "WriteHandlerFn": 1
     },
     "packages/framework/src/engine/pipeline.ts": {
-      "AwaitedEventType": 1
+      "TAwaits": 1
     },
     "packages/framework/src/engine/registry-state.ts": {
       "ProjectionDefinition[\"table\"]": 1
