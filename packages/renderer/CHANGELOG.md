@@ -1,5 +1,120 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.384.0
+
+### Minor Changes
+
+- 26cd745: Number and decimal formats take minimumFractionDigits and maximumFractionDigits.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Fraction digits for number and decimal formats
+  detail: { format: "number" | "decimal", maximumFractionDigits: 4 } renders 0.0004 as 0.0004 (de: 0,0004) instead of 0; minimumFractionDigits pads. Integers 0 to 20 with min not above max; anything else is ignored and the Intl default (3 digits) applies, so existing formats render unchanged.
+  -->
+- 26cd745: Security, performance and auth defaults: CSP script hashes for hostDispatch pages, a batched file-meta route, lazy editors and pickers, a per-tenant override count in the template overview, and forgot-password and account-unlock wired by default.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: hostDispatch pages get the build's CSP script hashes
+  detail: The deps passed to hostDispatch now carry cspScriptHashes (the inline-script hashes from csp-hashes.json). Build the page CSP with buildDefaultCsp(deps.cspScriptHashes), now exported, so per-host pages keep script-src without unsafe-inline. runDevApp passes an empty list because dev serves no per-host CSP.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: GET /files/meta?ids= returns file metadata in one request
+  detail: Up to 100 comma-separated file ids per call (more answers 400 too_many_ids). The same tenant and access checks as /files/:id/meta apply per id; unknown, foreign and invalid ids are left out of the answer. The renderer's file thumbnails and file names batch their lookups through it, so a list of N files no longer issues N meta requests.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template overview reports tenant overrides per template
+  detail: template-resolver has a SystemAdmin query tenant-override-counts, and the overview rows for system templates carry overriddenBy { active, total } for SystemAdmins. The designer's overview reads it instead of issuing one tenant-overrides query per row. Reading it uses a declared unsafeRaw escape hatch because it counts across tenants.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DayPicker and QR code load on demand
+  detail: The calendar popover and the QR secret value import react-day-picker and qrcode lazily, so screens without a date input or an MFA setup no longer ship them. Date popovers render their grid one tick later; tests should use findBy queries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Layout, mail and PDF template editors load lazily
+  detail: The editors are split into their own chunks and show a loading state while they load. The PdfTemplateEditor export of the web barrel is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Forgot-password and account-unlock work without app wiring
+  detail: With auth.mail and SMTP configured, runProdApp and runDevApp now also wire the account-unlock flow (POST /api/auth/request-account-unlock and /api/auth/confirm-account-unlock, mail link to /unlock-account) because the login lockout is always on. emailPasswordClient serves ForgotPasswordScreen, ResetPasswordScreen (with token) and the unlock screens at /forgot-password, /reset-password and /unlock-account; gates registered earlier by the app win, and defaultAuthPages: false turns it off. LoginScreen reads the new anonymous login-options query and shows the forgot and unlock links when the flows exist; explicit forgotPasswordHref and unlockAccountHref still win and null hides a link. The query needs anonymousAccess on the app, otherwise no link appears.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Privacy center subtitle no longer mentions deletion when it is hidden
+  detail: With privacyCenterShowDeletion false the screen description uses the new key userDataRights.privacyCenter.subtitleWithoutDeletion (English, German, French, Spanish and Italian provided) instead of the text that names Art. 17.
+  -->
+
+### Patch Changes
+
+- 26cd745: Event-consumer admin screens, readable audit log, device column for sessions, and a privacy center that keeps its deletion section.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Event consumers screen with restart, skip, pause and resume
+  detail: SystemAdmins get the screens event-consumers and event-consumer-detail. A stopped consumer offers Restart as the primary action; Skip event (with a confirm dialog), Pause and Resume sit in the overflow menu. The write handlers no longer return the raw error text: unknown consumer, wrong status and nothing to skip have their own codes and messages, anything else is logged on the server and answers a generic message. The shared instance reads "Shared".
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Audit log shows a label for every event type and hides technical entries
+  detail: Events that are not entity lifecycle events get a readable label (for example "Custom field value set") or are classified technical (delivery attempts, counters, tenant-destruction stages) and hidden by default behind "Show technical entries". New event types of bundled features need an entry in the audit classification; a test over all registered events fails without one. Apps that add their own event types are unaffected, they keep the entity and action wording or the raw type.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: Session lists show the device
+  detail: The new subpath @cosmicdrift/kumiko-bundled-features/sessions/web exports sessionsClient(). Apps must add sessionsClient() to their client features to get the device column (browser and OS parsed from the user agent) and the translated "This session" cell; without it the screens fall back to the raw columns. The IP display is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Privacy center keeps the deletion section and speaks to the user
+  detail: The deletion section only held a conditional field and the request-deletion and cancel-deletion actions, so the renderer dropped it as empty. It now stays whenever it has a visible action. The subtitle is written for the person on the page and names Art. 20, 18 and (when deletion is configured) 17.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Consumer admin functions accept a transaction, notIn where operator
+  detail: restartConsumer, skipPoisonEvent, disableConsumer, enableConsumer and the progress readers accept a DbRunner (pool or open transaction); skipPoisonEvent uses its own transaction on a pool and a savepoint inside a handler transaction. skipPoisonEvent takes { requireStatus } and checks it under its row lock; the consumer-skip handler requires "dead". Rejected transitions throw ConsumerTransitionError with rejection "unknown-consumer" or "wrong-status". Where clauses support { notIn: [...] }. Existing callers passing a DbConnection compile unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A section with a visible action is not hidden when all its fields are
+  detail: Edit and detail sections (entityEdit, projectionDetail, in every app) whose fields are all hidden by visibility conditions now stay on screen while at least one of their actions is visible. Before, such a section vanished together with its action buttons; apps that relied on that to hide a section must hide the action with its own visible condition.
+  -->
+- Updated dependencies [c28119a]
+- Updated dependencies [26cd745]
+- Updated dependencies [26cd745]
+- Updated dependencies [26cd745]
+  - @cosmicdrift/kumiko-framework@0.384.0
+  - @cosmicdrift/kumiko-types@0.384.0
+
 ## 0.383.1
 
 ### Patch Changes

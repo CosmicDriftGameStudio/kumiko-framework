@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Forgot-password and account-unlock work without app wiring",
+    "detail": "With auth.mail and SMTP configured, runProdApp and runDevApp now also wire the account-unlock flow (POST /api/auth/request-account-unlock and /api/auth/confirm-account-unlock, mail link to /unlock-account) because the login lockout is always on. emailPasswordClient serves ForgotPasswordScreen, ResetPasswordScreen (with token) and the unlock screens at /forgot-password, /reset-password and /unlock-account; gates registered earlier by the app win, and defaultAuthPages: false turns it off. LoginScreen reads the new anonymous login-options query and shows the forgot and unlock links when the flows exist; explicit forgotPasswordHref and unlockAccountHref still win and null hides a link. The query needs anonymousAccess on the app, otherwise no link appears."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Warning when the login limiter falls back to memory in production",

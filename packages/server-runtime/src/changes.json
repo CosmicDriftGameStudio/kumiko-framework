@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "hostDispatch pages get the build's CSP script hashes",
+    "detail": "The deps passed to hostDispatch now carry cspScriptHashes (the inline-script hashes from csp-hashes.json). Build the page CSP with buildDefaultCsp(deps.cspScriptHashes), now exported, so per-host pages keep script-src without unsafe-inline. runDevApp passes an empty list because dev serves no per-host CSP."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Production logs are plain JSON without the [runProdApp] prefix",

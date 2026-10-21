@@ -1,5 +1,110 @@
 # @cosmicdrift/kumiko-types
 
+## 0.384.0
+
+### Minor Changes
+
+- c28119a: The Unsafe-Append-Event guard is removed because the event store enforces the same rules at runtime.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Unsafe-Append-Event guard removed
+  detail: The event store rejects unregistered event types and validates every payload against its schema at runtime, for appendEvent and unsafeAppendEvent alike, so the static guard is redundant.
+  migration: Delete `.kumiko-unsafe-append-event-baseline.json`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Access-Denied-Test guard replaced by a contract test helper
+  detail: Roles are checked centrally before the payload is parsed. The new `expectRoleRestrictedHandlersDenyForeignRole` test helper proves this over HTTP for every role-restricted write and query handler, so the guard that searched for a matching test per handler is removed.
+  migration: In an app integration test with setupTestStack and the app features, call `expectRoleRestrictedHandlersDenyForeignRole(stack)` and remove the "Access-Denied-Test Guard" entry from `.kumiko-security-baseline.json`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: i18n-Keys guard no longer checks locales
+  detail: The guard only reports keys that are used without a definition. Locale completeness moved to the boot validator, which sees the real registered translations of every feature.
+  migration: Delete `src/i18n-guard-locales.ts` if it exists.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot fails when a feature leaves a locale out of some of its translation keys
+  detail: Within one feature, every translation key must carry every locale that any key of the same feature carries. A missing locale or an empty string fails boot with one error listing all gaps. Features with a single locale across all keys are unaffected, as are locale packages. A plural object counts as present.
+  migration: Add the missing locale to each listed key, or move that locale out of the feature into a locale package.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: PII-Annotations guard removed
+  detail: Entity text and longText fields now have to declare their personal stance by type and at boot, so the static guard that searched for unannotated fields is redundant.
+  migration: Delete `.kumiko-pii-annotations-baseline.json`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Entity text fields must declare a personal stance
+  detail: FieldsMap requires the personal stance of text and longText fields by type, and boot throws for such a field without one. The name heuristic for PII-typical names stays a warning and only applies to other field types.
+  migration: Move raw `{ type: "text" }` and `{ type: "longText" }` entity fields to createTextField / createLongTextField with `personal` ("self", "tenant", "ref", `{ of }`, or false with a `reason`). tsc shows each place.
+  -->
+- 26cd745: Event-consumer admin screens, readable audit log, device column for sessions, and a privacy center that keeps its deletion section.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Event consumers screen with restart, skip, pause and resume
+  detail: SystemAdmins get the screens event-consumers and event-consumer-detail. A stopped consumer offers Restart as the primary action; Skip event (with a confirm dialog), Pause and Resume sit in the overflow menu. The write handlers no longer return the raw error text: unknown consumer, wrong status and nothing to skip have their own codes and messages, anything else is logged on the server and answers a generic message. The shared instance reads "Shared".
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Audit log shows a label for every event type and hides technical entries
+  detail: Events that are not entity lifecycle events get a readable label (for example "Custom field value set") or are classified technical (delivery attempts, counters, tenant-destruction stages) and hidden by default behind "Show technical entries". New event types of bundled features need an entry in the audit classification; a test over all registered events fails without one. Apps that add their own event types are unaffected, they keep the entity and action wording or the raw type.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: Session lists show the device
+  detail: The new subpath @cosmicdrift/kumiko-bundled-features/sessions/web exports sessionsClient(). Apps must add sessionsClient() to their client features to get the device column (browser and OS parsed from the user agent) and the translated "This session" cell; without it the screens fall back to the raw columns. The IP display is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Privacy center keeps the deletion section and speaks to the user
+  detail: The deletion section only held a conditional field and the request-deletion and cancel-deletion actions, so the renderer dropped it as empty. It now stays whenever it has a visible action. The subtitle is written for the person on the page and names Art. 20, 18 and (when deletion is configured) 17.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Consumer admin functions accept a transaction, notIn where operator
+  detail: restartConsumer, skipPoisonEvent, disableConsumer, enableConsumer and the progress readers accept a DbRunner (pool or open transaction); skipPoisonEvent uses its own transaction on a pool and a savepoint inside a handler transaction. skipPoisonEvent takes { requireStatus } and checks it under its row lock; the consumer-skip handler requires "dead". Rejected transitions throw ConsumerTransitionError with rejection "unknown-consumer" or "wrong-status". Where clauses support { notIn: [...] }. Existing callers passing a DbConnection compile unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A section with a visible action is not hidden when all its fields are
+  detail: Edit and detail sections (entityEdit, projectionDetail, in every app) whose fields are all hidden by visibility conditions now stay on screen while at least one of their actions is visible. Before, such a section vanished together with its action buttons; apps that relied on that to hide a section must hide the action with its own visible condition.
+  -->
+- 26cd745: Number and decimal formats take minimumFractionDigits and maximumFractionDigits.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Fraction digits for number and decimal formats
+  detail: { format: "number" | "decimal", maximumFractionDigits: 4 } renders 0.0004 as 0.0004 (de: 0,0004) instead of 0; minimumFractionDigits pads. Integers 0 to 20 with min not above max; anything else is ignored and the Intl default (3 digits) applies, so existing formats render unchanged.
+  -->
+
 ## 0.383.1
 
 No changes in this release.

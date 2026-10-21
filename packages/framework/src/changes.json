@@ -1,5 +1,31 @@
 [
   {
+    "version": "0.384.0",
+    "type": "breaking",
+    "title": "Boot fails when a feature leaves a locale out of some of its translation keys",
+    "detail": "Within one feature, every translation key must carry every locale that any key of the same feature carries. A missing locale or an empty string fails boot with one error listing all gaps. Features with a single locale across all keys are unaffected, as are locale packages. A plural object counts as present.",
+    "migration": "Add the missing locale to each listed key, or move that locale out of the feature into a locale package."
+  },
+  {
+    "version": "0.384.0",
+    "type": "breaking",
+    "title": "Entity text fields must declare a personal stance",
+    "detail": "FieldsMap requires the personal stance of text and longText fields by type, and boot throws for such a field without one. The name heuristic for PII-typical names stays a warning and only applies to other field types.",
+    "migration": "Move raw `{ type: \"text\" }` and `{ type: \"longText\" }` entity fields to createTextField / createLongTextField with `personal` (\"self\", \"tenant\", \"ref\", `{ of }`, or false with a `reason`). tsc shows each place."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Consumer admin functions accept a transaction, notIn where operator",
+    "detail": "restartConsumer, skipPoisonEvent, disableConsumer, enableConsumer and the progress readers accept a DbRunner (pool or open transaction); skipPoisonEvent uses its own transaction on a pool and a savepoint inside a handler transaction. skipPoisonEvent takes { requireStatus } and checks it under its row lock; the consumer-skip handler requires \"dead\". Rejected transitions throw ConsumerTransitionError with rejection \"unknown-consumer\" or \"wrong-status\". Where clauses support { notIn: [...] }. Existing callers passing a DbConnection compile unchanged."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "GET /files/meta?ids= returns file metadata in one request",
+    "detail": "Up to 100 comma-separated file ids per call (more answers 400 too_many_ids). The same tenant and access checks as /files/:id/meta apply per id; unknown, foreign and invalid ids are left out of the answer. The renderer's file thumbnails and file names batch their lookups through it, so a list of N files no longer issues N meta requests."
+  },
+  {
     "version": "0.383.1",
     "type": "fix",
     "title": "close() ends unbounded pools of abandoned long runs",

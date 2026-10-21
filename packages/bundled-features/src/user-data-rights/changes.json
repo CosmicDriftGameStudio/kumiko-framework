@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.384.0",
+    "type": "fix",
+    "title": "privacy center boot test fixture declares a field stance",
+    "detail": "Test-only change. Two changes merged back to back on main: one added the privacy center deletion test with plain text fixture fields, the other made a personal-data stance mandatory on entity text fields. The fixture fields now state allowPlaintext, so the framework type check passes again."
+  },
+  {
+    "version": "0.384.0",
+    "type": "fix",
+    "title": "Privacy center keeps the deletion section and speaks to the user",
+    "detail": "The deletion section only held a conditional field and the request-deletion and cancel-deletion actions, so the renderer dropped it as empty. It now stays whenever it has a visible action. The subtitle is written for the person on the page and names Art. 20, 18 and (when deletion is configured) 17."
+  },
+  {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Privacy center subtitle no longer mentions deletion when it is hidden",
+    "detail": "With privacyCenterShowDeletion false the screen description uses the new key userDataRights.privacyCenter.subtitleWithoutDeletion (English, German, French, Spanish and Italian provided) instead of the text that names Art. 17."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "Client files of a feature live under web/",

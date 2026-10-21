@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Event consumers screen with restart, skip, pause and resume",
+    "detail": "SystemAdmins get the screens event-consumers and event-consumer-detail. A stopped consumer offers Restart as the primary action; Skip event (with a confirm dialog), Pause and Resume sit in the overflow menu. The write handlers no longer return the raw error text: unknown consumer, wrong status and nothing to skip have their own codes and messages, anything else is logged on the server and answers a generic message. The shared instance reads \"Shared\"."
+  },
+  {
     "version": "0.383.0",
     "type": "breaking",
     "title": "Job handlers can return ctx.defer(ms)",

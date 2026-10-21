@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Session lists show the device",
+    "detail": "The new subpath @cosmicdrift/kumiko-bundled-features/sessions/web exports sessionsClient(). Apps must add sessionsClient() to their client features to get the device column (browser and OS parsed from the user agent) and the translated \"This session\" cell; without it the screens fall back to the raw columns. The IP display is unchanged."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "sessionChecker looks up the user and the membership concurrently",

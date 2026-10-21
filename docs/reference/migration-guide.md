@@ -2,13 +2,29 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-20
+verified: 2026-10-21
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.384.0
+
+### framework-core
+
+**Boot fails when a feature leaves a locale out of some of its translation keys**
+
+Within one feature, every translation key must carry every locale that any key of the same feature carries. A missing locale or an empty string fails boot with one error listing all gaps. Features with a single locale across all keys are unaffected, as are locale packages. A plural object counts as present.
+
+**Migration:** Add the missing locale to each listed key, or move that locale out of the feature into a locale package.
+
+**Entity text fields must declare a personal stance**
+
+FieldsMap requires the personal stance of text and longText fields by type, and boot throws for such a field without one. The name heuristic for PII-typical names stays a warning and only applies to other field types.
+
+**Migration:** Move raw `{ type: "text" }` and `{ type: "longText" }` entity fields to createTextField / createLongTextField with `personal` ("self", "tenant", "ref", `{ of }`, or false with a `reason`). tsc shows each place.
 
 ## 0.383.0
 

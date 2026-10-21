@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.384.0",
+    "type": "improvement",
+    "title": "Layout, mail and PDF template editors load lazily",
+    "detail": "The editors are split into their own chunks and show a loading state while they load. The PdfTemplateEditor export of the web barrel is unchanged."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "Designer rails wrap instead of clipping",
