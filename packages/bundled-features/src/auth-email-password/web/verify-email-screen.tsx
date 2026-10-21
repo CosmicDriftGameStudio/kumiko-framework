@@ -34,7 +34,7 @@ export function VerifyEmailScreen({
   const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
   const startedRef = useRef(false);
 
-  // kumiko-lint-ignore no-raw-hooks
+  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
   useEffect(() => {
     if (status !== "verifying") return;
     if (startedRef.current) return;

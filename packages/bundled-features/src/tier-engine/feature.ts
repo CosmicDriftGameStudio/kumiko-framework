@@ -39,7 +39,7 @@
 //
 // **Boot dependencies:** config + tenant.
 
-// kumiko-lint-ignore app-feature-structure conversion tracked (feature.ts > 300 lines)
+// kumiko-lint-ignore app-feature-structure feature.ts is over 300 lines and not yet split
 import {
   buildEntityTable,
   createEventStoreExecutor,

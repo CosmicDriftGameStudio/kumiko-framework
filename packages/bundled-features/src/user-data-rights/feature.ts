@@ -1,4 +1,4 @@
-// kumiko-lint-ignore app-feature-structure conversion (feature.ts > 300 lines)
+// kumiko-lint-ignore app-feature-structure feature.ts is over 300 lines and not yet split
 import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import {
   createSystemConfig,
