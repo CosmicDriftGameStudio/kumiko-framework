@@ -1,4 +1,4 @@
-// fw#2626 — `{ kind: "where" }` ownership rules on the WRITE path.
+// `{ kind: "where" }` ownership rules on the WRITE path.
 //
 // `entity.access.write` is only ever evaluated in memory
 // (userCanCreateFieldRow / userCanWriteFieldRow); there is no SQL layer on the

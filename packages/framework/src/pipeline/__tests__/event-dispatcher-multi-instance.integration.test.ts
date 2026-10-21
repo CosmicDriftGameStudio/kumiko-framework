@@ -267,7 +267,7 @@ describe("E.5 — cursor-lag catch-up", () => {
   });
 });
 
-// Welle 2.7 — per-instance delivery. Inverse of the shared test above:
+// Per-instance delivery. Inverse of the shared test above:
 // with delivery="per-instance", each dispatcher gets its OWN cursor row
 // (via instance_id), so both dispatchers MUST deliver every event. SSE
 // broadcast in split-deploy is the canonical use-case.

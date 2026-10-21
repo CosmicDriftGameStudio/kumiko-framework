@@ -1,4 +1,4 @@
-// Runtime-validator tests for parsePatternChanges (kumiko-framework#3137).
+// Runtime-validator tests for parsePatternChanges.
 // The round-trip guard is the load-bearing test: every FeaturePattern the
 // real-feature/recipe corpus produces must survive an add-change parse
 // byte-for-byte, or the schema has drifted from patterns.ts.

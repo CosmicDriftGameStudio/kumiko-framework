@@ -1,4 +1,4 @@
-// kumiko-framework#3243: a DB outage must not crash the dispatcher and must
+// A DB outage must not crash the dispatcher and must
 // not stay silent forever. The idle pre-check's error log (doPass) fires once
 // per outage, and a matching "recovered" line must fire once the DB answers
 // again, so ops can see the return without restarting the process. Routes the

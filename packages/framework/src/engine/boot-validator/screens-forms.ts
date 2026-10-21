@@ -26,7 +26,7 @@ import {
 } from "./screens-actions.ts";
 
 // A field type in NO_WIDGET_FIELD_TYPES renders read-only on the auto-wired
-// entityEdit path (#1925) — a required field the user can never fill would
+// entityEdit path — a required field the user can never fill would
 // block every save. Only the statically-resolvable case is caught here: a
 // literal `required: true` (screen-spec override or entity-level default).
 // A dynamic FieldCondition depends on runtime form values and can't be
@@ -149,7 +149,7 @@ export function validateNoWidgetRequiredField(
   // skip: field doesn't exist or its type already has a widget — nothing to validate.
   if (fieldDef === undefined || !NO_WIDGET_FIELD_TYPES.includes(fieldDef.type)) return;
   // Embedded LIST fields (`multiple: true`) get their own EmbeddedListField
-  // grid widget (#1838) — only plain (non-list) embedded has no widget.
+  // grid widget — only plain (non-list) embedded has no widget.
   const isEmbeddedList = fieldDef.type === "embedded" && fieldDef.multiple === true;
   // skip: list variant has a widget — not the no-widget case this guard targets.
   if (isEmbeddedList) return;
@@ -170,8 +170,7 @@ export function validateNoWidgetRequiredField(
 
 // Shared by projectionDetail and entityEdit: a tab strip needs something to
 // label each tab with and a stable id per tab — the id anchors the ?tab=
-// param on projectionDetail and the jump-to-erroring-tab logic on entityEdit
-// (fw#3134).
+// param on projectionDetail and the jump-to-erroring-tab logic on entityEdit.
 export function validateTabSections(
   featureName: string,
   screenId: string,
@@ -226,7 +225,7 @@ export function validateWizardLayout(
 ): void {
   // entityEdit renders tabs like wizard steps: every section stays mounted,
   // submit validates across all of them, and a field error jumps to the tab
-  // holding it (fw#3134). The other three have no such jump — actionForm and
+  // holding it. The other three have no such jump — actionForm and
   // secretMint are one-shot forms, configEdit fires a write per field — so a
   // required field on a hidden tab would still block their submit silently.
   if (layout.mode === "tabs") {
@@ -288,7 +287,7 @@ export function validateWizardLayout(
 //
 // Field-level renderer QN strings (cross-feature `component:` references)
 // are NOT validated here — the r.uiComponent registry that would resolve
-// them ships in M4/M5. Until then those are kept opaque on purpose.
+// them ships later. Until then those are kept opaque on purpose.
 
 // Shared by the mint step's own handler (screen.handler) and its optional
 // confirm step (confirm.handler) — both are a bare write-handler QN with the
@@ -325,7 +324,7 @@ function validateWriteHandlerRegistered(
 // secretMint's own `confirm` step — a second, independent inline form on the
 // same screen — can reuse the same checks as its `fields`/`layout` pair.
 // `allowEmpty` is only ever true for a secretMint's own mint step (an
-// input-less mint, fw#2838): the secret is server-generated and the mint
+// input-less mint): the secret is server-generated and the mint
 // step is just its submit button — actionForm and the confirm step always
 // require at least one field.
 function validateFormFieldsMap(
@@ -492,7 +491,7 @@ export function validateFormSelectOptions(
   }
 }
 
-// Fail-closed currency-source gate (fw#2839), the runtime half of the
+// Fail-closed currency-source gate, the runtime half of the
 // narrowed `FormFieldDefinition` — an untyped JS consumer has no compiler to
 // stop it. An inline form screen has no entity, so a money field there can't
 // borrow `entity.defaultCurrency`: without a declared source the renderer
@@ -690,7 +689,7 @@ export function validateInlineFormScreen(
 ): void {
   validateWriteHandlerRegistered(feature.name, screenId, kind, screen.handler, allWriteHandlerQns);
   // Only a secretMint's own mint step may skip fields/sections entirely
-  // (input-less mint, fw#2838) — actionForm always needs at least one field.
+  // (input-less mint) — actionForm always needs at least one field.
   const allowEmptyMintForm = kind === "secretMint";
   const fieldNames = validateFormFieldsMap(
     feature.name,
@@ -727,14 +726,14 @@ export function validateInlineFormScreen(
   validateInlineFormNavTargets(feature, screenId, screen, kind, lookups);
 }
 
-// SecretMintConfirmStep (fw#2838): an optional proof-of-receipt form rendered
+// SecretMintConfirmStep: an optional proof-of-receipt form rendered
 // on the reveal card in place of the bare acknowledge button (TOTP enrollment:
 // scan the code, then enter one). Unlike the mint step, confirm always needs
 // at least one field — a step whose only job is proving receipt with no input
 // would be meaningless — and its layout is a single plain form, never a
 // wizard/tabs flow and never a persisted draft: a one-time reveal-confirm is
 // not a multi-step flow, and persisting a draft of it would re-open the leak
-// fw#2548 closed (a lingering copy of the just-revealed secret in storage).
+// (a lingering copy of the just-revealed secret in storage).
 export function validateSecretMintConfirm(
   feature: FeatureDefinition,
   screenId: string,

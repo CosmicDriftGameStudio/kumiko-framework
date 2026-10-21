@@ -1,7 +1,7 @@
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
 
-/** Stabiler Lock-Key für pg_advisory_xact_lock — multi-replica seed boots. */
+/** Stable lock key for pg_advisory_xact_lock across multi-replica seed boots. */
 export const ES_OPS_ADVISORY_LOCK_KEY = 0x65_73_6f_70; // 'esop'
 
 export async function acquireEsOpsAdvisoryLock(db: AnyDb): Promise<void> {

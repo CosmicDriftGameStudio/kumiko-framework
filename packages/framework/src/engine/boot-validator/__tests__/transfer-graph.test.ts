@@ -1,6 +1,6 @@
-// fw#3088 — boot guard for the tenant-handover transfer graph. Both shapes
+// Boot guard for the tenant-handover transfer graph. Both shapes
 // checked here would otherwise leave rows behind in the source tenant at
-// handover time, which is the silent partial move the issue exists to end.
+// handover time, which is the silent partial move this prevents.
 // Scoped to `transferable: true`, so a consumer that has the shape but never
 // hands the entity over keeps booting.
 

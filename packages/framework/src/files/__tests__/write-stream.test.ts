@@ -1,16 +1,15 @@
-// Storage-Provider writeStream-API (S2.U3 Atom 1d).
+// Storage-provider writeStream API.
 //
-// Pinst:
-//   - In-memory-Provider: writeStream collected chunks + macht
-//     read-Roundtrip identisch zu write(uint8array).
-//   - Local-Provider: writeStream schreibt atomar via tmp + rename,
-//     halb-fertige Stream-Bricht hinterlassen keine Garbage am Final-
-//     Pfad.
-//   - Beide Provider liefern die Bytes via read() identisch zurueck —
-//     kein chunk-Loss, kein chunk-Order-Verlust.
+// Tests:
+//   - In-memory provider: writeStream collects chunks and produces a
+//     read round trip identical to write(uint8array).
+//   - Local provider: writeStream writes atomically via tmp + rename, so
+//     an interrupted stream leaves no garbage at the final path.
+//   - Both providers return identical bytes via read(): no chunk loss or
+//     chunk-order loss.
 //
-// AsyncIterable-source pinst die Streaming-Semantik (Caller streamt
-// chunk-fuer-chunk, Provider niemals alles im Memory).
+// An AsyncIterable source tests streaming semantics: the caller provides
+// chunks incrementally, and the provider need not hold the entire stream in memory.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
@@ -56,10 +55,10 @@ describe("FileStorageProvider.writeStream — in-memory", () => {
   });
 
   test("mimeType-Option wird in der gespeicherten Entry erhalten", async () => {
-    // Kein direkter Read-Pfad fuer mimeType — wir checken via existing-
-    // Marker (write-Pfad teilt den storage-shape). Symmetrie-Test:
-    // ein write() + ein writeStream() mit gleichem key + gleichem
-    // mimeType muessen byte-identische Reads liefern.
+    // There is no direct read path for mimeType, so we verify it through
+    // the existing marker (the write path shares the storage shape).
+    // This symmetry test checks that write() and writeStream() with the
+    // same key and mimeType produce byte-identical reads.
     const a = createInMemoryFileProvider();
     const b = createInMemoryFileProvider();
     const bytes = new Uint8Array([42, 43, 44]);
@@ -116,10 +115,10 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
   });
 
   test("atomar: nach Failure ist KEIN final-Pfad-File da (.tmp-Leak ist best-effort)", async () => {
-    // Echte Atomicity-Garantie: der final-Pfad ist niemals halb-fertig
-    // sichtbar. tmp-Files koennen je nach OS-Race im destroy-Pfad
-    // kurz liegen bleiben — kein Korrektheitsproblem (kein Reader
-    // sucht nach `*.tmp`-Patterns), nur Operations-Hygiene.
+    // The final path is never visible in a partially written state. Depending
+    // on OS timing, tmp files may briefly remain during destruction; this
+    // affects only operational hygiene, because no reader looks for
+    // `*.tmp` patterns.
     const provider = createLocalProvider(basePath);
 
     async function* failing(): AsyncIterable<Uint8Array> {
@@ -129,10 +128,10 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
 
     await expect(provider.writeStream("subdir/leak-check.bin", failing())).rejects.toThrow();
 
-    // Final-Pfad ist NICHT da — das ist die harte Garantie.
+    // The final path must not exist after a failed write.
     expect(await provider.exists("subdir/leak-check.bin")).toBe(false);
 
-    // tmp-Files duerfen nicht den final-Namen haben (sonst kein Atomicity).
+    // Temporary files must not use the final name, or the write would not be atomic.
     const entries = await readdir(join(basePath, "subdir"));
     for (const entry of entries) {
       expect(entry).not.toBe("leak-check.bin");
@@ -164,12 +163,11 @@ describe("FileStorageProvider.writeStream — local-filesystem", () => {
 });
 
 describe("FileStorageProvider.writeStream — Streaming-Property", () => {
-  // Pinst dass writeStream tatsaechlich AsyncIterable konsumiert ohne
-  // alle chunks in eine Promise.resolve(...) Array zu converten.
-  // Wenn ein Provider intern das chunks-Array sammelt, ist das fuer
-  // unsere semantischen Garantien OK — wir testen nur das Resultat.
-  // Dieser Test sichert dass der Caller ein REIN async-iterable
-  // uebergeben kann (z.B. ZIP-Stream der chunks lazy generiert).
+  // This verifies that writeStream accepts a genuine AsyncIterable without
+  // requiring the caller to convert all chunks into a Promise.resolve(...)
+  // array. A provider may collect the chunks internally; this test checks
+  // only the resulting semantics. The caller can therefore provide a
+  // lazy async iterable, such as a ZIP stream.
 
   test("Source mit Promise-delays wird korrekt verarbeitet", async () => {
     const provider = createInMemoryFileProvider();
@@ -190,17 +188,16 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
   });
 
   test("local-Provider streamt WAEHREND der Source yieldet (tmp-File existiert pre-completion)", async () => {
-    // Echter Streaming-Property-Test: bei langsamen Source-yields muss
-    // der local-Provider die tmp-File anfangen zu schreiben WAEHREND
-    // wir noch chunks zur Verfuegung stellen — nicht erst alle chunks
-    // collecten.
+    // This streaming-property test ensures that the local provider starts
+    // writing the tmp file while the source is still yielding chunks,
+    // rather than collecting every chunk first.
     //
-    // Pattern: 5 chunks mit je 30ms delay zwischen yields. Wir starten
-    // writeStream + pollen alle 10ms (max 200ms) bis tmp-File auftaucht.
-    // Bei collect-then-write taucht NIE eine tmp-File auf — Test failed
-    // dann via Timeout. Poll-basiert statt time-hardcoded gibt CI-
-    // Geschwindigkeits-Toleranz; flake-frei solange total-source-time
-    // (5 × 30ms = 150ms) > poll-Granularitaet (10ms).
+    // Five chunks are yielded with a 30ms delay between them. We start
+    // writeStream and poll every 10ms (for up to 200ms) until the tmp file
+    // appears. With collect-then-write, no tmp file would appear and the
+    // test would time out. Polling instead of using a fixed time allows
+    // for CI speed variation; it remains reliable while the total source
+    // time (5 × 30ms = 150ms) exceeds the polling interval (10ms).
     const basePath = await mkdtemp(join(tmpdir(), "kumiko-stream-prop-"));
     try {
       const provider = createLocalProvider(basePath);
@@ -213,7 +210,7 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
       ];
       const writePromise = provider.writeStream("streamed.bin", slowChunks(chunks, 30));
 
-      // Poll bis tmp existiert ODER final schon fertig (zu schneller CI).
+      // Poll until the tmp file exists or the final write has already completed.
       let hasTmp = false;
       let alreadyDone = false;
       await waitFor(
@@ -233,10 +230,9 @@ describe("FileStorageProvider.writeStream — Streaming-Property", () => {
       }
       expect(hasTmp).toBe(true); // tmp existiert WAEHREND yields
 
-      // Warten auf completion
       await writePromise;
 
-      // Nach completion: tmp ist weg, final-File ist da
+      // After completion, the tmp file is gone and the final file exists.
       const finalContents = await readdir(basePath);
       expect(finalContents).toContain("streamed.bin");
       expect(finalContents.filter((f) => f.endsWith(".tmp"))).toEqual([]);

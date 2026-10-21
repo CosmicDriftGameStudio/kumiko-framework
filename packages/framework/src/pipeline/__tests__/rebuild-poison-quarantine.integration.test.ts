@@ -1,4 +1,4 @@
-// #760 — poison-event quarantine during projection rebuild.
+// Poison-event quarantine during projection rebuild.
 //
 // A single historical event whose apply throws used to abort the WHOLE
 // rebuild (tx rollback, status failed) with no recovery path short of

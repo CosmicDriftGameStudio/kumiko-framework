@@ -11,24 +11,24 @@ import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "
 import { scheduleTokenExpiry } from "./token-expiry-timer.ts";
 
 /**
- * Heartbeat-Cadence für SSE-Streams.
+ * Heartbeat cadence for SSE streams.
  *
- * Spec: muss UNTER jedem realistischen Idle-Timeout der Hop-by-Hop-Layer
- * liegen, sonst killt einer davon die Connection und der Browser sieht
- * ERR_HTTP2_PROTOCOL_ERROR. Bekannte Limits:
- *   - Bun.serve default: 10 s (lokal disabled via idleTimeout: 0,
- *     aber Spec-konform auch ohne Override)
- *   - Caddy reverse_proxy: kein default-Timeout für SSE (auto-detect
- *     via Content-Type), aber langlebige idle Streams können von
- *     Connection-Tracking dichtgemacht werden
+ * Must stay below every realistic idle timeout in the hop-by-hop layers;
+ * otherwise one of them terminates the connection and the browser reports
+ * ERR_HTTP2_PROTOCOL_ERROR. Known limits:
+ *   - Bun.serve default: 10 s (disabled locally via idleTimeout: 0,
+ *     but the cadence also conforms without that override)
+ *   - Caddy reverse_proxy: no default timeout for SSE (auto-detects
+ *     via Content-Type), but long-lived idle streams may be closed by
+ *     connection tracking
  *   - Cloudflare Edge: 100 s
  *   - AWS ALB: 60 s
  *
- * 15 s liegt komfortabel unter allen davon. Server-side Cost ist
- * marginal (1 Frame pro Client alle 15 s).
+ * 15 s is comfortably below all of these. The server-side cost is marginal
+ * (1 frame per client every 15 s).
  *
- * Spec-Test in __tests__/sse-route-spec.test.ts pinst diesen Wert
- * gegen versehentliches Hochsetzen.
+ * The spec test in __tests__/sse-route-spec.test.ts pins this value to
+ * prevent accidentally increasing it.
  */
 export const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
 
@@ -241,8 +241,8 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
 
       stream.onAbort(release);
 
-      // Keep connection alive with heartbeat — siehe SSE_HEARTBEAT_INTERVAL_MS
-      // header für die Layer-für-Layer-Begründung der 15s-Cadence.
+      // Keep the connection alive with a heartbeat — see SSE_HEARTBEAT_INTERVAL_MS
+      // for the layer-by-layer rationale for the 15 s cadence.
       try {
         while (!stream.closed && !stream.aborted) {
           if (isStalled()) {

@@ -1,8 +1,7 @@
-// Snapshot-Tests fuer KUMIKO_SUB_PROCESSORS. Fangen still-Drift ab —
-// jede Aenderung an der Liste muss bewusst durch ein Snapshot-Update
-// gehen, damit niemand versehentlich einen Sub-Processor entfernt
-// oder hinzufuegt ohne dass die DPA/Tenant-Notification-Pipeline das
-// mitbekommt.
+// Snapshot tests for KUMIKO_SUB_PROCESSORS detect silent drift.
+// Every list change must intentionally update the snapshot so that
+// accidentally adding or removing a sub-processor cannot bypass the
+// DPA/tenant-notification pipeline.
 
 import { describe, expect, test } from "bun:test";
 import {

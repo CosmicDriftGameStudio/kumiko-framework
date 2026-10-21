@@ -8,8 +8,8 @@
 // production defaults stay consistent and env-var wiring lives in one
 // place. Tests / one-off scripts can still `new Redis()` directly.
 //
-// Split out of index.ts (fw#2625) so pubsub-signal.ts can import this
-// without a same-directory cycle back through the barrel.
+// Split out of index.ts so pubsub-signal.ts can import this without a
+// same-directory cycle back through the barrel.
 
 import { Redis, type RedisOptions } from "ioredis";
 import { scrubLogText } from "../logging/scrub.ts";

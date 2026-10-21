@@ -45,7 +45,7 @@ describe("ensureIdempotencyKeyIndex (#1499)", () => {
 
     // Two independent connections against the SAME database, mirroring two
     // pods — a single shared `testDb.db` pool would serialize both calls
-    // and never pin the race (kumiko-framework#1522).
+    // and never pin the race.
     const secondPodDb = await createTestDb({ dbName: testDb.dbName, persistent: true });
     try {
       await Promise.all([

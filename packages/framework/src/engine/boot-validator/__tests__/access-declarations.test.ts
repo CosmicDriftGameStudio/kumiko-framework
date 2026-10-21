@@ -190,7 +190,7 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
-  // 2b. escapeHatch reason must be non-empty on a query handler too (fw#2859:
+  // 2b. escapeHatch reason must be non-empty on a query handler too:
   // query handlers can't reach db.global(), but they can still declare
   // escapeHatch to switch identity to SYSTEM via ctx.queryAs).
   test("query handler escapeHatch with an empty reason throws, naming the handler", () => {
@@ -347,7 +347,7 @@ describe("validateAccessDeclarations", () => {
   });
 
   test("the deprecated openToAll: true form no longer type-checks against AccessRule", () => {
-    // @ts-expect-error `openToAll: true` was removed from AccessRule — see #2858
+    // @ts-expect-error `openToAll: true` was removed from AccessRule
     const access: AccessRule = { openToAll: true };
     expect(access).toBeDefined();
   });

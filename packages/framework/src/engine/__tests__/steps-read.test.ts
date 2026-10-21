@@ -17,7 +17,7 @@ const testTable = table("test_read", {
   label: text("label"),
 });
 
-// fw#2914: read-find-many/one now call selectMany(ctx.db, table, where, opts) —
+// read-find-many/one now call selectMany(ctx.db, table, where, opts) —
 // ctx.db is a TenantDb, so selectMany's tenantDbDelegate branch runs
 // TenantDb.selectMany (applies the tenant filter) instead of raw SQL. Mock
 // .unsafe() to feed back rows once the (tenant-filtered) query reaches it.

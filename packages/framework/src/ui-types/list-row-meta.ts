@@ -55,13 +55,13 @@ export type ReferenceLookupSource = {
 // user:user — the convention QN is a SystemAdmin cross-tenant roster whose
 // `tenants` join must not reach a TenantAdmin, so it stays SystemAdmin-only and
 // the label lookup goes through the member directory instead: own-tenant
-// members for an admin, every user for a SystemAdmin (fw#3107).
+// members for an admin, every user for a SystemAdmin.
 //
 // tenant:tenant — the convention QN, `tenant:query:tenant:list`, is a
 // SystemAdmin-only entity-list handler, so a TenantAdmin got a 403 and every
 // tenant cell fell back to the raw UUID. The label lookup goes through the
 // tenant directory instead: the caller's own tenant for an admin, every
-// tenant for a SystemAdmin (fw#3142).
+// tenant for a SystemAdmin.
 export const REFERENCE_LOOKUP_SOURCES: Readonly<Record<string, ReferenceLookupSource>> = {
   "user:user": { queryQn: "tenant:query:member-directory", labelKey: "label" },
   "tenant:tenant": { queryQn: "tenant:query:tenant-directory", labelKey: "label" },
@@ -80,10 +80,10 @@ export type SystemReferenceLabel = {
 // otherwise. Keyed by `${refFeature}:${refEntity}` so useReferenceLookup can
 // consult this generically instead of any screen/hook hardcoding an entity
 // name. Central so the label applies to every screen that references this
-// entity, not just delivery-log (fw#2662).
+// entity, not just delivery-log.
 export const SYSTEM_REFERENCE_LABELS: Readonly<Record<string, SystemReferenceLabel>> = {
   "tenant:tenant": { id: SYSTEM_TENANT_ID, labelKey: "kumiko.reference.system-tenant" },
-  // createdBy on a system write (fw#3103) — SYSTEM_USER_ID is an alias for
+  // createdBy on a system write — SYSTEM_USER_ID is an alias for
   // "no human caller", so read_users never holds a matching row.
   "user:user": {
     id: SYSTEM_USER_ID,

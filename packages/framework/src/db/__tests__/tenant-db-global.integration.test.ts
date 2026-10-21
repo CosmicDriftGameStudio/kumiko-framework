@@ -1,5 +1,5 @@
-// fw#2858 — db.global(table) against real Postgres: a "global" unmanaged table has
-// no tenant_id column at all (binding decision, issue comment 2026-09-14), so its
+// db.global(table) against real Postgres: a "global" unmanaged table has
+// no tenant_id column at all (binding decision), so its
 // rows are tenant-agnostic — every caller sees the same rows through db.global().
 // A normal tenancy: "tenant" table is unaffected and still isolates by tenant.
 // Follows tenant-db-where-merge.integration.test.ts's setupTestStack pattern.

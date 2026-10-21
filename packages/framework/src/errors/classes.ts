@@ -155,7 +155,7 @@ export class VersionConflictError extends ConflictError {
   }
 }
 
-// `update()`'s optional `expect:` precondition (kumiko-framework#3024) —
+// `update()`'s optional `expect:` precondition —
 // a freshly-read row no longer matches the caller's declared field values.
 // Distinct from VersionConflictError: that one guards the stream version,
 // this one guards an arbitrary business field a lifecycle transition

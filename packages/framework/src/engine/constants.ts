@@ -52,7 +52,7 @@ export type LifecycleHookType = (typeof LifecycleHookTypes)[keyof typeof Lifecyc
 // --- Config Scopes ---
 // Value object satisfies the canonical ConfigScope union from kumiko-types —
 // a scope added here without a matching kumiko-types member is now a
-// compile error instead of silent drift (#1423/#1439).
+// compile error instead of silent drift.
 
 export const ConfigScopes = {
   system: "system",
@@ -100,7 +100,7 @@ void _concurrencyModeExhaustive;
 // --- Money Currency Sources ---
 // Canonical definition lives in kumiko-types/fields (client-safe, next to
 // MoneyCurrencySource) so renderer code can import it without pulling in
-// runtime-only engine code (fw#2937). Re-exported here for server callers
+// runtime-only engine code. Re-exported here for server callers
 // already importing framework/engine (bundled-features/src/tenant-settings/
 // constants.ts TenantSettingsConfig.currency reuses this same constant, so
 // the two stay in sync by construction).

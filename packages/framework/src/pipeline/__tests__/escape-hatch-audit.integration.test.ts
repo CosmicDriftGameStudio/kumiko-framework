@@ -1,4 +1,4 @@
-// fw#2861 — every escape-hatch use reports through AppContext._escapeHatchAuditSink
+// Every escape-hatch use reports through AppContext._escapeHatchAuditSink
 // (or warn-logs when no sink is wired). Real HTTP calls + setupTestStack — never
 // createTestDispatcher. Modelled on unsafe-raw-escape-hatch.integration.test.ts and
 // system-identity-switch.integration.test.ts.

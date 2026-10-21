@@ -22,17 +22,17 @@ function resolveTracer(context: AppContext): Tracer {
 }
 
 /**
- * Resolve effective-feature set for the active context's tenant.
+ * Resolves the effective feature set for the active context's tenant.
  *
- * `_tenantId` wird vom dispatcher beim HandlerContext-Bau aus `user.tenantId`
- * gespiegelt. Bei legacy-callsites ohne user (system-jobs, boot-time
- * pipeline) ist es undefined — `effectiveFeatures(undefined)` wäre type-
- * unsafe; wir return undefined und behandeln das als "all features on"
- * (registry filterhooks akzeptieren undefined als "skip filter").
+ * `_tenantId` is copied from `user.tenantId` when the dispatcher builds the
+ * HandlerContext. Legacy call sites without a user (system jobs, boot-time
+ * pipeline) leave it undefined; `effectiveFeatures(undefined)` is type-unsafe,
+ * so this returns undefined and treats that as "all features on" (registry
+ * filter hooks accept undefined to skip filtering).
  *
- * Single source — die 4 lifecycle-hook-callsites (preSave, postSave,
- * preDelete, postDelete) rufen alle hier durch, damit der tenant-
- * scoping-Pfad nie inkonsistent ist.
+ * This is the single path used by all four lifecycle-hook call sites
+ * (preSave, postSave, preDelete, postDelete), keeping tenant scoping
+ * consistent.
  */
 function currentEffectiveFeatures(context: AppContext): ReadonlySet<string> | undefined {
   if (context._tenantId === undefined) return undefined;

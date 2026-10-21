@@ -1,10 +1,10 @@
-// Quarantine-Policy für fehlerhafte Upcaster.
+// Quarantine policy for failing upcasters.
 //
-// Die throw-Policy ist bereits in upcaster.integration.ts getestet. Hier:
-//   - quarantine schreibt eine dead-letter-Row
-//   - der Event wird aus der Result-Liste entfernt
-//   - die throw-Policy bleibt unverändert (Regression-Guard)
-//   - listDeadLetters filtert per eventType
+// The throw policy is already tested in upcaster.integration.ts. This file verifies that:
+//   - quarantine writes a dead-letter row
+//   - the event is removed from the result list
+//   - the throw policy remains unchanged (regression guard)
+//   - listDeadLetters filters by eventType
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";

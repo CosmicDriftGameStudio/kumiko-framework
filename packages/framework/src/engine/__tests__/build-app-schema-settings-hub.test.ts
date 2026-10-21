@@ -205,7 +205,7 @@ describe("buildAppSchema — Settings-Hub inline placement", () => {
     const ok = defineFeature("ok", (r) => {
       r.config({ keys: { fee: createSystemConfig("number", { mask: { title: "ok.fee" } }) } });
       r.workspace({ id: "w", label: "W", nav: ["config:nav:audience-system"] });
-      // mask.title is unconditionally required (fw#2313) — irrelevant to what
+      // mask.title is unconditionally required — irrelevant to what
       // this test actually asserts (audience-nav QN exemption), but boot
       // still needs it translated.
       r.translations({ keys: { "ok.fee": { en: "Fee" } } });
@@ -245,7 +245,7 @@ describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => 
   });
 
   test("referencing a generated audience does NOT trigger the dangling warning", () => {
-    // audience-tenant IS generated (billing has tenant keys) → kein dangling.
+    // audience-tenant IS generated (billing has tenant keys) → no dangling reference.
     const messages = warnsFor(["tenant"]);
     expect(messages.some((m) => m.includes("nie generiert"))).toBe(false);
   });

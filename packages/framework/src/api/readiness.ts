@@ -105,11 +105,11 @@ export function redisPingCheck(redis: Redis): ReadinessCheck {
   };
 }
 
-// Lag-Check für den Async-Event-Dispatcher. Liest HWM + Consumer-Cursor aus
-// der DB — kein extra Redis/Runtime-State. Fail-Schwelle ist in EventIds
-// (bigint), weil das die natürliche Einheit ist (events sind monoton id'd).
-// Ein Tuning-Beispiel: maxLagEvents = 1_000 bedeutet "wenn die Projection
-// mehr als 1k Events hinter HWM ist, stoppe neue Traffic-Zuweisung".
+// Lag check for the asynchronous event dispatcher. Reads the HWM and consumer cursor from
+// the database, without relying on extra Redis or runtime state. The failure threshold is
+// measured in event IDs (`bigint`), the natural unit because events have monotonically
+// increasing IDs. For example, `maxLagEvents = 1_000` stops routing new traffic when the
+// projection falls more than 1,000 events behind the HWM.
 export function dispatcherLagCheck(
   db: DbConnection,
   consumerNames: readonly string[],

@@ -196,8 +196,8 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
     expect(res.status).toBe(500);
   });
 
-  // #1466: this route inherited zero rate-limiting — a preauthSetupToken is
-  // valid (and not single-use) for its whole TTL, so an unrated-limited
+  // This route inherited zero rate-limiting — a preauthSetupToken is
+  // valid (and not single-use) for its whole TTL, so an unrate-limited
   // replay is a memory-hard CPU amplifier (8 argon2id recovery-code hashes
   // per hit). Mirrors mfaPreauthConfirmRateLimit's own regression test.
   test("mfaPreauthEnableStartRateLimit caps replays — 429 after its own limit", async () => {
@@ -214,7 +214,7 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
     expect(body.error).toBe("rate_limited");
   });
 
-  // #1522 / #1545: the IP axis alone is bypassable by rotating
+  // The IP axis alone is bypassable by rotating
   // x-forwarded-for. The second check keys on a sha256 of the
   // preauthSetupToken — prove rotating IPs still hit 429 on the same
   // token, and that a different token does not share that bucket.

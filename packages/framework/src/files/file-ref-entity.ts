@@ -1,23 +1,23 @@
 import { createBigIntField, createEntity, createTextField } from "../engine/index.ts";
 
-// fileRef — das File-Metadata-Entity. Ganz normales ES-Entity: Upload/Delete
-// laufen über den Standard-Executor (file-routes.ts), die Tabelle `file_refs`
-// wird via buildEntityTable aus dieser Definition gebaut.
+// fileRef — the file-metadata entity. A standard ES entity: uploads/deletes
+// run through the standard executor (file-routes.ts), and the `file_refs` table
+// is built from this definition via buildEntityTable.
 //
-// softDelete: true — wie das `user`-Entity + die data-retention-Strategien.
-// Ein Delete markiert `isDeleted=true` (wiederherstellbar, kein "sofort weg");
-// echtes Erasure (Art. 17) läuft über den Forget-Hook + Retention-Cleanup.
+// softDelete: true — as with the `user` entity and the data-retention strategies.
+// A delete sets `isDeleted=true` (recoverable, not "gone immediately"); actual
+// erasure (Art. 17) runs through the Forget hook and retention cleanup.
 //
-// `insertedAt`/`insertedById` sind framework-managed base columns (siehe
-// buildBaseColumns in table-builder.ts) und dürfen NICHT als Entity-Fields
-// dupliziert werden — fieldColumns gewinnen beim Merge, und die Field-Variante
-// ohne `.default(now()).notNull()` macht inserted_at still nullable.
+// `insertedAt`/`insertedById` are framework-managed base columns (see
+// buildBaseColumns in table-builder.ts) and must NOT be duplicated as entity
+// fields — fieldColumns win during the merge, and the field variant without
+// `.default(now()).notNull()` silently makes inserted_at nullable.
 //
-// PII-Annotations:
-//   - fileName → personal: "self" (original filename often carries a personal
-//     reference: "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf"). The other
-//     fields (storageKey, mimeType, entityType, entityId, fieldName) are
-//     technical references or system metadata, not subject content.
+// PII annotations:
+//   - fileName → personal: "self" (the original filename often carries a
+//     personal reference: "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf").
+//     The other fields (storageKey, mimeType, entityType, entityId, fieldName)
+//     are technical references or system metadata, not subject content.
 export { FILE_REF_ENTITY_NAME } from "./types.ts";
 
 export const fileRefEntity = createEntity({

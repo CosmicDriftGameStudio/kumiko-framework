@@ -832,7 +832,7 @@ describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => 
     }
 
     expect(collected).toHaveLength(25);
-    // Reihenfolge nach events.id (= chronological commit order).
+    // Order by events.id (= chronological commit order).
     expect(collected.map((c) => c.i)).toEqual(Array.from({ length: 25 }, (_, n) => n));
     // ids strict aufsteigend (bigserial monotonic).
     for (let i = 1; i < collected.length; i++) {
@@ -984,8 +984,8 @@ describe("event-store: jsonb encoding of payload/metadata", () => {
       expect(row.payload_type).toBe("object");
       expect(row.metadata_type).toBe("object");
     }
-    // SQL-seitiger Feldzugriff funktioniert nur auf echten Objekten —
-    // genau der Pfad, der mit String-Skalaren null lieferte.
+    // SQL field access works only on actual objects—the exact path that returned
+    // null for string scalars.
     expect(rows[1]?.title).toBe("T2");
   });
 });

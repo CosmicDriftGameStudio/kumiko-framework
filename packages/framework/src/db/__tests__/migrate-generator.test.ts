@@ -219,9 +219,9 @@ describe("renderMigrationSql — managed recreate vs unmanaged in-place", () => 
 
 describe("renderMigrationSql — changed index predicates (kumiko-framework#2492)", () => {
   test("diffSnapshots surfaces a whereSql-only change as a changed table (not silently dropped)", () => {
-    // Regression for the exact offlot#65 scenario: an index keeps its name
-    // and columns, only its partial-index predicate widens (framework#2464
-    // adding the soft-delete guard). Before the fix diffOneTable returned
+    // Regression for the scenario where an index keeps its name
+    // and columns, only its partial-index predicate widens (adding the
+    // soft-delete guard). Before the fix diffOneTable returned
     // null here — the table never reached changedTables at all.
     const prev = snapshotFromMetas([
       metaWithIndexes("read_users", [

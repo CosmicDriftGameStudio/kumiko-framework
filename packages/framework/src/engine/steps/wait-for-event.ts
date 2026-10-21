@@ -16,10 +16,10 @@
 // resultKey is `args.event` itself (the branded event-type string) rather
 // than a new `name` argument — a workflow only ever has one `awaits` entry
 // per event type, so `ctx.steps[awaits.someKey]` is already a unique,
-// intention-revealing handle. resume-run.write.ts (framework#2513 Phase 3b)
-// is the only producer of this key's value: the step itself always
-// suspends (never returns a real result), so a subsequent step only ever
-// sees the matched event's payload after a resume seeds it in.
+// intention-revealing handle. resume-run.write.ts is the only producer of
+// this key's value: the step itself always suspends (never returns a real
+// result), so a subsequent step only ever sees the matched event's payload
+// after a resume seeds it in.
 
 import { defineStep } from "../define-step.ts";
 import type {

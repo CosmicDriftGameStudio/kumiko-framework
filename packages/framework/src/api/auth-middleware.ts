@@ -104,7 +104,7 @@ export type AuthMiddlewareOptions = {
   // Normalized auth.allowedOrigins. A cookie from an origin outside this set
   // is dropped BEFORE jwt.verify — treated as if no cookie was sent — and
   // falls through to the anonymousAccess flow instead of the 403 the
-  // sibling originMiddleware would give (fw#340: a public status page's
+  // sibling originMiddleware would give: a public status page's
   // session cookie, set on the base domain, reaches every tenant subdomain
   // even though those pages only ever make anonymous queries). Only
   // meaningful together with anonymousAccess.
@@ -129,7 +129,7 @@ export type TenantResolver = (c: Context) => Promise<TenantId | null> | TenantId
 // deployments where a caller could otherwise probe arbitrary ids.
 export type TenantExists = (tenantId: TenantId) => Promise<boolean> | boolean;
 
-// App-facing anonymous-access config (#1374). tenantResolver / tenantExists
+// App-facing anonymous-access config. tenantResolver / tenantExists
 // / resolverTrust come from auth-foundation providers (EXT_TENANT_RESOLVER /
 // EXT_TENANT_EXISTENCE), resolved at boot into AnonymousAccessResolved.
 //
@@ -308,13 +308,13 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       // No JWT → either fall through as anonymous (when the server opts in)
       // or reject with 401 (preserving the pre-anonymous default).
       //
-      // Auth-routes-Sonderfall: `/api/auth/*`-Pfade die NICHT in
-      // PUBLIC_API_PATHS sind (tenants, switch-tenant, logout) brauchen
-      // einen JWT — aber keinen Tenant-Resolve. Würden sie durch
-      // handleAnonymous laufen, wirft resolveTenant 400 tenant_required
-      // wenn kein Tenant declared ist. Falsche Diagnose: das Problem ist
-      // missing authentication, nicht missing tenant. Daher hier direkt
-      // 401, ohne den anonymous-Tenant-Flow zu durchlaufen.
+      // Special case for auth routes: `/api/auth/*` paths that are NOT in
+      // PUBLIC_API_PATHS (tenants, switch-tenant, logout) require a JWT —
+      // but not tenant resolution. If they went through handleAnonymous,
+      // resolveTenant would throw 400 tenant_required when no tenant is
+      // declared. That would be the wrong diagnosis: the problem is missing
+      // authentication, not a missing tenant. Therefore, return 401 here
+      // without entering the anonymous-tenant flow.
       if (anonymousAccess) {
         if (isSessionRequiredApiPath(c.req.path)) {
           return middlewareReject(c, {

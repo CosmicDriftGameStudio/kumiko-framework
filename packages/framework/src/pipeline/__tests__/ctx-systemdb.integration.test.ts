@@ -36,7 +36,7 @@ const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
         dbThrows = true;
       }
       // Same fail-closed proof for ctx.dbOutsideTransaction — the second,
-      // previously-unguarded door #2118 closes. Its guarded escape hatch is
+      // previously-unguarded door closes. Its guarded escape hatch is
       // ctx.systemDb.outsideTransaction, not ctx.systemDb itself. The guard
       // is a Proxy (truthy), so `?.` here would mask the two regressions
       // this test needs to tell apart: "field silently undefined" vs. "field

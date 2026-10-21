@@ -1,4 +1,4 @@
-// kumiko-framework#1525: addDuration must not rely on globalThis.Temporal —
+// addDuration must not rely on globalThis.Temporal —
 // it's a pure free function called from step handlers before boot may have
 // run ensureTemporalPolyfill() on every code path.
 

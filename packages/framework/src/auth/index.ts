@@ -1,7 +1,7 @@
-// `@cosmicdrift/kumiko-framework/auth` — Auth-Foundation (Roles, Token-
-// Helpers, Session-Types). Wird von Bundled-Features (auth-email-password,
-// tenant, user) und Datenschutz-Sprints (S1+ user-data-rights, S5 tenant-
-// lifecycle, S6 legal-hold) genutzt.
+// `@cosmicdrift/kumiko-framework/auth` — Auth foundation (roles, token-
+// helpers, session types). Used by bundled features (auth-email-password,
+// tenant, user) and data-protection features (user-data-rights, tenant-
+// lifecycle, legal-hold).
 
 export type { Role } from "./roles.ts";
 export { ROLES } from "./roles.ts";

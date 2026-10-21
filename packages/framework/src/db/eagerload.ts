@@ -55,22 +55,21 @@ import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 const log = createFallbackLogger("eagerload");
 
-// Minimaler Registry-Lookup-Contract: pro entity-name → EntityDefinition.
-// Wir importieren NICHT den ganzen Registry-Type weil das einen
-// circular import zwischen db/ und engine/ erzeugen würde — der
-// Caller (entity-handlers.ts) hat ctx.registry und reicht hier eine
-// Closure rein.
+// Minimal registry lookup contract: one EntityDefinition per entity name.
+// We do not import the full registry type because that would create a
+// circular import between db/ and engine/. The caller (entity-handlers.ts)
+// has ctx.registry and passes a closure here.
 export type EagerLoadEntityResolver = (entityName: string) => EntityDefinition | undefined;
 
-// Tier 2.7e Audit-Fix #6: zentral typed Row-Shape mit _refs. Der
-// `_refs`-Property ist Server-Eagerload-Output: pro reference-Field
-// die resolved Row (single) oder ein Array resolved Rows (multiple).
-// Eine reference-Spalte mit value=null hat _refs[fieldName]=undefined.
+// Central typed row shape with _refs. `_refs` is server-side eagerload output:
+// each reference field contains the resolved row (single) or an array of
+// resolved rows (multiple). A reference column with value=null has
+// _refs[fieldName]=undefined.
 //
-// Renderer/Cell-Code liest `row._refs?.[fieldName]` statt inline-Cast;
-// Server-Code stempelt `_refs` über enrichWithReferences. Type ist
-// strukturell — auch Apps die ihre eigenen Refs setzen (Custom-
-// Handler) sollten das hier wiederverwenden.
+// Renderer/cell code reads `row._refs?.[fieldName]` instead of using an
+// inline cast; server code adds `_refs` through enrichWithReferences. The
+// type is structural, so apps that set their own refs (custom handlers)
+// should reuse it.
 export type EagerloadedRow<T extends Record<string, unknown> = Record<string, unknown>> = T & {
   readonly _refs?: Readonly<
     Record<string, Record<string, unknown> | ReadonlyArray<Record<string, unknown>> | undefined>
@@ -231,8 +230,8 @@ function collectRefIds(
   return ids;
 }
 
-/** Eagerload für eine Liste von Rows. Mutiert nicht — gibt eine
- *  flache Kopie der Rows mit hinzugefügtem `_refs`-Property zurück. */
+/** Eagerloads a list of rows without mutating them; returns shallow copies
+ *  with an added `_refs` property. */
 export async function enrichWithReferences(
   rows: ReadonlyArray<Record<string, unknown>>,
   entity: EntityDefinition,
@@ -245,19 +244,19 @@ export async function enrichWithReferences(
     return rows.map((r) => ({ ...r }));
   }
 
-  // Pro reference-Field: deduped Set der IDs sammeln, dann ein
-  // einziger SELECT WHERE id IN (...). Maps werden parallel gebaut
-  // damit die Lookups nicht serialisieren (Promise.all).
+  // For each reference field, collect IDs in a deduplicated Set, then run one
+  // SELECT WHERE id IN (...). Build the maps in parallel so the lookups do
+  // not run serially (Promise.all).
   const lookupMaps = await Promise.all(
     refFields.map(async (rf) => {
       const ids = collectRefIds(rows, rf);
       if (ids.size === 0) return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
       const refEntity = resolveEntity(rf.refEntityName);
       if (refEntity === undefined) {
-        // Author-Fehler oder Race-Condition (entity gerade umbenannt
-        // ohne registry-Reload). Boot-Validator hat das normalerweise
-        // gepinnt; Runtime-Defense: leere Map → Renderer fällt auf
-        // UUID zurück, kein Crash.
+        // Authoring error or race condition (the entity was renamed without a
+        // registry reload). The boot validator normally catches this;
+        // as a runtime safeguard, an empty map makes the renderer fall back
+        // to the UUID instead of crashing.
         return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
       }
       const refTable = buildEntityTable(rf.refEntityName, refEntity);
@@ -319,7 +318,7 @@ export async function enrichWithReferences(
   });
 }
 
-/** Single-Row-Variante für detail-Calls. */
+/** Single-row variant for detail calls. */
 export async function enrichRowWithReferences(
   row: Record<string, unknown>,
   entity: EntityDefinition,

@@ -81,7 +81,7 @@ export function defineWriteHandler<
   // The discriminated-union type-error
   //   "Type 'PipelineDef<...>' is not assignable to type 'undefined'."
   // is functional but cryptic for less TS-experienced users; this throws
-  // a name-and-explanation error message instead. Followup #3.
+  // a name-and-explanation error message instead.
   const handlerName = def.name;
   if (hasHandlerAndPerform(def)) {
     throw new Error(
@@ -182,10 +182,10 @@ export type PagedQueryHandlerDefinition<
 
 // A projectionList screen's query must resolve to { rows, nextCursor, total? }
 // (CursorResult<T>) — the renderer used to read rowsQuery.data?.rows and
-// silently show an empty list otherwise (fw#2216: session-list); the
-// renderer now guards against a malformed shape at runtime instead. Use this
-// instead of defineQueryHandler for any query wired to a projectionList
-// screen's `query` so the contract is documented at the definition site.
+// silently show an empty list otherwise; the renderer now guards against a
+// malformed shape at runtime instead. Use this instead of defineQueryHandler
+// for any query wired to a projectionList screen's `query` so the contract is
+// documented at the definition site.
 //
 // Deliberately does NOT merge cursor/limit/sort/search into the input
 // schema — that would change sortable/paginated derivation for existing

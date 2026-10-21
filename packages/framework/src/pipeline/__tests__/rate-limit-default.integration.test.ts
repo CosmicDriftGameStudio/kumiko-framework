@@ -1,4 +1,4 @@
-// fw#2861 — systemScope handlers get a default per-tenant rate limit unless
+// systemScope handlers get a default per-tenant rate limit unless
 // they declare their own or opt out. Full-stack proof via setupTestStack +
 // real HTTP (stack.http.write) — never createTestDispatcher. Modelled on
 // rate-limit/__tests__/dispatcher-l3.integration.test.ts.

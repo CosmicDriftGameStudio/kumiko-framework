@@ -40,11 +40,10 @@ export async function tableExists(
   fullyQualifiedName: string,
 ): Promise<boolean> {
   const unsafe = resolveUnsafeClient(db);
-  // quote_ident-Round-trip auf SQL-Seite: ohne Quotes folded postgres
-  // unquoted identifier case-insensitiv (myWidget → mywidget), während die
-  // generierte DDL den Namen via quoteIdent("myWidget") → "myWidget" case-
-  // preserved schreibt. quote_ident sorgt für identische Quotierung beidseits.
-  // Schema-qualifizierte Namen (`public.events`) werden per Split einzeln quotet.
+  // SQL-side quote_ident round-trip: unquoted PostgreSQL identifiers are folded case-insensitively
+  // (`myWidget` → `mywidget`), while generated DDL preserves the case via
+  // `quoteIdent("myWidget")` → `"myWidget"`. quote_ident keeps both sides quoted identically.
+  // Schema-qualified names (`public.events`) are quoted one component at a time after splitting.
   const dotIdx = fullyQualifiedName.indexOf(".");
   const [sql, params] =
     dotIdx >= 0

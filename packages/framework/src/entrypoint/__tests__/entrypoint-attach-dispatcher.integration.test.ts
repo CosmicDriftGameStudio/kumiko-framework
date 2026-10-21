@@ -1,13 +1,13 @@
-// Regression test for framework#2044 — attachDispatcher() wiring.
+// Regression test for attachDispatcher() wiring.
 //
-// #2043 added JobContext.write/queryAs plus JobRunner.attachDispatcher(), but
+// JobContext.write/queryAs plus JobRunner.attachDispatcher() were added, but
 // left the entrypoint factories unwired: nothing ever called
 // attachDispatcher() on the JobRunners they build, so ctx.write inside a job
 // always hit the throwing stub in production too. This test proves the
 // wiring closes that gap (a job's ctx.write actually commits when run
 // through a real entrypoint) and that the gap is real (the same job, run
 // against a bare createJobRunner() with no attachDispatcher() call, still
-// throws the #2043 stub).
+// throws the stub).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";

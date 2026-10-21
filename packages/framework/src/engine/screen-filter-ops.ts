@@ -1,18 +1,16 @@
-// Screen-Filter (Tier 2.7c) — Op-vs-Field-Type-Compatibility.
+// Screen-Filter — operator-to-field-type compatibility.
 //
-// Wer darf was filtern?
-//   - text/select/multiSelect: nur equality-Ops (eq, ne, in). lt/gt
-//     auf Strings ist semantisch fast immer Tippfehler (lexicographic
-//     compare nutzt der Author selten bewusst); Author kann den
-//     Filter dann einfach nicht setzen.
-//   - boolean: eq, ne (in/lt/gt sinnlos für 2-Werte-Type).
-//   - number/money/decimal/date/timestamp/locatedTimestamp: alle 7
-//     Ops — die Felder sind natürlich vergleichbar.
+// Allowed operators depend on the field type:
+//   - text/select/multiSelect: equality operators only (eq, ne, in). lt/gt
+//     on strings are usually accidental; authors can simply omit the filter.
+//   - boolean: eq, ne (in/lt/gt are meaningless for a two-value type).
+//   - number/money/decimal/date/timestamp/locatedTimestamp: all 7 operators,
+//     because these fields are naturally comparable.
 //
-// Boot-Validator nutzt diese Map um Author-Fehler früh zu fangen
-// ("filter mit op:lt auf einem text-Feld" → Boot-Fail). Erweitert sich
-// transparent: neuer Field-Type → hier eintragen + sortable/filterable-
-// Flag im Type-Def, sonst lehnt der Validator das Field generell ab.
+// The boot validator uses this map to catch authoring errors early
+// ("filter with op:lt on a text field" → boot failure). When adding a field
+// type, add it here and set its sortable/filterable flag in the type definition;
+// otherwise the validator rejects the field entirely.
 
 import type { FieldDefinition, ScreenFilterOp } from "./types/index.ts";
 
@@ -43,18 +41,17 @@ export function getAllowedFilterOps(field: FieldDefinition): readonly ScreenFilt
     case "timestamp":
     case "locatedTimestamp":
       return COMPARABLE;
-    // tz/embedded/file/image/files/images: nicht filterbar — Author
-    // kann das Feld nicht als filterable: true markieren (Boot-
-    // Validator weist `filterable: true` auf den Types ohnehin schon
-    // ab, weil das Flag dort gar nicht im Type-Def steht).
+    // tz/embedded/file/image/files/images: not filterable — authors cannot
+    // mark the field as filterable: true because the boot validator already
+    // rejects `filterable: true` for these types; the flag is not present in
+    // their type definitions.
     default:
       return [];
   }
 }
 
-// Author hat das Feld als filterable markiert? Tz/Embedded/File-Types
-// haben das Flag gar nicht im Type-Def, also fangen wir das per
-// `"filterable" in field`-Narrow ab.
+// If an author marked the field as filterable, catch types without that
+// flag in their type definition with the `"filterable" in field` narrowing.
 export function isFieldFilterable(field: FieldDefinition): boolean {
   return "filterable" in field && field.filterable === true;
 }

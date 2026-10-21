@@ -352,11 +352,11 @@ describe("anonymous access — header-supplied tenant", () => {
   });
 
   test("/api/auth/* without JWT → 401 missing_token (not 400 tenant_required)", async () => {
-    // Auth-routes (tenants, switch-tenant, logout) brauchen einen JWT,
-    // aber keinen Tenant-Resolve. Vor dem Fix fielen sie in handleAnonymous,
-    // das beim resolveTenant ohne X-Tenant 400 tenant_required wirft —
-    // falsche Diagnose, der Caller ist unauthenticated, nicht ohne Tenant.
-    // Login bleibt davon unberührt (in PUBLIC_API_PATHS, skipped vor auth).
+    // Auth routes (tenants, switch-tenant, logout) require a JWT but do not require tenant
+    // resolution. Without this ordering, they would enter handleAnonymous, which would report 400
+    // tenant_required when X-Tenant was absent—a misleading diagnosis because the caller is
+    // unauthenticated, not missing a tenant. Login is unaffected because it is in PUBLIC_API_PATHS
+    // and is skipped before authentication.
     const res = await stack.http.raw("GET", "/api/auth/tenants");
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string; i18nKey: string } };
@@ -569,7 +569,7 @@ describe("anonymous access — resolverTrust: authoritative", () => {
     expect(body.error.code).toBe("tenant_mismatch");
   });
 
-  // pr-review kumiko-framework #1052/3 — resolveTenant treats header and
+  // resolveTenant treats header and
   // cookie identically, but every case above only exercised the header.
   // These two lock in that the cookie path behaves the same way.
   test("kumiko_tenant cookie agreeing with the resolver → accepted", async () => {

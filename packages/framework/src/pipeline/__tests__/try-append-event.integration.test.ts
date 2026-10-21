@@ -125,9 +125,8 @@ describe("Issue #1038 — ctx.tryAppendEvent", () => {
     expect(markers).toHaveLength(1);
   });
 
-  // Probabilistic — looped per house convention (mehrere Durchläufe, z.B.
-  // 20x) since a genuine 23505 race depends on transaction-timing
-  // interleaving that a single run can't force deterministically.
+  // Probabilistic — looped because a genuine 23505 race depends on transaction-timing
+  // interleaving that a single run cannot force deterministically.
   const ITERATIONS = 20;
   const CONCURRENCY = 3;
 

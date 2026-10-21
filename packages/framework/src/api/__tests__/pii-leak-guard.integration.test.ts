@@ -1,7 +1,7 @@
-// Response tripwire (#820): a kumiko-pii: ciphertext in a JSON response is
+// Response tripwire: a kumiko-pii: ciphertext in a JSON response is
 // always a bug (raw read past the decrypt). Dev/test → 500 (test goes red),
 // prod → redact + error log. The scan runs regardless of whether a subject
-// KMS is configured — a leaked ciphertext can outlive the KMS config (#2467).
+// KMS is configured — a leaked ciphertext can outlive the KMS config.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";

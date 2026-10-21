@@ -8,8 +8,8 @@
 // below the cursor that were invisible on some turn stay tracked (with the
 // xmax that bounds their finality) until they either become visible
 // (delivered) or are proven permanently rolled back (xmin passes that xmax).
-// This mirrors the #443 fenced-rebuild gap, but for the live dispatch path
-// (projection-rebuild.ts's final drain re-checks via a count fence;
+// This handles the same kind of fenced-rebuild gap, but for the live dispatch
+// path (projection-rebuild.ts's final drain re-checks via a count fence;
 // the live dispatcher has no such fence — it has pending_gaps instead).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
@@ -74,8 +74,8 @@ async function appendWidget(name: string): Promise<void> {
 
 // executor.create() manages and commits its own transaction internally, so
 // it cannot be used for the low-id writer that must stay open on demand —
-// raw SQL on a caller-held tx (same shape as projection-rebuild's #443
-// test) is the only way to grab an id and defer its commit.
+// raw SQL on a caller-held tx (same shape as projection-rebuild's test) is
+// the only way to grab an id and defer its commit.
 async function insertWidgetCreatedEvent(tx: DbTx, name: string): Promise<void> {
   await asRawClient(tx).unsafe(
     `INSERT INTO "kumiko_events"

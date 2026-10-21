@@ -1,4 +1,4 @@
-// Regression coverage for kumiko-framework#1672 — preSave hooks were
+// Regression coverage for preSave hooks that were
 // registered and boot-validated but never invoked by the dispatch path,
 // making `r.hook({ type: "preSave", ... })` a silent no-op. This exercises the real
 // HTTP dispatcher (not a hand-fed handler context) so the fix is proven at
@@ -24,7 +24,7 @@ const contactEntity = createEntity({
     // authorId is never set by the client — only deriveAuthorId (a preSave
     // hook) writes it. secretNote's ownership rule checks authorId, so
     // create only succeeds if the hook ran BEFORE the field-ownership check
-    // (kumiko-framework#1672 — see also event-store-executor-write.ts).
+    // (see also event-store-executor-write.ts).
     authorId: createTextField({ personal: false, reason: "test_fixture" }),
     secretNote: createTextField({
       personal: false,

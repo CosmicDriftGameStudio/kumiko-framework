@@ -1,4 +1,4 @@
-// C1/fw#2913 — ctx.queryProjection: read projection tables by qualified name.
+// ctx.queryProjection: read projection tables by qualified name.
 // Framework-level read surface so features don't have to import projection
 // drizzle-tables directly. Auto-filters by tenant_id when the projection
 // table carries that column; { unsafeAllTenants: true } opts out but needs a

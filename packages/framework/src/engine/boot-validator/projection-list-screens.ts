@@ -22,7 +22,7 @@ import { getZodObjectShape } from "./zod-shape.ts";
 // entity, so sharing the function would mean threading a discriminated
 // union through every entity-bound helper it calls.
 
-// Exported for query-refs.ts (fw#2178) — one source for the QN-derivation
+// Exported for query-refs.ts — one source for the QN-derivation
 // logic instead of duplicating it in both boot-validators.
 export function buildQueryHandlerMap(
   features: readonly FeatureDefinition[],
@@ -45,7 +45,7 @@ function schemaAccepts(schema: QueryHandlerDef["schema"] | undefined, key: strin
 }
 
 // sortable/paginated are derived by buildAppSchema from the query's Zod
-// schema (fw#2165) — there is no separate wire type from the author-facing
+// schema — there is no separate wire type from the author-facing
 // ProjectionListScreenDefinition, so hand-authoring them would otherwise be
 // silently overwritten with no signal to the author. Reject outright.
 function rejectHandAuthoredDerivedFlags(
@@ -112,7 +112,7 @@ function validateOneProjectionListScreen(
   validateProjectionListFacetsSchemaAcceptance(prefix, screen, schema);
 }
 
-// filter (fw#2224) sends `payload.filter` — same 422 footgun as facets below
+// filter sends `payload.filter` — same 422 footgun as facets below
 // if the handler's schema doesn't accept it.
 function validateProjectionListFilterSchemaAcceptance(
   prefix: string,
@@ -128,11 +128,11 @@ function validateProjectionListFilterSchemaAcceptance(
   );
 }
 
-// facets (fw#2224) send `payload.filters` — same failure mode as search/sort
-// (fw#2165): definePagedQueryHandler doesn't auto-merge params into the
+// facets send `payload.filters` — same failure mode as search/sort:
+// definePagedQueryHandler doesn't auto-merge params into the
 // handler's own Zod schema, so a declared facet would 422 on every query
 // unless the author added `filters` themselves.
-// A dateRange facet (fw#3104) sends its two bounds as the top-level payload
+// A dateRange facet sends its two bounds as the top-level payload
 // keys it names in `params`, not as a `filters` entry — so the query has to
 // accept exactly those keys. Catches the facet pointed at a field the query
 // can't narrow by, which would otherwise 422 on the first date the user picks.
@@ -302,7 +302,7 @@ function validateRelatedListGroupBy(prefix: string, section: EditRelatedListSect
 
 // relatedList sections declare search/facets the same way a projectionList
 // screen does, and hit the same 422 footgun: definePagedQueryHandler doesn't
-// auto-merge params into the handler's own Zod schema (fw#2165/#2224), so an
+// auto-merge params into the handler's own Zod schema, so an
 // undeclared param would fail every query instead of failing at boot.
 // Reachable on projectionDetail only (screens.ts rejects relatedList
 // elsewhere), but the layout walk stays uniform so lifting that restriction

@@ -39,7 +39,7 @@ const SYSTEM_CLOCK: Clock = {
 /**
  * Factory: creates a TzContext for the current request.
  * Uses the kumiko-types Temporal module export (not globalThis.Temporal) so
- * buildHandlerContext stays ambient-free (fw#1525/#1550).
+ * buildHandlerContext stays ambient-free.
  */
 export function createTzContext(options: TzContextOptions = {}): TzContext {
   const tenant = options.tenant ?? "UTC";

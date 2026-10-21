@@ -4,7 +4,7 @@
 // connection. Upstream postgres 3.4.9 crashes the process with an
 // uncaughtException ("null is not an object (evaluating 'socket.write')")
 // instead of rejecting; the fork rejects with CONNECTION_CLOSED. Must stay
-// green after switching back to an upstream release (kumiko-framework#3248).
+// green after switching back to an upstream release.
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import net from "node:net";

@@ -1,10 +1,10 @@
-// fw#2660 — a text search on an entity must also match its `searchable`
+// A text search on an entity must also match its `searchable`
 // reference fields by the target row's labelField, not just the raw FK
 // column (a GUID never contains the search term a human types). Covers the
-// four cases the issue mandates: reference-only match, union with a native
-// text match (no duplicates), cross-tenant target label match (must yield
-// zero rows — the hard security constraint), and the >200-match cap (drop
-// the reference clause, native search still applies).
+// four required cases: reference-only match, union with a native text match
+// (no duplicates), cross-tenant target label match (must yield zero rows —
+// the hard security constraint), and the >200-match cap (drop the reference
+// clause, native search still applies).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
@@ -44,8 +44,8 @@ const orderEntity = createEntity({
 const orderTable = buildEntityTable("refSearchOrder", orderEntity);
 
 // A caller who cannot read `customerId` itself must not be able to infer its
-// value by matching the target's label through the reference clause — same
-// probe surface fw#2629 already closed for filter/sort (fw#2660 parity).
+// value by matching the target's label through the reference clause — the
+// same probe surface applies to filter/sort.
 const restrictedOrderEntity = createEntity({
   table: "read_ref_search_restricted_orders",
   fields: {

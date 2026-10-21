@@ -888,7 +888,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
 // a string literal directly, or a bare identifier following its
 // declaration (same-file or imported) to a string-literal initializer —
 // the dominant naming style in the framework's own bundled-features
-// (`r.entity(ENTITY, ...)`, `r.useExtension(EXT_X, ...)`, see #1746).
+// (`r.entity(ENTITY, ...)`, `r.useExtension(EXT_X, ...)`).
 //
 // Narrow on purpose: every kind's arg-0 (and relation's arg-1) is parsed
 // via readNameLiteral, never readNameOrRef (see round2.ts/round3.ts) —

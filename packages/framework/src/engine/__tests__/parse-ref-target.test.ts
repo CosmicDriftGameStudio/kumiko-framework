@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { parseRefTarget } from "../parse-ref-target.ts";
 
-// Tier 2.7e Cross-Feature: parser-Konvention für ReferenceFieldDef.
-// Same-feature default ist der häufige Pfad; cross-feature verlangt
-// expliziten ":"-Prefix. Diese Tests pinnen die Aufteilungsregel
-// damit Boot-Validator und Renderer (über Re-Export) übereinstimmen.
+// Parser convention for ReferenceFieldDef: same-feature references use the common
+// default, while cross-feature references require an explicit ":" prefix. These tests
+// pin the splitting rule so the boot validator and renderer (via re-export) agree.
 
 describe("parseRefTarget", () => {
   test("kurzer name: featureName = currentFeature, entityName = raw", () => {
@@ -33,11 +32,9 @@ describe("parseRefTarget", () => {
   });
 
   test("zweiter Doppelpunkt im entity-name (selten, aber möglich) — splittet nur am ERSTEN", () => {
-    // Konvention: feature und entity sind kebab-segments; der parser
-    // splittet conservative am ersten ":". Falls der Author einen
-    // entity-name mit ":" deklariert (was Boot-Validator ohnehin
-    // ablehnt), läuft er hier durch — der downstream-Lookup findet
-    // ihn dann nicht und failt.
+    // Feature and entity are kebab-case segments; the parser splits only at the first
+    // ":". An entity name containing ":" passes through this parser but is rejected by
+    // the boot validator, so downstream lookup cannot find it.
     expect(parseRefTarget("a:b:c", "shop")).toEqual({ featureName: "a", entityName: "b:c" });
   });
 });

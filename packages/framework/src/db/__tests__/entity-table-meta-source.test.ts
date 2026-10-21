@@ -1,4 +1,4 @@
-// #1210: deriveEntityTableMeta() hardcoded source: "managed", so unmanaged
+// deriveEntityTableMeta() hardcoded source: "managed", so unmanaged
 // direct-write stores (store_user_sessions, store_api_tokens, mail sync/seen
 // cursors) were misclassified as rebuildable event-sourced projections — a
 // destructive column change would DROP+rebuild-from-events tables that have

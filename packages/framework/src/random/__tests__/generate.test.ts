@@ -32,7 +32,7 @@ describe("generateAdjNounName", () => {
     expect(ADJECTIVES).toContain(adj!);
     expect(NOUNS).toContain(noun!);
     expect(suffix!).toMatch(/^[a-z2-9]{3}$/);
-    // No-confusable: keine 0/1/o/l/i
+    // No-confusable: excludes 0/1/o/l/i
     expect(suffix!).not.toMatch(/[01oli]/);
   });
 
@@ -49,8 +49,8 @@ describe("generateAdjNounName", () => {
     for (let i = 0; i < 100; i++) {
       names.add(generateAdjNounName());
     }
-    // 22500 combos, 100 picks → erwartete Diversität ist hoch.
-    // Lower bound 5 fängt nur einen kompletten RNG-Defekt.
+    // 22500 combos, 100 picks → expected diversity is high.
+    // Lower bound 5 only catches a complete RNG failure.
     expect(names.size).toBeGreaterThan(5);
   });
 });
@@ -95,7 +95,7 @@ describe("generateUniqueName", () => {
     });
     expect(seen).toHaveLength(1);
     expect(name).toBe(seen[0]!);
-    // Clean = nur 2 Teile (adj + noun), kein suffix
+    // Clean = only 2 parts (adj + noun), no suffix
     expect(name.split("-")).toHaveLength(2);
   });
 
@@ -105,12 +105,12 @@ describe("generateUniqueName", () => {
       maxCleanAttempts: 3,
       isAvailable: async (n) => {
         tried.push(n);
-        // Erste 3 sind belegt, der 4. Versuch (suffix-mode) wins.
+        // The first 3 are taken; the 4th attempt (suffix-mode) wins.
         return tried.length === 4;
       },
     });
     expect(tried).toHaveLength(4);
-    // Erste 3 ohne suffix
+    // First 3 without suffix
     for (let i = 0; i < 3; i++) {
       expect(tried[i]!.split("-")).toHaveLength(2);
     }

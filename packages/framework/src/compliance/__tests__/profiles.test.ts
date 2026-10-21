@@ -1,10 +1,10 @@
-// Tests fuer Compliance-Profile-Constants + extends-Resolver.
+// Tests for compliance-profile constants and the extends resolver.
 //
-// Edge-Cases (advisor-pinned 2026-05-06):
-//   1. Default-Fallback bei selection=undefined → minimal-no-region + warning
-//   2. extends-Chain max 1 Level (Cycle-/Tiefe-Schutz)
-//   3. Deep-merge-Semantik beim Override (rekursiv, Top-Level-Replace nicht)
-//   4. Override darf einzelne Felder gezielt setzen ohne Required-Drops
+// Edge cases:
+//   1. Default fallback for selection=undefined → minimal-no-region + warning
+//   2. extends chain limited to one level (cycle/depth protection)
+//   3. Deep-merge semantics for overrides (recursive, not top-level replacement)
+//   4. Overrides can set individual fields without dropping required fields
 
 import { describe, expect, test } from "bun:test";
 import { complianceProfileOverrideSchema } from "../override-schema.ts";
@@ -15,8 +15,8 @@ import {
   SELECTABLE_PROFILE_KEYS,
 } from "../profiles.ts";
 
-// Identifikations-Keys die ein Override NICHT modifizieren darf — sie
-// definieren die Profile-Identität. Werden vom Drift-Test ausgeschlossen.
+// Identification keys that an override must not modify — they define the
+// profile's identity and are excluded from the drift test.
 const IDENTIFICATION_KEYS = new Set(["key", "region", "label", "extends"]);
 
 describe("COMPLIANCE_PROFILES — Pre-baked", () => {
@@ -37,7 +37,7 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
     // Override: andere Sprachen + andere Aufsicht
     expect(p.notifications.languages).toEqual(["de", "fr", "it", "en"]);
     expect(p.breach.authorityContact).toBe("EDÖB Bern");
-    // Geerbt von eu-dsgvo
+    // Inherited from eu-dsgvo
     expect(p.userRights.gracePeriod).toEqual({ days: 30 });
     expect(p.userRights.restrictionAllowed).toBe(true);
     expect(p.tenantDestroyGracePeriod).toEqual({ days: 30 });
@@ -51,7 +51,7 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
     expect(p.subProcessor.worksCouncilApprovalRequired).toBe(true);
     expect(p.auditLog.retention).toEqual({ years: 10 });
     expect(p.tenantDestroyGracePeriod).toEqual({ days: 60 });
-    // Geerbt: portabilityFormat aus eu-dsgvo bleibt
+    // Inherited: portabilityFormat from eu-dsgvo remains unchanged
     expect(p.userRights.portabilityFormat).toEqual(["json"]);
   });
 
@@ -71,11 +71,11 @@ describe("SELECTABLE_PROFILE_KEYS", () => {
 });
 
 describe("OVERRIDABLE_PROFILE_KEYS — Drift-Guard (S1.8 N2)", () => {
-  // Wenn ein neues Top-Level-Property zu ComplianceProfile kommt
-  // (oder eines wegfaellt), muss OVERRIDABLE_PROFILE_KEYS synchron
-  // gehalten werden — sonst lehnt set-profile valide Overrides ab
-  // ODER akzeptiert ungueltige. Dieser Test detektiert den Drift in
-  // beide Richtungen anhand des voll aufgeloesten eu-dsgvo-Profile.
+  // If a new top-level property is added to ComplianceProfile (or one is
+  // removed), OVERRIDABLE_PROFILE_KEYS must be kept in sync; otherwise
+  // set-profile either rejects valid overrides or accepts invalid ones. This
+  // test detects drift in both directions using the fully resolved eu-dsgvo
+  // profile.
   test("Override-Whitelist matched die uebrigen Top-Level-Keys von eu-dsgvo (minus Identifikations-Felder)", () => {
     const allTopLevelKeys = new Set(Object.keys(COMPLIANCE_PROFILES["eu-dsgvo"]));
     for (const idKey of IDENTIFICATION_KEYS) {
@@ -94,13 +94,13 @@ describe("OVERRIDABLE_PROFILE_KEYS — Drift-Guard (S1.8 N2)", () => {
 });
 
 describe("complianceProfileOverrideSchema — Schema↔Profile-Konsistenz (S1.10 M2)", () => {
-  // Wenn Profile-Type erweitert wird (neues Sub-Property in userRights /
-  // breach / auditLog / etc.) ohne dass override-schema.ts mitgepflegt
-  // wird, fail dieser Test. Prinzip: ein voll aufgelöstes Profile ist
-  // ein triviales valides Override-Object — wenn Schema das ablehnt, ist
-  // entweder Schema oder Profile out of sync.
+  // If the profile type gains a new sub-property in userRights, breach,
+  // auditLog, etc. without a corresponding update to override-schema.ts, this
+  // test fails. A fully resolved profile is a trivially valid override object;
+  // rejection means the schema and profile type are out of sync or the schema
+  // is stricter than the profile type.
   test("Schema akzeptiert ein vollständig aufgelöstes Profile als Override (Drift-Guard)", () => {
-    // Identifikations-Felder rausnehmen weil die nicht override-bar sind.
+    // Remove identification fields because they cannot be overridden.
     const fullProfile = COMPLIANCE_PROFILES["eu-dsgvo"];
     const {
       key: _key,
@@ -145,11 +145,11 @@ describe("resolveComplianceProfile — Default-Fallback", () => {
   });
 
   test("selection=minimal-no-region (DB-Edge-Case) → kein warning, fallback aktiv", () => {
-    // Sprint 1.7 X1: minimal-no-region ist ueber set-profile nicht mehr
-    // setzbar. Wer den State trotzdem in der DB hat (Migration, Direct-
-    // Insert) bekommt das minimal-Profile zurueck — der needs-profile-
-    // Banner-Endpoint markiert ihn separat als "needsSelection=true".
-    // Resolver selber zieht keine warning, weil "explicit selection".
+    // minimal-no-region can no longer be set through set-profile. If the state
+    // nevertheless exists in the DB (migration or direct insert), the minimal
+    // profile is returned; the needs-profile banner endpoint separately marks it
+    // as "needsSelection=true". The resolver emits no warning because the
+    // selection is explicit.
     const result = resolveComplianceProfile({ selection: "minimal-no-region" });
     expect(result.profile.key).toBe("minimal-no-region");
     expect(result.warning).toBeUndefined();
@@ -171,7 +171,6 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
       },
     });
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 60 });
-    // Andere userRights-Felder unverändert
     expect(result.profile.userRights.restrictionAllowed).toBe(true);
     expect(result.profile.userRights.objectionAllowed).toBe(true);
     expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
@@ -186,7 +185,6 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
       },
     });
     expect(result.profile.breach.authorityContact).toBe("Hamburgischer DSB");
-    // Rest des breach-Objects unverändert
     expect(result.profile.breach.authorityNotificationDeadline).toEqual({ hours: 72 });
     expect(result.profile.breach.userNotificationRequired).toBe("if-high-risk");
   });
@@ -207,9 +205,9 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
   });
 
   test("Atomic path: retention {months} → {years} ersetzt komplett (kein object-merge)", () => {
-    // Bug-Regression: deepMerge auf Diskriminierten-Union-Objects
-    // wuerde sonst { months: 24, years: 10 } produzieren — semantisch
-    // Nonsense, retention ist EINE Wahl.
+    // Without this, deepMerge on discriminated-union objects would produce
+    // { months: 24, years: 10 }, which is semantically invalid because retention
+    // must be exactly one choice.
     const result = resolveComplianceProfile({
       selection: "eu-dsgvo",
       override: {
@@ -217,8 +215,8 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
       },
     });
     expect(result.profile.auditLog.retention).toEqual({ years: 10 });
-    // reportFrequency darf NICHT mit ersetzt werden — auditLog ist
-    // nicht atomic, nur retention darunter.
+    // reportFrequency must not be replaced: auditLog is non-atomic, and only
+    // retention within it is atomic.
     expect(result.profile.auditLog.reportFrequency).toBe("quarterly");
   });
 
@@ -240,7 +238,7 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
         notifications: { languages: ["en"] },
       },
     });
-    // Replace, nicht append: ["de", "en"] wird zu ["en"]
+    // Replace rather than append: ["de", "en"] becomes ["en"]
     expect(result.profile.notifications.languages).toEqual(["en"]);
     // Andere notifications-Felder bleiben
     expect(result.profile.notifications.mandatoryBreachNotification).toBe(true);

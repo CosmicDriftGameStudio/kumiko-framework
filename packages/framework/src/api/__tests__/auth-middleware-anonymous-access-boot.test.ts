@@ -1,7 +1,7 @@
 // authMiddleware boots eagerly (not per-request) so a tenantResolver
 // declared without resolverTrust is an ambiguous trust decision that fails
 // loud at startup, instead of silently letting a client-set tenant header
-// override a host-derived resolver at request time (#1452).
+// override a host-derived resolver at request time.
 
 import { describe, expect, test } from "bun:test";
 import { authMiddleware } from "../auth-middleware.ts";

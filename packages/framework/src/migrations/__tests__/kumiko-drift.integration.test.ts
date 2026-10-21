@@ -1,7 +1,7 @@
-// Integration-Test für das drizzle-freie Boot-Gate (detectKumikoDrift /
-// assertKumikoSchemaCurrent). Production-Behavior: dieses Gate blockiert
-// Container-Starts — jeder False-Positive blockt Boot, jeder False-Negative
-// lässt Schema-Drift durch.
+// Integration test for the drizzle-free boot gate (detectKumikoDrift /
+// assertKumikoSchemaCurrent). In production, this gate blocks container starts:
+// every false positive blocks boot, while every false negative lets schema drift
+// through.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -35,7 +35,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "kumiko-mig-"));
-  // Isoliere: tracking-table + Test-Tabellen pro Test zurücksetzen.
+  // Reset the tracking table and test tables for each test to ensure isolation.
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "_kumiko_migrations"`);
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "kdrift_widget"`);
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "kdrift_gen"`);
@@ -83,7 +83,7 @@ describe("kumiko-drift boot-gate", () => {
     writeSnapshot(["kdrift_widget"]);
     await runMigrationsFromDir(testDb.db, dir);
 
-    // File nachträglich editieren (anderer Inhalt → andere checksum).
+    // Edit the file afterwards (different content means a different checksum).
     writeMigration(
       "0001_init.sql",
       `CREATE TABLE "kdrift_widget" ("id" text PRIMARY KEY, "x" int);`,
@@ -94,7 +94,7 @@ describe("kumiko-drift boot-gate", () => {
   });
 
   test("snapshot table missing in DB → missingTables", async () => {
-    writeMigration("0001_init.sql", `SELECT 1;`); // applied, aber legt die Tabelle NICHT an
+    writeMigration("0001_init.sql", `SELECT 1;`); // applied, but does not create the table
     writeSnapshot(["kdrift_widget"]);
     await runMigrationsFromDir(testDb.db, dir);
 
@@ -104,7 +104,7 @@ describe("kumiko-drift boot-gate", () => {
   });
 
   test("snapshot column missing in DB → missingColumns (Layer 3, boot-fail not 500)", async () => {
-    // The #347 class: table was migrated from a thin snapshot, the snapshot is
+    // This case: table was migrated from a thin snapshot, the snapshot is
     // now richer (ride-along columns the generator started emitting). The table
     // EXISTS (Layer 2 ok) but lacks columns the code will write → without
     // Layer 3 this surfaces as a runtime-500 on the first write. Layer 3 makes
@@ -146,9 +146,10 @@ describe("kumiko-drift boot-gate", () => {
   });
 
   test("missing migrations dir → ok (no migrations to validate)", async () => {
-    // Regression für review #155 finding 1: existing-App-Upgrade ohne
-    // ./kumiko/migrations darf nicht roh ENOENT werfen (würde sonst plain
-    // Error statt SchemaDriftError → kein Remediation-Hint im Boot-Log).
+    // Regression: an existing-app upgrade without
+    // ./kumiko/migrations must not throw a raw ENOENT (which would produce a
+    // plain Error instead of SchemaDriftError and omit the remediation hint from
+    // the boot log).
     rmSync(dir, { recursive: true, force: true });
     const report = await detectKumikoDrift(testDb.db, dir);
     expect(report.ok).toBe(true);
@@ -157,14 +158,13 @@ describe("kumiko-drift boot-gate", () => {
   });
 
   test("mixed-case snapshot tableName resolves via quote_ident round-trip", async () => {
-    // Regression für review #155 finding 3: postgres folded unquoted
-    // identifier case-insensitiv (myWidget → mywidget) in to_regclass, während
-    // die DDL via quoteIdent("kdriftMixed") → "kdriftMixed" case-preserved
-    // schreibt. tableExists muss quote_ident-Round-trip machen, sonst False-
-    // positive-Drift bei jeder mixed-case Entity-Tabelle.
+    // PostgreSQL folds unquoted identifier case to lowercase (myWidget → mywidget)
+    // in to_regclass, while the DDL via quoteIdent("kdriftMixed") → "kdriftMixed"
+    // preserves case. tableExists must perform a quote_ident round trip;
+    // otherwise every mixed-case entity table produces false-positive drift.
     await asRawClient(testDb.db).unsafe(`CREATE TABLE "kdriftMixed" ("id" text PRIMARY KEY)`);
     expect(await tableExists(testDb.db, "kdriftMixed")).toBe(true);
-    // Lowercase-Variante DARF nicht matchen — Round-trip preserved case.
+    // The lowercase variant MUST NOT match — the round trip preserves case.
     expect(await tableExists(testDb.db, "kdriftmixed")).toBe(false);
 
     writeMigration("0001_init.sql", `CREATE TABLE "kdriftMixed" ("id" text PRIMARY KEY);`);
@@ -177,7 +177,8 @@ describe("kumiko-drift boot-gate", () => {
   });
 
   test("baseline marks migrations applied without running SQL", async () => {
-    // Tabelle existiert schon (wie eine adoptierte Prod-DB), Migration NICHT applyen.
+    // The table already exists (as in an adopted production database), so the migration must not be
+    // applied.
     await asRawClient(testDb.db).unsafe(`CREATE TABLE "kdrift_widget" ("id" text PRIMARY KEY)`);
     writeMigration("0001_init.sql", `CREATE TABLE "kdrift_widget" ("id" text PRIMARY KEY);`);
     writeSnapshot(["kdrift_widget"]);
@@ -185,7 +186,7 @@ describe("kumiko-drift boot-gate", () => {
     const result = await baselineMigrations(testDb.db, loadMigrationsFromDir(dir));
     expect(result.marked).toEqual(["0001_init"]);
 
-    // Danach drift-frei (applied via baseline, Tabelle existiert), und re-baseline ist no-op.
+    // Drift-free afterwards (applied via baseline and the table exists); re-baselining is a no-op.
     const report = await detectKumikoDrift(testDb.db, dir);
     expect(report.ok).toBe(true);
     const again = await baselineMigrations(testDb.db, loadMigrationsFromDir(dir));
@@ -219,9 +220,10 @@ describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
   });
 
   test("prod adoption via commented-out SQL: apply is a recorded no-op, gate ok when tables pre-exist", async () => {
-    // Prod-Szenario: Tabelle existiert schon (drizzle-Ära). Das Migration-File
-    // ist auskommentiert → apply legt nichts an, RECORDED aber den Eintrag in
-    // _kumiko_migrations. Gate: applied ✓ + Tabelle existiert ✓ → Boot läuft.
+    // Production scenario: the table already exists (from the drizzle era). The migration file
+    // is commented out, so apply creates nothing but records the entry in
+    // _kumiko_migrations. The gate sees an applied migration and an existing table,
+    // so boot proceeds.
     await asRawClient(testDb.db).unsafe(`CREATE TABLE "kdrift_gen" ("id" text PRIMARY KEY)`);
     writeMigration(
       "0001_init.sql",

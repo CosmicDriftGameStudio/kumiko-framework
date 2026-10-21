@@ -1,19 +1,20 @@
-// Direkte Tests für applyEntityEvent's tenantId-Defaulting. Zwei
-// Branches (siehe apply-entity-event.ts:created):
+// Direct tests for applyEntityEvent's tenantId defaulting. Two
+// branches (see apply-entity-event.ts:created):
 //
-//   - payload.tenantId GESETZT → wins (z.B. seedTenantMembership-Pfad
-//     wo Operator tenantId und Ziel-tenantId divergieren)
-//   - payload.tenantId NICHT gesetzt → Fallback auf event.tenantId
-//     (Replay-Fall für entity-Tabellen ohne tenantId-Feld)
+//   - payload.tenantId SET → wins (for example, the
+//     seedTenantMembership path where the operator and target tenantIds
+//     differ)
+//   - payload.tenantId NOT SET → falls back to event.tenantId
+//     (replay case for entity tables without a tenantId field)
 //
-// Beide Branches werden indirekt durch andere Tests berührt
-// (seedTenantMembership-Integration für A, Live==Rebuild für B), aber
-// kein expliziter Test pinst das exakte Verhalten von applyEntityEvent.
-// Wenn jemand die Spread-Reihenfolge im values()-Object umdreht
-// (`...event.payload, tenantId: event.tenantId` statt
-// `tenantId: event.tenantId, ...event.payload`), würde Branch A still
-// zerbrechen — der bestehende seed-Test wäre der einzige Catcher, und
-// der lief vor dem Refactor durch Zufall grün.
+// Both branches are indirectly covered by other tests
+// (seedTenantMembership integration for A, Live==Rebuild for B), but
+// no explicit test pins down applyEntityEvent's exact behavior.
+// If someone reverses the spread order in the values() object
+// (`...event.payload, tenantId: event.tenantId` instead of
+// `tenantId: event.tenantId, ...event.payload`), branch A would silently
+// break—the existing seed test would be the only catcher, and it happened
+// to pass before the refactor.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "../../db/query.ts";
@@ -97,9 +98,9 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
   });
 
   test("payload MIT tenantId überschreibt event.tenantId (seed-Override-Case)", async () => {
-    // seedTenantMembership-Realität: Operator (event.tenantId =
-    // OPERATOR) schreibt eine Membership in den Ziel-Tenant (payload
-    // .tenantId = TARGET). Der Row gehört in den Ziel-Tenant.
+    // seedTenantMembership reality: the operator (event.tenantId =
+    // OPERATOR) writes a membership in the target tenant (payload
+    // .tenantId = TARGET). The row belongs to the target tenant.
     const event = syntheticCreateEvent({
       name: "tenantId-override",
       tenantId: TENANT_TARGET,
@@ -118,11 +119,11 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
   });
 
   test("payload.tenantId === '' (empty string) → wirft (fail-loud, kein silent fallback)", async () => {
-    // Tenant-isolation-kritisch: silent fallback auf event.tenantId
-    // würde eine Bug-payload (Form-Input ohne Trim-Check, defekter
-    // Hook etc.) in den Operator-Tenant schreiben, obwohl der
-    // Caller-Code die Row in irgendeinen Ziel-Tenant routen wollte.
-    // Cross-Tenant-Drift. Fail-loud ist die einzige Wahl.
+    // Critical for tenant isolation: silently falling back to event.tenantId
+    // would write a bug payload (form input without a trim check, broken
+    // hook, etc.) to the operator tenant, even though the caller code
+    // intended to route the row to some target tenant.
+    // This causes cross-tenant drift, so failing loudly is the only choice.
     const event = syntheticCreateEvent({
       name: "empty-tenantId",
       tenantId: "",
@@ -133,9 +134,9 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
   });
 
   test("payload.tenantId === null → wirft (fail-loud)", async () => {
-    // Spiegel-Case. JSON-Payload kann literal null tragen (Hook der
-    // einen Wert auf null gesetzt hat statt zu unsetten). Auch hier
-    // kein silent fallback — tenant-isolation-kritisch.
+    // Mirror case. A JSON payload can contain literal null (for example, a
+    // hook set the value to null instead of unsetting it). There must be
+    // no silent fallback here either—this is critical for tenant isolation.
     const event = syntheticCreateEvent({
       name: "null-tenantId",
       tenantId: null,
@@ -146,12 +147,12 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
   });
 
   test("Spread-Reihenfolge: payload-Felder bleiben erhalten, framework-Defaults nicht überschrieben", async () => {
-    // Negative-Anchor: id/version/insertedAt/insertedById dürfen NICHT
-    // aus dem payload kommen (kommen vom event). Wenn jemand die
-    // Reihenfolge im values() umstellt, würde dieser Test fangen.
+    // Negative anchor: id/version/insertedAt/insertedById must NOT come
+    // from the payload; they come from the event. Reversing the order in
+    // values() would make this test fail.
     const event = syntheticCreateEvent({
       name: "spread-order-check",
-      // Diese Felder im payload müssen vom framework überschrieben werden:
+      // These payload fields must be overridden by the framework:
       id: "00000000-0000-0000-0000-000000000000",
       version: 999,
       insertedById: "fake-user",
@@ -165,11 +166,11 @@ describe("applyEntityEvent — tenantId-Defaulting", () => {
     expect(result.kind).toBe("applied");
 
     const [row] = await selectMany(testDb.db, table, { id: event.aggregateId });
-    // event.aggregateId wins, nicht payload.id
+    // event.aggregateId wins over payload.id
     expect(row?.["id"]).toBe(event.aggregateId);
-    // event.version wins, nicht payload.version
+    // event.version wins over payload.version
     expect(row?.["version"]).toBe(event.version);
-    // event.createdBy wins, nicht payload.insertedById
+    // event.createdBy wins over payload.insertedById
     expect(row?.["insertedById"]).toBe(event.createdBy);
   });
 });

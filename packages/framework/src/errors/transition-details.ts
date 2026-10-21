@@ -1,11 +1,11 @@
-// Gemeinsame Detail-Shape für invalid_transition-Errors. Beide Pfade
-// (state-machine.assertTransition + failTransition) müssen identisch
-// strukturierte Details liefern, sonst können HTTP-Clients den 422-Body
-// nicht uniform parsen — `from`/`to`/`allowed` sind die strukturierten
-// Felder, `message` ist die menschen-lesbare Form.
+// Shared detail shape for invalid_transition errors. Both paths
+// (`state-machine.assertTransition` and `failTransition`) must provide
+// identically structured details so HTTP clients can parse the 422 body uniformly:
+// `from`/`to`/`allowed` are the structured fields, while `message` is the
+// human-readable form.
 //
-// Kein Re-Export von "validTargets" (CSV-string) mehr — wer CSV will
-// baut's via `allowed.join(", ")`. Eine Shape, ein Vertrag.
+// `validTargets` is not re-exported as a CSV string; callers that need CSV can use
+// `allowed.join(", ")`. One shape defines the contract.
 
 export type InvalidTransitionDetails = {
   readonly from: string;

@@ -171,7 +171,7 @@ describe("job-runner — kumiko_job_last_success_timestamp_seconds", () => {
       await waitFor(() => stampFor(meter, SUCCEEDS) !== undefined);
 
       // Same meter instance the runner wrote into — that sharing is what
-      // buildServer + job-runner do in a real process (fw#1046).
+      // buildServer + job-runner do in a real process.
       const { app } = buildServer({
         registry: createRegistry([livenessFeature]),
         context: {},

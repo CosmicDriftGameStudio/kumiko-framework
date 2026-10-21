@@ -1,6 +1,6 @@
-// Smoke-Test für die Temporal-Polyfill-Initialisierung.
-// Sicher dass nach ensureTemporalPolyfill() die wichtigsten Temporal-Typen
-// (Instant, PlainDate, ZonedDateTime) konstruktor-fähig sind.
+// Smoke test for Temporal polyfill initialization.
+// Ensures that the main Temporal types are constructible after
+// ensureTemporalPolyfill(): Instant, PlainDate, and ZonedDateTime.
 
 import { describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "../polyfill.ts";
@@ -10,9 +10,8 @@ describe("Temporal Polyfill", () => {
     await ensureTemporalPolyfill();
     await ensureTemporalPolyfill();
     await ensureTemporalPolyfill();
-    // Idempotenz beweisen: nach mehrfachem Aufruf muss Temporal weiterhin
-    // konstruktor-fähig sein (kein zerstörter global state, kein verschütteter
-    // Singleton).
+    // Repeated calls must leave Temporal usable: the shared global state and
+    // singleton must not be corrupted.
     const T = getTemporal();
     expect(T.Instant.from("2026-04-18T10:00:00Z").epochMilliseconds).toBe(
       Date.UTC(2026, 3, 18, 10, 0, 0),
@@ -42,16 +41,16 @@ describe("Temporal Polyfill", () => {
     const zdt = T.ZonedDateTime.from("2026-04-18T10:00:00[Europe/Lisbon]");
     expect(zdt.timeZoneId).toBe("Europe/Lisbon");
     expect(zdt.hour).toBe(10);
-    // Lisbon ist im April auf WEST (UTC+1 wegen DST), deshalb 09:00 UTC.
+    // Lisbon observes WEST in April (UTC+1 due to DST), so this is 09:00 UTC.
     expect(zdt.toInstant().toString()).toBe("2026-04-18T09:00:00Z");
   });
 
   test("DST-Übergang 2026-03-29 02:30 Europe/Berlin existiert nicht", async () => {
     await ensureTemporalPolyfill();
     const T = getTemporal();
-    // Deutschland Spring-Forward 2026: 02:00 → 03:00 in der Nacht 28→29 März.
-    // 02:30 existiert NICHT in Berlin-TZ. Temporal handhabt das via
-    // `disambiguation: "reject"` korrekt.
+    // Germany's 2026 spring-forward transition skips 02:00–03:00 on the night
+    // of March 28–29. 02:30 therefore does not exist in the Berlin time zone;
+    // Temporal rejects it with `disambiguation: "reject"`.
     expect(() =>
       T.ZonedDateTime.from(
         { year: 2026, month: 3, day: 29, hour: 2, minute: 30, timeZone: "Europe/Berlin" },
@@ -61,11 +60,10 @@ describe("Temporal Polyfill", () => {
   });
 
   test("getTemporal vor Polyfill-Init throwt wenn Native fehlt", () => {
-    // Note: in unserem Test-Run ist Temporal nach dem ersten ensureTemporalPolyfill()
-    // schon installiert (Module-Singleton). Daher prüfen wir das `throws`-Verhalten
-    // nur indirekt über die Implementierung — direkter Test wäre flaky weil
-    // global state geteilt wird.
-    // Stattdessen: einfach sicherstellen dass nach Init getTemporal nicht throwt.
+    // Temporal is already installed by the module singleton after the first
+    // ensureTemporalPolyfill() call, so the pre-initialization throw cannot be
+    // tested directly without sharing mutable global state. Verify the post-init
+    // contract instead.
     const T = getTemporal();
     expect(T).toBeDefined();
     expect(typeof T.Instant.from).toBe("function");

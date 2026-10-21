@@ -29,12 +29,12 @@ export function createMetricsHandle(meter: Meter, featureName: string): MetricsH
 
 // Same feature-bound resolution as createMetricsHandle, but for an
 // explicit `featureName` chosen by the caller rather than the dispatching
-// handler's own feature (framework#1844). Meant for shared/library code
+// handler's own feature. Meant for shared/library code
 // invoked from many features' HandlerContext (ctx.metricsFor) — the
 // library owns one stable metric name instead of splintering into
 // kumiko_<caller>_x per consumer.
 //
-// Decision (framework#1844 DoD): unlike createMetricsHandle, an
+// Decision: unlike createMetricsHandle, an
 // unregistered name here is a silent no-op, not a throw. This handle is
 // meant for error/catch-path counters in shared code — a missing
 // registration (consuming feature not mounted, metric not declared yet)
@@ -105,7 +105,7 @@ export function createNoopMetricsHandle(): MetricsHandle {
 }
 
 // Shared factory behind ctx.metricsFor for handler and job contexts, so both
-// keep the same no-op-on-unregistered contract (framework#1844).
+// keep the same no-op-on-unregistered contract.
 export function createMetricsForFactory(
   meter: Meter | undefined,
 ): (featureName: string) => MetricsHandle {

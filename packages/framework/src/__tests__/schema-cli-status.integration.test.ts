@@ -1,7 +1,7 @@
-// Integration-Test für `runSchemaCli` `status`-Subcommand.
-// Regression für review #155 finding 4: vorher schluckte `try/catch` jeden
-// Fehler (Connection-, Permission-, Query-) und reportete alles als "pending".
-// Now: a missing tracking table means 0 applied (no error); real errors are
+// Integration test for the `runSchemaCli` `status` subcommand.
+// Previously, `try/catch` swallowed every error (connection, permission, and query)
+// and reported everything as "pending".
+// Now, a missing tracking table means 0 applied (no error); real errors are
 // reported as a CLI error with exit 1.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -31,9 +31,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // runSchemaCli resolves appCwd/kumiko/migrations — writeMigration() legt das
-  // subdir bei Bedarf an. Tests, die den "Dir fehlt"-Pfad prüfen, rufen
-  // writeMigration nicht auf.
+  // runSchemaCli resolves appCwd/kumiko/migrations — writeMigration() creates the
+  // subdirectory as needed. Tests that check the "directory missing" path do not
+  // call writeMigration.
   appDir = mkdtempSync(join(tmpdir(), "kumiko-cli-"));
   prevDbUrl = process.env["DATABASE_URL"];
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS "_kumiko_migrations"`);
@@ -70,12 +70,12 @@ describe("runSchemaCli status", () => {
     const joined = lines.join("\n");
     expect(joined).toContain("0 applied");
     expect(joined).toContain("1 pending");
-    // Kein ERR-Prefix → kein silent-swallow eines echten Fehlers.
+    // No ERR prefix → no silent swallowing of a real error.
     expect(joined).not.toContain("ERR ");
   });
 
   test("missing kumiko/migrations dir → no-op exit 0", async () => {
-    // Bestätigt symmetrisch: kein Verzeichnis = nichts zu reporten, kein Crash.
+    // Confirms the symmetric case: no directory means nothing to report, with no crash.
     process.env["DATABASE_URL"] = testUrl;
     const { out, lines } = captureOut();
     const code = await runSchemaCli(["status"], appDir, out);

@@ -1,5 +1,5 @@
 // r.bootCheck(fn) — feature-declared mount invariants, checked at boot.
-// Mirrors the prompt-store trap (kumiko-enterprise#229): a feature with
+// Mirrors the prompt-store trap: a feature with
 // PII-annotated fields was mounted without its required companion feature,
 // and nothing caught it at boot. The conditional-invariant tests below
 // reproduce that shape: the check only fails when the feature actually has

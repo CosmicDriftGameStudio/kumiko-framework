@@ -33,5 +33,5 @@ export {
   piiBackfillStateTable,
   runPiiEventBackfill,
 } from "./pii-event-backfill.ts";
-// tableName → projection-name, für den app-seitigen Projection-Rebuild.
+// tableName → projection-name, for application-side projection rebuilds.
 export { buildProjectionTableIndex } from "./projection-table-index.ts";

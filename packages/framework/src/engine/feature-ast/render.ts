@@ -347,7 +347,7 @@ function renderUseExtension(p: UseExtensionPattern): string {
   if (p.extensionNameRaw !== undefined) {
     // A raw-ref name can't be spread into the merged Object-Form without
     // losing it to renderValue's plain-string serialization — fall back
-    // to positional form, which keeps the reference verbatim (#2111).
+    // to positional form, which keeps the reference verbatim.
     const optionsArg = p.options !== undefined ? `, ${renderValue(p.options)}` : "";
     return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}${optionsArg});`;
   }
@@ -621,7 +621,7 @@ function renderMultiStreamProjection(p: MultiStreamProjectionPattern): string {
 function renderDefineEvent(p: DefineEventPattern): string {
   const nameLiteral = p.eventNameRaw ?? JSON.stringify(p.eventName);
   const migrationEntries = p.migrations !== undefined ? Object.entries(p.migrations) : [];
-  // piiFields is a mandatory option (fw#2558) — the options object is
+  // piiFields is a mandatory option — the options object is
   // always rendered, unlike the old version/migrations-only shortcut.
   const lines: string[] = [`r.defineEvent(${nameLiteral}, ${p.schemaSource.raw}, {`];
   lines.push(`  piiFields: ${p.piiFields.raw},`);

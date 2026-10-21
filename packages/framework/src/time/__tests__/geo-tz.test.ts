@@ -1,6 +1,6 @@
-// ctx.tz.fromCoordinates / fromAddress — der GeoTzProvider-Injection-Seam.
-// Das Framework liefert nur Interface + Delegation; ohne Provider wird klar
-// geworfen statt still zu raten.
+// ctx.tz.fromCoordinates / fromAddress — the GeoTzProvider injection seam.
+// The framework only provides the interface and delegation; without a provider,
+// it throws explicitly instead of silently guessing.
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import type { GeoTzProvider } from "../geo-tz.ts";

@@ -1,4 +1,4 @@
-// Review round 2 regressions for the job runner, each over a real BullMQ
+// Regressions for the job runner, each over a real BullMQ
 // worker and real Redis.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

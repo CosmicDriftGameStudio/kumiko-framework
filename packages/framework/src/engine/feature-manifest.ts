@@ -1,10 +1,9 @@
-// Runtime-introspected feature-manifest — die geteilte Extraktionslogik
-// hinter `gen-feature-manifest.ts` (use-all-bundled) und dem enterprise-
-// Generator. Vorher waren das zwei fast wortgleiche Forks mit divergentem
-// Schema (enterprise#95): erweitert das Framework die Introspektion, driftete
-// die Kopie still. Quelle der Wahrheit ist die GEBOOTETE Registry — der
-// AST-Parser kann die imperativen Factory-Helper der bundled features nicht
-// lesen.
+// Runtime-introspected feature manifest — shared extraction logic for
+// `gen-feature-manifest.ts` (use-all-bundled) and the enterprise generator.
+// These were previously two nearly identical forks with diverging schemas:
+// when framework introspection was extended, the copy silently drifted. The
+// booted Registry is authoritative because the AST parser cannot read the
+// imperative factory helpers of bundled features.
 
 import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
 import { compareByCodepoint } from "../utils/index.ts";
@@ -62,10 +61,10 @@ export type ManifestFeature = {
   readonly extensionsUsed: readonly ManifestExtension[];
   readonly configKeys: readonly ManifestConfigKey[];
   readonly secrets: readonly ManifestSecret[];
-  /** Alle registrierten Write-Handler-QNs dieses Features
-   *  (z.B. "user:write:user:create", "auth-email-password:write:login").
-   *  Von `collectWriteHandlerQns` abgeleitet — dient als Source-of-Truth
-   *  für den Client-seitigen Typcheck von `dispatcher.write`-Calls. */
+  /** All registered write-handler QNs for this feature
+   *  (e.g. "user:write:user:create", "auth-email-password:write:login").
+   *  Derived from `collectWriteHandlerQns` and used as the source of truth
+   *  for client-side type checking of `dispatcher.write` calls. */
   readonly writeHandlers: readonly string[];
   /** Picker/scaffolder UI metadata declared via r.uiHints(). Optional —
    *  absent for features that haven't been annotated yet (the picker falls
@@ -87,13 +86,13 @@ export type FeatureManifest = {
 const CONFIG_SEGMENT = ":config:";
 
 export type BuildManifestOptions = {
-  /** Herkunfts-Beschreibung fürs Manifest (landet 1:1 im JSON). */
+  /** Description of the manifest's origin, included unchanged in the JSON. */
   readonly source: string;
-  /** Nur diese Features emittieren (z.B. die 16 enterprise-Features einer
-   *  Registry, die auch deren bundled-requires gemountet hat). Default:
-   *  alle Features der Registry. */
+  /** Emit only these features (e.g. the 16 enterprise features from a
+   *  Registry that also mounted their bundled requirements). Default:
+   *  all features in the Registry. */
   readonly featureNames?: ReadonlySet<string>;
-  /** Taggt jedes Feature + das Manifest top-level (z.B. "enterprise"). */
+  /** Tags each feature and the top-level manifest (e.g. "enterprise"). */
   readonly tier?: string;
 };
 

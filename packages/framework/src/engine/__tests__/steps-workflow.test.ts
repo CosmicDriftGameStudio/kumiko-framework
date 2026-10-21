@@ -120,7 +120,7 @@ describe("buildWaitForEventStep", () => {
 
   it("@ts-expect-error: event must come from an awaits declaration, not a raw string", () => {
     // @ts-expect-error — a raw string is not an AwaitedEventType; only
-    // defineWorkflow's `awaits` map can produce one (D4, workflow-resume-loop.md).
+    // defineWorkflow's `awaits` map can produce one (workflow-resume-loop.md).
     const step = buildWaitForEventStep({ event: "user.confirmed-email", timeout: "P7D" });
     expect(step.kind).toBe("workflow.waitForEvent");
   });

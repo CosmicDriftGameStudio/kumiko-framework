@@ -1,6 +1,6 @@
-// #369: min/max auf date/timestamp-Feldern werden im Insert-Schema
-// durchgesetzt (lexikografischer ISO-Vergleich, ohne Date-API). Die UI
-// begrenzt den Picker; diese Zod-Grenze ist die Write-seitige Sicherung.
+// min/max bounds on date/timestamp fields are enforced in the insert schema
+// using lexicographic ISO comparison, without the Date API. The UI constrains
+// the picker; this Zod bound provides write-side protection.
 
 import { describe, expect, test } from "bun:test";
 import { createDateField, createEntity, createTimestampField } from "../factories.ts";

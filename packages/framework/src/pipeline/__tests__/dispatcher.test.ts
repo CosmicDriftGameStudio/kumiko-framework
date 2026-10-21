@@ -192,9 +192,9 @@ describe("dispatcher.write", () => {
   });
 
   test("ctx.user ist Convenience-Alias auf event.user (gleicher Wert)", async () => {
-    // Pinst dass der Handler auf ctx.user zugreifen kann ohne den
-    // typo-resistenten event.user-Pfad zu nutzen. Identitätsprüfung
-    // gegen denselben SessionUser — sonst ist's nicht der gleiche.
+    // Verifies that the handler can access ctx.user without using the
+    // typo-resistant event.user path. Compare both with the same SessionUser
+    // to ensure they refer to the same object.
     const captured: { fromEvent?: unknown; fromCtx?: unknown } = {};
     const aliasFeature = defineFeature("alias", (r) => {
       r.entity({
@@ -372,7 +372,7 @@ describe("dispatcher.stream", () => {
     expect(first.value).toEqual({ i: 0 });
     expect(onInvalidate).toBeDefined();
     // Start the idle second pull, then revoke — mirrors heartbeat-only SSE
-    // streams that must die without waiting for the next chunk (#1563).
+    // streams that must die without waiting for the next chunk.
     const second = gen.next();
     onInvalidate?.();
     await expect(second).rejects.toMatchObject({
@@ -478,7 +478,7 @@ describe("dispatcher.stream", () => {
   });
 
   test("activates the dispatcher span in observabilityContext for every pull, not just the first", async () => {
-    // Regression for #1516: runStreamInstrumented used to start the span but
+    // Regression: runStreamInstrumented used to start the span but
     // never run the stream inside observabilityContext.run(...), so a
     // handler-side startSpan() picked up whatever ALS context happened to be
     // active at that pull (or none) instead of the stream's dispatcher span.
@@ -513,7 +513,7 @@ describe("dispatcher.stream", () => {
   });
 
   test("a close-time error on an otherwise-clean stream is reported, not swallowed", async () => {
-    // Regression for #1543: runStreamInstrumented's finally used to
+    // Regression: runStreamInstrumented's finally used to
     // catch+discard any error from generator.return() unconditionally, even
     // when nothing else had failed — an abandoned stream whose handler's
     // own cleanup throws (closing a cursor/unsubscribing) was invisible to
@@ -556,7 +556,7 @@ describe("dispatcher.stream", () => {
   test("draining a stream to completion emits outcome:completed", async () => {
     // completedNormally=true only when the inner generator finishes on its
     // own — pins the success-path label so a refactor that drops the flag
-    // cannot silently reclassify clean streams as aborted (#1551).
+    // cannot silently reclassify clean streams as aborted.
     const provider = createRecordingProvider();
     const feature = defineFeature("complete", (r) => {
       r.streamHandler(
@@ -591,7 +591,7 @@ describe("dispatcher.stream", () => {
   test("generator.return() mid-stream emits outcome:aborted, not completed", async () => {
     // Consumer walk-away (SSE tab-close) must not count as a clean
     // completion — completedNormally stays false when return() interrupts
-    // the loop (#1551).
+    // the loop.
     const provider = createRecordingProvider();
     const feature = defineFeature("abort", (r) => {
       r.streamHandler(
@@ -908,10 +908,10 @@ describe("dispatcher feature-gate", () => {
   });
 
   test("trialGate: disabled feature is allowed on the gate's cold path when trialGate returns true", async () => {
-    // Beweist die Live-Trial-Mechanik: der sync resolver hat das Feature NICHT
-    // im Set (alles disabled), aber checkFeatureEnabled konsultiert den async
-    // trialGate auf dem disabled-Pfad. Deckt beide Aufrufstellen ab (query =
-    // ensureFeatureEnabled, write = checkFeatureEnabled).
+    // Verifies the live-trial mechanism: the synchronous resolver does NOT
+    // include the feature (all features are disabled), but checkFeatureEnabled
+    // consults the async trialGate on the disabled path. Covers both call
+    // sites (query = ensureFeatureEnabled, write = checkFeatureEnabled).
     const registry = createRegistry([toggled()]);
     let trialOpen = false;
     const effectiveFeatures = Object.assign(() => new Set<string>(), {
@@ -927,9 +927,10 @@ describe("dispatcher feature-gate", () => {
     expect(writeClosed.isSuccess).toBe(false);
     if (!writeClosed.isSuccess) expect(writeClosed.error.code).toBe("feature_disabled");
 
-    // Trial offen → Gate lässt durch, obwohl der Resolver das Feature nicht
-    // führt. Query passiert; Write passiert das Gate (scheitert ggf. später an
-    // fehlender DB, aber NICHT mehr an feature_disabled).
+    // When the trial is open, the gate allows access even though the resolver
+    // does not include the feature. The query succeeds; the write passes the
+    // gate and may fail later because of the missing DB, but not with
+    // feature_disabled.
     trialOpen = true;
     await expect(dispatcher.query("toggled:query:widget:list", {}, user)).resolves.toEqual({
       items: [],
@@ -939,9 +940,9 @@ describe("dispatcher feature-gate", () => {
   });
 
   test("Sprint 8a: per-tenant gating — Tenant A passes, Tenant B gets feature_disabled", async () => {
-    // Beweist die Phase-1-Architektur: dispatcher ruft effectiveFeatures
-    // mit user.tenantId, resolver kann pro Tenant unterschiedliche Sets
-    // returnen → Tier-A sieht feature, Tier-B nicht.
+    // Verifies that the dispatcher calls effectiveFeatures with user.tenantId,
+    // allowing the resolver to return different sets per tenant: one tenant
+    // sees the feature and the other does not.
     const registry = createRegistry([toggled()]);
     const tenantA = "00000000-0000-4000-8000-0000000000a1" as TenantId;
     const tenantB = "00000000-0000-4000-8000-0000000000b2" as TenantId;
@@ -975,9 +976,9 @@ describe("dispatcher feature-gate", () => {
   });
 
   test("Sprint 8a: ctx.hasFeature is current-user-scoped", async () => {
-    // Pin: hasFeature() in handler-bodies resolves against ctx.user.tenantId,
-    // NICHT gegen einen globalen Set. Two tenants call same handler,
-    // beide rufen hasFeature("toggled") — A bekommt true, B false.
+    // Ensures hasFeature() in handler bodies resolves against ctx.user.tenantId,
+    // not a global set. Two tenants call hasFeature("toggled"): A gets true,
+    // and B gets false.
     const tenantA = "00000000-0000-4000-8000-0000000000a3" as TenantId;
     const tenantB = "00000000-0000-4000-8000-0000000000b4" as TenantId;
 

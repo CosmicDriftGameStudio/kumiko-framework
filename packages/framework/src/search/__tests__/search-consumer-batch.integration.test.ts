@@ -1,4 +1,4 @@
-// #3227 — the search consumer's batchHandler against a real Meilisearch:
+// The search consumer's batchHandler against a real Meilisearch:
 // N created events collapse into one indexBatch task, and same-turn
 // collisions on one aggregate resolve to the LAST op (update-then-delete
 // removes, delete-then-restore indexes the restored state).

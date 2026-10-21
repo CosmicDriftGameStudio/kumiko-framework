@@ -115,8 +115,8 @@ describe("collectTableMetas (#255)", () => {
       r.projection({
         name: "broken",
         source: "unit",
-        // System-Grenze: absichtlich kaputtes table-Objekt — der Cast
-        // simuliert eine fremd-konstruierte Tabelle ohne kumiko-Meta.
+        // System boundary: deliberately malformed table object—the cast
+        // simulates a foreign-constructed table without Kumiko metadata.
         table: { tableName: "read_broken" } as unknown as SchemaTable,
         apply: {},
       });

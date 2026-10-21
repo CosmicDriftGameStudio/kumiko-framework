@@ -1,84 +1,79 @@
-// Sub-Processor-Liste der Kumiko-Plattform.
+// Kumiko platform sub-processors.
 //
-// Auftragsverarbeiter im Sinne von DSGVO Art. 28 die Kumiko fuer den
-// Plattform-Betrieb einsetzt. Wird oeffentlich exposed unter
-//   /api/compliance/sub-processors        (JSON, Sprint 1)
-//   /api/compliance/sub-processors.rss    (RSS, Sprint 1)
+// Processors within the meaning of GDPR Article 28 that Kumiko uses for
+// platform operations. Publicly exposed at:
+//   /api/compliance/sub-processors        (JSON)
+//   /api/compliance/sub-processors.rss    (RSS)
 //
 // Separate from the public marketing overview (kumiko.rocks/subprocessors),
 // which is compiled independently from templates/legal/_shared/subprocessors/
 // catalog.*.md. The two lists are not synced.
 //
-// Tenant-Admins muessen ueber Add/Change/Remove informiert werden mit
-// Lead-Time aus dem Compliance-Profile (typisch 30d). Cron-Job kommt
-// in Sprint 1 (compliance-profiles).
+// Tenant admins must be informed of additions, changes, and removals with
+// the lead time from the compliance profile (typically 30d). The notification
+// cron is not available yet.
 //
 // SubProcessor has no "removed" state yet: a removed entry is deleted from
 // the array, so until the notification cron exists a removal is documented
 // only in the changelog. Removed so far: Mailbox.org (mailbox hosting),
-// replaced by ALL-INKL.COM on 2026-09-02.
-//
-// Quelle: docs/plans/datenschutz/compliance-profiles.md "Sub-Processor-
-// Management" + docs/plans/datenschutz/legal-artifacts.md.
+// replaced by ALL-INKL.COM.
 
 /**
- * Bundle-Tier-Marker fuer SubProcessor.appliesTo. "all-tiers" matched
- * unabhaengig vom konkreten Tenant-Bundle (z.B. Hetzner als Hosting-
- * Provider). Konkrete Tier-Namen koennen per-Tenant gefiltert werden.
+ * Bundle tier marker for SubProcessor.appliesTo. "all-tiers" matches
+ * regardless of the tenant's specific bundle (for example, Hetzner as a
+ * hosting provider). Specific tier names can be filtered per tenant.
  */
 export type BundleTier = "all-tiers" | "standard" | "business" | "enterprise";
 
 /**
- * Beschreibt einen Auftragsverarbeiter (Art. 28 DSGVO) der von Kumiko
- * fuer den Plattform-Betrieb eingesetzt wird.
+ * Describes a processor within the meaning of GDPR Article 28 that Kumiko
+ * uses for platform operations.
  */
 export interface SubProcessor {
   /** Voller juristischer Name. */
   readonly name: string;
-  /** Was macht der Sub-Processor fuer uns? */
+  /** What the sub-processor does for us. */
   readonly purpose: string;
   /** Sitz / Datenverarbeitungs-Region. */
   readonly region: string;
-  /** Link zum Auftragsverarbeitungsvertrag (DPA/AVV). */
+  /** Link to the data processing agreement (DPA/AVV). */
   readonly dpa: string;
-  /** Wann wurde der Sub-Processor zu unserer Plattform hinzugefuegt? */
+  /** Date when the sub-processor was added to the platform. */
   readonly addedAt: string;
   /**
-   * Welche Bundle-Tiers nutzen diesen Sub-Processor?
-   * Tenants nicht-betroffener Tiers brauchen keine Notification bei
-   * Aenderungen.
+   * Bundle tiers that use this sub-processor.
+   * Tenants in unaffected tiers do not need notifications about changes.
    */
   readonly appliesTo: readonly BundleTier[];
   /**
-   * Standard Contractual Clauses (SCC) fuer Drittlandsuebermittlung
-   * abgeschlossen. Pflicht fuer alle Sub-Processors mit Sitz ausserhalb
-   * EU/EWR.
+   * Whether Standard Contractual Clauses (SCC) for transfers to third
+   * countries have been concluded. Required for all sub-processors based
+   * outside the EU/EEA.
    */
   readonly sccRequired?: boolean;
   /**
-   * Tenant muss explizit aktivieren (z.B. AI-Feature). Ohne Opt-In
-   * werden keine Daten an diesen Sub-Processor gesendet.
+   * The tenant must explicitly activate this sub-processor (for example,
+   * for an AI feature). No data is sent to it without opt-in.
    */
   readonly optInOnly?: boolean;
   /**
-   * Business Associate Agreement fuer HIPAA-Customers verfuegbar.
-   * Relevant nur fuer hipaa-healthcare Compliance-Profile.
+   * Whether a Business Associate Agreement is available for HIPAA customers.
+   * Relevant only for hipaa-healthcare compliance profiles.
    */
   readonly hipaaBaaAvailable?: boolean;
   /**
-   * Geplant aber noch nicht aktiv (Vorbereitung fuer kommenden Sprint).
-   * Wird im Sub-Processor-Endpoint als "planned"-Sektion separat
-   * ausgegeben damit Tenants schon Lead-Time bekommen.
+   * Planned but not yet active.
+   * The sub-processor endpoint outputs it in a separate "planned" section
+   * so tenants receive lead time for configuration.
    */
   readonly status?: "active" | "planned";
 }
 
 /**
- * Plattform-weite Sub-Processor-Liste.
+ * Platform-wide sub-processor list.
  *
- * Reihenfolge: nach addedAt (aelteste zuerst). Bei Aenderungen
- * Snapshot-Test im Test-File explizit updaten — der detektiert
- * stille Aenderungen.
+ * Ordered by addedAt (oldest first). Update the snapshot test explicitly
+ * when changing this list; it detects silent changes.
  */
 export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
   {
@@ -161,17 +156,17 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
 ];
 
 /**
- * Filter helper — nur aktive Sub-Processors (kein status="planned").
- * Genutzt vom oeffentlichen JSON-Endpoint (Sprint 1).
+ * Filter helper — active sub-processors only (excluding status="planned").
+ * Used by the public JSON endpoint.
  */
 export function getActiveSubProcessors(): readonly SubProcessor[] {
   return KUMIKO_SUB_PROCESSORS.filter((sp) => sp.status !== "planned");
 }
 
 /**
- * Filter helper — nur geplante Sub-Processors (status="planned"). Werden
- * separat als "demnaechst aktiv"-Sektion ausgegeben damit Tenant-Admins
- * schon Lead-Time fuer Compliance-Profile-Konfiguration bekommen.
+ * Filter helper — planned sub-processors only (status="planned"). They are
+ * output separately in a "coming soon" section so tenant admins receive
+ * lead time for compliance profile configuration.
  */
 export function getPlannedSubProcessors(): readonly SubProcessor[] {
   return KUMIKO_SUB_PROCESSORS.filter((sp) => sp.status === "planned");

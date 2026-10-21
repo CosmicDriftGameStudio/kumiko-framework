@@ -2,7 +2,7 @@
 // tool (or any external caller) hands us JSON; before it ever reaches
 // `applyChanges` it must pass through here. Every rejection carries an
 // exact dotted/bracketed path so the caller (frequently an LLM) can
-// self-correct without a human in the loop — see kumiko-framework#3137.
+// self-correct without a human in the loop.
 //
 // **Zod v4 constraint driving this file's shape:** every discriminated-
 // union member below stays a plain `z.object(...)` (or `.superRefine`

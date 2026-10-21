@@ -1,7 +1,7 @@
-// fw#2858 — a write/query handler's `escapeHatch` also gates ctx.db.unsafeRaw():
+// A write/query handler's `escapeHatch` also gates ctx.db.unsafeRaw():
 // WITH it the raw query succeeds, WITHOUT it the same handler rejects with access_denied.
 // Real HTTP calls + setupTestStack — never createTestDispatcher. Modelled exactly on
-// escape-hatch.integration.test.ts (fw#2855).
+// escape-hatch.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";

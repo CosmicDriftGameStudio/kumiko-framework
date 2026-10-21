@@ -1,17 +1,16 @@
-// F8 — pg-unique-violation auf entity-level-Indices wird sauber zu
-// einer 409 UniqueViolationError gemapped, NICHT zu einer 500
-// InternalError.
+// Entity-level pg-unique-violations are mapped to a 409 UniqueViolationError,
+// not a 500 InternalError.
 //
-// Der event-store-Layer hatte das schon (Sprint 4d Patch:
-// EventStoreVersionConflict-catch im executor.create/update). Aber
-// app-level unique-Indices auf der Projection-Tabelle (z.B. (tenantId,
-// email) auf User-Entity) liefen ohne mapping durch — krachten als
-// pg-23505 InternalError. F8 schließt diese Lücke.
+// The event-store layer already handled this in executor.create/update. However,
+// app-level unique indexes on the projection table, such as (tenantId, email) on
+// a User entity, previously bypassed that mapping and surfaced as pg-23505
+// InternalError. This closes that gap.
 //
-// **Test-Setup:** ein User-style entity mit composite-unique-Index
-// (tenantId, email). Aggregate-id ist auto-generated UUID, kollidiert
-// also nicht. Erst die projection-INSERT verletzt den Index. Ohne F8:
-// 500. Mit F8: writeFailure(UniqueViolationError) → 409.
+// **Test setup:** a User-style entity with a composite unique index on
+// (tenantId, email). The aggregate ID is an auto-generated UUID and therefore
+// cannot collide. The projection INSERT is the first operation to violate the
+// index: 500 without this mapping, and writeFailure(UniqueViolationError) → 409
+// with it.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -30,13 +29,12 @@ const userEntity = createEntity({
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     displayName: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
-  // softDelete=true damit wir den restore-Pfad pinnen können (siehe
-  // restore-Test unten — "kein 23505 möglich" claim).
+  // softDelete=true lets this test pin the restore path, which assumes that
+  // "no 23505 is possible".
   softDelete: true,
-  // Composite-unique auf (tenantId, email) — typisches User-Pattern.
-  // Der unique-Index lebt auf der Projection, NICHT auf der events-
-  // Tabelle. Daher fängt der existing event-store-23505-catch (Sprint
-  // 4d) das nicht; das ist der Pfad den F8 abdeckt.
+  // The composite unique index on (tenantId, email) lives on the projection,
+  // not on the events table. The existing event-store 23505 catch therefore does
+  // not handle this path.
   indexes: [
     { columns: ["tenantId", "email"], unique: true, name: "read_unique_users_tenant_email_uniq" },
   ],
@@ -87,8 +85,8 @@ describe("F8 — entity-level unique-violation auf create", () => {
     if (second.isSuccess) return;
     expect(second.error.code).toBe("unique_violation");
     expect(second.error.httpStatus).toBe(409);
-    // constraintName aus dem PG-error durchgereicht — App-Code kann
-    // damit auf den richtigen field-name mappen.
+    // Passing constraintName through lets application code map the error to the
+    // correct field name.
     const details = second.error.details as { constraintName?: string; entityName?: string };
     expect(details.entityName).toBe("unique-user");
     expect(details.constraintName).toBe("read_unique_users_tenant_email_uniq");
@@ -122,9 +120,8 @@ describe("F8 — entity-level unique-violation auf update", () => {
     const bob = await exec.create({ email: "bob@example.com", displayName: "Bob" }, admin, tdb);
     if (!alice.isSuccess || !bob.isSuccess) throw new Error("create failed in setup");
 
-    // Bob versucht Alice's email zu nehmen → kollidiert mit dem
-    // existing alice-row. Vor F8 wäre das ein internal_error 500
-    // gewesen.
+    // Bob attempts to use Alice's email, colliding with the existing Alice row.
+    // This previously surfaced as an internal_error 500.
     const conflict = await exec.update(
       { id: bob.data.id, version: 1, changes: { email: "alice@example.com" } },
       admin,
@@ -138,7 +135,7 @@ describe("F8 — entity-level unique-violation auf update", () => {
 });
 
 // =============================================================================
-// restore — kein try-catch nötig (drift-pin: dokumentiert die Annahme)
+// restore — no try-catch required; this documents the assumption
 // =============================================================================
 
 // =============================================================================
@@ -174,17 +171,15 @@ describe("F8 — a projection violation must not poison the enclosing transactio
 
 describe("F8 — restore touch'd nur isDeleted, kein 23505-Pfad", () => {
   test("restore einer soft-gedeleteten row mit unique-field läuft konfliktfrei durch", async () => {
-    // Audit-Annahme (advisor-Punkt verifiziert): restore mutiert nur
-    // isDeleted=false, kein unique-field-Touch. Der unique-Index ist
-    // global (kein partial-WHERE-NOT-isDeleted in framework's table-
-    // builder), also würde EIN paralleler create mit derselben email
-    // schon am unique-Index scheitern (F8-create-Pfad), bevor er den
-    // soft-deleted restore-Pfad konfliktfrei machen könnte.
+    // Audit assumption: restore mutates only isDeleted=false and does not touch
+    // unique fields. The unique index is global, with no partial-WHERE-NOT-isDeleted
+    // in the framework's table builder, so a concurrent create using the same email
+    // would already fail at the unique index before it could affect the soft-deleted
+    // restore path.
     //
-    // Dieser Test pinnt: restore allein wirft kein 23505. Wenn jemand
-    // morgen einen Pfad einbaut der restore mit field-changes
-    // kombiniert, fällt's hier auf — der Test war "soll konfliktfrei
-    // sein", die Annahme wird laut.
+    // This test pins that restore alone does not throw 23505. If a future path
+    // combines restore with field changes, this test will expose the changed
+    // assumption: the operation is expected to remain conflict-free.
     const alice = await exec.create(
       { email: "carol@example.com", displayName: "Carol" },
       admin,

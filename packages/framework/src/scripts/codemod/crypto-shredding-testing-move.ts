@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // Rewrites `import { resetPiiSubjectKmsForTests, resetBlindIndexKeyForTests }
 // from "@cosmicdrift/kumiko-framework/crypto"` to import both names from
-// "@cosmicdrift/kumiko-framework/testing" instead (fw#1631). Only the
+// "@cosmicdrift/kumiko-framework/testing" instead. Only the
 // package barrel specifier is rewritten — relative deep-imports of the
 // defining module are left untouched, per the changes.json migration note.
 // Idempotent: an already-migrated file has nothing left to move.
@@ -21,7 +21,7 @@ const EXCLUDE_DIRS = new Set(["node_modules", "dist", "build"]);
 function findTargetFiles(rootDir: string): string[] {
   // Walk the tree and skip excluded dirs while descending — filtering the
   // absolute path after a full Glob scan silently no-ops when the repo root
-  // itself contains "/build/" or "/node_modules/" (fw#2289).
+  // itself contains "/build/" or "/node_modules/".
   const files: string[] = [];
   const walk = (dir: string): void => {
     let entries: Dirent[];

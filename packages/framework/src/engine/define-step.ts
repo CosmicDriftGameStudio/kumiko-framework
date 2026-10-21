@@ -4,7 +4,7 @@
 // (run-pipeline.ts) looks them up by `kind` to dispatch run-calls.
 //
 // The registry is process-global; Tier-2 step opt-in via
-// `r.requires.step("…")` (Q9 in step-vocabulary.md) is a future pass.
+// `r.requires.step("…")` is a future pass.
 
 import type { StepDef, StepKind } from "./types/step.ts";
 

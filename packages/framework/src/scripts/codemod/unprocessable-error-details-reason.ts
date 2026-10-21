@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// `UnprocessableOpts.details` was tightened (fw#2460) to `& { readonly reason?:
+// `UnprocessableOpts.details` was tightened to `& { readonly reason?:
 // never }` — `reason` is owned exclusively by the ctor's first positional
 // argument, which already folds it into `details` internally
 // (`{ ...opts?.details, reason }`). Any consumer that ALSO puts `reason`
@@ -26,7 +26,7 @@ const KUMIKO_MODULE_RE = /^@cosmicdrift\/kumiko-/;
 function findTargetFiles(rootDir: string): string[] {
   // Walk the tree and skip excluded dirs while descending — filtering the
   // absolute path after a full scan silently no-ops when the repo root
-  // itself contains "/build/" or "/node_modules/" (fw#2289).
+  // itself contains "/build/" or "/node_modules/."
   const files: string[] = [];
   const walk = (dir: string): void => {
     let entries: Dirent[];

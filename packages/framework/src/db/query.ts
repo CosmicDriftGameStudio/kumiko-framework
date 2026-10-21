@@ -27,7 +27,7 @@ import type {
   WritableTable,
 } from "@cosmicdrift/kumiko-types/executor-brand";
 // Static import (not getTemporal()): coercion works without an installed
-// global and returns the same Temporal classes as the rest of the repo (#1480).
+// global and returns the same Temporal classes as the rest of the repo.
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
@@ -449,7 +449,7 @@ function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal
   );
 }
 
-// Verified empirically (kumiko-framework#1924): a `date`
+// Verified empirically: a `date`
 // column comes back as a native JS Date, but ALWAYS anchored at UTC
 // midnight regardless of process TZ — epochMilliseconds is stable across
 // zones, only the local wall-clock read of that Date would drift the day
@@ -513,7 +513,7 @@ function coerceDriverRow(row: Record<string, unknown>, info: TableInfo): Record<
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const key of Object.keys(row)) {
-    // Blind-index columns (#818) are pure lookup artifacts — the
+    // Blind-index columns are pure lookup artifacts — the
     // deterministic HMAC must never leak into caller/API responses.
     if ((key.endsWith("_bidx") || key.endsWith("Bidx")) && info.hasColumn(key)) {
       changed = true;
@@ -601,7 +601,7 @@ function isSqlExpression(v: unknown): v is { kind: "sql-expr"; text: string } {
 // as-is — no Instant detour. Postgres parses a DATE literal without ever
 // consulting the session timezone, so this is TZ-independent by construction
 // (verified empirically — see plainDateFromDriver above for the read side).
-// Compat cushion: pre-#1924 code (this field used to be an Instant) may still
+// Compat cushion: code (this field used to be an Instant) may still
 // hand a Temporal.Instant into a where-filter or write on a `date` column —
 // same UTC anchor as plainDateFromDriver's read side, so a filter built with
 // `Temporal.Now.instant()` keeps working instead of binding a raw Instant the
@@ -708,7 +708,7 @@ function buildWhereClause(
   // multiSelect (and any other jsonb-array-of-scalars column) stores an
   // array — a filter value is one option, not the whole array, so eq/ne/in
   // must check array containment (`@>`) instead of scalar `=`/`<>`/`IN`
-  // against the jsonb column, which Postgres rejects outright (fw#2490).
+  // against the jsonb column, which Postgres rejects outright.
   // Mirrors event-store-executor-read.ts's applyFilter — keep in lock-step.
   function jsonbContainsAny(col: string, candidates: readonly unknown[]): string {
     if (candidates.length === 0) return "FALSE";
@@ -889,7 +889,7 @@ function buildWhereClause(
       if (p.kind === "literal") {
         conditions.push(`${ref(col)} = ${p.literal}`);
       } else {
-        // Blind-index OR rewrite (#818): if the column has a bidx
+        // Blind-index OR rewrite: if the column has a bidx
         // counterpart (suffix convention `<col>_bidx`, framework-reserved)
         // and a key is configured, equality matches both arms —
         // plaintext legacy rows via the plaintext arm, encrypted rows

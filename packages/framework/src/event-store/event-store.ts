@@ -88,7 +88,7 @@ type SelectedEvent = {
 export const EVENTS_PUBSUB_CHANNEL = "kumiko_events_new";
 
 export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
-  // Event-PII (#799): stored payload AND returned echo carry ciphertext, so
+  // Event-PII: stored payload AND returned echo carry ciphertext, so
   // inline projections and rebuilds materialize identical rows.
   const payload = await encryptEventPayloadPii(event.type, event.payload, {
     tenantId: event.tenantId,
@@ -136,7 +136,7 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   }
 }
 
-// #3043 — attribution is derived from the execution scope, never taken from
+// Attribution is derived from the execution scope, never taken from
 // the caller: a passed-in value can lie about who wrote the row, a derived
 // one cannot. Hence overwrite rather than merge. appendRaw/appendRawBatch
 // bypass this deliberately — they replay historical rows verbatim.

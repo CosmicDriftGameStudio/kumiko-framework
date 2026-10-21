@@ -1,7 +1,7 @@
 import { createFallbackLogger } from "../logging/utils.ts";
 import { createRedisClient, type RedisClientOptions } from "./client.ts";
 
-// Generic Redis Pub/Sub transport for cross-replica fanout (fw#2625).
+// Generic Redis Pub/Sub transport for cross-replica fanout.
 // Shared by the SSE broker (api/redis-sse-broker.ts, several logical
 // channels multiplexed under one prefix) and feature-toggles' cache-sync
 // signal (bundled-features, a single fixed channel) — both need the same
@@ -36,8 +36,8 @@ export type PubSubSignalOptions = {
 };
 
 // Redis emits 'error' on connection blips (reconnects transparently); an
-// unhandled listener crashes the process (fw#1805 — job-runner hit the same
-// class with BullMQ's internal client).
+// unhandled listener crashes the process — job-runner hit the same
+// class with BullMQ's internal client.
 function logConnectionError(
   log: ReturnType<typeof createFallbackLogger>,
   role: string,
@@ -77,14 +77,14 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
   // ponytail: psubscribe on one pattern rather than per-channel
   // subscribe/unsubscribe — every instance receives every message that
   // matches, filtered by the caller. That's strictly no worse than the
-  // pre-fw#2625 per-instance-cursor model (which already read every event
+  // per-instance-cursor model (which already read every event
   // from Postgres in every process) and sidesteps the subscribe-ack/
   // first-publish race a per-channel scheme would have. Revisit with
   // per-channel subscribe only if fanout volume becomes the bottleneck.
   //
   // Awaited by close() below — quitting while this is still in flight (a
   // shutdown landing immediately after construction, e.g. a test closing
-  // right after building the signal) makes ioredis rejects the queued
+  // right after building the signal) makes ioredis reject the queued
   // psubscribe with "Connection is closed" instead of it completing
   // cleanly first. Not caught here or logged when a close is already
   // underway (`closed`), so an intentional shutdown never surfaces this

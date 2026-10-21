@@ -152,7 +152,7 @@ function navViewerRoles(access: AccessRule | undefined): readonly string[] | und
   return access.roles;
 }
 
-// fw#2640: warn (never throw — this is a real UX bug, not a broken ref)
+// Warn (never throw — this is a real UX bug, not a broken ref)
 // when a nav leaf's role gate is disjoint from its parent section's — no
 // user who can see the section could ever see this child, so the section
 // renders with zero visible children for every user who reaches it.
@@ -180,14 +180,14 @@ export function warnOnNavAccessInversion(
   }
 }
 
-// fw#3019: warn (never throw — a screen deliberately left out of the app's
+// Warn (never throw — a screen deliberately left out of the app's
 // sidebar is legitimate) when a declared nav's screen isn't reachable from
 // any allowlisted nav entry. Checking "nav QN not in allowlist" directly
 // warned 28x on the real offlot-app schema (58 navs, 30 allowed) — most of
 // them app-shell leaves that intentionally re-target a screen another,
 // allowlisted nav already reaches. Reachability warns only for a screen no
 // allowlisted nav points at, which is the actual "unreachable via sidebar"
-// bug (solon#113, offlot's VIN screen in pilot).
+// bug (offlot's VIN screen in pilot).
 // "workspaces": no explicit navAllowlist, the allowlist was derived from workspace assignments.
 export type NavAllowlistSource = "explicit" | "workspaces";
 

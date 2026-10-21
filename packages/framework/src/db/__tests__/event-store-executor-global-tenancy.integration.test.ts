@@ -1,4 +1,4 @@
-// fw#2858 — a `tenancy: "global"` entity's aggregate is tenant-agnostic: create/update
+// A `tenancy: "global"` entity's aggregate is tenant-agnostic: create/update
 // must reject an explicit foreign (non-SYSTEM) payload.tenantId before it ever reaches
 // the projection insert/update. Modelled on event-store-system-stream.integration.test.ts.
 

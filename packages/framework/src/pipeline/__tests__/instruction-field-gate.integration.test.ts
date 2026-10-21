@@ -2,7 +2,7 @@
 // later run reads such a field's value as an instruction (prompt, rule,
 // template), so the directly-dispatched entry handler must resolve agent.risk
 // "high", or the executor gate refuses before any DB write. Real HTTP calls +
-// setupTestStack — never createTestDispatcher. See kumiko-framework#3358.
+// setupTestStack — never createTestDispatcher.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {

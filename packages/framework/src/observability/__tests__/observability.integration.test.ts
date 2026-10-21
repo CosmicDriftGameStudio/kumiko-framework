@@ -498,7 +498,7 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       expect(jobSpan.traceId).toBe(callerSpan.traceId);
       expect(jobSpan.parentSpanId).toBe(dispatched.spanId);
       expect(jobSpan.attributes["job.name"]).toBe("jobs-trace:job:record");
-      // Welle 2.6: lane-routing attributes. run_in is the job's declared
+      // Lane-routing attributes. run_in is the job's declared
       // lane (default "worker" here, no explicit runIn on the feature);
       // consumer_lane is the runner that actually picked it.
       expect(jobSpan.attributes["kumiko.job.run_in"]).toBe("worker");
@@ -568,8 +568,7 @@ describe("Observability (integration) — error path", () => {
   });
 });
 
-// Simulates shared/library code called from several consumer features
-// (framework#1844's ai-foundation scenario) — the same call site, not a
+// Simulates shared/library code called from several consumer features — the same call site, not a
 // copy-pasted inc() per feature. Feature names use real kebab-case (as
 // declared at defineFeature time and used in QN dispatch types) — buildMetricName
 // normalizes "-" to "_" so registration and lookup resolve to the same name.

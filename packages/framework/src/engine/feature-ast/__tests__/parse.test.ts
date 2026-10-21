@@ -3,7 +3,7 @@
 //   1. Structural contract — defineFeature discovery, walker, dynamic
 //      registrar param name, source-order, SourceLocation. Every
 //      extractor relies on these.
-//   2. Per-extractor coverage (C1.5) — one focused test per concrete
+//   2. Per-extractor coverage — one focused test per concrete
 //      extractor as it lands.
 //
 // Methods without an extractor yet still get caught by the dispatcher
@@ -2811,10 +2811,10 @@ defineFeature("f", (r) => {
 });
 
 // =============================================================================
-// Regression — show-pony-shaped feature (#998)
+// Regression — show-pony-shaped feature
 // =============================================================================
 // Mirrors the real-world idioms from show-pony/src/features/show-pony/feature.ts
-// that motivated #998 — inline here (not the live external repo path) so this
+// that motivated this regression — inline here (not the live external repo path) so this
 // test doesn't depend on the show-pony checkout being present in this repo's CI.
 
 describe("show-pony-shaped feature (regression, #998)", () => {
@@ -2886,7 +2886,7 @@ describe("cross-file registrar-wrapper resolution against a real filesystem Proj
   });
 });
 
-// #1746 — registrar-call name args authored as an imported constant
+// Registrar-call name args authored as an imported constant
 // (`r.useExtension(EXT_TENANT_DATA, ...)`) instead of a string literal.
 // This is the dominant real-world style across the framework's own
 // bundled-features (see extension-names.ts), and previously ParseErrored

@@ -1,23 +1,24 @@
-// Blind-Index für PII-Equality-Lookups (kumiko-framework#818).
-// `lookupable: true` auf einem Subject-annotierten text-Feld erzeugt eine
-// generierte Spalte `<snake>_bidx` mit deterministischem HMAC über den
-// KLARTEXT-Wert — Equality-Queries matchen `(col = $1 OR col_bidx = $2)`
-// und funktionieren damit für Klartext-Alt-Rows UND verschlüsselte Rows.
+// Blind index for PII equality lookups.
+// `lookupable: true` on a Subject-annotated text field generates a
+// `<snake>_bidx` column containing a deterministic HMAC of the
+// PLAINTEXT value. Equality queries match `(col = $1 OR col_bidx = $2)`
+// and therefore work for both plaintext legacy rows and encrypted rows.
 //
-// Wertformat: kumiko-bidx:v1:<base64url(HMAC-SHA256(key, value))>
+// Value format: kumiko-bidx:v1:<base64url(HMAC-SHA256(key, value))>
 //
-// HMAC ist byte-exact ohne Normalisierung — repliziert exakt die heutige
-// case-sensitive Equality-Semantik (Lowercasing wäre eine Verhaltensänderung).
+// HMAC computation is byte-exact and performs no normalization, preserving
+// the existing case-sensitive equality semantics (lowercasing would change
+// the behavior).
 //
-// Der Key ist bewusst ein EIGENER 32-Byte-Key (env: KUMIKO_BLIND_INDEX_KEY),
-// nicht vom PLATFORM_KEK abgeleitet und nicht Teil des KmsAdapter-Contracts —
-// BYOK-Adapter dürfen ihn nie sehen. Rotation = Recompute aller bidx-Spalten
-// (Rollout-Fahrplan Schritt 7).
+// The key is deliberately a SEPARATE 32-byte key (env:
+// KUMIKO_BLIND_INDEX_KEY), not derived from PLATFORM_KEK and not part of the
+// KmsAdapter contract, so BYOK adapters must never see it. Rotation requires
+// recomputing all bidx columns.
 //
-// bidx-Werte leben NUR in der Projektion, nie in Event-Payloads: ein
-// deterministischer HMAC im immutablen Event wäre permanente Linkage und
-// bräche Forget. applyEntityEvent berechnet sie beim Apply (live + rebuild),
-// nach Key-Erase recomputet der Rebuild sie zu NULL.
+// bidx values exist ONLY in the projection, never in event payloads: a
+// deterministic HMAC in an immutable event would create permanent linkage
+// and break erasure. applyEntityEvent computes them during Apply (live and
+// rebuild); after key erasure, the rebuild recomputes them as NULL.
 
 import { createHmac } from "node:crypto";
 import { requestContext } from "../api/request-context.ts";
@@ -51,7 +52,7 @@ export function decodeBlindIndexKey(base64Key: string): Uint8Array {
 // Boot-injected app-wide key, mirroring configurePiiSubjectKms: run{Prod,Dev}App
 // call configureBlindIndexKey once; query compilers + applyEntityEvent resolve
 // lazily. Absent key = blind-indexing off (bidx columns stay NULL, equality
-// lookups match plaintext rows only — pre-#818 behavior).
+// lookups match plaintext rows only).
 let injectedKey: Uint8Array | undefined;
 
 export function configureBlindIndexKey(base64Key: string | undefined): void {

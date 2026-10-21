@@ -20,10 +20,11 @@ export function isRepresentableAtScale(n: number, scale: number): boolean {
   return Math.abs(scaled - Math.round(scaled)) <= tolerance;
 }
 
-// Lexikografischer ISO-Vergleich — exakt für `yyyy-mm-dd` (date) und korrekt
-// für ISO-Datetime in konsistenter Repräsentation (gleiche Offset-/Präzisions-
-// Form). Bewusst ohne Date-API (no-date-api-Guard); die Tag-genaue Grenze
-// reicht für min/max-Use-Cases (z.B. Geburtsdatum nicht in der Zukunft).
+// Lexicographic ISO comparison — exact for `yyyy-mm-dd` (date) and correct
+// for ISO datetimes in a consistent representation (same offset/precision
+// form). Deliberately avoids the Date API (no-date-api-Guard); day-level
+// comparison is sufficient for min/max use cases (e.g. a birth date not in
+// the future).
 function withDateBounds(
   schema: z.ZodTypeAny,
   min: string | undefined,
@@ -139,8 +140,9 @@ export function fieldToZod(
       return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "longText": {
-      // longText hat keine `format`-Variante (per type-design). Nur
-      // optional maxLength + required, sonst ein offener z.string().
+      // longText has no `format` variant (by type design). Only optional
+      // maxLength and required are supported; otherwise it is an unrestricted
+      // z.string().
       let schema = z.string();
       if (field.maxLength) schema = schema.max(field.maxLength);
       if (field.required) schema = schema.min(1);
@@ -157,13 +159,13 @@ export function fieldToZod(
       if (field.default !== undefined) {
         // Untouched <select> sends "" too; with a default that maps to the
         // default (same semantics as undefined) instead of the invalid-value
-        // rejection from #1702. A field with a default is never "unset" —
+        // rejection. A field with a default is never "unset" —
         // true on both insert AND update, so this branch (and its "" → default
         // mapping) fires regardless of applyDefaults; only the `.default(...)`
         // schema-level fallback for OMITTED input is update-gated below.
         // `null` maps the same way: the no-default branch below normalizes
         // an untouched select to null, and a client that reuses that value
-        // against a since-defaulted field must not get rejected either.
+        // against a defaulted field must not get rejected either.
         const mapped = z.preprocess(
           (value) => (value === "" || value === null ? field.default : value),
           enumSchema,
@@ -181,9 +183,9 @@ export function fieldToZod(
     case "multiSelect": {
       const [first, ...rest] = field.options;
       if (!first) return z.array(z.string());
-      // `required: true` heißt non-empty — Analogie zu `text`-Field.
-      // Leeres Array wird rejected; das globale `.optional()`-Wrapping
-      // in buildInsertSchema kümmert sich um „darf fehlen".
+      // `required: true` means non-empty, as with a `text` field.
+      // An empty array is rejected; the global `.optional()` wrapping
+      // in buildInsertSchema determines whether the field may be omitted.
       let schema = z.array(z.enum([first, ...rest]));
       if (field.required) schema = schema.min(1);
       return field.default !== undefined && applyDefaults
@@ -215,10 +217,10 @@ export function fieldToZod(
       return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
     case "bigInt": {
-      // JS-`number`-Round-trip via mode:"number"; sicher bis 2^53.
-      // safe-integer-Cap ist explizit damit ein Caller, der einen
-      // Float reinwirft (z.B. parseFloat-Bug), beim Insert sofort
-      // failed statt silent-Truncation zu kassieren.
+      // JS-`number` round-trip via mode:"number"; exact up to 2^53.
+      // The safe-integer cap ensures that a caller passing a float (for example,
+      // due to a parseFloat bug) fails immediately at insert instead of being
+      // silently truncated.
       const schema = z.number().int().safe();
       return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
@@ -269,8 +271,8 @@ export function fieldToZod(
       });
     }
     case "jsonb": {
-      // Free-form jsonb — keys sind tenant-/runtime-defined. Validation
-      // passthrough: any plain object passt durch.
+      // Free-form jsonb — keys are tenant-/runtime-defined. Validation
+      // passes through any plain object.
       return z.record(z.string(), z.unknown());
     }
     case "date": {
@@ -278,27 +280,27 @@ export function fieldToZod(
       return withDateBounds(schema, field.min, field.max);
     }
     case "timestamp": {
-      // Wenn locatedBy gesetzt: Wall-Clock OHNE Offset (ISO-Datetime ohne `Z`).
-      // Sonst: ISO-UTC-Datetime (mit `Z`). Beide werden über z.iso.datetime
-      // gegen das ISO-8601-Schema validiert; die Präzision (mit/ohne Offset)
-      // hängt von locatedBy ab.
+      // When locatedBy is set: wall-clock time without an offset (ISO datetime
+      // without `Z`). Otherwise: ISO UTC datetime (with `Z`). Both are validated
+      // against the ISO-8601 schema through z.iso.datetime; precision (with or
+      // without an offset) depends on locatedBy.
       const schema =
         field.locatedBy !== undefined ? z.iso.datetime({ local: true }) : z.iso.datetime();
       return withDateBounds(schema, field.min, field.max);
     }
     case "tz": {
-      // IANA-Zonenname, validiert gegen die Runtime-Zonenliste
-      // (isValidIanaTimeZone). Ein ungültiger Name failt hier am
-      // Write-Boundary statt erst später in ctx.tz.parse / Temporal.
+      // IANA time-zone name, validated against the runtime's zone list
+      // (isValidIanaTimeZone). An invalid name fails at the write boundary
+      // instead of later in ctx.tz.parse / Temporal.
       return z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
     }
     case "locatedTimestamp": {
-      // Combined Wall-Clock+TZ Object. Beim Write akzeptieren wir entweder
-      // { at, tz } (typisch UI-Form, utc wird berechnet) oder { utc, tz }
-      // (typisch Server-zu-Server, at wird berechnet). Beim Read liefert
-      // der Read-Wrapper alle drei Felder (siehe Phase D in MIGRATION.md).
+      // Combined wall-clock and time-zone object. On write, either
+      // { at, tz } (typical for a UI form, with utc calculated) or { utc, tz }
+      // (typical for server-to-server communication, with at calculated) is
+      // accepted. On read, the read wrapper provides all three fields.
       //
-      // Hier nur die Schema-Garantie: mindestens tz + (at ODER utc).
+      // The schema guarantees only tz plus at least one of at or utc.
       const at = z.iso.datetime({ local: true });
       const tz = z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
       const utc = z.iso.datetime();
@@ -325,11 +327,12 @@ export function fieldToZod(
       return field.maxCount === undefined ? ids : ids.max(field.maxCount);
     }
     case "reference":
-      // Tier 2.7e-3: Validiert UUID-shape. Existenz-Check der Reference
-      // (Row im referenced Table existiert + Tenant-Scope) ist Server-
-      // side-Verantwortung im Handler / Foreign-Key-Constraint, nicht
-      // im Schema-Validator (würde sonst Round-trip zur DB beim Parse).
-      // Multi-Mode (Tier 2.7e-Multi): Array von UUIDs.
+      // Validates the UUID shape. Checking that the reference exists
+      // (the row exists in the referenced table and belongs to the tenant) is
+      // the handler / foreign-key constraint's responsibility, not the schema
+      // validator's; checking it here would require a database round trip during
+      // parsing.
+      // Multi-mode accepts an array of UUIDs.
       return field.multiple === true ? z.array(z.uuid()) : z.uuid();
     default:
       assertUnreachable(field, "field type");
@@ -346,8 +349,7 @@ export function fieldToZod(
 // fails the check even if the raw minor-unit amounts happen to match.
 //
 // Known limitation: compares against rounded `derived` cells, i.e.
-// "sum-of-rounded" not "round-of-sum" (kumiko-framework#1866). Follow-up
-// for a computed, read-only sibling total: kumiko-framework#1873.
+// "sum-of-rounded" not "round-of-sum".
 // kumiko-lint-ignore complexity-budget currency-equality check on sibling money payloads
 function applyTotalsMatchRefinements(
   entity: EntityDefinition,
@@ -365,7 +367,7 @@ function applyTotalsMatchRefinements(
         if (rawRows === undefined && siblingRaw === undefined) continue;
         // One side of a totalsMatch pair without the other → reject. Update
         // payloads only carry `changes`, so omitting the sibling would otherwise
-        // silently leave sum ≠ total (fw#1841).
+        // silently leave sum ≠ total.
         if (rawRows === undefined || siblingRaw === undefined) {
           ctx.addIssue({
             code: "custom",
@@ -499,7 +501,7 @@ export function buildUpdateSchema(
     // sends only `{ title }` means "only change title"; zod defaults would
     // silently inject default values for every omitted field and clobber
     // existing data via the event-store-executor's `changes` payload.
-    // The field is passed through un-stripped (unlike before fw#1703) so
+    // The field is passed through un-stripped so
     // fieldToZod still knows the default for its "" → default mapping
     // (e.g. select) — applyDefaults: false only suppresses the schema-level
     // `.default(...)` fallback for a genuinely omitted key.

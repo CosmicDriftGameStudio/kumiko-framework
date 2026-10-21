@@ -42,13 +42,13 @@ export function failUnprocessable(
 }
 
 /**
- * Convenience für State-Transition-Rejects: produces a WriteFailure mit
- * reason="invalid_transition" + strukturiertem `from`/`to`/`allowed`-
- * Detail-Block + lesbarer message. Pattern hat sich in publicstatus-
- * Maintenance + bestehenden state-machine-Helpers wiederholt — Helper
- * sammelt das in einem Aufruf statt drei manuelle Detail-Felder.
+ * Convenience for state-transition rejects: produces a WriteFailure with
+ * reason="invalid_transition", a structured `from`/`to`/`allowed` detail
+ * block, and a readable message. This pattern recurs in publicstatus
+ * maintenance and existing state-machine helpers, so the helper collects it
+ * in one call instead of requiring three manual detail fields.
  *
- * `allowed` ist typisch `MAINTENANCE_TRANSITIONS.allowedFrom(from)`.
+ * `allowed` is typically `MAINTENANCE_TRANSITIONS.allowedFrom(from)`.
  */
 export function failTransition(from: string, to: string, allowed: readonly string[]): WriteFailure {
   return writeFailure(

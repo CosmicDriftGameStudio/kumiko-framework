@@ -132,7 +132,7 @@ function rowToStoredEvent(row: StoredEventRow): StoredEvent {
 //     cross-aggregate write can COMMIT an event id BELOW the cursor after the
 //     unlocked drain already passed it. Caught under the fence: a count
 //     re-check against the (now final) event set detects the shortfall and
-//     re-replays the full log into a fresh shadow. #443.
+//     re-replays the full log into a fresh shadow.
 
 export type RebuildResult = {
   readonly projection: string;
@@ -140,13 +140,13 @@ export type RebuildResult = {
   // advanced past them).
   readonly eventsProcessed: number;
   // Poison events quarantined into kumiko_rebuild_dead_letters this run.
-  // Always 0 unless quarantine mode was active (#760).
+  // Always 0 unless quarantine mode was active.
   readonly eventsSkipped: number;
   readonly lastProcessedEventId: bigint;
   readonly durationMs: number;
   // Live rows whose columns differ from the freshly-replayed shadow (bidx
   // columns excluded — see countColumnDrift). Non-blocking: the swap
-  // proceeds regardless (#916). 0 for explicit projections (guard is
+  // proceeds regardless. 0 for explicit projections (guard is
   // implicit-only) or when no drift was found.
   readonly columnDriftCount: number;
 };
@@ -174,7 +174,7 @@ type RebuildDeps = {
   readonly fenceLockTimeoutMs?: number;
   // Apply-error policy for THIS run. Default strict: the first throwing
   // apply aborts the rebuild (tx rollback, status "failed") — a poison
-  // event makes the projection permanently un-rebuildable (#760).
+  // event makes the projection permanently un-rebuildable.
   // skipApplyErrors: true confines every apply to a savepoint; a throwing
   // apply is rolled back, recorded into kumiko_rebuild_dead_letters and
   // skipped, and the rebuild completes without its effect. Opt-in for
@@ -187,13 +187,13 @@ type RebuildDeps = {
   // a slow callback here delays the cutover fence acquisition, widening the
   // window in which concurrent writers can still commit below the cursor.
   readonly __test_onBeforeFence?: () => void | Promise<void>;
-  // Test-only seam: fires each time the shadow table is (re)built. The #443
+  // Test-only seam: fires each time the shadow table is (re)built. The
   // recompute is idempotent on final values, so only a call-count seam like
   // this can prove it didn't fire on a clean, non-concurrent rebuild.
   readonly __test_onBuildShadowTable?: () => void;
 };
 
-// Ops-facing log line for countColumnDrift's result. No-op when clean. #916.
+// Ops-facing log line for countColumnDrift's result. No-op when clean.
 function warnOnColumnDrift(
   projectionName: string,
   tableName: string,
@@ -254,7 +254,7 @@ async function replayProjectionIntoShadow(
   let lastProcessedEventId = 0n;
   const skipApplyErrors = deps.errorPolicy?.skipApplyErrors === true;
   // Quarantined events, collected in memory and written once after the
-  // replay settles — the #443 full-re-replay path would otherwise duplicate
+  // replay settles — the full-re-replay path would otherwise duplicate
   // the dead-letter rows.
   let skipped: SkippedApply[] = [];
 
@@ -334,7 +334,7 @@ async function replayProjectionIntoShadow(
         // Fence the live table, then drain the final delta. Once ACCESS
         // EXCLUSIVE is held no concurrent apply can commit a new event, so this
         // loop terminates and the shadow ends up reflecting every committed
-        // event — closing Phase 1's write-loss window for single-pod rebuilds.
+        // event — closing the write-loss window for single-pod rebuilds.
         await fenceLiveTable(tx, meta.tableName, fenceLockTimeoutMs);
         while ((await drainBatch(tx)) === REBUILD_BATCH_SIZE) {
           // keep draining full batches; a short batch ends the loop
@@ -343,7 +343,7 @@ async function replayProjectionIntoShadow(
         // Fenced → the subscribed-event set is final (every live apply blocks
         // on the live-table lock). If fewer events were applied than exist, a
         // lower-id event committed late during the unlocked phase and the
-        // id-cursor leapt past it (#443). Rebuild the shadow from scratch and
+        // id-cursor leapt past it. Rebuild the shadow from scratch and
         // replay the whole log under the fence: a fresh shadow means no
         // double-apply (the rejected "re-drain into a populated shadow" hazard),
         // and the full-replay cost is paid only on this rare detected path.
@@ -377,12 +377,12 @@ async function replayProjectionIntoShadow(
       }
       // Guard the swap: abort if the process has no blind-index key configured
       // but the live table already has populated bidx columns — the rebuild
-      // would otherwise silently null them out (fw#3091). Applies to every
+      // would otherwise silently null them out. Applies to every
       // projection, not just implicit ones: the shadow always gets a fresh
       // computeBlindIndexValues() pass regardless of projection kind.
       await assertNoBlindIndexLoss(tx, meta.tableName, meta, projectionName);
       // Guard the swap: abort if the live table holds a row no event can
-      // reconstruct (#498 ghost — direct-inserted without a .created event),
+      // reconstruct (ghost — direct-inserted without a .created event),
       // which the swap would silently drop. Implicit projections only.
       if (projection.isImplicit === true) {
         await assertNoUnreachableLiveRows(
@@ -477,11 +477,10 @@ export async function getProjectionState(
 // The registry is the source-of-truth for which projections exist; the
 // state table holds per-projection rebuild info and may be sparse.
 //
-// Implicit-Projections (auto-registered pro r.entity, eine pro entity)
-// werden default ausgefiltert — sie sind als rebuild-Ziele weiter mit
-// `<feature>:projection:<entity>-entity` adressierbar, aber in `kumiko
-// project list` würden sie das Bild dominieren ohne Mehrwert. Mit
-// `{ includeImplicit: true }` opt-in einschalten.
+// Implicit projections (auto-registered by r.entity, one per entity) are filtered
+// out by default. They stay addressable as rebuild targets via
+// `<feature>:projection:<entity>-entity`, but would dominate `kumiko project list`
+// without adding information. Opt in with `{ includeImplicit: true }`.
 export async function listProjectionsWithState(
   db: DbConnection,
   registry: Registry,

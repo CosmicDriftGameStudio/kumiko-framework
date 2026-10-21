@@ -1,8 +1,8 @@
-// Pure Unit-Tests für money flatten/rehydrate Helpers.
+// Pure unit tests for the money flatten/rehydrate helpers.
 //
-// Contract: API-form amount is MAJOR units (56799.16 EUR), DB-form is
-// MINOR units (5679916 cents) — flattenMoney/rehydrateMoney convert at the
-// boundary (×100 / ÷100). See money.ts's file header for why this exists.
+// Contract: API-form amounts use MAJOR units (56799.16 EUR), while DB-form
+// amounts use MINOR units (5679916 cents). flattenMoney/rehydrateMoney convert
+// at the boundary (×100 / ÷100). See money.ts's file header for why this exists.
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createMoneyField, createTextField } from "../../engine/index.ts";
@@ -53,7 +53,7 @@ describe("flattenMoney — Insert/Update Convert (major units → minor units)",
 
   test("expliziter <name>Currency im Payload überschreibt nicht", () => {
     const flat = flattenMoney({ buyingPrice: 450, buyingPriceCurrency: "USD" }, orderEntity);
-    // Wenn bereits gesetzt, nicht überschreiben — caller-explicit gewinnt
+    // If already set, do not overwrite it—the caller's explicit value wins.
     expect(flat["buyingPriceCurrency"]).toBe("USD");
   });
 
@@ -119,7 +119,7 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
   });
 
   test("PG-BIGINT als String wird zu number gecastet", () => {
-    // Postgres-driver liefert BIGINT manchmal als String (>2^53 sicher).
+    // The Postgres driver sometimes returns BIGINT as a string (safe for values >2^53).
     const out = rehydrateMoney({ buyingPrice: "45000", buyingPriceCurrency: "EUR" }, orderEntity);
     expect(out["buyingPrice"]).toEqual({
       amount: 450,
@@ -235,12 +235,12 @@ describe("rehydrateMoney — Read Convert (minor units → major units)", () => 
 
 describe("Round-Trip im Update-Pfad (Helper-Verkettung wie im Executor)", () => {
   test("Update-Changes-Payload mit money geht durch flatten + zurück durch rehydrate", () => {
-    // Simuliert was der Executor macht: changes → flatten → DB → rehydrate
+    // Simulates the executor's flow: changes → flatten → DB → rehydrate
     const changes = { buyingPrice: { amount: 990, currency: "USD" } };
     const flat = flattenMoney(changes, orderEntity);
     expect(flat).toEqual({ buyingPrice: 99_000, buyingPriceCurrency: "USD" });
 
-    // DB liefert dieselben Spalten zurück
+    // The DB returns the same columns
     const out = rehydrateMoney(flat, orderEntity);
     expect(out).toEqual({
       buyingPrice: { amount: 990, currency: "USD", amountScaled: 99_000, amountMinor: 99_000 },
@@ -270,7 +270,7 @@ describe("flattenMoney — Strict-Mode Throw", () => {
   });
 });
 
-// kumiko-framework#1972: the write-handler-facing counterpart a custom
+// The write-handler-facing counterpart a custom
 // totals check needs when reconciling a top-level money field's payload
 // (major units, `{amount, currency}` or bare number) against an
 // embedded-list row sum (minor-unit integers by convention).

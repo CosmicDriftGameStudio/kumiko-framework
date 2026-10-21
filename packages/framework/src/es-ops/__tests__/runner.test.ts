@@ -1,6 +1,6 @@
-// Unit-Tests für den runner. Heavy lifting (Tx, applied-set-diff,
-// dispatcher-call) testen wir gegen Postgres in der integration-test.
-// Hier nur die pure-logic-Pfade die kein echtes DB brauchen.
+// Unit tests for the runner. Heavy lifting (Tx, applied-set-diff,
+// dispatcher-call) is tested against Postgres in the integration test.
+// These tests cover only pure-logic paths that do not need a real DB.
 
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -84,7 +84,7 @@ describe("runPendingSeedMigrations", () => {
         createContext: () => ({}) as never,
         logger: () => {},
       });
-      // Beide gültige seeds laufen, in chronologischer Reihenfolge
+      // Both valid seeds run in chronological order.
       expect(result.appliedIds).toEqual(["2026-05-19-init", "2026-05-20-fix-roles"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -108,7 +108,7 @@ describe("runPendingSeedMigrations", () => {
       });
       expect(result.appliedIds).toEqual([]);
       expect(result.skippedIds).toEqual(["2026-05-20-skip-me"]);
-      // Kein marker geschrieben — beim nächsten Boot ohne Flag würde es laufen
+      // No marker is written, so it would run on the next boot without the flag.
       expect(inserts).toHaveLength(0);
     } finally {
       delete process.env[envKey];
@@ -176,7 +176,7 @@ describe("runPendingSeedMigrations", () => {
           logger: () => {},
         }),
       ).rejects.toThrow();
-      // good lief, fails warf, never wurde NIE attempted
+      // good ran, fails threw, and never was never attempted.
       expect(inserts.map((r) => r["id"])).toEqual(["2026-05-20-good"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });

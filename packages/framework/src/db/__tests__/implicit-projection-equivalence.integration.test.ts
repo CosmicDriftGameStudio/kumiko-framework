@@ -1,19 +1,19 @@
-// Live==Rebuild-Equivalence für die ImplicitProjection (Sprint G).
+// Live==Rebuild equivalence for the ImplicitProjection.
 //
-// Beweist: für jede r.entity erzeugt der EventStoreExecutor (live) und
-// rebuildProjection (replay über Implicit-Projection) **denselben**
-// Tabellen-Stand. Ohne diesen Test können live + rebuild zwischen den
-// Releases auseinanderdriften (z.B. wenn jemand die Live-Schreib-Logik
-// im Executor ändert ohne applyEntityEvent anzupassen).
+// Proves that, for every r.entity, EventStoreExecutor (live) and
+// rebuildProjection (replay through the implicit projection) produce the
+// **same** table state. Without this test, live and rebuild can drift apart
+// between releases, for example if someone changes the live write logic in
+// the executor without updating applyEntityEvent accordingly.
 //
-// Test-Strategie:
-//   1. Live: 4 Aggregate mit verschiedenen Lifecycles (create / update /
-//      soft-delete / restore) durch den EventStoreExecutor jagen
-//   2. Snapshot der Entity-Tabelle (nach Sortierung — ORDER BY id)
-//   3. TRUNCATE der Entity-Tabelle
-//   4. rebuildProjection für die ImplicitProjection
-//   5. Snapshot erneut nehmen
-//   6. deep-equal: identische Rows in identischer Reihenfolge
+// Test strategy:
+//   1. Live: run 4 aggregates with different lifecycles (create / update /
+//      soft-delete / restore) through EventStoreExecutor
+//   2. Snapshot the entity table (sorted with ORDER BY id)
+//   3. TRUNCATE the entity table
+//   4. Run rebuildProjection for the ImplicitProjection
+//   5. Take another snapshot
+//   6. Deep-equal: identical rows in identical order
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -85,7 +85,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
   test("4 aggregates × create/update/delete/restore round-trip identical to rebuild", async () => {
     const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
-    // 1. Live writes — verschiedene Lifecycle-Pfade über die 4 Aggregate.
+    // 1. Live writes — different lifecycle paths across the 4 aggregates.
     //    Aggregate A: create + update
     //    Aggregate B: create + update + delete (soft)
     //    Aggregate C: create + delete + restore
@@ -120,10 +120,10 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
 
     const liveSnapshot = await snapshotTable();
 
-    // Konkrete Erwartung an den Live-Stand: 4 erzeugte Aggregate, B ist
-    // soft-deleted (isDeleted=true), C ist restored (isDeleted=false),
-    // A und D sind unangetastet. Wenn das nicht stimmt, ist der Test
-    // setup buggy bevor wir den Rebuild überhaupt vergleichen.
+    // Expected live state: 4 aggregates were created; B is soft-deleted
+    // (isDeleted=true), C is restored (isDeleted=false), and A and D are
+    // unchanged. If this fails, the test setup is broken before the rebuild
+    // comparison can run.
     expect(liveSnapshot).toHaveLength(4);
     const byEmail = new Map(liveSnapshot.map((r) => [r["email"] as string, r]));
     expect(byEmail.get("a@test.de")).toMatchObject({
@@ -147,8 +147,8 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
       isDeleted: false,
     });
 
-    // 2. Rebuild from event-log — registry baut die ImplicitProjection,
-    //    rebuildProjection findet sie über getAllProjections().
+    // 2. Rebuild from the event log — the registry builds the implicit
+    //    projection, and rebuildProjection finds it through getAllProjections().
     const registry = createRegistry([userFeature]);
     const implicitName = "implicittest:projection:user-entity";
     expect(registry.getAllProjections().has(implicitName)).toBe(true);
@@ -163,16 +163,16 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     // deep-equal below alone could miss.
     expect(result.eventsProcessed).toBe(10);
 
-    // 3. Vergleich. Erst ID-für-ID strikt prüfen damit klar ist welche
-    // Felder verglichen werden — dann das Array-deep-equal als Catch-all.
+    // 3. Compare. First check each row by ID and field so the compared fields
+    //    are explicit, then use array deep-equality as a catch-all.
     const rebuildSnapshot = await snapshotTable();
     expect(rebuildSnapshot).toHaveLength(liveSnapshot.length);
     for (let i = 0; i < liveSnapshot.length; i++) {
       const live = liveSnapshot[i];
       const rebuilt = rebuildSnapshot[i];
-      // Diese Felder sind die User-sichtbare Truth (was sieht die UI?
-      // was schreibt der Audit-Log?). Wenn eines davon driftet, ist
-      // Live==Rebuild nicht mehr gegeben.
+      // These fields are the user-visible source of truth (what the UI sees and
+      // what the audit log records). If any of them drifts, Live==Rebuild no
+      // longer holds.
       const fields = [
         "id",
         "tenantId",
@@ -192,7 +192,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
         expect(rebuilt?.[f], `field "${f}" at row ${i}`).toEqual(live?.[f]);
       }
     }
-    // Catch-all: irgendein Feld das wir nicht explizit listen?
+    // Catch-all for any field not listed explicitly above.
     expect(rebuildSnapshot).toEqual(liveSnapshot);
   });
 
@@ -201,7 +201,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     const projection = registry.getAllProjections().get("implicittest:projection:user-entity");
     expect(projection).toBeDefined();
     if (!projection) return;
-    // Auto-Verben: created/updated/deleted/forgotten immer, restored nur bei softDelete=true
+    // Automatic verbs: created/updated/deleted/forgotten always; restored only when softDelete=true
     expect(Object.keys(projection.apply).sort()).toEqual([
       "user.created",
       "user.deleted",
@@ -235,10 +235,10 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
   });
 });
 
-// Sensitive-Rebuild-Parität (#967): das Event-Log trägt für sensitive-Felder
-// den Tabellen-Ciphertext (boot-validiert pii/encrypted) — Live==Rebuild gilt
-// damit auch für sensitive Spalten + Blind-Index. Einzige legitime Divergenz
-// bleibt Crypto-Shredding: DEK erased → bidx NULL, Wert unlesbar.
+// Sensitive rebuild parity: the event log stores the table ciphertext for
+// sensitive fields (validated at boot as pii/encrypted), so Live==Rebuild also
+// applies to sensitive columns and the blind index. The only legitimate
+// divergence is crypto-shredding: DEK erased → bidx NULL, value unreadable.
 
 import {
   resetBlindIndexKeyForTests,
@@ -324,7 +324,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     expect(isPiiCiphertext(liveCipher)).toBe(true);
     expect(liveRow["api_key_bidx"]).toBe(computeBlindIndex(SENSITIVE_BIDX_KEY, "secret-token-abc"));
 
-    // Event-Payload trägt exakt den Tabellen-Ciphertext (byte-gleich).
+    // The event payload contains the exact table ciphertext, byte-for-byte.
     const { eventsTable } = await import("../../event-store/index.ts");
     const [event] = await selectMany(
       testDb.db,
@@ -359,8 +359,8 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     );
     if (!updated.isSuccess) throw new Error("update failed");
 
-    // Created-Event (v1-Ciphertext) muss mit dem aktuellen DEK lesbar bleiben —
-    // eine DEK-Rotation beim Update würde das immutable Log unlesbar machen.
+    // The created event's v1 ciphertext must remain readable with the current DEK —
+    // rotating the DEK during the update would make the immutable log unreadable.
     const { eventsTable } = await import("../../event-store/index.ts");
     const [createdEvent] = await selectMany(
       testDb.db,
@@ -375,8 +375,8 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     });
     expect(decrypted["apiKey"]).toBe("first-secret");
 
-    // Rebuild spielt created+updated: bidx-Recompute entschlüsselt beide
-    // Ciphertexte — schlägt bei rotiertem DEK fehl statt still zu heilen.
+    // Rebuild processes created+updated: recomputing bidx decrypts both
+    // ciphertexts, so a rotated DEK fails rather than silently repairing the data.
     const registry = createRegistry([sensitiveFeature]);
     await rebuildProjection(sensitiveProjection, { db: testDb.db, registry });
     const rebuiltRow = await rawSensitiveRow(String(created.data.id));
@@ -399,7 +399,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
 
     const rebuiltRow = await rawSensitiveRow(id);
     expect(rebuiltRow["api_key_bidx"]).toBeNull();
-    // Ciphertext-Bytes werden kopiert, sind aber ohne DEK unlesbar.
+    // The ciphertext bytes are copied, but they cannot be read without the DEK.
     expect(isPiiCiphertext(rebuiltRow["api_key"])).toBe(true);
     expect(rebuiltRow["api_key"]).not.toBe("gone-after-forget");
   });

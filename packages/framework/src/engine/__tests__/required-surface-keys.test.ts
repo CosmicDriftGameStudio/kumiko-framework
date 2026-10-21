@@ -189,7 +189,7 @@ describe("requiredKeysFromNav / requiredKeysFromWorkspace", () => {
   });
 });
 
-// fw#2260: isI18nKey's colon-only check silently drops dot-form labels like
+// isI18nKey's colon-only check silently drops dot-form labels like
 // `${feature}.settings` — the Settings-Hub generator's own convention (see
 // buildConfigFeatureSchema). requiredKeysFromScreen/requiredKeysFromNav take
 // an opt-in `treatDotFormAsKey` option so the boot-validator can register
@@ -236,7 +236,7 @@ describe("dot-form labels + treatDotFormAsKey (fw#2260)", () => {
   });
 });
 
-// fw#2313: a hand-written dot-form label ("sessions.list.col.id") is
+// A hand-written dot-form label ("sessions.list.col.id") is
 // indistinguishable from literal display text ("actions.open") — isI18nKey
 // only recognizes it once the author marks it explicitly via i18nKey().
 describe("dot-form label opt-in (fw#2313)", () => {

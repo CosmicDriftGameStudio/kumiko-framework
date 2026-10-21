@@ -1,17 +1,17 @@
-// Auto-Convert für money-Felder im DB-Layer.
+// Automatically convert money fields in the DB layer.
 //
-// Vertrag (siehe auch db/located-timestamp.ts — gleicher Compound-Type-Pattern):
-//   API-Form:    { amount, currency } | number — amount in MAJOR units (56799.16 EUR)
-//   DB-Form:     <name> BIGINT (minor units, e.g. cents) + <name>Currency TEXT
-//   Read-Form:   { amount, currency, amountScaled } — amount in MAJOR units again,
-//                amountScaled sits alongside as the exact integer value in
-//                MINOR_UNIT_SCALE units (fw#1830) for callers that need
-//                scale-exact comparisons (e.g. invoice sums) instead of
-//                round-tripping the float amount through /100·*100.
+// Contract (see also db/located-timestamp.ts — the same compound-type pattern):
+//   API form:   { amount, currency } | number — amount in MAJOR units (56799.16 EUR)
+//   DB form:    <name> BIGINT (minor units, e.g. cents) + <name>Currency TEXT
+//   Read form:  { amount, currency, amountScaled } — amount in MAJOR units again,
+//               amountScaled sits alongside as the exact integer value in
+//               MINOR_UNIT_SCALE units for callers that need scale-exact
+//               comparisons (e.g. invoice sums) instead of round-tripping the
+//               float amount through /100·*100.
 //                `amountMinor` stays as a @deprecated alias of the same
-//                value until #1976/4 and #1976/5 migrate their remaining
-//                consumers (renderer/web/primitives/index.tsx,
-//                renderer/components/render-field.tsx) off the old name.
+//               value until the remaining consumers
+//               (renderer/web/primitives/index.tsx,
+//               renderer/components/render-field.tsx) migrate off the old name.
 //
 // table-builder.ts's moneyAmount column has always documented BIGINT as
 // "the integer minor unit" — this file used to just pass the API amount
@@ -23,13 +23,13 @@
 // pass/receive ordinary decimal amounts; DB storage stays exact-integer
 // cents (no float drift in SUM()/aggregate queries).
 //
-// Permissiv-Insert: primitive number wird als amount akzeptiert (Legacy aus
-// pre-Stufe-3-Samples). Currency fällt dann auf entity.defaultCurrency
-// zurück (oder DEFAULT_CURRENCIES[0] = "EUR" als Framework-Fallback).
+// Permissive insert: a primitive number is accepted as amount (legacy from
+// pre-Stufe-3 samples). Currency then falls back to entity.defaultCurrency
+// (or DEFAULT_CURRENCIES[0] = "EUR" as the framework fallback).
 //
-// Anders als locatedTimestamp behalten wir den Field-Namen `<name>` als
-// amount-Spalte (Legacy DB-Convention für Money — `SUM(buying_price)` bleibt
-// idiomatisch). `<name>Currency` ist die zusätzliche Spalte.
+// Unlike locatedTimestamp, we retain the field name `<name>` as the
+// amount column (legacy DB convention for money — `SUM(buying_price)` remains
+// idiomatic). `<name>Currency` is the additional column.
 
 import { MINOR_UNIT_SCALE, toMinorUnits } from "../engine/minor-units.ts";
 import type { EntityDefinition } from "../engine/types/index.ts";
@@ -52,9 +52,9 @@ function toMajorUnits(amountScaled: number): number {
 // scaled the same way. `applyTotalsMatchRefinements` (schema-builder.ts)
 // uses this internally for `EmbeddedFieldDef.totalsMatch`; exported so a
 // custom write-handler doing its own total check doesn't have to re-derive
-// this unwrap-and-scale step by hand (kumiko-framework#1972 — a hand-rolled
-// comparison of a raw `{amount}` against a raw minor-unit row sum is exactly
-// what silently fails 100x off).
+// this unwrap-and-scale step by hand. A hand-rolled comparison of a raw
+// `{amount}` against a raw minor-unit row sum is exactly what silently fails
+// 100× off.
 export function moneyPayloadToMinorUnits(raw: unknown): number | undefined {
   if (typeof raw === "number") return toMinorUnits(raw);
   if (typeof raw === "object" && raw !== null && "amount" in raw) {
@@ -65,12 +65,12 @@ export function moneyPayloadToMinorUnits(raw: unknown): number | undefined {
 }
 
 /**
- * API → DB: money-Felder zu zwei flachen Spalten flatten.
+ * Flatten money fields into two API-to-DB columns.
  *
  * - `{ amount, currency }` → `{ <name>: amount, <name>Currency: currency }`
  * - `number` (legacy) → `{ <name>: number, <name>Currency: defaultCurrency }`
  *
- * Pure — mutiert nicht.
+ * Pure — does not mutate its input.
  */
 interface MoneyPair {
   amount: number;
@@ -104,7 +104,7 @@ export function flattenMoney(
       currency = pair.currency ?? fallbackCurrency;
     } else if (typeof raw === "number") {
       amount = raw;
-      // Expliziter currency-key im Payload überschreibt den Default-Fallback.
+      // An explicit currency key in the payload overrides the default fallback.
       const explicitCurrency = result[`${name}Currency`];
       currency = typeof explicitCurrency === "string" ? explicitCurrency : fallbackCurrency;
     } else {
@@ -133,19 +133,19 @@ export type MoneyRead = {
    * @deprecated Removed in 0.390.0. Use `amountScaled` — this name implies ISO-4217 minor units
    * (cents), which is wrong once a currency needing a different scale than
    * the current flat MINOR_UNIT_SCALE=100 lands (e.g. JPY, 0 decimals).
-   * Alias of `amountScaled`, kept until #1976/4 and #1976/5 migrate their
-   * consumers off it.
+   * Alias of `amountScaled`, kept until the consumers migrate off it.
    */
   readonly amountMinor: number;
 };
 
 /**
- * DB → API: zwei flache Spalten zu combined { amount, currency } rehydraten.
+ * Rehydrate two flat DB columns into a combined `{ amount, currency }` value.
  *
- * Wirft loud bei korrupter DB-Form (string das nicht zur Zahl wird) — silent
- * data-loss wäre Bug-Vektor. NULL/undefined amount → field aus Output entfernt.
+ * Throws loudly for corrupt DB values (for example, a string that cannot be
+ * converted to a number), because silent data loss would hide a bug. A
+ * NULL/undefined amount removes the field from the output.
  *
- * Pure — mutiert nicht.
+ * Pure — does not mutate its input.
  */
 export function rehydrateMoney(
   row: Record<string, unknown>,
@@ -176,7 +176,8 @@ export function rehydrateMoney(
         throw new Error(`rehydrateMoney: field "${name}" bigint amount is not a safe integer`);
       }
     } else if (typeof amountRaw === "string" && amountRaw !== "") {
-      // PG-driver liefert BIGINT manchmal als String (>2^53 sicher).
+      // The PG driver sometimes returns BIGINT as a string (when it exceeds the
+      // safe integer range of 2^53).
       amountScaled = Number(amountRaw);
       if (!Number.isSafeInteger(amountScaled)) {
         throw new Error(

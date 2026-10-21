@@ -1,20 +1,17 @@
-// Canonical-Form Spec — sämtliche r.* Calls in der Designer/AI-canonical
-// Object-Form. Jeder Pattern hat genau EIN Argument: ein Object-Literal
-// mit allen Feldern als Properties. Begründung:
+// Canonical-form specification: every `r.*` call uses the designer/AI canonical
+// object form. Each pattern takes exactly one argument: an object literal with
+// every field represented as a property. This provides one JSON Schema per
+// pattern for LLMs, one renderer template for all 30 patterns, and stable
+// diffs when properties are added or removed.
 //
-//   - **AI-friendly**: 1 JSON-Schema pro Pattern. LLM lernt eine Form.
-//   - **Renderer-friendly**: 1 Schablone für alle 30 Patterns.
-//   - **Diff-friendly**: Property-add/remove ist eine Zeile, kein
-//     Argument-shuffle.
+// **Coexistence**: The parser still accepts the positional-argument form
+// (see parse-happy-path.test.ts). Bundled features and PublicStatus retain the
+// old form as designer exemptions. Renderer output is always in canonical
+// object form.
 //
-// **Coexistenz**: Parser akzeptiert weiterhin die positional-arg-Form
-// (siehe parse-happy-path.test.ts). Bundled-features + PublicStatus
-// bleiben in der alten Form (Designer-exempt). Renderer-Output ist
-// IMMER canonical Object-Form.
-//
-// **Schema-Version-Header**: Renderer-Output beginnt mit
-// `// kumiko-feature-version: 1` — sodass künftige Format-Bumps
-// gezielt migriert werden können (separater Migrator pro Version).
+// **Schema-version header**: Renderer output starts with
+// `// kumiko-feature-version: 1` so future format changes can be migrated
+// deliberately with a separate migrator for each version.
 
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";

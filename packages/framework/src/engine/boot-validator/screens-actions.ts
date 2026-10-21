@@ -26,7 +26,7 @@ export function isRowClickAction(action: RowAction): boolean {
 }
 
 // entityList and projectionList both allow a rowAction to double as the
-// row-body click target (rowClick: true, fw#1708/#2164) — at most one per
+// row-body click target (rowClick: true) — at most one per
 // screen, or the renderer can't tell which one should fire.
 export function validateAtMostOneRowClick(
   featureName: string,
@@ -70,18 +70,17 @@ export type NavigateSourceScreenType =
   | "secretMint"
   | "entityList expandableRow";
 
-// Tier 2.7e navigate rowAction → target-screen params validity. Shared by
-// entityList and projectionList (framework#1708) — projectionList has no
+// Navigate rowAction → target-screen params validity. Shared by
+// entityList and projectionList — projectionList has no
 // `screen.entity`, so there's no same-entity row["id"] auto-fill case: any
 // entityEdit target without an explicit entityId reaches create there.
 //
-// dashboard targets (framework#1708 follow-up, commit 4e0d6cb26) also read
-// URL search params — but only for the single `filter.id` a dashboard
-// declares (useFilterParams in dashboard-body.tsx seeds its value from
-// `nav.searchParams[filter.id]`). A dashboard with no `filter` has nowhere
-// for the value to land, and a params extractor whose keys don't include
-// the filter's id would silently miss it — both are boot errors instead of
-// a silently-empty dashboard.
+// Dashboard targets also read URL search params — but only for the single
+// `filter.id` a dashboard declares (useFilterParams in dashboard-body.tsx
+// seeds its value from `nav.searchParams[filter.id]`). A dashboard with no
+// `filter` has nowhere for the value to land, and a params extractor whose
+// keys don't include the filter's id would silently miss it — both are boot
+// errors instead of a silently-empty dashboard.
 export function validateRowActionNavigateParams(
   featureName: string,
   screenId: string,
@@ -202,7 +201,7 @@ export function validateActionHasIcon(
   }
 }
 
-// Tier 2.7e-3: pin an action's declarative field references against the entity
+// Pin an action's declarative field references against the entity
 // fields — a typo in pick/map source fields or visible.field would otherwise
 // silently yield `undefined` in the payload or permanently wrong visibility
 // (same "typo only surfaces on click" class as navigate/handler). Exported for
@@ -323,9 +322,9 @@ export function validateScreenNavTarget(
 // validateScreens below), the drawer mounts the target inline using this
 // feature's schema, so a cross-feature reference could never actually
 // render. Two distinct failure messages: dangling reference vs. wrong
-// screen type. Shared by ToolbarAction (fw#2225) and RowAction (fw#2710)
-// drawer variants — same target-resolution rule, only the label in the
-// error message ("toolbarAction" vs. "rowAction" vs. "action") differs.
+// screen type. Shared by ToolbarAction and RowAction drawer variants —
+// same target-resolution rule, only the label in the error message
+// ("toolbarAction" vs. "rowAction" vs. "action") differs.
 export function validateDrawerTargetAction(
   featureName: string,
   screenId: string,
@@ -424,14 +423,14 @@ export function validateDrawerPrefillKeys(
   }
 }
 
-// fw#2228: a navigate rowAction (or projectionDetail header action, which
+// A navigate rowAction (or projectionDetail header action, which
 // reuses the same RowActionNavigate shape) names its target as either a
 // screen (existing) or an entity (new) — exactly one. Shared by all three
 // call sites so the mutual-exclusivity check and the entity→detailFor
 // resolution don't drift between them (same drift risk
 // validateRowActionNavigateParams above is already shared to avoid).
 // Runtime-loose shape: boot still rejects both/neither for untyped schemas;
-// authors get the exclusive union via RowActionNavigate (#2303).
+// authors get the exclusive union via RowActionNavigate.
 type RowActionNavigateRuntime = RowActionNavigateBase & {
   readonly screen?: string;
   readonly entity?: string;
@@ -542,8 +541,8 @@ export function resolveRowActionNavigateTarget(
 // redirect is either a short screen id (same-feature, e.g. "item-list") or
 // a fully-qualified cross-feature QN (`<feature>:screen:<id>`) — the
 // renderer strips the latter to the short id (lastSegment) when
-// navigating, which the nav-router resolves app-wide (#1946). The object
-// form (fw#2670) carries the same target under `screen` plus the payload
+// navigating, which the nav-router resolves app-wide. The object
+// form carries the same target under `screen` plus the payload
 // field `idFrom`. Shared by actionForm/secretMint (validateInlineFormNavTargets)
 // and entityEdit — same rule, same error message, one place to keep them in sync.
 export function validateRedirectTarget(

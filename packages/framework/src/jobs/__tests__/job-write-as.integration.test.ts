@@ -1,4 +1,4 @@
-// framework#2585 — JobContext.writeAs.
+// JobContext.writeAs.
 //
 // `hasAccess` has no system bypass, so before writeAs existed a job could
 // only write as its own systemUser (roles: ["system"]) and every write

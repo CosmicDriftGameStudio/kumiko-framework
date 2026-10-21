@@ -36,7 +36,7 @@ const photoEntity = createEntity({
       variants: {
         thumb: { maxEdge: 100, format: "webp" },
         // No format — resize-without-reformat, the legitimate reason
-        // spec.format can be omitted (see #2021).
+        // spec.format can be omitted.
         raw: { maxEdge: 100 },
       },
     }),
@@ -111,7 +111,7 @@ describe("GET /api/files/:id/variant/:name", () => {
     expect(res.headers.get("Content-Type")).toBe("image/webp");
     expect(res.headers.get("Cache-Control")).toBe("private, max-age=31536000, immutable");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(VARIANT_BYTES);
-    // fw#2442 — variant responses never derive from fileRef.fileName, so
+    // Variant responses never derive from fileRef.fileName, so
     // there is no Content-Disposition here for a field-encrypted name to leak into.
     expect(res.headers.get("Content-Disposition")).toBeNull();
   });
@@ -231,7 +231,7 @@ describe("GET /api/files/:id/variant/:name", () => {
     expect(await res.json()).toEqual({ error: "unsupported_media_type" });
   });
 
-  // #2021 — the "raw" variant has no `format`, so its mimeType comes from
+  // The "raw" variant has no `format`, so its mimeType comes from
   // outputMimeType's fallback branch. `avatar` has no `accept`, so the
   // source mimeType is exactly the client-controlled `file.type` from the
   // upload — this proves the route no longer echoes it verbatim.

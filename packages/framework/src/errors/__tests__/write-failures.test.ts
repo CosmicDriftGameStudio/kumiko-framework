@@ -71,12 +71,12 @@ describe("failTransition", () => {
   });
 });
 
-// toWriteErrorInfo dev-cause-snapshot pinnt: ein InternalError mit
-// cause überlebt den Roundtrip durch WriteErrorInfo (war vorher kein
-// Cause-Feld → reraise → "internal error" ohne Diagnose). Pfad ist
-// NODE_ENV-conditional, deshalb lokal toggeln und nach Test wieder
-// restoren — Cross-Test-Pollution wäre teuer (andere Suites pinnen
-// Production-Pfad).
+// Pins toWriteErrorInfo's dev cause snapshot: an InternalError with a
+// cause survives the round trip through WriteErrorInfo (previously there was no
+// cause field, so reraise produced "internal error" without diagnostics). The
+// path is NODE_ENV-conditional, so toggle it locally and restore it afterward —
+// cross-test pollution would be costly because other suites pin the production
+// path.
 describe("toWriteErrorInfo — dev cause-snapshot", () => {
   test("InternalError mit cause exposed cause-Snapshot in details (dev)", async () => {
     const { toWriteErrorInfo } = await import("../write-error-info.ts");

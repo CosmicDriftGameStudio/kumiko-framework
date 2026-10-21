@@ -25,7 +25,7 @@ export interface ResolveSubjectOptions {
   // event `aggregate_type`) — required to resolve recordOwned fields.
   readonly entityName: string;
   // The owner the same event sets: an update's `previous` row is still
-  // ownerless while the event assigns one (fw#3654).
+  // ownerless while the event assigns one.
   readonly ownerFallback?: Record<string, unknown>;
   // Backfill resolves the projection row before falling back to whenAbsent,
   // so it asks for the strict chain first.
@@ -186,7 +186,7 @@ function resolveEnvelopeRecordSubject(
 // backfill catalog path (backfillEventPiiEncryption) — the reason the two
 // can never encrypt the same field under different subjects. A "user"
 // subject whose owner field is empty falls back to the declared whenAbsent
-// stance and throws when none is declared (fw#2776); "tenant"/"self" throw
+// stance and throws when none is declared; "tenant"/"self" throw
 // on an empty envelope, since their facts are structural.
 export function resolveEventSubject(
   fieldName: string,
@@ -275,7 +275,7 @@ export function collectPiiFileReferenceFields(entity: EntityDefinition): readonl
     .map(([name]) => name);
 }
 
-/** Subject-annotated fields that may be plaintext in the derived search index (#1610). */
+/** Subject-annotated fields that may be plaintext in the derived search index. */
 export function collectSearchableSubjectFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)
     .filter(([, field]) => {

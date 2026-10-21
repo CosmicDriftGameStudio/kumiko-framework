@@ -1,4 +1,4 @@
-// fw#3167: buildRetryBullOpts only passed `{ type }` to BullMQ, never
+// buildRetryBullOpts only passed `{ type }` to BullMQ, never
 // `delay` — BullMQ's fixed/exponential backoff strategies compute
 // NaN/undefined without it (falsy), so a job with `backoff` set retried
 // immediately instead of waiting. These tests assert real inter-attempt

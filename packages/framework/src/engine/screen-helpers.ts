@@ -137,7 +137,7 @@ export type FieldsOrGroupsSection = {
 
 // Union of both sources, unlike the boot-validator's either-or flattening: that
 // one runs after the fields-XOR-groups check, collectors run without it and must
-// not drop a source (fw#2986).
+// not drop a source.
 export function sectionFieldSpecs(section: FieldsOrGroupsSection): readonly EditFieldSpec[] {
   return [...(section.fields ?? []), ...(section.groups?.flatMap((group) => group.fields) ?? [])];
 }

@@ -98,7 +98,7 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
     expect(() => validateBoot([feature])).toThrow(/duplicate tab id "overview"/);
   });
 
-  // fw#3134: entityEdit joined projectionDetail as a tabs host. It renders
+  // entityEdit joined projectionDetail as a tabs host. It renders
   // every tab mounted and validates across all of them on submit, so a
   // required field on an unopened tab surfaces instead of blocking silently.
   test("mode: tabs on entityEdit boots", () => {

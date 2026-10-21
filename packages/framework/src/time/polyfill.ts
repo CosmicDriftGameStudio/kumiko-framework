@@ -8,7 +8,7 @@
 //
 // Idempotent: if `globalThis.Temporal` already exists the call is a no-op.
 // The check is the live global — not a sticky module flag — so tests that
-// delete the ambient global (fw#1550) still get it back on the next call.
+// delete the ambient global still get it back on the next call.
 // Re-install assigns the already-resolved module value: re-importing
 // `temporal-polyfill` here would put a polyfill instance on the global while
 // the rest of the code uses the native classes (instanceof mismatch).

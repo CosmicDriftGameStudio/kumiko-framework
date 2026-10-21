@@ -60,7 +60,7 @@ function addEntityFieldRoles(roleHandlers: Map<string, Set<string>>, f: FeatureD
 // purpose) are the normal case, not a typo — and until every access
 // surface is scanned, a role can look unique here while it's really used
 // elsewhere (configKeys / entity+field access), a false positive in the
-// other direction. Both is why this stays opt-in (#1711) rather than a
+// other direction. This is why this stays opt-in rather than a
 // default-on prod warning.
 export function warnOnUniqueAccessRoles(features: readonly FeatureDefinition[]): void {
   // role → set of distinct identifiers using it, across every access

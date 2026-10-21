@@ -1,15 +1,14 @@
-// Streaming-ZIP-Builder Tests (S2.U3 Atom 3a).
+// Streaming ZIP builder tests.
 //
-// Drei-Schichten-Test:
-//   1. Strukturelle Asserts: ZIP-Magic-Numbers an den richtigen Stellen,
-//      EOCD am Ende, central-dir-Count matcht emittierte Entries.
-//   2. CRC32-Korrektheit gegen Reference-Implementation (crypto.subtle
-//      oder bekannte Test-Vektoren).
-//   3. Real-Roundtrip via `unzip` shell-binary: ZIP in tmp-File schreiben,
-//      `unzip -l` + `unzip -p` aufrufen, Inhalt verifizieren. Pinst
-//      dass das ZIP von einem realen Decoder (Info-ZIP) gelesen werden
-//      kann — kein "passt nur in unserer eigenen reverse-engineerten
-//      Welt".
+// Three-layer test:
+//   1. Structural assertions: ZIP magic numbers at the correct positions,
+//      EOCD at the end, and the central-directory count matching emitted entries.
+//   2. CRC32 correctness against a reference implementation (crypto.subtle
+//      or known test vectors).
+//   3. Real roundtrip via the `unzip` shell binary: write the ZIP to a temporary
+//      file, invoke `unzip -l` and `unzip -p`, and verify the contents. This
+//      ensures that a real decoder (Info-ZIP) can read the ZIP, rather than
+//      validating only our own reverse-engineered interpretation.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
@@ -78,7 +77,7 @@ describe("createZipStream :: structural asserts", () => {
     expect(readU16LE(zip, 8)).toBe(0);
     // filename length = 9 ("greet.txt")
     expect(readU16LE(zip, 26)).toBe(9);
-    // body folgt nach 30+9=39 bytes
+    // The body starts after the 30-byte header and 9-byte filename.
     const bodyStart = 39;
     const bodyBytes = zip.slice(bodyStart, bodyStart + 5);
     expect(new TextDecoder().decode(bodyBytes)).toBe(body);
@@ -113,7 +112,7 @@ describe("createZipStream :: CRC32 correctness", () => {
     const zip = await collect(
       createZipStream(fromEntries([{ path: "x.txt", data: fromString("hello") }])),
     );
-    // CRC32 ist im LFH bei Offset 14
+    // The CRC32 is stored in the LFH at offset 14.
     const crc = readU32LE(zip, 14);
     // Reference: crc32("hello") = 0x3610a686 (verifiziert via
     // python3 -c 'import zlib; print(hex(zlib.crc32(b"hello")))')
@@ -121,9 +120,9 @@ describe("createZipStream :: CRC32 correctness", () => {
   });
 
   test("CRC32 von '123456789' matcht Industrie-Standard-Reference (0xCBF43926)", async () => {
-    // "123456789" → 0xCBF43926 ist DER IEEE-802.3 CRC32 Test-Vektor;
-    // RFC 1952 (gzip) und RFC 3309 nutzen ihn als Reference. Wenn unsere
-    // Implementation hier fehlt, ist die ganze CRC32-Algorithm broken.
+    // "123456789" → 0xCBF43926 is the IEEE-802.3 CRC32 test vector;
+    // RFC 1952 (gzip) and RFC 3309 use it as a reference. A failure here
+    // indicates that the CRC32 implementation is incorrect.
     const zip = await collect(
       createZipStream(fromEntries([{ path: "x.txt", data: fromString("123456789") }])),
     );
@@ -143,21 +142,21 @@ describe("createZipStream :: UTF-8 filename support", () => {
     const zip = await collect(
       createZipStream(fromEntries([{ path: "ascii.txt", data: fromString("x") }])),
     );
-    // General Purpose Flags sind im LFH bei Offset 6
+    // The general-purpose flags are stored in the LFH at offset 6.
     const flags = readU16LE(zip, 6);
     expect(flags & 0x0800).toBe(0x0800);
   });
 });
 
 describe("createZipStream :: format limits (ZIP64-Pre-Check)", () => {
-  // Entry >4 GB Pre-Check ist im Code aktiv (siehe createZipStream Source);
-  // ein echter 4-GB-Body ist im Test nicht allozierbar. Der 65535-Entry-Test
-  // unten deckt die parallele Constraint-Variante ab — Refactor-Schutz.
+  // The code checks for entries larger than 4 GB, but allocating a real 4-GB
+  // body is impractical in a test. The 65535-entry test below covers the
+  // parallel limit constraint and guards against regressions.
 
   test("Archive >65535 Entries wirft mit klarer Begruendung", async () => {
-    // 65535 Entries sind langsam (jedes hat einen Header). 65536 reicht
-    // um den Branch zu triggern. Body kann leer sein — wir testen das
-    // entry-count-cap, nicht den body-cap.
+    // 65535 entries are slow because each has a header; 65536 is enough to
+    // trigger the branch. Empty bodies isolate the entry-count limit from
+    // the body-size limit.
     async function* manyEntries(): AsyncIterable<ZipEntry> {
       for (let i = 0; i < 65536; i++) {
         yield { path: `e${i}.txt`, data: fromBytes(new Uint8Array(0)) };
@@ -169,11 +168,11 @@ describe("createZipStream :: format limits (ZIP64-Pre-Check)", () => {
   });
 });
 
-// **Plattform-Abhaengigkeit:** dieser describe braucht das `unzip`-
-// shell-binary (Info-ZIP). macOS + Linux haben das standard-installiert,
-// Windows-CI muesste skippen. Repo laeuft aktuell nicht auf Windows-CI,
-// daher kein `test.skipIf` — wenn das je dazukommt, hier Conditional-
-// Skip via `which unzip`-Check ergaenzen.
+// **Platform dependency:** this describe requires the `unzip` shell binary
+// (Info-ZIP). macOS and Linux install it by default, while Windows CI would
+// need to skip these tests. The repo has no Windows CI today, hence no
+// `test.skipIf`; if Windows CI is added, use a `which unzip` check to add a
+// conditional skip here.
 describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () => {
   let tmpDir: string;
 
@@ -194,7 +193,7 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
       proc.stderr.on("data", (d) => (stderr += d.toString()));
       proc.on("close", (code) => resolve({ stdout, code: code ?? -1 }));
       proc.on("error", reject);
-      // Stderr-Logging fuer Debug bei test-failures
+      // Retain stderr for debugging test failures.
       void stderr;
     });
   }
@@ -231,7 +230,7 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
   });
 
   test("Info-ZIP entpackt binary-Daten (UTF-8 + non-ASCII bytes) byte-identisch", async () => {
-    // Mix aus ASCII, UTF-8 (Umlaute), und non-printable Bytes
+    // Include ASCII, UTF-8 (umlauts), and non-printable bytes to cover mixed data.
     const utf8 = new TextEncoder().encode("Strüße ümläute 🚀");
     const binary = new Uint8Array([0x00, 0x01, 0xff, 0xfe, 0x80, 0x7f]);
     const combined = new Uint8Array(utf8.byteLength + binary.byteLength);
@@ -244,9 +243,9 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
     const zipPath = join(tmpDir, "binary.zip");
     await writeFile(zipPath, zip);
 
-    // Statt unzip -p (Stdout-Decode), entpacke in tmp und lies die
-    // bytes raw zurueck. Das stellt sicher dass keine Encoding-Layer
-    // die Roh-Bytes verfaelscht.
+    // Instead of `unzip -p`, which decodes stdout, extract to a temporary
+    // directory and read the bytes back directly. This prevents an encoding
+    // layer from altering the raw bytes.
     const extractDir = join(tmpDir, "out");
     await spawnUnzip(["-d", extractDir, zipPath]);
     const { readFile } = await import("node:fs/promises");
@@ -255,10 +254,8 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
   });
 
   test("UTF-8 filename mit Umlauten (Bügel.pdf) wird korrekt entpackt", async () => {
-    // Mit UTF-8-Flag (0x0800) im General-Purpose-Flag erwartet Info-ZIP
-    // den filename als UTF-8. Ohne Flag wuerde Info-ZIP CP437
-    // interpretieren, der Umlaut waere Mojibake. Pinst dass DACH-User
-    // mit Umlaut-Filenames sauber exportiert werden.
+    // With the UTF-8 flag (0x0800), Info-ZIP interprets the filename as UTF-8.
+    // Without the flag, it would interpret it as CP437 and corrupt the umlaut.
     const zip = await collect(
       createZipStream(fromEntries([{ path: "Bügel.pdf", data: fromString("umlaut-content") }])),
     );
@@ -296,14 +293,14 @@ describe("createZipStream :: real-decoder roundtrip (unzip shell-binary)", () =>
 
 describe("createZipStream :: mtime in UTC (Audit-Drift-Schutz)", () => {
   test("mtime wird als UTC encoded, nicht als lokale Zeitzone", async () => {
-    // 2026-05-09 14:30:00 UTC = 16:30:00 CEST. Wenn die Implementation
-    // auf lokal-Zeitzone (CEST-Server) liefe, kaeme als DOS-Time 16:30
-    // raus. Wir pinnen 14:30 — UTC.
+    // 2026-05-09 14:30:00 UTC equals 16:30:00 CEST. If the implementation
+    // used the local timezone on a CEST server, the DOS time would be 16:30;
+    // this test requires it to remain 14:30 UTC.
     const fixedUtc = getTemporal().Instant.fromEpochMilliseconds(Date.UTC(2026, 4, 9, 14, 30, 0)); // 2026-05-09 14:30:00 UTC
     const zip = await collect(
       createZipStream(fromEntries([{ path: "x.txt", data: fromString("x"), mtime: fixedUtc }])),
     );
-    // DOS time im LFH bei Offset 10, DOS date bei Offset 12
+    // DOS time is in the LFH at offset 10; DOS date is at offset 12.
     const dosTime = readU16LE(zip, 10);
     const dosDate = readU16LE(zip, 12);
     // DOS time: bits 11-15=hour, 5-10=minute, 0-4=second/2
@@ -347,7 +344,7 @@ describe("createZipStream :: streaming property", () => {
       createZipStream(fromEntries([{ path: "chunked.txt", data: lazyChunks() }])),
     );
 
-    // Body folgt nach LFH (30 + filename)
+    // The body follows the local file header (30 bytes + filename).
     const filenameLen = readU16LE(zip, 26);
     const bodyStart = 30 + filenameLen;
     const totalSize = readU32LE(zip, 22); // uncompressed size

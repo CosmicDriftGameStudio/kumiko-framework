@@ -1,4 +1,4 @@
-// fw#3184: buildRetryBullOpts (attempts/backoff derived from a job's
+// buildRetryBullOpts (attempts/backoff derived from a job's
 // `retries`/`backoff`) was only wired into dispatch() and handleEvent().
 // Cron, runOnBoot, the perTenant wrapper, its fanned-out children, and the
 // sequential re-enqueue path all called queue.add() without it, so a job
@@ -266,7 +266,7 @@ describe("job retries on every enqueue path (fw#3184)", () => {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });
     // A post-close 'error' here is otherwise unhandled and bun:test
-    // attributes it to whichever test runs next (fw#1805).
+    // attributes it to whichever test runs next.
     rawQueue.on("error", () => {});
 
     try {

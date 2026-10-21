@@ -83,14 +83,13 @@ describe("Registry.getTreeActions", () => {
 });
 
 // =============================================================================
-// Schicht-1↔Schicht-2-Bridge: typed handle survives module-boundary.
+// Layer-1↔Layer-2 bridge: typed handle survives the module boundary.
 //
-// Diese Tests sind die kritische Architektur-Verification: r.treeActions
-// returnt einen typed Handle, der via setup-export durch FeatureDefinition
-// fließt und compile-time-typisiert vom Schicht-1-buildTarget konsumiert
-// wird. Ohne diese Tests würde ein Type-Drift in einer der zwei Schichten
-// erst spät sichtbar — siehe advisor-Verdict + Memory `[EventDef-
-// Exports-Pattern]`.
+// These tests verify the critical architecture: r.treeActions returns a
+// typed handle that flows through the setup export via FeatureDefinition and
+// is consumed with compile-time typing by the Layer-1 buildTarget. Without
+// these tests, type drift between the two layers would only become visible
+// later.
 // =============================================================================
 
 describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeature handle", () => {
@@ -103,7 +102,7 @@ describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeatur
       return { handle };
     });
 
-    // Der Beweis: dieser Call typecheckt OHNE Casts/unknowns.
+    // The proof: this call typechecks WITHOUT casts or unknowns.
     const ref = buildTarget({
       target: textContent.exports.handle,
       action: "edit",
@@ -135,22 +134,22 @@ describe("Schicht-1↔Schicht-2 Bridge — buildTarget against real defineFeatur
       return { handle };
     });
 
-    // @ts-expect-error — "delet" ist keine Action im Handle
+    // @ts-expect-error — "delet" is not an action in the handle
     buildTarget({ target: textContent.exports.handle, action: "delet", args: { slug: "x" } });
 
-    // @ts-expect-error — slug muss string sein, nicht number
+    // @ts-expect-error — slug must be a string, not a number
     buildTarget({ target: textContent.exports.handle, action: "edit", args: { slug: 42 } });
 
-    // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
+    // @ts-expect-error — list has no args; the args field is not allowed
     buildTarget({ target: textContent.exports.handle, action: "list", args: { x: 1 } });
 
-    // @ts-expect-error — edit braucht args, fehlt
+    // @ts-expect-error — edit requires args, which are missing
     buildTarget({ target: textContent.exports.handle, action: "edit" });
 
-    // Runtime-Coverage (Memory `[Keine Fake-Tests]`): der korrespondierende
-    // Happy-Path über denselben typed Handle liefert valid TargetRef.
-    // Beweist dass die Bridge nicht nur compile-time funktioniert sondern
-    // runtime den richtigen TargetRef konstruiert.
+    // Runtime coverage: the corresponding happy path through the same
+    // typed handle returns a valid TargetRef.
+    // This proves that the bridge works not only at compile time but also
+    // constructs the correct TargetRef at runtime.
     const validRef = buildTarget({
       target: textContent.exports.handle,
       action: "edit",

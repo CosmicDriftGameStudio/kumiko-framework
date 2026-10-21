@@ -1,10 +1,10 @@
-// Runtime-Test für r.job multi-trigger (Item B-Followup):
-// pinst dass ein Job mit Array-Trigger für ALLE deklarierten Trigger
-// feuert und payload._triggerName den korrekten Namen trägt.
+// Runtime test for r.job multi-trigger:
+// proves that a job with an array trigger fires for ALL declared triggers
+// and that payload._triggerName contains the correct name.
 //
-// Unit-Tests in engine.test.ts decken nur Boot-Behavior ab (Akzeptanz +
-// Validator-Reject). Hier prüfen wir die runtime-dispatch-Pfade durch
-// einen echten BullMQ-Worker.
+// Unit tests in engine.test.ts cover only boot behavior (acceptance +
+// validator rejection). This test exercises the runtime-dispatch paths
+// through a real BullMQ worker.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -20,9 +20,9 @@ import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];
 
-// Feature mit zwei Write-Handlern + einem Job der auf beide hört.
-// Ein Job-Body, mehrere Trigger — der DRY-Fall den r.job multi-trigger
-// adressiert.
+// Feature with two write handlers and one job that listens to both.
+// One job body with multiple triggers is the DRY case addressed by
+// r.job multi-trigger.
 const orderFeature = defineFeature("multi", (r) => {
   r.writeHandler({
     name: "order:open",
@@ -44,8 +44,8 @@ const orderFeature = defineFeature("multi", (r) => {
       },
     },
     async (payload, ctx) => {
-      // ctx.triggerName ist die idiomatische API: bei Multi-Trigger-Jobs
-      // sagt das Feld dem Handler welcher der N Trigger gefeuert hat.
+      // ctx.triggerName is the idiomatic API: for multi-trigger jobs,
+      // this field tells the handler which of the N triggers fired.
       jobExecutions.push({ trigger: ctx.triggerName ?? "<missing>", payload });
     },
   );

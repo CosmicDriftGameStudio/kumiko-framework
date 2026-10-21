@@ -1,6 +1,6 @@
 // Admin-API integration tests — appendRaw + appendRawBatch.
 //
-// Contract (Prod-Readiness Welle 3, Step 3.1):
+// Contract:
 //   - Pipeline-Bypass: no pg_notify, no projection, no SSE/Search/Audit.
 //   - Historical timestamps preserved: createdAt + createdBy flow through
 //     from caller parameter to DB row unchanged.

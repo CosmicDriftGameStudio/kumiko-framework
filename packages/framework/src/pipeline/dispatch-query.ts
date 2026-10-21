@@ -130,16 +130,16 @@ async function runQueryHandler(
   );
   let result = await handler.handler({ type, payload, user }, handlerContext);
 
-  // postQuery-Hooks: fire BEFORE field-access-filter so hooks see raw data
-  // and can merge custom-fields/computed-counts/tags/etc. Each hook is
-  // responsible for its own field-access on values it adds (the filter
-  // below only knows the entity's stammfields).
+  // postQuery hooks run BEFORE field-access filtering so they see raw data and can
+  // merge custom fields, computed counts, tags, and similar values. Each hook is
+  // responsible for applying field access to values it adds; the filter below
+  // only knows the entity's standard fields.
   //
-  // Two firing-pfade kombiniert in dieser Reihenfolge:
+  // Two hook scopes run in this order:
   //   1. Handler-keyed hooks via r.hook({ type: "postQuery", target: "ns:query:list", handler })
-  //      — feuern nur für genau diesen handler
+  //      — run only for that handler
   //   2. Entity-keyed hooks via r.entityHook("postQuery", "property", fn)
-  //      — feuern für ALLE query-handlers des entity
+  //      — run for all query handlers of the entity
   const entityName = registry.getHandlerEntity(type);
 
   // Handler-keyed postQuery hooks fire for any query (incl. entity-less

@@ -56,9 +56,9 @@ export type SseBroker = {
   getClientCount(channel: string): number;
   getTotalClientCount(): number;
   // Separate from addClient so it doesn't count towards getClientCount.
-  // Required (fw#1601): an app-injected SseBroker (e.g. a Redis-backed
+  // Required: an app-injected SseBroker (e.g. a Redis-backed
   // multi-replica broker) that skips these silently turns the mid-stream
-  // access-teardown security control (#1561) into a no-op — a revoked
+  // access-teardown security control into a no-op — a revoked
   // session keeps receiving live SSE data with no error or log. A no-op
   // stub is one line for a broker that genuinely doesn't need it.
   subscribeAccessInvalidation(
@@ -107,7 +107,7 @@ export type LocalSseBroker = Omit<SseBroker, "publishAccessInvalidation" | "push
 
 export function createSseBroker(): LocalSseBroker {
   // Purely local: no cross-replica fanout. buildServer wraps this in
-  // createRedisSseBroker (fw#2625) whenever REDIS_URL is set, which is what
+  // createRedisSseBroker whenever REDIS_URL is set, which is what
   // makes pushToChannel/publishAccessInvalidation reach every replica's
   // clients — this reference implementation stays single-process only.
   const channels = new Map<string, Map<string, SseClient>>();

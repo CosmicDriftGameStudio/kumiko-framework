@@ -592,7 +592,7 @@ describe("buildInsertSchema", () => {
     ).toBe(false);
   });
 
-  // #1674: an untouched HTML <select> submits "" for its placeholder option.
+  // An untouched HTML <select> submits "" for its placeholder option.
   // An optional select without a default must treat "" as "not set" (null),
   // not reject it as an invalid enum value.
   test("optional select without default accepts empty string as unset (null)", () => {
@@ -627,7 +627,7 @@ describe("buildInsertSchema", () => {
     expect(schema.safeParse({ locale: "" }).success).toBe(false);
   });
 
-  // #1702: same ""-problem as #1674, but for a select WITH a default —
+  // The same ""-problem occurs for a select WITH a default:
   // an untouched <select> sends "" and the default only kicks in for
   // undefined. "" maps to the default (a defaulted field is never unset).
   test("optional select with default accepts empty string and falls back to the default", () => {
@@ -645,9 +645,9 @@ describe("buildInsertSchema", () => {
     }
   });
 
-  // Review-fix (kumiko-framework#1712): an optional select WITHOUT a default
+  // An optional select WITHOUT a default
   // normalizes an untouched <select> to null (see the "unset (null)" test
-  // above). A client that reuses that null against a since-defaulted field
+  // above). A client that reuses that null against a defaulted field
   // must fall back to the default too, not get rejected as an invalid enum
   // value the way a bare `null` previously was.
   test("optional select with default accepts null and falls back to the default", () => {
@@ -677,7 +677,7 @@ describe("buildInsertSchema", () => {
     expect(schema.safeParse({ locale: "xx" }).success).toBe(false);
   });
 
-  // #1712: pin omitted-key + explicit undefined — ZodPipe/optin path for defaults
+  // Pins omitted key + explicit undefined: the ZodPipe/optional path for defaults.
   test("optional select with default applies when key omitted or undefined", () => {
     const entity = createEntity({
       table: "Test",
@@ -695,7 +695,7 @@ describe("buildInsertSchema", () => {
   });
 });
 
-// --- fw#1839: embedded-list timestamp sub-field ---
+// --- embedded-list timestamp sub-field ---
 
 describe("embedded sub-field: timestamp", () => {
   test("accepts a valid ISO datetime, rejects an invalid string", () => {
@@ -714,7 +714,7 @@ describe("embedded sub-field: timestamp", () => {
   });
 });
 
-// --- fw#1839: totalsMatch cross-field validation (schema-level, shared by
+// --- totalsMatch cross-field validation (schema-level, shared by
 // client form-controller and server write handler via the same
 // z.object().safeParse() call) ---
 
@@ -759,7 +759,7 @@ describe("totalsMatch (fw#1839)", () => {
     expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(false);
   });
 
-  // kumiko-framework#1972: a round total (30 EUR = 3000 minor) still passes
+  // A round total (30 EUR = 3000 minor) still passes
   // even if the major/minor conversion is silently skipped, because 30 and
   // 3000 both "look" plausible under either interpretation. A crooked
   // amount catches that a round-number fixture wouldn't.
@@ -806,7 +806,7 @@ describe("totalsMatch (fw#1839)", () => {
   });
 });
 
-// --- kumiko-framework#1837: derived-cell server-side recomputation — the
+// --- derived-cell server-side recomputation — the
 // server is the authority for derived cells, a client value is overwritten
 // with the recomputed one instead of merely checked against it. ---
 
@@ -896,7 +896,7 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
     }
   });
 
-  // --- kumiko-framework#1852: a fractional product on a money/decimal
+  // --- a fractional product on a money/decimal
   // target isn't representable by the target sub-field's strict
   // integer/scale validation — round to the target's declared precision
   // before it's written back, instead of rejecting the whole row. ---
@@ -1054,7 +1054,7 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
     const schema = buildInsertSchema(entity);
     // Each source is in-scale for its own scale-3 field, but the sum
     // (0.333) has 3 decimal digits — over-scale for the scale-2 target
-    // without the rounding from #1867 (roundDerivedCellValue).
+    // without the rounding from roundDerivedCellValue.
     const result = schema.safeParse({ lines: [{ a: 0.111, b: 0.111, c: 0.111 }] });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -1185,7 +1185,7 @@ describe("buildUpdateSchema", () => {
     expect(schema.safeParse({ email: "not-email" }).success).toBe(false);
   });
 
-  // #1674: clearing a previously-set optional select back to "unset" must
+  // Clearing a previously-set optional select back to "unset" must
   // work through the update path too — "" from an untouched <select> maps to
   // an explicit `null`, not `undefined` (which would be dropped from the
   // changes payload and silently no-op instead of clearing).
@@ -1217,12 +1217,11 @@ describe("buildUpdateSchema", () => {
     }
   });
 
-  // fw#1703: buildUpdateSchema never applies defaults for an OMITTED field —
+  // buildUpdateSchema never applies defaults for an OMITTED field —
   // omitting a field must leave it untouched. But an explicit `""` from an
   // untouched <select> is a submission, not an omission, and "a field with a
-  // default is never unset" (same invariant the insert path documents at
-  // #1702) — so "" must map to the field's default on update too, not clobber
-  // an existing value to null.
+  // default is never unset" — so "" must map to the field's default on update
+  // too, not clobber an existing value to null.
   test("optional select with default on update: empty string falls back to the default", () => {
     const entity = createEntity({
       table: "Test",

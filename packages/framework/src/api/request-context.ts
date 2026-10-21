@@ -46,7 +46,7 @@ export type RequestContextData = {
   // request-locale.ts. Undefined when neither header carried a valid tag;
   // callers fall back further (dispatch-shared.ts's ctx.locale chain).
   readonly locale?: string;
-  // Attribution of the currently executing scope (#3043): the feature that
+  // Attribution of the currently executing scope: the feature that
   // owns it and the qualified name of the handler / MSP-consumer / job
   // inside it. event-store.append() reads both and stamps them onto every
   // event written under this scope.

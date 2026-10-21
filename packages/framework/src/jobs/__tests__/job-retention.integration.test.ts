@@ -41,7 +41,7 @@ function rawWorkerQueue(queueNamePrefix: string): Queue {
     connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
   });
   // A post-close 'error' here is otherwise unhandled and bun:test attributes
-  // it to whichever test runs next (fw#1805).
+  // it to whichever test runs next.
   queue.on("error", () => {});
   return queue;
 }

@@ -73,7 +73,7 @@ export function validateMetricName(name: string, type: MetricType): void {
 // time) — normalize "-" to "_" here so a feature like "ai-foundation"
 // resolves to the same "kumiko_ai_foundation_x" on both the registration
 // path (registry-ingest.ts) and the read path (ctx.metrics / ctx.metricsFor),
-// instead of the kebab form being rejected outright (framework#1844).
+// instead of the kebab form being rejected outright.
 export function buildMetricName(featureName: string, shortName: string): string {
   const normalizedFeatureName = toKebab(featureName).replace(/-/g, "_");
   if (!SNAKE_CASE.test(normalizedFeatureName)) {

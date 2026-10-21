@@ -425,7 +425,7 @@ describe("upgrade command — every package's changelog, not just framework core
 describe("upgrade command — enterprise package layout", () => {
   // Layout is detected by presence of changes.json, not an "ai-" name
   // prefix — the old heuristic silently dropped every enterprise package
-  // whose name didn't start with "ai-" (fw#1605).
+  // whose name didn't start with "ai-".
   test("collects changes.json from a package without an 'ai-' prefix", async () => {
     const cwd = tmp({
       "packages/billing-designer/src/changes.json": FEATURE_ENTRY,
@@ -448,7 +448,7 @@ describe("upgrade command — enterprise package layout", () => {
 });
 
 // Codemod scripts ship inside packages/framework/src/scripts/codemod — the
-// published @cosmicdrift/kumiko-framework package (fw#2301).
+// published @cosmicdrift/kumiko-framework package.
 const REAL_REPO_ROOT = join(import.meta.dir, "../../../..");
 const REAL_FRAMEWORK_SRC = join(import.meta.dir, "..");
 const REAL_FRAMEWORK_PACKAGE_DIR = join(REAL_FRAMEWORK_SRC, "..");
@@ -843,7 +843,7 @@ describe("upgrade command — --apply", () => {
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("no codemod, manual migration required");
     // Marker must be written so guard-upgrade-state is not stuck when only
-    // manuals/improvements remain (fw#2299 / #2308). Manuals stay pending via
+    // manuals/improvements remain. Manuals stay pending via
     // markerVersionForPending not advancing onto them when mixed with later work.
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(true);
   });
@@ -1016,7 +1016,7 @@ describe("upgrade command — --apply", () => {
 // Bug: without --from, the filter baseline used to be the installed
 // version, not the recorded marker — a bare `--apply` always reported
 // "Nothing new" and bootstrapped the marker onto the installed version,
-// hiding changelog entries the marker never actually saw (fw#2371-style).
+// hiding changelog entries the marker never actually saw.
 describe("upgrade command — filter baseline is the marker, not the installed version", () => {
   const marker = (version: string): string =>
     JSON.stringify({ version, appliedAt: "2024-01-01T00:00:00Z", codemods: [] });

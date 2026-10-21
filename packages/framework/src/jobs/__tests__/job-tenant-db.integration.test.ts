@@ -1,4 +1,4 @@
-// fw#2914 — JobContext.db is a tenant-filtered TenantDb; unfiltered access needs r.job({ escapeHatch }).
+// JobContext.db is a tenant-filtered TenantDb; unfiltered access needs r.job({ escapeHatch }).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -160,7 +160,7 @@ describe("JobContext.db (fw#2914)", () => {
   test("JobContext.db is not assignable to a raw DbRunner", () => {
     const acceptsRunner = (runner: DbRunner): DbRunner => runner;
     const ctx = { db: undefined } as unknown as JobContext;
-    // @ts-expect-error — JobContext.db is a TenantDb, not a raw DbRunner (fw#2914)
+    // @ts-expect-error — JobContext.db is a TenantDb, not a raw DbRunner
     const leaked = () => acceptsRunner(ctx.db);
     expect(typeof leaked).toBe("function");
   });

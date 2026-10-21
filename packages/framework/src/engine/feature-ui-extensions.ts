@@ -246,7 +246,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       const targets = Array.isArray(target) ? target : [target];
       const names = targets.map(resolveName);
 
-      // Hook-fn casts unten alle: @cast-boundary engine-bridge
+      // All hook-function casts below: @cast-boundary engine-bridge
       // — typed Dev-API (LifecycleHookFn|ValidationHookFn) → erased Map<name, fn>.
       if (type === "validation") {
         for (const n of names) {
@@ -319,7 +319,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       const resolvedEntityName = resolveName(resolvedEntityRef);
       // @cast-boundary engine-bridge — typed per-extension options → erased registration bag
       const optionsBag = resolvedOptions as Record<string, unknown> | undefined;
-      // fw#2914 — cross-cutting escapeHatch convention for hook-context db
+      // Cross-cutting escapeHatch convention for hook-context db
       // access (mirrors r.hook's validation above). Validated the same way
       // for every extension regardless of its typed hook shape.
       const escapeHatch = optionsBag?.["escapeHatch"];
@@ -397,9 +397,9 @@ export function buildUiExtensionsMethods<TName extends string>(
       state.exposedApis.add(apiName);
     },
     /**
-     * Declares that this feature calls a cross-feature API. Boot-Validator
-     * checkt dass irgendein anderes Feature `r.exposesApi(name)` macht und
-     * dass dieses Feature `r.requires` darauf hat.
+     * Declares that this feature calls a cross-feature API. The boot validator
+     * checks that another feature calls `r.exposesApi(name)` and that this
+     * feature declares a corresponding `r.requires` dependency.
      */
     usesApi(apiName: string): void {
       state.usedApis.add(apiName);
@@ -576,10 +576,9 @@ export function buildUiExtensionsMethods<TName extends string>(
       state.workspaces[definition.id] = definition;
     },
     httpRoute(definition: HttpRouteDefinition): void {
-      // Path-Validation: muss mit "/" beginnen, keine /api/-Routes (die
-      // sind dem Dispatcher reserviert; eine HTTP-Route die /api/foo
-      // belegt, würde die Auth-Middleware umgehen ohne dass der Author
-      // das ausgesprochen hat — bewusster Block).
+      // Path validation: must start with "/"; /api/ routes are reserved for the
+      // dispatcher. An HTTP route occupying /api/foo could bypass the auth
+      // middleware without the author explicitly intending it, so block it.
       if (!definition.path.startsWith("/")) {
         throw new Error(
           `[Feature ${name}] httpRoute path "${definition.path}" must start with "/". ` +
@@ -687,7 +686,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       }
       // `read_` is reserved for r.entity()/r.projection() (managed,
       // event-sourced, rebuildable). storeTable is the unmanaged
-      // direct-write escape hatch — the prefix must say so (#1220).
+      // direct-write escape hatch — the prefix must say so.
       if (tableName.startsWith("read_")) {
         throw new Error(
           `[Feature ${name}] r.storeTable("${tableName}"): the "read_" prefix is reserved ` +
@@ -698,7 +697,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       // meta.source must agree with the r.storeTable() escape hatch, or the
       // migrate-generator treats schema drift on this table as safe to
       // DROP+rebuild-from-events — wiping direct-write data with no events
-      // to replay it from (#1209).
+      // to replay it from.
       if (meta.source !== "unmanaged") {
         throw new Error(
           `[Feature ${name}] r.storeTable("${tableName}") was given an EntityTableMeta with ` +
@@ -728,8 +727,8 @@ export function buildUiExtensionsMethods<TName extends string>(
     treeActions<const TActions extends Record<string, TreeActionDef>>(
       actions: TActions,
     ): TreeActionsHandle<TName, TActions> {
-      // Only-once-guard: zweiter Aufruf ist Author-Bug, soll am
-      // Feature-File aufschlagen (gleicher Stil wie r.toggleable).
+      // Only-once guard: a second call is an authoring error that should surface in
+      // the feature file (matching the behavior of r.toggleable).
       if (state.treeActions !== undefined) {
         throw new Error(
           `[Feature ${name}] r.treeActions() already called. ` +
@@ -737,9 +736,9 @@ export function buildUiExtensionsMethods<TName extends string>(
         );
       }
       state.treeActions = actions;
-      // Return typed handle für setup-export. Frozen damit Caller die
-      // Map nicht nachträglich mutieren (würde Pattern-AST + Runtime-
-      // Lookup divergieren lassen).
+      // Return a typed handle for the setup export. Freeze it so callers cannot
+      // mutate the map afterward, which would make the pattern AST and runtime
+      // lookup diverge.
       return Object.freeze({
         id: name,
         treeActions: actions,

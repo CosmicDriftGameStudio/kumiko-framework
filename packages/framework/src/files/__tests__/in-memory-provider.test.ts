@@ -1,9 +1,8 @@
-// createInMemoryFileProvider Unit-Tests (Phase 1, test-luecken-integration).
+// Tests for createInMemoryFileProvider.
 //
-// Pinnt den FileStorageProvider-Contract der In-Memory-Impl — inkl. der
-// non-obvious Eigenschaften: defensive Buffer-Copies (write UND read),
-// lazy readStream-throw (erst beim ersten Chunk-Pull), und die bewusst
-// erkennbare memory://-Fake-URL.
+// Pins the FileStorageProvider contract for the in-memory implementation,
+// including defensive Buffer copies on write and read, lazy readStream errors
+// on the first chunk pull, and the intentionally recognizable memory:// fake URL.
 
 import { describe, expect, test } from "bun:test";
 import { createInMemoryFileProvider } from "../in-memory-provider.ts";

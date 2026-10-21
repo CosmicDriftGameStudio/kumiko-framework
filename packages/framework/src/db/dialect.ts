@@ -15,7 +15,7 @@
 //
 // Static import of the shared Temporal module, not the ambient global: the
 // global may be absent (Hermes/Safari) or torn down in tests, and instantToDriver
-// crashed on timestamptz writes without it (#1480).
+// crashed on timestamptz writes without it.
 
 import type { WritableSchemaTable } from "@cosmicdrift/kumiko-types/executor-brand";
 import {
@@ -274,7 +274,7 @@ export function instant(
 // PG `date` — no time-of-day, no timezone. Calendar-day fields (invoice
 // date, lease term) round-trip as Temporal.PlainDate, never through an
 // Instant — that detour is exactly what made `type:"date"` TZ-dependent on
-// both read and write (kumiko-framework#1924).
+// both read and write.
 export function plainDate(name: string): ColumnBuilder<Temporal.PlainDate> {
   return buildColumn<Temporal.PlainDate>(name, "date");
 }

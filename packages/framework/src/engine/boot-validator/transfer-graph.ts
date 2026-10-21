@@ -6,13 +6,13 @@ import {
 } from "../transfer-adjacency.ts";
 import type { EntityDefinition, FeatureDefinition } from "../types/index.ts";
 
-// --- Transfer-graph boot validation (fw#3088) ---
+// --- Transfer-graph boot validation ---
 //
 // tenant-handover walks an entity graph across the tenant boundary along two
 // declared edge kinds: `parentRef` and plain `reference` fields. Two shapes
 // cannot be walked, and both have to fail loudly here rather than silently
 // leaving rows behind in the source tenant — the partial move is exactly what
-// #3088 exists to end.
+// this validation exists to end.
 //
 // Scoped to entities declaring `transferable: true`, so a consumer that has
 // one of these shapes but never hands that entity over is unaffected.

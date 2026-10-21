@@ -84,7 +84,6 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
   // the first feature's projections (and vice-versa). Detect and surface
   // here so the error names BOTH owners; without this, the silent-set
   // would point any later unsafeProjection-error at the wrong feature.
-  // Followup #8.
   const aggregateTables = new Map<string, string>();
   for (const f of features) {
     for (const [entityName, entity] of Object.entries(f.entities ?? {})) {
@@ -127,7 +126,7 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
         steps,
         `[Feature ${f.name}] writeHandler "${handlerName}"`,
       )) {
-        // Tier-2 step-discovery (Q9): require explicit opt-in via
+        // Tier-2 step-discovery: require explicit opt-in via
         // r.requires.step("<kind>") for any tier-2+ step. Tier-1 is implicit.
         const def = getStep(step.kind);
         if (def?.tier === 2 && !f.requiredSteps.has(step.kind)) {

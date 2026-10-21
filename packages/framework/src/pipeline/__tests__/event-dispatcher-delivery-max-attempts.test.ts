@@ -1,5 +1,5 @@
 // EventConsumerErrorPolicy.maxAttempts lets a consumer override the
-// dispatcher-wide default (kumiko-framework#1349) — a consumer depending on
+// dispatcher-wide default — a consumer depending on
 // infra that may still be provisioning at boot (search adapter) needs more
 // retry headroom before it gets dead-lettered. deliverEvents is a pure
 // free function, so this is unit-level: no DB, no dispatcher lifecycle.

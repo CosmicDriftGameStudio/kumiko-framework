@@ -1,7 +1,7 @@
 // Forms-Schema metadata — describes how a FeaturePattern is rendered as
 // a Designer form, fed to an LLM as a JSON-Schema, or surfaced in the
 // MCP-Server tool list. One schema, three consumers — that's the whole
-// point of factoring this out of the hand-rolled C5 skeleton.
+// point of factoring this out of the hand-rolled skeleton.
 //
 // **NOT a DSL.** The Source-of-Truth for a feature stays
 // `defineFeature.ts` — the AST-visitor (feature-ast/parse.ts) reads it
@@ -10,7 +10,7 @@
 // already-parsed FeaturePattern in a form. No alternative parser, no
 // alternative syntax, no second canonical representation.
 //
-// **Vokabular** (12 input-types):
+// **Vocabulary** (12 input-types):
 //
 //   text                  — single-line string (name / label / id)
 //   textarea              — multi-line string (description / SQL / readme)
@@ -31,7 +31,7 @@
 // FeaturePattern object using dot-separated keys (`definition.fields`,
 // `access.roles`, `templates.email`). Numeric indices use the bracket
 // form (`columns.0`). The Designer/LLM uses paths for read & write —
-// the patcher (C2) consumes pattern-level updates only, so paths are
+// the patcher consumes pattern-level updates only, so paths are
 // purely a UI concern at this stage.
 
 import type { FeaturePatternKind } from "../feature-ast/patterns.ts";

@@ -191,9 +191,9 @@ export type DispatchContext = {
 
 export const DEFAULT_MEMBER_READ_TIMEOUT_MS = 10_000;
 
-// Narrowing-helper: AppContext.db ist DbConnection|TenantDb|undefined. Die
-// dispatch-Pfade brauchen DbConnection (oder DbTx aus Caller-Scope) für
-// appendEvent/projection-writes; TenantDb-Branch wird hier ausgeschlossen.
+// Narrowing helper: AppContext.db is DbConnection|TenantDb|undefined. The
+// dispatch paths need DbConnection (or DbTx from the caller scope) for
+// appendEvent/projection writes; the TenantDb branch is excluded here.
 export function resolveDbSource(
   ctx: DispatchContext,
   tx: DbTx | undefined,
@@ -745,8 +745,8 @@ export async function buildHandlerContext(
   const metrics =
     meter && featureName ? createMetricsHandle(meter, featureName) : createNoopMetricsHandle();
   // ctx.metricsFor(featureName) — shared/library code binds to a feature
-  // name of its own choosing instead of the dispatching handler's
-  // (framework#1844). Unregistered names no-op rather than throw.
+  // name of its own choosing instead of the dispatching handler's.
+  // Unregistered names no-op rather than throw.
   const metricsFor = createMetricsForFactory(meter);
 
   // A failed inner write has already appended its event and projections when a later
@@ -1178,7 +1178,7 @@ export async function buildHandlerContext(
   // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
   //
   // Resolving this via `config()` is a config-table SELECT on every single
-  // dispatch (fw#2462) — ctx.tenantTimezoneCache memoizes it per tenant.
+  // dispatch — ctx.tenantTimezoneCache memoizes it per tenant.
   // dispatch-write.ts invalidates on config:write:set/reset for this key.
   // Only populate from a tx-free read (tx === undefined): a write-path
   // lookup runs inside the caller's own open transaction, and caching a
@@ -1223,8 +1223,8 @@ export async function buildHandlerContext(
 
   // ctx.locale — request-layer signal (X-Locale header → Accept-Language,
   // resolved once at the HTTP boundary by request-id-middleware.ts) wins;
-  // then SessionUser.locale (set at login, see fw#2333 — stale until
-  // re-login, same tradeoff as ctx.tz.user); falls back to the app's
+  // then SessionUser.locale (set at login — stale until re-login, same
+  // tradeoff as ctx.tz.user); falls back to the app's
   // boot-configured defaultLocale, then DEFAULT_LOCALE. Mirrors ctx.tz's
   // Request → Session → Boot-Default chain above.
   const safeUserLocale =
@@ -1259,8 +1259,7 @@ export async function buildHandlerContext(
     ...(derivatives && { derivatives }),
     // preSave hooks need `changes`/`previous`/`isNew`, which only exist once
     // a handler actually starts building its write — bound here so entity
-    // CRUD handlers (entity-handlers.ts) can forward it to the executor
-    // (kumiko-framework#1672).
+    // CRUD handlers (entity-handlers.ts) can forward it to the executor.
     ...(lifecycle && {
       runPreSave: (
         handlerName: string,
@@ -1286,11 +1285,10 @@ export async function buildHandlerContext(
     // Lets write handlers call ctx.jobRunner.dispatch(...) directly, same
     // as a follow-up job would (test-stack.ts wires the matching runner).
     ...(jobRunner && { jobRunner }),
-    // ctx.user als Convenience-Alias auf event.user. Der typisch-
-    // intuitive Pfad „der Context kennt seinen User" — ohne den
-    // schreiben Handler `event.user.tenantId` und brechen sich die
-    // Finger an typo-resistenten ctx.user-Patterns. Identisch zum
-    // event.user-Wert; Identity-Switches nutzen weiterhin queryAs/writeAs.
+    // ctx.user as a convenience alias for event.user. The intuitive path—"the
+    // context knows its user"—lets handlers avoid writing `event.user.tenantId`
+    // and reduces errors in ctx.user access patterns. It is identical to
+    // event.user; identity switches still use queryAs/writeAs.
     user,
     _tenantId: user.tenantId,
     ...(hasLiveCommitSink && { scheduleAfterCommit }),
@@ -1373,7 +1371,7 @@ export async function runHandlerInstrumented<T>(
       },
       async (span) => {
         try {
-          // #3043 — everything the handler writes, including entity-executor
+          // Everything the handler writes, including entity-executor
           // writes below it, is attributed to this handler.
           const result = await runWithOrigin(
             {

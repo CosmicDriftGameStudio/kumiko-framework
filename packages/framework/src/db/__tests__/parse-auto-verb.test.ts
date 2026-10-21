@@ -1,11 +1,11 @@
-// Unit-Tests für parseAutoVerb — die Mapping-Logik die entscheidet
-// ob ein Event ein Auto-Verb auf seinem Aggregate ist (created/
-// updated/deleted/restored) oder ein Domain-Event. Production-Behavior:
-// die ImplicitProjection registriert Apply-Handler nur für die 4 Auto-
-// Verben; Domain-Events laufen durch explicit r.projection oder MSP.
+// Unit tests for parseAutoVerb — the mapping logic that determines
+// whether an event is an auto-verb on its aggregate (created/
+// updated/deleted/restored) or a domain event. In production,
+// ImplicitProjection registers apply handlers only for the four auto-
+// verbs; domain events go through explicit r.projection or MSP.
 //
-// Wenn parseAutoVerb für ein Domain-Event versehentlich einen Verb
-// returnt, würde die ImplicitProjection den falschen Handler firen.
+// If parseAutoVerb incorrectly returned a verb for a domain event,
+// ImplicitProjection would fire the wrong handler.
 
 import { describe, expect, test } from "bun:test";
 import type { StoredEvent } from "../../event-store/index.ts";
@@ -43,9 +43,8 @@ describe("parseAutoVerb", () => {
   });
 
   test("auto-verb-Suffix auf falschem aggregate → null", () => {
-    // type "tenant.created" auf einem user-Aggregate ist defensive ein
-    // Domain-Event aus Sicht der user-Implicit-Projection — nicht ihr
-    // eigener Auto-Verb.
+    // type "tenant.created" on a user aggregate is defensively treated as a
+    // domain event by the user ImplicitProjection, not as its own auto-verb.
     expect(parseAutoVerb(event({ aggregateType: "user", type: "tenant.created" }))).toBeNull();
   });
 
@@ -64,7 +63,7 @@ describe("parseAutoVerb", () => {
   });
 
   test("type mit verschachteltem prefix → null", () => {
-    // "user.profile.updated" hat zwei dots — kein clean Auto-Verb
+    // "user.profile.updated" has two dots, so it is not a clean auto-verb
     expect(parseAutoVerb(event({ type: "user.profile.updated" }))).toBeNull();
   });
 });

@@ -31,9 +31,9 @@ export function isEncryptedAtRest(
 
 export const access = {
   all: ["all"] as readonly string[], // @cast-boundary schema-walk
-  // TenantAdmin zusätzlich: bundled-features vergeben "TenantAdmin",
-  // App-Repos historisch "Admin" — das Preset deckt beide ab, sonst
-  // driftet die writeRole-Spalte der Feature-Reference (Manifest 243/2).
+  // Bundled features use "TenantAdmin", while app repositories historically use
+  // "Admin"; including both prevents the feature reference's writeRole from
+  // drifting.
   admin: ["TenantAdmin", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   systemAdmin: ["SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   system: ["system"] as readonly string[], // @cast-boundary schema-walk
@@ -46,7 +46,7 @@ export const access = {
   // also set via ctx.systemWriteAs (roles = [SYSTEM_ROLE]). Stays human-writable
   // because checkWriteAccess only collapses to system-only when system is the
   // SOLE writer (humanWriters empty). Composes any preset, so apps with custom
-  // roles get the same provisioning path (issue #396).
+  // roles get the same provisioning path.
   withSystem: (roles: readonly string[]): readonly string[] => [SYSTEM_ROLE, ...roles],
 } as const;
 
@@ -61,7 +61,7 @@ export const access = {
 //
 // `computed` is a fallback-resolver the registry calls when no row + no
 // app-override exists — used for plan-based limits (see
-// configuration-layers.md, "Frage 3: Hängt Geld dran?").
+// configuration-layers.md, "Question 3: Is money involved?").
 //
 // `allowPerRequest` is conditional against `text`: text keys can never
 // opt in to per-request overrides (XSS/SQL/Shell risk). For other types

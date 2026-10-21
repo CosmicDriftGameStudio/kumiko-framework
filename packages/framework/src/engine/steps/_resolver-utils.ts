@@ -13,8 +13,6 @@
 // was needed to satisfy TS narrowing on a property-access; passing the
 // arg through a function-call achieves the same narrowing trivially via
 // the function-parameter binding.
-//
-// Followup #10 (closed at the M.1.6 cleanup-pass).
 
 import type { PipelineCtx, StepResolver } from "../types/step.ts";
 

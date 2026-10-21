@@ -8,46 +8,46 @@ import type { UserDataExtensionOptions } from "./extensions/user-data.ts";
 import type { AssignableFromRole } from "./role-assignment.ts";
 import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension.ts";
 
-// Standardisierte Extension-Namen fuer Datenschutz-Hook-Achsen.
+// Standardized extension names for privacy-hook axes.
 //
-// Features registrieren Extensions via:
+// Features register extensions via:
 //   r.extendsRegistrar(EXT_USER_DATA, { hooks: { ... } });
 //
-// Andere Features haengen sich ein via:
+// Other features attach to them via:
 //   r.useExtension(EXT_USER_DATA, "myEntity", { ...hookImpls });
 //
-// Hintergrund: Magic-Strings driften zwischen Bundled-Features (Beispiel:
-// text-content nutzt "Admin" als Rolle, tenant-handler nutzt "TenantAdmin").
-// Constants sind die einzige Quelle der Wahrheit; String-Literale werden
-// in den Sprint-Touchpoints schrittweise ersetzt. Boot-Validator
-// (validateExtensionUsages) checkt dass jedes useExtension einen
-// passenden extendsRegistrar findet — Tippfehler in Constants →
-// Compile-Time-Fail.
+// Background: magic strings drift between bundled features (for example,
+// text-content uses "Admin" as a role, while tenant-handler uses
+// "TenantAdmin"). Constants are the single source of truth; string literals
+// are gradually replaced at the relevant integration points. The boot
+// validator (validateExtensionUsages) checks that every useExtension has a
+// matching extendsRegistrar, so typos in constants cause a compile-time
+// failure.
 //
-// Hook-Signaturen + Boot-Validation pro Extension-Achse kommen mit dem
-// jeweiligen registrierenden Sprint:
-//   userData / tenantData         → Sprint 2 (user-data-rights, retention)
-//   storageProvider                → Sprint 4 (storage-encryption)
-//   searchAdapter / external /     → Sprint 5 (tenant-lifecycle)
+// Hook signatures and boot validation for each extension axis are added by
+// the feature that registers that axis:
+//   userData / tenantData         → (user-data-rights, retention)
+//   storageProvider                → (storage-encryption)
+//   searchAdapter / external /     → (tenant-lifecycle)
 //   infraResource
 
 /**
- * `userData` — User-Daten-Rights-Hooks (DSGVO Art. 15 + 17 + 20).
+ * `userData` — user-data rights hooks (GDPR Articles 15, 17, and 20).
  *
- * Erwartete Hook-Methoden:
+ * Expected hook methods:
  *   - `export(userId, ctx) => Promise<UserDataExport>`
  *   - `delete(userId, strategy: "delete" | "anonymize", ctx) => Promise<void>`
  *
- * Registriert von: `user-data-rights` (Sprint 2).
- * Genutzt von: jedes Feature mit User-Referenzen (tasks, comments, files, ...).
+ * Registered by: `user-data-rights`.
+ * Used by: every feature with user references (tasks, comments, files, ...).
  */
 export const EXT_USER_DATA = "userData" as const;
 
-// Order-Bänder für EXT_USER_DATA-Hooks (forget-Pipeline). Der Kontrakt war
-// implizit über zwei Packages verteilt (-100 in custom-fields, 0 in
-// user-data-rights) — ein Host-Hook mit order < REDACT_BEFORE_OWNER liefe
-// VOR den Redaktoren und brächte den Strip-nach-owner-null-Bug zurück
-// (DSGVO-Art.-17-Regression). Regel: Redaktoren < 0 <= owner-mutierende Hooks.
+// Ordering bands for EXT_USER_DATA hooks (forget pipeline). The contract was
+// implicit across two packages (-100 in custom-fields, 0 in
+// user-data-rights), so a host hook with order < REDACT_BEFORE_OWNER would run
+// BEFORE the redactors and reintroduce the strip-after-owner-null bug
+// (GDPR Article 17 regression). Rule: redactors < 0 <= owner-mutating hooks.
 export const EXT_USER_DATA_ORDER = {
   REDACT_BEFORE_OWNER: -100,
   DEFAULT: 0,
@@ -74,24 +74,23 @@ export const EXT_TENANT_DATA = "tenantData" as const;
 export const EXT_STORAGE_PROVIDER = "storageProvider" as const;
 
 /**
- * `fileProvider` — File-Storage-Provider-Plugin-Selection (file-foundation).
+ * `fileProvider` — file-storage provider plugin selection (file-foundation).
  *
- * Provider-Features (file-provider-s3, -inmemory, -s3-env) registrieren eine
- * Implementierung via `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`;
- * der per-Tenant Config-Key `provider` waehlt zur Runtime eine aus. Der
- * Framework-Resolver (`createFileProviderForTenant`) liest das, damit Upload-
- * Routes, `ctx.files` UND die DSGVO-Jobs denselben Store treffen.
+ * Provider features (file-provider-s3, -inmemory, -s3-env) register an
+ * implementation via `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`;
+ * the per-tenant config key `provider` selects one at runtime. The framework
+ * resolver (`createFileProviderForTenant`) reads it so upload routes,
+ * `ctx.files`, and GDPR jobs all use the same store.
  *
- * Framework-seitig besessen, damit kein String-Drift entsteht — file-
- * foundation MUSS Extension-Point + Config-Key unter genau diesen Namen
- * registrieren.
+ * The framework owns this contract to prevent string drift — file-foundation
+ * MUST register the extension point and config key under exactly these names.
  */
 export const EXT_FILE_PROVIDER = "fileProvider" as const;
 
-// Qualifizierter Config-Key, den das file-foundation-Feature registriert
-// (Format `<feature>:config:<key>`). Akzeptierte Kopplung: der Framework-
-// Resolver liegt UNTER dem Feature und liest den Key per String. Umbenennen
-// des file-foundation-Features MUSS diese Konstante mitziehen.
+// Qualified config key registered by the file-foundation feature
+// (format `<feature>:config:<key>`). This coupling is intentional: the
+// framework resolver is below the feature and reads the key by string. Renaming
+// the file-foundation feature MUST be accompanied by changing this constant.
 export const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider" as const;
 
 // Two roles: boot gate (validateBoot requires its presence once file/image
@@ -133,7 +132,7 @@ export const EXT_DERIVATIVE_RENDERER = "derivativeRenderer" as const;
  * serves nothing for that entityType, not even a 403 (404, so existence isn't
  * confirmed to an unauthorised caller).
  *
- * Registered/consumed by: `file-derivatives`' public variant route (#1951).
+ * Registered/consumed by: `file-derivatives`' public variant route.
  */
 export const EXT_DERIVATIVE_PUBLIC_PREDICATE = "derivativePublicPredicate" as const;
 
@@ -209,9 +208,9 @@ export const EXT_ASSIGNABLE_ROLE = "assignableRole" as const;
 export const TENANT_MEMBERSHIPS_QUERY = "tenant:query:memberships" as const;
 
 /**
- * Union aller standardisierten Extension-Namen der Datenschutz-Surface.
- * Nicht alle Extensions im System sind in dieser Liste — andere
- * Features koennen weiterhin eigene Extension-Namen registrieren.
+ * Union of standardized extension names for the privacy surface.
+ * Not every extension in the system is included — other features can still
+ * register their own extension names.
  */
 export type KumikoExtensionName =
   | typeof EXT_USER_DATA

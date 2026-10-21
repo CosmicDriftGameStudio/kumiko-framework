@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // migrate-cross-tenant — rewrites `crossTenant: true` on entity-convention
 // handlers to `escapeHatch: { reason }` where the handler name and verb can
-// be derived from the call, and reports every other site for review (fw#2915).
+// be derived from the call, and reports every other site for review.
 //
 // Usage:
 //   bun scripts/codemod/migrate-cross-tenant.ts [--dry-run] <path...>

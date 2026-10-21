@@ -1,6 +1,5 @@
-// studio#36/#46: ein fehlgeschlagener Projection-Rebuild nach `schema apply`
-// durfte nicht verloren gehen — die Queue persistiert die betroffenen
-// Tabellen, ein erneuter Lauf holt offene Rebuilds nach.
+// A failed projection rebuild after `schema apply` must not be lost:
+// the queue persists the affected tables so a later run can rebuild them.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -72,7 +71,7 @@ const orphanProjectionTable = pgTable("read_orphan_projection", {
   groupId: uuid("group_id").primaryKey(),
 });
 
-// Steuerbarer Fail: simuliert einen transienten Rebuild-Fehler.
+// Controllable failure simulating a transient rebuild error.
 let failApply = false;
 let failMspApply = false;
 const MSP_PROJECTION_NAME = "pendingtest:projection:pending-item-names";
@@ -176,11 +175,11 @@ describe("pending-rebuilds queue", () => {
         error: expect.stringContaining("transient rebuild failure"),
       },
     ]);
-    // Der Kern von studio#36: die Tabelle bleibt pending.
+    // The table remains pending.
     expect(await listPendingRebuilds(testDb.db)).toEqual(["read_pending_counts"]);
 
-    // Re-Run OHNE neue applied-Migrations (appliedIds leer = "alles war
-    // schon applied") — die Queue alleine treibt den Nachhol-Rebuild.
+    // Re-run WITHOUT new applied migrations (`appliedIds` empty means "everything was
+    // already applied") — the queue alone drives the catch-up rebuild.
     failApply = false;
     const secondRun = await runPendingRebuilds(testDb.db, registry);
     expect(secondRun.failed).toEqual([]);
@@ -319,9 +318,8 @@ describe("pending-rebuilds queue", () => {
     expect(run).toEqual({ rebuilt: [], failed: [], unmapped: [], unresolvedManaged: [] });
   });
 
-  // Zwei applied-Migrations, die dieselbe Tabelle anfassen, dürfen sie nur
-  // EINMAL queuen (interner Set) — sonst rebuildet ein Run dieselbe Projektion
-  // doppelt.
+  // Multiple applied migrations affecting the same table must queue it only ONCE
+  // via the internal Set; otherwise one run would rebuild the same projection twice.
   test("two applied migrations touching the same table → deduplicated to one entry", async () => {
     writeRebuildMarker(markerDir, "0006_a.sql", ["read_pending_counts"]);
     writeRebuildMarker(markerDir, "0006_b.sql", ["read_pending_counts"]);
@@ -332,9 +330,9 @@ describe("pending-rebuilds queue", () => {
     expect(queued).toEqual(["read_pending_counts"]);
   });
 
-  // #361: eine managed-Tabelle (Marker tragen nur managed), die in DIESEM Run
-  // geleert wurde, aber keine Projektion auflöst = owning-Feature fehlt in der
-  // Komposition → laut (unresolvedManaged), aber non-fatal (gedraint, kein Throw).
+  // A managed table (markers identify only managed tables) emptied THIS run without
+  // a resolving projection means the owning feature is missing from the composition:
+  // report it as unresolvedManaged, but remain non-fatal and drain the entry.
   test("managed table emptied THIS run with no resolving projection → unresolvedManaged, still drained", async () => {
     writeRebuildMarker(markerDir, "0003_orphan_managed.sql", ["read_orphan_projection"]);
     const queued = await queueRebuildsFromMarkers(testDb.db, {
@@ -348,7 +346,7 @@ describe("pending-rebuilds queue", () => {
     expect(run.unmapped).toEqual([]);
     expect(run.rebuilt).toEqual([]);
     expect(run.failed).toEqual([]);
-    // Trotz laut: gedraint → kein sticky-stuck Re-Apply.
+    // Despite the warning, drain it so the entry is not retried indefinitely.
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
   });
 
@@ -376,9 +374,9 @@ describe("pending-rebuilds queue", () => {
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
   });
 
-  // #361: dieselbe unmapped-Tabelle, aber NICHT in thisRunTables (pre-existing
-  // pending aus einem früheren Run / evtl. altem unmanaged-Marker) → benign,
-  // still gedraint, NICHT als unresolvedManaged geflaggt (kein False-Positive).
+  // The same unmapped table, but NOT in thisRunTables (pre-existing pending data from
+  // an earlier run or possibly an old unmanaged marker), is benign: drain it without
+  // flagging unresolvedManaged to avoid a false positive.
   test("pre-existing pending table not in thisRunTables → benign unmapped, not flagged", async () => {
     writeRebuildMarker(markerDir, "0004_legacy.sql", ["read_legacy_table"]);
     await queueRebuildsFromMarkers(testDb.db, {
@@ -386,16 +384,15 @@ describe("pending-rebuilds queue", () => {
       appliedIds: ["0004_legacy"],
     });
 
-    // Re-Run ohne frisch gequeuete Tabellen (thisRunTables leer) — die Queue
-    // trägt nur den Altbestand.
+    // Re-run without freshly queued tables (thisRunTables is empty): the queue
+    // contains only the pre-existing entry.
     const run = await runPendingRebuilds(testDb.db, registry, { thisRunTables: [] });
     expect(run.unmapped).toEqual(["read_legacy_table"]);
     expect(run.unresolvedManaged).toEqual([]);
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
   });
 
-  // #361: ein lauter unresolved-managed-Eintrag darf den auflösbaren Rebuild
-  // im selben Run nicht blockieren.
+  // An unresolved managed entry must not block a resolvable rebuild in the same run.
   test("mixed run: resolvable projection rebuilt while an unresolved managed table is flagged", async () => {
     await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
     writeRebuildMarker(markerDir, "0005_mixed.sql", [
@@ -418,9 +415,9 @@ describe("pending-rebuilds queue", () => {
   });
 });
 
-// #362: der framework-Helper. Ohne jobs-Feature (kein jobRunner) rebuildet er
-// synchron inline — das heutige Verhalten, garantiert framework-pur. Der
-// dispatch-Pfad (mit jobs) lebt in jobs/__tests__/projection-rebuild-job.*.
+// The framework helper rebuilds synchronously inline without the jobs feature
+// (no jobRunner), preserving framework-only behavior. The dispatch path with jobs
+// is covered in jobs/__tests__/projection-rebuild-job.*.
 describe("enqueueProjectionRebuild — inline fallback (no jobs feature)", () => {
   test("without a jobRunner, rebuilds the projection synchronously", async () => {
     await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);

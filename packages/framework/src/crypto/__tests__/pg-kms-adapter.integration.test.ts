@@ -135,7 +135,7 @@ describe("PgKmsAdapter — pg specifics", () => {
     expect(rows[0]?.["erase_reason"]).toBe("user-forget");
   });
 
-  // fw#2551: the pool resolveKmsWiring opens is what kept ops scripts from
+  // The pool resolveKmsWiring opens is what kept ops scripts from
   // exiting. Proving release needs a pool that was genuinely open, so the
   // health() before close is half the assertion.
   test("resolveKmsWiring's close releases the pool it opened", async () => {

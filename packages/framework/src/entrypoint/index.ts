@@ -36,7 +36,7 @@
 //
 // SSE fanout across processes (split api/worker deploy, replicas > 1):
 // buildServer's default sseBroker is Redis-backed whenever REDIS_URL is
-// set (fw#2625) — a push on the worker's dispatcher reaches clients
+// set — a push on the worker's dispatcher reaches clients
 // connected to any API instance via Redis Pub/Sub, no per-instance
 // cursor needed. Without REDIS_URL, the in-memory broker still only
 // reaches clients on the same process.
@@ -185,7 +185,7 @@ export type AllInOneEntrypoint = Omit<ApiEntrypoint, "mode"> &
 // so the command-dispatcher fires handleEvent as an afterCommit-hook for
 // event-triggered jobs (dispatcher.ts:997). Without this plumbing,
 // `r.job({ trigger: { on: … } })` silently drops on every write — that
-// was the hidden Welle-2.5 gap.
+// was the hidden gap.
 //
 // Caller-supplied `dispatcherOptions.jobRunner` wins (tests sometimes
 // inject a mock runner directly).
@@ -367,7 +367,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
   const observability = resolveObservability(options.observability);
   const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);
 
-  // Boot-validation (Welle 2.6.c) — fail loud before traffic arrives:
+  // Boot-validation — fail loud before traffic arrives:
   //   (a) Any jobs declared + no jobs-block → command-dispatcher would
   //       silently drop every event-triggered enqueue. Fix: add jobs:
   //       { redisUrl } so the API holds lane-queue-clients.

@@ -127,8 +127,8 @@ describe("derivativeListPrefix + isDerivativeKeyOf — real deriveKey() output",
   });
 });
 
-// parseDerivativeKey powers the orphaned-derivative backfill/GC sweep
-// (#2474), which has no audit trail of past forgets to work from — it can
+// parseDerivativeKey powers the orphaned-derivative backfill/GC sweep,
+// which has no audit trail of past forgets to work from — it can
 // only trust the deterministic key grammar itself. Real buildStorageKey() +
 // deriveKey() output, not a hand-rolled key shape.
 describe("parseDerivativeKey — reverse of deriveKey", () => {

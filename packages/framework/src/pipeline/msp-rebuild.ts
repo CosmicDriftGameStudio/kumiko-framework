@@ -70,9 +70,9 @@ import type { RebuildResult } from "./projection-rebuild.ts";
 //   - Advance cursor to last processed event id, status=idle.
 //   - Swap the shadow into public (brief ACCESS EXCLUSIVE, not the replay).
 //
-// Handoff to the live dispatcher (#3231): the replay horizon (MAX(id) at the
-// time selectEventIdHorizonWithMissingRanges ran) plus the id gaps open below
-// it in that same snapshot are read up front and the replay is bounded to
+// Handoff to the live dispatcher: the replay horizon (MAX(id) at the time
+// selectEventIdHorizonWithMissingRanges ran) plus the id gaps open below it in
+// that same snapshot are read up front and the replay is bounded to
 // `id <= horizon`. A transaction holding a lower id can still be in-flight
 // during replay — its row is invisible here and, once committed, would sit
 // below the cursor with no live-dispatcher gap tracking to ever revisit it.
@@ -318,7 +318,7 @@ async function replayMultiStreamProjectionIntoShadow(
     durationMs: Date.now() - startedAt,
     // countColumnDrift is single-table (public.<t> vs kumiko_rebuild.<t>) and
     // not wired into the multi-stream rebuild path — MSPs don't run the
-    // implicit-projection ghost-row guard either. #916 scope is single-table.
+    // implicit-projection ghost-row guard either. The scope is single-table.
     columnDriftCount: 0,
   };
   if (deps.meter) {

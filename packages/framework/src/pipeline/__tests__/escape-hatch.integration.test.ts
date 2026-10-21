@@ -1,4 +1,4 @@
-// fw#2855 — a write handler's `escapeHatch` gates writes through ctx.db.global(table):
+// A write handler's `escapeHatch` gates writes through ctx.db.global(table):
 // WITH it the write succeeds, WITHOUT it the same handler rejects with access_denied.
 // Real HTTP calls + setupTestStack — never createTestDispatcher.
 

@@ -26,7 +26,7 @@ export async function selectEventsForProjectionRebuildBatch(
 ): Promise<ReadonlyArray<Record<string, unknown>>> {
   // Archived streams don't replay (Marten-aligned): their aggregates are
   // frozen ops-tombstones — replaying them would resurrect rows (or, for
-  // stranded duplicate-aggregates like fw#832, collide on unique indexes).
+  // stranded duplicate-aggregates, collide on unique indexes).
   return unsafeReadRetrying<Record<string, unknown>>(
     db,
     `SELECT * FROM "kumiko_events" e
@@ -46,13 +46,13 @@ export async function selectEventsForProjectionRebuildBatch(
 // Total subscribed events in the log — same source/type filter as
 // selectEventsForProjectionRebuildBatch, no id cursor. Under the cutover fence
 // this is the ground-truth count the rebuild must have applied; a shortfall
-// means a lower-id event committed late and the id-cursor leapt past it (#443).
+// means a lower-id event committed late and the id-cursor leapt past it.
 export async function countSubscribedEvents(
   db: AnyDb,
   aggregateTypes: readonly string[],
   eventTypes: readonly string[],
 ): Promise<bigint> {
-  // Same archived-streams exclusion as the batch query — the #443 recompute
+  // Same archived-streams exclusion as the batch query — the recompute
   // compares this count against applied events; a filter mismatch would make
   // every rebuild with an archived stream loop the full-re-replay forever.
   const rows = await unsafeReadRetrying<{ n: bigint | string | number | null }>(

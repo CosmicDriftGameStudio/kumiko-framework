@@ -1,7 +1,6 @@
 // Shared helpers for unit-tests of pipeline.ts / run-pipeline.ts and the
 // step-builders. The minimal-ctx helper was 4 lines duplicated in every
-// pipeline-* test file; centralised here for the M.1.6 cleanup-pass
-// (Followup #7 splitting).
+// pipeline-* test file; centralised here for the cleanup pass.
 //
 // Real-ctx integration lives in pipeline-handler.integration.ts —
 // these helpers are deliberately for the no-DB tests where step-args

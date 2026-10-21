@@ -1,13 +1,13 @@
-// Boot-Validator-Tests fuer r.exposesApi / r.usesApi (S0.4).
+// Boot-validator tests for r.exposesApi / r.usesApi.
 //
-// Pflicht-Validierungen (Error / throw):
-//   - r.usesApi(name) ohne passenden r.exposesApi(name) → throw
-//   - r.usesApi(name) ohne r.requires(providerFeature) → throw
-//   - r.exposesApi(name) zweimal in einem Feature → throw
-//   - Globale Doppel-Exposure (zwei Features, gleicher Name) → throw
+// Required validations (error / throw):
+//   - r.usesApi(name) without a matching r.exposesApi(name) → throw
+//   - r.usesApi(name) without r.requires(providerFeature) → throw
+//   - r.exposesApi(name) called twice in one feature → throw
+//   - Global duplicate exposure (two features, same name) → throw
 //
-// Soft-Warning (console.warn):
-//   - Feature ruft eigene exposesApi via usesApi (Refactor-Leftover)
+// Soft warning (console.warn):
+//   - A feature calls its own exposesApi via usesApi (refactor leftover)
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { validateBoot } from "../boot-validator.ts";
@@ -122,9 +122,9 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
   });
 
   test("global double-exposure throws before consumer-resolution kicks in", () => {
-    // Edge-case: zwei Features exposen denselben Namen UND ein drittes
-    // Feature ruft den Namen. Erwartet: Doppel-Exposure-Error wirft im
-    // Pre-Walk (validateBoot) BEVOR validateApiExposureMatching laeuft.
+    // Edge case: two features expose the same name and a third feature
+    // calls it. The duplicate-exposure error must be thrown during the
+    // pre-walk (validateBoot), before validateApiExposureMatching runs.
     const a = defineFeature("provider-a", (r) => {
       r.exposesApi("shared.api");
     });

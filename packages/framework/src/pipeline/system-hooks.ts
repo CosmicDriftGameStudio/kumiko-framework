@@ -33,23 +33,22 @@ const log = createFallbackLogger("kumiko:search");
 
 // --- Search Index Consumer (async, via event-dispatcher) ---
 //
-// Search-Indexierung läuft seit D.4 als async EventConsumer über den event-
-// dispatcher, nicht mehr als synchroner postSave/postDelete-hook. Das
-// spiegelt Marten's ISubscription-Pattern: ein einziger async Pfad für alle
-// non-inline side-effects.
+// Search indexing runs as an async EventConsumer through the event dispatcher,
+// rather than as a synchronous postSave/postDelete hook. This mirrors Marten's
+// ISubscription pattern: one async path for all non-inline side effects.
 //
 // Event → Search-Op Mapping:
 //
 //   <entity>.created     → index(tenantId, doc)   // state = event.payload
 //   <entity>.updated     → index(tenantId, doc)   // state = { ...previous, ...changes }
 //   <entity>.restored    → index(tenantId, doc)   // state = event.payload.previous
-//   <entity>.deleted     → remove(tenantId, type, id)
-//   <entity>.forgotten   → remove(tenantId, type, id)
-//   <entity>.<named>     → index or remove, state read from the live
-//                          projection row (#2765) — a named domain event
-//                          carries only a payload slice, not the full
-//                          entity, so there's no fixed shape to reconstruct
-//                          state from the way created/updated/restored do.
+//   <entity>.deleted      → remove(tenantId, type, id)
+//   <entity>.forgotten    → remove(tenantId, type, id)
+//   <entity>.<named>      → index or remove, state read from the live
+//                          projection row — a named domain event carries
+//                          only a payload slice, not the full entity, so
+//                          there's no fixed shape to reconstruct state from
+//                          as there is for created/updated/restored.
 //                          Only queried when the entity declares searchable
 //                          fields/extensions; no row (hard/soft-deleted) →
 //                          remove, same as the deleted branch.
@@ -63,10 +62,10 @@ const log = createFallbackLogger("kumiko:search");
 // batchHandler collapses a turn's events to one search-op per
 // (tenantId, entityType, entityId) and issues one indexBatch/removeBatch
 // call per tenant instead of one round-trip per event; handler stays the
-// per-event fallback the dispatcher falls back to when a batch throws.
+// per-event fallback the dispatcher uses when a batch throws.
 export const SEARCH_CONSUMER_NAME = "system:consumer:search";
 
-// #3227 — one resolved search operation for a single event: either the
+// One resolved search operation for a single event: either the
 // document to (re-)index or the entityType/entityId to remove. A
 // discriminated union so the batch collapse step (last op per key wins)
 // doesn't need to special-case index vs remove.
@@ -107,7 +106,7 @@ async function resolveSearchOperation(
   if (verb === "created" || verb === "updated" || verb === "restored") {
     state = reconstructStateForSearch(event.payload, verb);
   } else {
-    // #2765 — named domain event: no fixed payload shape to reconstruct
+    // Named domain event: no fixed payload shape to reconstruct
     // state from. Only worth a projection read when the entity actually
     // declared searchable fields/extensions — same check
     // buildSearchDocument makes below, done here first so a non-
@@ -118,7 +117,7 @@ async function resolveSearchOperation(
       (registry.getSearchableFields(entityName).length > 0 ||
         registry.getSearchPayloadExtensions(entityName).length > 0);
     // skip: entity declares no searchable fields/extensions — nothing to
-    // index, stays a no-op with no extra query, same as before #2765.
+    // index, stays a no-op with no extra query, same as before.
     if (!entity || !isSearchable) return undefined;
 
     const row = await readProjectionRowForSearch(
@@ -258,7 +257,7 @@ export function createSearchEventConsumer(
   };
 }
 
-// #2765 — reads the live projection row for a named domain event, tenant-
+// Reads the live projection row for a named domain event, tenant-
 // scoped through createTenantDb the same way MultiStreamProjection appliers
 // scope their apply()-writes (see api/server.ts), on the table the registry
 // actually booted (entityTableFromRegistry) rather than one freshly derived
@@ -298,7 +297,7 @@ async function readProjectionRowForSearch(
   return state;
 }
 
-// #1610 — subject-annotated searchable fields are ciphertext in the event
+// Subject-annotated searchable fields are ciphertext in the event
 // payload; decrypt into the derived index only. No KMS → omit ciphertext
 // values rather than indexing blobs.
 export async function decryptSearchableSubjectFields(
@@ -411,10 +410,9 @@ export async function buildSearchDocument(
 
   const searchableFields = registry.getSearchableFields(entityName);
   const extensions = registry.getSearchPayloadExtensions(entityName);
-  // Skip-Guard: kein indexable payload UND keine Extensions → kein doc.
-  // Extensions können auch ohne searchable-Stammfields den index befüllen
-  // (z.B. customFields-only-indexierung), daher muss die check beide
-  // berücksichtigen.
+  // Skip guard: no indexable payload and no extensions means there is no doc.
+  // Extensions can populate the index without searchable base fields
+  // (for example, customFields-only indexing), so both must be checked.
   if (searchableFields.length === 0 && extensions.length === 0) return null;
 
   const embeddedFields = new Set<string>();
@@ -450,15 +448,15 @@ export async function buildSearchDocument(
     }
   }
 
-  // F3 — Search-Payload-Extensions: contributors merge flat fields into the
+  // Search-Payload-Extensions: contributors merge flat fields into the
   // search-doc (customFields-bundle / tags / computed-counts / etc.).
   // Sequential await — extensions are expected sync or sub-millisecond async;
   // sequential keeps the path simple and deterministic.
   //
   // Precedence is base-fields-win: a contributor key that collides with a
-  // searchable Stammfield is dropped (not silently merged over the real value)
-  // and warned. A jsonb custom-field that happens to share a Stammfield name
-  // must not shadow the indexed Stammfield.
+  // searchable base field is dropped (not silently merged over the real value)
+  // and warned. A jsonb custom-field that happens to share a base field name
+  // must not shadow the indexed base field.
   const baseFieldKeys = new Set(Object.keys(fields));
   for (const contribute of extensions) {
     const contributed = await contribute({ entityName, entityId, state });
@@ -500,7 +498,7 @@ export const SSE_BROADCAST_CONSUMER_NAME = "system:consumer:sse-broadcast";
 export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
     name: SSE_BROADCAST_CONSUMER_NAME,
-    // Shared delivery: one cursor reads every event exactly once (fw#2625).
+    // Shared delivery: one cursor reads every event exactly once.
     // Fanout to every process's own SSE clients happens below, through
     // sseBroker.pushToChannel — a Redis-backed broker (the default once
     // REDIS_URL is set) republishes across replicas, so every pod's
@@ -531,7 +529,7 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
 // r.multiStreamProjection's ctx.unsafeAppendEvent, or a raw
 // event-store-executor write (e.g. `files`' fileRef.created) — never
 // reached it, so a job could never trigger on an r.defineEvent-registered
-// event (kumiko-framework#1505).
+// event.
 //
 // This consumer closes that gap the same way search/SSE do: read every
 // committed event off the shared cursor and re-check job triggers. It is
@@ -577,10 +575,9 @@ export function createJobTriggerEventConsumer(
 
 // --- Access-Invalidation Consumer (async, via event-dispatcher) ---
 //
-// #1524 (Design), #1558 (channel + stream subscribe), #1559 (session-revoke
-// emits an event). This consumer is the last leg: it watches for the two
-// event types that can make an already-issued JWT stale mid-stream and
-// pushes an invalidation through sseBroker.publishAccessInvalidation, which
+// This consumer is the last leg: it watches for the two event types that
+// can make an already-issued JWT stale mid-stream and pushes an invalidation
+// through sseBroker.publishAccessInvalidation, which
 // dispatch-stream.ts's subscribeAccessInvalidation listener turns into an
 // AccessDeniedError thrown into the open stream.
 //
@@ -609,21 +606,20 @@ export function createJobTriggerEventConsumer(
 //     payload.previous, the full pre-write entity snapshot written by
 //     createEventStoreExecutor. tenantMembershipEntity declares no
 //     encrypted/PII fields, so previous.userId is plaintext — no KMS
-//     decrypt step (see kumiko-framework#1560 PR discussion; the issue's
-//     original handoff assumed encryption that doesn't apply here).
+//     decrypt step; the original handoff assumed encryption that doesn't
+//     apply here.
 //
 // Over-invalidation (e.g. tenant-membership.updated fired by something
 // other than a role change) is fail-safe: the stream closes, the client
-// reconnects and re-authorizes. No opt-out/allowlist — #1524 chose
-// global-by-default specifically so this can't be silently disabled per
-// handler.
+// reconnects and re-authorizes. No opt-out/allowlist — global-by-default
+// specifically so this can't be silently disabled per handler.
 //
 // Scope note: entityEventName also emits "tenant-membership.forgotten" (DSGVO
 // erasure) and ".restored" — .restored re-grants access so ignoring it is
 // correct, .forgotten is not currently produced by any user-data-rights
 // pipeline for memberships but would be revocation-relevant if it ever is.
-// Out of #1560's stated scope (session-revoke + role/membership change),
-// tracked rather than handled speculatively here.
+// Out of the stated scope (session-revoke + role/membership change), tracked
+// rather than handled speculatively here.
 export const ACCESS_INVALIDATION_CONSUMER_NAME = "system:consumer:access-invalidation";
 
 const SESSION_REVOKED_EVENT_TYPE = "sessions:event:session-revoked";
@@ -670,7 +666,7 @@ function readPatRevokedScope(payload: Record<string, unknown>): AccessInvalidati
 export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): EventConsumer {
   return {
     name: ACCESS_INVALIDATION_CONSUMER_NAME,
-    // Shared delivery, same reasoning as SSE broadcast (fw#2625): one
+    // Shared delivery, same reasoning as SSE broadcast: one
     // cursor reads every event once and calls sseBroker.publishAccessInvalidation
     // below, which a Redis-backed broker republishes to every replica's
     // subscribeAccessInvalidation listeners — no per-instance cursor needed

@@ -3,7 +3,7 @@
 // bundled-features and the PublicStatus sample. Findings inform the
 // Designer/AI authoring contract.
 //
-// **Key finding from C1.4:** real-world features authored before the
+// **Key finding:** real-world features authored before the
 // AST visitor existed lean heavily on factory helpers (`createEntity`,
 // `defineWriteHandler` returned via const) and identifier-typed handler
 // arguments. Both are unreadable statically — readJsonLikeNode bails on
@@ -48,7 +48,7 @@ const FEATURES: readonly RealFeature[] = [
     expectedFeatureName: "tenant",
     // entity + config used to ParseError here: their definitions reference
     // local consts/factory calls, which readDataLiteralNode now resolves
-    // to a raw-ref sentinel instead of bailing to undefined (#998).
+    // to a raw-ref sentinel instead of bailing to undefined.
     recognisedKinds: [
       "requires",
       "systemScope",

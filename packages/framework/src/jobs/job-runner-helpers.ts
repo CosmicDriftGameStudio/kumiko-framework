@@ -328,7 +328,7 @@ export function payloadMatchesTriggerFilter(
 // on the children still existing in Redis when a wrapper retry re-derives
 // their ids. The margin here is generous — queue wait time isn't bounded by
 // backoff — to cover realistic windows. Audit trail lives in read_job_runs,
-// not BullMQ (fw#3199).
+// not BullMQ.
 export const COMPLETED_JOB_RETENTION_AGE_SEC = 86_400; // 24h
 
 export const FAILED_JOB_RETENTION_AGE_SEC = 604_800; // 7d

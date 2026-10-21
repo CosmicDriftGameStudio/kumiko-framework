@@ -27,7 +27,7 @@ const triggerEventRefSchema = z.object({
   version: z.number().int(),
 });
 
-// Optional on every step event: runs started before the Q7 fingerprint existed
+// Optional on every step event: runs started before the fingerprint existed
 // have none.
 const stepContext = {
   workflowName: z.string(),
@@ -42,8 +42,8 @@ const WORKFLOW_SYSTEM_EVENT_SCHEMAS: ReadonlyArray<readonly [string, z.ZodType]>
     z.object({
       workflowName: z.string(),
       triggerEventType: z.string(),
-      // Current streams reference the trigger event; streams written before
-      // #3474 carry a copy of its payload instead.
+      // Current streams reference the trigger event; older streams carry a copy of
+      // its payload instead.
       triggerEventRef: triggerEventRefSchema.optional(),
       triggerPayload: z.unknown().optional(),
       definitionFingerprint: z.string().optional(),

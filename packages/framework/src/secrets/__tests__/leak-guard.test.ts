@@ -93,7 +93,7 @@ describe("assertNoSecretLeak — walks the response tree for branded values", ()
   // Dual-package hazard: a second resolved copy of @cosmicdrift/kumiko-types
   // brands with ITS OWN symbol. Constructing the brand from the global registry
   // here stands in for that copy — with a plain Symbol() the guard walks past
-  // this value and serializes the plaintext (#1438-adjacent).
+  // this value and serializes the plaintext.
   test("catches a Secret branded by another copy of the package", () => {
     const foreign = {
       [Symbol.for("kumiko.secret")]: true as const,

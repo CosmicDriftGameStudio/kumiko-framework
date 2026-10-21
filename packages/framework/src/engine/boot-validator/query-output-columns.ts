@@ -17,12 +17,12 @@ import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 import { validateActionFieldRefs } from "./screens.ts";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
 
-// fw#2493: query handlers can now declare `outputSchema` (the Zod shape of
+// Query handlers can now declare `outputSchema` (the Zod shape of
 // their actual return value). This validator is entirely opt-in and
 // additive — a handler without `outputSchema`, or one whose declared shape
 // this can't introspect (e.g. a z.union), leaves every check below a no-op,
 // same "capability absent, no throw" policy as the input-schema checks in
-// projection-list-screens.ts. Must run after validateQueryRefs (fw#2178):
+// projection-list-screens.ts. Must run after validateQueryRefs:
 // an unresolvable query QN is that validator's job to report — by the time
 // this runs every `query` string here already resolves.
 

@@ -1,6 +1,6 @@
-// Coverage-Lücke (0 Test, 12% u+i): Server-Side-Eagerload für Reference-Felder.
-// Schwerpunkt: Tenant-Isolation — ein Cross-Tenant-Ref darf NIE aufgelöst
-// werden (TenantDb filtert), sonst leakt eagerload fremde Rows nach _refs.
+// Server-side eager loading for reference fields.
+// Focus: tenant isolation — a cross-tenant reference must NEVER be resolved
+// (TenantDb filters it), or eager loading would leak foreign rows into _refs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -52,7 +52,7 @@ const postEntity = createEntity({
 });
 const authorTable = buildEntityTable("author", authorEntity);
 
-// #1667: eager-loaded _refs bypassed PII/entity-field decryption entirely —
+// Eager-loaded _refs bypassed PII/entity-field decryption entirely —
 // a raw selectMany read the referenced row straight from the table, so
 // piiCiphertextResponseGuard 500'd on the leaked ciphertext.
 const contactEntity = createEntity({
@@ -79,7 +79,7 @@ const leadEntity = createEntity({
 });
 const contactTable = buildEntityTable("contact", contactEntity);
 
-// fw#1671: ownership-scoped ref entity — eagerload has no SessionUser to
+// Ownership-scoped ref entity — eagerload has no SessionUser to
 // evaluate access.read against, so PII/encrypted fields must be stripped
 // entirely rather than decrypted (fail closed, not a same-tenant PII leak).
 const ownedContactEntity = createEntity({
@@ -100,7 +100,7 @@ const ownedContactEntity = createEntity({
 const ownedContactTable = buildEntityTable("ownedContact", ownedContactEntity);
 
 // access.read present but every role is "all" (unrestricted) — must NOT
-// trigger the strip path, or #1667's decrypt would silently regress for
+// trigger the strip path, or the decrypt would silently regress for
 // every entity that merely declares an access.read map without narrowing it.
 const unrestrictedContactEntity = createEntity({
   table: "el_unrestricted_contacts",
@@ -128,7 +128,8 @@ const A2 = "22222222-2222-4222-8222-222222222222";
 const BX = "33333333-3333-4333-8333-333333333333";
 const NOPE = "55555555-5555-4555-8555-555555555555";
 
-// _refs-Werte sind dynamisch gekeyt → bracket-access; Helper kapseln den Cast.
+// _refs keys are dynamic, so bracket access is required; the helpers encapsulate
+// the cast.
 const single = (r: EagerloadedRow | undefined, f: string) =>
   r?._refs?.[f] as Record<string, unknown> | undefined;
 const many = (r: EagerloadedRow | undefined, f: string) =>
@@ -215,7 +216,7 @@ beforeAll(async () => {
   await seedRows(stack.db, ownedContactTable, [ownedEncrypted]);
 
   // Legacy/backfilled row: iban never went through encryptEntityFieldValues,
-  // so decryptEntityFieldValues throws on it (fw#1671 error-propagation) —
+  // so decryptEntityFieldValues throws on it —
   // a single row like this must not 500 the whole eagerload lookup.
   await seedRows(stack.db, contactTable, [
     {
@@ -286,8 +287,9 @@ describe("enrichWithReferences", () => {
     expect(single(row, "author")).toBeUndefined();
   });
 
-  // multiple-ref-Contract: IMMER ein Array (gefiltert), nie undefined — anders
-  // als single (oben). Ein Renderer kann auf .map() vertrauen ohne null-Check.
+  // Multiple-reference contract: ALWAYS an array (filtered), never undefined —
+  // unlike single references (above). A renderer can rely on .map() without a
+  // null check.
   test("multiple-ref filtert cross-tenant raus, behält den Rest als Array", async () => {
     const row = await enrichA({ id: "p1", tags: [A1, BX] });
     expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Ada"]);
@@ -304,8 +306,8 @@ describe("enrichWithReferences", () => {
   });
 
   test("TENANT-ISOLATION: cross-tenant-ref wird NICHT aufgelöst", async () => {
-    // bx gehört tenantB; dbA ist auf tenantA gescoped → der Lookup filtert
-    // ihn raus, _refs bleibt undefined (Renderer fällt auf die UUID zurück).
+    // bx belongs to tenantB; dbA is scoped to tenantA, so the lookup filters it
+    // out and _refs remains undefined (the renderer falls back to the UUID).
     const row = await enrichA({ id: "p1", author: BX });
     expect(single(row, "author")).toBeUndefined();
   });

@@ -1,5 +1,5 @@
 // Per-dispatcher in-process cache for the resolved tenant:config:timezone
-// value (fw#2462). dispatch-shared.ts's buildHandlerContext resolves that
+// value. dispatch-shared.ts's buildHandlerContext resolves that
 // key on every dispatch to build ctx.tz — without a cache that's a config
 // SELECT (sometimes two, cascade + fallback) per request, often inside an
 // open write transaction. A tenant-keyed TTL cache removes the steady-state

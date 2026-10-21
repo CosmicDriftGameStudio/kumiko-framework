@@ -249,8 +249,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     lockRedis = new Redis(redisOpts);
     // Without a listener, a post-close 'error' (e.g. a teardown-race
     // "Connection is closed") is unhandled and crashes the process — in
-    // bun:test it gets attributed to whichever test happens to run next
-    // (fw#1805).
+    // bun:test it gets attributed to whichever test happens to run next.
     lockRedis.on("error", (err) => {
       const log = stopping ? errorLogger.debug : errorLogger.error;
       log("lock redis connection error", { error: err.message });
@@ -295,7 +294,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }),
   };
   // Same unhandled-'error'-crash hazard as lockRedis above, just via
-  // BullMQ's internal ioredis client (fw#1805).
+  // BullMQ's internal ioredis client.
   for (const queue of Object.values(queues)) {
     queue.on("error", (err) => {
       const log = stopping ? errorLogger.debug : errorLogger.error;
@@ -756,7 +755,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // Same buildHandlerContext parity as ctx.files above: ctx.notify/ctx.config
     // must resolve for jobs the same way they do for write-handlers, or an
     // app-author job calling ctx.notify(...)/ctx.config(...) hits a TypeError
-    // at runtime the write-handler path never would (framework#1532).
+    // at runtime the write-handler path never would.
     const notify = context._notifyFactory?.(
       jobSystemUser,
       tenantId,
@@ -972,7 +971,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           {
             requestId: jobRequestId,
             correlationId: jobCorrelationId,
-            // #3043 — events a job writes carry the job as their origin.
+            // Events a job writes carry the job as their origin.
             handler: jobName,
             feature: registry.getJobFeature(jobName) ?? qnScope(jobName),
             writeOrigin: jobOrigin,
@@ -1043,7 +1042,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               "job.id": jobId,
               "job.attempt": attempt,
               "kumiko.tenant_id": tenantId,
-              // Lane-routing attributes (Welle 2.6). `run_in` is the job's
+              // Lane-routing attributes. `run_in` is the job's
               // declared lane (explicit or default-"worker"); `consumer_lane`
               // is which runner actually executed it. They diverge in
               // all-in-one (both lanes live in one process) but must match
@@ -1091,7 +1090,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // Boot gates run inline and are awaited, so a throwing gate rejects start()
   // — and with it the entrypoint's start() and runProdApp's boot, before the
   // process reports ready. Enqueuing them (as runOnBoot does) would only fail
-  // a queue job and let the deploy through (fw#2590).
+  // a queue job and let the deploy through.
   async function runBootGates(lane: JobRunIn): Promise<void> {
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
@@ -1253,7 +1252,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // still-settling blocking connection: it rejects in-flight commands
       // via ioredis's flushQueue() during close(), which isn't a listenable
       // 'error' event — the only fix is to not return until both of the
-      // worker's connections (main + blocking) are ready (fw#1805). This
+      // worker's connections (main + blocking) are ready. This
       // mirrors the wait BullMQ already does internally for
       // upsertJobScheduler()/add() below when the lane has a cron/boot job.
       // Racing a timeout against it keeps an unreachable Redis from hanging
@@ -1360,7 +1359,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
       // BullMQ close() while a Queue's connection is still 'initializing'
       // rejects the in-flight INFO with "Connection is closed." on an emitter
-      // without listeners -> unhandled rejection (fw#1805). Wait for readiness
+      // without listeners -> unhandled rejection. Wait for readiness
       // first; a failed/timed-out wait must not block the close itself.
       const stopReadyTimeoutMs = Math.min(bootRedisTimeoutMs, STOP_QUEUE_READY_TIMEOUT_MS);
       await settleAbandonedBootGates(stopReadyTimeoutMs);
@@ -1511,8 +1510,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const reqCtx = requestContext.get();
       for (const [name, jobDef] of allJobs) {
         if (!("on" in jobDef.trigger)) continue;
-        // skip: andere Trigger-Formen (cron, manual) reagieren nicht auf
-        // Events. Nur "on"-Trigger werden hier matched.
+        // skip: other trigger types (cron, manual) do not respond to events.
+        // Only "on" triggers are matched here.
         const triggerOn = jobDef.trigger.on;
         const matches = Array.isArray(triggerOn)
           ? triggerOn.includes(eventName)
@@ -1524,10 +1523,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           data["_tenantId"] = user.tenantId;
           data["_triggeredById"] = user.id;
         }
-        // Multi-Trigger: payload bekommt _triggerName damit der Handler
-        // weiß, welcher der N Trigger gefeuert hat. Bei Single-Trigger
-        // setzen wir es auch — kostet nichts und vereinfacht Handler-Code
-        // (kein "ist es Multi?"-Branch nötig).
+        // Multi-trigger: add _triggerName to the payload so the handler knows which
+        // of the N triggers fired. Set it for single triggers too; this costs
+        // nothing and keeps handler code simple (no "is it multi?" branch).
         data["_triggerName"] = eventName;
         if (triggerEvent) data["_triggerEvent"] = triggerEvent;
         if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;

@@ -32,12 +32,11 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
 }
 
-// Registriert einen Stub-Query-Handler `<entity>:list` damit der Boot-
-// Validator den Audit-Fix-#2-Check (Handler-Existenz auf der target-
-// Entity) durch lässt — used by both top-level and embedded-list
-// reference-field tests.
+// Registers a stub `<entity>:list` query handler so the boot validator's
+// handler-existence check for the target entity passes. Used by both top-level
+// and embedded-list reference-field tests.
 function stubListHandler(
-  // biome-ignore lint/suspicious/noExplicitAny: Registrar-Typ ist generisch, hier reicht das.
+  // biome-ignore lint/suspicious/noExplicitAny: the registrar type is generic; any is enough for this stub.
   r: any,
   entityName: string,
 ): void {
@@ -371,11 +370,9 @@ describe("boot-validator", () => {
   });
 
   test("throws when longText encrypted field exists but no master key is available", () => {
-    // Drift-pin Sprint-5b-vorab-Audit Issue 1: validateEncryptedFields
-    // hatte `if (field.type !== "text") continue;` und ignorierte
-    // longText-encrypted-fields silently — ENCRYPTION_KEY-check wurde
-    // nie getriggert, encryption silent broken. Jetzt: beide string-
-    // typed fields werden gechecked.
+    // Ensures `validateEncryptedFields` checks both string field types. Previously,
+    // `if (field.type !== "text") continue;` skipped encrypted `longText` fields,
+    // so the `ENCRYPTION_KEY` check never ran and encryption could fail silently.
     delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
     const features = [
       defineFeature("a", (r) => {
@@ -459,11 +456,9 @@ describe("boot-validator", () => {
   // --- index-validator longText block ---
 
   test("rejects longText field in entity.indexes (longText is not indexable)", () => {
-    // Drift-pin Sprint-5b-vorab-Audit Issue 2: ohne den Check würde
-    // ein BTREE-Index auf einer 1-MB-text-Spalte gebaut werden
-    // (Performance-Disaster mit TOAST-page-Dereferenzierung). longText
-    // ist semantisch non-indexierbar, konsistent zum type-level
-    // sortable=false.
+    // Prevents a BTREE index from being built on a 1-MB text column, which could
+    // cause severe performance problems when dereferencing TOAST pages. `longText`
+    // is semantically non-indexable, consistent with the type-level `sortable=false`.
     const features = [
       defineFeature("a", (r) => {
         r.entity({
@@ -782,11 +777,11 @@ describe("boot-validator", () => {
   // --- Handler access validation (default-deny) ---
 
   test("throws when a write handler has no access rule", () => {
-    // Access is a required option since fw#2855 — the registrar itself throws
+    // Access is a required option — the registrar itself throws
     // before validateBoot ever runs.
     expect(() =>
       defineFeature("a", (r) => {
-        // @ts-expect-error options.access is required since fw#2855.
+        // @ts-expect-error options.access is required.
         r.writeHandler({
           name: "createThing",
           schema: z.object({ name: z.string() }),
@@ -802,7 +797,7 @@ describe("boot-validator", () => {
   test("throws when a query handler has no access rule", () => {
     expect(() =>
       defineFeature("a", (r) => {
-        // @ts-expect-error options.access is required since fw#2855.
+        // @ts-expect-error options.access is required.
         r.queryHandler({ name: "list", schema: z.object({}), handler: async () => [] });
       }),
     ).toThrow(/r\.queryHandler\(\{ name: "list" \}\) requires an access rule/);
@@ -832,7 +827,7 @@ describe("boot-validator", () => {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    // Access is required since fw#2855 — r.crud now throws at
+    // Access is required — r.crud now throws at
     // registration time (was: caught at boot-validator level).
     expect(() =>
       defineFeature("phase0", (r) => {
@@ -924,7 +919,7 @@ describe("boot-validator", () => {
   test("throws when a stream handler has no access rule", () => {
     expect(() =>
       defineFeature("a", (r) => {
-        // @ts-expect-error options.access is required since fw#2855.
+        // @ts-expect-error options.access is required.
         r.streamHandler("chat:complete", z.object({}), async function* () {});
       }),
     ).toThrow(/requires schema \+ handler \+ options\.access/);
@@ -1714,7 +1709,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- MultiStreamProjection delivery invariant (Welle 2.7) ---
+  // --- MultiStreamProjection delivery invariant ---
 
   describe("MultiStreamProjection delivery", () => {
     const sinkTable = table("sink", { id: text("id").primaryKey() }) as unknown as SchemaTable;
@@ -2250,12 +2245,12 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- entityList column-renderer form-check ---
-  // Validator akzeptiert die `{ react: { __component: "Name" } }`-Form
-  // (PlatformComponent → client-side Registry-Lookup) und prüft sie
-  // strukturell. null/undefined, native-only und andere Formen bleiben
-  // opak. Function-Renderer werfen (action-wiring.ts validateFieldWiring) —
-  // von JSON.stringify verworfen, sonst stiller No-op auf dem Client.
+  // --- entityList column-renderer form check ---
+  // The validator accepts `{ react: { __component: "Name" } }` for a
+  // PlatformComponent resolved through the client-side registry and validates it
+  // structurally. null/undefined, native-only, and other forms remain opaque.
+  // Function renderers are rejected by `action-wiring.ts` because
+  // JSON.stringify drops them, causing a silent client-side no-op.
   describe("entityList column renderer form", () => {
     function shopFeature(renderer: unknown) {
       return defineFeature("shop", (r) => {
@@ -2269,10 +2264,10 @@ describe("boot-validator", () => {
           id: "product-list",
           type: "entityList",
           entity: "product",
-          // Renderer ist absichtlich unknown — die Validator-Tests pinnen
-          // auch Formen die der TS-Compiler bei sauberer Hand-Schreibe
-          // niemals zulassen würde (leerer __component, number etc.).
-          // kumiko-lint-ignore as-cast renderer ist Test-Fixture für invalid forms
+          // The renderer is intentionally `unknown`: these tests also cover forms that
+          // correctly authored TypeScript would reject, such as an empty `__component`
+          // or a number.
+          // kumiko-lint-ignore as-cast renderer is a test fixture for invalid forms
           columns: [{ field: "name", renderer: renderer as never }],
         });
       });
@@ -2301,7 +2296,7 @@ describe("boot-validator", () => {
     });
 
     test("react-Branch ohne __component-Schlüssel → kein Throw (skip)", () => {
-      // {} oder { __component: undefined } sind nicht unsere String-Key-Form
+      // {} and { __component: undefined } are not the string-keyed form under test.
       expect(() => validateBoot([shopFeature({ react: {} })])).not.toThrow();
     });
 
@@ -2476,8 +2471,8 @@ describe("boot-validator", () => {
   // fields — a SystemAdmin cross-tenant list exposes tenantId this way.
   //
   // Two separate boot-validators check entityList columns (validateScreens
-  // here, validateEntityListScreens in entity-list-screens.ts) — a #2601
-  // review found they'd drifted to accept different column sets, which
+  // here, validateEntityListScreens in entity-list-screens.ts) — a review
+  // found they'd drifted to accept different column sets, which
   // would have let a softDelete column pass one gate and throw only in
   // computeListViewModel at render time. Table-driven over
   // LIST_ROW_META_COLUMNS (not one-off cases) so a future column added
@@ -2553,10 +2548,9 @@ describe("boot-validator", () => {
   });
 
   // --- entityList: pagination + sort validation ---
-  // Author-Fehler vor Production fangen, damit "Screen lädt nichts /
-  // sortiert falsch / crasht beim Pager-Klick" nicht erst zur Laufzeit
-  // bemerkt wird. Die Tests pinnen nur server-side Validierungen —
-  // UI-Verhalten (Pager-Rendering) ist Renderer-Sache.
+  // Catch authoring errors before production so screens that fail to load, sort
+  // incorrectly, or crash when paging are rejected at boot. These tests cover
+  // server-side validation only; pager rendering belongs to the renderer.
   describe("entityList pagination + sort", () => {
     function makeFeature(
       override: Partial<{
@@ -2570,9 +2564,8 @@ describe("boot-validator", () => {
           ...createEntity({
             fields: {
               name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
-              // Bewusst NICHT sortable: bestätigt dass Validator das
-              // unterscheidet und nur sortable-Felder als defaultSort
-              // akzeptiert.
+              // Intentionally not sortable: verifies that the validator distinguishes it
+              // and accepts only sortable fields as `defaultSort` targets.
               description: createTextField({ personal: false, reason: "test_fixture" }),
             },
           }),
@@ -2622,10 +2615,10 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- Tier 2.7c: Screen-Filter ---
-  // Drei Layer Author-Code-Validation: field-existiert, filterable: true
-  // gesetzt, op passt zum Field-Type. Boot-Fail ist deutlich besser als
-  // silent-leerer Bucket / Drizzle-Crash zur Laufzeit.
+  // --- Screen filter ---
+  // Three layers of author-code validation: the field exists, `filterable: true`
+  // is set, and the operator matches the field type. A boot failure is preferable
+  // to a silently empty bucket or a Drizzle crash at runtime.
   describe("entityList screen-filter (Tier 2.7c)", () => {
     function makeFeature(
       filter: {
@@ -2797,11 +2790,10 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- Tier 2.7d: actionForm-Screen ---
-  // Non-CRUD Write-Handler-driven Form. Sechs Author-Code-Checks am
-  // Boot: handler ist non-empty + registriert, fields non-empty +
-  // jeder mit type, layout konsistent, redirect (wenn gesetzt) zeigt
-  // auf einen registrierten Screen.
+  // --- actionForm screen ---
+  // A non-CRUD write-handler-backed form. Boot checks that the handler is
+  // non-empty and registered, fields are non-empty and typed, the layout is
+  // consistent, and any redirect targets a registered screen.
   describe("actionForm screen (Tier 2.7d)", () => {
     type ActionFormOverride = {
       readonly handler?: string | undefined;
@@ -2829,10 +2821,8 @@ describe("boot-validator", () => {
       readonly draft?: boolean;
     };
 
-    // Hilfs-Schema-Setup: stamps eine Test-Entity + write-handler
-    // damit `r.writeHandler(defineEntityWriteHandler("invoice:approve",...))`
-    // beim Boot ohne Custom-Code registriert werden kann. Plus optional
-    // weitere Screens zum redirect-Test.
+    // Sets up a test entity and write handler so the form can register at boot
+    // without custom code. Additional screens can be added for redirect tests.
     function makeFeature(override: ActionFormOverride = {}) {
       const handler = override.handler ?? "shop:write:invoice:approve";
       const fields = override.fields ?? {
@@ -2841,9 +2831,8 @@ describe("boot-validator", () => {
       };
       const sections = override.sections ?? [{ title: "Approval", fields: ["note", "priority"] }];
       return defineFeature("shop", (r) => {
-        // Registrierter Write-Handler den die actionForm referenzieren
-        // kann. Nicht über defineEntityWriteHandler — das verlangt eine
-        // existente Entity. Direkter Stub reicht für Boot-Validierung.
+        // Registers the write handler referenced by the action form. A direct stub is
+        // used instead of `defineEntityWriteHandler`, which requires an existing entity.
         r.writeHandler({
           name: "invoice:approve",
           schema: { _type: "stub" } as never,
@@ -2927,7 +2916,7 @@ describe("boot-validator", () => {
       );
     });
 
-    // fw#2839: an actionForm has no entity, so a money field there can't
+    // An actionForm has no entity, so a money field there can't
     // inherit entity.defaultCurrency — undeclared, the renderer seeds a bare
     // `0` and the handler's zod schema rejects the submit.
     describe("money field currency source (fw#2839)", () => {
@@ -3130,7 +3119,7 @@ describe("boot-validator", () => {
       );
     });
 
-    // --- redirect object form with idFrom (fw#2670) ---
+    // --- redirect object form with idFrom ---
     test("redirect object → existing id-carrying screen → kein Throw", () => {
       expect(() =>
         validateBoot([
@@ -3379,7 +3368,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature({ cancelTarget: false })])).not.toThrow();
     });
 
-    // --- redirect/cancelTarget: cross-feature QN (#1946) ---
+    // --- redirect/cancelTarget: cross-feature QN ---
     test("redirect → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
       const consumer = defineFeature("statements", (r) => {
         r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
@@ -3413,8 +3402,9 @@ describe("boot-validator", () => {
     });
 
     test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
-      // synthesizeActionFormScreen reicht die layout 1:1 an RenderEdit weiter —
-      // eine Extension-Section ohne react/native-Marker rendert sonst stumm leer.
+      // `synthesizeActionFormScreen` passes the layout unchanged to RenderEdit;
+      // without a react/native marker, an extension section would render empty
+      // without an obvious error.
       const section = { kind: "extension", title: "Custom", component: {} };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).toThrow(
         /\(actionForm\) extension section "Custom" has no component/,
@@ -3487,7 +3477,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- secretMint-Screen (fw#2548) ---
+  // --- secretMint-Screen ---
   // Mint-form → one-time reveal → confirm. Shares its six inline-form checks
   // with actionForm (validateInlineFormScreen), plus its own reveal.fields
   // checks: non-empty, unique `field`, non-empty `label`.
@@ -3587,7 +3577,7 @@ describe("boot-validator", () => {
       );
     });
 
-    // secretMint allows an empty fields map (input-less mint, fw#2838) — but
+    // secretMint allows an empty fields map (input-less mint) — but
     // the default `sections` still references "label", which no longer
     // exists once `fields` is empty, so this still throws (just via the
     // layout check instead of the fields-map check).
@@ -3642,7 +3632,7 @@ describe("boot-validator", () => {
       ).toThrow(/reveal\.fields entry "token" has an empty or non-string "label"/);
     });
 
-    // --- input-less mint (fw#2838): fields: {} + layout.sections: [] is the
+    // --- input-less mint: fields: {} + layout.sections: [] is the
     // only valid empty shape — the secret is server-generated, the mint step
     // is just its submit button.
     test("empty fields + empty sections (input-less mint) → no throw", () => {
@@ -3661,7 +3651,7 @@ describe("boot-validator", () => {
       );
     });
 
-    // --- confirm step (fw#2838) ---
+    // --- confirm step ---
     describe("confirm step", () => {
       test("happy path: confirm handler + fields + layout consistent → no throw", () => {
         expect(() => validateBoot([makeFeature({ confirm: {} })])).not.toThrow();
@@ -3715,13 +3705,12 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- configEdit-Screen ---
-  // Form gegen das bundled config-feature. Boot-Validator prüft:
-  //   1) fields non-empty + jeder mit type-Discriminator
-  //   2) layout konsistent (Sections non-empty, Field-Refs existieren)
-  //   3) jedes Field hat einen Eintrag in configKeys
-  //   4) jeder qualifizierte Config-Key in configKeys ist tatsächlich
-  //      via r.config(...) registriert
+  // --- configEdit screen ---
+  // Form for the bundled config feature. The boot validator checks:
+  //   1) fields are non-empty and each has a type discriminator
+  //   2) the layout is consistent (non-empty sections and existing field references)
+  //   3) every field has an entry in `configKeys`
+  //   4) every qualified config key in `configKeys` is registered through `r.config(...)`
   describe("configEdit screen", () => {
     type ConfigEditOverride = {
       readonly fields?: Record<string, unknown>;
@@ -3797,9 +3786,8 @@ describe("boot-validator", () => {
     });
 
     test("Field ohne configKeys-Eintrag → Throw mit Hinweis auf Mapping", () => {
-      // siteName ist im fields-Map, aber configKeys mappt es nicht.
-      // Boot soll fehlschlagen weil zur Laufzeit kein Wert geladen
-      // werden könnte.
+      // `siteName` is present in the fields map but has no `configKeys` mapping.
+      // Boot must fail because no value could be loaded at runtime.
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3823,11 +3811,11 @@ describe("boot-validator", () => {
     });
 
     test("camelCase-Quelle (multi-word) → kanonische kebab-QN matched, kein Throw", () => {
-      // Regression: r.config registriert den camelCase-Objekt-Key
-      // (brandingTitle), die echte QN ist aber `shop:config:branding-title`
-      // (define-feature toKebab't beides). Ein configEdit-Screen, der die
-      // kanonische kebab-QN referenziert, darf NICHT als "unbekannt" failen —
-      // ohne qualifyEntityName im Validator stand dort die rohe camelCase-QN.
+      // Regression: `r.config` registers the camelCase object key
+      // (`brandingTitle`), while the canonical QN is `shop:config:branding-title`
+      // (defineFeature kebab-cases both). A configEdit screen referencing the
+      // canonical kebab-case QN must not fail as unknown; without
+      // qualifyEntityName the validator compared against the raw camelCase QN.
       const feature = defineFeature("shop", (r) => {
         r.config({ keys: { brandingTitle: createTenantConfig("text", { default: "" }) } });
         r.screen({
@@ -3843,8 +3831,9 @@ describe("boot-validator", () => {
     });
 
     test("extension section ohne component → Throw (Parität zu entityEdit)", () => {
-      // synthesizeConfigEditScreen reicht die layout 1:1 an RenderEdit weiter —
-      // eine Extension-Section ohne react/native-Marker rendert sonst stumm leer.
+      // `synthesizeConfigEditScreen` passes the layout unchanged to RenderEdit;
+      // without a react/native marker, an extension section would render empty
+      // without an obvious error.
       const section = { kind: "extension", title: "Custom", component: {} };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).toThrow(
         /\(configEdit\) extension section "Custom" has no component/,
@@ -3878,10 +3867,10 @@ describe("boot-validator", () => {
   });
 
   // --- entityEdit extension section ---
-  // Eine extension-Section delegiert das Rendering an eine feature-provided
-  // PlatformComponent (custom-fields-Panel etc.), die client-seitig per Name
-  // aufgelöst wird. Ohne react/native-Marker bliebe der Slot zur Laufzeit leer
-  // — Boot-Fail statt stummem Loch. Field-Sections bleiben davon unberührt.
+  // An extension section delegates rendering to a feature-provided
+  // PlatformComponent resolved by name on the client. Without a react/native
+  // marker, the slot would render empty at runtime, so boot must fail instead.
+  // Field sections are unaffected.
   describe("entityEdit extension section", () => {
     function makeFeature(component: unknown) {
       return defineFeature("shop", (r) => {
@@ -3919,7 +3908,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- entityEdit wizard mode (framework#1884) ---
+  // --- entityEdit wizard mode ---
   // layout.mode: "wizard" renders one section per step instead of all
   // sections at once — needs >= 2 sections, each with a title (the step
   // title), or it's a boot-fail instead of a broken step UI.
@@ -3985,7 +3974,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- entityEdit redirect (framework#1942) ---
+  // --- entityEdit redirect ---
   // Post-save navigation target, same validation as actionForm's redirect:
   // short screen-ID, same feature, must resolve to a registered screen.
   describe("entityEdit redirect", () => {
@@ -4034,7 +4023,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
 
-    // --- redirect: cross-feature QN (#1946) ---
+    // --- redirect: cross-feature QN ---
     test("redirect → voll-qualifizierte Cross-Feature-QN → kein Throw", () => {
       const consumer = defineFeature("statements", (r) => {
         r.screen({ id: "statement-upload-list", type: "custom", renderer: { react: "stub" } });
@@ -4080,7 +4069,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- no-widget field types + required (#1925) ---
+  // --- no-widget field types + required ---
   // jsonb/embedded render read-only on the auto-wired
   // entityEdit path (render-field.tsx) — a statically-`required: true`
   // field of one of these types would be unresolvable by the user, so it's
@@ -4280,7 +4269,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- Tier 2.7e-3: ReferenceFieldDef ---
+  // --- ReferenceFieldDef ---
   describe("reference field (Tier 2.7e-3)", () => {
     test("reference auf bestehende Entity → kein Throw", () => {
       const features = [
@@ -4417,7 +4406,7 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
-    // --- Tier 2.7e Cross-Feature: "feature:entity"-Form ---
+    // --- Cross-Feature: "feature:entity" Form ---
     test("cross-feature reference (feature:entity) → kein Throw", () => {
       const features = [
         defineFeature("users", (r) => {
@@ -4452,7 +4441,8 @@ describe("boot-validator", () => {
               fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
           });
-          // KEINE stubListHandler — das ist der Punkt des Tests
+          // No stub list handler is registered intentionally; its absence is the condition under
+          // test.
         }),
         defineFeature("shop", (r) => {
           r.entity({
@@ -4545,7 +4535,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- fw#1839: reference sub-fields of an embedded-list field get the
+  // --- Reference sub-fields of an embedded-list field get the
   // same target/labelField/query-handler checks as a top-level reference
   // field, so a bad "lines.productId" fails at boot instead of crashing
   // the Combobox at runtime.
@@ -4604,7 +4594,8 @@ describe("boot-validator", () => {
               fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
             }),
           });
-          // KEIN stubListHandler — das ist der Punkt des Tests
+          // No stub list handler is registered intentionally; its absence is the condition under
+          // test.
           r.entity({
             name: "invoice",
             ...createEntity({
@@ -4770,7 +4761,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- Tier 2.7e-1: rowAction kind="navigate" target-existenz ---
+  // --- rowAction kind="navigate" target existence ---
   describe("entityList rowAction kind=navigate (Tier 2.7e-1)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
@@ -4815,9 +4806,9 @@ describe("boot-validator", () => {
     });
 
     test("navigate-target → screen in ANOTHER feature → kein Throw (cross-feature)", () => {
-      // Eine deklarative Liste im owning-Feature der Entity navigiert zum
-      // Custom-Editor der Consumer-App (anderes Feature). Runtime löst die bare
-      // id app-weit auf → der Validator muss das erlauben.
+      // A declarative list in the entity's owning feature can navigate to a
+      // consumer application's custom editor in another feature. Runtime
+      // resolves the bare ID application-wide, so the validator must allow it.
       const list = defineFeature("shop", (r) => {
         r.entity({
           name: "product",
@@ -4954,7 +4945,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- fw#2228: rowAction navigate-target as an entity instead of a screen ---
+  // --- rowAction navigate-target as an entity instead of a screen ---
   describe("entityList rowAction kind=navigate entity-target (fw#2228)", () => {
     test("entity-target resolving via detailFor → kein Throw", () => {
       const feature = defineFeature("shop", (r) => {
@@ -5293,7 +5284,7 @@ describe("boot-validator", () => {
   });
 
   // --- action/rowAction drawer-target reachability across the remaining
-  //     RowAction call sites (fw#2710): projectionDetail.actions,
+  //     RowAction call sites: projectionDetail.actions,
   //     entityEdit.actions, and a relatedList section's rowActions. The
   //     entityList/projectionList rowAction and toolbarAction drawer cases
   //     are covered above — this pins the drawer branch actually being
@@ -5544,7 +5535,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- Tier 2.7e: rowAction rowClick (Row-Body-Klick) ---
+  // --- rowAction rowClick (row-body click) ---
   describe("entityList rowAction rowClick", () => {
     function makeFeature(rowClickCount: number) {
       return defineFeature("shop", (r) => {
@@ -5582,7 +5573,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- rowAction kind="writeHandler" handler-QN-Validierung (Tier 2.7e-1 erw.) ---
+  // --- rowAction kind="writeHandler" handler-QN validation (extended) ---
   describe("entityList rowAction kind=writeHandler handler-QN", () => {
     function makeFeature(handlerQn: string, register: boolean) {
       return defineFeature("shop", (r) => {
@@ -5621,12 +5612,12 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- rowAction payload-Extractor Feld-Referenzen (Tier 2.7e-3) ---
-  // Row-Meta (id, version) ist auf jeder Entity-Row vorhanden ohne ein
-  // Entity-Field zu sein — pick ["id", "version"] ist das Standard-Payload
-  // für optimistic-lock-Lifecycle-Writes und darf den Boot nicht killen
-  // (Prod-Incident publicstatus 2026-06-11: 0.40-Validator lehnte
-  // maintenance-start/cancel/complete ab, CrashLoopBackOff).
+  // --- rowAction payload extractor field references ---
+  // Row metadata (id, version) is present on every entity row without being an
+  // entity field — pick ["id", "version"] is the standard payload
+  // for optimistic-lock lifecycle writes and must not break boot
+  // (production incident: the 0.40 validator rejected
+  // maintenance-start/cancel/complete, causing CrashLoopBackOff).
   describe("entityList rowAction payload pick (Tier 2.7e-3)", () => {
     function makeFeature(pick: readonly string[]) {
       return defineFeature("shop", (r) => {
@@ -5674,11 +5665,11 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- row-meta allowlist: ALLE Base-Columns, nicht nur id/version (#331, #323) ---
-  // buildBaseColumns legt tenantId/insertedAt/modifiedAt/...-Spalten auf jede Row;
-  // pick/map/visible darauf ist legitim und darf den Boot nicht killen. softDelete-
-  // Spalten (isDeleted/...) existieren NUR auf softDelete-Entities — darauf zu picken
-  // ist sonst eine echte Fehlkonfiguration und muss weiter werfen.
+  // --- row-meta allowlist: all base columns, not just id/version ---
+  // `buildBaseColumns` adds `tenantId`/`insertedAt`/`modifiedAt` and other base
+  // columns to every row, so using them in pick/map/visible is valid. Soft-delete
+  // columns (`isDeleted`/...) exist only on soft-delete entities and must still
+  // fail validation when absent.
   describe("entityList rowAction row-meta allowlist (#331, #323)", () => {
     function makeFeature(opts: {
       pick?: readonly string[];
@@ -5760,7 +5751,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- toolbarAction navigate + writeHandler Validierung (Tier 2.7e-2) ---
+  // --- toolbarAction navigate + writeHandler validation ---
   describe("entityList toolbarAction navigate (Tier 2.7e-2)", () => {
     function makeFeature(targetScreen: string, withTarget: boolean) {
       return defineFeature("shop", (r) => {
@@ -5860,7 +5851,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- toolbarAction drawer (fw#2225) ---
+  // --- toolbarAction drawer ---
   describe("entityList toolbarAction drawer (fw#2225)", () => {
     function makeFeature(opts: {
       readonly targetId?: string;
@@ -5967,7 +5958,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- entityList rowAction drawer (fw#2710) ---
+  // --- entityList rowAction drawer ---
   describe("entityList rowAction drawer (fw#2710)", () => {
     function makeFeature(opts: {
       readonly targetId?: string;
@@ -6036,7 +6027,7 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- projectionList rowAction drawer + params prefill (fw#2710) ---
+  // --- projectionList rowAction drawer + params prefill ---
   // projectionList is the second list call site; its rowActions run through a
   // different branch of validateScreens than entityList's. The params cases
   // pin the prefill check: a key the target actionForm doesn't declare is
@@ -6508,12 +6499,10 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- defaultSort funktioniert für ALLE Field-Types die sortable
-  //     unterstützen (Tier 2.6b Field-Erweiterung) ---
-  // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf
-  // Number/Money/Date/Timestamp/Boolean/Select/LocatedTimestamp; der
-  // Validator erkennt das via "sortable" in fieldDef. Diese Tests pinnen
-  // dass der per-Field-Type-Roundtrip wirklich greift.
+  // --- defaultSort works for every field type that supports sortable ---
+  // `sortable` is supported by multiple field types, not just `TextFieldDef`.
+  // The validator checks the `sortable` property on each field definition, so
+  // these tests verify the per-field-type path.
   describe("entityList defaultSort: alle sortable-Field-Types", () => {
     function buildFeature(fieldName: string, fields: Record<string, unknown>) {
       return defineFeature("shop", (r) => {
@@ -6585,12 +6574,11 @@ describe("boot-validator", () => {
     });
   });
 
-  // --- screen.id ohne Punkt ---
-  // Renderer nutzt screen.id als URL-Param-Namespace (`<id>.sort=…`).
-  // defineFeature() rejected screen-ids mit '.' bereits über den
-  // kebab-case-Check (define-feature.ts) — bevor der Boot-Validator
-  // dran kommt. Wir pinnen hier nur dass der Reject am Author-API-
-  // Eingangstor passiert, mit klarer Message.
+  // --- screen.id without a dot ---
+  // The renderer uses `screen.id` as the URL parameter namespace (`<id>.sort=…`).
+  // `defineFeature()` rejects IDs containing `.` through its kebab-case check,
+  // before the boot validator runs; this verifies that the authoring API rejects
+  // them at its entry point with a clear message.
   describe("screen.id constraints", () => {
     test('screen.id mit "." → defineFeature throws (kebab-case)', () => {
       expect(() =>
@@ -7049,8 +7037,8 @@ describe("boot-validator — config key backing × scope", () => {
     );
   });
 
-  // framework#1708: the same params-vs-update-mode check as entityList,
-  // extended to projectionList rowActions (#1680 covered entityList only).
+  // The same params-vs-update-mode check as entityList,
+  // extended to projectionList rowActions (entityList is covered separately).
   test("projectionList rowAction: navigate with params to an entityEdit target + explicit entityId → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity({

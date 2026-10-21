@@ -1,4 +1,4 @@
-// fw#2914 — r.step.read.findOne/findMany now apply the caller's tenant
+// r.step.read.findOne/findMany now apply the caller's tenant
 // filter by default (own tenant + SYSTEM_TENANT_ID reference rows), like
 // ctx.db method-form reads. Cross-tenant reads need `unsafeAllTenants:
 // { reason }` on the step AND `escapeHatch: { reason }` on the handler,

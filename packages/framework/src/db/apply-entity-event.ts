@@ -1,17 +1,17 @@
-// applyEntityEvent — die EINZIGE Schreib-Logik für r.entity-Tabellen aus
-// Stored-Events. Beide Aufrufer benutzen sie:
+// applyEntityEvent — the ONLY write logic for r.entity tables from
+// StoredEvents. Both callers use it:
 //
-//   - createEventStoreExecutor (live, im Write-TX) — übergibt das gerade
-//     appendete StoredEvent direkt; sensitive Felder liegen als Tabellen-
-//     Ciphertext im Payload (boot-validiert pii/encrypted, #967).
-//   - rebuildProjection via ImplicitProjection (replay, im Rebuild-TX) —
-//     übergibt dasselbe StoredEvent; apply kopiert Ciphertext byte-gleich
-//     zurück, bidx wird unten neu berechnet.
+//   - createEventStoreExecutor (live, in the write TX) passes the just-appended
+//     StoredEvent directly; sensitive fields are table ciphertext in the payload
+//     (validated at boot as pii/encrypted).
+//   - rebuildProjection via ImplicitProjection (replay, in the rebuild TX)
+//     passes the same StoredEvent; apply copies ciphertext byte-for-byte,
+//     while bidx is recalculated below.
 //
-// Live==Rebuild-Equivalence ist damit by-construction für ALLE Felder —
-// eine geänderte Schreib-Logik muss nur an EINER Stelle gepflegt werden,
-// kein Sync-Contract mehr. Einzige legitime Divergenz: Crypto-Shredding
-// (DEK erased → Wert unlesbar, bidx NULL). Load-bearing Test:
+// Live==Rebuild equivalence therefore holds by construction for ALL fields —
+// changed write logic needs to be maintained in only ONE place, with no sync
+// contract. The only legitimate divergence is crypto-shredding
+// (DEK erased → value unreadable, bidx NULL). Load-bearing test:
 // db/__tests__/implicit-projection-equivalence.integration.test.ts.
 //
 // Tenant isolation: applyEntityEvent expects an ExecutorManagedRunner (tx or pool), NOT
@@ -23,26 +23,27 @@
 //      the TenantDb wrapper default.
 // The missing TenantDb wrapper in this function is therefore not a hole.
 //
-// Auto-Verben:
+// Auto-verbs:
 //   <entity>.created   → INSERT
 //   <entity>.updated   → UPDATE WHERE id=aggregateId
-//   <entity>.deleted   → soft-delete-UPDATE wenn entity.softDelete, sonst hard-DELETE
-//   <entity>.restored  → undelete-UPDATE (nur bei softDelete sinnvoll)
-//   <entity>.forgotten → hard-DELETE immer (Art.17-Purge, auch bei softDelete);
-//                        via executor.forget(). Rebuild replayt created→forgotten
-//                        → Row weg, rebuild-safe (was ein direktes deleteMany nicht ist).
+//   <entity>.deleted   → soft-delete-UPDATE if entity.softDelete, otherwise hard-DELETE
+//   <entity>.restored  → undelete-UPDATE (meaningful only for softDelete)
+//   <entity>.forgotten → always hard-DELETE (Art.17 purge, including softDelete);
+//                        via executor.forget(). Rebuild replays created→forgotten
+//                        → the row is gone, making this rebuild-safe (unlike a
+//                        direct deleteMany).
 //
-// Domain-Events (r.defineEvent) auf demselben Aggregate werden hier NICHT
-// behandelt — die liefen im Live-Pfad nie durch den Executor und müssen
-// von expliziten r.projection-apply-Handlern oder r.multiStreamProjection
-// behandelt werden. ImplicitProjection registriert die Auto-Verben.
+// Domain events (r.defineEvent) on the same aggregate are NOT handled here —
+// they never went through the Executor in the live path and must be handled by
+// explicit r.projection-apply handlers or r.multiStreamProjection.
+// ImplicitProjection registers the auto-verbs.
 //
-// Return-Shape: ApplyResult mit `kind` + optionaler `row`.
-//   - "applied" → Schreibung lief durch. `row` enthält die geschriebene
-//     Row für create/update/soft-delete/restore. Bei hard-delete ist
-//     `row` null (DELETE-Statements geben keine returning-Row her).
-//   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
-//     Aggregate). Caller no-op.
+// Return shape: ApplyResult with `kind` and an optional `row`.
+//   - "applied" → the write completed. `row` contains the written row for
+//     create/update/soft-delete/restore. For hard-delete, `row` is null
+//     (DELETE statements do not provide a returning row).
+//   - "skipped" → the event is not an auto-verb (a domain event on the same
+//     aggregate). Caller no-op.
 
 import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -72,8 +73,8 @@ export type ApplyResult =
   | { readonly kind: "applied"; readonly verb: AutoVerb; readonly row: DbRow | null }
   | { readonly kind: "skipped" };
 
-/** Parsed event.type → AutoVerb wenn das Event eines der Auto-Verben
- *  auf dem gegebenen Aggregate ist. null sonst (Domain-Event). */
+/** Parses event.type into an AutoVerb when the event is an auto-verb
+ *  for the given aggregate; otherwise returns null (a domain event). */
 export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
@@ -106,9 +107,9 @@ async function decryptFileReferenceCiphertext(
   return decrypted;
 }
 
-/** Idempotente Anwendung eines Auto-Events auf die Entity-Tabelle.
- *  Wird sowohl beim Live-Append (innerhalb der Write-TX) als auch beim
- *  Rebuild (innerhalb der Rebuild-TX) gerufen — identische Logik. */
+/** Applies an auto-event idempotently to the entity table.
+ *  Called both during live append (inside the write TX) and during rebuild
+ *  (inside the rebuild TX), using identical logic. */
 export async function applyEntityEvent(
   event: StoredEvent,
   table: Table,
@@ -121,17 +122,17 @@ export async function applyEntityEvent(
 
   switch (verb) {
     case "created": {
-      // tenantId-Resolution explizit, nicht via Spread-Reihenfolge:
-      // Live-Pfad nutzt tx=tenantDbRunner(db) (kein TenantDb-Wrapper-Auto-Inject),
-      // beim Replay erst recht keiner. Default = event.tenantId; payload
-      // gewinnt NUR wenn gültig string mit length > 0 (seedTenantMembership-
-      // Pfad: Operator schreibt im Ziel-Tenant, Event im Operator-Tenant).
-      // Pinst durch db/__tests__/apply-entity-event-tenant.integration.ts.
+      // Resolve tenantId explicitly rather than through spread order:
+      // the live path uses tx=tenantDbRunner(db) (with no TenantDb wrapper
+      // auto-injection), and replay has no wrapper either. The default is
+      // event.tenantId; the payload wins ONLY when it is a non-empty string
+      // (seedTenantMembership path: the operator writes in the target tenant,
+      // while the event belongs to the operator tenant).
       //
-      // Fail-loud wenn payload.tenantId gesetzt aber invalid (leer/null/
-      // non-string): das ist tenant-isolation-kritisch — silent fallback
-      // auf event.tenantId würde eine Bug-payload in den Operator-Tenant
-      // schreiben statt zu failen, was Cross-Tenant-Datendrift erzeugt.
+      // Fail loudly when payload.tenantId is set but invalid (empty/null/
+      // non-string): this is critical for tenant isolation. Silently falling
+      // back to event.tenantId would write a bad payload into the operator
+      // tenant and cause cross-tenant data drift.
       const payloadTenantId = event.payload["tenantId"];
       let tenantId: string;
       if (payloadTenantId === undefined) {
@@ -145,10 +146,10 @@ export async function applyEntityEvent(
       }
       const row = await insertOne<DbRow>(tx, table, {
         ...(await decryptFileReferenceCiphertext(entity, event.payload)),
-        // Blind-Index-Spalten aus dem Payload-Wert (ciphertext → decrypt →
-        // HMAC, plaintext → HMAC, erased → NULL). Hier statt im Executor,
-        // damit Live-Write und Rebuild denselben Wert produzieren und der
-        // deterministische HMAC nie im Event-Log landet.
+        // Compute blind-index columns from the payload value (ciphertext → decrypt →
+        // HMAC, plaintext → HMAC, erased → NULL). This is done here rather
+        // than in the Executor so live writes and rebuilds produce the same
+        // value and the deterministic HMAC never enters the event log.
         ...(await computeBlindIndexValues(event.payload, collectLookupableFields(entity))),
         tenantId,
         id: event.aggregateId,
@@ -160,7 +161,7 @@ export async function applyEntityEvent(
     }
 
     case "updated": {
-      // payload-Shape: { changes, previous } — siehe event-store-executor.ts.
+      // Payload shape: { changes, previous } — see event-store-executor.ts.
       const rawChanges = (event.payload["changes"] ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
       const changes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(
@@ -179,7 +180,7 @@ export async function applyEntityEvent(
         table,
         {
           ...changes,
-          // bidx nur für die geänderten lookupable-Felder (siehe created).
+          // Recompute bidx only for the lookupable fields that changed (see created).
           ...(await computeBlindIndexValues(changes, collectLookupableFields(entity))),
           version: event.version,
           modifiedAt: event.createdAt,
@@ -207,17 +208,16 @@ export async function applyEntityEvent(
         );
         return { kind: "applied", verb, row: rows[0] ?? null };
       }
-      // Hard-Delete: DELETE-Statement gibt keine returning-Row her und
-      // der Live-Pfad nutzt eh `existing` (pre-delete-Snapshot) für die
-      // Response. Beim Replay ist das fine, der Caller braucht die Row
-      // nicht weiter.
+      // Hard-delete: the DELETE statement provides no returning row, and
+      // the live path already uses `existing` (the pre-delete snapshot) for
+      // the response. During replay, the caller does not need the row.
       await deleteMany(tx, table, { id: event.aggregateId });
       return { kind: "applied", verb, row: null };
     }
 
     case "restored": {
-      // Restore ist nur bei softDelete sinnvoll. Hard-Delete-Entities sollten
-      // keine restored-Events erhalten — falls doch, defensive skip.
+      // Restore is meaningful only for softDelete. Hard-delete entities should
+      // not receive restored events; if they do, defensively skip them.
       if (!softDelete) return { kind: "skipped" };
       const rows = await updateMany<DbRow>(
         tx,

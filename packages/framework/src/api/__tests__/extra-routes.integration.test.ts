@@ -1,4 +1,4 @@
-// Full-stack proof for the declarative extraRoutes API (kumiko-framework#3050):
+// Full-stack proof for the declarative extraRoutes API:
 // each `entry` tier gets the matching guard + deps from buildServer, driven
 // via real HTTP (setupTestStack + app.request), never createTestDispatcher.
 
@@ -738,7 +738,7 @@ describe("extraRoutes: entry:anonymous deps.clientIp", () => {
   });
 });
 
-// Type-level contract for ExtraRouteDefinition (kumiko-framework#3050): the
+// Type-level contract for ExtraRouteDefinition: the
 // bodies below are never invoked — tsc checks them, bun:test does not run
 // them. Each `@ts-expect-error` turns into an "unused directive" compile
 // error if the constraint ever stops firing.

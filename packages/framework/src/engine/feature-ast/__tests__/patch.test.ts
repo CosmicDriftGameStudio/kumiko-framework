@@ -572,9 +572,9 @@ defineFeature("object", (r) => {
   });
 });
 
-// #2121 — findCallForId only accepted a StringLiteral first argument, so
+// findCallForId only accepted a StringLiteral first argument, so
 // it couldn't locate calls authored with an imported/local constant name
-// (the dominant style in the framework's own bundled-features, per #1746
+// (the dominant style in the framework's own bundled-features, as seen
 // on the parser side). Covers both the single-arg case (matchFirstArgString)
 // and the two-arg case (relation/hook/useExtension's second positional arg),
 // same-file and genuinely cross-file via a real filesystem Project.
@@ -669,15 +669,15 @@ defineFeature("inventory", (r) => {
   });
 });
 
-// #2133 — matchArgString (shared by relation's second positional arg,
+// matchArgString (shared by relation's second positional arg,
 // hook's target, and useExtension's entity) only accepted a string literal
 // or a name-resolving identifier. The parser itself is more permissive at
 // two of those positions: useExtension's entity (round3.ts:445) and hook's
 // target (hooks.ts:75) both additionally accept an inline `{ name: "..." }`
-// object ref, same as the object-form fix in #2121 — so findCallForId
-// couldn't locate a call authored that way. relation's second positional
-// arg stays narrow on purpose: round2.ts:170 parses it via readNameLiteral,
-// not readNameOrRef, so widening it would exceed what the parser accepts.
+// object ref, so findCallForId couldn't locate a call authored that way.
+// relation's second positional arg stays narrow on purpose: round2.ts:170
+// parses it via readNameLiteral, not readNameOrRef, so widening it would
+// exceed what the parser accepts.
 describe("callMatchesId — positional inline-ref args (#2133)", () => {
   test("removePattern finds a positional useExtension whose entity is an inline { name } ref", () => {
     const sf = makeSourceFile(`

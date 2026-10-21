@@ -1,4 +1,4 @@
-// fw#2766 — boot guard for join-row entities. The read gate needs the registry,
+// Boot guard for join-row entities. The read gate needs the registry,
 // which only exists at request time, so the raw executor stays ungated when a
 // caller doesn't wire `parentVisibility`. That keeps framework-internal cascade
 // and GDPR paths working, and moves enforcement here: a hand-written list/detail

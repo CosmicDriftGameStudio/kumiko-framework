@@ -90,9 +90,9 @@ import {
   validateWorkspaces,
 } from "./workspaces.ts";
 
-// Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
-// an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
-// dieselbe Extraktionslogik.
+// Re-export: run-dev-app.ts needs this to pass write-handler QNs
+// to codegen. It is not part of validateBoot, but uses the same
+// extraction logic.
 export { type CardMetaOverflow, collectCardMetaOverflow } from "./card-meta-overflow.ts";
 export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.ts";
 export { collectWriteHandlerQns } from "./nav.ts";
@@ -103,14 +103,14 @@ export type ValidateBootOptions = {
   /** Warn when an access role is used by exactly one handler/config-key/
    *  field across the whole boot scan — often a typo, but also the normal
    *  shape of a legitimate fine-grained role (one role scoped to one admin
-   *  endpoint on purpose). Opt-in (default false, #1711): a default-on
+   *  endpoint on purpose). Opt-in (default false): a default-on
    *  prod warning that nobody can silence per-role isn't worth the noise
    *  it generates on every boot. */
   readonly warnOnUniqueAccessRoles?: boolean;
   /** QNs the app's sidebar allowlist admits. When set, every declared nav
    *  whose screen isn't reachable from any allowlisted nav entry gets a
    *  boot-time warning — that screen would otherwise be silently
-   *  unreachable via the sidebar (fw#3019). When omitted and the app has
+   *  unreachable via the sidebar. When omitted and the app has
    *  workspaces, the allowlist is derived from `r.workspace({ nav })` and
    *  `r.nav({ workspaces })` assignments instead. */
   readonly navAllowlist?: ReadonlySet<string>;
@@ -206,13 +206,13 @@ export function validateBoot(
 
   // Collect all config keys across features (for cross-feature reference validation)
   const allConfigKeys = new Set<string>();
-  // Qualified config-key set für ConfigEditScreen-Validation. MUSS via
-  // qualifyEntityName kanonisiert werden (toKebab auf Feature + Key) — exakt
-  // wie define-feature/registry den QN bildet. Der rohe f.configKeys-Key ist
-  // der camelCase-Objekt-Key (`brandingTitle`), die echte QN aber
-  // `…:config:branding-title`; ohne toKebab failt jeder configEdit-Screen mit
-  // multi-word Config-Key fälschlich. allConfigKeys oben nutzt das ältere
-  // `feature.short`-Format für validateConfigReads.
+  // Qualified config-key set for ConfigEditScreen validation. MUST be
+  // canonicalized via qualifyEntityName (toKebab on feature + key), exactly
+  // as define-feature/registry builds the QN. The raw f.configKeys key is
+  // the camelCase object key (`brandingTitle`), but the actual QN is
+  // `…:config:branding-title`; without toKebab, every configEdit screen
+  // with a multi-word config key would fail incorrectly. allConfigKeys above
+  // uses the older `feature.short` format for validateConfigReads.
   const configKeyDefsByQn = new Map<string, ConfigKeyDefinition>();
   for (const f of features) {
     for (const [key, def] of Object.entries(f.configKeys)) {
@@ -246,16 +246,16 @@ export function validateBoot(
   const screensByShortId = collectScreensByShortId(features);
   validateScreenShortIdCollisions(screensByShortId);
   // Cross-feature entity → detailFor-screen map — built (+ uniqueness-
-  // validated) up front so per-feature rowAction entity-targets (fw#2228)
+  // validated) up front so per-feature rowAction entity-targets
   // resolve against it inside the loop below, instead of at the very end
   // where this used to run.
   const detailForScreens = collectDetailForScreens(features, featureMap);
 
-  // Cross-feature API exposure-map — jedes Feature deklariert Marker via
-  // r.exposesApi(name). Per-feature validateApiExposureMatching walkt
-  // usedApis-Set und checkt dass jeder Eintrag hier einen Match findet.
-  // Verhindert dass typo-getroffene oder gedroppte QN-Aufrufe zu
-  // Runtime-Crash statt Boot-Fail werden.
+  // Cross-feature API exposure map — each feature declares markers via
+  // r.exposesApi(name). Per-feature validateApiExposureMatching walks the
+  // usedApis set and checks that every entry has a match here.
+  // This prevents typoed or removed QN calls from causing a runtime crash
+  // instead of a boot failure.
   const allExposedApis = new Map<string, string>(); // apiName → providerFeature
   for (const f of features) {
     for (const apiName of f.exposedApis) {
@@ -312,10 +312,10 @@ export function validateBoot(
     validateParentRefs(feature, featureMap);
     validateTransferGraph(feature, featureMap);
     validateMultiStreamProjections(feature);
-    // Vor validateScreens: dessen visible/entityId-Feldref-Checks werfen für
-    // einen Function-Wert bereits (mit verwirrender "unknown field undefined"-
-    // Message, weil `typeof fn !== "boolean"` true ist), bevor der klare
-    // Function-Check hier überhaupt liefe.
+    // Before validateScreens: its visible/entityId field-reference checks throw
+    // for a Function value first, with the confusing "unknown field undefined"
+    // message (because `typeof fn !== "boolean"` is true), before the clear
+    // Function check here can run.
     validateActionWiring(feature);
     validateFieldWiring(feature);
     validateScreens(

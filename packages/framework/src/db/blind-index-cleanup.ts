@@ -1,4 +1,4 @@
-// Immediate blind-index nulling after a subject erase (#818).
+// Immediate blind-index nulling after a subject erase.
 //
 // After kms.eraseKey the ciphertext is unreadable, but the deterministic
 // bidx column would stay matchable until the next write/rebuild — a
@@ -41,9 +41,9 @@ export async function nullBlindIndexesForSubject(
     }
   }
   // Skip entities whose projection was never migrated — same class as
-  // subjectRowExistsInTenant (fw#2348). A throw here runs AFTER eraseKey
+  // subjectRowExistsInTenant. A throw here runs AFTER eraseKey
   // in forget-subject and would leave deterministic bidx columns still
-  // linkable (fw#2550). One batched existence query instead of one
+  // linkable. One batched existence query instead of one
   // roundtrip per entity.
   const existing = await existingTableNames(
     db,
@@ -80,7 +80,7 @@ async function existingTableNames(
   return new Set(rows.map((r) => r.name));
 }
 
-// Tenant-scope oracle for crypto-shredding's forget-subject (mh#349): a
+// Tenant-scope oracle for crypto-shredding's forget-subject: a
 // "user"-kind subject id is often not a real user (share-token recipient,
 // email subscriber, ...) — those entities self-own their PII (`pii: true`,
 // i.e. their own row id IS the subject) and carry a real tenant_id,
@@ -92,7 +92,7 @@ async function existingTableNames(
 // Invariant: `id` must never be client-settable on self-PII entities — the
 // framework create path strips client ids; app write paths MUST do the same
 // or a DPO could plant a foreign subject id in their tenant and pass this
-// oracle (#2348). Upgrade path: require an event-store provenance check
+// oracle. Upgrade path: require an event-store provenance check
 // (`aggregate_id = subjectId` under the actor tenant) when apps need
 // client-supplied ids.
 export async function subjectRowExistsInTenant(
@@ -104,7 +104,7 @@ export async function subjectRowExistsInTenant(
   // Prefetch which self-PII projection tables actually exist — probing a
   // missing relation used to throw (and get swallowed), which both hid
   // real schema bugs and risked poisoning the driver connection for the
-  // rest of the forget TX (fw#2348 / framework#356).
+  // rest of the forget TX.
   const candidateTables: string[] = [];
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
@@ -154,7 +154,7 @@ function findEntityByExactName(
 //
 // Invariant: sound only because `id` is a single-column PK per entity
 // table (globally unique, unspoofable via a client-supplied explicitId
-// at create) — a composite PK or shared table would break this (#2348).
+// at create) — a composite PK or shared table would break this.
 export async function recordRowExistsInTenant(
   db: DbRunner,
   features: ReadonlyMap<string, FeatureDefinition>,

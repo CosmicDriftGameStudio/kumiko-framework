@@ -1,4 +1,4 @@
-// Regression test for #255-class drift: storeTables must appear in
+// Regression test for class drift: storeTables must appear in
 // enumerateFeatureTableSources so collectTableMetas (shared by setupTestStack's
 // auto-push and `kumiko schema generate`) sees the exact same table set. Before this fix,
 // unmanaged tables were only handled by collectTableMetas directly, so any

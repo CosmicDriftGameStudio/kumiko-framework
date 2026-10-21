@@ -96,7 +96,7 @@ describe("validateBoot — i18n surface keys", () => {
   });
 });
 
-// fw#2986: requiredKeysFromScreen read only section.fields, so a field declared
+// requiredKeysFromScreen read only section.fields, so a field declared
 // through section.groups — and every groups[].title — slipped past this guard.
 describe("validateBoot — i18n surface keys from section.groups (fw#2986)", () => {
   function groupsFeature(keys: Record<string, { de: string; en: string }>) {

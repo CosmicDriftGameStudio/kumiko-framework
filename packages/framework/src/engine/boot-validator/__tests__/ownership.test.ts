@@ -1,4 +1,4 @@
-// fw#2626 — boot guard: `{ kind: "where" }` is admissible only on entity
+// boot guard: `{ kind: "where" }` is admissible only on entity
 // access.read (buildOwnershipClause runs it as SQL). access.write and
 // field-level access.read are evaluated in memory against the concrete row, so
 // a where-rule there boots and only ever denies; the guard fails the boot.

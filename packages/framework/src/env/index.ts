@@ -371,7 +371,7 @@ export function composeEnvSchema<
   // rather than silently overwriting a deploy-critical default. The
   // conflict-detection makes the order safe in both directions — both
   // throw — but downstream tools that consume `sources` (e.g. the
-  // upcoming Phase-5 lint-guard) may rely on this insertion order.
+  // upcoming lint-guard) may rely on this insertion order.
   if (options.core) {
     for (const [key, field] of Object.entries(zodShape(options.core))) {
       merged[key] = field;
@@ -572,12 +572,13 @@ function ucfirst(s: string): string {
   return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Dry-Run-Gegenstück zu parseEnv (KUMIKO_DRY_RUN_ENV-Pfad): parst jedes
- *  Feld einzeln und liefert ein ehrliches Partial — vorhandene Werte kommen
- *  typisiert (gecoerct) durch, fehlende/invalide fehlen einfach. Wirft nie:
- *  der Dry-Run soll das Inventory rendern, nicht an required-Feldern
- *  scheitern. Ersetzt das `({} as Shape)`-Muster, bei dem JEDER Zugriff
- *  silent undefined war und das Compile-Level nichts davon wusste. */
+/** Dry-run counterpart to parseEnv (KUMIKO_DRY_RUN_ENV path): parses each
+ *  field individually and returns an honest Partial — present values pass
+ *  through with their types (coerced), while missing or invalid values are
+ *  simply omitted. Never throws: the dry run renders the inventory instead
+ *  of failing on required fields. Replaces the `({} as Shape)` pattern, where
+ *  every access silently returned undefined and the compiler could not detect
+ *  it. */
 export function parseEnvDryRun<S extends z.ZodObject<z.ZodRawShape>>(
   schema: S,
   env: Record<string, string | undefined>,
@@ -589,8 +590,8 @@ export function parseEnvDryRun<S extends z.ZodObject<z.ZodRawShape>>(
     const result = field.safeParse(raw);
     if (result.success) out[name] = result.data;
   }
-  // @cast-boundary schema-walk — Partial<z.infer<S>> erasure über den
-  // per-Feld-safeParse; jeder enthaltene Wert hat seinen Feld-Parse bestanden.
+  // @cast-boundary schema-walk — Partial<z.infer<S>> erasure through the
+  // per-field safeParse; every included value passed its field-level parse.
   return out as Partial<z.infer<S>>;
 }
 

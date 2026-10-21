@@ -9,12 +9,12 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
 }
 
-// fw#2312: `singleton: true` marks a projectionDetail screen whose query
+// `singleton: true` marks a projectionDetail screen whose query
 // determines the shown row from the caller's context (session), not a row
 // id in the path — a self-service screen like "my profile". idParam names
 // the query-payload key for a path row id, which a singleton screen never
 // sends; detailFor drives the auto-generated "Edit" action's navigation via
-// that same path id (fw#2166). Both combinations are rejected at boot
+// that same path id. Both combinations are rejected at boot
 // instead of silently winning (idParam ignored / edit button opening a
 // blank create form).
 describe("validateBoot — projectionDetail singleton (fw#2312)", () => {

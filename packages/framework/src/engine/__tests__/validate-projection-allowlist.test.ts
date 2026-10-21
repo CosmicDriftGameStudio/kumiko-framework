@@ -1,7 +1,7 @@
 // Boot-validator tests for r.step.unsafeProjection-* allowlist enforcement.
 // Recursive walk through sub-pipelines (branch.onTrue/onFalse, forEach.do)
 // is included here, plus the self-registration via defineStep({ subPaths })
-// gate (Followup #15).
+// gate.
 
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
@@ -258,7 +258,7 @@ describe("validateProjectionAllowlist", () => {
   });
 
   it("does NOT recurse into unregistered step-kind sub-arrays — defineStep is the registration gate (#15)", () => {
-    // Pins the Followup #15 contract: walkAllSteps recurses ONLY into
+    // Pins the contract: walkAllSteps recurses ONLY into
     // sub-arrays whose step-kind is registered with `subPaths` via
     // defineStep. Hand-crafted instances with unregistered kinds are
     // walked as a single node — their nested arrays are invisible.

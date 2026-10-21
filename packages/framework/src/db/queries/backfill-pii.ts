@@ -1,18 +1,18 @@
-// One-time backfill for pre-KMS plaintext PII in kumiko_events (#799).
+// One-time backfill for pre-KMS plaintext PII in kumiko_events.
 //
-// Crypto-shredding (#724/#818) only covers NEW writes — events appended
+// Crypto-shredding only covers NEW writes — events appended
 // before a KMS was configured still carry plaintext (user.created email,
 // delivery attempt recipientAddress, job payloads). This tool re-encrypts
 // them in place, per field, under the owning subject's DEK:
 //
 //   - entity lifecycle events (<entity>.created/updated/deleted/forgotten/
 //     restored) for every entity with PII subject annotations — generic over
-//     subject kind (user/tenant/record, fw#2790), since it goes through the
+//     subject kind (user/tenant/record), since it goes through the
 //     same collectPiiEncryptedFields/resolveSubjectForField the live write
 //     path uses
 //   - custom events from the event-PII catalog (r.defineEvent piiFields) —
 //     user/tenant/self subjects, via the same resolveEventSubject the live
-//     append path uses (fw#2801)
+//     append path uses
 //
 // Already-forgotten subjects must NOT get a fresh key minted for their old
 // plaintext — three erased-detection layers write [[erased]] instead:
@@ -28,7 +28,7 @@
 // Owner resolution for entity-lifecycle events. The live write path
 // (event-store-executor-write.ts) resolves the same chain via
 // subject-resolver.ts: row owner, then the owner the same event sets, then
-// the field's whenAbsent (fw#3654). Backfill adds two opt-in stages and
+// the field's whenAbsent. Backfill adds two opt-in stages and
 // delays whenAbsent behind the projection so a known owner is never shadowed:
 //   1. payload — the event section (plus the owner the same event sets) names
 //      the owner field; whenAbsent is not applied yet.

@@ -1,17 +1,17 @@
 // Round-trips the entity-table-meta compound field types that span two or more columns.
 //
 // money (field.type "money"):
-//   <snake>            bigint  — Cent-Betrag (JS bigint, kein precision-loss)
-//   <snake>_currency   text    — ISO-4217-Code
-//   Read-keys (nach camelCase-Coercion in coerceRow): price / priceCurrency
+//   <snake>            bigint  — Cent amount (JS bigint, no precision loss)
+//   <snake>_currency   text    — ISO-4217 code
+//   Read keys (after camelCase coercion in coerceRow): price / priceCurrency
 //
 // locatedTimestamp (field.type "locatedTimestamp"):
-//   <snake>_utc  timestamptz — UTC-Zeitstempel (→ Temporal.Instant nach coerceRow)
-//   <snake>_tz   text        — IANA-Timezone-Name
-//   Read-keys nach camelCase-Coercion: dueAtUtc / dueAtTz
+//   <snake>_utc  timestamptz — UTC timestamp (→ Temporal.Instant after coerceRow)
+//   <snake>_tz   text        — IANA time zone name
+//   Read keys after camelCase coercion: dueAtUtc / dueAtTz
 //
-// Schreiben: snake_case-Keys werden von columnOf() korrekt gemappt.
-// Lesen: coerceRow() renamed snake_case-DB-columns zu camelCase JS-keys.
+// Writing: snake_case keys are mapped correctly by columnOf().
+// Reading: coerceRow() renames snake_case database columns to camelCase JS keys.
 import { afterAll, describe, expect, test } from "bun:test";
 import { fetchOne, insertOne } from "../../query.ts";
 import { closeDb, withTable } from "./_helpers.ts";

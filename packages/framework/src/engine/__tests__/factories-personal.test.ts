@@ -1,5 +1,5 @@
 // Unit tests for the `personal`/`find` PII annotation resolution
-// (kumiko-framework#2250) — the `expandPersonalAnnotations` helper in
+// the `expandPersonalAnnotations` helper in
 // ../factories, exercised through the public factory functions.
 
 import { describe, expect, test } from "bun:test";
@@ -11,7 +11,7 @@ import {
 } from "../factories.ts";
 
 describe("createTextField — personal/find resolution", () => {
-  // kumiko-framework#2921 — a text field can no longer be constructed
+  // A text field can no longer be constructed
   // without declaring whose data it holds, neither at the type level nor
   // at runtime (fail-closed for untyped JS callers).
   test("no argument at all throws", () => {
@@ -223,7 +223,7 @@ describe("createTimestampField — personal without find (PersonalAnnotationsNoF
     expect(f.allowPlaintext).toBe("server-generated, not user data");
   });
 
-  // kumiko-framework#2921 only tightens text/longText — NoFind factories
+  // Text/longText require `personal`; NoFind factories
   // keep `personal` optional and stay callable without an argument.
   test("createTimestampField() without any argument still works", () => {
     const f = createTimestampField();

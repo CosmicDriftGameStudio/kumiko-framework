@@ -17,7 +17,7 @@ import { unsafePushTables } from "../db/table-push.ts";
 
 // Reserved sentinel used in the instance_id column for consumers whose
 // delivery is "shared" — i.e. one cursor across all dispatcher instances
-// (the default, pre-Welle-2.7 behaviour). Per-instance consumers store
+// (the default behaviour). Per-instance consumers store
 // the concrete instanceId. Postgres PK columns can't be NULL and
 // `NULL = NULL` is UNKNOWN in SQL — a nullable instance_id would break
 // both uniqueness and PK constraints. The boot-validator refuses to
@@ -31,9 +31,9 @@ export const SHARED_INSTANCE_SENTINEL = "__shared__";
 //
 // One row per (consumer name, instance_id) shard. Shared-delivery consumers
 // have exactly one row with instance_id = SHARED_INSTANCE_SENTINEL — this
-// preserves the pre-Welle-2.7 single-cursor semantic unchanged. Per-instance
+// preserves the single-cursor semantic unchanged. Per-instance
 // consumers (opt-in) get N rows (one per dispatcher instance), each with its
-// own cursor. The built-in SSE consumers are shared since fw#2625/#2630: the
+// own cursor. The built-in SSE consumers are shared: the
 // Redis-backed broker fans events out to every pod's clients. Read by the event-dispatcher
 // (cursor + locking), surfaced by the CLI for ops inspection.
 //
@@ -137,7 +137,7 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
     // no need to pre-check columnNamesOf first. Two instances booting
     // concurrently against the same DB (this table is explicitly
     // multi-instance) both ALTER, neither crashes on "column already
-    // exists" (#1362).
+    // exists".
     await alterTableAddColumn(
       db,
       "kumiko_event_consumers",

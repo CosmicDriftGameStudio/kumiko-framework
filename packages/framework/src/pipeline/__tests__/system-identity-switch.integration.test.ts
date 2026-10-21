@@ -1,4 +1,4 @@
-// fw#2859/#2876 — ctx.queryAs/ctx.writeAs to anyone but the caller itself (or a role subset) needs
+// ctx.queryAs/ctx.writeAs to anyone but the caller itself (or a role subset) needs
 // r.systemScope() or { escapeHatch }. Real HTTP calls + setupTestStack — never createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -239,7 +239,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     escapeHatch: { reason: "test: needs SYSTEM to look itself up" },
   });
 
-  // --- Non-SYSTEM switch (fw#2876): only the caller itself (or a role subset) is free ---
+  // --- Non-SYSTEM switch: only the caller itself (or a role subset) is free ---
   r.queryHandler({
     name: "query-as-self",
     schema: z.object({ roles: z.array(z.string()).optional() }),

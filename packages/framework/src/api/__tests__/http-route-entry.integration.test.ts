@@ -1,4 +1,4 @@
-// kumiko-framework#2885 step 3: `HttpRouteDefinition.anonymous` now controls
+// `HttpRouteDefinition.anonymous` now controls
 // the mount, not just docs/boot-validation. `anonymous: false` must sit
 // behind the SAME session-auth chain /api/* uses (no anonymous fallthrough,
 // PAT rate limit, origin + CSRF guards) — a request without a session gets

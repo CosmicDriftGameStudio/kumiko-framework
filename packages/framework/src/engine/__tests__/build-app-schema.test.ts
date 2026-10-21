@@ -1,11 +1,11 @@
-// Tests für buildAppSchema. Drei Invarianten pinnen:
-//   1. Multi-Feature: jedes Feature kommt mit eigenem featureName +
-//      seinen Entities/Screens/Navs in der features-Liste an.
-//   2. Workspaces werden mit aufgelösten navMembers (cross-feature
-//      gemerged) auf AppSchema-Ebene gehoben.
-//   3. JSON-Safety: function defaults und Zod-validators werden im
-//      projection-Schritt rausgefiltert — sonst landet Server-Runtime
-//      im Browser-Bundle.
+// Tests for buildAppSchema. Three invariants are pinned:
+//   1. Multi-feature: each feature reaches the features list with its own
+//      featureName and its entities, screens, and navs.
+//   2. Workspaces are promoted to AppSchema level with resolved, cross-feature
+//      merged navMembers.
+//   3. JSON safety: function defaults and Zod validators are filtered out
+//      during projection; otherwise server runtime would enter the browser
+//      bundle.
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
@@ -112,7 +112,7 @@ describe("buildAppSchema", () => {
     expect(findNonJsonSafePath(app, "schema")).toBeNull();
   });
 
-  // #1059: r.translations({keys}) must flow into FeatureSchema.translations
+  // r.translations({keys}) must flow into FeatureSchema.translations
   // BYTE-IDENTICAL — nav/screen labels resolve these keys verbatim via
   // t(label) client-side, so any re-prefixing (like the registry's internal
   // mergedTranslations does for features whose keys already carry a colon)
@@ -136,7 +136,7 @@ describe("buildAppSchema", () => {
     });
   });
 
-  // kumiko-framework#2034: createKumikoApp's boot diagnostic reads
+  // createKumikoApp's boot diagnostic reads
   // `screens[].dormant` from the CLIENT schema, not from the registry —
   // this pins that the flag actually survives the server→client projection
   // instead of only living in the registry's verbatim `feature.screens`.
@@ -156,7 +156,7 @@ describe("buildAppSchema", () => {
     expect(screen).toMatchObject({ id: "privacy-center", dormant: true });
   });
 
-  // fw#2163: resolveTarget (renderer) reads screen.detailFor + screen.id
+  // resolveTarget (renderer) reads screen.detailFor + screen.id
   // (short, unqualified) off the client FeatureSchema — this pins that both
   // survive the server→client projection verbatim, on a real registry-built
   // schema rather than a hand-rolled FeatureSchema literal.
@@ -192,7 +192,7 @@ describe("buildAppSchema", () => {
     expect(app.features[0]?.translations).toBeUndefined();
   });
 
-  // #2062: buildAppSchema itself has no context, so the boot entrypoint
+  // buildAppSchema itself has no context, so the boot entrypoint
   // (createKumikoServer, runProdApp) forwards its own context.searchAdapter
   // presence check in via options.searchAdapterMissing.
   test("options.searchAdapterMissing: true landet auf jeder FeatureSchema", () => {
@@ -244,12 +244,12 @@ describe("buildAppSchema", () => {
 
     expect(app.workspaces).toHaveLength(1);
     const admin = app.workspaces?.[0];
-    // Short id — Renderer matcht gegen URL-Segment ("/admin/...") und
-    // erwartet die kurze Form. Registry intern qualifiziert, buildAppSchema
-    // projeziert zurück auf short.
+    // Short id — the renderer matches it against the URL segment ("/admin/...")
+    // and expects the short form. The registry qualifies it internally, while
+    // buildAppSchema projects it back to the short form.
     expect(admin?.definition.id).toBe("admin");
-    // Cross-feature merge: beide Members sind drin, der Workspace-Owner
-    // (`app`) sieht die anderen Features ohne dass er sie importiert.
+    // Cross-feature merge: both members are included, so the workspace owner
+    // (`app`) can see the other features without importing them.
     expect(admin?.navMembers).toEqual(["orders:nav:list", "fleet:nav:vehicles"]);
   });
 
@@ -262,10 +262,9 @@ describe("buildAppSchema", () => {
   });
 
   test("JSON-Safety: Function-Defaults werden in der Projection rausgefiltert", () => {
-    // Field mit function-default — typisch z.B. () => generateId(). Auf
-    // dem Server legitimer Code, im Browser-Bundle aber unbrauchbar weil
-    // die Function auf Server-Internals zugreifen würde. Projection muss
-    // den default-Slot weglassen, nicht die Function durchlassen.
+    // A function default is valid server-side, but unusable in the browser
+    // bundle because it may access server internals. Projection must omit the
+    // default slot rather than expose the function.
     const entity = {
       fields: {
         id: { type: "text", default: () => "would-be-runtime-id" },
@@ -283,7 +282,7 @@ describe("buildAppSchema", () => {
     const idField = projectedEntity.fields["id"];
     expect(idField).toBeDefined();
     expect(idField?.["default"]).toBeUndefined(); // Function abgewiesen
-    expect(idField?.["type"]).toBe("text"); // type kommt durch
+    expect(idField?.["type"]).toBe("text"); // type is preserved
   });
 
   test("JSON-Safety: non-finite number defaults are dropped, shared sub-objects survive", () => {
@@ -310,9 +309,10 @@ describe("buildAppSchema", () => {
   });
 
   test("Reference-Field: entity + labelField + multiple überleben die Projection", () => {
-    // Regression: ohne diese Properties im Client-Schema baut der ReferenceInput
-    // die Options-Query als `<feature>:query::list` (leeres refEntity) → 404 →
-    // Dropdown zeigt „Keine Treffer" obwohl die referenzierte Entity Rows hat.
+    // Regression: without these properties in the client schema, ReferenceInput
+    // builds the options query as `<feature>:query::list` (with an empty
+    // refEntity), causing a 404 and making the dropdown show „Keine Treffer"
+    // even though the referenced entity has rows.
     const entity = {
       fields: {
         name: { type: "text" },
@@ -378,7 +378,7 @@ describe("buildAppSchema", () => {
       }
     ).fields;
     expect(fields["status"]?.["filterable"]).toBe(true);
-    // Felder ohne filterable tragen den Key nicht (kein false-Müll).
+    // Fields without filterable omit the key (no `false` noise).
     expect(fields["name"]?.["filterable"]).toBeUndefined();
   });
 
@@ -491,8 +491,8 @@ describe("buildAppSchema", () => {
     // Bounded completeness check, scoped to MultiSelectFieldDef's own key set
     // (packages/types/src/fields.ts) — NOT a general FieldDefinition lockstep.
     // A full-union version would have to classify every property of all 20
-    // FieldDefinition variants as forwarded or server-only. fw#2497 closed the
-    // gaps fw#2494 flagged for other variants (image's `capture`, embedded's
+    // FieldDefinition variants as forwarded or server-only. The earlier fix
+    // closed the gaps for other variants (image's `capture`, embedded's
     // `derived`/`totals`/`totalsMatch`/`minItems`/`maxItems`, date's
     // `min`/`max`/`locale`, longText's `multiline`, array/object `default`) —
     // see the dedicated tests below. This check only covers the type this fix
@@ -514,7 +514,7 @@ describe("buildAppSchema", () => {
       "maxRows",
       "optionsAvailabilityQuery",
       "default", // array-valued for multiSelect — projectField's
-      // isJsonSafeValue() (fw#2497) now recurses into arrays/plain
+      // isJsonSafeValue() now recurses into arrays/plain
       // objects instead of only string/number/boolean/null.
       "sensitive", // write-response redaction server-side AND the renderer's prefill block
     ] as const;
@@ -997,7 +997,7 @@ describe("buildAppSchema", () => {
     });
     expect(fields["lines"]?.["totals"]).toEqual(["amount"]);
     expect(fields["lines"]?.["totalsMatch"]).toEqual({ amount: "invoiceTotal" });
-    // fw#2507: `schema` itself — the embedded list's sub-field map — must
+    // `schema` itself — the embedded list's sub-field map — must
     // survive too, or computeEditViewModel iterates `undefined` and the
     // browser crashes on any entityEdit screen with an embedded list.
     const schema = fields["lines"]?.["schema"] as Record<string, Record<string, unknown>>;
@@ -1110,8 +1110,8 @@ describe("buildAppSchema", () => {
   });
 
   test("AppSchema ist via JSON.stringify roundtrip-sicher", () => {
-    // Echter Smoke-Test des Vertrags — wenn jemand in den project-
-    // Helper eine Function reinschmuggelt, würde das hier brennen.
+    // Contract smoke test: a function accidentally introduced by a project-
+    // helper would make this check fail.
     const entity = {
       fields: {
         id: { type: "text", default: () => "x" },
@@ -1136,7 +1136,6 @@ describe("buildAppSchema", () => {
     const app = buildAppSchema(createRegistry([f]));
     const json = JSON.stringify(app);
     const parsed = JSON.parse(json);
-    // Feature-namen identisch nach Roundtrip
     expect(parsed.features[0].featureName).toBe("ent");
     const tagsField = parsed.features[0].entities.thing.fields.tags;
     expect(tagsField.display).toBe("checkboxes");
@@ -1145,9 +1144,9 @@ describe("buildAppSchema", () => {
   });
 
   test("FormatSpec-Renderer + FieldCondition-RowActions überleben JSON-Roundtrip unverändert", () => {
-    // Pinnt: FormatSpec ({ format: "timestamp" } etc.) ist JSON-sicher
-    // und FieldCondition ({ field, eq/ne } | boolean) bleibt nach
-    // JSON.parse(JSON.stringify(app)) deep-equal zum Original.
+    // FormatSpec ({ format: "timestamp" } etc.) is JSON-safe, and
+    // FieldCondition ({ field, eq/ne } | boolean) remains deep-equal to the
+    // original after JSON.parse(JSON.stringify(app)).
     const entity = {
       table: "events",
       fields: {
@@ -1200,11 +1199,10 @@ describe("buildAppSchema", () => {
     const app = buildAppSchema(createRegistry([f]));
     const roundTripped = JSON.parse(JSON.stringify(app));
 
-    // toStrictEqual: toEqual ignoriert undefined-Props und würde einen
-    // Silent-Drop durch JSON.stringify genau NICHT fangen.
+    // toStrictEqual is required here: toEqual ignores undefined properties and
+    // would not catch a silent drop by JSON.stringify.
     expect(roundTripped).toStrictEqual(app);
 
-    // Explizit: FormatSpec-Felder landen unverändert an
     const screen = roundTripped.features[0]?.screens[0];
     const cols = screen?.columns as Array<{ field?: string; renderer?: unknown }>;
     expect(cols?.find((c) => c.field === "startedAt")?.renderer).toEqual({
@@ -1215,7 +1213,7 @@ describe("buildAppSchema", () => {
       prefix: "P",
     });
 
-    // Explizit: FieldCondition-Varianten (eq, ne, boolean) landen unverändert an
+    // FieldCondition variants (eq, ne, and boolean) remain unchanged.
     const actions = screen?.rowActions as Array<{
       id: string;
       visible?: unknown;
@@ -1231,15 +1229,17 @@ describe("buildAppSchema", () => {
     });
     expect(actions?.find((a) => a.id === "always")?.visible).toBe(true);
 
-    // rowClick (skalares Flag) überlebt die JSON-Projektion — nicht gedroppt.
+    // rowClick, a scalar flag, survives JSON projection rather than being
+    // dropped.
     expect(actions?.find((a) => a.id === "open")?.rowClick).toBe(true);
   });
 
   test("derivedFields werden ins Client-Schema projiziert (valueType, ohne derive-fn)", () => {
-    // Regression: projectEntity ließ derivedFields ganz weg → der Client kannte
-    // sie nicht, computeListViewModel warf "references unknown field" für jede
-    // derived entityList-Spalte (z.B. bauspar `phase`). Der executor hängt den
-    // Wert server-seitig an die Row; der Client braucht nur den valueType.
+    // Regression: projectEntity omitted derivedFields, so the client did not know
+    // them and computeListViewModel threw "references unknown field" for every
+    // derived entityList column (such as bauspar `phase`).
+    // The executor attaches the value to the row server-side; the client only
+    // needs the valueType.
     const contractEntity = {
       table: "contracts",
       fields: { name: { type: "text" } },
@@ -1264,13 +1264,13 @@ describe("buildAppSchema", () => {
 
     expect(entity?.derivedFields?.["phase"]?.valueType).toBe("text");
     expect(entity?.derivedFields?.["balance"]?.valueType).toBe("decimal");
-    // derive-fn ist Server-only — darf NICHT durchkommen (sonst Funktions-Leak
-    // im Browser-Bundle, den die JSON-Safety-Guard fängt).
+    // derive is server-only and must not cross into the browser bundle; the
+    // JSON-safety guard rejects such function leaks.
     expect(entity?.derivedFields?.["phase"]).not.toHaveProperty("derive");
     expect(findNonJsonSafePath(app, "schema")).toBeNull();
   });
 
-  // fw#2165: projectionList's searchable/sortable/paginated are derived from
+  // projectionList's searchable/sortable/paginated are derived from
   // the bound query handler's Zod schema, not authored — see
   // deriveProjectionListCapabilities in build-app-schema.ts.
   test("projectionList: search/sort/cursor in the query schema become derived capabilities (fw#2165)", () => {

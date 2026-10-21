@@ -26,7 +26,7 @@ type ParsedConsumerCliArgs = {
 // "--instance-id=<id>") out of argv regardless of position, leaving the
 // remaining positionals for sub/name — instead of two independent
 // positional/flag reads that silently misparse "--instance-id" with no
-// value, the "=" form, or a flag placed before the positionals (#1412).
+// value, the "=" form, or a flag placed before the positionals.
 function parseConsumerCliArgs(argv: readonly string[]): ParsedConsumerCliArgs {
   const positionals: string[] = [];
   let instanceId: string | undefined;
@@ -75,9 +75,9 @@ export async function runConsumerCli(
   if (sub !== "status" && sub !== "restart") {
     // Unknown subcommand must be visible on stderr, not just a bare exit 1 —
     // ops invocations piping `2>&1 >/dev/null` or log pipelines that only
-    // watch stderr would otherwise see a failure with zero explanation
-    // (#1412). A bare help call (no subcommand at all) is not an error, so
-    // it keeps exit 0 + stdout.
+    // watch stderr would otherwise see a failure with zero explanation.
+    // A bare help call (no subcommand at all) is not an error, so it keeps
+    // exit 0 + stdout.
     const write = sub === undefined ? out.log : out.err;
     if (sub !== undefined) out.err(`  Unknown subcommand: ${sub}`);
     write("");

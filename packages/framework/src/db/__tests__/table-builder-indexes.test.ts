@@ -1,10 +1,10 @@
-// Unit-Tests für entity.indexes — Composite-/Unique-Index-API.
+// Unit tests for entity.indexes — composite/unique-index API.
 //
-// Vorher mussten Apps für unique-indices über mehrere Spalten daneben eine
-// hand-written pgTable-Definition halten — Single-Source-of-Truth gebrochen,
-// Schema-Drift programmiert. Mit entity.indexes pflegen Author die
-// Constraint deklarativ in der EntityDefinition; buildEntityTable rendert
-// sie via uniqueIndex/index.
+// Previously, apps had to maintain a separate hand-written pgTable definition
+// for unique indexes spanning multiple columns, breaking the single source of
+// truth and making schema drift likely. With entity.indexes, authors declare
+// the constraint in the EntityDefinition; buildEntityTable renders it via
+// uniqueIndex/index.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -111,8 +111,7 @@ describe("buildEntityTable — entity.indexes", () => {
   });
 
   test("Spalten die keine DB-Spalte haben (multi-files) werden via Boot-Validator gecatched", () => {
-    // buildEntityTable selbst überspringt fehlende Columns silently —
-    // der Boot-Validator wirft.
+    // buildEntityTable silently skips missing columns; the boot validator throws.
     const entity = createEntity({
       fields: {
         attachments: { type: "files" } as never,
@@ -164,11 +163,11 @@ describe("validateBoot — entity.indexes", () => {
   });
 
   test("single-column UNIQUE auf tenantId ist erlaubt (1:1-Constraint)", () => {
-    // Der `&& !def.unique`-Branch in entity-handler.ts: ein UNIQUE-Index auf
-    // tenantId allein ist kein redundanter Read-Index, sondern ein
-    // 1:1-Constraint (genau ein Row pro Tenant). Nur die NON-unique-Variante
-    // oben ist redundant — beide Hälften der Bedingung sind damit gepinnt,
-    // sonst fliegt der Branch beim nächsten Revert/Refactor stumm raus.
+    // The `&& !def.unique` branch in entity-handler.ts ensures that a UNIQUE index
+    // on tenantId alone is not a redundant read index, but a 1:1 constraint
+    // (exactly one row per tenant). Only the non-unique variant above is
+    // redundant, so both sides of the condition are covered; otherwise the
+    // branch could silently disappear during a revert or refactor.
     const feature = defineFeature("widgetFeature", (r) => {
       r.entity({
         name: "widget",

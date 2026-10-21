@@ -785,7 +785,7 @@ describe("doc/docx upload is content-verified against magic bytes", () => {
 });
 
 // --- Content-verification is keyed on the filename extension, not the ---
-// --- declared/runtime mimeType (Option A, kumiko-framework#3287)       ---
+// --- declared/runtime mimeType (Option A)                              ---
 
 describe("content_mismatch is enforced by filename extension for every signature-bearing type", () => {
   const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(20).fill(0)]);
@@ -1267,7 +1267,7 @@ describe("error handling", () => {
     expect(body.error).toContain("invalid_fieldName");
   });
 
-  // #3005: fileRefDeleteHook's GDPR-forget decision resolves entityType/
+  // fileRefDeleteHook's GDPR-forget decision resolves entityType/
   // fieldName against the registry — an attachment nobody can resolve must
   // be rejected at upload, not silently accepted and left to the forget
   // hook's conservative fallback.
@@ -1332,7 +1332,7 @@ describe("error handling", () => {
   });
 });
 
-// --- Content-Disposition hardening (Phase 2.3 follow-up) ---
+// --- Content-Disposition hardening ---
 
 describe("Content-Disposition header hardening", () => {
   const smallPng = new Uint8Array([
@@ -1430,7 +1430,7 @@ describe("Content-Disposition header hardening", () => {
   });
 });
 
-// --- Download-URL endpoint (Phase 2.3) ---
+// --- Download-URL endpoint ---
 
 describe("download-url endpoint", () => {
   const testPng = new Uint8Array([
@@ -1575,7 +1575,7 @@ describe("download-url endpoint", () => {
   });
 });
 
-// --- fw#2423: GET /:id/meta with field-level PII encryption active ---
+// --- GET /:id/meta with field-level PII encryption active ---
 
 describe("meta route with field-encrypted fileName", () => {
   const testPng = new Uint8Array([
@@ -1766,7 +1766,7 @@ describe("batch meta route", () => {
   });
 });
 
-// --- fw#2442: byte-serving + signed-URL routes with field-encrypted fileName ---
+// --- Byte-serving + signed-URL routes with field-encrypted fileName ---
 
 describe("byte-serving routes with field-encrypted fileName", () => {
   const testPng = new Uint8Array([

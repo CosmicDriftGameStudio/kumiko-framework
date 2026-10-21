@@ -10,7 +10,7 @@ describe("compareByCodepoint", () => {
 
   test("orders by UTF-16 code unit — uppercase sorts before lowercase", () => {
     // 'Z' (90) < 'a' (97): the opposite of many locale collations, which is
-    // the whole point (#330 — stable across macOS dev box and Linux CI).
+    // the whole point — stable across macOS dev box and Linux CI.
     expect(compareByCodepoint("Z", "a")).toBe(-1);
   });
 

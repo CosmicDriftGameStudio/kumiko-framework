@@ -8,24 +8,24 @@ import type {
   SingleStreamApplyFn,
 } from "./types/projection.ts";
 
-// Typed-Apply-Helper für r.projection.apply: erlaubt per-event-type
-// typed event.payload-Access ohne SingleStreamApplyFn-Generic durch die
-// ganze ProjectionDefinition propagieren zu müssen.
+// Typed apply helper for r.projection.apply: enables typed event.payload
+// access per event type without propagating a SingleStreamApplyFn generic
+// through the entire ProjectionDefinition.
 //
-// Der Helper ist ein purer Type-Vehikel — zur Laufzeit identitäts-fn:
+// The helper is purely a type vehicle — an identity function at runtime:
 //
 //   apply: {
 //     "user.created": defineApply<UserCreatedPayload>(async (event, tx, table) => {
-//       // event.payload ist UserCreatedPayload, nicht Record<string, unknown>.
+//       // event.payload is UserCreatedPayload, not Record<string, unknown>.
 //       // Write through the passed `table` (ES-blessed inside apply), not a
 //       // closed-over branded constant.
 //       await insertOne(tx, table, { id: event.aggregateId, ...event.payload });
 //     }),
 //   }
 //
-// Default-Generic = Record<string, unknown> behält rückwärtskompatibles
-// Verhalten für Apply-Handler die ohne Type-Argument geschrieben sind. Der
-// `table`-Param ist optional zu nutzen — 2-arg-Applies bleiben gültig.
+// The default generic, Record<string, unknown>, preserves backward-compatible
+// behavior for apply handlers written without a type argument. The `table`
+// parameter is optional to use, so 2-argument applies remain valid.
 export function defineApply<TPayload = Record<string, unknown>>(
   fn: (
     event: StoredEvent<TPayload>,
@@ -37,7 +37,7 @@ export function defineApply<TPayload = Record<string, unknown>>(
   return fn as SingleStreamApplyFn;
 }
 
-// Pendant für r.multiStreamProjection.apply — bekommt zusätzlich ctx.
+// Counterpart for r.multiStreamProjection.apply — also receives ctx.
 export function defineMspApply<TPayload = Record<string, unknown>>(
   fn: (
     event: StoredEvent<TPayload>,

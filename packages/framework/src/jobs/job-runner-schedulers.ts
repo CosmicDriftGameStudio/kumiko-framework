@@ -25,14 +25,14 @@ export const ACTIVE_TENANT_IDS_QUERY_NAME = "tenant:query:active-tenant-ids";
  * BullMQ job ids are `repeat:<schedulerId>:<millis>`. Colons inside the
  * scheduler id push the segment count to ≥5, which BullMQ's legacy heuristic
  * treated as old repeatables — spawning a new scheduler entry every tick and
- * leaking permanent `repeat:*` hashes (taskforcesh/bullmq#3828, fw#1603 /
+ * leaking permanent `repeat:*` hashes (taskforcesh/bullmq#3828,
  * publicstatus Redis OOM). Strip `.` and `:` from the job QN.
  */
 export function schedulerIdForJobName(jobName: string): string {
   return `scheduler-${jobName.replace(/[.:]/g, "-")}`;
 }
 
-// Same colon-in-BullMQ-id hazard as schedulerIdForJobName (fw#1603/#1604) —
+// Same colon-in-BullMQ-id hazard as schedulerIdForJobName —
 // a QN like "publicstatus:job:uptime-probe" must not leave ":" in the id.
 export function bootJobIdForJobName(jobName: string): string {
   return `boot-${jobName.replace(/[.:]/g, "-")}`;
@@ -117,8 +117,7 @@ export async function removeOrphanJobSchedulers(
 // duplicates — safe only as long as the child job hash outlives the
 // wrapper's retry window, enforced at construction against
 // COMPLETED_JOB_RETENTION_AGE_SEC (see the invariant check in
-// createJobRunner). Same colon-in-BullMQ-id hazard as schedulerIdForJobName
-// (fw#1603/#1604) — the wrapper id already contains ":", so strip
+// createJobRunner). The wrapper id already contains ":", so strip
 // separators from both halves before joining instead of interpolating raw.
 export function perTenantChildJobId(wrapperJobId: string, tenantId: string): string {
   const sanitize = (value: string) => value.replace(/[.:]/g, "-");

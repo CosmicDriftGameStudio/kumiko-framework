@@ -16,7 +16,7 @@ import type {
   SaveContext,
 } from "../types/index.ts";
 
-// fw#2859: r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.
+// r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.
 
 const TENANT = "00000000-0000-4000-8000-00000000cd01" as TenantId;
 const systemUser = createSystemUser(TENANT);

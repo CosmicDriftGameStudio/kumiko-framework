@@ -6,16 +6,15 @@ const log = createFallbackLogger("kumiko:boot");
 // --- Cross-feature API exposure / usage matching ---
 //
 // `r.exposesApi(name, impl)` registers a callable; `r.usesApi(name)`
-// declares a caller. Boot-Validator prüft drei Invarianten:
-//   1. Jeder usesApi(name) findet einen exposesApi(name) in irgendeinem
-//      Feature.
-//   2. Das exposing-Feature ist in requires/optionalRequires des callers
-//      gelisted (sonst klappt die Cross-Feature-Aufruf-Reihenfolge nicht).
-//   3. Self-exposure ist erlaubt (Feature ruft eigene API), wird aber
-//      mit Warning markiert weil es typisch ein Refactor-Restbestand ist.
+// declares a caller. Boot validation checks three invariants:
+//   1. Every usesApi(name) finds an exposesApi(name) in some feature.
+//   2. The exposing feature is listed in the caller's
+//      requires/optionalRequires so cross-feature call ordering works.
+//   3. Self-exposure is allowed (a feature calling its own API), but is
+//      warned about because it is typically a refactoring leftover.
 //
-// Globale Eindeutigkeit der apiNames (kein Dublicate über Features)
-// wird in validateBoot() vor dem Per-Feature-Walk geprüft.
+// apiNames must be globally unique across features; validateBoot() checks
+// this before the per-feature walk.
 export function validateApiExposureMatching(
   feature: FeatureDefinition,
   allExposedApis: ReadonlyMap<string, string>,
@@ -44,9 +43,9 @@ export function validateApiExposureMatching(
       );
     }
 
-    // Sanity: provider feature actually exists in this app's feature set.
-    // Should always be true if allExposedApis was built from `features`,
-    // aber defensiv für unklare Constructor-Pfade.
+    // Sanity: the provider feature must exist in this app's feature set.
+    // This should always hold when allExposedApis was built from `features`,
+    // but remains defensive for unclear constructor paths.
     if (!featureMap.has(providerFeature)) {
       throw new Error(
         `[Feature ${feature.name}] internal: r.usesApi("${apiName}") points to provider "${providerFeature}" which is not in feature map. Register the provider feature in the app's feature list.`,

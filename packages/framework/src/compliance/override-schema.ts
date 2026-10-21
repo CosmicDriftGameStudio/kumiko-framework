@@ -1,21 +1,18 @@
-// Zod-Schema fuer ComplianceProfileOverride mit .strict() rekursiv —
-// Sprint 1.9 Z3.
+// Zod schema for ComplianceProfileOverride with recursive `.strict()` validation.
 //
-// Vorher: set-profile.write.ts pruefte nur Top-Level-Keys gegen
-// OVERRIDABLE_PROFILE_KEYS. Sub-Level-Tippfehler (z.B.
-// `{ userRights: { weeks: 3 } }` statt `{ userRights: { gracePeriod: { days: 30 } } }`)
-// kamen durch — der deepMerge spliced das nonsense ins effektive
-// Profile, und ein Caller der `userRights.gracePeriod.days` liest
-// crashed mit `undefined`.
+// Previously, set-profile.write.ts checked only top-level keys against
+// OVERRIDABLE_PROFILE_KEYS. Sub-level typos (for example,
+// `{ userRights: { weeks: 3 } }` instead of
+// `{ userRights: { gracePeriod: { days: 30 } } }`) passed through —
+// deepMerge spliced the nonsense into the effective profile, and a caller
+// reading `userRights.gracePeriod.days` crashed with `undefined`.
 //
-// Lösung: Zod-Schema das die ComplianceProfile-Struktur in DeepPartial-
-// Form abbildet, mit .strict() auf jedem Object damit unbekannte Keys
-// werfen. Single source of truth wie OVERRIDABLE_PROFILE_KEYS, plus
-// Sub-Level-Coverage.
+// The schema maps the ComplianceProfile structure to DeepPartial form and
+// uses `.strict()` on every object so unknown keys throw. It is a single
+// source of truth like OVERRIDABLE_PROFILE_KEYS, with sub-level coverage.
 //
-// Identifikations-Felder (key, region, label, extends) sind NICHT im
-// Schema — wer die overriden will, würde die Profile-Identitaet
-// zerstören.
+// Identification fields (`key`, `region`, `label`, `extends`) are excluded
+// from the schema because overriding them would destroy profile identity.
 
 import * as z from "zod";
 
@@ -26,8 +23,8 @@ const durationSpecSchema = z.union([
   z.object({ hours: z.number().int().nonnegative() }).strict(),
 ]);
 
-// retention.* erlaubt zusaetzlich "months" und "years". Wieder eine
-// strikte Disjunktion.
+// retention.* additionally allows `"months"` and `"years"`; this remains
+// a strict disjunction.
 const auditRetentionSchema = z.union([
   durationSpecSchema,
   z.object({ months: z.number().int().nonnegative() }).strict(),
@@ -60,7 +57,7 @@ const userRightsOverrideSchema = z
     employeeAccessRight: z.boolean().optional(),
     explicitConsentForAutomatedDecision: z.boolean().optional(),
     doNotSellRequired: z.boolean().optional(),
-    // Async-Export-Pipeline (S2.U3+U4) — TTL Compliance-relevant,
+    // Async-Export-Pipeline — TTL Compliance-relevant,
     // Stale/Cleanup Operations-Settings.
     exportDownloadTtl: durationSpecSchema.optional(),
     exportStaleTimeoutMinutes: z.number().int().nonnegative().optional(),
@@ -118,10 +115,10 @@ const forgetDiscoveryOverrideSchema = z
   .strict();
 
 /**
- * Komplett-Schema fuer ComplianceProfileOverride. Alle Top-Level- UND
- * Sub-Level-Keys sind gewhitelisted via .strict() — Tippfehler werfen
- * sofort. Set-profile-Handler (Sprint 1.9 Z3) validiert das Override
- * gegen dieses Schema vor dem Persist.
+ * Complete schema for ComplianceProfileOverride. All top-level and
+ * sub-level keys are whitelisted with `.strict()`, so typos throw
+ * immediately. The set-profile handler validates the override against
+ * this schema before persisting it.
  */
 export const complianceProfileOverrideSchema = z
   .object({

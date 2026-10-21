@@ -162,7 +162,7 @@ export function registerSessionRoutes(ctx: AuthRouteContext): void {
       id: user.id,
       tenantId: targetTenantId,
       roles: sessionRoles,
-      // Tenant-independent prefs must survive the switch (fw#2343).
+      // Tenant-independent prefs must survive the switch.
       ...tenantIndependentPrefs(user),
     };
     const claims = await dispatcher.resolveAuthClaims(targetSession);

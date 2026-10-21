@@ -12,8 +12,8 @@ afterAll(async () => {
   await closeDb();
 });
 
-// Hilfsfunktion: jsonb-Spalte mit pgType + Default. NotNull damit der
-// expliziter Test ist (NULL-jsonb verdeckt sonst Bind-Bugs).
+// Define a jsonb column with pgType + default. NotNull makes this an
+// explicit test because NULL-jsonb would otherwise mask binding bugs.
 const jsonbCol = (defaultSql: string) => [
   { name: "data", pgType: "jsonb" as const, notNull: true, defaultSql },
 ];
@@ -144,7 +144,7 @@ describe("jsonb — numbers + special", () => {
 
   test("ISO date strings stay strings (NOT auto-parsed to Date)", async () => {
     await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
-      // Wichtig: db/query darf String-Werte in jsonb nicht zu Date coercen.
+      // Important: db/query must not coerce string values in jsonb to Date.
       const v = { iso: "2026-05-24T08:30:00.000Z" };
       const out = (await roundtripObject(db, meta, v)) as { iso: unknown };
       expect(typeof out.iso).toBe("string");
@@ -158,7 +158,7 @@ describe("jsonb — booleans + null", () => {
     await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
       const v = { active: true, deleted: false };
       const out = (await roundtripObject(db, meta, v)) as { active: unknown; deleted: unknown };
-      // typeof-Check verhindert "true"-string-statt-bool-Drift
+      // The typeof check prevents drift where true becomes the string "true".
       expect(typeof out.active).toBe("boolean");
       expect(typeof out.deleted).toBe("boolean");
       expect(out.active).toBe(true);

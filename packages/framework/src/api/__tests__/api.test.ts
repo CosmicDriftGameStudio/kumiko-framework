@@ -446,7 +446,7 @@ describe("pumpStream", () => {
     };
 
     await expect(pumpStream(writer, gen(), 5)).rejects.toThrow("client disconnected");
-    // Fire-and-forget cleanup (kumiko-framework#1547): pumpStream's finally
+    // Fire-and-forget cleanup: pumpStream's finally
     // no longer awaits generator.return() — it can't, since a still-pending
     // .next() would make that await hang — so cleanedUp flips asynchronously
     // after pumpStream's own rejection, not synchronously before it.
@@ -456,7 +456,7 @@ describe("pumpStream", () => {
   });
 
   test("does not hang when writeSSE throws while a .next() pull is still in flight", async () => {
-    // kumiko-framework#1547: generator.return() queues behind an in-flight
+    // generator.return() queues behind an in-flight
     // .next() (V8 semantics) — an `await generator.return(undefined)` in the
     // finally block would hang for as long as the handler's .next() never
     // settles, which a dead Redis/DB subscription can do indefinitely.
@@ -543,7 +543,7 @@ describe("POST /api/stream", () => {
     // Dispatch gates (feature/rate-limit/access/validation) run on the
     // generator's first pull, which the route now performs BEFORE opening
     // the SSE response — so a gate failure maps to its real HTTP status
-    // instead of a flushed-200 error frame (framework#1517).
+    // instead of a flushed-200 error frame.
     const headers = await authHeader(guestUser);
     const res = await req(
       "POST",
@@ -624,7 +624,7 @@ describe("POST /api/stream", () => {
   });
 });
 
-// --- POST /api/stream pre-pull race (framework#1547) ---
+// --- POST /api/stream pre-pull race ---
 // Mount createApiRoutes with a short sseHeartbeatMs so the pre-pull heartbeat
 // race is testable without waiting for the production 15s interval.
 
@@ -673,7 +673,7 @@ describe("POST /api/stream pre-pull race", () => {
   test("slow first next() opens 200 SSE with ping frames instead of hanging as HTTP error", async () => {
     // First .next() takes longer than heartbeatMs → settledInTime=false →
     // streamSSE opens immediately and pumpStream emits ping until the chunk
-    // arrives (framework#1547 route-level contract).
+    // arrives.
     //
     // 25x the heartbeat, not 3x: the assertion rides on the timer winning the
     // race, and a loaded CI runner delays timers by tens of milliseconds. At
@@ -745,13 +745,13 @@ describe("POST /api/stream pre-pull race", () => {
   });
 });
 
-// --- r.httpRoute (feature-deklarierte HTTP-Routes außerhalb /api/) ---
+// --- r.httpRoute (feature-declared HTTP routes outside /api/) ---
 
 describe("feature-declared HTTP routes (r.httpRoute)", () => {
-  // Eigenes buildServer-Setup mit einem Feature das eine Route deklariert.
-  // Pinst die Verdrahtung end-to-end: r.httpRoute → registry → buildServer
-  // → Hono-app.{get,post}(path) → Response. deps.app erlaubt internal-call
-  // an /api/* (gleicher Auth-Pfad wie ein echter HTTP-Call).
+  // Dedicated buildServer setup with a feature that declares a route.
+  // Pins the wiring end to end: r.httpRoute → registry → buildServer
+  // → Hono-app.{get,post}(path) → Response. deps.app allows internal calls
+  // to /api/* (the same auth path as a real HTTP call).
   const routeFeature = defineFeature("routes", (r) => {
     r.entity({
       name: "item",
@@ -777,9 +777,9 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
       path: "/probe-deps",
       anonymous: true,
       handler: (c, deps) => {
-        // Beweist dass deps.app die Hono-App-Instanz ist — Handler kann
-        // sie für internal app.fetch(...)-Calls nutzen (typischer
-        // Use-Case: feed.xml ruft /api/query intern auf).
+        // Proves that deps.app is the Hono app instance — the handler can use
+        // it for internal app.fetch(...)-calls (a typical use case:
+        // feed.xml calls /api/query internally).
         return c.json({
           hasApp: typeof deps.app === "object" && typeof deps.app.fetch === "function",
         });
@@ -807,10 +807,10 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
   });
 
   test("Handler kann via deps.app intern /api/query aufrufen (anonymous + defaultTenantId)", async () => {
-    // Realistischer Use-Case (publicstatus feed.xml): die r.httpRoute
-    // baut eine View aus internen /api/query-Daten. Anonymous-Access mit
-    // defaultTenantId macht den inner-Call ohne Bearer-Token möglich;
-    // pinst dass deps.app.fetch identisch zu einem echten HTTP-Call läuft.
+    // Realistic use case (publicstatus feed.xml): the r.httpRoute
+    // builds a view from internal /api/query data. Anonymous access with
+    // defaultTenantId enables the inner call without a Bearer token;
+    // pins that deps.app.fetch behaves identically to a real HTTP call.
     const inner = defineFeature("inner", (r) => {
       r.entity({
         name: "item",
@@ -819,9 +819,9 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
       });
-      // Bewusst "anonymous" — openToAll schließt anonymous-User explizit
-      // aus (siehe access.ts), damit das Aktivieren von anonymousAccess
-      // nicht versehentlich jeden openToAll-Handler public macht.
+      // Deliberately "anonymous" — openToAll explicitly excludes anonymous users
+      // (see access.ts), so enabling anonymousAccess does not accidentally
+      // make every openToAll handler public.
       r.queryHandler({
         name: "item:list",
         schema: z.object({}),

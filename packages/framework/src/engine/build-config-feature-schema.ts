@@ -1,19 +1,19 @@
-// Self-Populating Settings-Hub (config-provisioning Phase 2).
+// Self-Populating Settings Hub.
 //
-// Leitet aus den im Registry deklarierten Config-Keys automatisch die
-// Settings-UI ab: pro Audience (scope) einen Parent-Nav, pro (Feature ×
-// scope) einen configEdit-Screen + Child-Nav darunter. Kein manuelles
-// r.screen/r.nav am App-Author.
+// Derives the Settings UI automatically from the config keys declared in the
+// registry: one parent nav per audience (scope), and one configEdit screen plus
+// child nav per (feature × scope). App authors do not need manual
+// r.screen/r.nav declarations.
 //
-// Sichtbar wird nur ein Key MIT `mask` (siehe ConfigKeyDefinition): mask ist
-// die per-Key-Intent „user-facing Einstellung" und trägt zugleich das Label
-// (mask.title, ein i18n-Key). Keys ohne mask sind internes Plumbing
-// (ENV-provisioniert/computed) und erscheinen nicht.
+// Only a key WITH `mask` is visible (see ConfigKeyDefinition): mask is the
+// per-key intent for a “user-facing setting” and also supplies its label
+// (mask.title, an i18n key). Keys without mask are internal plumbing
+// (ENV-provisioned/computed) and are omitted.
 //
-// Die erzeugten Screens/Navs werden von buildAppSchema in die FeatureSchema
-// des config-Features (featureName "config") gemerged — der Renderer
-// qualifiziert die kurzen ids/refs mit "config". Daher hier durchweg KURZE
-// ids/parent/screen-Refs (buildNavRegistrySliceForApp qualifiziert selbst).
+// buildAppSchema merges the generated screens/navs into the FeatureSchema of
+// the config feature (featureName "config"). The renderer qualifies the short
+// ids/refs with "config", so this code consistently uses SHORT ids/parent/screen
+// refs (buildNavRegistrySliceForApp qualifies them itself).
 
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
 import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.ts";
@@ -55,23 +55,24 @@ import type {
   SecretsEditSection,
 } from "./types/screen.ts";
 
-// Namespace, unter dem buildAppSchema die generierten Screens/Navs einhängt
-// (find-or-create FeatureSchema). MUSS gleich CONFIG_FEATURE aus dem config
-// bundled-feature sein — framework kann das const nicht importieren (Richtung
-// bundled-features → framework), darum hier gepinnt + Pin-Test bundled-seitig.
+// Namespace under which buildAppSchema attaches the generated screens/navs
+// (find-or-create FeatureSchema). It MUST match CONFIG_FEATURE from the config
+// bundled feature. The framework cannot import that constant because of the
+// bundled-features → framework dependency direction, so it is pinned here and
+// verified by a bundled-feature pin test.
 export const SETTINGS_HUB_FEATURE = "config";
-// Eigene Workspace nur für workspace-mode-Apps (siehe buildAppSchema): Settings
-// erscheinen als eigener Switcher-Eintrag, statt die kuratierten App-Workspaces
-// zu verschmutzen. Apps ohne Workspaces zeigen die Navs über den no-filter-Pfad.
+// A dedicated workspace for workspace-mode apps (see buildAppSchema): Settings
+// appear as their own switcher entry instead of cluttering the curated app
+// workspaces. Apps without workspaces expose these navs through the no-filter path.
 export const SETTINGS_HUB_WORKSPACE = "settings";
 
 export type ConfigFeatureSchema = {
   readonly screens: readonly ScreenDefinition[];
   readonly navs: readonly NavDefinition[];
-  // Fertige Settings-Workspace mit qualifizierten navMembers. Nur present
-  // wenn mind. ein Key opt-in via mask hat; buildAppSchema hängt sie NUR an
-  // wenn die App bereits Workspaces nutzt (sonst kippt eine workspace-lose
-  // App in den Filter-Modus und verliert alle übrigen Navs).
+  // Completed Settings workspace with qualified navMembers. Present only when at
+  // least one key opts in via mask; buildAppSchema attaches it only when the app
+  // already uses workspaces. Otherwise a workspace-less app would enter filter
+  // mode and lose all its other navs.
   readonly workspace?: WorkspaceSchema;
   // Generated i18n keys for the secrets screen (label/hint text pulled from
   // the `r.secret()` declaration itself, not authored via r.translations).
@@ -107,22 +108,22 @@ export const SETTINGS_HUB_AUDIENCE_NAV_QNS: readonly string[] = SCOPES_BROAD_TO_
   (scope) => `${SETTINGS_HUB_FEATURE}:nav:${audienceNavShortId(scope)}`,
 );
 
-// An einem Scope BREITER als der Home-Scope eines Keys darf nur eine für DIESE
-// Ebene privilegierte Rolle den (Cascade-)Default setzen — SystemAdmin auf
-// system, TenantAdmin/Admin auf tenant. Am Home-Scope gilt das volle write-Set
-// (unverändertes Verhalten). So liefert ein tenant-Home-Key wie SMTP zusätzlich
-// einen SystemAdmin-only Plattform-Screen; ein Key, dessen write-Set keine
-// dieser Rollen nennt, bekommt keinen breiteren Screen (write-Set = opt-in).
+// At a scope broader than a key's home scope, only a role privileged for THAT
+// level may set the cascade default—SystemAdmin at system, TenantAdmin/Admin at
+// tenant. The home scope retains the full write set (unchanged behavior). Thus a
+// tenant-home key such as SMTP also gets a SystemAdmin-only platform screen; a
+// key whose write set names none of these roles gets no broader screen (the write
+// set is the opt-in).
 const ELEVATED_ROLES: Record<ConfigScope, readonly string[]> = {
   system: ["SystemAdmin"],
   tenant: ["TenantAdmin", "Admin"],
   user: [],
 };
 
-// Der interne Maschinen-Akteur (access.system). Ein Key, den NUR diese Rolle
-// schreiben darf, ist provisioned-not-user-facing: er gehört nicht in den
-// menschlichen Hub (sonst rendert ein Feld, das der sichtbare Mensch nicht
-// speichern kann). `as const` für Literal-Verengung am Vergleich.
+// The internal machine actor (access.system). A key writable ONLY by this role
+// is provisioned-not-user-facing and must not enter the human hub; otherwise the
+// UI would render a field that the visible user cannot save. `as const` narrows
+// the literal for the comparison.
 const MACHINE_WRITE_ROLE = "system" as const;
 
 type MaskedKey = {
@@ -663,7 +664,7 @@ function buildScopeResult(
       : NO_SELECTOR_GATING;
   const screens: ScreenDefinition[] = [];
   const navs: NavDefinition[] = [];
-  // Audience-Parent: Gruppierungs-Knoten ohne Screen.
+  // Audience parent: grouping node without a screen.
   navs.push({
     id: audienceNavShortId(scope),
     label: `config.settings.${scope}`,
@@ -885,10 +886,10 @@ function effectiveWriteRoles(def: ConfigKeyDefinition, scope: ConfigScope): stri
   return def.access.write.filter((r) => elevated.includes(r));
 }
 
-// navMembers tragen die QUALIFIZIERTEN Nav-QNs (siehe build-app-schema.test:
-// admin.navMembers === ["orders:nav:list", ...]). Die generierten Navs leben
-// unter SETTINGS_HUB_FEATURE, also `config:nav:<shortId>`. Sortiert = stabile
-// Landing-Screen-Wahl (firstNavScreenId iteriert navMembers der Reihe nach).
+// navMembers contain QUALIFIED nav QNs (see build-app-schema.test:
+// admin.navMembers === ["orders:nav:list", ...]). The generated navs live under
+// SETTINGS_HUB_FEATURE, namely `config:nav:<shortId>`. Sorting provides stable
+// landing-screen selection (firstNavScreenId iterates navMembers in order).
 function buildSettingsWorkspace(navs: readonly NavDefinition[]): WorkspaceSchema {
   const navMembers = navs.map((n) => `${SETTINGS_HUB_FEATURE}:nav:${n.id}`).sort();
   return {
@@ -897,11 +898,10 @@ function buildSettingsWorkspace(navs: readonly NavDefinition[]): WorkspaceSchema
       label: "config.settings.title",
       icon: "settings",
       order: 1000,
-      // Union der Zugriffs-Regeln der bereits generierten (machine-gefilterten)
-      // Hub-Navs — sonst sieht ein unprivilegierter User einen leeren
-      // "Settings"-Switcher. Aus den Navs statt aus `masked`, damit die
-      // machine-only "system"-Rolle (die in keinem Nav steht) nicht ins
-      // Switcher-Gate leakt.
+      // Union of the access rules for the already generated (machine-filtered) Hub
+      // navs; otherwise an unprivileged user would see an empty "Settings"
+      // switcher. Use the navs rather than `masked` so the machine-only
+      // "system" role, which appears in no nav, cannot leak into the switcher gate.
       access: unionAccessRules(navs.map((n) => n.access)),
     },
     navMembers,
@@ -1155,14 +1155,14 @@ function minMaskOrder(keys: readonly MaskedKey[]): number {
   return Math.min(...keys.map(maskOrder));
 }
 
-// Der Hub ist zum Editieren — wer mindestens einen Key der Gruppe SCHREIBEN
-// darf, sieht den Settings-Eintrag (write, nicht read). Das hält system-scope
-// (write default `["system"]`) human-hidden bis der Autor write: SystemAdmin
-// opt-int, und zeigt user-scope (write `all`) jedem. `all` lässt sich in
-// AccessRule nur als openToAll ausdrücken; der Write bleibt server-seitig
-// per Key gegated.
-// Union der Navs-Access-Regeln: ein openToAll-Nav öffnet das ganze Gate, sonst
-// die Vereinigung der Rollen. undefined-access-Navs tragen nichts bei.
+// The hub is for editing: anyone allowed to WRITE at least one key in the group
+// sees the Settings entry (write, not read). This keeps system-scope (write
+// default `["system"]`) hidden from humans until the author opts in with
+// write: SystemAdmin, while user-scope (write `all`) is shown to everyone.
+// `all` can only be represented as openToAll in AccessRule; writes remain
+// gated per key on the server.
+// Access rules for navs are unioned: an openToAll nav opens the whole gate;
+// otherwise roles are combined. Navs without access rules contribute nothing.
 function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRule {
   const roles: string[] = [];
   for (const rule of rules) {
@@ -1176,8 +1176,8 @@ function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRul
   return rolesToAccess(roles);
 }
 
-// `all` lässt sich in AccessRule nur als openToAll ausdrücken; der Write bleibt
-// server-seitig per Key gegated.
+// `all` can only be represented as openToAll in AccessRule; writes remain gated
+// per key on the server.
 function rolesToAccess(roles: readonly string[]): AccessRule {
   if (roles.includes("all"))
     return {

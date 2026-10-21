@@ -1,4 +1,4 @@
-// #497 guard: an entity declared `systemStream: true` (tenant-independent, e.g.
+// Guard: an entity declared `systemStream: true` (tenant-independent, e.g.
 // user) gets its event stream on SYSTEM_TENANT_ID for EVERY op; a normal entity
 // stays on the caller's tenant (byte-identical to the old hardcoded user.tenantId).
 // Routing is per-entity (createEntity flag), NOT inherited from r.systemScope().

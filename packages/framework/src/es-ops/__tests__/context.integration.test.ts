@@ -45,8 +45,8 @@ beforeAll(async () => {
     registry,
   });
 
-  // Minimal-Schema-Stubs für die 3 Read-Tabellen die context.ts liest.
-  // Spalten matchen production (siehe Sysadmin-Stream-Tenant-Bug Memory).
+  // Minimal schema stubs for the three read tables consumed by context.ts.
+  // Columns match the production schema.
   await asRawClient(testDb.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_users (
       id          uuid PRIMARY KEY,
@@ -183,10 +183,10 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
   });
 
   test("stream-tenant != payload-tenant wird korrekt ausgewiesen (Driver-Bug)", async () => {
-    // Reproduziert den publicstatus-Driver-Fall: seedTenantMembership
-    // wurde mit by=systemAdmin aufgerufen → executor.tenantId=
-    // SYSTEM_TENANT_ID landet als events.tenant_id, während payload.
-    // tenantId der target-Tenant ist. Die beiden divergieren.
+    // Reproduces the publicstatus driver case: seedTenantMembership was called
+    // with by=systemAdmin, so executor.tenantId=
+    // SYSTEM_TENANT_ID is stored as events.tenant_id, while payload.tenantId
+    // is the target tenant. The two values diverge.
     const userId = "01900000-0000-7000-8000-000000000001";
     const aggId = "00000000-0000-4000-8000-0000000000b1";
     const payloadTenant = "00000000-0000-4000-8000-000000000042";
@@ -213,8 +213,8 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
   });
 
   test("malformed roles-JSON → leeres Array (defensive, no throw)", async () => {
-    // Defensive: wenn ein corrupted row kommt, soll der Seed nicht
-    // explodieren — kann selbst entscheiden was zu tun ist.
+    // Defensive handling: if a corrupted row is returned, the seed must not
+    // fail; the caller can decide how to proceed.
     const userId = "01900000-0000-7000-8000-000000000002";
     const aggId = "00000000-0000-4000-8000-0000000000c1";
     const tenantId = "00000000-0000-4000-8000-000000000003";
@@ -243,11 +243,10 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
   });
 
   test("membership ohne v1-Event wird vom INNER JOIN ausgefiltert (Drift-Detection)", async () => {
-    // Schutz vor Data-Drift: read-row ohne event-row ist kein legitimer
-    // Zustand für ein ES-Aggregate. Statt einer Half-Row zurückzugeben
-    // verschwindet die Row aus dem Result — Seed-Author sieht "0 memberships"
-    // statt einer mit fehlendem stream-tenant zu arbeiten und schwer
-    // diagnostizierbare version_conflict-Errors zu produzieren.
+    // Prevents data drift: a read row without an event row is not a valid
+    // ES aggregate state. The row is excluded instead of returning a partial
+    // result with a missing stream tenant, which would cause difficult-to-
+    // diagnose version_conflict errors.
     const userId = "01900000-0000-7000-8000-000000000003";
     await asRawClient(testDb.db).unsafe(
       `
@@ -341,8 +340,8 @@ describe("runPendingSeedMigrations: skippable + env-flag (integration)", () => {
       expect(r.appliedIds).toEqual([]);
       expect(r.skippedIds).toEqual(["2026-05-20-skip-via-env"]);
 
-      // Kritisch: KEIN Marker — beim nächsten Boot ohne env-flag würde
-      // der Seed dann tatsächlich laufen.
+      // Critical: no marker is written, so the seed will run on the next boot
+      // if the environment flag is absent.
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {

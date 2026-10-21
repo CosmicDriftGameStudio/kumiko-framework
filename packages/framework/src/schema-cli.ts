@@ -411,9 +411,9 @@ export async function runSchemaCli(
       writeFileSync(join(migrationsDir, result.filename), result.sqlContent);
       writeSnapshotJson(snapshotPath, result.snapshot);
 
-      // Rebuild-Marker nur für inkrementelle Migrationen — die Init-Migration
-      // (prevSnapshot===null) legt nur Tabellen an, es gibt keine historischen
-      // Events zum Replayen.
+      // Rebuild markers are written only for incremental migrations — the initial
+      // migration (prevSnapshot===null) only creates tables, so there are no historical
+      // events to replay.
       const rebuildTables = prevSnapshot === null ? [] : rebuildTablesFromDiff(result.diff);
       writeRebuildMarker(migrationsDir, result.filename, rebuildTables);
 
@@ -560,7 +560,7 @@ export async function runSchemaCli(
           // replayMigrationsDir fail-loud's on a table-DDL statement it can't
           // parse — that must surface as a normal ✗ line like every other
           // check here, not a raw stack trace that kills the process before
-          // any later check (or the Fix: help) ever runs (framework#1535).
+          // any later check (or the Fix: help) ever runs.
           ok = false;
           out.err(`  ✗ migration-content: ${e instanceof Error ? e.message : String(e)}`);
           out.err(
@@ -586,11 +586,12 @@ export async function runSchemaCli(
       let wiring: KmsWiring | undefined;
       try {
         const result = await runMigrationsFromDir(db, migrationsDir);
-        // Framework-Infra-Tabellen (event-store + pipeline-state) — die erfasst
-        // `generate` nicht (nur Entity-read-Tabellen). Bestehende DBs haben sie
-        // aus dem legacy-drizzle-Fundament; eine Greenfield-DB (erste App ohne
-        // Cutover) hätte sonst kein kumiko_events → runProdApp-Boot scheitert.
-        // Alle drei sind idempotent (tableExists-Gate), also no-op für Bestands-DBs.
+        // Framework infrastructure tables (event store + pipeline state) are not captured by
+        // `generate`, which handles only entity read tables. Existing databases have them
+        // from the legacy-drizzle foundation; without them, a greenfield database (the
+        // first app without a cutover) would lack kumiko_events and runProdApp would fail
+        // during boot. All three are idempotent (tableExists-gated), so they are no-ops for
+        // existing databases.
         await createEventsTable(db);
         await createEventConsumerStateTable(db);
         await createProjectionStateTable(db);
@@ -612,14 +613,14 @@ export async function runSchemaCli(
         // (kumiko_pending_rebuilds) survives a failed/crashed rebuild from an
         // earlier apply, so a later apply with zero new migrations still must
         // retry it — otherwise a failed rebuild is silently never retried,
-        // since the migration itself is already tracked applied (#2464).
+        // since the migration itself is already tracked applied.
         if (options.features) {
           // A rebuild replays applyEntityEvent, which computes bidx columns from
           // configureBlindIndexKey/configurePiiSubjectKms — both boot-injected by
           // run{Prod,Dev}App but never by this standalone CLI (the migrate-db
           // initContainer). Without wiring them here, a rebuild would silently
           // null out bidx columns and, for ciphertext, throw only once it hits
-          // the row (fw#3091).
+          // the row.
           wiring = await resolveKmsWiringAsync(process.env, {
             logPrefix: "[kumiko schema apply]",
             log: out.log,
@@ -694,10 +695,10 @@ export async function runSchemaCli(
       const local = loadMigrationsFromDir(migrationsDir);
       const { db, close } = createDbConnection({ url: dbUrl });
       try {
-        // Frische DB ohne je gelaufenes `kumiko schema apply` → tracking-table
-        // fehlt = "nichts applied". Connection-/Permission-Fehler dagegen
-        // sollen NICHT geschluckt werden (False-pending verschleiert das Problem) —
-        // tableExists prüft gezielt nur Existenz, alles andere propagiert.
+        // On a fresh database where `kumiko schema apply` has never run, the tracking table is
+        // absent, which means "nothing applied". Connection and permission errors must not
+        // be swallowed (false pending results would hide the problem) — tableExists checks
+        // only for existence, while all other errors propagate.
         const trackingExists = await tableExists(db, "_kumiko_migrations");
         const applied = trackingExists
           ? new Set((await fetchAppliedMigrations(db)).map((a) => a.id))

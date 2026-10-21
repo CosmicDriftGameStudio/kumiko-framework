@@ -1,5 +1,5 @@
-// Public API of the pattern-library — Designer (C5/C6), AI-Builder (L2),
-// MCP-Server (L9) consume from here.
+// Public API of the pattern-library — Designer, AI-Builder,
+// MCP-Server consume from here.
 
 export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "./library.ts";
 export type {

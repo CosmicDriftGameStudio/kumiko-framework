@@ -20,7 +20,7 @@ import type { TenantId } from "../../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
-// #983: ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
+// ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
 // manual dispatch from a handler/job is a dynamic context extension, same
 // cast as setup-test-stack-jobs.integration.test.ts.
 type ManualDispatchRef = {

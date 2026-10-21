@@ -17,8 +17,8 @@
 //   - Top-level code outside `defineFeature(...)`. Designer/AI treat
 //     such files as "not a feature file".
 //
-// **Skeleton status (C1.3):** interface fixed, extractors are TODO.
-// Per-pattern extractors fill in iteratively (C1.5) — each round adds
+// **Skeleton status:** interface fixed, extractors are TODO.
+// Per-pattern extractors fill in iteratively — each iteration adds
 // one extractor + a focused test.
 
 import type {
@@ -295,7 +295,7 @@ function walkSetupCallback(
     // a registrar-wrapper call — a function that receives the registrar as
     // a bare argument, e.g. `registerShowPonyScreens(r)`. Such wrappers are
     // invisible to a receiver-shape match, so we resolve the callee (same
-    // file, or the declaring file of a named import — #1008) and recurse
+    // file, or the declaring file of a named import) and recurse
     // into its body with its own parameter name for the registrar slot.
     const wrapper = resolveRegistrarWrapperCall(call, registrarParamName);
     if (!wrapper) continue; // Free function call unrelated to the registrar — ignore.
@@ -516,7 +516,7 @@ function walkAiStepCalls(
 }
 
 // =============================================================================
-// Internal — pattern extractors (skeleton, implementation in C1.5)
+// Internal — pattern extractors
 // =============================================================================
 
 /**
@@ -526,8 +526,8 @@ function walkAiStepCalls(
  * commit to the new kind via compile errors.
  *
  * Skeleton: every recognised method currently returns an UnknownPattern
- * with the right method name. C1.5 replaces the cases with concrete
- * extractors one at a time.
+ * with the right method name. Extractors replace the cases with concrete
+ * implementations one at a time.
  */
 function dispatchExtractor(
   methodName: string,
@@ -535,7 +535,7 @@ function dispatchExtractor(
   sourceFile: SourceFile,
 ): ExtractOutput<FeaturePattern> {
   switch (methodName) {
-    // Round 1 — simplest static patterns
+    // Simplest static patterns
     case "requires":
       return extractRequires(call, sourceFile);
     case "optionalRequires":
@@ -550,7 +550,7 @@ function dispatchExtractor(
       return extractDescribe(call, sourceFile);
     case "uiHints":
       return extractUiHints(call, sourceFile);
-    // Round 2 — object-literal-based static patterns
+    // Object-literal-based static patterns
     case "entity":
       return extractEntity(call, sourceFile);
     case "relation":
@@ -559,7 +559,7 @@ function dispatchExtractor(
       return extractNav(call, sourceFile);
     case "workspace":
       return extractWorkspace(call, sourceFile);
-    // Round 3 — complex static patterns
+    // Complex static patterns
     case "config":
       return extractConfig(call, sourceFile);
     case "translations":
@@ -576,7 +576,7 @@ function dispatchExtractor(
       return extractReferenceData(call, sourceFile);
     case "useExtension":
       return extractUseExtension(call, sourceFile);
-    // Round 4 — mixed (header + body) patterns
+    // Mixed (header + body) patterns
     case "hook":
       return extractHook(call, sourceFile);
     case "authClaims":
@@ -601,7 +601,7 @@ function dispatchExtractor(
       return extractMultiStreamProjection(call, sourceFile);
     case "screen":
       return extractScreen(call, sourceFile);
-    // Round 5 — opaque patterns
+    // Opaque patterns
     case "extendsRegistrar":
       return extractExtendsRegistrar(call, sourceFile);
     case "usesApi":
@@ -612,10 +612,10 @@ function dispatchExtractor(
       return extractStoreTable(call, sourceFile);
     case "bootCheck":
       return extractBootCheck(call, sourceFile);
-    // Round 6 — Tree-Actions pattern
+    // Tree-Actions pattern
     case "treeActions":
       return extractTreeActions(call, sourceFile);
-    // Round 7 — env-schema contract (opaque, Zod-expression argument)
+    // Env-schema contract (opaque, Zod-expression argument)
     case "envSchema":
       return extractEnvSchema(call, sourceFile);
     // Unknown method — UnknownPattern signal so Designer/AI surface it

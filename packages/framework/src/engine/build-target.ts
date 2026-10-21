@@ -1,65 +1,62 @@
-// buildTarget — typed Builder für TargetRef.
+// buildTarget — typed builder for TargetRef.
 //
-// **Was er macht.** Erzeugt einen TargetRef, dessen action + args
-// compile-time gegen die treeActions-Map des Ziel-Features validiert
-// sind. Magic-String-URIs werden nirgends hand-getippt; das ist die
-// Single-Source-of-Truth für Cross-Feature-Linking im Visual-Tree.
+// **What it does.** Creates a TargetRef whose action and args are
+// validated at compile time against the target feature's treeActions map.
+// Magic-string URIs are never typed by hand; this is the single source
+// of truth for cross-feature linking in the visual tree.
 //
-// **Wie er typed.** Function-Overloads splitten Actions ohne args
-// (NoArgsAction) und Actions mit args (WithArgsAction). TS validiert:
-//   - action ist string-literal aus den Keys von treeActions
-//   - bei WithArgsAction sind args required und matchen
+// **How it is typed.** Function overloads separate actions without args
+// (NoArgsAction) from actions with args (WithArgsAction). TypeScript validates:
+//   - action is a string literal from the keys of treeActions
+//   - for WithArgsAction, args is required and matches
 //     treeActions[action]["args"]
-//   - bei NoArgsAction ist args nicht erlaubt
+//   - for NoArgsAction, args is not allowed
 //
-// **Phase 0.** Das Feature-Handle ist hier eine generische Constraint
-// (FeatureWithTreeActions). In Schicht 2 wird treeActions ein
-// Pattern-Type im Feature-AST und defineFeature exposed eine
-// treeActions-Slot mit gleichem Shape — dann passen real Features
-// drauf, ohne Builder-Änderung.
-//
-// Siehe docs/plans/architecture/visual-tree.md A5.
+// **Feature handle.** It is currently a generic constraint
+// (FeatureWithTreeActions). Once treeActions becomes a pattern type in the
+// feature AST and defineFeature exposes a treeActions slot with the same
+// shape, real features will fit without changing the builder.
 
 import type { TargetRef } from "./types/target-ref.ts";
 import type { TreeActionDef } from "./types/tree-node.ts";
 
-// FeatureWithTreeActions — internal Generic-Constraint für den Builder.
-// **Bewusst nicht exportiert** — Phase-0-Stub, wird in V.1.1 durch echte
-// FeatureDefinition mit treeActions-Slot ersetzt. Caller brauchen den Type
-// nicht direkt; TS leitet ihn aus dem `target`-Argument von buildTarget ab.
+// FeatureWithTreeActions — internal generic constraint for the builder.
+// **Intentionally not exported** — a temporary stub that will be replaced
+// by a real FeatureDefinition with a treeActions slot. Callers do not need
+// this type directly; TypeScript infers it from buildTarget's `target` argument.
 type FeatureWithTreeActions<TActions extends Record<string, TreeActionDef>> = {
   readonly id: string;
   readonly treeActions: TActions;
 };
 
-// NoArgsAction<T> — Union der Action-Namen die KEINE args-Definition
-// haben. Mapped-Type emittiert pro Key entweder K (kein args) oder never
-// (args vorhanden); Index-Lookup `[keyof T]` reduziert auf die K-Keys.
-// `& string` schneidet number/symbol-keys raus die TS via keyof
-// theoretisch zulassen würde — Action-Namen sind ausschließlich Strings.
+// NoArgsAction<T> — union of action names that have no args definition.
+// The mapped type emits either K (no args) or never (args present) for each
+// key; the `[keyof T]` index lookup reduces this to the K keys.
+// `& string` removes number and symbol keys that TypeScript could
+// theoretically allow through keyof; action names are strings only.
 type NoArgsAction<T extends Record<string, TreeActionDef>> = {
   [K in keyof T]: T[K] extends { args: unknown } ? never : K;
 }[keyof T] &
   string;
 
-// WithArgsAction<T> — Komplement zu NoArgsAction: Union der Action-
-// Namen die `args` deklariert haben. Selbe Mechanik mit invertiertem
-// conditional. Trennung in zwei Unions ist nötig damit die Function-
-// Overloads (NoArgs vs. WithArgs) sauber typed werden können.
+// WithArgsAction<T> — complement of NoArgsAction: union of action names
+// that declare `args`. It uses the same mechanism with an inverted
+// conditional. Separating the two unions is necessary so the function
+// overloads (NoArgs versus WithArgs) are typed correctly.
 type WithArgsAction<T extends Record<string, TreeActionDef>> = {
   [K in keyof T]: T[K] extends { args: unknown } ? K : never;
 }[keyof T] &
   string;
 
-// TypeGuard für args: Overloads garantieren ein Plain-Object, aber die
-// Implementation-Signature sieht args als unknown (TArgs ist erased zur
-// Laufzeit). Der Guard validiert die Plain-Object-Convention runtime
-// statt einen `as`-Cast zu setzen — siehe coding-standards.md.
+// Type guard for args: overloads guarantee a plain object, but the
+// implementation signature sees args as unknown (TArgs is erased at
+// runtime). The guard validates the plain-object convention at runtime
+// instead of using an `as` cast.
 function isArgsObject(v: unknown): v is Readonly<Record<string, unknown>> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-// Overload 1: action ohne args
+// Overload: action without args
 export function buildTarget<
   TActions extends Record<string, TreeActionDef>,
   TActionName extends NoArgsAction<TActions>,
@@ -68,7 +65,7 @@ export function buildTarget<
   readonly action: TActionName;
 }): TargetRef;
 
-// Overload 2: action mit args (required + typed)
+// Overload: action with args (required and typed)
 export function buildTarget<
   TActions extends Record<string, TreeActionDef>,
   TActionName extends WithArgsAction<TActions>,
@@ -78,8 +75,8 @@ export function buildTarget<
   readonly args: TActions[TActionName] extends { args: infer TArgs } ? TArgs : never;
 }): TargetRef;
 
-// Implementation — args ist `unknown` weil die Overloads-Generic-TArgs
-// zur Laufzeit erased ist. Plain-Object-Convention via TypeGuard.
+// Implementation — args is `unknown` because the overloads' generic TArgs
+// is erased at runtime. The plain-object convention is enforced via the type guard.
 export function buildTarget(spec: {
   readonly target: { readonly id: string };
   readonly action: string;

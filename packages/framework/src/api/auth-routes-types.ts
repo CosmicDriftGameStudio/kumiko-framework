@@ -175,7 +175,7 @@ export type AuthRoutesConfig = {
   passwordReset?: PasswordResetConfig;
   // Email-verification flow. Symmetric to passwordReset.
   emailVerification?: EmailVerificationConfig;
-  // Account-unlock flow (#1266). When wired, POST
+  // Account-unlock flow. When wired, POST
   // /auth/request-account-unlock + /auth/confirm-account-unlock are
   // mounted as public routes. Confirm needs no extra body field
   // (token-only, like email-verification) — the handler only clears the

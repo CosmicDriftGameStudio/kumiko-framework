@@ -7,42 +7,42 @@ import type {
 } from "./types/config.ts";
 import type { Registry } from "./types/index.ts";
 
-// Per-Request Config-Resolver für Routes.
+// Per-request config resolver for routes.
 //
-// Use-case (aus configuration-layers.md, Ebene 7): der Caller will pro
-// Request einen Wert setzen, den Tenant-Admin aber den Max-Bound festlegen.
-// Beispiel: `GET /files/:id/download-url?expiresSeconds=3600` — Client
-// wählt 3600s, aber wenn Tenant-Admin Max=1800 gesetzt hat, clampt der
-// Helper auf 1800.
+// Use case (configuration-layers.md, level 7): the caller wants to set a
+// per-request value while the tenant admin sets the maximum bound.
+// Example: `GET /files/:id/download-url?expiresSeconds=3600` — the client
+// chooses 3600s, but if the tenant admin sets Max=1800, the helper clamps
+// the value to 1800.
 //
-// Clamp-Regel: hard-clamp für number mit bounds. Silent — im Gegensatz zu
-// tenant-admin-SET (dort ist reject richtig). Caller hat oft keine Kontrolle
-// über den genauen Wert (voreingestellt im Client-SDK), und ein 422 pro
-// Download-Klick wäre UX-Gift.
+// Clamp rule: hard-clamp bounded numbers silently, unlike tenant-admin-SET,
+// where rejection is appropriate. The caller often cannot control the exact
+// value (it is preconfigured in the client SDK), and returning 422 for each
+// download click would harm the user experience.
 //
-// Fallback-Cascade:
-//   1. paramValue valide → clamp + return
-//   2. paramValue fehlt / nicht parseable → ctx.config(handle)
+// Fallback cascade:
+//   1. Valid paramValue → clamp and return
+//   2. Missing or unparseable paramValue → ctx.config(handle)
 //
-// Bei select: nur valide Options werden akzeptiert, sonst Fallback.
-// Bei boolean: "true"/"1" → true, sonst false.
+// For select, only valid options are accepted; otherwise, fall back.
+// For boolean, "true"/"1" → true; otherwise, false.
 //
-// ### text-Keys sind gesperrt
+// ### text keys are locked
 //
-// Per-Request-Overrides für `type="text"` werden HART ABGELEHNT. Grund:
-// Query-Param-Strings können XSS/SQL/Command-Fragmente enthalten, und
-// dieser Helper ist ein *Parser*, kein *Sanitizer*. Ein silent-pass-through
-// wäre ein Footgun — App-Dev würde denken "param ist aktiv" und der
-// unsanitized Wert landet in HTML/SQL/Shell-Kontext.
+// Per-request overrides for `type="text"` are HARD-REJECTED because query
+// parameter strings can contain XSS/SQL/command fragments, and this helper
+// is a *parser*, not a *sanitizer*. Silent pass-through would be a footgun:
+// an app developer could assume the param is active, allowing the unsanitized
+// value to reach an HTML/SQL/shell context.
 //
-// Die Sperre gilt nur beim tatsächlichen Override-Versuch (paramValue
-// gesetzt). Wenn paramValue undefined/null/"" ist, gibt der Helper den
-// Config-Wert zurück — dann liefert die Funktion für text-Keys einfach
-// denselben Wert wie `ctx.config(handle)`.
+// The restriction applies only when actually attempting an override
+// (paramValue is set). If paramValue is undefined/null/"", the helper returns
+// the config value, so for text keys the function returns the same value as
+// `ctx.config(handle)`.
 //
-// Wer für text pro Request tatsächlich einen Wert akzeptieren will, baut
-// das explizit in der Route mit eigener Escape-Strategie für den Consumer
-// (HTML-Encoder, SQL-Parameter-Binding, Shell-Quoter).
+// To accept a per-request text value, implement it explicitly in the route
+// with an escaping strategy appropriate for the consumer (HTML encoder, SQL
+// parameter binding, shell quoting).
 
 type ResolveCtx = {
   readonly config: ConfigAccessor;

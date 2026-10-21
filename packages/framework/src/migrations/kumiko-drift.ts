@@ -56,18 +56,19 @@ export async function detectKumikoDrift(
   db: DbConnection,
   migrationsDir: string,
 ): Promise<KumikoDriftReport> {
-  // App auf neuer Framework-Version, hat aber `./kumiko/migrations` noch nicht
-  // generiert (z.B. erstes Upgrade, custom Schema-Setup ohne kumiko schema
-  // generate) → keine local migrations → keine drift. Konsistent zum
-  // status-Subcommand, der ebenfalls existsSync-guarded ist. Ohne diesen Guard
-  // würde loadMigrationsFromDir → readdirSync synchron ENOENT werfen
-  // (plain Error, kein SchemaDriftError) und der Boot crasht roh.
+  // A newer framework version may not have generated `./kumiko/migrations` yet
+  // (for example, a first upgrade or custom schema setup without `kumiko schema
+  // generate`). Treat this as no local migrations and therefore no drift, matching
+  // the status subcommand's `existsSync` guard. Without it, `loadMigrationsFromDir`
+  // calls `readdirSync`, which throws synchronous ENOENT as a plain Error instead
+  // of SchemaDriftError and causes an unhandled boot failure.
   if (!existsSync(migrationsDir)) {
     return { ok: true, pending: [], checksumMismatches: [], missingTables: [], missingColumns: [] };
   }
   const local = loadMigrationsFromDir(migrationsDir);
-  // Frische DB ohne je gelaufenes `kumiko schema apply` → tracking-table fehlt.
-  // Das ist kein Fehler, sondern "nichts applied" → alle local sind pending.
+  // A fresh database may not have the tracking table because `kumiko schema apply`
+  // has never run. Treat that as no applied migrations, so all local migrations are
+  // pending rather than reporting an error.
   const trackingExists = await tableExists(db, "_kumiko_migrations");
   const applied = trackingExists
     ? new Map((await fetchAppliedMigrations(db)).map((a) => [a.id, a.checksum] as const))
@@ -148,11 +149,11 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
       lines.push(`    - ${m.table}: ${m.columns.join(", ")}`);
     }
   }
-  // Per-Cause Remediation — `kumiko schema apply` löst NUR pending. Checksum-
-  // mismatch ist eine Sackgasse für apply (MigrationChecksumMismatchError) und
-  // baseline (ON CONFLICT DO NOTHING → landet in alreadyTracked). Missing
-  // tables ohne pending = manuell gelöschte Tabelle nach apply → ebenfalls
-  // nicht durch apply heilbar.
+  // Remediation depends on the cause: `kumiko schema apply` handles only pending
+  // migrations. A checksum mismatch causes MigrationChecksumMismatchError during
+  // apply, and baseline's ON CONFLICT DO NOTHING leaves it in alreadyTracked.
+  // A missing table with no pending migration was deleted after apply and cannot be
+  // restored by apply.
   lines.push("");
   if (report.pending.length > 0) {
     lines.push("Run 'kumiko schema apply' to apply the pending migration(s).");

@@ -1,4 +1,4 @@
-// Tests for projectAppSchemaForRoles (fw#3314). Pins:
+// Tests for projectAppSchemaForRoles. Pins:
 //   1. LEAK INVARIANT — a role-gated screen disappears from EVERY reference
 //      site the projection file header claims to cover for a denied role,
 //      and survives — with the projection returning the exact input
@@ -214,7 +214,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       layout: {
         sections: [
           { fields: ["label"] },
-          // relatedList is only valid on projectionDetail (fw#2166) — the
+          // relatedList is only valid on projectionDetail — the
           // boot-validator rejects it on entityEdit/actionForm/configEdit,
           // so this is the closest valid host for its own site set.
           {

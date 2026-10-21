@@ -84,7 +84,7 @@ describe("r.storeTable — declaration", () => {
     ).toThrow(/the "read_" prefix is reserved/);
   });
 
-  // #1598: registration guard — plain literal meta bypasses defineUnmanagedTable
+  // Registration guard — plain literal meta bypasses defineUnmanagedTable
   test("r.storeTable rejects a plain literal meta with reserved read_ prefix", () => {
     const literalMeta = {
       tableName: "read_rt_probe",
@@ -170,9 +170,8 @@ describe("createRegistry — storeTable aggregation", () => {
 
   test("rejects a store-table that collides with an entity's physical name", () => {
     // Custom `table` override without the read_ prefix — resolveTableName's
-    // default would carry read_, which r.storeTable now rejects outright
-    // (#1220), so the collision case needs a table name storeTable can
-    // actually register.
+    // default would carry read_, which r.storeTable now rejects outright, so the
+    // collision case needs a table name storeTable can actually register.
     const widget = createEntity({
       table: "shop_widgets",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },

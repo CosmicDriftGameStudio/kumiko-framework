@@ -1,5 +1,5 @@
-// Pure Unit-Tests für die flatten/rehydrate Helpers — Auto-Convert für
-// locatedTimestamp-Felder. Keine DB, kein Stack, nur Daten-Transform.
+// Pure unit tests for the flatten/rehydrate helpers — automatic conversion for
+// locatedTimestamp fields. No database or stack, only data transformation.
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createLocatedTimestampField, createTextField } from "../../engine/index.ts";
@@ -14,10 +14,9 @@ const orderEntity: EntityDefinition = createEntity({
   },
 });
 
-// Sprint F: flattenLocatedTimestamp returnt jetzt Temporal.Instant für die
-// <name>Utc-Spalte (statt ISO-String). Tests vergleichen via .toString()
-// damit der Wert deterministisch lesbar bleibt — der canonical ISO-Output
-// von Temporal.Instant ist stabil.
+// flattenLocatedTimestamp returns Temporal.Instant for the <name>Utc column
+// instead of an ISO string. Tests compare via .toString() so the value remains
+// deterministically readable — Temporal.Instant's canonical ISO output is stable.
 const utcStr = (v: unknown): string => (v as Temporal.Instant).toString();
 
 describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
@@ -51,7 +50,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
       },
       orderEntity,
     );
-    // utc gewinnt — wir speichern was der Caller explizit angegeben hat.
+    // utc wins — we store the value explicitly provided by the caller.
     expect(utcStr(flat["pickupUtc"])).toBe("2026-04-15T07:00:00Z");
   });
 
@@ -87,7 +86,7 @@ describe("flattenLocatedTimestamp — Insert/Update Convert", () => {
   });
 
   test("DST-Übergang Berlin Spring-Forward 2026-03-29 — Konvertierung korrekt", () => {
-    // 04:30 Berlin am 29.03.2026 (nach DST-Sprung) = 02:30 UTC (CEST UTC+2)
+    // 04:30 in Berlin on 2026-03-29 (after the DST transition) = 02:30 UTC (CEST UTC+2)
     const flat = flattenLocatedTimestamp(
       { pickup: { at: "2026-03-29T04:30:00", tz: "Europe/Berlin" } },
       orderEntity,
@@ -139,7 +138,7 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
   });
 
   test("PG-Wire-Format mit Space wird normalisiert (PG-mode:'string')", () => {
-    // Drizzle's mode:"string" liefert TIMESTAMPTZ als "2026-04-15 09:00:00+00".
+    // Drizzle's mode:"string" returns TIMESTAMPTZ as "2026-04-15 09:00:00+00".
     const out = rehydrateLocatedTimestamp(
       { pickupUtc: "2026-04-15 09:00:00+00", pickupTz: "Europe/Lisbon" },
       orderEntity,
@@ -156,7 +155,7 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
     const pickup = rehydrated["pickup"] as { at: string; tz: string; utc: string };
     expect(pickup.at).toBe("2026-04-15T10:00:00");
     expect(pickup.tz).toBe("Europe/Lisbon");
-    // utc wird IM Read zusätzlich befüllt — original hatte ihn nicht
+    // utc is also populated during the read — the original did not have it
     expect(pickup.utc).toBe("2026-04-15T09:00:00Z");
   });
 
@@ -177,18 +176,18 @@ describe("rehydrateLocatedTimestamp — Read Convert", () => {
   });
 
   test("Tag-Wechsel: 23:30 Berlin → 21:30 UTC; Read in Tokyo gibt anderen Tag", () => {
-    // Beweis dass der Default `at` = Pickup-Ort-lokal IST. Hier speichern
-    // wir einen UTC-Instant mit Lissabon als gespeicherte tz, und prüfen
-    // dass der Read den Lissabon-Wall-Clock-Tag liefert (nicht z.B. Tokyo).
+    // This proves that the default `at` is local to the pickup location. We store
+    // a UTC instant with Lisbon as the stored tz and verify that the read returns
+    // the Lisbon wall-clock date, not Tokyo's.
     const out = rehydrateLocatedTimestamp(
       { pickupUtc: "2026-04-15T22:30:00Z", pickupTz: "Europe/Lisbon" },
       orderEntity,
     );
-    // In Lissabon (WEST UTC+1) ist 22:30 UTC am 15.04 = 23:30 am 15.04 lokal
+    // In Lisbon (WEST UTC+1), 22:30 UTC on 15 April is 23:30 local on 15 April
     expect((out["pickup"] as { at: string }).at).toBe("2026-04-15T23:30:00");
 
-    // Wenn jemand User-Sicht "in Tokyo" wollte: muss er aus utc selbst ableiten.
-    // Dieser Test demonstriert nur die Server-Default-Sicht (Pickup-Ort-lokal).
+    // If a user wants the view in Tokyo, they must derive it from utc themselves.
+    // This test only demonstrates the server's default view, local to the pickup location.
   });
 
   test("fehlende Felder werden übersprungen (kein crash)", () => {

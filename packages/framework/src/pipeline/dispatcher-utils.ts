@@ -103,7 +103,7 @@ export function extractNestedSpecs(
   if (!entityName) return null;
 
   const relations = registry.getRelations(entityName);
-  const source = payload as Record<string, unknown>; // @cast-boundary engine-payload — generic dispatch über alle Entity-Types
+  const source = payload as Record<string, unknown>; // @cast-boundary engine-payload — generic dispatch across all entity types
   const clean: Record<string, unknown> = { ...source };
   const specs: NestedSpec[] = [];
   const typeIssues: NestedTypeIssue[] = [];

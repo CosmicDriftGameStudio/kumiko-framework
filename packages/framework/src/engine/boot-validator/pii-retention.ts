@@ -9,8 +9,8 @@ import {
 
 const log = createFallbackLogger("kumiko:boot");
 
-// Framework-managed Timestamp-Spalten — dürfen als retention.reference
-// genutzt werden auch wenn nicht in entity.fields deklariert.
+// Framework-managed timestamp fields may be used as retention.reference
+// even when they are not declared in entity.fields.
 const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
   "createdAt",
   "updatedAt",
@@ -18,10 +18,9 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
   "deletedAt",
 ]);
 
-// Erlaubtes Format fuer retention.keepFor — Zahlen + Suffix (h/d/w/m/y).
-// Echtes Parsen kommt mit dem Cleanup-Job in Sprint 2; Boot-Validator
-// macht nur den Sanity-Check damit Tippfehler ("30days") frueh sichtbar
-// werden statt erst beim ersten Cleanup-Run.
+// Allowed format for retention.keepFor: a number followed by a suffix (h/d/w/m/y).
+// The cleanup job performs the actual parsing; the boot validator only checks
+// the format so typos ("30days") become visible before the first cleanup run.
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
 const FILE_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
@@ -32,7 +31,7 @@ const FILE_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
 ]);
 
 // Excludes subjectRef: its `personal: "ref"` union member structurally
-// forbids `anonymize` (packages/types/src/fields.ts) — #2336.
+// forbids `anonymize` (packages/types/src/fields.ts).
 function hasAnonymizableSubjectField(annot: ResolvedPiiFlags): boolean {
   return Boolean(annot.pii || annot.userOwned || annot.tenantOwned || annot.recordOwned);
 }
@@ -148,28 +147,28 @@ function validatePersonalJsonbField(
 
 // --- PII / Subject-Key Annotations + Retention validation ---
 //
-// Drei Klassen von Checks:
+// Four classes of checks:
 //
-// 1. Mutual exclusion: pro Field nur EINE der drei Subject-Annotations
-//    (pii / userOwned / tenantOwned). Mehr ist semantisch widersprüchlich
-//    weil pro Field genau ein Subject-Key gehört.
+// 1. Mutual exclusion: each field may have only ONE subject annotation
+//    (pii / userOwned / tenantOwned). Multiple annotations are semantically
+//    contradictory because each field belongs to exactly one subject key.
 //
-// 2. Reference-Integrity: userOwned.ownerField muss auf ein existierendes
-//    reference-Field zeigen (das auf user-Entity zeigen sollte). Erkennt
-//    Tippfehler und Drop-Refactorings beim Boot statt beim ersten
-//    Encrypt-Aufruf.
+// 2. Reference integrity: userOwned.ownerField must refer to an existing
+//    reference field that should target the user entity. This catches typos
+//    and refactors that removed a field during boot instead of at encryption.
 //
-// 3. Heuristik-Warnings: Field-Namen die typischerweise PII enthalten
-//    (email, name, phone, body, etc.) ohne Annotation → Boot-Warning.
-//    Mit `{ personal: false, reason: "<reason>" }` unterdrückbar (geht in Audit).
+// 3. Heuristic warnings: field names that typically contain PII
+//    (email, name, phone, body, etc.) without an annotation produce a boot
+//    warning. `{ personal: false, reason: "<reason>" }` suppresses it and
+//    records the reason in the audit.
 //
-// 4. Retention-Integrity: retention.reference (wenn gesetzt) muss auf
-//    ein bestehendes Field zeigen (oder Framework-Timestamp). retention.
-//    strategy="blockDelete" ohne anonymize-Felder ist sinnlos — User-
-//    Forget kann nichts machen, Warning.
+// 4. Retention integrity: retention.reference, when set, must refer to an
+//    existing field or a framework timestamp. retention.strategy="blockDelete"
+//    without anonymizable fields is ineffective because user forget cannot
+//    remove anything, so it produces a warning.
 //
-// Encrypt/Decrypt-Mechanik landet in Sprint 3 (crypto-shredding); diese
-// Validation greift schon ab Sprint 0 damit Schema-Drift früh auffällt.
+// Encryption and decryption are handled elsewhere; this validation runs early
+// so schema drift is detected during boot.
 export function validatePiiAndRetention(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const fieldsByName = entity.fields;
@@ -210,9 +209,9 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
-      // lookupable (#818): nur text + nur MIT Subject-Annotation. Ohne
-      // Subject bleibt der Wert eh Klartext — der Blind-Index wäre eine
-      // zweite (deterministische!) Kopie ohne Nutzen.
+      // lookupable: only text fields with a subject annotation are supported. Without
+      // a subject, the value remains plaintext, so a blind index would be a
+      // second deterministic copy without any benefit.
       if (annot.lookupable === true) {
         if (field.type !== "text") {
           throw new Error(
@@ -226,9 +225,9 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
       }
 
-      // sensitive-Felder liegen seit #967 als Tabellen-Ciphertext im Event-
-      // Log — ohne ciphertext-at-rest würde der Append Klartext in die
-      // immutable History schreiben.
+      // Sensitive fields are stored as table ciphertext in the event log; without
+      // ciphertext at rest, appending the event would write plaintext to the
+      // immutable history.
       const sensitiveFlags = field as {
         readonly sensitive?: boolean;
         readonly encrypted?: boolean;
@@ -246,11 +245,10 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       validateWriteOnlyField(feature.name, entityName, fieldName, field);
 
       // Sorting reads the projection column — that stays ciphertext, so
-      // sortable + subject annotation stays a boot-fail. searchable has
-      // been allowed since #1610: the search consumer decrypts into the
-      // derived index and forget purges those docs (see
-      // createSearchEventConsumer). sensitive + searchable stays forbidden
-      // (never searchable).
+      // sortable + subject annotation stays a boot-fail. searchable is allowed:
+      // the search consumer decrypts into the derived index and forget purges
+      // those docs (see createSearchEventConsumer). sensitive + searchable stays
+      // forbidden (never searchable).
       {
         const flags = field as {
           readonly searchable?: boolean;
@@ -308,9 +306,9 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
             `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" is personal: { of: "${ownerName}" }, but "${ownerName}" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: "${ownerName}", whenAbsent: "tenant" } } to encrypt those rows under the tenant key, whenAbsent: "self" to encrypt them under the row's own record key (shreddable per record), or make "${ownerName}" required: true. Entity fields have no plaintext fallback (fw#3654).`,
           );
         }
-        // Soft-Warning wenn das reference-target nicht offensichtlich user
-        // ist — custom subject-entities (HR-Mitarbeiter, Patient) sind
-        // erlaubt, müssen aber bewusste Wahl sein.
+        // Warn when the reference target is not obviously a user. Custom subject
+        // entities (such as HR employees or patients) are allowed but should
+        // be an intentional choice.
         if (ownerField.type === "reference") {
           const refTarget = ownerField.entity;
           const targetEntity = refTarget.includes(":") ? refTarget.split(":")[1] : refTarget;
@@ -322,10 +320,10 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
       }
 
-      // PII-Heuristik: nur wenn keine Annotation gesetzt UND kein
-      // allowPlaintext-Marker. Ergibt false positives auf Geschäftsdaten
-      // mit personenartigem Namen (z.B. company.legalName) — Author
-      // unterdrückt mit { personal: false, reason: "is_business_data" }.
+      // PII heuristic: only when no annotation or allowPlaintext marker is set.
+      // Business data with person-like names (for example, company.legalName)
+      // can produce false positives; authors can suppress them with
+      // { personal: false, reason: "is_business_data" }.
       const noAnnotation = annotCount === 0 && !annot.allowPlaintext;
       if (noAnnotation) {
         const lower = fieldName.toLowerCase();
@@ -376,7 +374,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (retention.strategy === "blockDelete") {
         // blockDelete with no field that can carry `anonymize` is fine;
         // subjectRef-only entities are covered by the V3 EXT_USER_DATA guard
-        // instead (#1622, #2336).
+        // instead.
         const entityHasAnonymizableField = entityHasAnonymizableSubjectField(fieldsByName);
         const hasAnonymize = Object.values(fieldsByName).some((f) => {
           const a = f as ResolvedPiiFlags; // @cast-boundary schema-walk

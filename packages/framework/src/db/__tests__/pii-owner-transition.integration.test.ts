@@ -1,4 +1,4 @@
-// Personal fields follow the row's current owner (fw#3670): an update that
+// Personal fields follow the row's current owner: an update that
 // moves the owner re-keys the stored value, so only the new owner's forget
 // erases it. Real HTTP + setupTestStack; the DB is only read for raw asserts.
 

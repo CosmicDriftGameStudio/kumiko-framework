@@ -360,7 +360,7 @@ describe("validateBoot — nav validation", () => {
   });
 });
 
-// fw#2750: createAction + actions[] entries carry the same screen-XOR-target
+// createAction + actions[] entries carry the same screen-XOR-target
 // polymorphism as the node itself — the validator must reject the same
 // classes of mistake for actions that it already rejects for nodes.
 describe("validateBoot — nav action validation (fw#2750)", () => {

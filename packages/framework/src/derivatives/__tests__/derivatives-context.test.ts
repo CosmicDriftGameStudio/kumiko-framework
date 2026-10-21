@@ -188,7 +188,7 @@ describe("createDerivativesContext — variant()", () => {
     expect(result.mimeType).toBe("image/webp");
   });
 
-  // #2021 — a variant with no spec.format used to fall straight through to
+  // A variant with no spec.format used to fall straight through to
   // the source's mimeType, which is client-controlled (`file.type` off the
   // upload). A field without `accept` plus a broad `image/*` renderer
   // wildcard (like `setup()`'s here) let a client ride an active-content

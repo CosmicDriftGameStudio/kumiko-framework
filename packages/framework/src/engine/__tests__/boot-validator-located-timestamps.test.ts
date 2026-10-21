@@ -1,8 +1,8 @@
-// Boot-Validator-Tests für locatedBy-Markers.
+// Boot-validator tests for locatedBy markers.
 //
-// Ein Timestamp-Feld mit `locatedBy: "X"` muss ein bestehendes tz-Feld "X"
-// in derselben Entity referenzieren. Sonst silent data loss — wir wollen
-// fail-fast beim Boot.
+// A timestamp field with `locatedBy: "X"` must reference an existing tz field
+// named "X" in the same entity. Otherwise, silent data loss is possible, so
+// validation must fail fast during boot.
 
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "../boot-validator.ts";
@@ -33,7 +33,7 @@ describe("validateBoot — locatedBy markers", () => {
         ...createEntity({
           fields: {
             pickupAt: createTimestampField({ locatedBy: "pickupTz" }),
-            // pickupTz fehlt komplett!
+            // pickupTz is entirely missing!
           },
         }),
       });
@@ -49,7 +49,7 @@ describe("validateBoot — locatedBy markers", () => {
         ...createEntity({
           fields: {
             pickupAt: createTimestampField({ locatedBy: "pickupTz" }),
-            // text statt tz — typo-Falle die der Validator fängt
+            // text instead of tz — a typo trap caught by the validator
             pickupTz: {
               type: "text",
               maxLength: 100,

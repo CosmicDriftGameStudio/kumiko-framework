@@ -1,4 +1,4 @@
-// kumiko-framework#1480: instantFromDriver referenced the global `Temporal`
+// instantFromDriver referenced the global `Temporal`
 // without importing it. Any storeTable read of a timestamptz column crashed
 // with "Temporal is not defined" unless some other boot path happened to
 // install it globally first (order-dependent, easy to miss in a fresh

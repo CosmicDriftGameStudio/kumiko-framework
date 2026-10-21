@@ -356,22 +356,21 @@ describe("error contract: wire format per class", () => {
   });
 
   test("InternalError (auto-wrap) → 500, generic message; dev exposes cause, prod hides it", async () => {
-    // Default test-Run läuft mit NODE_ENV !== "production" — dev-Modus exposed
-    // die cause-Details (causeName/causeMessage/causeStack), damit Handler-
-    // Bugs nicht als nackter "internal error" zurückkommen. Memory:
-    // Framework-DX Fixes 2026-04-25.
+    // The default test run uses NODE_ENV !== "production" — dev mode exposes
+    // cause details (causeName/causeMessage/causeStack) so handler bugs do not
+    // return only a bare "internal error".
     const dev = await writeErrorBody("errctr:write:item:boom", {});
     expect(dev.status).toBe(500);
     expect(dev.body.error.code).toBe("internal_error");
-    // Generic message für Client (keine Stack-Leak im message-Feld), aber
-    // details enthalten die cause-Zusammenfassung für DX.
+    // The client receives a generic message without a stack leak, while details
+    // retain a cause summary for debugging.
     expect(dev.body.error.message).not.toContain("cannot_read_prop");
     expect(dev.body.error.details).toMatchObject({
       causeName: "TypeError",
       causeMessage: "cannot_read_prop",
     });
 
-    // Production-Modus: details werden gestripped, der Stack lebt nur im Log.
+    // In production, details are stripped and the stack remains only in the log.
     const prevEnv = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "production";
     try {

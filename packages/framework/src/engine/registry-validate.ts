@@ -197,7 +197,7 @@ export function applyExtensionUsages(state: RegistryState): void {
   }
 }
 
-// fw#2660: labelField defaults to "id" (a UUID column) elsewhere, but a
+// labelField defaults to "id" (a UUID column) elsewhere, but a
 // searchable reference ILIKEs the label column — an implicit or explicit
 // "id" default would 500 on every search request. Fail at boot.
 function buildSearchableReferenceField(
@@ -243,7 +243,7 @@ function buildSearchableReferenceField(
   };
 }
 
-// fw#2741: ORDER BY runs against the referenced row's label column, so the
+// ORDER BY runs against the referenced row's label column, so the
 // same explicit-labelField requirement as searchable applies — ordering by the
 // "id" default would be a UUID order that looks deliberate to the user.
 function buildSortableReferenceField(
@@ -309,12 +309,12 @@ export function buildImplicitProjections(
   state: RegistryState,
   features: readonly FeatureDefinition[],
 ): void {
-  // Implicit-Projection pro r.entity. Macht die Entity-Tabelle rebaubar
-  // ohne dass Apps eine explizite r.projection schreiben müssen.
-  // Naming-Convention: `<feature>:projection:<entityName>-entity` — der
-  // "-entity"-Suffix unterscheidet implicit von explicit-Projections und
-  // vermeidet Kollisionen wenn jemand z.B. eine Cross-Aggregate-Projection
-  // mit Entity-Name registriert.
+  // Implicit projection for r.entity. Makes the entity table rebuildable
+  // without requiring apps to declare an explicit r.projection.
+  // Naming convention: `<feature>:projection:<entityName>-entity` — the
+  // "-entity" suffix distinguishes implicit from explicit projections and
+  // prevents collisions when someone registers, for example, a
+  // cross-aggregate projection using the entity name.
   for (const feature of features) {
     // extendEntityProjection targets must exist as r.entity in the SAME
     // feature — a typo'd entity name would otherwise vanish silently and the
@@ -814,7 +814,7 @@ export function validateEntityHookTargets(
   features: readonly FeatureDefinition[],
 ): void {
   // Same logic for entity-keyed hooks — targets must reference existing entities.
-  // Memory `feedback_dead_hook_needs_second_consumer`: a typo silently registers
+  // A hook whose target has a typo silently registers
   // and never fires. Validates all four entity-hook types (postSave/preDelete/
   // postDelete/postQuery) — net cleanup of an existing antipattern, not a
   // postQuery-special.
@@ -1002,7 +1002,7 @@ export function computeHasRateLimitedHandler(state: RegistryState): void {
   // Lua-script registration on Redis) when nobody opted in. Deliberately
   // stays limited to explicit, non-disabled `rateLimit` declarations —
   // `{ disabled: true }` must not auto-wire a resolver for an app that only
-  // opted OUT, and fw#2861's systemScope default only fires once a resolver
+  // opted OUT, and the systemScope default only fires once a resolver
   // already exists, so it must not force wantsL3 either.
   state.hasRateLimitedHandlerCached = (() => {
     for (const h of state.writeHandlerMap.values()) {
@@ -1017,12 +1017,12 @@ export function computeHasRateLimitedHandler(state: RegistryState): void {
 }
 
 export function publishEventPiiCatalog(state: RegistryState): void {
-  // Publish the event-PII catalog (#799): append() — the single write funnel
+  // Publish the event-PII catalog: append() — the single write funnel
   // into kumiko_events — encrypts catalogued payload fields regardless of
   // which path produced the event (ctx.appendEvent, MSP-apply, low-level
   // append in delivery/jobs loggers).
   //
-  // Defense-in-depth (fw#2558): defineEvent is the only producer of
+  // Defense-in-depth: defineEvent is the only producer of
   // EventDef.piiFields and already fails closed without a stance, but this
   // boot gate re-checks every registered event — a future producer that
   // forgets to run through defineEvent would otherwise leave a hole where

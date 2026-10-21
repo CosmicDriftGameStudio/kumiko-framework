@@ -1,17 +1,16 @@
-// Integration-Test: alle Sprint-0-Surfaces in einem Mini-Feature-Set.
+// Integration test: all surfaces in a mini feature set.
 //
-// Beweist dass die einzelnen S0-Komponenten (PII-Annotations, retention,
-// extension-names, exposesApi/usesApi, ROLES) zusammen funktionieren —
-// keine still-konkurrierenden Validierungen, keine Race-Conditions
-// zwischen Sub-Validatoren.
+// Proves that the individual S0 components (PII annotations, retention,
+// extension names, exposesApi/usesApi, ROLES) work together without silently
+// competing validations or race conditions between sub-validators.
 //
-// Mini-Feature-Set:
+// Mini feature set:
 //   compliance-profiles  exposesApi("compliance.forTenant")
 //   user-data-rights     usesApi + extendsRegistrar(EXT_USER_DATA)
 //   tenant               useExtension(EXT_USER_DATA, "user", ...)
-//                        + entity mit pii / userOwned / tenantOwned-Fields
-//                        + retention.blockDelete + anonymize-Funktion
-//                        + handler-access mit ROLES.TenantAdmin
+//                        + entity with pii / userOwned / tenantOwned fields
+//                        + retention.blockDelete + anonymize function
+//                        + handler access with ROLES.TenantAdmin
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";

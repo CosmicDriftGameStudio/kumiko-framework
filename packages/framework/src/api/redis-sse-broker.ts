@@ -16,7 +16,7 @@ import {
 
 const log = createFallbackLogger("kumiko:sse-broker");
 
-// Channel namespace for cross-replica fanout (fw#2625). Every pod publishes
+// Channel namespace for cross-replica fanout. Every pod publishes
 // here and every pod's psubscribe listens here, so a push on one instance
 // reaches SSE clients connected to any other instance without a shared
 // cursor — Pub/Sub for connected-client fanout, the event-store's shared
@@ -53,9 +53,9 @@ export function isRedisSseBroker(broker: SseBroker): broker is RedisSseBroker {
 // runProdApp must funnel through this rather than each deciding on their
 // own — runProdApp doing exactly that (building an in-memory broker
 // unconditionally, then passing it in as ServerOptions.sseBroker) is why
-// fw#2625's fanout fix (fw#2630) shipped without ever taking effect in
-// production: an explicit ServerOptions.sseBroker always wins in
-// buildServer, so its own REDIS_URL-based default never ran.
+// the fanout fix shipped without ever taking effect in production: an
+// explicit ServerOptions.sseBroker always wins in buildServer, so its own
+// REDIS_URL-based default never ran.
 export function createDefaultSseBroker(env: Record<string, string | undefined> = process.env): {
   readonly sseBroker: SseBroker;
   // Present only when REDIS_URL resolved. undefined means the fallback
@@ -180,7 +180,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
       return signal.publishConfirmed(`${channelPrefix}${channel}`, event);
     },
 
-    // fw#1601: this is the security-critical call — a revoked session's
+    // This is the security-critical call — a revoked session's
     // stream must close on every replica, not just the one that observed
     // the revocation event. Publishing (rather than calling inner directly,
     // like the in-memory broker does) is what makes that true here.

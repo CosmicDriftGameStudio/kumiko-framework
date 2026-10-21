@@ -109,7 +109,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
 
   // Shared by defineEvent's `migrations` option — each entry registers a
   // single upcast step, same validation/dedup as the old standalone
-  // r.eventMigration() call (folded into defineEvent, #1082 step 8).
+  // r.eventMigration() call (folded into defineEvent).
   function registerEventMigration(
     eventName: string,
     fromVersion: number,
@@ -183,9 +183,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           );
         }
       }
-      // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array
-      // wird zu Array von resolved strings, Single bleibt single string —
-      // job-runner unterscheidet anhand Array.isArray.
+      // Resolve NameOrRef(s) in trigger.on. For the multi-trigger form, arrays
+      // become arrays of resolved strings while a single value remains a string;
+      // the job runner distinguishes them with Array.isArray.
       const trigger =
         "on" in jobOptions.trigger
           ? {
@@ -279,7 +279,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         readonly version?: number;
         readonly piiFields: EventPiiStance;
         // Step-wise upcast chain for this event, folded in from the former
-        // standalone r.eventMigration() call (#1082 step 8) — an event and
+        // standalone r.eventMigration() call — an event and
         // its schema evolution are one lifecycle, not two registrar
         // concepts. Each entry's fromVersion must be unique and the chain
         // from 1 to `version` must be gap-free (same validation as before).

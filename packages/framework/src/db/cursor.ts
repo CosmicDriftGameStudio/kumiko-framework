@@ -2,10 +2,9 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 export type { CursorQueryOptions, CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 
-// String-basiert damit UUIDs (Default seit Sprint F) + Integer-Auto-Increment
-// durch denselben Cursor-Pfad laufen. UUIDv7 erfüllt die lex-Monotonie
-// (time-ordered Prefix); UUIDv4 nicht — wer den nutzt, kriegt inkorrekte
-// cursor-Reihenfolge (Default ist v7).
+// Uses strings so UUIDs and integer auto-increment IDs can share the same cursor path.
+// UUIDv7 preserves lexicographic monotonicity through its time-ordered prefix; UUIDv4 does not,
+// so UUIDv4 produces incorrect cursor ordering. The default is v7.
 export function encodeCursor(id: string | number): string {
   return Buffer.from(String(id)).toString("base64url");
 }

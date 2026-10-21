@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // migrate-open-to-all — rewrites deprecated `openToAll: true` to the required
 // `{ reason }` form in test files, and reports every remaining non-test site
-// for a human to pick a reason (fw#2858).
+// for a human to pick a reason.
 //
 // Usage:
 //   bun scripts/codemod/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>

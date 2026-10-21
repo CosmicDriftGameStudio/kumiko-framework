@@ -139,18 +139,17 @@ export function checkWriteFieldRoles(
 // row. For creates, pass oldRow = undefined; the check degenerates to a
 // newRow-only evaluation.
 //
-// `submittedChanges` and `rowContext` are deliberately separate (fw#1685):
+// `submittedChanges` and `rowContext` are deliberately separate:
 // - `submittedChanges` drives WHICH fields get checked — only what the user
 //   actually wrote in the request. A preSave-hook-derived field the user
 //   never touched (e.g. a system hook setting `assignedTo`) must not be
 //   field-ownership-checked against the user at all.
 // - `rowContext` drives what a checked field's rule is evaluated AGAINST —
 //   this needs the full post-hook row, because an ownership rule can
-//   reference a DIFFERENT column that only a hook populates (kumiko-
-//   framework#1672: a hook derives `authorId`, a user-submitted `secretNote`
-//   field's rule is `from("user:id", "authorId")` — the check needs the
-//   hook-derived `authorId` in scope even though the user only wrote
-//   `secretNote`). Defaults to `submittedChanges` when omitted.
+//   reference a DIFFERENT column that only a hook populates (a hook derives
+//   `authorId`, a user-submitted `secretNote` field's rule is `from("user:id", "authorId")`
+//   — the check needs the hook-derived `authorId` in scope even though the
+//   user only wrote `secretNote`). Defaults to `submittedChanges` when omitted.
 //
 // Returns the denied field name for the caller to wrap into an
 // `ownership_denied` error with scope: "field", or null if all fields pass.

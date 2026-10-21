@@ -1,8 +1,8 @@
-// Direkter Coverage für die Tier-2.6d-Erweiterung von executor.list:
-// offset, totalCount, sowie das "cursor wins über offset" Verhalten.
-// Vor dieser Suite waren die drei Branches nur indirekt über
-// items-create.integration im Showcase abgedeckt — nicht ausreichend
-// für Framework-Code der von jeder App genutzt wird.
+// Direct coverage for the executor.list extension:
+// offset, totalCount, and the "cursor wins over offset" behavior.
+// Before this suite, these three branches were covered only indirectly
+// through items-create.integration in the Showcase, which was insufficient
+// for framework code used by every app.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -105,29 +105,29 @@ describe("event-store-executor.list — offset + totalCount (Tier 2.6d)", () => 
   });
 
   test("cursor wins über offset (kombination ist Caller-bug, defensiv)", async () => {
-    // Wenn der Caller versehentlich BEIDE setzt — z.B. ein Migrations-
-    // Skript das Cursor-Pagination + Page-Number mischt — soll cursor
-    // gewinnen weil DB-stable. Offset wird ignoriert.
+    // If the caller accidentally sets BOTH—for example, a migration script
+    // that mixes cursor pagination with page numbers—cursor must win because
+    // it is database-stable. The offset is ignored.
     await seed(10);
     const first = await exec.list({ limit: 3, sort: "rank", sortDirection: "asc" }, admin, tdb);
     expect(first.rows.map((r) => r["rank"])).toEqual([0, 1, 2]);
     const cursor = first.nextCursor;
     expect(cursor).not.toBeNull();
     if (cursor === null) return;
-    // cursor + offset:50 — cursor sollte gewinnen, nicht das offset.
-    // Note: cursor-pagination hier ist NICHT row-3 → row-4-stable, weil
-    // die UUIDs zwar UUIDv7 sind aber innerhalb derselben Millisekunde
-    // generiert die Sub-Sort nicht garantiert mit `rank` korreliert. Wir
-    // pinnen nur "cursor wird benutzt → kein offset:50-Skip auf row-50
-    // (die's gar nicht gibt)".
+    // cursor + offset:50—the cursor should win, not the offset.
+    // Note: cursor pagination here is NOT stable from row 3 to row 4 because
+    // although the UUIDs are UUIDv7, the sub-sort is not guaranteed to
+    // correlate with `rank` when they are generated within the same
+    // millisecond. We only verify that "the cursor is used" means no
+    // offset:50 skip to row 50 (which does not exist).
     const next = await exec.list(
       { limit: 3, cursor, offset: 50, sort: "rank", sortDirection: "asc" },
       admin,
       tdb,
     );
-    // Ohne cursor-wins-Branch wäre das offset=50 → leeres Result.
-    // Mit cursor-wins läuft der gt(id, cursor)-Filter und liefert
-    // rows die NACH dem cursor kommen → mindestens 1 Eintrag.
+    // Without the cursor-wins branch, offset=50 would produce an empty result.
+    // With cursor-wins, the gt(id, cursor) filter runs and returns
+    // rows after the cursor, so at least one entry is returned.
     expect(next.rows.length).toBeGreaterThan(0);
   });
 
@@ -382,7 +382,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
   });
 
   test("filter ne mit value null: matcht rows mit gesetztem Feld (#2015)", async () => {
-    // #2015: rank is optional — pre-fix, `ne` compiled to `rank <> NULL`,
+    // rank is optional — before the fix, `ne` compiled to `rank <> NULL`,
     // which is never true in SQL and returned 0 rows.
     await seed(3);
     await exec.create({ title: "no-rank" }, admin, tdb);
@@ -414,9 +414,9 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
   });
 
   test("filter unknown-field: silent skip — kein Crash, alle rows zurück", async () => {
-    // Boot-Validator pinst das normalerweise; Runtime-Defense für den
-    // Fall dass ein Test/Caller direkt am executor vorbei ein bogus-
-    // Field schickt. Lieber alle rows als Crash-Loop.
+    // The boot validator normally prevents this; runtime defense handles a
+    // test or caller sending a bogus field directly to the executor.
+    // Returning all rows is preferable to entering a crash loop.
     await seed(3);
     const res = await exec.list(
       {
@@ -492,7 +492,7 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
       admin,
       tdb,
     );
-    // gt:2 AND in[1,3,5,9] → 3,5,9 (1 fällt durch gt:2 raus)
+    // gt:2 AND in[1,3,5,9] → 3,5,9 (1 is excluded by gt:2)
     expect(res.rows.map((r) => r["rank"])).toEqual([3, 5, 9]);
   });
 
@@ -513,10 +513,10 @@ describe("event-store-executor.list — filter (Tier 2.7c)", () => {
 });
 
 describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-Fix #1)", () => {
-  // Pinst dass der executor einen searchAdapter aus runtimeOptions
-  // akzeptiert wenn er beim Build keinen über options.searchAdapter
-  // bekommen hat. defaultEntityQueryHandler nutzt diesen Pfad weil
-  // der executor zur Definition-Time keinen ctx-Adapter kennt.
+  // Verifies that the executor accepts a searchAdapter from runtimeOptions
+  // when none was supplied through options.searchAdapter at build time.
+  // defaultEntityQueryHandler uses this path because the executor has no
+  // context adapter available at definition time.
   const exec = createEventStoreExecutor(table, entity, { entityName: "pagerItem" });
 
   test("ohne searchAdapter: search-Param wirft statt still zu verpuffen (#2032)", async () => {
@@ -544,7 +544,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     const matchedId = allRows.rows[1]?.["id"] as string;
     expect(matchedId).toBeDefined();
 
-    // Mock-Adapter: returnt genau eine ID — nur die wird durchgelassen.
+    // Mock adapter: returns exactly one ID, so only that row is passed through.
     const mockAdapter = {
       configure: async () => {},
       index: async () => {},

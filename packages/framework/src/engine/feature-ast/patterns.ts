@@ -310,7 +310,7 @@ export type UseExtensionPattern = {
   // to a string constant (`r.useExtension(EXT_TENANT_DATA, ...)`) rather
   // than a literal — the renderer emits this verbatim instead of
   // `JSON.stringify(extensionName)` so the round-trip doesn't inline the
-  // reference (#2111). A caller constructing an edited pattern must omit
+  // reference. A caller constructing an edited pattern must omit
   // this field (or recompute it) whenever it changes `extensionName`,
   // otherwise the stale identifier text wins over the new value.
   readonly extensionNameRaw?: string;
@@ -390,7 +390,7 @@ export type WriteHandlerPattern = {
   // handlerName/schemaSource/handlerBody are set together, or all left
   // undefined for a single reference standing in for the whole handler
   // (`r.writeHandler(handlerRef)`) that couldn't be resolved to an object
-  // literal — see #1007. An opaque pattern re-emits `source.raw` verbatim
+  // literal. An opaque pattern re-emits `source.raw` verbatim
   // and, like UnknownPattern, has no PatternId variant (not individually
   // patchable).
   readonly handlerName?: string;
@@ -572,7 +572,7 @@ export type MultiStreamProjectionPattern = {
 // (toVersion is always fromVersion + 1, enforced at registration, so it is
 // not stored separately); the framework refuses to boot if the chain from
 // 1 to `version` has gaps. Formerly a separate `r.eventMigration()` call
-// per step, folded in here (#1082 step 8) — an event and its schema
+// per step, folded in here — an event and its schema
 // evolution are one lifecycle, not two registrar concepts.
 export type DefineEventPattern = {
   readonly kind: "defineEvent";
@@ -580,14 +580,14 @@ export type DefineEventPattern = {
   readonly eventName: string;
   // Set only when `eventName` was authored as an identifier resolving to
   // a string constant rather than a literal — see UseExtensionPattern's
-  // `extensionNameRaw` doc for the round-trip contract (#2111). A caller
+  // `extensionNameRaw` doc for the round-trip contract. A caller
   // editing `eventName` must omit or recompute this field.
   readonly eventNameRaw?: string;
   readonly schemaSource: SourceLocation;
   readonly version?: number;
   // Raw source of the `piiFields` option value ("none", an object literal,
   // or a constant reference) — mandatory because `r.defineEvent` itself
-  // requires an explicit PII stance (fw#2558); round-tripping it verbatim
+  // requires an explicit PII stance; round-tripping it verbatim
   // avoids the extractor ever having to invent a stance the author didn't
   // author.
   readonly piiFields: SourceLocation;
@@ -607,7 +607,7 @@ export type ExtendsRegistrarPattern = {
   readonly extensionName: string;
   // Set only when `extensionName` was authored as an identifier resolving
   // to a string constant rather than a literal — see UseExtensionPattern's
-  // `extensionNameRaw` doc for the round-trip contract (#2111). A caller
+  // `extensionNameRaw` doc for the round-trip contract. A caller
   // editing `extensionName` must omit or recompute this field.
   readonly extensionNameRaw?: string;
   // Meta-programming surface — kept fully opaque in the MVP. The
@@ -642,7 +642,7 @@ export type EnvSchemaPattern = {
   readonly schemaBody: SourceLocation;
 };
 
-/** Live-editable policy defaults for an AI pipeline step instance (#256). */
+/** Live-editable policy defaults for an AI pipeline step instance. */
 export type AiStepPolicy = {
   readonly enabled: boolean;
   readonly providerId?: string;
@@ -650,7 +650,7 @@ export type AiStepPolicy = {
   readonly params: Record<string, unknown>;
 };
 
-/** Preserves an unresolvable argument reference across parse → render (#998). */
+/** Preserves an unresolvable argument reference across parse → render. */
 export type AiStepOpaqueArgs = {
   readonly __raw: string;
 };

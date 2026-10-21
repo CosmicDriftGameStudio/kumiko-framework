@@ -1,19 +1,17 @@
-// Unit-Tests fuer den BigInt-Field-Type — Atom 1a aus dem User-Data-
-// Rights Async-Export-Plan.
+// Unit tests for the BigInt field type.
 //
-// Pinst:
-//   - createBigIntField liefert FieldDefinition.type === "bigInt"
-//   - buildEntityTable mappt auf bigint(name, mode:"number"), nicht
-//     integer (32-bit) → kein silent 2 GB-Cap
-//   - Zod-Schema akzeptiert int + safe-integer + lehnt non-int + Float
-//     + non-safe-integer ab
-//   - required + sortable + filterable + default reisen durch
+// These tests verify:
+//   - createBigIntField returns FieldDefinition.type === "bigInt"
+//   - buildEntityTable maps to bigint(name, mode:"number"), not
+//     integer (32-bit), avoiding a silent 2 GB cap
+//   - The Zod schema accepts integers and safe integers, and rejects
+//     non-integers, floats, and non-safe integers
+//   - required, sortable, filterable, and default values are preserved
 //
-// Echter DB-Roundtrip-Test (Insert >2^31, Select, identisch zurueck)
-// kommt mit Atom 1b sobald `exportJobEntity.bytesWritten` auf bigInt
-// migriert ist + die existing integration-Tests die Tabelle wieder
-// einrichten — pinst dort auf realer Postgres + Drizzle-customType-
-// Path statt parallel-mock hier.
+// A real database round-trip test (insert >2^31, select, and compare)
+// requires `exportJobEntity.bytesWritten` to use bigInt and the existing
+// integration tests to recreate the table. It belongs on the real
+// Postgres and Drizzle-customType path rather than a parallel mock.
 
 import { describe, expect, test } from "bun:test";
 import { createBigIntField, createEntity, createNumberField } from "../../engine/index.ts";
@@ -67,9 +65,9 @@ describe("buildEntityTable — bigInt-Mapping", () => {
     const small = colByName(table, "small_count");
     const big = colByName(table, "big_count");
 
-    // PgInteger vs PgBigint sind unterschiedliche columnType-Klassen in
-    // Drizzle — der genaue String ist Drizzle-Internal aber MUSS
-    // unterschiedlich sein, sonst geht der ganze 64-bit-Punkt verloren.
+    // PgInteger and PgBigint are different column type classes in
+    // Drizzle. The exact string is an internal Drizzle detail, but they
+    // MUST differ; otherwise the entire 64-bit guarantee is lost.
     expect(small.columnType).not.toBe(big.columnType);
   });
 
@@ -97,7 +95,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
     expect(schema.parse({ bytesWritten: 2_147_483_648 })).toEqual({
       bytesWritten: 2_147_483_648,
     });
-    // 2^50 — weit ueber integer, klar in bigInt-Territorium.
+    // 2^50 is far beyond integer range and clearly within BigInt territory.
     expect(schema.parse({ bytesWritten: 2 ** 50 })).toEqual({
       bytesWritten: 2 ** 50,
     });
@@ -116,9 +114,9 @@ describe("buildInsertSchema — bigInt-Validation", () => {
       fields: { count: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
-    // 2^53 = 9_007_199_254_740_992 ist Number.MAX_SAFE_INTEGER.
-    // Werte ueber dem Cap koennen nicht round-trip-en ohne Praezisions-
-    // Verlust — Zod's .safe() greift hier.
+    // 2^53 = 9_007_199_254_740_992 is Number.MAX_SAFE_INTEGER.
+    // Values above this limit cannot round-trip without precision loss;
+    // Zod's .safe() check rejects them.
     expect(() => schema.parse({ count: Number.MAX_SAFE_INTEGER + 2 })).toThrow();
   });
 

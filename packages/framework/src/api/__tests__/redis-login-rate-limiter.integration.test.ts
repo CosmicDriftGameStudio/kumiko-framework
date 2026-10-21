@@ -117,7 +117,7 @@ describe("createRedisLoginRateLimiter", () => {
     }
   });
 
-  // kumiko-framework#1522 idx=5: a key that already exists WITHOUT a TTL
+  // A key that already exists WITHOUT a TTL
   // (exactly what the pre-fix INCR-then-PEXPIRE race could leave behind)
   // must get one applied on the very next check(), not stay permanently
   // uncapped. Simulates the orphan directly via INCR (no TTL) rather than

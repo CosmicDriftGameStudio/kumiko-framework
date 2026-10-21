@@ -113,7 +113,7 @@ const compoundHandler = defineWriteHandler({
       // Resolvers capture `event` from the outer build-closure scope rather
       // than reading it via the resolver's PipelineCtx — `PipelineCtx<TPayload>`
       // does not propagate the pipeline's TPayload generic to per-call
-      // resolvers (M.1-Followup #4), so `ctx.event.user.id` would type-erase.
+      // resolvers, so `ctx.event.user.id` would type-erase.
       // Outer-capture preserves the typed payload. Same pattern in logHandler
       // and widgetCreateHandler below.
       r.step.return(({ steps }) => ({
@@ -329,9 +329,9 @@ const forEachThenThrowHandler = defineWriteHandler({
 // writes are blocked by the boot-validator). delete-log purges old
 // rows from the demo-log read-side table.
 // Single shape (no narrowing union) so the pipeline's TData generic
-// matches the resolver's return type cleanly — sidesteps the
-// M.1-Followup #4 inference limit. The `label: string | null` shape is
-// idiomatic anyway: caller checks `label !== null` to distinguish hit/miss.
+// matches the resolver's return type cleanly; narrowing unions are not
+// inferred cleanly here. The `label: string | null` shape is idiomatic
+// anyway: caller checks `label !== null` to distinguish hit/miss.
 const lookupSchema = z.object({ id: z.uuid() });
 const lookupHandler = defineWriteHandler({
   name: "widget:lookup",
@@ -494,8 +494,8 @@ describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatche
   beforeEach(async () => {
     // Truncate per-test so widget-related tests don't accumulate state
     // across runs — order-independent assertions are the only kind that
-    // stay green when test-files grow (Memory `feedback_jsdom_lies_*`
-    // analog: order-dependent tests are flaky-in-waiting).
+    // stay green when test-files grow; order-dependent tests are
+    // flaky-in-waiting.
     // biome-ignore lint/suspicious/noExplicitAny: test cast
     await asRawClient(stack.db).unsafe(`DELETE FROM "${(pipelineDemoLogTable as any).tableName}"`);
     await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);

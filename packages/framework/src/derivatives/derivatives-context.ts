@@ -211,7 +211,7 @@ async function resolveOverlaySpec(
 // allowlisted before it becomes a response Content-Type or storage-provider
 // metadata. Otherwise an app whose renderer wildcard is broad enough (e.g.
 // `image/*`) would let a client-declared `image/svg+xml` ride straight
-// through as an honestly-declared (non-sniffed) active-content type (#2021).
+// through as an honestly-declared (non-sniffed) active-content type.
 const KNOWN_SAFE_VARIANT_MIME_TYPES: ReadonlySet<string> = new Set([
   "image/jpeg",
   "image/png",

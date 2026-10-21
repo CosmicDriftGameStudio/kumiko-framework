@@ -1,6 +1,6 @@
 // Pattern-Library — concrete FormSchema entries for every FeaturePattern
-// kind. Centralised here so the Designer (C5/C6), the AI-Builder (L2),
-// and the MCP-Server (L9) share one source-of-truth for "how does this
+// kind. Centralised here so the Designer, the AI-Builder,
+// and the MCP-Server share one source-of-truth for "how does this
 // pattern look as a form?".
 //
 // **Updating contract:** when a new pattern-kind gets a parser/renderer

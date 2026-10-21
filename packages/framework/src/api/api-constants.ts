@@ -156,8 +156,8 @@ export const LOCALE_HEADER_NAME = "X-Locale";
 
 // Internal-only signal set by buildServer's app.notFound() to mark "no
 // route matched" 404s so tryHonoFirst (server-runtime) can tell them apart
-// from a matched route's own deliberate 404 (e.g. default-deny reads) —
-// see kumiko-framework#2435. Never reaches a client: tryHonoFirst and every
+// from a matched route's own deliberate 404 (e.g. default-deny reads).
+// Never reaches a client: tryHonoFirst and every
 // direct app.fetch() passthrough strip it before the response leaves the
 // process, since its presence would otherwise let a caller distinguish
 // "unregistered path" from "registered path, access denied" — a leak the

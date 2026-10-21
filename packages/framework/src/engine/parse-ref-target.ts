@@ -1,12 +1,10 @@
-// Tier 2.7e Cross-Feature: ReferenceFieldDef.entity-String-Parser.
-//
-// Akzeptiert beide Formen:
+// Parser for the ReferenceFieldDef.entity string. Accepts both forms:
 //   - "user"        → same-feature ref (featureName = currentFeature)
-//   - "users:user"  → cross-feature ref (qualifiziert)
+//   - "users:user"  → cross-feature ref (qualified)
 //
-// Lebt im framework-Package damit Server-Validator + Renderer (über
-// Re-Export aus @cosmicdrift/kumiko-renderer/headless) denselben Parser nutzen — die
-// Convention darf nicht zweimal implementiert werden.
+// Kept in the framework package so the server validator and renderer (via
+// re-export from @cosmicdrift/kumiko-renderer/headless) use the same parser;
+// the convention must not be implemented twice.
 
 export type ParsedRefTarget = {
   readonly featureName: string;

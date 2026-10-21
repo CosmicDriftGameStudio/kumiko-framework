@@ -29,9 +29,9 @@ export function populateFeatureCore(state: RegistryState, feature: FeatureDefini
           `Pick a different tableName — both would emit CREATE TABLE "${physical}".`,
       );
     }
-    // Entity-vs-entity ist genauso fatal: zwei Entities mit explizitem,
-    // identischem tableName überschrieben sich hier vorher still —
-    // doppeltes CREATE TABLE bzw. eine Projektion frisst die andere.
+    // Entity-vs-entity collisions are equally fatal: two entities with an explicit,
+    // identical tableName previously overwrote each other silently here—
+    // causing duplicate CREATE TABLE statements or one projection to replace the other.
     if (clash?.kind === "entity") {
       throw new Error(
         `Entity "${name}" (feature "${feature.name}") has physical table "${physical}" which ` +
@@ -283,7 +283,7 @@ export function populateTranslations(state: RegistryState, feature: FeatureDefin
   // Translations prefixed with featureName: (i18next namespace convention).
   // Keys that already carry the feature's own namespace prefix (e.g. a nav
   // label referencing "cap-counter:nav.cap-list" verbatim) must NOT be
-  // re-prefixed, else server-side t() can never resolve them (#1105). Both
+  // re-prefixed, else server-side t() can never resolve them. Both
   // bare and qualified spellings for the same key are accepted; if a
   // feature defines both, whichever is declared last wins (Object.entries
   // = insertion order, not "qualified always wins").
@@ -319,7 +319,7 @@ export function populateHooks(state: RegistryState, feature: FeatureDefinition):
   mergeHookList(state.entityPostDeleteHooks, feature.entityHooks?.postDelete);
   mergeHookList(state.entityPostQueryHooks, feature.entityHooks?.postQuery);
 
-  // F3 search-payload-extensions: per-entity contributors merged additively
+  // Search-payload-extensions: per-entity contributors merged additively
   for (const [entityName, contributors] of Object.entries(feature.searchPayloadExtensions ?? {})) {
     const existing = state.searchPayloadExtensions.get(entityName) ?? [];
     for (const c of contributors) existing.push(c);
@@ -553,10 +553,10 @@ export function populateScreensNavWorkspaces(
     const stored = { ...screenDef, id: qualified };
     state.screenMap.set(qualified, stored);
     state.screenFeatureMap.set(qualified, feature.name);
-    // entity-Index nur für Screens die direkt an einer Entity hängen.
-    // entityList/entityEdit haben `entity`; custom + actionForm haben
-    // keinen entity-Bezug (custom ist opaque, actionForm hat inline
-    // fields ohne Entity-Reference).
+    // Index only screens that are directly attached to an entity.
+    // entityList/entityEdit have `entity`; custom + actionForm do not reference
+    // an entity (custom is opaque, and actionForm has inline fields without
+    // an entity reference).
     if (stored.type === "entityList" || stored.type === "entityEdit") {
       const existing = state.screensByEntity.get(stored.entity) ?? [];
       existing.push(stored);
@@ -610,9 +610,9 @@ export function populateScreensNavWorkspaces(
     }
   }
 
-  // Tree-Actions slot — at-most-one per feature (only-once-guard im
-  // registrar). Erased Map für Runtime-Lookup; compile-time-typed
-  // Surface läuft über FeatureDefinition.exports (TreeActionsHandle).
+  // Tree-Actions slot—at most one per feature (the only-once guard runs in
+  // the registrar). The Map is erased for runtime lookup; the compile-time-typed
+  // surface is exposed through FeatureDefinition.exports (TreeActionsHandle).
   if (feature.treeActions !== undefined) {
     state.treeActionsMap.set(feature.name, feature.treeActions);
   }

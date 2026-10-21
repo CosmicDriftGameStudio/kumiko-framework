@@ -123,7 +123,7 @@ export function findFeatureChangelogFiles(featuresDir: string): string[] {
     // Layout is detected per-package, not guessed from a naming convention:
     // enterprise packages keep changes.json under src/, framework's
     // bundled-features keep it flat. A name-prefix heuristic (e.g. "ai-*")
-    // silently drops packages that don't match it (fw#1605).
+    // silently drops packages that don't match it.
     const srcLayout = join(featuresDir, name, "src", "changes.json");
     const flatLayout = join(featuresDir, name, "changes.json");
     const changelogPath = existsSync(srcLayout) ? srcLayout : flatLayout;
@@ -197,7 +197,7 @@ export function findFeaturesDirs(cwd: string): string[] {
   // Enterprise repo: packages/<name>/src/changes.json or packages/<name>/changes.json.
   // Detected by presence of changes.json, not a package-name prefix — a
   // prefix heuristic silently stops matching once packages are renamed or a
-  // differently-named package is added (fw#1605). Skipped inside the
+  // differently-named package is added. Skipped inside the
   // framework repo itself (packages/framework present): every package's own
   // changes.json is already collected via findPackageChangelogFiles, and
   // would otherwise get double-counted as one here.
@@ -236,7 +236,7 @@ export function findFeaturesDirs(cwd: string): string[] {
 // Consumer-facing codemod scripts ship inside the published
 // @cosmicdrift/kumiko-framework package (src/scripts/codemod), not at the
 // git repo root — only the installed package path exists in a consumer's
-// node_modules after a plain npm/bun install (fw#2301).
+// node_modules after a plain npm/bun install.
 export function findCodemodScriptsRoot(repoRoot: string): string | null {
   const local = join(repoRoot, "packages/framework/src");
   if (existsSync(join(local, CODEMOD_SUBDIR))) {
@@ -274,7 +274,7 @@ export function findCodemodScriptsRoot(repoRoot: string): string | null {
 // absolute paths, symlinks pointing outward) or that isn't a real .ts file.
 // First arg is the consumer repo root (same as findCodemodScriptsRoot) —
 // not the scripts root — so out-of-tree callers keep compiling against the
-// public upgrade-cli subpath without silently resolving to null (fw#2341).
+// public upgrade-cli subpath without silently resolving to null.
 function resolveCodemodScriptAt(
   codemodScriptsRoot: string,
   codemodField: string | undefined,
@@ -520,7 +520,7 @@ function parseStoredMarker(raw: unknown): StoredMarker | null {
   };
 }
 
-// A missing marker is a bootstrap app that never ran `--apply` (fw#2299); an
+// A missing marker is a bootstrap app that never ran `--apply`; an
 // existing but unreadable one must not silently fall back to the installed
 // version, or a bare `--apply` would skip every codemod in between.
 function readMarker(targetDir: string): MarkerRead {
@@ -658,7 +658,7 @@ function writePartialMarker(
 // failure; codemods that already ran are kept in a partial marker. Writes the
 // marker whenever dryRun is false —
 // even with zero pending entries, so an already-current app still gets a
-// bootstrap marker recording its installed version (fw#2299).
+// bootstrap marker recording its installed version.
 // kumiko-lint-ignore complexity-budget sequential codemod runner with zero-pending bootstrap marker
 async function applyCodemods(
   out: UpgradeCliOut,
@@ -932,8 +932,8 @@ export async function runUpgradeCli(
   const installedVersion = readCurrentVersion(cwd);
   // Filter baseline: explicit --from wins, otherwise the marker recorded
   // under targetDir (what was last actually applied there), falling back to
-  // the installed version only when no marker exists yet (bootstrap,
-  // fw#2299). Baselining on installedVersion here would silently treat every
+  // the installed version only when no marker exists yet (bootstrap).
+  // Baselining on installedVersion here would silently treat every
   // changelog entry up to the installed version as already handled, even
   // when the marker says otherwise — a bare `--apply` would then always
   // report "Nothing new" and bootstrap the marker onto the installed
