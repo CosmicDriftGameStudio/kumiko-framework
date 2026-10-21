@@ -206,17 +206,18 @@ export function useWizardFormDraftRestore<TValues extends FormValues>({
   // one extra click. Zero candidates → stay null, saveDraft mints a fresh
   // draftId on the first step change same as any other fresh create.
   useEffect(() => {
-    // skip: this screen does not persist a draft, this is edit-mode, a
-    // draftId is already known (from storage or an earlier adoption), or
-    // this mount already ran the list lookup once (didListRef).
     if (
       !draftEnabled ||
       !isCreateMode ||
       draftId !== null ||
       didListRef.current ||
       dispatcher === undefined
-    )
+    ) {
+      // skip: this screen does not persist a draft, this is edit-mode, a
+      // draftId is already known (from storage or an earlier adoption), or
+      // this mount already ran the list lookup once (didListRef).
       return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -277,6 +278,7 @@ export function buildWizardDraftActions<TValues extends FormValues>({
     // Locked state (#1896/fw#1909): `disabled` means "no write possible" —
     // repointing draftKey and patching in the candidate's values is exactly
     // that, so a locked form must not adopt a draft.
+    // skip: a locked form keeps its current draft (reason above).
     if (disabled) return;
     const adoptedId = candidate.draftKey.slice(newDraftPrefix(screenId).length);
     draftStorage.setDraftId(screenId, adoptedId);
@@ -321,6 +323,7 @@ export function buildWizardDraftActions<TValues extends FormValues>({
       console.warn(
         `RenderEdit: draftKey "${key}" is ${key.length} chars, over the server's ${FORM_DRAFT_KEY_MAX_LENGTH}-char limit — skipping this draft save. Shorten screenId or entity id.`,
       );
+      // skip: warned above, the oversized key would be rejected by the server anyway.
       return;
     }
     const secretFieldNames = new Set(
