@@ -23,8 +23,13 @@ afterAll(async () => {
 
 type LogEntry = { readonly msg: string; readonly data: Record<string, unknown> | undefined };
 
-function captureContext(): { readonly context: AppContext; readonly errors: LogEntry[] } {
+function captureContext(): {
+  readonly context: AppContext;
+  readonly errors: LogEntry[];
+  readonly components: string[];
+} {
   const errors: LogEntry[] = [];
+  const components: string[] = [];
   const log: Logger = {
     error: (msg: string, data?: Record<string, unknown>) => {
       errors.push({ msg, data });
@@ -32,10 +37,14 @@ function captureContext(): { readonly context: AppContext; readonly errors: LogE
     warn: () => {},
     info: () => {},
     debug: () => {},
-    child: () => log,
+    child: (bindings) => {
+      const component = bindings["component"];
+      if (typeof component === "string") components.push(component);
+      return log;
+    },
   };
   const context: AppContext = { log };
-  return { context, errors };
+  return { context, errors, components };
 }
 
 function uniquePrefix(tag: string): string {
@@ -48,7 +57,7 @@ async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
 }
 
 function failedLines(errors: readonly LogEntry[]): LogEntry[] {
-  return errors.filter((entry) => entry.msg === "[job-runner] job failed");
+  return errors.filter((entry) => entry.msg === "job failed");
 }
 
 describe("failed job attempts are logged (fw#3620)", () => {
@@ -58,7 +67,7 @@ describe("failed job attempts are logged (fw#3620)", () => {
         throw new Error("boom");
       });
     });
-    const { context, errors } = captureContext();
+    const { context, errors, components } = captureContext();
     const queueNamePrefix = uniquePrefix("handler");
     const runner = createJobRunner({
       registry: createRegistry([failFeature]),
@@ -78,6 +87,7 @@ describe("failed job attempts are logged (fw#3620)", () => {
       });
 
       const lines = failedLines(errors);
+      expect(components).toContain("job-runner");
       expect(lines.map((l) => l.data?.["attempt"])).toEqual([1, 2, 3]);
       expect(lines.map((l) => l.data?.["final"])).toEqual([false, false, true]);
       for (const line of lines) {

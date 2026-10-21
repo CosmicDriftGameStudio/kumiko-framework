@@ -469,6 +469,10 @@ describe("nav access inversion warning (fw#2640)", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
     expect(warnedAbout('Nav entry "shop:nav:leaf" requires roles [Admin]')).toBe(true);
+    const inversionCall = warnSpy.mock.calls.find(([message]) =>
+      String(message).includes("requires roles [Admin]"),
+    );
+    expect(inversionCall).toHaveLength(1);
   });
 
   test("leaf role-gate overlapping its parent's → no warning", () => {

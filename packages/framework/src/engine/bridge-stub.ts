@@ -63,8 +63,7 @@ export function bridgeStub(opts?: {
   // that cares about identity passes its own SessionUser here and gets it
   // back on ctx.
   const stubUser: SessionUser =
-    opts?.user ??
-    createAnonymousUser("00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"]); // @cast-boundary engine-bridge
+    opts?.user ?? createAnonymousUser("00000000-0000-0000-0000-000000000000");
   return {
     user: stubUser,
     query: notAvailable("query"),

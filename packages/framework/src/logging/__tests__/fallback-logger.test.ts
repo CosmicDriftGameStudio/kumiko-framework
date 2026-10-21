@@ -52,10 +52,36 @@ describe("createFallbackLogger", () => {
         fallback.debug("connection is closed");
 
         expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy).toHaveBeenCalledWith("[job-runner] connection is closed", undefined);
+        expect(spy.mock.calls[0]).toEqual(["[job-runner] connection is closed"]);
       } finally {
         spy.mockRestore();
       }
+    });
+  });
+
+  describe("mit wrapped logger der child() kann", () => {
+    test("bindet component per child und loggt alle Level ohne Prefix", () => {
+      const calls: string[] = [];
+      const childLogger: Logger = {
+        info: (msg) => void calls.push(`info:${msg}`),
+        warn: (msg) => void calls.push(`warn:${msg}`),
+        error: (msg) => void calls.push(`error:${msg}`),
+        debug: (msg) => void calls.push(`debug:${msg}`),
+        child: () => childLogger,
+      };
+      const child = mock((_bindings: Record<string, unknown>) => childLogger);
+      const error = mock((_msg: string, _data?: Record<string, unknown>) => {});
+      const fallback = createFallbackLogger("redis", { error, child });
+
+      fallback.info("a");
+      fallback.warn("b");
+      fallback.error("c");
+      fallback.debug("d");
+
+      expect(child).toHaveBeenCalledTimes(1);
+      expect(child).toHaveBeenCalledWith({ component: "redis" });
+      expect(calls).toEqual(["info:a", "warn:b", "error:c", "debug:d"]);
+      expect(error).not.toHaveBeenCalled();
     });
   });
 
@@ -69,6 +95,21 @@ describe("createFallbackLogger", () => {
 
         expect(spy).toHaveBeenCalledTimes(1);
         expect(spy).toHaveBeenCalledWith("[boot] no logger wired", { phase: "init" });
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    test("ohne data wird nur ein Argument an console.warn übergeben", () => {
+      const spy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const fallback = createFallbackLogger("boot");
+
+        fallback.warn("plain");
+        fallback.warn("with data", { phase: "init" });
+
+        expect(spy.mock.calls[0]).toEqual(["[boot] plain"]);
+        expect(spy.mock.calls[1]).toEqual(["[boot] with data", { phase: "init" }]);
       } finally {
         spy.mockRestore();
       }
@@ -117,7 +158,7 @@ describe("createFallbackLogger", () => {
 
         expect(first).toEqual(["info:one"]);
         expect(second).toEqual(["info:two"]);
-        expect(spy).toHaveBeenCalledWith("[switch] three", undefined);
+        expect(spy.mock.calls[0]).toEqual(["[switch] three"]);
       } finally {
         setProcessLogger(null);
         spy.mockRestore();

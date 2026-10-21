@@ -81,6 +81,22 @@ const emitterFeature = defineFeature("emitter", (r) => {
   });
 
   r.writeHandler({
+    name: "emit:array-payload",
+    schema: z.object({ userId: z.uuid() }),
+    handler: async (cmd, ctx) => {
+      // System events skip schema validation, so only the object-shape guard stands between an array and the log.
+      await ctx.unsafeAppendEvent({
+        aggregateId: cmd.payload.userId,
+        aggregateType: "user",
+        type: "kumiko:system:test-array-payload",
+        payload: [cmd.payload.userId],
+      });
+      return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
+    },
+    access: { roles: ["Admin"] },
+  });
+
+  r.writeHandler({
     name: "emit:bad-payload",
     schema: z.object({ userId: z.uuid() }),
     handler: async (cmd, ctx) => {
@@ -180,6 +196,17 @@ describe("E.3 — ctx.appendEvent strict validation", () => {
     expect(res.status).toBe(400);
 
     const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
+    expect(stored).toHaveLength(0);
+  });
+});
+
+describe("E.3 — payload shape guard", () => {
+  test("an array payload on a system event is rejected as InternalError; nothing lands in the log", async () => {
+    const userId = generateId();
+    const res = await stack.http.write("emitter:write:emit:array-payload", { userId }, admin);
+    expect(res.status).toBe(500);
+
+    const stored = await selectMany(stack.db, eventsTable);
     expect(stored).toHaveLength(0);
   });
 });

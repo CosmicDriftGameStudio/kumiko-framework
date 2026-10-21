@@ -1,10 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { EntityTableMeta, IndexMeta } from "../entity-table-meta.ts";
 import {
   assertUniqueTableNames,
   assertValidMigrationName,
   diffSnapshots,
   generateMigration,
+  loadSnapshotJson,
   renderMigrationSql,
   snapshotFromMetas,
 } from "../migrate-generator.ts";
@@ -469,5 +473,45 @@ describe("generateMigration — duplicate tableName in metas", () => {
       assertUniqueTableNames([meta("a"), meta("a"), meta("b"), meta("b"), meta("b"), meta("c")]),
     ).toThrow(/"a" 2 times[\s\S]*"b" 3 times/);
     expect(() => assertUniqueTableNames([meta("a"), meta("b")])).not.toThrow();
+  });
+});
+
+describe("loadSnapshotJson", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kumiko-snapshot-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const writeSnapshot = (name: string, content: unknown): string => {
+    const path = join(dir, name);
+    writeFileSync(path, JSON.stringify(content));
+    return path;
+  };
+  const currentVersion = snapshotFromMetas([]).version;
+
+  test("returns null for a missing file", () => {
+    expect(loadSnapshotJson(join(dir, "missing.json"))).toBeNull();
+  });
+
+  test("accepts a snapshot without generatedAt", () => {
+    const path = writeSnapshot("no-generated-at.json", { version: currentVersion, tables: [] });
+    expect(loadSnapshotJson(path)).toEqual({ version: currentVersion, tables: [] });
+  });
+
+  test("rejects a snapshot whose tables are not a list", () => {
+    const path = writeSnapshot("tables-object.json", { version: currentVersion, tables: {} });
+    expect(() => loadSnapshotJson(path)).toThrow("is malformed: expected a tables list");
+  });
+
+  test("rejects a snapshot whose generatedAt is not a string", () => {
+    const path = writeSnapshot("generated-at-number.json", {
+      version: currentVersion,
+      generatedAt: 5,
+      tables: [],
+    });
+    expect(() => loadSnapshotJson(path)).toThrow("is malformed");
+  });
+
+  test("reports a version mismatch before the shape check", () => {
+    const path = writeSnapshot("old-version.json", { version: currentVersion + 1, tables: [] });
+    expect(() => loadSnapshotJson(path)).toThrow(`expected ${currentVersion}`);
   });
 });

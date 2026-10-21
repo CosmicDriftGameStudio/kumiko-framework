@@ -818,7 +818,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         } catch (e) {
           emitEventDispatcherListenConnected(meter, false);
           const msg = e instanceof Error ? e.message : String(e);
-          context.log?.error(`[event-dispatcher] pg LISTEN failed: ${msg}`);
+          dispatcherLog.error("pg LISTEN failed", { err: msg });
         }
       }
     },

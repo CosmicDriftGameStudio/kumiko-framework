@@ -828,8 +828,6 @@ function BrowserNavBoot({
 // Finds the feature that owns a fully qualified ScreenQn.
 // Returns undefined if the screen isn't declared in any feature schema —
 // KumikoScreen then renders the "Screen not found" banner.
-const noEntityId = (): string | undefined => undefined;
-
 function findOwnerFeature(
   features: readonly FeatureSchema[],
   qn: string,
@@ -843,6 +841,13 @@ function findOwnerFeature(
 }
 
 type ScreenDef = FeatureSchema["screens"][number];
+
+type ActiveRoute = {
+  readonly feature: FeatureSchema | undefined;
+  readonly qn: string;
+  readonly entityId: string | undefined;
+  readonly activeScreen: ScreenDef | undefined;
+};
 
 // Single source for "which entityEdit screen does a row click land on", shared
 // by the click handler and hasRowClickTarget so a row never looks clickable
@@ -898,13 +903,13 @@ function RoutedScreen({
   // need to pin it to the right feature. Strategy: iterate through all
   // features until the matching screen decl turns up. No match →
   // fallback feature (the one from fallbackQn).
-  const { feature, qn, entityId, activeScreen } = useMemo(() => {
+  const { feature, qn, entityId, activeScreen } = useMemo<ActiveRoute>(() => {
     if (nav.route === undefined) {
       const ownerFeature = findOwnerFeature(app.features, fallbackQn);
       return {
         feature: ownerFeature,
         qn: fallbackQn,
-        entityId: noEntityId(),
+        entityId: undefined,
         activeScreen: ownerFeature?.screens.find(
           (s) => qualifyScreenId(ownerFeature.featureName, s.id) === fallbackQn,
         ),

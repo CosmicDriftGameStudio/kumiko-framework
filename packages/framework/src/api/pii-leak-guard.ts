@@ -34,7 +34,7 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
     if (!CIPHERTEXT_RE.test(text)) return;
 
     const detail =
-      `[api] JSON response for ${c.req.method} ${resolveRouteLabel(c)} contains a PII ciphertext ` +
+      `JSON response for ${c.req.method} ${resolveRouteLabel(c)} contains a PII ciphertext ` +
       `("${PII_CIPHERTEXT_PREFIX}…") — a raw DB read leaked to the API surface. ` +
       `Decrypt before returning (decryptStoredPii / executor read path).`;
     if (!isProductionEnv()) {

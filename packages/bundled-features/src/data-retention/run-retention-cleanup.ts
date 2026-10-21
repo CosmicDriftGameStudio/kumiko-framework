@@ -244,19 +244,14 @@ async function forgetRowAndEraseKeys(args: {
   readonly entityName: string;
   readonly tenantId: TenantId;
   readonly systemUser: SessionUser;
+  readonly rowId: EntityId;
   readonly row: Record<string, unknown>;
   readonly kms: KmsAdapter | undefined;
   readonly registry: Registry;
 }): Promise<{ readonly isSuccess: boolean }> {
-  const rowId = args.row["id"];
-  if (typeof rowId !== "string" && typeof rowId !== "number") {
-    throw new InternalError({
-      message: `data-retention: ${args.entityName} row has no usable id (got ${typeof rowId})`,
-    });
-  }
   return runInSubTransaction(args.db, async (sp) => {
     const tdb = createTenantDb({ db: sp, tenantId: args.tenantId, mode: "system" });
-    const result = await args.executor.forget({ id: rowId }, args.systemUser, tdb);
+    const result = await args.executor.forget({ id: args.rowId }, args.systemUser, tdb);
     if (!result.isSuccess) return { isSuccess: false };
     await eraseHardDeletedRowKeys({
       kms: args.kms,
@@ -301,6 +296,7 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly tenantId: TenantId;
   readonly entityName: string;
   readonly entity: EntityDefinition;
+  readonly rowId: EntityId;
   readonly row: Record<string, unknown>;
   readonly files: FileContext | undefined;
   readonly entityExecutor: ReturnType<typeof createEventStoreExecutor>;
@@ -311,8 +307,7 @@ async function purgeHardDeleteRowWithFiles(args: {
   readonly registry: Registry;
   readonly onSkip: (reason: "missing_file_storage" | "file_delete_failed") => void;
 }): Promise<boolean> {
-  const rowId = String(args.row["id"]);
-  const logContext = `tenant=${args.tenantId} entity=${args.entityName} row=${rowId}`;
+  const logContext = `tenant=${args.tenantId} entity=${args.entityName} row=${String(args.rowId)}`;
   const files = args.files;
   const outcome = await purgeRowFileRefs({
     db: args.db,
@@ -344,6 +339,7 @@ async function purgeHardDeleteRowWithFiles(args: {
       entityName: args.entityName,
       tenantId: args.tenantId,
       systemUser: args.systemUser,
+      rowId: args.rowId,
       row: args.row,
       kms: args.kms,
       registry: args.registry,
@@ -395,7 +391,14 @@ async function purgeHardDeleteRowsWithFiles(args: {
     });
     if (rows.length === 0) break;
     for (const row of rows) {
-      cursor = row["id"] as EntityId; // @cast-boundary db-row
+      const rawId = row["id"];
+      if (typeof rawId !== "string" && typeof rawId !== "number") {
+        throw new InternalError({
+          message: `data-retention: ${args.entityName} row has no usable id (got ${typeof rawId})`,
+        });
+      }
+      const rowId = rawId;
+      cursor = rowId;
       const ok = await purgeHardDeleteRowWithFiles({
         db: args.db,
         table: args.table,
@@ -403,6 +406,7 @@ async function purgeHardDeleteRowsWithFiles(args: {
         tenantId: args.tenantId,
         entityName: args.entityName,
         entity: args.entity,
+        rowId,
         row,
         files: args.files,
         entityExecutor: args.entityExecutor,
@@ -562,6 +566,7 @@ export async function runRetentionCleanup(
               entityName,
               tenantId,
               systemUser,
+              rowId: id,
               row: { id },
               kms,
               registry,

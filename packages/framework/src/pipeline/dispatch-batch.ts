@@ -17,7 +17,7 @@ import {
 import { createFallbackLogger } from "../logging/utils.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
-import { resolveDbSource } from "./dispatch-shared.ts";
+import { resolveAppPoolDb } from "./dispatch-shared.ts";
 import { executeNestedWrite, executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
@@ -301,7 +301,7 @@ async function runBatchBody(
 
   // batch() opens its own outer transaction — needs the top-level
   // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
-  const db = resolveDbSource(ctx, undefined);
+  const db = resolveAppPoolDb(ctx);
   if (!db || runsWithoutTransaction) {
     // Without a DB connection (or for a perCommand handler, whose writes open their own transactions)
     // there is no transaction to open. Fall back to

@@ -101,7 +101,10 @@ export function registerTokenRequestRoute(opts: {
     // rate_limited is an expected, attacker-triggerable outcome; logging it
     // would flood the sink and bury real misconfiguration errors.
     if (!result.isSuccess && result.error.code !== "rate_limited") {
-      log.error(`token request handler "${opts.requestHandler}" failed: ${result.error.code}`);
+      log.error("token request handler failed", {
+        handler: opts.requestHandler,
+        code: result.error.code,
+      });
     }
 
     return c.json({ isSuccess: true });

@@ -126,13 +126,15 @@ function boundRunner(
           if (typeof callback !== "function") {
             return Reflect.apply(value, target, args);
           }
-          // @cast-boundary db-runner — driver callback hands over the tx handle untyped
           const gatedArgs = [
             ...args.slice(0, -1),
-            (tx: unknown) =>
-              callback(
-                boundRunner(tx as DbRunner, gate, projectionRegistry, executorManagedWrites),
-              ),
+            (tx: unknown) => {
+              // @cast-boundary db-runner — driver callback hands over the tx handle untyped
+              const txRunner = tx as DbRunner;
+              return callback(
+                boundRunner(txRunner, gate, projectionRegistry, executorManagedWrites),
+              );
+            },
           ];
           return Reflect.apply(value, target, gatedArgs);
         };

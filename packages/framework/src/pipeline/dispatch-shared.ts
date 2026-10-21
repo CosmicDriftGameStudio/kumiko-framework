@@ -6,7 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { isAgentToolCallScope, requestContext, runWithOrigin } from "../api/request-context.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
-import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
+import type { DbConnection, DbTx } from "../db/connection.ts";
 import { createHandlerCrossTenantReads } from "../db/cross-tenant-reads.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
 import type { buildEntityTable } from "../db/table-builder.ts";
@@ -201,7 +201,7 @@ export function resolveDbSource(
   return tx ?? resolveAppPoolDb(ctx);
 }
 
-function resolveAppPoolDb(ctx: DispatchContext): DbConnection | undefined {
+export function resolveAppPoolDb(ctx: DispatchContext): DbConnection | undefined {
   return ctx.appContext.db as DbConnection | undefined; // @cast-boundary db-operator
 }
 
@@ -925,12 +925,11 @@ export async function buildHandlerContext(
         });
       }
       try {
-        // @cast-boundary db-runner — savepoint handle from the driver, runInSavepoint overload types it unknown
         const event = await runInSavepoint(tx, (sp) =>
           appendDomainEventCore(
             {
               registry,
-              db: sp as DbRunner,
+              db: sp,
               tenantId: user.tenantId,
               userId: String(user.id),
               callSiteLabel: "ctx.tryAppendEvent",

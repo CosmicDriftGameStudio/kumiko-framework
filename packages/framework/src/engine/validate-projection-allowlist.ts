@@ -28,8 +28,9 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { schemaTableName } from "../db/table-introspection.ts";
 import { getStep } from "./define-step.ts";
 import { buildPipelineSteps } from "./pipeline.ts";
-import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types/index.ts";
+import type { FeatureDefinition, SessionUser, WriteEvent } from "./types/index.ts";
 import type { StepInstance } from "./types/step.ts";
+import { walkStepInstances } from "./walk-step-instances.ts";
 
 // Listed step-kinds whose `args.table` must be in the owning feature's
 // r.requires.projection allowlist. Extend as further unsafeProjection.*
@@ -37,38 +38,9 @@ import type { StepInstance } from "./types/step.ts";
 // for scenarios that can't happen).
 const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjectionDelete"]);
 
-// Sub-pipeline arg-paths come from `defineStep({ subPaths: [...] })` —
-// each builder declares its own (e.g. branch's onTrue/onFalse, forEach's
-// do). Walking via the registry means nested unsafeProjection-* in NEW
-// sub-step-builders is automatically caught the moment the builder
-// registers itself; no central map to keep in sync. Followup #15.
-function isStepInstanceList(value: unknown): value is readonly StepInstance[] {
-  return (
-    Array.isArray(value) &&
-    value.every((entry) => isPlainObject(entry) && typeof entry["kind"] === "string")
-  );
-}
-
-function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, void, void> {
-  for (const step of steps) {
-    yield step;
-    const def = getStep(step.kind);
-    const subPaths = def?.subPaths;
-    if (!subPaths || subPaths.length === 0) continue;
-    if (!isPlainObject(step.args)) continue;
-    for (const path of subPaths) {
-      const subSteps = step.args[path];
-      if (isStepInstanceList(subSteps)) {
-        yield* walkAllSteps(subSteps);
-      }
-    }
-  }
-}
-
 // table()/buildEntityTable spread column handles as enumerable props, so an
 // entity field named `tableName`/`source` would shadow the matching meta key —
 // the canonical meta under KUMIKO_META_SYMBOL is the only collision-safe source.
-
 function resolveTableNameFromStep(table: unknown): string {
   if (typeof table === "object" && table !== null) {
     // Canonical meta under the unshadowable symbol — preferred path.
@@ -93,7 +65,7 @@ function resolveTableNameFromStep(table: unknown): string {
 
 const DUMMY_USER: SessionUser = {
   id: "00000000-0000-0000-0000-000000000000",
-  tenantId: "00000000-0000-0000-0000-000000000000" as TenantId,
+  tenantId: "00000000-0000-0000-0000-000000000000",
   roles: [],
 };
 
@@ -151,7 +123,10 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
         );
       }
 
-      for (const step of walkAllSteps(steps)) {
+      for (const step of walkStepInstances(
+        steps,
+        `[Feature ${f.name}] writeHandler "${handlerName}"`,
+      )) {
         // Tier-2 step-discovery (Q9): require explicit opt-in via
         // r.requires.step("<kind>") for any tier-2+ step. Tier-1 is implicit.
         const def = getStep(step.kind);

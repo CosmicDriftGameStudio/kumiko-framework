@@ -14,17 +14,38 @@ export function setProcessLogger(logger: Logger | null): void {
   processLogger = logger;
 }
 
+// Bun prints a trailing "undefined" when a second argument is passed explicitly as undefined.
+function writeConsole(
+  write: (...args: unknown[]) => void,
+  line: string,
+  data: Record<string, unknown> | undefined,
+): void {
+  if (data === undefined) write(line);
+  else write(line, data);
+}
+
 export function createFallbackLogger(
   namespace: string,
-  logger?: (Pick<Logger, "error"> & Partial<Pick<Logger, "info" | "warn" | "debug">>) | undefined,
+  logger?:
+    | (Pick<Logger, "error"> & Partial<Pick<Logger, "info" | "warn" | "debug" | "child">>)
+    | undefined,
 ): FallbackLogger {
+  if (logger?.child) {
+    const child = logger.child({ component: namespace });
+    return {
+      info: (msg, data) => child.info(msg, data),
+      error: (msg, data) => child.error(msg, data),
+      warn: (msg, data) => child.warn(msg, data),
+      debug: (msg, data) => child.debug(msg, data),
+    };
+  }
   if (logger) {
     return {
       info(msg, data) {
         if (logger.info) {
           logger.info(`[${namespace}] ${msg}`, data);
         } else {
-          console.info(`[${namespace}] ${msg}`, data);
+          writeConsole(console.info, `[${namespace}] ${msg}`, data);
         }
       },
       error(msg, data) {
@@ -34,14 +55,14 @@ export function createFallbackLogger(
         if (logger.warn) {
           logger.warn(`[${namespace}] ${msg}`, data);
         } else {
-          console.warn(`[${namespace}] ${msg}`, data);
+          writeConsole(console.warn, `[${namespace}] ${msg}`, data);
         }
       },
       debug(msg, data) {
         if (logger.debug) {
           logger.debug(`[${namespace}] ${msg}`, data);
         } else {
-          console.debug(`[${namespace}] ${msg}`, data);
+          writeConsole(console.debug, `[${namespace}] ${msg}`, data);
         }
       },
     };
@@ -62,7 +83,7 @@ export function createFallbackLogger(
       if (child) {
         child.info(msg, data);
       } else {
-        console.info(`[${namespace}] ${msg}`, data);
+        writeConsole(console.info, `[${namespace}] ${msg}`, data);
       }
     },
     error(msg, data) {
@@ -70,7 +91,7 @@ export function createFallbackLogger(
       if (child) {
         child.error(msg, data);
       } else {
-        console.error(`[${namespace}] ${msg}`, data);
+        writeConsole(console.error, `[${namespace}] ${msg}`, data);
       }
     },
     warn(msg, data) {
@@ -78,7 +99,7 @@ export function createFallbackLogger(
       if (child) {
         child.warn(msg, data);
       } else {
-        console.warn(`[${namespace}] ${msg}`, data);
+        writeConsole(console.warn, `[${namespace}] ${msg}`, data);
       }
     },
     debug(msg, data) {
@@ -86,7 +107,7 @@ export function createFallbackLogger(
       if (child) {
         child.debug(msg, data);
       } else {
-        console.debug(`[${namespace}] ${msg}`, data);
+        writeConsole(console.debug, `[${namespace}] ${msg}`, data);
       }
     },
   };

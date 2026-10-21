@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import type { Redis } from "ioredis";
 import { createRedisLoginRateLimiter } from "../auth-routes.ts";
 
 let testRedis: TestRedis;
@@ -134,5 +135,36 @@ describe("createRedisLoginRateLimiter", () => {
 
     const ttlMs = await testRedis.redis.pttl(redisKey);
     expect(ttlMs).toBeGreaterThan(0);
+  });
+
+  describe("eval result coercion", () => {
+    // Object.create keeps the real connection as prototype and shadows only eval.
+    const redisReplyingWith = (reply: unknown): Redis =>
+      Object.create(testRedis.redis, { eval: { value: async () => reply } });
+
+    test("accepts a numeric string reply and compares it against maxAttempts", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith("3"), 3, 60_000);
+      expect(await limiter.check("k")).toBe(true);
+
+      const overLimit = createRedisLoginRateLimiter(redisReplyingWith("4"), 3, 60_000);
+      expect(await overLimit.check("k")).toBe(false);
+    });
+
+    test("rejects a null reply instead of treating it as an allowed attempt", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith(null), 3, 60_000);
+      await expect(limiter.check("k")).rejects.toThrow(
+        "redis INCR script returned null, expected an integer",
+      );
+    });
+
+    test("rejects an empty string reply", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith(""), 3, 60_000);
+      await expect(limiter.check("k")).rejects.toThrow("expected an integer");
+    });
+
+    test("rejects a non-integer string reply", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith("1.5"), 3, 60_000);
+      await expect(limiter.check("k")).rejects.toThrow("expected an integer");
+    });
   });
 });

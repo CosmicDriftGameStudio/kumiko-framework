@@ -90,6 +90,6 @@ describe("POST /auth/request-password-reset failure logging", () => {
     expect(res.status).toBe(200);
     const errors = tokenRequestErrors(errorSpy);
     expect(errors).toHaveLength(1);
-    expect(String(errors[0]?.[0])).toContain("internal_error");
+    expect(errors[0]?.[1]).toMatchObject({ code: "internal_error" });
   });
 });

@@ -7,12 +7,12 @@
 //   4. Für jeden pending in Order:
 //      a. dynamic import → default-export (SeedMigration)
 //      b. wenn migration.skippable && env[KUMIKO_SKIP_ES_OPS_<sanitized>]='1':
-//         → console.log + continue (kein Marker geschrieben)
+//         → log line + continue (kein Marker geschrieben)
 //      c. Tx start
 //      d. await migration.run(ctx)
 //      e. INSERT marker mit duration_ms + appliedBy
 //      f. Tx commit
-//   5. On any failure: Tx rollback + console.error + throw
+//   5. On any failure: Tx rollback + error log + throw
 //      → App-Boot bricht ab. Operator muss Failure fixen + retry.
 //
 // Skippable-Pattern: seed.skippable=true erlaubt im Notfall ein
@@ -48,7 +48,7 @@ export type RunPendingSeedMigrationsArgs = {
    *  Wenn weggelassen → kein Dry-Run (backward-compat für tests die ohne
    *  Registry arbeiten). runProdApp reicht den richtigen Registry rein. */
   readonly registry?: Registry;
-  /** Optional log-prefix override, default "[es-ops/seed-migration]". */
+  /** Optional line sink; the default logs under the "es-ops/seed-migration" namespace. */
   readonly logger?: (line: string) => void;
 };
 
@@ -57,10 +57,8 @@ export type RunPendingSeedMigrationsResult = {
   readonly skippedIds: readonly string[];
 };
 
-const bootLog = createFallbackLogger("kumiko:boot");
-const DEFAULT_LOGGER = (line: string): void => bootLog.info(line);
-
-const LOG_PREFIX = "[es-ops/seed-migration]";
+const seedMigrationLog = createFallbackLogger("es-ops/seed-migration");
+const DEFAULT_LOGGER = (line: string): void => seedMigrationLog.info(line);
 
 export async function runPendingSeedMigrations(
   args: RunPendingSeedMigrationsArgs,
@@ -69,18 +67,18 @@ export async function runPendingSeedMigrations(
 
   const onDisk = await listSeedFiles(args.seedsDir);
   if (onDisk.length === 0) {
-    log(`${LOG_PREFIX} no seed files in ${args.seedsDir} — skipping`);
+    log(`no seed files in ${args.seedsDir} — skipping`);
     return { appliedIds: [], skippedIds: [] };
   }
 
   const applied = await loadAppliedIds(args.db);
   const pending = onDisk.filter((entry) => !applied.has(entry.id));
   if (pending.length === 0) {
-    log(`${LOG_PREFIX} ${onDisk.length} on disk, all applied — nothing to do`);
+    log(`${onDisk.length} on disk, all applied — nothing to do`);
     return { appliedIds: [], skippedIds: [] };
   }
 
-  log(`${LOG_PREFIX} ${pending.length}/${onDisk.length} pending`);
+  log(`${pending.length}/${onDisk.length} pending`);
 
   const appliedIds: string[] = [];
   const skippedIds: string[] = [];
@@ -107,7 +105,7 @@ export async function runPendingSeedMigrations(
         )}\n  Check spelling against your TenantHandlers/AuthHandlers constants (kebab-case after the colon).`,
       );
     }
-    log(`${LOG_PREFIX} dry-run ok — all referenced handler-QNs registered`);
+    log(`dry-run ok — all referenced handler-QNs registered`);
   }
 
   for (const entry of pending) {
@@ -115,7 +113,7 @@ export async function runPendingSeedMigrations(
 
     const envFlag = `KUMIKO_SKIP_ES_OPS_${sanitizeForEnv(entry.id)}`;
     if (migration.skippable === true && process.env[envFlag] === "1") {
-      log(`${LOG_PREFIX} skip "${entry.id}" — ${envFlag}=1`);
+      log(`skip "${entry.id}" — ${envFlag}=1`);
       skippedIds.push(entry.id);
       continue;
     }
@@ -131,7 +129,7 @@ export async function runPendingSeedMigrations(
         await acquireEsOpsAdvisoryLock(tx);
 
         if (await esOperationExists(tx, entry.id)) {
-          log(`${LOG_PREFIX} race-skip "${entry.id}" — applied by parallel boot`);
+          log(`race-skip "${entry.id}" — applied by parallel boot`);
           // skip: parallel boot won the advisory-lock and already applied
           // this migration. Nothing more to do in this tx.
           return;
@@ -148,13 +146,13 @@ export async function runPendingSeedMigrations(
         });
       });
       const elapsed = Date.now() - start;
-      log(`${LOG_PREFIX} ✓ ${entry.id} (${elapsed}ms) — ${migration.description}`);
+      log(`✓ ${entry.id} (${elapsed}ms) — ${migration.description}`);
       appliedIds.push(entry.id);
     } catch (err) {
       const elapsed = Date.now() - start;
-      log(`${LOG_PREFIX} ✗ ${entry.id} (${elapsed}ms) — ${stringifyError(err)}`);
+      log(`✗ ${entry.id} (${elapsed}ms) — ${stringifyError(err)}`);
       log(
-        `${LOG_PREFIX} ABORT — ${pending.length - appliedIds.length - skippedIds.length - 1} pending migrations were NOT attempted`,
+        `ABORT — ${pending.length - appliedIds.length - skippedIds.length - 1} pending migrations were NOT attempted`,
       );
       throw err;
     }

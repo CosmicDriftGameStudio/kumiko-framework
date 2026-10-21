@@ -295,4 +295,40 @@ describe("registrar — hook definitions are checked by the type system", () => 
       }),
     ).toThrow(/only supports postSave\/preDelete\/postDelete\/postQuery/);
   });
+
+  describe("positional calls missing a required argument", () => {
+    test("metric without options names the feature, method and argument", () => {
+      expect(() =>
+        defineFeature("missing-arg", (r) => {
+          // @ts-expect-error the typed overload requires options; an untyped JS caller can omit them
+          r.metric("orders_total");
+        }),
+      ).toThrow("[Feature missing-arg] r.metric() needs its options argument");
+    });
+
+    test("job without handler names the missing handler", () => {
+      expect(() =>
+        defineFeature("missing-arg", (r) => {
+          // @ts-expect-error the typed overload requires the handler
+          r.job("reconcile", { trigger: { manual: true } });
+        }),
+      ).toThrow("[Feature missing-arg] r.job() needs its handler argument");
+    });
+
+    test("relation without definition names the missing definition", () => {
+      expect(() =>
+        defineFeature("missing-arg", (r) => {
+          // @ts-expect-error the typed overload requires the definition
+          r.relation("item", "supplier");
+        }),
+      ).toThrow("[Feature missing-arg] r.relation() needs its definition argument");
+    });
+
+    test("the same calls with every argument register normally", () => {
+      const feature = defineFeature("complete-args", (r) => {
+        r.metric("orders_total", { type: "counter" });
+      });
+      expect(feature.metrics?.["orders_total"]).toMatchObject({ shortName: "orders_total" });
+    });
+  });
 });

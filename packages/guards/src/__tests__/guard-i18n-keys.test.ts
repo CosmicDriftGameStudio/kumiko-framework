@@ -10,6 +10,9 @@ function featureFile(code: string) {
   return project.createSourceFile("/repo/src/features/greeting/feature.ts", code);
 }
 
+// Without this the guard scans the real node_modules/@cosmicdrift tree, which these cases do not need.
+const noInstalledKeys = { installedFrameworkKeys: () => new Set<string>() };
+
 describe("guard-i18n-keys — plural entries", () => {
   test("accepts a plural object as a locale value without a false positive", () => {
     const sf = featureFile(`
@@ -26,7 +29,7 @@ describe("guard-i18n-keys — plural entries", () => {
         t("greeting:greeting.count");
       });
     `);
-    const outcome = checkI18nKeys([sf]);
+    const outcome = checkI18nKeys([sf], noInstalledKeys);
     expect(outcome.violations).toHaveLength(0);
   });
 
@@ -42,7 +45,7 @@ describe("guard-i18n-keys — plural entries", () => {
         t('greeting:greeting.it\\'s');
       });
     `);
-    const outcome = checkI18nKeys([sf]);
+    const outcome = checkI18nKeys([sf], noInstalledKeys);
     expect(outcome.violations).toHaveLength(0);
   });
 });

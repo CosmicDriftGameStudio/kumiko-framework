@@ -39,6 +39,7 @@ import type {
   ReferenceFieldDef,
   SessionUser,
 } from "../engine/types/index.ts";
+import { scrubLogValue } from "../logging/scrub.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import {
   collectEncryptedFieldNames,
@@ -202,9 +203,11 @@ async function buildRefLookupMap(
     try {
       decrypted = await decryptReferencedRow(r, piiFields, encryptedFields, kms);
     } catch (e) {
-      log.warn(
-        `failed to decrypt referenced row entity=${refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
-      );
+      log.warn("failed to decrypt referenced row", {
+        entity: refEntityName,
+        id: String(r["id"]),
+        err: scrubLogValue(e),
+      });
       continue;
     }
     const id = decrypted["id"];

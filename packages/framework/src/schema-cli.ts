@@ -10,6 +10,8 @@
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -142,6 +144,86 @@ function parseValidateBootOptions(raw: unknown): ValidateBootOptions {
   };
 }
 
+function tableNameHint(entry: unknown): string {
+  if (isPlainObject(entry) && typeof entry["tableName"] === "string") return entry["tableName"];
+  return "unknown";
+}
+
+// Every non-optional top-level property of FeatureDefinition, grouped by the runtime shape the
+// boot validators rely on; a hand-built entry missing one would crash far from the cause.
+const FEATURE_ARRAY_KEYS = [
+  "requires",
+  "optionalRequires",
+  "configSeeds",
+  "extensionUsages",
+  "extensionSelectors",
+  "bootChecks",
+  "referenceData",
+  "configReads",
+  "authClaimsHooks",
+] as const satisfies readonly (keyof FeatureDefinition)[];
+
+const FEATURE_SET_KEYS = [
+  "requiredProjections",
+  "requiredSteps",
+  "exposedApis",
+  "usedApis",
+] as const satisfies readonly (keyof FeatureDefinition)[];
+
+const FEATURE_RECORD_KEYS = [
+  "relations",
+  "writeHandlers",
+  "queryHandlers",
+  "streamHandlers",
+  "translations",
+  "configKeys",
+  "jobs",
+  "registrarExtensions",
+  "notifications",
+  "events",
+  "eventMigrations",
+  "handlerEntityMappings",
+  "metrics",
+  "secretKeys",
+  "secretNamespaces",
+  "projections",
+  "multiStreamProjections",
+  "claimKeys",
+  "screens",
+  "navs",
+  "workspaces",
+  "httpRoutes",
+  "webSocketRoutes",
+  "storeTables",
+] as const satisfies readonly (keyof FeatureDefinition)[];
+
+function isFeatureDefinitionShape(entry: unknown): entry is FeatureDefinition {
+  if (!isPlainObject(entry)) return false;
+  return (
+    typeof entry["name"] === "string" &&
+    typeof entry["systemScope"] === "boolean" &&
+    FEATURE_ARRAY_KEYS.every((key) => Array.isArray(entry[key])) &&
+    FEATURE_SET_KEYS.every((key) => entry[key] instanceof Set) &&
+    FEATURE_RECORD_KEYS.every((key) => isPlainObject(entry[key]))
+  );
+}
+
+// FEATURES comes from the app's schema module; one malformed entry would make
+// validateBoot fail with an unrelated error far from the cause, so name the index here.
+function featureDefinitionsOf(value: unknown): readonly FeatureDefinition[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const definitions: FeatureDefinition[] = [];
+  for (const [index, entry] of value.entries()) {
+    if (!isFeatureDefinitionShape(entry)) {
+      throw new Error(
+        `FEATURES[${index}] is not a FeatureDefinition (expected an object with a string \`name\`)`,
+      );
+    }
+    definitions.push(entry);
+  }
+  return definitions;
+}
+
 // Single load-path for kumiko/schema.ts (512/3) — `generate` and `validate`
 // both need ENTITY_METAS (and validate additionally wants FEATURES); this is
 // the one place that enforces "ENTITY_METAS must be an array" so the two
@@ -151,14 +233,23 @@ async function loadSchemaModFromApp(schemaFile: string): Promise<SchemaMod> {
   // bun imports TS directly — no spawn needed.
   const mod: Record<string, unknown> = await import(schemaFile);
   const entityMetas = mod["ENTITY_METAS"];
-  if (!Array.isArray(entityMetas) || !entityMetas.every(isEntityTableMeta)) {
+  if (!Array.isArray(entityMetas)) {
     throw new Error(
       `Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
     );
   }
-  assertUniqueTableNames(entityMetas);
+  const validMetas: EntityTableMeta[] = [];
+  for (const [index, entry] of entityMetas.entries()) {
+    if (!isEntityTableMeta(entry)) {
+      throw new Error(
+        `Schema file ${schemaFile}: ENTITY_METAS[${index}] is not an EntityTableMeta (table: ${tableNameHint(entry)}).`,
+      );
+    }
+    validMetas.push(entry);
+  }
+  assertUniqueTableNames(validMetas);
   return {
-    entityMetas,
+    entityMetas: validMetas,
     features: mod["FEATURES"],
     validateBootOptions: mod["VALIDATE_BOOT_OPTIONS"],
   };
@@ -371,7 +462,6 @@ export async function runSchemaCli(
         out.err(`  ${e instanceof Error ? e.message : String(e)}`);
         return 1;
       }
-      const mod = { FEATURES: schemaMod.features };
       let ok = true;
 
       // 1. Schema drift — compute the diff, never write.
@@ -404,10 +494,19 @@ export async function runSchemaCli(
       }
 
       // 2. Boot validity — needs the composed feature set.
-      if (Array.isArray(mod.FEATURES)) {
+      let bootFeatures: readonly FeatureDefinition[] | undefined;
+      let bootFeaturesError: string | undefined;
+      try {
+        bootFeatures = featureDefinitionsOf(schemaMod.features);
+      } catch (e) {
+        bootFeaturesError = e instanceof Error ? e.message : String(e);
+      }
+      if (bootFeaturesError !== undefined) {
+        ok = false;
+        out.err(`  ✗ boot: ${bootFeaturesError}`);
+      } else if (bootFeatures) {
         try {
-          // @cast-boundary feature-exports — dynamic import of the app module; Array.isArray checked above, FeatureDefinition has no runtime schema
-          validateBoot(mod.FEATURES as readonly FeatureDefinition[], {
+          validateBoot(bootFeatures, {
             ...parseValidateBootOptions(schemaMod.validateBootOptions),
             env: withFileStoragePresence(process.env),
           });
