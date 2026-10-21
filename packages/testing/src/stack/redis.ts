@@ -39,7 +39,9 @@ export async function createTestRedis(opts: CreateTestRedisOptions = {}): Promis
   // round-robin). Collisions at birthday-paradox rates are gone — the
   // prefix space is unbounded. See Track B.3 in docs/plans/tests-refactor.
   const prefix = opts.borrowKeyPrefix ?? `kt:${generateId().slice(-8)}:`;
-  const redis = new Redis(redisUrl, { keyPrefix: prefix });
+  // Callers that check redis.status (rate-limit resolver) must not see "connect" on their first call.
+  const redis = new Redis(redisUrl, { keyPrefix: prefix, lazyConnect: true });
+  await redis.connect();
 
   async function deleteKeysMatching(pattern: string): Promise<void> {
     // Open a prefix-less client for the scan — ioredis' keyPrefix is applied
