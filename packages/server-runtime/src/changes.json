@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "Database wait ignores Bun.SQL error codes",
+    "detail": "The transient connection error list no longer contains the ERR_POSTGRES_* codes of the removed Bun.SQL driver; postgres-js never raises them."
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "hostDispatch pages get the build's CSP script hashes",

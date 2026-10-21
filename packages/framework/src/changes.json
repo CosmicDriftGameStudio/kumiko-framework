@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "requiredLocales boot option",
+    "detail": "`validateBootOptions.requiredLocales` (also `VALIDATE_BOOT_OPTIONS` in kumiko/schema.ts) makes boot fail when any translation key of the mounted features lacks one of the listed locales. Locales are combined across features, so locale packages close the gaps of the features they translate. Without the option nothing changes. This replaces the locale list the i18n-keys guard read from `src/i18n-guard-locales.ts` until 0.384.0; without that file it checked `[\"de\", \"en\"]`.",
+    "migration": "Define the option once, e.g. `{ requiredLocales: [\"de\", \"en\"] }`, pass it as `validateBootOptions` wherever the app boots (`runProdApp`, `runDevApp`, workers) and re-export it as `VALIDATE_BOOT_OPTIONS` from `kumiko/schema.ts` so `kumiko-schema validate` checks it in CI. The check covers framework and bundled keys too; a key missing a locale fails boot with the feature and key named."
+  },
+  {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "selectMany distinctOn for newest-row-per-key reads",
+    "detail": "SelectOptions.distinctOn takes field names and emits SELECT DISTINCT ON over them, keeping the first row per key by orderBy, so newest-row-per-key reads no longer need unsafeRaw. orderBy has to start with the distinctOn fields in the same order, otherwise selectMany throws; without orderBy it defaults to them ascending. Tenant scoping applies as for every selectMany. Error classification and driver detection drop the branches for the removed Bun.SQL driver (ERR_POSTGRES_* codes, SQLSTATE in errno, millisecond timeouts), which postgres-js never produces."
+  },
+  {
     "version": "0.384.0",
     "type": "breaking",
     "title": "Boot fails when a feature leaves a locale out of some of its translation keys",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "View-model inputs take only the entity parts they read",
+    "detail": "ComputeEditViewModelInput.entity and ComputeListViewModelInput.entity are typed as the Pick of EntityDefinition they actually read, so synthesized entities need no cast. Passing a full EntityDefinition keeps working. Renderer console output goes through one dev-console module."
+  },
+  {
     "version": "0.384.0",
     "type": "fix",
     "title": "A section with a visible action is not hidden when all its fields are",

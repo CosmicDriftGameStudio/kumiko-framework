@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.385.0
+
+### Patch Changes
+
+- e345be5: Tests use the shared `waitFor` and `sleep` helpers instead of inline timeout promises.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Tests use waitFor and sleep helpers instead of inline timers
+  detail: Fixed waits that back a TTL bound, an absence or an ordering gap use sleep with a reason; the combobox debounce test polls with waitFor.
+  -->
+- Updated dependencies [3b011a8]
+- Updated dependencies [9950dd0]
+- Updated dependencies [e345be5]
+  - @cosmicdrift/kumiko-framework@0.385.0
+  - @cosmicdrift/kumiko-types@0.385.0
+  - @cosmicdrift/kumiko-guards@0.385.0
+
 ## 0.384.0
 
 ### Minor Changes

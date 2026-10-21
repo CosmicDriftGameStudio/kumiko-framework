@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.385.0",
+    "type": "improvement",
+    "title": "patScopeOptionKey for translating token scope labels",
+    "detail": "The scope labels personal-access-tokens generates from `scopes[domain].label` are English only. `patScopeOptionKey(domain, \"read\" | \"write\")` returns their translation key, so an app feature can add the other locales with `r.translations`.",
+    "migration": "Apps that mount personal-access-tokens and set `requiredLocales` with a locale other than `en` translate each generated scope label (`read`, plus `write` where the domain offers it) under `patScopeOptionKey`."
+  },
+  {
     "version": "0.372.0",
     "type": "fix",
     "title": "Tenants whose tier excludes API tokens now reach the lockedFallbackScreen",
