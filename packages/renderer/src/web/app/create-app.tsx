@@ -828,6 +828,8 @@ function BrowserNavBoot({
 // Finds the feature that owns a fully qualified ScreenQn.
 // Returns undefined if the screen isn't declared in any feature schema —
 // KumikoScreen then renders the "Screen not found" banner.
+const noEntityId = (): string | undefined => undefined;
+
 function findOwnerFeature(
   features: readonly FeatureSchema[],
   qn: string,
@@ -902,7 +904,7 @@ function RoutedScreen({
       return {
         feature: ownerFeature,
         qn: fallbackQn,
-        entityId: undefined as string | undefined,
+        entityId: noEntityId(),
         activeScreen: ownerFeature?.screens.find(
           (s) => qualifyScreenId(ownerFeature.featureName, s.id) === fallbackQn,
         ),

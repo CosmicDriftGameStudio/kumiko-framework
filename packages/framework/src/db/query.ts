@@ -244,7 +244,7 @@ type TenantDbDelegate = {
 
 // Duck-types TenantDb: five scoped methods + tenantId, no `.unsafe` of its own.
 // A throwing systemScope guard Proxy fails closed here too — intended, not a bug.
-function isTenantDbShape(db: unknown): boolean {
+function isTenantDbShape(db: unknown): db is TenantDbDelegate {
   if (typeof db !== "object" || db === null) return false;
   if (typeof propertyOf(db, "unsafe") === "function") return false;
   return (
@@ -258,7 +258,7 @@ function isTenantDbShape(db: unknown): boolean {
 }
 
 function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
-  return isTenantDbShape(db) ? (db as TenantDbDelegate) : undefined;
+  return isTenantDbShape(db) ? db : undefined;
 }
 
 // Fails loudly for helpers that don't delegate to TenantDb (upsert/increment/insertMany) —

@@ -27,9 +27,19 @@ const SNAPSHOT_VERSION = 1 as const;
 
 export type Snapshot = {
   readonly version: typeof SNAPSHOT_VERSION;
-  readonly generatedAt: string; // ISO-8601
+  // ISO-8601. Optional because hand-written and older snapshots omit it; nothing reads it.
+  readonly generatedAt?: string;
   readonly tables: readonly EntityTableMeta[];
 };
+
+function isSnapshot(value: unknown): value is Snapshot {
+  return (
+    isPlainObject(value) &&
+    value["version"] === SNAPSHOT_VERSION &&
+    (value["generatedAt"] === undefined || typeof value["generatedAt"] === "string") &&
+    Array.isArray(value["tables"])
+  );
+}
 
 export type ColumnChange = {
   readonly name: string;
@@ -93,7 +103,10 @@ export function loadSnapshotJson(path: string): Snapshot | null {
         `Snapshot at ${path} has version ${String(version)}, expected ${SNAPSHOT_VERSION}`,
       );
     }
-    return parsed as Snapshot;
+    if (!isSnapshot(parsed)) {
+      throw new Error(`Snapshot at ${path} is malformed: expected a tables list`);
+    }
+    return parsed;
   } catch (err) {
     if (errorCodeOf(err) === "ENOENT") return null;
     throw err;

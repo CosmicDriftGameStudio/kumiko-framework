@@ -213,7 +213,7 @@ async function resolveRetentionDenial(
   const effective = await resolveRetentionPolicyForTenant({
     db: runner,
     registry: ctx.registry,
-    tenantId: owningTenantId as TenantId,
+    tenantId: owningTenantId,
     entityName: raw.entity,
   });
   return effective.policy?.strategy === "blockDelete" ? deny() : undefined;

@@ -27,6 +27,9 @@ export function attachSignalHandlers(
   const signals: readonly NodeJS.Signals[] = opts.signals ?? ["SIGTERM", "SIGINT"];
   const exitFn = opts.exit ?? ((code) => process.exit(code));
 
+  // bun-types vs @types/node: signal overload on process.on/off is not
+  // selectable via bind() under the merged types — EventEmitter seam is intentional.
+  const processEmitter: NodeJS.EventEmitter = process;
   const listeners = new Map<NodeJS.Signals, () => void>();
   // Guard so double-SIGTERM doesn't call exitFn twice. drain() is already
   // idempotent via its shared promise, but its .then/.catch chain would fire
@@ -47,16 +50,14 @@ export function attachSignalHandlers(
         .then(() => exitFn(0))
         .catch(() => exitFn(1));
     };
-    // bun-types vs @types/node: signal overload on process.on/off is not
-    // selectable via bind() under the merged types — EventEmitter seam is intentional.
-    (process as NodeJS.EventEmitter).on(sig, handler);
+    processEmitter.on(sig, handler);
     listeners.set(sig, handler);
   }
 
   return {
     detach: () => {
       for (const [sig, handler] of listeners) {
-        (process as NodeJS.EventEmitter).off(sig, handler);
+        processEmitter.off(sig, handler);
       }
       listeners.clear();
     },

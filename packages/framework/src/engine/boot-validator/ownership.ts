@@ -340,6 +340,11 @@ export function probeWhereRule(
   );
 }
 
+// Array.isArray does not narrow a readonly array out of a union.
+function isRoleList(access: OwnershipMap | readonly string[]): access is readonly string[] {
+  return Array.isArray(access);
+}
+
 // Embedded sub-fields are filtered in memory too (filterFieldsForRead), so a
 // where-rule there is just as unevaluable as on a top-level field.
 function rejectWhereInEmbeddedRead(
@@ -349,8 +354,8 @@ function rejectWhereInEmbeddedRead(
 ): void {
   for (const [subName, sub] of Object.entries(schema)) {
     const map = sub.access?.read;
-    if (!map || Array.isArray(map)) continue;
-    for (const [roleName, rule] of Object.entries(map as OwnershipMap)) {
+    if (!map || isRoleList(map)) continue;
+    for (const [roleName, rule] of Object.entries(map)) {
       if (rule !== "all" && rule.kind === "where") {
         throw new Error(
           buildWhereOnFieldReadMessage(

@@ -40,10 +40,8 @@ export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema
 // Public type aliases — historical compat for callers that used to import
 // these from drizzle-orm/pg-core. SelectQuery is no longer a meaningful
 // shape (no chain builder); TableColumns is the new SchemaTable union.
-// biome-ignore lint/suspicious/noExplicitAny: variadic table shape
-export type TableColumns<_T = any> = SchemaTable;
-// biome-ignore lint/suspicious/noExplicitAny: legacy type — chain API is gone
-export type SelectQuery = any;
+export type TableColumns<_T = unknown> = SchemaTable;
+export type SelectQuery = unknown;
 
 function isNumericPgType(t: PgType): t is `numeric(${number},${number})` {
   return t.startsWith("numeric(");
@@ -534,11 +532,11 @@ export function table<TCols extends ColumnMap>(
     ...(compositePrimaryKey !== undefined && { compositePrimaryKey }),
     source: "unmanaged",
   };
-  const out = Object.assign({}, base, handles, {
+  const out: SchemaTable = Object.assign({}, base, handles, {
     [KUMIKO_NAME_SYMBOL]: tableName,
     [KUMIKO_COLUMNS_SYMBOL]: handles,
     [KUMIKO_META_SYMBOL]: base,
-  }) as SchemaTable;
+  });
   return brandWritable(out);
 }
 

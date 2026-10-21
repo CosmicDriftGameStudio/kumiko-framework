@@ -113,15 +113,19 @@ export function createRedisLoginRateLimiter(
       // shipped (PTTL returns -1 for "no expiry set, key exists") — without
       // it, those pre-existing keys would grow forever with no way back to
       // a normal window.
-      const count = (await redis.eval(
+      const count: unknown = await redis.eval(
         `local c = redis.call('INCR', KEYS[1])
          if c == 1 or redis.call('PTTL', KEYS[1]) < 0 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
          return c`,
         1,
         redisKey,
         windowMs,
-      )) as number;
-      return count <= maxAttempts;
+      );
+      const attempts = typeof count === "string" ? Number(count) : count;
+      if (typeof attempts !== "number" || !Number.isInteger(attempts)) {
+        throw new TypeError(`redis INCR script returned ${String(count)}, expected an integer`);
+      }
+      return attempts <= maxAttempts;
     },
     async reset(key) {
       await redis.del(`${prefix}${key}`);

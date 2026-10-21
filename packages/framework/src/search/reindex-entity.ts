@@ -102,12 +102,8 @@ async function scanAndIndexEntity(
   const deletedFilter =
     entity.softDelete === true ? `AND ${quoteIdent("is_deleted")} IS NOT TRUE` : "";
 
-  const result = {
-    scannedRows: 0,
-    indexedRows: 0,
-    wouldIndexRows: 0,
-    failures: [] as ReindexEntityFailure[],
-  };
+  const failures: ReindexEntityFailure[] = [];
+  const result = { scannedRows: 0, indexedRows: 0, wouldIndexRows: 0, failures };
 
   let lastId: unknown;
   // Whether a searchable field lacks a matching read-table column depends
@@ -130,11 +126,12 @@ async function scanAndIndexEntity(
         LIMIT $2`,
       lastId === undefined ? [tenantId, batchSize] : [tenantId, batchSize, lastId],
     );
-    if (rows.length === 0) break;
+    const [firstRow] = rows;
+    if (firstRow === undefined) break;
 
     if (uncheckedSchema) {
       uncheckedSchema = false;
-      const sampleState = rowToState(rows[0] as Record<string, unknown>, fieldNames);
+      const sampleState = rowToState(firstRow, fieldNames);
       const unmappedField = searchableFields.find((fieldName) => !(fieldName in sampleState));
       if (unmappedField !== undefined) {
         throw new Error(

@@ -29,7 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { executor } from "./handlers/shared.ts";
 import { evaluateTemplateWrite } from "./handlers/template-gates.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
@@ -232,11 +232,11 @@ export async function seedSystemTemplate(
         }
         throw new Error(`seedSystemTemplate create failed: ${JSON.stringify(result)}`);
       }
-      const data = result.data as Partial<TemplateResourceRow>;
-      if (data.id === undefined) {
+      const createdId = propertyOf(result.data, "id");
+      if (createdId === undefined) {
         throw new Error("seedSystemTemplate: executor.create did not return an id");
       }
-      return { id: String(data.id) };
+      return { id: String(createdId) };
     },
     update: (row) => applyUpdate(row, existingRow),
   });

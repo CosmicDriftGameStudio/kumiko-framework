@@ -288,12 +288,14 @@ const FIELD_ICONS = {
   "map-pin": MapPin,
 } as const satisfies Readonly<Record<FieldIconKey, typeof Mail>>;
 
+function isFieldIconKey(key: string): key is FieldIconKey {
+  return Object.hasOwn(FIELD_ICONS, key);
+}
+
 export function fieldIconFor(
   icon: string | undefined,
 ): (typeof FIELD_ICONS)[FieldIconKey] | undefined {
-  return icon !== undefined && Object.hasOwn(FIELD_ICONS, icon)
-    ? FIELD_ICONS[icon as FieldIconKey]
-    : undefined;
+  return icon !== undefined && isFieldIconKey(icon) ? FIELD_ICONS[icon] : undefined;
 }
 
 // Wraps a text/number input with a left-positioned prefix icon when

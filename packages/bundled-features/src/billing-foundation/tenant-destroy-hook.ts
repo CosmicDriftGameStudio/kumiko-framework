@@ -1,4 +1,4 @@
-import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { declareEscapeHatch, type TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
@@ -12,6 +12,10 @@ import { paymentsProjectionTable, subscriptionsProjectionTable } from "./project
 // can not: it needs the accounting facts (status/tier/period) to survive, so
 // it redacts the projection row directly instead of relying on key erasure.
 const REDACTED_PII_VALUE = "[erased]";
+
+const subscriptionsTable = () =>
+  requireEntityTableMeta(subscriptionsProjectionTable, "billing-subscriptions");
+const paymentsTable = () => requireEntityTableMeta(paymentsProjectionTable, "billing-payments");
 
 // Compliance-profile lookup and event-stream archive both sit outside TenantDb's own methods — need the escape hatch.
 export const SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON =
@@ -32,12 +36,12 @@ export async function subscriptionTenantDestroyHook(ctx: TenantDataHookCtx): Pro
   const aggregateId = subscriptionAggregateId(ctx.tenantId);
   if (profile.key === "de-hr-dsgvo-hgb") {
     await ctx.db.updateMany(
-      subscriptionsProjectionTable as EntityTableMeta,
+      subscriptionsTable(),
       { providerCustomerId: REDACTED_PII_VALUE, providerSubscriptionId: REDACTED_PII_VALUE },
       { id: aggregateId },
     );
   } else {
-    await ctx.db.deleteMany(subscriptionsProjectionTable as EntityTableMeta, { id: aggregateId });
+    await ctx.db.deleteMany(subscriptionsTable(), { id: aggregateId });
   }
   await archiveStream(ctx.db.unsafeRaw(), {
     tenantId: ctx.tenantId,
@@ -62,12 +66,12 @@ export async function paymentTenantDestroyHook(ctx: TenantDataHookCtx): Promise<
   const aggregateId = paymentAggregateId(ctx.tenantId);
   if (profile.key === "de-hr-dsgvo-hgb") {
     await ctx.db.updateMany(
-      paymentsProjectionTable as EntityTableMeta,
+      paymentsTable(),
       { providerCustomerId: REDACTED_PII_VALUE },
       { tenantId: ctx.tenantId },
     );
   } else {
-    await ctx.db.deleteMany(paymentsProjectionTable as EntityTableMeta, {
+    await ctx.db.deleteMany(paymentsTable(), {
       tenantId: ctx.tenantId,
     });
   }

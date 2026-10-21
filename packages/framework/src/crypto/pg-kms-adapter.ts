@@ -251,12 +251,8 @@ export async function rewrapSubjectKeys(options: RewrapOptions): Promise<RewrapR
   const batchSize = options.batchSize ?? 200;
   const sql = postgres(options.databaseUrl, { max: 2, onnotice: () => {} });
 
-  const result = {
-    scanned: 0,
-    rewrapped: 0,
-    skippedErased: 0,
-    failures: [] as Array<{ subjectId: string; reason: string }>,
-  };
+  const failures: Array<{ subjectId: string; reason: string }> = [];
+  const result = { scanned: 0, rewrapped: 0, skippedErased: 0, failures };
   try {
     let cursor = "";
     for (;;) {

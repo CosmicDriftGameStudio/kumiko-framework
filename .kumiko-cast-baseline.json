@@ -1,41 +1,13 @@
 {
   "format": 2,
   "generated": "2026-10-21",
-  "totalSuspect": 168,
+  "totalSuspect": 75,
   "perFile": {
-    "packages/bundled-features/src/auth-email-password/handlers/switch-tenant-mfa-gate.write.ts": {
-      "TenantId": 1
-    },
     "packages/bundled-features/src/billing-foundation/checkout-core.ts": {
       "SubscriptionProviderPlugin": 1
     },
-    "packages/bundled-features/src/billing-foundation/tenant-destroy-hook.ts": {
-      "EntityTableMeta": 4
-    },
     "packages/bundled-features/src/billing-foundation/webhook-handler.ts": {
-      "import(\"@cosmicdrift/kumiko-framework/engine\").TenantId": 1,
       "SubscriptionProviderPlugin | undefined": 1
-    },
-    "packages/bundled-features/src/cap-overview/handlers/caps-usage.query.ts": {
-      "TenantId": 1
-    },
-    "packages/bundled-features/src/cap-overview/handlers/tenant-caps-list.query.ts": {
-      "TenantId": 1
-    },
-    "packages/bundled-features/src/config/handlers/set.write.ts": {
-      "Exclude<typeof scope, \"system\">": 1
-    },
-    "packages/bundled-features/src/crypto-shredding/handlers/forget-subject.write.ts": {
-      "TenantId": 1
-    },
-    "packages/bundled-features/src/data-retention/run-retention-cleanup.ts": {
-      "EntityId": 1
-    },
-    "packages/bundled-features/src/files-tenant-data/handlers/sweep-orphaned-derivatives.job.ts": {
-      "TenantId": 1
-    },
-    "packages/bundled-features/src/inbound-mail-foundation/connect-routes.ts": {
-      "{ accountId?: unknown } | undefined": 1
     },
     "packages/bundled-features/src/inbound-provider-imap/feature.ts": {
       "MailboxObject": 2
@@ -53,21 +25,8 @@
       "{ pages?: readonly { slug: string; title: string; updatedAt:": 1,
       "Partial<SeoConfigValues>": 1
     },
-    "packages/bundled-features/src/shared/map-with-concurrency.ts": {
-      "T": 1
-    },
     "packages/bundled-features/src/shared/run-in-sub-transaction.ts": {
       "{ begin?: (f: (tx: DbRunner) => Promise<T>) => Promise<T>; s": 1
-    },
-    "packages/bundled-features/src/template-resolver/seeding.ts": {
-      "Partial<TemplateResourceRow>": 1
-    },
-    "packages/bundled-features/src/tenant-lifecycle/run-tenant-destroy.ts": {
-      "TenantId": 2
-    },
-    "packages/bundled-features/src/tenant-settings/tenant-defaults.ts": {
-      "{ amount?: number; currency?: string } | undefined": 1,
-      "Record<string, unknown>": 1
     },
     "packages/bundled-features/src/tenant/seeding.ts": {
       "{ hasFeature?: (n: string) => Promise<boolean> }": 1,
@@ -95,51 +54,8 @@
       "FeatureDefinition": 1,
       "Record<string, unknown>": 1
     },
-    "packages/framework/src/api/auth-rate-limiters.ts": {
-      "number": 1
-    },
-    "packages/framework/src/crypto/kms-adapter.ts": {
-      "TenantId": 1
-    },
-    "packages/framework/src/crypto/pg-kms-adapter.ts": {
-      "Array<{ subjectId: string; reason: string }>": 1
-    },
     "packages/framework/src/db/dialect.ts": {
-      "{ [K in keyof TCols]: ColumnHandle }": 1,
-      "SchemaTable": 1
-    },
-    "packages/framework/src/db/eagerload.ts": {
-      "Array< Record<string, unknown> >": 1
-    },
-    "packages/framework/src/db/event-store-executor-write.ts": {
-      "Record<string, unknown>": 1
-    },
-    "packages/framework/src/db/migrate-generator.ts": {
-      "Snapshot": 1
-    },
-    "packages/framework/src/db/query.ts": {
-      "TenantDbDelegate": 1
-    },
-    "packages/framework/src/db/schema-inspection.ts": {
-      "{ unsafe?: UnsafeFn }": 1
-    },
-    "packages/framework/src/db/tenant-db.ts": {
-      "(...callArgs: unknown[]) => unknown": 1,
-      "DbRunner": 1,
-      "TenantId": 1
-    },
-    "packages/framework/src/engine/boot-validator/ownership.ts": {
-      "OwnershipMap": 1
-    },
-    "packages/framework/src/engine/codemod/pipeline-codemod.ts": {
-      "import(\"ts-morph\").PropertyAssignment": 1,
-      "string": 4
-    },
-    "packages/framework/src/engine/define-feature.ts": {
-      "RequiresApi": 1
-    },
-    "packages/framework/src/engine/define-handler.ts": {
-      "{ readonly handler?: unknown; readonly perform?: unknown; re": 1
+      "{ [K in keyof TCols]: ColumnHandle }": 1
     },
     "packages/framework/src/engine/define-step.ts": {
       "StepDef": 1
@@ -147,29 +63,9 @@
     "packages/framework/src/engine/factories.ts": {
       "Omit<T, \"personal\" | \"find\" | \"reason\"> & ResolvedPiiFlags": 2
     },
-    "packages/framework/src/engine/feature-config-events-jobs.ts": {
-      "{ readonly type: T }": 1,
-      "JobHandlerFn": 1,
-      "MetricOptions": 1,
-      "NonNullable<typeof definition>": 1,
-      "Omit<JobDefinition, \"name\" | \"handler\">": 1,
-      "SecretNamespaceOptions": 1,
-      "SecretOptions": 1
-    },
     "packages/framework/src/engine/feature-entity-handlers.ts": {
       "PipelineDef": 1,
-      "RelationDefinition": 2,
-      "string": 2,
       "WriteHandlerFn": 1
-    },
-    "packages/framework/src/engine/feature-ui-extensions.ts": {
-      "{ grants?: unknown }": 1,
-      "NameOrRef": 1,
-      "readonly Record<string, unknown>[]": 1
-    },
-    "packages/framework/src/engine/object-form.ts": {
-      "readonly string[]": 1,
-      "Record<K, readonly string[]>": 1
     },
     "packages/framework/src/engine/pipeline.ts": {
       "TAwaits": 1
@@ -178,12 +74,7 @@
       "ProjectionDefinition[\"table\"]": 1
     },
     "packages/framework/src/engine/run-pipeline.ts": {
-      "PipelineCtx<TPayload, TMap>": 1,
-      "WriteResult<TData>": 1,
-      "WriteResult<unknown>": 1
-    },
-    "packages/framework/src/engine/steps/_resolver-utils.ts": {
-      "(c: PipelineCtx) => T": 1
+      "WriteResult<TData>": 1
     },
     "packages/framework/src/engine/steps/branch.ts": {
       "Record<string, unknown>": 2
@@ -191,72 +82,12 @@
     "packages/framework/src/engine/steps/for-each.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/steps/read-find-many.ts": {
-      "readonly Record<string, unknown>[]": 1
-    },
-    "packages/framework/src/engine/steps/read-find-one.ts": {
-      "Record<string, unknown> | undefined": 1
-    },
     "packages/framework/src/engine/steps/retry.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/validate-projection-allowlist.ts": {
-      "{ readonly perform?: PipelineDef }": 1,
-      "readonly StepInstance[]": 1,
-      "Record<string, unknown>": 1,
-      "UnsafeProjectionStepArgs": 1
-    },
-    "packages/framework/src/files/file-routes.ts": {
-      "400 | 403 | 404 | 409 | 422 | 500": 1
-    },
-    "packages/framework/src/i18n/required-surface-keys.ts": {
-      "{ readonly filterable?: boolean; readonly type?: string; rea": 1
-    },
-    "packages/framework/src/jobs/job-runner-helpers.ts": {
-      "JobSubjectValue": 1
-    },
-    "packages/framework/src/lifecycle/signal-handlers.ts": {
-      "NodeJS.EventEmitter": 2
-    },
-    "packages/framework/src/pipeline/append-event-core.ts": {
-      "Record<string, unknown>": 2
-    },
-    "packages/framework/src/pipeline/dispatch-batch.ts": {
-      "DbConnection | undefined": 1
-    },
-    "packages/framework/src/pipeline/dispatch-query.ts": {
-      "{ rows?: unknown }": 2
-    },
     "packages/framework/src/pipeline/dispatch-shared.ts": {
-      "DbRunner": 1,
       "JobRunnerRef": 1,
       "TenantDb": 1
-    },
-    "packages/framework/src/pipeline/member-read-only-transaction.ts": {
-      "DbTx": 1
-    },
-    "packages/framework/src/pipeline/system-identity-switch.ts": {
-      "TenantDb": 2,
-      "UncheckedSystemDb": 1
-    },
-    "packages/framework/src/schema-cli.ts": {
-      "Parameters<typeof renderTablesDdl>[0]": 1,
-      "readonly FeatureDefinition[]": 1
-    },
-    "packages/framework/src/scripts/codemod/pii-personal-migration.ts": {
-      "FindBucket[]": 1,
-      "PropertyAssignment": 1
-    },
-    "packages/framework/src/search/purge-subject.ts": {
-      "EntityId": 1,
-      "TenantId": 1
-    },
-    "packages/framework/src/search/reindex-entity.ts": {
-      "Record<string, unknown>": 1,
-      "ReindexEntityFailure[]": 1
-    },
-    "packages/framework/src/upgrade-cli.ts": {
-      "{ name?: string }": 1
     },
     "packages/guards/src/_lib/guard-kit.ts": {
       "BaselinePayload": 1
@@ -305,12 +136,6 @@
     "packages/renderer/src/hooks/use-form.ts": {
       "FullOptions": 1
     },
-    "packages/renderer/src/hooks/use-store.ts": {
-      "S": 1
-    },
-    "packages/renderer/src/hooks/use-stream-handler.ts": {
-      "DispatcherError": 1
-    },
     "packages/renderer/src/live/dispatcher-live.ts": {
       "TData": 2
     },
@@ -320,18 +145,12 @@
     "packages/renderer/src/tokens.tsx": {
       "Tokens": 1
     },
-    "packages/renderer/src/web/app/create-app.tsx": {
-      "string | undefined": 1
-    },
     "packages/renderer/src/web/layout/shell-header.tsx": {
       "HTMLElement": 1
     },
     "packages/renderer/src/web/primitives/data-table-cell.tsx": {
       "(v: unknown, r?: Readonly<Record<string, unknown>>) => strin": 1,
       "{ format: string; locale?: string } & Record<string, unknown": 1
-    },
-    "packages/renderer/src/web/primitives/field.tsx": {
-      "FieldIconKey": 1
     },
     "packages/renderer/src/web/primitives/form.tsx": {
       "{ readonly children?: ReactNode }": 1,
@@ -352,9 +171,6 @@
     },
     "packages/testing/src/stack/request-helper.ts": {
       "{ isSuccess?: boolean; error?: WireErrorBody | string; }": 1
-    },
-    "packages/types/src/fields.ts": {
-      "FieldDefinition[\"type\"][]": 1
     }
   }
 }

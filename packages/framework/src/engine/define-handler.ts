@@ -37,6 +37,13 @@ function pickPreTransactionPhases<
   };
 }
 
+// `in` keeps both branches of the discriminated union readable regardless of narrowing.
+function hasHandlerAndPerform(def: object): boolean {
+  return (
+    "handler" in def && def.handler !== undefined && "perform" in def && def.perform !== undefined
+  );
+}
+
 export function defineWriteHandler<
   const TName extends string,
   TSchema extends ZodType,
@@ -75,17 +82,10 @@ export function defineWriteHandler<
   //   "Type 'PipelineDef<...>' is not assignable to type 'undefined'."
   // is functional but cryptic for less TS-experienced users; this throws
   // a name-and-explanation error message instead. Followup #3.
-  // The cast is necessary because the discriminated union narrows
-  // `handler` away once `perform` is present (and vice-versa) — at this
-  // boundary we want to read both regardless of the narrowing.
-  const probe = def as {
-    readonly handler?: unknown;
-    readonly perform?: unknown;
-    readonly name: TName;
-  };
-  if (probe.handler !== undefined && probe.perform !== undefined) {
+  const handlerName = def.name;
+  if (hasHandlerAndPerform(def)) {
     throw new Error(
-      `defineWriteHandler("${def.name}"): both \`handler\` and \`perform\` are set. ` +
+      `defineWriteHandler("${handlerName}"): both \`handler\` and \`perform\` are set. ` +
         `Pick one — \`handler\` for the free-form async function, ` +
         `\`perform: stepsPipeline(...)\` for the step-pipeline form. ` +
         `(See step-vocabulary.md for which form fits.)`,

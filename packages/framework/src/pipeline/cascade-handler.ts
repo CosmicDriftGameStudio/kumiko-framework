@@ -21,8 +21,7 @@ import {
 } from "../errors/index.ts";
 import type { SystemHookDef } from "./lifecycle-pipeline.ts";
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-type TableMap = ReadonlyMap<string, TableColumns<any>>;
+type TableMap = ReadonlyMap<string, TableColumns>;
 
 // The cascade is a consequence of the parent delete the caller was already authorized for, so the
 // children are written as the framework system user and the lock decision is taken once, up front.

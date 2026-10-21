@@ -427,7 +427,7 @@ export async function runTenantDestructionSweep(args: {
 
   let triggered = 0;
   for (const row of due) {
-    const tenantId = row.id as TenantId;
+    const tenantId = row.id;
     const events = await loadAggregate(args.db, tenantId, tenantId);
     const version = lastEventVersion(events);
     const user = createSystemUser(tenantId);
@@ -469,7 +469,7 @@ export async function runTenantDestructionSweep(args: {
         deadlineAt: tenantDeadlineAt,
         db: args.db,
         registry: args.registry,
-        tenantId: row.id as TenantId,
+        tenantId: row.id,
         log: args.log,
         fileProviderResolver: args.fileProviderResolver,
         searchAdapter: args.searchAdapter,

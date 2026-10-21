@@ -68,6 +68,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type FileContext,
   fileRefEntity,
@@ -247,13 +248,15 @@ async function forgetRowAndEraseKeys(args: {
   readonly kms: KmsAdapter | undefined;
   readonly registry: Registry;
 }): Promise<{ readonly isSuccess: boolean }> {
+  const rowId = args.row["id"];
+  if (typeof rowId !== "string" && typeof rowId !== "number") {
+    throw new InternalError({
+      message: `data-retention: ${args.entityName} row has no usable id (got ${typeof rowId})`,
+    });
+  }
   return runInSubTransaction(args.db, async (sp) => {
     const tdb = createTenantDb({ db: sp, tenantId: args.tenantId, mode: "system" });
-    const result = await args.executor.forget(
-      { id: args.row["id"] as EntityId },
-      args.systemUser,
-      tdb,
-    );
+    const result = await args.executor.forget({ id: rowId }, args.systemUser, tdb);
     if (!result.isSuccess) return { isSuccess: false };
     await eraseHardDeletedRowKeys({
       kms: args.kms,

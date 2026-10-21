@@ -62,8 +62,7 @@ import type { StoredEvent } from "../event-store/index.ts";
 import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
-type Table = TableColumns<any>;
+type Table = TableColumns;
 
 export type AutoVerb = "created" | "updated" | "deleted" | "restored" | "forgotten";
 

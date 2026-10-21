@@ -1,6 +1,5 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { requestContext, runWithWriteOrigin } from "../api/request-context.ts";
-import type { DbConnection } from "../db/connection.ts";
 import { transaction } from "../db/query.ts";
 import type {
   DeleteContext,
@@ -302,7 +301,7 @@ async function runBatchBody(
 
   // batch() opens its own outer transaction — needs the top-level
   // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
-  const db = resolveDbSource(ctx, undefined) as DbConnection | undefined;
+  const db = resolveDbSource(ctx, undefined);
   if (!db || runsWithoutTransaction) {
     // Without a DB connection (or for a perCommand handler, whose writes open their own transactions)
     // there is no transaction to open. Fall back to

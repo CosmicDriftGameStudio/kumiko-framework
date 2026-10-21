@@ -15,6 +15,8 @@ import {
   type EntityDefinition,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { TenantSettingsConfig } from "./constants.ts";
 
@@ -53,11 +55,16 @@ export function defineCreateWithTenantDefaults(
     schema,
     access: options.access,
     handler: async (event, ctx) => {
-      const payload = { ...(event.payload as Record<string, unknown>) };
+      if (!isPlainObject(event.payload)) {
+        throw new InternalError({
+          message: `${entityName}:create payload must be an object after schema validation`,
+        });
+      }
+      const payload = { ...event.payload };
 
       for (const field of options.currencyFields ?? []) {
-        const value = payload[field] as { amount?: number; currency?: string } | undefined;
-        if (value && typeof value === "object" && !value.currency) {
+        const value = payload[field];
+        if (isPlainObject(value) && !value["currency"]) {
           const currency = await ctx.config?.(TenantSettingsConfig.currency);
           if (typeof currency === "string") payload[field] = { ...value, currency };
         }

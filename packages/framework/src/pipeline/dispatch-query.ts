@@ -1,4 +1,4 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbRow, DbTx } from "../db/connection.ts";
 import { hasAccess } from "../engine/access.ts";
 import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
@@ -157,7 +157,7 @@ async function runQueryHandler(
         rows = [...out.rows];
       }
       result = rows;
-    } else if (Array.isArray((result as { rows?: unknown }).rows)) {
+    } else if (isPlainObject(result) && Array.isArray(result["rows"])) {
       // @cast-boundary engine-payload
       const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null };
       let rows = r.rows;
@@ -192,7 +192,7 @@ async function runQueryHandler(
       result = result.map((row: Record<string, unknown>) => filterReadFields(entity, row, user));
     } else {
       const resultAsDbRow = result as DbRow; // @cast-boundary engine-payload
-      if (Array.isArray((resultAsDbRow as { rows?: unknown }).rows)) {
+      if (Array.isArray(resultAsDbRow["rows"])) {
         // generic handler-result shape narrow
         const r = result as { rows: Record<string, unknown>[]; nextCursor: string | null }; // @cast-boundary engine-payload
         result = {

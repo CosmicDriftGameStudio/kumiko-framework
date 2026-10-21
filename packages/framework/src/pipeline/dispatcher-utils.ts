@@ -30,7 +30,7 @@ export function isLifecycleResult(data: unknown): data is LifecycleResult {
   return LIFECYCLE_KINDS.some((kind) => kind === data.kind);
 }
 
-export function isWriteResultShape(result: unknown): boolean {
+export function isWriteResultShape(result: unknown): result is WriteResult {
   return (
     !!result &&
     typeof result === "object" &&

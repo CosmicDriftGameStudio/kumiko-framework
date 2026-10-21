@@ -2,14 +2,7 @@ import { DEFAULT_LOCALE } from "../i18n/request-locale.ts";
 import { createNoopMetricsHandle, getFallbackTracer } from "../observability/index.ts";
 import { createTzContext } from "../time/index.ts";
 import { createAnonymousUser } from "./system-user.ts";
-import type {
-  AppendEventArgs,
-  FetchForWritingArgs,
-  HandlerContext,
-  MemberReader,
-  SessionUser,
-  WriteResult,
-} from "./types/index.ts";
+import type { HandlerContext, SessionUser } from "./types/index.ts";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
 //
@@ -22,11 +15,13 @@ import type {
 //
 // Use: `{ db, registry, ...bridgeStub() }`
 
-const notAvailable = (what: string) => async (): Promise<never> => {
-  throw new Error(
-    `ctx.${what} not available in this context — use the dispatcher, not a stubbed handler context`,
-  );
-};
+const notAvailable =
+  (what: string) =>
+  async (..._args: readonly unknown[]): Promise<never> => {
+    throw new Error(
+      `ctx.${what} not available in this context — use the dispatcher, not a stubbed handler context`,
+    );
+  };
 
 // Noop observability — hand back the shared fallback tracer so ctx.tracer has
 // a valid Tracer shape. No allocations per call.
@@ -72,51 +67,24 @@ export function bridgeStub(opts?: {
     createAnonymousUser("00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"]); // @cast-boundary engine-bridge
   return {
     user: stubUser,
-    query: notAvailable("query") as HandlerContext["query"], // @cast-boundary engine-bridge
-    queryAs: notAvailable("queryAs") as unknown as (
-      user: SessionUser,
-      qn: string,
-      payload: unknown,
-    ) => Promise<unknown>,
-    write: notAvailable("write") as unknown as (
-      qn: string,
-      payload: unknown,
-    ) => Promise<WriteResult>,
-    writeAs: notAvailable("writeAs") as unknown as (
-      user: SessionUser,
-      qn: string,
-      payload: unknown,
-    ) => Promise<WriteResult>,
-    appendEvent: notAvailable("appendEvent") as unknown as (args: AppendEventArgs) => Promise<void>,
-    unsafeAppendEvent: notAvailable("unsafeAppendEvent") as unknown as (
-      args: AppendEventArgs,
-    ) => Promise<void>,
-    tryAppendEvent: notAvailable("tryAppendEvent") as unknown as HandlerContext["tryAppendEvent"],
-    fetchForWriting: notAvailable("fetchForWriting") as unknown as (
-      args: FetchForWritingArgs,
-    ) => ReturnType<HandlerContext["fetchForWriting"]>,
-    loadAggregate: notAvailable("loadAggregate") as unknown as HandlerContext["loadAggregate"],
-    archiveStream: notAvailable("archiveStream") as unknown as HandlerContext["archiveStream"],
-    restoreStream: notAvailable("restoreStream") as unknown as HandlerContext["restoreStream"],
-    isStreamArchived: notAvailable(
-      "isStreamArchived",
-    ) as unknown as HandlerContext["isStreamArchived"],
-    snapshotAggregate: notAvailable(
-      "snapshotAggregate",
-    ) as unknown as HandlerContext["snapshotAggregate"],
-    loadAggregateWithSnapshot: notAvailable(
-      "loadAggregateWithSnapshot",
-    ) as unknown as HandlerContext["loadAggregateWithSnapshot"],
-    queryProjection: notAvailable(
-      "queryProjection",
-    ) as unknown as HandlerContext["queryProjection"],
-    resolveAuthClaims: notAvailable(
-      "resolveAuthClaims",
-    ) as unknown as HandlerContext["resolveAuthClaims"],
-    resolveActiveMembership: notAvailable(
-      "resolveActiveMembership",
-    ) as unknown as HandlerContext["resolveActiveMembership"],
-    queryAsMember: notAvailable("queryAsMember") as unknown as MemberReader,
+    query: notAvailable("query"),
+    queryAs: notAvailable("queryAs"),
+    write: notAvailable("write"),
+    writeAs: notAvailable("writeAs"),
+    appendEvent: notAvailable("appendEvent"),
+    unsafeAppendEvent: notAvailable("unsafeAppendEvent"),
+    tryAppendEvent: notAvailable("tryAppendEvent"),
+    fetchForWriting: notAvailable("fetchForWriting"),
+    loadAggregate: notAvailable("loadAggregate"),
+    archiveStream: notAvailable("archiveStream"),
+    restoreStream: notAvailable("restoreStream"),
+    isStreamArchived: notAvailable("isStreamArchived"),
+    snapshotAggregate: notAvailable("snapshotAggregate"),
+    loadAggregateWithSnapshot: notAvailable("loadAggregateWithSnapshot"),
+    queryProjection: notAvailable("queryProjection"),
+    resolveAuthClaims: notAvailable("resolveAuthClaims"),
+    resolveActiveMembership: notAvailable("resolveActiveMembership"),
+    queryAsMember: notAvailable("queryAsMember"),
     // Stub defaults to always-enabled — matches the dispatcher's behaviour
     // when no effectiveFeatures resolver is wired (tests without toggles).
     hasFeature: async () => true,

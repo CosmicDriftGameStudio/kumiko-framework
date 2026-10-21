@@ -57,8 +57,7 @@ import { tenantDbRunner } from "./tenant-db-runner.ts";
 // per createEventStoreExecutor() call and bundles the crypto/ownership
 // helpers the verbs need, so the verb modules don't each re-derive them.
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-export type Table = TableColumns<any>;
+export type Table = TableColumns;
 
 // Screen-Filter (Tier 2.7c) — Op-Mapping als Where-Operator. Boot-
 // Validator pinst field-Existenz + filterable + op-vs-Type-Compat.

@@ -925,6 +925,7 @@ export async function buildHandlerContext(
         });
       }
       try {
+        // @cast-boundary db-runner — savepoint handle from the driver, runInSavepoint overload types it unknown
         const event = await runInSavepoint(tx, (sp) =>
           appendDomainEventCore(
             {

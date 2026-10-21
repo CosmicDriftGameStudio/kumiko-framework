@@ -7,7 +7,7 @@ import { reasonProblem } from "./escape-hatch-reason.ts";
 import { createEventDef } from "./event-def.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
-import { splitNamedDefinition, unwrapArrayForm } from "./object-form.ts";
+import { requireArgument, splitNamedDefinition, unwrapArrayForm } from "./object-form.ts";
 import { QnTypes, qn, toKebab } from "./qualified-name.ts";
 import type {
   AuthClaimsFn,
@@ -151,8 +151,8 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         typeof jobNameOrDefinition === "string"
           ? [
               jobNameOrDefinition,
-              options as Omit<JobDefinition, "name" | "handler">,
-              handler as JobHandlerFn,
+              requireArgument(options, name, "job", "options"),
+              requireArgument(handler, name, "job", "handler"),
             ]
           : (() => {
               const { name: definedJobName, handler: h, ...rest } = jobNameOrDefinition;
@@ -235,7 +235,10 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     ): void {
       const [notificationName, resolvedDefinition] =
         typeof notificationNameOrDefinition === "string"
-          ? [notificationNameOrDefinition, definition as NonNullable<typeof definition>]
+          ? [
+              notificationNameOrDefinition,
+              requireArgument(definition, name, "notification", "definition"),
+            ]
           : splitNamedDefinition(notificationNameOrDefinition);
       state.notifications[notificationName] = {
         name: notificationName,
@@ -311,7 +314,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     ): void {
       const [shortName, metricOptions] =
         typeof shortNameOrDefinition === "string"
-          ? [shortNameOrDefinition, options as MetricOptions]
+          ? [shortNameOrDefinition, requireArgument(options, name, "metric", "options")]
           : splitNamedDefinition(shortNameOrDefinition);
       if (state.metrics[shortName]) {
         throw new Error(
@@ -335,7 +338,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     ): SecretKeyHandle {
       const [shortName, secretOptions] =
         typeof shortNameOrDefinition === "string"
-          ? [shortNameOrDefinition, options as SecretOptions]
+          ? [shortNameOrDefinition, requireArgument(options, name, "secret", "options")]
           : splitNamedDefinition(shortNameOrDefinition);
       if (state.secretKeys[shortName]) {
         throw new Error(
@@ -368,7 +371,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     ): SecretNamespaceHandle {
       const [shortName, namespaceOptions] =
         typeof shortNameOrDefinition === "string"
-          ? [shortNameOrDefinition, options as SecretNamespaceOptions]
+          ? [shortNameOrDefinition, requireArgument(options, name, "secretNamespace", "options")]
           : splitNamedDefinition(shortNameOrDefinition);
       if (state.secretNamespaces[shortName]) {
         throw new Error(
@@ -396,7 +399,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           : shortNameOrDefinition.name;
       const claimType: T =
         typeof shortNameOrDefinition === "string"
-          ? (options as { readonly type: T }).type
+          ? requireArgument(options, name, "claimKey", "options").type
           : shortNameOrDefinition.type;
       if (state.claimKeys[shortName]) {
         throw new Error(

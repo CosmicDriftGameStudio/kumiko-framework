@@ -1,3 +1,4 @@
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getUser } from "../api/auth-middleware.ts";
@@ -45,6 +46,9 @@ import { createFileUploadLedger } from "./upload-ledger.ts";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.
+// Exactly the httpStatus values declared by KumikoError subclasses across packages/*.
+const ERROR_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 503, 504] as const;
+
 export type FileAccessDecision = "allow" | "deny";
 
 export type FileRef = {
@@ -504,7 +508,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       // conflict 409, ownership 403, validation 422, internal 500) gets the
       // real status off the error so callers can distinguish recoverable
       // from terminal — pauschales 404 hier hat genau das verschleiert.
-      const status = result.error.httpStatus as 400 | 403 | 404 | 409 | 422 | 500;
+      const status = isOneOf(ERROR_STATUSES, result.error.httpStatus)
+        ? result.error.httpStatus
+        : 500;
       const code = status === 404 ? "not_found" : result.error.code;
       return c.json({ error: code }, status);
     }

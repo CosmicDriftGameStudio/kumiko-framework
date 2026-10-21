@@ -18,13 +18,17 @@
 
 import type { PipelineCtx, StepResolver } from "../types/step.ts";
 
+function isResolverFunction<T>(arg: StepResolver<T>): arg is (ctx: PipelineCtx) => T {
+  return typeof arg === "function";
+}
+
 /**
  * Resolve a required StepResolver — either a static value or a function.
  * Throws if `arg` is undefined; caller must guarantee presence.
  */
 export function resolveRequired<T>(arg: StepResolver<T>, ctx: PipelineCtx): T {
-  if (typeof arg === "function") {
-    return (arg as (c: PipelineCtx) => T)(ctx);
+  if (isResolverFunction(arg)) {
+    return arg(ctx);
   }
   return arg;
 }

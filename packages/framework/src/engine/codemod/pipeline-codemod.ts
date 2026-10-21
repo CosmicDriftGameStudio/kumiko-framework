@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { Glob } from "bun";
-import { type CallExpression, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 
 export type CodemodResult = {
   readonly filePath: string;
@@ -103,24 +103,35 @@ export function analyzeHandlerArrow(arrowText: string): ParsedHandlerInfo {
           l.startsWith("} else"),
       );
 
-      const createMatch = handlerBodyText.match(/const\s+(\w+)\s*=\s*await\s+(\w+)\.create\s*\(/);
+      const [, createVar, createExecutor] =
+        handlerBodyText.match(/const\s+(\w+)\s*=\s*await\s+(\w+)\.create\s*\(/) ?? [];
       const updateMatch = handlerBodyText.match(/const\s+(\w+)\s*=\s*await\s+(\w+)\.update\s*\(/);
       const hasSimpleReturn = /return\s*\{[^}]*isSuccess:\s*true/.test(handlerBodyText);
 
-      if (createMatch && hasSimpleReturn && !hasConditionalLogic) {
+      if (
+        createVar !== undefined &&
+        createExecutor !== undefined &&
+        hasSimpleReturn &&
+        !hasConditionalLogic
+      ) {
         isSimpleExecutorCreate = true;
-        executorName = createMatch[2];
-        executorCreateVar = createMatch[1];
-        executorCreateArgs = extractArgs(handlerBodyText, createMatch[2] as string, "create");
-      } else if (createMatch && hasSimpleReturn && hasConditionalLogic) {
+        executorName = createExecutor;
+        executorCreateVar = createVar;
+        executorCreateArgs = extractArgs(handlerBodyText, createExecutor, "create");
+      } else if (
+        createVar !== undefined &&
+        createExecutor !== undefined &&
+        hasSimpleReturn &&
+        hasConditionalLogic
+      ) {
         // Try to match the guard pattern: if (!<var>.isSuccess) { return fail } return success
-        const guard = extractGuardedPattern(handlerBodyText, createMatch[1] as string);
+        const guard = extractGuardedPattern(handlerBodyText, createVar);
         if (guard) {
           isGuardedCreate = true;
           guardConfig = guard;
-          executorName = createMatch[2];
-          executorCreateVar = createMatch[1];
-          executorCreateArgs = extractArgs(handlerBodyText, createMatch[2] as string, "create");
+          executorName = createExecutor;
+          executorCreateVar = createVar;
+          executorCreateArgs = extractArgs(handlerBodyText, createExecutor, "create");
         }
       }
 
@@ -378,7 +389,8 @@ export function generatePerformBlock(
 function inferSchemaType(objLiteral: import("ts-morph").ObjectLiteralExpression): string {
   const schemaProp = objLiteral.getProperty("schema");
   if (!schemaProp) return "unknown";
-  const init = (schemaProp as import("ts-morph").PropertyAssignment).getInitializer();
+  if (!Node.isPropertyAssignment(schemaProp)) return "unknown";
+  const init = schemaProp.getInitializer();
   if (!init) return "unknown";
   const text = init.getText();
   // Only return simple names (like `InvoiceSchema`), not inline definitions
@@ -523,7 +535,7 @@ function ensurePipelineImport(content: string): string | null {
     /import\s*\{([^}]*)\}\s*from\s*["']@cosmicdrift\/kumiko-framework\/engine["']/;
   const match = content.match(importRegex);
   if (match) {
-    const existingImports = (match[1] as string).trim();
+    const existingImports = (match[1] ?? "").trim();
     const newImports = existingImports ? `${existingImports}, stepsPipeline` : "stepsPipeline";
     return content.replace(
       importRegex,

@@ -3,7 +3,6 @@ import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
 import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.ts";
-import type { RequiresApi } from "./types/feature.ts";
 import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types/index.ts";
 
 // `TExports` lets the setup callback hand back a typed object that
@@ -75,13 +74,14 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         if (!args.every(isObjectArgument)) throwObjectArgumentRequired(name, "requires");
         state.requires.push(...resolveFeatureNamesArgs(args));
       };
-      fn.projection = (tableName: string) => {
-        state.requiredProjections.add(tableName);
-      };
-      fn.step = (stepKind: string) => {
-        state.requiredSteps.add(stepKind);
-      };
-      return fn as RequiresApi;
+      return Object.assign(fn, {
+        projection: (tableName: string) => {
+          state.requiredProjections.add(tableName);
+        },
+        step: (stepKind: string) => {
+          state.requiredSteps.add(stepKind);
+        },
+      });
     })(),
     optionalRequires(
       ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]

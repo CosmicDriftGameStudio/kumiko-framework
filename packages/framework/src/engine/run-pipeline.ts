@@ -22,6 +22,7 @@
 // WriteFailure / HTTP. "return" / "skip" / fallback strategies land in
 // later slices together with their own integration tests.
 
+import { isWriteResultShape } from "../pipeline/dispatcher-utils.ts";
 import { getStep } from "./define-step.ts";
 import { buildPipelineSteps } from "./pipeline.ts";
 import { SUSPEND_SENTINEL } from "./steps/_step-dispatch-constants.ts";
@@ -140,7 +141,7 @@ export async function runStepList<TPayload, TMap extends object = KumikoEventTyp
       ...(workflow && {
         workflow: { ...workflow, stepIndex: i },
       }),
-    } as PipelineCtx<TPayload, TMap>;
+    };
 
     let value: unknown;
     try {
@@ -161,7 +162,10 @@ export async function runStepList<TPayload, TMap extends object = KumikoEventTyp
 
     const key = stepDef.resultKey?.(instance.args);
     if (key === RETURN_RESULT_KEY) {
-      return { kind: "return", result: value as WriteResult<unknown> };
+      if (!isWriteResultShape(value)) {
+        throw new Error(`Step "${instance.kind}" at index ${i} must return a WriteResult`);
+      }
+      return { kind: "return", result: value };
     }
     if (key !== undefined) {
       stepsAcc[key] = value;

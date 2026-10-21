@@ -99,7 +99,10 @@ function boundRunner(
   const proxy = new Proxy(runner, {
     // Tagged-template calls need the real driver object as `this`.
     apply(target, _thisArg, args) {
-      return Reflect.apply(target as (...callArgs: unknown[]) => unknown, target, args);
+      if (typeof target !== "function") {
+        throw new TypeError("tenant-db runner proxy applied on a non-callable runner");
+      }
+      return Reflect.apply(target, target, args);
     },
     get(target, prop, _receiver) {
       const value = Reflect.get(target, prop, target);
@@ -123,6 +126,7 @@ function boundRunner(
           if (typeof callback !== "function") {
             return Reflect.apply(value, target, args);
           }
+          // @cast-boundary db-runner — driver callback hands over the tx handle untyped
           const gatedArgs = [
             ...args.slice(0, -1),
             (tx: unknown) =>
@@ -204,18 +208,18 @@ export function unsafeRawForDeclaredStep(
 }
 
 const systemDbRebinders = new WeakMap<
-  UncheckedSystemDb,
+  object,
   (grant: EscapeHatchDeclaration | undefined, deniedCallerLabel: string) => UncheckedSystemDb
 >();
 
 // Rebinds a hook's own escapeHatch onto ctx.systemDb, mirroring withUnsafeRawGrant: always
 // rebuilt from the original db/dbOutsideTransaction/report, never stacked onto a prior rebind.
 // Inputs not built by createUncheckedSystemDb pass through unchanged.
-export function withSystemDbUnsafeRawGrant(
-  systemDb: UncheckedSystemDb,
+export function withSystemDbUnsafeRawGrant<T extends object>(
+  systemDb: T,
   grant: EscapeHatchDeclaration | undefined,
   deniedCallerLabel: string,
-): UncheckedSystemDb {
+): T | UncheckedSystemDb {
   const rebind = systemDbRebinders.get(systemDb);
   return rebind ? rebind(grant, deniedCallerLabel) : systemDb;
 }
@@ -301,7 +305,7 @@ function buildUncheckedSystemDb(
     // "tenant"-mode readWhere's own [tenantId, SYSTEM_TENANT_ID] allowlist.
     assertRowsTenant<T>(rows: readonly T[], tenantField: keyof T): readonly T[] {
       const hasOffender = rows.some(
-        (row) => !allowedTenantIds.includes(row[tenantField] as TenantId),
+        (row) => !allowedTenantIds.some((allowed) => allowed === row[tenantField]),
       );
       if (hasOffender) {
         throw new AccessDeniedError({
@@ -461,16 +465,16 @@ export type PersonalDataGate = (
 ) => void;
 
 const unsafeRawRebinders = new WeakMap<
-  TenantDb,
+  object,
   (grant: EscapeHatchDeclaration | undefined) => TenantDb
 >();
 
 // Rebinds tenantDb's unsafeRaw grant (e.g. a hook's own escapeHatch); inputs not built by
 // createTenantDb pass through unchanged, without touching any property (ctx.db may be a throwing Proxy).
-export function withUnsafeRawGrant(
-  tenantDb: TenantDb,
+export function withUnsafeRawGrant<T extends object>(
+  tenantDb: T,
   grant: EscapeHatchDeclaration | undefined,
-): TenantDb {
+): T | TenantDb {
   const rebind = unsafeRawRebinders.get(tenantDb);
   return rebind ? rebind(grant) : tenantDb;
 }
