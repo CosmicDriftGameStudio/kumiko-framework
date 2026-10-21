@@ -3,6 +3,7 @@ import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ArrowDown, ArrowUp, ArrowUpDown, Check } from "lucide-react";
 import { Fragment, type MouseEvent, type ReactNode } from "react";
+import { rendererWarn } from "../../dev-console.ts";
 import type {
   CellLink,
   CellLinkItem,
@@ -323,8 +324,7 @@ function warnMissingTimestampFormat(columnKey: string | undefined): void {
   const key = columnKey ?? "<unknown column>";
   if (warnedTimestampColumns.has(key)) return;
   warnedTimestampColumns.add(key);
-  // biome-ignore lint/suspicious/noConsole: dev-only assertion
-  console.warn(
+  rendererWarn(
     `[kumiko] column "${key}" renders a raw ISO timestamp as text — add renderer: { format: "timestamp" } to its column definition.`,
   );
 }
@@ -675,8 +675,7 @@ export function DataTableCell({
     // typical case: clientFeatures.columnRenderers forgotten or a typo in the
     // __component key. Warn instead of crashing so a schema boot still works
     // (the default type renderer takes over).
-    // biome-ignore lint/suspicious/noConsole: dev warning for schema conflicts
-    console.warn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
+    rendererWarn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
   }
   // A select value renders as a pill instead of plain text. When the raw
   // value is a known status word, it carries the same tone as the

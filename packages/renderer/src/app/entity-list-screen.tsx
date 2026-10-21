@@ -12,6 +12,7 @@ import { RenderList } from "../components/render-list.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import {
   computeRelatedListSectionViewModel,
@@ -423,8 +424,7 @@ function EntityListBody({
   const hasRowActions = screen.rowActions !== undefined && screen.rowActions.length > 0;
   useEffect(() => {
     if (hasRowActions && dispatcher === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev warning for setup errors
-      console.warn(
+      rendererWarn(
         `[kumiko] Screen "${screen.id}" deklariert rowActions, aber kein <DispatcherProvider> ist mounted — die Action-Spalte wird nicht gerendert. createKumikoApp() wired den Provider automatisch.`,
       );
     }

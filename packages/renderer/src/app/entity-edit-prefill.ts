@@ -2,6 +2,7 @@ import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { useMemo } from "react";
+import { rendererWarn } from "../dev-console.ts";
 import type { FormValues } from "../headless/index.ts";
 import { type UseQueryResult, useQuery } from "../hooks/use-query.ts";
 
@@ -209,8 +210,7 @@ function parseJsonOrRaw(raw: string): unknown {
 }
 
 function warnPrefillParam(message: string): void {
-  // biome-ignore lint/suspicious/noConsole: dev-warning for an authoring error
-  console.warn(`[kumiko] ${message}`);
+  rendererWarn(`[kumiko] ${message}`);
 }
 
 // An actionForm has no entity and thus no defaultCurrency, so a bare-number

@@ -16,7 +16,7 @@ export const unreadCountQuery = defineQueryHandler({
   description:
     "Counts the calling user's unread in-app notification messages; use it for an inbox badge or to check whether a user has pending notifications.",
   handler: async (query, ctx) => {
-    // bun-db hat keinen aggregate-helper — selectMany alle matching rows,
+    // The query helpers in db/query.ts have no aggregate helper — selectMany alle matching rows,
     // count() in JS. Pragma: unread-counts sind low-cardinality (user-
     // scoped, max ~hunderte rows). Wenn das wachsen sollte: raw .unsafe()
     // mit COUNT(*).

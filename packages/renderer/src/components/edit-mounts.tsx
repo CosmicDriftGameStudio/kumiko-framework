@@ -1,6 +1,7 @@
 import type { PlatformComponent } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type { EditExtensionSectionViewModel } from "../headless/index.ts";
 import { type StickyPrimaryActionMarker, usePrimitives } from "../primitives.tsx";
 
@@ -133,8 +134,7 @@ export function EditSlotMount({
   const Component = useExtensionSectionComponent(name);
   useEffect(() => {
     if (name !== undefined && Component === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev warning for a setup error
-      console.warn(
+      rendererWarn(
         `[kumiko] Edit ${slotName} slot component "${name}" on screen "${screenId}" is not registered in clientFeatures.extensionSectionComponents — the ${slotName} slot renders nothing.`,
       );
     }

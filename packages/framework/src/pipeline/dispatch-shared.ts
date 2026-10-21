@@ -886,8 +886,8 @@ export async function buildHandlerContext(
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
     },
     // Savepoint-scoped append: catches a losing writer's VersionConflictError
-    // without poisoning the rest of the handler's transaction. Bun.SQL/
-    // postgres.js abort the WHOLE begin() on an uncaught statement error
+    // without poisoning the rest of the handler's transaction. postgres.js
+    // aborts the WHOLE begin() on an uncaught statement error
     // (SQLSTATE 25P02) even if the JS error is caught — runInSavepoint
     // wraps the append in a real SAVEPOINT so only that nested scope rolls
     // back on conflict, and subsequent statements in the outer tx (e.g. a

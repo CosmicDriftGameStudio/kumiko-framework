@@ -7,6 +7,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.tsx";
 import { useReferenceLinkResolver } from "../app/reference-link.ts";
+import { rendererWarn } from "../dev-console.ts";
 import type {
   CellLinkItem,
   ListColumnViewModel,
@@ -626,8 +627,7 @@ function ListHeaderSlotMount({
   // (the toolbar has no room for a banner, so a dev-warn it is).
   useEffect(() => {
     if (name !== undefined && Component === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev-warning für Setup-Fehler
-      console.warn(
+      rendererWarn(
         `[kumiko] List header slot component "${name}" on screen "${screen.id}" is not registered in clientFeatures.extensionSectionComponents — the header slot renders nothing.`,
       );
     }

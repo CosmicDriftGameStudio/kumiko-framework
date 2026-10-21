@@ -1,12 +1,11 @@
 import type postgres from "postgres";
 
-// Minimal structural surface both postgres-js and Bun.SQL satisfy for
+// Minimal structural surface of a raw SQL client (postgres-js) for
 // asRawClient() / query helpers. Avoid `| any` — TS unions with `any`
 // collapse to `any` and erase the postgres side entirely.
 export type RawDbClient = {
   // Signatures are intentionally loose: postgres-js uses (string, values?),
-  // Bun.SQL uses tagged templates / unsafe(string). Call sites go through
-  // asRawClient() which normalizes at runtime.
+  // Call sites go through asRawClient() which normalizes at runtime.
   // biome-ignore lint/suspicious/noExplicitAny: cross-provider unsafe arity
   unsafe: (...args: any[]) => any;
   // biome-ignore lint/suspicious/noExplicitAny: cross-provider begin arity
@@ -14,7 +13,7 @@ export type RawDbClient = {
   end?: (options?: { timeout?: number }) => Promise<void>;
 };
 
-// Raw SQL client (postgres-js instance or Bun.SQL-shaped). Distinct from the
+// Raw SQL client (postgres-js instance or structurally compatible). Distinct from the
 // framework's pool handle (`DbConnectionHandle` in db/connection.ts).
 export type DbConnection = ReturnType<typeof postgres> | RawDbClient;
 export type DbTx = postgres.TransactionSql<Record<string, unknown>> | RawDbClient;
@@ -26,8 +25,8 @@ export type PgListenSubscription = {
   unlisten(): Promise<void>;
 };
 
-// Driver-neutral LISTEN surface: postgres-js and Bun.SQL (>= 1.4.0) both
-// re-issue LISTEN after a dropped connection and call onlisten again then.
+// postgres-js re-issues LISTEN after a dropped connection and calls onlisten
+// again then.
 export type PgListenClient = {
   listen(
     channel: string,

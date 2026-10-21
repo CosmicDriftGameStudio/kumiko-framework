@@ -18,6 +18,7 @@
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { useCallback } from "react";
+import { rendererDebug } from "../../dev-console.ts";
 import { requestLeave, useNav } from "../../index.ts";
 import { serializeTarget } from "./target-url.ts";
 
@@ -37,8 +38,7 @@ export function dispatchTarget(target: TargetRef): void {
     }
     return;
   }
-  // biome-ignore lint/suspicious/noConsole: fallback wenn kein Subscriber registered
-  console.debug("[NavTree] target dispatched (unhandled)", target);
+  rendererDebug("[NavTree] target dispatched (unhandled)", target);
 }
 
 /** Test-Hook: Exklusiver Spy. Returnt cleanup. */

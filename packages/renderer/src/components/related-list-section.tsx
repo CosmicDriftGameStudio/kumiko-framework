@@ -41,6 +41,7 @@ import { findEditScreenFor } from "../app/screen-access.ts";
 import { dispatcherErrorText } from "../app/write-failed-error.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type {
   EditRelatedListSectionViewModel,
   ListRowViewModel,
@@ -100,8 +101,7 @@ function synthesizeRelatedListEntity(
 // onOpenDrawer wired is dropped (not rendered) with a dev warning, same as a
 // drawer-kind rowAction/toolbarAction without one.
 function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
-  // biome-ignore lint/suspicious/noConsole: dev-time warning, same pattern as row-actions.ts
-  console.warn(
+  rendererWarn(
     `[kumiko] relatedList emptyState.action "${actionId}" is kind: "drawer" but no onOpenDrawer was supplied — dropped.`,
   );
 }

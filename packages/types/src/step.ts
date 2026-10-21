@@ -261,7 +261,7 @@ export type StepNamespace = {
     readonly table: unknown;
     readonly where: StepResolver<WhereObject>;
   }) => StepInstance;
-  // Read sub-namespace — thin wrapper on selectMany/fetchOne (bun-db).
+  // Read sub-namespace — thin wrapper on selectMany/fetchOne (db/query.ts).
   // Tenant-filtered like ctx.db; unsafeAllTenants needs escapeHatch on the handler (or systemScope).
   readonly read: {
     readonly findOne: (

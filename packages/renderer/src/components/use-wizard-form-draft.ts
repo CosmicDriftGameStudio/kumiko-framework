@@ -1,6 +1,7 @@
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { DraftStorage } from "../context/draft-storage-context.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type {
   Dispatcher,
   EditSectionViewModel,
@@ -178,8 +179,7 @@ export function useWizardFormDraftRestore<TValues extends FormValues>({
         controller.setValues(draft.values as Partial<TValues>);
         setRawStep(Math.max(draft.stepIndex, 0));
       } catch (err: unknown) {
-        // biome-ignore lint/suspicious/noConsole: draft restore must not red-screen the form
-        console.warn("render-edit: draft restore query failed", err);
+        rendererWarn("render-edit: draft restore query failed", err);
       }
     })();
     return () => {
@@ -238,8 +238,7 @@ export function useWizardFormDraftRestore<TValues extends FormValues>({
         if (candidates.length === 0) return;
         setDraftCandidates(candidates);
       } catch (err: unknown) {
-        // biome-ignore lint/suspicious/noConsole: draft lookup must not red-screen the form
-        console.warn("render-edit: draft list query failed", err);
+        rendererWarn("render-edit: draft list query failed", err);
       }
     })();
     return () => {
@@ -319,8 +318,7 @@ export function buildWizardDraftActions<TValues extends FormValues>({
     // catch it here instead of losing the save silently to the fire-and-forget
     // write below (the user would only notice on resume, with nothing to resume).
     if (key.length > FORM_DRAFT_KEY_MAX_LENGTH) {
-      // biome-ignore lint/suspicious/noConsole: no error-surfacing path exists for a fire-and-forget draft save.
-      console.warn(
+      rendererWarn(
         `RenderEdit: draftKey "${key}" is ${key.length} chars, over the server's ${FORM_DRAFT_KEY_MAX_LENGTH}-char limit — skipping this draft save. Shorten screenId or entity id.`,
       );
       // skip: warned above, the oversized key would be rejected by the server anyway.
@@ -350,8 +348,7 @@ export function buildWizardDraftActions<TValues extends FormValues>({
         stepIndex,
       })
       .catch((err: unknown) => {
-        // biome-ignore lint/suspicious/noConsole: fire-and-forget draft save must not red-screen
-        console.warn("render-edit: draft save failed", err);
+        rendererWarn("render-edit: draft save failed", err);
       });
   }
 

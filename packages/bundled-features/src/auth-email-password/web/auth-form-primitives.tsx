@@ -1,13 +1,10 @@
 // Shared Web-Primitives für die Auth-Screens. Nur noch Layout/Style-
 // Helpers — Form/Field/Input/Button/Banner kommen jetzt über
-// usePrimitives() aus dem Framework-Vertrag, damit Native dieselben
-// Auth-Screens rendern kann (renderer-native registriert eigene
-// Implementations).
+// usePrimitives() aus dem Framework-Vertrag, damit Apps und Tests die
+// Implementations per PrimitivesProvider überschreiben können.
 //
 //   <AuthCard>          — Card-Wrapper für die Auth-Screen-Layouts
-//                         (full-screen, zentriert, max-w-sm). Web-only;
-//                         eine Native-Variante landet bei Bedarf
-//                         daneben (z.B. SafeArea + ScrollView).
+//                         (full-screen, zentriert, max-w-sm). Web-only.
 //   parseUrlToken       — URL-Param-Helper (window.location.search).
 //
 // Link-Styles laufen über das Link-Primitive (variant="button"/"muted") —

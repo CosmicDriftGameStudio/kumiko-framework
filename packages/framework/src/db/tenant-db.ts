@@ -105,7 +105,7 @@ function boundRunner(
       const value = Reflect.get(target, prop, target);
       if (typeof value !== "function") return value;
       if (prop === "reserve") {
-        // Bun.SQL and postgres.js hand back a raw connection; re-wrap it so the gate survives.
+        // postgres-js hands back a raw connection; re-wrap it so the gate survives.
         return async (...args: unknown[]) => {
           const reserved: DbRunner = await Reflect.apply(value, target, args);
           return boundRunner(reserved, gate, projectionRegistry, executorManagedWrites);

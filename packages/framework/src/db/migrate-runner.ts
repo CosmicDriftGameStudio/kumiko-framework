@@ -293,7 +293,7 @@ export async function runMigrations(
   migrations: readonly Migration[],
 ): Promise<ApplyResult> {
   // Session-level advisory lock and per-migration BEGIN/COMMIT must share one
-  // session. Pool calls may land on different connections (Bun.SQL round-robins),
+  // session. Pool calls may land on different connections (the pool round-robins),
   // which would leave the lock held on a session nobody unlocks.
   const conn = await reserveConnection(db);
   try {

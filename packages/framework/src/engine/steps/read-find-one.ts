@@ -1,6 +1,6 @@
 // r.step.read.findOne — load a single row from a projection table.
 //
-// Thin wrapper on selectMany(db, table, where, { limit: 1 }) (bun-db).
+// Thin wrapper on selectMany(db, table, where, { limit: 1 }) (db/query.ts).
 // Resolves to the first row or null. Tenant-filtered like ctx.db
 // method-form reads (own tenant + SYSTEM_TENANT_ID reference rows); a
 // foreign `where.tenantId` is narrowed to the caller's own scope.

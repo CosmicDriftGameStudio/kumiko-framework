@@ -107,7 +107,7 @@ const ALLOWLIST = [
   // HTTP Last-Modified/ETag header: Bun/Node Response API expects a native
   // Date object from fs.Stats.mtimeMs — wire boundary, not a Temporal format.
   /packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,
-  // Bun.SQL timestamptz columns arrive as native Date (driver wire format,
+  // postgres-js timestamptz columns arrive as native Date (driver wire format,
   // same reason as packages/framework/src/db/ above).
   /packages\/publish\/src\/rollback\.ts$/,
 ];

@@ -449,7 +449,7 @@ export function createWriteVerbs(
       //    selben catch (siehe line 493+).
       let event: Awaited<ReturnType<typeof append>>;
       try {
-        // Savepoint-scoped: postgres.js/Bun.SQL poison the WHOLE surrounding
+        // Savepoint-scoped: postgres.js poisons the WHOLE surrounding
         // begin() once any statement inside it errors, even if the JS error
         // is caught (kumiko-framework#1778) — a losing concurrent create's
         // unique-violation would otherwise abort the caller's outer
@@ -503,7 +503,7 @@ export function createWriteVerbs(
       //    UniqueViolationError 409 damit Designer/Frontend einen sauberen
       //    "duplicate" zeigen können statt cryptic "internal server error".
       // Savepoint like the append above: an unclassified DB error out of the
-      // projection INSERT would otherwise poison the enclosing tx (Bun.SQL
+      // projection INSERT would otherwise poison the enclosing tx (postgres-js
       // rejects the whole begin() once any statement in it failed), so a later
       // write sharing that tx — a sibling write after a failed nested one —
       // throws raw as a 500 instead of failing cleanly. The savepoint rolls the

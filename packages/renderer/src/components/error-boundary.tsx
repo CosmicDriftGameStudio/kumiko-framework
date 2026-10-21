@@ -1,5 +1,6 @@
 import { ERROR_BOUNDARY_LOG_MARKER } from "@cosmicdrift/kumiko-types/error-boundary";
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { rendererError } from "../dev-console.ts";
 import { createErrorId } from "./error-id.ts";
 
 export type ErrorBoundaryFallbackProps = {
@@ -46,8 +47,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   private logCaught(error: Error, detail: string | null | undefined): void {
-    // biome-ignore lint/suspicious/noConsole: the client has no logger and the boundary must not swallow the error; the e2e fixture detects boundary failures via this exact console.error line
-    console.error(`[kumiko] ${this.props.scope} ${ERROR_BOUNDARY_LOG_MARKER}:`, error, detail);
+    rendererError(`[kumiko] ${this.props.scope} ${ERROR_BOUNDARY_LOG_MARKER}:`, error, detail);
   }
 
   private reset = (): void => {

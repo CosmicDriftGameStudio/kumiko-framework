@@ -7,6 +7,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { withDerivedValues } from "../components/form-derivation-patch.ts";
 import { RenderEdit } from "../components/render-edit.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type { FormValues, SubmitResult, Translate } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.ts";
@@ -148,8 +149,7 @@ export function DrawerHost({
   // Dev-time setup error, so no dedupe.
   useEffect(() => {
     if (drawerAction !== null && Drawer === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
-      console.warn(
+      rendererWarn(
         `[kumiko] toolbarAction "${drawerAction.id}" is kind:"drawer", but no <Drawer> primitive is registered — it will not open. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
       );
     }

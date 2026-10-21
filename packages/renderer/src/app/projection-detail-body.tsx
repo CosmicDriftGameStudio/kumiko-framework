@@ -13,6 +13,7 @@ import { RenderEdit, type RenderEditAction } from "../components/render-edit.tsx
 import { resolveRecordTitle } from "../components/render-edit-helpers.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type { Translate } from "../headless/index.ts";
 import { isSafeHref } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
@@ -252,8 +253,7 @@ export function ProjectionDetailBody({
   // the stacked all-sections layout instead of silently truncating to section 1.
   useEffect(() => {
     if (isTabsMode && Tabs === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
-      console.warn(
+      rendererWarn(
         `[kumiko] screen "${screen.id}" uses layout.mode: "tabs", but no <Tabs> primitive is registered — the tab strip will not render. createKumikoApp() from kumiko-renderer-web wires it automatically.`,
       );
     }

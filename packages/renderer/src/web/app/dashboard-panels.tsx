@@ -15,6 +15,7 @@ import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
+import { rendererWarn } from "../../dev-console.ts";
 import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
 import {
   extensionSectionName,
@@ -119,8 +120,7 @@ export function StatPanelBody({
   const Icon = useExtensionSectionComponent(iconName);
   useEffect(() => {
     if (panel.icon !== undefined && iconName !== undefined && Icon === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev warning for setup errors
-      console.warn(
+      rendererWarn(
         `[kumiko] Dashboard stat-panel "${panel.id}" on screen "${screenId}" references icon ` +
           `"${iconName}", which is not registered in clientFeatures.extensionSectionComponents.`,
       );
@@ -853,8 +853,7 @@ export function CustomPanelBody({
   const Component = useExtensionSectionComponent(name);
   useEffect(() => {
     if (name !== undefined && Component === undefined) {
-      // biome-ignore lint/suspicious/noConsole: dev warning for setup errors
-      console.warn(
+      rendererWarn(
         `[kumiko] Dashboard custom-panel "${panel.id}" on screen "${screenId}" references component ` +
           `"${name}", which is not registered in clientFeatures.extensionSectionComponents — the panel renders nothing.`,
       );

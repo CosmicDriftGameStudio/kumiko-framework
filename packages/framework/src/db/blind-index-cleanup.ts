@@ -103,7 +103,7 @@ export async function subjectRowExistsInTenant(
 ): Promise<boolean> {
   // Prefetch which self-PII projection tables actually exist — probing a
   // missing relation used to throw (and get swallowed), which both hid
-  // real schema bugs and risked poisoning the Bun.SQL connection for the
+  // real schema bugs and risked poisoning the driver connection for the
   // rest of the forget TX (fw#2348 / framework#356).
   const candidateTables: string[] = [];
   for (const feature of features.values()) {

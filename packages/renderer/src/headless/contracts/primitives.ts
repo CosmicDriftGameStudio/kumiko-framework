@@ -1,23 +1,20 @@
-// Primitives-Contract — the minimal set of UI building blocks every
-// renderer must provide. A "primitive" is a unit the standard-renderers
-// (entityList, entityEdit, etc.) call into without knowing which library
-// implements it. On web that's shadcn; on mobile it's react-native-paper;
-// both packages (primitives-shadcn, primitives-paper) implement this
-// contract and the app wires one of them into the renderer via context.
+// Primitives-Contract — the minimal set of UI building blocks the
+// standard-renderers (entityList, entityEdit, etc.) call into without knowing
+// which implementation provides them. It is the DOM-free seam through which
+// apps override primitives and tests substitute fakes, both via
+// PrimitivesProvider.
 //
-// Why a contract here (in ui-core) instead of in each renderer:
-// ui-core's view-model builder and form-controller produce metadata
-// (field-type, validation-state, label, placeholder) that the renderer
-// translates into primitive invocations. Having the contract shape in
-// ui-core means the metadata can carry references to primitives by name
-// ("text-input", "select") and the translation is a pure map-lookup on
-// the renderer side, not a switch statement that re-derives UI intent
-// from entity-schema.
+// Why a contract in headless: the view-model builder and form-controller
+// produce metadata (field-type, validation-state, label, placeholder) that the
+// renderer translates into primitive invocations. Having the contract shape
+// here means the metadata can carry references to primitives by name
+// ("text-input", "select") and the translation is a pure map-lookup on the
+// renderer side, not a switch statement that re-derives UI intent from
+// entity-schema.
 //
 // Runtime-free: every primitive is expressed as its input contract only
-// (what props it takes). Concrete components live in each primitives-*
-// package and depend on React / React Native / etc.; ui-core never
-// imports them.
+// (what props it takes). Concrete components live in web/primitives and
+// headless never imports them.
 
 // Common props every primitive accepts. Renderers pass down the
 // current field-state (visible/readonly/required from FormController)
@@ -77,8 +74,8 @@ export type ToggleProps = PrimitiveCommonProps & {
 
 export type DatePickerProps = PrimitiveCommonProps & {
   // ISO-8601 date string (YYYY-MM-DD) or null. The primitive translates
-  // to/from the native date widget on each platform; ui-core stays
-  // platform-free by using the serialized string form.
+  // to/from the date widget; headless stays DOM-free by using the
+  // serialized string form.
   readonly value: string | null;
   readonly onChange: (next: string | null) => void;
   readonly minDate?: string;
@@ -126,11 +123,10 @@ export type CardProps = {
   readonly description?: string;
 };
 
-// Icons are referenced by string name so ui-core doesn't own an icon set.
-// primitives-shadcn maps "check" → `<Check />` from lucide-react;
-// primitives-paper maps "check" → `<Icon source="check" />`. The set of
+// Icons are referenced by string name so headless doesn't own an icon set.
+// The web primitives map "check" → `<Check />` from lucide-react. The set of
 // names is deliberately open — renderer-level code can introduce feature-
-// specific icons without a ui-core round-trip.
+// specific icons without a contract change.
 export type IconProps = {
   readonly name: string;
   readonly size?: number;

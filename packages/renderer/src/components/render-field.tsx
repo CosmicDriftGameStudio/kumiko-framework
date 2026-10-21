@@ -29,6 +29,7 @@ import { evalRowExtractor } from "../app/row-actions.ts";
 import { screenAccessAllows } from "../app/screen-access.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
+import { rendererError, rendererWarn } from "../dev-console.ts";
 import { fileIdsOf } from "../file-ids-of.ts";
 import {
   applyFormatSpec,
@@ -525,8 +526,7 @@ function ReferenceInput({
       // be missing from `options` (shown as a raw id instead of a label).
       setSearchTerm("");
       queryResult.refetch().catch((err: unknown) => {
-        // biome-ignore lint/suspicious/noConsole: no error-surfacing path exists in this widget yet — at minimum, don't swallow it silently.
-        console.error("render-field: refetch after create failed", err);
+        rendererError("render-field: refetch after create failed", err);
       });
       if (newId === undefined) {
         // Record was created server-side but the payload carried no id —
@@ -687,8 +687,7 @@ function FieldRendererOutput({
         />
       );
     }
-    // biome-ignore lint/suspicious/noConsole: dev-warning for a registry mismatch, mirrors DataTableCell's columnRenderer warning.
-    console.warn(`[kumiko] fieldRenderer "${componentName}" not registered`);
+    rendererWarn(`[kumiko] fieldRenderer "${componentName}" not registered`);
   }
   return <Text testId={`field-value-${field.field}`}>{stringValue(field.value)}</Text>;
 }

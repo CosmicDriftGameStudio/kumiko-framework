@@ -320,10 +320,8 @@ export function ProjectionListBody({
 
   // rowsQuery.data is typed as PagedRows but the query handler is free to
   // return anything at runtime (fw#2216: a bare array silently rendered an
-  // empty table instead of surfacing the mismatch); a system-boundary cast
-  // is needed to inspect the actual wire shape before trusting it.
-  const rawRowsData = rowsQuery.data as unknown as { readonly rows?: unknown } | null;
-  if (rawRowsData !== null && !Array.isArray(rawRowsData.rows)) {
+  // empty table instead of surfacing the mismatch), so the shape is checked.
+  if (rowsQuery.data !== null && !Array.isArray(rowsQuery.data.rows)) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-projection-list-bad-shape">
         Screen <Text variant="code">{screen.id}</Text> query{" "}
