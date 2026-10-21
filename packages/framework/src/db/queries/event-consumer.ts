@@ -259,7 +259,7 @@ export async function updateConsumerDeliveryOutcome(
        "status" = $3,
        "last_error" = $4,
        "rearm_count" = CASE WHEN $5 THEN 0 ELSE "rearm_count" END,
-       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
+       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under the driver
        "pending_gaps" = $6::text::jsonb,
        "last_failed_event_id" = $9,
        "updated_at" = now()
@@ -309,7 +309,7 @@ export async function advanceConsumerPastEventReturning(
        "last_error" = NULL,
        "rearm_count" = 0,
        "last_failed_event_id" = NULL,
-       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
+       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under the driver
        "pending_gaps" = $4::text::jsonb,
        "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3
@@ -364,7 +364,7 @@ export async function updateConsumerRebuildCursor(
        "status" = 'idle',
        "attempts" = 0,
        "last_error" = NULL,
-       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
+       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under the driver
        "pending_gaps" = $2::text::jsonb,
        "last_failed_event_id" = NULL,
        "updated_at" = now()

@@ -24,6 +24,10 @@ import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 
 const PROJECTION_PSEUDO_ENTITY = "__projection__";
 
+// Satisfies the text-field PII stance of the entity field type; these synthesized
+// fields describe query columns and never map to stored entity data.
+export const SYNTHESIZED_FIELD_PII_REASON = "synthesized display field, not stored entity data";
+
 /** Minimal EntityDefinition from the column list: every field is a text
  *  field. `sortable` applies to all columns — buildAppSchema derives it from
  *  the query's Zod schema (`screen.sortable`, fw#2165); the query itself has
@@ -34,16 +38,17 @@ const PROJECTION_PSEUDO_ENTITY = "__projection__";
 export function synthesizeProjectionEntity(
   columns: readonly ListColumnSpec[],
   sortable: boolean,
-): EntityDefinition {
-  const fields: Record<string, { type: "text"; sortable: boolean }> = {};
+): Pick<EntityDefinition, "fields"> {
+  const fields: Record<string, EntityDefinition["fields"][string]> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
     fields[normalized.field] = {
       type: "text",
+      allowPlaintext: SYNTHESIZED_FIELD_PII_REASON,
       sortable: sortable && normalized.sortable !== false,
     };
   }
-  return { fields } as unknown as EntityDefinition;
+  return { fields };
 }
 
 /** Wandelt ein ProjectionListScreenDefinition in die EntityListScreen-Shape die

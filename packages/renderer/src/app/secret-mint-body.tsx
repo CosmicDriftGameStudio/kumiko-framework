@@ -2,6 +2,7 @@ import type { SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit.tsx";
+import { rendererError } from "../dev-console.ts";
 import type { SubmitResult, Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
@@ -10,13 +11,13 @@ import {
   synthesizeActionFormScreen,
   synthesizeSecretMintConfirmScreen,
 } from "./action-form-shim.ts";
-import type { FeatureSchema } from "./feature-schema.ts";
 import {
   buildInitialValues,
   mergeSearchParamsIntoInitial,
   tenantCurrencyMoneyFieldNames,
   useMoneyCurrencyOverrides,
-} from "./kumiko-screen.tsx";
+} from "./entity-edit-prefill.ts";
+import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
 import { useInitialValuesHandoff, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
@@ -168,8 +169,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         values[revealField.field] = value;
       }
       if (Object.values(values).every(isBlank)) {
-        // biome-ignore lint/suspicious/noConsole: the user-facing banner carries no detail; this names the screen and fields for the developer
-        console.error(
+        rendererError(
           `secretMint "${screen.id}": write result carried no value for reveal fields [${screen.reveal.fields
             .map((revealField) => revealField.field)
             .join(", ")}]`,

@@ -72,7 +72,7 @@ export type ComputeEditViewModelInput<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > = {
   readonly screen: EntityEditScreenDefinition;
-  readonly entity: EntityDefinition;
+  readonly entity: Pick<EntityDefinition, "fields" | "defaultCurrency">;
   readonly values: TValues;
   readonly translate: Translate;
   readonly featureName: string;
@@ -356,19 +356,21 @@ function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
   };
 }
 
+// files/images field defs carry no `required` property.
+function isRequiredByEntity(fieldDef: EntityFieldDef): boolean {
+  return "required" in fieldDef && fieldDef.required === true;
+}
+
 type DateFieldHints = Pick<EditFieldViewModel, "wallClock" | "min" | "max" | "dateLocale">;
 
 function deriveDateFieldHints(fieldDef: EntityFieldDef): DateFieldHints {
   const wallClock =
-    fieldDef.type === "timestamp" &&
-    (fieldDef as unknown as { locatedBy?: string }).locatedBy !== undefined
-      ? true
-      : undefined;
+    fieldDef.type === "timestamp" && fieldDef.locatedBy !== undefined ? true : undefined;
   const dateBounds =
     fieldDef.type === "date" ||
     fieldDef.type === "timestamp" ||
     fieldDef.type === "locatedTimestamp"
-      ? (fieldDef as unknown as { min?: string; max?: string; locale?: string })
+      ? fieldDef
       : undefined;
   return {
     ...(wallClock !== undefined && { wallClock }),
@@ -406,16 +408,14 @@ function deriveReferenceFieldHints(
   featureName: string,
 ): ReferenceFieldHints {
   const refRaw =
-    declaredRefTarget === undefined && fieldDef.type === "reference"
-      ? (fieldDef as unknown as { entity?: string }).entity
-      : undefined;
+    declaredRefTarget === undefined && fieldDef.type === "reference" ? fieldDef.entity : undefined;
   const refTarget =
     declaredRefTarget ?? (refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined);
   const refLabelField =
     declaredRefTarget !== undefined
       ? (normalized.refLabelField ?? "id")
       : fieldDef.type === "reference"
-        ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
+        ? (fieldDef.labelField ?? "id")
         : undefined;
   return {
     ...(refTarget?.entityName !== undefined && { refEntity: refTarget.entityName }),
@@ -435,9 +435,7 @@ function deriveReferenceMultiHints(
   declaredRefTarget: ParsedRefTarget | undefined,
 ): ReferenceMultiHints {
   const ownReferenceDef =
-    declaredRefTarget === undefined && fieldDef.type === "reference"
-      ? (fieldDef as unknown as { multiple?: boolean; optionsQuery?: string })
-      : undefined;
+    declaredRefTarget === undefined && fieldDef.type === "reference" ? fieldDef : undefined;
   const refMultiple =
     ownReferenceDef === undefined ? undefined : (ownReferenceDef.multiple ?? false);
   return {
@@ -605,26 +603,8 @@ function deriveEmbeddedListHints(
   resolvedCurrency: string,
   listSpec: EmbeddedListEditSpec | undefined,
 ): EmbeddedListHints {
-  const isEmbeddedList =
-    fieldDef.type === "embedded" &&
-    (fieldDef as unknown as { multiple?: boolean }).multiple === true;
-  const embeddedListDef = isEmbeddedList
-    ? (fieldDef as unknown as {
-        schema: Readonly<Record<string, EmbeddedSubFieldShape>>;
-        minItems?: number;
-        maxItems?: number;
-        derived?: Readonly<
-          Record<
-            string,
-            {
-              readonly op: "multiply" | "sum" | "subtract" | "percent";
-              readonly from: readonly string[];
-            }
-          >
-        >;
-        totals?: readonly string[];
-      })
-    : undefined;
+  const embeddedListDef =
+    fieldDef.type === "embedded" && fieldDef.multiple === true ? fieldDef : undefined;
   const embeddedListCells: readonly EmbeddedListCellViewModel[] | undefined =
     embeddedListDef !== undefined
       ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) =>
@@ -776,7 +756,7 @@ export function computeEditViewModel<
         // field that's required at the entity-level but marked required:
         // false on the screen (e.g. a soft-onboarding wizard that
         // collects less up-front) respects the screen override.
-        const entityRequired = (fieldDef as unknown as { required?: boolean }).required === true;
+        const entityRequired = isRequiredByEntity(fieldDef);
         const required =
           !lockedByDerivation && evalCondition(normalized.required, entityRequired, values);
         // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from

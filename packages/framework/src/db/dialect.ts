@@ -1,7 +1,7 @@
 // Native dialect — replaces drizzle-orm/pg-core re-exports.
 //
 // Produces table objects that simultaneously expose:
-//   1. EntityTableMeta shape (source/columns/indexes) for bun-db's
+//   1. EntityTableMeta shape (source/columns/indexes) for the query helpers'
 //      extractTableInfo + the migrate-runner's renderTableDdl
 //   2. drizzle-compatible Symbol metadata so callers that introspect
 //      Symbol.for("kumiko:schema:Name") / Symbol.for("kumiko:schema:Columns") keep
@@ -428,7 +428,7 @@ sql.raw = (text: string): SqlExpression => ({
 //
 // Produces a SchemaTable with:
 //   - EntityTableMeta shape (source/tableName/columns/indexes)
-//   - Drizzle Symbol metadata for compat with bun-db's introspection
+//   - Drizzle Symbol metadata for compat with the introspection in db/query.ts
 //   - Top-level column-handle properties (table.fieldName → ColumnHandle)
 //
 // Second arg is an object whose keys are JS field-names; values are

@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { rendererWarn } from "../../dev-console.ts";
 import type { NavNode, NavRegistrySlice } from "../../headless/index.ts";
 import { resolveNavigation } from "../../headless/index.ts";
 import { createLiveRefetchScheduler } from "../../hooks/live-refetch-scheduler.ts";
@@ -293,8 +294,7 @@ function NavLeadingIcon({
   const NavIcon = iconKey !== undefined && isKnownIcon ? NAV_ICON_LOOKUP[iconKey] : undefined;
   useEffect(() => {
     if (iconKey !== undefined && !isKnownIcon) {
-      // biome-ignore lint/suspicious/noConsole: diagnostic for unregistered nav icon keys
-      console.warn(
+      rendererWarn(
         `[kumiko] Nav entry "${node.qualifiedName}" references icon "${iconKey}", which is not ` +
           `registered in NAV_ICONS — falling back to the dot indicator. Check the icon key spelling.`,
       );
@@ -512,8 +512,7 @@ function warnTreeActionMisconfigured(label: string, problem: string): void {
   // skip: already warned for this label and problem — suppresses the repeat, not the warning itself.
   if (warnedTreeActionLabels.has(key)) return;
   warnedTreeActionLabels.add(key);
-  // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
-  console.warn(`[kumiko] Nav action "${label}" ${problem}`);
+  rendererWarn(`[kumiko] Nav action "${label}" ${problem}`);
 }
 
 // An action button carries screen XOR target (see TreeAction) — `screen`

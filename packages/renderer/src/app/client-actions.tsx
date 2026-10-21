@@ -6,6 +6,7 @@
 
 import type { RowActionClientAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
+import { rendererError } from "../dev-console.ts";
 import type { Translate } from "../headless/index.ts";
 
 export type ClientActionOutcome =
@@ -76,8 +77,7 @@ function findClientActionHandler(
 }
 
 function logClientActionProblem(name: string, problem: string, cause?: unknown): void {
-  // biome-ignore lint/suspicious/noConsole: the client has no logger; the toast text is generic, so the action name and cause must reach the DevTools console
-  console.error(
+  rendererError(
     `[kumiko] clientAction "${name}" ${problem}`,
     ...(cause === undefined ? [] : [cause]),
   );

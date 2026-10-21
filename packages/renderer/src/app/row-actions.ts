@@ -15,6 +15,7 @@ import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import type { ToolbarActionButton } from "../components/render-list.tsx";
+import { rendererError, rendererWarn } from "../dev-console.ts";
 import type { Dispatcher, ListRowViewModel, Translate } from "../headless/index.ts";
 import type { DataTableRowAction } from "../primitives.tsx";
 import { type ClientActionRuntime, runClientAction } from "./client-actions.tsx";
@@ -89,8 +90,7 @@ export function navigateActionSearchParams(
 
 export async function refetchAfterWrite(refetch: () => Promise<unknown>): Promise<void> {
   await refetch().catch((err: unknown) => {
-    // biome-ignore lint/suspicious/noConsole: refetch must not poison the write-action error path
-    console.error("kumiko-screen: refetch after write action failed", err);
+    rendererError("kumiko-screen: refetch after write action failed", err);
   });
 }
 
@@ -171,8 +171,7 @@ function warnDrawerActionDropped(
   // skip: already warned for this id — suppresses the repeat, not the warning itself.
   if (warnedDrawerActionIds.has(key)) return;
   warnedDrawerActionIds.add(key);
-  // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
-  console.warn(
+  rendererWarn(
     `[kumiko] ${actionKind} "${actionId}" is kind:"drawer", but the host did not wire openDrawer (RelatedListSection: pass onOpenDrawer) — it will not render.`,
   );
 }

@@ -4,7 +4,7 @@ import {
   buildInitialValues,
   literalCurrencyOverrides,
   mergeSearchParamsIntoInitial,
-} from "../app/kumiko-screen.tsx";
+} from "../app/entity-edit-prefill.ts";
 import { layoutFieldNames } from "../app/layout-fields.ts";
 
 type FieldDef = {

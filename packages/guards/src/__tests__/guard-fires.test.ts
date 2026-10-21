@@ -268,6 +268,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
     expectedMessage: /while loop polls with sleep/,
   },
+  "File Size": {
+    path: `${PKG}/features/x/huge.ts`,
+    code: "export const line = 1;\n".repeat(2001),
+    expectedMessage: /oversized file\(s\)/,
+  },
   "test-template-drift": {
     path: `${PKG}/features/x/e2e/screen.spec.ts`,
     code: 'declare const page: { screenshot: (opts: unknown) => Promise<void> };\nexport const run = () => page.screenshot({ path: "out.png" });',

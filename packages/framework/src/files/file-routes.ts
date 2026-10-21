@@ -601,7 +601,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
   async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
     // fileRefsTable.id is a UUID column — a malformed id must fail here, not
-    // at Postgres (22P02 poisons the pooled Bun.SQL connection). 404, not
+    // at Postgres (22P02 poisons the pooled connection). 404, not
     // 400: an authenticated caller sending a bad id must see the same
     // response as a nonexistent one, no existence-oracle.
     if (!isUuid(id)) return null;

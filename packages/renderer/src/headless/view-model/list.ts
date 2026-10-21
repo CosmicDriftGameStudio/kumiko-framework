@@ -16,7 +16,7 @@ const WRITE_ONLY_SET_LABEL_KEY = "kumiko.field.writeOnly.set";
 
 export type ComputeListViewModelInput = {
   readonly screen: EntityListScreenDefinition;
-  readonly entity: EntityDefinition;
+  readonly entity: Pick<EntityDefinition, "fields" | "derivedFields">;
   readonly rows: readonly Readonly<Record<string, unknown>>[];
   // Translate callback — normally LocaleResolver.translate. Labels use the
   // i18n convention "{feature}:entity:{entityName}:field:{fieldName}"; if
@@ -155,17 +155,11 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
     // sein. parseRefTarget gibt (featureName, entityName), der
     // Renderer baut die Lookup-QN als
     // `<refFeature>:query:<refEntity>:list`.
-    const refRaw =
-      fieldDef.type === "reference"
-        ? (fieldDef as unknown as { entity?: string }).entity
-        : undefined;
+    const refRaw = fieldDef.type === "reference" ? fieldDef.entity : undefined;
     const refTarget = refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined;
     const refEntity = refTarget?.entityName;
     const refFeature = refTarget?.featureName;
-    const refLabelField =
-      fieldDef.type === "reference"
-        ? ((fieldDef as unknown as { labelField?: string }).labelField ?? "id")
-        : undefined;
+    const refLabelField = fieldDef.type === "reference" ? (fieldDef.labelField ?? "id") : undefined;
     // For select and multiSelect fields: bake in translated option labels.
     // Convention matches the form path → one translation source for list +
     // form. A missing key returns the key itself per convention; the
@@ -306,6 +300,5 @@ export function buildOptionLabels(
 // (ORDER BY safety) and by the UI (column header click indicator). All
 // field types can bear the flag; it's off by default.
 function fieldIsSortable(field: FieldDefinition): boolean {
-  const flag = (field as unknown as { sortable?: boolean }).sortable;
-  return flag === true;
+  return "sortable" in field && field.sortable === true;
 }

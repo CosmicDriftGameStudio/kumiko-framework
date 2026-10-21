@@ -1,7 +1,7 @@
 // Client-safe ledger surface: QN constants, the pure recurring helpers
 // (projection + Soll/Ist merge), and the Zod payload schemas (for client-side
 // pre-validation before dispatch) — nothing else. The full `../ledger` entry
-// re-exports the feature/handlers/executor, which pull bun-db/postgres — a
+// re-exports the feature/handlers/executor, which pull postgres-js — a
 // browser bundle that imports from there fails on Node builtins. A client screen
 // (e.g. a rent-cashflow view) imports the dispatch QNs + the pure forecast/merge
 // from HERE, then dispatches via the renderer's useDispatcher.

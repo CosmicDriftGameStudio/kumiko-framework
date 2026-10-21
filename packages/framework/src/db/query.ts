@@ -44,6 +44,7 @@ import { InternalError } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/index.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import { SQL_EXPR_BRAND } from "./dialect.ts";
+import { buildDistinctOnClause } from "./distinct-on.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
@@ -918,7 +919,6 @@ function buildWhereClause(
 // Each failed attempt discards one, so retries are bounded by pool size.
 const CLOSED_CONNECTION_CODES: ReadonlySet<string> = new Set([
   "CONNECTION_CLOSED", // postgres-js
-  "ERR_POSTGRES_CONNECTION_CLOSED", // Bun.SQL
   "57P01", // PG SQLSTATE: admin_shutdown / terminated backend
 ]);
 
@@ -954,14 +954,11 @@ function isHandleLike(raw: unknown): raw is Record<string, unknown> {
   return raw !== null && (typeof raw === "object" || typeof raw === "function");
 }
 
-type ClosedConnectionDriver = "bun-sql" | "postgres-js" | "unknown";
+type ClosedConnectionDriver = "postgres-js" | "unknown";
 
-// Bun.SQL is not instanceof-checkable (Bun.SQL.prototype is invalid) and its tx
-// handles are plain function objects, so discriminate by members only one driver
-// has: `flush` on Bun.SQL (pool and tx), `typed` on postgres-js (pool and tx).
+// postgres-js pool and tx handles both carry `typed`.
 function driverOf(raw: unknown): ClosedConnectionDriver {
   if (!isHandleLike(raw)) return "unknown";
-  if (typeof raw["flush"] === "function") return "bun-sql";
   if (typeof raw["typed"] === "function") return "postgres-js";
   return "unknown";
 }
@@ -970,18 +967,15 @@ function positiveNumber(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
-// postgres-js configures timeouts in seconds, Bun.SQL in milliseconds.
+// postgres-js configures timeouts in seconds.
 function timeoutOptionMs(
   options: Record<string, unknown>,
   driver: ClosedConnectionDriver,
-  bunName: string,
-  postgresJsName: string,
+  optionName: string,
 ): number | undefined {
-  if (driver === "postgres-js") {
-    const seconds = positiveNumber(options[postgresJsName]);
-    return seconds === undefined ? undefined : seconds * 1000;
-  }
-  return positiveNumber(options[bunName]);
+  if (driver !== "postgres-js") return undefined;
+  const seconds = positiveNumber(options[optionName]);
+  return seconds === undefined ? undefined : seconds * 1000;
 }
 
 function errorProp(err: unknown, name: string): unknown {
@@ -1003,9 +997,9 @@ export function describeClosedConnectionFailure(
     pooled: isPooledClient(raw),
     attempts,
     poolMax: positiveNumber(options["max"]),
-    idleTimeoutMs: timeoutOptionMs(options, driver, "idleTimeout", "idle_timeout"),
-    maxLifetimeMs: timeoutOptionMs(options, driver, "maxLifetime", "max_lifetime"),
-    connectionTimeoutMs: timeoutOptionMs(options, driver, "connectionTimeout", "connect_timeout"),
+    idleTimeoutMs: timeoutOptionMs(options, driver, "idle_timeout"),
+    maxLifetimeMs: timeoutOptionMs(options, driver, "max_lifetime"),
+    connectionTimeoutMs: timeoutOptionMs(options, driver, "connect_timeout"),
     errorName: errorProp(err, "name"),
     errorCode: extractPgError(err)?.code ?? errorProp(err, "code"),
     errorErrno: errorProp(err, "errno"),
@@ -1121,15 +1115,21 @@ export async function selectMany<TRow = AnyRow>(
     return scoped.selectMany<TRow>(table, where, options);
   }
   const info = extractTableInfo(table);
-  let sqlText = `SELECT ${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
+  const distinctOn = buildDistinctOnClause(info, options?.distinctOn, options?.orderBy);
+  const distinctPrefix =
+    distinctOn === undefined
+      ? ""
+      : `DISTINCT ON (${distinctOn.columns.map(quoteIdent).join(", ")}) `;
+  let sqlText = `SELECT ${distinctPrefix}${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
   let values: unknown[] = [];
   if (where && Object.keys(where).length > 0) {
     const w = buildWhereClause(info, where, 1);
     sqlText += ` WHERE ${w.sqlText}`;
     values = w.values;
   }
-  if (options?.orderBy) {
-    const clauses = Array.isArray(options.orderBy) ? options.orderBy : [options.orderBy];
+  const orderBy = distinctOn?.orderBy ?? options?.orderBy;
+  if (orderBy) {
+    const clauses = Array.isArray(orderBy) ? orderBy : [orderBy];
     const parts = clauses.map((c) => {
       const col = info.columnOf(c.col);
       const dir = c.direction === "desc" ? "DESC" : "ASC";

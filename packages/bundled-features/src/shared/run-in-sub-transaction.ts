@@ -1,7 +1,7 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 
 // Per-unit sub-transaction (one user, one purged row), nesting-aware across both db shapes:
-//   - top-level connection (Bun.SQL / postgres-js Sql) → `.begin` (BEGIN)
+//   - top-level connection (postgres-js Sql) → `.begin` (BEGIN)
 //   - TransactionSql (inside the dispatcher's outer tx, where every
 //     writeHandler already runs) → `.savepoint` (SAVEPOINT)
 // A TransactionSql has no `.begin`, so the previous unconditional `.begin`

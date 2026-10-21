@@ -1,16 +1,12 @@
-// Proves the closed-connection retry against a real postgres-js driver error,
-// plus the Bun.SQL matcher and both drivers' extractPgError — see query.ts.
+// Proves the closed-connection retry against a real postgres-js driver error
+// and extractPgError on a real unique-violation — see query.ts.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import postgres from "postgres";
 import { constraintOf, extractPgError, isUniqueViolation } from "../../pg-error.ts";
 
-import {
-  describeClosedConnectionFailure,
-  isClosedConnectionError,
-  unsafeReadRetrying,
-} from "../../query.ts";
+import { describeClosedConnectionFailure, unsafeReadRetrying } from "../../query.ts";
 
 const DATABASE_URL = testDatabaseUrl();
 
@@ -78,34 +74,16 @@ async function terminateBackendPid(pid: number): Promise<void> {
   await adminClient.unsafe("select pg_terminate_backend($1)", [pid]);
 }
 
-type DriverKind = "postgres-js" | "bun-sql";
-
-function makePool(kind: DriverKind, max: number, applicationName: string): Pool {
-  if (kind === "postgres-js") {
-    return postgres(DATABASE_URL, {
-      max,
-      connection: { application_name: applicationName },
-    }) as unknown as Pool;
-  }
-  return new Bun.SQL({
-    url: DATABASE_URL,
+function makePool(
+  max: number,
+  applicationName: string,
+): Pool & { end: (options?: { timeout?: number }) => Promise<void> } {
+  return postgres(DATABASE_URL, {
     max,
     connection: { application_name: applicationName },
-  }) as unknown as Pool;
+  }) as unknown as Pool & { end: (options?: { timeout?: number }) => Promise<void> };
 }
 
-async function closePool(kind: DriverKind, pool: unknown): Promise<void> {
-  if (kind === "postgres-js") {
-    await (pool as { end: (opts?: { timeout?: number }) => Promise<void> }).end({ timeout: 0 });
-  } else {
-    await (pool as { close: () => Promise<void> }).close();
-  }
-}
-
-const drivers: DriverKind[] = ["postgres-js", "bun-sql"];
-
-// postgres-js only: Bun.SQL sporadically emits an unhandled reject from its
-// internal handleClose in this terminate window, and isn't the prod driver.
 // Multi-retry (≥3 calls) is covered deterministically by the fake-client
 // test in select-many-retry.integration.test.ts instead of a second live test.
 test("retries through a real server-side connection close", async () => {
@@ -128,20 +106,10 @@ test("retries through a real server-side connection close", async () => {
   }
 });
 
-test("Bun.SQL closed-connection error matches isClosedConnectionError", async () => {
-  const pool = new Bun.SQL({ url: DATABASE_URL, max: 1 });
-  await pool.unsafe("select 1");
-  await pool.close();
-  const caught = await pool.unsafe("select 1").catch((e: unknown) => e);
-  // @cast-boundary error-details — asserting the real driver error shape
-  expect((caught as { code?: string }).code).toBe("ERR_POSTGRES_CONNECTION_CLOSED");
-  expect(isClosedConnectionError(caught)).toBe(true);
-});
-
-describe.each(drivers)("extractPgError — %s unique-violation SQLSTATE", (kind) => {
+describe("extractPgError — postgres-js unique-violation SQLSTATE", () => {
   test("isUniqueViolation and constraintOf resolve the real driver error", async () => {
     const applicationName = randomAppName();
-    const pool = makePool(kind, 1, applicationName);
+    const pool = makePool(1, applicationName);
     const tableName = `cc_retry_uniq_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
     await pool.unsafe(
       `create table "${tableName}" (id uuid not null, constraint "${tableName}_pk" primary key (id))`,
@@ -157,7 +125,7 @@ describe.each(drivers)("extractPgError — %s unique-violation SQLSTATE", (kind)
       expect(constraintOf(caught)).toBeDefined();
     } finally {
       await pool.unsafe(`drop table if exists "${tableName}"`);
-      await closePool(kind, pool);
+      await pool.end({ timeout: 0 });
     }
   });
 });
@@ -219,22 +187,6 @@ describe("describeClosedConnectionFailure", () => {
     } finally {
       await pool.end({ timeout: 0 });
     }
-  });
-
-  test("describes a real Bun.SQL closed-pool error", async () => {
-    const pool = new Bun.SQL({ url: DATABASE_URL, max: 1, idleTimeout: 5, maxLifetime: 10 });
-    await pool.unsafe("select 1");
-    await pool.close();
-    const caught = await pool.unsafe("select 1").catch((e: unknown) => e);
-
-    expect(describeClosedConnectionFailure(pool, caught, 1)).toMatchObject({
-      driver: "bun-sql",
-      pooled: true,
-      poolMax: 1,
-      idleTimeoutMs: 5000,
-      maxLifetimeMs: 10000,
-      errorCode: "ERR_POSTGRES_CONNECTION_CLOSED",
-    });
   });
 
   test("returns undefined for an unrelated error", () => {

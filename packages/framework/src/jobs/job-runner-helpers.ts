@@ -1,0 +1,359 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
+
+import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import type { TzContext } from "@cosmicdrift/kumiko-types/tz-context";
+import type { JobsOptions, Queue } from "bullmq";
+import { requestContext } from "../api/request-context.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
+import type {
+  AppContext,
+  EscapeHatchReporter,
+  JobContext,
+  JobDefinition,
+  JobRunIn,
+  JobTriggerEvent,
+} from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
+import { isKumikoError } from "../errors/kumiko-error.ts";
+import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
+import type { Logger } from "../logging/types.ts";
+import type { Meter, SerializedTraceContext, Tracer } from "../observability/index.ts";
+import { emitJobQueueDepth } from "../observability/index.ts";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.ts";
+import { isPersonalDataGated } from "../pipeline/write-origin.ts";
+import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";
+import type { JobLogEntry, JobSubjectValue } from "./job-runner-types.ts";
+
+// Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
+// (a security-relevant escape hatch that must fail the run closed), a
+// malformed `_triggerEvent` only costs an idempotency-key convenience — the
+// run proceeds without it rather than failing over what would be a framework
+// bug, not untrusted input.
+export function isJobTriggerEvent(value: unknown): value is JobTriggerEvent {
+  if (!isPlainObject(value)) return false;
+  if (typeof value["id"] !== "string") return false;
+  const headers = value["headers"];
+  if (typeof headers !== "object" || headers === null) return false;
+  return Object.values(headers).every(
+    (v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean",
+  );
+}
+
+// A payload's own `_writeOrigin` is never trusted; only the ambient gated origin is stamped.
+export function stampGatedWriteOrigin(data: Record<string, unknown>): void {
+  delete data["_writeOrigin"];
+  const origin = requestContext.get()?.writeOrigin;
+  if (origin && isPersonalDataGated(origin)) {
+    data["_writeOrigin"] = origin;
+  }
+}
+
+export function createJobLogger(
+  logs: JobLogEntry[],
+  baseContext: Record<string, unknown> = {},
+): Logger {
+  function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
+    const merged = { ...baseContext, ...data };
+    const message = Object.keys(merged).length > 0 ? `${msg} ${JSON.stringify(merged)}` : msg;
+    logs.push({ level, message, timestamp: Temporal.Now.instant() });
+  }
+  const logger: Logger = {
+    info(msg, data) {
+      push("info", msg, data);
+    },
+    warn(msg, data) {
+      push("warn", msg, data);
+    },
+    error(msg, data) {
+      push("error", msg, data);
+    },
+    // No-op by design, not missing coverage: JobLogEntry.level (and the
+    // persisted run-completed/-failed event schema in bundled-features/
+    // jobs/events.ts) only has info|warn|error — a job's debug() calls have
+    // nowhere durable to land.
+    debug() {},
+    child(context) {
+      return createJobLogger(logs, { ...baseContext, ...context });
+    },
+  };
+  return logger;
+}
+
+// Single source of the stored subject string: the writer (jobSubjectKey) and
+// the tenant failures query both go through it. Matching is exact — field names
+// and JSON types must equal what the writer stored (`"1"` is not `1`).
+export function serializeJobSubject(subject: Readonly<Record<string, JobSubjectValue>>): string {
+  return JSON.stringify(
+    Object.keys(subject)
+      .sort()
+      .map((field) => [field, subject[field] ?? null]),
+  );
+}
+
+// Stable identity for the declared payload fields: sorted keys, so two runs
+// with the same subject values produce the same string and the later one
+// replaces the earlier record. Non-primitives would serialize into something
+// no caller can reconstruct for a lookup, so they fail the run loudly.
+export function jobSubjectKey(
+  jobName: string,
+  payload: Record<string, unknown>,
+  fields: readonly string[] | undefined,
+  declaration: "tenantVisibleFailure" | "tenantVisibleRun",
+): string | null {
+  if (fields === undefined || fields.length === 0) return null;
+  const subject: Record<string, JobSubjectValue> = {};
+  for (const field of fields) {
+    const value = payload[field] ?? null;
+    if (value !== null && typeof value === "object") {
+      throw new Error(
+        `Job "${jobName}": ${declaration}.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
+      );
+    }
+    subject[field] = value as JobSubjectValue;
+  }
+  return serializeJobSubject(subject);
+}
+
+export async function resolveJobTz(
+  config: ConfigAccessor | undefined,
+  context: Pick<AppContext, "geoTzProvider" | "clock">,
+): Promise<TzContext> {
+  const tenantTz = config ? await config(TENANT_TIMEZONE_CONFIG_KEY) : undefined;
+  return createTzContext({
+    ...(context.geoTzProvider !== undefined && { geoTz: context.geoTzProvider }),
+    ...(context.clock !== undefined && { clock: context.clock }),
+    tenant: typeof tenantTz === "string" && isValidIanaTimeZone(tenantTz) ? tenantTz : "UTC",
+  });
+}
+
+// Jobs that never touch ctx.db run fine on a runner built without one; a job
+// that does gets a named error instead of a bare TypeError on undefined.
+export function missingDbProxy(jobName: string): TenantDb {
+  // @cast-boundary db-operator — every access throws, so no TenantDb member is ever returned
+  return new Proxy({} as TenantDb, {
+    get() {
+      throw new InternalError({
+        message: `[jobs] job runner constructed without a db connection — ctx.db is unavailable for "${jobName}"`,
+      });
+    },
+  });
+}
+
+export function createCrossTenantReads(
+  systemModeDb: TenantDb,
+  reason: string,
+  report: EscapeHatchReporter,
+): NonNullable<JobContext["crossTenantReads"]> {
+  return {
+    selectMany(table, where, options) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.selectMany(table, where, options);
+    },
+    fetchOne(table, where) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.fetchOne(table, where);
+    },
+    count(table, where) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.count(table, where);
+    },
+  };
+}
+
+export function priorAttemptsOf(data: Record<string, unknown>): number {
+  const value = data["_priorAttempts"];
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+// Only a translation key ever travels to the tenant: the thrown error's own
+// i18nKey when it carries one, otherwise the key declared at the job. The
+// error message itself can echo provider or payload content and stays on the
+// run row and in the run log.
+export function tenantFailureMessageKey(
+  err: unknown,
+  declaration: JobDefinition["tenantVisibleFailure"],
+): string | null {
+  // skip: job did not opt in — nothing tenant-visible to record
+  if (!declaration) return null;
+  if (isKumikoError(err) && err.i18nKey.length > 0) return err.i18nKey;
+  return declaration.messageKey;
+}
+
+// Serialized trace context lives under this key in the BullMQ job data.
+// Leading underscore matches the existing internal-meta convention
+// (_triggeredById, _tenantId, _payload).
+export const TRACE_CONTEXT_KEY = "_traceContext";
+
+export const DEFER_COUNT_KEY = "_deferCount";
+
+// Separate from the maxPerTenant counter so tenant-limit deferrals do not eat into maxDefers.
+export const HANDLER_DEFER_COUNT_KEY = "_handlerDeferCount";
+
+export const DEFAULT_MAX_DEFERS = 100;
+
+export const DEFER_DELAY_CAP_MS = 30_000;
+
+export const DEFER_BACKOFF_MAX_DOUBLINGS = 5;
+
+export function readTraceContext(
+  data: Record<string, unknown>,
+): SerializedTraceContext | undefined {
+  const raw = data[TRACE_CONTEXT_KEY];
+  if (!raw || typeof raw !== "object") return undefined;
+  const ctx = raw as Partial<SerializedTraceContext>; // @cast-boundary engine-payload
+  if (!ctx.traceId || !ctx.spanId) return undefined;
+  return { traceId: ctx.traceId, spanId: ctx.spanId };
+}
+
+export function captureTraceContext(tracer: Tracer): SerializedTraceContext | undefined {
+  const span = tracer.getActiveSpan();
+  if (!span?.traceId) return undefined;
+  return { traceId: span.traceId, spanId: span.spanId };
+}
+
+const QUEUE_DEPTH_POLL_INTERVAL_MS = 15_000;
+
+const QUEUE_DEPTH_WARN_INTERVAL_MS = 5 * 60_000;
+
+// kumiko_job_queue_depth: only the lane's own consumer polls — the count is
+// a global Redis-backed value (BullMQ, not per-process), so one reporter per
+// lane is enough. Fires once immediately (metrics exist before the first
+// poll tick) then on an interval; the caller stores + clears the handle.
+export async function startQueueDepthPolling(
+  queue: Queue,
+  lane: JobRunIn,
+  meter: Meter,
+): Promise<ReturnType<typeof setInterval>> {
+  let lastWarnAt: number | undefined;
+  const pollQueueDepth = async (): Promise<void> => {
+    try {
+      const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "paused");
+      emitJobQueueDepth(meter, lane, counts);
+    } catch (err) {
+      // Next poll retries; the warn is throttled so a Redis outage logs once per interval, not once per poll.
+      const nowMs = Date.now();
+      if (lastWarnAt === undefined || nowMs - lastWarnAt >= QUEUE_DEPTH_WARN_INTERVAL_MS) {
+        lastWarnAt = nowMs;
+        createFallbackLogger("job-runner").warn("queue depth poll failed", {
+          lane,
+          error: scrubLogText(err instanceof Error ? err.message : String(err)),
+        });
+      }
+    }
+  };
+  await pollQueueDepth();
+  return setInterval(() => void pollQueueDepth(), QUEUE_DEPTH_POLL_INTERVAL_MS);
+}
+
+export function parseRedisOpts(url: string): {
+  host: string;
+  port: number;
+  db?: number | undefined;
+} {
+  const parsed = new URL(url);
+  const result: { host: string; port: number; db?: number | undefined } = {
+    host: parsed.hostname,
+    port: Number(parsed.port) || 6379,
+  };
+  if (parsed.pathname.length > 1) {
+    result.db = Number(parsed.pathname.slice(1));
+  }
+  return result;
+}
+
+// redisOpts carries no connectTimeout/retry cap, so an unreachable Redis
+// would otherwise hang start() forever with no health endpoint to notice.
+export const BOOT_REDIS_TIMEOUT_MS = 10_000;
+
+// Shutdown must fit a k8s grace period even when Redis is down, so the
+// readiness wait in stop() is capped well below the boot timeout.
+export const STOP_QUEUE_READY_TIMEOUT_MS = 1_000;
+
+// A gate without an explicit `timeout` may legitimately run long (migration-style
+// checks), so it is never rejected; a hang just must not stay silent.
+export const BOOT_GATE_SLOW_WARN_MS = 60_000;
+
+export function timeoutReject(
+  ms: number,
+  message: string,
+): { promise: Promise<never>; cancel: () => void } {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return {
+    promise,
+    cancel: () => {
+      if (timer !== undefined) clearTimeout(timer);
+    },
+  };
+}
+
+// Default base delay when a job opts into backoff without an explicit
+// delayMs. Without a `delay`, BullMQ's fixed/exponential strategies compute
+// NaN/undefined, which is falsy — the job retries immediately instead of
+// waiting.
+const DEFAULT_JOB_BACKOFF_DELAY_MS = 1_000;
+
+// Shared by every enqueue path (dispatch(), handleEvent(), cron, runOnBoot,
+// perTenant wrapper/children, sequential re-enqueue) — a job with `retries`
+// set must retry the same way regardless of how it got enqueued, or it
+// fails for good on the very first error on whichever path skips this.
+export function buildRetryBullOpts(
+  jobDef: JobDefinition,
+  priorAttempts = 0,
+): Pick<JobsOptions, "attempts" | "backoff"> {
+  const opts: Pick<JobsOptions, "attempts" | "backoff"> = {};
+  if (jobDef.retries !== undefined) opts.attempts = Math.max(1, jobDef.retries + 1 - priorAttempts);
+  if (jobDef.backoff) {
+    opts.backoff =
+      typeof jobDef.backoff === "string"
+        ? { type: jobDef.backoff, delay: DEFAULT_JOB_BACKOFF_DELAY_MS }
+        : {
+            type: jobDef.backoff.type,
+            delay: jobDef.backoff.delayMs ?? DEFAULT_JOB_BACKOFF_DELAY_MS,
+          };
+  }
+  return opts;
+}
+
+// Equality filter on top-level payload fields for a job's trigger.where —
+// lets N jobs share one broad event QN, partitioned by a payload
+// discriminant instead of needing N distinct event types.
+export function payloadMatchesTriggerFilter(
+  where: Readonly<Record<string, string | number | boolean>> | undefined,
+  payload: Record<string, unknown>,
+): boolean {
+  if (!where) return true;
+  return Object.entries(where).every(([key, value]) => payload[key] === value);
+}
+
+// BullMQ sweeps queue-wide: any job finishing with keepJobs set can evict
+// OTHER jobs in the same completed/failed zset (moveToFinished lua,
+// removeJobsByMaxAge/removeJobsByMaxCount), not just the finishing job, and
+// the sweep only runs lazily on a later finish into that set. Per-job
+// retention is therefore meaningless on a shared queue — only queue-wide,
+// age-only retention (no count) is safe: a count would evict perTenant
+// children still inside their wrapper's retry window, and boot jobs. The
+// completed age must stay above every perTenant wrapper's own worst-case
+// retry window (see maxRetryWindowMs and the invariant check in
+// createJobRunner below), because child dedup (perTenantChildJobId) relies
+// on the children still existing in Redis when a wrapper retry re-derives
+// their ids. The margin here is generous — queue wait time isn't bounded by
+// backoff — to cover realistic windows. Audit trail lives in read_job_runs,
+// not BullMQ (fw#3199).
+export const COMPLETED_JOB_RETENTION_AGE_SEC = 86_400; // 24h
+
+export const FAILED_JOB_RETENTION_AGE_SEC = 604_800; // 7d
+
+// Total wall-clock time BullMQ can hold a perTenant wrapper across all its
+// retries, consistent with buildRetryBullOpts's own backoff computation.
+export function maxRetryWindowMs(jobDef: JobDefinition): number {
+  if (!jobDef.backoff || jobDef.retries === undefined) return 0;
+  const delayMs =
+    (typeof jobDef.backoff === "string" ? undefined : jobDef.backoff.delayMs) ??
+    DEFAULT_JOB_BACKOFF_DELAY_MS;
+  const type = typeof jobDef.backoff === "string" ? jobDef.backoff : jobDef.backoff.type;
+  return type === "exponential" ? delayMs * (2 ** jobDef.retries - 1) : jobDef.retries * delayMs;
+}

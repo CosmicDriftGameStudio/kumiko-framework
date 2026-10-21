@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { rendererError, rendererWarn } from "../../dev-console.ts";
 import type {
   Dispatcher,
   ListRowViewModel,
@@ -135,8 +136,7 @@ export function buildNavProviderMaps(
     for (const [navId, provider] of Object.entries(f.navProviders ?? {})) {
       const qn = qualifyNavProviderKey(f.name, navId);
       if (navProviders.has(qn) && !derivedQns.delete(qn)) {
-        // biome-ignore lint/suspicious/noConsole: dev warning for schema conflicts
-        console.warn(
+        rendererWarn(
           `[kumiko] navProvider for "${qn}" defined by multiple clientFeatures — last wins.`,
         );
       }
@@ -360,8 +360,7 @@ function mergeByKey<T>(
     if (entries === undefined) continue;
     for (const [key, value] of Object.entries(entries)) {
       if (merged[key] !== undefined) {
-        // biome-ignore lint/suspicious/noConsole: dev warning for schema conflicts
-        console.warn(
+        rendererWarn(
           `[kumiko] ${label} "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
         );
       }
@@ -405,8 +404,7 @@ function warnMissingCustomScreens(
       .map((s) => `${f.featureName}:${s.id}`),
   );
   if (missingCustomScreens.length > 0) {
-    // biome-ignore lint/suspicious/noConsole: dev-only diagnostic for missing client plugins
-    console.error(
+    rendererError(
       `[kumiko] ${missingCustomScreens.length} custom screen(s) have no registered component in clientFeatures.components — they render an error placeholder instead of the intended UI: ${missingCustomScreens.join(", ")}. Add the feature's web client plugin to clientFeatures.`,
     );
   }
@@ -716,8 +714,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     if (f.resolvers === undefined) continue;
     for (const [key, component] of Object.entries(f.resolvers)) {
       if (resolvers.has(key)) {
-        // biome-ignore lint/suspicious/noConsole: client-bundle has no logger; collision is a dev-time warning that must surface in the browser DevTools.
-        console.warn(
+        rendererWarn(
           `[kumiko] resolver "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
         );
       }

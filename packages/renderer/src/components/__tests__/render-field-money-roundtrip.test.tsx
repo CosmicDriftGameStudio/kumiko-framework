@@ -20,7 +20,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { buildInitialValues } from "../../app/kumiko-screen.tsx";
+import { buildInitialValues } from "../../app/entity-edit-prefill.ts";
 import { computeEditViewModel, type EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";

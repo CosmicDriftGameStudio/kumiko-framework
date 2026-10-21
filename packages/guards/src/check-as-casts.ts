@@ -35,6 +35,12 @@
  *   • an unreadable or format-drifted baseline
  * Without a baseline file (e.g. consumer repos) nothing fails: warnings only.
  * Sibling checkouts (`../`) never fail.
+ * `.kumiko-cast-legit-baseline.json` additionally caps legit-bridge and
+ * legit-boundary casts per package (`<package-dir>:<category>`), so a new
+ * double cast or boundary marker cannot slip in unnoticed. Per package rather
+ * than per file, so moving a cast between files does not trip it. Same
+ * missing-file behavior (warning only) as the suspect baseline.
+ *
  * Reductions (current < baseline) are allowed but do NOT update the baseline
  * automatically — run `--write-baseline` after cleanup commits.
  *
@@ -49,6 +55,7 @@ import * as path from "node:path";
 import { type AsExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   type AstGuard,
+  baselineRatchet,
   buildSharedProject,
   filesForGuard,
   type GuardOutcome,
@@ -550,6 +557,33 @@ function totalOf(byFileAndTarget: Record<string, Record<string, number>>): numbe
 
 const baselinePath = path.join(ROOT, ".kumiko-cast-baseline.json");
 
+const LEGIT_BASELINE_FORMAT_VERSION = 1;
+const LEGIT_CAPPED_CATEGORIES: readonly Category[] = ["legit-bridge", "legit-boundary"];
+
+const legitRatchet = baselineRatchet({
+  file: path.join(ROOT, ".kumiko-cast-legit-baseline.json"),
+  formatVersion: LEGIT_BASELINE_FORMAT_VERSION,
+  unit: "legit cast(s)",
+});
+
+function packageDirOf(file: string): string {
+  return /^(?:packages|samples)\/[^/]+/.exec(file)?.[0] ?? file.split("/")[0] ?? file;
+}
+
+export function legitCountsByPackage(all: readonly Site[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const site of all) {
+    if (isSiblingFile(site.file)) continue;
+    if (!LEGIT_CAPPED_CATEGORIES.includes(site.category)) continue;
+    const key = `${packageDirOf(site.file)}:${site.category}`;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+const LEGIT_REMEDIATION =
+  'Avoid the cast (type guard, discriminated union, typing at the source). Only if it is a real system boundary or deliberate bridge: re-freeze with `bun packages/guards/src/cli.ts guards --write-baseline --guard="As-Casts Audit"` and justify it in the PR.';
+
 function writeBaseline(all: readonly Site[]): void {
   const repoLocalSuspects = repoLocal(suspectByFileAndTarget(all));
   const payload: Baseline = {
@@ -568,6 +602,7 @@ function writeBaseline(all: readonly Site[]): void {
   writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(`\n  Baseline written: ${baselinePath}`);
   console.log(`  Total suspect: ${payload.totalSuspect} (repo-local)`);
+  legitRatchet.write(legitCountsByPackage(all));
 }
 
 // Per File:target: aktueller Count gegen baseline. Mehr → Regression.
@@ -758,13 +793,23 @@ function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): G
   }
   // Fails on regressions, repo-local unknown reasons (both only with a valid
   // baseline) and an unreadable or drifted baseline; see the module header.
-  return { violations: reportBaseline(all) };
+  return {
+    violations: [
+      ...reportBaseline(all),
+      ...legitRatchet.check(legitCountsByPackage(all), LEGIT_REMEDIATION),
+    ],
+  };
 }
 
 export const guard: AstGuard = {
   name: "As-Casts Audit",
   scan: SCAN,
   run: (files) => analyseCasts(files, true),
+  writeBaseline: (files) => {
+    const { all, scanned } = scanCasts(files);
+    reportCasts(all, scanned);
+    writeBaseline(all);
+  },
 };
 
 if (import.meta.main) {

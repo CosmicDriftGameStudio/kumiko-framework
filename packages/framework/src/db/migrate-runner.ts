@@ -229,11 +229,11 @@ function migrationClient(db: DbRunner): RawClientWithBegin {
     if (hasBegin(client)) return client;
   }
   throw new Error(
-    "migrate-runner: db argument has no .unsafe() and .begin() (need Bun.SQL or drizzle DbConnection)",
+    "migrate-runner: db argument has no .unsafe() and .begin() (need a postgres-js Sql or drizzle DbConnection)",
   );
 }
 
-// Raw-SQL via postgres-js or Bun.sql .unsafe() — same shape for both.
+// Raw-SQL via postgres-js .unsafe().
 async function executeRaw(db: DbRunner, sqlText: string): Promise<void> {
   await migrationClient(db).unsafe(sqlText);
 }
@@ -241,9 +241,7 @@ async function executeRaw(db: DbRunner, sqlText: string): Promise<void> {
 async function reserveConnection(db: DbRunner): Promise<ReservedClient> {
   const client = migrationClient(db);
   if (typeof client.reserve !== "function") {
-    throw new Error(
-      "migrate-runner: db argument has no .reserve() (need Bun.SQL or postgres-js Sql)",
-    );
+    throw new Error("migrate-runner: db argument has no .reserve() (need a postgres-js Sql)");
   }
   return client.reserve();
 }
@@ -293,7 +291,7 @@ export async function runMigrations(
   migrations: readonly Migration[],
 ): Promise<ApplyResult> {
   // Session-level advisory lock and per-migration BEGIN/COMMIT must share one
-  // session. Pool calls may land on different connections (Bun.SQL round-robins),
+  // session. Pool calls may land on different connections (the pool round-robins),
   // which would leave the lock held on a session nobody unlocks.
   const conn = await reserveConnection(db);
   try {

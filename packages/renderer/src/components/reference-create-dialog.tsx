@@ -8,7 +8,7 @@ import {
   buildInitialValues,
   tenantCurrencyMoneyFieldNames,
   useMoneyCurrencyOverrides,
-} from "../app/kumiko-screen.tsx";
+} from "../app/entity-edit-prefill.ts";
 import { toKebab } from "../app/qn.ts";
 import type { SubmitResult } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";

@@ -9,7 +9,7 @@ export type RawFirstEventInsertParams = {
   readonly type: string;
   readonly eventVersion: number;
   // Plain objects — a JS string bound to ::jsonb double-encodes under
-  // Bun.SQL (jsonb string scalar instead of object), see
+  // the driver (jsonb string scalar instead of object), see
   // db/queries/event-store.ts SubsequentEventInsertParams.
   readonly payload: Record<string, unknown>;
   readonly metadata: Record<string, unknown>;

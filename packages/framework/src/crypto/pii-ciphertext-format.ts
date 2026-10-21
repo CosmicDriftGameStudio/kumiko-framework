@@ -1,4 +1,4 @@
-// Leaf module (no engine imports) so bun-db and the executors can sniff PII
+// Leaf module (no engine imports) so the query helpers and the executors can sniff PII
 // ciphertext without pulling the KMS/pipeline graph into an import cycle.
 export const PII_CIPHERTEXT_PREFIX_V1 = "kumiko-pii:v1:";
 export const PII_CIPHERTEXT_PREFIX = "kumiko-pii:v2:";

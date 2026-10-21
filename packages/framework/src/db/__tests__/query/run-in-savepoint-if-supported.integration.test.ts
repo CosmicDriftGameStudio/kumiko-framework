@@ -47,7 +47,7 @@ describe("runInSavepointIfSupported — already-committed transaction", () => {
   test("an error thrown inside fn is not remapped, even with a closed-connection code", async () => {
     const db = await getDb();
     const original = Object.assign(new Error("Connection closed"), {
-      code: "ERR_POSTGRES_CONNECTION_CLOSED",
+      code: "CONNECTION_CLOSED",
     });
 
     let caught: unknown;

@@ -1,8 +1,7 @@
 // Platform-agnostic React renderer for Kumiko screens. Das ist der
-// Shared-Layer: Components, Hooks, Contexts, Types. Plattform-Impls
-// (Web-DOM, React-Native) leben in den jeweiligen Plattform-Packages
-// und reichen ihre konkreten Primitives/Nav/SSE-Impls via Provider
-// in diesen Baum.
+// Shared-Layer: Components, Hooks, Contexts, Types. Die Web-DOM-Impls
+// leben unter ./web und reichen ihre konkreten Primitives/Nav/SSE-Impls via
+// Provider in diesen Baum.
 //
 // Direct consumers of this layer: platform bindings
 // (@cosmicdrift/kumiko-renderer/web) or an app writing its own bootstrap.
@@ -84,12 +83,7 @@ export type {
 export { isAppSchema, toAppSchema } from "./app/feature-schema.ts";
 export { HeaderActionsBar } from "./app/header-actions-bar.tsx";
 export type { KumikoScreenProps } from "./app/kumiko-screen.tsx";
-export {
-  KumikoScreen,
-  qualifyNavId,
-  qualifyScreenId,
-  ScreenMissingState,
-} from "./app/kumiko-screen.tsx";
+export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen.tsx";
 export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.ts";
 export {
   buildDateRangePayload,
@@ -129,6 +123,7 @@ export {
   useReturnHost,
   useReturnTarget,
 } from "./app/return-to.tsx";
+export { ScreenMissingState } from "./app/screen-shared.tsx";
 export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.ts";
 export { useEmbeddedScreen } from "./app/use-embedded-screen.ts";
 export { useRecordActions } from "./app/use-record-actions.ts";

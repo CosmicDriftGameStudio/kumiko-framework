@@ -8,7 +8,9 @@ import { Glob } from "bun";
 // way it is gated, so adding a new one forces a conscious decision.
 
 const PACKAGES_DIR = join(import.meta.dir, "..", "packages");
-const AUTH_ROUTES_FILE = "framework/src/api/auth-routes.ts";
+// mintSessionAndRespond lives in the route context; the route groups are split
+// across api/auth-routes-*.ts and are scanned as one source, context first.
+const AUTH_MINT_FILE = "framework/src/api/auth-routes-context.ts";
 
 // evidence: the token the route block must contain to show where its gate runs.
 type MintGate =
@@ -16,7 +18,7 @@ type MintGate =
   | { readonly kind: "second-factor" };
 
 const JWT_SIGN_FILES: Record<string, string> = {
-  [AUTH_ROUTES_FILE]: "mintSessionAndRespond is the single production mint point",
+  [AUTH_MINT_FILE]: "mintSessionAndRespond is the single production mint point",
   "testing/src/stack/request-helper.ts": "test helper signs fixture sessions",
   "dev-server/src/create-kumiko-server.ts":
     "dev server without auth config auto-signs the dev user",
@@ -38,6 +40,13 @@ function stripComments(source: string): string {
 
 function readCode(relativePath: string): string {
   return stripComments(readFileSync(join(PACKAGES_DIR, relativePath), "utf8"));
+}
+
+function authRouteCode(): string {
+  const routeFiles = [...new Glob("framework/src/api/auth-routes*.ts").scanSync({ cwd: PACKAGES_DIR })]
+    .filter((f) => f !== AUTH_MINT_FILE)
+    .sort();
+  return [AUTH_MINT_FILE, ...routeFiles].map(readCode).join("\n");
 }
 
 function productionSourceFiles(): string[] {
@@ -86,19 +95,19 @@ describe("session minting stays behind the MFA gate", () => {
     expect(found).toEqual(Object.keys(JWT_SIGN_FILES).sort());
   });
 
-  it("auth-routes.ts signs exactly once", () => {
-    const hits = readCode(AUTH_ROUTES_FILE).match(/\bjwt\.sign\(/g) ?? [];
+  it("the auth route context signs exactly once", () => {
+    const hits = readCode(AUTH_MINT_FILE).match(/\bjwt\.sign\(/g) ?? [];
     expect(hits).toHaveLength(1);
   });
 
   it("every route calling mintSessionAndRespond is registered with its MFA gate in MINTING_ROUTES", () => {
-    expect(mintingRouteNames(readCode(AUTH_ROUTES_FILE))).toEqual(
+    expect(mintingRouteNames(authRouteCode())).toEqual(
       Object.keys(MINTING_ROUTES).sort(),
     );
   });
 
   it("every mintSessionAndRespond call sits in exactly one listed route", () => {
-    const code = readCode(AUTH_ROUTES_FILE);
+    const code = authRouteCode();
     const callsIncludingDefinition = code.match(/\bmintSessionAndRespond\(/g) ?? [];
     expect(callsIncludingDefinition).toHaveLength(Object.keys(MINTING_ROUTES).length + 1);
     const firstRoute = routeStarts(code)[0]?.index ?? -1;
@@ -108,7 +117,7 @@ describe("session minting stays behind the MFA gate", () => {
   for (const [routeName, gate] of Object.entries(MINTING_ROUTES)) {
     if (gate.kind === "second-factor") continue;
     it(`${routeName} (${gate.kind}) shows its MFA gate`, () => {
-      expect(routeBlock(readCode(AUTH_ROUTES_FILE), routeName)).toContain(gate.evidence);
+      expect(routeBlock(authRouteCode(), routeName)).toContain(gate.evidence);
     });
   }
 });

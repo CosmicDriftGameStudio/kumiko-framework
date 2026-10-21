@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "generated": "2026-10-21",
+  "total": 661,
+  "perFile": {
+    "packages/bundled-features:legit-boundary": 240,
+    "packages/bundled-features:legit-bridge": 5,
+    "packages/dev-server:legit-bridge": 2,
+    "packages/framework:legit-boundary": 329,
+    "packages/framework:legit-bridge": 39,
+    "packages/renderer:legit-boundary": 17,
+    "packages/renderer:legit-bridge": 6,
+    "packages/server-runtime:legit-bridge": 3,
+    "packages/testing:legit-boundary": 11,
+    "packages/testing:legit-bridge": 7,
+    "packages/types:legit-bridge": 2
+  }
+}

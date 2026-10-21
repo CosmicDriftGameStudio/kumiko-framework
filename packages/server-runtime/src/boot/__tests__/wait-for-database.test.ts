@@ -62,17 +62,6 @@ describe("isTransientConnectionError", () => {
     expect(isTransientConnectionError({ code: "53300" })).toBe(true);
   });
 
-  test("recognizes Bun.SQL error shapes", () => {
-    expect(isTransientConnectionError({ code: "ERR_POSTGRES_CONNECTION_REFUSED" })).toBe(true);
-    expect(isTransientConnectionError({ code: "ERR_POSTGRES_CONNECTION_CLOSED" })).toBe(true);
-    expect(isTransientConnectionError({ code: "ERR_POSTGRES_SERVER_ERROR", errno: "53300" })).toBe(
-      true,
-    );
-    expect(isTransientConnectionError({ code: "ERR_POSTGRES_SERVER_ERROR", errno: "28P01" })).toBe(
-      false,
-    );
-  });
-
   test("finds the code on a wrapped cause", () => {
     expect(isTransientConnectionError(new Error("wrap", { cause: pgError("53300") }))).toBe(true);
   });

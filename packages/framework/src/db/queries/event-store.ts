@@ -189,7 +189,7 @@ export type SubsequentEventInsertParams = {
   readonly newVersion: number;
   readonly type: string;
   readonly eventVersion: number;
-  // Plain objects, NOT pre-stringified JSON: Bun.SQL encodes a JS string
+  // Plain objects, NOT pre-stringified JSON: the driver encodes a JS string
   // bound to ::jsonb as a JSON string scalar (double-encoding) — every
   // version>1 event written between 2026-05-25 and this fix carried
   // payload/metadata as jsonb strings instead of objects.
@@ -354,7 +354,7 @@ export type SaveSnapshotParams = {
   readonly aggregateType: string;
   readonly version: number;
   // Plain object — see SubsequentEventInsertParams on why pre-stringified
-  // JSON double-encodes under Bun.SQL's ::jsonb binding.
+  // JSON double-encodes under the driver's ::jsonb binding.
   readonly state: Record<string, unknown>;
   readonly snapshotVersion: number;
 };

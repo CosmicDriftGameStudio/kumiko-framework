@@ -1,4 +1,5 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { rendererWarn } from "../dev-console.ts";
 import type { DispatcherError, FieldIssue } from "../headless/index.ts";
 
 // The server returns failure envelopes whose shape is nearly — but not
@@ -57,8 +58,7 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
       // Server sent a non-object entry in details.fields — contract
       // breach (ValidationFieldIssue shape is required). Warn so the
       // skip doesn't hide a broken server build.
-      // biome-ignore lint/suspicious/noConsole: ops-visible warning when the server breaks the validation-error contract
-      console.warn("[dispatcher-live] dropping malformed field issue (not an object):", r);
+      rendererWarn("[dispatcher-live] dropping malformed field issue (not an object):", r);
       continue;
     }
     if (
@@ -67,8 +67,7 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
       typeof r["i18nKey"] !== "string"
     ) {
       // Entry is an object but missing required keys — same reasoning.
-      // biome-ignore lint/suspicious/noConsole: ops-visible warning when the server breaks the validation-error contract
-      console.warn("[dispatcher-live] dropping malformed field issue (missing keys):", r);
+      rendererWarn("[dispatcher-live] dropping malformed field issue (missing keys):", r);
       continue;
     }
     mappedFields.push({

@@ -210,7 +210,7 @@ export type EventDispatcherOptions = {
   // consumer has delivery="per-instance"; createEventDispatcher throws on
   // boot if the invariant is violated, avoiding a later runtime surprise.
   readonly instanceId?: string;
-  // Optional LISTEN-capable client (postgres-js or Bun.SQL) for wake-up
+  // Optional LISTEN-capable client (postgres-js) for wake-up
   // (Sprint E.4). When present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL
   // and fires runOnce on each NOTIFY — delivery latency becomes TCP-round-
   // trip instead of pollIntervalMs. The polling timer remains active as a
@@ -234,7 +234,6 @@ const CONNECTION_LOSS_CODES: ReadonlySet<string> = new Set([
   "CONNECT_TIMEOUT",
   "ECONNREFUSED",
   "ECONNRESET",
-  "ERR_POSTGRES_CONNECTION_CLOSED",
   "57P01",
 ]);
 
@@ -815,7 +814,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
               // Fires on initial connect and again when the driver's own
               // re-LISTEN lands after a drop; during an outage that re-LISTEN
               // waits in its connection backoff (postgres-js: measured 10-30s
-              // after the DB returns, Bun.SQL: up to 32s), polling covers
+              // after the DB returns), polling covers
               // delivery meanwhile. Never unlisten()
               // + listen() by hand: that leaves duplicate listeners.
               // ponytail: no own LISTEN reconnect, the backoff gap is polled;
@@ -845,7 +844,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       }
 
       if (pgSubscription) {
-        // Called on the subscription: Bun.SQL's unlisten is a prototype method.
+        // Called on the subscription, not detached: unlisten may rely on `this`.
         await pgSubscription.unlisten().catch(() => {
           // skip: unlisten failure only matters during shutdown — the
           // subscription is being torn down anyway.

@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import type { ModalProps } from "../../index.ts";
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
-import { BareFormProvider } from "./index.tsx";
+import { BareFormProvider } from "./contexts.tsx";
 import { ModalShell } from "./modal-shell.tsx";
 
 export function DefaultModal({

@@ -1,6 +1,8 @@
 // One bridge component per reference facet, mirroring ReferenceLookupBridge —
 // facet count varies per screen, so the hook can't be called in a loop.
+
 import { type ReactNode, useEffect } from "react";
+import { rendererWarn } from "../dev-console.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import { useReferenceLookup } from "../hooks/use-reference-lookup.ts";
 import type { ResolvedFacetSpec } from "./list-facets.ts";
@@ -26,8 +28,7 @@ function ReferenceFacetOptionsBridge({
     // The lookup is one capped list fetch; a full page means the facet may be
     // missing values the user wants to filter by.
     if (lookup.map.size >= REFERENCE_LIST_LOOKUP_LIMIT) {
-      // biome-ignore lint/suspicious/noConsole: dev-warning, facet options are silently truncated
-      console.warn(
+      rendererWarn(
         `[kumiko] reference facet "${field}" shows only the first ${REFERENCE_LIST_LOOKUP_LIMIT} ${refEntity} rows; further values cannot be filtered by`,
       );
     }

@@ -1,8 +1,9 @@
 // Pure format utilities — no web or platform dependencies.
-// Shared between renderer/web, renderer-native, and server-side tests.
+// Shared between renderer/web and server-side tests.
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { rendererWarn } from "../../dev-console.ts";
 
 export const EMPTY_VALUE_PLACEHOLDER = "—";
 
@@ -307,8 +308,7 @@ export function applyFormatSpec(
       return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
     default:
       if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-        // biome-ignore lint/suspicious/noConsole: dev-only warning
-        console.warn(
+        rendererWarn(
           `[kumiko] applyFormatSpec: unknown format key "${spec.format}" — registered via FieldFormatRegistry module augmentation?`,
         );
       }

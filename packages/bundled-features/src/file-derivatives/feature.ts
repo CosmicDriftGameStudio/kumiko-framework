@@ -183,7 +183,7 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
             // answer identically, no name-oracle. fileRefsTable.id is a UUID
             // column — a malformed id must fail here, not at the DB. Without
             // this, an anonymous, internet-facing caller can throw a Postgres
-            // 22P02 on every request (Bun.SQL pools the failed connection), a
+            // 22P02 on every request (the pooled connection is affected), a
             // DoS primitive with no auth required.
             if (!fileRefId || !variant || !VARIANT_NAME_RE.test(variant) || !isUuid(fileRefId)) {
               return c.text("not found", 404);

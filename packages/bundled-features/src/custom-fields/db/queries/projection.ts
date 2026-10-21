@@ -9,7 +9,7 @@ function quoteTable(tableName: string): string {
 function bindJsonbParam(value: unknown): { sql: string; bound: unknown } {
   // Scalar JSON primitives can't bind directly to ::jsonb — Postgres rejects a
   // bound boolean/number with "cannot cast type boolean/integer to jsonb" (and
-  // Bun.SQL infers boolean[] candidates). Route them through ::text::jsonb with
+  // the driver may infer array candidates). Route them through ::text::jsonb with
   // a JSON-encoded literal. Objects/arrays/strings already bind as ::jsonb.
   if (typeof value === "boolean" || typeof value === "number") {
     return { sql: "$1::text::jsonb", bound: JSON.stringify(value) };
