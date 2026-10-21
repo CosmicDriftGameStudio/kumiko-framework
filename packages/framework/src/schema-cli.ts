@@ -38,6 +38,7 @@ import {
   writeRebuildMarker,
   writeSnapshotJson,
 } from "./db/index.ts";
+import { isEntityTableMeta } from "./db/table-introspection.ts";
 import { type ValidateBootOptions, validateBoot } from "./engine/boot-validator.ts";
 import {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
@@ -149,12 +150,12 @@ function parseValidateBootOptions(raw: unknown): ValidateBootOptions {
 async function loadSchemaModFromApp(schemaFile: string): Promise<SchemaMod> {
   // bun imports TS directly — no spawn needed.
   const mod: Record<string, unknown> = await import(schemaFile);
-  if (!Array.isArray(mod["ENTITY_METAS"])) {
+  const entityMetas = mod["ENTITY_METAS"];
+  if (!Array.isArray(entityMetas) || !entityMetas.every(isEntityTableMeta)) {
     throw new Error(
       `Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
     );
   }
-  const entityMetas = mod["ENTITY_METAS"] as Parameters<typeof renderTablesDdl>[0];
   assertUniqueTableNames(entityMetas);
   return {
     entityMetas,
@@ -405,6 +406,7 @@ export async function runSchemaCli(
       // 2. Boot validity — needs the composed feature set.
       if (Array.isArray(mod.FEATURES)) {
         try {
+          // @cast-boundary feature-exports — dynamic import of the app module; Array.isArray checked above, FeatureDefinition has no runtime schema
           validateBoot(mod.FEATURES as readonly FeatureDefinition[], {
             ...parseValidateBootOptions(schemaMod.validateBootOptions),
             env: withFileStoragePresence(process.env),

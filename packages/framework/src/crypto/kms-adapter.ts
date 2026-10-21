@@ -4,7 +4,6 @@ import {
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import * as z from "zod";
-import type { TenantId } from "../engine/types/identifiers.ts";
 
 export * from "@cosmicdrift/kumiko-types/kms-adapter-types";
 
@@ -18,9 +17,7 @@ export const subjectIdSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.uuid() }),
   z.object({
     kind: z.literal("tenant"),
-    // z.uuid() only proves string shape; TenantId is a nominal brand on top
-    // of that, minted here right after validation (@cast-boundary).
-    tenantId: z.uuid().transform((value) => value as TenantId),
+    tenantId: z.uuid(),
   }),
   z.object({
     kind: z.literal("record"),

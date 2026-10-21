@@ -87,7 +87,16 @@ const OVERRIDES_ARG_INDEX_1 = new Set(["createEmbeddedField", "createEmbeddedLis
 const FIELD_FACTORY_RE = /^create\w*Field$/;
 
 type ReportEntry = { readonly file: string; readonly line: number; readonly note: string };
-type FindBucket = "exact" | "fuzzy" | "none" | "secret" | "ref" | "personal-false" | "no-find";
+const FIND_BUCKETS = [
+  "exact",
+  "fuzzy",
+  "none",
+  "secret",
+  "ref",
+  "personal-false",
+  "no-find",
+] as const;
+type FindBucket = (typeof FIND_BUCKETS)[number];
 
 const reports: ReportEntry[] = [];
 const newLookupableSites: ReportEntry[] = [];
@@ -411,7 +420,9 @@ function applyTransform(
   const removedSet = new Set<PropertyAssignment>(removedProps);
   let insertIndex = 0;
   for (let i = 0; i < anchorIndex; i++) {
-    if (!removedSet.has(properties[i] as PropertyAssignment)) insertIndex++;
+    const property = properties[i];
+    if (!(property && Node.isPropertyAssignment(property) && removedSet.has(property)))
+      insertIndex++;
   }
 
   for (const p of removedProps) p.remove();
@@ -746,9 +757,7 @@ async function main(): Promise<void> {
 
     const countsBefore = { ...counts };
     for (const { name, objArg } of calls) processObjectLiteral(objArg, name);
-    const changed = (Object.keys(counts) as FindBucket[]).some(
-      (k) => counts[k] !== countsBefore[k],
-    );
+    const changed = FIND_BUCKETS.some((k) => counts[k] !== countsBefore[k]);
 
     if (changed) {
       touchedFiles++;

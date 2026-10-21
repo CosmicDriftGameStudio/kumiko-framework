@@ -31,6 +31,15 @@ export type Snapshot = {
   readonly tables: readonly EntityTableMeta[];
 };
 
+function isSnapshot(value: unknown): value is Snapshot {
+  return (
+    isPlainObject(value) &&
+    value["version"] === SNAPSHOT_VERSION &&
+    typeof value["generatedAt"] === "string" &&
+    Array.isArray(value["tables"])
+  );
+}
+
 export type ColumnChange = {
   readonly name: string;
   readonly nullabilityChanged?: { readonly from: boolean; readonly to: boolean };
@@ -93,7 +102,10 @@ export function loadSnapshotJson(path: string): Snapshot | null {
         `Snapshot at ${path} has version ${String(version)}, expected ${SNAPSHOT_VERSION}`,
       );
     }
-    return parsed as Snapshot;
+    if (!isSnapshot(parsed)) {
+      throw new Error(`Snapshot at ${path} is malformed: expected generatedAt and a tables list`);
+    }
+    return parsed;
   } catch (err) {
     if (errorCodeOf(err) === "ENOENT") return null;
     throw err;

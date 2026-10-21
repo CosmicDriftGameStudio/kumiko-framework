@@ -139,7 +139,7 @@ async function runPreSave(
     // A hook that echoes `id`/`version` back (e.g. `{ ...changes, id: x }`)
     // must not leak them into the persisted row — aggregateId already comes
     // from generateId()/the loaded row, not from hook output (fw#1685).
-    const { id: _hookId, version: _hookVersion, ...safe } = hookResult as Record<string, unknown>;
+    const { id: _hookId, version: _hookVersion, ...safe } = hookResult;
     // Hook output skips the handler's input validation yet goes straight into the projection.
     // Validated only, not replaced by the parse result: hooks may set fields in storage form.
     const parsed = outputSchema().safeParse(safe);

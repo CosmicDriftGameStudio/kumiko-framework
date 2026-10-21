@@ -38,13 +38,13 @@ defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
       args.unsafeAllTenants,
     );
     const source = readSourceFor(ctx, args.unsafeAllTenants);
-    const rows = await selectMany(
+    const rows = await selectMany<Record<string, unknown>>(
       source,
       args.table,
       where,
       args.limit !== undefined ? { limit: args.limit } : undefined,
     );
-    return rows as readonly Record<string, unknown>[];
+    return rows;
   },
 });
 

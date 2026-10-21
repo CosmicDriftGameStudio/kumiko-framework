@@ -31,16 +31,13 @@ export function useStoreSelector<T, S>(
   // der Wrapper die neu berechnete Auswahl mit dem Cache und gibt — falls
   // gleich — die cached Identität zurück. Das ist der Trick, der
   // Selector-Returns wie `s => ({ a, b })` stabil hält.
-  const lastSelected = useRef<S>(undefined as S);
-  const initialized = useRef(false);
+  const lastSelected = useRef<{ readonly value: S } | null>(null);
 
   const getSelectedSnapshot = (): S => {
     const next = select(store.getSnapshot());
-    if (initialized.current && equals(lastSelected.current, next)) {
-      return lastSelected.current;
-    }
-    lastSelected.current = next;
-    initialized.current = true;
+    const cached = lastSelected.current;
+    if (cached !== null && equals(cached.value, next)) return cached.value;
+    lastSelected.current = { value: next };
     return next;
   };
 

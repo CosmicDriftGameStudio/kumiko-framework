@@ -270,9 +270,9 @@ export async function enrichWithReferences(
         viewer,
       );
       if (scope.kind === "none") return emptyLookup;
-      const lookedUpRows = (await selectMany(db, refTable, { id: idArray })) as Array<
-        Record<string, unknown>
-      >;
+      const lookedUpRows = await selectMany<Record<string, unknown>>(db, refTable, {
+        id: idArray,
+      });
       const rawRefRows =
         scope.kind === "restricted"
           ? lookedUpRows.filter((r) => scope.readableIds.has(String(r["id"])))

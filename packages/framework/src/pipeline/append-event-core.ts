@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { requestContext } from "../api/request-context.ts";
 import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.ts";
 import type { DbRunner } from "../db/connection.ts";
@@ -32,6 +33,15 @@ export type AppendDomainEventCoreDeps = {
   // cross features.
   readonly callerFeature?: string;
 };
+
+function requirePayloadObject(payload: unknown, eventType: string): Record<string, unknown> {
+  if (!isPlainObject(payload)) {
+    throw new InternalError({
+      message: `appendEvent("${eventType}"): payload must be an object, got ${Array.isArray(payload) ? "array" : typeof payload}`,
+    });
+  }
+  return payload;
+}
 
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,
@@ -71,9 +81,9 @@ export async function appendDomainEventCore(
   if (eventDef && !isSystemEvent) {
     const parsed = eventDef.schema.safeParse(args.payload ?? {});
     if (!parsed.success) throw validationErrorFromZod(parsed.error);
-    validatedPayload = parsed.data as Record<string, unknown>;
+    validatedPayload = requirePayloadObject(parsed.data, args.type);
   } else {
-    validatedPayload = (args.payload ?? {}) as Record<string, unknown>;
+    validatedPayload = requirePayloadObject(args.payload ?? {}, args.type);
   }
 
   // Archive guard: block writes on archived streams. Without this an append

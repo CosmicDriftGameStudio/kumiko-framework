@@ -91,7 +91,7 @@ export async function sweepOrphanedDerivativesJob(
       }
       tenantCursor = tenants.at(-1)?.id;
       for (const tenant of tenants) {
-        const tenantId = tenant.id as TenantId;
+        const tenantId = tenant.id;
         let provider: FileStorageProvider;
         try {
           provider = await resolver(tenantId);

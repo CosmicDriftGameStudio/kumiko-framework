@@ -86,7 +86,7 @@ async function resolveLimitsByTenantAndCap(
 ): Promise<ReadonlyMap<string, number | null>> {
   const entries = await Promise.all(
     tenants.flatMap(({ tenantId, tier }) => {
-      const context: CapLimitContext = { config: configFor?.(tenantId as TenantId) };
+      const context: CapLimitContext = { config: configFor?.(tenantId) };
       return caps.map(
         async (cap) => [tenantCapKey(tenantId, cap.id), await cap.limit(tier, context)] as const,
       );

@@ -17,6 +17,7 @@ import type {
   UserExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
 import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
@@ -241,7 +242,7 @@ export function createInboundMailConnectRoutes(
       if (!dispatched.isSuccess) {
         return errorJson(c, 502, "account_create_failed", JSON.stringify(dispatched.error ?? {}));
       }
-      const accountId = (dispatched.data as { accountId?: unknown } | undefined)?.accountId;
+      const accountId = propertyOf(dispatched.data, "accountId");
       if (typeof accountId !== "string") {
         return errorJson(c, 502, "account_create_failed", "connect-account returned no accountId");
       }

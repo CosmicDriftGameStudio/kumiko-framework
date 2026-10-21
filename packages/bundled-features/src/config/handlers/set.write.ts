@@ -74,7 +74,8 @@ export const setWrite = defineWriteHandler({
     // rejected), but an admin override write can still target scope=
     // "system" for a tenant/user-scoped key (validateScope allows any
     // requestedScope <= definedScope) — system-row has no subject.
-    if (keyDef.piiEncrypted && scope === ConfigScopes.system) {
+    const piiScope = keyDef.piiEncrypted && scope !== ConfigScopes.system ? scope : undefined;
+    if (keyDef.piiEncrypted && piiScope === undefined) {
       return writeFailure(
         new UnprocessableError("invalid_scope", {
           i18nKey: "config.errors.invalidScope",
@@ -153,7 +154,7 @@ export const setWrite = defineWriteHandler({
     if (keyDef.encrypted) {
       const cipher = requireConfigEncryption(ctx, "config:write:set");
       serialized = await cipher.encrypt(serialized, { tenantId });
-    } else if (keyDef.piiEncrypted) {
+    } else if (piiScope !== undefined) {
       const kms = configuredPiiSubjectKms();
       if (!kms) {
         throw new InternalError({
@@ -163,8 +164,7 @@ export const setWrite = defineWriteHandler({
             `configurePiiSubjectKms(adapter) at boot.`,
         });
       }
-      // scope="system" was already rejected above — narrow accordingly.
-      const subject = resolvePiiSubject(scope as Exclude<typeof scope, "system">, tenantId, userId);
+      const subject = resolvePiiSubject(piiScope, tenantId, userId);
       const kmsCtx: KmsContext = {
         requestId: requestContext.get()?.requestId ?? "config:write:set",
         tenantId,

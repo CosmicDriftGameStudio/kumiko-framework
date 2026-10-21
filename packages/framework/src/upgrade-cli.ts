@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { getFlag, getStringFlag, type ParsedArgs, parseArgs } from "./arg-parser.ts";
 import {
   type ChangelogEntry,
@@ -245,8 +246,8 @@ export function findCodemodScriptsRoot(repoRoot: string): string | null {
     const pkgPath = join(repoRoot, "packages/framework/package.json");
     if (existsSync(pkgPath)) {
       try {
-        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string };
-        if (pkg.name === "@cosmicdrift/kumiko-framework") return local;
+        const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
+        if (propertyOf(pkg, "name") === "@cosmicdrift/kumiko-framework") return local;
         // wrong name → fall through
       } catch {
         // unreadable → fall through

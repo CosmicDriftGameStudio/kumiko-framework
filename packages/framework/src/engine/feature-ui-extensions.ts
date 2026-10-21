@@ -13,7 +13,7 @@ import { LifecycleHookTypes } from "./constants.ts";
 import { reasonProblem } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
-import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.ts";
 import type { HttpRouteDefinition } from "./types/http-route.ts";
 import type {
@@ -307,7 +307,11 @@ export function buildUiExtensionsMethods<TName extends string>(
     ): void {
       const [extensionName, resolvedEntityRef, resolvedOptions] =
         typeof extensionNameOrDefinition === "string"
-          ? [extensionNameOrDefinition, entityRef as NameOrRef, options]
+          ? [
+              extensionNameOrDefinition,
+              requireArgument(entityRef, name, "useExtension", "entity"),
+              options,
+            ]
           : (() => {
               const { name, entity, ...rest } = extensionNameOrDefinition;
               return [name, entity, rest] as const;
@@ -320,8 +324,9 @@ export function buildUiExtensionsMethods<TName extends string>(
       // for every extension regardless of its typed hook shape.
       const escapeHatch = optionsBag?.["escapeHatch"];
       if (escapeHatch !== undefined) {
-        const reason = isPlainObject(escapeHatch) ? escapeHatch["reason"] : undefined;
-        if (typeof reason !== "string") {
+        const escapeHatchObject = isPlainObject(escapeHatch) ? escapeHatch : undefined;
+        const reason = escapeHatchObject?.["reason"];
+        if (escapeHatchObject === undefined || typeof reason !== "string") {
           throw new Error(
             `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
               `must be { reason: "<explanation>" } explaining why this usage needs unfiltered db access.`,
@@ -333,7 +338,7 @@ export function buildUiExtensionsMethods<TName extends string>(
             `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extReasonProblem}`,
           );
         }
-        const extGrantsProblem = escapeHatchGrantsProblem(escapeHatch as { grants?: unknown });
+        const extGrantsProblem = escapeHatchGrantsProblem(escapeHatchObject);
         if (extGrantsProblem) {
           throw new Error(
             `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extGrantsProblem}`,
@@ -477,7 +482,11 @@ export function buildUiExtensionsMethods<TName extends string>(
               entityRefOrDefinition.data,
               entityRefOrDefinition.upsertKey,
             ]
-          : [entityRefOrDefinition, data as readonly Record<string, unknown>[], options?.upsertKey];
+          : [
+              entityRefOrDefinition,
+              requireArgument(data, name, "referenceData", "data"),
+              options?.upsertKey,
+            ];
       state.referenceData.push({
         entityName: resolveName(entityRef),
         data: resolvedData,

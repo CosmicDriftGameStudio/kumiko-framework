@@ -8,17 +8,33 @@ export function splitNamedDefinition<T extends { readonly name: string }>(
   return [name, rest];
 }
 
+// The `(name, options)` overloads make `options` required for typed callers;
+// the implementation signature has to stay optional, so untyped callers are caught here.
+export function requireArgument<T>(
+  value: T | undefined,
+  featureName: string,
+  method: string,
+  argument: string,
+): T {
+  if (value === undefined) {
+    throw new Error(`[Feature ${featureName}] r.${method}() needs its ${argument} argument`);
+  }
+  return value;
+}
+
 // `optionalRequires` and `readConfig` still accept variadic strings next to a
 // single object wrapping the same string array under `key`.
+function isStringList(args: readonly unknown[]): args is readonly string[] {
+  return args.every((arg) => typeof arg === "string");
+}
+
 export function unwrapArrayForm<K extends string>(
   args: readonly [Record<K, readonly string[]>] | readonly string[],
   key: K,
 ): readonly string[] {
+  if (isStringList(args)) return args;
   const [first] = args;
-  if (typeof first === "object" && first !== null && key in first) {
-    return (first as Record<K, readonly string[]>)[key];
-  }
-  return args as readonly string[];
+  return first[key];
 }
 
 export function isObjectArgument(value: unknown): boolean {

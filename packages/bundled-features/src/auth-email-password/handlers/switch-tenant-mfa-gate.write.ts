@@ -3,7 +3,6 @@ import {
   createSystemUser,
   defineWriteHandler,
   SYSTEM_ROLE,
-  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
@@ -14,10 +13,7 @@ import { gateEnforceMfa, type LoginHandlerOptions } from "./login.write.ts";
 
 const SwitchTenantMfaGateSchema = z.object({
   userId: z.string().min(1),
-  tenantId: z
-    .string()
-    .min(1)
-    .transform((id) => id as TenantId),
+  tenantId: z.string().min(1),
 });
 
 export type SwitchTenantMfaGateData =

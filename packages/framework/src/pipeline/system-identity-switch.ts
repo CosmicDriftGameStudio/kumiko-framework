@@ -1,10 +1,5 @@
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
-import {
-  type TenantDb,
-  type UncheckedSystemDb,
-  withSystemDbUnsafeRawGrant,
-  withUnsafeRawGrant,
-} from "../db/tenant-db.ts";
+import { withSystemDbUnsafeRawGrant, withUnsafeRawGrant } from "../db/tenant-db.ts";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
@@ -376,14 +371,12 @@ export function withHookEscapeHatchGrant<TContext extends object>(
       }),
     ...gatedMemberReaderField(callerLabel, identityHatch, ctxQueryAsMember),
     ...gatedProjectionReaderField(callerLabel, identityHatch, ctxQueryProjection),
-    // @cast-boundary engine-bridge — withUnsafeRawGrant passes non-TenantDb values (e.g. a guard Proxy) through unchanged.
-    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, rawHatch) }),
+    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb, rawHatch) }),
     ...(ctxDbOutsideTransaction && {
-      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction as TenantDb, rawHatch),
+      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction, rawHatch),
     }),
-    // @cast-boundary engine-bridge — withSystemDbUnsafeRawGrant passes non-UncheckedSystemDb values through unchanged.
     ...(ctxSystemDb && {
-      systemDb: withSystemDbUnsafeRawGrant(ctxSystemDb as UncheckedSystemDb, rawHatch, callerLabel),
+      systemDb: withSystemDbUnsafeRawGrant(ctxSystemDb, rawHatch, callerLabel),
     }),
   };
 }

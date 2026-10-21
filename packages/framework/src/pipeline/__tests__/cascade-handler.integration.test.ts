@@ -20,8 +20,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { createCascadeDeleteHook } from "../cascade-handler.ts";
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
-type Table = TableColumns<any>;
+type Table = TableColumns;
 
 let testDb: BunTestDb;
 let tdb: TenantDb;

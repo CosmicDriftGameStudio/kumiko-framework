@@ -16,17 +16,18 @@ export async function mapWithConcurrency<T, R>(
   fn: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
-  let nextIndex = 0;
+  const unclaimed = items.entries();
   let failed = false;
   async function worker(): Promise<void> {
     for (;;) {
       // skip: another worker already failed — stop claiming new items.
       if (failed) return;
-      const index = nextIndex++;
+      const claimed = unclaimed.next();
       // skip: cursor exhausted, normal worker-loop exit
-      if (index >= items.length) return;
+      if (claimed.done) return;
+      const [index, item] = claimed.value;
       try {
-        results[index] = await fn(items[index] as T, index);
+        results[index] = await fn(item, index);
       } catch (err) {
         failed = true;
         throw err;

@@ -95,7 +95,7 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
         return c.json({ ignored: true }, 200);
       }
       const parsed = verified.event;
-      const tenantId = parsed.tenantId as import("@cosmicdrift/kumiko-framework/engine").TenantId;
+      const tenantId = parsed.tenantId;
       if (parsed.kind === BillingEventKinds.payment) {
         const dispatched = await deps.dispatchSystemWrite({
           handlerQn: SubscriptionFoundationHandlers.processPaymentEvent,

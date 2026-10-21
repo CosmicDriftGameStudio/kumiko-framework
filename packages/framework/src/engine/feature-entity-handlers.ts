@@ -17,7 +17,7 @@ import {
 } from "./entity-handlers.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
-import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -84,9 +84,9 @@ function tryMapEntity(state: FeatureBuilderState, name: string, handlerName: str
       // skip: feature-name entity match is the preferred mapping
       return;
     }
-    const entityKeys = Object.keys(state.entities);
-    if (entityKeys.length === 1) {
-      state.handlerEntityMappings[handlerName] = entityKeys[0] as string;
+    const [onlyEntityName, ...otherEntityNames] = Object.keys(state.entities);
+    if (onlyEntityName !== undefined && otherEntityNames.length === 0) {
+      state.handlerEntityMappings[handlerName] = onlyEntityName;
     }
   }
 }
@@ -170,9 +170,13 @@ export function buildEntityHandlerMethods<TName extends string>(
         typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
           ? (() => {
               const { entity, name: innerName, ...rest } = entityRefOrDefinition;
-              return [entity, innerName, rest as RelationDefinition] as const;
+              return [entity, innerName, rest] as const;
             })()
-          : [entityRefOrDefinition, relationName as string, definition as RelationDefinition];
+          : [
+              entityRefOrDefinition,
+              requireArgument(relationName, name, "relation", "relation name"),
+              requireArgument(definition, name, "relation", "definition"),
+            ];
       const entityName = resolveName(entityRef);
       if (!state.relations[entityName]) state.relations[entityName] = {};
       state.relations[entityName][resolvedRelationName] = resolvedDefinition;

@@ -89,6 +89,15 @@ export function serializeJobSubject(subject: Readonly<Record<string, JobSubjectV
   );
 }
 
+function isJobSubjectValue(value: unknown): value is JobSubjectValue {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
 // Stable identity for the declared payload fields: sorted keys, so two runs
 // with the same subject values produce the same string and the later one
 // replaces the earlier record. Non-primitives would serialize into something
@@ -103,12 +112,12 @@ export function jobSubjectKey(
   const subject: Record<string, JobSubjectValue> = {};
   for (const field of fields) {
     const value = payload[field] ?? null;
-    if (value !== null && typeof value === "object") {
+    if (!isJobSubjectValue(value)) {
       throw new Error(
         `Job "${jobName}": ${declaration}.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
       );
     }
-    subject[field] = value as JobSubjectValue;
+    subject[field] = value;
   }
   return serializeJobSubject(subject);
 }

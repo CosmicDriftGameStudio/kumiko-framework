@@ -121,10 +121,12 @@ export function useStreamHandler<TChunk = unknown>(
   return { chunks, status, error, start, abort, reset };
 }
 
+function isDispatcherError(e: unknown): e is DispatcherError {
+  return !!e && typeof e === "object" && "code" in e && "message" in e && "i18nKey" in e;
+}
+
 function asDispatcherError(e: unknown): DispatcherError {
-  if (e && typeof e === "object" && "code" in e && "message" in e && "i18nKey" in e) {
-    return e as DispatcherError;
-  }
+  if (isDispatcherError(e)) return e;
   return {
     code: "stream_error",
     httpStatus: 0,

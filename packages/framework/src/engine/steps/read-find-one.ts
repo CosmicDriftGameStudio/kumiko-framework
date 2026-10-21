@@ -40,8 +40,8 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
     const where = resolveRequired(args.where, ctx);
     warnOnNarrowedForeignTenantFilter(ctx, "read.findOne", args.name, where, args.unsafeAllTenants);
     const source = readSourceFor(ctx, args.unsafeAllTenants);
-    const rows = await selectMany(source, args.table, where, { limit: 1 });
-    return (rows[0] as Record<string, unknown> | undefined) ?? null;
+    const rows = await selectMany<Record<string, unknown>>(source, args.table, where, { limit: 1 });
+    return rows[0] ?? null;
   },
 });
 

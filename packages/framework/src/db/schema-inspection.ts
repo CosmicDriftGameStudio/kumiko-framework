@@ -12,7 +12,7 @@ function resolveUnsafeClient(db: DbConnection | DbTx): UnsafeFn {
     unsafe?: UnsafeFn;
   };
   const client = dbAny.$client ?? dbAny.session?.client ?? dbAny;
-  const fn = (client as { unsafe?: UnsafeFn }).unsafe;
+  const fn = client.unsafe;
   if (typeof fn !== "function") {
     throw new Error(
       "resolveUnsafeClient: no `.unsafe(sql, params)` fn on the db connection " +

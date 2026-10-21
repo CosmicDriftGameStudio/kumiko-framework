@@ -1028,9 +1028,12 @@ const FIELD_TYPE_NAME_FLAGS: Record<FieldDefinition["type"], true> = {
   images: true,
 };
 
-export const FIELD_TYPE_NAMES: readonly FieldDefinition["type"][] = Object.keys(
-  FIELD_TYPE_NAME_FLAGS,
-) as FieldDefinition["type"][];
+function isFieldTypeName(name: string): name is FieldDefinition["type"] {
+  return Object.hasOwn(FIELD_TYPE_NAME_FLAGS, name);
+}
+
+export const FIELD_TYPE_NAMES: readonly FieldDefinition["type"][] =
+  Object.keys(FIELD_TYPE_NAME_FLAGS).filter(isFieldTypeName);
 
 /** FieldDefinition as an entity-less inline form screen (actionForm,
  *  secretMint) may declare it: a `money` field there has no entity to borrow

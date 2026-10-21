@@ -492,13 +492,8 @@ function collectEntityListFilterKeys(feature: FeatureDefinition, out: Set<string
     if (screen.type !== "entityList") continue;
     const entity = feature.entities?.[screen.entity];
     if (!entity) continue;
-    for (const [fieldName, rawDef] of Object.entries(entity.fields)) {
-      const def = rawDef as {
-        readonly filterable?: boolean;
-        readonly type?: string;
-        readonly options?: readonly string[];
-      };
-      if (def.filterable !== true) continue;
+    for (const [fieldName, def] of Object.entries(entity.fields)) {
+      if (!("filterable" in def) || def.filterable !== true) continue;
       if (def.type === "boolean") {
         for (const key of booleanFacetOptionKeys(feature.name, screen.entity, fieldName)) {
           out.add(key);

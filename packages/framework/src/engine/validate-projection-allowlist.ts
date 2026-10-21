@@ -24,11 +24,12 @@
 // statically; today it lives in this comment + the StepBuilder doc.
 
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { schemaTableName } from "../db/table-introspection.ts";
 import { getStep } from "./define-step.ts";
 import { buildPipelineSteps } from "./pipeline.ts";
 import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types/index.ts";
-import type { PipelineDef, StepInstance } from "./types/step.ts";
+import type { StepInstance } from "./types/step.ts";
 
 // Listed step-kinds whose `args.table` must be in the owning feature's
 // r.requires.projection allowlist. Extend as further unsafeProjection.*
@@ -41,17 +42,24 @@ const UNSAFE_PROJECTION_KINDS = new Set(["unsafeProjectionUpsert", "unsafeProjec
 // do). Walking via the registry means nested unsafeProjection-* in NEW
 // sub-step-builders is automatically caught the moment the builder
 // registers itself; no central map to keep in sync. Followup #15.
+function isStepInstanceList(value: unknown): value is readonly StepInstance[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => isPlainObject(entry) && typeof entry["kind"] === "string")
+  );
+}
+
 function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, void, void> {
   for (const step of steps) {
     yield step;
     const def = getStep(step.kind);
     const subPaths = def?.subPaths;
     if (!subPaths || subPaths.length === 0) continue;
-    const args = step.args as Record<string, unknown>;
+    if (!isPlainObject(step.args)) continue;
     for (const path of subPaths) {
-      const subSteps = args[path];
-      if (Array.isArray(subSteps)) {
-        yield* walkAllSteps(subSteps as readonly StepInstance[]);
+      const subSteps = step.args[path];
+      if (isStepInstanceList(subSteps)) {
+        yield* walkAllSteps(subSteps);
       }
     }
   }
@@ -82,8 +90,6 @@ function resolveTableNameFromStep(table: unknown): string {
   }
   throw new Error(`validate-projection-allowlist: cannot resolve table name from ${String(table)}`);
 }
-
-type UnsafeProjectionStepArgs = { readonly table: unknown };
 
 const DUMMY_USER: SessionUser = {
   id: "00000000-0000-0000-0000-000000000000",
@@ -125,7 +131,7 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
 
   for (const f of features) {
     for (const [handlerName, handler] of Object.entries(f.writeHandlers)) {
-      const perform = (handler as { readonly perform?: PipelineDef }).perform;
+      const perform = handler.perform;
       if (perform?.__kind !== "pipeline") continue;
 
       let steps: readonly StepInstance[];
@@ -157,14 +163,14 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
           );
         }
         if (!UNSAFE_PROJECTION_KINDS.has(step.kind)) continue;
-        const stepArgs = step.args as UnsafeProjectionStepArgs;
-        if (!stepArgs.table) {
+        const stepTable = isPlainObject(step.args) ? step.args["table"] : undefined;
+        if (!stepTable) {
           throw new Error(
             `[Feature ${f.name}] writeHandler "${handlerName}" has a ${step.kind} step ` +
               `without a \`table\` argument.`,
           );
         }
-        const tableName = resolveTableNameFromStep(stepArgs.table);
+        const tableName = resolveTableNameFromStep(stepTable);
 
         const aggregateOwner = aggregateTables.get(tableName);
         if (aggregateOwner) {

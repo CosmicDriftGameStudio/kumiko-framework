@@ -491,13 +491,11 @@ type EntityTableTenancy<E extends EntityDefinition> = [NonNullable<E["tenancy"]>
     ? "global"
     : "tenant";
 
-export type EntityTable<E extends EntityDefinition = EntityDefinition> =
-  TableColumns<// biome-ignore lint/suspicious/noExplicitAny: drizzle's internal table-config stays generic; we layer typed columns on top via the intersection below.
-  any> &
-    BaseColumnsType<E> &
-    SoftDeleteColumnsType &
-    ColumnsForEntity<E["fields"]> &
-    TenancyBrand<EntityTableTenancy<E>>;
+export type EntityTable<E extends EntityDefinition = EntityDefinition> = TableColumns &
+  BaseColumnsType<E> &
+  SoftDeleteColumnsType &
+  ColumnsForEntity<E["fields"]> &
+  TenancyBrand<EntityTableTenancy<E>>;
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =

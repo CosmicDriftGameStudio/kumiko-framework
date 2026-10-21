@@ -17,7 +17,7 @@ import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { columnNamesOf, tableExists } from "../db/schema-inspection.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
-import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
+import type { EntityId } from "../engine/types/identifiers.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
 import { toSnakeCase } from "../utils/case.ts";
 import type { SearchAdapter } from "./types.ts";
@@ -245,7 +245,7 @@ export async function purgeSearchDocumentsForSubject(
         if (seen.has(key)) continue;
         seen.add(key);
         const list = byTenant.get(row.tenant_id) ?? [];
-        list.push({ entityType: entityName, entityId: row.id as EntityId });
+        list.push({ entityType: entityName, entityId: row.id });
         byTenant.set(row.tenant_id, list);
       }
     }
@@ -253,12 +253,11 @@ export async function purgeSearchDocumentsForSubject(
 
   for (const [tenantId, items] of byTenant) {
     if (items.length === 0) continue;
-    const tid = tenantId as TenantId;
     if (search.removeBatch) {
-      await search.removeBatch(tid, items);
+      await search.removeBatch(tenantId, items);
     } else {
       for (const item of items) {
-        await search.remove(tid, item.entityType, item.entityId);
+        await search.remove(tenantId, item.entityType, item.entityId);
       }
     }
   }

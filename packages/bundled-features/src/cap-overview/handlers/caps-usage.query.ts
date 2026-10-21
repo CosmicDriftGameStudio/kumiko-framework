@@ -3,7 +3,6 @@ import {
   defineQueryHandler,
   mayOverrideTenant,
   type QueryHandlerDefinition,
-  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -77,8 +76,7 @@ export function createCapsUsageQuery(
 
       // Override path: limits must read the TARGET tenant's config, not the
       // SystemAdmin caller's.
-      const config =
-        override === undefined ? ctx.config : ctx.configFor?.(targetTenantId as TenantId);
+      const config = override === undefined ? ctx.config : ctx.configFor?.(targetTenantId);
 
       const rows: CapUsageWithMeta[] = await Promise.all(
         caps.map(async (cap) => {
