@@ -39,10 +39,10 @@ migration: Optional. Freeze both with `kumiko-guards guards --write-baseline --g
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: auth-email-password
 type: improvement
-title: Comments describe postgres-js as the only driver
-detail: Comments that referred to the removed Bun.SQL driver now name postgres-js. No behavior change.
+title: Denser common-password list, comments name postgres-js as the only driver
+detail: The common-password list is wrapped densely and split on whitespace; a test pins its 2086 entries. Comments across the bundled features that referred to the removed Bun.SQL driver now name postgres-js. No behavior change.
 -->
 
 <!-- kumiko-changes
