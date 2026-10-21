@@ -427,8 +427,6 @@ export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCa
   }
 
   try {
-    // The invoked tool, not the surrounding turn/approve write handler, must
-    // be what the irreversible-operation gate sees as the entry handler.
     return await runAsDirectCallEntry(async () => {
       switch (descriptor.kind) {
         case "search":

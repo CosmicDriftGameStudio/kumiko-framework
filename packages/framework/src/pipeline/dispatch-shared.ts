@@ -4,7 +4,7 @@ import type {
   RateLimitBucketRequest,
   RateLimitResolver,
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
-import { requestContext, runWithOrigin } from "../api/request-context.ts";
+import { isAgentToolCallScope, requestContext, runWithOrigin } from "../api/request-context.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
 import { createHandlerCrossTenantReads } from "../db/cross-tenant-reads.ts";
@@ -547,7 +547,11 @@ export async function buildHandlerContext(
     isSystem && db
       ? createUncheckedSystemDb(db, rawDbOutsideTransaction, reportEscapeHatch)
       : undefined;
-  const crossTenantReadsReason = crossTenantReadsGrantFor(handlerEscapeHatch)?.reason;
+  // An agent tool call runs with the user's session but feeds the LLM context, so
+  // cross-tenant rows must never reach it, even when unsafeRaw implies the grant.
+  const crossTenantReadsReason = isAgentToolCallScope()
+    ? undefined
+    : crossTenantReadsGrantFor(handlerEscapeHatch)?.reason;
   const crossTenantReads =
     dbSource && crossTenantReadsReason !== undefined
       ? createHandlerCrossTenantReads({

@@ -69,6 +69,9 @@ export type RequestContextData = {
   // ctx.query/queryAs/write calls share the entry's set, so one request costs
   // one token per bucket however many handlers it fans out to.
   readonly chargedRateLimitBuckets?: Set<string>;
+  // Set by the agent-tools dispatch and inherited by every nested dispatch, so an
+  // LLM-driven call can never pick up ctx.crossTenantReads, however deep it is nested.
+  readonly agentToolCall?: true;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
@@ -133,14 +136,28 @@ export function runWithOrigin<T>(
   );
 }
 
-// Clears entryHandler so the next dispatch inside fn becomes the new entry —
-// used by dispatchToolCall so the invoked tool handler, not the surrounding
-// turn/approve handler, is what the irreversible-operation gate sees.
+// Clears entryHandler so the next dispatch inside fn becomes the new entry, letting
+// the irreversible-operation gate see the invoked tool handler instead of the
+// surrounding turn/approve handler. Reserved for dispatchToolCall, so it also marks
+// the scope as an agent tool call; it always mints a scope, because an agent loop
+// running outside any request must still carry that marker.
 export function runAsDirectCallEntry<T>(fn: () => T): T {
   const current = requestContext.get();
-  if (!current) return fn();
-  const { entryHandler: _entryHandler, ...rest } = current;
-  return requestContext.run(rest, fn);
+  const requestId = current?.requestId ?? requestContext.generateId();
+  const { entryHandler: _entryHandler, ...rest } = current ?? {};
+  return requestContext.run(
+    {
+      ...rest,
+      requestId,
+      correlationId: current?.correlationId ?? requestId,
+      agentToolCall: true,
+    },
+    fn,
+  );
+}
+
+export function isAgentToolCallScope(): boolean {
+  return requestContext.get()?.agentToolCall === true;
 }
 
 // An ungated origin never mints a scope: seeds and boot writes keep their missing context.
