@@ -8,7 +8,7 @@
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import net from "node:net";
-import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
+import { sleep, testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import postgres from "postgres";
 
 const DATABASE_URL = testDatabaseUrl();
@@ -59,7 +59,8 @@ test("reserved connection rejects with CONNECTION_CLOSED instead of crashing on 
     try {
       await reserved`select 1`;
       downstream?.end();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // No observable signal for the FIN reaching the client socket.
+      await sleep(50);
 
       const HANG = Symbol("hang");
       let hangTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,7 +81,7 @@ test("reserved connection rejects with CONNECTION_CLOSED instead of crashing on 
       }
       expect(result).toMatchObject({ code: "CONNECTION_CLOSED" });
       // Give the process a tick to surface an uncaughtException if the guard regressed.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep(50);
       expect(uncaught).toBeUndefined();
     } finally {
       reserved.release();

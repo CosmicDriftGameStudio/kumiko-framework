@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { createDistributedLock } from "../distributed-lock.ts";
 
@@ -57,12 +58,9 @@ describe("distributed lock", () => {
     // Can't acquire immediately
     expect(await lock.acquire("test-lock-5")).toBeNull();
 
-    // Wait for expiry
-    await new Promise((r) => setTimeout(r, 1100));
-
-    // Now we can
-    const token = await lock.acquire("test-lock-5");
-    expect(token).not.toBeNull();
+    // Fixed wait: the 1s TTL bound is the assertion.
+    await sleep(1100);
+    expect(await lock.acquire("test-lock-5")).not.toBeNull();
   });
 
   test("renew extends the TTL for the owning token", async () => {
@@ -74,7 +72,7 @@ describe("distributed lock", () => {
     expect(renewed).toBe(true);
 
     // Past the original 1s TTL, but renew pushed it out to 5s — still held.
-    await new Promise((r) => setTimeout(r, 1200));
+    await sleep(1200);
     expect(await lock.acquire("test-lock-6")).toBeNull();
   });
 
@@ -86,7 +84,7 @@ describe("distributed lock", () => {
     expect(renewed).toBe(false);
 
     // The original 1s TTL still applies — the wrong-token renew didn't touch it.
-    await new Promise((r) => setTimeout(r, 1100));
+    await sleep(1100);
     expect(await lock.acquire("test-lock-7")).not.toBeNull();
   });
 

@@ -3,7 +3,7 @@ import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { ComboboxInput } from "../primitives/combobox.tsx";
-import { render, screen } from "./test-utils.tsx";
+import { render, screen, waitFor } from "./test-utils.tsx";
 
 // Tier 2.1c: Combobox-Primitive Smoke-Tests. cmdk + Radix-Popover
 // rendern Portals; jsdom resolved sie auf document.body. Wir testen
@@ -238,10 +238,10 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     await act(async () => {
       fireEvent.change(searchInput, { target: { value: "abc" } });
     });
-    // Real-time Debounce-Window — kein fake-timers weil das mit
-    // findByRole's polling kollidiert.
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    expect(searches[searches.length - 1]).toBe("abc");
+    // Real-time debounce window; fake timers collide with findByRole's polling.
+    await waitFor(() => {
+      expect(searches[searches.length - 1]).toBe("abc");
+    });
   });
 
   test("remote-mode: loading=true zeigt 'Loading…' im Empty-State", async () => {

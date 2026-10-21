@@ -11,7 +11,7 @@
 //   - never-rebuilt projection has sensible default state
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRow, sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
@@ -266,7 +266,7 @@ describe("rebuildProjection — state table lifecycle", () => {
     const first = await getProjectionState(testDb.db, qualifiedProjectionName);
 
     // Wait a tick so timestamp difference is visible.
-    await new Promise((r) => setTimeout(r, 20));
+    await sleep(20);
     await appendCreatedEvent(group, "second");
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
 

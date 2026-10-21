@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import type { ReactNode } from "react";
 import type { Dispatcher } from "../../../headless/index.ts";
 import {
@@ -561,7 +562,8 @@ describe("InfinityList", () => {
         createdAt: "",
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      // Grace period for an unwanted extra refetch.
+      await sleep(20);
       expect(calls).toBe(1);
     });
 
@@ -602,7 +604,8 @@ describe("InfinityList", () => {
         createdAt: "",
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      // Grace period for an unwanted extra refetch.
+      await sleep(20);
       expect(calls).toBe(1);
     });
 

@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { runProdApp } from "../run-prod-app.ts";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.ts";
 
@@ -92,7 +93,7 @@ describe("runProdApp boot-mode env-source", () => {
 
     // Ein eager Connect wäre bereits beim runProdApp-await passiert;
     // kleine Nachfrist für asynchrone Socket-Anläufe.
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await sleep(150);
     listener.stop(true);
     expect(connections).toBe(0);
   });

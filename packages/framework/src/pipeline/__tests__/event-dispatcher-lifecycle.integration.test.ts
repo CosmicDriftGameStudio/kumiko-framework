@@ -16,6 +16,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import {
   sharedWidgetEntity,
   sharedWidgetTable,
+  sleep,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -217,7 +218,7 @@ describe("withBackgroundPassesPaused", () => {
       await stack.eventDispatcher?.withBackgroundPassesPaused(async () => {
         await appendWidget("while-paused");
         // pollIntervalMs is 50ms: several ticks plus the NOTIFY pass by.
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await sleep(300);
         expect(observations).toHaveLength(0);
       });
 

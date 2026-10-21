@@ -3,6 +3,7 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
 import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../components/use-wizard-form-draft.ts";
 import type { Dispatcher, SubmitResult } from "../../headless/index.ts";
@@ -748,7 +749,7 @@ describe("RenderEdit wizard draft", () => {
     // second burst) would slip past an assertion taken right after the
     // first save. Wait out a full extra debounce window to prove there is
     // no straggler.
-    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 1000));
+    await sleep(PATCH_DRAFT_SAVE_DEBOUNCE_MS + 1000);
     expect(savesSoFar()).toBe(before + 1);
   });
 
@@ -830,7 +831,7 @@ describe("RenderEdit wizard draft", () => {
     // Wait past the debounce window the patch() call armed. If discard
     // hadn't cleared the timer, a straggling save would land here and
     // resurrect the just-discarded draft.
-    await new Promise((resolve) => setTimeout(resolve, PATCH_DRAFT_SAVE_DEBOUNCE_MS + 1000));
+    await sleep(PATCH_DRAFT_SAVE_DEBOUNCE_MS + 1000);
 
     expect(calls.filter((c) => c === "form-draft:write:save").length).toBe(savesAtSubmit);
     expect(store.current).toBeNull();

@@ -9,7 +9,7 @@
 // Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRow, sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -198,7 +198,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     expect(beforeApprove).toHaveLength(1);
     const preApprove = beforeApprove[0]!.createdAt;
     // Make sure the next event's createdAt is strictly after the cutoff.
-    await new Promise((r) => setTimeout(r, 10));
+    await sleep(10);
     await stack.http.writeOk(
       "asoftest:write:invoice:approve",
       { id: created.id, amount: 9999, approvedBy: "late" },

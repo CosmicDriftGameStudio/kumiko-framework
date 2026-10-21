@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { createEntityCache } from "../entity-cache.ts";
@@ -56,9 +57,8 @@ describe("idempotency guard", () => {
     // Should exist immediately
     expect((await guard.check(tenantA, userA, requestId)).status).toBe("cached");
 
-    // Wait for expiry
-    await new Promise((r) => setTimeout(r, 1100));
-
+    // Fixed wait: the 1s TTL bound is the assertion.
+    await sleep(1100);
     expect((await guard.check(tenantA, userA, requestId)).status).toBe("acquired");
   });
 
@@ -79,7 +79,7 @@ describe("idempotency guard", () => {
     const secondPromise = guard.check(tenantA, userA, requestId);
 
     // After a tick the second must still be pending: no result yet.
-    await new Promise((r) => setTimeout(r, 80));
+    await sleep(80);
     // Race the check — if the guard already resolved we have a race bug.
     const quickResult = await Promise.race([
       secondPromise.then((v) => ({ done: true, v })),
@@ -200,7 +200,7 @@ describe("idempotency guard", () => {
     if (original.status !== "acquired") throw new Error("expected to acquire the lock");
 
     // Let the lock expire, then a second run reclaims it and finishes fast.
-    await new Promise((r) => setTimeout(r, 1100));
+    await sleep(1100);
     const reclaimer = await guard.check(tenantA, userA, requestId);
     expect(reclaimer.status).toBe("acquired");
     if (reclaimer.status !== "acquired") throw new Error("expected to reclaim the lock");
@@ -264,7 +264,7 @@ describe("idempotency guard", () => {
     if (original.status !== "acquired") throw new Error("expected to acquire the lock");
 
     // Let the lock expire, then a new owner reclaims it.
-    await new Promise((r) => setTimeout(r, 1100));
+    await sleep(1100);
     const reclaimer = await guard.check(tenantA, userA, requestId);
     expect(reclaimer.status).toBe("acquired");
     if (reclaimer.status !== "acquired") throw new Error("expected to reclaim the lock");
@@ -321,8 +321,8 @@ describe("event dedup", () => {
     expect(await dedup.tryAcquire(eventId)).toBe(true);
     expect(await dedup.tryAcquire(eventId)).toBe(false);
 
-    await new Promise((r) => setTimeout(r, 1100));
-
+    // Fixed wait: the 1s TTL bound is the assertion.
+    await sleep(1100);
     expect(await dedup.tryAcquire(eventId)).toBe(true);
   });
 
@@ -463,7 +463,8 @@ describe("entity cache", () => {
     await cache.set("00000000-0000-4000-8000-000000000001", "temp", 1, { id: 1 });
 
     expect(await cache.get("00000000-0000-4000-8000-000000000001", "temp", 1)).not.toBeNull();
-    await new Promise((r) => setTimeout(r, 1100));
+    // Fixed wait: the 1s TTL bound is the assertion.
+    await sleep(1100);
     expect(await cache.get("00000000-0000-4000-8000-000000000001", "temp", 1)).toBeNull();
   });
 

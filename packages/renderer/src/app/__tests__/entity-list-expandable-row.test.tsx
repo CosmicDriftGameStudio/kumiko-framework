@@ -9,6 +9,7 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -296,7 +297,8 @@ describe("entityList expandableRow", () => {
       expect(callsFor(CHILD_QN)).toHaveLength(childBefore + 1);
       expect(callsFor(PARENT_QN)).toHaveLength(parentBefore + 1);
     });
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Grace period for an unwanted extra refetch.
+    await sleep(20);
     expect(callsFor(CHILD_QN)).toHaveLength(childBefore + 1);
     expect(callsFor(PARENT_QN)).toHaveLength(parentBefore + 1);
   });
@@ -315,7 +317,8 @@ describe("entityList expandableRow", () => {
       fireEvent.click(action);
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Grace period for an unwanted extra refetch.
+    await sleep(20);
     expect(callsFor(CHILD_QN)).toHaveLength(childBefore);
     expect(callsFor(PARENT_QN)).toHaveLength(parentBefore);
   });
