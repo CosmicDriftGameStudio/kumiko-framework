@@ -1,633 +1,117 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
-import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { TzContext } from "@cosmicdrift/kumiko-types/tz-context";
-import { DelayedError, type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
+import type { JobsOptions } from "bullmq";
+import { DelayedError, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.ts";
 import type { DbConnection, DbRow } from "../db/connection.ts";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.ts";
+import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { bridgeStub } from "../engine/bridge-stub.ts";
 import { qnScope } from "../engine/qualified-name.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import {
-  type AppContext,
-  type DispatchWriteRef,
-  type EscapeHatchReporter,
-  type JobContext,
-  type JobDeferral,
-  type JobDefinition,
-  type JobRunIn,
-  type JobTriggerEvent,
-  type MemberReader,
-  type Registry,
-  type SessionUser,
-  SYSTEM_TENANT_ID,
-  type TenantId,
+import type {
+  DispatchWriteRef,
+  JobContext,
+  JobDeferral,
+  JobDefinition,
+  JobRunIn,
+  JobTriggerEvent,
+  MemberReader,
+  SessionUser,
+  TenantId,
 } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
-import { isKumikoError } from "../errors/kumiko-error.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
-import type { Logger } from "../logging/types.ts";
+import type { Tracer } from "../observability/index.ts";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
   createMetricsForFactory,
   emitJobLastSuccess,
-  emitJobQueueDepth,
   flushEscapeHatchAudits,
   getFallbackTracer,
-  type Meter,
   registerStandardMetrics,
-  type SerializedTraceContext,
-  type Tracer,
   withEscapeHatchAuditScope,
 } from "../observability/index.ts";
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
-import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.ts";
+import type { DistributedLock } from "../pipeline/distributed-lock.ts";
+import { createDistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
-import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.ts";
-import {
-  buildPersonalDataGate,
-  isPersonalDataGated,
-  parseWriteOrigin,
-} from "../pipeline/write-origin.ts";
-import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";
+import { buildPersonalDataGate, parseWriteOrigin } from "../pipeline/write-origin.ts";
 import { cronRepeatOptions } from "./cron-repeat-options.ts";
+import {
+  BOOT_GATE_SLOW_WARN_MS,
+  BOOT_REDIS_TIMEOUT_MS,
+  buildRetryBullOpts,
+  COMPLETED_JOB_RETENTION_AGE_SEC,
+  captureTraceContext,
+  createCrossTenantReads,
+  createJobLogger,
+  DEFAULT_MAX_DEFERS,
+  DEFER_BACKOFF_MAX_DOUBLINGS,
+  DEFER_COUNT_KEY,
+  DEFER_DELAY_CAP_MS,
+  FAILED_JOB_RETENTION_AGE_SEC,
+  HANDLER_DEFER_COUNT_KEY,
+  isJobTriggerEvent,
+  jobSubjectKey,
+  maxRetryWindowMs,
+  missingDbProxy,
+  parseRedisOpts,
+  payloadMatchesTriggerFilter,
+  priorAttemptsOf,
+  readTraceContext,
+  resolveJobTz,
+  STOP_QUEUE_READY_TIMEOUT_MS,
+  stampGatedWriteOrigin,
+  startQueueDepthPolling,
+  TRACE_CONTEXT_KEY,
+  tenantFailureMessageKey,
+  timeoutReject,
+} from "./job-runner-helpers.ts";
+import {
+  ACTIVE_TENANT_IDS_QUERY_NAME,
+  bootJobIdForJobName,
+  DEFAULT_QUEUE_NAME_PREFIX,
+  markSchedulersSeen,
+  ORPHAN_SCHEDULER_GRACE_MS,
+  perTenantChildJobId,
+  queueNameFor,
+  removeOrphanJobSchedulers,
+  schedulerIdForJobName,
+} from "./job-runner-schedulers.ts";
+import type {
+  JobLogEntry,
+  JobMeta,
+  JobOutcomeMeta,
+  JobRunner,
+  JobRunnerOptions,
+} from "./job-runner-types.ts";
 import { resolveMaxPerTenant } from "./max-per-tenant.ts";
 
-// Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
-// (a security-relevant escape hatch that must fail the run closed), a
-// malformed `_triggerEvent` only costs an idempotency-key convenience — the
-// run proceeds without it rather than failing over what would be a framework
-// bug, not untrusted input.
-function isJobTriggerEvent(value: unknown): value is JobTriggerEvent {
-  if (!isPlainObject(value)) return false;
-  if (typeof value["id"] !== "string") return false;
-  const headers = value["headers"];
-  if (typeof headers !== "object" || headers === null) return false;
-  return Object.values(headers).every(
-    (v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean",
-  );
-}
-
-// A payload's own `_writeOrigin` is never trusted; only the ambient gated origin is stamped.
-function stampGatedWriteOrigin(data: Record<string, unknown>): void {
-  delete data["_writeOrigin"];
-  const origin = requestContext.get()?.writeOrigin;
-  if (origin && isPersonalDataGated(origin)) {
-    data["_writeOrigin"] = origin;
-  }
-}
-
-// Queue-name convention: <prefix>-<lane>. The prefix is fixed in prod
-// ("kumiko-jobs") — it must match between enqueuers and consumers, and an
-// accidental drift would silently drop jobs. Tests override via
-// `queueNamePrefix` for per-run isolation (stale jobs from a prior run
-// don't leak into a new test because the queue name includes a timestamp).
-const DEFAULT_QUEUE_NAME_PREFIX = "kumiko-jobs";
-function queueNameFor(prefix: string, lane: JobRunIn): string {
-  return `${prefix}-${lane}`;
-}
-
-// perTenant jobs need a source of truth for "which tenants are active" —
-// see createJobRunner's defaultGetActiveTenantIds below. The tenant feature
-// (bundled-features package) registers a query under this exact name when
-// mounted. framework must not depend on bundled-features (wrong direction —
-// bundled-features already depends on framework), so this is a name-only
-// coupling: createJobRunner looks the handler up in the registry by string
-// instead of importing it.
-const ACTIVE_TENANT_IDS_QUERY_NAME = "tenant:query:active-tenant-ids";
-
-/**
- * BullMQ job ids are `repeat:<schedulerId>:<millis>`. Colons inside the
- * scheduler id push the segment count to ≥5, which BullMQ's legacy heuristic
- * treated as old repeatables — spawning a new scheduler entry every tick and
- * leaking permanent `repeat:*` hashes (taskforcesh/bullmq#3828, fw#1603 /
- * publicstatus Redis OOM). Strip `.` and `:` from the job QN.
- */
-export function schedulerIdForJobName(jobName: string): string {
-  return `scheduler-${jobName.replace(/[.:]/g, "-")}`;
-}
-
-// Same colon-in-BullMQ-id hazard as schedulerIdForJobName (fw#1603/#1604) —
-// a QN like "publicstatus:job:uptime-probe" must not leave ":" in the id.
-export function bootJobIdForJobName(jobName: string): string {
-  return `boot-${jobName.replace(/[.:]/g, "-")}`;
-}
-
-const SCHEDULER_PAGE_SIZE = 100;
-
-// Rolling deploys run old and new pods against the same Redis for a while; an
-// old runner restarting in that window must not delete the scheduler of a
-// cron job the new version just added.
-export const ORPHAN_SCHEDULER_GRACE_MS = 60 * 60 * 1000;
-
-function schedulerSeenKey(queue: Queue): string {
-  return queue.toKey("kumiko-scheduler-seen");
-}
-
-// "Seen" has to mean a live runner holds the scheduler, so runners re-stamp
-// their own ids periodically; a single stamp at start() would let a runner
-// restarting during a mixed-version window longer than the grace period delete
-// a scheduler a healthy newer pod still owns.
-async function markSchedulersSeen(queue: Queue, schedulerIds: ReadonlySet<string>): Promise<void> {
-  // skip: no cron scheduler on this lane, nothing to stamp
-  if (schedulerIds.size === 0) return;
-  const stamp = String(Date.now());
-  const entries = Object.fromEntries([...schedulerIds].map((id) => [id, stamp]));
-  await (await queue.client).hset(schedulerSeenKey(queue), entries);
-}
-
-type OrphanSchedulerLog = {
-  info(msg: string, data?: Record<string, unknown>): void;
-  warn(msg: string, data?: Record<string, unknown>): void;
-};
-
-// A cron job dropped from the app (or an older scheduler-id format) leaves its
-// scheduler in Redis, where it keeps firing jobs the worker no longer knows
-// ("Unknown job"). Best-effort: a Redis hiccup here must not stop the start.
-async function removeOrphanJobSchedulers(
-  queue: Queue,
-  expectedSchedulerIds: ReadonlySet<string>,
-  lane: JobRunIn,
-  log: OrphanSchedulerLog,
-): Promise<void> {
-  try {
-    // Collect first: removing while paging would shift the indices.
-    const existingKeys: string[] = [];
-    for (let start = 0; ; start += SCHEDULER_PAGE_SIZE) {
-      const page = await queue.getJobSchedulers(start, start + SCHEDULER_PAGE_SIZE - 1);
-      for (const scheduler of page) existingKeys.push(scheduler.key);
-      if (page.length < SCHEDULER_PAGE_SIZE) break;
-    }
-    const client = await queue.client;
-    const seenAt = await client.hgetall(schedulerSeenKey(queue));
-    const now = Date.now();
-    for (const key of existingKeys) {
-      if (expectedSchedulerIds.has(key)) continue;
-      const lastSeen = Number(seenAt[key]);
-      if (key in seenAt && now - lastSeen < ORPHAN_SCHEDULER_GRACE_MS) continue;
-      await queue.removeJobScheduler(key);
-      await client.hdel(schedulerSeenKey(queue), key);
-      log.info("removed orphan job scheduler", { schedulerId: key, lane });
-    }
-  } catch (err) {
-    log.warn("orphan job scheduler cleanup failed", {
-      lane,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-}
-
-// Deterministic per-tenant child job id, derived from the perTenant
-// wrapper's own BullMQ job id. A cron tick's wrapper id is
-// `repeat:<schedulerId>:<millis>` (stable for that tick, including across
-// BullMQ's own retry/stalled-job redelivery of the *same* job); a manual
-// dispatch's wrapper id is BullMQ's auto-generated id, equally stable
-// across retries of that job. Reusing it means a wrapper that runs twice
-// for the same trigger (retry after failure, a Redis drop, an instance
-// restarting mid-run) re-derives the *same* child ids, and BullMQ's
-// existing-jobId add() no-ops the second batch instead of creating
-// duplicates — safe only as long as the child job hash outlives the
-// wrapper's retry window, enforced at construction against
-// COMPLETED_JOB_RETENTION_AGE_SEC (see the invariant check in
-// createJobRunner). Same colon-in-BullMQ-id hazard as schedulerIdForJobName
-// (fw#1603/#1604) — the wrapper id already contains ":", so strip
-// separators from both halves before joining instead of interpolating raw.
-function perTenantChildJobId(wrapperJobId: string, tenantId: string): string {
-  const sanitize = (value: string) => value.replace(/[.:]/g, "-");
-  return `child-${sanitize(wrapperJobId)}-${sanitize(tenantId)}`;
-}
-
-export type JobLogEntry = {
-  level: "info" | "warn" | "error";
-  message: string;
-  timestamp: Temporal.Instant;
-};
-
-function createJobLogger(logs: JobLogEntry[], baseContext: Record<string, unknown> = {}): Logger {
-  function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
-    const merged = { ...baseContext, ...data };
-    const message = Object.keys(merged).length > 0 ? `${msg} ${JSON.stringify(merged)}` : msg;
-    logs.push({ level, message, timestamp: Temporal.Now.instant() });
-  }
-  const logger: Logger = {
-    info(msg, data) {
-      push("info", msg, data);
-    },
-    warn(msg, data) {
-      push("warn", msg, data);
-    },
-    error(msg, data) {
-      push("error", msg, data);
-    },
-    // No-op by design, not missing coverage: JobLogEntry.level (and the
-    // persisted run-completed/-failed event schema in bundled-features/
-    // jobs/events.ts) only has info|warn|error — a job's debug() calls have
-    // nowhere durable to land.
-    debug() {},
-    child(context) {
-      return createJobLogger(logs, { ...baseContext, ...context });
-    },
-  };
-  return logger;
-}
-
-export type JobMeta = {
-  triggeredById?: string | undefined;
-  payload?: string | undefined;
-  // BullMQ numbers retries from 1 upward; the logger threads this into
-  // the run-started event so audit queries can distinguish "fresh run" vs.
-  // "nth retry" without joining back to BullMQ-internals.
-  attempt?: number | undefined;
-  // BullMQ job priority (lower = processed first). Set per-dispatch so the same
-  // job definition can be enqueued at different urgencies (e.g. delivery maps
-  // critical/normal/low onto it).
-  priority?: number | undefined;
-  // BullMQ dedups an add() whose id already exists, so a stable id makes
-  // at-least-once enqueuers (event consumers) idempotent.
-  jobId?: string | undefined;
-  // Set by the runner on onJobStart for jobs with `tenantVisibleRun`.
-  tenantVisibleRun?: { readonly tenantId: string; readonly subject: string | null } | undefined;
-};
-
-// What the run-logger learns when a tenant-visible job (`tenantVisibleRun`)
-// has been enqueued. Subject is resolved exactly as for the run itself.
-export type JobQueuedMeta = {
-  readonly tenantId: string;
-  readonly subject: string | null;
-};
-
-// Names the tenant whose queued row a dropped job id belonged to; job ids are
-// only unique per queue, so the id alone cannot address the row.
-export type JobDroppedMeta = {
-  readonly tenantId: string;
-};
-
-// What a finished run tells the run-logger about the tenant-visible failure
-// record (`JobDefinition.tenantVisibleFailure`). `tenantVisible` is set only
-// when the job opted in; `messageKey` is null on the success path, where the
-// record is cleared rather than written.
-export type JobOutcomeMeta = {
-  readonly tenantId: string;
-  readonly finalAttempt: boolean;
-  readonly tenantVisible?:
-    | { readonly subject: string | null; readonly messageKey: string | null }
-    | undefined;
-  readonly tenantVisibleRun?: { readonly subject: string | null } | undefined;
-};
-
-export type JobSubjectValue = string | number | boolean | null;
-
-// Single source of the stored subject string: the writer (jobSubjectKey) and
-// the tenant failures query both go through it. Matching is exact — field names
-// and JSON types must equal what the writer stored (`"1"` is not `1`).
-export function serializeJobSubject(subject: Readonly<Record<string, JobSubjectValue>>): string {
-  return JSON.stringify(
-    Object.keys(subject)
-      .sort()
-      .map((field) => [field, subject[field] ?? null]),
-  );
-}
-
-// Stable identity for the declared payload fields: sorted keys, so two runs
-// with the same subject values produce the same string and the later one
-// replaces the earlier record. Non-primitives would serialize into something
-// no caller can reconstruct for a lookup, so they fail the run loudly.
-function jobSubjectKey(
-  jobName: string,
-  payload: Record<string, unknown>,
-  fields: readonly string[] | undefined,
-  declaration: "tenantVisibleFailure" | "tenantVisibleRun",
-): string | null {
-  if (fields === undefined || fields.length === 0) return null;
-  const subject: Record<string, JobSubjectValue> = {};
-  for (const field of fields) {
-    const value = payload[field] ?? null;
-    if (value !== null && typeof value === "object") {
-      throw new Error(
-        `Job "${jobName}": ${declaration}.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
-      );
-    }
-    subject[field] = value as JobSubjectValue;
-  }
-  return serializeJobSubject(subject);
-}
-
-async function resolveJobTz(
-  config: ConfigAccessor | undefined,
-  context: Pick<AppContext, "geoTzProvider" | "clock">,
-): Promise<TzContext> {
-  const tenantTz = config ? await config(TENANT_TIMEZONE_CONFIG_KEY) : undefined;
-  return createTzContext({
-    ...(context.geoTzProvider !== undefined && { geoTz: context.geoTzProvider }),
-    ...(context.clock !== undefined && { clock: context.clock }),
-    tenant: typeof tenantTz === "string" && isValidIanaTimeZone(tenantTz) ? tenantTz : "UTC",
-  });
-}
-
-// Jobs that never touch ctx.db run fine on a runner built without one; a job
-// that does gets a named error instead of a bare TypeError on undefined.
-function missingDbProxy(jobName: string): TenantDb {
-  // @cast-boundary db-operator — every access throws, so no TenantDb member is ever returned
-  return new Proxy({} as TenantDb, {
-    get() {
-      throw new InternalError({
-        message: `[jobs] job runner constructed without a db connection — ctx.db is unavailable for "${jobName}"`,
-      });
-    },
-  });
-}
-
-function createCrossTenantReads(
-  systemModeDb: TenantDb,
-  reason: string,
-  report: EscapeHatchReporter,
-): NonNullable<JobContext["crossTenantReads"]> {
-  return {
-    selectMany(table, where, options) {
-      report("cross-tenant-read", reason);
-      return systemModeDb.selectMany(table, where, options);
-    },
-    fetchOne(table, where) {
-      report("cross-tenant-read", reason);
-      return systemModeDb.fetchOne(table, where);
-    },
-    count(table, where) {
-      report("cross-tenant-read", reason);
-      return systemModeDb.count(table, where);
-    },
-  };
-}
-
-function priorAttemptsOf(data: Record<string, unknown>): number {
-  const value = data["_priorAttempts"];
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
-}
-
-// Only a translation key ever travels to the tenant: the thrown error's own
-// i18nKey when it carries one, otherwise the key declared at the job. The
-// error message itself can echo provider or payload content and stays on the
-// run row and in the run log.
-function tenantFailureMessageKey(
-  err: unknown,
-  declaration: JobDefinition["tenantVisibleFailure"],
-): string | null {
-  // skip: job did not opt in — nothing tenant-visible to record
-  if (!declaration) return null;
-  if (isKumikoError(err) && err.i18nKey.length > 0) return err.i18nKey;
-  return declaration.messageKey;
-}
-
-export type JobRunner = {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  dispatch(jobName: string, payload?: Record<string, unknown>, meta?: JobMeta): Promise<string>;
-  handleEvent(
-    eventName: string,
-    payload: Record<string, unknown>,
-    user?: SessionUser,
-    triggerEvent?: JobTriggerEvent,
-  ): Promise<void>;
-  // Wires JobContext.write/writeAs/queryAs to the real dispatcher — called
-  // once at boot, after the dispatcher exists (job-runner construction happens
-  // before it). Before this runs, JobContext.write/writeAs/queryAs throw.
-  attachDispatcher(ref: DispatchWriteRef): void;
-  // Read-only snapshot across both lane queues for test-stack draining
-  // (stack.drainJobs()). Excludes delayed jobs whose BullMQ id starts with
-  // "repeat:" — those are future cron ticks, not work in flight, and would
-  // make drainJobs wait forever on a stack with a scheduled job.
-  countPendingJobs(): Promise<number>;
-};
-
-export type JobRunnerOptions = {
-  registry: Registry;
-  context: AppContext;
-  redisUrl: string;
-  // Which lane this runner CONSUMES — i.e. starts a BullMQ worker for and
-  // schedules cron/boot jobs on. Undefined = enqueuer-only: the runner
-  // still holds queue-clients for BOTH lanes so dispatch()/handleEvent()
-  // can enqueue jobs destined for either lane, but no BullMQ worker is
-  // started and no cron schedules fire. API processes that don't
-  // runLocalJobs leave this unset; worker processes set "worker"; api-
-  // processes with runLocalJobs set "api".
-  consumerLane?: JobRunIn | undefined;
-  // Override the queue-name prefix. Prod uses the default ("kumiko-jobs").
-  // Tests set a unique prefix (e.g. `"test-${Date.now()}"`) for isolation —
-  // two parallel test-runners never see each other's jobs.
-  queueNamePrefix?: string | undefined;
-  // Override how long start() waits for the worker's Redis connection
-  // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
-  // to keep an unreachable-Redis assertion fast.
-  bootRedisTimeoutMs?: number | undefined;
-  // How often a runner re-stamps its cron schedulers in the orphan-cleanup
-  // "seen" hash. Defaults to ORPHAN_SCHEDULER_GRACE_MS / 4; tests shrink it.
-  schedulerSeenRefreshMs?: number | undefined;
-  // Override how long completed/failed jobs stay in Redis before BullMQ's
-  // lazy queue-wide sweep evicts them. Defaults to
-  // COMPLETED_JOB_RETENTION_AGE_SEC / FAILED_JOB_RETENTION_AGE_SEC; tests
-  // shrink both to exercise the sweep without a real 24h/7d wait.
-  jobRetention?:
-    | { completedAgeSec?: number | undefined; failedAgeSec?: number | undefined }
-    | undefined;
-  getActiveTenantIds?: () => Promise<TenantId[]>;
-  onJobStart?: (jobName: string, jobId: string, meta: JobMeta) => void;
-  onJobComplete?: (
-    jobName: string,
-    jobId: string,
-    duration: number,
-    logs: JobLogEntry[],
-    outcome?: JobOutcomeMeta,
-  ) => void;
-  onJobFailed?: (
-    jobName: string,
-    jobId: string,
-    error: string,
-    logs: JobLogEntry[],
-    outcome?: JobOutcomeMeta,
-  ) => void;
-  // The handler returned `ctx.defer(ms)`: the run started by onJobStart is void, not a
-  // success or failure; the job re-runs later under the same id.
-  onJobDeferred?: (jobName: string, jobId: string, meta: JobMeta) => void;
-  // After a job with `tenantVisibleRun` was enqueued for a real tenant.
-  onJobQueued?: (jobName: string, jobId: string, meta: JobQueuedMeta) => void;
-  // A queued job that will never run under that id (concurrency "replace"
-  // removal, sequential re-enqueue under a new id).
-  onJobDropped?: (jobName: string, jobId: string, meta: JobDroppedMeta) => void;
-};
-
-// Serialized trace context lives under this key in the BullMQ job data.
-// Leading underscore matches the existing internal-meta convention
-// (_triggeredById, _tenantId, _payload).
-const TRACE_CONTEXT_KEY = "_traceContext";
-const DEFER_COUNT_KEY = "_deferCount";
-// Separate from the maxPerTenant counter so tenant-limit deferrals do not eat into maxDefers.
-const HANDLER_DEFER_COUNT_KEY = "_handlerDeferCount";
-const DEFAULT_MAX_DEFERS = 100;
-const DEFER_DELAY_CAP_MS = 30_000;
-const DEFER_BACKOFF_MAX_DOUBLINGS = 5;
-
-function readTraceContext(data: Record<string, unknown>): SerializedTraceContext | undefined {
-  const raw = data[TRACE_CONTEXT_KEY];
-  if (!raw || typeof raw !== "object") return undefined;
-  const ctx = raw as Partial<SerializedTraceContext>; // @cast-boundary engine-payload
-  if (!ctx.traceId || !ctx.spanId) return undefined;
-  return { traceId: ctx.traceId, spanId: ctx.spanId };
-}
-
-function captureTraceContext(tracer: Tracer): SerializedTraceContext | undefined {
-  const span = tracer.getActiveSpan();
-  if (!span?.traceId) return undefined;
-  return { traceId: span.traceId, spanId: span.spanId };
-}
-
-const QUEUE_DEPTH_POLL_INTERVAL_MS = 15_000;
-const QUEUE_DEPTH_WARN_INTERVAL_MS = 5 * 60_000;
-
-// kumiko_job_queue_depth: only the lane's own consumer polls — the count is
-// a global Redis-backed value (BullMQ, not per-process), so one reporter per
-// lane is enough. Fires once immediately (metrics exist before the first
-// poll tick) then on an interval; the caller stores + clears the handle.
-async function startQueueDepthPolling(
-  queue: Queue,
-  lane: JobRunIn,
-  meter: Meter,
-): Promise<ReturnType<typeof setInterval>> {
-  let lastWarnAt: number | undefined;
-  const pollQueueDepth = async (): Promise<void> => {
-    try {
-      const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed", "paused");
-      emitJobQueueDepth(meter, lane, counts);
-    } catch (err) {
-      // Next poll retries; the warn is throttled so a Redis outage logs once per interval, not once per poll.
-      const nowMs = Date.now();
-      if (lastWarnAt === undefined || nowMs - lastWarnAt >= QUEUE_DEPTH_WARN_INTERVAL_MS) {
-        lastWarnAt = nowMs;
-        createFallbackLogger("job-runner").warn("queue depth poll failed", {
-          lane,
-          error: scrubLogText(err instanceof Error ? err.message : String(err)),
-        });
-      }
-    }
-  };
-  await pollQueueDepth();
-  return setInterval(() => void pollQueueDepth(), QUEUE_DEPTH_POLL_INTERVAL_MS);
-}
-
-function parseRedisOpts(url: string): { host: string; port: number; db?: number | undefined } {
-  const parsed = new URL(url);
-  const result: { host: string; port: number; db?: number | undefined } = {
-    host: parsed.hostname,
-    port: Number(parsed.port) || 6379,
-  };
-  if (parsed.pathname.length > 1) {
-    result.db = Number(parsed.pathname.slice(1));
-  }
-  return result;
-}
-
-// redisOpts carries no connectTimeout/retry cap, so an unreachable Redis
-// would otherwise hang start() forever with no health endpoint to notice.
-const BOOT_REDIS_TIMEOUT_MS = 10_000;
-
-// Shutdown must fit a k8s grace period even when Redis is down, so the
-// readiness wait in stop() is capped well below the boot timeout.
-const STOP_QUEUE_READY_TIMEOUT_MS = 1_000;
-
-// A gate without an explicit `timeout` may legitimately run long (migration-style
-// checks), so it is never rejected; a hang just must not stay silent.
-const BOOT_GATE_SLOW_WARN_MS = 60_000;
-
-function timeoutReject(
-  ms: number,
-  message: string,
-): { promise: Promise<never>; cancel: () => void } {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const promise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), ms);
-  });
-  return {
-    promise,
-    cancel: () => {
-      if (timer !== undefined) clearTimeout(timer);
-    },
-  };
-}
-
-// Default base delay when a job opts into backoff without an explicit
-// delayMs. Without a `delay`, BullMQ's fixed/exponential strategies compute
-// NaN/undefined, which is falsy — the job retries immediately instead of
-// waiting.
-const DEFAULT_JOB_BACKOFF_DELAY_MS = 1_000;
-
-// Shared by every enqueue path (dispatch(), handleEvent(), cron, runOnBoot,
-// perTenant wrapper/children, sequential re-enqueue) — a job with `retries`
-// set must retry the same way regardless of how it got enqueued, or it
-// fails for good on the very first error on whichever path skips this.
-function buildRetryBullOpts(
-  jobDef: JobDefinition,
-  priorAttempts = 0,
-): Pick<JobsOptions, "attempts" | "backoff"> {
-  const opts: Pick<JobsOptions, "attempts" | "backoff"> = {};
-  if (jobDef.retries !== undefined) opts.attempts = Math.max(1, jobDef.retries + 1 - priorAttempts);
-  if (jobDef.backoff) {
-    opts.backoff =
-      typeof jobDef.backoff === "string"
-        ? { type: jobDef.backoff, delay: DEFAULT_JOB_BACKOFF_DELAY_MS }
-        : {
-            type: jobDef.backoff.type,
-            delay: jobDef.backoff.delayMs ?? DEFAULT_JOB_BACKOFF_DELAY_MS,
-          };
-  }
-  return opts;
-}
-
-// Equality filter on top-level payload fields for a job's trigger.where —
-// lets N jobs share one broad event QN, partitioned by a payload
-// discriminant instead of needing N distinct event types.
-function payloadMatchesTriggerFilter(
-  where: Readonly<Record<string, string | number | boolean>> | undefined,
-  payload: Record<string, unknown>,
-): boolean {
-  if (!where) return true;
-  return Object.entries(where).every(([key, value]) => payload[key] === value);
-}
-
-// BullMQ sweeps queue-wide: any job finishing with keepJobs set can evict
-// OTHER jobs in the same completed/failed zset (moveToFinished lua,
-// removeJobsByMaxAge/removeJobsByMaxCount), not just the finishing job, and
-// the sweep only runs lazily on a later finish into that set. Per-job
-// retention is therefore meaningless on a shared queue — only queue-wide,
-// age-only retention (no count) is safe: a count would evict perTenant
-// children still inside their wrapper's retry window, and boot jobs. The
-// completed age must stay above every perTenant wrapper's own worst-case
-// retry window (see maxRetryWindowMs and the invariant check in
-// createJobRunner below), because child dedup (perTenantChildJobId) relies
-// on the children still existing in Redis when a wrapper retry re-derives
-// their ids. The margin here is generous — queue wait time isn't bounded by
-// backoff — to cover realistic windows. Audit trail lives in read_job_runs,
-// not BullMQ (fw#3199).
-const COMPLETED_JOB_RETENTION_AGE_SEC = 86_400; // 24h
-const FAILED_JOB_RETENTION_AGE_SEC = 604_800; // 7d
-
-// Total wall-clock time BullMQ can hold a perTenant wrapper across all its
-// retries, consistent with buildRetryBullOpts's own backoff computation.
-function maxRetryWindowMs(jobDef: JobDefinition): number {
-  if (!jobDef.backoff || jobDef.retries === undefined) return 0;
-  const delayMs =
-    (typeof jobDef.backoff === "string" ? undefined : jobDef.backoff.delayMs) ??
-    DEFAULT_JOB_BACKOFF_DELAY_MS;
-  const type = typeof jobDef.backoff === "string" ? jobDef.backoff : jobDef.backoff.type;
-  return type === "exponential" ? delayMs * (2 ** jobDef.retries - 1) : jobDef.retries * delayMs;
-}
+export { serializeJobSubject } from "./job-runner-helpers.ts";
+export {
+  bootJobIdForJobName,
+  ORPHAN_SCHEDULER_GRACE_MS,
+  schedulerIdForJobName,
+} from "./job-runner-schedulers.ts";
+export type {
+  JobDroppedMeta,
+  JobLogEntry,
+  JobMeta,
+  JobOutcomeMeta,
+  JobQueuedMeta,
+  JobRunner,
+  JobRunnerOptions,
+  JobSubjectValue,
+} from "./job-runner-types.ts";
 
 export function createJobRunner(options: JobRunnerOptions): JobRunner {
   const { registry, context, redisUrl, consumerLane } = options;
