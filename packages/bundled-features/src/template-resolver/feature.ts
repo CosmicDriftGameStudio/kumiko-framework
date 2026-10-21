@@ -31,6 +31,7 @@ import { makeResourceUploadWrite } from "./handlers/resource-upload.write.ts";
 import { makeSendTestWrite } from "./handlers/send-test.write.ts";
 import { sendTestStatusQuery } from "./handlers/send-test-status.query.ts";
 import { makeSetWrite } from "./handlers/set.write.ts";
+import { tenantOverrideCountsQuery } from "./handlers/tenant-override-counts.query.ts";
 import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.ts";
 import {
   makeArchiveSystemWrite,
@@ -184,6 +185,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       overview: r.queryHandler(makeOverviewQuery(policy)),
       layoutSource: r.queryHandler(layoutSourceQuery),
       tenantOverrides: r.queryHandler(tenantOverridesQuery),
+      tenantOverrideCounts: r.queryHandler(tenantOverrideCountsQuery),
       diffToSystem: r.queryHandler(diffToSystemQuery),
       validate: r.queryHandler(validateQuery),
       preview: r.queryHandler(previewQuery),

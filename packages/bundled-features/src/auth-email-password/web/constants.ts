@@ -48,6 +48,7 @@ export const AuthHandlers = {
 // Qualified query names. Anonymous-readable status so the (unauthenticated)
 // signup page can decide whether to show its own link/form.
 export const AuthQueries = {
+  loginOptions: "auth-email-password:query:login-options",
   signupRegistrationStatus: "auth-email-password:query:signup-registration-status",
   // Anonymous, read-only invite lookup for the invite-acceptance page —
   // see invite-info.query.ts. Does not consume the token.

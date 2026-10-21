@@ -13,6 +13,17 @@ export const SYSTEM_ACTOR_IDS: ReadonlySet<string> = new Set([
   "00000000-0000-0000-0000-000000000000",
 ]);
 
+/** Column-renderer names shared by screens.ts and `auditClient()`. */
+export const AUDIT_EVENT_CELL_COMPONENT = "audit-event-cell" as const;
+export const AUDIT_OBJECT_CELL_COMPONENT = "audit-object-cell" as const;
+
+/** Action suffix of entity events (`<entity>.<action>`); other event types have none. */
+export const AUDIT_EVENT_ACTIONS = ["created", "updated", "deleted", "restored"] as const;
+export type AuditEventAction = (typeof AUDIT_EVENT_ACTIONS)[number];
+
+/** Value of the facet that brings technical entries (escape-hatch use) back into the log. */
+export const INCLUDE_TECHNICAL_FILTER = "include-technical" as const;
+
 export const AuditQueries = {
   list: "audit:query:list",
   details: "audit:query:details",

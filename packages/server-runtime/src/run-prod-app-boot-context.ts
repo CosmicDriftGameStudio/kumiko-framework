@@ -3,6 +3,7 @@ import {
   createEscapeHatchAuditSink,
 } from "@cosmicdrift/kumiko-bundled-features/audit";
 import {
+  type AccountUnlockOptions,
   type AuthPath,
   type EmailVerificationOptions,
   makeAuthPaths,
@@ -56,6 +57,7 @@ import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-fram
 import type { Redis } from "ioredis";
 import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.ts";
 import type {
+  AccountUnlockSetup,
   AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
@@ -336,6 +338,7 @@ type AuthMailNormalizable = {
   readonly emailVerification?: EmailVerificationSetup;
   readonly signup?: SignupSetup;
   readonly invite?: InviteSetup;
+  readonly accountUnlock?: AccountUnlockSetup;
 };
 
 function buildAuthPathAppUrl(
@@ -346,12 +349,6 @@ function buildAuthPathAppUrl(
     ? (locale: string) => `${baseUrl}${path(locale)}`
     : `${baseUrl}${path}`;
 }
-
-// accountUnlock (#1266) deliberately does NOT join this convenience block —
-// unlike reset/verify/signup/invite it's only meaningful paired with
-// `accountLockout` (kumiko-framework#1627), and apps set both explicitly
-// alongside each other (same shape as `passwordReset`), so `mail` alone
-// can't silently expose a new public endpoint an app didn't ask for.
 
 function backfillTokenSecrets<T extends AuthMailNormalizable>(auth: T, tokenSecret: string) {
   return {
@@ -368,6 +365,12 @@ function backfillTokenSecrets<T extends AuthMailNormalizable>(auth: T, tokenSecr
         hmacSecret: auth.emailVerification.hmacSecret ?? tokenSecret,
       },
     }),
+    ...(auth.accountUnlock && {
+      accountUnlock: {
+        ...auth.accountUnlock,
+        hmacSecret: auth.accountUnlock.hmacSecret ?? tokenSecret,
+      },
+    }),
   };
 }
 
@@ -379,6 +382,7 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
 ): T & {
   readonly passwordReset?: PasswordResetOptions;
   readonly emailVerification?: EmailVerificationOptions;
+  readonly accountUnlock?: AccountUnlockOptions;
 } {
   // Runs before the mail/SMTP guards below so an app-supplied block without
   // hmacSecret is backfilled even without a `mail` block; an explicit secret still wins.
@@ -424,6 +428,12 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
     },
     invite: withResolvedSecrets.invite ?? {
       appUrl: buildAuthPathAppUrl(auth.mail.baseUrl, paths.inviteAccept),
+      ...mailPresentation,
+    },
+    // The login lockout is always on, so its escape hatch ships with the mail flows.
+    accountUnlock: withResolvedSecrets.accountUnlock ?? {
+      hmacSecret: tokenSecret,
+      appUrl: buildAuthPathAppUrl(auth.mail.baseUrl, paths.unlockAccount),
       ...mailPresentation,
     },
   };

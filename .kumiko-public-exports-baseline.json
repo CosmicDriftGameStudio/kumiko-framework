@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-10-20",
-  "asOfVersion": "0.381.0",
+  "asOfVersion": "0.383.0",
   "packages": {
     "framework": {
       "./compliance": [
@@ -267,6 +267,7 @@
         "JobBackoff",
         "JobBackoffStrategy",
         "JobContext",
+        "JobDeferral",
         "JobDefinition",
         "JobHandlerFn",
         "JobTrigger",
@@ -921,6 +922,7 @@
         "JobBackoff",
         "JobBackoffStrategy",
         "JobContext",
+        "JobDeferral",
         "JobDefinition",
         "JobHandlerFn",
         "JobRunIn",
@@ -1444,6 +1446,7 @@
         "selectInnerJoin",
         "selectMany",
         "serial",
+        "serverTimeoutOptionsFromEnv",
         "snapshotFromMetas",
         "splitSqlStatements",
         "sql",
@@ -1462,6 +1465,7 @@
         "upsertByPk",
         "upsertOnConflict",
         "uuid",
+        "withoutStatementTimeout",
         "writeRebuildMarker",
         "writeSnapshotJson"
       ],
@@ -1561,6 +1565,8 @@
         "ConsumerRecoveryState",
         "ConsumerStatus",
         "ConsumerStatuses",
+        "ConsumerTransitionError",
+        "ConsumerTransitionRejection",
         "Dispatcher",
         "DispatcherPassResult",
         "DistributedLock",
@@ -2079,6 +2085,7 @@
         "createRedisPubSubSignal",
         "isTenantConfigSyncMessage",
         "isTierAssignmentSyncMessage",
+        "logRedisConnectionState",
         "redisChannelPrefixFromEnv",
         "redisClientOptionsFromEnv",
         "resolveCacheSyncBus"
@@ -2227,7 +2234,10 @@
         "Logger",
         "LoggerOptions",
         "createFallbackLogger",
-        "createLogger"
+        "createLogger",
+        "scrubLogText",
+        "scrubLogValue",
+        "setProcessLogger"
       ],
       "./schema-cli": [
         "RunSchemaCliOptions",
@@ -2264,7 +2274,8 @@
         "requestContext",
         "runAsDirectCallEntry",
         "runWithOrigin",
-        "runWithWriteOrigin"
+        "runWithWriteOrigin",
+        "setRequestIdentity"
       ],
       "./internal/stack-support": [
         "AnyDb",
@@ -3765,6 +3776,7 @@
         "BootstrapTenantOutcome",
         "BootstrapWriteError",
         "DEFAULT_AUTH_PATHS",
+        "DEFAULT_FORGOT_PASSWORD_PATH",
         "EmailVerificationOptions",
         "InviteOptions",
         "IssueSignupActivationArgs",
@@ -4178,6 +4190,10 @@
         "sessionRevokedSchema",
         "userSessionEntity",
         "userSessionTable"
+      ],
+      "./sessions/web": [
+        "SessionsClientOptions",
+        "sessionsClient"
       ],
       "./auth-mfa": [
         "AUTH_MFA_FEATURE",

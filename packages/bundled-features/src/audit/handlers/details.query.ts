@@ -6,7 +6,7 @@
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { AUDIT_SCOPE_VALUES } from "../web/constants.ts";
-import { auditEventIdSchema, loadAuditEvent } from "./audit-events.ts";
+import { auditEventIdSchema, createEntityNounKeyResolver, loadAuditEvent } from "./audit-events.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
@@ -24,10 +24,16 @@ export const detailsQuery = defineQueryHandler({
     const db = requireAuditSystemDb(ctx.systemDb, "audit:query:details").assertTenantMatch(
       query.user.tenantId,
     );
-    return loadAuditEvent(db, {
-      tenantId: scopeFilter.tenantId,
-      ...(scopeFilter.aggregateType !== undefined && { aggregateType: scopeFilter.aggregateType }),
-      id: BigInt(query.payload.id),
-    });
+    return loadAuditEvent(
+      db,
+      {
+        tenantId: scopeFilter.tenantId,
+        ...(scopeFilter.aggregateType !== undefined && {
+          aggregateType: scopeFilter.aggregateType,
+        }),
+        id: BigInt(query.payload.id),
+      },
+      createEntityNounKeyResolver(ctx.registry),
+    );
   },
 });

@@ -75,6 +75,34 @@ describe("applyFormatSpec — number grouping (fw#3234)", () => {
   });
 });
 
+describe("applyFormatSpec — number fraction digits", () => {
+  test("maximumFractionDigits keeps small values visible", () => {
+    expect(applyFormatSpec({ format: "decimal", locale: "en-US" }, 0.0004)).toBe("0");
+    expect(
+      applyFormatSpec({ format: "decimal", locale: "en-US", maximumFractionDigits: 4 }, 0.0004),
+    ).toBe("0.0004");
+    expect(
+      applyFormatSpec({ format: "number", locale: "de-DE", maximumFractionDigits: 4 }, 0.0004),
+    ).toBe("0,0004");
+  });
+
+  test("minimumFractionDigits pads", () => {
+    expect(
+      applyFormatSpec({ format: "number", locale: "en-US", minimumFractionDigits: 2 }, 5),
+    ).toBe("5.00");
+  });
+
+  test("invalid options fall back to the default", () => {
+    const base = { format: "number", locale: "en-US" };
+    expect(applyFormatSpec({ ...base, maximumFractionDigits: 21 }, 1.23456)).toBe("1.235");
+    expect(applyFormatSpec({ ...base, maximumFractionDigits: -1 }, 1.23456)).toBe("1.235");
+    expect(applyFormatSpec({ ...base, maximumFractionDigits: 1.5 }, 1.23456)).toBe("1.235");
+    expect(
+      applyFormatSpec({ ...base, minimumFractionDigits: 4, maximumFractionDigits: 2 }, 1.23456),
+    ).toBe("1.235");
+  });
+});
+
 describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
   // Mittag UTC: das Datum kippt in keiner Zeitzone UTC-11..UTC+11 —
   // deterministisch auf CI (UTC) und lokal (CET).

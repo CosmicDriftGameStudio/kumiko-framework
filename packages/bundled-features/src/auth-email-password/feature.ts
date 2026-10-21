@@ -14,6 +14,7 @@ import {
 import { inviteInfoQuery } from "./handlers/invite-info.query.ts";
 import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write.ts";
 import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write.ts";
+import { loginOptionsQuery } from "./handlers/login-options.query.ts";
 import { logoutWrite } from "./handlers/logout.write.ts";
 import {
   createRequestAccountUnlockHandler,
@@ -197,8 +198,7 @@ export function createAuthEmailPasswordFeature(
         { key: "accountUnlock", label: "Account-Unlock-Flow", type: "boolean", default: false },
       ],
     });
-    r.requires({ features: ["user"] });
-    r.requires({ features: ["tenant"] });
+    r.requires({ features: ["user", "tenant"] });
     // All five magic-link flows (reset/verify/signup/invite/unlock) dispatch
     // via ctx.notify → delivery must be mounted. Fail closed at boot instead
     // of silently dropping the mail.
@@ -256,6 +256,7 @@ export function createAuthEmailPasswordFeature(
     }
 
     const queries = {
+      loginOptions: r.queryHandler(loginOptionsQuery),
       ...(opts.signup && {
         signupRegistrationStatus: r.queryHandler(selfRegistrationStatusQuery),
       }),

@@ -41,6 +41,16 @@ export type PlatformComponent = {
 // locale-correct pluralization/spacing straight from Intl.
 export type UnitKey = "m2" | "km" | "m" | "kg" | "percent" | "mi";
 
+type NumberFormatOptions = {
+  readonly locale?: string;
+  readonly grouping?: boolean;
+  /** Intl `minimumFractionDigits` / `maximumFractionDigits` (integers 0..20,
+   *  min <= max). Without them Intl cuts at 3 digits, so 0.0004 renders as
+   *  "0". Invalid values are ignored. */
+  readonly minimumFractionDigits?: number;
+  readonly maximumFractionDigits?: number;
+};
+
 // Built-in value formatters. Apps extend via module augmentation:
 //   declare module "@cosmicdrift/kumiko-framework/engine/types" {
 //     interface FieldFormatRegistry { myFormat: { myOption?: string } }
@@ -64,8 +74,9 @@ export interface FieldFormatRegistry {
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
   /** `grouping: false` renders without thousands-separators (e.g. a model
    *  year: "2021", not "2.021"). Default `true`. */
-  number: { readonly locale?: string; readonly grouping?: boolean };
-  decimal: { readonly locale?: string; readonly grouping?: boolean };
+  number: NumberFormatOptions;
+  /** Same options as `number`. */
+  decimal: NumberFormatOptions;
   bigInt: { readonly locale?: string; readonly grouping?: boolean };
   // Value is percent *points* (12 → "12 %"), not a 0..1 ratio — Intl
   // style:"unit"/unit:"percent" does NOT multiply by 100 (unlike style:"percent").

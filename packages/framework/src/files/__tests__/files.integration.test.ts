@@ -188,6 +188,14 @@ async function getFileMeta(user: SessionUser, fileId: string): Promise<Response>
   });
 }
 
+async function getFilesMeta(user: SessionUser, ids: readonly string[]): Promise<Response> {
+  const token = await jwt.sign(user);
+  return app.request(`/api/files/meta?ids=${ids.join(",")}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 async function deleteFile(user: SessionUser, fileId: string): Promise<Response> {
   const token = await jwt.sign(user);
   return app.request(`/api/files/${fileId}`, {
@@ -1678,6 +1686,84 @@ describe("meta route with field-encrypted fileName", () => {
 
     const res = await getFileMeta(adminUser, id);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("batch meta route", () => {
+  const testPng = new Uint8Array([
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    ...Array(20).fill(0),
+  ]);
+  const attach = { entityType: "tenant", fieldName: "logo" };
+
+  async function uploadedId(user: SessionUser, name: string, entityId?: string): Promise<string> {
+    const res = await uploadFile(user, name, testPng, "image/png", {
+      ...attach,
+      ...(entityId === undefined ? {} : { entityId }),
+    });
+    expect(res.status).toBe(201);
+    return (await res.json()).id;
+  }
+
+  test("returns only readable files: other tenant, guard-denied, malformed and duplicate ids are left out", async () => {
+    const memberUploader: SessionUser = {
+      id: "11111111-0000-4000-8000-000000000070",
+      tenantId: adminUser.tenantId,
+      roles: [RECORD_EDITOR_ROLE],
+    };
+    const adminFile = await uploadedId(adminUser, "batch-admin.png", mainRecordId);
+    const memberFile = await uploadedId(memberUploader, "batch-member.png", mainRecordId);
+    const foreignFile = await uploadedId(otherTenantUser, "batch-foreign.png");
+
+    const adminRes = await getFilesMeta(adminUser, [
+      adminFile,
+      memberFile,
+      foreignFile,
+      NONEXISTENT_UUID,
+      "not-a-uuid",
+      adminFile,
+    ]);
+    expect(adminRes.status).toBe(200);
+    const adminBody = await adminRes.json();
+    expect(adminBody.files.map((file: { id: string }) => file.id).sort()).toEqual(
+      [adminFile, memberFile].sort(),
+    );
+    expect(adminBody.files.find((file: { id: string }) => file.id === adminFile)).toMatchObject({
+      fileName: "batch-admin.png",
+      mimeType: "image/png",
+      entityType: "tenant",
+      fieldName: "logo",
+    });
+
+    // The default guard lets a non-privileged user read only the unattached files they uploaded.
+    const adminOwn = await uploadedId(adminUser, "batch-admin-own.png");
+    const memberOwn = await uploadedId(memberUploader, "batch-member-own.png");
+    const memberBody = await (await getFilesMeta(memberUploader, [adminOwn, memberOwn])).json();
+    expect(memberBody.files.map((file: { id: string }) => file.id)).toEqual([memberOwn]);
+  });
+
+  test("more than 100 ids is refused with too_many_ids", async () => {
+    const ids = Array.from(
+      { length: 101 },
+      (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    );
+    const res = await getFilesMeta(adminUser, ids);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "too_many_ids" });
+    expect((await getFilesMeta(adminUser, ids.slice(0, 100))).status).toBe(200);
+  });
+
+  test("the route does not shadow /files/:id", async () => {
+    const id = await uploadedId(adminUser, "batch-shadow.png", mainRecordId);
+    expect((await getFile(adminUser, id)).status).toBe(200);
+    expect((await getFileMeta(adminUser, id)).status).toBe(200);
   });
 });
 

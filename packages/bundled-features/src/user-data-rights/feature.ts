@@ -399,7 +399,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         },
       },
       dormant: true,
-      description: "userDataRights.privacyCenter.subtitle",
+      description: showDeletion
+        ? "userDataRights.privacyCenter.subtitle"
+        : "userDataRights.privacyCenter.subtitleWithoutDeletion",
       fieldLabels: {
         status: i18nKey("userDataRights.privacyCenter.field.status"),
         gracePeriodEnd: i18nKey("userDataRights.privacyCenter.field.gracePeriodEnd"),
@@ -425,6 +427,17 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
                 renderer: { format: "enumOption", keyPrefix: STATUS_OPTION_KEY_PREFIX },
               },
             ],
+            actions: [
+              {
+                id: "restrict",
+                icon: "lock",
+                label: i18nKey("userDataRights.privacyCenter.restriction.restrict"),
+                handler: UserDataRightsHandlers.restrictAccount,
+                confirm: i18nKey("userDataRights.privacyCenter.restriction.dialogDescription"),
+                visible: { field: "status", ne: "restricted" },
+                style: "secondary",
+              },
+            ],
           },
           ...(showDeletion
             ? [
@@ -441,43 +454,30 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
                       visible: { field: "status", eq: "deletionRequested" },
                     },
                   ],
+                  actions: [
+                    {
+                      id: "request-deletion",
+                      label: i18nKey("userDataRights.privacyCenter.deletion.delete"),
+                      handler: UserDataRightsHandlers.requestDeletion,
+                      confirm: i18nKey("userDataRights.privacyCenter.deletion.dialogDescription"),
+                      visible: { field: "status", ne: "deletionRequested" },
+                      style: "danger" as const,
+                    },
+                    {
+                      id: "cancel-deletion",
+                      label: i18nKey("userDataRights.privacyCenter.deletion.cancel"),
+                      handler: UserDataRightsHandlers.cancelDeletion,
+                      visible: { field: "status", eq: "deletionRequested" },
+                      style: "secondary" as const,
+                      // Declared: the id's last segment ("deletion") would otherwise resolve to the destructive trash icon.
+                      icon: "x" as const,
+                    },
+                  ],
                 },
               ]
             : []),
         ],
       },
-      actions: [
-        {
-          id: "restrict",
-          icon: "lock",
-          label: i18nKey("userDataRights.privacyCenter.restriction.restrict"),
-          handler: UserDataRightsHandlers.restrictAccount,
-          confirm: i18nKey("userDataRights.privacyCenter.restriction.dialogDescription"),
-          visible: { field: "status", ne: "restricted" },
-          style: "danger",
-        },
-        ...(showDeletion
-          ? [
-              {
-                id: "request-deletion",
-                label: i18nKey("userDataRights.privacyCenter.deletion.delete"),
-                handler: UserDataRightsHandlers.requestDeletion,
-                confirm: i18nKey("userDataRights.privacyCenter.deletion.dialogDescription"),
-                visible: { field: "status", ne: "deletionRequested" },
-                style: "danger" as const,
-              },
-              {
-                id: "cancel-deletion",
-                label: i18nKey("userDataRights.privacyCenter.deletion.cancel"),
-                handler: UserDataRightsHandlers.cancelDeletion,
-                visible: { field: "status", eq: "deletionRequested" },
-                style: "secondary" as const,
-                // Declared: the id's last segment ("deletion") would otherwise resolve to the destructive trash icon.
-                icon: "x" as const,
-              },
-            ]
-          : []),
-      ],
     });
 
     // Magic-link path (anonymous): the email link carries the token as a

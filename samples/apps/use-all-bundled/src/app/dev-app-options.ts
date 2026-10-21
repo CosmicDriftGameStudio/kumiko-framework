@@ -15,6 +15,7 @@ import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AUTH_COMPOSE_OPTIONS, BOOT_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
+import { invoiceReportsFeature } from "./invoice-reports-feature";
 import { notesFeature } from "./notes-feature";
 import { appScreensFeature } from "./screens-feature";
 import { seedScreenshotData } from "./seed";
@@ -27,7 +28,7 @@ import { seedScreenshotData } from "./seed";
 export const devAppOptions = {
   // notesFeature is dev-only (app-owned tag host) — see notes-feature.ts for why
   // it stays out of APP_FEATURES. appScreensFeature places the user-profile screen.
-  features: [...BOOT_FEATURES, appScreensFeature, notesFeature],
+  features: [...BOOT_FEATURES, appScreensFeature, notesFeature, invoiceReportsFeature],
   featureToggles: true,
   port: Number.parseInt(process.env["PORT"] ?? "4186", 10),
   clientEntry: "./src/app/client.tsx",

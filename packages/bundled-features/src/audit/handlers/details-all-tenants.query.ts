@@ -2,7 +2,7 @@
 
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { auditEventIdSchema, loadAuditEvent } from "./audit-events.ts";
+import { auditEventIdSchema, createEntityNounKeyResolver, loadAuditEvent } from "./audit-events.ts";
 import { requireAuditSystemDb } from "./audit-system-db.ts";
 import { allTenantsCondition, assertMayReadAllTenants } from "./resolve-audit-tenant.ts";
 
@@ -18,9 +18,10 @@ export const detailsAllTenantsQuery = defineQueryHandler({
       ctx.systemDb,
       "audit:query:details-all-tenants",
     ).acknowledgeCrossTenant("SystemAdmin reads one audit event of any tenant");
-    return loadAuditEvent(db, {
-      tenantId: allTenantsCondition(undefined),
-      id: BigInt(query.payload.id),
-    });
+    return loadAuditEvent(
+      db,
+      { tenantId: allTenantsCondition(undefined), id: BigInt(query.payload.id) },
+      createEntityNounKeyResolver(ctx.registry),
+    );
   },
 });

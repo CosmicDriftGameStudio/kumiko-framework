@@ -78,4 +78,5 @@ export type {
 } from "./run-worker-app.ts";
 export { runWorkerApp } from "./run-worker-app.ts";
 export type { CspExtension, CspOption, SecurityHeadersOption } from "./security-headers.ts";
+export { buildDefaultCsp } from "./security-headers.ts";
 export { makeSeedCreateFileRef, type SeedCreateFileRef } from "./seed-dispatcher.ts";

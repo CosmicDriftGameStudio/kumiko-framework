@@ -27,6 +27,8 @@ const devDispatch = toDevHostDispatch(dispatch, {
   staticDir: "dist/static",
 });
 
+const deps = { systemQuery, cspScriptHashes: [] };
+
 function devRequest(host: string, path: string): Request {
   return new Request(`http://localhost:3000${path}`, { headers: { host } });
 }
@@ -34,34 +36,36 @@ function devRequest(host: string, path: string): Request {
 describe("toDevHostDispatch", () => {
   test("prod gets the per-surface CSP that dev drops", async () => {
     expect(
-      await prodHostDispatch({ host: "acme.example.test", path: "/", search: "" }, { systemQuery }),
+      await prodHostDispatch({ host: "acme.example.test", path: "/", search: "" }, deps),
     ).toEqual({ kind: "html", file: "tenant.html", csp: "default-src 'self'" });
   });
 
   test("a mapped prod file becomes the dev client entry", async () => {
-    expect(await devDispatch(devRequest("acme.example.test:3000", "/"), { systemQuery })).toEqual({
+    expect(await devDispatch(devRequest("acme.example.test:3000", "/"), deps)).toEqual({
       kind: "html",
       entryName: "tenant",
     });
   });
 
   test("an unmapped prod file is served verbatim from staticDir", async () => {
-    expect(await devDispatch(devRequest("example.test", "/"), { systemQuery })).toEqual({
+    expect(await devDispatch(devRequest("example.test", "/"), deps)).toEqual({
       kind: "static-html",
       file: "dist/static/index.html",
     });
   });
 
   test("an unknown tenant keeps the 404 page", async () => {
-    expect(await devDispatch(devRequest("nope.example.test", "/"), { systemQuery })).toEqual({
+    expect(await devDispatch(devRequest("nope.example.test", "/"), deps)).toEqual({
       kind: "not-found",
       file: "dist/static/unknown-tenant.html",
     });
   });
 
   test("redirects pass through with the query string", async () => {
-    expect(
-      await devDispatch(devRequest("example.test", "/de/pricing?ref=x"), { systemQuery }),
-    ).toEqual({ kind: "redirect", to: "/pricing?ref=x", status: 301 });
+    expect(await devDispatch(devRequest("example.test", "/de/pricing?ref=x"), deps)).toEqual({
+      kind: "redirect",
+      to: "/pricing?ref=x",
+      status: 301,
+    });
   });
 });

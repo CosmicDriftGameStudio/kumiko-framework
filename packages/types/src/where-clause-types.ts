@@ -15,6 +15,8 @@ export type WhereOperator = {
   readonly lte?: unknown;
   readonly ne?: unknown;
   readonly in?: readonly unknown[];
+  /** Not for jsonb columns; an empty list matches every row. */
+  readonly notIn?: readonly unknown[];
   readonly like?: string;
   /** jsonb columns only; cannot be combined with other operators in the same object. */
   readonly jsonText?: JsonTextMatch | readonly JsonTextMatch[];

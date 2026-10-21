@@ -287,7 +287,17 @@ export type {
   WhereValue,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 
-const WHERE_OPERATOR_KEYS = ["gt", "gte", "lt", "lte", "ne", "in", "like", "jsonText"] as const;
+const WHERE_OPERATOR_KEYS = [
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "ne",
+  "in",
+  "notIn",
+  "like",
+  "jsonText",
+] as const;
 // Forces a tsc error here (not just a silent runtime miss) the moment
 // WhereOperator in @cosmicdrift/kumiko-types gains a key this array doesn't
 // know about — the two live in different packages and can't share a value
@@ -853,6 +863,23 @@ function buildWhereClause(
           }
           conditions.push(`${ref(col)} IN (${parts.join(", ")})`);
         }
+      }
+      const notInVal: unknown = value.notIn;
+      if (Array.isArray(notInVal)) {
+        if (pgType === "jsonb") {
+          throw new Error(`where: notIn is not supported on jsonb column "${col}"`);
+        }
+        const parts: string[] = [];
+        for (const v of notInVal) {
+          const p = prepareValue(v, pgType);
+          if (p.kind === "literal") {
+            parts.push(p.literal);
+          } else {
+            parts.push(`$${idx++}${p.sql}`);
+            values.push(p.bound);
+          }
+        }
+        conditions.push(parts.length === 0 ? "TRUE" : `${ref(col)} NOT IN (${parts.join(", ")})`);
       }
     } else if (pgType === "jsonb" && isJsonbScalar(value)) {
       conditions.push(jsonbContainsAny(col, [value]));

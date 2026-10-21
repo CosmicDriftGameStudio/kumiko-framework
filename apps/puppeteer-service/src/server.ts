@@ -22,16 +22,24 @@ function isAuthorized(authHeader: string | undefined, authToken: string): boolea
 type Metrics = {
   rendersTotal: { pdf: number; image: number };
   renderErrorsTotal: number;
+  renderRejectedBusyTotal: number;
   renderDurationMs: number[];
 };
 
-export function createApp(config: ServiceConfig): { app: Hono; metrics: Metrics } {
+export type AppDeps = { readonly render: typeof render };
+
+export function createApp(
+  config: ServiceConfig,
+  deps: AppDeps = { render },
+): { app: Hono; metrics: Metrics } {
   const metrics: Metrics = {
     rendersTotal: { pdf: 0, image: 0 },
     renderErrorsTotal: 0,
+    renderRejectedBusyTotal: 0,
     renderDurationMs: [],
   };
   const app = new Hono();
+  let rendersInFlight = 0;
 
   app.get("/healthz", (c) => c.text("ok"));
 
@@ -50,6 +58,9 @@ export function createApp(config: ServiceConfig): { app: Hono; metrics: Metrics 
         "# HELP puppeteer_render_errors_total Total render-Errors.",
         "# TYPE puppeteer_render_errors_total counter",
         `puppeteer_render_errors_total ${metrics.renderErrorsTotal}`,
+        "# HELP puppeteer_render_rejected_busy_total Renders refused with 503 because the concurrency limit was reached.",
+        "# TYPE puppeteer_render_rejected_busy_total counter",
+        `puppeteer_render_rejected_busy_total ${metrics.renderRejectedBusyTotal}`,
         "# HELP puppeteer_render_duration_ms_mean Mean render-duration in ms over last N calls.",
         "# TYPE puppeteer_render_duration_ms_mean gauge",
         `puppeteer_render_duration_ms_mean ${meanMs.toFixed(0)}`,
@@ -95,9 +106,15 @@ export function createApp(config: ServiceConfig): { app: Hono; metrics: Metrics 
       );
     }
 
+    if (rendersInFlight >= config.maxConcurrentRenders) {
+      metrics.renderRejectedBusyTotal += 1;
+      return c.json({ error: "busy" }, 503, { "Retry-After": "1" });
+    }
+    rendersInFlight += 1;
+
     const t0 = performance.now();
     try {
-      const result = await render(body, {
+      const result = await deps.render(body, {
         timeoutMs: config.renderTimeoutMs,
         executablePath: config.puppeteerExecutablePath,
       });
@@ -124,6 +141,8 @@ export function createApp(config: ServiceConfig): { app: Hono; metrics: Metrics 
       // localization or lib updates.
       const status = e instanceof TimeoutError ? 504 : 500;
       return c.json({ error: "render_failed", details: message }, status);
+    } finally {
+      rendersInFlight -= 1;
     }
   });
 

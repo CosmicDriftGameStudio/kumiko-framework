@@ -17,6 +17,7 @@ const CONFIG: ServiceConfig = {
   authToken: "integration-test-token-0123456789abcdef0123",
   renderTimeoutMs: 15_000,
   maxHtmlBytes: 100_000,
+  maxConcurrentRenders: 4,
   puppeteerExecutablePath: undefined,
 };
 

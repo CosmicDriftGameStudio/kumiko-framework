@@ -6,10 +6,11 @@
 import { mock } from "bun:test";
 import {
   createStaticLocaleResolver,
+  DispatcherProvider,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import type { LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, LocaleResolver } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -66,14 +67,20 @@ export function renderWithProviders(
   options: {
     readonly resolver?: LocaleResolver;
     readonly session?: SessionApi;
+    readonly dispatcher?: Dispatcher;
   } = {},
 ): RenderResult & { readonly session: SessionApi } {
   const resolver = options.resolver ?? sharedEnResolver;
   const session = options.session ?? makeSessionApi();
+  const tree = <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>;
   const result = _render(
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
-        <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>
+        {options.dispatcher ? (
+          <DispatcherProvider dispatcher={options.dispatcher}>{tree}</DispatcherProvider>
+        ) : (
+          tree
+        )}
       </LocaleProvider>
     </PrimitivesProvider>,
   );

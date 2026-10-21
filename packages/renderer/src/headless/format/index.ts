@@ -80,10 +80,17 @@ function formatDateCell(
 // No `locale` fallback to a browser API here (headless has none) — passing
 // `undefined` to Intl.NumberFormat resolves the runtime's default locale,
 // the same value a browser's navigator.language-based guess would produce.
-function formatNumberCell(value: unknown, locale?: string, grouping = true): string {
+function formatNumberCell(
+  value: unknown,
+  locale?: string,
+  grouping = true,
+  fractionDigits: FractionDigitsSpec = {},
+): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
   try {
-    return new Intl.NumberFormat(locale, { useGrouping: grouping }).format(value);
+    return new Intl.NumberFormat(locale, { useGrouping: grouping, ...fractionDigits }).format(
+      value,
+    );
   } catch {
     // Malformed BCP-47 locale tag — mirrors formatDateCell's fallback above.
     return String(value);
@@ -180,6 +187,32 @@ function stringSpec(spec: Record<string, unknown>, key: string): string | undefi
   return typeof v === "string" ? v : undefined;
 }
 
+type FractionDigitsSpec = {
+  readonly minimumFractionDigits?: number;
+  readonly maximumFractionDigits?: number;
+};
+
+const MAX_FRACTION_DIGITS = 20;
+
+function fractionDigitSpec(spec: Record<string, unknown>, key: string): number | undefined {
+  const v = spec[key];
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= MAX_FRACTION_DIGITS
+    ? v
+    : undefined;
+}
+
+// Out-of-range or inverted options fall back to the Intl default instead of
+// throwing: a bad schema option must not crash the screen it renders in.
+function fractionDigitsSpec(spec: Record<string, unknown>): FractionDigitsSpec {
+  const min = fractionDigitSpec(spec, "minimumFractionDigits");
+  const max = fractionDigitSpec(spec, "maximumFractionDigits");
+  if (min !== undefined && max !== undefined && min > max) return {};
+  return {
+    ...(min !== undefined && { minimumFractionDigits: min }),
+    ...(max !== undefined && { maximumFractionDigits: max }),
+  };
+}
+
 function booleanSpec(spec: Record<string, unknown>, key: string): boolean | undefined {
   const v = spec[key];
   return typeof v === "boolean" ? v : undefined;
@@ -238,6 +271,7 @@ export function applyFormatSpec(
         value,
         stringSpec(spec, "locale"),
         booleanSpec(spec, "grouping") ?? true,
+        spec.format === "bigInt" ? {} : fractionDigitsSpec(spec),
       );
     case "unit":
       return formatUnitCell(

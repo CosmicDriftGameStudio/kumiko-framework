@@ -12,6 +12,9 @@ import {
   SessionHandlers,
   SessionQueries,
 } from "./constants.ts";
+import { SESSION_DEVICE_CELL_COMPONENT } from "./web/constants.ts";
+
+const DEVICE_RENDERER = { react: { __component: SESSION_DEVICE_CELL_COMPONENT } } as const;
 
 export const createSessionListScreen = (
   adminRoles: readonly string[] = access.admin,
@@ -36,6 +39,11 @@ export const createSessionListScreen = (
       refLabelField: "displayName",
     },
     {
+      field: "device",
+      label: i18nKey("sessions.list.col.device"),
+      renderer: DEVICE_RENDERER,
+    },
+    {
       field: "createdAt",
       label: i18nKey("sessions.list.col.createdAt"),
       renderer: { format: "timestamp" },
@@ -43,6 +51,7 @@ export const createSessionListScreen = (
     {
       field: "expiresAt",
       label: i18nKey("sessions.list.col.expiresAt"),
+      hideOnNarrow: true,
       renderer: { format: "timestamp" },
     },
     {
@@ -85,6 +94,7 @@ export const createSessionDetailScreen = (
           { field: "createdAt", renderer: { format: "timestamp" } },
           { field: "expiresAt", renderer: { format: "timestamp" } },
           { field: "revokedAt", renderer: { format: "timestamp" } },
+          { field: "device", renderer: DEVICE_RENDERER },
           "ip",
           "userAgent",
         ],
@@ -97,6 +107,7 @@ export const createSessionDetailScreen = (
     createdAt: i18nKey("sessions.detail.field.createdAt"),
     expiresAt: i18nKey("sessions.detail.field.expiresAt"),
     revokedAt: i18nKey("sessions.detail.field.revokedAt"),
+    device: i18nKey("sessions.list.col.device"),
     ip: i18nKey("sessions.detail.field.ip"),
     userAgent: i18nKey("sessions.detail.field.userAgent"),
   },
@@ -109,6 +120,17 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
   type: "projectionList",
   query: SessionQueries.mine,
   columns: [
+    { field: "device", label: i18nKey("sessions.mine.col.userAgent"), renderer: DEVICE_RENDERER },
+    { field: "ip", label: i18nKey("sessions.mine.col.ip") },
+    {
+      field: "current",
+      label: i18nKey("sessions.mine.col.current"),
+      renderer: {
+        format: "boolean",
+        trueLabel: i18nKey("sessions.mine.current.yes"),
+        falseLabel: i18nKey("sessions.mine.current.no"),
+      },
+    },
     {
       field: "createdAt",
       label: i18nKey("sessions.list.col.createdAt"),
@@ -117,15 +139,8 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
     {
       field: "expiresAt",
       label: i18nKey("sessions.list.col.expiresAt"),
-      renderer: { format: "timestamp" },
-    },
-    { field: "ip", label: i18nKey("sessions.mine.col.ip") },
-    { field: "userAgent", label: i18nKey("sessions.mine.col.userAgent") },
-    {
-      field: "current",
-      label: i18nKey("sessions.mine.col.current"),
       hideOnNarrow: true,
-      renderer: { format: "boolean" },
+      renderer: { format: "timestamp" },
     },
   ],
   rowActions: [

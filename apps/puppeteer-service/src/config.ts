@@ -6,6 +6,9 @@
 //   - growth  (default): RENDER_TIMEOUT_MS=30000   MAX_HTML_BYTES=2_000_000
 //   - scale   (loose):   RENDER_TIMEOUT_MS=60000   MAX_HTML_BYTES=10_000_000
 //
+// MAX_CONCURRENT_RENDERS (default 4) caps in-flight renders per pod; beyond it
+// /render answers 503 busy and the client retries. Size it to the pod memory limit.
+//
 // Memory limit is set via K8s resources.limits.memory, not here — the
 // service itself has no memory-cap mechanism (puppeteer crash on OOM is
 // intended behavior, K8s restart-policy catches it).
@@ -15,6 +18,7 @@ export type ServiceConfig = {
   readonly authToken: string;
   readonly renderTimeoutMs: number;
   readonly maxHtmlBytes: number;
+  readonly maxConcurrentRenders: number;
   readonly puppeteerExecutablePath: string | undefined;
 };
 
@@ -30,6 +34,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
     authToken,
     renderTimeoutMs: parseIntEnv(env["RENDER_TIMEOUT_MS"], 30_000),
     maxHtmlBytes: parseIntEnv(env["MAX_HTML_BYTES"], 2_000_000),
+    maxConcurrentRenders: parseIntEnv(env["MAX_CONCURRENT_RENDERS"], 4),
     puppeteerExecutablePath: env["PUPPETEER_EXECUTABLE_PATH"],
   };
 }

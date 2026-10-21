@@ -10,6 +10,7 @@ import type {
   FieldCondition,
   FormDerivationScreen,
   ParsedRefTarget,
+  RowAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   availableSelectOptions,
@@ -139,6 +140,18 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
     }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
   };
+}
+
+// A section whose only content is an action (a conditional field plus a delete button) stays on the screen.
+function hasVisibleContent(
+  fields: readonly EditFieldViewModel[],
+  actions: readonly RowAction[] | undefined,
+  values: Readonly<Record<string, unknown>>,
+): boolean {
+  if (fields.some((field) => field.visible)) return true;
+  return (actions ?? []).some(
+    (action) => action.visible === undefined || evalFieldCondition(action.visible, values),
+  );
 }
 
 function wasEmptiedByWriteExclusion(
@@ -828,7 +841,7 @@ export function computeEditViewModel<
       });
     // The boot-validator rejects declared-empty sections (screens.ts), but a
     // create-excluded field list can still empty one here: then `visible` is false.
-    const visible = fields.some((field) => field.visible);
+    const visible = hasVisibleContent(fields, sectionSpec.actions, values);
     // Tabs mode renders this section as its own panel, where two columns reads
     // better than the single-column default a stacked form keeps. Applies to
     // entityEdit tabs as well since fw#3134, not just projectionDetail.

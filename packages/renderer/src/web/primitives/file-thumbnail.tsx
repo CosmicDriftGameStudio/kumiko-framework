@@ -56,6 +56,8 @@ function ThumbnailChain({
     <img
       src={src}
       alt=""
+      loading="lazy"
+      decoding="async"
       data-testid={testId}
       onError={() => setFailedCount((n) => n + 1)}
       className={cn("bg-muted rounded-md border object-contain", className)}
@@ -95,6 +97,71 @@ function parseFileMeta(value: unknown): FileMeta | null {
   return { fileName: value.fileName, mimeType };
 }
 
+const META_BATCH_SIZE = 100;
+const META_CACHE_LIMIT = 500;
+
+const metaCache = new Map<string, Promise<FileMeta | null>>();
+let pendingMetaIds = new Map<string, (meta: FileMeta | null) => void>();
+
+function parseBatchMeta(json: unknown): ReadonlyMap<string, FileMeta> {
+  const metaById = new Map<string, FileMeta>();
+  if (typeof json !== "object" || json === null || !("files" in json)) return metaById;
+  if (!Array.isArray(json.files)) return metaById;
+  for (const file of json.files) {
+    const meta = parseFileMeta(file);
+    if (meta !== null && typeof file === "object" && file !== null && "id" in file) {
+      if (typeof file.id === "string") metaById.set(file.id, meta);
+    }
+  }
+  return metaById;
+}
+
+async function fetchMetaBatch(
+  ids: readonly string[],
+  resolvers: ReadonlyMap<string, (meta: FileMeta | null) => void>,
+): Promise<void> {
+  let metaById: ReadonlyMap<string, FileMeta> | null = null;
+  try {
+    const res = await fetch(`/api/files/meta?ids=${ids.map(encodeURIComponent).join(",")}`);
+    if (res.ok) metaById = parseBatchMeta(await res.json());
+  } catch {
+    // skip: a failed lookup shows the fallback label, like a missing file
+  }
+  for (const id of ids) {
+    // A transport failure must not stick in the cache; an id the server left out is a final answer.
+    if (metaById === null) metaCache.delete(id);
+    resolvers.get(id)?.(metaById?.get(id) ?? null);
+  }
+}
+
+function flushPendingMetaIds(): void {
+  const batch = pendingMetaIds;
+  pendingMetaIds = new Map();
+  const ids = [...batch.keys()];
+  for (let start = 0; start < ids.length; start += META_BATCH_SIZE) {
+    void fetchMetaBatch(ids.slice(start, start + META_BATCH_SIZE), batch);
+  }
+}
+
+function loadFileMeta(fileId: string): Promise<FileMeta | null> {
+  const cached = metaCache.get(fileId);
+  if (cached) return cached;
+  const promise = new Promise<FileMeta | null>((resolve) => {
+    if (pendingMetaIds.size === 0) queueMicrotask(flushPendingMetaIds);
+    pendingMetaIds.set(fileId, resolve);
+  });
+  if (metaCache.size >= META_CACHE_LIMIT) {
+    // An id still waiting for its batch keeps its entry, or its promise would never settle.
+    for (const key of metaCache.keys()) {
+      if (pendingMetaIds.has(key)) continue;
+      metaCache.delete(key);
+      break;
+    }
+  }
+  metaCache.set(fileId, promise);
+  return promise;
+}
+
 export function useFileMeta(fileId: string): FileMeta | null {
   const [meta, setMeta] = useState<FileMeta | null>(null);
   const validId = isUuid(fileId);
@@ -102,12 +169,9 @@ export function useFileMeta(fileId: string): FileMeta | null {
     let cancelled = false;
     setMeta(null);
     if (!validId) return;
-    fetch(`${fileOriginalUrl(fileId)}/meta`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json: unknown) => {
-        if (!cancelled) setMeta(parseFileMeta(json));
-      })
-      .catch(() => {});
+    void loadFileMeta(fileId).then((loaded) => {
+      if (!cancelled) setMeta(loaded);
+    });
     return () => {
       cancelled = true;
     };

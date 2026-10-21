@@ -1,9 +1,12 @@
-import {
-  defineFeature,
-  type FeatureDefinition,
-  i18nKey,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { catalogQuery } from "./handlers/catalog.query.ts";
+import {
+  consumerDisableWrite,
+  consumerEnableWrite,
+  consumerRestartWrite,
+  consumerSkipWrite,
+} from "./handlers/consumer.write.ts";
+import { consumerDetailQuery, consumersQuery } from "./handlers/consumers.query.ts";
 import { detailQuery } from "./handlers/detail.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
 import {
@@ -24,14 +27,15 @@ import { tenantFailuresQuery } from "./handlers/tenant-failures.query.ts";
 import { tenantRunsQuery } from "./handlers/tenant-runs.query.ts";
 import { triggerWrite } from "./handlers/trigger.write.ts";
 import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.ts";
+import {
+  eventConsumerDetailScreen,
+  eventConsumersScreen,
+  jobRunDetailScreen,
+  jobRunsScreen,
+  jobTriggerScreen,
+} from "./screens.ts";
 import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.ts";
 import { tenantJobRunsTableMeta } from "./tenant-job-run-table.ts";
-import {
-  JOB_RUN_DETAIL_SCREEN_ID,
-  JOB_RUNS_SCREEN_ID,
-  JobHandlers,
-  JobQueries,
-} from "./web/constants.ts";
 import { JOBS_I18N } from "./web/i18n.ts";
 
 export type JobsFeatureOptions = {
@@ -124,6 +128,10 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     const handlers = {
       trigger: r.writeHandler(triggerWrite),
       retry: r.writeHandler(retryWrite),
+      consumerRestart: r.writeHandler(consumerRestartWrite),
+      consumerSkip: r.writeHandler(consumerSkipWrite),
+      consumerDisable: r.writeHandler(consumerDisableWrite),
+      consumerEnable: r.writeHandler(consumerEnableWrite),
     };
 
     const queries = {
@@ -132,132 +140,31 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       catalog: r.queryHandler(catalogQuery),
       failures: r.queryHandler(tenantFailuresQuery),
       tenantRuns: r.queryHandler(tenantRunsQuery),
+      consumers: r.queryHandler(consumersQuery),
+      consumerDetails: r.queryHandler(consumerDetailQuery),
     };
-
-    const systemAdminAccess = { roles: ["SystemAdmin"] as const };
 
     r.translations({ keys: JOBS_I18N });
 
-    r.screen({
-      id: JOB_RUNS_SCREEN_ID,
-      type: "projectionList",
-      query: JobQueries.list,
-      columns: [
-        { field: "jobName", label: i18nKey("jobs.runs.col.job") },
-        { field: "status", label: i18nKey("jobs.runs.col.status") },
-        {
-          field: "startedAt",
-          label: i18nKey("jobs.runs.col.started"),
-          renderer: { format: "timestamp" },
-        },
-        { field: "duration", label: i18nKey("jobs.runs.col.duration") },
-      ],
-      defaultSort: { field: "startedAt", dir: "desc" },
-      facets: [
-        {
-          field: "status",
-          type: "select",
-          label: i18nKey("jobs.runs.filter.status"),
-          options: [
-            { value: "queued", label: i18nKey("jobs.runs.filter.queued") },
-            { value: "running", label: i18nKey("jobs.runs.filter.running") },
-            { value: "completed", label: i18nKey("jobs.runs.filter.completed") },
-            { value: "failed", label: i18nKey("jobs.runs.filter.failed") },
-          ],
-        },
-      ],
-      rowActions: [
-        {
-          kind: "navigate",
-          id: "open",
-          label: i18nKey("jobs.runs.open"),
-          screen: JOB_RUN_DETAIL_SCREEN_ID,
-          entityId: "id",
-          rowClick: true,
-        },
-      ],
-      toolbarActions: [
-        {
-          kind: "drawer",
-          id: "trigger",
-          label: i18nKey("jobs.trigger.title"),
-          screen: "job-trigger",
-          style: "primary",
-        },
-      ],
-      pagination: "infinite",
-      access: systemAdminAccess,
-    });
-    r.screen({
-      id: "job-trigger",
-      type: "actionForm",
-      handler: JobHandlers.trigger,
-      fields: {
-        jobName: { type: "text", required: true },
-        payload: { type: "longText", multiline: true, default: "{}" },
-      },
-      layout: { sections: [{ fields: ["jobName", "payload"] }] },
-      submitLabel: i18nKey("jobs.trigger.submit"),
-      access: systemAdminAccess,
-      description: "jobs.screen.job-trigger.subtitle",
-    });
-    r.screen({
-      id: JOB_RUN_DETAIL_SCREEN_ID,
-      type: "projectionDetail",
-      query: JobQueries.details,
-      idParam: "runId",
-      fieldLabels: {
-        jobName: i18nKey("jobs.detail.field.job"),
-        status: i18nKey("jobs.detail.field.status"),
-        id: i18nKey("jobs.detail.field.id"),
-        startedAt: i18nKey("jobs.detail.field.started"),
-        finishedAt: i18nKey("jobs.detail.field.finished"),
-        duration: i18nKey("jobs.detail.field.duration"),
-        error: i18nKey("jobs.detail.field.error"),
-        logs: i18nKey("jobs.detail.logs"),
-      },
-      layout: {
-        sections: [
-          {
-            fields: [
-              "jobName",
-              "status",
-              "id",
-              { field: "startedAt", renderer: { format: "timestamp" } },
-              { field: "finishedAt", renderer: { format: "timestamp" } },
-              "duration",
-              "error",
-            ],
-          },
-          // No section `title` here (fw#2312 label-dedup fix): the section
-          // holds exactly one field, so a title would repeat the field's own
-          // label (rendered by RenderField as the Field's heading) verbatim.
-          {
-            fields: [{ field: "logs", renderer: { format: "json" } }],
-          },
-        ],
-      },
-      actions: [
-        {
-          kind: "writeHandler",
-          id: "retry",
-          label: i18nKey("jobs.detail.retry"),
-          handler: JobHandlers.retry,
-          payload: { map: { runId: "id" } },
-          visible: { field: "status", eq: "failed" },
-          style: "primary",
-        },
-      ],
-      description: "jobs.screen.job-run-detail.subtitle",
-      listScreenId: JOB_RUNS_SCREEN_ID,
-      access: systemAdminAccess,
-    });
+    r.screen(jobRunsScreen);
+    r.screen(jobTriggerScreen);
+    r.screen(jobRunDetailScreen);
     r.nav({
       id: "job-runs",
       label: "jobs:nav.jobRuns",
       icon: "list",
       screen: "jobs:screen:job-runs",
       order: 10,
+    });
+
+    r.screen(eventConsumersScreen);
+    r.screen(eventConsumerDetailScreen);
+    r.nav({
+      id: "event-consumers",
+      label: "jobs:nav.eventConsumers",
+      icon: "list",
+      screen: "jobs:screen:event-consumers",
+      order: 11,
     });
 
     return { handlers, queries };

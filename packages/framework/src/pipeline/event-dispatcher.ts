@@ -889,8 +889,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   };
 }
 
-export type { ConsumerProgress, ConsumerRecoveryState } from "./event-dispatcher-admin.ts";
+export type {
+  ConsumerProgress,
+  ConsumerRecoveryState,
+  ConsumerTransitionRejection,
+} from "./event-dispatcher-admin.ts";
 export {
+  ConsumerTransitionError,
   disableConsumer,
   enableConsumer,
   getAllConsumerProgress,

@@ -6,11 +6,12 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { servedVersionOf } from "../template-draft.ts";
 import { buildOverrideDiff } from "./override-diff.ts";
 import { kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
+import {
+  loadEnabledTenantIds,
+  pickBestRowPerTenant,
+  TENANT_OVERRIDES_REASON,
+} from "./tenant-override-selection.ts";
 
-const TENANT_OVERRIDES_REASON =
-  "SystemAdmin template overview lists which tenants override one system template; it reads tenant-scope template rows of every tenant (and the system row for the optional per-tenant diff), which the tenant-scoped db cannot reach";
-
-const tenantIdsSchema = z.array(z.string());
 const directorySchema = z.object({
   rows: z.array(z.object({ id: z.string(), label: z.string() })),
 });
@@ -21,37 +22,8 @@ function labelsOf(raw: unknown): ReadonlyMap<string, string> {
   return new Map(directorySchema.parse(raw).rows.map((row) => [row.id, row.label]));
 }
 
-// One row per tenant: its active override wins over a draft, then the newest version.
-function isBetterRow(candidate: TemplateResourceRow, current: TemplateResourceRow): boolean {
-  if ((candidate.status === "active") !== (current.status === "active")) {
-    return candidate.status === "active";
-  }
-  return candidate.version > current.version;
-}
-
 function statusOf(row: TemplateResourceRow): OverrideStatus {
   return row.status === "active" ? "active" : "draft";
-}
-
-function isCountedTenantRow(
-  row: TemplateResourceRow,
-  enabledTenantIds: ReadonlySet<string> | null,
-): boolean {
-  if (row.tenantId === SYSTEM_TENANT_ID || row.status === "archived") return false;
-  return enabledTenantIds === null || enabledTenantIds.has(row.tenantId);
-}
-
-function pickBestRowPerTenant(
-  found: readonly TemplateResourceRow[],
-  enabledTenantIds: ReadonlySet<string> | null,
-): Map<string, TemplateResourceRow> {
-  const bestByTenant = new Map<string, TemplateResourceRow>();
-  for (const row of found) {
-    if (!isCountedTenantRow(row, enabledTenantIds)) continue;
-    const current = bestByTenant.get(row.tenantId);
-    if (current === undefined || isBetterRow(row, current)) bestByTenant.set(row.tenantId, row);
-  }
-  return bestByTenant;
 }
 
 function toOverrideRow(
@@ -95,11 +67,8 @@ export const tenantOverridesQuery = defineQueryHandler({
       ...(locale === undefined ? {} : { locale }),
     });
 
-    const hasTenantFeature =
-      ctx.registry.getQueryHandler(TenantQueries.activeTenantIds) !== undefined;
-    const enabledTenantIds = hasTenantFeature
-      ? new Set(tenantIdsSchema.parse(await ctx.query(TenantQueries.activeTenantIds, {})))
-      : null;
+    const enabledTenantIds = await loadEnabledTenantIds(ctx);
+    const hasTenantFeature = enabledTenantIds !== null;
 
     const bestByTenant = pickBestRowPerTenant(found, enabledTenantIds);
     const best = [...bestByTenant.values()];

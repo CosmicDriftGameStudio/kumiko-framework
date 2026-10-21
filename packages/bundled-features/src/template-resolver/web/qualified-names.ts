@@ -29,6 +29,7 @@ export const TemplateResolverQueries = {
   overview: "template-resolver:query:overview",
   layoutSource: "template-resolver:query:layout-source",
   tenantOverrides: "template-resolver:query:tenant-overrides",
+  tenantOverrideCounts: "template-resolver:query:tenant-override-counts",
   diffToSystem: "template-resolver:query:diff-to-system",
   validate: "template-resolver:query:validate",
   preview: "template-resolver:query:preview",

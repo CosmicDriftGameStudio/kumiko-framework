@@ -3,10 +3,15 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { buildProdBundle, collectBuildScriptHashes } from "../build-prod-bundle.ts";
 import { CSP_HASHES_FILE, inlineScriptHashes, parseCspHashes } from "../csp-hashes.ts";
-import { resolveCspScriptHashes } from "../run-prod-app-static-files.ts";
-import { withSecurityHeaders } from "../security-headers.ts";
+import {
+  buildStaticFallback,
+  resolveCspScriptHashes,
+  resolveHostDispatchScriptHashes,
+} from "../run-prod-app-static-files.ts";
+import { buildDefaultCsp, withSecurityHeaders } from "../security-headers.ts";
 
 const sha256Of = (content: string): string =>
   `sha256-${createHash("sha256").update(content, "utf8").digest("base64")}`;
@@ -129,5 +134,44 @@ describe("build output to CSP header", () => {
     )(new Request("http://localhost/"));
     const csp = res.headers.get("content-security-policy") ?? "";
     for (const hash of expected) expect(csp).toContain(`'${hash}'`);
+  });
+});
+
+describe("hostDispatch csp hashes", () => {
+  let dir = "";
+  const hash = `sha256-${"A".repeat(43)}=`;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "kumiko-csp-hostdispatch-"));
+    await writeFile(join(dir, CSP_HASHES_FILE), JSON.stringify({ scriptSrc: [hash] }));
+    await writeFile(join(dir, "tenant.html"), "<!doctype html><html><body>ok</body></html>");
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  test("reads the build hashes even when securityHeaders.csp is a custom string", async () => {
+    expect(await resolveHostDispatchScriptHashes(dir, { csp: "default-src 'self'" }, [])).toEqual([
+      hash,
+    ]);
+    expect(await resolveHostDispatchScriptHashes(dir, undefined, [hash])).toEqual([hash]);
+  });
+
+  test("a per-host csp built from deps.cspScriptHashes carries the sha256 source", async () => {
+    const hashes = await resolveHostDispatchScriptHashes(dir, { csp: false }, []);
+    const handler = buildStaticFallback(
+      () => new Response("404", { status: 404, headers: { [NO_ROUTE_MATCH_HEADER_NAME]: "1" } }),
+      dir,
+      (_req, deps) => ({
+        kind: "html",
+        file: "tenant.html",
+        csp: buildDefaultCsp(deps.cspScriptHashes),
+      }),
+      undefined,
+      undefined,
+      0,
+      hashes,
+    );
+    const res = await handler(new Request("http://t/", { headers: { host: "a.example" } }));
+    expect(res.headers.get("content-security-policy")).toContain(`'${hash}'`);
   });
 });

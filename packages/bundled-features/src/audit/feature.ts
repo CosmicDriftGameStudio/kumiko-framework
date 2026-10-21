@@ -17,6 +17,7 @@ import {
   AUDIT_LOG_COLUMNS,
   AUDIT_LOG_DATE_RANGE_FACET,
   AUDIT_LOG_DETAIL_FIELD_LABELS,
+  AUDIT_LOG_TECHNICAL_FACET,
   AUDIT_LOG_TENANT_FACET,
   auditLogDetailLayout,
 } from "./screens.ts";
@@ -111,7 +112,7 @@ export function createAuditFeature(): FeatureDefinition {
         columns: AUDIT_LOG_COLUMNS,
         searchable: true,
         defaultSort: { field: "createdAt", dir: "desc" },
-        facets: [AUDIT_LOG_DATE_RANGE_FACET],
+        facets: [AUDIT_LOG_DATE_RANGE_FACET, AUDIT_LOG_TECHNICAL_FACET],
         rowActions: [
           {
             kind: "navigate",
@@ -143,7 +144,7 @@ export function createAuditFeature(): FeatureDefinition {
         query: AuditQueries.listAllTenants,
         columns: AUDIT_LOG_ALL_TENANTS_COLUMNS,
         defaultSort: { field: "createdAt", dir: "desc" },
-        facets: [AUDIT_LOG_DATE_RANGE_FACET, AUDIT_LOG_TENANT_FACET],
+        facets: [AUDIT_LOG_DATE_RANGE_FACET, AUDIT_LOG_TENANT_FACET, AUDIT_LOG_TECHNICAL_FACET],
         rowActions: [
           {
             kind: "navigate",

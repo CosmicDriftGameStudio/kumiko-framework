@@ -6,10 +6,17 @@
 // REDACTED_PII_PLACEHOLDER before returning (payload and metadata), since the API leak guard refuses ciphertext.
 
 import { selectMany, type TenantDb, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
+import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { redactPiiCiphertext } from "../../shared/index.ts";
+import { eventLabelKeyOf, TECHNICAL_EVENT_TYPES } from "../event-classification.ts";
+import {
+  AUDIT_EVENT_ACTIONS,
+  type AuditEventAction,
+  INCLUDE_TECHNICAL_FILTER,
+} from "../web/constants.ts";
 
 const MAX_LIMIT = 100;
 
@@ -30,6 +37,21 @@ export const auditListPayloadShape = {
   from: z.iso.datetime().optional(),
   to: z.iso.datetime().optional(),
 } as const;
+
+// The technical-entries facet rides on the `type` column (facets need a declared column).
+export const technicalEntriesFilterSchema = z.strictObject({
+  field: z.literal("type"),
+  op: z.literal("in"),
+  value: z.array(z.literal(INCLUDE_TECHNICAL_FILTER)).max(1),
+});
+
+export function includesTechnicalEntries(
+  filters: readonly { readonly field: string; readonly value: readonly unknown[] }[] | undefined,
+): boolean {
+  return (
+    filters?.some((f) => f.field === "type" && f.value.includes(INCLUDE_TECHNICAL_FILTER)) ?? false
+  );
+}
 
 export const auditEventIdSchema = z
   .string()
@@ -69,6 +91,7 @@ export type AuditListFilters = {
   to?: string | undefined;
   cursor?: string | undefined;
   before?: string | undefined;
+  includeTechnical?: boolean | undefined;
 };
 
 /** `tenantCondition` is a tenant id, or an operator object for reads across tenants. */
@@ -81,7 +104,12 @@ export function buildAuditWhere(
   if (p.aggregateType) where["aggregateType"] = p.aggregateType;
   if (p.aggregateId) where["aggregateId"] = p.aggregateId;
   if (p.eventType) where["type"] = p.eventType;
-  else if (p.search) where["type"] = { like: `%${escapeLikePattern(p.search)}%` };
+  else if (p.search || !p.includeTechnical) {
+    where["type"] = {
+      ...(p.search && { like: `%${escapeLikePattern(p.search)}%` }),
+      ...(!p.includeTechnical && { notIn: TECHNICAL_EVENT_TYPES }),
+    };
+  }
   if (p.userId) where["createdBy"] = p.userId;
   const range = buildDateRange(p.from, p.to);
   if (range) where["createdAt"] = range;
@@ -105,7 +133,29 @@ type AuditEventRow = {
   createdBy: string;
 };
 
-export function serializeAuditEvent(r: AuditEventRow) {
+function eventActionOf(type: string): AuditEventAction | null {
+  const suffix = type.slice(type.lastIndexOf(".") + 1);
+  return type.includes(".") ? (AUDIT_EVENT_ACTIONS.find((a) => a === suffix) ?? null) : null;
+}
+
+// Entity events carry the entity name as aggregateType; the noun key is the
+// renderer's own `<feature>:entity:<entity>:noun` convention.
+export type EntityNounKeyResolver = (aggregateType: string) => string | null;
+
+export function createEntityNounKeyResolver(registry: Registry | undefined): EntityNounKeyResolver {
+  const featureByEntity = new Map<string, string>();
+  for (const [featureName, feature] of registry?.features ?? []) {
+    for (const entityName of Object.keys(feature.entities ?? {})) {
+      featureByEntity.set(entityName, featureName);
+    }
+  }
+  return (aggregateType) => {
+    const featureName = featureByEntity.get(aggregateType);
+    return featureName === undefined ? null : `${featureName}:entity:${aggregateType}:noun`;
+  };
+}
+
+export function serializeAuditEvent(r: AuditEventRow, nounKeyOf: EntityNounKeyResolver) {
   return {
     id: String(r.id),
     tenantId: r.tenantId,
@@ -113,6 +163,9 @@ export function serializeAuditEvent(r: AuditEventRow) {
     aggregateType: r.aggregateType,
     version: r.version,
     type: r.type,
+    eventAction: eventActionOf(r.type),
+    eventLabelKey: eventLabelKeyOf(r.type),
+    entityNounKey: nounKeyOf(r.aggregateType),
     payload: redactPiiCiphertext(r.payload),
     metadata: redactPiiCiphertext(r.metadata),
     createdAt: r.createdAt,
@@ -120,10 +173,14 @@ export function serializeAuditEvent(r: AuditEventRow) {
   };
 }
 
-export async function loadAuditEvent(db: TenantDb, where: WhereObject) {
+export async function loadAuditEvent(
+  db: TenantDb,
+  where: WhereObject,
+  nounKeyOf: EntityNounKeyResolver,
+) {
   const rows = await selectMany<AuditEventRow>(db, eventsTable, where, { limit: 1 });
   const row = rows[0];
-  return row === undefined ? null : serializeAuditEvent(row);
+  return row === undefined ? null : serializeAuditEvent(row, nounKeyOf);
 }
 
 export async function listAuditEvents(
@@ -131,6 +188,7 @@ export async function listAuditEvents(
   where: WhereObject,
   p: { limit: number; sort?: "createdAt" | "type" | undefined },
   direction: "asc" | "desc",
+  nounKeyOf: EntityNounKeyResolver,
 ) {
   const rows = await selectMany<AuditEventRow>(db, eventsTable, where, {
     // The id cursor only resumes an id-ordered listing. created_at comes from the
@@ -145,7 +203,7 @@ export async function listAuditEvents(
         : [{ col: "id", direction }],
     limit: p.limit,
   });
-  const serialised = rows.map(serializeAuditEvent);
+  const serialised = rows.map((row) => serializeAuditEvent(row, nounKeyOf));
   const last = serialised[serialised.length - 1];
   // An id cursor cannot resume a type-ordered listing, so that sort is one page.
   const nextId = serialised.length === p.limit && last && p.sort !== "type" ? last.id : null;

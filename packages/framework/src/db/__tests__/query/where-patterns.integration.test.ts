@@ -2,7 +2,7 @@
 //   - primitive equality: string, number, boolean, uuid
 //   - null → IS NULL
 //   - bare array → IN (shortcut)
-//   - WhereOperator: { in: [...] }, { ne: x }, { gt/gte/lt/lte }, { like: str }
+//   - WhereOperator: { in: [...] }, { notIn: [...] }, { ne: x }, { gt/gte/lt/lte }, { like: str }
 //   - multi-field AND
 //
 // JSONB top-level equality is covered (JSON.stringify + ::jsonb cast in prepareValue).
@@ -101,6 +101,21 @@ describe("where — WhereOperator", () => {
       ]);
       const rows = await selectMany(db, meta, { label: { in: ["a", "c"] } });
       expect(rows.length).toBe(2);
+    });
+  });
+
+  test("{ notIn: [...] } → NOT IN, empty list excludes nothing", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "a", score: 1 },
+        { label: "b", score: 2 },
+        { label: "c", score: 3 },
+      ]);
+      const labelsOf = async (where: Record<string, unknown>) =>
+        (await selectMany<{ label: string }>(db, meta, where)).map((r) => r.label).sort();
+
+      expect(await labelsOf({ label: { notIn: ["a", "c"] } })).toEqual(["b"]);
+      expect(await labelsOf({ label: { notIn: [] } })).toEqual(["a", "b", "c"]);
     });
   });
 

@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-
 import { LoginScreen } from "../login-screen.tsx";
 import type { SessionApi } from "../session.tsx";
 import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
@@ -290,6 +290,70 @@ describe("LoginScreen", () => {
     expect(screen.getByRole("link", { name: /Unlock account/i }).getAttribute("href")).toBe(
       "/unlock",
     );
+  });
+
+  function loginOptionsDispatcher(data: { passwordReset: boolean; accountUnlock: boolean }) {
+    return {
+      query: async () => ({ isSuccess: true, data }),
+    } as unknown as Dispatcher;
+  }
+
+  test("login-options true → forgot link and, after a lockout, unlock link at the default paths", async () => {
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "failure",
+        error: { reason: "account_locked" },
+      })),
+    });
+    renderWithProviders(<LoginScreen />, {
+      session,
+      dispatcher: loginOptionsDispatcher({ passwordReset: true, accountUnlock: true }),
+    });
+    const forgot = await screen.findByRole("link", { name: /Forgot password/i });
+    expect(forgot.getAttribute("href")).toBe("/forgot-password");
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    const unlock = await screen.findByRole("link", { name: /Unlock account/i });
+    expect(unlock.getAttribute("href")).toBe("/unlock-account");
+  });
+
+  test("login-options false → neither link", async () => {
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "failure",
+        error: { reason: "account_locked" },
+      })),
+    });
+    renderWithProviders(<LoginScreen />, {
+      session,
+      dispatcher: loginOptionsDispatcher({ passwordReset: false, accountUnlock: false }),
+    });
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("temporarily locked");
+    });
+    expect(screen.queryByRole("link", { name: /Forgot password/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Unlock account/i })).toBeNull();
+  });
+
+  test("explicit hrefs win over login-options, null suppresses the link", async () => {
+    renderWithProviders(<LoginScreen forgotPasswordHref="/pw" unlockAccountHref={null} />, {
+      dispatcher: loginOptionsDispatcher({ passwordReset: true, accountUnlock: true }),
+    });
+    expect(screen.getByRole("link", { name: /Forgot password/i }).getAttribute("href")).toBe("/pw");
+    renderWithProviders(<LoginScreen forgotPasswordHref={null} />, {
+      dispatcher: loginOptionsDispatcher({ passwordReset: true, accountUnlock: true }),
+    });
+    await waitFor(() => {
+      expect(screen.getAllByRole("link", { name: /Forgot password/i })).toHaveLength(1);
+    });
   });
 
   test("reasonToKey covers no_membership, rate_limited, invalid_body, default", async () => {

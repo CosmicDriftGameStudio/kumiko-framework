@@ -4,6 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ServiceConfig } from "../config";
+import type { RenderResult } from "../render";
 import { createApp } from "../server";
 
 const CONFIG: ServiceConfig = {
@@ -11,6 +12,7 @@ const CONFIG: ServiceConfig = {
   authToken: "test-token-0123456789abcdef0123456789",
   renderTimeoutMs: 5000,
   maxHtmlBytes: 100_000,
+  maxConcurrentRenders: 4,
   puppeteerExecutablePath: undefined,
 };
 
@@ -134,5 +136,59 @@ describe("POST /render — Validation", () => {
       }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /render — concurrency limit", () => {
+  const PDF_RESULT: RenderResult = { bytes: new Uint8Array([1]), contentType: "application/pdf" };
+
+  function postRender(app: ReturnType<typeof createApp>["app"]): Promise<Response> {
+    return Promise.resolve(
+      app.request("/render", {
+        method: "POST",
+        headers: { ...makeAuthHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "document-pdf", html: "<p>x</p>" }),
+      }),
+    );
+  }
+
+  test("refuses renders beyond the limit with 503 + Retry-After and recovers after release", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let enteredRenders = 0;
+    let bothEntered: () => void = () => {};
+    const entered = new Promise<void>((resolve) => {
+      bothEntered = resolve;
+    });
+    const { app, metrics } = createApp(
+      { ...CONFIG, maxConcurrentRenders: 2 },
+      {
+        render: async () => {
+          enteredRenders += 1;
+          if (enteredRenders === 2) bothEntered();
+          await gate;
+          return PDF_RESULT;
+        },
+      },
+    );
+
+    const first = postRender(app);
+    const second = postRender(app);
+    await entered;
+    const third = await postRender(app);
+    expect(third.status).toBe(503);
+    expect(third.headers.get("Retry-After")).toBe("1");
+    expect(await third.json()).toEqual({ error: "busy" });
+    expect(metrics.renderRejectedBusyTotal).toBe(1);
+
+    release();
+    expect((await first).status).toBe(200);
+    expect((await second).status).toBe(200);
+    expect((await postRender(app)).status).toBe(200);
+    expect(await (await app.request("/metrics")).text()).toContain(
+      "puppeteer_render_rejected_busy_total 1",
+    );
   });
 });

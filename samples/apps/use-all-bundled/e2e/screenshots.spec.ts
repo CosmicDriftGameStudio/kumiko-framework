@@ -5,6 +5,9 @@
 // Switcher 1:1). Locale ist en — die Docs sind englisch; der Switcher schaltet
 // nur Theme + Viewport. Der Szenario-Name = der Feature-Name in den Docs.
 
+import { readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import { PDF_TEMPLATE_EDITOR_SCREEN_ID } from "@cosmicdrift/kumiko-document-designer";
@@ -16,8 +19,14 @@ import {
   type Scenario,
   type ScenarioFixtures,
 } from "@cosmicdrift/kumiko-testing/e2e";
-import type { Page } from "@playwright/test";
-import { DEMO_NOTE_ID, INVOICE_TEMPLATE_SLUG } from "../src/app/auth-constants";
+import { expect, type Page, request } from "@playwright/test";
+import { E2E_PORTS } from "../../../e2e/e2e-ports";
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  DEMO_NOTE_ID,
+  INVOICE_TEMPLATE_SLUG,
+} from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
 const THEMES = ["default-light", "default-dark"] as const;
@@ -51,6 +60,56 @@ const auditLogDetailFlow = () => async (page: Page) => {
   await table.getByRole("row").nth(1).waitFor();
   await table.getByRole("row").nth(1).click();
   await page.getByTestId("field-payload").waitFor();
+};
+
+const eventConsumerDetailFlow = () => async (page: Page) => {
+  await loginAsAdmin(page);
+  await page.goto("/platform/event-consumers");
+  await page.getByRole("row").filter({ hasText: "invoice-totals" }).click();
+  await page.getByTestId("field-lastError").waitFor();
+};
+
+const eventConsumerMenuFlow = () => async (page: Page) => {
+  await eventConsumerDetailFlow()(page);
+  await page.getByTestId("kumiko-screen-projection-detail-actions-overflow").click();
+};
+
+// Real devices sign in with their own user agent; the screenshot session itself keeps the
+// Playwright desktop Chromium agent. Logins go through a separate request context so the
+// cookie jar of the page stays on the admin session.
+const SESSION_DEVICE_USER_AGENTS = [
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0",
+] as const;
+
+// The login route allows 20 requests per minute and IP, and every Playwright worker is its own process:
+// the first worker of this run (same parent runner pid) signs the devices in, the others wait for its marker.
+const DEVICES_MARKER = join(tmpdir(), `use-all-bundled-shots-devices-${process.ppid}`);
+const signInFromOtherDevices = async (): Promise<void> => {
+  try {
+    writeFileSync(DEVICES_MARKER, "signing-in", { flag: "wx" });
+  } catch {
+    await expect.poll(() => readFileSync(DEVICES_MARKER, "utf-8")).toBe("done");
+    return;
+  }
+  for (const userAgent of SESSION_DEVICE_USER_AGENTS) {
+    const device = await request.newContext({
+      baseURL: `http://127.0.0.1:${E2E_PORTS["framework/use-all-bundled"]}`,
+      userAgent,
+    });
+    const res = await device.post("/api/auth/login", {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    if (!res.ok()) throw new Error(`device login → ${res.status()} ${await res.text()}`);
+    await device.dispose();
+  }
+  writeFileSync(DEVICES_MARKER, "done");
+};
+
+const sessionsFlow = (path: string) => async (page: Page) => {
+  await signInFromOtherDevices();
+  await loginAsAdmin(page);
+  await page.goto(path);
 };
 
 const jobRunDetailFlow = () => async (page: Page) => {
@@ -248,6 +307,13 @@ const SCENARIOS: readonly Scenario[] = [
     flow: admin("/platform/job-runs"),
     waitFor: '[data-testid^="render-list-table"]',
   },
+  {
+    name: "event-consumers",
+    flow: admin("/platform/event-consumers"),
+    waitFor: '[data-testid^="render-list-table"]',
+  },
+  { name: "event-consumer-detail", flow: eventConsumerDetailFlow() },
+  { name: "event-consumer-detail-menu", flow: eventConsumerMenuFlow() },
   { name: "job-trigger", flow: jobTriggerFlow() },
   { name: "job-run-detail", flow: jobRunDetailFlow() },
   // projectionList renders via RenderList with a fixed testId; `^=` matches
@@ -271,7 +337,13 @@ const SCENARIOS: readonly Scenario[] = [
   // The admin sign-in already creates one live session row.
   {
     name: "session-list",
-    flow: admin("/tenant-admin/session-list"),
+    flow: sessionsFlow("/tenant-admin/session-list"),
+    waitFor: '[data-testid^="render-list-table"]',
+  },
+  // my-sessions — the self-service list inside the account-security screen.
+  {
+    name: "my-sessions",
+    flow: sessionsFlow("/tenant-admin/account-security"),
     waitFor: '[data-testid^="render-list-table"]',
   },
   // export-job-list — SystemAdmin GDPR-export inspector; exportJobListFlow

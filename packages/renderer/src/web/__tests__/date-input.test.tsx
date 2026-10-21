@@ -96,7 +96,7 @@ describe("DateInput", () => {
     await user.click(screen.getByRole("button"));
     // DayPicker rendert eine grid-Role für den Calendar; Existenz
     // reicht als Smoke-Test, ohne brittle DOM-Schnipsel zu pinnen.
-    expect(screen.getByRole("grid")).toBeTruthy();
+    expect(await screen.findByRole("grid")).toBeTruthy();
   });
 
   test("Tag-Auswahl im Calendar: onChange feuert ISO yyyy-mm-dd", async () => {
@@ -106,7 +106,7 @@ describe("DateInput", () => {
     await user.click(screen.getByRole("button"));
     // react-day-picker rendert jeden Tag als gridcell. Der 25. April
     // 2026 ist ein Samstag — pickbar im sichtbaren Monat.
-    const day25 = screen.getByRole("gridcell", { name: /25/ });
+    const day25 = await screen.findByRole("gridcell", { name: /25/ });
     fireEvent.click(day25.querySelector("button") as HTMLButtonElement);
     expect(onChange).toHaveBeenCalledWith("2026-04-25");
   });
@@ -130,7 +130,7 @@ describe("DateInput", () => {
     await user.click(screen.getByRole("button"));
     // rdp v9 rendert die Dropdowns als <select> (role=combobox). Mind. der
     // Jahres-Selector muss da sein — sonst greift captionLayout nicht.
-    const combos = screen.getAllByRole("combobox");
+    const combos = await screen.findAllByRole("combobox");
     expect(combos.length).toBeGreaterThanOrEqual(1);
     const yearSelect = combos.find((c) =>
       Array.from(c.querySelectorAll("option")).some((o) => o.textContent === "2023"),
@@ -158,9 +158,9 @@ describe("DateInput", () => {
       />,
     );
     await user.click(screen.getByRole("button"));
-    const day25Button = screen
-      .getByRole("gridcell", { name: /^25$/ })
-      .querySelector("button") as HTMLButtonElement;
+    const day25Button = (await screen.findByRole("gridcell", { name: /^25$/ })).querySelector(
+      "button",
+    ) as HTMLButtonElement;
     expect(day25Button.disabled).toBe(true);
   });
 });

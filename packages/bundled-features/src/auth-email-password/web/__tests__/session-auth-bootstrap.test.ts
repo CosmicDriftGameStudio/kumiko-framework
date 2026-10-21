@@ -16,7 +16,9 @@ describe("emailPasswordClient", () => {
   test("registers SessionAuthGate as gate, not SessionProvider as provider", () => {
     const feature = emailPasswordClient();
     expect(feature.providers).toEqual([]);
-    expect(feature.gates).toHaveLength(1);
-    expect(feature.gates[0]?.name).toBe("SessionAuthGate");
+    expect(feature.gates.map((gate) => gate.name)).toEqual([
+      "DefaultAuthPagesGate",
+      "SessionAuthGate",
+    ]);
   });
 });

@@ -73,9 +73,27 @@ export async function resolveCspScriptHashes(
   staticDir: string | undefined,
   securityHeaders: SecurityHeadersOption | undefined,
 ): Promise<readonly string[]> {
-  if (staticDir === undefined || securityHeaders === false) return [];
+  if (staticDir === undefined || !usesDefaultCsp(securityHeaders)) return [];
+  return readBuildScriptHashes(staticDir);
+}
+
+function usesDefaultCsp(securityHeaders: SecurityHeadersOption | undefined): boolean {
+  if (securityHeaders === false) return false;
   const csp = securityHeaders?.csp;
-  if (csp === false || typeof csp === "string") return [];
+  return csp !== false && typeof csp !== "string";
+}
+
+/** Hashes handed to hostDispatch: read from disk only when the default-CSP
+ *  path above has not already done so. */
+export async function resolveHostDispatchScriptHashes(
+  staticDir: string,
+  securityHeaders: SecurityHeadersOption | undefined,
+  defaultCspHashes: readonly string[],
+): Promise<readonly string[]> {
+  return usesDefaultCsp(securityHeaders) ? defaultCspHashes : readBuildScriptHashes(staticDir);
+}
+
+export async function readBuildScriptHashes(staticDir: string): Promise<readonly string[]> {
   const file = await readStaticFile(join(staticDir, CSP_HASHES_FILE));
   const result = file ? parseCspHashes(new TextDecoder().decode(file.bytes)) : undefined;
   if (result?.kind === "found") return result.scriptSrc;
@@ -180,6 +198,8 @@ export function buildStaticFallback(
   /** trustedProxyHops for the systemQuery request-context builds below —
    *  1:1 with runProdApp's effective value. */
   trustedProxyHops = 0,
+  /** Build inline-script hashes, passed through to hostDispatch's deps. */
+  hostDispatchScriptHashes: readonly string[] = [],
 ): (req: Request, socketAddress?: string) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
   const clientIpResolver: ClientIpResolver = createClientIpResolver(
@@ -295,7 +315,7 @@ export function buildStaticFallback(
     };
     const result = await hostDispatch(
       { host, path: url.pathname, search: url.search },
-      { systemQuery },
+      { systemQuery, cspScriptHashes: hostDispatchScriptHashes },
     );
     if (result.kind === "redirect") {
       return new Response(null, {
