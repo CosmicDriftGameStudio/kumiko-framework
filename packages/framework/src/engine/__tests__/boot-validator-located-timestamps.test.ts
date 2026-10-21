@@ -50,7 +50,11 @@ describe("validateBoot — locatedBy markers", () => {
           fields: {
             pickupAt: createTimestampField({ locatedBy: "pickupTz" }),
             // text statt tz — typo-Falle die der Validator fängt
-            pickupTz: { type: "text", maxLength: 100 },
+            pickupTz: {
+              type: "text",
+              maxLength: 100,
+              allowPlaintext: "test fixture value, not personal data",
+            },
           },
         }),
       });

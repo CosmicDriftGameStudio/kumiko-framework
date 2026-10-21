@@ -17,8 +17,16 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
   test("an entity field named `source` does not shadow the discriminator", () => {
     const table = buildEntityTable("patternFile", {
       fields: {
-        path: { type: "text", required: true },
-        source: { type: "text", required: true },
+        path: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+        source: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
       },
     });
     const info = extractTableInfo(table);
@@ -33,7 +41,13 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
     "an entity field named `%s` (another meta key) also does not shadow it",
     (fieldName) => {
       const table = buildEntityTable("thing", {
-        fields: { [fieldName]: { type: "text", required: true } },
+        fields: {
+          [fieldName]: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
+        },
       });
       const info = extractTableInfo(table);
       expect(info.pgTypeOf("inserted_at")).toBe("timestamptz");
@@ -42,7 +56,13 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
 
   test("control entity without a colliding field is unaffected", () => {
     const table = buildEntityTable("note", {
-      fields: { title: { type: "text", required: true } },
+      fields: {
+        title: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      },
     });
     const info = extractTableInfo(table);
     expect(info.pgTypeOf("inserted_at")).toBe("timestamptz");
@@ -52,7 +72,13 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
 describe("resolveConflictColumns — shadow-proof PK inference", () => {
   test("an entity field named `columns` does not shadow the inferred primary key", () => {
     const table = buildEntityTable("thing", {
-      fields: { columns: { type: "text", required: true } },
+      fields: {
+        columns: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      },
     });
     const info = extractTableInfo(table);
     // No explicit conflictKeys → infer the real PK (`id`) from the symbol-based
@@ -63,7 +89,13 @@ describe("resolveConflictColumns — shadow-proof PK inference", () => {
 
   test("explicit conflictKeys are mapped through columnOf (control)", () => {
     const table = buildEntityTable("thing", {
-      fields: { slug: { type: "text", required: true } },
+      fields: {
+        slug: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      },
     });
     const info = extractTableInfo(table);
     expect(resolveConflictColumns(table, info, ["slug"])).toEqual(["slug"]);

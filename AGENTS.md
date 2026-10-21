@@ -75,7 +75,7 @@ The full list (18 real packages, 5 deprecated shims removed after wave 4) is in
 
 - Never write to an `r.entity` table or the events table directly. Go through `r.crud`,
   the executor, `emitEvent` or an inline projection.
-- `escapeHatch` and `unsafeRaw` need a concrete `reason`; "todo" and "legacy" fail the guard.
+- `escapeHatch` and `unsafeRaw` need a concrete `reason`; placeholders like "todo" or "legacy" are rejected at boot or at runtime.
 - No cross-feature imports of internals. Features talk through events, APIs and extensions.
 - Comments are English and explain why, never what.
 - Never fix a red test with a timeout, retry, skip or fewer workers; find the cause.

@@ -13,7 +13,15 @@ import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
-  fields: { name: { type: "text", required: false, searchable: false, sortable: false } },
+  fields: {
+    name: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
+  },
 };
 
 function buildSchema(actions: readonly EntityEditAction[]): FeatureSchema {

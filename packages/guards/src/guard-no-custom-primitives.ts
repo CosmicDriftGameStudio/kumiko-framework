@@ -173,10 +173,9 @@ export const guard: AstGuard = {
 
 // Flags are read ONLY here, not in run() — the shared runner
 // (run-guards.ts/run-ui-guards.ts) runs every guard with the same argv, a
-// --write-baseline there must not silently rewrite the baseline (same
-// pattern as guard-pii-annotations.ts).
+// --write-baseline there must not silently rewrite the baseline.
 //
-// No --no-baseline: unlike guard-pii-annotations.ts this guard has a
+// No --no-baseline: this guard has a
 // second, non-baselined rule (PRIMITIVE_NAME) — a --no-baseline that
 // discards analyse()'s return and exits 0 would silence that too. Nobody
 // reads the flag (the shared runner only calls run()).

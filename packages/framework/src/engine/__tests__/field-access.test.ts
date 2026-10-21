@@ -4,8 +4,16 @@ import type { EntityDefinition } from "../types/index.ts";
 
 const entity: EntityDefinition = {
   fields: {
-    title: { type: "text", access: { read: { editor: "all" }, write: { editor: "all" } } },
-    secret: { type: "text", access: { read: { admin: "all" }, write: { admin: "all" } } },
+    title: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      access: { read: { editor: "all" }, write: { editor: "all" } },
+    },
+    secret: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      access: { read: { admin: "all" }, write: { admin: "all" } },
+    },
   },
 };
 

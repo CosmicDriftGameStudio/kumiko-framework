@@ -13,7 +13,15 @@ import {
   tableNameOf,
 } from "../table-introspection.ts";
 
-const noteEntity = { fields: { title: { type: "text", required: true } } } as const;
+const noteEntity = {
+  fields: {
+    title: {
+      type: "text",
+      required: true,
+      allowPlaintext: "test fixture value, not personal data",
+    },
+  },
+} as const;
 
 describe("isEntityTableMeta", () => {
   test("accepts managed and unmanaged metas", () => {
@@ -48,7 +56,13 @@ describe("asEntityTableMeta / requireEntityTableMeta", () => {
     "a column named `%s` does not shadow the canonical meta",
     (fieldName) => {
       const table = buildEntityTable("thing", {
-        fields: { [fieldName]: { type: "text", required: true } },
+        fields: {
+          [fieldName]: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
+        },
       });
       const meta = asEntityTableMeta(table);
       expect(meta?.source).toBe("managed");
@@ -66,7 +80,14 @@ describe("asEntityTableMeta / requireEntityTableMeta", () => {
 
 describe("table name and column lookups", () => {
   const table = buildEntityTable("note", {
-    fields: { title: { type: "text", required: true }, tableName: { type: "text" } },
+    fields: {
+      title: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+      },
+      tableName: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+    },
   });
 
   test("schemaTableName reads the name symbol, tableNameOf falls back to meta then <unknown>", () => {

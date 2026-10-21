@@ -82,6 +82,7 @@ function buildSchema(): FeatureSchema {
     fields: {
       status: {
         type: "text",
+        allowPlaintext: "test fixture value, not personal data",
         maxLength: 50,
         required: false,
         searchable: false,

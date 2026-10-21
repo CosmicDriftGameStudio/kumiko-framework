@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
+import { findTranslationLocaleGaps } from "../../../i18n/required-surface-keys.ts";
 import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys.ts";
 import { buildConfigFeatureSchema } from "../../build-config-feature-schema.ts";
 import { access, createTenantConfig } from "../../config-helpers.ts";
@@ -339,5 +340,58 @@ describe("validateI18nSurfaceKeys — extension-selector settings dashboard", ()
     expect(() => validateBoot([hubWithoutHint, secretsMount, owner, smtp])).toThrow(
       /Settings-Hub: required translation key missing: "config\.settings\.extensionSelectorHint"/,
     );
+  });
+});
+
+describe("translation locale consistency per feature", () => {
+  function featureWith(name: string, keys: Record<string, Record<string, unknown>>) {
+    return defineFeature(name, (r) => {
+      // Deliberately loose: the empty-string case is not expressible as a stricter type.
+      r.translations({ keys: keys as Parameters<typeof r.translations>[0]["keys"] });
+    });
+  }
+
+  test("a key missing a locale that a sibling key carries fails boot and names feature, key and locale", () => {
+    const mixed = featureWith("mixed", {
+      a: { en: "A", de: "A" },
+      b: { en: "B" },
+    });
+
+    expect(() => validateBoot([mixed])).toThrow(
+      /\[i18n\] Feature "mixed": translation key "b" is missing locale\(s\) de\./,
+    );
+  });
+
+  test("lists every gap in one error with sorted locales", () => {
+    const mixed = featureWith("mixed", {
+      a: { en: "A", de: "A", fr: "A" },
+      b: { en: "B" },
+      c: { de: "C", fr: "C" },
+    });
+
+    expect(findTranslationLocaleGaps([mixed])).toEqual([
+      { featureName: "mixed", key: "b", missingLocales: ["de", "fr"] },
+      { featureName: "mixed", key: "c", missingLocales: ["en"] },
+    ]);
+    expect(() => validateBoot([mixed])).toThrow(/key "b"[\s\S]*key "c"/);
+  });
+
+  test("complete, single-locale and plural entries do not fail", () => {
+    const complete = featureWith("complete", {
+      a: { en: "A", de: "A" },
+      b: { en: { one: "one", other: "many" }, de: { one: "eins", other: "viele" } },
+    });
+    const englishOnly = featureWith("english-only", { a: { en: "A" }, b: { en: "B" } });
+
+    expect(findTranslationLocaleGaps([complete, englishOnly])).toEqual([]);
+    expect(() => validateBoot([complete, englishOnly])).not.toThrow();
+  });
+
+  test("an empty string counts as missing", () => {
+    const blank = featureWith("blank", { a: { en: "A", de: "A" }, b: { en: "B", de: "" } });
+
+    expect(findTranslationLocaleGaps([blank])).toEqual([
+      { featureName: "blank", key: "b", missingLocales: ["de"] },
+    ]);
   });
 });

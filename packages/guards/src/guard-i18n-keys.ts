@@ -3,13 +3,13 @@
  * Guard: i18n keys must be defined before they are used.
  *
  * Scan: t() calls in app tsx, definitions from r.translations and i18n bundles.
- * Declarative screen/nav keys: validateBoot (runtime).
+ * Declarative screen/nav keys and per-feature locale completeness: validateBoot (runtime).
  *
  * Usage:
  *   bun guards/guard-i18n-keys.ts
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import * as path from "node:path";
 import {
   type Node,
@@ -37,7 +37,6 @@ interface UsedKey {
 
 interface DefinedKey {
   fullKey: string;
-  locales: Set<string>;
   file: string;
   line: number;
 }
@@ -105,10 +104,10 @@ function findEnclosingFeatureName(node: Node): string | null {
   return null;
 }
 
-function extractKeysFromTranslationsObject(
-  obj: ObjectLiteralExpression,
-): Array<{ key: string; locales: Set<string>; line: number }> {
-  const out: Array<{ key: string; locales: Set<string>; line: number }> = [];
+type KeyEntry = { key: string; line: number };
+
+function extractKeysFromTranslationsObject(obj: ObjectLiteralExpression): KeyEntry[] {
+  const out: KeyEntry[] = [];
   for (const prop of obj.getProperties()) {
     if (!prop.isKind(SyntaxKind.PropertyAssignment)) continue;
     const nameNode = prop.getNameNode();
@@ -119,23 +118,13 @@ function extractKeysFromTranslationsObject(
       keyName = nameNode.getText();
     } else continue;
 
-    const initializer = prop.getInitializer();
-    if (!initializer?.isKind(SyntaxKind.ObjectLiteralExpression)) continue;
-    const locales = new Set<string>();
-    for (const localeProp of initializer.getProperties()) {
-      if (!localeProp.isKind(SyntaxKind.PropertyAssignment)) continue;
-      const localeName = localeProp.getNameNode();
-      if (localeName.isKind(SyntaxKind.StringLiteral)) locales.add(localeName.getLiteralText());
-      else if (localeName.isKind(SyntaxKind.Identifier)) locales.add(localeName.getText());
-    }
-    out.push({ key: keyName, locales, line: prop.getStartLineNumber() });
+    if (!prop.getInitializer()?.isKind(SyntaxKind.ObjectLiteralExpression)) continue;
+    out.push({ key: keyName, line: prop.getStartLineNumber() });
   }
   return out;
 }
 
-function extractLocaleFirstKeys(
-  obj: ObjectLiteralExpression,
-): Array<{ key: string; locales: Set<string>; line: number }> {
+function extractLocaleFirstKeys(obj: ObjectLiteralExpression): KeyEntry[] {
   const localeMaps = new Map<string, ObjectLiteralExpression>();
   for (const prop of obj.getProperties()) {
     if (!prop.isKind(SyntaxKind.PropertyAssignment)) continue;
@@ -158,45 +147,26 @@ function extractLocaleFirstKeys(
     }
   }
 
-  const out: Array<{ key: string; locales: Set<string>; line: number }> = [];
-  for (const key of keySet) {
-    const locales = new Set<string>();
-    for (const [locale, map] of localeMaps) {
-      const has = map.getProperties().some((prop) => {
-        if (!prop.isKind(SyntaxKind.PropertyAssignment)) return false;
-        const nameNode = prop.getNameNode();
-        return nameNode.isKind(SyntaxKind.StringLiteral) && nameNode.getLiteralText() === key;
-      });
-      if (has) locales.add(locale);
-    }
-    out.push({ key, locales, line: obj.getStartLineNumber() });
-  }
-  return out;
+  return [...keySet].map((key) => ({ key, line: obj.getStartLineNumber() }));
 }
 
-function pushDefined(
-  defined: DefinedKey[],
-  fullKey: string,
-  locales: Set<string>,
-  file: string,
-  line: number,
-): void {
-  defined.push({ fullKey, locales, file, line });
+function pushDefined(defined: DefinedKey[], fullKey: string, file: string, line: number): void {
+  defined.push({ fullKey, file, line });
 }
 
 function addDefinedEntries(
   defined: DefinedKey[],
-  entries: Array<{ key: string; locales: Set<string>; line: number }>,
+  entries: KeyEntry[],
   file: string,
   featureName: string | null,
 ): void {
   for (const entry of entries) {
     if (entry.key.includes(":")) {
-      pushDefined(defined, entry.key, entry.locales, file, entry.line);
+      pushDefined(defined, entry.key, file, entry.line);
       continue;
     }
     if (featureName) {
-      pushDefined(defined, `${featureName}:${entry.key}`, entry.locales, file, entry.line);
+      pushDefined(defined, `${featureName}:${entry.key}`, file, entry.line);
     }
   }
 }
@@ -255,9 +225,9 @@ function collectInlineKeysInitializer(
 ): void {
   if (initializer?.isKind(SyntaxKind.ObjectLiteralExpression)) {
     for (const entry of extractKeysFromTranslationsObject(initializer)) {
-      pushDefined(defined, `${featureName}:${entry.key}`, entry.locales, file, entry.line);
+      pushDefined(defined, `${featureName}:${entry.key}`, file, entry.line);
       if (entry.key.includes(":")) {
-        pushDefined(defined, entry.key, entry.locales, file, entry.line);
+        pushDefined(defined, entry.key, file, entry.line);
       }
     }
   } else if (initializer?.isKind(SyntaxKind.Identifier)) {
@@ -303,77 +273,6 @@ function collectInlineTranslationsDefinedKeys(sf: SourceFile): DefinedKey[] {
 /** Framework monorepo ships English-only core bundles; locale packages opt in separately. */
 export function isFrameworkMonorepo(root: string): boolean {
   return existsSync(path.join(root, "packages/framework/package.json"));
-}
-
-/** Parse `export const NAME = [...]` locale literals. Returns null if absent;
- *  throws if the export exists but is not a static string-literal array
- *  (spread / alias / region-tag-only without literals) — silent de/en fallback
- *  would hide a real declaration (infra#602). */
-export function parseLocaleConstArray(source: string, constName: string): string[] | null {
-  const exportRe = new RegExp(`export\\s+const\\s+${constName}\\s*(?::[^=]+)?=\\s*([^;]+)`);
-  const match = source.match(exportRe);
-  if (!match?.[1]) return null;
-  const rhs = match[1].trim();
-  if (!rhs.startsWith("[")) {
-    throw new Error(
-      `i18n-keys: export const ${constName} is not a static array literal — refuse silent de/en fallback`,
-    );
-  }
-  if (rhs.includes("...")) {
-    throw new Error(
-      `i18n-keys: export const ${constName} uses array spreads — refuse partial/silent locale set`,
-    );
-  }
-  const locales = [...rhs.matchAll(/["']([a-z]{2}(?:-[A-Z]{2})?)["']/g)]
-    .map((m) => m[1])
-    .filter((l): l is string => l !== undefined);
-  if (locales.length === 0) {
-    throw new Error(
-      `i18n-keys: export const ${constName} = [...] has no string locale literals — refuse silent de/en fallback`,
-    );
-  }
-  return locales;
-}
-
-/** Resolve owning repo root from a guard-relative path (may be `../…`). */
-export function repoRootForRelFile(rel: string): string {
-  const abs = path.isAbsolute(rel) ? rel : path.resolve(ROOT, rel);
-  let curr = path.dirname(abs);
-  let fallback: string | undefined;
-  while (curr !== path.dirname(curr)) {
-    const base = path.basename(curr);
-    // Never treat worktree/parent markers as a repo root (infra#602).
-    if (base === ".." || base === ".wt") {
-      curr = path.dirname(curr);
-      continue;
-    }
-    if (existsSync(path.join(curr, "packages/framework/package.json"))) {
-      return curr;
-    }
-    if (existsSync(path.join(curr, "package.json"))) {
-      // Outermost package.json wins so nested packages/* resolve to the repo.
-      fallback = curr;
-    }
-    curr = path.dirname(curr);
-  }
-  return fallback ?? ROOT;
-}
-/** Repo-declared locales for translation completeness; empty set skips the check. */
-export function resolveExpectedLocales(root: string = ROOT): Set<string> {
-  if (isFrameworkMonorepo(root)) return new Set();
-
-  const declPaths: Array<{ rel: string; constName: string }> = [
-    { rel: "src/i18n-guard-locales.ts", constName: "I18N_GUARD_LOCALES" },
-    { rel: "src/marketing/locale-routes.ts", constName: "LOCALES" },
-  ];
-  for (const { rel, constName } of declPaths) {
-    const abs = path.join(root, rel);
-    if (!existsSync(abs)) continue;
-    const locales = parseLocaleConstArray(readFileSync(abs, "utf-8"), constName);
-    if (locales) return new Set(locales);
-    // parseLocaleConstArray throws on unreadable decls; null = no export.
-  }
-  return new Set(["de", "en"]);
 }
 
 // Published packages ship `dist` (compiled JS) only; workspace links also carry `src`.
@@ -424,8 +323,6 @@ export function collectInstalledFrameworkKeys(root: string = ROOT): Set<string> 
 export type I18nKeysRunOptions = {
   /** Inject the framework keys of the installed packages — tests must not scan node_modules. */
   readonly installedFrameworkKeys?: () => ReadonlySet<string>;
-  /** Inject expected locales per owning root — tests must not rely on process.cwd(). */
-  readonly expectedLocalesForRoot?: (root: string) => Set<string>;
 };
 
 export function checkI18nKeys(
@@ -451,47 +348,19 @@ export function checkI18nKeys(
       ? new Set<string>()
       : (options.installedFrameworkKeys ?? collectInstalledFrameworkKeys)();
   const missing = undefinedInApp.filter((u) => !installedKeys.has(u.key));
-  const resolveLocales = options.expectedLocalesForRoot ?? resolveExpectedLocales;
-  const expectedByRoot = new Map<string, Set<string>>();
-  const expectedForFile = (rel: string): Set<string> => {
-    const root = repoRootForRelFile(rel);
-    let locales = expectedByRoot.get(root);
-    if (!locales) {
-      locales = resolveLocales(root);
-      expectedByRoot.set(root, locales);
-    }
-    return locales;
-  };
-
-  const localeViolations = definedKeys.flatMap((d) => {
-    const expectedLocales = expectedForFile(d.file);
-    const missingLocales = [...expectedLocales].filter((l) => !d.locales.has(l));
-    if (missingLocales.length === 0) return [];
-    return [
-      {
-        file: d.file,
-        line: d.line,
-        message: `Key "${d.fullKey}" is missing locale: ${missingLocales.join(", ")}`,
-      },
-    ];
-  });
-
   return {
-    violations: [
-      ...missing.map((m) => ({
-        file: m.file,
-        line: m.line,
-        message: `used key without a definition: "${m.key}"`,
-      })),
-      ...localeViolations,
-    ],
+    violations: missing.map((m) => ({
+      file: m.file,
+      line: m.line,
+      message: `used key without a definition: "${m.key}"`,
+    })),
   };
 }
 
 export const guard: AstGuard = {
   name: "i18n-Keys Guard",
   scan: SCAN,
-  hint: "Used i18n key without a definition, or missing locale — add the key/locale to the feature's translations map (locales from src/i18n-guard-locales.ts or src/marketing/locale-routes.ts).",
+  hint: "Used i18n key without a definition — add the key to the feature's translations map.",
   run(files) {
     return checkI18nKeys(files);
   },

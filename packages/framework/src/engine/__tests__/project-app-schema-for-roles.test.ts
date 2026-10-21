@@ -44,7 +44,10 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
   const SECRET_QN = `audit:screen:${SECRET_SCREEN_ID}`;
 
   const auditFeature = defineFeature("audit", (r) => {
-    r.entity({ name: "record", fields: { label: { type: "text" } } });
+    r.entity({
+      name: "record",
+      fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+    });
     r.screen({
       id: SECRET_SCREEN_ID,
       type: "entityList",
@@ -62,7 +65,10 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
   // never point cross-feature. Gating this screen the same way (ADMIN_ONLY)
   // proves the drawer-stripping code path with the closest valid analog.
   const hostFeature = defineFeature("host", (r) => {
-    r.entity({ name: "hostRecord", fields: { label: { type: "text" } } });
+    r.entity({
+      name: "hostRecord",
+      fields: { label: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+    });
 
     r.nav({ id: "secret-nav", label: "Secret", screen: SECRET_QN });
     // Standalone grouping nav with no `.screen` of its own — isolates the
@@ -450,7 +456,10 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
 describe("projectAppSchemaForRoles — no mutation", () => {
   test("never mutates the input schema", () => {
     const feature = defineFeature("widgets", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.screen({
         id: "secret",
         type: "entityList",
@@ -473,7 +482,10 @@ describe("projectAppSchemaForRoles — no mutation", () => {
 
   test("returns the identical reference when a fully-open role changes nothing", () => {
     const feature = defineFeature("open-widgets", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.screen({ id: "list", type: "entityList", entity: "widget", columns: ["name"] });
       r.nav({ id: "list", label: "List", screen: "list" });
     });
@@ -517,7 +529,10 @@ describe("projectAppSchemaForRoles — Settings-Hub visibility", () => {
 describe("projectAppSchemaForRoles — nav pruning", () => {
   test("a parent nav whose only child gets dropped is itself dropped (empty section)", () => {
     const feature = defineFeature("menu", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.nav({ id: "section", label: "Section" }); // pure grouping node, no screen
       r.nav({
         id: "child",
@@ -547,7 +562,10 @@ describe("projectAppSchemaForRoles — nav pruning", () => {
 
   test("a descendant three levels deep is dropped when its own access denies", () => {
     const feature = defineFeature("tree", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.nav({ id: "root", label: "Root" });
       r.nav({ id: "mid", label: "Mid", parent: "tree:nav:root" });
       r.nav({
@@ -576,7 +594,10 @@ describe("projectAppSchemaForRoles — nav pruning", () => {
 describe("projectAppSchemaForRoles — workspace pruning", () => {
   test("drops the default workspace when its role loses every member, and keeps the other one", () => {
     const feature = defineFeature("shell", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.screen({
         id: "admin-home",
         type: "entityList",
@@ -602,7 +623,10 @@ describe("projectAppSchemaForRoles — workspace pruning", () => {
 
   test("keeps a workspace that was declared without members instead of treating it as emptied", () => {
     const feature = defineFeature("shell", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.screen({ id: "user-home", type: "entityList", entity: "widget", columns: ["name"] });
       r.nav({ id: "user-home", label: "User Home", screen: "user-home" });
       r.workspace({ id: "work", label: "Work", nav: ["shell:nav:user-home"] });
@@ -620,7 +644,10 @@ describe("projectAppSchemaForRoles — workspace pruning", () => {
 describe("projectAppSchemaForRoles — entityEdit action placement", () => {
   test("a projected entityEdit keeps placement on the actions that survive", () => {
     const feature = defineFeature("shell", (r) => {
-      r.entity({ name: "widget", fields: { name: { type: "text" } } });
+      r.entity({
+        name: "widget",
+        fields: { name: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
+      });
       r.screen({ id: "open", type: "entityList", entity: "widget", columns: ["name"] });
       r.screen({
         id: "admin-only",

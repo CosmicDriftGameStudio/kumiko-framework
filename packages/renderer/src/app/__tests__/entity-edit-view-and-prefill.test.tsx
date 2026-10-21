@@ -109,6 +109,7 @@ function buildSchema(
       acknowledged: { type: "boolean", required: false },
       inspector: {
         type: "text",
+        allowPlaintext: "test fixture value, not personal data",
         maxLength: 200,
         required: false,
         searchable: false,

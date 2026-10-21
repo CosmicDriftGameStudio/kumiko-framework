@@ -2,12 +2,6 @@
   "format": 1,
   "repo": "kumiko-framework",
   "generated": "2026-09-27",
-  "total": 5,
-  "findings": {
-    "Access-Denied-Test Guard": {
-      "samples/recipes/encrypted-tenant-config/src/feature.ts": 1,
-      "samples/recipes/pipeline-basics/src/feature.ts": 3,
-      "samples/recipes/secrets-demo/src/feature.ts": 1
-    }
-  }
+  "total": 0,
+  "findings": {}
 }

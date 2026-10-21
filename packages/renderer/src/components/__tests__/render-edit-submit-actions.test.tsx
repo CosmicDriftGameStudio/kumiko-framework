@@ -120,6 +120,7 @@ function buildEntity(required = false): EntityDefinition {
     fields: {
       name: {
         type: "text",
+        allowPlaintext: "test fixture value, not personal data",
         maxLength: 200,
         required,
         searchable: false,

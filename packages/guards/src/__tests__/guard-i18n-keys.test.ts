@@ -10,8 +10,6 @@ function featureFile(code: string) {
   return project.createSourceFile("/repo/src/features/greeting/feature.ts", code);
 }
 
-const expectedLocalesForRoot = () => new Set(["de", "en"]);
-
 describe("guard-i18n-keys — plural entries", () => {
   test("accepts a plural object as a locale value without a false positive", () => {
     const sf = featureFile(`
@@ -28,26 +26,8 @@ describe("guard-i18n-keys — plural entries", () => {
         t("greeting:greeting.count");
       });
     `);
-    const outcome = checkI18nKeys([sf], { expectedLocalesForRoot });
+    const outcome = checkI18nKeys([sf]);
     expect(outcome.violations).toHaveLength(0);
-  });
-
-  test("still flags a missing locale when the plural entry lacks one", () => {
-    const sf = featureFile(`
-      import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-      export const greetingFeature = defineFeature("greeting", (r) => {
-        r.translations({
-          keys: {
-            "greeting.count": {
-              de: { one: "Ein Eintrag", other: "{count} Einträge" },
-            },
-          },
-        });
-      });
-    `);
-    const outcome = checkI18nKeys([sf], { expectedLocalesForRoot });
-    expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.message).toContain("missing locale: en");
   });
 
   test("matches a used key and a defined key that spell the same text with different escapes", () => {
@@ -62,7 +42,7 @@ describe("guard-i18n-keys — plural entries", () => {
         t('greeting:greeting.it\\'s');
       });
     `);
-    const outcome = checkI18nKeys([sf], { expectedLocalesForRoot });
+    const outcome = checkI18nKeys([sf]);
     expect(outcome.violations).toHaveLength(0);
   });
 });
@@ -75,7 +55,6 @@ describe("guard-i18n-keys — keys of installed framework packages", () => {
 
   test("a key defined by an installed package is known", () => {
     const outcome = checkI18nKeys([usage()], {
-      expectedLocalesForRoot,
       installedFrameworkKeys: () => new Set(["auth:auth.login.title"]),
     });
     expect(outcome.violations).toHaveLength(0);
@@ -83,7 +62,6 @@ describe("guard-i18n-keys — keys of installed framework packages", () => {
 
   test("a key unknown to the app and the installed packages is still flagged", () => {
     const outcome = checkI18nKeys([usage()], {
-      expectedLocalesForRoot,
       installedFrameworkKeys: () => new Set(["auth:other"]),
     });
     expect(outcome.violations.map((v) => v.message)).toEqual([

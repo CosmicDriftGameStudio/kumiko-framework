@@ -43,7 +43,14 @@ const testPrimitives: CorePrimitives = {
 };
 
 const entity = {
-  fields: { period: { type: "text", required: false, format: "month" } },
+  fields: {
+    period: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      format: "month",
+    },
+  },
 } as EntityDefinition;
 
 const screen = {

@@ -492,7 +492,16 @@ describe("findAgentDocGaps — handler-without-translation", () => {
 
   test("handler mapped to an entity -> no gap", () => {
     const feature = defineFeature("tr-demo", (r) => {
-      r.entity({ name: "vehicle", fields: { name: { type: "text", required: true } } });
+      r.entity({
+        name: "vehicle",
+        fields: {
+          name: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
+        },
+      });
       r.writeHandler({
         name: "vehicle:do-x",
         schema: z.object({}),

@@ -23,7 +23,15 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const settingEntity: EntityDefinition = {
-  fields: { title: { type: "text", required: false, searchable: false, sortable: false } },
+  fields: {
+    title: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
+  },
 };
 
 const singletonScreen: EntityEditScreenDefinition = {

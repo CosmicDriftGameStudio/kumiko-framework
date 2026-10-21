@@ -11,7 +11,16 @@ async function noopHandler() {
 
 function vehicleFeature() {
   return defineFeature("fleet", (r) => {
-    r.entity({ name: "vehicle", fields: { name: { type: "text", required: true } } });
+    r.entity({
+      name: "vehicle",
+      fields: {
+        name: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      },
+    });
   });
 }
 
@@ -39,7 +48,16 @@ describe("validateBoot — handler field references meta", () => {
 
   test("accepts a local entity reference", () => {
     const feature = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", fields: { name: { type: "text", required: true } } });
+      r.entity({
+        name: "vehicle",
+        fields: {
+          name: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
+        },
+      });
       r.queryHandler({
         name: "find",
         schema: z.object({ vehicleId: z.string().meta({ references: "vehicle" }) }),
@@ -63,7 +81,16 @@ describe("validateBoot — handler field references meta", () => {
 
   function channelFeature() {
     return defineFeature("channels", (r) => {
-      r.entity({ name: "channel", fields: { key: { type: "text", required: true } } });
+      r.entity({
+        name: "channel",
+        fields: {
+          key: {
+            type: "text",
+            allowPlaintext: "test fixture value, not personal data",
+            required: true,
+          },
+        },
+      });
     });
   }
 
@@ -120,7 +147,16 @@ describe("validateBoot — nested handler field references", () => {
   }
 
   const channelFeature = defineFeature("channels", (r) => {
-    r.entity({ name: "channel", fields: { key: { type: "text", required: true } } });
+    r.entity({
+      name: "channel",
+      fields: {
+        key: {
+          type: "text",
+          allowPlaintext: "test fixture value, not personal data",
+          required: true,
+        },
+      },
+    });
   });
 
   test("names the nested path for an unknown entity", () => {

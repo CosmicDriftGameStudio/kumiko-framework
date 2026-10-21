@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-19
+verified: 2026-10-21
 evidence: "Decisions recorded from maintainer sessions; each entry names the code or issue it rests on where one exists."
 ---
 
@@ -71,3 +71,7 @@ Inside a feature, `web/**` is client-safe code and everything else is server or 
 ### 2026-10-20 Error classes are closed by types, boot or runtime before a guard
 
 When a guard finds an error class that a type, the boot validator or a runtime check can make impossible, the framework closes it there and the guard goes. A guard stays only where the check needs cross-file context the framework cannot see, or where an export still has legitimate cross-package users (admin-api, restricted-symbols, raw-sql). Placeholder reasons ("todo", "legacy", ...) are rejected at boot for every declared `escapeHatch` and `openToAll`, and at runtime for call-site reasons (`unsafeRaw(reason)`, `acknowledgeCrossTenant`, `unsafeAllTenants`, `declareEscapeHatch`). The accepted trade-off: a new placeholder at a call site that rarely runs surfaces only when that path executes, not in CI. Undeclared `unsafeRaw` or SYSTEM-identity use was already refused at runtime and is no longer flagged statically.
+
+### 2026-10-21 Second guard sweep: runtime, boot and contract tests
+
+The unsafe-append-event guard goes without a replacement, because the event store already rejects unregistered event types and validates every payload at runtime for `appendEvent` and `unsafeAppendEvent` alike. The access-denied-test guard is replaced by the `expectRoleRestrictedHandlersDenyForeignRole` contract helper, which calls every role-restricted write and query handler over HTTP, since roles are enforced centrally before parsing. Locale completeness moves from the i18n-keys guard to the boot validator as a per-feature consistency check: every key carries every locale its feature uses. The PII stance of entity text fields is deterministic: `FieldsMap` requires one by type and boot refuses a text or long-text field without one, while the name heuristic stays a warning and never fails. The qualified-name guard and the i18n used-key-without-definition check stay, because making them type errors would need code generation.

@@ -24,7 +24,7 @@ import { defaultPrimitives } from "../primitives/index.tsx";
 // Eine Spalte reicht — wir testen nur den Search-Debounce-Pfad, nicht
 // die DataTable-Render-Tiefe.
 const entity: EntityDefinition = {
-  fields: { title: { type: "text" } },
+  fields: { title: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
 } as EntityDefinition;
 
 const screenDef: EntityListScreenDefinition = {

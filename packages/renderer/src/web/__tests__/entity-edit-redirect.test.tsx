@@ -18,7 +18,15 @@ import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
-  fields: { name: { type: "text", required: false, searchable: false, sortable: false } },
+  fields: {
+    name: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
+  },
 };
 
 function buildSchema(redirect?: string): FeatureSchema {
@@ -48,8 +56,20 @@ function buildSchema(redirect?: string): FeatureSchema {
 // parent id.
 const parentEntity: EntityDefinition = {
   fields: {
-    name: { type: "text", required: false, searchable: false, sortable: false },
-    parentId: { type: "text", required: false, searchable: false, sortable: false },
+    name: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
+    parentId: {
+      type: "text",
+      allowPlaintext: "test fixture value, not personal data",
+      required: false,
+      searchable: false,
+      sortable: false,
+    },
   },
 };
 

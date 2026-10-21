@@ -23,7 +23,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `check-security` | Security check: `bun audit` over the lockfile of ONE repo. | - |
 | `check-single-runtime-instance` | Single-Runtime-Instance Guard (kumiko-studio#229). | - |
 | `check-subpath-exports` | A published package that ships `src/<feature>/web.ts` must list `./<feature>/web` in its package.json `exports`; otherwise every standalone app build fails with "Could not resolve". | - |
-| `guard-access-denied-test` | Guard: role-restricted write handlers need an access-denied test. | - |
 | `guard-admin-api` | Guard: blocks calls to the event-store admin API (`appendRaw`/`appendRawBatch`) outside allowed paths. | - |
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
 | `guard-app-feature-structure` | App features follow the bundled-features convention (reference: tenant/): feature.ts = registration only, screens under web/, handlers under handlers/. | `kumiko-lint-ignore app-feature-structure` |
@@ -52,7 +51,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-no-logic-in-views` | web/ contains components and hooks — computation, parsing and aggregation belong in lib/ (with a test). | `kumiko-lint-ignore no-logic-in-views` |
 | `guard-no-raw-hooks` | Rerender protection: raw useEffect/useLayoutEffect + fetch() in app screens are the source of the endless-rerender class (unstable deps, setState-in-effect) and bypass the framework hook set (useQuery/ useMutation/useDisclosure — useQuery can go live via SSE). | `kumiko-lint-ignore no-raw-hooks` |
 | `guard-no-temporal-polyfill-import` | Guard: finds value imports from `temporal-polyfill` outside kumiko-types. | - |
-| `guard-pii-annotations` | Guard: PII-typical entity field names without annotation, with a baseline regression guard like check-complexity.ts. | - |
 | `guard-primitives-discipline` | Guard: enforces that app-/feature-web code uses UI building blocks from the framework primitives, not hand-rolled Tailwind on raw HTML tags. | `kumiko-lint-ignore primitives-discipline` |
 | `guard-public-exports-changelog` | - | - |
 | `guard-raw-classname` | Design comes from widgets/theme tokens, not raw Tailwind in app code. | `kumiko-lint-ignore raw-classname` |
@@ -68,7 +66,6 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns (#3118). | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |
 | `guard-thin-wrappers` | Thin-Wrapper Guard (warning, never fails). | - |
-| `guard-unsafe-append-event` | Guard: reports `ctx.unsafeAppendEvent` (also `ctx["unsafeAppendEvent"]` and destructuring) outside `migrations/`, `upcasters/` and tests. | - |
 | `guard-unsafe-json-parse` | Guard: JSON.parse calls must be inside a try/catch OR routed through the safe-json helpers (parseJsonSafe / parseJsonOrThrow). | - |
 | `guard-upgrade-state` | Guard: a consumer repo's `.kumiko/upgrade-state.json` marker must be caught up with the installed Kumiko framework version. | - |
 | `guard-write-handler-qns` | Guard: checks that `dispatcher.write("qn:literal:...")` calls in custom screens reference valid write-handler QNs. | - |

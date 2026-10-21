@@ -8,7 +8,6 @@ import { scanFiles } from "../_lib/scan-scope";
 import { GUARDS } from "../run-guards";
 
 const SECURITY_GUARD_NAMES = [
-  "Access-Denied-Test Guard",
   "Admin-API Guard",
   "Direct-Entity-Writes Guard",
   "Direct-Fetch Guard",
@@ -17,7 +16,7 @@ const SECURITY_GUARD_NAMES = [
 ];
 
 describe("security guards — infra#787", () => {
-  test("all six named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
+  test("all five named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
     for (const name of SECURITY_GUARD_NAMES) {
       const guard = GUARDS.find((g) => g.name === name);
       expect(guard).toBeDefined();

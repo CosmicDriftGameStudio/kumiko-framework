@@ -9,7 +9,12 @@ import { createRegistry } from "../registry.ts";
 describe("buildAppSchema — reference optionsQuery", () => {
   test("a reference field's optionsQuery reaches the client schema entity field", () => {
     const leases = defineFeature("leases", (r) => {
-      r.entity({ name: "lease", fields: { startDate: { type: "text" } } });
+      r.entity({
+        name: "lease",
+        fields: {
+          startDate: { type: "text", allowPlaintext: "test fixture value, not personal data" },
+        },
+      });
     });
     const deposits = defineFeature("deposits", (r) => {
       r.entity({

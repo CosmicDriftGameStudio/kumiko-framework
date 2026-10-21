@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
-import type { EntityDefinition, FieldDefinition, Registry } from "../../engine/types/index.ts";
+import type {
+  EntityDefinition,
+  EntityFieldDefinition,
+  Registry,
+} from "../../engine/types/index.ts";
 import { resolveFieldVariant } from "../field-variants.ts";
 
 // Minimal fake Registry — same pattern as derivatives-context.test.ts's
@@ -14,7 +18,7 @@ function fakeRegistry(entities: Readonly<Record<string, EntityDefinition>>): Reg
 
 const THUMB_SPEC: VariantSpec = { maxEdge: 200, format: "webp" };
 
-function photoEntityWith(field: FieldDefinition): Readonly<Record<string, EntityDefinition>> {
+function photoEntityWith(field: EntityFieldDefinition): Readonly<Record<string, EntityDefinition>> {
   return {
     photo: { fields: { avatar: field } },
   };
@@ -51,7 +55,9 @@ describe("resolveFieldVariant", () => {
   });
 
   test("a non-image field returns undefined even when its own value looks variant-shaped", () => {
-    const registry = fakeRegistry(photoEntityWith({ type: "text" }));
+    const registry = fakeRegistry(
+      photoEntityWith({ type: "text", allowPlaintext: "test fixture value, not personal data" }),
+    );
     expect(resolveFieldVariant(registry, "photo", "avatar", "thumb")).toBeUndefined();
   });
 

@@ -23,7 +23,6 @@ import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 import { guard as asCasts } from "./check-as-casts";
 import { guard as complexity } from "./check-complexity";
 import { guard as predicateExtraction } from "./check-predicates";
-import { guard as accessDeniedTest } from "./guard-access-denied-test";
 import { guard as adminApi } from "./guard-admin-api";
 import { guard as appFeatureStructure } from "./guard-app-feature-structure";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
@@ -42,19 +41,16 @@ import { guard as noDateApi } from "./guard-no-date-api";
 import { guard as noDirectFs } from "./guard-no-direct-fs";
 import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as noTemporalPolyfillImport } from "./guard-no-temporal-polyfill-import";
-import { guard as piiAnnotations } from "./guard-pii-annotations";
 import { guard as restrictedSymbols } from "./guard-restricted-symbols";
 import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
-import { guard as unsafeAppendEvent } from "./guard-unsafe-append-event";
 import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
 export const GUARDS = [
-  accessDeniedTest,
   adminApi,
   directEntityWrites,
   directFetch,
@@ -74,7 +70,6 @@ export const GUARDS = [
   i18nKeys,
   i18nLocaleMount,
   i18nLocaleTerminology,
-  piiAnnotations,
   complexity,
   predicateExtraction,
   screenConventions,
@@ -85,7 +80,6 @@ export const GUARDS = [
   libTestCoverage,
   testTimeouts,
   testTemplateDrift,
-  unsafeAppendEvent,
 ];
 
 export const GUARD_FLAGS = [

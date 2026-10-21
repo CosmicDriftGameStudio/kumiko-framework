@@ -1147,7 +1147,26 @@ export type EntityIndexDef = {
   readonly where?: unknown;
 };
 
-export type FieldsMap = Readonly<Record<string, FieldDefinition>>;
+// An entity text field needs exactly one personal-data stance, and the
+// createTextField / createLongTextField factories always resolve one. Screen
+// form fields reuse TextFieldDef without a stance, so only entity fields narrow.
+export type ResolvedPiiStance =
+  | { readonly pii: true }
+  | { readonly userOwned: NonNullable<ResolvedPiiFlags["userOwned"]> }
+  | { readonly tenantOwned: true }
+  | { readonly recordOwned: true }
+  | { readonly allowPlaintext: string }
+  | { readonly subjectRef: true };
+
+export type EntityTextFieldDef = TextFieldDef & ResolvedPiiStance;
+export type EntityLongTextFieldDef = LongTextFieldDef & ResolvedPiiStance;
+
+export type EntityFieldDefinition =
+  | Exclude<FieldDefinition, TextFieldDef | LongTextFieldDef>
+  | EntityTextFieldDef
+  | EntityLongTextFieldDef;
+
+export type FieldsMap = Readonly<Record<string, EntityFieldDefinition>>;
 
 export type ParentRefDef = {
   /** Field holding the name of the host entity this row hangs off. */

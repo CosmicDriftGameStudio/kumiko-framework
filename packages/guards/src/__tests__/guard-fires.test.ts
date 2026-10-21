@@ -192,11 +192,6 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function defineWriteHandler(cfg: unknown): unknown;\ndeclare const z: any;\nexport const h = defineWriteHandler({ name: "grantRole", schema: z.object({ role: z.string() }), access: { roles: ["TenantAdmin"] }, handler: async () => ({ isSuccess: true, data: {} }) });',
     expectedMessage: /has no escalation test/,
   },
-  "Access-Denied-Test Guard": {
-    path: `${FEAT}/x/handlers/approve.write.ts`,
-    code: 'declare function defineWriteHandler(cfg: unknown): unknown;\nconst h = defineWriteHandler({ name: "approve-invoice", access: { roles: ["TenantAdmin"] }, handler: async () => ({}) });',
-    expectedMessage: /has no access-denied test/,
-  },
   "No-Logic-in-Views Guard (App-Repos)": {
     path: `${APP}/features/x/web/calc.tsx`,
     code: "export function paidFraction(principal: number, remaining: number): number {\n  if (principal <= 0) return 0;\n  return Math.max(0, Math.min(1, (principal - remaining) / principal));\n}",
@@ -278,11 +273,6 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare const page: { screenshot: (opts: unknown) => Promise<void> };\nexport const run = () => page.screenshot({ path: "out.png" });',
     expectedMessage: /Direct page\.screenshot/,
   },
-  "Unsafe-Append-Event Guard": {
-    path: `${PKG}/features/x/handler.ts`,
-    code: "declare const ctx: { unsafeAppendEvent(a: unknown): Promise<void> };\nexport const run = () => ctx.unsafeAppendEvent({});",
-    expectedMessage: /unsafeAppendEvent call\(s\) over baseline/,
-  },
 };
 
 // These guards can't produce a violation by construction — they report
@@ -291,8 +281,6 @@ const ENFORCING: Record<string, Violating> = {
 const WARNING_ONLY: Record<string, string> = {
   "Raw-Interactive-Elements Guard (App-Repos)":
     "baseline-ratchet pattern (infra#654) — findings become violations as soon as a baseline file exists; without one (a repo that has not bootstrapped it with --write-baseline) it stays warning-only",
-  "PII-Annotations Guard":
-    "same baseline-ratchet pattern as Raw-Interactive-Elements Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Complexity Check":
     "same baseline-ratchet pattern as Raw-Interactive-Elements Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
   "Predicate Extraction Check":

@@ -91,8 +91,8 @@ describe("groups-sections (fw#2982)", () => {
 
   test("synthesizeProjectionDetailEntity registers every field declared only through groups", () => {
     const entity = synthesizeProjectionDetailEntity(groupsOnlyScreen.layout);
-    expect(entity.fields["contactKind"]).toEqual({ type: "text" });
-    expect(entity.fields["email"]).toEqual({ type: "text" });
+    expect(entity.fields["contactKind"]).toEqual(expect.objectContaining({ type: "text" }));
+    expect(entity.fields["email"]).toEqual(expect.objectContaining({ type: "text" }));
   });
 
   test("synthesizeProjectionDetailScreen forces readOnly:true on a group field even when the author set readOnly:false", () => {
@@ -127,8 +127,8 @@ describe("groups-sections (fw#2982)", () => {
     };
 
     const entity = synthesizeProjectionDetailEntity(mixedScreen.layout);
-    expect(entity.fields["amount"]).toEqual({ type: "text" });
-    expect(entity.fields["tenantName"]).toEqual({ type: "text" });
+    expect(entity.fields["amount"]).toEqual(expect.objectContaining({ type: "text" }));
+    expect(entity.fields["tenantName"]).toEqual(expect.objectContaining({ type: "text" }));
 
     const result = synthesizeProjectionDetailScreen(mixedScreen);
     const [fieldsSection, groupsSection] = result.layout.sections;
@@ -164,8 +164,8 @@ describe("groups-sections (fw#2982)", () => {
     };
 
     const entity = synthesizeProjectionDetailEntity(bothScreen.layout);
-    expect(entity.fields["amount"]).toEqual({ type: "text" });
-    expect(entity.fields["tenantName"]).toEqual({ type: "text" });
+    expect(entity.fields["amount"]).toEqual(expect.objectContaining({ type: "text" }));
+    expect(entity.fields["tenantName"]).toEqual(expect.objectContaining({ type: "text" }));
 
     const result = synthesizeProjectionDetailScreen(bothScreen);
     const [section] = result.layout.sections;

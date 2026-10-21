@@ -40,7 +40,15 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
   });
 
   test("entity: split-name ({ name, ...fields }) registers the definition without the name key", () => {
-    const definition = { fields: { title: { type: "text" as const, required: true } } };
+    const definition = {
+      fields: {
+        title: {
+          type: "text" as const,
+          required: true,
+          allowPlaintext: "test fixture value, not personal data",
+        },
+      },
+    };
     const feature = defineFeature("a", (r) => {
       r.entity({ name: "item", ...definition });
     });

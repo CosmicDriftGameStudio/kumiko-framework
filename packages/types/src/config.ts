@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 import type { ConcurrencyMode } from "./concurrency-mode.ts";
 import type { ConfigScope } from "./config-scope.ts";
 import type { DbConnection } from "./db-connection.ts";
-import type { FieldDefinition, OptionsQueryPayload } from "./fields.ts";
+import type { EntityFieldDefinition, OptionsQueryPayload } from "./fields.ts";
 import type { EscapeHatchDeclaration, JobContext, JobDeferral } from "./handlers.ts";
 import type {
   PostDeleteHookFn,
@@ -645,7 +645,7 @@ export type UiExtensionDef = {
 
 export type RegistrarExtensionDef = {
   readonly onRegister?: (entityName: string, options?: Record<string, unknown>) => void;
-  readonly extendSchema?: (entityName: string) => Record<string, FieldDefinition>;
+  readonly extendSchema?: (entityName: string) => Record<string, EntityFieldDefinition>;
   readonly hooks?: RegistrarExtensionHooks;
   readonly extendSearch?: (entityName: string) => Record<string, unknown>;
   readonly uiExtension?: UiExtensionDef;
