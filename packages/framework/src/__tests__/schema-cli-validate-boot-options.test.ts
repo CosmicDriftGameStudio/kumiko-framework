@@ -120,6 +120,14 @@ navAllowlistExempt: new Set(["shop:nav:orphan"]),
     expect(code).toBe(0);
   });
 
+  test("requiredLocales from VALIDATE_BOOT_OPTIONS is honoured", async () => {
+    writeNavFixture(appCwd, `export const VALIDATE_BOOT_OPTIONS = { requiredLocales: ["en"] };`);
+    await runSchemaCli(["generate", "init"], appCwd, captureOut().out);
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(0);
+  });
+
   test.each([
     ["a non-object", `export const VALIDATE_BOOT_OPTIONS = "nope";`, "must be an object"],
     [
@@ -136,6 +144,11 @@ navAllowlistExempt: new Set(["shop:nav:orphan"]),
       "a non-boolean warnOnUniqueAccessRoles",
       `export const VALIDATE_BOOT_OPTIONS = { warnOnUniqueAccessRoles: "yes" };`,
       "`warnOnUniqueAccessRoles` must be a boolean",
+    ],
+    [
+      "requiredLocales with an empty string",
+      `export const VALIDATE_BOOT_OPTIONS = { requiredLocales: ["en", ""] };`,
+      "`requiredLocales` must be an array of non-empty strings",
     ],
   ])("%s fails the boot step with a clear message", async (_label, optionsExport, expected) => {
     writeNavFixture(appCwd, optionsExport);

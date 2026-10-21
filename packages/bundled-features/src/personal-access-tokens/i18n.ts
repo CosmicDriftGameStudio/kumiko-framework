@@ -8,6 +8,10 @@ const mintFieldKey = (field: string): string =>
 const scopeOptionKey = (grant: string): string =>
   fieldOptionLabelKey(PAT_FEATURE, ACTION_FORM_ENTITY, "scopes", grant);
 
+// The generated scope labels are English only; apps translate them under this key.
+export const patScopeOptionKey = (domain: string, level: "read" | "write"): string =>
+  scopeOptionKey(`${domain}:${level}`);
+
 type LocalizedString = { readonly en: string };
 
 export const PAT_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = {

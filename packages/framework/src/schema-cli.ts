@@ -82,6 +82,10 @@ function isStringSet(value: unknown): value is ReadonlySet<string> {
   return value instanceof Set && [...value].every((entry) => typeof entry === "string");
 }
 
+function isNonEmptyStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry !== "");
+}
+
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
@@ -123,7 +127,14 @@ function parseValidateBootOptions(raw: unknown): ValidateBootOptions {
     isBoolean,
     "a boolean",
   );
+  const requiredLocales = readOptionalOption(
+    raw,
+    "requiredLocales",
+    isNonEmptyStringArray,
+    "an array of non-empty strings",
+  );
   return {
+    ...(requiredLocales !== undefined && { requiredLocales }),
     ...(navAllowlist !== undefined && { navAllowlist }),
     ...(navAllowlistExempt !== undefined && { navAllowlistExempt }),
     ...(warnOnUniqueAccessRoles !== undefined && { warnOnUniqueAccessRoles }),

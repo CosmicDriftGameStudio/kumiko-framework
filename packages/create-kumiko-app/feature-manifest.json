@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 86,
+  "featureCount": 87,
   "features": [
     {
       "name": "account-security",
@@ -2066,6 +2066,20 @@
           "entityName": "note-mention"
         }
       ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
+    },
+    {
+      "name": "pat-scope-labels",
+      "description": "German labels for the token scopes this sample app declares.",
+      "toggleableDefault": null,
+      "requires": [],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
       "configKeys": [],
       "secrets": [],
       "writeHandlers": []

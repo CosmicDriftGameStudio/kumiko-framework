@@ -30,7 +30,7 @@ export type AppClientConfig = {
 /** The boot-validator options an app owns; `env` and the cipher are injected by the runners. */
 export type AppValidateBootOptions = Pick<
   ValidateBootOptions,
-  "navAllowlist" | "navAllowlistExempt" | "warnOnUniqueAccessRoles"
+  "navAllowlist" | "navAllowlistExempt" | "requiredLocales" | "warnOnUniqueAccessRoles"
 >;
 
 export type AppConfig = {

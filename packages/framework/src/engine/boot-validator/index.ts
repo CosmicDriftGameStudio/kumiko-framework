@@ -48,7 +48,11 @@ import { validateEntityListScreens } from "./entity-list-screens.ts";
 import { validateGdprStoragePersistence } from "./gdpr-storage.ts";
 import { validateGlobalTenancyEntities } from "./global-tenancy.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
-import { validateI18nSurfaceKeys, validateTranslationLocaleConsistency } from "./i18n-keys.ts";
+import {
+  validateI18nSurfaceKeys,
+  validateRequiredLocales,
+  validateTranslationLocaleConsistency,
+} from "./i18n-keys.ts";
 import {
   collectKnownRoles,
   collectNavQns,
@@ -122,6 +126,10 @@ export type ValidateBootOptions = {
    *  `masterKey` or the env keyring). Satisfies the availability check for
    *  `encrypted: true` fields without an env KEK. */
   readonly entityFieldCipher?: EnvelopeCipher;
+  /** Locales every translation key must carry across all mounted features
+   *  (locale packages count). Without it a key can ship in one language and
+   *  silently fall back at runtime for users of the others. */
+  readonly requiredLocales?: readonly string[];
 };
 
 // Test stacks mount feature subsets, so a reference into a feature that is not
@@ -341,6 +349,7 @@ export function validateBoot(
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
   validateTranslationLocaleConsistency(features);
+  validateRequiredLocales(features, options?.requiredLocales);
   validateEntityListScreens(features);
   validateSubmitPrefilledHiddenFields(features);
   validateCardMetaOverflow(features);

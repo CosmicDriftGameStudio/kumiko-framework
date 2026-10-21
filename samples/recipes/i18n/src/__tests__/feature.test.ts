@@ -3,7 +3,7 @@
 // Note: keys are prefixed with feature name → "featureName:key"
 
 import { describe, expect, test } from "bun:test";
-import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { errorFeature, greetingFeature } from "../feature";
 
@@ -54,5 +54,21 @@ describe("multiple features merge translations", () => {
     expect(keys).toContain("errors:errors.not_found");
     expect(keys).toContain("errors:errors.access_denied");
     expect(keys).toHaveLength(6);
+  });
+});
+
+describe("requiredLocales", () => {
+  test("boot passes when every key carries the required locales", () => {
+    expect(() =>
+      validateBoot([greetingFeature, errorFeature], { requiredLocales: ["de", "en"] }),
+    ).not.toThrow();
+  });
+
+  test("boot names each key that lacks a required locale", () => {
+    expect(() =>
+      validateBoot([greetingFeature, errorFeature], { requiredLocales: ["de", "en", "fr"] }),
+    ).toThrow(
+      /Feature "errors": translation key "errors.not_found" is missing required locale\(s\) fr/,
+    );
   });
 });
