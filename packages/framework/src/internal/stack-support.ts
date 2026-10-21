@@ -1,9 +1,12 @@
 // @runtime dev
 export { createDbConnection } from "../db/connection.ts";
 export {
+  acquireSessionAdvisoryLock,
   createDatabase,
   databaseExists,
   dropDatabaseIfExists,
+  listDatabaseNamesWithPrefix,
+  renameDatabase,
   truncateTablesRestartIdentity,
 } from "../db/queries/test-stack.ts";
 export { type AnyDb, isClosedConnectionError } from "../db/query.ts";

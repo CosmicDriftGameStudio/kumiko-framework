@@ -4,6 +4,7 @@
 import { mkdirSync } from "node:fs";
 import {
   buildIntegrationTestArgs,
+  runWithTestDbTemplates,
   selectIntegrationFiles,
 } from "@cosmicdrift/kumiko-testing/integration-runner";
 import { SCAFFOLD_INTEGRATION_PARALLEL } from "@cosmicdrift/kumiko-testing/scaffold";
@@ -89,7 +90,14 @@ function printIntegrationSummary(
  *  combined text. CI needs to see progress during a multi-minute run, and
  *  the summary needs the trailing "Ran N tests..." line to parse totals. */
 async function spawnAndCapture(args: readonly string[]): Promise<{ exitCode: number; output: string }> {
-  const proc = Bun.spawn(["bun", ...args], { stdout: "pipe", stderr: "pipe", cwd: process.cwd() });
+  // Bun.spawn defaults to the env from process start; pass the live one so the
+  // template run id set by runWithTestDbTemplates reaches the test process.
+  const proc = Bun.spawn(["bun", ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+    cwd: process.cwd(),
+    env: process.env,
+  });
   const capture = async (stream: ReadableStream<Uint8Array>, sink: NodeJS.WriteStream): Promise<string> => {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
@@ -215,7 +223,7 @@ if (import.meta.main) {
   if (guard.exitCode !== 0) process.exit(guard.exitCode ?? 1);
 
   const mode = integrationRunModeFromArgv(process.argv);
-  const code = await runIntegrationTests(mode);
+  const code = await runWithTestDbTemplates(() => runIntegrationTests(mode));
   process.exit(code);
 }
 

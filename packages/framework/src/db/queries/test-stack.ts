@@ -23,8 +23,37 @@ export async function databaseExists(db: AnyDb, dbName: string): Promise<boolean
   return rows[0]?.exists === true;
 }
 
-export async function createDatabase(db: AnyDb, dbName: string): Promise<void> {
-  await asRawClient(db).unsafe(`CREATE DATABASE ${quoteTableIdent(dbName)}`);
+export async function createDatabase(
+  db: AnyDb,
+  dbName: string,
+  templateDbName?: string,
+): Promise<void> {
+  const template =
+    templateDbName === undefined ? "" : ` TEMPLATE ${quoteTableIdent(templateDbName)}`;
+  await asRawClient(db).unsafe(`CREATE DATABASE ${quoteTableIdent(dbName)}${template}`);
+}
+
+export async function renameDatabase(db: AnyDb, fromName: string, toName: string): Promise<void> {
+  await asRawClient(db).unsafe(
+    `ALTER DATABASE ${quoteTableIdent(fromName)} RENAME TO ${quoteTableIdent(toName)}`,
+  );
+}
+
+export async function listDatabaseNamesWithPrefix(
+  db: AnyDb,
+  prefix: string,
+): Promise<readonly string[]> {
+  const rows = await asRawClient(db).unsafe<{ datname: string }>(
+    `SELECT datname FROM pg_database WHERE starts_with(datname, $1) ORDER BY datname`,
+    [prefix],
+  );
+  return rows.map((row) => row.datname);
+}
+
+// Session-scoped: CREATE DATABASE cannot run inside a transaction, so the
+// xact-scoped variant cannot guard it. Released when the session closes.
+export async function acquireSessionAdvisoryLock(db: AnyDb, key: string): Promise<void> {
+  await asRawClient(db).unsafe(`SELECT pg_advisory_lock(hashtext($1))`, [key]);
 }
 
 export async function dropDatabaseIfExists(db: AnyDb, dbName: string): Promise<void> {
