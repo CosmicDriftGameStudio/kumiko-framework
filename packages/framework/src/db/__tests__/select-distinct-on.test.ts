@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createNumberField, createTextField } from "../../engine/index.ts";
-import { buildDistinctOnClause, extractTableInfo, selectMany } from "../query.ts";
+import { buildDistinctOnClause } from "../distinct-on.ts";
+import { extractTableInfo, selectMany } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const docEntity = createEntity({
@@ -19,13 +20,26 @@ describe("buildDistinctOnClause", () => {
 
   test("defaults ORDER BY to the distinctOn columns ascending", () => {
     const clause = buildDistinctOnClause(info, ["key"], undefined);
-    expect(clause?.selectPrefix).toBe('DISTINCT ON ("key") ');
+    expect(clause?.columns).toEqual(["key"]);
     expect(clause?.orderBy).toEqual([{ col: "key" }]);
   });
 
   test("keeps a caller orderBy that starts with the distinctOn fields", () => {
     const orderBy = [{ col: "key" }, { col: "revision", direction: "desc" as const }];
     expect(buildDistinctOnClause(info, ["key"], orderBy)?.orderBy).toEqual(orderBy);
+  });
+
+  test("treats camelCase and snake_case spellings of the same column as equal", () => {
+    const entity = createEntity({
+      table: "read_distinct_on_camel",
+      fields: {
+        accountKey: createTextField({ personal: false, reason: "technical_reference" }),
+        revision: createNumberField({ required: true }),
+      },
+    });
+    const camelInfo = extractTableInfo(buildEntityTable("distinct-on-camel", entity));
+    const orderBy = [{ col: "account_key" }, { col: "revision", direction: "desc" as const }];
+    expect(buildDistinctOnClause(camelInfo, ["accountKey"], orderBy)?.orderBy).toEqual(orderBy);
   });
 
   test("throws on an unknown column", () => {

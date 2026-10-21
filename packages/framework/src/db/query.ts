@@ -32,7 +32,6 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   JsonTextMatch,
-  OrderByClause,
   SelectOptions,
   WhereObject,
   WhereOperator,
@@ -45,6 +44,7 @@ import { InternalError } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/index.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import { SQL_EXPR_BRAND } from "./dialect.ts";
+import { buildDistinctOnClause } from "./distinct-on.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
@@ -919,7 +919,6 @@ function buildWhereClause(
 // Each failed attempt discards one, so retries are bounded by pool size.
 const CLOSED_CONNECTION_CODES: ReadonlySet<string> = new Set([
   "CONNECTION_CLOSED", // postgres-js
-  "ERR_POSTGRES_CONNECTION_CLOSED", // Bun.SQL
   "57P01", // PG SQLSTATE: admin_shutdown / terminated backend
 ]);
 
@@ -955,14 +954,11 @@ function isHandleLike(raw: unknown): raw is Record<string, unknown> {
   return raw !== null && (typeof raw === "object" || typeof raw === "function");
 }
 
-type ClosedConnectionDriver = "bun-sql" | "postgres-js" | "unknown";
+type ClosedConnectionDriver = "postgres-js" | "unknown";
 
-// Bun.SQL is not instanceof-checkable (Bun.SQL.prototype is invalid) and its tx
-// handles are plain function objects, so discriminate by members only one driver
-// has: `flush` on Bun.SQL (pool and tx), `typed` on postgres-js (pool and tx).
+// postgres-js pool and tx handles both carry `typed`.
 function driverOf(raw: unknown): ClosedConnectionDriver {
   if (!isHandleLike(raw)) return "unknown";
-  if (typeof raw["flush"] === "function") return "bun-sql";
   if (typeof raw["typed"] === "function") return "postgres-js";
   return "unknown";
 }
@@ -971,18 +967,15 @@ function positiveNumber(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
-// postgres-js configures timeouts in seconds, Bun.SQL in milliseconds.
+// postgres-js configures timeouts in seconds.
 function timeoutOptionMs(
   options: Record<string, unknown>,
   driver: ClosedConnectionDriver,
-  bunName: string,
-  postgresJsName: string,
+  optionName: string,
 ): number | undefined {
-  if (driver === "postgres-js") {
-    const seconds = positiveNumber(options[postgresJsName]);
-    return seconds === undefined ? undefined : seconds * 1000;
-  }
-  return positiveNumber(options[bunName]);
+  if (driver !== "postgres-js") return undefined;
+  const seconds = positiveNumber(options[optionName]);
+  return seconds === undefined ? undefined : seconds * 1000;
 }
 
 function errorProp(err: unknown, name: string): unknown {
@@ -1004,9 +997,9 @@ export function describeClosedConnectionFailure(
     pooled: isPooledClient(raw),
     attempts,
     poolMax: positiveNumber(options["max"]),
-    idleTimeoutMs: timeoutOptionMs(options, driver, "idleTimeout", "idle_timeout"),
-    maxLifetimeMs: timeoutOptionMs(options, driver, "maxLifetime", "max_lifetime"),
-    connectionTimeoutMs: timeoutOptionMs(options, driver, "connectionTimeout", "connect_timeout"),
+    idleTimeoutMs: timeoutOptionMs(options, driver, "idle_timeout"),
+    maxLifetimeMs: timeoutOptionMs(options, driver, "max_lifetime"),
+    connectionTimeoutMs: timeoutOptionMs(options, driver, "connect_timeout"),
     errorName: errorProp(err, "name"),
     errorCode: extractPgError(err)?.code ?? errorProp(err, "code"),
     errorErrno: errorProp(err, "errno"),
@@ -1111,42 +1104,6 @@ function selectColumnList(info: TableInfo, fields: readonly string[] | undefined
     .join(", ");
 }
 
-type DistinctOnClause = {
-  readonly selectPrefix: string;
-  readonly orderBy: readonly OrderByClause[];
-};
-
-// Postgres rejects DISTINCT ON unless ORDER BY starts with the same
-// expressions, so a mismatch is caught here with a readable message instead of
-// surfacing as a driver error.
-export function buildDistinctOnClause(
-  info: TableInfo,
-  distinctOn: readonly string[] | undefined,
-  orderBy: OrderByClause | readonly OrderByClause[] | undefined,
-): DistinctOnClause | undefined {
-  if (distinctOn === undefined) return undefined;
-  if (distinctOn.length === 0) {
-    throw new Error(`selectMany: distinctOn must not be empty for "${info.name}"`);
-  }
-  for (const field of distinctOn) {
-    if (!info.hasColumn(field)) {
-      throw new Error(`selectMany: distinctOn entry "${field}" is not a column of "${info.name}"`);
-    }
-  }
-  const selectPrefix = `DISTINCT ON (${distinctOn.map((f) => quoteIdent(info.columnOf(f))).join(", ")}) `;
-  if (orderBy === undefined) {
-    return { selectPrefix, orderBy: distinctOn.map((col) => ({ col })) };
-  }
-  const clauses = Array.isArray(orderBy) ? orderBy : [orderBy];
-  const startsWithDistinctOn = distinctOn.every((field, i) => clauses[i]?.col === field);
-  if (!startsWithDistinctOn) {
-    throw new Error(
-      `selectMany: orderBy must start with the distinctOn fields [${distinctOn.join(", ")}] in the same order for "${info.name}"`,
-    );
-  }
-  return { selectPrefix, orderBy: clauses };
-}
-
 export async function selectMany<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
@@ -1159,7 +1116,11 @@ export async function selectMany<TRow = AnyRow>(
   }
   const info = extractTableInfo(table);
   const distinctOn = buildDistinctOnClause(info, options?.distinctOn, options?.orderBy);
-  let sqlText = `SELECT ${distinctOn?.selectPrefix ?? ""}${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
+  const distinctPrefix =
+    distinctOn === undefined
+      ? ""
+      : `DISTINCT ON (${distinctOn.columns.map(quoteIdent).join(", ")}) `;
+  let sqlText = `SELECT ${distinctPrefix}${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
   let values: unknown[] = [];
   if (where && Object.keys(where).length > 0) {
     const w = buildWhereClause(info, where, 1);

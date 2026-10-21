@@ -16,7 +16,7 @@ const WRITE_ONLY_SET_LABEL_KEY = "kumiko.field.writeOnly.set";
 
 export type ComputeListViewModelInput = {
   readonly screen: EntityListScreenDefinition;
-  readonly entity: EntityDefinition;
+  readonly entity: Pick<EntityDefinition, "fields" | "derivedFields">;
   readonly rows: readonly Readonly<Record<string, unknown>>[];
   // Translate callback — normally LocaleResolver.translate. Labels use the
   // i18n convention "{feature}:entity:{entityName}:field:{fieldName}"; if

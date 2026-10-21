@@ -33,20 +33,26 @@ import {
   PROJECTION_DETAIL_ENTITY as PROJECTION_DETAIL_PSEUDO_ENTITY,
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { SYNTHESIZED_FIELD_PII_REASON } from "./projection-list-shim.ts";
 
 /** Minimale EntityDefinition aus den Layout-Feldern: jedes Feld ein Text-
  *  Feld — computeEditViewModel liest nur `fields[<f>].type`, Text reicht für
  *  eine reine Anzeige (kein Select/Number-spezifisches Rendering nötig). */
-export function synthesizeProjectionDetailEntity(layout: EditLayout): EntityDefinition {
-  const fields: Record<string, { type: "text" }> = {};
+export function synthesizeProjectionDetailEntity(
+  layout: EditLayout,
+): Pick<EntityDefinition, "fields"> {
+  const fields: Record<string, EntityDefinition["fields"][string]> = {};
   for (const section of layout.sections) {
     // relatedList and extension sections carry no `fields` to synthesize.
     if (!isFieldsEditSection(section)) continue;
     for (const spec of sectionFieldSpecs(section)) {
-      fields[normalizeEditField(spec).field] = { type: "text" };
+      fields[normalizeEditField(spec).field] = {
+        type: "text",
+        allowPlaintext: SYNTHESIZED_FIELD_PII_REASON,
+      };
     }
   }
-  return { fields } as unknown as EntityDefinition;
+  return { fields };
 }
 
 /** Wandelt ein ProjectionDetailScreenDefinition in die EntityEditScreen-Shape

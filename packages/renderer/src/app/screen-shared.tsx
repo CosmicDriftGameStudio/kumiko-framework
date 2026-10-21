@@ -8,6 +8,7 @@ import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useEffect, useMemo } from "react";
 import { extractIdField } from "../components/reference-create-dialog.tsx";
+import { rendererWarn } from "../dev-console.ts";
 import type { Dispatcher, Translate } from "../headless/index.ts";
 import { applyFormatSpec } from "../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
@@ -58,7 +59,7 @@ export function ScreenMissingState({
   const { Card, Text } = usePrimitives();
   const t = useTranslation();
   useEffect(() => {
-    console.warn(
+    rendererWarn(
       `[kumiko] screen "${screenQn}" is not in the schema (feature disabled, stale link or miswired screen).`,
     );
   }, [screenQn]);
@@ -88,7 +89,7 @@ export function ScreenAccessDeniedBanner({
   const { Banner } = usePrimitives();
   const t = useTranslation();
   useEffect(() => {
-    console.warn(`[kumiko] access to screen "${screenQn}" denied for the current roles.`);
+    rendererWarn(`[kumiko] access to screen "${screenQn}" denied for the current roles.`);
   }, [screenQn]);
   return (
     <Banner padded variant="error" testId={testId}>

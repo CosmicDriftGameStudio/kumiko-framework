@@ -72,7 +72,7 @@ export type ComputeEditViewModelInput<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > = {
   readonly screen: EntityEditScreenDefinition;
-  readonly entity: EntityDefinition;
+  readonly entity: Pick<EntityDefinition, "fields" | "defaultCurrency">;
   readonly values: TValues;
   readonly translate: Translate;
   readonly featureName: string;
