@@ -7,6 +7,7 @@ import {
   type Category,
   categorize,
   collect,
+  legitCountsByPackage,
   loadBaseline,
   reportBaseline,
 } from "../check-as-casts";
@@ -174,5 +175,27 @@ describe("cast baseline file", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.file).toBe(file);
     expect(violations[0]?.message).toContain("format drift");
+  });
+});
+
+describe("legit cast ratchet", () => {
+  test("counts bridge and boundary casts per package and category, ignoring siblings", () => {
+    const bridge = (file: string): TestSite => ({
+      ...suspectSite(file, 1),
+      category: "legit-bridge",
+    });
+    const counts = legitCountsByPackage([
+      bridge("packages/renderer/src/a.ts"),
+      bridge("packages/renderer/src/deep/b.ts"),
+      boundarySite("packages/renderer/src/c.ts", 3, "error-details"),
+      boundarySite("packages/types/src/d.ts", 4, "error-details"),
+      bridge("../other/packages/x/src/e.ts"),
+      suspectSite("packages/renderer/src/f.ts", 5),
+    ]);
+    expect(counts).toEqual({
+      "packages/renderer:legit-bridge": 2,
+      "packages/renderer:legit-boundary": 1,
+      "packages/types:legit-boundary": 1,
+    });
   });
 });

@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "generated": "2026-10-20",
+  "generated": "2026-10-21",
   "totalSuspect": 168,
   "perFile": {
     "packages/bundled-features/src/auth-email-password/handlers/switch-tenant-mfa-gate.write.ts": {
@@ -95,7 +95,7 @@
       "FeatureDefinition": 1,
       "Record<string, unknown>": 1
     },
-    "packages/framework/src/api/auth-routes.ts": {
+    "packages/framework/src/api/auth-rate-limiters.ts": {
       "number": 1
     },
     "packages/framework/src/crypto/kms-adapter.ts": {
@@ -212,7 +212,7 @@
     "packages/framework/src/i18n/required-surface-keys.ts": {
       "{ readonly filterable?: boolean; readonly type?: string; rea": 1
     },
-    "packages/framework/src/jobs/job-runner.ts": {
+    "packages/framework/src/jobs/job-runner-helpers.ts": {
       "JobSubjectValue": 1
     },
     "packages/framework/src/lifecycle/signal-handlers.ts": {
@@ -273,9 +273,11 @@
     "packages/renderer/src/app/config-edit-shim.ts": {
       "EntityDefinition": 1
     },
-    "packages/renderer/src/app/kumiko-screen.tsx": {
-      "{ type?: string; filterable?: boolean; options?: readonly st": 1,
+    "packages/renderer/src/app/entity-edit-prefill.ts": {
       "PrefillFieldShape": 1
+    },
+    "packages/renderer/src/app/entity-list-screen.tsx": {
+      "{ type?: string; filterable?: boolean; options?: readonly st": 1
     },
     "packages/renderer/src/components/embedded-list-field.tsx": {
       "readonly EmbeddedRow[]": 1
@@ -324,12 +326,16 @@
     "packages/renderer/src/web/layout/shell-header.tsx": {
       "HTMLElement": 1
     },
-    "packages/renderer/src/web/primitives/index.tsx": {
+    "packages/renderer/src/web/primitives/data-table-cell.tsx": {
       "(v: unknown, r?: Readonly<Record<string, unknown>>) => strin": 1,
-      "{ format: string; locale?: string } & Record<string, unknown": 1,
-      "{ readonly children?: ReactNode }": 1,
-      "{ readonly type?: string } & StickyPrimaryActionMarker": 1,
+      "{ format: string; locale?: string } & Record<string, unknown": 1
+    },
+    "packages/renderer/src/web/primitives/field.tsx": {
       "FieldIconKey": 1
+    },
+    "packages/renderer/src/web/primitives/form.tsx": {
+      "{ readonly children?: ReactNode }": 1,
+      "{ readonly type?: string } & StickyPrimaryActionMarker": 1
     },
     "packages/renderer/src/web/sse/live-events.ts": {
       "LiveEvent[\"data\"]": 1

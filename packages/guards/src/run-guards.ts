@@ -31,6 +31,7 @@ import { guard as directFetch } from "./guard-direct-fetch";
 import { guard as errorReasons } from "./guard-error-reasons";
 import { guard as eventStoreWrites } from "./guard-event-store-writes";
 import { guard as fakeTests } from "./guard-fake-tests";
+import { guard as fileSize } from "./guard-file-size";
 import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
@@ -80,6 +81,7 @@ export const GUARDS = [
   libTestCoverage,
   testTimeouts,
   testTemplateDrift,
+  fileSize,
 ];
 
 export const GUARD_FLAGS = [
