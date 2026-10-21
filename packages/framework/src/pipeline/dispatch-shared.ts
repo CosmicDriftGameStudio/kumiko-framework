@@ -1,5 +1,5 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
-import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
+import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   RateLimitBucketRequest,
   RateLimitResolver,
@@ -7,6 +7,7 @@ import type {
 import { requestContext, runWithOrigin } from "../api/request-context.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection.ts";
+import { createHandlerCrossTenantReads } from "../db/cross-tenant-reads.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
 import type { buildEntityTable } from "../db/table-builder.ts";
 import {
@@ -365,6 +366,7 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
     // A read as a member gets no system-scope DB, preSave pipeline or file storage.
     runPreSave: undefined,
     systemDb: undefined,
+    crossTenantReads: undefined,
     files: undefined,
     derivatives: undefined,
     ...(handlerContext.jobRunner && { jobRunner: denyingJobRunnerProxy() }),
@@ -544,6 +546,25 @@ export async function buildHandlerContext(
   const systemDb =
     isSystem && db
       ? createUncheckedSystemDb(db, rawDbOutsideTransaction, reportEscapeHatch)
+      : undefined;
+  const crossTenantReadsReason = crossTenantReadsGrantFor(handlerEscapeHatch)?.reason;
+  const crossTenantReads =
+    dbSource && crossTenantReadsReason !== undefined
+      ? createHandlerCrossTenantReads({
+          db: dbSource,
+          tenantId: user.tenantId,
+          tracer: context.tracer,
+          meter: context.meter,
+          signal: reqCtx?.signal,
+          reason: crossTenantReadsReason,
+          report: reportEscapeHatch,
+          grants: {
+            report: reportEscapeHatch,
+            memberReadOnly: isMemberResolutionPrincipal(user),
+            personalDataGate: buildPersonalDataGate(registry, origin),
+            projectionRegistry: registry,
+          },
+        })
       : undefined;
   // Exposed as ctx.db below — the internal `db` above stays the real,
   // working TenantDb for this function's own use (config/derivatives
@@ -1224,6 +1245,7 @@ export async function buildHandlerContext(
     db: exposedDb,
     dbOutsideTransaction,
     ...(systemDb && { systemDb }),
+    ...(crossTenantReads && { crossTenantReads }),
     log,
     notify,
     ...(config && { config }),

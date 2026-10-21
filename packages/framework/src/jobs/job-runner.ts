@@ -1,12 +1,13 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
+import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type { JobsOptions } from "bullmq";
 import { DelayedError, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.ts";
 import type { DbConnection, DbRow } from "../db/connection.ts";
+import { createCrossTenantReads } from "../db/cross-tenant-reads.ts";
 import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { bridgeStub } from "../engine/bridge-stub.ts";
@@ -52,7 +53,6 @@ import {
   buildRetryBullOpts,
   COMPLETED_JOB_RETENTION_AGE_SEC,
   captureTraceContext,
-  createCrossTenantReads,
   createJobLogger,
   DEFAULT_MAX_DEFERS,
   DEFER_BACKOFF_MAX_DOUBLINGS,
@@ -819,7 +819,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           },
         })
       : undefined;
-    const crossTenantReadsReason = escapeHatchFor(jobDef.escapeHatch, "unsafeRaw")?.reason;
+    const crossTenantReadsReason = crossTenantReadsGrantFor(jobDef.escapeHatch)?.reason;
     const crossTenantReads =
       tenantScopedDb && crossTenantReadsReason !== undefined
         ? createCrossTenantReads(tenantScopedDb, crossTenantReadsReason, reportEscapeHatch)
