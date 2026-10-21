@@ -2,7 +2,7 @@
   "name": "@cosmicdrift/kumiko-document-designer",
   "version": "0.386.0",
   "description": "Document designer for Kumiko: template overview, layout editor (mail layout, PDF letterhead) and the PDF template editor.",
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "type": "module",
   "kumiko": {

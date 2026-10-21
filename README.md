@@ -2,7 +2,7 @@
 
 > An AI-native backend builder. You describe your domain and get the backend for it: schema, auth, audit log, multi-tenancy and realtime updates, as TypeScript code in your own repo.
 
-[![CI](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/CosmicDriftGameStudio/kumiko-framework/badges/.github/badges/coverage.json)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@cosmicdrift/kumiko-framework.svg)](https://www.npmjs.com/package/@cosmicdrift/kumiko-framework) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.4.0-black.svg)](https://bun.sh)
+[![CI](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/CosmicDriftGameStudio/kumiko-framework/badges/.github/badges/coverage.json)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@cosmicdrift/kumiko-framework.svg)](https://www.npmjs.com/package/@cosmicdrift/kumiko-framework) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.4.0-black.svg)](https://bun.sh)
 
 <details>
 <summary>Other things people say about Kumiko</summary>
@@ -208,19 +208,11 @@ Before a bigger PR, skim [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue 
 
 Questions go to [GitHub Issues](https://github.com/CosmicDriftGameStudio/kumiko-framework/issues) or marc@cosmicdriftgamestudio.com.
 
-Every merged PR needs tests where they make sense; every new framework feature needs a recipe. By contributing, you agree your contributions are licensed under the same BUSL-1.1 terms (see [LICENSE](./LICENSE)).
+Every merged PR needs tests where they make sense; every new framework feature needs a recipe. By contributing, you agree your contributions are licensed under the same MIT terms (see [LICENSE](./LICENSE)).
 
 ## License
 
-Kumiko is licensed under the Business Source License 1.1 (BUSL-1.1) and converts to the Apache License 2.0 on 2030-05-05.
-
-You may use Kumiko in production for any purpose, **except** providing a platform or service to third parties that allows them to host, deploy, or run their own applications built with Kumiko. This includes managed hosting, SaaS platforms, PaaS, developer platforms, and any multi-tenant managed offering.
-
-Code from any release automatically becomes Apache-2.0 four years after publication.
-
-For commercial licensing or alternative arrangements: marc@cosmicdriftgamestudio.com.
-
-Details: [LICENSE](./LICENSE).
+Kumiko is released under the [MIT License](./LICENSE). Build, run and sell anything with it, including hosted services. Releases published before this change carry BUSL-1.1 and stay under that license.
 
 ## Hosted platform
 

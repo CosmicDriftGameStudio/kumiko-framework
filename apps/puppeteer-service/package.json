@@ -18,7 +18,7 @@
   "devDependencies": {
     "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*"
   },
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",

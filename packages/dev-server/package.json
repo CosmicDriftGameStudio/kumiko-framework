@@ -2,7 +2,7 @@
   "name": "@cosmicdrift/kumiko-dev-server",
   "version": "0.386.0",
   "description": "Dev-tooling for Kumiko apps: local dev-server bootstrap (runDevApp), scaffolding. Its compose-stacks/env-schema subpaths are consumed at prod boot too — see @cosmicdrift/kumiko-server-runtime for the prod runner itself.",
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "repository": {
     "type": "git",
