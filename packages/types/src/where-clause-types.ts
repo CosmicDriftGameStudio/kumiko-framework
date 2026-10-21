@@ -39,4 +39,9 @@ export type SelectOptions = {
   // Single column or array for multi-column tie-breaks (e.g.
   // [{col: "createdAt"}, {col: "id"}] for chronological-with-stable-id).
   readonly orderBy?: OrderByClause | readonly OrderByClause[];
+  // Newest-row-per-key reads without unsafeRaw: one row per distinct value of
+  // these fields (Postgres DISTINCT ON), the first by `orderBy`. Postgres needs
+  // `orderBy` to start with these fields in the same order; omitted `orderBy`
+  // defaults to them ascending.
+  readonly distinctOn?: readonly [string, ...string[]];
 };

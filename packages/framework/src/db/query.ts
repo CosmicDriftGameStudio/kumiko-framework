@@ -32,6 +32,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   JsonTextMatch,
+  OrderByClause,
   SelectOptions,
   WhereObject,
   WhereOperator,
@@ -1110,6 +1111,42 @@ function selectColumnList(info: TableInfo, fields: readonly string[] | undefined
     .join(", ");
 }
 
+type DistinctOnClause = {
+  readonly selectPrefix: string;
+  readonly orderBy: readonly OrderByClause[];
+};
+
+// Postgres rejects DISTINCT ON unless ORDER BY starts with the same
+// expressions, so a mismatch is caught here with a readable message instead of
+// surfacing as a driver error.
+export function buildDistinctOnClause(
+  info: TableInfo,
+  distinctOn: readonly string[] | undefined,
+  orderBy: OrderByClause | readonly OrderByClause[] | undefined,
+): DistinctOnClause | undefined {
+  if (distinctOn === undefined) return undefined;
+  if (distinctOn.length === 0) {
+    throw new Error(`selectMany: distinctOn must not be empty for "${info.name}"`);
+  }
+  for (const field of distinctOn) {
+    if (!info.hasColumn(field)) {
+      throw new Error(`selectMany: distinctOn entry "${field}" is not a column of "${info.name}"`);
+    }
+  }
+  const selectPrefix = `DISTINCT ON (${distinctOn.map((f) => quoteIdent(info.columnOf(f))).join(", ")}) `;
+  if (orderBy === undefined) {
+    return { selectPrefix, orderBy: distinctOn.map((col) => ({ col })) };
+  }
+  const clauses = Array.isArray(orderBy) ? orderBy : [orderBy];
+  const startsWithDistinctOn = distinctOn.every((field, i) => clauses[i]?.col === field);
+  if (!startsWithDistinctOn) {
+    throw new Error(
+      `selectMany: orderBy must start with the distinctOn fields [${distinctOn.join(", ")}] in the same order for "${info.name}"`,
+    );
+  }
+  return { selectPrefix, orderBy: clauses };
+}
+
 export async function selectMany<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
@@ -1121,15 +1158,17 @@ export async function selectMany<TRow = AnyRow>(
     return scoped.selectMany<TRow>(table, where, options);
   }
   const info = extractTableInfo(table);
-  let sqlText = `SELECT ${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
+  const distinctOn = buildDistinctOnClause(info, options?.distinctOn, options?.orderBy);
+  let sqlText = `SELECT ${distinctOn?.selectPrefix ?? ""}${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
   let values: unknown[] = [];
   if (where && Object.keys(where).length > 0) {
     const w = buildWhereClause(info, where, 1);
     sqlText += ` WHERE ${w.sqlText}`;
     values = w.values;
   }
-  if (options?.orderBy) {
-    const clauses = Array.isArray(options.orderBy) ? options.orderBy : [options.orderBy];
+  const orderBy = distinctOn?.orderBy ?? options?.orderBy;
+  if (orderBy) {
+    const clauses = Array.isArray(orderBy) ? orderBy : [orderBy];
     const parts = clauses.map((c) => {
       const col = info.columnOf(c.col);
       const dir = c.direction === "desc" ? "DESC" : "ASC";
