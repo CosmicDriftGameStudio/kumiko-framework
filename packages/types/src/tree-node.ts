@@ -73,7 +73,7 @@ export type TreeNode = {
   // `createAction.screen` or dispatches `createAction.target` — the
   // provider knows what "create empty" means for it (e.g. "new page slug"
   // vs. "new entity row"), convention couldn't guess that. Consistent with
-  // `state` (also provider-explicit). See visual-tree.md V.1.1.
+  // `state` (also provider-explicit).
   readonly createAction?: TreeAction;
 };
 

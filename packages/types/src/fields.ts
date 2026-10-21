@@ -786,7 +786,7 @@ export type EmbeddedFieldDef = {
 // Free-form jsonb — keys/shape NOT validated at write-time. Use for:
 //   - Tenant-defined extension data (custom-fields-bundle uses this for
 //     `customFields` on host-entities — keys are dynamic per fieldDefinition)
-//   - Configuration-blobs with shape that evolves outside Stammfeld-schema
+//   - Configuration-blobs with shape that evolves outside the entity field schema
 //   - AI-inferred metadata where shape is provider-dependent
 //
 // Vs. embedded: embedded enforces a typed sub-schema; jsonb accepts any

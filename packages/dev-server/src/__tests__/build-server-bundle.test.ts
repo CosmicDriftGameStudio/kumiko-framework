@@ -49,7 +49,7 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       const serverSrc = readFileSync(join(outDir, "server.js"), "utf8");
       expect(serverSrc).toContain("chunk-");
 
-      // Kein Legacy-Drizzle-Output mehr.
+      // No legacy Drizzle output remains.
       expect(existsSync(join(outDir, "migration-hooks.js"))).toBe(false);
       expect(existsSync(join(outDir, "drizzle.config.ts"))).toBe(false);
 

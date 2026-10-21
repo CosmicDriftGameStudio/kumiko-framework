@@ -177,7 +177,7 @@ export type RowActionWriteHandler = {
   readonly kind?: "writeHandler";
   /** Stable id per screen — kebab-case, unique within the action set. */
   readonly id: string;
-  /** Anzeige-Text (i18n-Key). */
+  /** Display text (i18n key). */
   readonly label: string;
   /** Qualified name of the server handler, e.g.
    *  "publicstatus:write:maintenance:start". Dispatched via

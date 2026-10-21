@@ -139,7 +139,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     },
     user: SessionUser,
     db: TenantDb,
-    /** Tier 2.7e audit fix: per-call SearchAdapter override. When the
+    /** Per-call SearchAdapter override. When the
      *  executor didn't get a SearchAdapter via Options at build time
      *  (defaultEntityQueryHandler path), the caller (handler) can pass
      *  one from ctx.searchAdapter here at runtime.

@@ -70,8 +70,8 @@ const features = composeFeatures(
   { includeBundled: true },
 );
 
-// Zweite Komposition MIT Trial-Option: jeder Tenant bekommt 30 Tage ab
-// inserted_at the "pro" features (feat-pro), independent of the stored tier.
+// Second composition WITH the trial option: every tenant receives the "pro" features (feat-pro)
+// for 30 days from inserted_at, independent of the stored tier.
 const TRIAL_HOURS = 30 * 24;
 const featuresWithTrial = composeFeatures(
   [
