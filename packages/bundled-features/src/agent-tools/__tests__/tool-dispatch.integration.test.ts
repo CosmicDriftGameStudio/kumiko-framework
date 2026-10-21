@@ -14,6 +14,7 @@ import {
   createLongTextField,
   createTextField,
   defineFeature,
+  type EscapeHatchUseEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -161,10 +162,35 @@ const scribeFeature = defineFeature("agent-tools-test-scribe", (r) => {
   });
 });
 
+const XTR_PROBE_QN = "agent-tools-test-xtr:query:probe";
+
+const crossTenantProbeFeature = defineFeature("agent-tools-test-xtr", (r) => {
+  r.queryHandler({
+    name: "probe",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    escapeHatch: {
+      reason: "cross-tenant probe for the agent tool path",
+      grants: ["crossTenantReads"],
+    },
+    description: "Reports whether the handler received ctx.crossTenantReads.",
+    handler: async (_query, ctx) => ({ hasReads: ctx.crossTenantReads !== undefined }),
+  });
+});
+
+const escapeHatchAuditKinds: string[] = [];
+
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [vendorFeature, gizmoFeature, scribeFeature] });
+  stack = await setupTestStack({
+    features: [vendorFeature, gizmoFeature, scribeFeature, crossTenantProbeFeature],
+    extraContext: {
+      _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {
+        escapeHatchAuditKinds.push(event.kind);
+      },
+    },
+  });
   await unsafeCreateEntityTable(stack.db, vendorEntity);
   await unsafeCreateEntityTable(stack.db, gizmoEntity, "gizmo");
   await unsafeCreateEntityTable(stack.db, scribeEntity, "scribe");
@@ -179,6 +205,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_vendors");
   await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_gizmos");
   await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_scribes");
+  escapeHatchAuditKinds.length = 0;
 });
 
 const TENANT_B = "00000000-0000-4000-8000-0000000000bb";
@@ -304,5 +331,24 @@ describe("dispatchToolCall — a mid-risk tool writing a readAsInstruction field
       "SELECT id FROM agent_tools_test_scribes",
     )) as readonly Record<string, unknown>[];
     expect(rows.length).toBe(0);
+  });
+});
+
+describe("dispatchToolCall — a crossTenantReads grant stays closed for agent tool calls", () => {
+  test("an agent-exposed query handler with the grant gets no crossTenantReads and nothing is audited", async () => {
+    const manifest = buildAgentManifest(stack.registry, { locale: "en", roles: adminA.roles });
+    const catalog = buildToolCatalog(stack.registry, manifest, { mode: "edit" });
+    const result = await dispatchToolCall({
+      dispatcher: stack.dispatcher,
+      user: adminA,
+      toolName: toolNameForQn(XTR_PROBE_QN),
+      input: {},
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-xtr-1",
+      toolCallId: "call-xtr-1",
+    });
+
+    expect(result).toEqual({ ok: true, data: { hasReads: false } });
+    expect(escapeHatchAuditKinds).not.toContain("cross-tenant-read");
   });
 });
