@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -147,7 +148,8 @@ describe("useCompletion", () => {
     act(() => {
       result.current.requestCompletion("");
     });
-    await new Promise((r) => setTimeout(r, 30));
+    // Past the 10ms debounce: a stray completion call would have landed.
+    await sleep(30);
 
     expect(calls).toBe(0);
     expect(result.current.suggestion).toBeNull();
@@ -169,7 +171,8 @@ describe("useCompletion", () => {
       result.current.requestCompletion("hello");
     });
     act(() => result.current.clear());
-    await new Promise((r) => setTimeout(r, 60));
+    // Past the 30ms debounce: a cancelled completion must not fire.
+    await sleep(60);
 
     expect(calls).toBe(0);
     expect(result.current.suggestion).toBeNull();

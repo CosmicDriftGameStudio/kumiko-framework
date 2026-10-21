@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import type { DbRunner } from "../../db/index.ts";
 import { asRawClient, transaction } from "../../db/query.ts";
@@ -625,7 +626,7 @@ describe("event-store: asOf + after-version reads", () => {
       metadata: { userId: userA },
     });
     // Ensure the second event is strictly after.
-    await new Promise((r) => setTimeout(r, 5));
+    await sleep(5);
     await append(testDb.db, {
       aggregateId,
       aggregateType: "task",
@@ -747,7 +748,8 @@ describe("event-store: streamAllEventsByType (replay order and scope)", () => {
       payload: { n: 1 },
       metadata: { userId: userA },
     });
-    await new Promise((r) => setTimeout(r, 5));
+    // Distinct createdAt per event so ordering assertions are strict.
+    await sleep(5);
     const e2 = await append(testDb.db, {
       aggregateId: a2,
       aggregateType: "task",
@@ -757,7 +759,7 @@ describe("event-store: streamAllEventsByType (replay order and scope)", () => {
       payload: { n: 2 },
       metadata: { userId: userA },
     });
-    await new Promise((r) => setTimeout(r, 5));
+    await sleep(5);
     const e3 = await append(testDb.db, {
       aggregateId: a3,
       aggregateType: "task",

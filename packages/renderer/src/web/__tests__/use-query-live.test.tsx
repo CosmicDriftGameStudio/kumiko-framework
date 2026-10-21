@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import type { ReactNode } from "react";
 import type { Dispatcher } from "../../headless/index.ts";
 import {
@@ -115,7 +116,8 @@ describe("useQuery live-mode", () => {
       createdAt: "",
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    // Window for an unwanted second refetch; calls must stay at 1.
+    await sleep(50);
     expect(getByTestId("probe").textContent).toBe("1");
     expect(calls).toBe(1);
   });
@@ -145,7 +147,8 @@ describe("useQuery live-mode", () => {
       createdAt: "",
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    // Window for a refetch the unrelated entity must not trigger.
+    await sleep(50);
     expect(calls).toBe(1);
   });
 });

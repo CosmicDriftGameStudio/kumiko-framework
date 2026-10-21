@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
+  sleep,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -197,7 +198,7 @@ describe("tenant-storage-usage MSP", () => {
     // later must produce a strictly later timestamp (or at least not an
     // older one). We assert >= rather than > to keep the test tolerant
     // of same-clock-tick runs.
-    await new Promise((r) => setTimeout(r, 10));
+    await sleep(10);
     await upload(admin, "b.png", LARGE);
     await stack.eventDispatcher?.runOnce();
 

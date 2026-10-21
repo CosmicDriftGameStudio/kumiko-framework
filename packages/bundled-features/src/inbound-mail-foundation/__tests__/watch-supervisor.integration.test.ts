@@ -18,6 +18,7 @@ import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetPiiSubjectKmsForTests,
+  sleep,
   updateRows,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -616,7 +617,7 @@ describe("watch-supervisor — multi-worker watch coordination (#1719)", () => {
       // 2.5x the 1s TTL: long enough that a dead heartbeat guarantees the
       // key expired (1.5x left this indistinguishable from Redis's
       // second-granularity EX not having rolled over yet).
-      await new Promise((r) => setTimeout(r, 2500));
+      await sleep(2500);
 
       // Direct probe of the invariant: the lease itself must still be held,
       // independent of B's behavior below (which only infers it indirectly).
