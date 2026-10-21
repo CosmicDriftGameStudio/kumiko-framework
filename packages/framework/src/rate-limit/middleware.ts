@@ -209,12 +209,10 @@ function defaultOnFailClosed(label: string): (err: unknown) => void {
     // signal, not something to swallow silently. Production deploys
     // override this with a structured logger; the default keeps the
     // noise visible if no logger is wired.
-    // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-    console.error(
-      `[rate-limit ${label}] fail-closed (refusing request):`,
+    createFallbackLogger(`rate-limit ${label}`).error("fail-closed (refusing request)", {
       // ioredis errors can carry the command args, i.e. the bucket key with IP/target.
-      err instanceof Error ? err.message : String(err),
-    );
+      error: err instanceof Error ? err.message : String(err),
+    });
   };
 }
 

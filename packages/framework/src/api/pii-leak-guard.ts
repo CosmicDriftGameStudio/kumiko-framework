@@ -1,6 +1,9 @@
 import type { MiddlewareHandler } from "hono";
 import { PII_CIPHERTEXT_PREFIX } from "../crypto/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import { resolveRouteLabel } from "./route-label.ts";
+
+const log = createFallbackLogger("kumiko:pii-leak-guard");
 
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
 // Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any
@@ -42,7 +45,7 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
       // skip: response replaced with the loud 500 above — nothing left to do
       return;
     }
-    console.error(detail);
+    log.error(detail);
     const headers = new Headers(c.res.headers);
     headers.delete("content-length");
     c.res = new Response(text.replace(CIPHERTEXT_REDACT_RE, "[pii-redacted]"), {

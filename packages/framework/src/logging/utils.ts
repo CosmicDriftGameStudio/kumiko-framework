@@ -1,6 +1,7 @@
 import type { Logger } from "./types.ts";
 
 type FallbackLogger = {
+  info(msg: string, data?: Record<string, unknown>): void;
   error(msg: string, data?: Record<string, unknown>): void;
   warn(msg: string, data?: Record<string, unknown>): void;
   debug(msg: string, data?: Record<string, unknown>): void;
@@ -15,10 +16,17 @@ export function setProcessLogger(logger: Logger | null): void {
 
 export function createFallbackLogger(
   namespace: string,
-  logger?: (Pick<Logger, "error"> & Partial<Pick<Logger, "warn" | "debug">>) | undefined,
+  logger?: (Pick<Logger, "error"> & Partial<Pick<Logger, "info" | "warn" | "debug">>) | undefined,
 ): FallbackLogger {
   if (logger) {
     return {
+      info(msg, data) {
+        if (logger.info) {
+          logger.info(`[${namespace}] ${msg}`, data);
+        } else {
+          console.info(`[${namespace}] ${msg}`, data);
+        }
+      },
       error(msg, data) {
         logger.error(`[${namespace}] ${msg}`, data);
       },
@@ -26,7 +34,6 @@ export function createFallbackLogger(
         if (logger.warn) {
           logger.warn(`[${namespace}] ${msg}`, data);
         } else {
-          // biome-ignore lint/suspicious/noConsole: ops-visible fallback when the wrapped logger has no warn method
           console.warn(`[${namespace}] ${msg}`, data);
         }
       },
@@ -34,7 +41,6 @@ export function createFallbackLogger(
         if (logger.debug) {
           logger.debug(`[${namespace}] ${msg}`, data);
         } else {
-          // biome-ignore lint/suspicious/noConsole: ops-visible fallback when the wrapped logger has no debug method
           console.debug(`[${namespace}] ${msg}`, data);
         }
       },
@@ -51,12 +57,19 @@ export function createFallbackLogger(
     return cachedChild;
   };
   return {
+    info(msg, data) {
+      const child = resolveProcessChild();
+      if (child) {
+        child.info(msg, data);
+      } else {
+        console.info(`[${namespace}] ${msg}`, data);
+      }
+    },
     error(msg, data) {
       const child = resolveProcessChild();
       if (child) {
         child.error(msg, data);
       } else {
-        // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
         console.error(`[${namespace}] ${msg}`, data);
       }
     },
@@ -65,7 +78,6 @@ export function createFallbackLogger(
       if (child) {
         child.warn(msg, data);
       } else {
-        // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
         console.warn(`[${namespace}] ${msg}`, data);
       }
     },
@@ -74,7 +86,6 @@ export function createFallbackLogger(
       if (child) {
         child.debug(msg, data);
       } else {
-        // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
         console.debug(`[${namespace}] ${msg}`, data);
       }
     },

@@ -14,6 +14,7 @@
 
 import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import { assertSafeStorageKey } from "../files/types.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key.ts";
 
 export type StoredFileStore = {
@@ -77,10 +78,10 @@ export async function deleteStoredFileAndDerivatives(
       await store.delete(key);
     } catch (err) {
       failedKeys.push(key);
-      // biome-ignore lint/suspicious/noConsole: operator-visibility for binary-cleanup-failure
-      console.warn(
-        `[${errorContext}] storage delete failed key=${key} err=${err instanceof Error ? err.message : String(err)}`,
-      );
+      createFallbackLogger(errorContext).warn("storage delete failed", {
+        key,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return failedKeys;

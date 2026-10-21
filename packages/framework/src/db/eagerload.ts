@@ -39,6 +39,7 @@ import type {
   ReferenceFieldDef,
   SessionUser,
 } from "../engine/types/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
@@ -50,6 +51,8 @@ import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";
+
+const log = createFallbackLogger("eagerload");
 
 // Minimaler Registry-Lookup-Contract: pro entity-name → EntityDefinition.
 // Wir importieren NICHT den ganzen Registry-Type weil das einen
@@ -199,8 +202,8 @@ async function buildRefLookupMap(
     try {
       decrypted = await decryptReferencedRow(r, piiFields, encryptedFields, kms);
     } catch (e) {
-      console.warn(
-        `[eagerload] failed to decrypt referenced row entity=${refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
+      log.warn(
+        `failed to decrypt referenced row entity=${refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
       );
       continue;
     }

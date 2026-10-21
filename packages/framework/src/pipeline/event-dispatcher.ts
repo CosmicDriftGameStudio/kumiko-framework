@@ -8,6 +8,7 @@ import {
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { AppContext } from "../engine/types/index.ts";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import {
   emitEventConsumerPassOutcome,
   emitEventConsumerPassSkipped,
@@ -281,14 +282,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   }
   const tracer: Tracer = options.tracer ?? getFallbackTracer();
   const meter: Meter = options.meter ?? getFallbackMeter();
-  // A standalone dispatcher has no logger on its context; console.error keeps the failure in pod logs.
-  const logDispatcherError = (message: string): void => {
-    if (context.log) {
-      context.log.error(message);
-    } else {
-      console.error(message);
-    }
-  };
+  // A standalone dispatcher has no logger on its context; the fallback keeps the failure in pod logs.
+  const dispatcherLog = createFallbackLogger("event-dispatcher", context.log);
+  const logDispatcherError = (message: string): void => dispatcherLog.error(message);
   // Tracks which (consumer, instanceId) pairs already fired
   // kumiko_event_consumer_rearm_exhausted_total, so a consumer stuck dead
   // across many poll passes emits the ops-signal once, not every pass
@@ -308,7 +304,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     if (count <= PENDING_GAPS_WARN_THRESHOLD || reportedLargeGapSets.has(key)) return;
     reportedLargeGapSets.add(key);
     logDispatcherError(
-      `[event-dispatcher] ${consumerName} tracks ${count} pending gap ranges (> ${PENDING_GAPS_WARN_THRESHOLD}); ` +
+      `${consumerName} tracks ${count} pending gap ranges (> ${PENDING_GAPS_WARN_THRESHOLD}); ` +
         `a long-running write transaction is probably holding back the snapshot xmin`,
     );
   };
@@ -534,13 +530,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       if (idlePreCheckErrorLogged) {
         idlePreCheckErrorLogged = false;
         emitEventDispatcherListenConnected(meter, listenSubscribed);
-        const recoveredMsg =
-          "[event-dispatcher] idle pre-check recovered, database reachable again";
-        if (context.log) {
-          context.log.info(recoveredMsg);
-        } else {
-          console.log(recoveredMsg);
-        }
+        dispatcherLog.info("idle pre-check recovered, database reachable again");
       }
     } catch (e) {
       idleKeys = new Set();
@@ -554,7 +544,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         // (statement_timeout, pool exhaustion, schema errors) say nothing about LISTEN.
         if (isConnectionLossError(e)) emitEventDispatcherListenConnected(meter, false);
         const msg = e instanceof Error ? e.message : String(e);
-        const logMsg = `[event-dispatcher] idle pre-check failed, falling back to per-consumer locking every tick until it recovers: ${msg}`;
+        const logMsg = `idle pre-check failed, falling back to per-consumer locking every tick until it recovers: ${msg}`;
         logDispatcherError(logMsg);
       }
     }
@@ -737,7 +727,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // callers and at-least-once-with-duplicate-delivery on the next pass;
       // neither is what we want, so ops needs to see it.
       const msg = e instanceof Error ? e.message : String(e);
-      logDispatcherError(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
+      logDispatcherError(`${consumer.name} pass failed: ${msg}`);
       span.setStatus("error", msg);
 
       // The whole pass rolled back, so markProcessing/persistConsumerOutcome
@@ -751,7 +741,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         });
       } catch (persistErr) {
         const persistMsg = persistErr instanceof Error ? persistErr.message : String(persistErr);
-        const failureMsg = `[event-dispatcher] ${consumer.name} failed to persist pass-failure state: ${persistMsg}`;
+        const failureMsg = `${consumer.name} failed to persist pass-failure state: ${persistMsg}`;
         logDispatcherError(failureMsg);
       }
 

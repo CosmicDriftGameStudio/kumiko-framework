@@ -1,4 +1,7 @@
+import { createFallbackLogger } from "../../logging/utils.ts";
 import type { FeatureDefinition } from "../types/index.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 export const SECURITY_BASELINE_FEATURE_NAMES = [
   "sessions",
@@ -19,8 +22,7 @@ export function warnOnMissingSecurityBaseline(
   // skip: every baseline feature is mounted
   if (missing.length === 0) return;
 
-  // biome-ignore lint/suspicious/noConsole: boot-time hint, no logger available yet
-  console.warn(
-    `[kumiko:boot] NODE_ENV=production but the security baseline is incomplete — missing feature(s): ${missing.join(", ")}. Mount securityBaselineFeatures() from @cosmicdrift/kumiko-bundled-features/presets (or the missing features individually).`,
+  log.warn(
+    `NODE_ENV=production but the security baseline is incomplete — missing feature(s): ${missing.join(", ")}. Mount securityBaselineFeatures() from @cosmicdrift/kumiko-bundled-features/presets (or the missing features individually).`,
   );
 }

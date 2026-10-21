@@ -5,6 +5,9 @@
 // ignored — a foreign ciphertext must never fail boot.
 
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { createFallbackLogger } from "../logging/utils.ts";
+
+const kekLog = createFallbackLogger("kumiko:kek");
 
 const SCALEWAY_KEY_MANAGER_API_VERSION = "v1alpha1";
 const DEFAULT_REGION = "fr-par";
@@ -28,7 +31,7 @@ export type KekSourceEnv = {
 export type KekSourceOptions = {
   readonly fetch?: typeof globalThis.fetch;
   readonly logPrefix?: string;
-  /** Where the boot line naming the KEK source goes. Defaults to `console.info`. */
+  /** Where the boot line naming the KEK source goes. Defaults to the process logger, or `console.info` before one is wired. */
   readonly log?: (message: string) => void;
   /** Env names to resolve, e.g. `kmsSlotsOf(schema)`. */
   readonly slots: readonly string[];
@@ -184,8 +187,7 @@ export async function resolvePlatformKeks(
     slots.map((name) => resolveSlot(name, env, options, fetchImpl)),
   );
 
-  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-  const log = options.log ?? console.info;
+  const log = options.log ?? ((message: string) => kekLog.info(message));
   const resolved: Record<string, string | undefined> = {};
   slots.forEach((name, index) => {
     const result = results[index];

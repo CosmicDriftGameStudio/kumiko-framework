@@ -8,7 +8,6 @@ steps:
   - steps/01-install.yaml
   - steps/02-cd.yaml
   - steps/03-bun-install.yaml
-  - steps/03a-patch-tasks-i18n.yaml
   - steps/03-env.yaml
   - steps/04-bun-dev.yaml
   - steps/05-open-login.yaml

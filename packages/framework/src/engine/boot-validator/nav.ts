@@ -2,6 +2,7 @@
 // validation in index.ts — thematically adjacent to ownership.ts, kept
 // here since this is a structural move, not a semantic reorg).
 
+import { createFallbackLogger } from "../../logging/utils.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import type {
   AccessRule,
@@ -10,6 +11,8 @@ import type {
   WorkspaceDefinition,
 } from "../types/index.ts";
 import { isOpenToAllGranted } from "../types/index.ts";
+
+const log = createFallbackLogger("kumiko:boot");
 
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();
@@ -168,9 +171,8 @@ export function warnOnNavAccessInversion(
     if (leafRoles.length === 0) continue; // leaf visible to nobody (empty roles or invalid openToAll) — not an inversion
     if (parentRoles.length === 0) continue; // parent already visible to nobody — a different problem
     if (leafRoles.some((role) => parentRoles.includes(role))) continue;
-    // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-    console.warn(
-      `[kumiko:boot] Nav entry "${qn}" requires roles [${leafRoles.join(", ")}] but its parent ` +
+    log.warn(
+      `Nav entry "${qn}" requires roles [${leafRoles.join(", ")}] but its parent ` +
         `"${navDef.parent}" only allows [${parentRoles.join(", ")}] — no user who can see the ` +
         `parent section could ever see this entry. If this is intentional, ignore this warning; ` +
         `otherwise align the role sets.`,
@@ -212,9 +214,8 @@ export function warnOnUnreachableNavScreens(
       allowlistSource === "workspaces"
         ? "add it to a workspace's `nav` array or set `workspaces` on the nav"
         : "add it to the allowlist";
-    // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
-    console.warn(
-      `[kumiko:boot] Nav entry "${qn}" declared by feature "${navDef.featureName}" points at ` +
+    log.warn(
+      `Nav entry "${qn}" declared by feature "${navDef.featureName}" points at ` +
         `screen "${screenQn}", which no allowlisted nav entry reaches — it is unreachable via ` +
         `the sidebar. If this is intentional (e.g. reachable through a generated hub), add ` +
         `"${qn}" to navAllowlistExempt; otherwise ${remedy}.`,

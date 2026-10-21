@@ -25,6 +25,7 @@
 // (r.toggleable) via stripDisabledFeaturesFromAppSchema.
 
 import { ZodObject, type ZodType } from "zod";
+import { createFallbackLogger } from "../logging/utils.ts";
 import type {
   AppSchema,
   ConfigEditScreenDefinition,
@@ -51,6 +52,8 @@ import type {
   EntityFieldDefinition,
   FieldDefinition,
 } from "./types/fields.ts";
+
+const log = createFallbackLogger("kumiko");
 
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only
@@ -159,10 +162,9 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     // instead so a leaked function renderer is actually caught.
     const offender = findNonJsonSafePath(schema, "schema");
     if (offender !== null) {
-      // biome-ignore lint/suspicious/noConsole: dev-only assertion
-      console.error(
-        `[kumiko] buildAppSchema: Output ist nicht JSON-safe — nicht-serialisierbarer Wert bei "${offender}" (Funktions-Renderer oder Klassen-Instanz im Schema?).`,
-        schema,
+      log.error(
+        `buildAppSchema: Output ist nicht JSON-safe — nicht-serialisierbarer Wert bei "${offender}" (Funktions-Renderer oder Klassen-Instanz im Schema?).`,
+        { offender },
       );
     }
   }
@@ -269,9 +271,8 @@ function placeSettingsHub(
 function warnUnplacedAudiences(unplaced: readonly string[]): void {
   // skip: every audience placed — nothing to warn about
   if (unplaced.length === 0) return;
-  // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
-  console.warn(
-    `[kumiko] Settings-Hub: ${unplaced.join(", ")} nicht in einer App-Workspace platziert — ` +
+  log.warn(
+    `Settings-Hub: ${unplaced.join(", ")} nicht in einer App-Workspace platziert — ` +
       `erscheint im Standalone-"Einstellungen"-Tab. Referenziere ` +
       `${unplaced.map((id) => `${SETTINGS_HUB_FEATURE}:nav:${id}`).join(", ")} ` +
       `in einer r.workspace.nav, um die Gruppe inline zu zeigen.`,
@@ -281,9 +282,8 @@ function warnUnplacedAudiences(unplaced: readonly string[]): void {
 function warnDanglingAudienceRefs(dangling: readonly string[]): void {
   // skip: no dangling refs — nothing to warn about
   if (dangling.length === 0) return;
-  // biome-ignore lint/suspicious/noConsole: dev-only authoring hint
-  console.warn(
-    `[kumiko] Settings-Hub: ${dangling
+  log.warn(
+    `Settings-Hub: ${dangling
       .map((id) => `${SETTINGS_HUB_FEATURE}:nav:${id}`)
       .join(", ")} in einer Workspace referenziert, aber nie generiert — ` +
       `keine Config-Keys für diesen Scope registriert. Tippfehler oder ` +

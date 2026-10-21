@@ -36,9 +36,12 @@ import {
   recordRebuildDeadLetters,
   type SkippedApply,
 } from "../event-store/rebuild-dead-letter.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import { emitProjectionRebuild } from "../observability/standard-metrics.ts";
 import type { Meter } from "../observability/types/metric.ts";
 import { projectionStateTable } from "./projection-state.ts";
+
+const log = createFallbackLogger("kumiko:projection-rebuild");
 
 // Events replayed per catch-up batch. Each batch is a fresh READ COMMITTED
 // SELECT, so a batch shorter than this means the currently-committed tail is
@@ -203,7 +206,7 @@ function warnOnColumnDrift(
     sampledIds.size < drift.rowCount
       ? `${drift.rowCount} (sample truncated)`
       : String(drift.rowCount);
-  console.warn(
+  log.warn(
     `projection-rebuild "${projectionName}": ${countLabel} live row(s) in "${tableName}" have ` +
       `column values that differ from the freshly-replayed shadow (sample: ${drift.sample.join(", ")}). ` +
       "Not blocking — replay wins on swap. Likely cause: a legacy direct-write predating the row's " +

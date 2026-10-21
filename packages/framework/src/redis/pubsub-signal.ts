@@ -1,3 +1,4 @@
+import { createFallbackLogger } from "../logging/utils.ts";
 import { createRedisClient, type RedisClientOptions } from "./client.ts";
 
 // Generic Redis Pub/Sub transport for cross-replica fanout (fw#2625).
@@ -37,18 +38,21 @@ export type PubSubSignalOptions = {
 // Redis emits 'error' on connection blips (reconnects transparently); an
 // unhandled listener crashes the process (fw#1805 — job-runner hit the same
 // class with BullMQ's internal client).
-function logConnectionError(label: string, role: string): (err: Error) => void {
+function logConnectionError(
+  log: ReturnType<typeof createFallbackLogger>,
+  role: string,
+): (err: Error) => void {
   return (err) => {
-    // biome-ignore lint/suspicious/noConsole: ops-visible fallback — no logger is threaded through PubSubSignalOptions.
-    console.error(`[kumiko:${label}] ${role} connection error:`, err.message);
+    log.error(`${role} connection error`, { error: err.message });
   };
 }
 
 export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal {
+  const log = createFallbackLogger(`kumiko:${opts.label}`);
   const publisher = createRedisClient(opts.redisUrl, opts.clientOptions);
   const subscriber = createRedisClient(opts.redisUrl, opts.clientOptions);
-  publisher.on("error", logConnectionError(opts.label, "publisher"));
-  subscriber.on("error", logConnectionError(opts.label, "subscriber"));
+  publisher.on("error", logConnectionError(log, "publisher"));
+  subscriber.on("error", logConnectionError(log, "subscriber"));
 
   const listeners = new Set<(channel: string, payload: unknown) => void>();
   const reconnectListeners = new Set<() => void>();
@@ -63,8 +67,7 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
     try {
       payload = JSON.parse(message);
     } catch (err) {
-      // biome-ignore lint/suspicious/noConsole: ops-visible fallback, see logConnectionError above.
-      console.error(`[kumiko:${opts.label}] dropping unparseable message on "${channel}":`, err);
+      log.error(`dropping unparseable message on "${channel}"`, { err });
       // skip: unparseable payload already logged above, nothing to deliver
       return;
     }
@@ -90,8 +93,7 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
     // skip: a close() already underway intentionally quit both connections —
     // this rejection is the expected side effect, not an ops-visible error.
     if (closed) return;
-    // biome-ignore lint/suspicious/noConsole: ops-visible fallback, see logConnectionError above.
-    console.error(`[kumiko:${opts.label}] psubscribe failed:`, err);
+    log.error("psubscribe failed", { err });
   });
 
   // ioredis re-sends the psubscribe itself (autoResubscribe) but emits no ack
@@ -113,8 +115,7 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
       (err: unknown) => {
         // skip: a close() already underway intentionally quit the connection
         if (closed) return;
-        // biome-ignore lint/suspicious/noConsole: ops-visible fallback, see logConnectionError above.
-        console.error(`[kumiko:${opts.label}] resubscribe failed:`, err);
+        log.error("resubscribe failed", { err });
       },
     );
   });
@@ -125,8 +126,7 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
         // skip: a close() already underway intentionally quit both
         // connections — this rejection is the expected side effect.
         if (closed) return;
-        // biome-ignore lint/suspicious/noConsole: ops-visible fallback, see logConnectionError above.
-        console.error(`[kumiko:${opts.label}] publish failed:`, err);
+        log.error("publish failed", { err });
       });
     },
     async publishConfirmed(channel, payload) {

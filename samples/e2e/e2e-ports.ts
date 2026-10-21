@@ -5,7 +5,7 @@ export const E2E_PORTS = {
   "framework/ui-walkthrough": 4174,
   "framework/ui-walkthrough-puppeteer-service": 4198,
   "framework/showcase": 4175,
-  "framework/renderer-web": 4176,
+  "framework/renderer": 4176,
   "framework/marketing-demo": 4179,
   "framework/use-all-bundled": 4194,
   "framework/use-all-bundled-billing-gallery": 4196,

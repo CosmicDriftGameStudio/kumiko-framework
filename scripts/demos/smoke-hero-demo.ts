@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   ok("demo-kit schema");
 
   const def = hydrateDemo({ demoId: "create-app", kitRoot: KIT_ROOT });
-  if (def.steps.length !== 14) fail(`expected 14 steps, got ${def.steps.length}`);
+  if (def.steps.length !== 13) fail(`expected 13 steps, got ${def.steps.length}`);
   ok(`hydrate ${def.steps.length} steps`);
 
   const workRoot = mkdtempSync(join(tmpdir(), "kumiko-hero-smoke-"));
@@ -72,13 +72,6 @@ async function main(): Promise<void> {
   console.log("[smoke-hero-demo] bun install …");
   execFileSync("bun", ["install"], { cwd: appDir, stdio: "inherit" });
   ok("install");
-
-  console.log("[smoke-hero-demo] patch tasks i18n (published scaffold) …");
-  execFileSync("bun", [join(import.meta.dir, "patch-published-scaffold-tasks.ts"), "hero-app"], {
-    cwd: workRoot,
-    stdio: "inherit",
-  });
-  ok("patch tasks i18n");
 
   writeFileSync(join(appDir, ".env"), ENV_FIXTURE);
   ok(".env fixture");

@@ -1,4 +1,3 @@
-// biome-ignore-all lint/suspicious/noConsole: CLI tool — console.log is the output
 // biome-ignore-all lint/style/noNonNullAssertion: regex capture-group indexing — match-success implies non-null capture
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
