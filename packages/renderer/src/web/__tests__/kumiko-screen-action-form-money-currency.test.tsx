@@ -1,6 +1,6 @@
-// fw#2839: an actionForm has no entity, so `defaultCurrency` never reaches its
-// money fields — an untouched one used to submit a bare `0` the handler's zod
-// schema rejects (the open half of fw#2763). Each money field now declares its
+// An actionForm has no entity, so `defaultCurrency` never reaches its
+// money fields — an untouched one used to submit a bare `0` that the handler's zod
+// schema rejects. Each money field now declares its
 // own source: a literal code resolves synchronously, `{ kind: "tenant" }` goes
 // through the same `config:query:values` query and loading gate as entityEdit.
 

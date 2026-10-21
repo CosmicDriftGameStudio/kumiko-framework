@@ -181,11 +181,10 @@ describe("useTranslation — re-render on locale change", () => {
   });
 });
 describe("useTranslation — referential stability", () => {
-  // Prod-Incident 2026-07-07: admin-shell Overview-Screens hatten `t` in
-  // einem useEffect-Dependency-Array. Ein neues `t` pro Render triggerte
-  // einen Render/Effect-Endlos-Loop (~600 Queries/Sekunde). `t` (und der
-  // gesamte Context-Value) MUSS über Re-Renders hinweg stabil bleiben,
-  // solange sich Resolver/Bundles/Locale nicht ändern.
+  // `t` must remain referentially stable across re-renders while the resolver,
+  // bundles, and locale are unchanged. A production incident on 2026-07-07 had
+  // admin-shell overview screens with `t` in a useEffect dependency array: a new
+  // `t` per render caused an infinite render/effect loop (~600 queries/second).
   test("t keeps the same reference across re-renders when nothing changed", () => {
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const { result, rerender } = renderHook(() => useTranslation(), {
@@ -196,10 +195,9 @@ describe("useTranslation — referential stability", () => {
     expect(result.current).toBe(firstT);
   });
   test("t stays stable across parent re-renders even with a fresh fallbackBundles literal per parent-render", () => {
-    // Realistischer Fall: eine App übergibt `fallbackBundles={[...]}` als
-    // Inline-Literal. Ohne Provider-seitige Memoization würde jeder
-    // Ahnen-Re-Render den Context-Value neu bauen. Hier prüfen wir nur
-    // den Provider-internen Memoization-Pfad bei stabilen Props.
+    // An app may pass `fallbackBundles={[...]}` as an inline literal. Provider-side
+    // memoization must prevent parent re-renders from rebuilding the context
+    // value when the effective props remain stable.
     const resolver = createStaticLocaleResolver({ locale: "de" });
     const bundles: TranslationsByLocale[] = [{ de: { greet: "Hallo" } }];
     function Probe(): ReactNode {
@@ -255,7 +253,7 @@ describe("useLocale", () => {
   });
 });
 describe("useTranslation — SSR", () => {
-  // kumiko-framework#2595: getServerSnapshot hardcoded "en", so any
+  // getServerSnapshot hardcoded "en", so any
   // server render came out English regardless of the resolver's actual
   // locale — untestable via renderToStaticMarkup until getServerSnapshot
   // read the resolver instead of a constant.

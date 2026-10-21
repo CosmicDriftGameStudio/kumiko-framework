@@ -1,4 +1,4 @@
-// fw#2224: ProjectionListBody had neither `filter` nor faceted filters —
+// ProjectionListBody had neither `filter` nor faceted filters —
 // only EntityListBody did (see kumiko-screen.tsx's buildFilterPayload/
 // buildFilterFacets doc). This proves both directions of the fix: entityList
 // keeps its exact pre-refactor payload/facet behavior after the shared
@@ -267,7 +267,7 @@ describe("projectionList filter + facets (fw#2224)", () => {
     });
   });
 
-  // fw#2373: labels without a translation key must pass through unchanged —
+  // Labels without a translation key must pass through unchanged —
   // otherwise shipping translate() alone regresses Members filters to raw keys
   // when locale packs are missing.
   test("projection facet labels without a translation key pass through unchanged", async () => {
@@ -480,7 +480,7 @@ describe("projectionList filter + facets (fw#2224)", () => {
   });
 });
 
-// fw#3104: a dateRange facet is the first facet that does NOT travel in
+// A dateRange facet is the first facet that does NOT travel in
 // payload.filters — its two bounds go out as the top-level params the screen
 // declares. A screen may declare it as its only facet, so the wiring must not
 // hang off the option-facet path.

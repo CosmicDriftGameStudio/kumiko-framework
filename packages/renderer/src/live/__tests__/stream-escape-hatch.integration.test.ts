@@ -94,7 +94,7 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
   );
 
-  // --- ctx.queryAs(nonSystemUser, ...) from a stream handler (fw#2876): a foreign
+  // --- ctx.queryAs(nonSystemUser, ...) from a stream handler: a foreign
   // user needs the stream handler's escapeHatch; the target's own access rule still applies. ---
   r.streamHandler(
     "query-as-normal-user-no-hatch",

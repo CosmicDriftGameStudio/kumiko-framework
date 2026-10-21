@@ -284,7 +284,7 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
 type MoneyCellValue = {
   amount: number;
   currency: string;
-  /** Exact integer cents from rehydrateMoney (fw#1830); preferred for display. */
+  /** Exact integer cents from rehydrateMoney; preferred for display. */
   amountMinor?: number;
 };
 
@@ -305,7 +305,7 @@ function isMoneyValue(value: unknown): value is MoneyCellValue {
 //
 //   - boolean -> check mark / empty
 //   - timestamp/date -> locale-formatted (no raw ISO string)
-//   - number/decimal/bigInt → locale-formatted via Intl.NumberFormat (fw#2160)
+//   - number/decimal/bigInt → locale-formatted via Intl.NumberFormat
 //   - select/multiSelect → human-readable (kebab-case → Title Case), multiSelect values joined with ", "
 //   - money → { amount, currency } formatted via Intl (not "[object Object]")
 //   - text/else -> toString
@@ -680,7 +680,7 @@ export function DataTableCell({
   // A select value renders as a pill instead of plain text. When the raw
   // value is a known status word, it carries the same tone as the
   // projectionDetail header badge — a status column stayed grey while the
-  // detail view of the same value was coloured (fw#2579). Unknown values
+  // detail view of the same value was coloured. Unknown values
   // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     return selectPill(value, optionLabels, optionTones, locale, RegisteredStatusBadge);

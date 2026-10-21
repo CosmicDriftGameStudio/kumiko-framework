@@ -91,7 +91,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // Discards a response whose request was superseded by a newer one before
   // it resolved (e.g. two searches fired in quick succession) — without
   // this, a slow earlier response can land after a faster later one and
-  // overwrite it, leaving stale rows on screen (fw#1705).
+  // overwrite it, leaving stale rows on screen.
   const requestSeq = useRef(0);
 
   // IDs of the most recently loaded first page. refreshFirstPage() needs
@@ -157,7 +157,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // to the front (newest-first feeds), rows it dropped (edited/deleted
   // elsewhere) are pruned, and everything beyond page 1 stays untouched.
   // A full reload would collapse already-accumulated pages and jump the
-  // scroll position; see fw#1827.
+  // scroll position.
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
   const refreshFirstPage = useCallback(async (): Promise<void> => {
     // Read, don't bump: a concurrent load() (e.g. the mount fetch still
@@ -198,7 +198,7 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   }, [dispatcher, query, pageSize, payloadKey]);
 
   // Trailing debounce + in-flight coalesce: bulk SSE storms must not fan out
-  // into one query per event (fw#1829). A refresh already running schedules
+  // into one query per event. A refresh already running schedules
   // exactly one trailing pass after it settles.
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveInFlightRef = useRef(false);

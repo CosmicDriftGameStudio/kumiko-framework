@@ -101,7 +101,7 @@ function stripUntouchedEmptyStrings<TValues extends FormValues>(
   let out: Record<string, unknown> | undefined;
   for (const key of Object.keys(v)) {
     // Value-based seed strip, except keys previously submitted as "" after a
-    // real clear — those must survive post-rebase submits (#1858).
+    // real clear — those must survive post-rebase submits.
     if (!forceIncludeEmpty.has(key) && v[key] === "" && ini[key] === "") {
       out ??= { ...v };
       delete out[key];
@@ -146,7 +146,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   let initial: TValues = { ...options.initial };
   let errors: Readonly<Record<string, readonly FieldIssue[]>> = Object.freeze({});
   // Keys last submitted as "" (intentional clear). Survives rebase so a later
-  // submit of other fields does not drop them (#1858).
+  // submit of other fields does not drop them.
   const forceIncludeEmpty = new Set<string>();
   // ctx is cast-held as TCtx; `undefined` is valid when callers don't
   // declare conditional predicates that depend on it.
@@ -219,7 +219,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   ): boolean {
     // See the validate() doc comment in types.ts for the scope contract.
     // A scope entry matches its exact path and everything below it, but not
-    // siblings: `address.city` must not pull in `address.zip` (#1898).
+    // siblings: `address.city` must not pull in `address.zip`.
     const isInScope =
       scope === undefined
         ? undefined
@@ -247,8 +247,8 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       if (!state.visible) hiddenFields.add(fieldKey);
     }
     // Root-level .refine() issues use path "(root)". Wizard step validate()
-    // still drops them (#1885); submit() passes includeRoot so RenderEdit
-    // fields={…} cannot silently skip cross-field rules (#1907).
+    // still drops them; submit() passes includeRoot so RenderEdit
+    // fields={…} cannot silently skip cross-field rules.
     const relevantIssues = relevantFieldIssues(zodErrorToFieldIssues(parsed.error), {
       hiddenFields,
       ...(scope !== undefined && { scope }),
@@ -443,7 +443,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         unansweredAttempt = isTransportFailure(result) ? { requestId, fingerprint } : null;
 
         if (result.isSuccess) {
-          // Remember intentional empty clears so post-rebase submits keep them (#1858).
+          // Remember intentional empty clears so post-rebase submits keep them.
           if (payload && typeof payload === "object" && !Array.isArray(payload)) {
             for (const [k, v] of Object.entries(payload)) {
               if (v === "") forceIncludeEmpty.add(k);

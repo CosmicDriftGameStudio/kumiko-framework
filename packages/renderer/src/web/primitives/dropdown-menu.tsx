@@ -1,15 +1,15 @@
-// shadcn-style DropdownMenu auf Radix-Basis. Wrappers um
-// @radix-ui/react-dropdown-menu mit den Tailwind-Token-Klassen die
-// die anderen Primitives auch nutzen — Trigger-Button-Look kommt vom
-// Caller (asChild-Pattern), wir liefern nur Content/Item/Label/
-// Separator/CheckboxItem mit konsistenter Optik.
+// shadcn-style DropdownMenu built on Radix. Wrappers around
+// @radix-ui/react-dropdown-menu use the same Tailwind token classes as
+// the other primitives. The caller provides the trigger-button styling
+// through the asChild pattern; this module supplies only Content, Item,
+// Label, Separator, and CheckboxItem with consistent styling.
 //
-// Vorteile gegenüber dem self-rolled useDropdownMenu-Hook:
-//  - Click-outside, Escape, Focus-Trap, Roving-Tabindex, ARIA-Roles,
-//    Pointer-vs-Keyboard-Subtleties — alles geschenkt von Radix.
-//  - Portal'd Content rendert über Stacking-Context-Grenzen (nützlich
-//    in Dialogs/Popovers).
-//  - Keyboard-Nav (↑↓ + Home/End) funktioniert von Haus aus.
+// Advantages over the custom useDropdownMenu hook:
+// - Click-outside, Escape, focus trapping, roving tabindex, ARIA roles,
+//   and pointer-versus-keyboard subtleties are handled by Radix.
+// - Portaled content renders across stacking-context boundaries, which is
+//   useful in dialogs and popovers.
+// - Keyboard navigation (↑↓ + Home/End) works by default.
 
 import * as Primitive from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
@@ -61,10 +61,9 @@ export function DropdownMenuItem({
   return <Primitive.Item className={cn(itemClass, className)} {...props} />;
 }
 
-// CheckboxItem mit Check-Icon links — für "ausgewählter Eintrag in
-// einer Liste"-Patterns (TenantSwitcher, LanguageSwitcher). Radix
-// rendert <ItemIndicator> nur wenn checked=true, kein eigener Branch
-// nötig.
+// CheckboxItem with a check icon on the left for "selected item in a list"
+// patterns (TenantSwitcher, LanguageSwitcher). Radix renders
+// <ItemIndicator> only when checked=true, so no separate branch is needed.
 export function DropdownMenuCheckboxItem({
   className,
   children,

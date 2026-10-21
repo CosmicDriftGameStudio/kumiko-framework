@@ -5,11 +5,10 @@ import { act } from "react";
 import { ComboboxInput } from "../primitives/combobox.tsx";
 import { render, screen, waitFor } from "./test-utils.tsx";
 
-// Tier 2.1c: Combobox-Primitive Smoke-Tests. cmdk + Radix-Popover
-// rendern Portals; jsdom resolved sie auf document.body. Wir testen
-// die Trigger-Render-Form (Single + Multi mit Tags) und den Click→
-// Select Roundtrip. Volltext-Filter-Mechanik ist cmdk-internal und
-// dort getestet — unsere Tests pinnen nur das Wiring.
+// cmdk + Radix-Popover render Portals; jsdom resolves them on document.body.
+// These tests cover the trigger rendering (single and multi with tags) and
+// the click-to-select round trip. Full-text filtering is internal to cmdk and
+// tested there; these tests only pin the wiring.
 
 describe("ComboboxInput (Tier 2.1c)", () => {
   test("single-mode: Trigger zeigt placeholder wenn value leer", () => {
@@ -91,9 +90,8 @@ describe("ComboboxInput (Tier 2.1c)", () => {
         ]}
       />,
     );
-    // Trigger klicken → Popover öffnet, Items rendern
     await user.click(screen.getByTestId("combobox-combo"));
-    // cmdk Items haben das role="option" attr
+    // cmdk items have the role="option" attribute
     const beta = await screen.findByText("Beta");
     await user.click(beta);
     expect(changes).toEqual(["b"]);
@@ -131,7 +129,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     );
     expect(screen.getByText("Alpha")).toBeTruthy();
     expect(screen.getByText("Beta")).toBeTruthy();
-    // Gamma ist nicht selected → kein Tag im Trigger.
+    // Gamma is not selected, so it does not appear as a tag in the trigger.
     expect(screen.queryByText("Gamma")).toBeNull();
   });
 
@@ -152,12 +150,12 @@ describe("ComboboxInput (Tier 2.1c)", () => {
       />,
     );
     await user.click(screen.getByTestId("combobox-combo"));
-    // In Multi-Mode mountet cmdk die Items im Portal — wir suchen
-    // das Item per Text. Beim Klick toggled der Combobox die value.
+    // In multi-mode, cmdk mounts the items in a Portal, so we find the item by
+    // text. Clicking it toggles the Combobox value.
     const items = await screen.findAllByText("Beta");
-    // Erstes "Beta" könnte das selected-Tag oben sein; in der List
-    // rendert cmdk eine zweite Instanz. Tag ist nicht da (a war
-    // selected, b nicht), also ist nur das List-Item da.
+    // The first "Beta" could be the selected tag above; the list renders a
+    // second instance in cmdk. The tag is not present (a was selected, b was not),
+    // so only the list item is present.
     await user.click(items[items.length - 1] as HTMLElement);
     expect(changes).toHaveLength(1);
     expect([...(changes[0] ?? [])].sort()).toEqual(["a", "b"]);
@@ -170,11 +168,10 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect((screen.getByTestId("combobox-combo") as HTMLButtonElement).disabled).toBe(true);
   });
 
-  // Regression aus PublicStatus-Live-Debug: Multi-Mode + Remote-Search
-  // (= Reference-Field mit `multiple: true`) — Click auf Item hat im
-  // Browser nur Focus gesetzt, nicht onChange ausgelöst. Non-Remote
-  // Multi-Mode (Test oben) funktionierte, jeder andere Pfad auch — nur
-  // diese Kombination war kaputt.
+  // Regression: in multi-mode with remote search (= a reference field with
+  // `multiple: true`), clicking an item in the browser only moved focus instead
+  // of triggering onChange. Non-remote multi-mode and the other paths worked;
+  // only this combination was broken.
   test("multi-mode + remote-mode: Click auf Item → onChange mit erweitertem Array", async () => {
     const user = userEvent.setup();
     const changes: (readonly string[])[] = [];
@@ -189,8 +186,8 @@ describe("ComboboxInput (Tier 2.1c)", () => {
           { value: "b", label: "Beta" },
         ]}
         multiple
-        // Remote-Mode: onSearchChange-Prop signalisiert "server-side
-        // filter", also das Pattern aus Reference-Inputs in Forms.
+        // The onSearchChange prop signals server-side filtering, matching the
+        // pattern used by reference inputs in forms.
         onSearchChange={() => {}}
       />,
     );
@@ -201,7 +198,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(changes[0]).toEqual(["b"]);
   });
 
-  // Tier 2.7e Remote-Mode: typed-search-API.
+  // Remote mode: typed search API.
   test("remote-mode: render mit onSearchChange + loading mountet ohne crash", () => {
     render(
       <ComboboxInput
@@ -217,10 +214,10 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByTestId("combobox-combo")).toBeTruthy();
   });
 
-  // Audit-Fix #3: Real-Search-Verhalten ohne fake-Timers (collidieren
-  // mit RTL findBy-polling). defaultOpen forciert den Popover-Mount,
-  // dann triggern wir change-event direkt am Search-Input und warten
-  // auf real-time 350ms damit der 300ms-Debounce durch ist.
+  // Test real search behavior without fake timers, which conflict with RTL's
+  // findBy polling. defaultOpen forces the Popover to mount; then we trigger the
+  // change event directly on the Search input and wait in real time for the
+  // 300ms debounce to elapse.
   test("remote-mode: Search-Input typing → onSearchChange debounced (300ms)", async () => {
     const searches: string[] = [];
     render(
@@ -268,7 +265,7 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByTestId("combobox-combo").getAttribute("aria-invalid")).toBe("true");
   });
 
-  // #1681: "+ Create" must stay visible even with zero matching options —
+  // "+ Create" must stay visible even with zero matching options —
   // that's the most common case (a freshly seeded system has no
   // referenceable rows yet), not the edge case. The footer deliberately
   // lives OUTSIDE Command.List/cmdk's filter+empty machinery so it never

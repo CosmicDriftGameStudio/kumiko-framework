@@ -8,8 +8,8 @@ import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
-// writeHandler-Row/Toolbar-Actions auf projectionList — der entityList-
-// Dispatch-Pfad gilt jetzt auch hier (vorher v1: nur navigate).
+// `writeHandler` row and toolbar actions on projectionList now use the same
+// dispatch path as entityList instead of only navigating.
 
 const projectionScreen: ProjectionListScreenDefinition = {
   id: "maintenance-list",
@@ -90,10 +90,9 @@ describe("projectionList writeHandler-Actions", () => {
     expect(write.mock.calls[0]?.[1]).toEqual({ source: "manual" });
   });
 
-  // Prod-Bug 2026-06-07 (siehe useRowActionTrigger): ein verschluckter
-  // Write-Fehler sah für den User wie "nichts passiert" aus. Row- UND
-  // Toolbar-Action auf projectionList müssen denselben Surfacing-Pfad wie
-  // entityList nehmen (Toast statt stiller no-op).
+  // See useRowActionTrigger: a swallowed write error appeared to the user as
+  // "nothing happened". Row and toolbar actions on projectionList must use the
+  // same error-surfacing path as entityList (a toast instead of a silent no-op).
   test("Row-Action-Fehler wird als Toast surfaced, nicht verschluckt", async () => {
     const write = mock(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
@@ -133,7 +132,7 @@ describe("projectionList writeHandler-Actions", () => {
   });
 });
 
-// toolbarActions kind:"drawer" (fw#2225) — same shared ToolbarDrawerHost as
+// toolbarActions kind:"drawer" — same shared ToolbarDrawerHost as
 // entityList, wired into ProjectionListBody's toolbarActions builder.
 describe("projectionList toolbarActions drawer-kind (fw#2225)", () => {
   const noteForm: ActionFormScreenDefinition = {
@@ -202,7 +201,7 @@ describe("projectionList toolbarActions drawer-kind (fw#2225)", () => {
   });
 });
 
-// rowActions kind:"drawer" (fw#2710) — buildProjectionRowActions is shared
+// rowActions kind:"drawer" — buildProjectionRowActions is shared
 // between entityList and projectionList; this pins the projectionList call
 // site (openDrawer wired through ProjectionListBody).
 describe("projectionList rowActions drawer-kind (fw#2710)", () => {

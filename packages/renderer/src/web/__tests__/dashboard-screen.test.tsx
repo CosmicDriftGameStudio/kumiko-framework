@@ -84,10 +84,8 @@ describe("KumikoScreen dashboard", () => {
 
     await waitFor(() => expect(screen.getByText("99,98 %")).toBeTruthy());
     expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
-    // Stat-Panel: Label (Key-Fallback), Wert, Sub-Zeile aus dem Query-Record.
     expect(screen.getByText("status:dashboard:uptime")).toBeTruthy();
     expect(screen.getByText("letzte 90 Tage")).toBeTruthy();
-    // List-Panel: Row aus der paged envelope.
     await waitFor(() => expect(screen.getByText("API-Ausfall")).toBeTruthy());
   });
 
@@ -431,8 +429,8 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     );
     await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
     expect(screen.queryByTestId("kpi-icon")).toBeNull();
-    // #931: unregistriertes Icon darf auch keinen leeren, akzentgefärbten
-    // Chip-Wrapper rendern (StatCard gated den Span auf icon !== undefined).
+    // An unregistered icon must not render an empty, accent-colored
+    // chip wrapper either (StatCard gates the span on icon !== undefined).
     const card = screen.getByTestId("dashboard-panel-kpi");
     expect(card.querySelector('[style*="123456"]')).toBeNull();
   });

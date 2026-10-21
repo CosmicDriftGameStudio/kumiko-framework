@@ -51,7 +51,7 @@ function QrSecretValue({ value }: { readonly value: string }): ReactNode {
   );
 }
 
-// One-time secret reveal (fw#2548, secretMint confirm phase) — monospaced
+// One-time secret reveal (secretMint confirm phase) — monospaced
 // per-value display with a copy button that flips to `copiedLabel` on
 // success. Silent-catch on clipboard error mirrors the copy-link pattern in
 // create-app.tsx.

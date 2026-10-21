@@ -27,11 +27,11 @@ import { cardFooterBorder, cardHeaderBorder } from "./card-styles.ts";
 import { InsideFormContext, ScreenFormContext, ScreenWidthContext } from "./contexts.tsx";
 
 // Extension sections that render their own <form> via BareFormProvider
-// (legacy custom-form pattern, e.g. ChangeEmailSection before fw#2703) land
+// (legacy custom-form pattern, e.g. ChangeEmailSection) land
 // inside RenderEdit's host <form> (ExtensionSectionMount, render-edit.tsx) —
 // nested <form> elements are invalid DOM, and real browsers can silently
 // fall back to a native GET submit of the OUTER form, leaking field values
-// into the URL (fw#2312, fw#2705). Degrading to a <div> when already inside
+// into the URL. Degrading to a <div> when already inside
 // a form avoids the nesting; the captured click still routes to THIS form's
 // onSubmit instead of activating the real ancestor <form>.
 const SUBMIT_CONTROL_SELECTOR = [
@@ -163,7 +163,7 @@ export function FormSections({
         !chromeless && "[&>:not(section)]:mx-6 [&>:not(section)]:my-3",
         !chromeless && "[&>:not(section):first-child]:mt-6 [&>:not(section):last-child]:mb-6",
         // ponytail: fixed footer now pins only the primary action (single
-        // button row + its own p-4, fw#2606) instead of the whole footer —
+        // button row + its own p-4) instead of the whole footer —
         // shrunk from pb-32 accordingly. Widen again if a wizard's primary
         // action ever wraps to two rows.
         stickyActions === true && fillHeight !== true && STICKY_FOOTER_SPACER_CLASS,
@@ -240,7 +240,7 @@ export function FormTitleBlock({
 
 // `formActions` (render-edit.tsx) mixes a non-submit wizard Back button in
 // with the submit-type Next/Finish button inside one Fragment — only the
-// submit one is the "primary" action that fw#1918 needs pinned above a
+// submit one is the "primary" action that needs pinned above a
 // virtual keyboard. Back reads as `type="button"`, same as `secondaryActions`
 // (Cancel/Delete/…), so it can safely join that group on mobile. A footer-slot
 // mount can't expose `type="submit"` (its button is opaque app code), so it
@@ -303,7 +303,7 @@ export function FormFooter({
   const hasPrimaryAction = primaryActionNodes !== undefined && primaryActionNodes.length > 0;
   // No primary node found among `actions` (e.g. a wizard step with only
   // secondary buttons): fall back to pinning the whole, unpartitioned
-  // `actions` node instead of splitting it — matches the pre-split fw#1918
+  // `actions` node instead of splitting it — matches the previous
   // behaviour where sticky footers always kept `actions` fixed.
   const nonPrimaryActionNodes = hasPrimaryAction
     ? actionNodes?.filter((node) => !isPrimaryStickyAction(node))
@@ -403,7 +403,7 @@ export function FormFooter({
               : "flex-wrap max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
             // Below sm (640px): pin only the primary action to the viewport
             // bottom instead of normal flow, so a virtual keyboard shrinking
-            // the viewport can't push it out of reach (fw#1918). `fixed`
+            // the viewport can't push it out of reach. `fixed`
             // escapes the card's `overflow-hidden` (only transform/filter/
             // contain ancestors trap it, confirmed against
             // AppLayout/SidebarInset — neither sets those).
@@ -514,7 +514,7 @@ export function FormScreenShell({
   readonly maxWidth?: FormScreenShellWidth;
   /** Stacks children in a `h-full` flex column instead of normal document
    *  flow, so a `flex-1 min-h-0` child can claim the remaining height below
-   *  the others (fw#2722 — DefaultForm's tabs+relatedList case). Default
+   *  the others (DefaultForm's tabs+relatedList case). Default
    *  false: unchanged, content-sized height. */
   readonly fillHeight?: boolean;
 }): ReactNode {

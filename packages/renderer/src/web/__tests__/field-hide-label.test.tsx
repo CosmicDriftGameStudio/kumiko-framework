@@ -59,7 +59,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
 const LABEL = "Maps to";
 
 // Every *Field widget in form-fields.tsx wires hideLabel through to the
-// underlying Field primitive by hand (fw#1870/#1871) — a widget that forgets
+// underlying Field primitive by hand — a widget that forgets
 // the pass-through renders a visible label with no compile error, so this
 // has to be caught per-widget rather than assumed from the Field test above.
 const FIELD_WIDGETS: ReadonlyArray<readonly [string, ReactElement]> = [
@@ -184,7 +184,7 @@ describe("form-fields.tsx hideLabel pass-through (fw#1870/#1871)", () => {
 });
 
 // AiTextField builds its own <Field> instead of going through form-fields.tsx
-// (fw#1871#1) — a separate widget, so it needs its own pass-through check.
+// — a separate widget, so it needs its own pass-through check.
 describe("AiTextField hideLabel pass-through (fw#1871#1)", () => {
   test("collapses its label to sr-only and keeps it htmlFor-linked", () => {
     const dispatcher = createMockDispatcher({});

@@ -284,7 +284,7 @@ export function DefaultForm({
   const pinnedFooter = isPinnedFooter(stickyActions, fillHeight);
   const pinnedShellClassName = pinnedFooter ? "h-auto flex-1 pb-6" : undefined;
 
-  // Tab content (bedienkonzept A1): the head card is the ONLY card on the
+  // Tab content: the head card is the ONLY card on the
   // screen, so a tabbed projectionDetail's tab content must render as a
   // sibling of that card, not nest another one around itself — chromeless
   // skips the card wrapper and its border/padding so sections and footer
@@ -358,7 +358,7 @@ export function DefaultForm({
             // FormScreenShell ancestor is itself height-constrained and
             // shrinks it back down via min-h-0 — flex-1 would instead force
             // it to always fill the remaining height, stretching a short
-            // relatedList tab to the bottom of the panel (fw#2778).
+            // relatedList tab to the bottom of the panel.
             // The min-height floor keeps the card from collapsing to ~0 on short
             // viewports; the shell then overflows and <main> scrolls instead of
             // the overflow-hidden card clipping the table.

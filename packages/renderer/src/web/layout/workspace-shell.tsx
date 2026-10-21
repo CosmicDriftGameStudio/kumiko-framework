@@ -66,11 +66,11 @@ export type WorkspaceShellUser = {
 export type WorkspaceShellProps = {
   /** Branding / logo on the left side of the topbar. */
   readonly brand: ReactNode;
-  /** Schema mit `workspaces` populated — die engine baut das aus
-   *  registry.getAllWorkspaces() + getWorkspaceNavs(). Akzeptiert
-   *  AppSchema (multi-feature) oder die legacy FeatureSchema (single-
-   *  feature, workspaces inline). Ohne Workspaces fällt der Shell auf
-   *  plain NavTree ohne Switcher zurück. */
+  /** Schema with `workspaces` populated — the engine builds this from
+   *  registry.getAllWorkspaces() + getWorkspaceNavs(). Accepts
+   *  AppSchema (multi-feature) or the legacy FeatureSchema (single-
+   *  feature, workspaces inline). Without workspaces, the shell falls
+   *  back to a plain NavTree without a switcher. */
   readonly schema: AppSchema | FeatureSchema;
   /** Optional topbar end-slot — TenantSwitcher / ThemeToggle / UserMenu. */
   readonly topbarActions?: ReactNode;
@@ -80,9 +80,9 @@ export type WorkspaceShellProps = {
    *  workspace from schema, otherwise first accessible. Useful for SSR
    *  and tests to pre-seed without hitting the URL. */
   readonly initialWorkspaceId?: string;
-  /** Footer-Slot unten in der Sidebar — Profile-Row, Help-Link, Build-
-   *  Info. Klebt am unteren Rand via `mt-auto` (siehe Sidebar.footer).
-   *  Symmetrisch zu DefaultAppShell.sidebarFooter. */
+  /** Footer slot at the bottom of the sidebar — profile row, help link,
+   *  build information. It stays at the bottom via `mt-auto` (see
+   *  Sidebar.footer). Symmetric with DefaultAppShell.sidebarFooter. */
   readonly sidebarFooter?: ReactNode;
   /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
   readonly navBadges?: ReadonlyMap<string, ReactNode>;
@@ -134,7 +134,7 @@ export function WorkspaceShell({
     (id: string) => {
       // Pick the first nav-member that actually points at a screen so
       // the URL lands on something renderable instead of `/<workspace>`.
-      // Section-headers (nav-Einträge ohne `screen`) werden übersprungen.
+      // Section headers (nav entries without `screen`) are skipped.
       const target = visible.find((ws) => ws.definition.id === id);
       const screenId = firstNavScreenId(app, target?.navMembers);
       nav.navigate({ workspaceId: id, screenId });
@@ -176,12 +176,11 @@ export function WorkspaceShell({
       return;
     }
     const screenId = firstNavScreenId(app, navMembers);
-    // Loop-guard: wenn keiner der nav-members eine screen-property hat
-    // (alle section-headers oder unbekannte QNs), würde nav.replace mit
-    // screenId="" den Effect bei jedem Re-Render erneut feuern und den
-    // User auf "/<workspace>/" pinnen. Lieber gar nicht replacen — der
-    // Workspace-Selector kann den User dann manuell auf einen leaf-nav
-    // schicken.
+    // Loop guard: if none of the nav-members has a screen property
+    // (all are section headers or unknown QNs), nav.replace with
+    // screenId="" would fire the effect again on every re-render and pin
+    // the user to "/<workspace>/". Do not replace in that case — the
+    // workspace selector can then send the user to a leaf nav manually.
     if (screenId === "") return;
     nav.replace({ workspaceId: activeId, screenId });
   }, [activeId, routeWorkspaceId, visible, nav, app]);
@@ -210,13 +209,13 @@ export function WorkspaceShell({
     <WorkspaceSwitcher workspaces={visible} activeId={activeId} onSelect={handleSelect} />
   );
 
-  // EINE Nav: immer NavTree. Dynamische Knoten (r.nav({ provider: true }))
-  // ziehen ihre Children client-seitig aus den registrierten navProviders —
-  // der frühere navigation:"tree"/VisualTree-Zweig ist hier eingefaltet.
-  // Content-Bereich: ein aktives target (aus den nav.searchParams, gesetzt
-  // beim Klick auf einen target-Knoten) rendert den EditorPanel statt des
-  // RoutedScreen — sonst die normalen screen-children.
-  // (WorkspaceDefinition.navigation ist seitdem ein No-op; deferred removal.)
+  // One Nav: always NavTree. Dynamic nodes (r.nav({ provider: true }))
+  // load their children client-side from the registered navProviders —
+  // the former navigation:"tree"/VisualTree branch is folded in here.
+  // In the content area, an active target (from nav.searchParams, set
+  // when a target node is clicked) renders EditorPanel instead of
+  // RoutedScreen; otherwise it renders the regular screen children.
+  // (WorkspaceDefinition.navigation has been a no-op since then; removal deferred.)
   const resolvers = useResolvers();
   const activeTarget = parseTargetFromSearchParams(nav.searchParams);
 
@@ -235,8 +234,8 @@ export function WorkspaceShell({
   // above the content. topbarActions render right inside the header row
   // instead of a separate topbar — one header line, not two.
   const fillCls = fillClasses(fill);
-  // Zweite Spalte nur wenn ein Screen sie fuellt (sidebar-09-Muster) — sonst
-  // stuende auf jedem anderen Screen ein leerer Streifen neben der Navigation.
+  // The second column appears only when a screen fills it (sidebar-09 pattern);
+  // otherwise every other screen would have an empty strip beside the navigation.
   const panel = useSidebarPanelHost();
   return (
     <SidebarProvider {...fillCls.provider}>
@@ -306,28 +305,28 @@ function byOrderThenInsertion(a: WorkspaceSchema, b: WorkspaceSchema): number {
 }
 
 /** Returns the short screen-id of the first nav-member that points at
- *  a screen. Walks the workspace's nav-list in order and skips section-
- *  headers (NavDefinitions ohne `screen`) so ein workspace dessen erstes
- *  Member ein Header ist trotzdem auf einen renderbaren Screen auflöst.
+ *  a screen. Walks the workspace's nav-list in order and skips section
+ *  headers (NavDefinitions without `screen`) so a workspace whose first
+ *  member is a header still resolves to a renderable screen.
  *
  *  Returns "" when:
  *    - navMembers is undefined or empty
- *    - all members are section-headers (no `screen` property)
- *    - all members are unknown to the schema (drift zwischen
- *      r.workspace.nav und den registrierten navs — boot-validator fängt
- *      das server-side, hier nur graceful fallback)
+ *    - all members are section headers (no `screen` property)
+ *    - all members are unknown to the schema (drift between
+ *      r.workspace.nav and the registered navs — the boot validator catches
+ *      this server-side; this is only a graceful fallback)
  *
- *  The caller MUST loop-guard on "": rendering with screenId="" macht
- *  KumikoScreen den not-found-banner zeigen — und ein nav.replace mit
- *  leerem screenId würde den useLayoutEffect in WorkspaceShell bei
- *  jedem Re-Render erneut feuern (siehe matching guard dort).
+ *  The caller MUST loop-guard on "": rendering with screenId="" makes
+ *  KumikoScreen show the not-found banner — and nav.replace with an empty
+ *  screenId would fire the useLayoutEffect in WorkspaceShell on every
+ *  re-render (see the matching guard there).
  *
- *  Earlier code used `lastSegment(navQn)` which only worked when the
+ *  Earlier code used `lastSegment(navQn)`, which only worked when the
  *  feature followed the convention nav.id === screen.id (samples/apps/
  *  workspaces does this). Apps with distinct ids (publicstatus: nav
  *  "components" → screen "component-list") got "Screen not found".
  *
- *  Exported für Edge-Case-Tests. */
+ *  Exported for edge-case tests. */
 export function firstNavScreenId(
   app: AppSchema,
   navMembers: readonly string[] | undefined,
@@ -337,7 +336,7 @@ export function firstNavScreenId(
     for (const feature of app.features) {
       for (const nav of feature.navs ?? []) {
         if (qualifyNavId(feature.featureName, nav.id) !== navQn) continue;
-        if (nav.screen === undefined) break; // section-header → nächstes member
+        if (nav.screen === undefined) break; // section-header → next member
         return lastSegment(nav.screen);
       }
     }

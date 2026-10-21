@@ -1,4 +1,4 @@
-// fw#2548: secretMint mints a one-time secret from a write-handler's own
+// secretMint mints a one-time secret from a write-handler's own
 // success payload. This renders the real path (KumikoScreen → SecretMintBody
 // → RenderEdit) under a stub dispatcher, proving: (1) the secret is absent
 // before submit, (2) only the whitelisted reveal.fields survive the submit —

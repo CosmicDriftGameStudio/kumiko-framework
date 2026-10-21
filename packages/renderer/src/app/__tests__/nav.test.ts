@@ -1,7 +1,7 @@
-// nav Pure-Logik Tests (Phase 1, test-luecken-integration, Tier 1).
+// Pure navigation tests.
 //
-// parsePath/formatPath: plattform-neutrale URL-Grammatik mit zwei Modi
-// (mit/ohne Workspaces). Pure, kein DOM.
+// parsePath/formatPath implement platform-neutral URL grammar in two modes:
+// with and without workspaces. They are pure and require no DOM.
 
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -107,7 +107,7 @@ describe("Roundtrip parsePath ↔ formatPath", () => {
   });
 });
 
-// resolveTarget: ObjectTarget -> ScreenTarget lookup (fw#2163). Custom-Screen
+// resolveTarget: ObjectTarget -> ScreenTarget lookup. Custom-Screen
 // detailFor is the main case in app repos (projectionDetail has no entity to
 // key off), so it gets its own scenario rather than piggy-backing on the
 // entityList one.
@@ -151,7 +151,7 @@ describe("resolveTarget", () => {
 
   // Short screenId, not the qualified "property:screen:lease-detail" —
   // ScreenTarget.screenId round-trips through formatPath/parsePath as a
-  // short id; RoutedScreen re-qualifies it itself (fw#2164 fix, previously
+  // short id; RoutedScreen re-qualifies it itself (previously
   // double-qualified and silently fell back to the app's default screen).
   test("ObjectTarget resolves via the matching custom detailFor screen", () => {
     const schema = schemaWith("property", [leaseDetailScreen]);
@@ -201,7 +201,7 @@ describe("resolveTarget", () => {
 });
 
 // hasDetailScreen: non-throwing existence check create-app's row-click
-// default (fw#2164) uses to pick between a detailFor screen and its other
+// default uses to pick between a detailFor screen and its other
 // fallbacks — resolveTarget's throw isn't usable there since not resolving
 // is the expected, non-error case for most entities.
 describe("hasDetailScreen", () => {

@@ -44,7 +44,7 @@ function isRequiredValueMissing(
     spec.required === undefined ? entityRequired : evalFieldCondition(spec.required, record);
   if (!isRequired) return false;
   // Embedded LIST fields get their own EmbeddedListField grid widget
-  // (#1838) — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
+  // — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
   // entry must not exempt them. A statically-`required: true` field
   // with no bound widget is also caught at boot
   // (validateNoWidgetRequiredField in boot-validator/screens.ts).

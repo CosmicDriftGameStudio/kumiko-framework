@@ -1,17 +1,16 @@
-// Tier 2.7e Audit-Fix #7: Reference-Lookup-Limits zentral.
+// Reference lookup limits are centralized here.
 //
-// Zwei verschiedene Use-Cases mit unterschiedlichen Default-Limits:
-//   - Combobox-Edit (single User picks one): 50 reicht weil
-//     typed-search-Fallback aktiv ist (REMOTE_SEARCH_DEBOUNCE_MS).
-//   - List-Bulk-Display (Cell-Render für viele Rows): 200 weil wir
-//     pro Reference-Spalte einmal pro Page laden, nicht pro Cell.
+// Two use cases have different default limits:
+//   - Combobox editing (a user picks one): 50 is sufficient because the
+//     typed-search fallback is active (REMOTE_SEARCH_DEBOUNCE_MS).
+//   - Bulk list display (rendering cells for many rows): 200 because each
+//     reference column is loaded once per page, not once per cell.
 //
-// Apps können die Defaults überschreiben indem sie die Konstanten
-// hier neu setzen — pro feature/app gibt's heute keine Override-API
-// (das wäre eine Erweiterung in createKumikoApp, separater Sprint).
-// Die Konstanten leben in einem eigenen Modul damit Future-Author
-// sie an einer Stelle findet statt verstreut zwischen render-field
-// und use-reference-lookup.
+// Apps can override the defaults by changing these constants, but there is
+// currently no per-feature or per-app override API; adding one would require
+// extending createKumikoApp.
+// The constants live in their own module so future authors can find them in
+// one place instead of searching through render-field and use-reference-lookup.
 
 export const REFERENCE_COMBOBOX_LIMIT = 50;
 export const REFERENCE_LIST_LOOKUP_LIMIT = 200;

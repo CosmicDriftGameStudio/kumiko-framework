@@ -1,4 +1,4 @@
-// fw#2165: ProjectionListBody used to fetch with a hardcoded empty payload —
+// ProjectionListBody used to fetch with a hardcoded empty payload —
 // search/sort/pagination were rendered but had no effect. This renders the
 // real path (KumikoScreen → ProjectionListScreen → ProjectionListBody →
 // RenderList) under a stub dispatcher that records every query() call, and a

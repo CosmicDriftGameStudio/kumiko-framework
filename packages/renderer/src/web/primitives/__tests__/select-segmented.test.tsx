@@ -2,7 +2,7 @@
 // (edit-existing screenshot feedback): a Status field with 3 short values
 // no longer stretches into a full-width dropdown. Threshold: ≤4 options —
 // otherwise the unchanged ComboboxInput dropdown. Label length is explicitly
-// not part of the threshold (#2606).
+// not part of the threshold.
 
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
@@ -90,7 +90,7 @@ describe("DefaultInput select → segmented control (edit-existing feedback)", (
   });
 });
 
-// offlot-app's language picker from #2606: same four option values, the German
+// offlot-app's language picker: same four option values, the German
 // translations land at 14 chars and the English ones above it.
 const LANGUAGE_OPTIONS_EN = [
   { value: "", label: "Select a language" },

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 
-// Semantische Status-Tones — eine Farb-Familie für Component-Status,
-// Incident-Status, Severity, Job-Zustände. Farben kommen aus den
-// --color-status-* Theme-Tokens (styles.css), Apps überschreiben zentral.
+// Semantic status tones share one color family across component status,
+// incident status, severity, and job states. Colors come from the
+// --color-status-* theme tokens in styles.css, which apps can override centrally.
 export type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 
 export const STATUS_TONE_TEXT: Record<StatusTone, string> = {

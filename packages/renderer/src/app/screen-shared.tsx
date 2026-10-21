@@ -298,7 +298,7 @@ export type PagedRows = {
 // search/sort/sortDirection/limit + offset/totalCount for pager mode OR
 // cursor for infinite scroll. Shared by EntityListBody and
 // ProjectionListBody so the two branches can't drift on this shape
-// (fw#2165) — entity-only additions (screen.filter, faceted filters) are
+// — entity-only additions (screen.filter, faceted filters) are
 // layered on top by the caller instead of living in here.
 export function buildListQueryPayload(state: {
   readonly limit: number;
@@ -328,7 +328,7 @@ export function buildListQueryPayload(state: {
   return payload;
 }
 
-// ---- actionForm (Tier 2.7d) ----
+// ---- actionForm ----
 
 type RedirectSpec = string | ActionFormRedirect | ActionFormSuccessLink;
 

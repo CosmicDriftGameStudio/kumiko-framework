@@ -143,7 +143,7 @@ describe("RenderEdit wizard draft", () => {
     expect(titleInputAgain.value).toBe("Acme");
   });
 
-  // fw#2548 security: a `format: "password"` field must never reach the
+  // security: a `format: "password"` field must never reach the
   // persisted draft blob — it would be stored in the clear server-side and
   // restored in plaintext on resume.
   test("a password-format field is stripped from the draft save payload", async () => {
@@ -351,7 +351,7 @@ describe("RenderEdit wizard draft", () => {
     expect(JSON.stringify(saved.values)).not.toContain("DE89370400440532013000");
   });
 
-  // fw#1929: bare crypto.randomUUID() breaks in non-secure contexts and
+  // Bare crypto.randomUUID() breaks in non-secure contexts and
   // React Native/Hermes without a polyfill. With it deleted, minting a
   // draftId must still work through the mintDraftId() fallback instead of
   // throwing.
@@ -439,7 +439,7 @@ describe("RenderEdit wizard draft", () => {
     expect(calls).toContain("form-draft:write:discard");
   });
 
-  // fw#1978: payloadMode "changes" + an untouched form means
+  // payloadMode "changes" + an untouched form means
   // controller.submit() never calls dispatcher.write (nothing changed to
   // send) — handleSubmit must not treat that no-write success like a normal
   // submit and discard the draft underneath it, or a host driving
@@ -576,11 +576,11 @@ describe("RenderEdit wizard draft", () => {
     expect(titleInput.value).toBe("Typed while loading");
   });
 
-  // Issue #1914: patch() (controlled mode / extension sections) previously
+  // patch() (controlled mode / extension sections) previously
   // never triggered a draft save — only handleWizardNext/Back did. A patch()
   // on the last step (no further Next click coming) or on a step abandoned
   // without Next/Back was silently lost, forcing e.g. a repeat of a paid
-  // VIN-decode round-trip on resume (#1908).
+  // VIN-decode round-trip on resume.
   test("controls.patch() on the last step persists into the draft blob (debounced)", async () => {
     const { dispatcher, store } = makeDraftDispatcher();
     let controls: RenderEditControls<TestValues> | undefined;
@@ -753,7 +753,7 @@ describe("RenderEdit wizard draft", () => {
     expect(savesSoFar()).toBe(before + 1);
   });
 
-  // fw#1932: a patch() inside the 500ms debounce window followed by an
+  // A patch() inside the 500ms debounce window followed by an
   // unmount (navigation away, dialog close) must not drop the save — the
   // old cleanup only cleared the timer, silently discarding the last edit.
   test("a pending debounced patch-save flushes on unmount instead of being dropped", async () => {
@@ -788,7 +788,7 @@ describe("RenderEdit wizard draft", () => {
     await waitFor(() => expect(store.current?.values["count"]).toBe(7));
   });
 
-  // #1914's debounce must not resurrect a draft after it was intentionally
+  // The debounce must not resurrect a draft after it was intentionally
   // ended: discardDraft() clears the pending timer (render-edit.tsx:735-738)
   // specifically so a patch() immediately followed by submit can't have its
   // debounced save land AFTER the discard and leave an orphaned row behind.
@@ -887,7 +887,7 @@ describe("RenderEdit wizard draft", () => {
     expect(seenResults[0]?.isSuccess).toBe(true);
   });
 
-  // `disabled` means "no input/no write", not "no navigation" (#1896). The
+  // `disabled` means "no input/no write", not "no navigation". The
   // old `if (disabled) return` guard sat BEFORE the wizard-next branch, and
   // Next itself carried `disabled={disabled}` — together they made a
   // disabled wizard unnavigable past step 0. Next must still step forward,
@@ -1154,7 +1154,7 @@ describe("RenderEdit create-mode draftId (issue #1913)", () => {
     // No silent adopt: the form stays pristine until the user picks.
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("");
-    // #1976: single-candidate is now the normal case (auto-adopt removed) —
+    // single-candidate is now the normal case (auto-adopt removed) —
     // the banner text and the "start new" button must both resolve to real
     // copy, not the raw i18n keys.
     const picker = screen.getByTestId("render-edit-draft-picker");

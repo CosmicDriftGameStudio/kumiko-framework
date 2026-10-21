@@ -1,20 +1,20 @@
 //
-// Verdrahtungs-Test: beweist dass die ganze UI-Store-Kette zusammenhält:
+// Wiring test: proves that the complete UI store chain remains connected:
 //   createLiveDispatcher → dispatcher.statusStore → DispatcherProvider →
-//   useDispatcherStatus → useStore → Re-Render
+//   useDispatcherStatus → useStore → re-render
 //
-// Vorher hatte der Dispatcher zwei Wrapper-Methoden (status() +
-// subscribeStatus()), Konsumenten verdrahteten sie manuell mit
-// useSyncExternalStore. Nach dem Refactor ist statusStore ein read-only
-// Store als Property und useDispatcherStatus reduziert sich auf
-// `useStore(dispatcher.statusStore)`. Wenn dieser Test grün läuft, ist
-// die ganze Kette intakt — eine subtile Renaming-Regression in einem
-// der Glieder würde sich hier zeigen statt erst in Prod.
+// Previously, the dispatcher exposed two wrapper methods (status() and
+// subscribeStatus()), which consumers had to connect manually with
+// useSyncExternalStore. After the refactor, statusStore is a read-only
+// store property and useDispatcherStatus reduces to
+// `useStore(dispatcher.statusStore)`. A passing test confirms the chain is
+// intact; a subtle renaming regression in any link would surface here
+// instead of in production.
 //
-// Bewusst KEIN .integration.ts: kein Server, kein DB. Wir mocken den
-// fetch-Layer (das ist die System-Grenze für den Live-Dispatcher) und
-// lassen alles darüber echt laufen. Im Sinne von CLAUDE.md ist das ein
-// "Full-Stack des Frontend-Stacks", nicht ein Full-Stack-mit-API.
+// This is intentionally not a .integration.ts test: there is no server or
+// database. We mock the fetch layer, which is the system boundary for the
+// live dispatcher, and keep everything above it real. This is a
+// "full stack of the frontend stack", not a full stack including the API.
 
 import { describe, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
@@ -55,8 +55,9 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
 
     expect(screen.getByTestId("status").textContent).toBe("online");
 
-    // Echter call löst observeNetworkOutcome(false) → statusStore.setState("offline")
-    // → useStore-Subscriber feuert → Probe re-rendert.
+    // A real call triggers observeNetworkOutcome(false) →
+    // statusStore.setState("offline") → the useStore subscriber fires →
+    // the probe re-renders.
     await act(async () => {
       await dispatcher.write("x", {});
     });
@@ -102,12 +103,12 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
     const fetch = mock() as unknown as typeof globalThis.fetch;
     const dispatcher = createLiveDispatcher({ fetch, readCsrf: () => "t" });
 
-    // Der Dispatcher-Contract exponiert statusStore als Store<T> (nicht
-    // WritableStore). Zur Runtime ist setState da (intern liegt ein
-    // WritableStore), aber der public Type versteckt es — UI-Code kann
-    // setState NICHT aufrufen ohne Type-Error. Wenn der Public-Type je
-    // auf WritableStore aufweicht, fällt der ts-expect-error weg und tsc
-    // flagged es.
+    // The dispatcher contract exposes statusStore as Store<T), not
+    // WritableStore. At runtime, setState exists because the internal store
+    // is writable, but the public type hides it, so UI code cannot call
+    // setState without a type error. If the public type were widened to
+    // WritableStore, the ts-expect-error would no longer be needed and tsc
+    // would flag it.
     expect(typeof dispatcher.statusStore.subscribe).toBe("function");
     expect(typeof dispatcher.statusStore.getSnapshot).toBe("function");
     // Dispatcher.statusStore exposes the read-only Store contract; the

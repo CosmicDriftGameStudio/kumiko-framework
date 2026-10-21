@@ -172,9 +172,9 @@ describe("resolveDefaultId", () => {
 });
 
 // ---------------------------------------------------------------------------
-// firstNavScreenId — Resolver für den default-screen eines Workspaces.
-// Pinst die Kontrakte gegen den prod-Bug 2026-05-02 (workspace-Tab-Klick
-// landete auf nav.id statt nav.screen) PLUS die Fallback-Branches.
+// firstNavScreenId — Resolves a workspace's default screen.
+// Pins the contracts against the production bug from 2026-05-02 (workspace-tab
+// clicks landed on nav.id instead of nav.screen), plus the fallback branches.
 // ---------------------------------------------------------------------------
 
 describe("firstNavScreenId", () => {
@@ -198,7 +198,7 @@ describe("firstNavScreenId", () => {
 
   test("überspringt section-headers (nav ohne screen) zum nächsten member", () => {
     const app = appWithNavs([
-      { id: "settings" }, // section-header, kein screen
+      { id: "settings" }, // section header, no screen
       { id: "settings-branding", screen: "demo:screen:branding-settings" },
     ]);
     expect(firstNavScreenId(app, ["demo:nav:settings", "demo:nav:settings-branding"])).toBe(
@@ -299,9 +299,9 @@ describe("WorkspaceShell", () => {
     featureName: "bmc",
     entities: {},
     screens: [],
-    // navs müssen `screen` haben damit firstScreenIdInWorkspace die
-    // screen-id auflösen kann. Resolver nimmt explizit nav.screen,
-    // nicht nav.id (siehe workspace-shell.tsx Comment).
+    // navs must have `screen` so firstScreenIdInWorkspace can resolve the
+    // screen ID. The resolver explicitly uses nav.screen, not nav.id
+    // (see the comment in workspace-shell.tsx).
     navs: [
       { id: "system", label: "System", screen: "bmc:screen:system" },
       { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
@@ -370,8 +370,8 @@ describe("WorkspaceShell", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // admin → system + orders, NOT tours. getAllByText: die shadcn-Sidebar
-    // rendert Desktop + Mobile-Sheet, jeder Nav-Eintrag kommt also 2× vor.
+    // admin → system + orders, NOT tours. getAllByText: the shadcn sidebar
+    // renders both Desktop and Mobile-Sheet, so each nav entry appears twice.
     expect(screen.getAllByText("System").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Orders").length).toBeGreaterThan(0);
     expect(screen.queryAllByText("Tours").length).toBe(0);
@@ -570,9 +570,9 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
     featureName: "bmc",
     entities: {},
     screens: [],
-    // navs müssen `screen` haben damit firstScreenIdInWorkspace die
-    // screen-id auflösen kann. Resolver nimmt explizit nav.screen,
-    // nicht nav.id (siehe workspace-shell.tsx Comment).
+    // navs must have `screen` so firstScreenIdInWorkspace can resolve the
+    // screen ID. The resolver explicitly uses nav.screen, not nav.id
+    // (see the comment in workspace-shell.tsx).
     navs: [
       { id: "system", label: "System", screen: "bmc:screen:system" },
       { id: "orders", label: "Orders", screen: "bmc:screen:orders" },
@@ -697,10 +697,10 @@ describe("WorkspaceShell — URL sync (path-based)", () => {
 // AppSchema (multi-feature) — workspaces with cross-feature nav members
 // ---------------------------------------------------------------------------
 //
-// Hier deckt die Test-Klammer den eigentlichen Use-Case ab: ein Workspace
-// dessen navMembers Navs aus mehreren Features referenzieren. Vorher
-// ging das nur über pre-qualifizierte ids im single-feature schema, jetzt
-// sauber über AppSchema.features[].
+// Covers the actual use case: a workspace whose navMembers reference navs
+// from multiple features. Previously, this only worked through pre-qualified
+// IDs in the single-feature schema; it now works correctly through
+// AppSchema.features[].
 
 describe("WorkspaceShell — AppSchema (multi-feature)", () => {
   test("admin Workspace zeigt Navs aus zwei Features in einer Sidebar", () => {
@@ -742,11 +742,10 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // Beide Navs müssen in der Sidebar landen, jede mit ihrem eigenen
-    // featureName qualifiziert. Vorher (single-feature schema) hätte
-    // qualifyNavId orders+fleet beide unter dem einen featureName
-    // qualifiziert und der allowedNavQns-Filter hätte fleet:nav:vehicles
-    // nie matchen können.
+    // Both navs must appear in the sidebar, each qualified with its own
+    // featureName. With the single-feature schema, qualifyNavId would have
+    // qualified both orders and fleet under the same featureName, so the
+    // allowedNavQns filter could never match fleet:nav:vehicles.
     expect(screen.getByText("Order List")).toBeTruthy();
     expect(screen.getByText("Vehicles")).toBeTruthy();
   });
@@ -795,18 +794,17 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // Admin = aktiv (default) → nur Order List, KEIN Vehicles.
+    // Admin is active by default → only Order List, not Vehicles.
     expect(screen.getByText("Order List")).toBeTruthy();
     expect(screen.queryByText("Vehicles")).toBeNull();
   });
 
-  // sidebarFooter-Slot — symmetrisch zu DefaultAppShell.sidebarFooter.
-  // Apps nutzen das für Build-Info / Version-SHA / Help-Link am unteren
-  // Sidebar-Rand. Ohne den Slot mussten Apps den Footer als bottom-fixed
-  // div neben der Shell mounten — sieht aus, ist aber außerhalb der
-  // Layout-Hierarchie und überlappt bei kleinen Viewports den Content.
-  // Regression-Anker: Wenn jemand den Slot wegrefactoriert, fällt das
-  // hier auf, nicht erst beim nächsten Workspace-Sample.
+  // sidebarFooter slot — symmetric with DefaultAppShell.sidebarFooter.
+  // Apps use it for build information, version SHA, or a help link at the
+  // bottom of the sidebar. Without the slot, apps had to mount the footer as
+  // a bottom-fixed div beside the shell, outside the layout hierarchy and
+  // potentially overlapping content on small viewports.
+  // This regression check ensures the slot remains part of the layout.
   test("sidebarFooter-Slot rendert unten in der Sidebar", () => {
     const legacy = {
       featureName: "demo",
@@ -865,9 +863,9 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
   });
 
   test("toAppSchema hebt FeatureSchema.workspaces auf App-Ebene (Backwards-Compat)", () => {
-    // Legacy single-feature shape mit inline workspaces — der Wrapper
-    // soll exakt das gleiche Rendering liefern wie ein expliziter
-    // AppSchema-Aufruf mit demselben Inhalt.
+    // Legacy single-feature shape with inline workspaces — the wrapper should
+    // render exactly the same as an explicit AppSchema call with the same
+    // contents.
     const legacy = {
       featureName: "demo",
       entities: {},
@@ -888,19 +886,17 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // Sidebar zeigt den nav — beweist dass die Legacy-Schema-Workspaces
-    // korrekt zur App-Ebene hochgehoben wurden und der allowedNavQns-
-    // Filter den Eintrag durchließ. WorkspaceSwitcher rendert bei einem
-    // einzelnen Workspace nichts (no-choice-no-UI), das ist nicht der
-    // Test-Punkt hier.
+    // The sidebar shows the nav, proving that the legacy-schema workspaces were
+    // correctly promoted to the app level and that the allowedNavQns filter
+    // let the entry through. WorkspaceSwitcher renders nothing for a single
+    // workspace (no choice, no UI); that is not the point of this test.
     expect(screen.getByText("List")).toBeTruthy();
   });
 });
 
 // ---------------------------------------------------------------------------
-// EINE Nav. WorkspaceShell rendert IMMER NavTree. Im Content-Bereich
-// ersetzt ein aktives target (aus den nav.searchParams) den RoutedScreen
-// durch den EditorPanel.
+// One nav. WorkspaceShell always renders NavTree. In the content area, an
+// active target (from nav.searchParams) replaces RoutedScreen with EditorPanel.
 // ---------------------------------------------------------------------------
 
 describe("WorkspaceShell — EINE Nav", () => {
@@ -929,11 +925,11 @@ describe("WorkspaceShell — EINE Nav", () => {
   });
 
   test("aktives target in der URL rendert EditorPanel statt der screen-children", () => {
-    // Klick auf einen target-Knoten persistiert das target in den
-    // searchParams (?t=feat:action&a_*=...). WorkspaceShell rendert dann
-    // den EditorPanel statt des RoutedScreen. Voller workspace+screen-Pfad,
-    // damit der default-fill-Effect nicht replaced (sonst Verlust der
-    // searchParams). Kein Resolver registriert → EditorPanel-Fallback.
+    // Clicking a target node persists the target in
+    // searchParams (?t=feat:action&a_*=...). WorkspaceShell then renders
+    // EditorPanel instead of RoutedScreen. Use a complete workspace+screen
+    // path so the default-fill effect does not replace it and lose the
+    // searchParams. No resolver is registered → EditorPanel fallback.
     window.history.replaceState(null, "", "/admin/x?t=demo:edit&a_id=1");
     const schema = {
       featureName: "demo",
@@ -955,9 +951,9 @@ describe("WorkspaceShell — EINE Nav", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    // EditorPanel-Fallback (kein Resolver für demo:edit) — beweist target→Editor.
+    // EditorPanel fallback (no resolver for demo:edit) — proves target→Editor.
     expect(screen.getByRole("heading", { name: "Editor" })).toBeTruthy();
-    // Die screen-children sind ersetzt, nicht zusätzlich gerendert.
+    // The screen children are replaced, not rendered in addition.
     expect(screen.queryByText("content")).toBeNull();
   });
 
@@ -999,7 +995,7 @@ describe("WorkspaceShell — EINE Nav", () => {
 });
 
 // WorkspaceShell threads `user.roles` into a UserRolesProvider around
-// children (#1203) — KumikoScreen reads that to gate role-restricted
+// children. KumikoScreen reads that to gate role-restricted
 // screens at render time, not just via nav/workspace-switcher filtering.
 describe("WorkspaceShell wires user.roles into children for screen-level access (#1203)", () => {
   const restrictedScreen: EntityListScreenDefinition = {

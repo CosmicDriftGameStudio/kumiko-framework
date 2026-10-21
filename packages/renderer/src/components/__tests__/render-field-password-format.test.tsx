@@ -1,4 +1,4 @@
-// fw#2548: TextFieldDef.format "password" is a pure render hint — the
+// TextFieldDef.format "password" is a pure render hint — the
 // editable widget masks the input, and the read-only display never shows
 // the plaintext value.
 

@@ -1,4 +1,4 @@
-// fw#2315: a projectionDetail field with `renderer: { format: "enumOption",
+// A projectionDetail field with `renderer: { format: "enumOption",
 // keyPrefix }` must resolve the raw enum value through useTranslation() —
 // the same key convention buildOptionLabels uses for entityList select
 // columns (`<feature>:entity:<entity>:field:<field>:option:<value>`), but

@@ -1,10 +1,10 @@
-// money-input Tests (Phase 1, test-luecken-integration).
+// money-input tests.
 //
-// Tier 1 — Pure-Logik (currencyDecimals, parseLocaleNumber): exportierte
-//   reine Funktionen, kein DOM nötig.
-// Tier 2 — Render (happy-dom + @testing-library): money-input ist das
-//   einzige nicht-Radix-Primitive, daher voll testbar (kein
-//   Pointer-Capture-Problem) — Format-Roundtrip, +/- Bump, a11y.
+// Tier 1 — Pure logic (currencyDecimals, parseLocaleNumber): exported
+//   pure functions that require no DOM.
+// Tier 2 — Rendering (happy-dom + @testing-library): money-input is the
+//   only non-Radix primitive and is fully testable because it has no
+//   pointer-capture issues — format round-trip, +/- bump, and a11y.
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";

@@ -5,7 +5,7 @@ import { cn } from "../lib/cn.ts";
 
 // Drawer needs a per-instance overlay dim/blur (its `backdrop` prop), but
 // ../ui/sheet.tsx is vendored shadcn (regenerated via scripts/sync-shadcn.ts,
-// never hand-edited — #1965) and its SheetContent hard-codes a plain
+// never hand-edited) and its SheetContent hard-codes a plain
 // `<SheetOverlay />` with no way to reach the overlay's inline style. Rather
 // than growing the vendored primitive an ad-hoc prop that a resync would
 // silently drop, this composes the same Portal + Overlay + Content tree

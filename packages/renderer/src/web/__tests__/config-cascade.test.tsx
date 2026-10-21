@@ -1,11 +1,10 @@
-// ConfigCascadeView — Regression zu den Prod-UX-Bugs 2026-06-07
-// (publicstatus Bugs 7+8): (7) Source-Badges zeigten ROHE i18n-Keys
-// ("config.source.default"), weil kein Bundle die Keys kannte; (8) ein
-// Tenant-Admin sah ALLE Cascade-Ebenen (System/App-Override/Computed)
-// obwohl er nur die Tenant-Ebene beeinflussen kann. Jetzt: Keys leben
-// als kumiko.config.* in kumikoDefaultTranslations, und Nicht-System-
-// Screens kollabieren alles oberhalb des Screen-Scopes zu EINER
-// neutralen "Standard"-Zeile (Bug-Bash 3 #11: ein durchgängiger Begriff).
+// ConfigCascadeView — Regression tests for production UX bugs
+// (7) Source badges displayed raw i18n keys ("config.source.default")
+// because no bundle defined them; (8) tenant admins saw every cascade level
+// (System/App-Override/Computed) even though they can change only the tenant
+// level. Keys now live under kumiko.config.* in kumikoDefaultTranslations,
+// and non-system screens collapse levels above the screen scope into one
+// neutral "Standard" row.
 
 import { describe, expect, test } from "bun:test";
 import type { ConfigCascade, ConfigCascadeLevel } from "@cosmicdrift/kumiko-framework/engine";
@@ -23,8 +22,8 @@ function level(overrides: Partial<ConfigCascadeLevel> & { source: ConfigCascadeL
   };
 }
 
-// Tenant-Scope-Key wie ihn buildCascade liefert: tenant-row + alle
-// Operator-Ebenen + default.
+// Tenant-scope cascade returned by buildCascade: tenant-row, all operator
+// levels, and default.
 function tenantCascade(overrides?: {
   tenantValue?: string;
   systemActive?: boolean;
@@ -82,8 +81,8 @@ describe("ConfigCascadeView — i18n (Bug 7)", () => {
 describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
   test("screenScope=tenant: Operator-Ebenen sind unsichtbar, EIN neutraler Standard-Fallback bleibt", async () => {
     const user = userEvent.setup();
-    // tenant-Override → aufklappbar; das Panel muss die Operator-Ebenen
-    // trotzdem verbergen (Scope-Filter), nur Tenant + Standard zeigen.
+    // A tenant override remains expandable, but scope filtering hides the
+    // operator levels and shows only Tenant and Standard.
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
     );

@@ -3,8 +3,8 @@ import { cn } from "../lib/cn.ts";
 
 export type ModeSwitchVariant = "outline" | "pill";
 
-/** Segmented-Control für sich ausschließende Modi — die prominente
- *  Alternative zum vergrabenen <select>. */
+/** Segmented control for mutually exclusive modes—the prominent
+ * alternative to the buried <select>. */
 export function ModeSwitch<T extends string>({
   value,
   options,
@@ -32,7 +32,7 @@ export function ModeSwitch<T extends string>({
 }): ReactNode {
   const pill = variant === "pill";
   return (
-    // biome-ignore lint/a11y/useSemanticElements: fieldset bringt Browser-Default-Chrome (Border/legend) mit, das für ein Button-Segmented-Control falsch ist
+    // biome-ignore lint/a11y/useSemanticElements: fieldset brings browser-default chrome (border/legend) that is wrong for a button segmented control
     <div
       data-testid={testId}
       role="group"

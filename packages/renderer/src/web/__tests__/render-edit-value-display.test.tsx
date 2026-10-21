@@ -6,7 +6,7 @@ import type {
 import { RenderEdit } from "../../index.ts";
 import { render, screen } from "./test-utils.tsx";
 
-// fw#2245 Teil 2: `RenderEditProps.valueDisplay` — "text" renders a
+// `RenderEditProps.valueDisplay` — "text" renders a
 // field.readOnly field as formatted plain text instead of a disabled Input.
 // Confined by construction: the prop defaults to "form" (old behavior)
 // at this generic component, ProjectionDetailBody is the only caller that

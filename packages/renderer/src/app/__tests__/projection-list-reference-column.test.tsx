@@ -1,4 +1,4 @@
-// fw#2662: projectionList columns have no EntityDefinition to carry a real
+// projectionList columns have no EntityDefinition to carry a real
 // "reference" field type (the shim hardcodes every field as "text"), so a
 // declared reference column used to render the raw GUID. This renders the
 // real path (KumikoScreen -> ProjectionListScreen -> RenderList ->
@@ -87,8 +87,7 @@ function stubDispatcher(): Dispatcher {
         };
       }
       // tenant:tenant resolves through the tenant directory, not the
-      // SystemAdmin-only tenant:query:tenant:list a TenantAdmin can't call
-      // (fw#3142).
+      // SystemAdmin-only tenant:query:tenant:list a TenantAdmin can't call.
       if (type === "tenant:query:tenant-directory") {
         return {
           isSuccess: true,
@@ -102,7 +101,7 @@ function stubDispatcher(): Dispatcher {
         };
       }
       // user:user resolves through the tenant-scoped member directory, not the
-      // SystemAdmin-only user:query:user:list a TenantAdmin can't call (fw#3107).
+      // SystemAdmin-only user:query:user:list a TenantAdmin can't call.
       if (type === "tenant:query:member-directory") {
         if (memberDirectoryFails) {
           failedDirectoryCalls += 1;
@@ -144,7 +143,7 @@ const TENANT_COLUMN: ListColumnSpec = {
   refLabelField: "name",
 };
 
-// Mirrors the audit-log actor column (fw#3103).
+// Mirrors the audit-log actor column.
 const ACTOR_COLUMN: ListColumnSpec = {
   field: "createdBy",
   label: "audit.log.col.actor",

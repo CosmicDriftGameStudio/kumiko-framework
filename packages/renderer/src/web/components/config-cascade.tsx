@@ -20,9 +20,9 @@ const SOURCE_I18N_KEY: Record<ConfigValueSource, string> = {
   missing: "kumiko.config.source.missing",
 };
 
-// Fallback-Reihenfolge der Cascade, spezifischste Quelle zuerst.
-// Index-Vergleich gegen die Screen-Scope-Quelle entscheidet, welche
-// Ebenen ein Nicht-Operator sehen darf.
+// Fallback order of the cascade, with the most specific source first.
+// Comparing indices with the screen-scope source determines which
+// levels a non-operator may see.
 const SOURCE_ORDER: readonly ConfigValueSource[] = [
   "user-row",
   "tenant-row",
@@ -71,9 +71,9 @@ function scopeToSource(scope: ConfigScope): ConfigValueSource {
   return "system-row";
 }
 
-// Eine Cascade-Zeile in Anzeige-Form: Ebenen oberhalb des Screen-Scopes
-// werden für Nicht-Operator-Screens zu EINER neutralen "Vorgabe"-Zeile
-// kollabiert — der Wert bleibt sichtbar, die Operator-Quelle nicht.
+// In the displayed cascade, levels above the screen scope are collapsed
+// into a single neutral "Default" row for non-operator screens—the value
+// remains visible, but not the operator source.
 type DisplayLevel = {
   readonly level: ConfigCascadeLevel;
   readonly badgeSource: ConfigValueSource;
@@ -84,16 +84,16 @@ function toDisplayLevels(
   levels: readonly ConfigCascadeLevel[],
   screenScopeSource: ConfigValueSource,
 ): readonly DisplayLevel[] {
-  // System-Screens sind Operator-Sicht — volle Cascade inkl.
-  // app-override/computed/default bleibt sichtbar.
+  // System screens have operator visibility, so the full cascade, including
+  // app-override/computed/default, remains visible.
   if (screenScopeSource === "system-row") {
     return levels.map((level) => ({ level, badgeSource: level.source }));
   }
   const scopeIdx = SOURCE_ORDER.indexOf(screenScopeSource);
   const own = levels.filter((l) => SOURCE_ORDER.indexOf(l.source) <= scopeIdx);
   const higher = levels.filter((l) => SOURCE_ORDER.indexOf(l.source) > scopeIdx);
-  // Genau eine Fallback-Zeile: die aktive höhere Ebene (deren Wert der
-  // User effektiv bekommt), sonst der deklarierte Default/Missing.
+  // Exactly one fallback row: the active higher level (whose value the user
+  // effectively receives), or the declared default/missing level.
   const fallback =
     higher.find((l) => l.isActive) ??
     higher.find((l) => l.source === "default" || l.source === "missing");
@@ -104,12 +104,11 @@ function toDisplayLevels(
     {
       level: fallback,
       badgeSource: "default",
-      // Ein durchgängiger Begriff "Standard" (DE) / "Default" (EN) — derselbe
-      // Key wie das Feld-Label-Badge (kumiko.config.source.default), damit
-      // Badge + Cascade-Disclosure NICHT zwei verschiedene Wörter zeigen
-      // (Bug-Bash 3 #11). Der Screen-Scope kann die Operator-Ebenen
-      // (System/Override/Computed) weder setzen noch zurücksetzen, deshalb
-      // erscheinen sie hier neutral als "Standard".
+      // Use one consistent term, "Standard" (DE) / "Default" (EN)—the same
+      // key as the field-label badge (kumiko.config.source.default), so the
+      // badge and cascade disclosure do not show two different words. The
+      // screen scope cannot set or reset the operator levels (System/Override/
+      // Computed), so they appear here neutrally as "Standard".
       badgeLabelKey: "kumiko.config.source.default",
     },
   ];
@@ -159,11 +158,11 @@ export function ConfigCascadeView({
   const displayLevels = toDisplayLevels(cascade.levels, screenScopeSource);
   const activeDisplay = displayLevels.find((d) => d.level.isActive);
   const hasOverride = activeDisplay?.level.source === screenScopeSource;
-  // Aufklappbar nur wenn das Panel echten Mehrwert bringt: ein eigener
-  // Override (→ Reset) oder mehr als eine Ebene MIT Wert. Leere Ebenen
-  // (z.B. die ungesetzte tenant-row eines reinen Default-Felds) zählen
-  // nicht — sonst wäre ein Feld, das nur seinen Standard zeigt, fälschlich
-  // aufklappbar und das Panel nur eine Wiederholung des Triggers.
+  // Expandable only when the panel provides meaningful additional information:
+  // an own override (→ Reset) or more than one level with a value. Empty levels
+  // (e.g. the unset tenant-row of a field using only its default) do not count;
+  // otherwise a field showing only its default would incorrectly be expandable,
+  // making the panel merely repeat the trigger.
   const valuedLevels = displayLevels.filter((d) => d.level.hasValue);
   const expandable = hasOverride || valuedLevels.length > 1;
   const isUnset = activeDisplay === undefined || !activeDisplay.level.hasValue;

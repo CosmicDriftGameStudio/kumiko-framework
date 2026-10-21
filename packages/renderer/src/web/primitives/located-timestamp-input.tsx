@@ -1,9 +1,9 @@
-// LocatedTimestampInput (kind:"locatedTimestamp") — Wall-Clock-Eingabe + IANA-
-// Zonen-Auswahl für locatedTimestamp-Felder. Anders als TimestampInput findet
-// KEINE UTC-Konvertierung statt: ein located Timestamp IST Wall-Clock + Zone;
-// der Server rechnet `utc` aus `{ at, tz }`. Datum/Uhrzeit laufen über
-// TimestampInput im wallClock-Modus (reine String-Form, kein new Date()), die
-// Zone über eine durchsuchbare Combobox der IANA-Zonen.
+// LocatedTimestampInput (kind:"locatedTimestamp") — Wall-clock input + IANA
+// zone selection for locatedTimestamp fields. Unlike TimestampInput, it performs
+// NO UTC conversion: a located timestamp IS wall-clock time + zone;
+// the server calculates `utc` from `{ at, tz }`. Date/time use
+// TimestampInput in wallClock mode (a plain string form, no new Date()), while
+// the zone uses a searchable combobox of IANA zones.
 
 import type { ReactNode } from "react";
 import { useTranslation } from "../../index.ts";
@@ -46,10 +46,10 @@ export function LocatedTimestampInput({
   const at = value === "" ? "" : value.at;
   const tz = value === "" ? "" : value.tz;
 
-  // `at` ist Minuten-Wallclock (z.iso.datetime({local:true}) akzeptiert das);
-  // tz ein IANA-Name. Solange beides leer ist gilt das Feld als leer; sobald
-  // eines gesetzt ist, fließt das Paar — die Vollständigkeit erzwingt die
-  // Required-/Zod-Validierung beim Submit (so bleibt eine halbe Eingabe sichtbar).
+  // `at` is a minute-precision wall-clock value (z.iso.datetime({local:true}) accepts it);
+  // tz is an IANA name. The field is empty while both are empty; once either
+  // is set, the pair is emitted — Required/Zod validation on submit enforces
+  // completeness (so a partial input remains visible).
   function emit(nextAt: string, nextTz: string): void {
     if (nextAt === "" && nextTz === "") {
       onChange(undefined);

@@ -1,18 +1,17 @@
-// NavProvidersContext — client-side Provider-Map für die EINE Nav. Anders
-// als der alte TreeProvidersContext (keyed auf featureName, ein Top-Level-
-// Branch pro Feature) sind diese Provider auf eine **Nav-QN** geschlüsselt:
-// ein statischer r.nav-Knoten mit `provider: true` bekommt seine Children
-// zur Laufzeit aus dem hier registrierten TreeChildrenSubscribe. So hängt
-// sich ein Feature lazy an einen konkreten Nav-Knoten (z.B. "Content") statt
-// einen eigenen Tree-Branch aufzumachen.
+// NavProvidersContext — the client-side provider map for the single Nav. Unlike
+// the old TreeProvidersContext (keyed by featureName, with one top-level branch
+// per feature), these providers are keyed by a **Nav-QN**:
+// a static r.nav node with `provider: true` gets its children at runtime from
+// the registered TreeChildrenSubscribe. This lets a feature attach lazily to a
+// specific Nav node (for example, "Content") instead of creating its own tree
+// branch.
 //
-// `entities` (parallel-Context) ist die SSE-Entity-Liste pro Provider-QN:
-// NavTree abonniert sie via useLiveEvents und re-fired den Provider bei
-// Entity-Events — dadurch erscheinen neu erstellte Knoten live in der Nav.
+// `entities` (the parallel context) is the SSE entity list for each provider QN:
+// NavTree subscribes via useLiveEvents and re-fires the provider on entity events,
+// so newly created nodes appear live in the Nav.
 //
-// Default = leere Maps (Apps ohne dynamische Nav-Provider rendern nur die
-// statischen r.nav-Knoten). Aggregiert wird in create-app aus den
-// clientFeatures.
+// The default is empty maps (apps without dynamic Nav providers render only the
+// static r.nav nodes). Aggregation occurs in create-app from clientFeatures.
 
 import type { TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import { createContext, type ReactNode, useContext } from "react";
@@ -44,13 +43,13 @@ export function NavProvidersProvider({
   );
 }
 
-/** Provider-Map keyed auf Nav-QN. Empty-Map-Default → kein Crash ohne
- *  registrierte Provider. */
+/** Provider map keyed by Nav-QN. The empty-map default prevents crashes when
+ *  no providers are registered. */
 export function useNavProviders(): ReadonlyMap<string, TreeChildrenSubscribe> {
   return useContext(NavProvidersContext);
 }
 
-/** SSE-Entity-Liste pro Provider-QN für Live-Refresh. Empty-Map-Default. */
+/** SSE entity list for each provider QN, used for live refresh. Empty-map default. */
 export function useNavEntities(): ReadonlyMap<string, readonly string[]> {
   return useContext(NavEntitiesContext);
 }

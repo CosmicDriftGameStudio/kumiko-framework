@@ -154,7 +154,7 @@ export function normalizeDefaultFilters(
 // hand-crafted URL param for an undeclared field never reaches the
 // server). Deliberately NOT gated on the field being a *facet* — entityList
 // passes through any field present in entity.fields, matching its
-// pre-fw#2224 behavior; only the boolean-coercion branch cares about type.
+// earlier behavior; only the boolean-coercion branch cares about type.
 
 function isFacetI18nKey(label: string): boolean {
   return !/\s/.test(label) && (label.includes(".") || label.includes(":"));
@@ -183,8 +183,8 @@ export function buildFilterPayload(
 }
 
 // projectionList/relatedList adapter — neither has an entity/i18n convention
-// to derive labels from, so ListFacetSpec carries every label explicitly
-// (fw#2224). Labels may be raw display strings or i18n keys; run them
+// to derive labels from, so ListFacetSpec carries every label explicitly.
+// Labels may be raw display strings or i18n keys; run them
 // through translate like entity facets (passthrough when the key is missing).
 // `featureName` resolves a reference facet's `entity` target the same way
 // ListColumnSpec.refEntity does (same-feature short name, or "feature:entity").
@@ -242,7 +242,7 @@ export function resolveProjectionFacetSpecs(
   });
 }
 
-// --- dateRange facet (fw#3104) ---
+// --- dateRange facet ---
 
 // A resolved dateRange facet. Kept out of ResolvedFacetSpec because it shares
 // nothing with the option-dropdown facets: no options, no `filters` entry —

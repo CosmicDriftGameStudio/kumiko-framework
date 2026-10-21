@@ -106,7 +106,7 @@ describe("resolveDetailBreadcrumb", () => {
     expect(resolveDetailBreadcrumb([], "missing", t)).toBeUndefined();
   });
 
-  // fw#2724: explicit `listScreenId` on entityEdit/actionForm must win over
+  // Explicit `listScreenId` on entityEdit/actionForm must win over
   // the rowAction/entity heuristics, not just supplement them (the way it
   // already did for custom/projectionDetail above).
   test("explicit listScreenId on entityEdit wins over the rowAction heuristic", () => {

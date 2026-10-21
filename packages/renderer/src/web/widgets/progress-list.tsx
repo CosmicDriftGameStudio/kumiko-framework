@@ -14,8 +14,7 @@ export type ProgressListRow = {
   readonly sub?: string;
 };
 
-/** Liste aus Label/Wert-Kopfzeile + Fortschrittsbalken pro Eintrag (z.B.
- *  Tilgungsfortschritt pro Kredit). */
+/** Label/value header and progress bar for each entry (for example, loan repayment progress). */
 export function ProgressList({
   rows,
   emptyContent,

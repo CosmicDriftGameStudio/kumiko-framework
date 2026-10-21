@@ -7,8 +7,8 @@ import type { FormValues } from "../headless/index.ts";
 import { type UseQueryResult, useQuery } from "../hooks/use-query.ts";
 
 // `defaultCurrency` is entityEdit-only — it enables the `{amount, currency}`
-// write shape (fw#1923); config-edit's plain-number contract needs bare `0`.
-// `moneyCurrencyOverrides` (fw#2933) replaces `defaultCurrency` per field name
+// write shape; config-edit's plain-number contract needs bare `0`.
+// `moneyCurrencyOverrides` replaces `defaultCurrency` per field name
 // — used for a `money` field that declares `currency: { kind: "tenant" }`, so
 // its empty initial value carries the tenant's own currency instead of the
 // entity-wide default.
@@ -59,7 +59,7 @@ export function buildInitialValues(
 }
 
 // A `money` field opts a currently-empty value into the tenant-settings
-// bundle's per-tenant currency (fw#2933) via `currency: { kind: "tenant" }`
+// bundle's per-tenant currency via `currency: { kind: "tenant" }`
 // on its FieldDefinition. Read structurally — renderer only depends on the
 // client-safe FieldDefinition subset, not the concrete MoneyFieldDef/
 // MoneyCurrencySource types, same idiom as the other field-shape narrowings
@@ -91,7 +91,7 @@ type TenantCurrencyResolution =
 
 // Resolves what a tenant-declared money field's currency should be, from the
 // same `config:query:values` query ConfigEditBody already uses. Never falls
-// back to "EUR" while the query is genuinely still in flight (fw#2933) — a
+// back to "EUR" while the query is genuinely still in flight — a
 // screen with no tenant-declared money field, or a query that errored or
 // returned no value for the key, resolves immediately instead of blocking.
 function resolveTenantCurrency(
@@ -113,8 +113,8 @@ function resolveTenantCurrency(
     : { status: "ready", currency: fallback };
 }
 
-// A money field naming a fixed ISO code (`currency: { kind: "literal", code }`,
-// fw#2839) resolves with no query at all. Read structurally, same idiom as
+// A money field naming a fixed ISO code (`currency: { kind: "literal", code }`)
+// resolves with no query at all. Read structurally, same idiom as
 // tenantCurrencyMoneyFieldNames above.
 export function literalCurrencyOverrides(
   fields: Readonly<Record<string, unknown>>,
@@ -135,9 +135,9 @@ export function literalCurrencyOverrides(
 }
 
 // Per-field currency for the money fields that declare their own source: a
-// literal code resolves synchronously (fw#2839), a `{ kind: "tenant" }` field
+// literal code resolves synchronously, a `{ kind: "tenant" }` field
 // needs the tenant-settings config query and makes the caller hold the form
-// until it lands (fw#2933) — seeding the fallback meanwhile would render, and
+// until it lands — seeding the fallback meanwhile would render, and
 // on a fast click submit, the wrong currency. Callers pass the tenant field
 // names themselves because an edit form only needs the fetch for fields the
 // record has no stored value for.
@@ -214,7 +214,7 @@ function warnPrefillParam(message: string): void {
 }
 
 // An actionForm has no entity and thus no defaultCurrency, so a bare-number
-// prefill would stay a number the handler's zod schema rejects (fw#2763).
+// prefill would stay a number the handler's zod schema rejects.
 function coerceMoneyValue(
   raw: unknown,
   fieldName: string,
@@ -379,9 +379,9 @@ export type InitialValueSources = {
   readonly renderableFields?: ReadonlySet<string>;
   readonly defaultCurrency?: string;
   // Per-field override of `defaultCurrency` for money fields declaring
-  // `currency: { kind: "tenant" }` (fw#2933) — see buildInitialValues.
+  // `currency: { kind: "tenant" }` — see buildInitialValues.
   readonly moneyCurrencyOverrides?: Readonly<Record<string, string>>;
-  // Drawer-kind row actions (fw#2710) prefill from the clicked row's
+  // Drawer-kind row actions prefill from the clicked row's
   // already-typed values; wins over every other source.
   readonly drawerOverrides?: Readonly<Record<string, unknown>>;
   // useNavigateWithInitialValues — in-app only, never in the URL, so it

@@ -241,7 +241,7 @@ describe("createFormController — validate(scope)", () => {
     expect(errors["address.zip"]).toBeUndefined();
   });
 
-  // Hard rule (kumiko-framework#1885): an object-level .refine() issue has
+  // Hard rule: an object-level .refine() issue has
   // path "(root)", which never matches a field name — every scoped
   // validate() call must ignore it, and only the unscoped final-submit
   // validate() may surface it. Otherwise a step-boundary check would block

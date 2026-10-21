@@ -77,9 +77,9 @@ describe("parsePath — workspace mode", () => {
   });
 });
 
-// Wrapper der das web-spezifische useBrowserNavApi aufruft und in
-// einen shared-NavProvider durchreicht. Das ist genau das was
-// createKumikoApp intern macht.
+// Wrapper that calls the web-specific useBrowserNavApi and passes it
+// through to a shared NavProvider. This is exactly what
+// createKumikoApp does internally.
 function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   const api = useBrowserNavApi();
   return <NavProvider value={api}>{children}</NavProvider>;
@@ -87,8 +87,8 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
 
 describe("useBrowserNavApi + NavProvider", () => {
   beforeEach(() => {
-    // jsdom teilt window.history zwischen Tests — auf / zurücksetzen,
-    // sonst leaken Routen aus vorigen Tests in die nächsten.
+    // jsdom shares window.history between tests, so reset it to /;
+    // otherwise routes leak from earlier tests into later ones.
     window.history.replaceState(null, "", "/");
   });
 
@@ -167,10 +167,10 @@ describe("useBrowserNavApi + NavProvider", () => {
     });
     expect(window.location.pathname).toBe("/task-list");
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
-    // Das ist der Unterschied zu navigate(): keine zusätzliche History-
-    // Stufe. Browser-Back springt damit zur Origin-Seite zurück, nicht
-    // auf die alte URL — wichtig für Mount-Time URL-Fills wie in
-    // WorkspaceShell, wo der User die alte URL nie gewählt hat.
+    // Unlike navigate(), this adds no History entry. Browser Back therefore
+    // returns to the origin page rather than the old URL — important for
+    // mount-time URL fills such as in WorkspaceShell, where the user never
+    // chose the old URL.
     expect(window.history.length).toBe(before);
   });
 
@@ -186,9 +186,9 @@ describe("useBrowserNavApi + NavProvider", () => {
     });
     expect(screen.getByTestId("screen-id").textContent).toBe("task-list");
 
-    // Simulate Back-Button: history.replaceState statt back() — jsdom's
-    // back() feuert nicht immer synchron popstate. Wir dispatchen das
-    // Event manuell, genau wie es der Browser tun würde.
+    // Simulate the Back button: use history.replaceState instead of back()
+    // because jsdom's back() does not always fire popstate synchronously.
+    // Dispatch the event manually, exactly as the browser would.
     act(() => {
       window.history.replaceState(null, "", "/");
       window.dispatchEvent(new PopStateEvent("popstate"));

@@ -1,8 +1,8 @@
-// Custom-Screen-Components-Map: client-side Lookup für Screens vom Typ
-// `custom`. KumikoScreen schaut hier nach `screen.id` (oder qn) und
-// rendert die passende Component. createKumikoApp im renderer/web sammelt
-// alle clientFeatures.components und mountet den Provider; Tests die
-// einzelne Custom-Screens prüfen wollen, mounten den Provider direkt.
+// Custom-screen component map: client-side lookup for screens of type
+// `custom`. KumikoScreen looks up `screen.id` (or qn) here and renders
+// the matching component. createKumikoApp in renderer/web collects all
+// clientFeatures.components and mounts the provider; tests that check
+// individual custom screens mount the provider directly.
 
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
 
@@ -19,9 +19,9 @@ export function CustomScreensProvider({ children, value }: CustomScreensProvider
   return <CustomScreensContext.Provider value={value}>{children}</CustomScreensContext.Provider>;
 }
 
-/** Schaut die Component für ein Custom-Screen nach. Returnt undefined
- *  wenn weder Provider gemounted noch screenId in der Map ist — der
- *  Caller (KumikoScreen) zeigt dann seinen Placeholder-Banner. */
+/** Looks up the component for a custom screen. Returns undefined
+ *  when neither a provider is mounted nor screenId is in the map—the
+ *  caller (KumikoScreen) then displays its placeholder banner. */
 export function useCustomScreenComponent(screenId: string): ComponentType | undefined {
   const map = useContext(CustomScreensContext);
   if (map === undefined) return undefined;

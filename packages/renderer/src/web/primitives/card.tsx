@@ -66,8 +66,8 @@ export function DefaultCard({
         // An unframed card has no radius to clip; overflow-hidden would also
         // zero its flex-item min-height and cut off content inside a scroller.
         (framed || fillHeight) && "overflow-hidden",
-        // Same "no flex-1" reasoning as DefaultForm's own fillHeight card
-        // (fw#2722/#2778): sizes to content and only shrinks (min-h-0) once
+        // Same "no flex-1" reasoning as DefaultForm's own fillHeight card:
+        // sizes to content and only shrinks (min-h-0) once
         // an ancestor is itself height-constrained.
         fillHeight && "min-h-0 flex flex-col",
         className,

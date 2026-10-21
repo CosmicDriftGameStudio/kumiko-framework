@@ -43,7 +43,7 @@ describe("useDraft", () => {
     );
     expect(a.result.current.field("sum").id).toBe("a-sum");
     expect(b.result.current.field("sum").id).toBe("b-sum");
-    // name bleibt der reine Key — nur die DOM-id wird prefixt.
+    // `name` remains the raw key; only the DOM id gets prefixed.
     expect(a.result.current.field("sum").name).toBe("sum");
   });
 });
@@ -71,7 +71,7 @@ describe("NumberField", () => {
     );
     expect(screen.getByText("Betrag (€)")).toBeTruthy();
     expect(screen.getByRole("textbox")).toBeTruthy();
-    expect(screen.queryByText("€")).toBeNull(); // Einheit lebt im Label, kein separates Badge
+    expect(screen.queryByText("€")).toBeNull(); // The unit belongs in the label; no separate badge
     rerender(<PercentField label="Zins (%)" id="z" name="z" value={1} onChange={noop} />);
     expect(screen.queryByText("%")).toBeNull();
   });
@@ -361,7 +361,7 @@ describe("ComparisonTable", () => {
     );
     expect(screen.getByText("Kennzahl")).toBeTruthy();
     expect(screen.getByText("A")).toBeTruthy();
-    // B (850) ist günstiger → hervorgehoben (font-semibold text-primary span)
+    // B (850) is cheaper → highlighted (`font-semibold text-primary` span)
     expect(screen.getByText("850 €").className).toContain("text-primary");
     expect(screen.getByText("900 €").className).not.toContain("text-primary");
   });

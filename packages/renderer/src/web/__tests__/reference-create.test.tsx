@@ -1,4 +1,4 @@
-// #1681: a reference field can create a missing target record right from
+// A reference field can create a missing target record right from
 // the combobox. Covers the full chain in one test — every link (screen
 // resolution across features, dialog host, create dispatch, returning the
 // new id, refetching the lookup list) fails the test if it breaks.

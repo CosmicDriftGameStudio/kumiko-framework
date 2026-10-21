@@ -1,14 +1,13 @@
 // @runtime client
-// Extension-Form-Submit-Registry — erlaubt einer Extension-Section (z.B.
-// Custom-Fields), beim Submit des umgebenden entityEdit-Forms mitzuschreiben,
-// statt einen eigenen Save-Button zu führen ("composed form, ein Save",
-// Bug-Bash 3 #1). Die Section meldet (a) einen Submit-Handler und (b) ihren
-// dirty-State an die Form; die Form aktiviert ihren Save-Button auch wenn nur
-// eine Section dirty ist und ruft nach dem Entity-Write alle Section-Handler
-// mit der entityId.
+// Extension-Form-Submit-Registry — lets an extension section (e.g.
+// Custom-Fields) write during submission of the surrounding entityEdit form
+// instead of maintaining its own Save button ("composed form, one save").
+// The section reports (a) a submit handler and (b) its dirty state to the form;
+// the form enables its Save button even when only one section is dirty and,
+// after the entity write, calls all section handlers with the entityId.
 //
-// Ohne umgebende Form (Context === null) fällt die Section auf ihren eigenen
-// Save-Button zurück (Standalone-Backward-Compat).
+// Without a surrounding form (Context === null), the section falls back to its
+// own Save button (Standalone-Backward-Compat).
 
 import { createContext, useContext, useEffect, useId, useMemo, useRef } from "react";
 
@@ -16,7 +15,7 @@ export type ExtensionSubmitContext = { readonly entityId: string };
 
 export type ExtensionSubmitResult = {
   readonly isSuccess: boolean;
-  /** i18n-Key für die Fehlermeldung, die die Form als Banner zeigt. */
+  /** i18n key for the error message that the form displays as a banner. */
   readonly errorKey?: string;
 };
 
@@ -39,9 +38,9 @@ const ExtensionFormRegistryContext = createContext<ExtensionFormRegistry | null>
 
 export const ExtensionFormRegistryProvider = ExtensionFormRegistryContext.Provider;
 
-// Host-Seite (render-edit): hält die Registrierungen in einem ref, meldet den
-// aggregierten dirty-State via onDirtyChange hoch (damit der Save-Button
-// re-rendert) und liefert runAll() zum Ausführen aller Handler beim Submit.
+// Host side (render-edit): keeps registrations in a ref, reports the
+// aggregated dirty state through onDirtyChange so the Save button re-renders,
+// and provides runAll() to execute all handlers on submission.
 export type ExtensionFormHostStatus = {
   readonly anyDirty: boolean;
   readonly hasRegistrations: boolean;
@@ -94,18 +93,18 @@ export function useExtensionFormHost(onStatusChange: (status: ExtensionFormHostS
   return { registry, runAll };
 }
 
-// Section-Seite: meldet Handler + dirty an die umgebende Form. Returnt true
-// wenn eine composed-Form vorhanden ist (Section blendet dann ihren eigenen
-// Save-Button aus); false = standalone (eigener Save-Button bleibt).
+// Section side: reports the handler and dirty state to the surrounding form.
+// Returns true when a composed form is present, so the section hides its own
+// Save button; false means standalone, so its own Save button remains.
 export function useExtensionFormSubmit(opts: {
   readonly dirty: boolean;
   readonly onSubmit: ExtensionFormSubmitHandler;
 }): boolean {
   const registry = useContext(ExtensionFormRegistryContext);
   const key = useId();
-  // Handler über ref, damit das Re-Registrieren NICHT an jeder Handler-
-  // Identity hängt (nur an dirty); der Handler liest immer den frischen
-  // Closure-State (pending) zur Aufruf-Zeit.
+  // The ref prevents re-registration whenever the handler identity changes
+  // (only dirty triggers it); the handler always reads the latest closure state
+  // (pending) when invoked.
   const handlerRef = useRef(opts.onSubmit);
   handlerRef.current = opts.onSubmit;
 

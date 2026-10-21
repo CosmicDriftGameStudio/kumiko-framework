@@ -7,7 +7,7 @@ import type { NavDefinition, TargetRef, TreeAction } from "@cosmicdrift/kumiko-f
 //
 // Identity: `qualifiedName` is the same QN the registry uses
 // ("{feature}:nav:{id}"). Renderers key off this for active-route tracking
-// and for `parent` matching in screen extensions (M4).
+// and for `parent` matching in screen extensions.
 export type NavNode = {
   readonly qualifiedName: string;
   readonly label: string;
@@ -16,11 +16,11 @@ export type NavNode = {
   // Polymorphic click target (EditorPanel via dispatch) — alternative to
   // `screen`. A node carries screen XOR target.
   readonly target?: TargetRef;
-  // Hover-Actions + „+"-Affordance, durchgereicht aus der NavDefinition.
+  // Hover actions and the "+" affordance, passed through from the NavDefinition.
   readonly actions?: readonly TreeAction[];
   readonly createAction?: TreeAction;
-  // true → Children kommen zur Laufzeit aus einem nav-provider (lazy +
-  // SSE-live), nicht aus `children`. Renderer macht den Knoten expandable.
+  // true → Children come at runtime from a nav-provider (lazy +
+  // SSE-live), not from `children`. The renderer makes the node expandable.
   readonly provider?: boolean;
   readonly order: number;
   readonly children: readonly NavNode[];

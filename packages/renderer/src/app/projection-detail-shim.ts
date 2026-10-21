@@ -1,24 +1,24 @@
-// Shim für ProjectionDetail-Renderer (analog zu projection-list-shim.ts /
+// Shim for the ProjectionDetail renderer (analogous to projection-list-shim.ts /
 // config-edit-shim.ts).
 //
-// RenderEdit verlangt ein `entity: EntityDefinition` + ein
-// `screen: EntityEditScreenDefinition`-Pair, nutzt davon aber nur
-// `entity.fields` (Feld-Typ für den Input-Renderer) und `screen.layout`
-// (welche Felder in welchen Sections). Ein projectionDetail-Screen ist
-// query-getrieben und hat KEINE Entity — die zwei Helper hier shapen den
-// Input ad-hoc um, damit RenderEdit reused werden kann.
+// RenderEdit requires an `entity: EntityDefinition` +
+// `screen: EntityEditScreenDefinition` pair, but only uses
+// `entity.fields` (field type for the input renderer) and `screen.layout`
+// (which fields belong in which sections). A projectionDetail screen is
+// query-driven and has NO Entity — these two helpers shape the input ad hoc
+// so RenderEdit can be reused.
 //
-// Der strukturelle Read-Only-Beweis liegt in synthesizeProjectionDetailScreen:
-// JEDES Feld wird hart auf readOnly:true gesetzt (nicht nur was der Author im
-// Layout gesetzt hat) — hasEditableSection() liest genau dieses Flag und
-// blendet den Save-Button aus, wenn kein Feld editierbar ist. Der Author kann
-// diese Garantie nicht versehentlich umgehen.
+// The structural read-only guarantee is established in
+// synthesizeProjectionDetailScreen: EVERY field is forced to readOnly:true
+// (not just fields the author marked in the layout) — hasEditableSection()
+// reads exactly this flag and hides the Save button when no field is
+// editable. The author cannot accidentally bypass this guarantee.
 //
-// Selbe Schulden-Reservation wie bei den anderen Shims: greift RenderEdit
-// künftig auf weitere EntityDefinition-Felder (transitions, idType) zu, oder
-// cross-referenziert ein Boot-Validator die schema.entities-Map, brechen die
-// Type-Lies hier silent — dann ist Zeit für eine echte RenderProjectionDetail-
-// Komponente.
+// Same debt reservation as in the other shims: if RenderEdit later accesses
+// additional EntityDefinition fields (transitions, idType), or a boot
+// validator cross-references the schema.entities map, these type lies will
+// fail silently — then it is time for a real RenderProjectionDetail
+// component.
 
 import type {
   EditFieldSpec,
@@ -35,9 +35,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { SYNTHESIZED_FIELD_PII_REASON } from "./projection-list-shim.ts";
 
-/** Minimale EntityDefinition aus den Layout-Feldern: jedes Feld ein Text-
- *  Feld — computeEditViewModel liest nur `fields[<f>].type`, Text reicht für
- *  eine reine Anzeige (kein Select/Number-spezifisches Rendering nötig). */
+/** Minimal EntityDefinition built from the layout fields: every field is a text
+ *  field — computeEditViewModel only reads `fields[<f>].type`, and text is
+ *  sufficient for display-only rendering (no Select/Number-specific rendering
+ *  is needed). */
 export function synthesizeProjectionDetailEntity(
   layout: EditLayout,
 ): Pick<EntityDefinition, "fields"> {
@@ -55,8 +56,8 @@ export function synthesizeProjectionDetailEntity(
   return { fields };
 }
 
-/** Wandelt ein ProjectionDetailScreenDefinition in die EntityEditScreen-Shape
- *  die RenderEdit erwartet — mit jedem Feld hart auf readOnly:true erzwungen. */
+/** Converts a ProjectionDetailScreenDefinition to the EntityEditScreen shape
+ *  expected by RenderEdit, with every field forcibly set to readOnly:true. */
 export function synthesizeProjectionDetailScreen(
   screen: ProjectionDetailScreenDefinition,
 ): EntityEditScreenDefinition {

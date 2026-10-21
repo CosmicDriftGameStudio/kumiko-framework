@@ -1,18 +1,17 @@
-// Shim für ProjectionList-Renderer (analog action-form-shim.ts / config-edit-shim.ts).
+// Shim for the ProjectionList renderer (analogous to action-form-shim.ts / config-edit-shim.ts).
 //
-// RenderList + computeListViewModel verlangen ein `entity: EntityDefinition` +
-// ein `screen: EntityListScreenDefinition`-Pair, nutzen davon aber nur
-// `entity.fields` (Spalten-Typ/Label) und die List-Felder des Screens
-// (columns/rowActions/…). Ein projectionList-Screen ist query-getrieben und hat
-// KEINE Entity — die zwei Helper hier shapen den Input ad-hoc um, damit die
-// bestehende List-Maschinerie reused werden kann. Die Query selbst wird NICHT
-// hierüber aufgelöst (der Body nimmt `screen.query` direkt).
+// RenderList + computeListViewModel require an `entity: EntityDefinition` +
+// `screen: EntityListScreenDefinition` pair, but only use `entity.fields`
+// (column type/label) and the screen's list fields (columns/rowActions/…). A
+// projectionList screen is query-driven and has NO entity, so these two helpers
+// reshape the input ad hoc to reuse the existing list machinery. The query is
+// NOT resolved here (the body reads `screen.query` directly).
 //
-// Selbe Schulden-Reservation wie bei den anderen Shims: greift die List-
-// Maschinerie künftig auf weitere EntityDefinition-Felder (transitions, idType,
-// derivedFields) oder cross-referenziert ein Boot-Validator die schema.entities-
-// Map, brechen die Type-Lies hier silent — dann ist Zeit für eine echte
-// query-native ListView-Komponente.
+// This preserves the same debt reservation as the other shims: if the list
+// machinery later accesses additional EntityDefinition fields (transitions,
+// idType, derivedFields), or a boot validator cross-references the
+// schema.entities map, these type lies will fail silently. At that point, a
+// query-native ListView component is needed.
 
 import type {
   EntityDefinition,
@@ -30,7 +29,7 @@ export const SYNTHESIZED_FIELD_PII_REASON = "synthesized display field, not stor
 
 /** Minimal EntityDefinition from the column list: every field is a text
  *  field. `sortable` applies to all columns — buildAppSchema derives it from
- *  the query's Zod schema (`screen.sortable`, fw#2165); the query itself has
+ *  the query's Zod schema (`screen.sortable`); the query itself has
  *  no per-field server-sort guarantee, so a column opts out with
  *  `sortable: false` when the handler cannot order by it.
  *  computeListViewModel only reads `fields[<col>].type` — text is enough,
@@ -51,10 +50,10 @@ export function synthesizeProjectionEntity(
   return { fields };
 }
 
-/** Wandelt ein ProjectionListScreenDefinition in die EntityListScreen-Shape die
- *  RenderList erwartet. `type` = "entityList" + Pseudo-Entity halten den Type-
- *  Constraint; RenderList branched nicht auf `type` und liest `entity` nur für
- *  Fehlermeldungen. Die List-Felder werden 1:1 durchgereicht. */
+/** Converts a ProjectionListScreenDefinition to the EntityListScreen shape
+ *  expected by RenderList. `type` = "entityList" plus a pseudo-entity satisfy
+ *  the type constraint; RenderList does not branch on `type` and reads `entity`
+ *  only for error messages. The list fields are passed through unchanged. */
 export function synthesizeProjectionScreen(
   screen: ProjectionListScreenDefinition,
 ): EntityListScreenDefinition {

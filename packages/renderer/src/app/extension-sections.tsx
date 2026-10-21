@@ -1,23 +1,23 @@
-// Extension-Section-Components-Map: client-side Lookup für entityEdit
-// sections vom Type `extension`, List-Header-Slots UND Dashboard-`custom`-
-// Panels. Jeder Mount-Ort löst den `__component`-Namen aus einer
-// PlatformComponent über dieselbe Registry auf und mountet die passende
-// Component — die Bundled-Feature-/App-Component lädt + persistiert dann
-// ihre eigenen Daten (z.B. custom-fields, oder ein eigenständiger Chart).
+// Extension-section component map: client-side lookup for entityEdit
+// sections of type `extension`, list-header slots, and Dashboard-`custom`
+// panels. Each mount location resolves the `__component` name from a
+// PlatformComponent through the same registry and mounts the matching
+// component — the bundled feature/app component then loads and persists
+// its own data (e.g. custom fields or a standalone chart).
 // The entityEdit footer slot (`screen.slots.footer`) mounts through it too.
 //
-// Mounting analog zu CustomScreensProvider — createKumikoApp im
-// renderer/web sammelt alle clientFeatures.extensionSectionComponents und
-// mountet den Provider; Tests die einzelne Sections prüfen wollen
-// mounten den Provider direkt.
+// Mounting follows the CustomScreensProvider pattern — createKumikoApp in
+// renderer/web collects all clientFeatures.extensionSectionComponents and
+// mounts the provider; tests that need to inspect individual sections can
+// mount the provider directly.
 
 import type { PlatformComponent } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
 
-/** Extrahiert den `__component`-Namen aus einer PlatformComponent. Liest
- *  react- und native-Branch (die App-Author registriert beide unter dem
- *  gleichen Namen); returnt den ersten gefundenen string. Pure narrowing
- *  via `in` — kein cast, kein assertion. */
+/** Extracts the `__component` name from a PlatformComponent. Reads the
+ *  react and native branches (the app author registers both under the same
+ *  name); returns the first string found. Pure narrowing via `in` — no cast
+ *  or assertion. */
 export function extensionSectionName(component: PlatformComponent): string | undefined {
   for (const branch of [component.react, component.native]) {
     if (branch !== null && typeof branch === "object" && "__component" in branch) {
@@ -31,24 +31,23 @@ export function extensionSectionName(component: PlatformComponent): string | und
 export type ExtensionSectionProps = {
   readonly entityName: string;
   readonly entityId: string | null;
-  /** Bereits gespeicherte Extension-Werte der Entity (aus der geladenen
-   *  detail-row durchgereicht). `undefined` im Create-Mode oder wenn der
-   *  Host-Screen keine Werte liefert. Erlaubt der Section, den Bestand
-   *  beim Edit anzuzeigen statt write-only zu sein. */
+  /** Previously saved extension values for the entity (passed through from
+   *  the loaded detail row). `undefined` in create mode or when the host
+   *  screen provides no values. Allows the section to display existing
+   *  values while editing instead of being write-only. */
   readonly initialValues?: Readonly<Record<string, unknown>>;
-  /** Nur im List-Header-Slot gesetzt (entityId ist dort null): die screen.id
-   *  der Liste, damit ein Header-Control den per-Screen URL-Filter-State
-   *  (useListUrlState) ansprechen kann — z.B. ein Tag-Filter der die Liste auf
-   *  eine id-Menge narrowed. In entityEdit-Sections undefined. */
+  /** Set only in the list-header slot (`entityId` is null): the list's
+   *  `screen.id`, so a header control can access the per-screen URL filter
+   *  state (`useListUrlState`) — for example, a tag filter that narrows the
+   *  list to a set of IDs. `undefined` in entityEdit sections. */
   readonly screenId?: string;
-  /** Nur im Dashboard-`custom`-Panel gesetzt: der aktuell gewählte Wert des
-   *  Screen-Filters (siehe DashboardFilterDefinition), gemerged wie bei jeder
-   *  anderen Panel-Query. In allen anderen Mount-Orten undefined. Dashboard-
-   *  Panels haben keine Entity — entityName/entityId tragen dort die
-   *  screen.id bzw. null, siehe CustomPanelBody in dashboard-body.tsx. */
+  /** Set only in a Dashboard-`custom` panel: the currently selected value
+   *  of the screen filter (see DashboardFilterDefinition), merged as with any
+   *  other panel query. `undefined` in all other mount locations. Dashboard
+   *  panels have no entity — `entityName`/`entityId` contain the `screen.id`
+   *  and `null`, respectively; see CustomPanelBody in dashboard-body.tsx. */
   readonly filterParams?: Readonly<Record<string, unknown>>;
-  /** Current form values of the host RenderEdit (controlled mode,
-   *  issue #1887/#1888) — same snapshot reference as
+  /** Current form values of the host RenderEdit (controlled mode) — same snapshot reference as
    *  `RenderEditChangeState.values`. Lets the section read the host
    *  form's live state (e.g. for a review step). Only set in
    *  entityEdit sections; undefined in list-header and dashboard
@@ -107,12 +106,12 @@ export function ExtensionSectionsProvider({
   );
 }
 
-/** Schaut die Component für einen extension-section-Namen nach. Returnt
- *  undefined wenn weder Provider gemounted noch der Name in der Map
- *  registriert ist — der Caller (RenderEdit) zeigt dann seinen
- *  Placeholder-Banner. `name` ist optional damit Caller den Hook
- *  unkonditional aufrufen können (Rules-of-Hooks), ohne einen Stub-Key
- *  wie `""` reichen zu müssen — analog `useColumnRenderer`. */
+/** Looks up the component for an extension-section name. Returns
+ *  `undefined` when no provider is mounted or the name is not registered in
+ *  the map — the caller (RenderEdit) then displays its placeholder banner.
+ *  `name` is optional so callers can invoke the hook unconditionally
+ *  (Rules-of-Hooks) without supplying a stub key such as `""`, analogous to
+ *  `useColumnRenderer`. */
 export function useExtensionSectionComponent(name?: string): ExtensionSectionComponent | undefined {
   const map = useContext(ExtensionSectionsContext);
   if (name === undefined || name === "") return undefined;

@@ -1,11 +1,11 @@
-// fw-ui-defaults: RowAction had no icon field at all, so every framework-
+// RowAction had no icon field at all, so every framework-
 // generated action button rendered as a same-looking text button. This
 // renders the real entityList pipeline (KumikoScreen → EntityListBody) and
 // asserts on the resolved `icon` KumikoScreen attaches to each
 // DataTableRowAction — the id-derived default (ACTION_ICON_BY_ID in
 // kumiko-screen.tsx) for an action with no declared icon, the declared icon
 // overriding that default for one that has it, and the full id / last
-// segment / first segment fallback order for compound ids (fw#2749).
+// segment / first segment fallback order for compound ids.
 
 import { describe, expect, test } from "bun:test";
 import type {

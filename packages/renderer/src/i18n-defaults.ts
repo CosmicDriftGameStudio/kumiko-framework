@@ -1,12 +1,6 @@
-// Framework-Default-Bundle. Strings die die Renderer-Components hart
-// brauchen (Save/Cancel/Delete-Buttons, Empty-States, Search-Placeholder,
-// Nav-Toggle-aria-Labels, Validation-Reasons). createKumikoApp hängt das
-// als ALLERLETZTEN Fallback in den LocaleProvider — Apps können
-// einzelne Keys via clientFeatures.translations überschreiben.
+// Framework default bundle. These strings are required by renderer components (Save/Cancel/Delete buttons, empty states, search placeholder, navigation-toggle ARIA labels, and validation reasons). createKumikoApp adds this as the last fallback in LocaleProvider, while apps can override individual keys via clientFeatures.translations.
 //
-// Convention: alle Keys mit `kumiko.`-Prefix damit sie nicht mit
-// App-Keys kollidieren. Sub-Pfade gruppieren nach Bereich (actions /
-// list / nav / form / validation).
+// All keys use the `kumiko.` prefix to avoid collisions with app keys. Subpaths group keys by area (actions / list / nav / form / validation).
 
 import type { TranslationsByLocale } from "./i18n.tsx";
 

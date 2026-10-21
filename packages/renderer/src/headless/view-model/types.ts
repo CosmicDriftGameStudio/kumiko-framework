@@ -272,7 +272,7 @@ export type EditFieldViewModel = {
    *  entity appears as the display label in the dropdown. Default: "id". */
   readonly refLabelField?: string;
   /** Only for `type: "reference"` — query handler QN the picker sources its
-   *  options from (fw#2780), replacing the referenced entity's list handler.
+   *  options from, replacing the referenced entity's list handler.
    *  Rows carry `{ id, label }`; `refLabelField` is then unused for the
    *  picker but still drives list cells. */
   readonly refOptionsQuery?: string;
@@ -351,7 +351,7 @@ export type EditFieldViewModel = {
   /** Only set for a plain (non-list, non-embedded) `type: "money"` field —
    *  same source as embeddedListCurrency (EntityDefinition.defaultCurrency,
    *  falls back to "EUR"). The renderer needs this to build the payload's
-   *  `{amount, currency}` shape (kumiko-framework#1923). */
+   *  `{amount, currency}` shape. */
   readonly currency?: string;
   /** Only set for `type: "number"` when NumberFieldDef.unit is set — a static
    *  suffix string, or a sibling-field reference the renderer resolves against
@@ -382,7 +382,7 @@ export type EditFieldsSectionViewModel = {
    *  `excludeFields`. Unlike a declared-empty section (review step), the
    *  renderer must not give it a tab or wizard step. */
   readonly emptiedByWriteExclusion?: boolean;
-  /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
+  /** Optional — a titleless section renders only its fields (flat form). */
   readonly title?: string;
   /** Translated help text under the block heading, from
    *  `EditFieldsSection.description`. Renders even without `title`. */
@@ -421,8 +421,8 @@ export type EditExtensionSectionViewModel = {
 };
 
 // Mirrors EditRelatedListSection verbatim — no per-row/query resolution
-// happens in the view-model builder, the renderer's RelatedListSection
-// runs the query itself (fw#2166).
+// happens in the view-model builder; the renderer's RelatedListSection
+// runs the query itself.
 export type EditRelatedListSectionViewModel = {
   readonly kind: "relatedList";
   readonly title: string;

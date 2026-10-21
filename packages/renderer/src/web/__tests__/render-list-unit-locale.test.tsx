@@ -1,4 +1,4 @@
-// fw#2437: DataTableCell must thread the app locale (LocaleProvider) into
+// DataTableCell must thread the app locale (LocaleProvider) into
 // `format: "unit"` / Intl.NumberFormat cells instead of falling back to the
 // runtime's default locale — list vs. detail view could otherwise disagree
 // ("72.5 m²" vs "72,5 m²") for the same value.

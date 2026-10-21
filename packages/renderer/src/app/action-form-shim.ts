@@ -1,19 +1,17 @@
-// Shim für ActionForm-Renderer (Tier 2.7d).
+// Shim for ActionForm rendering.
 //
-// RenderEdit verlangt heute eine `entity: EntityDefinition` + ein
-// `screen: EntityEditScreenDefinition` Pair, nutzt aber intern nur
-// `entity.fields` und `screen.layout`. ActionForm-Screens haben weder
-// eine Entity-Reference noch sind sie type: "entityEdit" — die zwei
-// Helper hier shapen den Daten-Input ad-hoc um, damit RenderEdit
-// reused werden kann ohne den Stack zu duplizieren.
+// RenderEdit currently requires an `entity: EntityDefinition` and a
+// `screen: EntityEditScreenDefinition` pair, but internally uses only
+// `entity.fields` and `screen.layout`. ActionForm screens have neither an
+// entity reference nor `type: "entityEdit"`; these helpers reshape the input
+// so RenderEdit can be reused without duplicating the rendering stack.
 //
-// Schulden-Flag: Sobald RenderEdit auf entity.transitions / idType /
-// defaultCurrency / softDelete zugreift, oder ein zukünftiger Boot-
-// Validator die schema.entities-Map cross-referenziert, brechen die
-// Type-Lies hier silent. Dann ist es Zeit für eine echte
-// RenderActionForm-Komponente, die `fields` direkt als Input nimmt.
-// Der Boot-Validator kennt actionForm bereits eigenständig (kein
-// entity-Lookup), also ist der Server-Pfad davon nicht betroffen.
+// This workaround becomes invalid if RenderEdit starts reading
+// entity.transitions, idType, defaultCurrency, or softDelete, or if a future
+// boot validator cross-references the schema.entities map. At that point,
+// RenderActionForm should accept `fields` directly. The boot validator already
+// handles actionForm independently without an entity lookup, so the server path
+// is unaffected.
 
 import type {
   ActionFormScreenDefinition,
@@ -32,10 +30,10 @@ import {
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
-/** Baut eine minimale EntityDefinition aus den Inline-Fields eines
- *  ActionForm- oder SecretMint-Screens. RenderEdit + computeEditViewModel
- *  iterieren über entity.fields zur Render-Zeit; alle weiteren
- *  EntityDefinition-Felder bleiben undefined. */
+/** Builds a minimal EntityDefinition from the inline fields of an
+ *  ActionForm or SecretMint screen. RenderEdit and computeEditViewModel
+ *  iterate over entity.fields at render time; all other EntityDefinition
+ *  fields remain undefined. */
 export function synthesizeActionFormEntity(
   fields: Readonly<Record<string, FieldDefinition>>,
 ): EntityDefinition {
@@ -105,10 +103,10 @@ export function actionFormSubmittableFields(
   );
 }
 
-/** Wandelt ein ActionFormScreenDefinition oder SecretMintScreenDefinition in
- *  die EntityEditScreen-Shape die RenderEdit erwartet. type wird auf
- *  "entityEdit" gesetzt damit der Type-Constraint hält; entity wird auf den
- *  Pseudo-Namen gepinnt — RenderEdit liest das Feld nicht. */
+/** Converts an ActionFormScreenDefinition or SecretMintScreenDefinition to
+ *  the EntityEditScreen shape expected by RenderEdit. `type` is set to
+ *  "entityEdit" to satisfy the type constraint, and `entity` is pinned to
+ *  the pseudo-name because RenderEdit does not read that field. */
 export function synthesizeActionFormScreen(
   screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
 ): EntityEditScreenDefinition {

@@ -15,10 +15,10 @@ export interface NumberFieldProps {
   readonly grouping?: boolean;
 }
 
-/** Zahlenfeld = Field + Input(kind:"number") in einem — nimmt der Screen die
- *  wiederholte id/name/value/onChange-Verdrahtung ab. `value` darf `undefined`
- *  sein (leeres Feld), intern auf den `""`-Empty-State des Inputs gemappt.
- *  Einheiten (€/%) gehören ins Label (`t("…Summe (€)")`), nicht als Badge. */
+/** Number field = Field + Input(kind:"number"); avoids repeating the
+ *  id/name/value/onChange wiring at each screen. `value` may be `undefined`
+ *  (empty field) and is mapped internally to the Input's `""` empty state.
+ *  Units (€/%) belong in the label (`t("…Summe (€)")`), not in a badge. */
 export function NumberField({
   label,
   id,
@@ -48,9 +48,10 @@ export function NumberField({
   );
 }
 
-// Aliase markieren die Feld-Absicht am Call-Site (lesbarer als NumberField
-// überall) ohne eigene Wrapper-Funktion vorzutäuschen — beide sind identisch
-// zu NumberField, kein Ort für künftige geld-/prozent-spezifische Formatierung.
+// Aliases convey the field's intent at the call site (more readable than
+// using NumberField everywhere) without pretending to be wrapper functions;
+// both are identical to NumberField and are not intended for future
+// money-/percentage-specific formatting.
 export const MoneyField = NumberField;
 export const PercentField = NumberField;
 
@@ -71,7 +72,7 @@ export interface TextFieldProps extends FieldBase {
   readonly autoComplete?: string;
 }
 
-/** Textfeld = Field + Input(kind:"text"). */
+/** Text field = Field + Input(kind:"text"). */
 export function TextField({
   label,
   id,
@@ -111,7 +112,7 @@ export interface SelectFieldProps extends FieldBase {
     | readonly { readonly value: string; readonly label: string }[];
 }
 
-/** Auswahlfeld = Field + Input(kind:"select"). */
+/** Select field = Field + Input(kind:"select"). */
 export function SelectField({
   label,
   id,
@@ -148,7 +149,7 @@ export interface DateFieldProps extends FieldBase {
   readonly max?: string;
 }
 
-/** Datumsfeld = Field + Input(kind:"date"), ISO yyyy-mm-dd. */
+/** Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd. */
 export function DateField({
   label,
   id,
@@ -226,7 +227,7 @@ export interface TextareaFieldProps extends FieldBase {
   readonly rows?: number;
 }
 
-/** Mehrzeiliges Textfeld = Field + Input(kind:"textarea"). */
+/** Multi-line text field = Field + Input(kind:"textarea"). */
 export function TextareaField({
   label,
   id,
@@ -264,7 +265,7 @@ export interface RangeFieldProps extends FieldBase {
   readonly step?: number;
 }
 
-/** Schieberegler = Field + Input(kind:"range"). */
+/** Slider = Field + Input(kind:"range"). */
 export function RangeField({
   label,
   id,
@@ -299,19 +300,19 @@ export function RangeField({
 }
 
 export interface FileFieldProps extends FieldBase {
-  /** FileRef-UUID der gespeicherten Datei, oder null. */
+  /** FileRef UUID of the stored file, or null. */
   readonly value: string | null;
   readonly onChange: (fileId: string | null) => void;
   readonly accept?: readonly string[];
-  /** "image" zeigt eine Vorschau, "file" nur den Dateinamen. Default "file". */
+  /** "image" shows a preview; "file" shows only the file name. Default "file". */
   readonly variant?: "file" | "image";
-  /** Bindet den Upload an ein konkretes Entity-Feld — der `/api/files`-Endpoint
-   *  prüft `accept`/`maxSize` dann serverseitig gegen dessen Feld-Definition. */
+  /** Binds the upload to a specific entity field; the `/api/files` endpoint
+   *  then validates `accept`/`maxSize` server-side against that field's definition. */
   readonly entityType?: string;
   readonly fieldName?: string;
 }
 
-/** Datei-Upload = Field + Input(kind:"file"|"image") — FileRef-basiert. */
+/** File upload = Field + Input(kind:"file"|"image"), based on FileRef. */
 export function FileField({
   label,
   id,

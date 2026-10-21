@@ -120,7 +120,7 @@ describe("computeEditViewModel", () => {
   });
 
   // The two-column default came in with projectionDetail tabs and now also
-  // covers entityEdit tabs (fw#3134) — a tab is its own panel, where a stacked
+  // covers entityEdit tabs — a tab is its own panel, where a stacked
   // form's single column wastes the width.
   test("a tabs layout defaults sections to 2 columns, not 1", () => {
     const vm = computeEditViewModel({

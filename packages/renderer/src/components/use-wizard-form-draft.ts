@@ -25,10 +25,10 @@ const FORM_DRAFT_LIST = "form-draft:query:list";
 // — same hardcoding rationale as the QNs above (no dependency on that package).
 const FORM_DRAFT_KEY_MAX_LENGTH = 256;
 
-// Trailing-edge debounce for patch()-triggered draft saves (#1914). A single
+// Trailing-edge debounce for patch()-triggered draft saves. A single
 // patch() call (VIN-decode, an extension section) should not save immediately
 // per call, but patch() can also fire from inside onChange on every keystroke
-// (the #1888 derived-field shape) — 500ms collapses a typing burst into one
+// (the derived-field shape) — 500ms collapses a typing burst into one
 // save instead of one per keystroke, while still saving well before a user
 // abandons the tab.
 export const PATCH_DRAFT_SAVE_DEBOUNCE_MS = 500;
@@ -77,7 +77,7 @@ export function useWizardFormDraftState({
   readonly isCreateMode: boolean;
   readonly draftStorage: DraftStorage;
 }) {
-  // Create-mode draftId (issue #1913) — resumed from `sessionStorage` (web)
+  // Create-mode draftId — resumed from `sessionStorage` (web)
   // on mount so a same-tab reload finds the right one of several parallel
   // create-sessions on this screen; `null` until the first step change
   // mints one (saveDraft), or the mount-time `form-draft:query:list`
@@ -94,7 +94,7 @@ export function useWizardFormDraftState({
   // once for this mount. Without this, a create-mode discard resets `draftId`
   // to `null` (see discardDraft below) and would re-arm the list effect —
   // silently adopting an unrelated parallel draft on the same screen right
-  // after the user just submitted (#1908).
+  // after the user just submitted.
   const didListRef = useRef(false);
   const [draftCandidates, setDraftCandidates] = useState<readonly DraftCandidate[] | null>(null);
 
@@ -104,7 +104,7 @@ export function useWizardFormDraftState({
   // unchanged. Create-mode: `${screenId}:new:${draftId}` once a draftId
   // exists (resumed, adopted, or minted), `undefined` before that — two
   // parallel create sessions on the same screen must never collapse onto
-  // the same key (kumiko-framework#1908).
+  // the same key.
   const draftKey = useMemo(
     () =>
       isCreateMode
@@ -196,7 +196,7 @@ export function useWizardFormDraftRestore<TValues extends FormValues>({
     setRawStep,
   ]);
 
-  // Mount-time fallback (issue #1913) for create-mode when no draftId
+  // Mount-time fallback for create-mode when no draftId
   // survived in storage (new tab, cleared storage): ask the server for this
   // screen's open drafts and let the user choose via a picker (below) —
   // even for exactly one candidate. Auto-adopting a lone candidate would
@@ -274,7 +274,7 @@ export function buildWizardDraftActions<TValues extends FormValues>({
   // (see draftCandidates below) — adopt it the same way a single
   // auto-adopted candidate would be.
   function adoptDraft(candidate: DraftCandidate): void {
-    // Locked state (#1896/fw#1909): `disabled` means "no write possible" —
+    // Locked state: `disabled` means "no write possible" —
     // repointing draftKey and patching in the candidate's values is exactly
     // that, so a locked form must not adopt a draft.
     // skip: a locked form keeps its current draft (reason above).
@@ -290,8 +290,8 @@ export function buildWizardDraftActions<TValues extends FormValues>({
   //
   // Create-mode, first draft save (step change OR a debounced patch() from
   // controlled mode / extension sections, see patchAndScheduleDraftSave
-  // above — both call this on step 0 too): mints the draftId here (issue
-  // #1913) rather than at mount, so a form nobody ever interacted with
+  // above — both call this on step 0 too): mints the draftId here
+  // rather than at mount, so a form nobody ever interacted with
   // never claims a draftId or writes a row. `draftKey`/`draftId` state
   // won't reflect the mint until the next render, so the just-minted key is
   // computed inline instead of read from the memoized `draftKey`.
@@ -307,7 +307,7 @@ export function buildWizardDraftActions<TValues extends FormValues>({
       key = `${screenId}:new:${mintedId}`;
       // A stale picker from the mount-time list fallback must not survive a
       // mint — picking a candidate afterwards would repoint draftKey at an
-      // unrelated draft mid-edit and overwrite it (#1908).
+      // unrelated draft mid-edit and overwrite it.
       setDraftCandidates(null);
     }
     // skip: create-mode with a draftId that failed to mint — unreachable

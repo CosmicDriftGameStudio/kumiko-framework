@@ -118,8 +118,8 @@ describe("KumikoScreen", () => {
     expect(seenTypes).toEqual(["tasks:query:task:list"]);
   });
 
-  // #2062: the search box is a dead toolbar slot (and a guaranteed 422,
-  // #2032) once the client knows the server has no SearchAdapter wired.
+  // The search box is a dead toolbar slot and guarantees a 422 once
+  // the client knows the server has no SearchAdapter wired.
   describe("entityList search box gated on schema.searchAdapterMissing (#2062)", () => {
     const searchableWidgetEntity = {
       fields: { title: { type: "text", required: true, searchable: true } },
@@ -234,13 +234,13 @@ describe("KumikoScreen", () => {
       </DispatcherProvider>,
     );
 
-    // Zuerst Loading, dann Form mit den geladenen Werten.
+    // First wait for loading to finish, then assert the form contains the loaded values.
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     expect(screen.getByTestId("render-edit-form")).toBeTruthy();
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("loaded-title");
 
-    // Edit + submit → write command trägt { id, version, changes: {title} }
+    // Edit and submit → the write command carries { id, version, changes: {title} }.
     fireEvent.change(titleInput, { target: { value: "edited-title" } });
     await clickSubmitOnceEnabled();
 
@@ -254,15 +254,13 @@ describe("KumikoScreen", () => {
     });
   });
 
-  // Regression-Anker für den Set-Value-UI-Bug: die extension-section muss im
-  // Update-Mode die ECHTE entity-id bekommen — durch den vollen Flow
-  // (KumikoScreen → detail-load → EntityEditUpdateForm → RenderEdit → Mount).
-  // EntityEditUpdateForm lässt `id` bewusst aus den Form-values (id ist keine
-  // deklarierte Field), also reicht NUR der route-entityId-Durchgriff. Ohne
-  // ihn fiele die Section auf vm.id (=values["id"]=undefined) zurück und zeigte
-  // create-mode trotz Edit. Der alte render-edit-Test mockte `initial.id`
-  // manuell und war für genau diesen Flow blind — dieser Test rendert den
-  // realen detail-Pfad, der das in CI gefangen hätte.
+  // The extension section must receive the real entity ID in update mode through
+  // the full flow (KumikoScreen → detail-load → EntityEditUpdateForm → RenderEdit → Mount).
+  // EntityEditUpdateForm intentionally omits `id` from form values because it is not a
+  // declared field, so only forwarding the route entityId provides the ID. Without it,
+  // the section falls back to vm.id (=values["id"]=undefined) and renders create mode
+  // during an edit. The real detail path is required here because a manually mocked
+  // `initial.id` would not cover this flow.
   test("entityEdit mit entityId → extension-section bekommt die echte entity-id (nicht create-mode)", async () => {
     const editScreenWithExtension: EntityEditScreenDefinition = {
       id: "task-edit-ext",
@@ -298,10 +296,10 @@ describe("KumikoScreen", () => {
       </div>
     );
     const dispatcher = makeDispatcher({
-      // detail liefert die row MIT id + customFields-jsonb. Update-Form
-      // filtert id aus den Form-values (Section darf nicht create-mode
-      // sein) UND die Section muss den gespeicherten customFields-Bestand
-      // bekommen (sonst write-only → Read-Back leer).
+      // The detail row includes id and the customFields jsonb. The update form filters id
+      // out of the form values (the section must not be in create mode), and the section
+      // must receive the stored customFields; otherwise they are write-only and the
+      // read-back is empty.
       query: (async () => ({
         isSuccess: true,
         data: {
@@ -325,8 +323,8 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     const section = screen.getByTestId("task-custom-fields");
-    // Anker: (1) echte route-id statt "(create)" [create-mode-Bug],
-    //        (2) gespeicherter customFields-Wert statt "(no-value)" [write-only-Bug].
+    // Verify both the real route ID instead of "(create)" and the stored customFields
+    // value instead of "(no-value)".
     expect(section.textContent).toBe("task:task-1:Hetzner");
   });
 
@@ -378,9 +376,9 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    // userEvent statt fireEvent: Radix Dialog feuert async State-Updates
-    // (Presence/FocusScope/DismissableLayer) — fireEvent würde sie un-
-    // gewickelt lassen und mit ~26 act()-Warnings spammen.
+    // Use userEvent because the Radix Dialog performs asynchronous state updates
+    // (Presence/FocusScope/DismissableLayer); fireEvent would leave them outside act()
+    // and produce roughly 26 warnings.
     await user.click(screen.getByTestId("render-edit-delete"));
     expect(screen.getByTestId("render-edit-delete-dialog")).toBeTruthy();
     expect(writeCalls.length).toBe(0);
@@ -497,7 +495,7 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
   });
 
-  // Issue #912 — Copy-Link-Action. KumikoScreen threads an already-bound
+  // Copy-Link action. KumikoScreen threads an already-bound
   // onCopyLink callback down to RenderEdit (the actual URL-build/clipboard
   // impl lives in renderer/web's RoutedScreen, outside this test — here we
   // only verify the wiring: button renders icon-only in update-mode, fires
@@ -597,14 +595,13 @@ describe("KumikoScreen", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
 
-    // Dirty machen damit der Submit überhaupt feuert.
+    // Make the form dirty so that submit is triggered.
     fireEvent.change(titleInput, { target: { value: "edited" } });
     await clickSubmitOnceEnabled();
 
-    // Banner zeigt die ÜBERSETZTE version-conflict-Message (kein roher i18nKey)
-    // und bietet einen Reload-Button. Gegen das Default-Bundle assertet, damit
-    // die Verdrahtung i18nKey → translate → Banner geprüft wird, ohne am
-    // konkreten Wording festzukleben.
+    // The banner should show the translated version-conflict message rather than a raw
+    // i18nKey and provide a reload button. Assert against the default bundle to verify
+    // the i18nKey → translate → banner wiring without depending on exact wording.
     await waitFor(() => expect(screen.queryByTestId("render-edit-form-error")).toBeTruthy());
     expect(screen.getByTestId("render-edit-form-error-key").textContent).toBe(
       defaultEnText("errors.versionConflict"),
@@ -613,7 +610,6 @@ describe("KumikoScreen", () => {
     expect(detailCalls).toBe(1);
     fireEvent.click(screen.getByTestId("render-edit-form-error-reload"));
     await waitFor(() => expect(detailCalls).toBe(2));
-    // Banner verschwindet nach dem Reload.
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 
@@ -727,11 +723,9 @@ describe("KumikoScreen", () => {
     }
   });
 
-  // RowActions-Mapping (Tier 2.7a Resolution-Layer): pinst dass
-  // EntityListBody die Schema-Form (handler-QN, label-i18nKey, payload-
-  // builder, visible-Function, confirmLabel) zu DataTableRowAction
-  // (translated, dispatcher-resolved) korrekt transformiert. Vorher
-  // nur indirekt über DataTable-Tests + manuelle Inspection abgedeckt.
+  // Verify that EntityListBody transforms the schema form (handler-QN, label-i18nKey,
+  // payload builder, visible function, confirmLabel) into a translated,
+  // dispatcher-resolved DataTableRowAction.
   test("entityList rowActions: Schema → translate + dispatch wiring", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
@@ -774,14 +768,13 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    // Inline-Button mit der ID aus dem Schema. Label kommt durch
-    // translate() — fallback ist der Key wenn kein Bundle (test-utils
-    // mountet eins mit identity-translator).
+    // The inline button uses the ID from the schema. translate() supplies its label;
+    // when no bundle is present, the test translator falls back to the key.
     const button = screen.getByTestId("row-r1-action-archive");
     expect(button).toBeTruthy();
 
-    // Click → dispatcher.write mit handler-QN + custom payload (NICHT
-    // default `{id}`, sondern der schema-payload-builder muss greifen).
+    // Clicking must call dispatcher.write with the handler QN and custom payload,
+    // rather than the default `{id}` payload.
     fireEvent.click(button);
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]).toEqual({
@@ -830,10 +823,9 @@ describe("KumikoScreen", () => {
     expect(screen.getByTestId("row-r1-action-purge")).toBeTruthy();
   });
 
-  // Regression zum Prod-Bug 2026-06-07 (Bug 4): dispatcher.write wirft
-  // nicht — ein Failure-Result wurde verworfen, der Confirm-Dialog
-  // schloss kommentarlos und der User sah "nichts passiert". Jetzt:
-  // Dialog schließt UND ein destructive-Toast zeigt den Fehlertext.
+  // dispatcher.write does not throw: a failure result was previously discarded, so
+  // the confirmation dialog closed silently and the user saw no feedback. The dialog
+  // now closes and a destructive toast displays the error text.
   test("entityList rowActions writeHandler: fehlgeschlagener Write → Fehler-Toast statt stillem Dialog-Close", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -848,8 +840,8 @@ describe("KumikoScreen", () => {
         error: {
           code: "conflict",
           httpStatus: 409,
-          // Key absichtlich in keinem Bundle — dispatcherErrorText muss
-          // auf error.message zurückfallen.
+          // This key is intentionally absent from every bundle, so dispatcherErrorText must
+          // fall back to error.message.
           i18nKey: "tasks.errors.delete-conflict",
           message: "Version conflict for entity r1",
         },
@@ -886,20 +878,20 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
-    // danger erzwingt den Confirm-Dialog.
+    // The danger style requires a confirmation dialog.
     await user.click(screen.getByTestId("row-r1-action-delete"));
     expect(await screen.findByTestId("row-r1-action-delete-dialog")).toBeTruthy();
 
     await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
 
-    // Dialog schließt — aber NICHT kommentarlos: der Fehlertext ist da.
+    // The dialog closes, but the error text must remain visible.
     await waitFor(() => expect(screen.queryByTestId("row-r1-action-delete-dialog")).toBeNull());
     expect(await screen.findByText("Version conflict for entity r1")).toBeTruthy();
   });
 
-  // 284/2: der HIT-Zweig von dispatcherErrorText — bekannter i18nKey
-  // mit Params → der ÜBERSETZTE, interpolierte Text landet im Toast
-  // (nicht error.message). Genau die Logik, die die Funktion rechtfertigt.
+  // The hit branch of dispatcherErrorText: a known i18nKey with parameters puts the
+  // translated, interpolated text into the toast instead of error.message. That
+  // logic is what justifies the function.
   test("entityList rowActions writeHandler: bekannter i18nKey → übersetzter Toast mit interpolierten Params", async () => {
     const dispatcher = makeDispatcher({
       query: (async () => ({
@@ -1029,11 +1021,11 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("row-r1-action-terminate-dialog")).toBeNull();
   });
 
-  // Tier 2.7e-1: rowAction kind="navigate" — Click ruft nav.navigate
-  // mit screen-id, ggf. mit URL-Search-Params aus params(row).
-  // Reihenfolge ist Teil des Contracts: navigate ZUERST, dann
-  // setSearchParams — pushState trägt keine Query, vorher gesetzte
-  // Params kleben sonst an der alten URL (actionForm-Prefill leer).
+  // A navigate row action calls nav.navigate with the screen ID and, when present,
+  // URL search parameters derived from params(row). The order is part of the contract:
+  // navigate must run first, then setSearchParams. pushState does not preserve the query,
+  // so setting parameters first would leave them attached to the old URL and break
+  // action-form prefilling.
   test("entityList rowActions kind=navigate: Click → nav.navigate, DANN setSearchParams", async () => {
     const calls: { kind: "navigate" | "setSearchParams"; value: unknown }[] = [];
     const navigateCalls: { screenId: string }[] = [];
@@ -1095,17 +1087,16 @@ describe("KumikoScreen", () => {
     await user.click(screen.getByTestId("row-r1-action-edit"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
-    // params werden zu Strings serialisiert (URL-Layer kennt nur Strings).
+    // Parameters are serialized as strings because the URL layer only accepts strings.
     // returnTo: "task-list" — this KumikoScreen has no outer host, so it becomes its own.
     expect(searchParamUpdates).toEqual([{ taskId: "r1", returnTo: "task-list" }]);
-    // Reihenfolge-Pin: erst navigate, dann setSearchParams.
+    // Preserve the required order: navigate first, then setSearchParams.
     expect(calls.map((c) => c.kind)).toEqual(["navigate", "setSearchParams"]);
   });
 
-  // 284/3: derselbe Contract gegen die ECHTE useBrowserNavApi statt
-  // memoryNav — der eigentliche Bug-Mechanismus (pushState verwirft die
-  // Query, setSearchParams muss auf der NEUEN URL landen) ist nur hier
-  // real verifiziert. Kombination navigate + entityId + params.
+  // Verify the same contract against the real useBrowserNavApi rather than memoryNav.
+  // The actual bug mechanism is that pushState discards the query, so setSearchParams
+  // must run on the new URL. This combines navigation, entityId, and params.
   test("entityList rowActions kind=navigate: echte useBrowserNavApi → Pfad-Segmente + ?param auf der neuen URL", async () => {
     window.history.replaceState(null, "", "/task-list");
 
@@ -1162,9 +1153,8 @@ describe("KumikoScreen", () => {
     expect(new URLSearchParams(window.location.search).get("from")).toBe("Alpha");
   });
 
-  // entityId-Variante: entityEdit-Targets brauchen die Id als PFAD-
-  // Segment (route.entityId), nicht als Search-Param — sonst öffnet
-  // der Edit-Screen im Create-Mode (Prod-Bug 2026-06-07, Bug 3).
+  // For entityEdit targets, the ID must be a path segment (route.entityId), not a
+  // search parameter; otherwise the edit screen opens in create mode.
   test("entityList rowActions kind=navigate mit entityId: Id landet im NavTarget, nicht in den Search-Params", async () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];
@@ -1226,9 +1216,9 @@ describe("KumikoScreen", () => {
     expect(searchParamUpdates).toEqual([{ returnTo: "task-list" }]);
   });
 
-  // JSON-Schema-Fall (GET /api/schema): Declarative entityId: "id"
-  // überlebt JSON.stringify (String, kein Function-Drop). Das Schema
-  // funktioniert identisch ob direkt oder nach JSON-Roundtrip geladen.
+  // JSON schema case (GET /api/schema): a declarative entityId: "id" survives JSON.stringify because it is a string rather
+  // than a function. The schema therefore behaves the same when loaded directly or
+  // after a JSON round trip.
   test("entityList rowActions kind=navigate auf entityEdit-Ziel: entityId-String überlebt JSON-Roundtrip (JSON-Schema-sicher)", async () => {
     const navigateCalls: { screenId: string; entityId?: string }[] = [];
     const memoryNav = {
@@ -1341,8 +1331,8 @@ describe("KumikoScreen", () => {
 
     await user.click(screen.getByTestId("row-r1-action-approve"));
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    // actionForm-Ziel: row-Kontext kommt via params/searchParams, NICHT
-    // als Pfad-Segment — kein entityId-Default.
+    // For an actionForm target, row context is passed through params/searchParams rather
+    // than a path segment, so there is no default entityId.
     expect(navigateCalls[0]).toEqual({ screenId: "task-approve" });
   });
 
@@ -1396,10 +1386,10 @@ describe("KumikoScreen", () => {
     expect(searchParamUpdates).toEqual([{ returnTo: "task-list" }]);
   });
 
-  // toolbarActions: Schema-Form (kind: navigate | writeHandler) →
-  // Resolved-Form (onTrigger callback). Pinst beide kinds:
-  //  - navigate dispatch ein nav.navigate({ screenId })
-  //  - writeHandler dispatched dispatcher.write(handler, payload?())
+  // toolbarActions are resolved from the schema form (kind: navigate | writeHandler)
+  // to an onTrigger callback:
+  // - navigate calls nav.navigate({ screenId });
+  // - writeHandler calls dispatcher.write(handler, payload?()).
   test("entityList toolbarActions navigate-kind: Click → nav.navigate", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const dispatcher = makeDispatcher({

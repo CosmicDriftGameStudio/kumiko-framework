@@ -1,7 +1,6 @@
-// ResolversContext — stellt Editor-Resolver-Komponenten für das
-// EditorPanel bereit. Aggregiert in createKumikoApp aus allen
-// clientFeatures.resolvers, analog zu treeProviders-context.
-// Siehe visual-tree.md V.1.2.
+// ResolversContext — provides editor resolver components for the
+// EditorPanel. Aggregated by createKumikoApp from all
+// clientFeatures.resolvers, analogously to treeProviders-context.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import type { ComponentType, ReactNode } from "react";

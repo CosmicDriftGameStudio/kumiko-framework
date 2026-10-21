@@ -1,4 +1,4 @@
-// fw#2838: SecretRevealValue.qr renders a scannable QR code (otpauth://-style
+// SecretRevealValue.qr renders a scannable QR code (otpauth://-style
 // enrollment URI) instead of the default monospaced text display.
 import { describe, expect, spyOn, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";

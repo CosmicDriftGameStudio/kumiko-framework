@@ -323,7 +323,7 @@ describe("EmbeddedListField — paste coercion", () => {
     ]);
   });
 
-  // kumiko-framework#1972: a hardcoded ×100 in the paste path diverged from
+  // A hardcoded ×100 in the paste path diverged from
   // the typed-in path's currencyDecimals-based scaling for any non-2-decimal
   // currency — JPY (0 decimals) pasted "1234" would have landed on 123400
   // (100x too large) instead of 1234.
@@ -411,7 +411,7 @@ describe("EmbeddedListField — paste coercion", () => {
     });
   });
 
-  // kumiko-framework#1838: a naive `replace(",", ".")` on a DE-locale paste
+  // A naive `replace(",", ".")` on a DE-locale paste
   // with a thousands separator turned "1.234,56" into "1.234.56" → NaN →
   // the cell silently cleared instead of keeping the pasted amount.
   test("pastes a DE-locale money value with a thousands separator (1.234,56)", async () => {

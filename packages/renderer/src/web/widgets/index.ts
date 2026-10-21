@@ -1,7 +1,7 @@
-// Mid-Level-Widgets — Kompositionen über den Primitives (Card, DataTable,
-// Banner) + Theme-Tokens. Für Custom-Screens: erst hier schauen, dann bauen.
-// Katalog: docs.kumiko.rocks → Guides → Widgets; visueller Überblick im
-// styleguide-Sample.
+// Mid-level widgets — compositions built from primitives (Card, DataTable,
+// Banner) and theme tokens. For custom screens, check here before building.
+// Catalog: docs.kumiko.rocks → Guides → Widgets; visual overview in the
+// styleguide sample.
 
 export {
   AiTextArea,

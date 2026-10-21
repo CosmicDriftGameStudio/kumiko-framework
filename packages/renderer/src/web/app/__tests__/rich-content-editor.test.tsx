@@ -14,7 +14,7 @@ describe("RichContentEditor", () => {
         readOnly={false}
       />,
     );
-    // The textarea id proves #1794's "never an empty panel" fallback is the
+    // The textarea id proves the "never an empty panel" fallback is the
     // Suspense boundary — a null fallback would leave nothing to find here.
     // TiptapEditor puts the same id on its contenteditable, so asserting
     // presence alone wouldn't distinguish the two; assert the tag instead.

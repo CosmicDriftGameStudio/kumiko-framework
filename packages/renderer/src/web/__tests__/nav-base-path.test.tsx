@@ -1,12 +1,12 @@
 //
-// useBrowserNavApi({ basePath }) — Read-Pfad strippt den Prefix vor
-// parsePath, Write-Pfad prepend'd ihn vor pushState/replaceState/hrefFor.
-// URLs außerhalb des basePath liefern route=undefined, kein Auto-Redirect.
+// useBrowserNavApi({ basePath }) — The read path strips the prefix before
+// parsePath; the write path prepends it before pushState/replaceState/hrefFor.
+// URLs outside basePath produce route=undefined without an automatic redirect.
 //
-// Diese Datei ist gleichzeitig das gelebte Recipe für basePath: alle
-// Use-Cases die ein App-Autor unter einem Prefix mounten will (Admin-
-// Bereich unter /admin, Embedded-App unter /embed, Workspace-Routing
-// unter Prefix) sind hier mit Beispiel-URLs durchgespielt.
+// This file is also the working recipe for basePath: every use case where an
+// app author mounts an app under a prefix (an admin area under /admin, an
+// embedded app under /embed, or workspace routing under a prefix) is exercised
+// here with example URLs.
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -75,9 +75,9 @@ describe("useBrowserNavApi({ basePath: '/admin' })", () => {
         <Probe />
       </AdminBrowserNav>,
     );
-    // parsePath("/") returnt undefined, weil leerer Pfad keine route ist —
-    // aber wir sind IN-app (route-defined='in' wäre falsch hier weil
-    // parsePath die undefined-Antwort gibt). Prüfung über screen-id.
+    // parsePath("/") returns undefined because an empty path is not a route —
+    // but we are IN-app (route-defined='in' would be wrong here because
+    // parsePath returns undefined). Check this through screen-id.
     expect(screen.getByTestId("screen-id").textContent).toBe("(none)");
   });
 
@@ -219,8 +219,8 @@ describe("useBrowserNavApi (basePath-Edge-Cases via API)", () => {
   });
 
   test("Prefix-aber-nicht-Match: '/administrator' MATCHT NICHT '/admin'", () => {
-    // /administrator startet zwar mit 'admin', aber nicht mit '/admin/' —
-    // strict-segment-Boundary verhindert false positives wie diesen.
+    // /administrator starts with 'admin' but not with '/admin/' —
+    // the strict segment boundary prevents false positives like this.
     window.history.replaceState(null, "", "/administrator/dashboard");
     render(
       <AdminBrowserNav>
@@ -248,8 +248,8 @@ describe("useBrowserNavApi({ basePath }) — Browser-History-Integration", () =>
     expect(screen.getByTestId("screen-id").textContent).toBe("task-edit");
     expect(window.location.pathname).toBe("/admin/task-edit/xyz");
 
-    // Simulate Browser-Back zur App-Root: URL fällt auf /admin zurück,
-    // popstate feuert. Hook muss erneut strip + parse durchziehen.
+    // Simulate Browser-Back to the app root: the URL falls back to /admin,
+    // and popstate fires. The hook must strip and parse again.
     act(() => {
       window.history.replaceState(null, "", "/admin");
       window.dispatchEvent(new PopStateEvent("popstate"));
@@ -315,7 +315,7 @@ describe("useBrowserNavApi({ basePath }) — searchParams-Orthogonalität", () =
     act(() => {
       fireEvent.click(screen.getByTestId("set-filter"));
     });
-    // Pfad bleibt mit basePath-Prefix, ?filter wird angehängt.
+    // The path retains the basePath prefix, and ?filter is appended.
     expect(window.location.pathname).toBe("/admin/task-list");
     expect(window.location.search).toBe("?filter=open");
   });

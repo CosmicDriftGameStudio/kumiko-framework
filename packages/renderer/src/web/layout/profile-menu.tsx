@@ -1,15 +1,14 @@
-// Profile-Menu — dünner Wrapper über ActionMenu (siehe primitives/
-// action-menu.tsx). Der Trigger ist immer ein Avatar; alles weitere
-// (Items, Separators, Shortcut-Hints, Danger-Variant) kommt vom
-// generischen ActionMenu. Wenn jemand einen anderen Trigger braucht
-// (Three-Dots-Icon, Pill, Custom-Button), nimmt er ActionMenu direkt.
+// Profile menu — a thin wrapper around ActionMenu (see primitives/
+// action-menu.tsx). The trigger is always an avatar; everything else
+// (items, separators, shortcut hints, and the danger variant) comes
+// from the generic ActionMenu. For another trigger (three-dot icon,
+// pill, or custom button), use ActionMenu directly.
 //
-// ProfileMenuItem ist ein Alias für MenuItemDef — Bestehender Caller-
-// Code bleibt typsicher, ohne dass wir den Discriminated-Union doppelt
-// pflegen.
+// ProfileMenuItem aliases MenuItemDef so existing caller code remains
+// type-safe without duplicating the discriminated union.
 //
-// Linear-Pattern: kompakter Avatar-Pill, Click öffnet Menü mit View-
-// Profile / Settings / Sign-out + optional Keyboard-Shortcut-Hints.
+// Linear pattern: a compact avatar pill that opens a menu with View
+// Profile / Settings / Sign-out and optional keyboard shortcut hints.
 
 import type { ReactNode } from "react";
 import { ActionMenu, type MenuItemDef } from "../primitives/action-menu.tsx";
@@ -20,7 +19,7 @@ export type ProfileMenuItem = MenuItemDef;
 export type ProfileMenuProps = {
   readonly user: {
     readonly id: string;
-    /** Display-Name oder Email — Quelle für Initials. */
+    /** Display name or email — the source for initials. */
     readonly label: string;
   };
   readonly items: readonly ProfileMenuItem[];

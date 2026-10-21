@@ -168,9 +168,9 @@ export function useQuery<TData = unknown>(
     return () => clearInterval(timer);
   }, [enabled, refetchIntervalMs, runFetch]);
 
-  // Live-mode: auf SSE-Events für die Query-Entity hören und refetchen.
-  // Separater Effect, damit eine Änderung an `live` oder `type` das
-  // Subscription-Lifecycle genau einmal durchwalzt.
+  // Live mode: listen for SSE events for the query entity and refetch.
+  // A separate effect ensures changes to `live` or `type` update the
+  // subscription lifecycle exactly once.
   const subscribeLive = useLiveEvents();
   useEffect(() => {
     // skip: live mode or query disabled, no SSE subscription needed

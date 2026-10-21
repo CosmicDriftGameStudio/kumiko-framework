@@ -133,7 +133,7 @@ function EntityEditCreateBody({
   readonly screen: EntityEditScreenDefinition;
   readonly entity: EntityDefinition;
   readonly translate?: Translate;
-  // Singleton screens (kumiko-screen#1944) run without a wrapping
+  // Singleton screens run without a wrapping
   // entityList screen, so `navigateToList` below is a silent no-op there —
   // without this callback, a successful create left the form stuck showing
   // the just-submitted values, and a second submit created a duplicate
@@ -150,7 +150,7 @@ function EntityEditCreateBody({
   // returnTo would fight that.
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
   const entityDefaultCurrency = entity.defaultCurrency ?? "EUR";
-  // A money field declaring `currency: { kind: "tenant" }` (fw#2933) resolves
+  // A money field declaring `currency: { kind: "tenant" }` resolves
   // its empty-value currency from the tenant-settings config key instead of
   // entityDefaultCurrency — `enabled` keeps the query a no-op for entities
   // without any such field.
@@ -241,7 +241,7 @@ function EntityEditCreateBody({
     [nav, screen.redirect, schema, appFeatures, navigateToList, onSaved, returnTarget],
   );
   // Never seed a tenant-declared money field with entityDefaultCurrency while
-  // its real tenant currency is still in flight (fw#2933) — wait instead.
+  // its real tenant currency is still in flight — wait instead.
   if (currencyLoading) {
     return <QueryLoadingBanner />;
   }
@@ -287,7 +287,7 @@ function EntityEditUpdateBody({
   readonly entityId: string;
   readonly translate?: Translate;
   readonly onCopyLink?: () => Promise<void> | void;
-  // Singleton screens (kumiko-screen#1944): `navigateToList` below is a
+  // Singleton screens: `navigateToList` below is a
   // no-op there (no wrapping entityList screen), so a successful update
   // left the form holding the now-stale `recordVersion` it captured at
   // mount — the next submit hit a version conflict. Set by
@@ -401,7 +401,7 @@ function EntityEditUpdateForm({
   // error and the user reloads.
   const recordVersion = versionOf(record);
   const entityDefaultCurrency = entity.defaultCurrency ?? "EUR";
-  // A money field declaring `currency: { kind: "tenant" }` (fw#2933) resolves
+  // A money field declaring `currency: { kind: "tenant" }` resolves
   // its empty-value currency from the tenant-settings config key instead of
   // entityDefaultCurrency — `enabled` keeps the query a no-op for entities
   // without any such field. A record's own stored value (below) always wins
@@ -609,7 +609,7 @@ function EntityEditUpdateForm({
   }, [dispatcher, deleteCommand, entityId, navigateToList, onDeleted, returnTarget, nav]);
 
   // Never seed a tenant-declared money field with entityDefaultCurrency while
-  // its real tenant currency is still in flight (fw#2933) — wait instead. A
+  // its real tenant currency is still in flight — wait instead. A
   // stored (non-empty) value is unaffected — it never reaches this branch's
   // fallback because `initial` above already prefers `record[name]`.
   if (currencyLoading) {

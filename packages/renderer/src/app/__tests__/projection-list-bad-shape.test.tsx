@@ -1,4 +1,4 @@
-// fw#2216: a projectionList query handler that doesn't honor the PagedRows
+// A projectionList query handler that doesn't honor the PagedRows
 // contract ({ rows, nextCursor }) used to fall through `rowsQuery.data?.rows
 // ?? []` and silently render an empty table with HTTP 200 (prod bug on
 // /session-list). This renders the real path (KumikoScreen →

@@ -1,33 +1,31 @@
 // Primitives contract. Platform-neutral: the types describe the semantic
-// surface, the concrete implementation (HTML) comes from `@cosmicdrift/kumiko-renderer/web`.
+// surface, while the concrete implementation (HTML) comes from `@cosmicdrift/kumiko-renderer/web`.
 //
-// Die Renderer (RenderEdit, RenderList, RenderField, KumikoScreen)
-// konsumieren nur diesen Context. Es gibt KEIN Default-Registry hier
-// — jede App muss eine vollständige Registry stellen; die Plattform-
-// Packages liefern defaultPrimitives mit, die via createKumikoApp
-// durchgereicht werden.
+// Renderers (RenderEdit, RenderList, RenderField, KumikoScreen) consume only
+// this context. There is NO default registry here—each app must provide a
+// complete registry; platform packages supply defaultPrimitives, which are
+// passed through by createKumikoApp.
 //
-// Core-Primitives (Kumikos eigene Components konsumieren sie):
+// Core primitives (used by Kumiko's own components):
 //
 //   Button    — submit/button, disabled, onClick, variant
-//   Banner    — role=alert Box für Fehler/Info, optional Actions
-//   Field     — label + issues um ein Input-Control
-//   Input     — discriminated union über text/number/boolean/date
-//   DataTable — Spalten + Zeilen + onRowClick, Empty-State intern
+//   Banner    — role=alert box for errors/info, with optional actions
+//   Field     — label + issues around an input control
+//   Input     — discriminated union for text/number/boolean/date
+//   DataTable — columns + rows + onRowClick, with an internal empty state
 //   EmbeddedListInput — row array + totals table for createEmbeddedListField
-//   Form      — submit-Wrapper (<form> + onSubmit)
-//   Section   — titled Gruppe von Feldern (Web: <fieldset>+<legend>)
-//   Grid      — columns-basiertes Layout innerhalb einer Section
-//   Text      — semantische Text-Variante (body/small/code/required-mark)
+//   Form      — submit wrapper (<form> + onSubmit)
+//   Section   — titled group of fields (Web: <fieldset>+<legend>)
+//   Grid      — column-based layout within a Section
+//   Text      — semantic text variants (body/small/code/required-mark)
 //
-// App-Primitives (der App-Dev füttert eigene):
+// App primitives (supplied by the app developer):
 //
-// Das `AppPrimitives`-Interface ist leer — Devs erweitern es via
-// Module-Augmentation mit ihren eigenen Components. Die wandern
-// automatisch in `PrimitivesRegistry` und `usePrimitives()` liefert
-// sie typed aus. Kumikos Components nutzen sie NICHT (und kennen sie
-// nicht), aber der App-Code hat ein einheitliches Primitive-Vokabular
-// über Core + Custom.
+// The `AppPrimitives` interface is empty—developers extend it through
+// module augmentation with their own components. They are automatically added
+// to `PrimitivesRegistry`, and `usePrimitives()` returns them with types.
+// Kumiko's components do NOT use or know about them, but app code gets a
+// consistent primitive vocabulary across core and custom primitives.
 
 import type {
   ConfigCascade,
@@ -60,7 +58,7 @@ import type {
 
 export type { RuntimeRenderer };
 
-// ---- Prop-Types (die Primitive-Contract-Oberfläche) ----
+// ---- Prop types (the primitive contract surface) ----
 
 /** Escape hatch for `data-*` test hooks (e.g. an E2E selector) that don't
  *  warrant a dedicated typed prop. Web merges these onto the rendered
@@ -68,7 +66,7 @@ export type { RuntimeRenderer };
 export type DataAttributes = Readonly<Record<`data-${string}`, string>>;
 
 /** Structural marker a top-level `actions` node can carry so DefaultForm's
- *  sticky-footer split (fw#1918) treats it as the pinned primary action even
+ *  sticky-footer split treats it as the pinned primary action even
  *  though it isn't a `Button` with `type="submit"` — e.g. RenderEdit's
  *  footer-slot mount, whose actual rendered button is opaque app code the
  *  split can't inspect (see `ScreenSlots.footerPrimary`). */
@@ -90,10 +88,10 @@ export type FooterActionMarker = {
   readonly [NARROW_LABEL_PROP]?: string;
 };
 
-/** Standard-Button. `loading` zeigt einen Spinner statt der Children
- *  und sollte mit `disabled` kombiniert werden, wenn die Action wirklich
- *  blockiert bis das Loading durch ist (z.B. async submit). Native-
- *  Impls können den Spinner als Activity-Indicator rendern. */
+/** Standard button. `loading` displays a spinner instead of the children and
+ *  should be combined with `disabled` when the action must remain blocked until
+ *  loading finishes (for example, during an async submit). Native
+ *  implementations may render the spinner as an activity indicator. */
 export type ButtonProps = ButtonBaseProps &
   (
     | { readonly children: ReactNode }
@@ -108,9 +106,9 @@ type ButtonBaseProps = {
   readonly type?: "button" | "submit";
   readonly onClick?: () => void | Promise<void>;
   readonly disabled?: boolean;
-  /** Spinner statt Children rendern. Caller sollte `disabled` mit-
-   *  setzen wenn die Action blockiert bis das Loading abgeschlossen
-   *  ist (verhindert Double-Submit). */
+  /** Render a spinner instead of the children. Callers should also set
+   *  `disabled` when the action is blocked until loading completes, preventing
+   *  double submission. */
   readonly loading?: boolean;
   /** Semantic class — default="primary". Custom impls decide what this
    *  becomes visually; the renderers use "primary" for Save, "danger" for
@@ -119,11 +117,11 @@ type ButtonBaseProps = {
    *  destructive action as red text instead of a red fill, "ghost" for a
    *  low-emphasis primary-colored text action beside a filled primary. */
   readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost";
-  /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
-   *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
+  /** Size—default="md". "sm" is for compact inline actions (toolbars,
+   *  list rows); "icon" is for square icon-only buttons. */
   readonly size?: "sm" | "md" | "icon";
-  /** Barrierefreies Label — Pflicht bei icon-only-Buttons (children ist nur
-   *  ein Icon/Zeichen), sonst hat der Button keinen zugänglichen Namen. */
+  /** Accessible label—required for icon-only buttons (when children contain
+   *  only an icon or character), otherwise the button has no accessible name. */
   readonly ariaLabel?: string;
   /** Tooltip — rendered as the `title` attribute. */
   readonly title?: string;
@@ -131,9 +129,9 @@ type ButtonBaseProps = {
   readonly pressed?: boolean;
   /** Disclosure state for buttons that open a menu or panel — web sets `aria-expanded`. */
   readonly expanded?: boolean;
-  /** Breite — default="auto" (inhaltsbreit). "full" streckt CTA-Buttons auf
-   *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
-   *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
+  /** Width—default="auto" (content width). "full" stretches CTA buttons to
+   *  the container width (cards/panels). Other widths belong to the container's
+   *  layout, not to a button prop; the kit excludes arbitrary sizing here. */
   readonly width?: "full" | "auto";
   readonly testId?: string;
   /** Layout extras, merged via cn(). */
@@ -148,10 +146,10 @@ type ButtonBaseProps = {
   readonly dataAttributes?: DataAttributes;
 };
 
-/** Navigations-Link. `variant="button"` rendert die Button-Optik auf einem
- *  semantischen Anchor (z.B. „Zum Login" nach Reset-Success), `muted` den
- *  dezenten Sekundär-Link. Interne SPA-Navigation läuft über den Browser-
- *  Default (History-Integration liegt beim Nav-Layer, nicht am Primitive). */
+/** Navigation link. `variant="button"` applies button styling to a semantic
+ *  anchor (for example, “Zum Login" after reset success); `muted` makes it a
+ *  subtle secondary link. Internal SPA navigation uses the browser default;
+ *  history integration belongs to the navigation layer, not this primitive. */
 export type LinkProps = {
   readonly href: string;
   readonly variant?: "default" | "button" | "muted";
@@ -169,10 +167,10 @@ export type LinkProps = {
   readonly dataAttributes?: DataAttributes;
 };
 
-/** Banner für inline-Message ODER Page-State (z.B. "Loading…",
- *  "Screen not found"). `padded` setzt einen Außenabstand damit der
- *  Banner nicht edge-to-edge an den Main-Border klebt — relevant
- *  seit `<main>` kein eigenes Padding mehr hat. */
+/** Banner for an inline message or page state (for example, "Loading…" or
+ *  "Screen not found"). `padded` adds outer spacing so the banner does not
+ *  touch the main border edge to edge, which matters because `<main>` no
+ *  longer provides its own padding. */
 export type BannerProps = {
   /** "error" for alerts (conflict, network error), "info" for neutral
    *  placeholders (not-found, loading), "loading" for load states, "warning"
@@ -184,17 +182,17 @@ export type BannerProps = {
   readonly title?: ReactNode;
   readonly titleTestId?: string;
   readonly children: ReactNode;
-  /** Optional — weitere Knöpfe/Elemente rechts vom Text (z.B. "Neu
-   *  laden"). Inline, nicht als eigener Block. */
+  /** Optional—additional buttons or elements to the right of the text (for
+   *  example, "Neu laden"). Inline, not a separate block. */
   readonly actions?: ReactNode;
-  /** Setzt einen Außenabstand um den Banner — für Page-States wo der
-   *  Banner alleine im Main rendert (KumikoScreen "not-found",
-   *  "loading", etc.). Web fügt p-6 als Margin um den Banner. */
+  /** Adds outer spacing around the banner for page states where it renders
+   *  alone in the main area (KumikoScreen "not-found", "loading", etc.). The
+   *  web implementation adds p-6 as margin around the banner. */
   readonly padded?: boolean;
   readonly testId?: string;
   /** Set when a `<Field>` wraps this Banner as its control (no actual
    *  input exists for the label to target — see render-field.tsx's
-   *  unsupported-field-type fallback, #1834). The web implementation uses
+   *  unsupported-field-type fallback). The web implementation uses
    *  it to derive `role="group"` + `aria-labelledby`, not `htmlFor`: a
    *  `<label for>` on a non-labelable element like a `<div>` is inert for
    *  screen readers. */
@@ -222,9 +220,9 @@ export type FieldProps = {
     readonly testId?: string;
   };
   readonly children: ReactNode;
-  /** Label-Layout. `stacked` (Default): Label über dem Control. `inline`:
-   *  Control + Label nebeneinander (Box links, Label rechts) — für
-   *  Checkbox/Switch-Felder (boolean), wie das shadcn-Muster. */
+  /** Label layout. `stacked` (default) places the label above the control.
+   *  `inline` places the control and label beside each other (box left, label
+   *  right), for checkbox/switch fields (boolean), following the shadcn pattern. */
   readonly layout?: "stacked" | "inline" | "row";
   /** Marks a field whose value is set at this level (differs from the
    *  inherited one). Only `layout="row"` draws it: a 2px primary line on the
@@ -241,9 +239,10 @@ export type FieldProps = {
   readonly testId?: string;
 };
 
-/** Discriminated union — jede Input-Sorte hat ihre eigene value/onChange
- *  Signatur. Custom-Impls dispatchen intern, rendern anders (Toggle
- *  statt Checkbox), oder nur einzelne kinds unterschiedlich. */
+/** Discriminated union: each input kind has its own value/onChange
+ *  signature. Custom implementations can dispatch internally, render a
+ *  different control (toggle instead of checkbox), or customize individual
+ *  kinds. */
 /** Button beside a single-line text/number input that fills it with a
  *  suggestion. Stays usable on a `disabled` input (the readOnly+fill case). */
 export type InputFillAction = {
@@ -282,17 +281,17 @@ export type InputProps =
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
-      /** Hint-Text wenn das Feld leer ist. Used für Search-Inputs in
-       *  Toolbars ("Suchen…") wo kein Label sinnvoll ist. */
+      /** Hint text shown when the field is empty. Used for search inputs in
+       *  toolbars ("Suchen…") where no label is practical. */
       readonly placeholder?: string;
-      /** Browser-Autofill / Native-Keyboard-Hint. Web setzt das auf
-       *  `<input autocomplete=...>`, Native auf `textContentType`. */
+      /** Browser autofill / native keyboard hint. Web applies this to
+       *  `<input autocomplete=...>`; native applies it to `textContentType`. */
       readonly autoComplete?: string;
-      /** `data-testid` aufs echte `<input>` — App-Tests adressieren das
-       *  Element direkt (getByTestId + readOnly/disabled-Assertions). */
+      /** Sets `data-testid` on the actual `<input>` so app tests can address the
+       *  element directly (getByTestId + readOnly/disabled assertions). */
       readonly testId?: string;
-      /** Read-only Input (z.B. gewürfelter Free-Tier-Slug). Nicht `disabled`
-       *  — bleibt fokussier-/kopierbar. */
+      /** Read-only input (for example, a generated free-tier slug). Not
+       *  `disabled`, so it remains focusable and copyable. */
       readonly readOnly?: boolean;
       /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer/web). */
       readonly icon?: FieldIconKey;
@@ -315,8 +314,8 @@ export type InputProps =
       readonly required?: boolean;
       readonly hasError?: boolean;
       readonly placeholder?: string;
-      /** Default "email". Apps die "username" wollen (Login-Form mit
-       *  Username-or-Email) reichen das durch. */
+      /** Default "email". Apps that need "username" (a username-or-email login
+       *  form) pass that value through. */
       readonly autoComplete?: string;
       readonly testId?: string;
     }
@@ -343,9 +342,9 @@ export type InputProps =
       readonly hasError?: boolean;
       /** Hint text shown when the field is empty (analog to kind:"text"). */
       readonly placeholder?: string;
-      /** "current-password" für Login, "new-password" für Reset/Signup —
-       *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
-       *  Native: textContentType="password" / "newPassword". */
+      /** "current-password" for login, "new-password" for reset/signup—browser
+       *  password managers use this to decide whether to save the value.
+       *  Native uses textContentType="password" / "newPassword". */
       readonly autoComplete?: "current-password" | "new-password";
       /** Icon button inside the field's trailing edge (clear a stored value,
        *  undo a pending removal). `label` is its accessible name + tooltip. */
@@ -410,7 +409,7 @@ export type InputProps =
       readonly kind: "file" | "image";
       readonly id: string;
       readonly name: string;
-      /** FileRef-UUID (gespeicherte Datei) oder null (kein Upload). */
+      /** FileRef UUID (stored file) or null (no upload). */
       readonly value: string | null;
       /** Implementations must offer their own remove control that calls
        *  `onChange(null)`: FileListField relies on it to drop a file from an
@@ -422,8 +421,8 @@ export type InputProps =
       /** Erlaubte Extensions/MIME (z.B. ["jpg","png"]) → `accept`-Attribut. */
       readonly accept?: readonly string[];
       readonly maxSize?: string;
-      /** Für den Upload-POST `/api/files` — der Endpoint prüft maxSize/accept
-       *  gegen die Field-Def von (entityType, fieldName). */
+      /** For the upload POST `/api/files`: the endpoint validates maxSize/accept
+       *  against the field definition for (entityType, fieldName). */
       readonly entityType?: string;
       /** Screen QN of the actionForm the field belongs to; sent as `actionForm` instead of
        *  `entityType`, so the upload stays pending for that form's field. */
@@ -474,9 +473,9 @@ export type InputProps =
       readonly name: string;
       readonly value: string;
       readonly onChange: (v: string | undefined) => void;
-      /** Locale für Anzeige UND Eingabe-Parsing. Default = Browser-Locale
-       *  via navigator.language. Apps mit eigenem LocaleResolver können
-       *  ihren current locale durchreichen. */
+      /** Locale for display and input parsing. Default = browser locale via
+       *  navigator.language. Apps with their own LocaleResolver can pass through
+       *  their current locale. */
       readonly locale?: string;
       /** Datumsgrenzen als ISO `yyyy-mm-dd` — begrenzen Picker (Jahres-
        *  Dropdown-Range + ausgegraute Tage). */
@@ -492,10 +491,10 @@ export type InputProps =
       readonly name: string;
       readonly value: string;
       readonly onChange: (v: string) => void;
-      /** Erlaubte Werte. Leeres Array → Dropdown ohne Optionen, ein
-       *  required Field ist dann nicht erfüllbar (Author-Hinweis, nicht
-       *  Endnutzer). String-Form für statische Listen (Wert == Label),
-       *  {value,label}-Form für DB-getragene Refs (Tier 2.7e-3). */
+      /** Allowed values. An empty array produces a dropdown with no options, so a
+       *  required field cannot be satisfied (an author warning, not an end-user
+       *  message). The string form is for static lists (value == label); the
+       *  {value,label} form is for database-backed references. */
       readonly options:
         | readonly string[]
         | readonly {
@@ -527,16 +526,14 @@ export type InputProps =
       readonly display?: "radio" | "dropdown";
     }
   | ({
-      // Tier 2.1c: Combobox / Searchable-Select. Single-Mode (multiple
-      // false oder weggelassen): value ist string, onChange string.
-      // Multi-Mode (multiple: true): value ist string[], onChange
-      // string[]. Reference-Felder (Tier 2.7e-3+) nutzen das hier ohne
-      // explizit Combobox zu setzen — der Renderer wählt Combobox
-      // automatisch für reference-Field-Types.
-      // Discriminated-Union per `multiple`: Single-Mode hat string-
-      // value/onChange, Multi-Mode hat readonly string[] — Caller
-      // muss den Mode beim Build wählen, der Compiler zwingt die
-      // richtige Signatur.
+      // Combobox / searchable select. Single mode (`multiple` false or omitted)
+      // uses a string value and onChange string. Multi mode (`multiple: true`)
+      // uses string[] for both. Reference fields use this without explicitly
+      // selecting combobox; the renderer chooses it automatically for reference
+      // field types.
+      // The `multiple` discriminant gives single and multi modes distinct
+      // signatures, so callers must choose the mode when building the value;
+      // the compiler enforces the matching signature.
       readonly kind: "combobox";
       readonly id: string;
       readonly name: string;
@@ -547,14 +544,14 @@ export type InputProps =
       readonly placeholder?: string;
       readonly searchPlaceholder?: string;
       readonly emptyText?: string;
-      /** Tier 2.7e Remote-Search: gesetzt = Combobox läuft im Remote-
-       *  Mode (cmdk-Local-Filter aus, Search-Input ruft onSearchChange
-       *  debounced an den Caller). */
+      /** Remote search: when set, the combobox uses remote mode (local cmdk
+       *  filtering is disabled and the search input calls the caller's
+       *  debounced onSearchChange). */
       readonly onSearchChange?: (q: string) => void;
       readonly loading?: boolean;
       /** Fixed "+ createLabel" footer row that fires instead of
        *  selecting an option — omit for the plain select-existing
-       *  combobox (kumiko-framework#1681). */
+       *  combobox. */
       readonly onCreate?: () => void;
       readonly createLabel?: string;
     } & (
@@ -573,18 +570,18 @@ export type InputProps =
       readonly kind: "money";
       readonly id: string;
       readonly name: string;
-      /** Internal-Format: Cents/Minor-Units als Integer (z.B. 1299 für
-       *  12,99 EUR). Renderer übersetzt fürs UI in Major-Units mit
-       *  Locale-formatierten Dezimalstellen. Empty-State = `""`. */
+      /** Internal format: cents/minor units as an integer (for example, 1299 for
+       *  12,99 EUR). The renderer converts this to major units for the UI with
+       *  locale-formatted decimal places. Empty state = `""`. */
       readonly value: number | "";
       readonly onChange: (v: number | undefined) => void;
-      /** ISO-4217 Currency-Code, z.B. "EUR" / "USD" / "CHF". Default
-       *  "EUR". Renderer zeigt das Symbol als Suffix und formatiert die
-       *  Decimal-Stellen entsprechend (EUR/USD/CHF haben 2, JPY hat 0). */
+      /** ISO-4217 currency code, for example "EUR" / "USD" / "CHF". Default
+       *  "EUR". The renderer displays the symbol as a suffix and formats the
+       *  decimal places accordingly (EUR/USD/CHF use 2; JPY uses 0). */
       readonly currency?: string;
-      /** Locale für Zahlen-Formatierung. Default "de-DE" (Komma als
-       *  Dezimaltrenner). Apps mit eigenem LocaleResolver können ihren
-       *  current locale durchreichen. */
+      /** Locale for number formatting. Default "de-DE" (comma as the decimal
+       *  separator). Apps with their own LocaleResolver can pass through their
+       *  current locale. */
       readonly locale?: string;
       readonly disabled?: boolean;
       readonly required?: boolean;
@@ -594,22 +591,22 @@ export type InputProps =
       readonly kind: "timestamp";
       readonly id: string;
       readonly name: string;
-      /** ISO-8601 Datetime-String. UTC-Instant mit `Z`
-       *  ("2026-04-25T13:45:00Z") oder Wall-Clock ohne Offset
-       *  ("2026-04-25T13:45", nur bei wallClock). Empty-State = `""`.
-       *  Web rendert getrennte Datums- (tippbar + Kalender) und
-       *  Uhrzeit-Eingabe und konvertiert. */
+      /** ISO-8601 datetime string. A UTC instant uses `Z`
+       *  ("2026-04-25T13:45:00Z"); a wall-clock value has no offset
+       *  ("2026-04-25T13:45", only with wallClock). Empty state = `""`.
+       *  Web renders separate date (typable + calendar) and time inputs and
+       *  converts the result. */
       readonly value: string;
       readonly onChange: (v: string | undefined) => void;
-      /** true = locatedTimestamp (Wall-Clock ohne Offset, Server
-       *  validiert z.iso.datetime({local:true})). false/undefined =
-       *  UTC-Instant, onChange MUSS mit `Z`-Suffix emittieren. */
+      /** true = locatedTimestamp (wall-clock without an offset; the server
+       *  validates z.iso.datetime({local:true})). false/undefined = a UTC
+       *  instant; onChange MUST emit a `Z` suffix. */
       readonly wallClock?: boolean;
-      /** Locale für Anzeige UND Eingabe-Parsing des Datums-Teils.
-       *  Default = Browser-Locale. */
+      /** Locale for displaying and parsing the date portion. Default = browser
+       *  locale. */
       readonly locale?: string;
-      /** Datumsgrenzen als ISO-Datetime — begrenzen den Kalender auf
-       *  Tages-Granularität. */
+      /** Date bounds as ISO datetimes; they constrain the calendar to day-level
+       *  granularity. */
       readonly min?: string;
       readonly max?: string;
       readonly disabled?: boolean;
@@ -620,14 +617,14 @@ export type InputProps =
       readonly kind: "locatedTimestamp";
       readonly id: string;
       readonly name: string;
-      /** Located-Timestamp-Wert: Wall-Clock `at` (ohne Offset) + IANA-`tz`.
-       *  `utc` ist beim Read da (server-berechnet) und wird beim Write
-       *  ignoriert. Empty-State = `""`. onChange emittiert `{ at, tz }`. */
+      /** Located-timestamp value: wall-clock `at` (without an offset) plus an IANA
+       *  `tz`. `utc` is present when reading (computed by the server) and ignored
+       *  when writing. Empty state = `""`. onChange emits `{ at, tz }`. */
       readonly value: { readonly at: string; readonly tz: string; readonly utc?: string } | "";
       readonly onChange: (v: { readonly at: string; readonly tz: string } | undefined) => void;
-      /** Locale für den Datums-Teil. Default = Browser-Locale. */
+      /** Locale for the date portion. Default = browser locale. */
       readonly locale?: string;
-      /** Datumsgrenzen als ISO-Datetime — begrenzen den Kalender. */
+      /** Date bounds as ISO datetimes; they constrain the calendar. */
       readonly min?: string;
       readonly max?: string;
       readonly disabled?: boolean;
@@ -653,15 +650,15 @@ export type InputProps =
       readonly onChange: (v: string) => void;
       /** Visible rows. Acts as a minimum height — the field starts this tall
        *  and still grows with its content. Omitted, the default primitive
-       *  falls back to its own floor (#2677). */
+       *  falls back to its own floor. */
       readonly rows?: number;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
       /** Hint text shown when the field is empty (analog to kind:"text"). */
       readonly placeholder?: string;
-      /** Read-only Textarea. Nicht `disabled` — bleibt fokussier-/
-       *  kopierbar (analog zu kind:"text"). */
+      /** Read-only Textarea. Not `disabled` — remains focusable and
+       *  copyable (analogous to kind:"text"). */
       readonly readOnly?: boolean;
       /** Ctrl/Cmd+Enter submits instead of inserting a newline. Plain
        *  Enter still inserts a newline. */
@@ -674,25 +671,25 @@ export type InputProps =
       readonly onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
     };
 
-// Sort-Wire-Format. `null`-State unterscheidet "User hat noch nichts
-// gesortiert" vom "ich sortiere nach X" — wichtig für 3-State-Toggle
-// (asc → desc → null → asc …). Renderer kennt den aktuellen sort und
-// callt onSortChange wenn der User auf einen sortable-Header klickt.
+// Sort wire format. `null` distinguishes “the user has not sorted yet” from
+// “sort by X”; this is required for the 3-state toggle
+// (asc → desc → null → asc …). The renderer reads the current sort and calls
+// onSortChange when the user clicks a sortable header.
 export type DataTableSortDir = "asc" | "desc";
 export type DataTableSort = {
   readonly field: string;
   readonly dir: DataTableSortDir;
 };
 
-// Render-Modus der Row-Action-Spalte (siehe DataTableProps.rowActionMode).
+// Rendering mode for the row-action column (see DataTableProps.rowActionMode).
 export type DataTableRowActionMode = "adaptive" | "inline";
 
-// Resolved-Form einer Row-Action (KumikoScreen baut das aus
-// EntityListScreenDefinition.rowActions): Labels schon translated,
-// handler-QN aufgelöst zu einer onTrigger-Function die den dispatcher
-// kennt. DataTable rendert das ohne weiteres i18n/dispatcher-Wissen.
+// Resolved row action (KumikoScreen builds it from
+// EntityListScreenDefinition.rowActions): labels are already translated and the handler QN is
+// resolved to an onTrigger function that knows the dispatcher. DataTable can
+// render it without additional i18n or dispatcher knowledge.
 export type DataTableRowAction = {
-  /** Stable id für aria-labels und data-testids. */
+  /** Stable ID for aria-labels and data-testids. */
   readonly id: string;
   /** Translated Label. */
   readonly label: string;
@@ -700,22 +697,22 @@ export type DataTableRowAction = {
    *  primitive. Whether it also forces a confirm dialog is governed by
    *  `confirmRequired` (falls back to `style === "danger"` when unset). */
   readonly style?: "primary" | "secondary" | "danger";
-  /** Translated Confirm-Prompt (Description im Dialog) — wenn gesetzt,
-   *  öffnet ein Modal vor der Ausführung. Bei style=danger ohne expliziten
-   *  confirm sollte der Renderer einen generischen Default zeigen. */
+  /** Translated confirmation prompt (dialog description). When set, a modal
+   *  opens before execution. For style=danger without an explicit confirm,
+   *  the renderer should show a generic default. */
   readonly confirm?: string;
-  /** Translated Confirm-Button-Label im Dialog. Default = `label`
-   *  (Action-Label wird wiederverwendet). */
+  /** Translated confirm-button label in the dialog. Defaults to `label`
+   *  (the action label is reused). */
   readonly confirmLabel?: string;
   /** Overrides the default "danger implies a confirm dialog" rule. Schema-driven
    *  navigate/drawer actions set it to false: the colour marks the action as
    *  destructive, but the target form is the confirmation. */
   readonly confirmRequired?: boolean;
-  /** Wird mit der ListRowViewModel der geklickten Row aufgerufen. Async
-   *  erlaubt — der Renderer kann während der Promise-Resolution einen
-   *  Loading-State auf dem Button zeigen. */
+  /** Called with the clicked row's `ListRowViewModel`. May be async, allowing
+   *  the renderer to show a loading state on the button while the promise resolves. */
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
-  /** Conditional Visibility pro Row (z.B. "Start" nur wenn status==="scheduled"). */
+  /** Controls per-row visibility (e.g. show "Start" only when
+   *  `status==="scheduled"`). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
   /** This action is what a click on the row does. With `onRowClick` the table
    *  (except `"inline"` mode or editable cells) and the card layout drop it
@@ -741,16 +738,16 @@ export function shouldRenderActionsIconOnly(
   return actions.length > 2 && actions.every((a) => a.icon !== undefined);
 }
 
-// Ein Faceted-Filter-Slot in der Toolbar: ein Outline-Dropdown-Button
-// (wie shadcns "Columns"-Toggle) mit Multi-Select-Checkboxen. KumikoScreen
-// baut das aus den filterable select/boolean-Feldern des Entity.
+// A faceted filter slot in the toolbar: an outline dropdown button
+// (like shadcn's "Columns" toggle) with multi-select checkboxes. KumikoScreen
+// builds it from the entity's filterable select/boolean fields.
 export type DataTableFacet = {
   /** Entity-Feldname (= URL-State-Key + payload.filters[].field). */
   readonly field: string;
   /** Translated Button-Label ("Status", "Active"). */
   readonly label: string;
-  /** Auswählbare Werte mit Anzeige-Label. value = roher Filterwert
-   *  (select-option / "true"|"false"), als String transportiert. */
+  /** Selectable values with display labels. `value` is the raw filter value
+   *  (a select option or `"true"`/`"false"`), transported as a string. */
   readonly options: readonly { readonly value: string; readonly label: string }[];
   /** Present: render the facet as a row of single-choice toggle chips instead
    *  of a dropdown. A chip is pressed while the selection equals its values. */
@@ -771,7 +768,7 @@ export type DataTableFacetChip = {
   readonly count?: number;
 };
 
-// Time-range filter slot in the toolbar (fw#3104): two date inputs
+// Time-range filter slot in the toolbar: two date inputs
 // (from/to) instead of an options dropdown. Values are `YYYY-MM-DD` or ""
 // (bound open) — the caller converts them into query params.
 export type DataTableDateRangeFacet = {
@@ -800,20 +797,20 @@ export type DataTableProps = {
   /** Tints a row. Renderers without row tinting ignore it. */
   readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
   readonly onRowClick?: (row: ListRowViewModel) => void;
-  /** Aktuelle Sortierung (oder null = unsorted). Wenn columns ein
-   *  `sortable: true`-Feld haben und onSortChange gesetzt ist, rendert
-   *  der Renderer Click-Header mit Asc/Desc-Indikator. Ohne onSortChange
-   *  bleibt die Header-Click-Mechanik aus, columns.sortable ist dann nur
-   *  semantischer Hinweis. */
+  /** Current sorting, or null when unsorted. If columns contain a
+   *  `sortable: true` field and `onSortChange` is set, the renderer makes
+   *  headers clickable and shows ascending/descending indicators. Without
+   *  `onSortChange`, header clicks remain disabled and `columns.sortable` is
+   *  only semantic metadata. */
   readonly sort?: DataTableSort | null;
-  /** Wird gerufen mit dem nächsten Sort-State nach einem Header-Klick.
-   *  3-State-Toggle (Convention): asc → desc → null. Caller setzt damit
-   *  seinen URL-State / Query-Param und triggert ein refetch. */
+  /** Called with the next sort state after a header click.
+   *  The conventional three-state cycle is asc → desc → null. The caller
+   *  uses it to update URL state or a query parameter and refetch. */
   readonly onSortChange?: (next: DataTableSort | null) => void;
-  /** Pro-Row-Aktionen — eine Spalte am rechten Rand mit Inline-Buttons
-   *  (≤2 Aktionen) oder Kebab-Dropdown (>2). Caller liefert Resolved-
-   *  Form (Labels + onTrigger schon verdrahtet); DataTable kümmert
-   *  sich nur um Render + Confirm-Dialog. */
+  /** Per-row actions rendered in a right-hand column as inline buttons
+   *  (≤2 actions) or a kebab dropdown (>2). The caller supplies the resolved
+   *  form, with translated labels and wired `onTrigger`; DataTable handles
+   *  only rendering and the confirmation dialog. */
   readonly rowActions?: readonly DataTableRowAction[];
   /** How the row-action column renders:
    *  - `"adaptive"` (default): with `onRowClick` all actions except the
@@ -824,45 +821,46 @@ export type DataTableProps = {
    *    kebab). Actions then sit at the same x-position across all rows
    *    (no drifting with label width) and all lists in an app look alike. */
   readonly rowActionMode?: DataTableRowActionMode;
-  /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
-   *  Default-Renderer rahmt ihn in einer dashed-border Box. */
+  /** Custom empty-state content (e.g. Icon + Heading + CTA-Button).
+   *  The default renderer wraps it in a dashed-border box. */
   readonly emptyState?: ReactNode;
-  /** Optionaler Titel-Slot ganz links der Toolbar — Screen-Titel
-   *  ("Items", "Bestellungen"). Web rendert als font-medium Heading. */
+  /** Optional title slot at the left of the toolbar, typically the screen
+   *  title ("Items", "Bestellungen"). The web renderer uses a medium-weight heading. */
   readonly toolbarTitle?: ReactNode;
-  /** Toolbar-Slot mittig (typisch Search-Input). Renderer entscheidet
-   *  das Layout — Web spreizt das Element als flex-1 mit max-Breite,
-   *  Native könnte es als Header-Suchleiste rendern. */
+  /** Toolbar slot in the middle, typically a search input. The renderer
+   *  controls the layout; the web implementation gives it `flex-1` with a
+   *  maximum width, while native implementations may use a header search bar. */
   readonly toolbarStart?: ReactNode;
-  /** Toolbar-Slot rechts (typisch + Neu Button, Filter, View-Switch).
-   *  Web zieht den Cluster mit ml-auto an die rechte Kante. */
+  /** Toolbar slot on the right, typically for a + New button, filters, or a
+   *  view switch. The web implementation moves the cluster to the right edge
+   *  with `ml-auto`. */
   readonly toolbarEnd?: ReactNode;
-  /** Faceted-Filter-Dropdowns (select/boolean-Felder) — der Renderer
-   *  setzt sie neben das Search-Input. Leer/undefined → keine Filter. */
+  /** Faceted filter dropdowns for select/boolean fields. The renderer places
+   *  them beside the search input; an empty or undefined value renders no filters. */
   readonly filterFacets?: readonly DataTableFacet[];
-  /** Aktuell ausgewählte Werte je Facet-Feld (vom URL-State). */
+  /** Currently selected values for each facet field, supplied by URL state. */
   readonly filterValues?: Readonly<Record<string, readonly string[]>>;
-  /** Toggle eines Facet-Werts → Caller schreibt URL-State + refetch. */
+  /** Toggling a facet value: the caller updates URL state and refetches. */
   readonly onFilterChange?: (field: string, values: readonly string[]) => void;
-  /** Reset-Button: löscht alle aktiven Facets. Renderer zeigt ihn nur
-   *  wenn mindestens ein Facet aktiv ist. */
+  /** Clears all active facets. The renderer shows the reset button only when
+   *  at least one facet is active. */
   readonly onFilterReset?: () => void;
-  /** Time-range filters beside the facet dropdowns (fw#3104). */
+  /** Time-range filters beside the facet dropdowns. */
   readonly dateRangeFacets?: readonly DataTableDateRangeFacet[];
   /** One bound changed ("" clears it) → caller writes URL state + refetch. */
   readonly onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void;
-  /** Pagination-State + Callback. Wenn gesetzt, rendert der Renderer
-   *  einen Pager unter der Tabelle (Web: Footer-Bar mit ← 1 ... N →).
-   *  total/limit/page sind 1-basiert für die UI; Server-Translation
-   *  zu offset = (page-1)*limit liegt beim Caller. Wenn page > total/limit
-   *  würde, soll der Caller das vorab clampen. */
+  /** Pagination state and callback. When set, the renderer shows a pager below
+   *  the table (web: a footer bar with ← 1 ... N →). `total`, `limit`, and
+   *  `page` are one-based for the UI; the caller translates them to
+   *  `offset = (page-1)*limit` for the server. The caller should clamp a page
+   *  greater than `total/limit` beforehand. */
   readonly pager?: {
     readonly page: number;
     readonly limit: number;
     readonly total: number;
     readonly onPageChange: (next: number) => void;
     /** Offered page sizes; with `onPageSizeChange` the footer shows a
-     *  "N pro Seite" select. */
+     *  "N per page" select. */
     readonly pageSizeOptions?: readonly number[];
     readonly onPageSizeChange?: (next: number) => void;
   };
@@ -871,16 +869,16 @@ export type DataTableProps = {
   /** Noun for the footer count ("1–19 of 19 leases", "1 position"),
    *  resolved for the given count. Omitted = generic "entries" wording. */
   readonly itemNoun?: (count: number) => string;
-  /** Infinite-Scroll Callback. Wenn gesetzt, rendert der Renderer einen
-   *  Bottom-Sentinel und ruft `onReachEnd` wenn der ins Viewport rückt
-   *  (Web: IntersectionObserver). Caller verwaltet accumulation +
-   *  cursor + hasMore. `loadingMore=true` zeigt einen Spinner unter
-   *  der Tabelle solange die nächste Page lädt. Inkompatibel mit
-   *  `pager` — entweder Pager ODER Infinite-Scroll, nicht beides. */
+  /** Infinite-scroll callback. When set, the renderer adds a bottom sentinel
+   *  and calls `onReachEnd` when it enters the viewport (web:
+   *  `IntersectionObserver`). The caller manages accumulation, the cursor, and
+   *  `hasMore`. `loadingMore=true` shows a spinner below the table while the
+   *  next page loads. Incompatible with `pager`: use either pagination or
+   *  infinite scrolling, not both. */
   readonly onReachEnd?: () => void;
   readonly loadingMore?: boolean;
-  /** Wenn false und onReachEnd gesetzt, rendert der Renderer einen
-   *  "Ende der Liste"-Hinweis statt des Sentinels. Default true. */
+  /** When false and `onReachEnd` is set, the renderer shows an end-of-list
+   *  message instead of the sentinel. Defaults to true. */
   readonly hasMore?: boolean;
   readonly testId?: string;
   /** Wires an edit path into a component column-renderer: `DataTableCell`
@@ -896,14 +894,14 @@ export type DataTableProps = {
   /** Overrides the cell `data-testid` (default `cell-${row.id}-${field}`). */
   readonly getCellTestId?: (row: ListRowViewModel, field: string) => string;
   /** Drops the table's own rounded/border/card background — for a host
-   *  that already provides the surrounding boundary (a tab panel, fw#2722)
+   *  that already provides the surrounding boundary (a tab panel)
    *  and would otherwise show a card nested inside that boundary. Default
    *  false: unchanged card-framed table. */
   readonly chromeless?: boolean;
   /** Fills the available height of its flex container and scrolls rows
    *  internally instead of growing with row count — for a host that would
    *  otherwise have a long table stretch the whole page, or a short table
-   *  leave dead space below it (a tab panel, fw#2722). Requires the same
+   *  leave dead space below it (a tab panel). Requires the same
    *  flex-fill chain FormProps.fillHeight sets up above it; without that
    *  ancestor chain this collapses to zero height (Web: `flex-1 min-h-0`
    *  has no effect outside a sized flex-col ancestor). When true the table
@@ -916,7 +914,7 @@ export type DataTableProps = {
   /** Uses the shared screen padding (wider bottom inset) instead of the
    *  table's symmetric embedded inset — for a table that IS the screen body
    *  (entityList/projectionList), so a list screen ends at the same footer
-   *  distance as a form or custom screen (fw#2640). Ignored when
+   *  distance as a form or custom screen. Ignored when
    *  `scrollBody` is true: the wider bottom inset would compete with
    *  `scrollBody`'s flex-fill height budget.
    *  Default false: unchanged symmetric inset for an embedded table. */
@@ -1061,8 +1059,9 @@ export type FormProps = {
   readonly focusFirstErrorKey?: number;
   readonly children: ReactNode;
   readonly title?: ReactNode;
-  /** Optionaler muted Untertitel unter dem Titel (z.B. "Add a new item to
-   *  your catalog") — gibt dem Form-Header Kontext statt nur ein Label. */
+  /** Optional muted subtitle below the title (e.g. "Add a new item to
+   *  your catalog"), providing context in the form header rather than only
+   *  a label. */
   readonly subtitle?: ReactNode;
   readonly actions?: ReactNode;
   /** Secondary, record-related actions — rendered on the left on desktop,
@@ -1074,7 +1073,7 @@ export type FormProps = {
   readonly width?: FormWidth;
   /** Pins `actions` to the viewport bottom on narrow screens (`<640px`)
    *  instead of normal document flow, so it stays reachable when a virtual
-   *  keyboard shrinks the visible viewport (fw#1918). Desktop/tablet
+   *  keyboard shrinks the visible viewport. Desktop/tablet
    *  unaffected. */
   readonly stickyActions?: boolean;
   /** Extra content rendered above the card, inside the same page padding
@@ -1088,7 +1087,7 @@ export type FormProps = {
   /** Sizes the form to fill its container's height (instead of the page's
    *  natural content height) so a single scrolling child — a lone
    *  relatedList tab's table — can scroll internally instead of stretching
-   *  the whole page (fw#2722). Set by RenderEdit for a lone relatedList tab
+   *  the whole page. Set by RenderEdit for a lone relatedList tab
    *  section and for screens that fill the shell height (together with
    *  `stickyActions`: sections scroll, footer stays pinned without
    *  `position: fixed`); every other caller leaves it unset and keeps normal
@@ -1120,18 +1119,18 @@ export type FormProps = {
   readonly sideRail?: ReactNode;
 };
 
-/** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
- *  View mit Header-Text. Native-Impls können den Title als Accordion
- *  oder Collapsible rendern. */
+/** Titled group of fields. Web: `<fieldset>` + `<legend>`; native
+ *  implementations use a `View` with header text and may render the title as
+ *  an accordion or collapsible section. */
 export type SectionProps = {
   /** DOM id — the scroll target of a form's "on this page" navigation. */
   readonly id?: string;
-  /** Optional — ohne Titel rendert die Section nur die Gruppierung
-   *  (kein Header). RenderEdit lässt ihn weg, wenn er den Screen-Titel
-   *  der Action-Bar 1:1 wiederholen würde. */
+  /** Optional; without a title, the Section renders only the grouping and no
+   *  header. RenderEdit omits it when it would exactly repeat the screen title
+   *  in the action bar. */
   readonly title?: string;
-  /** Optionaler muted Untertitel unter dem Titel — gibt der Section
-   *  Kontext statt nur ein Label (analog FormProps.subtitle). */
+  /** Optional muted subtitle below the title, providing section context rather
+   *  than only a label (analogous to `FormProps.subtitle`). */
   readonly subtitle?: ReactNode;
   readonly children: ReactNode;
   /** Rendered top-right in the title row — never a footer. A
@@ -1155,7 +1154,7 @@ export type SectionProps = {
 /** Chromeless flex-fill layout host — no title, no card frame, no padding,
  *  just a container that sizes to its content and, once the ancestor chain
  *  is height-constrained, shrinks so one scrolling child can scroll
- *  internally instead of the page growing (fw#2722, height fw#2778). Web:
+ *  internally instead of the page growing. Web:
  *  `<div className="flex min-h-0 flex-col">`. Native: Views are
  *  already flex-column and the parent is already a bounded viewport there,
  *  so a native impl may render this as a bare Fragment. Used only as the
@@ -1173,15 +1172,15 @@ export type FillContainerProps = {
   readonly grow?: boolean;
 };
 
-/** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit
- *  Width-%, oder react-native-grid. Jedes direkte Child kann eine
- *  `GridCell`-Wrapping bekommen für span-Kontrolle.
+/** Column-based layout. Web uses CSS grid; native implementations use
+ *  flex-wrap with percentages or react-native-grid. Direct children can be
+ *  wrapped in `GridCell` to control their span.
  *
- *  `columns: "auto"` opts out of the N-column stretch layout entirely —
- *  children keep their own content width and wrap onto new lines (e.g. a
- *  metrics band of self-sized tiles, or an inline label+badge row) instead
- *  of being stretched into equal-width tracks. `GridCell` span-wrapping is
- *  meaningless in this mode and should be skipped. */
+ *  `columns: "auto"` disables the N-column stretch layout: children retain
+ *  their content width and wrap onto new lines (for example, self-sized
+ *  metric tiles or an inline label-and-badge row) instead of stretching into
+ *  equal-width tracks. `GridCell` span wrapping is meaningless in this mode
+ *  and should be skipped. */
 export type GridProps = {
   readonly columns: number | "auto";
   readonly children: ReactNode;
@@ -1213,8 +1212,8 @@ export type FieldCellWidth =
   | "full"
   | "toggle";
 
-/** Span-Wrapper für ein Kind innerhalb eines Grid. Web: `style={{gridColumn: span N}}`,
- *  Native: eigenes Width-Rechnen. */
+/** Span wrapper for a child within a grid. Web: `style={{gridColumn: span N}}`;
+ *  native implementations calculate the width themselves. */
 export type GridCellProps = {
   readonly span?: number;
   /** Only read inside a `flow` grid. */
@@ -1222,11 +1221,11 @@ export type GridCellProps = {
   readonly children: ReactNode;
 };
 
-/** Semantischer Text. Variants bilden Standard-Typografie-Rollen ab —
- *  `body` ist Default, `small` für sekundäre Labels, `code` für inline
- *  monospace (entityId, screen-id), `required-mark` für das Sternchen
- *  hinter Labels, `muted` für gedimmten Fließtext (text-sm muted-
- *  foreground). Custom-Impls mappen auf ihren TypeScale. */
+/** Semantic text. Variants map to standard typography roles: `body` is
+ *  the default, `small` for secondary labels, `code` for inline monospace
+ *  (entityId, screen-id), `required-mark` for the asterisk after labels,
+ *  `muted` for dimmed body text (text-sm muted-foreground). Custom impls map
+ *  these to their own type scale. */
 export type TextProps = {
   readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
   /** Pure ornament (e.g. a separator glyph): hidden from assistive tech. */
@@ -1235,31 +1234,32 @@ export type TextProps = {
   readonly testId?: string;
 };
 
-/** Heading mit zwei Rollen — `page` als Page-Titel (Web: h1), `section`
- *  als Sub-Header über einer Group (Web: h2 mit uppercase + muted).
- *  Native-Impls mappen auf `<Text>` mit entsprechendem fontWeight/Size. */
+/** Heading with two roles: `page` is a page title (web: h1), while `section`
+ *  is a group subheading (web: h2 with uppercase and muted styling). Native
+ *  implementations map these to `<Text>` with the corresponding font weight
+ *  and size. */
 export type HeadingProps = {
   readonly variant?: "page" | "section";
   readonly children: ReactNode;
   readonly testId?: string;
 };
 
-/** Modal-Dialog für Bestätigungen oder kompakte Sub-Forms. Web rendert
- *  Radix-Dialog (Focus-Trap, Esc-Schließen, Overlay-Click); Native
- *  würde ein Native-Modal nutzen. Apps öffnen den Dialog über einen
- *  External-State (`open` + `onOpenChange`); Confirm-Action läuft
- *  durch `onConfirm`, Cancel klappt zu via `onOpenChange(false)`.
+/** Modal dialog for confirmations or compact sub-forms. The web renderer
+ *  uses Radix Dialog with focus trapping, Escape-to-close, and overlay-click
+ *  handling; native implementations may use a native modal. Apps control it
+ *  through external state (`open` + `onOpenChange`); confirmation runs through
+ *  `onConfirm`, while cancellation closes it via `onOpenChange(false)`.
  *
- *  Variant `danger` markiert destruktive Bestätigungen visuell
- *  (rote Confirm-Button-Klasse), `default` für neutrale Dialoge. */
+ *  Variant `danger` visually marks destructive confirmations with a red
+ *  confirm-button class; `default` is for neutral dialogs. */
 export type DialogProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly title: string;
-  /** Optional Beschreibung — typisch ein Satz der die Konsequenz
-   *  erklärt ("Diese Aktion lässt sich nicht rückgängig machen."). */
+  /** Optional description, typically a sentence explaining the consequence
+   *  ("This action cannot be undone."). */
   readonly description?: string;
-  /** Confirm-Button-Label. Default kommt aus i18n
+  /** Confirm-button label. Defaults to the i18n value
    *  (`kumiko.dialog.confirm`). */
   readonly confirmLabel?: string;
   /** Cancel-Button-Label. Default `kumiko.dialog.cancel`. */
@@ -1271,12 +1271,11 @@ export type DialogProps = {
    *  `children` are present. `"cancel"` for
    *  dialogs where the safe choice must be the one Enter triggers. */
   readonly initialFocus?: "confirm" | "cancel";
-  /** Wird gefeuert wenn der User Confirm drückt. Async-Funktion ist
-   *  ok — Dialog setzt automatisch loading-State, ruft danach
-   *  onOpenChange(false). */
+  /** Called when the user confirms. Async functions are supported; the dialog
+   *  automatically sets a loading state and then calls `onOpenChange(false)`. */
   readonly onConfirm: () => void | Promise<void>;
-  /** Optional zusätzlicher Inhalt zwischen description und Buttons
-   *  (z.B. ein Input wenn der Dialog auch Eingaben sammelt). */
+  /** Optional additional content between the description and buttons, such as
+   *  an input when the dialog also collects data. */
   readonly children?: ReactNode;
   readonly testId?: string;
 };
@@ -1299,7 +1298,7 @@ export type ModalProps = {
 /** Side panel for hosting an existing self-contained form/widget (own
  *  submit/cancel buttons) without leaving the underlying screen — e.g. a
  *  toolbar action's `kind: "drawer"` mounts an actionForm here instead of
- *  navigating to a full page (fw#2225). Same "bare content shell, no
+ *  navigating to a full page. Same "bare content shell, no
  *  footer buttons of its own" contract as `Modal`, slide-in instead of
  *  centered overlay. */
 export type DrawerProps = {
@@ -1368,10 +1367,10 @@ export type ConfigCascadeViewProps = {
   readonly renderValue?: (value: string | number | boolean) => ReactNode;
 };
 
-/** Card-Slots — benannte Inhalts-Regionen, alle optional. Neue Slots später =
- *  rein additiv → Consumer müssen NIE migriert werden. `header` ist der Escape-
- *  Hatch: ein roher Knoten ersetzt den Default-Header (title/subtitle/
- *  headerActions) komplett, wenn die Convenience-Slots nicht reichen. */
+/** Card slots are named content regions, all optional. Adding slots is
+ *  additive, so consumers do not need migration. `header` is an escape hatch:
+ *  a raw node replaces the default header (`title`/`subtitle`/`headerActions`)
+ *  when the convenience slots are insufficient. */
 export type CardSlots = {
   readonly header?: ReactNode;
   readonly title?: ReactNode;
@@ -1380,9 +1379,9 @@ export type CardSlots = {
    *  title/subtitle/`headerActions` row, within the same header block — for a
    *  host-supplied header (projectionDetail `slots.header`). */
   readonly headerContent?: ReactNode;
-  /** Rechtsbündiger Header-Slot (Range-Umschalter, Filter, Badge …). */
+  /** Right-aligned header slot, for example a range switcher, filter, or badge. */
   readonly headerActions?: ReactNode;
-  /** Footer-Inhalt, abgehoben (border-t). Default rechtsbündig. */
+  /** Footer content, separated by a top border; aligned to the right by default. */
   readonly footer?: ReactNode;
 };
 
@@ -1392,12 +1391,12 @@ export type CardOptions = {
   readonly padded?: boolean;
   /** Eckenradius. Default "xl" (= Entity-Card). */
   readonly radius?: "lg" | "xl";
-  /** Footer abgehoben mit border-t + bg-muted/30. Default true. */
+  /** Separates the footer with `border-t` and `bg-muted/30`. Defaults to true. */
   readonly footerBordered?: boolean;
   /** Footer horizontal padding. false = none, so footer content aligns with the card edge. Default true. */
   readonly footerInset?: boolean;
-  /** Joins the ancestor fillHeight flex chain (fw#2722/#2778 — a tabs-mode
-   *  relatedList table sizing to the panel instead of the page) instead of
+  /** Joins the ancestor fillHeight flex chain — a tabs-mode
+   *  relatedList table sizing to the panel instead of the page — instead of
    *  normal document-flow height. Default false. */
   readonly fillHeight?: boolean;
   /** false drops border, background, shadow and radius but keeps padding and
@@ -1410,13 +1409,15 @@ export type CardOptions = {
   readonly screenBody?: boolean;
 };
 
-/** Generische Card-Chrome (border/bg/radius/shadow + Header/Body/Footer) als
- *  Primitive — eine Quelle für alle Card-Flächen, statt pro App nachgebaut.
- *  Slot- + Options-basiert, damit der Contract stabil bleibt. */
+/** Generic card chrome (border/background/radius/shadow plus
+ *  header/body/footer) as a primitive, providing one implementation for all
+ *  card surfaces. It is slot- and option-based so the contract can evolve
+ *  additively. */
 export type CardProps = {
   readonly slots?: CardSlots;
   readonly options?: CardOptions;
-  /** Body-Inhalt (Normalfall; Header/Footer kommen über slots). */
+  /** Body content in the normal case; header and footer are supplied through
+   *  `slots`. */
   readonly children?: ReactNode;
   readonly className?: string;
   readonly testId?: string;
@@ -1485,8 +1486,8 @@ export type StepBarProps = {
  *  native constraint-validation concept (web: `<fieldset disabled>`, spec-
  *  guaranteed to also bar descendants from participating) must bar it too,
  *  or a `type="submit"` step-advance button triggers the browser's
- *  full-form check against fields on unvisited, unfocusable steps
- *  (kumiko-framework#1976). Implementations without that concept can gate
+ *  full-form check against fields on unvisited, unfocusable steps.
+ *  Implementations without that concept can gate
  *  on `hidden` alone. */
 export type WizardStepGroupProps = {
   readonly hidden: boolean;
@@ -1634,7 +1635,7 @@ export type PageHeaderProps = {
   readonly breadcrumbScreenId?: string;
 };
 
-/** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the
+/** One item in an `ActionOverflowMenu` (header/row actions beyond the
  *  primary one collapse into this menu instead of a wall of buttons). */
 export type ActionMenuItemSpec = {
   readonly id: string;
@@ -1654,7 +1655,7 @@ export type ActionOverflowMenuProps = {
   readonly testId?: string;
 };
 
-/** One revealed value on a `secretMint` screen's confirm phase (fw#2548). */
+/** One revealed value on a `secretMint` screen's confirm phase. */
 export type SecretRevealValue = {
   readonly label: string;
   readonly value: string;
@@ -1800,7 +1801,7 @@ export type CorePrimitives = {
   /** Optional — additive rollout, see StickyActionBar. */
   readonly MetricBand?: ComponentType<MetricBandProps>;
   /** Optional: without an implementation, callers with >2 header/row
-   *  actions fall back to today's all-buttons-inline rendering (A7). */
+   *  actions fall back to today's all-buttons-inline rendering. */
   readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;
   /** Optional (unlike the other Core-Primitives) so existing partial
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
@@ -1818,8 +1819,8 @@ export type CorePrimitives = {
   readonly PromoPanel?: ComponentType<PromoPanelProps>;
 };
 
-/** Offene Extension-Zone für App-eigene Primitives. Devs erweitern
- *  dieses Interface via TypeScript Module-Augmentation:
+/** Extension point for app-owned primitives. Developers extend this
+ *  interface through TypeScript module augmentation:
  *
  *    declare module "@cosmicdrift/kumiko-renderer" {
  *      interface AppPrimitives {
@@ -1828,12 +1829,11 @@ export type CorePrimitives = {
  *      }
  *    }
  *
- *  Nach der Augmentation tauchen die Keys in `PrimitivesRegistry`,
- *  `createKumikoApp({ primitives: { Chip, Accordion } })`, und
- *  `usePrimitives().Chip` auf — TypeScript-gestützt. Kumikos eigene
- *  Components nutzen ausschließlich `CorePrimitives`; App-Primitives
- *  sind ausschließlich für Dev-Code (Custom-Screens, Shell, eigene
- *  Components). */
+ *  After augmentation, the keys appear in `PrimitivesRegistry`,
+ *  `createKumikoApp({ primitives: { Chip, Accordion } })`, and
+ *  `usePrimitives().Chip` with TypeScript support. Kumiko's own components
+ *  use only `CorePrimitives`; app primitives are exclusively for developer
+ *  code such as custom screens, shells, and app-owned components. */
 // biome-ignore lint/suspicious/noEmptyInterface: extension point for module augmentation
 export interface AppPrimitives {}
 

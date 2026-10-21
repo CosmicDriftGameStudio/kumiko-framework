@@ -1,14 +1,15 @@
-// Browser-Impl der Navigation: HTML5-History + popstate subscribe.
-// Types + Context + useNav leben im shared `@cosmicdrift/kumiko-renderer`; dieser
-// File liefert nur die Web-spezifische NavApi-Instanz und die
-// `<KumikoLink>` Anchor-Komponente.
+// Browser navigation implementation: HTML5 History + popstate subscription.
+// Types, Context, and useNav live in the shared `@cosmicdrift/kumiko-renderer`; this
+// file provides only the web-specific NavApi instance and the
+// `<KumikoLink>` anchor component.
 //
-// Bewusst KEIN createStore: Source-of-truth ist `window.location.pathname`
-// (extern, kann via replaceState außerhalb unserer Kontrolle wechseln).
-// Ein Store wäre entweder eine zweite Wahrheit (Drift-Risiko) oder ein
-// reiner Tick-Counter (Anti-Pattern — createStore ist State-Holder, kein
-// Event-Bus). Hand-rolled Listener-Set ist hier idiomatisch: zwei
-// Notify-Trigger (eigenes pushPath, popstate-Event), nicht generalisierbar.
+// Deliberately no createStore: the source of truth is `window.location.pathname`
+// (external and able to change through replaceState outside our control).
+// A store would either be a second source of truth (risking drift) or a
+// tick counter (an anti-pattern—createStore is a state holder, not an
+// event bus). A hand-rolled listener set is appropriate here: there are two
+// notification triggers (our pushPath and the popstate event), so this is not
+// generalizable.
 
 import {
   type AnchorHTMLAttributes,
@@ -32,25 +33,25 @@ import {
   useNav,
 } from "../../index.ts";
 
-// basePath erlaubt es, die App unter einem URL-Prefix zu mounten
-// (z.B. `/admin`). Read-Pfad strippt den Prefix vor dem parsePath,
-// Write-Pfad prepend'd ihn vor dem pushState/replaceState/href.
+// basePath allows the app to be mounted under a URL prefix
+// (for example, `/admin`). The read path strips the prefix before parsePath;
+// the write path prepends it before pushState/replaceState/href.
 //
-// Wenn die URL nicht im basePath liegt (z.B. /marketing/foo bei
-// basePath="/admin"), liefert stripBasePath `undefined` — useBrowserNavApi
-// gibt dann route=undefined zurück, die App rendert ihren "outside"-State
-// (Not-Found, Marketing-Layer, Server-Routing-Pickup, …). Es gibt KEIN
-// Auto-Redirect zur App-Root — die Host-App entscheidet selbst.
+// If the URL is not under basePath (for example, /marketing/foo with
+// basePath="/admin"), stripBasePath returns `undefined`—useBrowserNavApi then
+// returns route=undefined, and the app renders its "outside" state
+// (Not-Found, marketing layer, server-routing pickup, …). There is no
+// automatic redirect to the app root—the host app decides.
 function normalizeBasePath(raw: string | undefined): string {
   if (raw === undefined || raw === "" || raw === "/") return "";
   const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
   return withLeading.endsWith("/") ? withLeading.slice(0, -1) : withLeading;
 }
 
-// Returns the in-app path (basePath-relativ) wenn `path` im basePath liegt,
-// sonst `undefined`. Strict-segment-Boundary: "/administrator" matcht
-// nicht "/admin" — sonst würde der Prefix-Check auf String-Ebene falsche
-// Treffer liefern.
+// Returns the in-app (basePath-relative) path when `path` is under basePath;
+// otherwise returns `undefined`. The segment boundary is strict: "/administrator"
+// does not match "/admin"—otherwise a string-level prefix check would produce
+// false matches.
 function stripBasePath(path: string, basePath: string): string | undefined {
   if (basePath === "") return path;
   if (path === basePath) return "/";
@@ -60,15 +61,15 @@ function stripBasePath(path: string, basePath: string): string | undefined {
 
 function prependBasePath(path: string, basePath: string): string {
   if (basePath === "") return path;
-  // formatPath liefert immer absoluten in-app-Pfad: "/" oder "/screen-id"
-  // oder "/screen-id/entity-id". "/" → einfach basePath, sonst concat.
+  // formatPath always returns an absolute in-app path: "/" or "/screen-id"
+  // or "/screen-id/entity-id". "/" becomes basePath; otherwise, concatenate.
   if (path === "/" || path === "") return basePath;
   return `${basePath}${path}`;
 }
 
-// pushState feuert keinen popstate — wir halten einen eigenen
-// Listener-Set, den navigate() notifiziert. popstate (Back/Forward)
-// läuft über einen window-Listener, den wir einmalig verdrahten.
+// pushState does not fire popstate, so we maintain a listener set that
+// navigate() notifies. Back/Forward navigation goes through a window listener
+// wired exactly once.
 const listeners = new Set<() => void>();
 let popstateWired = false;
 // URL the app currently shows; popstate has already moved the browser to the
@@ -124,11 +125,11 @@ function readPath(): string {
   return typeof window !== "undefined" ? window.location.pathname : "/";
 }
 
-// Read der aktuellen ?key=value-Pairs als Plain-Record. URLSearchParams-
-// Iterator gibt String/String — wir kollabieren auf "letzter Wert
-// gewinnt" wenn ein Key mehrfach im Query auftaucht (`?a=1&a=2` → "2").
-// Multi-Value-Lists sind kein Use-Case in Kumiko-Filter-State; explizit
-// dokumentieren statt unspezifizierten Behavior zu liefern.
+// Reads the current ?key=value pairs as a plain record. URLSearchParams-
+// iterator yields String/String; when a key occurs more than once, the last
+// value wins (`?a=1&a=2` → "2").
+// Multi-value lists are not supported in Kumiko filter state; documenting this
+// explicitly is preferable to providing unspecified behavior.
 function readSearch(): string {
   return typeof window !== "undefined" ? window.location.search : "";
 }
@@ -141,10 +142,10 @@ function parseSearchParams(search: string): Readonly<Record<string, string>> {
   return out;
 }
 
-// Mergt updates in den aktuellen ?-String. `null` löscht, sonst
-// überschreibt. Verwendet replaceState (KEIN push) — Sort/Filter-Toggles
-// flutten sonst die Back-Navigation und User clicked sich durch
-// dutzende Zwischen-States um zur vorherigen Seite zu kommen.
+// Merges updates into the current query string. `null` deletes a key; other
+// values overwrite it. Uses replaceState rather than pushState—otherwise
+// sort/filter toggles would flood Back navigation, forcing users through
+// dozens of intermediate states to reach the previous page.
 function applySearchParamUpdates(updates: Readonly<Record<string, string | null>>): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
@@ -205,32 +206,33 @@ function replacePath(path: string, search: string | undefined): void {
   else apply();
 }
 
-/** React-Hook der eine NavApi aus der Browser-History baut. Sollte
- *  einmal im App-Root aufgerufen und als value an den shared
- *  `<NavProvider>` durchgereicht werden — createKumikoApp tut das.
+/** React hook that builds a NavApi from browser history. It should be
+ *  called once at the app root and passed as the value to the shared
+ *  `<NavProvider>`—createKumikoApp does this.
  *
- *  hasWorkspaces aus dem Schema (schema.workspaces non-empty) entscheidet,
- *  ob das erste URL-Segment als Workspace-id parsed wird. Pure Pass-
- *  through an parsePath; formatPath checkt selbst auf target.workspaceId.
+ *  Whether the schema has workspaces (schema.workspaces is non-empty) determines
+ *  whether the first URL segment is parsed as a workspace ID. This is a pure
+ *  pass-through to parsePath; formatPath checks target.workspaceId itself.
  *
- *  basePath mounted die App unter einem URL-Prefix (z.B. "/admin"). Read-
- *  Pfad strippt vor parsePath, Write-Pfad prepend'd vor pushState/href.
- *  URLs außerhalb des basePath liefern route=undefined, ohne Auto-Redirect.
+ *  basePath mounts the app under a URL prefix (for example, "/admin"). The read
+ *  path strips it before parsePath, and the write path prepends it before
+ *  pushState/href. URLs outside basePath produce route=undefined without an
+ *  automatic redirect.
  *
- *  Achtung — Ambiguität bei route=undefined mit basePath:
- *  Sowohl die App-Root (URL === basePath, z.B. "/admin") als auch URLs
- *  außerhalb des basePath (z.B. "/marketing") liefern route=undefined. Eine
- *  App die zwischen "render Default-Screen" und "render Not-Found"
- *  unterscheiden muss, muss zusätzlich `window.location.pathname` prüfen:
+ *  Note the ambiguity of route=undefined with basePath:
+ *  Both the app root (URL === basePath, for example, "/admin") and URLs
+ *  outside basePath (for example, "/marketing") produce route=undefined. An
+ *  app that must distinguish between "render Default-Screen" and "render
+ *  Not-Found" must also inspect `window.location.pathname`:
  *
  *    if (window.location.pathname.startsWith("/admin")) {
- *      // in-app, aber an der Root → Default-Screen
+ *      // in-app, but at the root → Default-Screen
  *    } else {
  *      // out-of-app → Not-Found / Marketing-Layer
  *    }
  *
- *  Im non-basePath-Modus ergibt sich diese Ambiguität nicht — out-of-app
- *  ist dort kein Konzept. */
+ *  In non-basePath mode, this ambiguity does not arise—out-of-app is not a
+ *  concept there. */
 export function useBrowserNavApi(options?: {
   readonly hasWorkspaces?: boolean;
   readonly basePath?: string;
@@ -240,10 +242,10 @@ export function useBrowserNavApi(options?: {
   readonly features?: readonly FeatureSchema[];
 }): NavApi {
   const path = useSyncExternalStore(subscribe, readPath, () => "/");
-  // Search wird über denselben Listener-Set notifiziert (popstate +
-  // unsere replaceState-Calls), also reichen wir denselben subscribe
-  // durch. Beide Snapshots werden zusammen recomputed — kein Drift
-  // zwischen Pfad und Query.
+  // Search is notified through the same listener set (popstate +
+  // our replaceState calls), so we reuse the same subscribe function.
+  // Both snapshots are recomputed together, preventing drift
+  // between the path and query.
   const search = useSyncExternalStore(subscribe, readSearch, () => "");
   const hasWorkspaces = options?.hasWorkspaces === true;
   const basePath = useMemo(() => normalizeBasePath(options?.basePath), [options?.basePath]);
@@ -252,11 +254,11 @@ export function useBrowserNavApi(options?: {
   const features = options?.features ?? NO_FEATURES;
   return useMemo<NavApi>(() => {
     const route = inAppPath === undefined ? undefined : parsePath(inAppPath, hasWorkspaces);
-    // NavTarget-Contract: workspaceId weglassen = aktueller Workspace
-    // bleibt. formatPath kennt die aktuelle Route nicht — ohne Injection
-    // landet `/screen-id` in parsePath(hasWorkspaces) als workspaceId,
-    // WorkspaceShell sieht einen unbekannten Workspace und revertet
-    // sofort auf den Default-Screen ("Klick tut nichts"-Prod-Bug).
+    // NavTarget contract: omitting workspaceId preserves the current workspace.
+    // formatPath does not know the current route, so without this injection
+    // `/screen-id` is parsed as a workspaceId by parsePath(hasWorkspaces),
+    // causing WorkspaceShell to see an unknown workspace and immediately
+    // revert to the default screen (a production bug where "click does nothing").
     const inCurrentWorkspace = (target: ScreenTarget): ScreenTarget =>
       hasWorkspaces && target.workspaceId === undefined && route?.workspaceId !== undefined
         ? { ...target, workspaceId: route.workspaceId }
@@ -280,7 +282,7 @@ export function useBrowserNavApi(options?: {
   }, [inAppPath, hasWorkspaces, basePath, searchParams, features]);
 }
 
-// ---- KumikoLink (Anchor-basiert, nur Web) ----
+// ---- KumikoLink (anchor-based, web only) ----
 
 export type KumikoLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   readonly to: NavTarget;
@@ -292,8 +294,8 @@ export function KumikoLink({ to, onClick, children, ...rest }: KumikoLinkProps):
     (e: MouseEvent<HTMLAnchorElement>) => {
       onClick?.(e);
       if (e.defaultPrevented) return;
-      // Standard-Browser-Verhalten für Cmd/Ctrl/Shift/Alt + Middle-Click
-      // erhalten — nur der plain-left-click landet bei navigate().
+      // Preserve standard browser behavior for Cmd/Ctrl/Shift/Alt + middle-click;
+      // only a plain left click is handled by navigate().
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
       nav.navigate(to);

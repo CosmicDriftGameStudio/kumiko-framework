@@ -3,21 +3,20 @@ import type { ListRowViewModel } from "../../headless/index.ts";
 import { type DataTableProps, usePrimitives, useQuery, useTranslation } from "../../index.ts";
 import { EmptyState, ErrorState, LoadingState } from "./states.tsx";
 
-// Query-backed Tabelle für Custom-Screens: ein Widget statt der
-// handgebauten useState+fetch+<table>-Trios. Deklarativ: Query-Type +
-// Spalten rein, Loading/Error/Empty/Render übernimmt das Widget über
-// das DataTable-Primitive (gleiche Optik wie entityList-Screens).
+// Query-backed table for custom screens: a widget instead of hand-built
+// useState+fetch+<table> trios. Declarative: provide the query type and
+// columns; the widget handles loading, error, empty, and rendering through
+// the DataTable primitive (with the same appearance as entityList screens).
 //
-// ponytail: Zellen rendern über die DataTable-Typ-Formatierung (text/
-// number/money/…), kein render-Prop pro Spalte — für Custom-Zellen die
-// entityList-columnRenderers nutzen oder das Widget erweitern, wenn eine
-// Migration es wirklich braucht.
+// ponytail: Cells use DataTable type formatting (text/number/money/…), with
+// no render prop per column — use entityList-columnRenderers for custom cells
+// or extend the widget when a migration genuinely requires it.
 
 export type QueryTableColumn = {
   readonly field: string;
-  /** Translated Header-Label (i18n-Key auflösen liegt beim Caller). */
+  /** Translated header label (resolving the i18n key is the caller's responsibility). */
   readonly label: string;
-  /** Field-Type für die Zell-Formatierung. Default "text". */
+  /** Field type for cell formatting. Default: "text". */
   readonly type?: string;
 };
 
@@ -25,16 +24,16 @@ export type QueryTableProps<TData = unknown> = {
   /** Dispatcher-Query-Type (`<feature>:query:<entity>:<verb>`). */
   readonly query: string;
   readonly payload?: unknown;
-  /** SSE-Invalidierung — refetcht bei Entity-Events (useQuery live-mode). */
+  /** SSE invalidation — refetches on entity events (useQuery live mode). */
   readonly live?: boolean;
   readonly columns: readonly QueryTableColumn[];
-  /** Rows aus dem Query-Result ziehen. Default: Result selbst als Array. */
+  /** Extracts rows from the query result. Default: the result itself as an array. */
   readonly rows?: (data: TData) => readonly Readonly<Record<string, unknown>>[];
-  /** Row-Id für Keys/Row-Click. Default: `row.id`, sonst der Index. */
+  /** Row ID for keys and row clicks. Default: `row.id`, otherwise the index. */
   readonly rowId?: (row: Readonly<Record<string, unknown>>, index: number) => string;
   readonly onRowClick?: DataTableProps["onRowClick"];
   readonly rowActions?: DataTableProps["rowActions"];
-  /** Empty-Inhalt — Default ist der Standard-Empty-State der Listen. */
+  /** Empty content — defaults to the standard list empty state. */
   readonly emptyState?: ReactNode;
   readonly toolbarTitle?: ReactNode;
   readonly toolbarEnd?: ReactNode;

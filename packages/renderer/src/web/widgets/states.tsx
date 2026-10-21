@@ -4,8 +4,8 @@ import { dispatcherErrorText, usePrimitives, useTranslation } from "../../index.
 import { cn } from "../lib/cn.ts";
 import { Skeleton } from "../ui/skeleton.tsx";
 
-/** Leerer-Zustand mit optionalem Icon + CTA — die dashed-Box-Optik der
- *  entityList-Empty-States, als Standalone-Widget für Custom-Screens. */
+/** Empty state with an optional icon and CTA, using the dashed-box style of
+ *  entityList empty states as a standalone widget for custom screens. */
 export function EmptyState({
   icon,
   title,
@@ -34,7 +34,7 @@ export function EmptyState({
   );
 }
 
-/** Lade-Zustand: Skeleton-Zeilen in Card-Optik. `rows` steuert die Höhe. */
+/** Loading state with skeleton rows styled like cards; `rows` controls the height. */
 export function LoadingState({
   rows = 3,
   className,
@@ -52,14 +52,14 @@ export function LoadingState({
       className={cn("flex w-full flex-col gap-2", className)}
     >
       {Array.from({ length: rows }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: statische Skeleton-Liste, Index ist stabil
+        // biome-ignore lint/suspicious/noArrayIndexKey: the skeleton list is static, so the index is stable
         <Skeleton key={i} className="h-9 w-full" />
       ))}
     </output>
   );
 }
 
-/** Fehler-Zustand auf Basis des Banner-Primitives, mit Retry-Button. */
+/** Error state based on the Banner primitive, with a retry button. */
 export function ErrorState({
   error,
   onRetry,

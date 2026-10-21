@@ -59,11 +59,10 @@ export type KumikoScreenProps = {
   // createKumikoApp does exactly that; override to open a drawer,
   // inline-expand, etc.
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
-  // Copy-Link-Action auf entityEdit-Update-Screens (Issue #912). Bereits
-  // vollständig gebunden (URL-Bau + Clipboard) — createKumikoApp/RoutedScreen
-  // liefert die Default-Impl, dieses platform-neutrale Package baut selbst
-  // keine URLs/Clipboard-Calls (guard-renderer-boundaries). Nur in
-  // update-mode sichtbar (entityId muss gesetzt sein).
+  // Copy-link action for entityEdit update screens. The default implementation
+  // is provided by createKumikoApp/RoutedScreen; this platform-neutral package
+  // does not build URLs or call the clipboard (guard-renderer-boundaries).
+  // Visible only in update mode (entityId must be set).
   readonly onCopyLink?: () => Promise<void> | void;
 };
 
@@ -276,7 +275,7 @@ function renderScreenBody({
         // ProjectionDetailBody's own hideSectionTitles/tab handling) forces
         // a full remount when navigating from one record to the next —
         // without it React keeps the RenderEdit form controller alive and
-        // the screen briefly shows the PREVIOUS record's fields (fw#2518).
+        // the screen briefly shows the PREVIOUS record's fields.
         <ProjectionDetailBody
           key={entityId ?? "no-entity"}
           schema={schema}
@@ -318,9 +317,9 @@ function renderScreenBody({
   }
 }
 
-// Injection-Body für dashboard-Screens: die Panel-Implementierung (StatCard,
-// Charts) ist plattform-spezifisch und kommt aus dem DashboardBody-Context
-// (renderer/web registriert die Web-Variante in createKumikoApp).
+// The dashboard panel implementation (StatCard, charts) is platform-specific and
+// comes from the DashboardBody context; renderer/web registers the web
+// implementation in createKumikoApp.
 function DashboardScreenBody({
   featureName,
   screen,
@@ -350,13 +349,11 @@ function DashboardScreenBody({
   );
 }
 
-// Lookup-Body für custom-screens: schaut die Component aus dem
-// CustomScreens-Context (gefüttert von clientFeatures.components in
-// createKumikoApp). Wenn weder Provider gemounted noch screenId
-// registriert ist, fällt es auf einen error-Banner zurück statt leer zu
-// rendern — der Screen ist per URL erreichbar sobald das Server-Feature
-// gemountet ist, unabhängig davon ob ein Client-Plugin existiert
-// (kumiko-framework#2025).
+// Looks up the component from the CustomScreens context, populated by
+// clientFeatures.components in createKumikoApp. If no provider is mounted or
+// the screenId is unregistered, an error banner is rendered instead of an
+// empty screen. The screen remains reachable by URL when the server feature is
+// mounted, even without a client plugin.
 function CustomScreenBody({
   screenId,
   featureName,

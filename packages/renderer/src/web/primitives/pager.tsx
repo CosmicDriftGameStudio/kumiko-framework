@@ -24,7 +24,7 @@ export const TABLE_FOOTER_BAR_CLASS = cn(
 // `screen.pageSize ?? 50`) rather than the real per-screen pageSize, which isn't
 // threaded down to this component. A screen with a custom pageSize can still
 // under- or over-show the marker; thread pageSize through KumikoScreen →
-// RenderList → DataTable → InfiniteSentinel if that's needed (fw#1713).
+// RenderList → DataTable → InfiniteSentinel if that's needed.
 export const END_LABEL_MIN_ROWS = 50;
 
 export function InfiniteSentinel({

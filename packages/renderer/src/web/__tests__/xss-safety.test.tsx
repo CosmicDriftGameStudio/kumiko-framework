@@ -1,10 +1,9 @@
 //
-// Pins the XSS-escaping behavior for tenant-/pattern-authored content
-// (kumiko-framework#1321). renderer/web has no dangerouslySetInnerHTML
-// and no field-renderer path that wires tenant data into href/src — this
-// test guards JSX auto-escaping against future regressions (e.g. if
-// someone adds rich-text/markdown support via dangerouslySetInnerHTML),
-// and pins the Link primitive's scheme guard (kumiko-framework#1365)
+// Pins the XSS-escaping behavior for tenant-/pattern-authored content.
+// renderer/web has no dangerouslySetInnerHTML and no field-renderer path
+// that wires tenant data into href/src — this test guards JSX auto-escaping
+// against future regressions (e.g. if someone adds rich-text/markdown support
+// via dangerouslySetInnerHTML), and pins the Link primitive's scheme guard
 // against javascript:/data: hrefs as defense-in-depth.
 
 import { describe, expect, test } from "bun:test";

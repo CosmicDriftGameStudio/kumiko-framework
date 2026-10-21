@@ -7,11 +7,11 @@ import type { ReactElement, ReactNode } from "react";
 import { type ColumnRendererProps, ColumnRenderersProvider, RenderList } from "../../index.ts";
 import { render, screen } from "./test-utils.tsx";
 
-// Tests für die JSX-Renderer-Form von ListColumn-Spalten:
-// `{ react: { __component: "Name" } }` wird via ColumnRenderersProvider
-// auf eine echte React-Component aufgelöst. Function- und Default-Pfad
-// sind in render-list.test.tsx abgedeckt — hier geht es um die drei
-// Cases die mit dem Provider-Lookup zusammenhängen.
+// Tests for the JSX renderer form of ListColumn columns:
+// `{ react: { __component: "Name" } }` is resolved to a real React component
+// via ColumnRenderersProvider. The function and default paths are covered in
+// render-list.test.tsx; these tests cover the three cases involving provider
+// lookup.
 
 const taskEntity = {
   fields: {
@@ -42,9 +42,9 @@ function withRenderers(ui: ReactNode, map: Record<string, typeof ColorSwatch>): 
 }
 
 describe("RenderList — column-renderer registry", () => {
-  // Spy lokal pro Test installieren + global zurückbauen, damit die
-  // Mock-Implementation nicht in andere Test-Dateien leakt (Console-Spy
-  // auf File-Level würde den ganzen Vitest-Worker betreffen).
+  // Install the spy locally and restore the global afterward so the mock
+  // implementation does not leak into other test files (a file-level console
+  // spy would affect the entire Vitest worker).
   let warnSpy: Mock<typeof console.warn>;
   beforeEach(() => {
     warnSpy = spyOn(console, "warn").mockImplementation(() => {});
@@ -110,7 +110,7 @@ describe("RenderList — column-renderer registry", () => {
         {},
       ),
     );
-    // Default-Renderer für type=text → roher Wert
+    // Default renderer for type=text → raw value
     expect(screen.getByTestId("cell-r1-color").textContent).toBe("#abc");
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('columnRenderer "MissingRenderer" not registered'),

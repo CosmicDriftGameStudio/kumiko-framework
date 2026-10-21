@@ -1,8 +1,8 @@
-// nav-registry Pure-Logik Tests (Phase 1, test-luecken-integration, Tier 1).
+// Pure nav-registry logic tests.
 //
-// buildNavRegistrySlice(ForApp) qualifiziert Feature-lokale Nav-IDs zu QNs
-// (feature:nav:id), wendet einen optionalen Workspace-Allow-Filter an und
-// baut topLevel + byParent. Pure, kein DOM.
+// buildNavRegistrySlice(ForApp) qualifies feature-local nav IDs as QNs
+// (feature:nav:id), applies an optional workspace allowlist, and builds
+// topLevel + byParent. Pure logic; no DOM.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -66,7 +66,7 @@ describe("buildNavRegistrySlice", () => {
         { id: "main", label: "Main" },
         { id: "list", label: "List", parent: "main" },
       ]),
-      new Set(["tasks:nav:list"]), // nur child erlaubt, parent gedroppt
+      new Set(["tasks:nav:list"]), // only the child is allowed; the parent was dropped
     );
     expect(slice.topLevel.map((n) => n.id)).toEqual(["tasks:nav:list"]);
     expect(slice.byParent("tasks:nav:main")).toEqual([]);

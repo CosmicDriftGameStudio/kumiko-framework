@@ -10,7 +10,7 @@ export type ScreenWidth = FormWidth;
 
 // Shared 3xl/4xl/full → max-w-*/mx-auto map. FormScreenShell
 // (primitives/index.tsx) reuses this instead of keeping its own copy —
-// same width tokens must render the same class everywhere (fw#2640).
+// same width tokens must render the same class everywhere.
 export const screenWidthClassName: Record<ScreenWidth, string> = {
   "3xl": "max-w-3xl mx-auto",
   "4xl": "max-w-4xl mx-auto",
@@ -29,7 +29,7 @@ export const screenFormColumnWidthClassName: Record<ScreenWidth, string> = {
 // FormScreenShell, list screens and the pinned-footer screen form). The inset
 // is the one the settings screens use, so a list, a dashboard and a form start
 // at the same edge. The bottom inset keeps the last field or table row off the
-// viewport edge (fw#2640).
+// viewport edge.
 export const screenPaddingClassName = "px-4 pb-6 pt-5 md:px-10 md:pb-10 md:pt-7";
 
 const STACK_GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6" } as const;

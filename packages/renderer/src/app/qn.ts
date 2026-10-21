@@ -1,21 +1,19 @@
-// Qualified-Name-Helper. Kumiko's Registry stempelt beim Boot den
-// Feature-Prefix auf jede Screen/Nav/Workspace-id ein:
+// Qualified-name helper. At boot, Kumiko's Registry adds the feature prefix to every Screen/Nav/Workspace ID:
 //
 //   r.screen({ id: "task-list", ... })
 //     → registry-stored.id === "tasks:screen:task-list"
-//     → schema.screens (ans Browser) hat id === "tasks:screen:task-list"
+//     → schema.screens (sent to the browser) has id === "tasks:screen:task-list"
 //
-// Der Renderer arbeitet aber mit Short-Form ids — formatPath schreibt
-// sie 1:1 in die URL, parsePath liest sie 1:1 raus. Beim Übergang von
-// Schema (QN-Form) → nav.navigate (Short-Form) muss der Prefix weg,
-// sonst landet die URL doppelt-qualifiziert
-// ("/tasks:screen:task-list" + Re-Lookup → "tasks:screen:tasks:screen:
+// The renderer uses short-form IDs: formatPath writes them to the URL unchanged,
+// and parsePath reads them back unchanged. When converting from the schema (QN form)
+// to nav.navigate (short form), the prefix must be removed; otherwise the URL becomes
+// doubly qualified
+// ("/tasks:screen:task-list" + re-lookup → "tasks:screen:tasks:screen:
 // task-list" → 404).
 //
-// `lastSegment` ist die Inverse von qualifyScreenId/Nav/Workspace —
-// nimmt den letzten ":"-getrennten Teil. Robust gegen Strings ohne
-// ":" (returnt sie unverändert, damit App-Author-Code mit Short-Form-
-// ids in eigenen Stellen weiter passt).
+// `lastSegment` is the inverse of qualifyScreenId/Nav/Workspace: it takes the final
+// ":"-separated part. Strings without ":" are returned unchanged so app-author code
+// using short-form IDs continues to work.
 
 export function lastSegment(qn: string): string {
   const idx = qn.lastIndexOf(":");

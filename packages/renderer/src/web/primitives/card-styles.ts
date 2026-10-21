@@ -15,7 +15,7 @@ export const cardSurface = cva(
   },
 );
 
-// Wraps instead of running off-screen when the row outgrows its container (fw#2528).
+// Wraps instead of running off-screen when the row outgrows its container.
 export const cardFooter = "flex flex-wrap items-center justify-end gap-2 py-4";
 
 export const cardFooterInset = "px-[var(--card-padding)]";

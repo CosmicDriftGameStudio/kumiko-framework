@@ -1,4 +1,4 @@
-// EditRelatedListSection.emptyState (fw#3234) — forwarded to the DataTable's
+// EditRelatedListSection.emptyState — forwarded to the DataTable's
 // own `emptyState` prop, rendered as title/description plus an optional
 // record-bound action dispatched the same way a toolbarAction is.
 

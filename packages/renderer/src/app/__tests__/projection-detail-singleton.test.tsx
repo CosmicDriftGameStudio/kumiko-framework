@@ -1,15 +1,14 @@
-// fw#2312: `singleton: true` marks a projectionDetail screen whose query
+// `singleton: true` marks a projectionDetail screen whose query
 // determines the shown row from the caller's session/context instead of a
 // row id in the path (a self-service "my profile"/"my data" screen has no
 // row to link to). Before this flag, ProjectionDetailBody always rendered
 // the "needs a row id in the path" error banner when `entityId` was
 // undefined (kumiko-screen.tsx) — both user-profile and user-data-rights'
 // privacy-center screen hit exactly that, unrenderable, until the flag
-// existed (fw#2312 bug report). This proves the fix, the no-flag regression
-// case stays covered, and that a stray/spoofed path id never reaches the
-// query under singleton (renderer-side half of the security requirement —
-// the boot-validator half lives in framework's projection-detail-
-// singleton.test.ts).
+// existed. This proves the fix, the no-flag regression case stays covered,
+// and that a stray/spoofed path id never reaches the query under singleton
+// (renderer-side half of the security requirement — the boot-validator half
+// lives in framework's projection-detail-singleton.test.ts).
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";

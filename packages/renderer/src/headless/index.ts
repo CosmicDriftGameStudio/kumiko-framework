@@ -1,6 +1,6 @@
 export type { ParsedRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
-// Re-Export aus framework/ui-types damit Renderer-Code denselben
-// Parser nutzt wie der Server-Boot-Validator (Cross-Feature-Refs).
+// Re-exports from framework/ui-types so renderer code uses the same
+// parser as the server boot validator (cross-feature references).
 export { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 export type {
   AssetResolution,

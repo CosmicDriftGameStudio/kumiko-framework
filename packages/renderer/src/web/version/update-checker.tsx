@@ -1,12 +1,13 @@
-// Update-Awareness — default an, kein Flag. Ein offener Tab erfährt sonst
-// nie von einem neuen Deploy (SPA bleibt geladen, index.html wird nicht neu
-// geholt → "muss hart reloaden"). Statt Service-Worker (der ist die *Ursache*
-// von "hängt auf alter Version") pollt diese Komponente die statische
-// build-info.json beim Tab-Fokus und zeigt ein Reload-Banner bei Drift.
+// Update awareness is enabled by default, without a flag. Otherwise, an open tab
+// never learns about a new deploy because the SPA stays loaded and does not fetch
+// index.html again, so it requires a hard reload. Instead of a service worker—which
+// causes the “stuck on old version” problem—this component polls the static
+// build-info.json when the tab gains focus and shows a reload banner on drift.
 //
-// Versionsquelle ist build-info.json (Hash über die Asset-URLs, vom Prod-Build
-// geschrieben) — NICHT /api/version (live leer/404, Env-/Dockerfile-Falle).
-// Banner-Strings über kumikoDefaultTranslations (kumiko.version.*, de/en).
+// The version source is build-info.json (a hash of the asset URLs written by the
+// production build), not /api/version (which may be empty or 404 at runtime because
+// of environment or Dockerfile configuration). Banner strings come from
+// kumikoDefaultTranslations (kumiko.version.*, de/en).
 
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
@@ -29,9 +30,9 @@ export function readLoadedBuild(): KumikoBuild | undefined {
   return { id, builtAt: meta?.getAttribute("data-built-at") ?? "" };
 }
 
-// Korrektheitsgrenze der Update-Erkennung: ein Banner NUR bei echtem
-// ID-Drift. Kein geladener Stand (Dev/altes Bundle) oder kein Server-Stand
-// (Fetch-Fehler/kaputtes JSON → null) → nie ein Fake-Banner.
+// Update detection is only valid for a real ID drift: a banner is shown only then.
+// No loaded build (development or an old bundle), or no server build (fetch failure
+// or invalid JSON → null), must never produce a false update banner.
 export function shouldShowUpdate(
   loadedId: string | undefined,
   server: KumikoBuild | null,
@@ -55,7 +56,7 @@ async function fetchServerBuild(): Promise<KumikoBuild | null> {
     const builtAt = propertyOf(raw, "builtAt");
     return { id: raw.id, builtAt: typeof builtAt === "string" ? builtAt : "" };
   } catch {
-    // Netzwerkfehler / kaputtes JSON → kein Banner. Nie ein Fake-Update zeigen.
+    // Network failure or invalid JSON → no banner; never show a false update.
     return null;
   }
 }
@@ -67,7 +68,7 @@ export function UpdateChecker(): ReactNode {
 
   useEffect(() => {
     const loadedId = loaded?.id;
-    if (!loadedId) return; // Dev / altes Bundle → keine Awareness.
+    if (!loadedId) return; // Development or an old bundle → no update awareness.
 
     let cancelled = false;
     const checking = { current: false };

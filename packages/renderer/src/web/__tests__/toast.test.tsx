@@ -1,9 +1,7 @@
-//
-// ToastProvider + useToast pinnt: toast() rendert Title+Description in
-// einem Radix-Toast; mehrere toasts stapeln; Variant=bad setzt die
-// StatusTone-Klasse; useToast außerhalb des Providers ist no-op (kein
-// crash); IDs sind kollisionsfrei auch bei zwei Calls im selben Tick
-// (Counter-Race-Bug).
+// ToastProvider + useToast contract: toast() renders Title and Description in
+// a Radix toast; multiple toasts stack; variant=bad applies the
+// StatusTone class; useToast outside the provider is a no-op (no crash);
+// IDs remain collision-free for two calls in the same tick (counter race).
 
 import { describe, expect, test } from "bun:test";
 import { act, fireEvent, screen } from "@testing-library/react";
@@ -11,13 +9,13 @@ import { type ReactNode, useEffect } from "react";
 import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast.tsx";
 import { render } from "./test-utils.tsx";
 
-// Trigger-Component die im Mount toast() aufruft. So testen wir den
-// Hook ohne userEvent-Klick-Pfad und ohne fragile timer.
+// Component that calls toast() on mount. This tests the hook without a
+// userEvent click path or fragile timers.
 function ToastTrigger({ options }: { readonly options: readonly ToastOptions[] }): ReactNode {
   const { toast } = useToast();
   useEffect(() => {
     for (const o of options) toast(o);
-    // toast() ist in der ToastApi memoized — keine Re-Trigger-Loops.
+    // toast() is memoized in the ToastApi, preventing re-trigger loops.
   }, [toast, options]);
   return null;
 }
@@ -94,10 +92,10 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "Failed", variant: "bad" }]} />
       </ToastProvider>,
     );
-    // Class-Mapping ist der Public-Vertrag mit Tailwind-Tokens. Wir
-    // suchen den nearest Ancestor des Title-Knotens dessen Klassen-
-    // String "status-bad" enthält — Radix-Toast.Root rendert in einem
-    // <li>, aber die genaue Role wechselt je nach priority/type.
+    // Class mapping is the public contract with Tailwind tokens. Find the
+    // nearest ancestor of the title node whose class string contains
+    // "status-bad": Radix-Toast.Root renders an <li>, but the exact role
+    // varies with priority/type.
     let node: HTMLElement | null = screen.getByText("Failed");
     while (node !== null && !node.className.includes("status-bad")) {
       node = node.parentElement;
@@ -116,13 +114,13 @@ describe("ToastProvider + useToast", () => {
   });
 
   test("zwei toasts im selben Tick: getrennte React-keys (Counter-Race-Regression)", () => {
-    // Vorher hatte ToastProvider einen useState-counter, der wegen
-    // Closure-Capture bei Doppel-Calls denselben Wert sah → identische
-    // IDs → React-key-Kollision (Warning + UI-Glitch). Der Fix nutzt
-    // useRef. Test: zwei toasts + console.error darf kein "duplicate
-    // key" loggen.
+    // Previously, ToastProvider used a useState counter whose closure capture
+    // caused double calls to see the same value, producing identical IDs
+    // and React-key collisions (warning and UI glitch). The fix uses
+    // useRef. The test verifies that two toasts do not log a "duplicate key"
+    // error through console.error.
     const errors: string[] = [];
-    /* biome-ignore lint/suspicious/noConsole: test spy auf React's duplicate-key-Warning, die nur über console.error gemeldet wird */
+    /* biome-ignore lint/suspicious/noConsole: test spy for React's duplicate-key warning, which is reported only through console.error */
     const original = console.error;
     console.error = (...args: unknown[]): void => {
       errors.push(args.map(String).join(" "));
@@ -141,9 +139,9 @@ describe("ToastProvider + useToast", () => {
   });
 
   test("useToast außerhalb des Providers: no-op, kein Crash", () => {
-    // Component die useToast nutzt aber NICHT in <ToastProvider> mounted
-    // ist — z.B. ein Test ohne Provider, oder ein Pre-Mount-Code-Path.
-    // Soll ohne Throw rendern.
+    // Component that uses useToast but is not mounted inside <ToastProvider>,
+    // such as a test without a provider or a pre-mount code path.
+    // It must render without throwing.
     function Outside(): ReactNode {
       const { toast } = useToast();
       return (
@@ -153,7 +151,7 @@ describe("ToastProvider + useToast", () => {
       );
     }
     render(<Outside />);
-    // Click feuert toast() — sollte einfach durchlaufen ohne Effekt.
+    // Clicking calls toast() and should complete without producing an effect.
     act(() => {
       fireEvent.click(screen.getByRole("button"));
     });

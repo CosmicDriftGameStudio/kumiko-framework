@@ -1,15 +1,14 @@
-// NavTree: Sidebar-Navigation aus dem Schema. Multi-Feature-aware —
-// jedes Feature trägt seinen Featurenamen, der zum Qualifizieren der
-// nav-ids genutzt wird. Pre-qualifizierte ids (enthält schon ":nav:")
-// gehen unverändert durch — so können einzelne Features Cross-Feature-
-// Referenzen einfügen ohne zur AppSchema migrieren zu müssen.
+// NavTree: sidebar navigation from the schema. Multi-feature aware —
+// each feature contributes its name, which qualifies nav IDs. Pre-qualified
+// IDs (already containing ":nav:") pass through unchanged, allowing features
+// to add cross-feature references without migrating to AppSchema.
 //
-// Aktiver Eintrag bekommt die accent-Farben (hintergrund + foreground),
-// inaktive nur muted-foreground. Rekursiv mit Indentation pro Tiefe.
+// The active entry uses the accent background and foreground colors; inactive
+// entries use only muted foreground. Indentation reflects the tree depth.
 //
-// Parent-Nodes mit children sind collapsible — Chevron rechts toggled
-// auf/zu. State lebt lokal im NavTree (useState); Default expanded
-// für alles, Caller kann später localStorage-Persistenz drüberlegen.
+// Parent nodes with children are collapsible; the right chevron toggles them.
+// State is local to NavTree (useState) and everything is expanded by default;
+// a caller can layer localStorage persistence on top later.
 
 import type {
   AccessRule,
@@ -63,9 +62,9 @@ import { parseTargetFromSearchParams } from "./target-url.ts";
 const NAV_ICON_LOOKUP: Readonly<Record<string, typeof Folder | undefined>> = NAV_ICONS;
 
 export type NavTreeProps = {
-  // Akzeptiert beide Shapes — AppSchema (multi-feature) oder
-  // FeatureSchema (legacy single-feature). toAppSchema normalisiert
-  // intern, sodass die Pipeline nur AppSchema kennt.
+  // Accepts both shapes: AppSchema (multi-feature) and FeatureSchema (legacy
+  // single-feature). toAppSchema normalizes them internally so the pipeline only
+  // handles AppSchema.
   readonly schema: AppSchema | FeatureSchema;
   readonly user?: { readonly id: string; readonly roles: readonly string[] };
   readonly testId?: string;
@@ -74,19 +73,20 @@ export type NavTreeProps = {
   // workspace's `navMembers` list. Undefined = no filter (legacy / non-
   // workspace apps render every nav).
   readonly allowedNavQns?: ReadonlySet<string>;
-  // Runtime-Badges pro Nav-Item, gekeyt auf die BARE nav-id (lastSegment der
-  // qualifiedName, also `"tarif"` nicht `"app:nav:tarif"`). Wert ist frei —
-  // die App liefert Text UND Farbe (`<Badge className="bg-amber-…">Pro</Badge>`).
-  // Für dynamische Zustände (Tier-Badge), die nicht ins statische Schema gehören.
+  // Runtime badges are keyed by the bare nav ID (the lastSegment of the
+  // qualifiedName, such as `"tarif"` rather than `"app:nav:tarif"`). The value
+  // is unrestricted: the app supplies both the text and color
+  // (`<Badge className="bg-amber-…">Pro</Badge>`). This supports dynamic states
+  // such as tier badges that do not belong in the static schema.
   readonly navBadges?: ReadonlyMap<string, ReactNode>;
 };
 
 const EMPTY_BADGES: ReadonlyMap<string, ReactNode> = new Map();
 const NavBadgesContext = createContext<ReadonlyMap<string, ReactNode>>(EMPTY_BADGES);
 
-// Sidebar-Filter: `q` leer = inaktiv (matches akzeptiert alles). `matches`
-// bekommt das ROHE Label (i18n-Key oder Klartext) und übersetzt intern — so
-// filtert das Suchfeld auf den sichtbaren Text, nicht den Key.
+// The filter is inactive when `q` is empty (`matches` accepts everything).
+// `matches` receives the raw label (i18n key or literal text) and translates it
+// internally, so the search field filters visible text rather than the key.
 type NavFilter = { readonly q: string; readonly matches: (rawLabel: string) => boolean };
 const NavFilterContext = createContext<NavFilter>({ q: "", matches: () => true });
 
@@ -108,12 +108,12 @@ function treeContainsScreen(nodes: readonly NavNode[], screenId: string): boolea
   );
 }
 
-// Ein Knoten überlebt den Filter, wenn er selbst oder ein Nachfahre matcht.
-// Provider-Kinder sind zur Filterzeit schon materialisiert (Provider-Knoten
-// sind default-expanded → eager geladen), darum reicht die statische
-// children-Rekursion. ponytail: ein zur Filterzeit noch NICHT geladener
-// (user-zugeklappter) Provider wird über den force-expand in useNavNodeState
-// aufgeklappt, lädt und filtert dann mit.
+// A node survives filtering when it or a descendant matches.
+// Provider children are already materialized during filtering (provider nodes
+// are default-expanded → eagerly loaded), so static children recursion is
+// sufficient. ponytail: a provider that is still NOT loaded during filtering
+// (because the user collapsed it) is expanded via the force-expand in
+// useNavNodeState, then loaded and filtered.
 function subtreeMatches(node: NavNode, matches: (rawLabel: string) => boolean): boolean {
   return matches(node.label) || node.children.some((c) => subtreeMatches(c, matches));
 }
@@ -134,7 +134,7 @@ export function NavTree({
   const nav = useNav();
   const activeScreenId = nav.route?.screenId;
   const activeEntityId = nav.route?.entityId;
-  // Same "no nav entry of its own" gap the breadcrumb closes (fw#2724):
+  // Same "no nav entry of its own" gap the breadcrumb closes:
   // when the routed screen has no node in {tree}, fall back to its
   // resolved parent so a detail/edit/form screen still orients the user.
   const activeMarker = useMemo((): ActiveScreenMarker => {
@@ -154,9 +154,9 @@ export function NavTree({
     return parentScreenId !== undefined ? { screenId: parentScreenId, exact: false } : undefined;
   }, [tree, app.features, activeScreenId, activeEntityId]);
 
-  // Collapsed-Set: nur die explizit zugeklappten qualified-names. Default
-  // ist also "alles auf" — neue Features tauchen sofort offen auf, ohne
-  // dass der User erst klicken muss.
+  // The collapsed set contains only explicitly collapsed qualified names.
+  // Everything is therefore expanded by default, so new features appear open
+  // without requiring the user to click first.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const onToggle = useCallback((qn: string) => {
     setCollapsed((prev) => {
@@ -172,7 +172,7 @@ export function NavTree({
   const [filter, setFilter] = useState("");
   // The search box is only CSS-hidden (`group-data-[collapsible=icon]:hidden`)
   // when the sidebar collapses to icon rail, not unmounted — without this,
-  // a stale filter re-applies invisibly on the next expand (fw#1816).
+  // a stale filter re-applies invisibly on the next expand.
   useEffect(() => {
     if (sidebarState === "collapsed") setFilter("");
   }, [sidebarState]);
@@ -229,16 +229,16 @@ export function NavTree({
   );
 }
 
-// Runtime-Badge-Slot rechts am Label, gekeyt auf die bare nav-id. Kein
-// Eintrag → nichts (silent, kein Layout-Shift). shrink-0 + die ml-auto
-// schiebt ihn ans rechte Ende; das truncate-Label gibt nach.
-// ponytail: nur an screen/target-Leaves verdrahtet, nicht an Container-
-// Knoten (die tragen den ml-auto-Chevron) — Tier-Badge ist ein Leaf.
-// Defense-in-depth (555/4): every current call site already guards on
+// The runtime badge slot is keyed by the bare nav ID. With no entry it
+// renders nothing, avoiding layout shift. shrink-0 and ml-auto move it to the
+// right edge while the truncated label gives up space.
+// ponytail: badges are wired only to screen/target leaves, not container nodes
+// (which use the ml-auto chevron). A tier badge belongs on a leaf.
+// Defense-in-depth: current call sites already guard on
 // node.screen/node.target !== undefined before rendering <NavBadge>, so this
-// early-return changes no current behavior — it's here so a future call
-// site added without that guard can't silently show a leaf's badge on an
-// unrelated container node that happens to share its last-segment.
+// early return does not change current behavior. It prevents a future call
+// site without that guard from showing a leaf badge on an unrelated container
+// node that happens to share its last segment.
 function NavBadge({ node }: { readonly node: NavNode }): ReactNode {
   const badges = useContext(NavBadgesContext);
   if (node.screen === undefined && node.target === undefined) return null;
@@ -247,10 +247,10 @@ function NavBadge({ node }: { readonly node: NavNode }): ReactNode {
   return <span className="ml-auto shrink-0">{badge}</span>;
 }
 
-// Pure section = ein Gruppen-Header ohne eigenen Screen, der nur seine
-// children gruppiert. Auf Top-Level wird daraus eine SidebarGroup mit
-// togglebarem GroupLabel; ein Node mit Screen (auch wenn er children hat)
-// ist dagegen ein klickbarer Menu-Eintrag.
+// A pure section is a group header without its own screen that only groups
+// its children. At the top level it becomes a SidebarGroup with a toggleable
+// GroupLabel; a node with a screen remains a clickable menu entry even when it
+// also has children.
 function isPureSection(node: NavNode): boolean {
   return (
     node.screen === undefined &&
@@ -267,9 +267,9 @@ type NavSubProps = {
   readonly onToggle: (qn: string) => void;
 };
 
-// i18n-Key Konvention: enthält das label einen Punkt, durchs t() laufen
-// lassen (Bundle kennt den Key → übersetzt, sonst bleibt der Key sichtbar
-// = vergessene Übersetzung). Reine String-Labels bleiben unangetastet.
+// If the label contains a dot, pass it through t(): the bundle translates
+// the key; otherwise the key remains visible as a reminder of a missing
+// translation. Literal string labels are left unchanged.
 function useLabel(node: NavNode): string {
   const t = useTranslation();
   return node.label.includes(".") ? t(node.label) : node.label;
@@ -316,12 +316,13 @@ function NavLeadingIcon({
   );
 }
 
-// Stable-reference empty-list — sonst destabilisiert ein neues `[]` pro
-// Render die useEffect-deps der SSE-Subscription.
+// A stable empty-list reference prevents a new `[]` on every render from
+// destabilizing the SSE subscription's useEffect dependencies.
 const EMPTY_ENTITY_LIST: readonly string[] = [];
 
-// Active-Target-Vergleich: featureId + action exakt, args shallow-equal
-// (heute nur primitives). Gespiegelt aus dem alten TreeNodeRenderer.
+// Active targets require an exact featureId and action match, with shallow
+// equality for args (currently primitives only). This mirrors the former
+// TreeNodeRenderer.
 function targetsEqual(a: TargetRef, b: TargetRef | undefined): boolean {
   if (b === undefined) return false;
   if (a.featureId !== b.featureId || a.action !== b.action) return false;
@@ -334,11 +335,12 @@ function targetsEqual(a: TargetRef, b: TargetRef | undefined): boolean {
   return true;
 }
 
-// Adapter: provider-emittierte TreeNodes → renderbare NavNodes. Synthetische
-// QN aus parent-QN + idx-label (stabil über Emit-Order). Statische children
-// rekursiv. ponytail: eine TreeChildrenSubscribe-Function als children wird
-// als Leaf behandelt — nested-dynamic-Provider nutzt heute kein Consumer;
-// upgrade-path = synthetische QN registrieren wenn einer sie emittet.
+// Adapts provider-emitted TreeNodes to renderable NavNodes. Synthetic QNs use
+// the parent QN and index label, remaining stable as long as emit order is
+// stable. Static children are converted recursively. ponytail: a
+// TreeChildrenSubscribe-Function supplied as children is treated as a leaf;
+// nested dynamic providers have no consumer today. The upgrade path is to
+// register synthetic QNs when such a provider emits them.
 function treeNodeToNavNode(tn: TreeNode, parentQn: string, idx: number): NavNode {
   const qualifiedName = `${parentQn}/${idx}-${tn.label}`;
   const children = Array.isArray(tn.children)
@@ -356,10 +358,10 @@ function treeNodeToNavNode(tn: TreeNode, parentQn: string, idx: number): NavNode
   };
 }
 
-// Lazy provider-children + SSE-Live-Refresh für einen `provider: true`-Knoten.
-// Subscribe läuft erst wenn der Knoten ausgeklappt ist (enabled); die
-// treeEntities-Liste (per QN) re-fired den Provider bei Entity-Events → neu
-// erstellte Knoten erscheinen live. Logik gespiegelt aus VisualTree.ProviderBranch.
+// Lazy provider children with SSE live refresh for a `provider: true` node.
+// Subscription starts only when the node is expanded (enabled). The
+// treeEntities list, keyed by QN, re-fires the provider on entity events so
+// newly created nodes appear live. The logic mirrors VisualTree.ProviderBranch.
 function useNavProviderChildren(
   qn: string,
   enabled: boolean,
@@ -388,8 +390,8 @@ function useNavProviderChildren(
     };
   }, [enabled, entities, subscribeLive]);
 
-  // `attempt` triggert SSE-Refresh + erneutes Subscribe — Biome sieht es
-  // nicht im body, semantisch ist es der re-fire-Trigger.
+  // `attempt` triggers an SSE refresh and a new subscription, although Biome
+  // cannot see its use in the body; semantically, it is the refire trigger.
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt = re-fire trigger
   useEffect(() => {
     if (!enabled) {
@@ -440,10 +442,9 @@ type NavNodeState = {
   readonly workspaceId: string | undefined;
 };
 
-// Geteilte Knoten-Logik für Top-Level- (NavMenuNode) und Sub-Knoten
-// (NavSubNode): Label, Expand/Collapse, active-State (screen ODER target),
-// und die lazy Provider-Children. Die zwei Renderer unterscheiden sich nur
-// in den shadcn-Primitives, nicht in dieser Logik.
+// Shared node logic for top-level (NavMenuNode) and nested (NavSubNode)
+// nodes: labels, expansion, active state (screen or target), and lazy provider
+// children. The two renderers differ only in their shadcn primitives.
 function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNodeState {
   const nav = useNav();
   const { q: filterQ, matches } = useContext(NavFilterContext);
@@ -451,8 +452,8 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
   const displayLabel = useLabel(node);
   const isCollapsed = collapsed.has(node.qualifiedName);
   const expandable = node.children.length > 0 || node.provider === true;
-  // Aktiver Filter klappt jeden Container auf, damit Treffer unter zugeklappten
-  // Ordnern sichtbar werden (und Provider-Kinder nachladen).
+  // An active filter expands every container so matches inside collapsed
+  // folders become visible and provider children can load.
   const isExpanded = expandable && (!isCollapsed || filterActive);
   const { nodes: providerChildren, error: providerError } = useNavProviderChildren(
     node.qualifiedName,
@@ -481,8 +482,8 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
     active: screenActive || targetActive,
     ariaCurrent: screenIsExactMatch || targetActive,
     childNodes: visibleChildNodes,
-    // Ein gefilterter Knoten verschwindet nur, wenn weder er selbst noch ein
-    // sichtbar gebliebenes Kind matcht — sonst bliebe ein leerer Ordner-Header.
+    // A filtered node is hidden only when neither it nor a visible child matches;
+    // otherwise an empty folder header would remain.
     hidden: filterActive && !matches(node.label) && visibleChildNodes.length === 0,
     providerLoading: node.provider === true && isExpanded && providerChildren === null,
     providerError,
@@ -634,7 +635,7 @@ function NodeActions({
   );
 }
 
-// Status-Zeilen innerhalb einer Provider-Sub-Liste (lazy-loading / error).
+// Status lines within a provider sub-list (lazy loading or error).
 function ProviderStatus({
   loading,
   error,
@@ -651,14 +652,15 @@ function ProviderStatus({
   return null;
 }
 
-// Top-Level-Section: SidebarGroup mit STATISCHEM Label (sidebar-07-Muster —
-// "Platform"/"Projects" sind feste Überschriften, keine Toggles). Collapse
-// gehört auf Items MIT children, nicht auf die Section selbst.
+// Top-level section: a SidebarGroup with a static label
+// ("Platform"/"Projects" are fixed headings, not toggles). Collapse belongs
+// on items with children, not on the section itself.
 function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const displayLabel = useLabel(node);
   const { q, matches } = useContext(NavFilterContext);
-  // Provider-Kinder (statisch leer bis geladen) halten die Section offen — ihr
-  // Match lässt sich hier nicht statisch prüfen; der Knoten selbst self-hidet.
+  // Provider children are statically empty until loaded, so they keep the
+  // section visible; their matches cannot be checked statically, and the node
+  // hides itself.
   if (
     q !== "" &&
     !matches(node.label) &&
@@ -685,13 +687,13 @@ function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   );
 }
 
-// Ein Menu-Eintrag (Top-Level-Item oder Section-Child). Drei Klick-Modi am
-// EINEN Knoten: `screen` → Route-Link (KumikoLink), `target` → EditorPanel-
-// Dispatch (useDispatchTarget), keins → Container/Provider-Knoten der nur
-// auf-/zuklappt. Provider-Knoten laden ihre Children lazy + SSE-live. Der
-// Collapse-Chevron sitzt als SidebarMenuAction daneben (separater Button,
-// sonst <button> im <a> = invalides HTML); createAction/actions als
-// absolute NodeActions links davon.
+// A menu entry (top-level item or section child) supports three click modes:
+// `screen` is a route link (KumikoLink), `target` dispatches to EditorPanel
+// (useDispatchTarget), and neither makes it a container/provider node that only
+// expands or collapses. Provider nodes load children lazily with SSE refresh.
+// The collapse chevron is a separate SidebarMenuAction because nesting a
+// <button> inside an <a> would produce invalid HTML; createAction/actions are
+// rendered as absolute NodeActions beside it.
 function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const t = useTranslation();
   const dispatch = useDispatchTarget();
@@ -726,7 +728,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
     const screenId = lastSegment(node.screen);
     return (
       <SidebarMenuItem>
-        {/* tooltip = Label, das shadcn nur im collapsed-Icon-State einblendet. */}
+        {/* tooltip = the label that shadcn displays only in the collapsed icon state. */}
         <SidebarMenuButton asChild isActive={s.active} tooltip={s.displayLabel}>
           <KumikoLink
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
@@ -799,21 +801,22 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   );
 }
 
-// Verschachtelte Einträge (innerhalb SidebarMenuSub). Gleiche drei Klick-Modi
-// wie NavMenuNode, nur mit den Sub-Primitives. Folder-/Container-Knoten (kein
-// screen/target) klappen auf — Provider-Children + tiefere Statics rekursiv.
-// Non-Link-Klickziele brauchen asChild+<button> (SidebarMenuSubButton ist ein
-// <a>); der Chevron sitzt als eigener absoluter Button (kein Button-im-<a>).
+// Nested entries inside SidebarMenuSub use the same three click modes as
+// NavMenuNode, with the sub-primitives. Folder/container nodes without a
+// screen or target expand; provider children and deeper static nodes recurse.
+// Non-link targets require asChild with <button> because SidebarMenuSubButton
+// is an <a>; the chevron is a separate absolute button to avoid a button inside
+// an anchor.
 function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const t = useTranslation();
   const dispatch = useDispatchTarget();
   const s = useNavNodeState(node, collapsed);
   if (s.hidden) return null;
 
-  // Kinder in ein eigenes SidebarMenuSub (<ul>) — ein Sub-Item ist ein <li>,
-  // verschachtelte <li> ohne <ul> dazwischen sind invalides HTML (nested
-  // Content-Ordner: Marketing/ > Block). Der <ul> trägt zugleich die
-  // Einrück-/Border-Stufe pro Tiefe.
+  // Children go in their own SidebarMenuSub (<ul>): a sub-item is an <li>, so
+  // nested <li> elements without an intervening <ul> would be invalid HTML
+  // (for example, nested content folders such as Marketing/ > Block). The
+  // <ul> also supplies the indentation and border level for each depth.
   const deeper = s.isExpanded ? (
     <SidebarMenuSub>
       <ProviderStatus loading={s.providerLoading} error={s.providerError} />
@@ -919,9 +922,9 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   );
 }
 
-// Backwards-kompatibler Single-Feature-Builder. Convenience-Wrapper um
-// buildNavRegistrySliceForApp — bestehende Tests die direkt mit
-// FeatureSchema rufen brauchen keine Änderung.
+// Backward-compatible single-feature builder. This convenience wrapper around
+// buildNavRegistrySliceForApp lets existing tests that call it with
+// FeatureSchema remain unchanged.
 export function buildNavRegistrySlice(
   schema: FeatureSchema,
   allowedNavQns?: ReadonlySet<string>,
@@ -929,13 +932,12 @@ export function buildNavRegistrySlice(
   return buildNavRegistrySliceForApp(toAppSchema(schema), allowedNavQns);
 }
 
-// Multi-Feature-Variante. Iteriert alle Features, qualifiziert pro
-// Feature mit dem eigenen featureName. Reihenfolge: Features in der
-// AppSchema-Ordnung, navs in der vom Feature deklarierten Reihenfolge.
+// Multi-feature variant. Iterates over all features, qualifying each entry
+// with its own featureName. Feature order follows AppSchema, and nav order
+// follows each feature's declaration order.
 //
-// Cross-Feature-Workspaces sind hier nativ unterstützt — `navMembers`
-// referenzieren QNs, der Filter trifft die jeweils richtigen Einträge
-// egal in welchem Feature sie deklariert sind.
+// Cross-feature workspaces are supported natively: `navMembers` reference QNs,
+// and the filter selects the correct entries regardless of their feature.
 export function buildNavRegistrySliceForApp(
   app: AppSchema,
   allowedNavQns?: ReadonlySet<string>,
@@ -948,7 +950,7 @@ export function buildNavRegistrySliceForApp(
         n.screen !== undefined ? qualifyScreenId(feature.featureName, n.screen) : undefined;
       // Nav entries without their own `access` inherit the referenced
       // screen's access rule — otherwise a broader workspace/parent access
-      // lets a role see a nav entry whose target screen 403s them (#1099).
+      // lets a role see a nav entry whose target screen 403s them.
       // An explicit `n.access` always wins; inheritance only fills the gap.
       const inheritedAccess =
         n.access ?? (screen !== undefined ? screenAccessByQn.get(screen) : undefined);
@@ -1025,6 +1027,6 @@ function buildScreenAccessMap(app: AppSchema): Map<string, AccessRule | undefine
   return map;
 }
 
-// `lastSegment` lebt jetzt in @cosmicdrift/kumiko-renderer (./app/qn) — eine
-// Quelle, beide Pakete teilen sie.
+// `lastSegment` now lives in @cosmicdrift/kumiko-renderer (./app/qn), giving
+// both packages a shared implementation.
 export { lastSegment };

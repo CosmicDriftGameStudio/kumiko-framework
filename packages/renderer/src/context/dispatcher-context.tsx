@@ -49,11 +49,11 @@ export function useDispatcher(): Dispatcher {
   return dispatcher;
 }
 
-// Soft-Variante: null wenn kein Provider mounted statt throw. Für
-// Components die einen Dispatcher OPTIONAL brauchen (z.B. KumikoScreen
-// rendert mit/ohne rowActions; die Test-Suite mountet kein Dispatcher
-// wenn der Screen keine Mutation triggert). Caller ist zuständig dass
-// er bei null einen sinnvollen Fallback hat (typisch: kein Action-Wiring).
+// Soft variant: returns null when no provider is mounted instead of throwing. For
+// components that optionally need a Dispatcher (for example, KumikoScreen renders
+// with or without rowActions; the test suite does not mount a Dispatcher when the
+// screen triggers no mutation). Callers must provide a sensible fallback for null
+// (typically, no action wiring).
 export function useOptionalDispatcher(): Dispatcher | undefined {
   return useContext(DispatcherContext) ?? undefined;
 }

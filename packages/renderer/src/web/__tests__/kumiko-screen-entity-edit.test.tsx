@@ -222,7 +222,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
   });
 });
 
-// entityEdit.actions kind:"drawer" (fw#2710) — EntityEditUpdateForm owns its
+// entityEdit.actions kind:"drawer" — EntityEditUpdateForm owns its
 // own DrawerHost directly (5th RowAction/action call site, not covered by
 // the shared ToolbarAction plumbing's original scope). The outer update
 // form and the drawer's own ActionFormBody are both `RenderEdit` instances

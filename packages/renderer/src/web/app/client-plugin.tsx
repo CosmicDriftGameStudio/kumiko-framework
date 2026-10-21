@@ -1,13 +1,12 @@
-// Plugin-Shape für feature-gelieferte Client-Extensions. Server-Features
-// (defineFeature) registrieren Handler, Projections, Hooks; Client-
-// Features registrieren Context-Provider und Gate-Wrapper. createKumikoApp
-// stackt sie in einer definierten Reihenfolge in den React-Tree.
+// Defines the shape of client extensions supplied by features. Server features
+// (`defineFeature`) register handlers, projections, and hooks; client features
+// register context providers and gate wrappers. `createKumikoApp` composes them
+// into the React tree in a defined order.
 //
-// Warum die Zweiteilung (providers/gates)? Damit Features, die selbst
-// einen Gate brauchen (z.B. AuthGate → LoginScreen), trotzdem den
-// Context anderer Features anzapfen können: erst werden alle Provider
-// ganz außen gestackt, dann alle Gates nach innen. So hat jeder Gate
-// Zugriff auf jeden Provider, egal welches Feature ihn gebracht hat.
+// The providers/gates split lets features that need a gate themselves (for
+// example, AuthGate → LoginScreen) still access other features' contexts: all
+// providers are composed outermost, followed by all gates. Every gate can
+// therefore access every provider, regardless of which feature supplied it.
 
 import type { TargetRef, TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
@@ -32,58 +31,53 @@ export type CollectionNavProviders = {
 
 export type ClientFeatureDefinition = {
   readonly name: string;
-  /** Context-Provider die um den kompletten Renderer-Tree gewrapped
-   *  werden. Reihenfolge: erstes Element = äußerster Provider. Alle
-   *  Provider stehen VOR allen Gates im Baum, damit jeder Gate und
-   *  jedes Screen-Child darauf Zugriff hat. */
+  /** Context providers wrapped around the complete renderer tree. The first
+   * array element is the outermost provider. All providers precede all gates
+   * in the tree so every gate and screen child can access them. */
   readonly providers?: readonly ComponentType<{ children: ReactNode }>[];
-  /** Screen-Decorators die zwischen dem Provider-Stack und dem Shell/
-   *  Screen-Render sitzen. Typisches Muster: AuthGate rendert den
-   *  LoginScreen statt children solange der User nicht eingeloggt ist.
-   *  Reihenfolge: erstes Element = äußerster Gate. */
+  /** Screen decorators placed between the provider stack and the shell or
+   * screen render. A typical pattern is AuthGate rendering LoginScreen
+   * instead of children while the user is not signed in. The first array
+   * element is the outermost gate. */
   readonly gates?: readonly ComponentType<{ children: ReactNode }>[];
-  /** Default-Translations die das Feature für seine UI-Strings
-   *  mitbringt. Werden in den LocaleProvider als Fallback-Bundle
-   *  eingehängt — der App-Resolver (z.B. i18next) hat Vorrang und kann
-   *  einzelne Keys überschreiben, ohne dass die Feature-Bundles
-   *  komplett ausgetauscht werden müssen. */
+  /** Default translations supplied by the feature for its UI strings. They
+   * are added to the LocaleProvider as a fallback bundle; the app resolver
+   * (for example, i18next) takes precedence and can override individual keys
+   * without replacing the feature bundles entirely. */
   readonly translations?: TranslationsByLocale;
-  /** Custom-Screen-Components — Map screenId → React-Component. Wenn
-   *  ein Schema-Screen `type: "custom"` hat, schaut KumikoScreen in
-   *  diese Map (gemerged aus allen ClientFeatures) und rendert die
-   *  passende Component. So muss kein Sample mehr im AppShell-Wrapper
-   *  selbst routen. Convention: screenId entspricht dem `id` aus
-   *  `r.screen({ id, type: "custom", ... })` im server-side Feature. */
+  /** Custom screen components, mapped by screenId. When a schema screen has
+   * `type: "custom"`, KumikoScreen looks up and renders the matching component
+   * in this map, merged from all client features. This keeps routing out of
+   * the AppShell wrapper. The convention is that screenId matches the `id` in
+   * `r.screen({ id, type: "custom", ... })` in the server-side feature. */
   readonly components?: Readonly<Record<string, ComponentType>>;
-  /** Column-Renderer-Components — Map renderer-name → React-Component.
-   *  Schema deklariert eine Column mit
-   *  `renderer: { react: { __component: "ColorSwatch" } }`; client-side
-   *  zieht der DataTable-Cell-Renderer den Component hier raus.
-   *  Schemas bleiben so serializable (nur ein String-Key auf der Wire),
-   *  echte JSX-Renderer leben im Client-Bundle. Last-Wins bei Key-
-   *  Kollision über mehrere Features. */
+  /** Column renderer components, mapped by renderer name. A schema declares a
+   * column with `renderer: { react: { __component: "ColorSwatch" } }`; the
+   * client-side DataTable cell renderer looks up the component here. Schemas
+   * remain serializable because only a string key crosses the wire, while the
+   * actual JSX renderers live in the client bundle. Later features win on key
+   * collisions. */
   readonly columnRenderers?: Readonly<Record<string, ColumnRendererComponent>>;
-  /** Extension-Section-Components — Map `__component`-name → React-
-   *  Component. Schema deklariert eine entityEdit-Section mit
-   *  `kind: "extension"` + `component: { react: { __component: "X" } }`;
-   *  RenderEdit zieht den Component hier raus und mountet ihn mit
-   *  `{ entityName, entityId }`. Pattern wie columnRenderers — Last-Wins
-   *  bei Key-Kollision über mehrere Features. */
+  /** Extension-section components, mapped by `__component` name. A schema
+   * declares an entityEdit section with `kind: "extension"` and
+   * `component: { react: { __component: "X" } }`; RenderEdit looks up and
+   * mounts the component here with `{ entityName, entityId }`. As with
+   * columnRenderers, later features win on key collisions. */
   readonly extensionSectionComponents?: Readonly<Record<string, ExtensionSectionComponent>>;
   /** Handlers for RowAction `kind: "clientAction"`, keyed by the action name
    *  `<feature>:<kebab>`. Last-wins with a warning on key collisions, like
    *  columnRenderers. */
   readonly clientActions?: Readonly<Record<string, ClientActionHandler>>;
-  /** Nav-Provider für die EINE Nav (Visual-Tree-Merge): hängt dynamische
-   *  Children an einen statischen `r.nav({ provider: true })`-Knoten. Keyed
-   *  auf die LOKALE nav-id (create-app qualifiziert zu `<feature>:nav:<id>`;
-   *  bereits qualifizierte QNs gehen durch). Anders als `treeProvider` (ein
-   *  Top-Level-Branch pro Feature) attacht ein navProvider an einen konkreten
-   *  Nav-Knoten — der idiomatic Weg seit dem Tree→Nav-Merge. */
+  /** Nav providers for the single nav visual-tree merge: they attach dynamic
+   * children to a static `r.nav({ provider: true })` node. Keys use the local
+   * nav ID; create-app qualifies it as `<feature>:nav:<id>`, while already
+   * qualified names pass through. Unlike `treeProvider`, which creates one
+   * top-level branch per feature, a navProvider attaches to a specific nav
+   * node—the idiomatic approach since the tree-to-nav merge. */
   readonly navProviders?: Readonly<Record<string, TreeChildrenSubscribe>>;
-  /** SSE-Entity-Listen pro nav-id für den Live-Refresh der navProviders
-   *  (analog `treeEntities`). Live-Event für eine Entity → Provider des
-   *  Knotens wird neu aufgerufen → neue Kinder erscheinen live. */
+  /** SSE entity lists per nav ID for live refresh of navProviders, analogous
+   * to `treeEntities`. A live event for an entity re-invokes the node's
+   * provider so new children appear immediately. */
   readonly navEntities?: Readonly<Record<string, readonly string[]>>;
   /** Nav providers derived from the app schema — called with every
    *  `r.contentCollection()` the app declares. A feature that serves any
@@ -105,22 +99,19 @@ export type ClientFeatureDefinition = {
    *  contract: `{ value, onChange, variables, readOnly }`. */
   readonly contentEditors?: Partial<Record<ContentEditorFormat, ContentEditorComponent>>;
 
-  /** Editor-Resolver-Komponenten pro featureId:action-Key. Wenn ein
-   *  TreeNode mit target angeklickt wird, schlägt der EditorPanel das
-   *  Component hier nach und rendert es. Komponenten erhalten target
-   *  (mit args) und eine onClose-Callback. Ohne registrierten Resolver
-   *  zeigt der EditorPanel einen Info-Fallback.
-   *  Siehe visual-tree.md V.1.2. */
+  /** Editor resolver components keyed by featureId:action. When a TreeNode
+   * with a target is clicked, EditorPanel looks up and renders the component
+   * here. Components receive target (with args) and an onClose callback. If
+   * no resolver is registered, EditorPanel shows an informational fallback. */
   readonly resolvers?: Readonly<
     Record<string, ComponentType<{ readonly target: TargetRef; readonly onClose: () => void }>>
   >;
 };
 
-/** Wickelt einen ReactNode durch eine Liste von Providern/Gates von
- *  innen nach außen — erstes Array-Element ist äußerste Hülle.
- *  Der Key nutzt den Component-Display-Namen (falls gesetzt) plus
- *  Index, damit Mounts stabil bleiben solange die Wrapper-Liste
- *  ihre Reihenfolge nicht ändert. */
+/** Wraps a ReactNode with a list of providers or gates from inside out; the
+ * first array element is the outermost wrapper. The key uses the component's
+ * display name, when available, plus its index, keeping mounts stable while
+ * the wrapper list's order does not change. */
 export function stackWrappers(
   wrappers: readonly ComponentType<{ children: ReactNode }>[],
   inner: ReactNode,

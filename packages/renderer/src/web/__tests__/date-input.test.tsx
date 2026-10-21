@@ -1,9 +1,5 @@
-//
-// DateInput pinnt (seit #369): tippbares Text-Input zeigt das Datum
-// locale-numerisch und akzeptiert Eingabe, ein Icon-Button öffnet das
-// DayPicker, Auswahl gibt ISO-yyyy-mm-dd zurück. Wert-Roundtrip
-// (ISO → Date → ISO) muss tag-stable sein, sonst zeigt der Calendar je
-// nach Timezone den Vortag.
+// DateInput: the text input displays and accepts locale-formatted dates; the icon button opens the DayPicker, and selection returns ISO-yyyy-mm-dd.
+// The ISO → Date → ISO roundtrip must preserve the calendar day; otherwise the calendar can show the previous day in some timezones.
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen } from "@testing-library/react";
@@ -94,8 +90,7 @@ describe("DateInput", () => {
       <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="de-DE" />,
     );
     await user.click(screen.getByRole("button"));
-    // DayPicker rendert eine grid-Role für den Calendar; Existenz
-    // reicht als Smoke-Test, ohne brittle DOM-Schnipsel zu pinnen.
+    // DayPicker exposes the calendar with a grid role; checking its existence is sufficient without pinning brittle DOM details.
     expect(await screen.findByRole("grid")).toBeTruthy();
   });
 
@@ -104,16 +99,14 @@ describe("DateInput", () => {
     const onChange = mock();
     render(<DateInput id="d" name="d" value="2026-04-23" onChange={onChange} locale="en-US" />);
     await user.click(screen.getByRole("button"));
-    // react-day-picker rendert jeden Tag als gridcell. Der 25. April
-    // 2026 ist ein Samstag — pickbar im sichtbaren Monat.
+    // react-day-picker renders each day as a gridcell. April 25, 2026 is a Saturday and is selectable in the visible month.
     const day25 = await screen.findByRole("gridcell", { name: /25/ });
     fireEvent.click(day25.querySelector("button") as HTMLButtonElement);
     expect(onChange).toHaveBeenCalledWith("2026-04-25");
   });
 
-  // Headline-Feature #369: captionLayout="dropdown" rendert Monats-/Jahres-
-  // Selects statt nur Monats-Vor/Zurück. min/max begrenzen über
-  // startMonth/endMonth den Jahres-Selector.
+  // captionLayout="dropdown" renders month and year selects instead of only previous/next month controls.
+  // min/max constrain the year selector through startMonth/endMonth.
   test("Kalender zeigt Jahres-Dropdown, begrenzt durch min/max", async () => {
     const user = userEvent.setup();
     render(
@@ -128,8 +121,7 @@ describe("DateInput", () => {
       />,
     );
     await user.click(screen.getByRole("button"));
-    // rdp v9 rendert die Dropdowns als <select> (role=combobox). Mind. der
-    // Jahres-Selector muss da sein — sonst greift captionLayout nicht.
+    // rdp v9 renders the dropdowns as <select> elements (role=combobox). At least the year selector must be present for captionLayout to take effect.
     const combos = await screen.findAllByRole("combobox");
     expect(combos.length).toBeGreaterThanOrEqual(1);
     const yearSelect = combos.find((c) =>
@@ -146,7 +138,7 @@ describe("DateInput", () => {
   test("min/max grauen Out-of-Range-Tage aus", async () => {
     const user = userEvent.setup();
     const onChange = mock();
-    // Range endet am 10. April 2026 — der 25. liegt außerhalb.
+    // The range ends on April 10, 2026, so the 25th is outside it.
     render(
       <DateInput
         id="d"

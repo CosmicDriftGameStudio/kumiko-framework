@@ -8,11 +8,11 @@ import type { ReactElement, ReactNode } from "react";
 import { type ColumnRendererProps, ColumnRenderersProvider, RenderEdit } from "../../index.ts";
 import { render, screen } from "./test-utils.tsx";
 
-// fw#2245 Teil 1: `EditFieldSpec.renderer` (kumiko-types/src/screen.ts) is
+// `EditFieldSpec.renderer` (kumiko-types/src/screen.ts) is
 // validated and survives into the ViewModel (headless/view-model/edit.ts)
 // but render-field.tsx never read it — the same FieldRenderer mechanism
-// that already works for relatedList/entityList columns (render-list.tsx,
-// see render-list-column-renderer.test.tsx) was a no-op for header fields.
+// that already works for relatedList/entityList columns (render-list.tsx, see
+// render-list-column-renderer.test.tsx) was a no-op for header fields.
 
 const invoiceEntity = {
   fields: {

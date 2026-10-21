@@ -1,4 +1,4 @@
-// fw#2315: a list column with `renderer: { format: "enumOption", keyPrefix }`
+// A list column with `renderer: { format: "enumOption", keyPrefix }`
 // must resolve the raw enum value through useTranslation() in DataTableCell.
 // Exercises the SAME synthesized-entity/pass-through-columns shape that
 // ProjectionListBody (projection-list-shim.ts) and RelatedListSection

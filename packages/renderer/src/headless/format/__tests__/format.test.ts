@@ -104,8 +104,8 @@ describe("applyFormatSpec — number fraction digits", () => {
 });
 
 describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
-  // Mittag UTC: das Datum kippt in keiner Zeitzone UTC-11..UTC+11 —
-  // deterministisch auf CI (UTC) und lokal (CET).
+  // Noon UTC: the date does not roll over in any UTC-11..UTC+11 time zone,
+  // making the test deterministic in CI (UTC) and locally (CET).
   const instant = "2026-01-15T12:00:00Z";
 
   test("timestamp mit locale+dateStyle+timeStyle rendert lokalisiert", () => {

@@ -1,18 +1,18 @@
-// DefaultAppShell — die 90%-App-Shell auf Basis der vendored shadcn-Sidebar
-// (src/ui/sidebar.tsx). SidebarProvider stellt den Context (Mobile-Sheet,
-// Rail, Cmd-B), die Sidebar trägt die Chrome-Identität, SidebarInset rendert
-// den schwebenden Content-Panel mit einem Header (Trigger + Breadcrumb).
+// DefaultAppShell — the 90% app shell based on the vendored shadcn sidebar
+// (src/ui/sidebar.tsx). SidebarProvider supplies the context (mobile sheet,
+// rail, Cmd-B); Sidebar provides the chrome identity, and SidebarInset renders
+// the floating content panel with a header (trigger + breadcrumb).
 //
-// Sidebar-Slots:
-//   1. brand          — Workspace-Identity oben (Logo + Name)
-//   2. sidebarActions — Icon-Row (Search/Theme/Tenant-Switch)
-//   3. NavTree        — automatisch aus dem Schema
-//   4. sidebarFooter  — Bottom-Slot für Profile/Help/Plan-Banner
-// Topbar-Slot:
-//   headerActions     — rechtsbündig neben dem Breadcrumb (ThemeToggle etc.)
+// Sidebar slots:
+//   1. brand          — workspace identity at the top (logo + name)
+//   2. sidebarActions — icon row (Search/Theme/Tenant-Switch)
+//   3. NavTree        — generated automatically from the schema
+//   4. sidebarFooter  — bottom slot for profile/help/plan banner
+// Topbar slot:
+//   headerActions     — aligned to the right of the breadcrumb (ThemeToggle etc.)
 //
-// Apps die feingranulare Kontrolle wollen, gehen direkt auf die ui/-Teile.
-// Wer ein Topbar mit Workspace-Switcher braucht, nutzt <WorkspaceShell>.
+// Apps that need granular control can use the ui/ components directly.
+// Apps that need a topbar with a workspace switcher should use <WorkspaceShell>.
 
 import type { ReactNode } from "react";
 import {
@@ -43,37 +43,36 @@ export type DefaultAppShellUser = {
 };
 
 export type DefaultAppShellProps = {
-  /** Header-Slot oben in der Sidebar — Workspace-Identity (Logo, Name,
-   *  Plan-Tag). Caller liefert frei. */
+  /** Header slot at the top of the sidebar — workspace identity (logo, name,
+   *  plan tag). The caller provides the content. */
   readonly brand: ReactNode;
-  /** Schema (AppSchema oder legacy FeatureSchema) wird an NavTree
-   *  durchgereicht; Sidebar-Einträge bauen sich automatisch aus
-   *  schema.navs (per-Feature) auf. */
+  /** Schema (AppSchema or legacy FeatureSchema) passed through to NavTree;
+   *  sidebar entries are generated automatically from
+   *  schema.navs (per-feature). */
   readonly schema: AppSchema | FeatureSchema;
-  /** Current user — drives nav role-gating. Ohne user-prop werden
-   *  role-gated nav-einträge (`access: { roles: [...] }`) komplett
-   *  ausgeblendet (resolveNavigation behandelt undefined-user als
-   *  anonymous). */
+  /** Current user — drives navigation role gating. Without a user prop,
+   *  role-gated navigation entries (`access: { roles: [...] }`) are hidden
+   *  completely (resolveNavigation treats an undefined user as anonymous). */
   readonly user?: DefaultAppShellUser;
-  /** Icon-Row zwischen Brand und NavTree — typisch Search-Trigger,
-   *  ThemeToggle, TenantSwitcher. */
+  /** Icon row between the brand and NavTree — typically a Search trigger,
+   *  ThemeToggle, or TenantSwitcher. */
   readonly sidebarActions?: ReactNode;
-  /** Runtime-Badges pro Nav-Item (bare nav-id → ReactNode), an NavTree
-   *  durchgereicht. Für Tier-/Status-Badges, die die App pro User liefert
-   *  (Wert + Farbe), statt sie ins statische Schema zu backen. */
+  /** Runtime badges per navigation item (bare nav-id → ReactNode), passed
+   *  through to NavTree. For tier/status badges supplied by the app per user
+   *  (value + color), rather than embedded in the static schema. */
   readonly navBadges?: ReadonlyMap<string, ReactNode>;
-  /** Rechtsbündiger Slot in der Topbar (neben dem Breadcrumb) — für
-   *  ThemeToggle, globale Actions o.ä. Spart die eigene sidebarActions-
-   *  Zeile in der Sidebar. */
+  /** Right-aligned slot in the topbar (next to the breadcrumb) — for
+   *  ThemeToggle, global actions, and similar controls. Avoids a separate
+   *  sidebarActions row in the sidebar. */
   readonly headerActions?: ReactNode;
-  /** Footer-Slot unten in der Sidebar — Profile-Row, Help-Link,
-   *  Plan-Banner. */
+  /** Footer slot at the bottom of the sidebar — profile row, help link,
+   *  or plan banner. */
   readonly sidebarFooter?: ReactNode;
-  /** Viewport-fit Shell. true → fixe Viewport-Höhe (`h-svh`), der Content
-   *  scrollt INNEN statt der ganzen Seite. Default true — `fill={false}`
-   *  schaltet zurück auf Seiten-Scroll. */
+  /** Viewport-fit shell. true → fixed viewport height (`h-svh`); content
+   *  scrolls inside instead of the whole page. Defaults to true — `fill={false}`
+   *  switches back to page scrolling. */
   readonly fill?: boolean;
-  /** Screen-Content der im SidebarInset gerendert wird. */
+  /** Screen content rendered inside SidebarInset. */
   readonly children: ReactNode;
 };
 
@@ -96,8 +95,7 @@ export function DefaultAppShell({
   return (
     <SidebarProvider {...fillCls.provider}>
       <SidebarPanelProvider value={panel.value}>
-        {/* sidebar-07-Muster: Standard-Variante (border-r, flush content) +
-          collapsible="icon" — der Rail klappt auf Icon-Breite zu (Trigger/Rail). */}
+        {/* Standard variant (border-r, flush content) + collapsible="icon" — the rail collapses to icon width (trigger/rail). */}
         <Sidebar
           collapsible="icon"
           mobileTitle={t("kumiko.sidebar.title")}

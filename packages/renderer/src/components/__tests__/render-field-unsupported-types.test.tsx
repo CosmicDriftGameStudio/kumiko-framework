@@ -1,9 +1,9 @@
-// Regression #1834: field types without a dedicated widget (embedded
+// Regression: field types without a dedicated widget (embedded
 // without embeddedListCells, jsonb) must render read-only
 // instead of falling back to a text input. The old default-branch
 // fallback ran the value through stringValue() — an object/array turned
 // into "[object Object]"/"a,b", and saving that overwrote the real data.
-// #1925 gave multiSelect a real combobox widget (so it dropped out of this
+// multiSelect gained a real combobox widget (so it dropped out of this
 // list); files/images got FileListField later and left it too.
 //
 // Capture-Input/Banner instead of real primitives, same pattern as
@@ -95,11 +95,11 @@ describe.each([
     expect(capturedBanner).toBeDefined();
     expect(capturedBanner?.variant).toBe("info");
     // The surrounding <Field> always renders a <label htmlFor={id}> —
-    // without an id on the Banner itself that label points at nothing (#1834 review).
+    // without an id on the Banner itself that label points at nothing.
     expect(capturedBanner?.id).toBe("kumiko-edit-positions");
   });
 
-  // #1847#6: the Banner used to show only the generic hint, hiding the
+  // The Banner used to show only the generic hint, hiding the
   // actual field value from the user entirely (not even read-only).
   test("shows the underlying value read-only alongside the generic hint", () => {
     renderField(field);
@@ -141,7 +141,7 @@ describe("RenderField — text bleibt weiterhin editierbar", () => {
   });
 });
 
-// #1925: field types that gained a real widget on the auto-wired
+// Field types that gained a real widget on the auto-wired
 // entityEdit path (previously either no widget at all or a type-mismatched
 // text-input fallback).
 describe("RenderField — #1925 neue Widgets", () => {

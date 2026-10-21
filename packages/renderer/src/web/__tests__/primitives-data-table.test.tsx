@@ -105,7 +105,7 @@ describe("DataTable", () => {
     expect(onRowClick).toHaveBeenCalledWith(row);
   });
 
-  // chromeless (fw#2722): a relatedList section in a tabs-mode Akte already
+  // chromeless: a relatedList section in a tabs-mode Akte already
   // sits inside a tab panel — the table's own card frame would nest a card
   // inside that boundary without separating anything further.
   describe("chromeless", () => {
@@ -133,7 +133,7 @@ describe("DataTable", () => {
     });
   });
 
-  // scrollBody (fw#2722): a relatedList section in a tabs-mode Akte must not
+  // scrollBody: a relatedList section in a tabs-mode Akte must not
   // stretch the whole page with a long list, or leave dead space below a
   // short one — bounds the table to a fixed height and scrolls rows inside
   // it, regardless of how many rows there are.
@@ -443,8 +443,7 @@ describe("DataTable", () => {
         </LocaleProvider>,
       );
       // toLocaleString() without a locale arg stays runtime-default (not the
-      // resolver locale) — out of scope for #2007, which only addresses the
-      // untranslated word/aria-labels.
+      // resolver locale) — this only addresses the untranslated word/aria-labels.
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3,000");
       expect(screen.getByTestId("dt-pager").textContent).toContain("Seite 1 von 60");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe(
@@ -541,7 +540,7 @@ describe("DataTable", () => {
     // 60 rows — above END_LABEL_MIN_ROWS (50, the framework default pageSize)
     // so hasMore=false genuinely means "reached the end of a full default
     // page". 25 used to pass here too, back when the threshold was a
-    // mismatched 20 (fw#1713) — that under-a-page case is now covered
+    // mismatched 20 — that under-a-page case is now covered
     // separately below by the exact-boundary tests.
     const manyRows = Array.from({ length: 60 }, (_, i) => ({
       id: `r${i}`,
@@ -1448,7 +1447,7 @@ describe("DataTable toolbar slots", () => {
 // A list screen has no PageSection/FormScreenShell around it — its screen
 // chrome is DataTable's own outer wrapper, which is why that wrapper had its
 // own inset and list screens ended 24px above the viewport edge instead of
-// 48px (fw#2640).
+// 48px.
 describe("DataTable screenPadding", () => {
   const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
   const oneRow = [{ id: "r1", values: { name: "Alice" } }];
@@ -1473,7 +1472,7 @@ describe("DataTable screenPadding", () => {
     expect(paddingClasses(paddingWrapperOf("embedded-table"))).toEqual(["p-6"]);
   });
 
-  // fw#3234 round 3: a relatedList section nested in a tabs-mode Card already
+  // A relatedList section nested in a tabs-mode Card already
   // sits inside the Card's own padded body — DataTable's own p-6 wrapper then
   // pushed the table 24px deeper than a sibling Banner in the same Card,
   // visibly misaligning their left edges.

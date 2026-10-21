@@ -13,7 +13,7 @@ import { clickSubmitOnceEnabled, schema } from "./_kumiko-screen-helpers.tsx";
 import { fireEvent, makeDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 describe("KumikoScreen", () => {
-  // toolbarActions kind:"drawer" (fw#2225): mounts the referenced actionForm
+  // toolbarActions kind:"drawer": mounts the referenced actionForm
   // in the Drawer primitive instead of navigating — reuses ActionFormBody
   // (no second form renderer), so submit/cancel/field-rendering all go
   // through the same RenderEdit path entityEdit/actionForm already use.
@@ -135,8 +135,8 @@ describe("KumikoScreen", () => {
     });
   });
 
-  // rowActions kind:"drawer" (fw#2710): row-level pendant to toolbarActions
-  // kind:"drawer" (fw#2225) above — same DrawerHost/useDrawerAction
+  // rowActions kind:"drawer": row-level pendant to toolbarActions
+  // kind:"drawer" above — same DrawerHost/useDrawerAction
   // machinery, generalized to also serve a row-derived prefill.
   describe("entityList rowActions drawer-kind (fw#2710)", () => {
     const noteForm: ActionFormScreenDefinition = {
@@ -339,7 +339,7 @@ describe("KumikoScreen", () => {
     });
   });
 
-  // Tier 2.7c: screen-level filter is propagated from the schema into the
+  // Screen-level filter is propagated from the schema into the
   // query payload. Three buckets ("scheduled" / "active" / "done")
   // share the same query handler; the filter decides which rows come.
   test("entityList screen-filter: schema.filter landet im query-payload", async () => {
@@ -485,8 +485,8 @@ describe("KumikoScreen", () => {
   });
 });
 
-// --- entityList status cells + row actions (fw#2579, fw#2580) ---
-// Both are leftovers from #2575: the tone heuristic and the icon-only
+// --- entityList status cells + row actions ---
+// Both are leftovers: the tone heuristic and the icon-only
 // collapse existed, but neither reached a list cell. These render the real
 // entityList pipeline (KumikoScreen -> EntityListBody -> RenderList ->
 // DataTable) against the real web primitives.

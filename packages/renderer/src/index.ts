@@ -1,7 +1,8 @@
-// Platform-agnostic React renderer for Kumiko screens. Das ist der
-// Shared-Layer: Components, Hooks, Contexts, Types. Die Web-DOM-Impls
-// leben unter ./web und reichen ihre konkreten Primitives/Nav/SSE-Impls via
-// Provider in diesen Baum.
+// Platform-agnostic React renderer for Kumiko screens. This is the
+// shared layer for components, hooks, contexts, and types. Web DOM
+// implementations live under ./web and provide their concrete
+// primitives, navigation, and SSE implementations through providers
+// in this tree.
 //
 // Direct consumers of this layer: platform bindings
 // (@cosmicdrift/kumiko-renderer/web) or an app writing its own bootstrap.

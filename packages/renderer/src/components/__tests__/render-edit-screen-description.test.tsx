@@ -1,4 +1,4 @@
-// Regression coverage for kumiko-framework#2723: `EntityEditScreenDefinition.
+// Regression coverage: `EntityEditScreenDefinition.
 // description` / `ActionFormScreenDefinition.description` existed in the type
 // but was never rendered anywhere — used only as agent/API metadata
 // (packages/framework/src/api/server.ts). RenderEdit now renders it as the

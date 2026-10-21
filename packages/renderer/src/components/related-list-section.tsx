@@ -205,7 +205,7 @@ export function RelatedListSection({
   readonly hideTitle?: boolean;
   /** Under a fixed-height screen the tab panel chain stretches so the count footer sits at the bottom. */
   readonly grow?: boolean;
-  /** Opens a drawer-kind rowAction (fw#2710). Supplied by the parent
+  /** Opens a drawer-kind rowAction. Supplied by the parent
    *  (ProjectionDetailBody), which owns schema + the actual Drawer render —
    *  this component only ever invokes the callback. */
   readonly onOpenDrawer?: (
@@ -547,7 +547,7 @@ export function RelatedListSection({
   // A truncated fetch means `sortedRows` is a sort of a partial set, not of
   // the full related-row set — the client-side sort above (or even plain
   // unsorted display) would silently claim "these are the top N" when they
-  // are really just "the first N in the server's own order" (fw#2722 review).
+  // are really just "the first N in the server's own order".
   // `nextCursor` is exactly how the paged envelope marks that: non-null means
   // more rows exist server-side beyond what was fetched.
   // A handler that omits `nextCursor` (or reports a `total` the fetched rows

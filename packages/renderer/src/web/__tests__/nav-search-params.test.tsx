@@ -1,8 +1,7 @@
-//
-// useBrowserNavApi Lese-/Schreib-Pfad für searchParams. Vor dieser
-// Suite war das Mapping `window.location.search ↔ NavApi.searchParams`
-// nur über useListUrlState mit Mock-NavApi indirekt getestet — der
-// echte URLSearchParams-Parse + replaceState-Roundtrip war ungetestet.
+// Read/write coverage for `useBrowserNavApi` searchParams. Before this suite,
+// the `window.location.search ↔ NavApi.searchParams` mapping was tested only
+// indirectly through `useListUrlState` with a mock NavApi; the real
+// URLSearchParams parse and replaceState round trip was untested.
 
 import { describe, expect, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
@@ -38,7 +37,7 @@ describe("useBrowserNavApi — searchParams", () => {
       result.current.setSearchParams({ "orders.sort": "name", "orders.dir": "asc" });
     });
     expect(window.location.search).toBe("?orders.sort=name&orders.dir=asc");
-    // replaceState statt pushState — History-Länge unverändert.
+    // replaceState rather than pushState keeps the history length unchanged.
     expect(window.history.length).toBe(initialHistoryLength);
   });
 
@@ -61,8 +60,8 @@ describe("useBrowserNavApi — searchParams", () => {
         "orders.page": null,
       });
     });
-    // Reihenfolge im Output stabil weil URLSearchParams insertion-order
-    // bewahrt; löschen reduziert die Liste.
+    // The output order is stable because URLSearchParams preserves insertion order;
+    // deleting an entry shortens the list.
     expect(window.location.search).toContain("orders.sort=createdAt");
     expect(window.location.search).toContain("orders.dir=desc");
     expect(window.location.search).not.toContain("orders.page");

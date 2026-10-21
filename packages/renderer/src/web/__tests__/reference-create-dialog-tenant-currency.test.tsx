@@ -1,6 +1,6 @@
 // The inline reference-create dialog seeds a `currency: { kind: "tenant" }`
 // money field from the tenant-settings currency, same as the entityEdit
-// create screen (fw#2933) — not from entity.defaultCurrency.
+// create screen — not from entity.defaultCurrency.
 
 import { describe, expect, test } from "bun:test";
 import type {

@@ -1,7 +1,7 @@
-// SidebarUser — der NavUser-Footer aus shadcns sidebar-07: Avatar + Name +
-// Email + ChevronsUpDown. App-Author reicht ihn als `sidebarFooter` an
-// DefaultAppShell. Reiner Look (kein Account-Dropdown) — wer ein User-Menü
-// will, wrappt ihn in einen DropdownMenu.
+// SidebarUser is the NavUser footer from shadcns sidebar-07: avatar + name +
+// email + ChevronsUpDown. App authors pass it as `sidebarFooter` to
+// DefaultAppShell. It is purely visual (no account dropdown); wrap it in a
+// DropdownMenu to provide a user menu.
 
 import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
@@ -11,7 +11,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar.t
 export type SidebarUserProps = {
   readonly name: string;
   readonly email?: string;
-  /** Avatar-URL. Fehlt sie, stehen die Initialen aus dem Namen. */
+  /** Avatar URL. When omitted, initials derived from the name are shown. */
   readonly avatar?: string;
 };
 

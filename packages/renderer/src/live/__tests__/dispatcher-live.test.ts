@@ -47,7 +47,7 @@ describe("createLiveDispatcher", () => {
     expect(headers["X-CSRF-Token"]).toBe("csrf-abc");
     const body = JSON.parse(call?.init.body as string);
     expect(body).toMatchObject({ type: "app:write:task:create", payload: { title: "hello" } });
-    // Auto-generated idempotency key (#761) — always present.
+    // Auto-generated idempotency key — always present.
     expect(typeof body.requestId).toBe("string");
     expect(body.requestId.length).toBeGreaterThan(8);
   });

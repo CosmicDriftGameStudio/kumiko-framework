@@ -2,7 +2,7 @@
 // FormScreenShell/PageSection sits around it. `screenPadding` is how that
 // wrapper reaches the shared screen-padding token, so it has to be set on the
 // real list path (KumikoScreen → EntityListScreen → EntityListBody →
-// RenderList), not just be available on the primitive (fw#2640).
+// RenderList), not just be available on the primitive.
 import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,

@@ -150,10 +150,9 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
     const label = translate(
       normalized.label ?? fieldLabelKey(featureName, screen.entity, normalized.field),
     );
-    // Tier 2.7e-3 + Cross-Feature: Reference-Field — entity-String
-    // kann same-feature ("user") oder cross-feature ("users:user")
-    // sein. parseRefTarget gibt (featureName, entityName), der
-    // Renderer baut die Lookup-QN als
+    // Reference fields may target the same feature ("user") or another feature
+    // ("users:user"). parseRefTarget returns the feature and entity names, which
+    // the renderer uses to build the lookup query as
     // `<refFeature>:query:<refEntity>:list`.
     const refRaw = fieldDef.type === "reference" ? fieldDef.entity : undefined;
     const refTarget = refRaw !== undefined ? parseRefTarget(refRaw, featureName) : undefined;

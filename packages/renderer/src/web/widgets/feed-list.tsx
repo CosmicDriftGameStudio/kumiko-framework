@@ -6,8 +6,8 @@ export type FeedRow = {
   readonly trailing?: string;
 };
 
-/** Nicht-tabellarische Kurzliste (z.B. "nächste Termine") — Primary-Text +
- *  optionaler rechtsbündiger Trailing-Wert pro Zeile. */
+/** Non-tabular compact list (e.g. "upcoming appointments") — primary text plus
+ *  an optional right-aligned trailing value for each row. */
 export function FeedList({
   rows,
   emptyContent,

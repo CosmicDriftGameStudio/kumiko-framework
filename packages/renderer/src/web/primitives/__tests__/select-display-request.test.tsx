@@ -1,4 +1,4 @@
-// `kind: "select"` with an explicit `display` (#2711). The short-option-set
+// `kind: "select"` with an explicit `display`. The short-option-set
 // heuristic covered by select-segmented.test.tsx stays the default; these
 // tests only cover the case where the caller states a presentation and the
 // heuristic would have decided the other way.

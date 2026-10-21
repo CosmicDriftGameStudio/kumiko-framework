@@ -33,8 +33,8 @@ export type StatDelta = {
   readonly tone?: StatTone;
 };
 
-// Inline-SVG-Sparkline (kein Chart-Dep für eine 28px-Kurve): Linie +
-// schwacher Flächen-Verlauf, Farbe via currentColor (Caller setzt text-tone).
+// Inline SVG sparkline (no chart dependency for a 28px curve): line +
+// subtle area gradient, colored via currentColor (caller sets text-tone).
 export function Sparkline({
   points,
   className,
@@ -105,8 +105,8 @@ function StatIconChip({
   );
 }
 
-/** Icon-tragende Kennzahl-Kachel mit optionalem Delta-Chip, Trend-Zeile
- *  und Sparkline. `icon` ist ein fertiger Knoten (App liefert ihr SVG). */
+/** Icon-bearing metric tile with an optional delta chip, trend line,
+ *  and sparkline. `icon` is a ready-made node (the app supplies its SVG). */
 export function StatCard({
   icon,
   label,
@@ -228,8 +228,8 @@ export function StatStripCell({
   );
 }
 
-/** Kompakte Kennzahl-Kachel (ohne Icon) — für dichte KPI-Raster.
- *  StatCard ist die icon-tragende Variante. */
+/** Compact metric tile (without an icon) — for dense KPI grids.
+ *  StatCard is the icon-bearing variant. */
 export function MiniStat({
   label,
   value,

@@ -1,4 +1,4 @@
-// Browser-backed DraftStorage default for createKumikoApp (issue #1913).
+// Browser-backed DraftStorage default for createKumikoApp.
 //
 // Persists a create-mode draftId per screen in `sessionStorage` — same-tab
 // scope only (deliberately, unlike browser-locale.ts's localStorage): the

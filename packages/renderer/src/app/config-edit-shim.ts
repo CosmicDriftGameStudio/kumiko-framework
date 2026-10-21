@@ -1,17 +1,16 @@
-// Shim für ConfigEdit-Renderer (analog zu action-form-shim.ts).
+// Shim for the ConfigEdit renderer (analogous to action-form-shim.ts).
 //
-// RenderEdit verlangt eine `entity: EntityDefinition` + ein
-// `screen: EntityEditScreenDefinition` Pair, nutzt aber intern nur
-// `entity.fields` und `screen.layout` für das Rendern. ConfigEdit-
-// Screens haben weder eine Entity-Reference noch sind sie
-// type: "entityEdit" — die zwei Helper hier shapen den Daten-Input
-// ad-hoc um, damit RenderEdit reused werden kann.
+// RenderEdit requires an `entity: EntityDefinition` +
+// `screen: EntityEditScreenDefinition` pair, but internally uses only
+// `entity.fields` and `screen.layout` for rendering. ConfigEdit screens
+// have neither an entity reference nor `type: "entityEdit"` — these two
+// helpers reshape the data input ad hoc so RenderEdit can be reused.
 //
-// Selbe Schulden-Reservation wie bei action-form-shim: sobald RenderEdit
-// auf entity.transitions / idType / softDelete zugreift, oder ein
-// zukünftiger Boot-Validator die schema.entities-Map cross-referenziert,
-// brechen die Type-Lies hier silent. Dann ist Zeit für eine echte
-// RenderConfigEdit-Komponente die direkt fields nimmt.
+// The same debt reservation as in action-form-shim applies: if RenderEdit
+// starts accessing entity.transitions / idType / softDelete, or a future
+// boot validator cross-references the schema.entities map, these type lies
+// will fail silently. At that point, a real RenderConfigEdit component
+// that takes fields directly is needed.
 
 import type {
   ConfigEditScreenDefinition,
@@ -23,20 +22,19 @@ import { I18N_KEY_PARAM } from "../headless/index.ts";
 
 const CONFIG_EDIT_PSEUDO_ENTITY = "__config-edit__";
 
-/** Baut eine minimale EntityDefinition aus den Inline-Fields des
- *  ConfigEdit-Screens. RenderEdit + computeEditViewModel iterieren
- *  über entity.fields zur Render-Zeit; alle weiteren EntityDefinition-
- *  Felder bleiben undefined. */
+/** Builds a minimal EntityDefinition from the ConfigEdit screen's inline
+ *  fields. RenderEdit + computeEditViewModel iterate over entity.fields
+ *  at render time; all other EntityDefinition fields remain undefined. */
 export function synthesizeConfigEditEntity(
   fields: ConfigEditScreenDefinition["fields"],
 ): EntityDefinition {
   return { fields } as EntityDefinition;
 }
 
-/** Wandelt ein ConfigEditScreenDefinition in die EntityEditScreen-
- *  Shape die RenderEdit erwartet. type wird auf "entityEdit" gesetzt
- *  damit der Type-Constraint hält; entity wird auf den Pseudo-Namen
- *  gepinnt — RenderEdit liest das Feld nicht. */
+/** Converts a ConfigEditScreenDefinition to the EntityEditScreen shape
+ *  expected by RenderEdit. `type` is set to "entityEdit" to satisfy the
+ *  type constraint; `entity` is pinned to the pseudo-name — RenderEdit
+ *  does not read this field. */
 export function synthesizeConfigEditScreen(
   screen: ConfigEditScreenDefinition,
 ): EntityEditScreenDefinition {

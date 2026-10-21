@@ -1,4 +1,4 @@
-// fw#1910: the auto-wired entityEdit path never set RenderEdit's `schema`
+// The auto-wired entityEdit path never set RenderEdit's `schema`
 // prop, so the wizard's per-step "Next" validation was a no-op — a
 // required field left empty on step 1 still advanced to step 2. This test
 // covers the fix end to end (KumikoScreen → EntityEditCreateBody →
@@ -156,7 +156,7 @@ describe("entityEdit wizard — presence validation on Next (fw#1910)", () => {
   });
 });
 
-// fw#1966: the wizard chrome used to only show a "Step X of Y" counter —
+// The wizard chrome used to only show a "Step X of Y" counter —
 // no way to see what the remaining steps are called. The step bar renders
 // every section title up front and marks the current one.
 describe("entityEdit wizard — step bar (fw#1966)", () => {
@@ -259,7 +259,7 @@ describe("entityEdit wizard — step bar (fw#1966)", () => {
     expect(steps.length).toBe(3);
   });
 
-  // fw#1967: a PrimitivesRegistry without StepBar (older/custom registry)
+  // A PrimitivesRegistry without StepBar (older/custom registry)
   // must stay on the plain "Step X of Y" label RenderEdit always had —
   // this is the changeset's stated backward-compat guarantee.
   test("falls back to the plain step label when the registry doesn't supply StepBar", () => {
@@ -276,7 +276,7 @@ describe("entityEdit wizard — step bar (fw#1966)", () => {
     expect(screen.queryByTestId("render-edit-wizard-steps-step-0")).toBeNull();
   });
 
-  // fw#1967: a titleless section used to fall back to the stringified step
+  // A titleless section used to fall back to the stringified step
   // number, duplicating the StepBar's own numbered badge ("3 3"). The
   // fallback is now an empty label — only the badge shows.
   test("a titleless section shows only the step number, not a duplicated digit", () => {

@@ -1,12 +1,12 @@
 //
-// MoneyInput hat genug Custom-Logik (focus-aware Format, +/- Buttons,
-// Locale-Parse), dass der Switch-Case-Test in primitives.test nicht
-// reicht. Hier pinnen wir die Verträge:
-//   - Blur-View formatiert mit Currency-Symbol + Tausender-Trenner.
-//   - Focus-View liefert raw editable string, ohne Grouping.
-//   - +/- Buttons mutieren Canonical-Cents direkt (nicht major-units).
-//   - Blur mit Müll-Input verwirft den Wert (kein corrupt-set).
-//   - Verschiedene Currencies → korrekte Decimal-Stellen (JPY=0).
+// MoneyInput has enough custom logic (focus-aware formatting, +/- buttons,
+// locale parsing) that the switch-case test in primitives.test is insufficient.
+// These tests pin the contracts:
+//   - Blur view formats with the currency symbol and thousands separator.
+//   - Focus view provides a raw editable string without grouping.
+//   - +/- buttons mutate canonical cents directly, not major units.
+//   - Blur with invalid input discards the value instead of corrupting it.
+//   - Different currencies use the correct number of decimal places (JPY=0).
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -62,8 +62,8 @@ describe("MoneyInput", () => {
       />,
     );
     const input = screen.getByRole("textbox") as HTMLInputElement;
-    // ja-JP rendert "￥150,000" (Fullwidth-Yen). 0 Decimals weil JPY
-    // keine Subunits hat — 150.000 cents → 150.000 Yen direkt.
+    // ja-JP renders "￥150,000" (fullwidth yen) with 0 decimals because JPY
+    // has no subunits — 150.000 cents → 150.000 yen directly.
     expect(input.value).toContain("150,000");
     expect(input.value).not.toContain(".00");
   });
@@ -81,7 +81,7 @@ describe("MoneyInput", () => {
     );
     const input = screen.getByRole("textbox") as HTMLInputElement;
     fireEvent.focus(input);
-    // Locale ist de-DE → Komma als Decimal-Separator, kein Punkt-Trenner
+    // The de-DE locale uses a comma as the decimal separator, not a period.
     expect(input.value).toBe("1234,56");
   });
 
@@ -176,9 +176,8 @@ describe("parseLocaleNumber (strict-Negative)", () => {
   });
 
   test("Minus mitten in der Zahl: NaN (strict — kein Silent-Fallback)", () => {
-    // "1-23" könnte naiv als -123 interpretiert werden; das war der
-    // Bug der vor dem Strict-Check existierte und vertippte Inputs zu
-    // falschen Beträgen gemacht hat.
+    // "1-23" could naively be interpreted as -123; the strict check prevents
+    // mistyped input from being converted into the wrong amount.
     expect(parseLocaleNumber("1-23", "de-DE")).toBeNaN();
   });
 

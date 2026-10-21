@@ -1,4 +1,4 @@
-// Issue #1942: entityEdit had no post-save redirect (only actionForm did) —
+// entityEdit had no post-save redirect (only actionForm did) —
 // RenderEdit only exposed onSubmit/onCancel, unreachable from a declarative
 // screen. This exercises the real create/update submit path through
 // KumikoScreen → EntityEditCreateBody/EntityEditUpdateForm, not just the

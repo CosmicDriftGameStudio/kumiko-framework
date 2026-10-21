@@ -64,7 +64,7 @@ describe("synthesizeProjectionDetailScreen", () => {
   });
 });
 
-// Regression for fw#2982: a section that puts its fields in `groups`
+// Regression: a section that puts its fields in `groups`
 // instead of `fields` used to vanish entirely — synthesizeProjectionDetailEntity
 // never registered the field names, so computeEditViewModel threw "references
 // unknown field" for every one of them, and synthesizeProjectionDetailScreen

@@ -1,29 +1,29 @@
 import type { ReactNode } from "react";
 
 export type SidebarProps = {
-  /** Header-Bereich oben — typisch Workspace-Avatar + Name + Badge.
-   *  Lebt VOR dem scroll-area, bleibt sichtbar wenn das nav scrollt. */
+  /** Header area at the top — typically a workspace avatar, name, and badge.
+   *  Sits ABOVE the scroll area and remains visible while the nav scrolls. */
   readonly header?: ReactNode;
-  /** Action-Cluster zwischen Header und Nav — typisch "+ Neu" Button
-   *  und Search-Icon. Linear-Pattern: prominent, nicht im scroll-area. */
+  /** Action cluster between the header and nav — typically a "+ Neu" button
+   *  and search icon. Linear pattern: prominent and outside the scroll area. */
   readonly actions?: ReactNode;
-  /** NavTree + freie Sections (z.B. "Your teams" Header + Sub-Items).
-   *  Scrollt eigenständig wenn der Inhalt zu lang wird. */
+  /** NavTree and free-form sections (e.g. "Your teams" header and sub-items).
+   *  Scrolls independently when the content becomes too long. */
   readonly children: ReactNode;
-  /** Footer-Bereich unten — typisch Invite-Link, Help, Plan-Banner.
-   *  Klebt am unteren Rand via mt-auto. */
+  /** Footer area at the bottom — typically an invite link, help, and plan banner.
+   *  Sticks to the bottom via mt-auto. */
   readonly footer?: ReactNode;
   readonly testId?: string;
 };
 
 export function Sidebar({ header, actions, children, footer, testId }: SidebarProps): ReactNode {
-  // Linear-Pattern: 4 vertikale Bereiche
-  //   1. Header (Workspace-Identity)
-  //   2. Actions (Quick-Buttons, nicht-scrollend)
-  //   3. Nav-Scroll-Area (NavTree, scrollt wenn nötig)
-  //   4. Footer (klebt unten via mt-auto)
-  // bg-muted/40 + border-r für visuelle Distinction zur Main-Area;
-  // tighter padding (p-3) und kompakte gap-0.5 zwischen Items.
+  // Linear pattern: four vertical areas
+  //   1. Header (workspace identity)
+  //   2. Actions (non-scrolling quick buttons)
+  //   3. Nav scroll area (NavTree, scrolling when needed)
+  //   4. Footer (stays at the bottom via mt-auto)
+  // bg-muted/40 + border-r distinguish the sidebar visually from the main area;
+  // tighter padding (p-3) and a compact gap-0.5 between items.
   return (
     <aside
       data-testid={testId}
