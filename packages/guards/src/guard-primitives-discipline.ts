@@ -96,7 +96,7 @@ type ScanScope = {
 
 // Framework checkout enforces bundled-features + samples. App-repo checkout
 // scans the app's web/ screens — primitives-discipline as a ratchet per app
-// repo (infra#224). Every other resolved repo (enterprise, platform, ...)
+// repo. Every other resolved repo (enterprise, platform, ...)
 // scans alongside the others in one run — flatMap all of them instead of
 // cascading, which would silently skip every root after the first, exactly
 // the silent-skip this guard fixes.

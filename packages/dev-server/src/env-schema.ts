@@ -1,19 +1,19 @@
 // @runtime runtime
 // Consumed at prod boot via composeEnvSchema (same as compose-stacks),
-// not only by tooling — keep runtime-isolation-safe (kumiko-framework#2340).
+// not only by tooling — keep runtime-isolation-safe.
 //
 // Framework-core env-schema — the vars that runProdApp + buildServer
 // + the connection-pool read directly from process.env today. Apps merge
 // this into their app-wide schema via `composeEnvSchema({ core, ... })`.
 //
-// Sprint 9.2 is purely additive: the schema is exposed, but the call-sites
+// The schema is purely additive: it is exposed, but the call-sites
 // in run-prod-app.ts (requireEnv("DATABASE_URL"), …) and api/server.ts
 // (process.env["KUMIKO_INSTANCE_ID"]) keep reading process.env directly.
 // Apps that opt into the schema get aggregated boot-validation errors
 // BEFORE those legacy reads run; apps that don't, behave as before.
 //
 // Feature-specific vars (JWT_SECRET, KUMIKO_SECRETS_MASTER_KEY_*) live
-// in their owning feature's envSchema — Phase 2 (bundled-features).
+// in their owning feature's envSchema (bundled-features).
 
 import * as z from "zod";
 
@@ -22,7 +22,7 @@ import * as z from "zod";
  *
  *  PORT-default "3000" is the same fallback as
  *  `packages/dev-server/src/run-prod-app.ts:533` — keep in sync when the
- *  call-site is refactored to consume parsed env (Sprint 9.5 Phase 4). */
+ *  call-site is refactored to consume parsed env. */
 export const frameworkCoreEnvSchema = z.object({
   PORT: z
     .string()

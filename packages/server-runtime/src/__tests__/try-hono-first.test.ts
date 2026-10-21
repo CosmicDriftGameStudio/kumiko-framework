@@ -4,10 +4,10 @@
 // now use this helper — if the semantics change (e.g. "matched" treating
 // other 4xx differently than 404), both paths MUST update in sync.
 //
-// kumiko-framework#2435: "matched" used to depend ONLY on the status code
-// (404 = no match) — that masked any matched route's deliberate 404 as the
-// SPA shell with status 200. The contract now: a router-miss is ONLY a 404
-// that ADDITIONALLY carries NO_ROUTE_MATCH_HEADER_NAME (set by buildServer's
+// "matched" used to depend ONLY on the status code (404 = no match) —
+// that masked any matched route's deliberate 404 as the SPA shell with
+// status 200. The contract now: a router-miss is ONLY a 404 that
+// ADDITIONALLY carries NO_ROUTE_MATCH_HEADER_NAME (set by buildServer's
 // app.notFound(), see framework/api/server.ts). A plain 404 without the
 // marker counts as matched — the route answered deliberately.
 

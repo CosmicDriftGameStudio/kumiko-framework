@@ -1,9 +1,8 @@
-// Heuristik für die Watcher-Loop: server-side Änderungen brauchen
-// Process-Restart (Bun cached Module-Imports), Client-Side reicht
-// Hot-Reload, Tests/non-TS sollen den Watcher gar nicht triggern.
-// Wenn die Klassifikation drift bekommt, kommen entweder unnötige
-// Restarts (DX schlecht) oder echte Schema-Änderungen schlagen
-// nicht durch (UX broken). Beide sind teuer — daher pinnen wir.
+// Heuristic for the watcher loop: server-side changes require a
+// process restart (Bun caches module imports), while client-side changes only need
+// hot-reload; tests and non-TS files should not trigger the watcher at all.
+// If the classification drifts, either unnecessary restarts hurt DX or real schema
+// changes fail to propagate (UX is broken). Both are costly, so we pin this behavior.
 
 import { describe, expect, test } from "bun:test";
 import { classifyChange, classifyWatchedChange } from "../create-kumiko-server.ts";
@@ -69,10 +68,9 @@ describe("classifyChange", () => {
     );
   });
 
-  // Sample-Conventions: publicstatus splittet `/admin/` (Admin-Bundle)
-  // und `/public/` (Public-Bundle). Beide sind client-side, müssen
-  // hot-reload sein — sonst kostet jeder Bridge-Edit einen Restart +
-  // DB-Reset. Andere Samples machen das eventuell auch so.
+  // Sample conventions: publicstatus splits `/admin/` (Admin bundle) and `/public/`
+  // (Public bundle). Both are client-side and must use hot-reload; otherwise every
+  // bridge edit costs a restart and DB reset. Other samples may follow this pattern too.
   test("admin/-Subdir → hot-reload", () => {
     expect(classifyChange("/abs/samples/foo/src/admin/branding-settings.tsx")).toBe("hot-reload");
   });

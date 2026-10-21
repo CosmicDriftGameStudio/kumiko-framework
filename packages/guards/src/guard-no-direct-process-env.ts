@@ -59,7 +59,7 @@ export function isScannableBinFile(rel: string): boolean {
 // convention at all — "solon" is deliberately not on it) and intersected
 // with the resolved roots, so a restricted scope actually narrows what this
 // guard scans instead of always walking every repo regardless of scope
-// (infra#721 follow-up — a money-horse-scoped push must not fail on a
+// (follow-up — a money-horse-scoped push must not fail on a
 // finding in publicstatus).
 const CANDIDATE_ENV_TS_REPOS: ReadonlySet<string> = new Set([
   "kumiko-studio",
@@ -81,7 +81,7 @@ export function findDirectProcessEnv(roots?: ReadonlyArray<RepoRoot>): ProcessEn
 /**
  * Like findDirectProcessEnv, additionally reports the number of files read
  * and repos with bin/env.ts — without that an empty scan can't be told apart
- * from a clean one (infra#433).
+ * from a clean one.
  */
 export function scanDirectProcessEnv(roots: ReadonlyArray<RepoRoot> = resolveRepoRoots()): {
   readonly findings: ProcessEnvFinding[];

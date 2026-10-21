@@ -56,7 +56,7 @@ export function mergeExtraContext(
     const merged: Record<string, unknown> = { ...fromBase };
 
     if (presets.includes("config")) {
-      // Same precedence as mergeConfigResolverDefault (run-dev-app.ts) — a base-supplied resolver wins, factory always derives from it (fw#3313).
+      // Same precedence as mergeConfigResolverDefault (run-dev-app.ts) — a base-supplied resolver wins, factory always derives from it.
       const configResolver = resolveBaseConfigResolver(fromBase) ?? createConfigResolver();
       Object.assign(merged, addConfigAccessorFactory({ configResolver }, deps.registry));
     }

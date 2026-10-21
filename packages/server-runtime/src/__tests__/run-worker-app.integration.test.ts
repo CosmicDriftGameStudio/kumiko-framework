@@ -1,8 +1,8 @@
 // runWorkerApp integration: boots the dedicated worker process against
 // real Postgres + Redis. Proves:
-//   - ensureTemporalPolyfill ran BEFORE the job executed (fw#1725: the
-//     bug that cost real time — without the polyfill, every job in the
-//     worker fails with "Temporal is not defined")
+//   - ensureTemporalPolyfill ran BEFORE the job executed (the bug that cost
+//     real time — without the polyfill, every job in the worker fails with
+//     "Temporal is not defined")
 //   - event-triggered jobs run end-to-end (afterCommit → BullMQ → handler)
 //   - the schema-drift gate aborts the boot on pending migrations
 //   - wireComponents gets db/redis/registry/dispatchSystemWrite/lifecycle
@@ -75,9 +75,8 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
     }),
   });
   // The job's only purpose: prove Temporal is already defined by the time
-  // the handler runs. Before fw#1725 there was no framework-side boot
-  // path for this — apps had to rebuild the polyfill call by hand
-  // (solon#42) and forgot it.
+  // the handler runs. Before, there was no framework-side boot path for this
+  // — apps had to rebuild the polyfill call by hand and forgot it.
   r.job(
     "boot-probe",
     { trigger: { manual: true }, runIn: "worker", runOnBoot: true },
@@ -90,7 +89,7 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
       const temporalWasDefined =
         typeof (globalThis as { Temporal?: unknown }).Temporal === "object";
       // Touches the global directly — throws "Temporal is not defined" if the
-      // polyfill never ran, which is the exact failure mode fw#1725 reports.
+      // polyfill never ran, which is the exact failure mode.
       Temporal.Now.instant();
       jobRuns.push({
         note: (payload as { note: string }).note,

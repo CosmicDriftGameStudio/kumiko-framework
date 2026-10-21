@@ -10,7 +10,7 @@ import type { TenantDb } from "./tenant-db-types.ts";
 // registered-entity map the SQL clause checks host candidates against.
 // Lives here (not in db/parent-ref-clause.ts) because the Registry only
 // exists at request time — the same extension-point shape as
-// referenceSearch/referenceSort below (fw#2660/fw#2741).
+// referenceSearch/referenceSort below.
 export type ParentVisibilityOption = {
   readonly entities: ReadonlyMap<string, EntityDefinition>;
 };
@@ -152,7 +152,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
       // — includeDeleted only relaxes the soft-delete predicate, never the
       // visibility ones, so it can ride untrusted query input safely.
       readonly includeDeleted?: boolean;
-      // fw#2660 — a text search also matches `searchable: true` reference
+      // A text search also matches `searchable: true` reference
       // fields (and the implicit tenantId→tenant.name row-meta reference) by
       // their target row's labelField, not just the raw FK column. Only
       // available at request time (registry access), so it rides the same
@@ -167,7 +167,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
         }>;
         readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
       };
-      // fw#2741 — `sortable: true` reference fields order by the target row's
+      // `sortable: true` reference fields order by the target row's
       // labelField instead of the raw FK column. Same request-time registry
       // dependency (and the same fields/resolveEntity pairing) as referenceSearch.
       readonly referenceSort?: {

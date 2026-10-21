@@ -1,8 +1,7 @@
-// Spec-Tests für die Bun.serve-Options + Heartbeat-Cadence. Diese
-// Konstanten/Defaults haben Live-Bugs verursacht und sind 1-Zeile-
-// revertierbar — die Tests pinsen Intent + akzeptablen Range gegen
-// "looks like a leak"-Reverts oder "bisschen rauf, sollte reichen"-
-// Tweaks.
+// These spec tests pin the intent and acceptable ranges for Bun.serve options and heartbeat cadence.
+// The constants and defaults have caused live bugs, so the expectations should remain easy to revert
+// deliberately rather than being weakened by "looks like a leak" or "a small increase should be enough"
+// tweaks.
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -28,11 +27,9 @@ import { buildBunServeOptions } from "../run-prod-app.ts";
 
 describe("Bun.serve options for production", () => {
   test("idleTimeout is 0 (disabled) — required for SSE long-lived connections", () => {
-    // Bun.serve default ist 10s — ohne Override killt das SSE-Streams
-    // mit halbem HTTP/2-RST_STREAM. Spec ist "disabled"; jeder andere
-    // Wert (auch ein vermeintlich "großzügiges" 60) bricht SSE sobald
-    // ein Client den Tab im Hintergrund hat (kein Heartbeat-Read auf
-    // Browser-Seite, Idle-Timer feuert).
+    // Bun.serve defaults to 10s; without this override, SSE streams are terminated with a partial
+    // HTTP/2-RST_STREAM. The contract is "disabled": any other value can break SSE when a client
+    // backgrounds the tab and the browser stops reading heartbeats, allowing the idle timer to fire.
     const opts = buildBunServeOptions(0, () => new Response("ok"));
     expect(opts.idleTimeout).toBe(0);
   });
@@ -141,29 +138,27 @@ describe("resolveDerivedMaxRequestBodySize", () => {
 
 describe("SSE heartbeat cadence", () => {
   test("liegt unter dem strengsten Edge-Idle-Timeout (Cloudflare 100s)", () => {
-    // Bun.serve idleTimeout ist disabled (siehe buildBunServeOptions),
-    // damit fällt der Bun-default-10s-Layer raus. Die strengsten
-    // verbleibenden Layer sind CDN/LB-Edges:
-    //   - Cloudflare Edge: 100 s   ← strengster realistischer Layer
+    // Bun.serve's idleTimeout is disabled (see buildBunServeOptions), so the Bun 10s default
+    // does not apply. The remaining strictest layers are CDN/LB edges:
+    //   - Cloudflare Edge: 100 s (strictest realistic layer)
     //   - AWS ALB: 60 s
-    //   - Nginx default: keep-alive 60 s, aber nicht für Streams
-    // Heartbeat muss DEUTLICH darunter liegen damit auch ein verschluckter
-    // Frame nicht zur Connection-Death führt — Faktor 5 ist konservativ.
+    //   - Nginx default: keep-alive 60 s, but not for streams
+    // The heartbeat must stay well below these limits so a delayed frame does not kill the connection;
+    // a factor of five provides conservative headroom.
     expect(SSE_HEARTBEAT_INTERVAL_MS).toBeLessThan(60_000);
   });
 
   test("liegt nicht zu hoch — DefenseInDepth gegen Bun-Default-Drift", () => {
-    // Wenn jemand idleTimeout: 0 wieder rausnimmt (Audit, Linter,
-    // Misverständnis), darf der Heartbeat nicht der einzige
-    // Schutzwall sein der unter dem 10s-Bun-default liegt. ≤30s
-    // gibt Cushion + bleibt deutlich unter Bun-default-10s × 3.
+    // If idleTimeout: 0 is removed, the heartbeat must not be the only protection below Bun's 10s
+    // default. A limit of 30s provides some cushion while remaining well below three times that
+    // default.
     expect(SSE_HEARTBEAT_INTERVAL_MS).toBeLessThanOrEqual(30_000);
   });
 
   test("ist >= 5 s — Frequency-Wall gegen versehentliches Network-Spam", () => {
-    // 1000 anonyme Viewer × Heartbeat-Frequency darf den Server nicht
-    // mit Frames fluten. 5s = 200 frames/s pro 1000 Clients ist OK.
-    // Unter 5s wäre eher ein "tippfehler" als bewusste Wahl.
+    // 1000 anonymous viewers sending heartbeats must not flood the server with frames. At 5s,
+    // 1000 clients produce 200 frames/s, which is acceptable; below 5s is more likely a typo
+    // than an intentional choice.
     expect(SSE_HEARTBEAT_INTERVAL_MS).toBeGreaterThanOrEqual(5_000);
   });
 });

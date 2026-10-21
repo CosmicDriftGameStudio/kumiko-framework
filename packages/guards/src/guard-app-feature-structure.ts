@@ -13,8 +13,6 @@
 // ponytail: the handler file convention (*.query.ts/*.write.ts under handlers/)
 // is not enforced yet — add it once the registration API shapes are
 // inventoried and stable.
-//
-// Part of App-Mounting 2.0 (infra#208).
 
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";

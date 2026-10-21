@@ -3,7 +3,7 @@
  * Guard: finds raw `fetch(` calls in server code outside the client-scoped
  * exceptions.
  *
- * `egress(policy)` (@cosmicdrift/kumiko-framework/http, framework#2147) is
+ * `egress(policy)` (@cosmicdrift/kumiko-framework/http) is
  * the single exported way for server code to speak outward — it enforces an
  * SSRF policy (external/internal/tenant-supplied) at the call site instead
  * of leaving that to convention. This guard fails on raw `fetch(` in server
@@ -45,7 +45,7 @@ const EXCLUDE =
   /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$|(?:^|\/)web\/|(?:^|\/)public\/)/;
 
 // Prefixed by RepoRoot.name (not kind): kind "app" is shared across
-// unregistered repos (infra#560).
+// unregistered repos.
 
 // packages/framework/src/http/egress.ts IS the egress() implementation.
 const ALLOWLIST = [/^kumiko-framework\/packages\/framework\/src\/http\/egress\.ts$/];
@@ -59,7 +59,7 @@ interface Violation {
 }
 
 // `self` omitted: Worker globals live under web/public (excluded); a local
-// `const self = this` binding was a systematic FP (infra#582).
+// `const self = this` binding was a systematic FP.
 const GLOBAL_FETCH_RECEIVERS = new Set(["globalThis", "window"]);
 
 // The marker is a per-line skip for a security guard, so it only counts with a

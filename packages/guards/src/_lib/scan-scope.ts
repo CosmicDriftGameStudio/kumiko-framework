@@ -35,7 +35,7 @@ export type RootScan = {
   readonly root: RepoRoot;
   /** Absolute paths handed to the guard, sorted. */
   readonly files: readonly string[];
-  /** All .ts/.tsx under the declared sourceRoots minus excludes, before extension/within filters — the D4 floor input. */
+  /** All .ts/.tsx under the declared sourceRoots minus excludes, before extension/within filters — the floor input. */
   readonly sourceSurface: number;
 };
 

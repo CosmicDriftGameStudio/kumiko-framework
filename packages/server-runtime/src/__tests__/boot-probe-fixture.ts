@@ -41,7 +41,7 @@ export function makeProbeFeature(opts: {
 }
 
 // DATABASE_URL/REDIS_URL/JWT_SECRET are required (their read throws
-// pre-#1441-fix boot bugs); PORT is non-throwing, cleared only so ambient
+// boot bugs); PORT is non-throwing, cleared only so ambient
 // PORT can't mask an "envSource wins" assertion.
 export const CLEARED_BOOT_VARS = ["DATABASE_URL", "REDIS_URL", "JWT_SECRET", "PORT"] as const;
 

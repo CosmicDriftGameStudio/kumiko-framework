@@ -162,7 +162,7 @@ describe("renderBunfigFiles", () => {
 });
 
 // Excerpts of real, currently-committed bunfig.toml files (read-only, not
-// modified by this fix) — kumiko-framework#3120's actual failure mode: every
+// modified by this fix) — actual failure mode: every
 // one of these apps sets [install.scopes] (private registry token) and a
 // [test] key the template never emits (concurrency, at minimum).
 const PHRONEXSIS_BUNFIG = `[install]

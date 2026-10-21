@@ -60,8 +60,8 @@ describe("--yes resolved set boots (issue-1174 regression)", () => {
   });
 
   test("the resolved --yes feature set boots without the GDPR PII-hook-coverage error", async () => {
-    // sessions (auto-included) pulls auth-foundation; #1570 allows zero
-    // tokenVerifier when sessionStore is mounted — PAT stays opt-in (#1514).
+    // sessions (auto-included) pulls auth-foundation; allows zero
+    // tokenVerifier when sessionStore is mounted — PAT stays opt-in.
     expect(resolved.featureNames).not.toContain("personal-access-tokens");
     const instances = await instantiateResolved(resolved.featureNames);
     const composed = composeFeatures(instances, { includeBundled: true });
@@ -70,7 +70,7 @@ describe("--yes resolved set boots (issue-1174 regression)", () => {
   });
 });
 
-// kumiko-framework#2330: validateBoot/createRegistry above never reach
+// validateBoot/createRegistry above never reach
 // runProdApp's PII boot gate (assertPiiBootInvariants) — it's not part of
 // validateBoot, it runs a step later. The --yes set mounts PII-annotated
 // entities (user, tenant-invitation, fileRef via user-data-rights), so the

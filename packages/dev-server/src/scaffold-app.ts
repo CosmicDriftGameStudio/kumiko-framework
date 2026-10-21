@@ -310,12 +310,10 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
   },
 ];
 
-// composeFeatures({ includeBundled: true }) auto-mountet diese 4 Foundation-
-// Features. Sie hier nochmal in APP_FEATURES zu schreiben löste den dedupe-
-// warn-Spam im scaffolded `bun dev` aus (PR #599 hat den createRegistry-
-// Crash gefangen, der Spam blieb bis hier). Filter wirkt defensiv: auch wenn
-// jemand scaffoldApp() direkt mit allen Bundled-Feature-Entries aufruft
-// rutschen die 4 nicht in run-config.ts.
+// composeFeatures({ includeBundled: true }) auto-mounts these four foundation features.
+// Listing them again in APP_FEATURES caused duplicate-registration warnings in
+// scaffolded `bun dev`; filtering also protects direct scaffoldApp() calls that
+// pass all bundled-feature entries, keeping these four out of run-config.ts.
 const COMPOSE_AUTO_MOUNTED_NAMES = new Set(["config", "user", "tenant", "auth-email-password"]);
 
 const MAX_LINE_WIDTH = 100;
@@ -502,7 +500,7 @@ function renderMain(appName: string): string {
   ]);
 
   // Subject-key KMS is optional locally (plaintext + loud warning) but required
-  // under NODE_ENV=production (fw#2317 / #2339).
+  // under NODE_ENV=production.
   return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
 // composeFeatures + validateBoot + createRegistry without DB/Redis-connect
 // (see @cosmicdrift/kumiko-server-runtime runProdApp).

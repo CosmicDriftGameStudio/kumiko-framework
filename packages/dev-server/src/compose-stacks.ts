@@ -1,8 +1,7 @@
 // @runtime runtime
 // Despite living in this "dev"-marked package, every preset here composes
 // @cosmicdrift/kumiko-bundled-features factories, and run-config.ts in every
-// app repo feeds it into the runProdApp boot path, not just runDevApp
-// (kumiko-framework#2337).
+// app repo feeds it into the runProdApp boot path, not just runDevApp.
 //
 // Composable SaaS stack presets — explicit opt-in blocks for run-config.ts.
 // Presets export feature instances only; no implicit PAT scopes or
@@ -106,7 +105,7 @@ export type GdprStackOptions = {
   readonly selfService?: { readonly userDataRights?: UserDataRightsOptions };
   /** Optional tokenVerifier provider(s) (e.g. PAT) when `sessions` is on.
    *  Session-only stacks need none — sessions registers sessionStore, which
-   *  satisfies auth-foundation's boot check (#1570). Pass providers when the
+   *  satisfies auth-foundation's boot check. Pass providers when the
    *  app also wants Bearer/PAT auth. */
   readonly providers?: readonly FeatureDefinition[];
   /** Roles allowed to use the compliance-profiles handlers; default access.admin. */
@@ -133,7 +132,7 @@ export type OpsStackOptions = {
  *  on composeFeatures(includeBundled). Pass `mfa` options to mount TOTP.
  *  When `sessions` is on (the default), auth-foundation is mounted alongside it —
  *  the framework's registry now hard-requires it (sessions.requires("auth-foundation")).
- *  Session-only is enough for boot (#1570); optional Bearer/PAT still needs a
+ *  Session-only is enough for boot; optional Bearer/PAT still needs a
  *  tokenVerifier provider from the caller (e.g. createPersonalAccessTokensFeature
  *  ({ scopes })) — PAT scopes are app-specific, so they stay caller-owned. */
 export type IdentityStackOptions = {

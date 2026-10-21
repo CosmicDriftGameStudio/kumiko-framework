@@ -14,7 +14,7 @@
 //
 // The status code alone used to be the only signal ("404 = no match") —
 // that masked any matched route's deliberate 404 (e.g. default-deny reads)
-// as the SPA shell with status 200 (kumiko-framework#2435). buildServer
+// as the SPA shell with status 200. buildServer
 // (framework/api/server.ts) registers app.notFound() LAST on the app object
 // and marks exactly the "no handler found" case with
 // NO_ROUTE_MATCH_HEADER_NAME — a handler that builds its own

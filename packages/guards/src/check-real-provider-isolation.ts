@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Real-Provider-Isolation-Guard (stack-agnostisch, #3118).
+ * Real-Provider-Isolation-Guard (stack-agnostic).
  *
  * Real-provider specs (`*.real.test.ts`, `*.real.spec.ts`) hit live third-party
  * services and must only ever run opt-in (manually or scheduled) via `bun run test:real` /

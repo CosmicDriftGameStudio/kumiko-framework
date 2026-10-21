@@ -1,11 +1,10 @@
-// Unit-Tests für composeFeatures.authOptions — pinst dass die
-// passwordReset / emailVerification options an
-// createAuthEmailPasswordFeature durchgereicht werden, sodass die
-// request- und confirm-Handler im resultierenden Feature registriert
-// sind. Bug-Pattern: ohne diesen Wiring würde runProdApp.options.auth.
-// passwordReset = {sendResetEmail, appResetUrl} die routes mounten,
-// aber die Handler fehlen → POST /api/auth/request-password-reset
-// dispatched ins Leere → 500.
+// Unit tests for composeFeatures.authOptions — prove that the
+// passwordReset / emailVerification options are passed to
+// createAuthEmailPasswordFeature, so the request and confirmation handlers
+// are registered in the resulting feature. Bug pattern: without this wiring,
+// runProdApp.options.auth.passwordReset = {sendResetEmail, appResetUrl} would
+// mount the routes, but the handlers would be missing → POST
+// /api/auth/request-password-reset would dispatch nowhere → 500.
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
@@ -188,11 +187,10 @@ describe("composeFeatures", () => {
   });
 
   test("OHNE authOptions → KEINE reset/verify-handlers (anti-default-deploy-bug)", () => {
-    // Genau der Bug der vom Review-Agent gefangen wurde: composeFeatures
-    // ohne authOptions registriert die handler nicht. Wenn jemand das
-    // versehentlich vergisst und nur die routes (auth-routes-config)
-    // wired, schlagen die requests auf prod fehl. Der Test pinst dass
-    // dieser default-deny-Pfad bewusst leer ist.
+    // The exact bug caught by the review agent: composeFeatures without
+    // authOptions does not register the handlers. If someone accidentally
+    // wires only the routes (auth-routes-config), requests fail in production.
+    // This test proves that the default-deny path is intentionally empty.
     const features = composeFeatures([noopFeature], { includeBundled: true });
     const auth = features.find((f) => f.name === "auth-email-password");
     expect(auth).toBeDefined();
@@ -202,13 +200,13 @@ describe("composeFeatures", () => {
     expect(handlerNames).not.toContain("reset-password");
     expect(handlerNames).not.toContain("request-email-verification");
     expect(handlerNames).not.toContain("verify-email");
-    // Die regulären auth-handlers (login/logout/change-password) MÜSSEN
-    // aber immer da sein — das ist der core-flow.
+    // The regular auth handlers (login/logout/change-password) must always be
+    // present — they are the core flow.
     expect(handlerNames).toContain("login");
     expect(handlerNames).toContain("logout");
   });
 
-  // fw#2223 regression: without this wiring, includeBundled apps that DO
+  // Regression: without this wiring, includeBundled apps that DO
   // configure authOptions.invite still got /members with no invite button —
   // the screen is bound to auth-email-password's invite-create handler,
   // which only exists when opts.invite is set (feature.ts:238-239).

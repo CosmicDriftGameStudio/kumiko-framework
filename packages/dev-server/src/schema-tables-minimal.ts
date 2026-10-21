@@ -1,14 +1,14 @@
-// Drizzle-Schema-Barrel: Minimal (nur Framework-Infra, kein Auth).
+// Minimal Drizzle schema barrel (framework infrastructure only, no auth).
 //
-// Apps OHNE Auth-Stack (anonymous-only, embedded Demos, Headless-APIs)
-// brauchen nur die Framework-Infrastructure-Tables — Event-Store +
-// Pipeline-State. Verwendung in drizzle/schema.ts:
+// Apps WITHOUT an auth stack (anonymous-only, embedded demos, headless APIs)
+// need only the framework infrastructure tables — event store and
+// pipeline state. Use in drizzle/schema.ts:
 //
 //   export * from "@cosmicdrift/kumiko-dev-server/drizzle-tables-minimal";
-//   export * from "./schema.generated";   // App-eigene Entity-Tables
+//   export * from "./schema.generated";   // App-specific entity tables
 //
-// Wer Auth-Tables will, nutzt drizzle-tables-auth-mode (umfasst Minimal
-// plus Bundle-Tables für Config, Tenant, User, Sessions).
+// To include auth tables, use drizzle-tables-auth-mode (includes Minimal
+// plus bundle tables for config, tenant, user, and sessions).
 
 export {
   archivedStreamsTable,

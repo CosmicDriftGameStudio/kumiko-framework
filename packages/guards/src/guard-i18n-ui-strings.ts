@@ -4,7 +4,7 @@
 // that the keys are defined — this guard closes the gap before that:
 // strings that never became keys, e.g. "Loading tenants…").
 //
-// Part of App-Mounting 2.0 (infra#208).
+// Part of App-Mounting 2.0.
 
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
@@ -13,7 +13,7 @@ import { hasIgnoreTag } from "./_lib/ignore-tag";
 // Web/public code only — server code (handler error texts) goes through the
 // error i18n pipeline and has its own guards.
 //
-// samples/ deliberately NOT scanned (tried in infra#478, rolled back): the
+// samples/ deliberately NOT scanned (tried and rolled back): the
 // showcase/gallery pages are dev docs about the framework API itself
 // ("Form.title / toolbarTitle", "children — auto from schema.navs"), not
 // app UI text a real user sees. 354 hits in the trial run, almost all such
@@ -21,7 +21,7 @@ import { hasIgnoreTag } from "./_lib/ignore-tag";
 // r.translations definitions); this guard stays scoped to app repos.
 //
 // src/features/**/feature.ts covers feature.ts registrar calls (r.nav/r.screen
-// object-literal arguments) — infra#504: those sit outside JSX and were a
+// object-literal arguments) — those sit outside JSX and were a
 // blind spot. Other server code (handlers/, lib/) has its own i18n pipeline
 // and is filtered out below by requiring an r.*-call ancestor.
 const SCAN: ScanSpec = {
@@ -131,7 +131,7 @@ function collectTernaryLogicText(node: Node): TextPiece[] {
   return textPieces(node);
 }
 
-// infra#711: a hop out of a helper is only taken while that helper call is
+// A hop out of a helper is only taken while that helper call is
 // itself an argument of the next call — a call nested deeper (inside an object
 // or array, e.g. `createTextField({ label })` under `createEntity({ fields })`)
 // builds a value instead of forwarding the registrar's argument. The full chain
@@ -220,7 +220,7 @@ function checkRegistrarLabelProperties(sf: SourceFile, violations: GuardViolatio
     if (!HUMAN_TEXT.test(value) || I18N_KEY_SHAPE.test(value)) continue;
     const callChain = registrarCallChain(prop);
     if (callChain === undefined) continue;
-    // The agent-doc slot (kumiko-framework#2615) is LLM metadata for the
+    // The agent-doc slot is LLM metadata for the
     // AI tool catalog: English by design, never rendered as UI text. The
     // slot is the options object handed to a call on the registrar
     // argument chain, so forwarding it through a `defineEntity*Handler`

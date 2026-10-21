@@ -80,11 +80,11 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     // (file-content) is pinned in test 2; this test pins the runtime-side
     // (composeFeatures auto-prepend behaviour the walkthrough claims).
     //
-    // sessions now requires auth-foundation (#1370/#1371), which itself
-    // needs a tokenVerifier provider mounted (#1368) — PAT here, mirroring
-    // the scaffold picker's real-world default. Not part of the walkthrough's
-    // advertised 7-feature count (that count is about includeBundled's
-    // auto-mount, unrelated to this coupling), so both are added on top.
+    // sessions now requires auth-foundation, which itself needs a
+    // tokenVerifier provider mounted — PAT here, mirroring the scaffold
+    // picker's real-world default. Not part of the walkthrough's advertised
+    // 7-feature count (that count is about includeBundled's auto-mount,
+    // unrelated to this coupling), so both are added on top.
     const notesFeature = defineFeature("notes", () => {});
     const APP_FEATURES = [
       createSecretsFeature(),
@@ -131,7 +131,7 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(main).toContain("admin: {");
     expect(main).toContain("memberships:");
     expect(main).toContain("runProdApp");
-    // Prod writer stays untouched — the verify flow must run there (#1687).
+    // Prod writer stays untouched — the verify flow must run there.
     expect(main).not.toContain("emailVerified");
   });
 

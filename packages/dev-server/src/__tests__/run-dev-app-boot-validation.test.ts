@@ -1,9 +1,9 @@
-// runDevApp muss denselben Boot-Validator wie runProdApp ausführen (#359):
-// eine ganze Fehlerklasse (unqualifizierte nav-/handler-QNs, unauflösbare
-// navigate-Targets, screen-access) passierte früher den Dev-Server still und
-// crashte erst den Prod-Pod im CrashLoopBackOff. Hier: ein Feature mit einem
-// rowAction-navigate auf einen nie registrierten Screen — runDevApp muss
-// SYNCHRON beim Boot werfen, bevor ein Port gebunden wird.
+// runDevApp must run the same boot validator as runProdApp:
+// an entire class of errors (unqualified nav-/handler-QNs, unresolved
+// navigate targets, screen access) used to pass silently through the dev server
+// and only crash the production pod in CrashLoopBackOff. This feature has a
+// rowAction-navigate to an unregistered screen—runDevApp must throw
+// SYNCHRONOUSLY at boot, before binding a port.
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,7 +22,7 @@ function unresolvableNavFeature() {
       type: "entityList",
       entity: "product",
       columns: ["name"],
-      // "ghost-screen" wird nie via r.screen registriert → validateBoot wirft.
+      // "ghost-screen" is never registered via r.screen → validateBoot throws.
       rowActions: [{ kind: "navigate", id: "edit", label: "actions.edit", screen: "ghost-screen" }],
     });
   });

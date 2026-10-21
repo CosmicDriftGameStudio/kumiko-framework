@@ -1,6 +1,6 @@
 /**
  * Run `fn` with `globalThis.Temporal` deleted, then restore.
- * Used by ambient-independence regression tests (kumiko-framework#1525/#1550).
+ * Used by ambient-independence regression tests.
  */
 export async function withoutAmbientTemporal<T>(fn: () => T | Promise<T>): Promise<T> {
   const savedGlobal: unknown = Reflect.get(globalThis, "Temporal");

@@ -109,7 +109,7 @@ export type RequestHelper = {
 export type RequestHelperOptions = {
   // When sessionChecker is wired (sessions feature), JWTs without jti are
   // rejected as no_sid. Seed/test helpers that only jwt.sign(user) need a
-  // live sid — create one via the same sessionCreator login uses (#1372).
+  // live sid — create one via the same sessionCreator login uses.
   readonly sessionCreator?: SessionCreator;
 };
 

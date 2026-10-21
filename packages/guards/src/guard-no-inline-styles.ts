@@ -2,7 +2,7 @@
 // No inline CSS in app code: `style={...}` props and `React.CSSProperties`
 // style objects bypass theme tokens and dark mode. Use widgets/tokens.
 //
-// Part of App-Mounting 2.0 (infra#208).
+// Part of App-Mounting 2.0.
 
 import { type SourceFile, SyntaxKind } from "ts-morph";
 import {

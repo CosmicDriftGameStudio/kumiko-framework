@@ -38,11 +38,10 @@ import {
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
-// Integration-Test: bootet createKumikoServer mit echtem Postgres,
-// echtem Redis, echter Kumiko-Pipeline. Treibt den fetch-Handler
-// direkt an (nicht über Bun.serve + Socket), weil vitest unter Node
-// läuft. Unter Bun würde derselbe Handler identisch antworten —
-// das Routing ist runtime-neutral.
+// Integration test: boots createKumikoServer with real Postgres, Redis, and the
+// Kumiko pipeline. It drives the fetch handler directly rather than through
+// Bun.serve and a socket because Vitest runs under Node. Bun would produce the
+// same responses; routing is runtime-neutral.
 
 const probeEntity = createEntity({
   fields: {
@@ -63,18 +62,17 @@ const probeFeature = defineFeature("dev-server-probe", (r) => {
     handler: async () => ({ pong: true }),
   });
   // Echoes the resolved client IP — proves a real Bun.serve socket address
-  // reaches requestContext.ip through handleFetch (fw#3260 addendum: every
-  // other test drives h.fetch()/handle.fetch() directly, never Bun.serve's
-  // real socket).
+  // reaches requestContext.ip through handleFetch (every other test drives
+  // h.fetch()/handle.fetch() directly, never Bun.serve's real socket).
   r.queryHandler({
     name: "whoami",
     schema: z.object({}),
     access: { roles: ["anonymous"] },
     handler: async () => ({ ip: requestContext.get()?.ip }),
   });
-  // SystemAdmin-gated write — Ziel der entry:"signature" / `wire`-Tests
-  // (252/2): Echo von user.tenantId + roles beweist Dispatch durch
-  // den echten Dispatcher (Zod + Access-Check) mit Ziel-Tenant-SystemUser.
+  // SystemAdmin-gated write — the `entry:"signature"` / `wire` tests verify
+  // that echoing user.tenantId and roles passes through the real dispatcher
+  // (Zod and access checks) with the target tenant's system user.
   r.writeHandler({
     name: "probe-write",
     schema: z.object({ note: z.string() }),
@@ -123,7 +121,6 @@ describe("createKumikoServer", () => {
     expect(setCookie).toMatch(/kumiko_csrf=/);
     const body = await res.text();
     expect(body).toMatch(/<div id="root">/);
-    // Reload-Snippet wurde in </body> injiziert.
     expect(body).toMatch(/EventSource\("\/_reload"\)/);
     // As a classic script the bundle's top-level declarations become window
     // properties: a dependency exporting `function history()`
@@ -133,21 +130,20 @@ describe("createKumikoServer", () => {
   });
 
   test("GET /client.js → 404 wenn clientEntry fehlt (Route nicht registriert)", async () => {
-    // Pre-multi-entry-Refactor lieferte das eine 200 mit leerem Body —
-    // war eine Quirky Backwards-Compat. Mit der Multi-Entry-Engine wird
-    // /client.js erst registriert wenn ein Entry vorhanden ist (kein
-    // entries → kein Bundle-Asset-Path → 404 ist korrekt).
+    // Before the multi-entry refactor, this returned 200 with an empty body as
+    // quirky backwards compatibility. With the multi-entry engine, /client.js is
+    // registered only when an entry exists: no entries means no bundle asset path,
+    // so 404 is correct.
     const h = await boot();
     const res = await h.fetch(new Request("http://localhost/client.js"));
     expect(res.status).toBe(404);
   });
 
   test("Single-Entry: clientEntry='client.tsx' liefert Bundle unter /client.js", async () => {
-    // Backwards-Compat-Smoke: existierende Samples (designer, ui-walkthrough,
-    // beammycar, …) nutzen clientEntry — der normalize-Pfad muss daraus
-    // `/client.js` als Asset-Path ableiten. Test injiziert via _buildBundle
-    // einen Stub damit der Body deterministisch geprüft werden kann (kein
-    // Bun.build unter Node).
+    // Backwards-compatibility smoke test: existing samples (designer,
+    // ui-walkthrough, beammycar, …) use clientEntry, so normalization must derive
+    // `/client.js` as the asset path. _buildBundle injects a stub so the body can
+    // be checked deterministically without running Bun.build under Node.
     const tmpFile = mkdtempSync(join(tmpdir(), "kumiko-single-it-"));
     const entry = join(tmpFile, "client.tsx");
     writeFileSync(entry, "// noop");
@@ -190,10 +186,9 @@ describe("createKumikoServer", () => {
 
   test("unbekannter Pfad → forwarded an den Hono-Stack", async () => {
     const h = await boot();
-    // /api/ghost existiert nicht → Hono liefert 404. Der entscheidende
-    // Punkt: die Response kommt VOM Stack, nicht vom Dev-Server-Layer.
-    // Wir unterscheiden, indem wir prüfen, dass es KEINE HTML- oder
-    // event-stream-Response ist — die gehören zum Dev-Server-Layer.
+    // /api/ghost is not registered, so Hono returns 404. The response must come
+    // from the stack rather than the dev-server layer; checking that it is neither
+    // HTML nor an event stream distinguishes the two layers.
     const res = await h.fetch(new Request("http://localhost/api/ghost"));
     expect(res.headers.get("content-type") ?? "").not.toMatch(/text\/html/);
     expect(res.headers.get("content-type") ?? "").not.toMatch(/text\/event-stream/);
@@ -209,11 +204,11 @@ describe("createKumikoServer", () => {
   });
 });
 
-// Multi-Entry-Mode — exerciert clientEntries + hostDispatch (Discriminated-
-// Union). Bun.build wird via _buildBundle gestubbt; der Routing-Pfad
-// (HTML-Dispatch pro Host + Bundle-Routing pro Asset-Path) ist runtime-
-// neutral und wird hier vollständig getrieben. Echte Bundle-Produktion
-// deckt die `kumiko-build CLI`-Suite (build-prod-bundle.integration.ts) ab.
+// Multi-entry mode exercises clientEntries and hostDispatch (a discriminated
+// union). Bun.build is stubbed through _buildBundle; this fully exercises the
+// runtime-neutral HTML dispatch by host and bundle routing by asset path. Real
+// bundle production is covered by the `kumiko-build CLI` suite
+// (build-prod-bundle.integration.ts).
 describe("createKumikoServer (Multi-Entry)", () => {
   let tmpDir = "";
 
@@ -249,10 +244,9 @@ describe("createKumikoServer (Multi-Entry)", () => {
         { name: "public", sourceFile: publicEntry, htmlPath: publicHtml },
         { name: "admin", sourceFile: adminEntry, htmlPath: adminHtml },
       ],
-      // Stub: der Bundle-Inhalt enthält den Entry-Namen damit der Test
-      // beweisen kann dass /client-public.js ≠ /client-admin.js. Echtes
-      // Bun.build würde unterschiedlich-gehashte Bundles produzieren —
-      // wir simulieren das mit deterministischen Markern.
+      // The stubbed bundle includes the entry name so the test can verify that
+      // /client-public.js and /client-admin.js differ. Real Bun.build would produce
+      // differently hashed bundles; deterministic markers simulate that distinction.
       _buildBundle: async (sourceFile) => {
         if (sourceFile === publicEntry) {
           return { js: "// PUBLIC-BUNDLE", map: "" };
@@ -304,8 +298,8 @@ describe("createKumikoServer (Multi-Entry)", () => {
     expect(adminJs.status).toBe(200);
     expect(await adminJs.text()).toBe("// ADMIN-BUNDLE");
 
-    // Cross-routing existiert NICHT — /client.js (Single-Entry-Pfad)
-    // ist im Multi-Mode kein registrierter Asset-Path.
+    // Cross-routing does not exist: /client.js, the single-entry path, is not a
+    // registered asset path in multi-entry mode.
     const noFallback = await handle.fetch(new Request("http://localhost/client.js"));
     expect(noFallback.status).toBe(404);
   });
@@ -336,11 +330,11 @@ describe("createKumikoServer (Multi-Entry)", () => {
     );
     expect(authenticatedRes.status).toBe(200);
     const schema = await authenticatedRes.json();
-    // Guards against an empty features array making the #2062 `.some(...)`
+    // Guards against an empty features array making the `.some(...)`
     // assertion below vacuously false.
     expect(schema.features.length).toBeGreaterThan(0);
 
-    // #2062: setupTestStack always wires an in-memory SearchAdapter
+    // setupTestStack always wires an in-memory SearchAdapter
     // (test-stack.ts), so the dev-server call site's
     // `searchAdapterMissing: !stack.context.searchAdapter` must read false —
     // proving the flag actually flows from stack.context through to the
@@ -500,7 +494,7 @@ describe("createKumikoServer extraRoutes / wire deps", () => {
   });
 });
 
-// framework#1668: extraRoutes must be registered BEFORE onAfterSetup
+// extraRoutes must be registered BEFORE onAfterSetup
 // dispatches through stack.http — Hono builds its matcher on first dispatch,
 // and any route registered after that throws. Pins the ordering.
 describe("createKumikoServer — extraRoutes vs. onAfterSetup ordering", () => {
@@ -777,7 +771,7 @@ describe("createKumikoServer — hot-reload broadcast", () => {
   });
 });
 
-// kumiko-framework#3026: runDevApp gains resolvePageHead parity with
+// runDevApp gains resolvePageHead parity with
 // runProdApp — both now call the same @cosmicdrift/kumiko-renderer/headless/apex
 // resolveAndInjectPageHead, so a resolver produces the same tags in the
 // same order under dev as under prod (see run-prod-app-static-files.test.ts's
@@ -854,7 +848,7 @@ describe("createKumikoServer resolvePageHead", () => {
   });
 });
 
-// kumiko-framework#2435: tryHonoFirst used to decide "no route matched"
+// tryHonoFirst used to decide "no route matched"
 // purely from the status code — a matched httpRoute answering 404 on
 // purpose (e.g. default-deny reads) was indistinguishable from an
 // unregistered path and got silently rewritten to the SPA shell with

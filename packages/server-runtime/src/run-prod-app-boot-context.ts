@@ -68,7 +68,7 @@ import type {
 // Boot-time context helpers for runProdApp: ctx-extra-context wiring
 // (templateResolver/delivery/secrets/config-resolver), auth-mail convenience
 // normalization, and prod session-auth wiring. Split out of run-prod-app.ts
-// (#1005, Welle 2) — mechanical relocation, these are self-contained pure
+// — mechanical relocation, these are self-contained pure
 // functions, no closure over runProdApp's local boot state.
 
 // Shared with runDevApp (mergeConfigResolverDefault) for dev/prod parity.
@@ -78,7 +78,7 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 ): T {
   if (!resolved.configResolver) return resolved;
   // Both keys, always overriding an app-supplied value: the factory must derive from the
-  // effective resolver (fw#3313); the underscore alias stays until the next major.
+  // effective resolver; the underscore alias stays until the next major.
   const configAccessorFactory = createConfigAccessorFactory(registry, resolved.configResolver);
   return {
     ...resolved,
@@ -87,20 +87,19 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
   };
 }
 
-// Framework-Default-Provider für den AppContext — gleicher Mechanismus wie
-// der tenantTierResolver-Autowire (findTierResolverUsage): deklarierter
-// Bedarf (Feature gemountet) → Default aus db/env, App überschreibt nur die
-// Ausnahme. templateResolver ist unbedingt (createTemplateResolverApi wirft nie, baut
-// nur einen db-gebundenen Accessor). secrets wird nur auto-verdrahtet wenn
-// das secrets-Feature gemountet ist UND ein KEK tatsächlich verfügbar ist
-// (masterKey-Override ODER env-KEK present) — sonst skip, damit der eager
-// KEK-Detection + Provider/Cipher-Aufbau leben in boot/boot-crypto.ts
-// (envHasMasterKek, resolveBootCrypto) — gemeinsam mit runDevApp.
-// Prod-Misconfig (secrets gemountet, kein KEK) fängt schon secretsEnvSchema
-// beim Boot; fehlt der env-Schema-Pfad, wirft requireSecretsContext beim
-// ersten ctx.secrets-Zugriff mit Wiring-Hinweis. configResolver nur im
-// Auth-Mode. Exportiert + pure für Unit-Tests; der merge mit App-Werten
-// passiert beim Caller (App gewinnt).
+// Framework-default providers for AppContext, using the same mechanism as
+// tenantTierResolver auto-wiring (findTierResolverUsage): a mounted feature declares
+// the need, the default comes from db/env, and the app can override the exception.
+// templateResolver is always wired (createTemplateResolverApi never throws; it only
+// creates a db-bound accessor). secrets is auto-wired only when the secrets feature is
+// mounted AND a KEK is available (masterKey override OR env KEK present); otherwise it
+// is skipped so eager KEK detection and provider/cipher construction remain in
+// boot/boot-crypto.ts (envHasMasterKek, resolveBootCrypto), shared with runDevApp.
+// A production misconfiguration (secrets mounted without a KEK) is caught by
+// secretsEnvSchema during boot; without the env-schema path, requireSecretsContext
+// throws with a wiring hint on the first ctx.secrets access. configResolver is only
+// wired in auth mode. Exported and pure for unit tests; the caller merges it with
+// app values (the app wins).
 
 // Prod/dev parity for ctx.notify: without this `_notifyFactory` is only wired
 // in tests (createDeliveryTestContext), so ctx.notify is undefined at runtime
@@ -324,14 +323,14 @@ export function buildBootExtraContext(opts: BootExtraContextOptions): Record<str
   };
 }
 
-// auth.mail-Convenience → normalisiert in die expliziten passwordReset/
-// emailVerification/signup/invite-Felder, BEVOR buildComposeAuthOptions
-// (Feature-Side: hmacSecret/mode) und das auth-routes-Fragment sie lesen —
-// so speist EIN mail-Block beide Pfade. App-explizite Flows gewinnen über
-// den Default. Null-Transport-Guard: ohne SMTP_HOST-env bleibt alles
-// unverdrahtet (sonst lieferten die reset/verify-Routes 500).
-/** Die Auth-Felder die resolveAuthMail liest/normalisiert — beide
- *  App-Auth-Typen (prod + dev) erfüllen das strukturell. */
+// The auth.mail convenience block is normalized into the explicit
+// passwordReset/emailVerification/signup/invite fields BEFORE buildComposeAuthOptions
+// (feature-side: hmacSecret/mode) and the auth-routes fragment read them, so one mail
+// block feeds both paths. Explicit app flows take precedence over the defaults.
+// Without SMTP_HOST in the environment, nothing is wired; otherwise the reset and
+// verification routes would return 500.
+/** The auth fields read and normalized by resolveAuthMail; both
+ *  app auth types (prod + dev) satisfy this structurally. */
 type AuthMailNormalizable = {
   readonly mail?: AuthMailOptions;
   readonly passwordReset?: PasswordResetSetup;
@@ -390,10 +389,10 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
   const withResolvedSecrets = backfillTokenSecrets(auth, tokenSecret);
 
   if (!auth.mail) return withResolvedSecrets;
-  // SMTP-presence gate: ohne SMTP_HOST-env wird KEIN Flow verdrahtet (Routes
-  // blieben sonst 500). Der eigentliche Mail-Versand läuft über delivery
-  // (channel-email), nicht über diesen Transport — er ist nur der Detektor
-  // "ist Mail konfiguriert?".
+  // SMTP-presence gate: without SMTP_HOST in the environment, no flow is wired
+  // (the routes would otherwise return 500). Mail delivery itself runs through
+  // delivery (channel-email), not this transport; it only detects whether mail is
+  // configured.
   // An app transport from runProdApp's `mail` option replaces the probe.
   if (
     mailWiring.mailConfigured !== true &&
@@ -402,7 +401,7 @@ export function resolveAuthMail<T extends AuthMailNormalizable>(
     return withResolvedSecrets;
   }
   const paths = makeAuthPaths(auth.mail.paths);
-  // appName/locale fließen in alle vier Flow-Options (alle mailen via delivery).
+  // appName/locale flow into all four flow options because they all send through delivery.
   const mailPresentation = {
     ...(auth.mail.appName !== undefined && { appName: auth.mail.appName }),
     ...(auth.mail.locale !== undefined && { locale: auth.mail.locale }),
@@ -450,7 +449,7 @@ export async function buildProdSessionAuth(
   readonly sessionRevoker: Awaited<ReturnType<typeof resolveSessionStore>>["revoker"];
   readonly sessionChecker: Awaited<ReturnType<typeof resolveSessionStore>>["checker"];
 }> {
-  // Resolve the sessions feature sessionStore provider (#1372).
+  // Resolve the sessions feature sessionStore provider.
   const store = await resolveSessionStore({ db, registry });
   if (sessionsFeature) {
     bindAutoRevokeFromFeature(sessionsFeature)?.(store.massRevoker);

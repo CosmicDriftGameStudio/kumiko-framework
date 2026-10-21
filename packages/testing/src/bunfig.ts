@@ -102,7 +102,7 @@ type BunfigBlock = { readonly header: string; readonly lines: readonly string[] 
 // contain "[" are never alone on their own line. Anything before the first
 // header (top-level keys like `preload`/`telemetry`/`smol`/`logLevel`, plus
 // the header comments) is its own block under the synthetic header "" —
-// dropping it silently lost those keys (kumiko-framework#3120).
+// dropping it silently lost those keys.
 function splitBunfigBlocks(content: string): readonly BunfigBlock[] {
   const blocks: { header: string; lines: string[] }[] = [];
   let current: { header: string; lines: string[] } = { header: "", lines: [] };
@@ -224,7 +224,7 @@ function appendArrayExtras(
  * verbatim, appended after the generated content — so a section the
  * template doesn't own this run is never silently dropped. A key inside a
  * section the template DOES emit that isn't in this run's own version of
- * that section (e.g. `concurrency`, `timeout`, kumiko-framework#3120) fails
+ * that section (e.g. `concurrency`, `timeout`) fails
  * the merge instead of silently disappearing. Within an array key the
  * template does emit on both sides (`preload`, `pathIgnorePatterns`,
  * `coveragePathIgnorePatterns`), entries the app appended on top of the

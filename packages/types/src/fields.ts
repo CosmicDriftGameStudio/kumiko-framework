@@ -18,9 +18,9 @@ export type FieldAccess = {
 };
 
 // `sensitive: true` — the field's value is excluded from caller-facing event
-// echoes in write responses (#820) and MUST be ciphertext-at-rest: boot
+// echoes in write responses and MUST be ciphertext-at-rest: boot
 // validation requires a subject annotation (pii / userOwned / tenantOwned)
-// or `encrypted: true` (#967). Event payloads carry the table ciphertext,
+// or `encrypted: true`. Event payloads carry the table ciphertext,
 // so replay reproduces the row byte-identically; plaintext never lands in
 // permanent history. Use for password hashes, API tokens, bank details,
 // tax IDs. See docs/plans/architecture/projections.md.
@@ -39,7 +39,7 @@ export type FieldAccess = {
 //   pii / userOwned / tenantOwned / recordOwned | ciphertext | yes *      | yes, key erase
 //   encrypted: true                             | ciphertext | no         | NO
 //
-//   * Subject-annotated + `searchable: true` (#1610): search consumer
+//   * Subject-annotated + `searchable: true`: search consumer
 //     decrypts into Meilisearch. Events/projection stay ciphertext.
 //     eraseKey paths purge docs via purgeSearchDocumentsForSubject.
 //     `lookupable: true` still covers equality (blind index). `sortable`
@@ -76,8 +76,8 @@ export type FieldAccess = {
 //                                  comment.body → comment.authorId.
 //                                  `whenAbsent: "tenant"` encrypts rows whose
 //                                  owner is empty under the tenant key instead
-//                                  of failing; a nullable owner needs it
-//                                  (fw#3654). `whenAbsent: "self"` encrypts
+//                                  of failing; a nullable owner needs it.
+//                                  `whenAbsent: "self"` encrypts
 //                                  them under the row's own record key instead,
 //                                  so a record-forget shreds the value.
 //   - `personal: "tenant"`       → `tenantOwned: true`. the current tenant
@@ -97,7 +97,7 @@ export type FieldAccess = {
 // subject ("self" / { of } / "tenant"):
 //   - `find: "exact"`  → `lookupable: true`. equality only, via blind index.
 //   - `find: "fuzzy"`  → `lookupable: true, searchable: true`. substring/
-//                        full-text via the Meilisearch consumer (#1610).
+//                        full-text via the Meilisearch consumer.
 //   - `find: "none"`   → neither.
 //   - `find: "secret"` → `sensitive: true`. longText fields only allow
 //                        "none" | "secret" — no lookup/search machinery there.
@@ -109,11 +109,11 @@ export type FieldAccess = {
 //     via the blind index, gone when the user's subject key dies.
 //
 //   user.displayName (same file) — real name; substring search via Meili.
-//     `personal: "self", find: "fuzzy"` (#1610). Ciphertext in
+//     `personal: "self", find: "fuzzy"`. Ciphertext in
 //     events/projection; plaintext only in the derived index; purged on
 //     forget.
 //
-//   ledger.description (ledger/entity.ts) — "Miete Januar" is accounting
+//   ledger.description (ledger/entity.ts) — "January rent" is accounting
 //     data that happens to read like PII, and full-text search over it is the
 //     point. `personal: false, reason: "is_business_data"`, cleaned up via
 //     retention, event log keeps the original. Accepted deliberately.
@@ -121,7 +121,7 @@ export type FieldAccess = {
 //   subscription.providerCustomerId (billing-foundation/entities.ts) — a
 //     Mollie/Stripe id, never searched. `personal: "tenant", find: "none"`,
 //     explicitly NOT `encrypted: true`: tenant-destroy erases the tenant
-//     subject key, and only the subject path shreds along with it (#800).
+//     subject key, and only the subject path shreds along with it.
 //     Budget maxLength for ciphertext
 //     (`kumiko-pii:v1:<subject>:<blob>`, roughly plaintext × 2.3).
 //
@@ -147,11 +147,10 @@ export type ResolvedPiiFlags = {
   readonly recordOwned?: true;
   readonly anonymize?: () => unknown | Promise<unknown>;
   readonly allowPlaintext?: string;
-  /** Equality-Lookups (fetchOne/filter eq) bleiben trotz Verschluesselung
-   *  moeglich: generierte `<snake>_bidx`-Spalte traegt einen HMAC-Blind-
-   *  Index, Query-Compiler matchen `(col = $1 OR col_bidx = $2)`. Nur auf
-   *  text-Feldern MIT Subject-Annotation erlaubt (Boot-Validator).
-   *  Siehe docs/plans/datenschutz/blind-index.md (kumiko-framework#818). */
+  /** Equality lookups (`fetchOne`/`filter eq`) remain possible despite encryption:
+   *  the generated `<snake>_bidx` column carries an HMAC blind index, and the
+   *  query compiler matches `(col = $1 OR col_bidx = $2)`. Allowed only on text
+   *  fields with subject annotations, as enforced by the boot validator. */
   readonly lookupable?: true;
   /** Foreign key into the `user` entity (authorId, assigneeId, ...) with no
    *  annotated content of its own. Triggers no encryption — feeds only the
@@ -160,14 +159,14 @@ export type ResolvedPiiFlags = {
   readonly subjectRef?: true;
 };
 
-// --- Author-facing PII API (kumiko-framework#2250) ---
+// --- Author-facing PII API ---
 //
 // Two questions instead of the twelve raw flags above: whose data is this
 // (`personal`, resolved to a subject key) and how findable must it stay
 // (`find`, resolved to the search/lookup flags). Field factories expand
 // these into `ResolvedPiiFlags` — see packages/framework/src/engine/factories.ts.
 // Entity fields have no plaintext fallback for an ownerless row: stored PII
-// must stay shreddable (fw#3654).
+// must stay shreddable.
 export type EntityPiiAbsentSubject = "tenant" | "self";
 export type PersonalSubject =
   | "self"
@@ -180,7 +179,7 @@ export type Findability = "exact" | "fuzzy" | "none" | "secret";
 // to `never` too, since its index signature applies to all string keys.
 // Naming the three annotation keys explicitly avoids that trap.
 //
-// kumiko-framework#2921: no longer part of PersonalAnnotations /
+// No longer part of PersonalAnnotations /
 // PersonalAnnotationsLongText — text and longText fields must declare an
 // explicit stance. It still applies to PersonalAnnotationsNoFind, whose
 // factories keep `personal` optional.
@@ -237,26 +236,24 @@ export type PersonalAnnotationsNoFind =
     }
   | NoPersonalAnnotation;
 
-// --- Retention (DSGVO Art. 5(1)(e) + HGB/AO Aufbewahrungspflichten) ---
+// --- Retention (GDPR Art. 5(1)(e) + statutory retention requirements) ---
 //
-// Pro Entity definiert der Author eine Default-Retention-Policy. Tenant-
-// Admin uebersteuert sie via Compliance-Profile + Tenant-Override (Sprint 2).
-// Vier Strategien:
+// Each entity defines a default retention policy. Tenant administrators can
+// override it through compliance profiles and tenant overrides.
+// Four strategies:
 //
-//   - "hardDelete"  — Row physisch weg nach `keepFor`. Logs, Sessions.
-//   - "softDelete"  — `deletedAt = now()`. Erlaubt spaetere Restore.
-//   - "anonymize"   — Felder mit `anonymize`-Funktion ueberschrieben,
-//                     Row bleibt. Order/Invoice mit gemischter PII +
-//                     Geschaeftsdaten.
-//   - "blockDelete" — Cleanup-Job ignoriert; User-Forget loest stattdessen
-//                     `anonymize` aus. Buchhaltung, Mandate, Patientenakten.
+//   - "hardDelete"  — physically remove the row after `keepFor`. Logs, sessions.
+//   - "softDelete"  — set `deletedAt = now()`, allowing later restoration.
+//   - "anonymize"   — overwrite fields with an `anonymize` function while the
+//                     row remains. Orders/invoices with mixed personal and
+//                     business data.
+//   - "blockDelete" — the cleanup job skips the row; user forget instead
+//                     triggers `anonymize`. Accounting records, mandates,
+//                     patient records.
 //
-// `keepFor` ist eine Duration-String wie "30d", "10y", "6m". Parser
-// kommt im Cleanup-Job (Sprint 2). `reference` ist das Field das den
-// Lebenszeit-Anker liefert (Default: `createdAt`). Sessions z.B. nutzen
-// `lastSeenAt` damit aktive Sessions nicht weggemueht werden.
-//
-// Siehe docs/plans/features/core-data-retention.md und Sprint 2 in roadmap.md.
+// `keepFor` is a duration string such as "30d", "10y", or "6m". The cleanup
+// job parses it. `reference` supplies the lifetime anchor (default:
+// `createdAt`); sessions can use `lastSeenAt` so active sessions are retained.
 export type RetentionDef = {
   readonly keepFor: string;
   readonly strategy: "hardDelete" | "softDelete" | "anonymize" | "blockDelete";
@@ -278,9 +275,9 @@ export type TextFieldDef = {
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;
-  /** Author erlaubt Screen-Filter auf diesem Feld (Tier 2.7c).
-   *  Boot-Validator weist Filter mit `filterable !== true` zurück.
-   *  Default: false — analog zu `sortable`, opt-in. */
+  /** Allows screen filters on this field.
+   *  The boot validator rejects filters with `filterable !== true`.
+   *  Default: false, analogous to `sortable`, and therefore opt-in. */
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
@@ -309,39 +306,37 @@ export type TextFieldDef = {
   readonly format?: "email" | "url" | "phone" | "password" | "month" | "iban";
   readonly default?: string;
   readonly access?: FieldAccess;
-  /** Mehrzeiliger Text — DefaultInput rendert dann ein <textarea> statt
-   *  <input type="text">. `true` = Default 4 Zeilen, `{ rows: N }` =
-   *  explizite Höhe. Search/sort/encrypt verhalten sich unverändert
-   *  identisch zu single-line — nur die Render-Surface wechselt. */
+  /** Multiline text causes DefaultInput to render a <textarea> instead of
+   *  <input type="text">. `true` uses four rows by default; `{ rows: N }`
+   *  sets an explicit height. Search, sort, and encryption remain unchanged;
+   *  only the rendering surface differs. */
   readonly multiline?: boolean | { readonly rows?: number };
 } & ResolvedPiiFlags;
 
 /**
- * Long-form text content — source-code, markdown, blog-posts, email-
- * templates, anything that can be megabytes large. Bewusst MINIMALE
- * Surface gegen `text`:
+ * Long-form text content — source code, markdown, blog posts, email
+ * templates, and anything that can be megabytes large. Its surface is
+ * intentionally minimal compared with `text`:
  *
- *   - **Kein `sortable`**: ORDER BY auf 100 KB-Strings kostet I/O ohne
- *     sinnvolles UX-Outcome (lex-Sortierung von Code ist Nonsense).
- *   - **Kein `searchable`**: ILIKE/Substring-Suche auf langen Texten
- *     skaliert nicht. Wer wirklich Volltextsuche will, nimmt den
- *     SearchAdapter (Meilisearch) — der hat eine eigene Pipeline mit
- *     Tokenizer + Index, NICHT diesen field-flag.
- *   - **Kein `filterable`**: WHERE auf langen Strings same Story wie
- *     sortable.
- *   - **Kein `format`**: email/url/phone sind kurz definierte Inputs,
- *     longText ist per Definition unstrukturiert.
+ *   - **No `sortable`**: ordering 100 KB strings costs I/O without useful UX;
+ *     lexicographic ordering of code is not meaningful.
+ *   - **No `searchable`**: ILIKE/substring searches do not scale on long text.
+ *     Full-text search should use the SearchAdapter (Meilisearch), which has
+ *     its own tokenizer and index rather than this field flag.
+ *   - **No `filterable`**: filtering long strings has the same issue as sorting.
+ *   - **No `format`**: email/url/phone are short, structured inputs, whereas
+ *     longText is unstructured by definition.
  *
- * Type-level enforcement statt convention: wer sortable/searchable
- * braucht, nimmt `text` (mit den entsprechenden Skalierungs-Trade-offs).
- * DB-mapping ist identisch zu text (Postgres `text` ist unbounded).
+ * Type-level enforcement means callers who need sorting or searching must use
+ * `text` and accept its scaling trade-offs. Database mapping is identical to
+ * `text` (Postgres `text` is unbounded).
  */
 export type LongTextFieldDef = {
   readonly type: "longText";
   readonly description?: string;
-  /** Optionale soft-Cap. Default unbounded (= Postgres-text-limit, 1 GB).
-   *  Nützlich für defensive Caps wie 1 MB damit ein verirrter Browser-
-   *  Paste nicht die DB sprengt. */
+  /** Optional soft cap. Default is unbounded (= Postgres text limit, 1 GB).
+   *  Useful for defensive limits such as 1 MB so an accidental browser paste
+   *  does not overwhelm the database. */
   readonly maxLength?: number;
   readonly required?: boolean;
   readonly encrypted?: boolean;
@@ -453,19 +448,18 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   readonly conditionalOptions?: readonly SelectConditionalOptions<TOptions[number]>[];
 } & ResolvedPiiFlags;
 
-// Mehrere Werte aus einer festen Options-Liste — UI rendert als
-// Checkbox-/Multi-Select-Kontrolle. Storage: jsonb-Array<string>;
-// jeder Eintrag muss in `options` enthalten sein.
+// Several values from a fixed option list, rendered as a checkbox or
+// multi-select control. Stored as a jsonb array of strings; every entry
+// must be one of `options`.
 //
-// Wann statt `select`: wenn der User mehr als einen Wert gleichzeitig
-// auswählen darf (Führerscheinklassen, Tags, Sprachen, Skills).
-// Wann statt `embedded` mit Booleans: wenn die Option-Liste nicht
-// hardcoded sein soll oder bei mehr als ~5 Optionen — sonst explodiert
-// das embedded-Schema.
+// Use it instead of `select` when the user may pick more than one value at
+// once (license classes, tags, languages, skills). Use it instead of
+// `embedded` with booleans when the option list should not be hardcoded or
+// has more than about 5 options, otherwise the embedded schema explodes.
 //
-// Ordering: das Array bewahrt die Caller-Reihenfolge (jsonb-array, nicht
-// set). Das Framework dedupliziert beim Schreiben nicht — Validator
-// rejected Duplikate erst wenn Bedarf da ist.
+// Ordering: the array keeps the caller's order (a jsonb array, not a set).
+// The framework does not deduplicate on write; the validator will reject
+// duplicates only once there is a need.
 export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
   readonly type: "multiSelect";
   readonly description?: string;
@@ -473,7 +467,7 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   readonly required?: boolean;
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
-  /** Default-Auswahl. Jeder Eintrag muss in `options` sein (Boot-Validator). */
+  /** Default selection. Every entry must occur in `options` (boot validator). */
   readonly default?: readonly TOptions[number][];
   readonly access?: FieldAccess;
   /** Renderer metadata: `"checkboxes"` renders every option as a visible
@@ -529,16 +523,15 @@ export type NumberFieldDef = {
 } & ResolvedPiiFlags;
 
 /**
- * 64-bit-Integer-Spalte fuer Audit-Counter, Byte-Sizes, Event-IDs und
- * andere Werte die >2^31 (~2.1 Mrd) wandern koennen. Storage als
- * Postgres `bigint`, JS-Round-trip als `number` (mode:"number" — sicher
- * bis 2^53 ≈ 9 PB, JSON-serialisierbar). Wer >2^53 braucht (rare),
- * nutzt einen `text`-Field mit eigenem Codec.
+ * 64-bit integer field for audit counters, byte sizes, event IDs, and other
+ * values that can exceed 2^31 (~2.1 billion). Stored as Postgres `bigint`,
+ * with a JavaScript `number` round trip (`mode:"number"`, safe through 2^53
+ * ≈ 9 PB and JSON-serializable). Values above 2^53 should use a `text` field
+ * with a custom codec.
  *
- * Vorrang vor `NumberFieldDef`-(integer 32-bit-Cap, ~2.1 GB) immer dann
- * wenn der Wert physisch ueber dieses Limit klettern kann: Bytes,
- * Events, Counters in High-Throughput-Apps, Cumulative-Sums. Money
- * hat dafuer den eigenen `MoneyFieldDef` (mit Currency-Spalte).
+ * Prefer this over `NumberFieldDef`'s 32-bit integer cap whenever a value can
+ * physically exceed that limit: bytes, events, high-throughput counters, and
+ * cumulative sums. Money has its own `MoneyFieldDef` with a currency column.
  */
 export type BigIntFieldDef = {
   readonly type: "bigInt";
@@ -578,9 +571,9 @@ export type DecimalFieldDef = {
 
 /** Where a money field's currency comes from. `"tenant"` is the
  *  tenant-settings bundle's per-tenant currency (`tenant-settings:config:
- *  currency`, kumiko-framework#2933); `"literal"` names a fixed ISO code and
- *  is checked against the app's `currencies` list at boot
- *  (kumiko-framework#2839). Discriminated union so a `{ kind: "field", of }`
+ *  currency`); `"literal"` names a fixed ISO code and
+ *  is checked against the app's `currencies` list at boot.
+ *  Discriminated union so a `{ kind: "field", of }`
  *  variant (amount and currency-picker side by side) can still be added
  *  without a breaking change, once a multi-currency form actually exists. */
 export type MoneyCurrencySource =
@@ -590,7 +583,7 @@ export type MoneyCurrencySource =
 /** Qualified config key a `{ kind: "tenant" }` MoneyCurrencySource resolves
  *  against — the tenant-settings bundle's per-tenant currency. Lives here
  *  (client-safe) rather than framework/engine so renderer code can read it
- *  without a runtime-only import (kumiko-framework#2937). */
+ *  without a runtime-only import. */
 export const TENANT_CURRENCY_CONFIG_KEY = "tenant-settings:config:currency";
 
 export type MoneyFieldDef = {
@@ -608,19 +601,18 @@ export type MoneyFieldDef = {
   readonly currency?: MoneyCurrencySource;
 };
 
-// Reference-Field (Tier 2.7e-3) — FK-Style Verweis auf eine andere
-// Entity. Gespeichert als UUID-Spalte (uuid type), Read-Side liefert
-// optional die referenced Row mit (Tier 2.7e-4 eagerload).
+// Reference field — FK-style reference to another entity. Stored in a UUID
+// column; the read side can optionally include the referenced row.
 //
-// `entity` akzeptiert zwei Formen:
-//   - kurz ("customer") — same-feature reference, Default-Pfad.
-//   - qualifiziert ("users:user") — cross-feature, Format
-//     "<featureName>:<entityName>". Renderer baut die Lookup-Query-QN
-//     gegen das angegebene Feature (`users:query:user:list`).
+// `entity` accepts two forms:
+//   - short ("customer") — same-feature reference, the default path;
+//   - qualified ("users:user") — cross-feature, in the format
+//     "<featureName>:<entityName>". The renderer builds the lookup query QN
+//     against the specified feature (`users:query:user:list`).
 //
-// `labelField` (optional) — welches Feld der referenced Entity wird
-// im Select-Dropdown als Label gezeigt. Default: "id". Best practice
-// ist ein menschlich-lesbares Feld wie "name", "title", "email".
+// `labelField` optionally selects the referenced entity field displayed as the
+// Select dropdown label. Default: "id". A human-readable field such as
+// "name", "title", or "email" is recommended.
 export type ReferenceFieldDef = {
   readonly type: "reference";
   readonly description?: string;
@@ -629,27 +621,27 @@ export type ReferenceFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-  /** Welches Feld der referenced Entity als Display-Label im
-   *  Select-Dropdown erscheint. Default: "id". Boot-Validator pinst
-   *  dass das Feld auf der referenced Entity existiert. */
+  /** Field of the referenced entity displayed as the Select dropdown label.
+   *  Default: "id". The boot validator ensures that the field exists on the
+   *  referenced entity. */
   readonly labelField?: string;
-  /** Multi-Reference (Tier 2.7e-Multi): Wert ist ein Array von UUIDs
-   *  statt single UUID. Storage als jsonb-Array<uuid>. UI rendert
-   *  Multi-Select-Combobox mit Tag-Anzeige der gewählten Items. */
+  /** Multi-reference: the value is an array of UUIDs rather than a single UUID.
+   *  Stored as a jsonb array of UUIDs; the UI renders a multi-select combobox
+   *  with tags for the selected items. */
   readonly multiple?: boolean;
   /** Include a row in this entity's result set on a text-search hit against
    *  the referenced entity's `labelField`, instead of only matching the UUID
-   *  column itself (fw#2660). Requires an explicit `labelField` — the boot
+   *  column itself. Requires an explicit `labelField` — the boot
    *  validator rejects it otherwise, since the default "id" is a UUID column
    *  and ILIKE against it would crash at runtime. */
   readonly searchable?: true;
   /** Order a list by the referenced entity's `labelField` instead of by the raw
-   *  UUID column (fw#2741). Requires an explicit, non-"id" `labelField` — the
+   *  UUID column. Requires an explicit, non-"id" `labelField` — the
    *  boot validator rejects it otherwise, since ordering by a UUID produces a
    *  sequence that looks meaningful to the user but is arbitrary. */
   readonly sortable?: true;
   /** Fill the picker from this query handler instead of the referenced
-   *  entity's own list handler (fw#2780) — for targets whose identity is
+   *  entity's own list handler — for targets whose identity is
    *  composed from joined rows, where no single column of the referenced
    *  entity is a readable label. Fully-qualified QN
    *  ("<feature>:query:<short>"), boot-validated against the registered
@@ -731,7 +723,7 @@ export type EmbeddedSubFieldDef =
       readonly type: "reference";
       readonly entity: string;
       readonly labelField?: string;
-      /** Same contract as `ReferenceFieldDef.optionsQuery` (fw#2780). */
+      /** Same contract as `ReferenceFieldDef.optionsQuery`. */
       readonly optionsQuery?: string;
     });
 
@@ -787,7 +779,7 @@ export type EmbeddedFieldDef = {
    *  field's amount. Validated both client- and server-side (schema-builder
    *  superRefine). Only meaningful with `multiple: true`. Compares against
    *  rounded `derived` cells, i.e. "sum-of-rounded" not "round-of-sum" —
-   *  see kumiko-framework#1866. */
+   *  see the embedded-list totals-matching behavior. */
   readonly totalsMatch?: Readonly<Record<string, string>>;
 } & ResolvedPiiFlags;
 
@@ -812,13 +804,13 @@ export type JsonbFieldDef = {
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 
-// Legacy "date" — JS-Date-Object, semantisch unklar (Wall-Clock vs Instant).
-// Für neue Felder bevorzuge:
-//   - `timestamp` für UTC-Instant ("wann ist das passiert")
-//   - `createLocatedTimestampField()` für Termine die an einem Ort
-//     stattfinden ("Pickup um 10:00 in Lissabon")
-//   - (kommt) `plainDate` für Kalender-Daten ohne Uhrzeit (z.B. Geburtstag)
-// Siehe docs/plans/architecture/timezones.md
+// Legacy `date` — a JavaScript Date object with ambiguous semantics
+// (wall-clock time versus instant). For new fields, prefer:
+//   - `timestamp` for a UTC instant ("when did this happen");
+//   - `createLocatedTimestampField()` for appointments at a location
+//     ("Pickup at 10:00 in Lisbon");
+//   - `plainDate` for calendar dates without a time (for example, birthdays).
+// See docs/plans/architecture/timezones.md.
 export type DateFieldDef = {
   readonly type: "date";
   readonly description?: string;
@@ -827,27 +819,27 @@ export type DateFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-  /** Erlaubte Datumsgrenzen als ISO `yyyy-mm-dd` (z.B. Geburtsdatum nicht
-   *  in der Zukunft: `max` = heute). Begrenzt den Picker und wird vom
-   *  Zod-Schema beim Write durchgesetzt. */
+  /** Permitted date bounds as ISO `yyyy-mm-dd` (for example, a birth date
+   *  cannot be in the future when `max` is today). The bounds constrain the
+   *  picker and are enforced by the Zod schema on write. */
   readonly min?: string;
   readonly max?: string;
-  /** Format/Locale-Override für Anzeige und Eingabe-Parsing (z.B.
-   *  "de-DE"). Default = App-Locale. */
+  /** Format/locale override for display and input parsing (for example,
+   *  "de-DE"). Default: app locale. */
   readonly locale?: string;
 } & ResolvedPiiFlags;
 
-// UTC-Instant (Temporal.Instant). Für Ereignisse die zu einem bestimmten
-// Augenblick passieren, ohne Location-Bezug: createdAt, loginAt, actualPickupAt.
-// JSON-Form: ISO-UTC-String "2026-04-18T10:00:00Z" via .toJSON().
+// UTC instant (`Temporal.Instant`) for events occurring at a specific moment
+// without a location: createdAt, loginAt, actualPickupAt.
+// JSON form: ISO UTC string "2026-04-18T10:00:00Z" via `.toJSON()`.
 //
-// Mit `locatedBy: "<name>Tz"` markiert: bildet ein Wall-Clock+TZ-Pair mit dem
-// referenzierten tz-Feld. JSON-Form wird dann zwei Felder ({ at, tz }), DB
-// speichert Wall-Clock+tz und konvertiert transparent (siehe DB-Wrapper,
-// kommt in einer späteren Iteration).
+// With `locatedBy: "<name>Tz"`, the field forms a wall-clock/time-zone pair
+// with the referenced tz field. The JSON form then has two fields ({ at, tz });
+// the database stores wall-clock time and the time zone and converts them
+// transparently through the database wrapper.
 //
-// Für neue Felder bevorzuge `createLocatedTimestampField()` — EIN atomares
-// Feld statt eines lose verdrahteten Pairs (siehe LocatedTimestampFieldDef).
+// For new fields, prefer `createLocatedTimestampField()` — one atomic field
+// instead of a loosely connected pair (see LocatedTimestampFieldDef).
 export type TimestampFieldDef = {
   readonly type: "timestamp";
   readonly description?: string;
@@ -857,28 +849,28 @@ export type TimestampFieldDef = {
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
   /**
-   * Marker: dieses Timestamp-Feld ist Wall-Clock-Zeit an einem Ort.
-   * Wert ist der Name des begleitenden tz-Felds (IANA-Zone).
+   * Marker: this timestamp field represents wall-clock time at a location.
+   * The value is the name of the accompanying tz field (IANA zone).
    *
-   * Beispiel: manuelles Pair
+   * Example: manual pair
    *   { pickupAt: { type: "timestamp", locatedBy: "pickupTz" }, pickupTz: { type: "tz" } }
-   * — bevorzuge stattdessen `createLocatedTimestampField()`.
+   * — prefer `createLocatedTimestampField()` instead.
    */
   readonly locatedBy?: string;
-  /** Erlaubte Grenzen als ISO-Datetime. Begrenzt den Picker auf
-   *  Tages-Granularität; die exakte Uhrzeit-Grenze setzt das Zod-Schema
-   *  beim Write durch. */
+  /** Permitted bounds as ISO datetime values. The picker is limited to day
+   *  granularity; the Zod schema enforces the exact time bound on write. */
   readonly min?: string;
   readonly max?: string;
-  /** Format/Locale-Override für Anzeige und Eingabe-Parsing. Default =
-   *  App-Locale. */
+  /** Format/locale override for display and input parsing. Default: app
+   *  locale. */
   readonly locale?: string;
 } & ResolvedPiiFlags;
 
-// IANA-Zonenname (z.B. "Europe/Berlin", "America/Los_Angeles").
-// Wird via `Intl.supportedValuesOf("timeZone")` validiert (kommt im
-// Zod-Validator-Schritt). Eigener Field-Typ damit Type-Safety + Storage
-// (TEXT-Spalte) korrekt sind und der `locatedBy`-Marker eindeutig auflöst.
+// IANA time-zone name (for example, "Europe/Berlin" or
+// "America/Los_Angeles"). It is validated through
+// `Intl.supportedValuesOf("timeZone")`. A dedicated field type preserves type
+// safety, ensures TEXT-column storage, and gives the `locatedBy` marker an
+// unambiguous target.
 export type TzFieldDef = {
   readonly type: "tz";
   readonly description?: string;
@@ -887,24 +879,23 @@ export type TzFieldDef = {
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 
-// Wall-Clock-Termin an einem Ort als ATOMARES Konzept.
-// EIN Feld in der Schema-Definition, ZWEI Spalten in der DB
-// (`<name>_utc TIMESTAMPTZ` + `<name>_tz TEXT`), DREI Felder im API-Object
-// ({ at, tz, utc }). Drizzle-Wrapper macht die Konvertierung transparent —
-// Feature-Code sieht das 3-Felder-Object beim Read und schreibt
-// { at, tz } beim Insert (utc wird berechnet).
+// Wall-clock appointment at a location as an atomic concept.
+// One field in the schema definition, two database columns
+// (`<name>_utc TIMESTAMPTZ` + `<name>_tz TEXT`), and three fields in the API
+// object ({ at, tz, utc }). The Drizzle wrapper converts transparently: feature
+// code sees the three-field object on read and writes { at, tz } on insert;
+// `utc` is calculated.
 //
-// API-Form:
+// API form:
 //   Write: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" }
 //   Read:  { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon", utc: "2026-04-15T09:00:00Z" }
 //
-// Default-Sicht für `at`: Wall-Clock am Ort (`tz`). Wer User-lokale Sicht
-// will, projeziert `utc` separat per ctx.tz.fromInstantInZone(utc, userTz).
+// The default view for `at` is wall-clock time at the location (`tz`). To show
+// it in a user's local time, project `utc` separately with
+// ctx.tz.fromInstantInZone(utc, userTz).
 //
-// Ersetzt das alte `locatedTimestamp(name)` Helper-Pattern (zwei separate
-// Pair-Felder). Sauberer Single-Field-Typ + Auto-Convert-Logik.
-//
-// Siehe docs/plans/architecture/timezones.md.
+// Replaces the old `locatedTimestamp(name)` helper pattern of two separate
+// pair fields with a single field type and automatic conversion.
 export type LocatedTimestampFieldDef = {
   readonly type: "locatedTimestamp";
   readonly description?: string;
@@ -913,13 +904,13 @@ export type LocatedTimestampFieldDef = {
   readonly filterable?: boolean;
   readonly sensitive?: boolean;
   readonly access?: FieldAccess;
-  /** Erlaubte Grenzen als ISO-Datetime (Wall-Clock). Begrenzt den Picker
-   *  auf Tages-Granularität; die exakte Uhrzeit-Grenze setzt das Zod-Schema
-   *  beim Write durch. */
+  /** Permitted bounds as ISO datetime values (wall-clock time). The picker is
+   *  limited to day granularity; the Zod schema enforces the exact time bound
+   *  on write. */
   readonly min?: string;
   readonly max?: string;
-  /** Format/Locale-Override für Anzeige und Eingabe-Parsing. Default =
-   *  App-Locale. */
+  /** Format/locale override for display and input parsing. Default: app
+   *  locale. */
   readonly locale?: string;
 } & ResolvedPiiFlags;
 
@@ -1039,7 +1030,7 @@ export const FIELD_TYPE_NAMES: readonly FieldDefinition["type"][] =
  *  secretMint) may declare it: a `money` field there has no entity to borrow
  *  `defaultCurrency` from, so it must name its own currency source, or the
  *  form seeds a bare `0` that the handler's zod schema then rejects
- *  (kumiko-framework#2839). Entity fields keep the optional `currency` —
+ *  . Entity fields keep the optional `currency` —
  *  `entity.defaultCurrency` is already boot-enforced for them. */
 export type FormFieldDefinition =
   | Exclude<FieldDefinition, MoneyFieldDef>
@@ -1054,7 +1045,7 @@ export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | Ima
 // the boot validator (packages/framework/src/engine/boot-validator/screens.ts)
 // and the client-side required-field check (packages/renderer/src/app/form-schema.ts).
 // Embedded LIST fields (`multiple: true`) are the one exception — they get
-// their own EmbeddedListField grid widget (#1838) — callers must check that
+// their own EmbeddedListField grid widget — callers must check that
 // separately, this array alone doesn't distinguish plain embedded from embedded lists.
 // A plain array, not a Set: kumiko-types stays free of module-scope runtime
 // identity (guard-types-class-free.test.ts) since a consumer may resolve two
@@ -1117,35 +1108,35 @@ export type ClientDerivedFieldDef = Pick<DerivedFieldDef, "valueType">;
 
 export type TransitionMap = Readonly<Record<string, readonly string[]>>;
 
-/** Composite-Index auf einer Entity. Spalten werden via field-Name
- *  referenziert (camelCase). buildEntityTable mapped sie auf snake_case-
- *  Spaltennamen und benennt den Index nach Convention:
+/** Composite index on an entity. Columns are referenced by field name
+ *  (camelCase). `buildEntityTable` maps them to snake_case column names and
+ *  names the index by convention:
  *
  *    <table>_<col1>_<col2>_idx          (non-unique)
  *    <table>_<col1>_<col2>_unique       (unique)
  *
- *  Eine `name`-Override ist erlaubt — Convention-Bruch in Bestandscode
- *  vermeidet Migration-Churn beim Refactor.
+ *  A `name` override is allowed to avoid migration churn when refactoring
+ *  existing code.
  *
- *  Single-column indices über `tenantId` sind redundant (buildEntityTable
- *  legt die immer automatisch an); die Boot-Validation warnt (außer
- *  `{ unique: true }` — semantische 1:1-Constraint, kein Performance-Hint). */
+ *  Single-column indexes over `tenantId` are redundant because
+ *  `buildEntityTable` creates them automatically; boot validation warns about
+ *  them unless `{ unique: true }`, which expresses a semantic 1:1 constraint
+ *  rather than a performance hint. */
 export type EntityIndexDef = {
   readonly columns: readonly [string, ...string[]];
   readonly unique?: boolean;
   readonly name?: string;
   /**
-   * Optional SQL-Fragment fuer Partial-Index — `CREATE [UNIQUE] INDEX
-   * ... WHERE <condition>`. Postgres-Pattern fuer "Index nur unter
-   * bestimmten Bedingungen", typisches Beispiel: ExportJob-Idempotency
-   * `UNIQUE(userId) WHERE status IN ('pending', 'running')`.
+   * Optional SQL fragment for a partial index — `CREATE [UNIQUE] INDEX
+   * ... WHERE <condition>`. This is PostgreSQL's pattern for indexing only
+   * rows that meet specified conditions; a typical example is export-job
+   * idempotency: `UNIQUE(userId) WHERE status IN ('pending', 'running')`.
    *
-   * Caller baut das Fragment via drizzle-orm `sql\`...\``-Tagged-
-   * Template. table-builder.ts emittiert `.where(def.where)` auf den
-   * Drizzle-IndexBuilder — wirkt sowohl fuer unique- als auch fuer
-   * non-unique-Indexes (PG erlaubt beides; non-unique partial nutzt
-   * man z.B. fuer scharfe BTREE-Indexes nur auf einer Status-Teilmenge
-   * statt voller Tabelle).
+   * Callers build the fragment with the drizzle-orm `sql\`...\`` tagged
+   * template. table-builder.ts emits `.where(def.where)` on the Drizzle
+   * IndexBuilder. It applies to both unique and non-unique indexes; a
+   * non-unique partial index can target a status subset instead of the full
+   * table.
    */
   readonly where?: unknown;
 };
@@ -1223,17 +1214,20 @@ export type EntityDefinition<
   readonly lockedWhen?: FieldCondition;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
-  /** Composite-Indices über mehrere Felder. Single-column FK-Indices und
-   *  der tenant_id-Index werden weiterhin automatisch von buildEntityTable
-   *  angelegt — diese Liste ist nur für Custom-Indices die der Author
-   *  explizit deklariert (z.B. `{ unique: true, columns: ["key", "tenantId", "userId"] }`). */
+  /** Composite indexes over multiple fields. Single-column foreign-key indexes
+   *  and the tenant_id index are still created automatically by
+   *  `buildEntityTable`; this list is only for custom indexes explicitly
+   *  declared by the author (for example,
+   *  `{ unique: true, columns: ["key", "tenantId", "userId"] }`). */
   readonly indexes?: readonly EntityIndexDef[];
   /**
-   * PK-Typ der Entity.
-   * - `"serial"` (default): bigserial integer — schneller, kompakter, perfekt für klassische CRUD-Entities.
-   * - `"uuid"`: uuid mit `gen_random_uuid()` default — verpflichtend für Entities deren `id` als
-   *   Foreign-Key-Wert in multi-tenant Kontexten reist (z.B. `tenant.id` IS der `tenantId`). Auch für
-   *   ES-Aggregate (Phase 2+) notwendig, da Events per UUID aggregiert werden.
+   * Entity primary-key type.
+   * - `"serial"` (default): bigserial integer — faster and more compact, suitable
+   *   for classic CRUD entities.
+   * - `"uuid"`: UUID with a `gen_random_uuid()` default — required for entities
+   *   whose `id` travels as a foreign-key value in multi-tenant contexts (for
+   *   example, `tenant.id` is the `tenantId`). Also required for event-sourced
+   *   aggregates because events are grouped by UUID.
    */
   readonly idType?: "serial" | "uuid";
   /**
@@ -1260,19 +1254,19 @@ export type EntityDefinition<
    */
   readonly parentRef?: ParentRefDef;
   /**
-   * Default-Retention-Policy fuer diese Entity. Tenant-Admin kann via
-   * Compliance-Profile + Tenant-Override (Sprint 2) uebersteuern.
-   * Cleanup-Job (Sprint 2) verarbeitet die Strategy:
+   * Default retention policy for this entity. Tenant administrators can
+   *   override it through compliance profiles and tenant overrides.
+   *   The cleanup job applies these strategies:
    *
-   *   - "hardDelete" → Row physisch weg nach keepFor
-   *   - "softDelete" → deletedAt = now() (mit core-soft-delete-Feature)
-   *   - "anonymize"  → Felder mit `anonymize`-Funktion ueberschrieben,
-   *                    Row bleibt
-   *   - "blockDelete" → Cleanup-Job ignoriert; User-Forget loest
-   *                     stattdessen anonymize aus. Buchhaltung, Mandate,
-   *                     Patientenakten.
+   *   - "hardDelete" → physically remove the row after `keepFor`
+   *   - "softDelete" → set `deletedAt = now()` (with the core-soft-delete feature)
+   *   - "anonymize"  → overwrite fields with an `anonymize` function while the
+   *                    row remains
+   *   - "blockDelete" → the cleanup job skips the row; user forget instead
+   *                    triggers anonymization. Accounting records, mandates,
+   *                    and patient records.
    *
-   * Siehe docs/plans/features/core-data-retention.md.
+   * See docs/plans/features/core-data-retention.md.
    */
   readonly retention?: RetentionDef;
   /**
@@ -1285,7 +1279,7 @@ export type EntityDefinition<
   readonly description?: string;
   /**
    * Opts this entity's rows into the `tenant-handover` bundled feature
-   * (kumiko-framework#3035): a row-bound-grant-legitimated ownership change
+   *: a row-bound-grant-legitimated ownership change
    * from an anonymous/public tenant to a freshly signed-up account's tenant.
    * An entity reachable from a transfer's root — the root itself, or any
    * entity whose `parentRef` names the root's type — that is NOT declared

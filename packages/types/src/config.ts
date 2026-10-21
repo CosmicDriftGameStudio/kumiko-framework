@@ -84,11 +84,11 @@ export type ConfigValidateFn<T extends ConfigKeyType = ConfigKeyType> = (
   ctx: ConfigValidateContext,
 ) => Promise<void>;
 
-// Storage-Backing eines provisionierten Config-Keys. "config" (Default) =
-// config_values-Projektion mit voller Cascade (user→tenant→system→app→default).
-// "secrets" = read_tenant_secrets (flach pro (tenant,key), AES-GCM-Envelope mit
-// Rotation/Audit, KEINE Cascade) — nur sinnvoll für scope:system ohne
-// Tenant-Override. Die backing×scope-Matrix erzwingt der boot-validator.
+// Storage backing for a provisioned config key. "config" (default) =
+// config_values projection with the full cascade (user→tenant→system→app→default).
+// "secrets" = read_tenant_secrets (flat per (tenant,key), AES-GCM envelope with
+// rotation/audit, NO cascade) — meaningful only for scope:system without a
+// tenant override. The boot validator enforces the backing×scope matrix.
 export type ConfigBacking = "config" | "secrets";
 
 // Minimal read surface the config resolver needs to dispatch a
@@ -112,7 +112,7 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
    *  encrypted under the DEK of the scope actually written to (tenant-row
    *  → tenant subject, user-row → user subject). Only on `type: "text"`,
    *  `scope !== "system"` (no subject there), and mutually exclusive with
-   *  `encrypted` (kumiko-platform#231/#459). */
+   *  `encrypted`. */
   readonly piiEncrypted?: boolean;
   readonly options?: readonly string[];
   /** Only on `type: "select"`: loads the options from this query (QN), contract
@@ -145,16 +145,16 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // Runs inside the write transaction, so it holds the dispatcher's DB connection for its whole
   // duration: external I/O (DNS, HTTP) needs its own short timeout, the framework sets none.
   readonly validate?: ConfigValidateFn<T>;
-  // Per-Request opt-in. Default false — resolveConfigOrParam wirft für
-  // Keys ohne diese Marke, auch wenn der Caller paramValue übergibt. Das
-  // zwingt Feature-Devs zur expliziten Entscheidung "dieser Key darf pro
-  // Request überschrieben werden" — statt versehentlich zu erlauben dass
-  // ein Query-Param jede beliebige Tenant-Config umgeht.
+  // Per-request opt-in. Default false — resolveConfigOrParam throws for
+  // keys without this marker, even when the caller provides paramValue. This
+  // forces feature developers to explicitly decide that "this key may be
+  // overridden per request" instead of accidentally allowing a query parameter
+  // to bypass any tenant config.
   //
-  // Nicht kombinierbar mit type="text" (Boot-Reject) — Text-Werte sind
-  // immer gesperrt wegen XSS/SQL/Shell-Risiko, selbst mit Opt-in.
-  // Nicht kombinierbar mit encrypted (Boot-Reject) — encrypted Keys
-  // werden nicht transient aus Query-Strings heraus gelesen.
+  // Incompatible with type="text" (boot rejection) — text values are always
+  // blocked because of XSS/SQL/shell risks, even with opt-in.
+  // Incompatible with encrypted (boot rejection) — encrypted keys are not read
+  // transiently from query strings.
   readonly allowPerRequest?: boolean;
   // Tenant must supply a real value before the owning feature works — for
   // text keys an empty/whitespace value counts as unset. Surfaced by
@@ -162,31 +162,30 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // calls in its build-fn.
   readonly required?: boolean;
 
-  // --- Provisioning-Metadata (optional auf createTenant/System/UserConfig) ---
-  // ENV-Var-Name, dessen Wert beim Boot als app-override-Default dieses Keys
-  // gebrückt wird. Reiner Fallback — überschreibt keinen gesetzten Row.
+  // --- Provisioning metadata (optional on createTenant/System/UserConfig) ---
+  // ENV variable name whose value is bridged in at boot as this key's
+  // app-override default. Pure fallback — it does not override an existing row.
   readonly env?: string;
-  // false → der geerbte system-row-Wert wird für Tenant-Admins redigiert
-  // (cascade.query + values.query): der Tenant sieht weder den Wert noch dass
-  // er gesetzt ist, nur den eigenen Override. Greift quell-basiert auf jeden
-  // Wert aus der system-row — nicht scope-gebunden; typischer Fall ist ein
-  // scope:tenant Key, dessen Plattform-Default in der system-row liegt (SMTP-
-  // Creds). Default true = transparente Cascade.
+  // false → the inherited system-row value is redacted for tenant admins
+  // (cascade.query + values.query): the tenant sees neither the value nor that
+  // it is set, only their own override. Applies source-wide to every value
+  // from the system row, not by scope; a typical case is a scope:tenant key
+  // whose platform default is in the system row (SMTP credentials). Default
+  // true = transparent cascade.
   readonly inheritedToTenant?: boolean;
-  // "config" (Default, volle Cascade) oder "secrets" (flach pro (tenant,key)).
+  // "config" (default, full cascade) or "secrets" (flat per (tenant,key)).
   readonly backing?: ConfigBacking;
-  // Markiert den Key als user-facing Einstellung: der Self-Populating
-  // Settings-Hub leitet daraus automatisch Screen+Nav-Eintrag ab (kein
-  // manuelles r.screen/r.nav). Fehlt `mask`, gilt der Key als internes
-  // Plumbing (ENV-provisioniert/computed) und erscheint NICHT im Hub.
+  // Marks the key as a user-facing setting: the self-populating Settings Hub
+  // derives a screen and navigation entry automatically (no manual
+  // r.screen/r.nav). Without `mask`, the key is considered internal plumbing
+  // (ENV-provisioned/computed) and does NOT appear in the Hub.
   readonly mask?: ConfigMask;
-  // Überschreibt, unter welchem Settings-Hub-Namespace/Screen dieser Key
-  // gruppiert wird (Default: das deklarierende Feature). Erlaubt einem
-  // Feature, seine Keys unter einem fremden oder geteilten Namespace zu
-  // bündeln (z.B. viele flache Migrations-Flags unter "tenant-settings"),
-  // ohne dass das Ziel-Feature sie kennt. Rührt NICHT an qualifiziertem
-  // Namen, Storage, Seeds oder App-Overrides — nur reine UI-Gruppierung.
-  // Muss kebab-case sein (Boot-Validierung).
+  // Overrides the Settings Hub namespace/screen under which this key is grouped
+  // (default: the declaring feature). This lets a feature group its keys under
+  // a foreign or shared namespace (e.g. many flat migration flags under
+  // "tenant-settings") without the target feature knowing about them.
+  // It does NOT affect the qualified name, storage, seeds, or app overrides —
+  // only UI grouping. Must be kebab-case (boot validation).
   readonly group?: string;
 };
 
@@ -248,8 +247,8 @@ export type ConfigStoredRowWithSource = ConfigStoredRow & {
 
 // Which layer of the cascade actually produced a value. Emitted only by
 // `getWithSource` — regular `get` hides this to keep the hot-path simple.
-// Use-case: Ops-debugging ("warum ist mein Wert 50 und nicht 100?") without
-// poking through six scope-row-lookups by hand.
+// Use case: Ops debugging ("why is my value 50 and not 100?") without
+// manually checking six scope-row lookups.
 export type ConfigValueSource =
   | "user-row" // user-scoped row (only for scope:user keys)
   | "tenant-row" // tenant-scoped row
@@ -354,8 +353,7 @@ export type ConfigResolver = {
 // everything. Default is "worker" for every async consumer/job — that's the
 // sensible prod default (API instances stay request-focused, heavy async
 // work lives on the worker fleet). Opt into "api" only for latency-
-// sensitive or in-memory-stateful consumers (e.g. later: SSE per-instance
-// push in Welle 2.7).
+// sensitive or in-memory-stateful consumers.
 //
 // Feature-hooks (r.hook preSave/postSave/…) intentionally have no runIn —
 // they run in-TX in whatever process handles the command. Splitting them
@@ -379,21 +377,20 @@ export type JobHandlerFn = (
 ) => Promise<void | JobDeferral>;
 
 export type JobTrigger =
-  // `on` akzeptiert ein einzelnes Handler-Ref ODER eine Liste. Multi-
-  // Trigger-Form ist DRY für Fanout-Patterns: ein Job-Body, mehrere
-  // Trigger (z.B. webhook-fanout: incident.open / incident.update /
-  // maintenance.start) statt N r.job-Calls mit demselben Handler-Body.
-  // Im Handler-payload landet `_triggerName: string` damit der Code
-  // weiß, welcher Trigger gefeuert hat.
+  // `on` accepts a single handler reference OR a list. The multi-trigger form
+  // is DRY for fan-out patterns: one job body, multiple triggers (e.g.
+  // webhook-fanout: incident.open / incident.update / maintenance.start)
+  // instead of N r.job calls with the same handler body.
+  // The handler payload includes `_triggerName: string` so the code knows
+  // which trigger fired.
   //
-  // Two delivery semantics depending on what `on` resolves to (kumiko-
-  // framework#1505): a write/query-handler QN dispatches synchronously
-  // from dispatch-write.ts's afterCommitHooks — effectively once. An
-  // r.defineEvent QN (e.g. one an r.multiStreamProjection appends via
-  // ctx.unsafeAppendEvent) dispatches async via the job-trigger
-  // event-consumer (createJobTriggerEventConsumer, pipeline/system-
-  // hooks.ts) — cursor delivery, at-least-once. Handlers triggered on an
-  // r.defineEvent QN must be idempotent.
+  // Two delivery semantics depend on what `on` resolves to: a write/query-handler
+  // QN dispatches synchronously from dispatch-write.ts's afterCommitHooks —
+  // effectively once. An r.defineEvent QN (e.g. one an r.multiStreamProjection
+  // appends via ctx.unsafeAppendEvent) dispatches asynchronously through the
+  // job-trigger event consumer (createJobTriggerEventConsumer,
+  // pipeline/system-hooks.ts) — cursor delivery, at-least-once. Handlers
+  // triggered on an r.defineEvent QN must be idempotent.
   | {
       readonly on: import("./handlers.ts").NameOrRef | readonly import("./handlers.ts").NameOrRef[];
       // Equality filter on top-level payload fields, checked before enqueue —

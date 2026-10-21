@@ -50,7 +50,7 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     callExpression: "createAuthEmailPasswordFeature()",
   },
   // Only meaningful alongside auth.signup — composeFeatures auto-mounts it
-  // when signup is set; listed so scaffolds can pick it explicitly (#1521).
+  // when signup is set; listed so scaffolds can pick it explicitly.
   "auth-self-registration": {
     name: "auth-self-registration",
     importPath: "@cosmicdrift/kumiko-bundled-features/auth-email-password",

@@ -25,12 +25,12 @@ import type {
 // auto create-navigation (a projection isn't an editable entity list). Row
 // interaction is explicit via `rowActions`. The query must return the same
 // paged envelope as an entity list-query: `{ rows, nextCursor, total? }`.
-// User-toggleable facet dropdown on a projectionList screen (fw#2224).
+// User-toggleable facet dropdown on a projectionList screen.
 // entityList derives the same UI from `filterable: true` entity fields plus
 // the `<feature>:entity:<entity>:field:<field>:option:<value>` i18n
 // convention. Labels here (`label`, `options[].label`, `trueLabel`/
 // `falseLabel`) are i18n keys resolved via `translate()` with passthrough
-// for unknown keys (fw#2373) — not raw display strings. Sent to the server
+// for unknown keys — not raw display strings. Sent to the server
 // as `{field, op:"in", value}` in `payload.filters`, ANDed with `filter`.
 // Exception: "dateRange" sends its bounds as the two top-level payload keys
 // named in `params`, not as a `filters` entry.
@@ -115,7 +115,7 @@ export type ProjectionListScreenDefinition = {
    *  param present). Same type serves author and wire schema (no separate
    *  client-facing screen type exists), so this stays structurally
    *  writable — validateProjectionListScreens rejects any hand-authored
-   *  value at boot (fw#2165). */
+   *  value at boot. */
   readonly sortable?: boolean;
   /** Derived by buildAppSchema from the query handler's Zod schema (`cursor`
    *  or `offset` param present). See `sortable` doc for why this is
@@ -142,7 +142,7 @@ export type ProjectionListScreenDefinition = {
 // Read-only counterpart to projectionList — a single-row inspector bound to
 // an EXPLICIT query instead of an entity (`entityEdit` requires `r.entity`,
 // which a direct-write/projection read-model like `jobs`/`sessions` doesn't
-// have — see #255). There is no write path: the renderer forces every field
+// have). There is no write path: the renderer forces every field
 // readOnly structurally (not just by convention — see
 // renderer/projection-detail-shim.ts), so no `<entity>:write:...:update`
 // command is ever constructed. `idParam` names the query-payload key the
@@ -153,7 +153,7 @@ export type ProjectionListScreenDefinition = {
 // supported (no entity for them to persist against); the boot-validator
 // rejects them. `relatedList` sections ARE supported — they run their own
 // query against the displayed record's id, independent of the entity gap
-// above (fw#2166).
+// above.
 export type RecordHeaderSubtitlePart =
   | string
   | { readonly field: string; readonly navigate?: MetricNavigate };
@@ -263,6 +263,6 @@ export type ProjectionDetailScreenDefinition = {
   /** How head fields render. Default "text" — plain text instead of a
    *  disabled Input, since every field on this screen type is forced
    *  readOnly anyway (there is no write path, see the shim doc above).
-   *  Set "form" to opt back into the disabled-Input look (fw#2245). */
+   *  Set "form" to opt back into the disabled-Input look. */
   readonly valueDisplay?: "form" | "text";
 };

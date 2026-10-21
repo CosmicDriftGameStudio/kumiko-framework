@@ -1,10 +1,10 @@
-// Standalone `kumiko schema apply` für Production-Bundles. Apps bündeln ein
-// dünnes bin/kumiko.ts das nur runStandaloneSchemaCli mit den App-Features
-// aufruft — die ganze Orchestrierung (Infra-Bootstrap, Migrations,
-// Projection-Rebuild) lebt hier statt als ~100-Zeilen-Boilerplate pro App.
+// Standalone `kumiko schema apply` for production bundles. Apps bundle a thin
+// bin/kumiko.ts that only calls runStandaloneSchemaCli with the app features;
+// all orchestration (infrastructure bootstrap, migrations, projection rebuild)
+// lives here instead of being repeated as ~100 lines of boilerplate per app.
 //
-// Der Pulumi-migrate-initContainer ruft `bun /app/kumiko.js schema apply`;
-// kumiko-build entdeckt das App-bin via findRepoRoot() und bündelt es.
+// The Pulumi-migrate-initContainer calls `bun /app/kumiko.js schema apply`;
+// kumiko-build discovers the app bin via findRepoRoot() and bundles it.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -26,8 +26,8 @@ import {
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 
 export type SchemaApplyOptions = ComposeFeaturesOptions & {
-  /** App-Features (z.B. APP_FEATURES aus run-config) — composed mit den
-   *  bundled-Features für den Projection-Rebuild-Registry. */
+  /** App features (e.g. APP_FEATURES from run-config), composed with the
+   * bundled features for the projection rebuild registry. */
   readonly features: readonly FeatureDefinition[];
   /** Default INIT_CWD ?? process.cwd(); Migrations unter <appCwd>/kumiko/migrations. */
   readonly appCwd?: string;
@@ -49,11 +49,11 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
 
   const { db, close } = createDbConnection({ url: dbUrl });
   try {
-    // Infra-Tabellen (event-store + pipeline-state) zuerst, alle
-    // tableExists-gated idempotent: auf einer Bestands-DB no-op, auf einer
-    // leeren Greenfield-DB legen sie kumiko_events/_consumers/_projections an
-    // bevor die App-Migrations dagegen laufen. Ohne das bricht eine leere DB
-    // (z.B. cashcolt auf frischem CNPG) an `relation "kumiko_events" does not exist`.
+    // Create infrastructure tables (event store + pipeline state) first; all are
+    // tableExists-gated and idempotent: on an existing DB this is a no-op, while
+    // on an empty Greenfield DB they create kumiko_events/_consumers/_projections
+    // before the app migrations run. Without this, an empty DB (e.g. cashcolt
+    // on a fresh CNPG) fails with `relation "kumiko_events" does not exist`.
     console.log("\n  Lege Framework-Infra-Tabellen an (idempotent)…");
     await createEventsTable(db);
     await createEventConsumerStateTable(db);
@@ -73,7 +73,7 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
     // Projection rebuild: persistent queue instead of "only this run's
     // result.applied" — otherwise a failed rebuild stays silently stuck
     // forever, since the migration is already tracked applied and gets
-    // skipped on the next apply (#2464). queueRebuildsFromMarkers persists
+    // skipped on the next apply. queueRebuildsFromMarkers persists
     // the marker tables BEFORE the rebuild; runPendingRebuilds unconditionally
     // also picks up open entries from earlier, failed runs — not just the
     // ones this run freshly applied.

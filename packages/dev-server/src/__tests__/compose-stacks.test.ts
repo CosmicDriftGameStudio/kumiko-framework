@@ -197,7 +197,7 @@ describe("composeStacks boots for real", () => {
   });
 
   test("money-horse-shaped composeGdprStack({sessions:true}) without a tokenVerifier provider passes boot", () => {
-    // Session-only stacks (#1570): composeGdprStack({sessions:true}) mounts
+    // Session-only stacks: composeGdprStack({sessions:true}) mounts
     // auth-foundation + sessions (sessionStore). Cookie auth does not need a
     // tokenVerifier; money-horse/solon run-configs pass none and must boot.
     const features = composeFeatures([...composeGdprStack({ sessions: true })], {

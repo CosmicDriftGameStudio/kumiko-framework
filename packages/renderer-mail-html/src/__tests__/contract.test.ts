@@ -23,7 +23,7 @@ describe("renderer-mail-html :: RendererPlugin-Contract", () => {
   test("Feature declared requires for renderer-foundation + template-resolver", () => {
     const feature = createRendererMailHtmlFeature();
     // FeatureDefinition exposes the requires list via the internal API
-    // (siehe defineFeature in framework engine).
+    // (see defineFeature in framework engine).
     expect(feature.requires).toContain("renderer-foundation");
     expect(feature.requires).toContain("template-resolver");
   });

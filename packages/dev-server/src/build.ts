@@ -1,6 +1,6 @@
-// Build-Toolchain Public-API. Eigener Sub-Path-Export `@cosmicdrift/kumiko-dev-server/build`
-// damit der Main-Barrel kein Bun-Toolchain-Bundle in Production-Reads zieht
-// (z.B. wenn drizzle-kit die App-Config unter Node lädt).
+// Build-toolchain public API. The dedicated subpath export `@cosmicdrift/kumiko-dev-server/build`
+// keeps the main barrel from pulling the Bun toolchain bundle into production reads
+// (for example, when drizzle-kit loads the app config under Node).
 
 export {
   ASSETS_DIR,

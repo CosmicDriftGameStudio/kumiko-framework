@@ -1,11 +1,11 @@
-// Unit-Tests für resolveStylesheet — die Verzweigungen aus
-// createKumikoServer's CSS-Setup. Läuft unter vitest auf Node, also
-// ohne Bun.serve und ohne Bun.resolveSync; der Default-Resolution-
-// Pfad (Bun-only) ist hier explizit als "skip silent" abgedeckt.
+// Unit tests for resolveStylesheet cover the branches in
+// createKumikoServer's CSS setup. They run under vitest on Node, without
+// Bun.serve or Bun.resolveSync; the Bun-only default resolution path is
+// explicitly covered as a silent skip.
 //
-// Warum als eigener File statt im create-kumiko-server.integration.ts:
-// die anderen Tests dort booten ein TestStack (DB + Redis), das brauchen
-// wir für reine Resolver-Logik nicht.
+// This is a separate file because the other tests in
+// create-kumiko-server.integration.ts boot a test stack (DB + Redis),
+// which is unnecessary for resolver logic.
 
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -19,7 +19,7 @@ import {
 
 describe("resolveStylesheet", () => {
   test("string → resolved absolute path", () => {
-    // Relativ zum CWD aufgelöst — das ist Node's path.resolve-Default.
+    // Resolve relative to CWD, matching Node's path.resolve default.
     const out = resolveStylesheet({
       features: [],
       stylesheet: "./some/stylesheet.css",
@@ -53,10 +53,10 @@ describe("resolveStylesheet", () => {
   });
 
   test("undefined + clientEntry: undefined (silent skip)", () => {
-    // Bun resolveSync findet packages/renderer/src/web/styles.css im
-    // Repo. Das ist der prod-Pfad — unter Bun (real oder CI) ist der
-    // Wert ein absoluter path; unter Node (von wo der Test portiert
-    // wurde) wäre es undefined. Wir akzeptieren beides.
+    // Bun.resolveSync finds packages/renderer/src/web/styles.css in the repo.
+    // This is the production path: under Bun (locally or in CI), the result is
+    // absolute; under Node, where this test was ported from, it is undefined.
+    // Both results are accepted.
     const out = resolveStylesheet({
       features: [],
       clientEntry: "./entry.tsx",
@@ -85,13 +85,12 @@ describe("resolveStylesheet", () => {
   });
 
   test("undefined + clientEntry + src/styles.css existiert → returns App-Theme-Override", () => {
-    // Auto-Detection greift VOR dem renderer-web-Fallback: Wenn die App
-    // ein eigenes src/styles.css hat (App-Theme-Pattern), wird das
-    // automatisch als Tailwind-Entry genommen — symmetrisch zum prod-
-    // Build (kumiko-build:resolveStylesheetEntry). Ohne diesen Check
-    // müsste jede App `stylesheet:` explizit setzen.
-    // realpath aufgelöst, weil macOS' /var → /private/var Symlink sonst
-    // einen anderen Pfad rauswirft als process.cwd() nach chdir.
+    // Auto-detection takes precedence over the renderer-web fallback: an app's
+    // src/styles.css is treated as its Tailwind entry, matching the production
+    // build (kumiko-build:resolveStylesheetEntry). Without this check, every app
+    // would need to set `stylesheet:` explicitly.
+    // realpath is required because macOS's /var → /private/var symlink would
+    // otherwise produce a different path from process.cwd() after chdir.
     const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-resolve-styles-")));
     const srcDir = join(tmpDir, "src");
     mkdirSync(srcDir);

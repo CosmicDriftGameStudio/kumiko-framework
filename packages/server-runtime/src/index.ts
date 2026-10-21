@@ -1,7 +1,7 @@
-// Public API für den Kumiko-Production-Server-Boot. Symmetrisch zu
-// runDevApp (kumiko-dev-server), aber ohne Dev-/Scaffold-/Codegen-
-// Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
-// Dev-Tooling mehr in ihre node_modules.
+// Public API for Kumiko's production-server boot. Symmetric with
+// runDevApp (kumiko-dev-server), but without Dev/Scaffold/Codegen
+// tooling (ts-morph) as a dependency, so production apps do not pull
+// development tooling into their node_modules.
 
 export { type BillingBootOption, resolveBillingOption } from "./boot-options/billing-option.ts";
 export type {

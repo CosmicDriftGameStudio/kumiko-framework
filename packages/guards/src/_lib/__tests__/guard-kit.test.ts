@@ -176,7 +176,7 @@ describe("runGuards — vacuity verdicts", () => {
   });
 });
 
-// infra#502: notApplicable used to collapse two different silent-green causes
+// notApplicable used to collapse two different silent-green causes
 // into one message — no repos in this checkout at all, vs repos present but
 // all outside the guard's declared kinds.
 describe("runGuards — skipReason distinguishes repos-missing from outside-kinds", () => {
@@ -218,7 +218,7 @@ describe("runGuards — skipReason distinguishes repos-missing from outside-kind
   });
 });
 
-// infra#427/#789: a root whose declared sourceRoots hold no .ts/.tsx at all is a floor violation — the manifest promises source, the checkout has none.
+// A root whose declared sourceRoots hold no .ts/.tsx at all is a floor violation — the manifest promises source, the checkout has none.
 describe("runGuards — per-root floor (D4)", () => {
   test("a root with sourceSurface 0 fails the guard and is named in violatingRoots", () => {
     const dark = repoRoot("fake-root", "/repo/dark");
@@ -297,7 +297,7 @@ describe("reportResults — exit-code is the count of failed guards", () => {
   });
 });
 
-// infra#787: a `security: true` guard's own outcome is never the final
+// A `security: true` guard's own outcome is never the final
 // verdict — every finding must clear the injected per-repo baseline first.
 describe("runGuards — security guards apply the baseline (infra#787)", () => {
   function securityGuard(violationFile: string): AstGuard {
@@ -504,7 +504,7 @@ describe("explainGuards — per guard and root: source, files, source surface", 
   });
 });
 
-// infra#2863: both cases were a silent, green run before — exactly what a
+// Both cases were a silent, green run before — exactly what a
 // differently-laid-out external consumer checkout hits — so the runners must
 // fail closed instead of reporting success on nothing.
 describe("guardKitPreflightError — fail-closed on the two globally-empty cases", () => {

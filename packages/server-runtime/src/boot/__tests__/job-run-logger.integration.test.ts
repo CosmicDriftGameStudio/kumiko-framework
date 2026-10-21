@@ -94,7 +94,7 @@ describe("startDevJobRunners", () => {
   });
 });
 
-// kumiko-framework#2553: startDevJobRunners built its per-lane JobRunners but
+// startDevJobRunners once built its per-lane JobRunners but
 // never called attachDispatcher() on them (unlike createApiEntrypoint /
 // createWorkerEntrypoint / createAllInOneEntrypoint, which all do this
 // automatically) — so ctx.write/ctx.queryAs inside a dev-run job always hit

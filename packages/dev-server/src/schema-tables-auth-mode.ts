@@ -1,26 +1,27 @@
-// Drizzle-Schema-Barrel: Framework-Infrastruktur-Tables.
+// Drizzle schema barrel: framework infrastructure tables.
 //
-// Re-exportiert die Framework-eigenen Tables (Event-Store + Pipeline-State)
-// die jede App in der DB haben muss. App-Author schreibt:
+// Re-exports the framework-owned tables (event store + pipeline state)
+// that every app must have in its database. The app author writes:
 //
 //   // drizzle/schema.ts
 //   export * from "@cosmicdrift/kumiko-dev-server/drizzle-tables-auth-mode";
-//   export * from "./schema.generated";   // App-eigene + Bundle-Entity-Tables
+//   export * from "./schema.generated";   // App-owned + bundle entity tables
 //
-// drizzle-kit sucht im schema-Module nur nach pgTable-Instances und
-// ignoriert alle anderen exports — `export *` ist hier sicher.
+// drizzle-kit only looks for pgTable instances in the schema module and
+// ignores all other exports — `export *` is safe here.
 //
-// Bundle-Entity-Tables (configValuesTable, tenantTable, userTable,
-// userSessionTable, tenantMembershipsTable etc.) sind bewusst NICHT hier:
-// sie kommen über schema.generated.ts via buildEntityTable aus den
-// r.entity()-Definitionen, das ist seit der entity.indexes-API die
-// Single-Source-of-Truth. Doppelte Re-Exports würden zwei pgTable-
-// Instances mit identischem Index-Namen erzeugen — drizzle-kit warnt.
+// Bundle entity tables (configValuesTable, tenantTable, userTable,
+// userSessionTable, tenantMembershipsTable, etc.) are intentionally NOT here:
+// they come through schema.generated.ts via buildEntityTable from the
+// r.entity() definitions, which has been the single source of truth since the
+// entity.indexes API. Duplicate re-exports would create two pgTable instances
+// with identical index names, causing a drizzle-kit warning.
 //
-// (Datei-Name "auth-mode" ist historisch — heute ist der Inhalt reine
-// Framework-Infra. Umbenennen ist breaking change für App-Imports.)
+// The file name "auth-mode" is historical — its contents are now purely
+// framework infrastructure. Renaming it would be a breaking change for app
+// imports.
 
-// Framework-Infra (immer da, unabhängig von Features)
+// Framework infrastructure (always present, regardless of features)
 export {
   archivedStreamsTable,
   eventsTable,

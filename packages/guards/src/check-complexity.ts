@@ -27,8 +27,6 @@
  *   bun guards/check-complexity.ts                  # compare against baseline
  *   bun guards/check-complexity.ts --write-baseline # rewrite baseline
  *   bun guards/check-complexity.ts --no-baseline    # skip comparison
- *
- * Rule: issue kumiko-framework#1282
  */
 
 import * as path from "node:path";

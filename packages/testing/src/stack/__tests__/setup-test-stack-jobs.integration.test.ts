@@ -20,7 +20,7 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
     name: "create",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      // Exact repro from #983: bracket-access, dynamic context extension —
+      // Exact repro: bracket-access, dynamic context extension —
       // not a typed HandlerContext field (mirrors trigger.write.ts).
       const jobRunner = ctx["jobRunner"] as
         | { dispatch: (name: string, payload: Record<string, unknown>) => Promise<string> }
@@ -38,7 +38,7 @@ const manualDispatchFeature = defineFeature("manualdispatch", (r) => {
   });
 });
 
-// kumiko-framework#1232: setupTestStack used to hand jobs a bare
+// setupTestStack used to hand jobs a bare
 // `{ db, registry }` context literal — nothing else buildServer's request
 // path gets (tracer/meter, searchAdapter, ...). A job could pass in tests
 // while reading a field only prod's context has, then break silently on
@@ -173,7 +173,7 @@ describe("setupTestStack({ jobs }) job context matches the request-path context"
     await waitFor(() => {
       expect(jobContextFields.length).toBeGreaterThan(0);
     });
-    // #1255: effectiveFeatures deliberately stays OUT of the job/appContext
+    // effectiveFeatures deliberately stays OUT of the job/appContext
     // (prod only carries it in dispatcherOptions.effectiveFeatures, consumed
     // by the command-dispatcher) — putting it here would let a job read
     // `ctx.effectiveFeatures` green in tests and break on deploy.

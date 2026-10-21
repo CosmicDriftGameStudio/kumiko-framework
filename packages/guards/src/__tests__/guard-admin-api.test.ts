@@ -1,4 +1,4 @@
-// infra#502: guard-admin-api used to skip app repos (kind "app" was treated as unregistered), so app repos went unscanned while reporting green.
+// guard-admin-api used to skip app repos (kind "app" was treated as unregistered), so app repos went unscanned while reporting green.
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

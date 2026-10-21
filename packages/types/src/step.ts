@@ -58,7 +58,7 @@ export type PipelineCtx<
      */
     readonly retryAttempt?: number;
     /**
-     * Q7 Snapshot-at-Start fingerprint of the workflow definition that
+     * Snapshot-at-Start fingerprint of the workflow definition that
      * started this run. Propagated into every suspension event payload so
      * the resume-loop can detect library-upgrades that changed the closure
      * source and surface them as a typed failure instead of running a
@@ -77,12 +77,12 @@ export type PipelineCtx<
 export type StepResolver<T, TPayload = unknown> = T | ((ctx: PipelineCtx<TPayload>) => T);
 
 // Branded event-type string — the only route r.step.waitForEvent's `event`
-// can reach a value. A workflow's `awaits` declaration (D4,
-// workflow-resume-loop.md) is the only source of these; buildPipelineSteps
-// mints them from that declaration's raw strings when it builds the
-// closure's `awaits` binding. A raw string literal at waitForEvent.event is
-// a compile error, so a typo in the awaited key surfaces at build time
-// instead of a run that waits forever.
+// can reach a value. A workflow's `awaits` declaration (workflow-resume-loop.md)
+// is the only source of these; buildPipelineSteps mints them from that
+// declaration's raw strings when it builds the closure's `awaits` binding.
+// A raw string literal at waitForEvent.event is a compile error, so a typo
+// in the awaited key surfaces at build time instead of a run that waits
+// forever.
 export type AwaitedEventType = string & { readonly __awaitedEvent: unique symbol };
 
 // Serializable AST for r.step.waitForEvent's `match` argument. Persisted
@@ -126,11 +126,11 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   // readonly StepInstance[] (e.g. branch's `["onTrue", "onFalse"]`, forEach's
   // `["do"]`). The boot-validator reads these at registration time so it
   // can recurse into nested pipelines without a hardcoded kind-list. Steps
-  // that don't carry sub-pipelines omit the field. Followup #15 self-
-  // registration: prevents future sub-step-builders from silently bypassing
-  // the unsafeProjection allowlist by forgetting to update a central map.
+  // that don't carry sub-pipelines omit the field. Self-registration
+  // prevents future sub-step-builders from silently bypassing the
+  // unsafeProjection allowlist by forgetting to update a central map.
   readonly subPaths?: readonly string[];
-  // Step-vocabulary tier (Q9). Tier-1 implicit, Tier-2+ requires
+  // Step-vocabulary tier. Tier-1 implicit, Tier-2+ requires
   // r.requires.step("<kind>") in the owning feature. Default 1 (implicit).
   // Tier-3 is only available inside defineWorkflow.
   readonly tier?: 1 | 2 | 3;
@@ -187,7 +187,7 @@ export type PipelineDef<
   // extra covariant occurrence of TAwaits here (alongside its contravariant
   // occurrence in `build`'s parameter) breaks TypeScript's contextual
   // inference for a `stepsPipeline(...)` passed inline as `steps` (verified
-  // empirically; see fw#2513 Phase 3a).
+  // empirically).
   readonly awaits?: Readonly<Record<string, string>>;
   readonly build: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => readonly StepInstance[];
 };
@@ -217,7 +217,7 @@ export type PipelineBuildCtx<
 > = {
   readonly event: WriteEvent<TPayload>;
   readonly r: StepBuilder;
-  // Declared awaited events (D4, workflow-resume-loop.md) — the only way
+  // Declared awaited events (workflow-resume-loop.md) — the only way
   // r.step.waitForEvent's `event` arg can reference an event type. `{}` for
   // non-workflow pipelines and workflows without an `awaits` declaration.
   readonly awaits: TAwaits;
@@ -246,10 +246,9 @@ export type StepBuilder = {
 export type StepNamespace = {
   readonly return: <TData>(resolver: StepResolver<WriteResult<TData>>) => StepInstance;
   readonly compute: <TResult>(name: string, fn: (ctx: PipelineCtx) => TResult) => StepInstance;
-  // Inline read-side projection write. Boot-validation enforces the
-  // table is in the owning feature's r.requires.projection allowlist
-  // and NOT registered as an aggregate-table via r.entity. See
-  // step-vocabulary.md "Was unsafeProjection.* überspringt".
+  // Boot-validation enforces that the table is in the owning feature's
+  // r.requires.projection allowlist and is not registered as an aggregate
+  // table via r.entity.
   readonly unsafeProjectionUpsert: (args: {
     readonly table: unknown;
     readonly on: readonly string[];
@@ -325,9 +324,9 @@ export type StepNamespace = {
     readonly onTrue: readonly StepInstance[];
     readonly onFalse?: readonly StepInstance[];
   }) => StepInstance;
-  // Iterate a sub-pipeline over an array. `as` is required (Q15);
+  // Iterate a sub-pipeline over an array. `as` is required;
   // current item lands under `scope[as]` for resolvers in `do`.
-  // Sequential only in M.1.6; concurrency is Followup #12.
+  // Sequential only; concurrency is not yet supported.
   readonly forEach: <TItem = unknown>(args: {
     readonly over: StepResolver<readonly TItem[]>;
     readonly as: string;

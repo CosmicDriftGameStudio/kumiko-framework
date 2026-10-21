@@ -339,7 +339,7 @@ export type RunResult = {
   readonly scanKinds?: readonly string[];
   /** Files the scan matched — the runner's own count, basis of the floor. */
   readonly matchedFiles?: number;
-  /** Roots whose declared sourceRoots hold no .ts/.tsx at all (D4, infra#427). */
+  /** Roots whose declared sourceRoots hold no .ts/.tsx at all. */
   readonly violatingRoots?: readonly string[];
   /** Violations excused by the per-repo security baseline — security guards only. */
   readonly frozenFindings?: number;
@@ -597,7 +597,7 @@ function guardKitVersion(): string {
 
 /**
  * Pure preflight verdict, injectable for tests: which of the two globally
- * silent-green cases (infra#2863) applies, if any. Not to be confused with a
+ * silent-green cases applies, if any. Not to be confused with a
  * single guard finding no target repos — that stays a per-guard `skipped`
  * line in `reportResults`.
  */

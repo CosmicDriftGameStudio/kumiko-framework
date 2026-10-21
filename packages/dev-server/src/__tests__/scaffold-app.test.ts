@@ -1,4 +1,4 @@
-// scaffoldApp unit-tests (DX-1.0 + #352 deploy/schema scaffold).
+// scaffoldApp unit-tests (deploy/schema scaffold).
 
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -420,7 +420,7 @@ describe("scaffoldApp", () => {
     expect(env).toContain("DATABASE_URL=");
   });
 
-  // kumiko-framework#2330: unset (not pre-filled) so the default stays on
+  // Unset (not pre-filled) so the default stays on
   // resolveKmsWiring's plaintext fallback — a half-filled trio would throw
   // the all-or-none error instead of booting.
   test(".env.example documents the PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY trio, unset by default", async () => {
@@ -533,7 +533,7 @@ describe("scaffoldApp", () => {
     expect(main).toContain("  envSchema,");
   });
 
-  // kumiko-framework#2330: the --yes recommended set mounts PII-annotated
+  // The --yes recommended set mounts PII-annotated
   // entities (user, tenant-invitation, fileRef via user-data-rights), so
   // runProdApp's PII boot gate throws BOOT ABORTED unless kms/allowPlaintextPii
   // is wired. resolveKmsWiring supplies a real KMS when the env trio is set,

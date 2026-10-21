@@ -9,7 +9,7 @@ export const CLI_KMS_SLOTS = [
 
 // A rebuild replays applyEntityEvent, which computes bidx columns from the
 // boot-injected blind-index key and subject KMS. This standalone CLI never
-// boots the app, so without wiring them a rebuild nulls the bidx columns (fw#3091).
+// boots the app, so without wiring them a rebuild nulls the bidx columns.
 // Plaintext is refused for apps with PII carriers, like the prod boot does, unless
 // the operator names a reason.
 export async function wireKmsFromEnv(options: {

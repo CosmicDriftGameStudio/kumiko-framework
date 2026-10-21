@@ -1,8 +1,8 @@
-// Unit-Test für den CSS-Completeness-Guard (#359): nach dem Tailwind-One-Shot
-// prüft der Build, ob das Output-CSS die renderer-web-Shell-Sentinel-Klasse
-// enthält — aber NUR wenn auf das gepackte renderer-web-styles.css
-// zurückgefallen wurde. Fehlt sie dort, würde prod unstyled rendern → laut
-// failen mit Hinweis auf src/styles.css.
+// Unit test for the CSS completeness guard: after the Tailwind one-shot,
+// the build checks whether the output CSS contains the renderer-web shell
+// sentinel class—but only when it fell back to the packaged
+// renderer-web-styles.css. If it is missing there, production would render
+// unstyled and fail with a hint pointing to src/styles.css.
 
 import { describe, expect, test } from "bun:test";
 import { assertRendererWebShellPresent } from "../build-prod-bundle.ts";

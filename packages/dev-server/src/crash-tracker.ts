@@ -1,14 +1,7 @@
-// Tracks server-Crashes in einem rollenden Zeitfenster und entscheidet,
-// ob der dev-wrapper noch respawnen darf oder den Crash-Loop aufgeben
-// muss. Liegt als eigener File, damit `kumiko-dev.ts` (bin-Script ohne
-// Test-Setup) eine pure, injizierbare API bekommt — die Logik ist
-// testbar via createCrashTracker, ohne den Wrapper-Prozess fahren zu
-// müssen.
+// Tracks server crashes in a rolling time window and decides whether the dev wrapper may respawn or must stop the crash loop.
+// It lives in a separate file so `kumiko-dev.ts` (a bin script without test setup) has a pure, injectable API; the logic can be tested via createCrashTracker without running the wrapper process.
 //
-// Semantik: ein Crash "zählt im Fenster", wenn er innerhalb der letzten
-// `windowMs` ms vor `now` registriert wurde. Wenn nach Aufnahme des
-// neuen Crashes mehr als `maxCrashes` im Fenster liegen, gibt der
-// Tracker `false` zurück → Wrapper soll aufgeben.
+// A crash counts as being in the window if it was registered within the last `windowMs` ms before `now`. If, after recording the new crash, more than `maxCrashes` are in the window, the tracker returns `false`, so the wrapper must stop.
 
 export type CrashTrackerOptions = {
   readonly maxCrashes: number;
@@ -16,15 +9,11 @@ export type CrashTrackerOptions = {
 };
 
 export type CrashTracker = {
-  /** Crash bei `now` registrieren. Returns `true` wenn der Wrapper
-   *  noch respawnen darf, `false` wenn das Limit überschritten ist.
+  /** Registers a crash at `now`. Returns `true` if the wrapper may still respawn and `false` if the limit has been exceeded.
    *
-   *  Der Crash wird IMMER aufgenommen, auch wenn `false` zurückkommt —
-   *  der Caller terminiert in dem Fall normalerweise eh. Reuse mit
-   *  "rejected → state unchanged"-Semantik wird nicht unterstützt. */
+   * The crash is always recorded, even when `false` is returned; the caller normally terminates in that case anyway. Reuse with "rejected → state unchanged" semantics is not supported. */
   readonly noteCrash: (now: number) => boolean;
-  /** Anzahl Crashes im Fenster relativ zu `now` — prunt lazy, damit
-   *  der Aufruf auch ohne vorheriges noteCrash konsistent ist. */
+  /** Counts crashes in the window relative to `now`. Prunes lazily so the call is consistent even without a preceding noteCrash. */
   readonly crashCountInWindow: (now: number) => number;
 };
 
@@ -32,9 +21,7 @@ export function createCrashTracker(options: CrashTrackerOptions): CrashTracker {
   const timestamps: number[] = [];
 
   const pruneBefore = (cutoff: number): void => {
-    // Crashes älter als `cutoff` raus. Gleicher Timestamp wie cutoff
-    // bleibt drin (`<` statt `<=`) — symmetrisch zur Fenster-Definition
-    // "innerhalb der letzten windowMs", also Endpoint inklusive.
+    // Removes crashes older than `cutoff`. A timestamp equal to cutoff remains (`<` rather than `<=`) to match the window definition "within the last windowMs", whose endpoint is inclusive.
     while (timestamps.length > 0) {
       const head = timestamps[0];
       if (head !== undefined && head < cutoff) timestamps.shift();

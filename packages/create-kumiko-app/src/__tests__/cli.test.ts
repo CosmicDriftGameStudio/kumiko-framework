@@ -65,8 +65,8 @@ describe("create-kumiko-app CLI", () => {
     // is auto-included too.
     expect(cfg).toContain("createUserDataRightsDefaultsFeature");
 
-    // UX-polish: Next-steps points at `bun dev` (the primary dev path since
-    // PR #583 introduced bin/dev.ts), not the CI-only `bun run boot` smoke.
+    // UX-polish: Next-steps points at `bun dev` (the primary dev path), not
+    // the CI-only `bun run boot` smoke.
     const out = logs.join("\n");
     expect(out).toContain("bun dev");
     expect(out).toContain("docker compose up -d");

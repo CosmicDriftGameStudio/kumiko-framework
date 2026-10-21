@@ -277,7 +277,7 @@ function restOfLine(fullText: string, from: number): string {
 export function extractBoundaryReason(cast: AsExpression): string | null {
   const fullText = cast.getSourceFile().getFullText();
 
-  // (1) Leading comments des enclosing statement
+  // (1) Leading comments of the enclosing statement
   const stmt =
     cast.getFirstAncestorByKind(SyntaxKind.VariableStatement) ??
     cast.getFirstAncestorByKind(SyntaxKind.ExpressionStatement) ??
@@ -327,9 +327,8 @@ const FILE_DEFAULT_REASONS: ReadonlyArray<{
   boundaryReason: BoundaryReason;
 }> = [
   {
-    // feature-AST extractors: alle Casts gehen vom erased ts-morph-Parse-
-    // Result zu typed feature-Definitionen (EntityDefinition, RelationDef,
-    // NavDef, ConfigKeys, …). Per Konstruktion ein schema-walk.
+    // Feature-AST extractors cast erased ts-morph parse results to typed feature definitions
+    // (EntityDefinition, RelationDef, NavDef, ConfigKeys, …), so every cast is a schema walk.
     pattern: /\/engine\/feature-ast\//,
     boundaryReason: "schema-walk",
   },

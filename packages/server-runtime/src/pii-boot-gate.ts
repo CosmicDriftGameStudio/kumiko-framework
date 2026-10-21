@@ -39,7 +39,7 @@ export function assertPiiBootInvariants(
       .filter(([, entity]) => collectPiiSubjectFields(entity).length > 0)
       .map(([name]) => name),
   );
-  // fw#2776: a declared event stance is worth as much as an entity annotation —
+  // A declared event stance is worth as much as an entity annotation —
   // encryptEventPayloadPii no-ops without a KMS, so a catalogued event writes
   // plaintext PII into kumiko_events with nothing to crypto-shred later.
   const piiEvents = features.flatMap((feature) =>

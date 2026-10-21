@@ -51,7 +51,7 @@ function parseJsonBody<S extends z.ZodType>(schema: S, raw: string): ParsedBody<
 }
 
 // Shared by every verify() below — a failed parse becomes a 400 the same way
-// the pre-#3050 handler-level parseJsonBody/parseWith checks did.
+// the handler-level parseJsonBody/parseWith checks did.
 function parseOrReject<T>(value: ParsedBody<T>): T {
   if (value.success) return value.data;
   throw new ExtraRouteRejection(400, { error: value.error });
@@ -153,9 +153,9 @@ function toCapturedMail(message: InboxMessage): CapturedMail {
 // still throw in every environment) — the *mounting* decision is the
 // caller's: use isE2eSeedingEnabled() to keep prod from ever registering
 // these route objects at all, e.g. `...(isE2eSeedingEnabled() ?
-// createE2eSeedRoutes() : [])` in a server entry that also runs in prod
-// (kumiko-framework#3120). Each route's own assertGateOpen() 404s outside
-// the seed condition regardless — this is belt-and-suspenders, not the only gate.
+// createE2eSeedRoutes() : [])` in a server entry that also runs in prod.
+// Each route's own assertGateOpen() 404s outside the seed condition regardless
+// — this is belt-and-suspenders, not the only gate.
 export function createE2eSeedRoutes(
   options: E2eSeedRoutesOptions,
   bundled: SeedRouteBundledApi,

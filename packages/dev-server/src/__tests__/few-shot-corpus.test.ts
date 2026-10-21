@@ -301,7 +301,7 @@ function buildLegacyFeature(featureName: string): string {
   // corpus marks the entry as authoringStyle: "legacy".
   //
   // Note: a captured-const *entity definition* (`r.entity({ name: "x", ...xEntity })`)
-  // used to be the legacy example here, but #998 taught the parser to
+  // used to be the legacy example here, but a parser update taught it to
   // resolve such references via a raw-ref sentinel — that idiom parses
   // cleanly now and no longer exercises the legacy path.
   return `

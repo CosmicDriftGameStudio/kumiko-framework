@@ -3,11 +3,11 @@
 // Hono app, no auth routes, no SSE broker, no seeds. Shares the boot core
 // with runProdApp (env fail-fast, Temporal polyfill, composeFeatures/
 // registry, PII invariants, KMS health gate, connections, schema-drift
-// gate, boot-crypto, extraContext) — see fw#1725: before this function,
-// every app deploying a worker rebuilt this boot by hand (solon#42), and
-// every deviation was silent: without `ensureTemporalPolyfill`, every job
-// in the worker fails with "Temporal is not defined" in a retry loop,
-// with no boot-time signal that anything is wrong.
+// gate, boot-crypto, extraContext). Before this function, every app
+// deploying a worker rebuilt this boot by hand, and every deviation was
+// silent: without `ensureTemporalPolyfill`, every job in the worker fails
+// with "Temporal is not defined" in a retry loop, with no boot-time signal
+// that anything is wrong.
 //
 // App-author writes:
 //   await runWorkerApp({ features, wireComponents: async (deps) => {...} });

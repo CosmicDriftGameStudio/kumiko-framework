@@ -75,7 +75,7 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(resolveClientEntries(workDir, {})).toEqual([]);
   });
 
-  // #2305 regression: a plain module imported by the real entry, named
+  // Regression: a plain module imported by the real entry, named
   // like a legacy client-<suffix>.tsx file, must not turn into an error or
   // a second entry once src/client.tsx exists (single mode wins outright).
   test("src/client.tsx neben src/client-utils.tsx → genau ein Entry, kein Fehler", async () => {
@@ -572,7 +572,7 @@ describe("build-prod-bundle/injectAssetTags", () => {
     const result = injectAssetTags(html, manifest, namedEntry("admin"));
 
     expect(result).toContain('src="/assets/client-admin-aaa.js"');
-    // public-bundle bleibt unangetastet — admin.html lädt nur sein eigenes Bundle.
+    // The public bundle remains untouched because admin.html loads only its own bundle.
     expect(result).toContain('src="/client-public.js"');
     expect(result).not.toContain('src="/client-admin.js"');
   });

@@ -80,7 +80,7 @@ export type VariantSpec = {
 // hit has no renderer run to read a mimeType off. When `spec.format` is
 // unset, the source mimeType is client-controlled, so outputMimeType
 // allowlists it against known-safe raster types instead of passing it
-// through verbatim (#2021).
+// through verbatim.
 export type DerivativeRendererPlugin = {
   readonly render: (
     input: Uint8Array,

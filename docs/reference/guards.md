@@ -17,11 +17,11 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `check-licenses` | Licence check over the installed third-party packages of ONE repo. | - |
 | `check-outdated` | Deprecated-dependency check over ONE repo. | - |
 | `check-predicates` | Predicate-extraction check (WARNING, no fail). | - |
-| `check-real-provider-isolation` | Real-Provider-Isolation-Guard (stack-agnostisch, #3118). | - |
+| `check-real-provider-isolation` | Real-Provider-Isolation-Guard (stack-agnostic). | - |
 | `check-runtime-isolation` | Runtime-Isolation Guard. | - |
 | `check-secret-literals` | Secret-literal guard (stack-agnostic). | `kumiko-lint-ignore secret-literal` |
 | `check-security` | Security check: `bun audit` over the lockfile of ONE repo. | - |
-| `check-single-runtime-instance` | Single-Runtime-Instance Guard (kumiko-studio#229). | - |
+| `check-single-runtime-instance` | Single-Runtime-Instance Guard. | - |
 | `check-subpath-exports` | A published package that ships `src/<feature>/web.ts` must list `./<feature>/web` in its package.json `exports`; otherwise every standalone app build fails with "Could not resolve". | - |
 | `guard-admin-api` | Guard: blocks calls to the event-store admin API (`appendRaw`/`appendRawBatch`) outside allowed paths. | - |
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
@@ -39,7 +39,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-html-escape` | Guard: HTML-building template literals must escape every interpolation. | - |
 | `guard-i18n-keys` | Guard: i18n keys must be defined before they are used. | - |
 | `guard-i18n-locale-mount` | Guard: app mount points must register the German locale feature when the repo depends on @cosmicdrift/kumiko-locale-de. | - |
-| `guard-i18n-locale-terminology` | Guard: locale bundle values must follow Mandant/Organización terminology (#2200, fw#2355). | `kumiko-lint-ignore i18n-locale-terminology` |
+| `guard-i18n-locale-terminology` | Guard: locale bundle values must follow Mandant/Organización terminology. | `kumiko-lint-ignore i18n-locale-terminology` |
 | `guard-i18n-ui-strings` | No hardcoded UI text in app web code: JSX text nodes and label-like string props must go through t("…") keys (guard-i18n-keys then checks that the keys are defined — this guard closes the gap before that: strings that never became keys, e.g. | `kumiko-lint-ignore i18n-ui-strings` |
 | `guard-import-extensions` | Guard: relative imports in TypeScript sources name the source file (`./foo.ts`), not the emitted one (`./foo.js`). | - |
 | `guard-lib-test-coverage` | lib/ is the home of extracted logic (computation, parsing, mapping) — the no-logic-in-views guard pushes it there, this guard ensures it is also TESTED at the new location. | `kumiko-lint-ignore lib-test-coverage` |
@@ -64,7 +64,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-tailwind-scan-surface` | Guard: `className` string-literal tokens under kumiko-framework's `packages/bundled-features/src/**` must already be reachable through the real Tailwind `@source` scan surface (`packages/renderer/src` + `samples/**\/src`, see `packages/renderer/src/web/styles.css`). | `kumiko-lint-ignore tailwind-scan-surface` |
 | `guard-tenant-escalation` | Guard: tenant / privilege-escalation safety. | - |
 | `guard-test-stack-drift` | Guard: *.integration.ts / *.integration.test.ts files must not construct a parallel server stack. | - |
-| `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns (#3118). | - |
+| `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns. | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |
 | `guard-thin-wrappers` | Thin-Wrapper Guard (warning, never fails). | - |
 | `guard-unsafe-json-parse` | Guard: JSON.parse calls must be inside a try/catch OR routed through the safe-json helpers (parseJsonSafe / parseJsonOrThrow). | - |

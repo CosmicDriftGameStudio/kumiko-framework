@@ -2,7 +2,7 @@
 import type { TenantId } from "./identifiers.ts";
 
 // Structural shape of kumiko-framework's VersionConflictError. The class
-// itself cannot live here (#1629) — this package must stay free of
+// itself cannot live here — this package must stay free of
 // identity-sensitive runtime values so it can be a plain dependency.
 export interface VersionConflict extends Error {
   readonly aggregateId: string;
@@ -42,7 +42,7 @@ export type EventMetadata = {
   // qualified name of the handler/consumer/job inside it. Derived in
   // event-store.append() from the ambient request scope, never passed in by
   // the writer — attribution handed over can lie, attribution derived cannot.
-  // Optional so rows written before #3043 stay readable without a backfill;
+  // Optional so rows written earlier stay readable without a backfill;
   // every new row carries both, falling back to UNATTRIBUTED_ORIGIN.
   readonly feature?: string;
   readonly handler?: string;
@@ -65,7 +65,7 @@ export function isPersonalDataGated(origin: WriteOrigin): boolean {
 
 // Stamped when an append runs outside any attributed scope (seed scripts,
 // tests, direct event-store use). A distinct value, not an omission —
-// omitted would be indistinguishable from a pre-#3043 row.
+// omitted would be indistinguishable from an earlier row.
 export const UNATTRIBUTED_ORIGIN = "unknown";
 
 // Generic over the payload shape. Default = Record<string, unknown> keeps

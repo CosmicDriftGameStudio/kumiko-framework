@@ -324,7 +324,7 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
     // Browser-context locale for JS-side Intl/navigator.language (e.g. money-input's
     // resolvedLocale) — pinEnglishLocale() only seeds the app's own kumiko:locale.
     // ponytail: native <input type="number"> still formats per the host OS region,
-    // unreachable from Playwright (context.locale and --lang both no-op there). #1851
+    // unreachable from Playwright (context.locale and --lang both no-op there).
     if (opts.pinLocale) test.use({ locale: "en-US" });
     for (const s of scenarios) {
       test(
@@ -556,7 +556,7 @@ export function runMatrix<T extends string>(
     test.describe(locale, () => {
       // Browser-context locale for JS-side Intl/navigator.language — the
       // kumiko:locale seed below only drives the app's own i18n strings.
-      // ponytail: see the runScreenshots() locale comment above / #1851
+      // ponytail: see the runScreenshots() locale comment above.
       const tag = resolveLocaleTag(locale, opts.localeTags);
       test.use({ locale: tag });
 

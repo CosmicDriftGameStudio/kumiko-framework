@@ -187,7 +187,7 @@ export type EditExtensionSection = {
    *  surrounding form's Save button should activate for its dirty state.
    *  Omit/false for extensions that persist through their own dispatcher
    *  writes (e.g. notes-history NotesSection) — otherwise a read-only form
-   *  shows a Save button that does nothing (fw#2359). */
+   *  shows a Save button that does nothing. */
   readonly contributesToFormSubmit?: boolean;
   /** Overrides the host-derived entity name passed to the mounted component.
    *  Required on `projectionDetail` (which has no real entity — the host
@@ -256,7 +256,7 @@ export type ListEmptyStateSpec = {
 
 // Read-only list of related records, driven by its own query — for a
 // projectionDetail screen showing e.g. a tenant's payments below the
-// tenant's own fields. Only supported on projectionDetail (fw#2166); the
+// tenant's own fields. Only supported on projectionDetail; the
 // boot-validator rejects it on entityEdit/configEdit/actionForm.
 export type EditRelatedListSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the

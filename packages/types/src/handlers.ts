@@ -151,12 +151,12 @@ export type SessionUser = {
   readonly tenantId: TenantId;
   readonly roles: readonly string[];
   // IANA zone from user.timezone, set at login. Absent → ctx.tz falls back
-  // to tenant.timezone, then "UTC" (buildHandlerContext, fw#1636). Stale
+  // to tenant.timezone, then "UTC" (buildHandlerContext). Stale
   // until re-login — same tradeoff as `roles`.
   readonly timezone?: string;
   // BCP-47 tag from user.locale, set at login. Absent → ctx.locale falls
   // back to the app's boot-configured defaultLocale, then "en"
-  // (dispatch-shared.ts, fw#2333). Stale until re-login — same tradeoff as
+  // (dispatch-shared.ts). Stale until re-login — same tradeoff as
   // `timezone`.
   readonly locale?: string;
   // App-specific identity facts baked into the JWT at login time.
@@ -646,7 +646,7 @@ type SharedContextFields = {
   // Effective feature-toggle resolver. Wired by the dispatcher when the
   // feature-toggles or tier-engine feature is loaded — the lifecycle
   // pipeline, MSP runner, and ctx.hasFeature all read from this single
-  // source. Per-tenant: tenantId argument enables tier-cuts (Sprint 8a)
+  // source. Per-tenant: tenantId argument enables tier-cuts
   // where Tenant-A sees Pro features and Tenant-B sees Free features in
   // the same process. Returns the Set of feature names effectively
   // enabled for that tenant. Absent = all features on (back-compat).
@@ -654,7 +654,7 @@ type SharedContextFields = {
   // Queue a side-effect to run after the outermost write transaction commits
   // (same sink as ctx.write / dispatch-write lifecycle afterCommit). Seed
   // helpers and other mid-tx callers use this instead of firing afterCommit
-  // hooks synchronously (kumiko-framework#1566). Absent outside a write
+  // hooks synchronously. Absent outside a write
   // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
   readonly scheduleAfterCommit?: (hook: () => Promise<void>) => void;
   // Present on HandlerContext/JobContext; hooks receive HandlerContext as
@@ -674,23 +674,23 @@ export type AppContext = SharedContextFields & {
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
-  /** Bei Job-Handler-Aufrufen die aus einem Event-Trigger heraus laufen
-   *  (r.job mit `trigger: { on: ... }`): der Name des Handlers der das
-   *  Event ausgelöst hat. Bei Multi-Trigger-Jobs (`on: [...]`) ist das
-   *  die einzige Möglichkeit für den Handler zu wissen WELCHER Trigger
-   *  gefeuert hat. Cron- und manual-Jobs lassen das Feld undefined. */
+  /** For job-handler calls triggered by an event
+   *  (`r.job` with `trigger: { on: ... }`): the name of the handler that
+   *  emitted the event. For multi-trigger jobs (`on: [...]`), this is the
+   *  only way for the handler to know which trigger fired. Cron and manual
+   *  jobs leave the field undefined. */
   readonly triggerName?: string;
-  /** Optionaler Geo→Zone-Adapter. Wenn gesetzt (via buildServer-context oder
-   *  runProdApp/runDevApp extraContext), reicht der Dispatcher ihn an
-   *  ctx.tz.fromCoordinates / fromAddress weiter. Ohne Provider werfen diese. */
+  /** Optional Geo→zone adapter. When set (via buildServer context or
+   *  `runProdApp`/`runDevApp` `extraContext`), the dispatcher passes it to
+   *  `ctx.tz.fromCoordinates` / `fromAddress`. These methods throw without
+   *  a provider. */
   readonly geoTzProvider?: GeoTzProvider;
   /** Overrides the system clock behind ctx.tz in handlers and jobs; tests inject a fixed time. */
   readonly clock?: Clock;
-  /** Tenant des aktuellen Pipeline-Calls. Wird vom Dispatcher beim Bauen
-   *  des HandlerContext aus `user.tenantId` gespiegelt, damit lifecycle-
-   *  pipeline + system-hooks den Wert ohne Zugriff auf user-Object haben.
-   *  Sprint-8a Tier-Composition: `effectiveFeatures(ctx._tenantId)`-call
-   *  in den hook-filter-Stellen. */
+  /** Tenant of the current pipeline call. The dispatcher mirrors
+   *  `user.tenantId` here when building HandlerContext so the lifecycle
+   *  pipeline and system hooks can access it without the user object.
+   *  `effectiveFeatures(ctx._tenantId)` uses it at hook-filter points. */
   readonly _tenantId?: TenantId;
   /** Boot-configured default locale (BCP-47). Last fallback in ctx.locale's
    *  Request-Locale → Boot-Default chain (dispatch-shared.ts) — used when
@@ -742,13 +742,11 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // Present only when the handler's escapeHatch grants crossTenantReads or unsafeRaw; every call is audited as cross-tenant-read.
   readonly crossTenantReads?: CrossTenantReads;
   readonly registry: Registry;
-  /** Aktiver SessionUser des Handler-Aufrufs — Convenience-Alias zu
-   *  `event.user`. Existiert weil Handler intuitiv `ctx.user.tenantId`
-   *  schreiben (Context = "kennt seinen User") und der Pfad sonst nur
-   *  über `event.user` läuft, was typo-anfällig ist und stillschweigend
-   *  zu `internal_error` führt wenn der falsche Pfad gewählt wird.
-   *  Identisch zum event.user-Wert; Identity-Switches nutzen
-   *  weiterhin queryAs/writeAs. */
+  /** The active SessionUser for the handler call, exposed as a convenience
+   *  alias for `event.user`. Handlers naturally write `ctx.user.tenantId`;
+   *  without the alias that path does not exist and silently ends in `internal_error`.
+   *  The value is identical to `event.user`; identity switches still use
+   *  `queryAs`/`writeAs`. */
   readonly user: SessionUser;
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
@@ -769,7 +767,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // runs the registered `preSave` hooks (+ system preSave hooks) for
   // `handlerName`, returning the hook-transformed `changes`. Entity CRUD
   // handlers (create/update) forward this to the executor so preSave hooks
-  // actually run before persistence (kumiko-framework#1672). A custom
+  // actually run before persistence. A custom
   // `r.writeHandler` handler that doesn't go through the executor must call
   // this itself to get preSave semantics — undefined when no lifecycle
   // pipeline is wired (e.g. bare HandlerContext stubs in unit tests).
@@ -905,7 +903,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // without null-checks.
   readonly metrics: MetricsHandle;
 
-  // For shared/library code invoked from many features' HandlerContext
+  // For shared/library code invoked by many features' HandlerContext
   // (e.g. a helper package called by several consumer features): binds to
   // `featureName` instead of the dispatching handler's own feature, so the
   // library counts under one stable kumiko_<featureName>_x name instead of
@@ -914,7 +912,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // snake_case internally before resolving the metric name.
   //
   // Unlike ctx.metrics, an unregistered metric name here is a silent
-  // no-op, not a throw (framework#1844) — this handle is meant for
+  // no-op, not a throw — this handle is meant for
   // error/catch-path counters in shared code, where a missing registration
   // must not turn an already-swallowed error into a thrown one.
   readonly metricsFor: (featureName: string) => MetricsHandle;
@@ -972,8 +970,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
 // `writeAs` is the explicit-identity counterpart, symmetric with `queryAs`:
 // `hasAccess` has no system bypass, so a write handler whose `access` lists
 // concrete roles is unreachable through `write` — the job's systemUser only
-// carries SYSTEM_ROLE and the dispatch comes back `access_denied`
-// (kumiko-framework#2585). The job has to assemble a full SessionUser for it:
+// carries SYSTEM_ROLE and the dispatch comes back `access_denied`.
+// The job has to assemble a full SessionUser for it:
 // `triggeredBy` alone is not enough, it carries only id + tenantId and no
 // roles, so the roles have to come from the job's own lookup.
 //
@@ -1064,7 +1062,7 @@ export type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (
   context: HandlerContext,
 ) => Promise<TResult>;
 
-// Dispatch (#1378) awaits this as an async-generator rather than a single
+// Dispatch awaits this as an async-generator rather than a single
 // response — the chunk-by-chunk shape is load-bearing, not a Promise<TResult>.
 export type StreamHandlerFn<TPayload = unknown, TChunk = unknown> = (
   query: QueryEvent<TPayload>,
@@ -1143,7 +1141,7 @@ export type QualifiedEventName<
   TInner extends string,
 > = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
 
-// PII payload fields on a custom event (#799): `field` is encrypted under
+// PII payload fields on a custom event: `field` is encrypted under
 // the DEK the subject spec names (crypto-shredding).
 //
 // `{ personal: { of: "<ownerField>" } }` is the canonical user-subject form,
@@ -1151,14 +1149,14 @@ export type QualifiedEventName<
 // `personal: "tenant"` and `personal: "self"` declare the event's tenant
 // (envelope.tenantId) or its own aggregate stream (envelope.aggregateType +
 // aggregateId) as the subject instead — resolved via `resolveEventSubject`
-// in `packages/framework/src/crypto/subject-resolver.ts` (fw#2801).
+// in `packages/framework/src/crypto/subject-resolver.ts`.
 //
 // `whenAbsent` decides what happens when the named owner field carries no
 // id (system- or cron-triggered writes): "tenant" re-targets the envelope
 // tenant key, "self" the event's own aggregate stream (record key),
 // "plaintext" is an explicit acknowledgement that the value ships
 // unencrypted and cannot be crypto-shredded. Undeclared is not another
-// option — the append fails closed instead of leaking (fw#2776).
+// option — the append fails closed instead of leaking.
 export type EventPiiAbsentSubject = "plaintext" | "tenant" | "self";
 
 export type EventPiiSubject =
@@ -1607,7 +1605,7 @@ export type QueryHandlerDef = {
    *  the boot-validator skips any column-reference check that would need
    *  it (screens.ts projectionList/relatedList `columns`, projectionDetail
    *  `header`/`metrics`, dashboard `valueField`/`subField`/etc.) rather
-   *  than requiring it retroactively. See fw#2493. */
+   *  than requiring it retroactively. */
   readonly outputSchema?: ZodType;
   /** Entities whose changes this query reflects. Anonymous callers with
    *  access to this query receive /api/sse change signals (no field values)

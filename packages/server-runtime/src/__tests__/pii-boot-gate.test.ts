@@ -24,7 +24,7 @@ const plainFeature = defineFeature("gate-plain", (r) => {
 });
 
 // Entity-free features: the gate must react to the event stance on its own,
-// not ride along on an entity annotation (fw#2776).
+// not ride along on an entity annotation.
 const piiEventFeature = defineFeature("gate-pii-event", (r) => {
   r.defineEvent("attempt", z.object({ userId: z.string(), email: z.string() }), {
     piiFields: { email: { personal: { of: "userId" } } },

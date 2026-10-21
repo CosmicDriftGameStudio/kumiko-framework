@@ -1,4 +1,4 @@
-// #3102: setupTestStack pushed projection/MSP/storeTable sources but never
+// setupTestStack pushed projection/MSP/storeTable sources but never
 // r.entity() tables, so any feature relying purely on entities crashed on
 // first write with 42P01 unless the test manually created the table.
 

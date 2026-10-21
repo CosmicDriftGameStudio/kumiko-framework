@@ -30,7 +30,7 @@ const SCAN: ScanSpec = {
   frameworkWithin: ["packages/*/src/**", "samples/**"],
 };
 
-// Tests nutzen absichtlich generische QNs wie dispatcher.write("x", {}).
+// Tests intentionally use generic QNs such as dispatcher.write("x", {}).
 const EXCLUDE = /(__tests__|\.test\.tsx$|\.integration\.tsx$|\/node_modules\/|\/dist\/)/;
 
 /**

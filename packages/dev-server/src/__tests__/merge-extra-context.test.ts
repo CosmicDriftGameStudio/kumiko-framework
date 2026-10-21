@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mergeExtraContext } from "../setup-test-stack-from-features.ts";
 
-// #882/4: the integration test only asserted getFeature("config") — which
+// The integration test only asserted getFeature("config") — which
 // includeBundled already provides — never that presets:["config"] actually
 // merges configResolver/templateResolver into extraContext. Unit-test the merge
 // directly instead.
@@ -32,7 +32,7 @@ describe("mergeExtraContext", () => {
     const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);
     expect(result["foo"]).toBe("bar");
     expect(result["configResolver"]).toBeDefined();
-    // buildHandlerContext derives ctx.config from the factory, not configResolver (fw#3313).
+    // buildHandlerContext derives ctx.config from the factory, not configResolver.
     expect(result["configAccessorFactory"]).toBeDefined();
     expect(result["_configAccessorFactory"]).toBe(result["configAccessorFactory"]);
   });

@@ -1,36 +1,36 @@
-// TreeNode — single Knoten im Client-navProvider-Tree. Provider liefern
-// entweder statische readonly TreeNode[] oder dynamische TreeChildrenSubscribe.
+// TreeNode — a single node in the client nav-provider tree. Providers return
+// either static readonly TreeNode[] or dynamic TreeChildrenSubscribe.
 //
-// **Mental-Modell** (VS-Code-Explorer):
+// **Mental model** (VS Code Explorer):
 //   [icon] [label] [...hover-actions]
-// optional ein target zum Klicken (öffnet Editor-Maske via
-// Target-Resolver) und optional children als nested tree.
+// An optional target makes the node clickable (opening an editor form via
+// the target resolver), and optional children form a nested tree.
 //
-// **State** markiert Visual-Modus für Skeleton-Pattern:
-//   - "filled" (default) — schwarz, Knoten hat Inhalt
-//   - "stub" — hellgrau, existing aber leer (Designer-Stub-File)
-//   - "empty" — Platzhalter für "+ create"-Affordance
-//   - "loading" — Children werden gerade aufgelöst
-//   - "error" — Provider hat Fehler emittiert
-// Provider die kein Skeleton-Pattern brauchen müssen state nicht setzen.
+// **State** selects the visual mode for the skeleton pattern:
+//   - "filled" (default) — black; the node has content
+//   - "stub" — light gray; existing but empty (designer stub file)
+//   - "empty" — placeholder for the "+ create" affordance
+//   - "loading" — children are currently being resolved
+//   - "error" — the provider emitted an error
+// Providers that do not need the skeleton pattern can omit state.
 //
-// **Subscribe-Form** für dynamic Children: Provider erhält emit(),
-// gibt unsubscribe() zurück. Initial-Emit synchron oder async, weitere
-// Emits beliebig oft (z.B. wenn Entity-Row neu erscheint via SSE).
-// Spielt natürlich mit existing SSE-Frame: ein Provider kann intern
-// auf Entity-Update-Events abonnieren und bei Änderung emit() aufrufen.
+// **Subscribe form** for dynamic children: the provider receives emit()
+// and returns unsubscribe(). The initial emit may be synchronous or async;
+// further emits may occur arbitrarily often (for example, when an entity row
+// appears through SSE). This works with the existing SSE frame: a provider
+// can subscribe internally to entity-update events and call emit() on change.
 
 import type { TargetRef } from "./target-ref.ts";
 
 export type TreeNodeState = "filled" | "stub" | "empty" | "loading" | "error";
 
 type TreeActionBase = {
-  // Icon-Key — vom Renderer-Icon-Registry interpretiert. Konvention
-  // matched NavDefinition.icon: unbekannte Icons surface als missing-icon
-  // im UI, nicht als Boot-Failure.
+  // Icon key interpreted by the renderer's icon registry. The convention
+  // matches NavDefinition.icon: unknown icons appear as missing-icon
+  // in the UI rather than causing a boot failure.
   readonly icon: string;
-  // i18n-Translation-Key oder roher String. Vom Renderer aufgelöst, Engine
-  // behandelt opak (mirrors NavDefinition.label, WorkspaceDefinition.label).
+  // i18n translation key or raw string. The renderer resolves it; the engine
+  // treats it as opaque (mirroring NavDefinition.label and WorkspaceDefinition.label).
   readonly label: string;
 };
 
@@ -47,78 +47,76 @@ export type TreeAction = TreeActionBase &
   );
 
 export type TreeNode = {
-  // i18n-Translation-Key oder roher String. Vom Renderer beim Rendern
-  // aufgelöst (siehe TreeAction.label).
+  // i18n translation key or raw string, resolved by the renderer during
+  // rendering (see TreeAction.label).
   readonly label: string;
-  // Optional. Icon links neben dem Label. Selbe Konvention wie
-  // TreeAction.icon — Renderer-Icon-Registry-Lookup.
+  // Optional icon displayed to the left of the label. Uses the same
+  // convention as TreeAction.icon and is looked up in the renderer's icon registry.
   readonly icon?: string;
-  // Visueller State für Skeleton-Pattern. Default "filled" (kein Eintrag
-  // ⇒ schwarz/normal). Wert-Semantik im Header-Comment dieser Datei.
+  // Visual state for the skeleton pattern. Defaults to "filled" (no entry
+  // means black/normal). See this file's header comment for the value semantics.
   readonly state?: TreeNodeState;
-  // Optional Klick-Ziel. Fehlt → reiner Container-Knoten (nur ausklappbar,
-  // nicht klickbar). Vorhanden → Klick öffnet die Editor-Maske via
-  // Target-Resolver in renderer/web.
+  // Optional click target. If absent, this is a pure container node (expandable
+  // but not clickable). If present, clicking opens the editor form through the
+  // target resolver in renderer/web.
   readonly target?: TargetRef;
-  // Hover-Actions rechts (Add/Refresh/Delete/etc.). Werden in der
-  // Sidebar-Row erst bei Hover sichtbar — VS-Code-Pattern. Engine
-  // ordnet die Actions in der Reihenfolge an, in der sie hier stehen.
+  // Hover actions displayed on the right. They become visible in the sidebar
+  // row only on hover, following the VS Code pattern. The engine orders them
+  // in the sequence specified here.
   readonly actions?: readonly TreeAction[];
-  // Statische Children oder dynamic Subscribe-Function. Subscribe wird
-  // erst beim Ausklappen aufgerufen (lazy); die Function-Form erlaubt
-  // SSE-gefütterte Live-Updates wenn neue Entity-Rows reinkommen.
+  // Static children or a dynamic Subscribe function. The function is called
+  // only when the node is expanded (lazily), allowing SSE-fed live updates
+  // when new entity rows arrive.
   readonly children?: readonly TreeNode[] | TreeChildrenSubscribe;
   // Provider-declared "+ create" action for nodes with `state: "empty"`.
   // The tree component automatically shows a "+" icon; click navigates to
   // `createAction.screen` or dispatches `createAction.target` — the
   // provider knows what "create empty" means for it (e.g. "new page slug"
   // vs. "new entity row"), convention couldn't guess that. Consistent with
-  // `state` (also provider-explicit). See visual-tree.md V.1.1 Decision D3.
+  // `state` (also provider-explicit). See visual-tree.md V.1.1.
   readonly createAction?: TreeAction;
 };
 
-// Subscribe<T> — Provider implementiert: emit(initial); ...emit(updated);
-// und gibt unsubscribe-Function zurück. Caller (Tree-Component) ruft
-// unsubscribe auf wenn Knoten unmounted/eingeklappt wird.
+// Subscribe<T> — the provider calls emit(initial), then ...emit(updated),
+// and returns an unsubscribe function. The caller (tree component) calls
+// unsubscribe when the node is unmounted or collapsed.
 //
-// **V.1.4 emitError**: optional callback für async-error-Pfade (fetch-
-// fail, SSE-disconnect). Provider die explizit Errors signalisieren
-// wollen rufen `emitError(e)` statt empty-emit; VisualTree zeigt
-// Error-Banner mit Retry-Button. Sync-Throws im Provider-Body werden
-// vom useEffect-try/catch abgefangen — emitError ist nur für async.
+// **emitError**: optional callback for async error paths (fetch failure,
+// SSE disconnect). Providers that explicitly signal errors call `emitError(e)`
+// instead of emitting an empty value; VisualTree displays an error banner
+// with a retry button. Synchronous throws in the provider body are caught by
+// the useEffect try/catch; emitError is only for async errors.
 export type Subscribe<T> = (
   emit: (value: T) => void,
   emitError?: (error: Error) => void,
 ) => () => void;
 
-// TreeChildrenSubscribe — Lazy-Variante für dynamic Children. Wird
-// erst aufgerufen wenn der Knoten im UI ausgeklappt wird. Kein ctx-
-// Argument: Provider sind session-bound; Backend liest tenantId aus
-// session bei jedem fetch/dispatch. V.1.1 hatte ein ctx mit tenantId,
-// das aber im Browser nie echten Tenant trug (war auf SYSTEM_TENANT_ID
-// gepinnt) und vom einzigen V.1.2-Consumer (text-content) ignoriert
-// wurde. SR2-Rip 2026-05-18: Dead-API entfernt; wenn später ein
-// Provider tenant-aware-rendern muss (z.B. cross-tenant-Dashboards
-// für SystemAdmin), wird ctx mit echtem Tenant-Source aus dem Auth-
-// Layer re-introduziert. YAGNI bis dahin.
+// TreeChildrenSubscribe — lazy variant for dynamic children. It is called
+// only when the node is expanded in the UI. There is no ctx argument because
+// providers are session-bound; the backend reads tenantId from the session
+// for each fetch/dispatch. An earlier ctx with tenantId did not carry the
+// real tenant in the browser because it was pinned to SYSTEM_TENANT_ID, and
+// the only consumer (text-content) ignored it. If a provider later needs
+// tenant-aware rendering (for example, cross-tenant dashboards for
+// SystemAdmin), ctx can be reintroduced with a real tenant source from the
+// auth layer. YAGNI until then.
 export type TreeChildrenSubscribe = () => Subscribe<readonly TreeNode[]>;
 
-// TreeActionDef — Schema-Eintrag pro Action in der treeActions-Map
-// eines Features. Phase 0: Args sind ein optionales Type-Sample
-// (kein Validator zur Laufzeit — Validation passiert compile-time
-// via buildTarget-Generic, runtime via Editor-Panel-Schema).
+// TreeActionDef — schema entry for each action in a feature's treeActions
+// map. Args are an optional type sample (there is no runtime validator;
+// validation occurs at compile time through the buildTarget generic and at
+// runtime through the Editor-Panel schema).
 //
-// Lebt hier (nicht in build-target.ts) weil es konzeptuell zur
-// Visual-Tree-Domäne gehört, nicht zum Builder. build-target.ts
-// importiert den Type von hier.
+// This type lives here rather than in build-target.ts because it belongs
+// conceptually to the visual-tree domain, not the builder. build-target.ts
+// imports the type from here.
 export type TreeActionDef<TArgs = Record<string, unknown>> = {
   readonly args?: TArgs;
 };
 
-// TreeActionsHandle<T> — Return-Type von r.treeActions(...). Trägt
-// den literal-typed Action-Map durch das Feature-Export-System
-// (siehe FeatureDefinition.exports + Memory `[EventDef-Exports-
-// Pattern]`). Das ist die compile-time Bridge zu buildTarget:
+// TreeActionsHandle<T> is the return type of r.treeActions(...). It carries
+// the literal-typed action map through the feature export system (see
+// FeatureDefinition.exports). It is the compile-time bridge to buildTarget:
 //
 //   const handle = r.treeActions({ edit: { args: { slug: "" as string } } });
 //   // handle.id        → TFeature (literal feature name)
@@ -127,8 +125,8 @@ export type TreeActionDef<TArgs = Record<string, unknown>> = {
 //   //                                ^^^^^^^^^^^^^^         ^^^^^^^^
 //   //                                literal-validated      typed-validated
 //
-// Runtime-Lookup geht über FeatureDefinition.treeActions (erased Map),
-// Compile-Time-Validation über diesen Handle.
+// Runtime lookup goes through FeatureDefinition.treeActions (erased map),
+// compile-time validation through this handle.
 export type TreeActionsHandle<
   TFeature extends string,
   TActions extends Record<string, TreeActionDef>,

@@ -1,4 +1,4 @@
-// kumiko-framework#3120: the published `kumiko-guards` CLI rejected every
+// The published `kumiko-guards` CLI rejected every
 // `--write-baseline` flag — a consumer had no command to freeze a ratchet
 // guard's baseline at all.
 

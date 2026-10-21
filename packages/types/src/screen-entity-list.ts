@@ -156,12 +156,12 @@ export type RowActionMode = "adaptive" | "inline";
 // Discriminated union on `kind`:
 //   - "writeHandler" (default): dispatches a write handler with a
 //     per-row payload.
-//   - "navigate" (Tier 2.7e): navigates to another screen, optionally with
+//   - "navigate": navigates to another screen, optionally with
 //     URL search params from `params`. Use case: "Edit",
 //     "View Audit-Log", "Open in actionForm" etc.
-//   - "drawer" (fw#2710): mounts an actionForm in a Drawer without leaving
+//   - "drawer": mounts an actionForm in a Drawer without leaving
 //     the list/detail screen, prefilled from the clicked row via `params`.
-//     Row-level pendant to ToolbarAction's "drawer" variant (fw#2225).
+//     Row-level pendant to ToolbarAction's "drawer" variant.
 //   - "clientAction": runs a handler the client app registered under a
 //     `<feature>:<kebab>` name (ClientFeatureDefinition.clientActions) — for
 //     actions that need browser-side work or an unauthenticated endpoint.
@@ -265,7 +265,7 @@ export type RowActionNavigate = RowActionNavigateBase &
         readonly entity?: never;
       }
     | {
-        /** Entity name instead of screen id (fw#2228) — resolves at boot time to
+        /** Entity name instead of screen id — resolves at boot time to
          *  the screen that declares `detailFor: "<entity>"` (see ObjectTarget/
          *  resolveTarget in @cosmicdrift/kumiko-renderer's nav.tsx). */
         readonly entity: string;
@@ -340,7 +340,7 @@ export type RowActionClientAction = {
 // ToolbarAction — button in the list header. Three variants: navigate to
 // another screen (e.g. a full-page actionForm), dispatch a handler directly
 // (e.g. "Sync All" without a form), or mount an actionForm in a Drawer
-// without leaving the list (fw#2225).
+// without leaving the list.
 export type ToolbarAction =
   | {
       readonly kind: "navigate";

@@ -3,11 +3,10 @@
  * Guard: blocks calls to the event-store admin API (`appendRaw`/`appendRawBatch`)
  * outside allowed paths.
  *
- * The admin API is a Marten bypass for legacy data imports (prod-readiness
- * wave 3, step 3.1). It BYPASSES the pipeline — no projections, no
- * postSave hooks, no SSE/search/audit. Used accidentally from application
- * code, that causes state inconsistencies that surface very late (at the
- * next projection rebuild, or never).
+ * The admin API is a Marten bypass for legacy data imports. It BYPASSES the
+ * pipeline — no projections, no postSave hooks, no SSE/search/audit. Used
+ * accidentally from application code, that causes state inconsistencies that
+ * surface very late (at the next projection rebuild, or never).
  *
  * Second line of defense next to the deep-import path: even if someone pulls
  * `@kubiko/framework/event-store/admin-api` directly, this guard catches it
@@ -114,7 +113,7 @@ function findEnclosingName(call: CallExpression): string {
 export const guard: AstGuard = {
   name: "Admin-API Guard",
   scan: SCAN,
-  // App repos are not exempt — appendRaw/appendRawBatch bypasses the pipeline there too (infra#502).
+  // App repos are not exempt — appendRaw/appendRawBatch bypasses the pipeline.
   security: true,
   hint: "Admin API (appendRaw/appendRawBatch) bypasses the pipeline — only allowed in samples/*/migration/ or scripts/migrations/. For domain events: ctx.appendEvent / write handler.",
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {

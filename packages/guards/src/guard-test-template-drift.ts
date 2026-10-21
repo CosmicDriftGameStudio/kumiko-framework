@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Guard: apps must not locally reimplement the e2e/screenshot template that
- * `@cosmicdrift/kumiko-testing` already owns (#3118). Flags, in Playwright
+ * `@cosmicdrift/kumiko-testing` already owns. Flags, in Playwright
  * configs and e2e/screenshot specs/helpers:
  *   (a) a `playwright*.config.ts` that imports `defineConfig` from
  *       `@playwright/test` directly instead of `defineAppE2eConfig` from
