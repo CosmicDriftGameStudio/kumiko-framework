@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.386.0",
+    "type": "improvement",
+    "title": "RawDbClient is typed instead of any",
+    "detail": "`RawDbClient.unsafe` and `begin` have real signatures, so `db.unsafe(...)` on a `DbConnection` no longer collapses to `any`. A hand-built fake runner needs `unsafe(sql, params?)` returning rows and a `begin` that takes a callback."
+  },
+  {
     "version": "0.385.0",
     "type": "improvement",
     "title": "SelectOptions.distinctOn and split screen types",

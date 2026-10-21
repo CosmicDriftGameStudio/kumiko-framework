@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.386.0
+
+### Patch Changes
+
+- 5759e39: Integration runs build each distinct test schema once as a template database and clone it per test stack with `CREATE DATABASE ... TEMPLATE`, instead of running the DDL for every stack.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Integration test stacks clone a migrated template database
+  detail: kumiko-testing integration and the framework integration runner set a run id; setupTestStack then builds one template per schema fingerprint under an advisory lock and clones it, and the runner drops the templates at the end. Plain bun test runs keep the in-place DDL path. setupAppTestStack skips pushEntityProjectionTables on fresh databases.
+  -->
+- 36cc135: `createTestRedis` resolves only once its connection is ready.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: createTestRedis waits for a ready connection
+  detail: The test Redis client connected in the background, so the first rate-limit check in a test file could see status "connect" and fail with "rate-limit redis connection not ready". createTestRedis now connects explicitly and returns after the connection is ready.
+  -->
+- Updated dependencies [f0a9e8f]
+- Updated dependencies [5759e39]
+  - @cosmicdrift/kumiko-framework@0.386.0
+  - @cosmicdrift/kumiko-types@0.386.0
+  - @cosmicdrift/kumiko-guards@0.386.0
+
 ## 0.385.0
 
 ### Patch Changes

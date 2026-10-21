@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.386.0
+
+### Patch Changes
+
+- 5759e39: Integration runs build each distinct test schema once as a template database and clone it per test stack with `CREATE DATABASE ... TEMPLATE`, instead of running the DDL for every stack.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Integration test stacks clone a migrated template database
+  detail: kumiko-testing integration and the framework integration runner set a run id; setupTestStack then builds one template per schema fingerprint under an advisory lock and clones it, and the runner drops the templates at the end. Plain bun test runs keep the in-place DDL path. setupAppTestStack skips pushEntityProjectionTables on fresh databases.
+  -->
+- Updated dependencies [f0a9e8f]
+- Updated dependencies [5759e39]
+- Updated dependencies [36cc135]
+  - @cosmicdrift/kumiko-framework@0.386.0
+  - @cosmicdrift/kumiko-types@0.386.0
+  - @cosmicdrift/kumiko-renderer@0.386.0
+  - @cosmicdrift/kumiko-bundled-features@0.386.0
+  - @cosmicdrift/kumiko-testing@0.386.0
+  - @cosmicdrift/kumiko-guards@0.386.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.386.0
+  - @cosmicdrift/kumiko-server-runtime@0.386.0
+
 ## 0.385.0
 
 ### Patch Changes
