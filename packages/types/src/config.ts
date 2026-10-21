@@ -353,7 +353,8 @@ export type ConfigResolver = {
 // everything. Default is "worker" for every async consumer/job — that's the
 // sensible prod default (API instances stay request-focused, heavy async
 // work lives on the worker fleet). Opt into "api" only for latency-
-// sensitive or in-memory-stateful consumers.
+// sensitive or in-memory-stateful consumers (for example, a later per-instance
+// SSE push).
 //
 // Feature-hooks (r.hook preSave/postSave/…) intentionally have no runIn —
 // they run in-TX in whatever process handles the command. Splitting them

@@ -835,8 +835,8 @@ export type DateFieldDef = {
 //
 // With `locatedBy: "<name>Tz"`, the field forms a wall-clock/time-zone pair
 // with the referenced tz field. The JSON form then has two fields ({ at, tz });
-// the database stores wall-clock time and the time zone and converts them
-// transparently through the database wrapper.
+// the database is meant to store wall-clock time and the time zone and convert
+// them transparently, through a DB wrapper planned for a later iteration.
 //
 // For new fields, prefer `createLocatedTimestampField()` — one atomic field
 // instead of a loosely connected pair (see LocatedTimestampFieldDef).
