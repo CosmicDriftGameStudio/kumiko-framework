@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import type { DbRunner } from "../../db/connection.ts";
+import type { RawDbClient } from "../../db/connection.ts";
 import { table, text, uuid } from "../../db/dialect.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
@@ -16,10 +16,10 @@ const testTable = table("test_projection", {
 // bun-db path: step calls deleteMany(tenantDbRunner(ctx.db), table, where) which
 // lands on asRawClient(runner).unsafe(sqlText, params).
 const unsafeMock = mock(
-  async (_sqlText: string, _params: unknown[]): Promise<unknown[]> =>
+  async (_sqlText: string, _params?: readonly unknown[]): Promise<unknown[]> =>
     Object.assign([] as unknown[], { count: 0 }),
 );
-const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
+const rawDb: RawDbClient = { unsafe: unsafeMock, begin: mock() };
 const ctxDb = createTenantDb({ db: rawDb, tenantId: testTenantId(1) });
 
 const mockCtx = {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
-import type { DbRunner } from "../../db/connection.ts";
+import type { RawDbClient } from "../../db/connection.ts";
 import { table, text, uuid } from "../../db/dialect.ts";
 import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db.ts";
 import { AccessDeniedError, InternalError } from "../../errors/index.ts";
@@ -22,9 +22,9 @@ const testTable = table("test_read", {
 // TenantDb.selectMany (applies the tenant filter) instead of raw SQL. Mock
 // .unsafe() to feed back rows once the (tenant-filtered) query reaches it.
 const unsafeMock = mock(
-  async (_sqlText: string, _params: unknown[]): Promise<Record<string, unknown>[]> => [],
+  async (_sqlText: string, _params?: readonly unknown[]): Promise<Record<string, unknown>[]> => [],
 );
-const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
+const rawDb: RawDbClient = { unsafe: unsafeMock, begin: mock() };
 const ownTenantId = testTenantId(1);
 const ctxDb = createTenantDb({ db: rawDb, tenantId: ownTenantId });
 
