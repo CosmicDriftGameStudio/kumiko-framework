@@ -1,15 +1,17 @@
 import { fetchOne } from "../db/query.ts";
 import type { Registry } from "../engine/index.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import type { EntityId, ReferenceDataDef } from "../engine/types/index.ts";
+import type { ReferenceDataDef } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { reraiseAsKumikoError } from "../errors/index.ts";
+import { getStreamVersion } from "../event-store/event-store.ts";
 import type { DbConnection } from "./connection.ts";
 import { entityTableFromRegistry } from "./entity-table-from-registry.ts";
 import { createEventStoreExecutor } from "./event-store-executor.ts";
+import { deleteRowsWithoutReplayableStream } from "./queries/event-store-orphan-rows.ts";
 import { createTenantDb } from "./tenant-db.ts";
 
-type ExistingRow = Record<string, unknown> & { id: EntityId; version: number };
+type ExistingRow = Record<string, unknown> & { id: string; version: number };
 
 /**
  * Seed reference data at boot time.
@@ -48,11 +50,22 @@ export async function seedReferenceData(
       if (keyValue === undefined) continue;
 
       // Soft-deleted rows are invisible to executor.update, so treat them as missing and re-create.
-      const existing = await fetchOne<ExistingRow>(db, table, {
+      const existingRow = await fetchOne<ExistingRow>(db, table, {
         [upsertKey]: keyValue,
         tenantId: SYSTEM_TENANT_ID,
         ...(entity.softDelete && { isDeleted: false }),
       });
+
+      // Rows seeded before reference data went through the executor have no events: update would
+      // hit a stream-version conflict and a rebuild would drop them. Drop the row and re-create
+      // it under the same id so its stream starts now.
+      let existing = existingRow;
+      let recreateId: string | undefined;
+      if (existingRow && (await getStreamVersion(db, existingRow.id, SYSTEM_TENANT_ID)) === 0) {
+        await deleteRowsWithoutReplayableStream(tdb, { table, ids: [existingRow.id] });
+        existing = undefined;
+        recreateId = existingRow.id;
+      }
 
       if (existing) {
         const changes: Record<string, unknown> = {};
@@ -72,7 +85,11 @@ export async function seedReferenceData(
           updated++;
         }
       } else {
-        const result = await executor.create({ ...row, tenantId: SYSTEM_TENANT_ID }, by, tdb);
+        const result = await executor.create(
+          { ...row, ...(recreateId && { id: recreateId }), tenantId: SYSTEM_TENANT_ID },
+          by,
+          tdb,
+        );
         if (!result.isSuccess) throw reraiseAsKumikoError(result.error);
         inserted++;
       }
