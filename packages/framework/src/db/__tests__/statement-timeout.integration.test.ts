@@ -82,12 +82,16 @@ describe("withoutStatementTimeout pool lifecycle", () => {
       queryRan.resolve();
       await new Promise<never>(() => {});
     });
-    await queryRan.promise;
-    expect(await backendsOfAbandonedRun()).toHaveLength(1);
+    try {
+      await queryRan.promise;
+      expect(await backendsOfAbandonedRun()).toHaveLength(1);
 
-    await parent.close();
+      await parent.close();
 
-    expect(await backendsOfAbandonedRun()).toHaveLength(0);
+      expect(await backendsOfAbandonedRun()).toHaveLength(0);
+    } finally {
+      await parent.close();
+    }
   });
 });
 

@@ -15,6 +15,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
+import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createEventStoreExecutor } from "../event-store-executor.ts";
 import { buildEntityTable } from "../table-builder.ts";
@@ -46,6 +47,22 @@ const distinctFeature = defineFeature("distinct", (r) => {
       ctx.db.selectMany(
         docTable,
         {},
+        {
+          distinctOn: ["key"],
+          orderBy: [{ col: "key" }, { col: "revision", direction: "desc" }],
+          fields: ["key", "revision"],
+        },
+      ),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+
+  r.queryHandler({
+    name: "doc:latest-own-per-key",
+    schema: z.object({}),
+    handler: async (_query, ctx) =>
+      ctx.db.selectMany(
+        docTable,
+        { tenantId: ctx.db.tenantId },
         {
           distinctOn: ["key"],
           orderBy: [{ col: "key" }, { col: "revision", direction: "desc" }],
@@ -107,5 +124,25 @@ describe("selectMany distinctOn", () => {
       { key: "a", revision: 99 },
       { key: "c", revision: 7 },
     ]);
+  });
+
+  test("system reference rows take part in the newest-row pick; filtering on the own tenant ignores them", async () => {
+    const systemUser = { ...admin, tenantId: SYSTEM_TENANT_ID };
+    await stack.http.writeOk("distinct:write:doc:create", { key: "a", revision: 9 }, systemUser);
+    await stack.http.writeOk("distinct:write:doc:create", { key: "a", revision: 3 }, admin);
+
+    const mixed = await stack.http.queryOk<Array<{ key: string; revision: number }>>(
+      "distinct:query:doc:latest-per-key",
+      {},
+      admin,
+    );
+    expect(mixed).toEqual([{ key: "a", revision: 9 }]);
+
+    const ownOnly = await stack.http.queryOk<Array<{ key: string; revision: number }>>(
+      "distinct:query:doc:latest-own-per-key",
+      {},
+      admin,
+    );
+    expect(ownOnly).toEqual([{ key: "a", revision: 3 }]);
   });
 });

@@ -4,7 +4,11 @@ import { isPiiCiphertext } from "./pii-ciphertext-format.ts";
 import { nonEmptyString } from "./subject-resolver.ts";
 
 // userOwned and not recordOwned: the value follows the row's current owner.
-export function isPlainUserOwnedField(field: EntityDefinition["fields"][string]): boolean {
+export function isPlainUserOwnedField(
+  field: EntityDefinition["fields"][string],
+): field is EntityDefinition["fields"][string] & {
+  readonly userOwned: { readonly ownerField: string };
+} {
   if (!("userOwned" in field) || field.userOwned === undefined) return false;
   return !("recordOwned" in field && field.recordOwned === true);
 }
@@ -24,7 +28,7 @@ export function personalFieldsRekeyedOnOwnerTransition(
 ): Record<string, unknown> {
   const rekeyed: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
-    if (!isPlainUserOwnedField(field) || !("userOwned" in field) || !field.userOwned) continue;
+    if (!isPlainUserOwnedField(field)) continue;
     if (name in submittedChanges) continue;
 
     const { ownerField } = field.userOwned;

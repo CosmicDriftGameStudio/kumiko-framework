@@ -101,8 +101,9 @@ describe("TenantDb.advisoryXactLock", () => {
 async function waitForAdvisoryWaiter(): Promise<void> {
   await waitFor(async () => {
     const rows = await asRawClient(testDb.db).unsafe(
-      `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`,
-      [],
+      `SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted
+         AND classid = $1::oid AND objid = hashtext($2)::oid`,
+      [NAMESPACE, `${tenantA}:${KEY}`],
     );
     return rows.length > 0;
   });

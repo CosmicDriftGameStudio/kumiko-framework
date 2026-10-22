@@ -187,8 +187,8 @@ export function createWriteVerbs(
     }
   }
 
-  // After a lost append race the stream version read before the append is stale;
-  // report the actual one. -1 when the lookup itself fails.
+  // Fallback for conflicts that carry no current version: the version read before the
+  // append is stale after a lost race. -1 when the lookup itself fails.
   async function versionAfterConflict(
     runner: ReturnType<typeof tenantDbWriteRunner>,
     aggregateId: string,
@@ -230,11 +230,9 @@ export function createWriteVerbs(
         new FrameworkVersionConflict({
           entityId: conflict.entityId,
           expectedVersion: conflict.expectedVersion,
-          currentVersion: await versionAfterConflict(
-            runner,
-            String(conflict.entityId),
-            conflict.streamTenant,
-          ),
+          currentVersion:
+            error.currentVersion ??
+            (await versionAfterConflict(runner, String(conflict.entityId), conflict.streamTenant)),
         }),
       );
     }
