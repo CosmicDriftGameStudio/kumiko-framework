@@ -29,7 +29,8 @@ export function CollapsibleSection({
       open={open}
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
+      {/* h-9 matches the form controls it often sits next to */}
+      <summary className="flex h-9 cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-4 text-sm font-medium hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
         <span>{title}</span>
         <ChevronRight
           aria-hidden="true"
