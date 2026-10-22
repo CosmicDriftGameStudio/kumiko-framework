@@ -114,7 +114,56 @@ describe("collectEntityProjectionTables", () => {
   });
 });
 
+describe("entity registration name forms", () => {
+  const registrations = {
+    "constant name": "r.entity({ name: FOO_NAME, ...fooEntity });",
+    "shorthand name": "const name = 'foo'; r.entity({ name, ...fooEntity });",
+    "string name": 'r.entity({ name: "foo", ...fooEntity });',
+  };
+  for (const [label, call] of Object.entries(registrations)) {
+    test(`collects the table for ${label}`, () => {
+      const project = makeProject({
+        "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+          declare const FOO_NAME: string;
+          function setup(r: { entity: (n: unknown) => void }) { ${call} }
+        `,
+      });
+      expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(1);
+    });
+  }
+
+  test("ignores an .entity() call without a name property", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { entity: (n: unknown) => void }) { r.entity({ ...fooEntity }); }
+      `,
+    });
+    expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(0);
+  });
+});
+
 describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
+  test("receiver text is whitespace-free and capped", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
+          r.entity({ name: "foo", ...fooEntity });
+        }
+        async function bad(ctx: { db: unknown }) {
+          await insertOne(
+            ctx
+              .db,
+            fooTable,
+            {},
+          );
+        }
+      `,
+    });
+    const esTables = collectEntityProjectionTables(project.getSourceFiles());
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/foo.ts"), esTables);
+    expect(hits[0]?.receiver).toBe("ctx.db");
+  });
+
   test("BLOCK: updateMany(ctx.db, fooTable, ...) auf eine r.entity-Table (#498-sessions-Form)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
@@ -407,6 +456,28 @@ describe("guard.run() :: entity-only repo (kein createEventStoreExecutor mehr)",
   });
 });
 
+describe("guard.run() :: scope without own ES tables", () => {
+  test("a write on a catalog table of an installed package is a finding, not the canary", () => {
+    const project = makeProject({
+      "/repo/consumer.ts": `
+        import { listedTable } from "/node_modules/@x/pkg/src/t";
+        export async function bad(db: { insert: (t: unknown) => unknown }) { db.insert(listedTable); }
+      `,
+    });
+    const host = project.getFileSystem();
+    host.writeFileSync("/node_modules/@x/pkg/package.json", "{}");
+    host.writeFileSync(
+      "/node_modules/@x/pkg/kumiko-es-tables.json",
+      JSON.stringify([{ module: "t", export: "listedTable" }]),
+    );
+    host.writeFileSync("/node_modules/@x/pkg/src/t.ts", "export const listedTable = {};");
+    const violations = guard.run(project.getSourceFiles()).violations;
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("non-tx-receiver");
+    expect(violations.some((v) => v.message.includes("BLOCKED"))).toBe(false);
+  });
+});
+
 describe("guard.run() :: empty esTables canary", () => {
   test("BLOCK: table writes present but no ES tables resolvable — misconfiguration canary fires", () => {
     const project = makeProject({
@@ -652,6 +723,12 @@ describe("guard.run :: ES table catalog of the owning repo", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain("missing: foo::fooTable");
     expect(violations[0]?.message).toContain("--write-baseline");
+  });
+
+  test("rewrite command uses the installed bin, not a framework-internal path", () => {
+    const message = catalogOutcome(undefined)[0]?.message ?? "";
+    expect(message).toContain("kumiko-guards guards --write-baseline");
+    expect(message).not.toContain("packages/guards");
   });
 
   test("stale catalog: finding names the surplus entry", () => {

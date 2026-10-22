@@ -135,6 +135,18 @@ describe("guard-app-feature-structure: @runtime client marker", () => {
     expect(outcome.violations[0]?.message).toContain("redundant");
   });
 
+  test("flaggt den Marker unter dev/ und scripts/ ohne Umzug nach web/ zu empfehlen", () => {
+    for (const dir of ["dev", "scripts"]) {
+      const sf = parse(
+        `// @runtime client\nexport const x = 1;`,
+        `src/features/demo/${dir}/seed.ts`,
+      );
+      const message = guard.run([sf]).violations[0]?.message ?? "";
+      expect(message).toContain("remove the marker");
+      expect(message).not.toContain("move it under web/");
+    }
+  });
+
   test("greift auch in bundled-features und bei verschachtelten Pfaden", () => {
     const sf = parse(
       `// @runtime client\nexport const x = 1;`,

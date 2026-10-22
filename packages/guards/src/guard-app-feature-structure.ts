@@ -116,6 +116,8 @@ function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void 
 const DIRECTIVE_HEAD_CHARS = 600;
 const FEATURE_RELATIVE_PATH = /(?:src\/features|packages\/bundled-features\/src)\/[^/]+\/(.+)$/;
 
+const PATH_IMPLIED_RUNTIME_DIRS = ["dev/", "scripts/"];
+
 // 4. runtime-client marker instead of the path
 function clientMarkerViolation(sf: SourceFile): GuardViolation | undefined {
   const filePath = sf.getFilePath();
@@ -125,13 +127,13 @@ function clientMarkerViolation(sf: SourceFile): GuardViolation | undefined {
     directiveInHead(sf.getFullText().slice(0, DIRECTIVE_HEAD_CHARS)) === "client";
   if (!hasClientMarker || isIgnoredFile(sf)) return undefined;
   const underWeb = featureRelative.startsWith("web/") || /^web\.tsx?$/.test(featureRelative);
-  return {
-    file: filePath,
-    line: 1,
-    message: underWeb
-      ? "redundant @runtime client marker — files under web/ are client by path"
-      : "client code outside web/ — move it under web/ (bun kumiko codemod feature-layout . --write)",
-  };
+  const runtimeFromPath = PATH_IMPLIED_RUNTIME_DIRS.some((dir) => featureRelative.startsWith(dir));
+  const message = underWeb
+    ? "redundant @runtime client marker — files under web/ are client by path"
+    : runtimeFromPath
+      ? "@runtime client marker under dev/ or scripts/ — the path already sets the runtime; remove the marker (bun kumiko codemod feature-layout . --write)"
+      : "client code outside web/ — move it under web/ (bun kumiko codemod feature-layout . --write)";
+  return { file: filePath, line: 1, message };
 }
 
 export const guard: AstGuard = {
