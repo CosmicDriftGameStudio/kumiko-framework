@@ -229,7 +229,7 @@ function readTriggerSource(startedPayload: unknown): TriggerSource | null {
 }
 
 async function loadReferencedEvent(ctx: HandlerContext, ref: TriggerEventRef) {
-  const events = await ctx.loadAggregate(ref.aggregateId);
+  const events = await ctx.loadAggregate(ref.aggregateId, { atVersion: ref.version });
   return events.find((e) => e.id === ref.eventId);
 }
 
