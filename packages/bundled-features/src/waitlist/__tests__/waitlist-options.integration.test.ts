@@ -2,9 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { deleteRows, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { waitlistEntryTable } from "../entity.ts";
 import { importWaitlistEntry, waitlistImportId } from "../import.ts";
 import {
@@ -17,6 +19,7 @@ import { WAITLIST_STATUS, WaitlistHandlers } from "../web/constants.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,
+  mailsTo,
   resetWaitlistTestState,
   SYSTEM_ADMIN,
   signUpOpenly,
@@ -246,6 +249,47 @@ describe("waitlist linkOnSignup option", () => {
     }
   });
 
+  test("shared-tenant mode links the first member only; a later TenantAdmin joining stays invited", async () => {
+    const sharedTenantId = testTenantId(77);
+    const shared = await createWaitlistTestStack({
+      linkOnSignup: true,
+      rateLimit: { disabled: true, reason: "test" },
+      invite: { mode: "shared-tenant", tenantId: sharedTenantId, role: "TenantAdmin" },
+    });
+    try {
+      await shared.http.writeOk(
+        TenantHandlers.create,
+        { id: sharedTenantId, key: "shared-waitlist", name: "Shared" },
+        SYSTEM_ADMIN,
+      );
+      const statusOf = async (email: string) =>
+        (await rowsOf(shared)).find((row) => row["email"] === email)?.["status"];
+      const inviteAndAcceptEmail = async (email: string) => {
+        await submitOn(shared, email);
+        const entry = (await rowsOf(shared)).find((row) => row["email"] === email);
+        await shared.http.writeOk(
+          WaitlistHandlers.invite,
+          { id: String(entry?.["id"]) },
+          SYSTEM_ADMIN,
+        );
+        await acceptInviteAsNewUser(shared, email);
+      };
+
+      await inviteAndAcceptEmail("first-member@example.com");
+      await waitFor(async () => {
+        await shared.eventDispatcher?.runOnce();
+        expect(await statusOf("first-member@example.com")).toBe(WAITLIST_STATUS.Provisioned);
+      });
+
+      await inviteAndAcceptEmail("later-admin@example.com");
+      await shared.eventDispatcher?.runOnce();
+      expect(await statusOf("later-admin@example.com")).toBe(WAITLIST_STATUS.Invited);
+      expect(await statusOf("first-member@example.com")).toBe(WAITLIST_STATUS.Provisioned);
+    } finally {
+      await shared.cleanup();
+    }
+  });
+
   test("without the option the entry stays invited", async () => {
     const plain = await createWaitlistTestStack({
       rateLimit: { disabled: true, reason: "test" },
@@ -257,6 +301,33 @@ describe("waitlist linkOnSignup option", () => {
       expect(entry?.["provisionedAt"] ?? null).toBeNull();
     } finally {
       await plain.cleanup();
+    }
+  });
+});
+
+describe("waitlist adminLocale option", () => {
+  test("the admin notice follows adminLocale, not the entrant's form or request locale", async () => {
+    const localized = await createWaitlistTestStack({
+      notifyRecipient: () => "admin-locale-ops@example.com",
+      adminLocale: "de",
+      rateLimit: { disabled: true, reason: "test" },
+    });
+    try {
+      const res = await localized.http.raw(
+        "POST",
+        "/api/write",
+        {
+          type: WaitlistHandlers.submit,
+          payload: { name: "Ada Lovelace", email: "ada-es@example.com", locale: "es" },
+        },
+        { "x-forwarded-for": "198.51.100.10", "accept-language": "es-ES" },
+      );
+      expect(res.status).toBe(200);
+      expect(mailsTo("admin-locale-ops@example.com").map((mail) => mail.subject)).toEqual([
+        "Neuer Wartelisten-Eintrag: Ada Lovelace",
+      ]);
+    } finally {
+      await localized.cleanup();
     }
   });
 });

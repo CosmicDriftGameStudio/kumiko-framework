@@ -24,6 +24,9 @@ export type WaitlistOptions = {
    *  string or an absent option sends none. Best effort, never fails the submit,
    *  also when the resolver throws or rejects. */
   readonly notifyRecipient?: (ctx: HandlerContext) => string | null | Promise<string | null>;
+  /** Language of the admin notice mail (en, de or es; anything else falls back to en).
+   *  Not taken from the request: a submit comes from the entrant, not the operator. */
+  readonly adminLocale?: string;
   /** Default `{ mode: "own-tenant", role: "TenantAdmin" }`. */
   readonly invite?: WaitlistInviteOptions;
   /** Default: 5 submits per IP per 10 minutes. Pass `{ disabled: true, reason }`

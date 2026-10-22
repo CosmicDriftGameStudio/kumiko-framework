@@ -176,8 +176,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
             message: payload.message,
           }),
           priority: "normal",
-          // Operator-facing: the request locale, not the one the entrant picked in the form.
-          locale: resolveWaitlistMailLocale(ctx.locale),
+          locale: resolveWaitlistMailLocale(opts.adminLocale),
         });
       });
 

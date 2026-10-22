@@ -301,6 +301,8 @@ describe("perTenant jobs", () => {
     await waitFor(() => {
       expect(jobExecutions.length).toBeGreaterThanOrEqual(2);
     });
+    // A stray third fan-out run would land after the first two; wait for the queue to empty first.
+    await waitFor(async () => (await jobRunner.countPendingJobs()) === 0);
 
     // Should have run for each active tenant (we created 2)
     expect(jobExecutions.length).toBe(2);
