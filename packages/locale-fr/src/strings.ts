@@ -1971,7 +1971,6 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Déconnecter cette boîte mail ? Aucun nouveau message ne sera récupéré ; les messages enregistrés sont conservés.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Boîte mail",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nom",
-  "inbound-mail-foundation:entity:__action-form__:field:reason": "Motif",
   "sessions.mine.current.yes": "Cette session",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Appareil",

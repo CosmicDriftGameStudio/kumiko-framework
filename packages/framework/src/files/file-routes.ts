@@ -360,7 +360,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
           await uploadLedger.record(key);
           await storageProvider.write(key, bytes, mimeType);
         },
-        deleteBytes: (key) => storageProvider.delete(key),
+        deleteBytes: async (key) => {
+          await storageProvider.delete(key);
+          await uploadLedger.forget(key);
+        },
       },
       {
         fileName: file.name,

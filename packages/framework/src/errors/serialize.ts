@@ -7,8 +7,9 @@ import type { KumikoError } from "./kumiko-error.ts";
 // `docsUrl` is the deep-link for self-service: default web/mobile renderers
 // show a "Mehr erfahren →" link pointing here. Computed from `details.reason`
 // (when set) or fallback to `code`, even when `details` is stripped from the
-// response (e.g. internal_error in production). Absent for an app's own reason
-// that `errorDocs` does not cover — see resolveErrorDocsUrl.
+// response (e.g. internal_error in production). An app's own reason not covered
+// by `errorDocs` links to the framework page of its error code, unless the app
+// overrode that code too (then there is no page and the field is absent).
 export type ErrorResponseBody = {
   readonly error: {
     readonly code: string;

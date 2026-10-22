@@ -12,6 +12,7 @@
 // pointed at them. The one reference it does not resolve is a nav `parent`
 // pointing at a missing nav; that is pruned here.
 
+import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.ts";
 import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
 import { isToggleableFeature } from "./effective-features.ts";
@@ -21,28 +22,40 @@ import type { EffectiveFeaturesResolver } from "./tier-resolver-extension.ts";
 import type { Registry } from "./types/feature.ts";
 import type { TenantId } from "./types/identifiers.ts";
 
+const schemaLogger = createFallbackLogger("app-schema");
+
 // Sorted, so the result doubles as a stable cache key. The trial gate is
 // consulted like the dispatcher's feature gate does, but only for toggleable
 // features: a trial can only unlock tier (toggleable) features, so a
-// cascade-disabled always-on feature needs no gate call.
+// cascade-disabled always-on feature needs no gate call. A failing gate counts
+// as "not unlocked" (the handlers answer 403 then anyway), so a gate outage
+// hides the add-on instead of taking the whole schema endpoint down.
 export async function resolveDisabledFeatureNames(
   registry: Registry,
   effectiveFeatures: EffectiveFeaturesResolver,
   tenantId: TenantId,
 ): Promise<readonly string[]> {
   const enabled = effectiveFeatures(tenantId);
-  const disabled: string[] = [];
-  for (const [featureName, feature] of registry.features) {
-    if (enabled.has(featureName)) continue;
-    if (
-      isToggleableFeature(feature) &&
-      (await effectiveFeatures.trialGate?.(tenantId, featureName))
-    ) {
-      continue;
-    }
-    disabled.push(featureName);
-  }
-  return disabled.sort();
+  const trialGate = effectiveFeatures.trialGate;
+  const disabled = [...registry.features].filter(([featureName]) => !enabled.has(featureName));
+  const unlockedByTrial = await Promise.all(
+    disabled.map(async ([featureName, feature]) => {
+      if (trialGate === undefined || !isToggleableFeature(feature)) return false;
+      try {
+        return await trialGate(tenantId, featureName);
+      } catch (error) {
+        schemaLogger.warn("trial gate failed, treating feature as not unlocked", {
+          featureName,
+          error: scrubLogText(error instanceof Error ? error.message : String(error)),
+        });
+        return false;
+      }
+    }),
+  );
+  return disabled
+    .filter((_, index) => !unlockedByTrial[index])
+    .map(([featureName]) => featureName)
+    .sort();
 }
 
 function navParentQn(featureName: string, parent: string): string {

@@ -89,6 +89,7 @@ export type StoreFileDeps = {
   readonly defaultMaxUploadSize: string;
   // Must record the upload in the ledger before the bytes land (FileContext.writeUploadBytes).
   readonly writeBytes: (storageKey: string, data: Uint8Array, mimeType: string) => Promise<void>;
+  // Must drop the upload-ledger row together with the bytes.
   readonly deleteBytes: (storageKey: string) => Promise<void>;
 };
 

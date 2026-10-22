@@ -8,6 +8,10 @@ import { UnprocessableError, writeFailure } from "../index.ts";
 
 const APP_REASON = "order_locked";
 
+class OrderLockedError extends UnprocessableError {
+  override readonly code = "order_locked";
+}
+
 const feature = defineFeature("docsdemo", (r) => {
   r.writeHandler({
     name: "fail",
@@ -15,12 +19,23 @@ const feature = defineFeature("docsdemo", (r) => {
     handler: async () => writeFailure(new UnprocessableError(APP_REASON)),
     access: { roles: ["Admin"] },
   });
+  r.writeHandler({
+    name: "fail-own-code",
+    schema: z.object({}),
+    handler: async () => writeFailure(new OrderLockedError("closed_by_colleague")),
+    access: { roles: ["Admin"] },
+  });
 });
 
 type ErrorBody = { error: { docsUrl?: string; details?: { reason?: string } } };
 
-async function failingWrite(stack: TestStack): Promise<ErrorBody> {
-  const res = await stack.http.writeWithHeaders("docsdemo:write:fail", {}, TestUsers.admin, {});
+async function failingWrite(stack: TestStack, handler = "fail"): Promise<ErrorBody> {
+  const res = await stack.http.writeWithHeaders(
+    `docsdemo:write:${handler}`,
+    {},
+    TestUsers.admin,
+    {},
+  );
   return (await res.json()) as ErrorBody; // @cast-boundary http-response
 }
 
@@ -36,6 +51,13 @@ describe("errorDocs over HTTP", () => {
     const body = await failingWrite(stack);
     expect(body.error.details?.reason).toBe(APP_REASON);
     expect(body.error.docsUrl).toBe("https://docs.kumiko.rocks/errors/unprocessable");
+  });
+
+  test("app error with its own code and an uncovered reason: no docsUrl", async () => {
+    const stack = await setupTestStack({ features: [feature] });
+    stacks.push(stack);
+    const body = await failingWrite(stack, "fail-own-code");
+    expect(body.error.docsUrl).toBeUndefined();
   });
 
   test("app reason covered by errorDocs: body links to the app docs", async () => {

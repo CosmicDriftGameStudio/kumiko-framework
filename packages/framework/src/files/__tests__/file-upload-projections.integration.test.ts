@@ -15,6 +15,7 @@ import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import { createFilesFeature } from "../feature.ts";
 import { fileRefsTable } from "../file-ref-table.ts";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.ts";
+import { fileUploadLedgerTable } from "../upload-ledger.ts";
 
 const uploadLogTable = pgTable("read_fupload_log", {
   fileRefId: pgUuid("file_ref_id").primaryKey(),
@@ -91,7 +92,8 @@ describe("custom projections on fileRef.created through POST /api/files", () => 
     expect(logged).toHaveLength(1);
   });
 
-  test("a throwing projection answers 500 and leaves no row and no bytes", async () => {
+  test("a throwing projection answers 500 and leaves no row, no bytes and no ledger row", async () => {
+    const ledgerBefore = await selectMany(stack.db, fileUploadLedgerTable, {});
     const rowsBefore = await selectMany(stack.db, fileRefsTable, {});
     const keysBefore = provider.keys();
 
@@ -101,5 +103,6 @@ describe("custom projections on fileRef.created through POST /api/files", () => 
     expect(projectionCalls).toHaveLength(1);
     expect(await selectMany(stack.db, fileRefsTable, {})).toHaveLength(rowsBefore.length);
     expect(provider.keys()).toEqual(keysBefore);
+    expect(await selectMany(stack.db, fileUploadLedgerTable, {})).toHaveLength(ledgerBefore.length);
   });
 });

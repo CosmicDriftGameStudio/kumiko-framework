@@ -1951,7 +1951,6 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Disconnettere questa casella di posta? Non verrà recuperata nuova posta; la posta salvata viene conservata.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Casella di posta",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nome",
-  "inbound-mail-foundation:entity:__action-form__:field:reason": "Motivo",
   "sessions.mine.current.yes": "Questa sessione",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",

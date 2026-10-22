@@ -4,7 +4,7 @@ import { AgentReasons, FrameworkReasons } from "./reasons.ts";
 const DEFAULT_DOCS_BASE_URL = "https://docs.kumiko.rocks";
 const REASON_SLUG_RE = /^[a-z0-9_.-]+$/;
 
-/** Links an app's own error reasons to its own docs; without it only framework reasons carry a docsUrl. */
+/** Links an app's own error reasons to its own docs; uncovered reasons fall back to the framework page of the error code. */
 export type ErrorDocsConfig = {
   readonly baseUrl: string;
   readonly reasons?: readonly string[] | "all";
@@ -13,6 +13,27 @@ export type ErrorDocsConfig = {
 const frameworkReasons: ReadonlySet<string> = new Set([
   ...Object.values(FrameworkReasons),
   ...Object.values(AgentReasons),
+]);
+
+// Codes of the built-in error classes: only these have a framework docs page.
+const frameworkErrorCodes: ReadonlySet<string> = new Set([
+  "validation_error",
+  "feature_disabled",
+  "access_denied",
+  "unauthenticated",
+  "not_found",
+  "conflict",
+  "version_conflict",
+  "precondition_failed",
+  "record_locked",
+  "idempotent_replay",
+  "unique_violation",
+  "unprocessable",
+  "unconfigured",
+  "internal_error",
+  "member_read_timeout",
+  "rate_limited",
+  "rate_limit_unavailable",
 ]);
 
 function reasonOf(err: KumikoError): string | undefined {
@@ -33,7 +54,7 @@ function errorsUrl(baseUrl: string, slug: string): string {
 
 // A reason the framework documents (or no reason, or the code itself) links to the framework docs, overridable via
 // KUMIKO_DOCS_URL. An app's own reason links to the app docs where `errorDocs` covers it; every
-// other reason falls back to the framework page of the error code, which exists for each code.
+// other reason falls back to the framework page of the error code, unless an app subclass overrode the code.
 export function resolveErrorDocsUrl(
   err: KumikoError,
   errorDocs?: ErrorDocsConfig,
@@ -46,5 +67,5 @@ export function resolveErrorDocsUrl(
   if (errorDocs && isCoveredByConfig(reason, errorDocs)) {
     return errorsUrl(errorDocs.baseUrl, reason);
   }
-  return errorsUrl(frameworkBaseUrl, err.code);
+  return frameworkErrorCodes.has(err.code) ? errorsUrl(frameworkBaseUrl, err.code) : undefined;
 }

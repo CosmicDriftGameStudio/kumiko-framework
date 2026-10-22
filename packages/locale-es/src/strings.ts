@@ -1946,7 +1946,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "¿Desconectar este buzón? No se recibirá correo nuevo; el correo guardado se conserva.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Buzón",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Nombre",
-  "inbound-mail-foundation:entity:__action-form__:field:reason": "Motivo",
   "sessions.mine.current.yes": "Esta sesión",
   "sessions.mine.current.no": "-",
   "sessions.list.col.device": "Dispositivo",
