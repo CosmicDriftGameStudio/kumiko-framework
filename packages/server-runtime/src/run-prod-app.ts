@@ -40,183 +40,76 @@
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
-import {
-  type AccountLockoutOptions,
-  type AccountUnlockOptions,
-  AuthErrors,
-  AuthHandlers,
-  type AuthMailLocale,
-  type AuthPaths,
-  AuthQueries,
-  type EmailVerificationOptions,
-  type InviteOptions,
-  type PasswordResetOptions,
-  type SignupOptions,
+import type {
+  AccountLockoutOptions,
+  AccountUnlockOptions,
+  AuthMailLocale,
+  AuthPaths,
+  EmailVerificationOptions,
+  InviteOptions,
+  PasswordResetOptions,
+  SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import {
-  type SeedAdminOptions,
-  seedAdminGuarded,
-} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import {
-  EXT_SESSION_STORE,
-  EXT_TOKEN_VERIFIER,
-  resolveAnonymousAccessFromRegistry,
-  resolveTokenVerifier,
-} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import {
-  AUTH_MFA_FEATURE,
-  AuthMfaHandlers,
-  bindMfaTokenSecretsFromFeature,
-} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
-import {
-  PAT_FEATURE,
-  patRateLimitFromFeature,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
-import {
-  createDefaultSseBroker,
-  createRedisLoginRateLimiter,
-  type ExtraRouteDefinition,
-  type KumikoServeEnv,
-  type LoginRateLimiter,
-  loadJwtSecretOrKeyring,
-  type PostAuthLandingResolver,
-  type SseBroker,
-  type TokenVerifier,
-  TRUSTED_PROXY_HOPS_ENV,
-  withFileProviderResolver,
+import type { SeedAdminOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
+import type {
+  ExtraRouteDefinition,
+  KumikoServeEnv,
+  PostAuthLandingResolver,
+  SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
-import {
-  configureBlindIndexKey,
-  configurePiiSubjectKms,
-  type KmsAdapter,
-} from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  configureEntityFieldEncryption,
-  createDbConnection,
-  type DbRunner,
-  dbConnectionOptionsFromEnv,
-  outsideTransactionPoolOptionsFromEnv,
-  serverTimeoutOptionsFromEnv,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
-  collectWriteHandlerQns,
-  createRegistry,
-  type EffectiveFeaturesResolver,
-  type FeatureDefinition,
-  findTierResolverUsage,
-  requireTierResolverPlugin,
-  type ValidateBootOptions,
-  validateAppCustomScreenWriteQns,
-  validateBoot,
-} from "@cosmicdrift/kumiko-framework/engine";
-import {
-  type AllInOneEntrypoint,
-  type ApiEntrypoint,
-  createAllInOneEntrypoint,
-  createApiEntrypoint,
-} from "@cosmicdrift/kumiko-framework/entrypoint";
+import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import type { FeatureDefinition, ValidateBootOptions } from "@cosmicdrift/kumiko-framework/engine";
+import type { AllInOneEntrypoint, ApiEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
 import type { ComposedEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
-import {
-  createEsOperationsTable,
-  createSeedMigrationContext,
-  runPendingSeedMigrations,
-} from "@cosmicdrift/kumiko-framework/es-ops";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
-import { createFallbackLogger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
-import {
-  assertKumikoSchemaCurrent,
-  SchemaDriftError,
-} from "@cosmicdrift/kumiko-framework/migrations";
-import {
-  createMetricsForFactory,
-  type ObservabilityProvider,
-} from "@cosmicdrift/kumiko-framework/observability";
-import {
-  createDispatcher,
-  createEntityCache,
-  createEventDedup,
-  createIdempotencyGuard,
-  createUnlimitedRateLimitResolver,
-  flushEscapeHatchAudits,
-} from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  createRedisCacheSyncBus,
-  logRedisConnectionState,
-  redisClientOptionsFromEnv,
-} from "@cosmicdrift/kumiko-framework/redis";
+import type { ObservabilityProvider } from "@cosmicdrift/kumiko-framework/observability";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type {
   PageHeadMeta,
   PageHeadResolver,
   PageHeadSystemQuery,
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import { Redis } from "ioredis";
-import { applyBootSeeds } from "./boot/apply-boot-seeds.ts";
-import { resolveBootCrypto } from "./boot/boot-crypto.ts";
+import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
-import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
-import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
-import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
-import {
-  WAIT_FOR_DATABASE_DEADLINE_MS,
-  waitForDatabase,
-  waitUntilDatabaseReachable,
-} from "./boot/wait-for-database.ts";
+import { buildEffectiveFeaturesResolver } from "./boot/shared-boot-steps.ts";
 import type { BillingBootOption } from "./boot-options/billing-option.ts";
 import type { DemoModeOption } from "./boot-options/demo-mode.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
-import { installShutdownSignals, type SignalsOption } from "./boot-options/process-signals.ts";
-import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
+import type { SignalsOption } from "./boot-options/process-signals.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
-import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
-import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.ts";
-import { buildComposeAuthOptions, composeFeatures } from "./compose-features.ts";
-import {
-  makeDispatchSystemQuery,
-  makeDispatchSystemWrite,
-  type SystemWireDeps,
-} from "./extra-routes-deps.ts";
-import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
-import { assertPiiBootInvariants } from "./pii-boot-gate.ts";
+import type { SystemWireDeps } from "./extra-routes-deps.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
-import { type RateLimitOption, resolveRateLimit } from "./rate-limit-defaults.ts";
-import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.ts";
-import { resolveUnsubscribeWiring, type UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
+import type { RateLimitOption } from "./rate-limit-defaults.ts";
+import type { UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
+import { wireProdAuth } from "./run-prod-app-auth.ts";
+import type { ConfigOverridesInput } from "./run-prod-app-boot-context.ts";
 import {
-  addConfigAccessorFactory,
-  buildBootExtraContext,
-  buildProdSessionAuth,
-  type ConfigOverridesInput,
-  loggerFromExtraContext,
-  resolveAuthMail,
-  wireProdPatAutoRevoke,
-} from "./run-prod-app-boot-context.ts";
+  type BootAbortCleanup,
+  composeProdFeatures,
+  type RegisterBootAbortCleanup,
+  resolveProdBootConfig,
+} from "./run-prod-app-config.ts";
+import { assertProdSchemaCurrent, connectProdDependencies } from "./run-prod-app-connections.ts";
 import {
-  buildStaticFallback,
-  resolveCspScriptHashes,
-  resolveHostDispatchScriptHashes,
-} from "./run-prod-app-static-files.ts";
-import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.ts";
-import {
-  makeSeedCreateFileRef,
-  type SeedCreateFileRef,
-  withSeedErrorContext,
-} from "./seed-dispatcher.ts";
-import { assertSessionBootInvariants } from "./session-boot-gate.ts";
-import { shouldWireProdSessions } from "./session-wiring.ts";
-import { resolveTrustedProxyHops } from "./trusted-proxy-hops.ts";
-import { stripNoRouteMatchHeader } from "./try-hono-first.ts";
+  buildProdEntrypointOptions,
+  createProdEntrypoint,
+  registerProdShutdownHooks,
+  runProdWireHook,
+  startProdBackgroundWork,
+} from "./run-prod-app-entrypoint.ts";
+import { buildProdFetchHandler, createProdAppHandle } from "./run-prod-app-handle.ts";
+import { buildProdRequestContext } from "./run-prod-app-request-context.ts";
+import { runProdBootSeeds } from "./run-prod-app-seeds.ts";
+import type { SecurityHeadersOption } from "./security-headers.ts";
+import type { SeedCreateFileRef } from "./seed-dispatcher.ts";
 
 export { parseRunMode } from "./boot/env-gate.ts";
 export { buildBunServeOptions } from "./bun-serve-options.ts";
+export { requireEnv } from "./require-env.ts";
 export {
   resolveUnsubscribeWiring,
   type UnsubscribeOption,
@@ -229,37 +122,6 @@ export {
   resolveAuthMail,
 } from "./run-prod-app-boot-context.ts";
 export { staticCachePolicy } from "./run-prod-app-static-files.ts";
-
-// Strict env-var read. Throws with a clear hint when missing — better
-// than discovering a Postgres-connection-refused 30s into the boot.
-// `src` defaults to process.env but is threaded from the caller's envSource
-// so the boot-path reads the SAME env-quelle that was validated above —
-// injected dummies in test-mode must not silently fall back to process.env.
-export function requireEnv(
-  name: string,
-  src: Record<string, string | undefined> = process.env,
-  context = "runProdApp",
-): string {
-  const value = src[name];
-  if (value === undefined || value === "") {
-    const advice =
-      context === "runProdApp"
-        ? "Set it in your container env / .env.production / Coolify secrets."
-        : "Set it in your .env / shell before running the dev server.";
-    throw new Error(`${context}: required env var "${name}" is missing or empty. ${advice}`);
-  }
-  return value;
-}
-
-// Optional env helper — returns undefined for missing, string for set.
-// Used for KUMIKO_INSTANCE_ID, JWT_ISSUER and other "nice to have" knobs.
-function readEnv(
-  name: string,
-  src: Record<string, string | undefined> = process.env,
-): string | undefined {
-  const value = src[name];
-  return value === undefined || value === "" ? undefined : value;
-}
 
 // Returned from runProdApp when KUMIKO_DRY_RUN_ENV is set AND envSource
 // was passed (= test-mode). The handle is intentionally inert — listen()
@@ -824,39 +686,6 @@ export type ProdAppHandle = {
   readonly stop: () => Promise<void>;
 };
 
-const SERVER_GRACEFUL_STOP_MS = 10_000;
-
-// stop() without force waits for open connections (SSE never ends on its own); force-close after the grace period.
-async function stopServerGracefully(server: { stop(closeActiveConnections?: boolean): unknown }) {
-  let graceTimer: ReturnType<typeof setTimeout> | undefined;
-  const graceElapsed = new Promise<void>((resolve) => {
-    graceTimer = setTimeout(resolve, SERVER_GRACEFUL_STOP_MS);
-  });
-  try {
-    await Promise.race([server.stop(), graceElapsed]);
-  } finally {
-    clearTimeout(graceTimer);
-  }
-  await server.stop(true);
-}
-
-let warnedLegacyJwtSecret = false;
-function warnLegacyJwtSecretOnce(): void {
-  // skip: already warned once this process — avoid log spam on every boot path.
-  if (warnedLegacyJwtSecret) return;
-  warnedLegacyJwtSecret = true;
-  createFallbackLogger("runProdApp").warn(
-    "JWT keyring carries a legacy (pre-rotation) verify-only key — " +
-      "it never expires on its own. JWT_SECRET remains a required env (hmacSecret " +
-      "fallback + boot requireEnv). To stop verifying with the pre-rotation secret: " +
-      "set auth.mail.hmacSecret explicitly, then rotate JWT_SECRET to a fresh value " +
-      "that is no longer present in any in-flight token (see resolveAuthMail / " +
-      "loadJwtSecretOrKeyring).",
-  );
-}
-
-type BootAbortCleanup = () => void | Promise<void>;
-
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
   const abortCleanups: BootAbortCleanup[] = [];
   try {
@@ -872,7 +701,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
 async function bootProdApp(
   options: RunProdAppOptions,
-  registerAbortCleanup: (cleanup: BootAbortCleanup) => void,
+  registerAbortCleanup: RegisterBootAbortCleanup,
 ): Promise<ProdAppHandle> {
   assertSeedModeNotInProduction();
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
@@ -897,119 +726,15 @@ async function bootProdApp(
   const { runMode, decryptedEnvSource } = envGate;
   const log = installProcessLogger(options.extraContext, "runProdApp");
 
-  // Stacks whose boot options are missing and the declarative boot options
-  // (mail, kmsMode, fileStorage, billing, demoMode, seed shortcuts) fail here, before any connection. Their defaults sit under
-  // the env so an explicitly set variable wins.
-  assertStackBootRequirements(options);
-  const bootOptionWiring = await resolveBootOptionWiring(options, decryptedEnvSource);
-  const envSource: Record<string, string | undefined> =
-    Object.keys(bootOptionWiring.envDefaults).length > 0
-      ? { ...bootOptionWiring.envDefaults, ...decryptedEnvSource }
-      : decryptedEnvSource;
-  const bootKms = bootOptionWiring.kms;
-  registerAbortCleanup(() => bootKms.close());
-
-  // 1. Polyfill before anything else — feature code references Temporal.
-  const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
-  await ensureTemporalPolyfill();
-
-  // 2. Env-vars: fail-fast. Better a 0s boot crash with a clear error
-  //    than a 30s timeout chasing a Postgres connection that was never
-  //    configured.
-  const databaseUrl = requireEnv("DATABASE_URL", envSource);
-  const redisUrl = requireEnv("REDIS_URL", envSource);
-  // JWT_SECRET stays mandatory (also the resolveAuthMail hmacSecret
-  // fallback below — a separate, non-rotating HMAC token family, not the
-  // session JWT). jwtSecretOrKeyring is the OPTIONAL upgrade: set
-  // JWT_SECRET_V<n> + JWT_SECRET_CURRENT_VERSION for zero-downtime
-  // rotation of the session-JWT signing key — see loadJwtSecretOrKeyring.
-  const jwtSecret = requireEnv("JWT_SECRET", envSource);
-  const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
-  if (typeof jwtSecretOrKeyring === "object" && Object.hasOwn(jwtSecretOrKeyring.keys, "legacy")) {
-    // Once per process — JWT_SECRET stays a required env (requireEnv above +
-    // resolveAuthMail hmacSecret fallback). Retiring the *legacy verify key*
-    // means setting auth.mail.hmacSecret explicitly and rotating JWT_SECRET
-    // to a fresh value that is no longer in any in-flight token; unsetting
-    // JWT_SECRET entirely hard-crashes boot.
-    warnLegacyJwtSecretOnce();
-  }
-  const jwtIssuer = readEnv("JWT_ISSUER", envSource);
-  const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
-  // options.auth.trustedProxyHops wins; falls back
-  // to the env var so ops can close the XFF-spoofing hole per-deployment
-  // without a code change (mirrors instanceId's env-first pattern above).
-  const trustedProxyHops = resolveTrustedProxyHops({
-    option: options.trustedProxyHops,
-    authOption: options.auth?.trustedProxyHops,
-    envValue: readEnv(TRUSTED_PROXY_HOPS_ENV, envSource),
-    nodeEnv: process.env["NODE_ENV"],
-  });
-  if (trustedProxyHops === undefined) {
-    // With 0 hops every request appears to come from the proxy pod, so all IP-keyed
-    // rate limiters collapse into one shared bucket behind a reverse proxy.
-    log.warn(
-      `trustedProxyHops / ${TRUSTED_PROXY_HOPS_ENV} is not set; client IP falls back to the socket address. ` +
-        "Behind a reverse proxy all clients share one rate-limit bucket, so the default L1/L2 limits throttle the whole site at once.",
-    );
-  }
-  const resolvedRateLimit = resolveRateLimit(options.rateLimit);
-  const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
-
-  log.info(`booting Kumiko stack on port ${port}`);
-
-  // auth.mail is expanded into the explicit flow fields before feeding both
-  // the feature side (buildComposeAuthOptions) and the routes fragment below.
-  // From here on, always read effectiveAuth instead of options.auth.
-  const effectiveAuth = options.auth
-    ? resolveAuthMail(options.auth, jwtSecret, envSource, {
-        mailConfigured: bootOptionWiring.mailConfigured,
-      })
-    : undefined;
-  const authPublicOrigin = effectiveAuth
-    ? resolveAuthPublicOrigin(effectiveAuth, envSource, (message) => {
-        log.warn(message);
-      })
-    : undefined;
-
-  const { unsubscribeLinks, unsubscribeRoutes } = resolveUnsubscribeWiring({
-    unsubscribe: options.unsubscribe,
-    publicOrigin: effectiveAuth?.publicOrigin,
-    mailBaseUrl: effectiveAuth?.mail?.baseUrl,
-    envSource,
-    warn: (message) => createFallbackLogger("runProdApp").warn(message),
-  });
-
-  // 3. Feature registry. Auth mode automatically mixes config/user/tenant/
-  // auth-email-password via composeFeatures, using the same feature list as
-  // runDevApp and the per-app schema generator. Build it before any connection
-  // so boot mode can validate wiring without opening Postgres or Redis sockets.
-  const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
-  const features = composeFeatures([...options.features, ...bootOptionWiring.features], {
-    includeBundled: !!effectiveAuth,
-    ...(composeAuthOptions && { authOptions: composeAuthOptions }),
-  });
-
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
-  validateBoot(features, {
-    env: envSource,
-    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
-    ...options.validateBootOptions,
-  });
-  warnIfNonUtcServerTimeZone();
-  validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
-  assertPiiBootInvariants(features, {
-    kms: bootKms.kms,
-    blindIndexKey: bootKms.blindIndexKey,
-    allowPlaintextPii: bootKms.allowPlaintextPii,
-    mode: "prod",
-  });
-  const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
-  const registry = createRegistry(features);
-  assertSessionBootInvariants({
-    hasAuth: Boolean(effectiveAuth),
-    sessionStoreProviderMounted: registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
-    mode: "prod",
-  });
+  const config = await resolveProdBootConfig(
+    options,
+    decryptedEnvSource,
+    log,
+    registerAbortCleanup,
+  );
+  const composed = composeProdFeatures(options, config, log);
+  const { bootKms } = config;
+  const { features, registry } = composed;
 
   // C1 boot-mode exit: validators ran + registry built; no DB/Redis client
   // is constructed at all in this branch (the eager `new Redis(...)` below
@@ -1027,638 +752,64 @@ async function bootProdApp(
     return makeDryRunHandle();
   }
 
-  // 4. Connections — Postgres + Redis. The Redis client is shared by
-  //    idempotency, event-dedup, entity-cache, rate-limit; failing to
-  //    construct here surfaces the misconfig immediately. `new Redis(...)`
-  //    connects eagerly, so it must stay AFTER the boot-mode exit above.
-  // KMS health gate: an app configured for crypto-shredding must not boot
-  // against an unreachable key store — a silent start would answer every
-  // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
-  const databaseWaitDeadline = Date.now() + WAIT_FOR_DATABASE_DEADLINE_MS;
-  if (bootKms.kms) {
-    const kms = bootKms.kms;
-    const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
-      processName: "runProdApp",
-      target: "KMS",
-      deadline: databaseWaitDeadline,
-    });
-    if (!kmsHealth.ok) {
-      throw new Error(
-        `[runProdApp] BOOT ABORTED — KMS health check failed (latency ${kmsHealth.latencyMs}ms)`,
-      );
-    }
-  }
-
-  const { db, close: closeDb } = createDbConnection({
-    url: databaseUrl,
-    ...dbConnectionOptionsFromEnv(envSource),
-    ...serverTimeoutOptionsFromEnv(envSource),
-  });
-  const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection({
-    url: databaseUrl,
-    ...outsideTransactionPoolOptionsFromEnv(envSource),
-    ...serverTimeoutOptionsFromEnv(envSource),
-  });
-  const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
-  registerAbortCleanup(closeDb);
-  registerAbortCleanup(closeOutsideTransactionDb);
-  registerAbortCleanup(() => redis.disconnect());
-  logRedisConnectionState(redis, log);
-
-  await waitForDatabase(db, { processName: "runProdApp", deadline: databaseWaitDeadline });
-
-  // Tier-Composition auto-wire: scan features for a
-  // tenantTierResolver-extension. If found, build the resolver here (db +
-  // registry are available) before the dispatcher is constructed. App-Author sees
-  // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
-  // One bus per process: the tier resolver, the dispatcher and the file-provider
-  // resolver all subscribe to it (invalidation across the API pods).
-  const cacheSync = createRedisCacheSyncBus({
-    redisUrl,
-    clientOptions: redisClientOptionsFromEnv(envSource),
-  });
-  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined;
-  const tierResolverUsage = findTierResolverUsage(features);
-  if (tierResolverUsage) {
-    resolvedEffectiveFeatures = await requireTierResolverPlugin(tierResolverUsage).build({
-      db,
-      registry,
-      cacheSync,
-    });
-  }
-  if (bootOptionWiring.featureToggles) {
-    const bound = await bootOptionWiring.featureToggles.bind({
-      db,
-      registry,
-      cacheSync,
-      tierResolver: resolvedEffectiveFeatures,
-    });
-    resolvedEffectiveFeatures = bound.resolver;
-  }
-
-  // 5. Schema-drift gate (without drizzle, using kumiko/migrations). `kumiko
-  // schema apply` runs as a deploy step before container rollout. Boot only
-  // verifies that every kumiko/migrations/*.sql file is applied in
-  // _kumiko_migrations with an unchanged checksum and that every table in
-  // kumiko/migrations/.snapshot.json exists. Drift aborts boot rather than being auto-healed, avoiding
-  // races between container replicas. `migrations: false` opts out for custom
-  // schema setups.
-  if (options.migrations !== false) {
-    const migrationsDir = options.migrations?.dir ?? "./kumiko/migrations";
-    log.info(`checking schema drift (${migrationsDir})`);
-    try {
-      await assertKumikoSchemaCurrent(db, migrationsDir);
-    } catch (err) {
-      if (err instanceof SchemaDriftError) {
-        log.error(`BOOT ABORTED — ${err.message}`);
-      }
-      throw err;
-    }
-  }
-
-  // 6. Pipeline pieces — same default config as runDevApp's setupTestStack.
-  const idempotency = createIdempotencyGuard(redis, { ttlSeconds: 60 });
-  const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
-  const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
-
-  // 7. When no lifecycle is supplied, createApiEntrypoint builds and owns it;
-  // the handle exposes it for SIGTERM.
-  //
-  // extraContext and anonymousAccess accept either an object or a factory that
-  // receives {db, redis, registry}; factories are useful when boot-time database
-  // access is needed, such as a subdomain-to-tenant resolver.
-  //
-  // Build the SSE broker here so extraContext factories can close over it, and
-  // pass the same broker into createApiEntrypoint (sseBroker option) so
-  // server-internal broadcasts and app-specific publishes share one broker. Use
-  // createDefaultSseBroker so REDIS_URL selects a Redis-backed broker; an
-  // unconditional in-memory broker would silently override buildServer's
-  // Redis-backed default (ServerOptions.sseBroker always wins) and prevent
-  // cross-replica fanout.
-  const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
-  const deps: RunProdAppDeps = {
-    db,
-    redis,
-    registry,
-    sseBroker,
-    env: envSource,
-    ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
-    ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
-  };
-  const resolvedExtraContext =
-    typeof options.extraContext === "function"
-      ? options.extraContext(deps)
-      : (options.extraContext ?? {});
-
-  // Install framework defaults first; app values in resolvedExtraContext always
-  // win (for example, an app-specific configResolver).
-  // The app-wide cipher is resolved lazily, so entities without encrypted
-  // fields never access it.
-  configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
-  // Subject-key KMS for pii-annotated fields (crypto-shredding).
-  // No adapter only gets this far when assertPiiBootInvariants above let it
-  // through: no PII carriers, or an explicit allowPlaintextPii opt-out. The
-  // engine then stays off and those fields are stored in plaintext.
-  configurePiiSubjectKms(bootKms.kms);
-  // Blind-index key boot gate: with KMS enabled, lookupable fields are stored as
-  // ciphertext. Without the key, equality lookups such as login by email cannot
-  // work, so fail fast rather than allowing silently broken authentication.
-  configureBlindIndexKey(bootKms.blindIndexKey);
-  const bootLogger = loggerFromExtraContext(resolvedExtraContext);
-  if (bootLogger) setProcessLogger(bootLogger);
-  const autoExtraContext = buildBootExtraContext({
-    db,
+  const connections = await connectProdDependencies(config, log, registerAbortCleanup);
+  // Tier-composition auto-wire: if a feature carries a tenantTierResolver extension, the
+  // resolver is built here, before the dispatcher exists. The app author only mounts
+  // `createTierEngineFeature(opts)`; the framework does the wiring.
+  const effectiveFeatures = await buildEffectiveFeaturesResolver({
     features,
-    envSource,
+    featureToggles: config.bootOptionWiring.featureToggles,
+    db: connections.db,
     registry,
-    hasAuth: !!effectiveAuth,
-    sseBroker,
-    redis,
-    crypto: bootCrypto,
-    ...(bootKms.kms && { kms: bootKms.kms }),
-    ...(bootLogger && { log: bootLogger }),
-    ...(unsubscribeLinks && { unsubscribeLinks }),
-    ...(options.appOverrides && { appOverrides: options.appOverrides }),
+    cacheSync: connections.cacheSync,
   });
-  const extraContext = {
-    ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
-    ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
-  };
-  const baseAnonymousAccess =
-    typeof options.anonymousAccess === "function"
-      ? options.anonymousAccess(deps)
-      : options.anonymousAccess;
-  // tenantResolver / tenantExists come from auth-foundation providers.
-  const resolvedAnonymousAccess = await resolveAnonymousAccessFromRegistry(baseAnonymousAccess, {
-    db,
-    registry,
-    warn: (message) => createFallbackLogger("runProdApp").warn(message),
-  });
+  await assertProdSchemaCurrent(connections.db, options.migrations, log);
 
-  // Sessions are wired directly because db has already been created; unlike
-  // runDevApp, no late binding is needed. Once a sessionChecker is wired, JWTs
-  // without sid are rejected, so production sessions cannot be bypassed.
-  // sessionMassRevoker (the fourth callback from createSessionCallbacks) is not
-  // part of AuthRoutesConfig; bindAutoRevokeFromFeature hands it to the sessions
-  // feature so password change and reset revoke all sessions. Secure by default: the sessionStore provider
-  // goes through resolveSessionStore.
-  const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
-  if (mfaFeature) bindMfaTokenSecretsFromFeature(mfaFeature)?.(jwtSecret, envSource);
-  if (mfaFeature && registry.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined) {
-    throw new Error(
-      `[runProdApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +
-        "createAuthEmailPasswordFeature registers it only when mfaStatusChecker is set, and without it " +
-        "POST /auth/switch-tenant would mint sessions without the second factor",
-    );
-  }
-  // Hoisted above buildProdSessionAuth: that call also wires MFA-enable/
-  // disable → PAT-revoke (bindRevokeAllPatTokensFromFeature), so it needs
-  // patFeature too.
-  const patFeature = features.find((f) => f.name === PAT_FEATURE);
-  const sessionAuthFragment = shouldWireProdSessions(
-    Boolean(effectiveAuth),
-    registry.getExtensionUsages(EXT_SESSION_STORE).length > 0,
-  )
-    ? await buildProdSessionAuth(db, registry, sessionsFeature, mfaFeature, patFeature)
-    : undefined;
-
-  // Password-change → PAT-revoke: independent of sessions/MFA being mounted
-  // (buildProdSessionAuth only runs when a sessionStore provider is
-  // registered), so wired unconditionally here whenever PAT itself is.
-  if (patFeature) {
-    wireProdPatAutoRevoke(db, patFeature);
-  }
-
-  // Token-verifier opt-in: any provider feature (personal-access-tokens, a
-  // future auth-provider-jwt, ...) self-registers via
-  // r.useExtension(EXT_TOKEN_VERIFIER, ...) — wire one generic resolver
-  // whenever at least one is mounted, resolved by shape at request-time.
-  // PAT keeps its own per-token rate limiter (patRateLimiter), unrelated to
-  // verification.
-  const hasTokenVerifierProviders = registry.getExtensionUsages(EXT_TOKEN_VERIFIER).length > 0;
-  let patAuthFragment:
-    | {
-        tokenVerifier: TokenVerifier;
-        patRateLimiter: LoginRateLimiter;
-      }
-    | undefined;
-  if (effectiveAuth && patFeature && hasTokenVerifierProviders) {
-    const rl = patRateLimitFromFeature(patFeature);
-    patAuthFragment = {
-      tokenVerifier: (rawToken) => resolveTokenVerifier({ db, registry }, rawToken),
-      patRateLimiter: createRedisLoginRateLimiter(redis, rl.maxRequests, rl.windowMs, "pat"),
-    };
-  }
-
-  const baseEntrypointOptions = {
-    registry,
-    context: {
-      db,
-      redis,
-      entityCache,
-      registry,
-      ...extraContext,
-    },
-    sseBroker,
-    jwtSecret: jwtSecretOrKeyring,
-    ...(jwtIssuer && { jwtIssuer }),
-    ...(instanceId && { instanceId }),
-    dispatcherOptions: {
-      idempotency,
-      cacheSync,
-      outsideTransactionDb,
-      ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
-    },
-    eventDedup,
-    ...(options.observability && { observability: options.observability }),
-    ...(options.metrics && { metrics: options.metrics }),
-    ...(resolvedRateLimit && { rateLimit: resolvedRateLimit }),
-    ...(trustedProxyHops !== undefined && { trustedProxyHops }),
-    ...(options.errorDocs && { errorDocs: options.errorDocs }),
-    ...((options.extraRoutes || options.unsubscribe || bootOptionWiring.extraRoutes.length > 0) && {
-      extraRoutes: [
-        ...(options.extraRoutes ?? []),
-        ...unsubscribeRoutes,
-        ...bootOptionWiring.extraRoutes,
-      ],
-    }),
-    ...(effectiveAuth && {
-      auth: {
-        membershipQuery: TenantQueries.memberships,
-        userQuery: UserQueries.findForAuth,
-        loginHandler: AuthHandlers.login,
-        loginErrorStatusMap: effectiveAuth.loginErrorStatusMap ?? {
-          [AuthErrors.invalidCredentials]: 401,
-          [AuthErrors.noMembership]: 403,
-        },
-        // Redis-backed, not the in-memory default createAuthRoutes falls
-        // back to — an in-process limiter only rate-limits within a single
-        // replica, so a multi-instance prod deployment would silently give
-        // each replica its own bucket. Redis is required infra
-        // here already (REDIS_URL), so this is free.
-        loginRateLimit: createRedisLoginRateLimiter(redis),
-        ...(effectiveAuth.cookieDomain !== undefined && {
-          cookieDomain: effectiveAuth.cookieDomain,
-        }),
-        ...(effectiveAuth.secureCookies !== undefined && {
-          secureCookies: effectiveAuth.secureCookies,
-        }),
-        ...(effectiveAuth.retiredCookieDomains !== undefined && {
-          retiredCookieDomains: effectiveAuth.retiredCookieDomains,
-        }),
-        ...(effectiveAuth.allowedOrigins !== undefined && {
-          allowedOrigins: effectiveAuth.allowedOrigins,
-        }),
-        ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
-          unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
-        }),
-        ...(authPublicOrigin !== undefined && { publicOrigin: authPublicOrigin }),
-        ...(trustedProxyHops !== undefined && { trustedProxyHops }),
-        ...(effectiveAuth.postAuthLanding !== undefined && {
-          postAuthLanding: effectiveAuth.postAuthLanding,
-        }),
-        ...sessionAuthFragment,
-        ...patAuthFragment,
-        ...(mfaFeature && {
-          mfaVerifyHandler: AuthMfaHandlers.verify,
-          switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
-          mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
-          mfaPreauthConfirmHandler: AuthMfaHandlers.enableConfirmPreauth,
-          mfaVerifyRateLimit: createRedisLoginRateLimiter(
-            redis,
-            undefined,
-            undefined,
-            "mfa-verify",
-          ),
-          mfaPreauthEnableStartRateLimit: createRedisLoginRateLimiter(
-            redis,
-            undefined,
-            undefined,
-            "mfa-preauth-start",
-          ),
-          mfaPreauthConfirmRateLimit: createRedisLoginRateLimiter(
-            redis,
-            undefined,
-            undefined,
-            "mfa-preauth-confirm",
-          ),
-        }),
-        ...(effectiveAuth.passwordReset && {
-          passwordReset: {
-            requestHandler: AuthHandlers.requestPasswordReset,
-            confirmHandler: AuthHandlers.resetPassword,
-          },
-        }),
-        ...(effectiveAuth.emailVerification && {
-          emailVerification: {
-            requestHandler: AuthHandlers.requestEmailVerification,
-            confirmHandler: AuthHandlers.verifyEmail,
-          },
-        }),
-        ...(effectiveAuth.accountUnlock && {
-          accountUnlock: {
-            requestHandler: AuthHandlers.requestAccountUnlock,
-            confirmHandler: AuthHandlers.confirmAccountUnlock,
-          },
-        }),
-        ...(effectiveAuth.signup && {
-          signup: {
-            requestHandler: AuthHandlers.signupRequest,
-            confirmHandler: AuthHandlers.signupConfirm,
-          },
-        }),
-        ...(effectiveAuth.invite && {
-          invite: {
-            acceptHandler: AuthHandlers.inviteAccept,
-            acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
-            signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            infoHandler: AuthQueries.inviteInfo,
-          },
-        }),
-      },
-    }),
-    ...(resolvedAnonymousAccess && { anonymousAccess: resolvedAnonymousAccess }),
-  };
-
-  // Deployment topology. By default, createAllInOneEntrypoint runs HTTP, both
-  // job lanes (two runners, each scheduling only its own lane's crons, so
-  // nothing fires twice) and the event dispatcher inline. That way worker-lane
-  // crons (run-export-jobs defaults to runIn:"worker") and MSPs run without a
-  // separate worker process, the gap the data export used to stall on.
-  // runSingleInstance:false means API-only: a dedicated worker must then take
-  // over the worker lane and MSPs, while API-lane jobs keep running locally.
-  // The legacy eventDispatcher.disabled maps to runSingleInstance:false so
-  // existing callers keep working; the explicit flag takes precedence.
-  const runSingleInstance = options.runSingleInstance ?? options.eventDispatcher?.disabled !== true;
-  const hasJobs = registry.getAllJobs().size > 0;
-  const queueNamePrefix = options.jobs?.queueNamePrefix;
-  const jobLogger = jobRunLoggerCallbacks(registry, db);
-  const dispatcherTunables =
-    options.eventDispatcher?.pollIntervalMs !== undefined
-      ? { pollIntervalMs: options.eventDispatcher.pollIntervalMs }
-      : {};
-
-  const entrypoint: ApiEntrypoint | AllInOneEntrypoint = runSingleInstance
-    ? createAllInOneEntrypoint({
-        ...baseEntrypointOptions,
-        redisUrl,
-        ...jobLogger,
-        ...(queueNamePrefix !== undefined && { queueNamePrefix }),
-        ...(options.jobs?.getActiveTenantIds !== undefined && {
-          getActiveTenantIds: options.jobs.getActiveTenantIds,
-        }),
-        ...(!options.eventDispatcher?.disabled && { eventDispatcher: dispatcherTunables }),
-      })
-    : createApiEntrypoint({
-        ...baseEntrypointOptions,
-        ...(hasJobs && {
-          jobs: {
-            redisUrl,
-            runLocalJobs: true,
-            ...jobLogger,
-            ...(queueNamePrefix !== undefined && { queueNamePrefix }),
-            ...(options.jobs?.getActiveTenantIds !== undefined && {
-              getActiveTenantIds: options.jobs.getActiveTenantIds,
-            }),
-          },
-        }),
-      });
-
-  // The broker built above is always ours (runProdApp never accepts a
-  // caller-supplied sseBroker), so — same reasoning as buildServer's own
-  // ownedRedisSseBroker hook — closing it on shutdown is our job, not the
-  // entrypoint's. Registered after createApiEntrypoint/createAllInOneEntrypoint
-  // (which already registered the eventDispatcher/jobRunner hooks above),
-  // so it drains LIFO before those, matching the close-before-teardown
-  // order established for buildServer's own hook.
-  entrypoint.lifecycle.registerShutdownHook("prodAppCacheSync", async () => {
-    await cacheSync.close();
-  });
-  if (ownedRedisSseBroker) {
-    const broker = ownedRedisSseBroker;
-    entrypoint.lifecycle.registerShutdownHook("prodAppRedisSseBroker", async () => {
-      await broker.close();
-    });
-  }
-
-  // `extraRoutes` itself is already mounted — buildServer wires it inside
-  // createApiEntrypoint/createAllInOneEntrypoint, before this function ever
-  // runs. `wire` is the remaining escape-hatch for app-wired co-running
-  // components that need the system-write dispatcher but don't declare a
-  // route.
-  if (options.wire) {
-    await options.wire({
-      db,
-      redis,
-      registry,
-      ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
-      ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
-      metricsFor: createMetricsForFactory(entrypoint.observability.meter),
-      dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
-      dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
-    });
-  }
-
-  // 9. Seeds: admin first, then config-seeds from r.config({seeds}),
-  //    then app-specific. All idempotent — runProdApp doesn't gate
-  //    "first boot" via flag, every seed-step checks its own
-  //    preconditions. Config-seeds rely on a deterministic
-  //    aggregate-id so re-boot becomes a version_conflict skip.
-  if (effectiveAuth?.admin) {
-    await seedAdminGuarded(db, effectiveAuth.admin);
-  }
-  for (const seed of bootOptionWiring.shortcutSeeds) {
-    await seed(db);
-  }
-  await applyBootSeeds({
-    registry,
-    db,
-    ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
-  });
-  const customSeeds = bootOptionWiring.customSeeds;
-  const hasSeeds = customSeeds.length > 0 || options.seedsDir !== undefined;
-  // Seeds are bootstrap writes, not tenant traffic: they always get the unlimited resolver,
-  // even when the app has a real one, so a handler's rateLimit can neither fail nor drain them.
-  const seedContext = hasSeeds
-    ? withFileProviderResolver(
-        registry,
-        {
-          db,
-          redis,
-          entityCache,
-          registry,
-          ...extraContext,
-          rateLimit: createUnlimitedRateLimitResolver(),
-        },
-        cacheSync,
-      )
-    : undefined;
-  const seedDispatcher = seedContext
-    ? withSeedErrorContext(
-        createDispatcher(registry, seedContext, {
-          ...baseEntrypointOptions.dispatcherOptions,
-          ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
-        }),
-      )
-    : undefined;
-  if (seedDispatcher && seedContext) {
-    const createFileRef = makeSeedCreateFileRef({ db, registry, context: seedContext });
-    for (const seed of customSeeds) {
-      await seed({
-        db,
-        registry,
-        dispatcher: seedDispatcher,
-        createFileRef,
-        ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
-        ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
-      });
-    }
-  }
-
-  // ES operations and seed migrations run after applyBootSeeds and the existing
-  // seeds array. Declarative seeds insert missing records; seed migrations
-  // diff and update state that existing seeds cannot revise, such as membership
-  // roles changed after initial seed creation.
-  if (seedDispatcher && options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
-    await createEsOperationsTable(db);
-    await runPendingSeedMigrations({
-      db,
-      seedsDir: options.seedsDir,
-      appliedBy: "boot",
-      registry, // The dry-run validator catches handler QN typos before writing.
-      // @wrapper-known semantic-alias
-      createContext: (dbRunner: DbRunner) =>
-        createSeedMigrationContext({ dispatcher: seedDispatcher, dbRunner }),
-    });
-  }
-
-  await entrypoint.start();
-  await recordAppStartedOnBoot({ db, envSource });
-  startPiiEventBackfillOnBoot({
-    db,
-    registry,
-    lifecycle: entrypoint.lifecycle,
-    envSource,
-  });
-
-  // 11. Build the fetch-handler. Static-fallback for non-/api/ paths
-  //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk
-  //     owns the rest. Tests use this directly; listen() wraps it in
-  //     Bun.serve.
-  const cspScriptHashes = await resolveCspScriptHashes(options.staticDir, options.securityHeaders);
-  const hostDispatchScriptHashes =
-    options.hostDispatch !== undefined && options.staticDir !== undefined
-      ? await resolveHostDispatchScriptHashes(
-          options.staticDir,
-          options.securityHeaders,
-          cspScriptHashes,
-        )
-      : [];
-  const fetchHandler = withSecurityHeaders(
-    bootOptionWiring.wrapFetch(
-      options.staticDir
-        ? buildStaticFallback(
-            entrypoint.app.fetch.bind(entrypoint.app),
-            options.staticDir,
-            options.hostDispatch,
-            options.resolvePageHead
-              ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }
-              : undefined,
-            entrypoint.dispatcher,
-            trustedProxyHops ?? 0,
-            hostDispatchScriptHashes,
-          )
-        : // No staticDir (split-deploy / API-only container) → app.fetch's
-          // response goes straight to the client, bypassing buildStaticFallback
-          // (and with it tryHonoFirst) entirely. Must strip the router-miss
-          // marker here too, same reason as the /api/* passthrough in
-          // run-prod-app-static-files.ts (see try-hono-first.ts).
-          async (req: Request, socketAddress?: string) =>
-            stripNoRouteMatchHeader(await entrypoint.app.fetch(req, socketAddress)),
-    ),
-    options.securityHeaders,
-    cspScriptHashes,
+  const requestContext = await buildProdRequestContext(options, config, composed, connections);
+  const authWiring = await wireProdAuth(config, composed, connections);
+  const entrypointOptions = buildProdEntrypointOptions(
+    options,
+    config,
+    composed,
+    connections,
+    requestContext,
+    authWiring,
+    effectiveFeatures,
   );
+  const entrypoint = createProdEntrypoint(
+    options,
+    config,
+    composed,
+    connections,
+    entrypointOptions,
+  );
+  registerProdShutdownHooks(entrypoint, connections.cacheSync, requestContext.ownedRedisSseBroker);
+  await runProdWireHook(options, composed, connections, entrypoint);
+  await runProdBootSeeds(
+    { options, config, composed, connections, requestContext },
+    entrypoint,
+    entrypointOptions.dispatcherOptions,
+  );
+  await startProdBackgroundWork(entrypoint, config, composed, connections);
 
-  // 11. Mark lifecycle ready — health/ready flips to 200 after this.
+  const fetch = await buildProdFetchHandler(options, config, entrypoint);
+
+  // Mark lifecycle ready — health/ready flips to 200 after this.
   entrypoint.lifecycle.markReady();
 
-  // Upgrade rejections (401/403/426...) are ordinary responses and get the same headers as fetchHandler.
-  const securedUpgradeFetch = withSecurityHeaders<KumikoServeEnv>(
-    async (req, env) => stripNoRouteMatchHeader(await entrypoint.app.fetch(req, env)),
-    options.securityHeaders,
-    cspScriptHashes,
-  );
-  const webSocketUpgradeFetch = async (req: Request, env: KumikoServeEnv): Promise<Response> =>
-    securedUpgradeFetch(req, env);
-
-  let uninstallShutdownSignals: (() => void) | undefined;
-  let uninstallFatalHandlers: (() => void) | undefined;
-  const handle: ProdAppHandle = {
+  const handle = createProdAppHandle({
+    options,
+    config,
+    composed,
+    connections,
     entrypoint,
-    fetch: fetchHandler,
-    webSocketUpgradeFetch,
-    listen: async (listenPort = port) => {
-      // Bun.serve provides production HTTP. Tests run under Node, so they call the
-      // fetch handler directly instead. buildBunServeOptions centralizes the
-      // options shape, including `idleTimeout: 0` for SSE.
-      if (typeof Bun === "undefined") {
-        // Throw a clear error instead of a raw ReferenceError when listen() is called
-        // under Node/vitest without autoListen:false, making the runtime
-        // requirement explicit.
-        throw new Error(
-          "[runProdApp] listen() requires Bun runtime (Bun.serve). " +
-            "Under Node/vitest pass `autoListen: false` and call the returned `fetch()` directly.",
-        );
-      }
-      handle.server = Bun.serve(
-        buildBunServeOptions(
-          listenPort,
-          fetchHandler,
-          options.maxRequestBodySize ?? resolveDerivedMaxRequestBodySize(registry),
-          { upgradeFetch: webSocketUpgradeFetch },
-        ),
-      );
+    fetch,
+    log,
+  });
 
-      // SIGTERM/SIGINT — graceful shutdown. Only registered when we
-      // actually own a Bun-server, otherwise the test process picks up
-      // signals it shouldn't respond to.
-      if (options.signals !== false) {
-        uninstallShutdownSignals?.();
-        uninstallShutdownSignals = installShutdownSignals({
-          stop: () => handle.stop(),
-          ...(options.signals?.drainTimeoutMs !== undefined && {
-            drainTimeoutMs: options.signals.drainTimeoutMs,
-          }),
-        });
-        uninstallFatalHandlers?.();
-        uninstallFatalHandlers = installFatalErrorHandlers({
-          logger: log,
-          stop: () => handle.stop(),
-        });
-      }
-
-      log.info(`ready on http://0.0.0.0:${listenPort}`);
-    },
-    stop: async () => {
-      uninstallFatalHandlers?.();
-      uninstallFatalHandlers = undefined;
-      await entrypoint.stop();
-      if (handle.server) await stopServerGracefully(handle.server);
-      await flushEscapeHatchAudits();
-      await closeDb();
-      await closeOutsideTransactionDb();
-      redis.disconnect();
-      await bootKms.close();
-      uninstallShutdownSignals?.();
-      uninstallShutdownSignals = undefined;
-      uninstallProcessLogger();
-    },
-  };
-
-  // 12. Auto-listen unless explicitly suppressed (tests pass autoListen:
-  //     false because Bun.serve isn't available under vitest/node).
-  //     Production path: `await runProdApp({...})` and the server is up.
+  // Auto-listen unless explicitly suppressed (tests pass autoListen:
+  // false because Bun.serve isn't available under vitest/node).
+  // Production path: `await runProdApp({...})` and the server is up.
   if (options.autoListen !== false) {
     await handle.listen();
   }

@@ -17,7 +17,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.ts";
 import { buildComposeAuthOptions } from "./compose-features.ts";
-import { type RunProdAppAuthOptions, requireEnv } from "./run-prod-app.ts";
+import { requireEnv } from "./require-env.ts";
+import type { RunProdAppAuthOptions } from "./run-prod-app.ts";
 import { resolveAuthMail } from "./run-prod-app-boot-context.ts";
 import type { RunWorkerAppOptions } from "./run-worker-app.ts";
 
