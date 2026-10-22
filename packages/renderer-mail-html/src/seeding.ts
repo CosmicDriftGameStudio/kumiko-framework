@@ -2,9 +2,10 @@
 // system layout (slug "default", kind "mail-layout", tenantId=SYSTEM_TENANT_ID)
 // into the template-resource table.
 //
-// **When to use?** When the app author wants the default layout editable in the
-// tenant admin UI. Without seeding the renderer falls back to the in-code
-// DEFAULT_MAIL_LAYOUT_MJML, which renders identically but is not editable.
+// **When to use?** When the app author wants an editable layout in the tenant admin
+// UI. Without seeding the renderer falls back to the structured in-code layout with
+// the tenant branding. A seeded MJML layout has its own look and must contain
+// {{{mailFooterHtml}}}, or the platform footer is appended after its body.
 //
 // Idempotent: a second call with unchanged content writes no event, a changed
 // layout updates the existing row.

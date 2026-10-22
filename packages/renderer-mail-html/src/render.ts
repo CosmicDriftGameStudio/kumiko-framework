@@ -106,7 +106,13 @@ export type MailHtmlRenderOptions = {
 
 const LINE_BREAKS = /[\r\n]+/g;
 const PLAIN_REFERENCE = /\{\{\s*([\w.]+)\s*\}\}/g;
-const FORMATTED_VARIABLE_TYPES: ReadonlySet<string> = new Set(["money", "date", "percent"]);
+// richText becomes plain text: meta lines render unescaped into subject and layout rows.
+const META_FORMAT_HELPER_BY_TYPE: Readonly<Record<string, string>> = {
+  money: "money",
+  date: "date",
+  percent: "percent",
+  richText: "richTextPlain",
+};
 
 function describe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -398,9 +404,11 @@ async function renderMailBody(
 function withFormatHelpers(source: string, variables: TemplateVariables): string {
   return source.replace(PLAIN_REFERENCE, (reference, name: string) => {
     const type = variables[name]?.type;
-    return type !== undefined && FORMATTED_VARIABLE_TYPES.has(type)
-      ? `{{${type} ${name}}}`
-      : reference;
+    const helper =
+      type !== undefined && Object.hasOwn(META_FORMAT_HELPER_BY_TYPE, type)
+        ? META_FORMAT_HELPER_BY_TYPE[type]
+        : undefined;
+    return helper === undefined ? reference : `{{${helper} ${name}}}`;
   });
 }
 
@@ -559,6 +567,19 @@ async function assembleMailAttachments(args: {
 
 type DocumentHandlebars = ReturnType<typeof createDocumentHandlebars>;
 
+const MJML_FOOTER_SECTION =
+  '<mj-section><mj-column><mj-text font-size="12px" color="#5A6170" align="center">{{{mailFooterHtml}}}</mj-text></mj-column></mj-section>';
+
+// The platform footer (imprint, privacy, unsubscribe) must not depend on the layout author
+// remembering the placeholder.
+function withPlatformFooter(mjmlSource: string): string {
+  if (mjmlSource.includes("mailFooterHtml")) return mjmlSource;
+  const bodyEnd = mjmlSource.lastIndexOf("</mj-body>");
+  return bodyEnd === -1
+    ? mjmlSource
+    : `${mjmlSource.slice(0, bodyEnd)}{{#if mailFooterHtml}}${MJML_FOOTER_SECTION}{{/if}}${mjmlSource.slice(bodyEnd)}`;
+}
+
 function compileLayoutMjml(args: {
   readonly layout: ResolvedLayout;
   readonly hbs: DocumentHandlebars;
@@ -594,7 +615,7 @@ function compileLayoutMjml(args: {
         })
       : compileDocumentSource(
           hbs,
-          layout.content,
+          withPlatformFooter(layout.content),
         )({
           ...layoutContext,
           content: contentHtml,
@@ -744,6 +765,12 @@ async function resolveMailSiteUrl(
   }
 }
 
+// Only header, signature and footer reach the mail; a link elsewhere in the layout is never shown.
+function layoutRegionsSource(layoutHtml: string): string {
+  const { header, signature, footer } = readLayoutRegions(layoutHtml);
+  return [header, signature, footer].join("");
+}
+
 type MailFooterParts = { readonly footerHtml: string; readonly bandLinksHtml: string };
 
 // A structured layout shows the site and unsubscribe links inside the card and only the
@@ -757,13 +784,13 @@ function renderFooterParts(args: {
 }): MailFooterParts {
   const { layout, footer, unsubscribeUrl, locale } = args;
   const structured = layout.format === "html";
-  const layoutLinksUnsubscribe =
-    structured && layoutLinksToPlaceholder(layout.content, "unsubscribeUrl");
+  const linkedRegions = structured ? layoutRegionsSource(layout.content) : "";
+  const layoutLinksUnsubscribe = layoutLinksToPlaceholder(linkedRegions, "unsubscribeUrl");
   const footerHtml = buildMailFooterHtml({
     footer,
     unsubscribeUrl: structured ? "" : unsubscribeUrl,
     locale,
-    layoutLinksImprint: structured && layoutLinksToPlaceholder(layout.content, "imprint"),
+    layoutLinksImprint: layoutLinksToPlaceholder(linkedRegions, "imprint"),
     layoutLinksUnsubscribe,
   });
   return {

@@ -116,5 +116,7 @@ export function buildMailFooterHtml(input: {
 }
 
 export function layoutLinksToPlaceholder(layoutHtml: string, name: string): boolean {
-  return new RegExp(`href="\\{\\{\\s*${name}\\s*\\}\\}"`).test(layoutHtml);
+  return new RegExp(`<a\\b[^>]*href="\\{\\{\\s*${name}\\s*\\}\\}"[^>]*>\\s*[^<\\s]`).test(
+    layoutHtml,
+  );
 }

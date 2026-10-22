@@ -231,3 +231,19 @@ describe("renderer-mail-html :: author conditions and percent", () => {
     expect(html.match(/<p>\+<\/p>/g)?.length).toBe(1);
   });
 });
+
+describe("renderer-mail-html :: richTextPlain helper", () => {
+  const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
+
+  test("strips markup and link targets", () => {
+    const out = compileDocumentSource(
+      hbs,
+      "{{richTextPlain note}}",
+    )({ note: '<p>Hallo <strong>Frau Meier</strong> <a href="https://x.example">Link</a></p>' });
+    expect(out).toBe("Hallo Frau Meier Link");
+  });
+
+  test("a non-string value renders empty", () => {
+    expect(compileDocumentSource(hbs, "{{richTextPlain note}}")({ note: 5 })).toBe("");
+  });
+});
