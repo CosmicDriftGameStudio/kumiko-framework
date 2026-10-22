@@ -1,6 +1,6 @@
 // Remembered list state, reset, view menu and density of a list with a
-// `table` block, against the MockDispatcher (which ignores filters and sort,
-// so the specs assert the list's controls and URL, not filtered rows).
+// `table` block, against the MockDispatcher (which ignores the search, so
+// the specs assert the list's controls and URL, not searched rows).
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";

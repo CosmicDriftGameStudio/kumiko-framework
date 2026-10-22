@@ -28,6 +28,7 @@ import type {
 } from "@cosmicdrift/kumiko-renderer/headless";
 
 import { dashboardQueryResponse } from "./dashboard-fixture";
+import { answerMockList } from "./mock-list-query";
 import { ROLE_AVAILABILITY_QUERY } from "./schema";
 
 export const FAILING_WRITE_REQUEST_ID = "req-7f9c2a1e-4b3d-4c8a-9e21-5d6f0a1b2c3d";
@@ -203,17 +204,11 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
     const table = getTable(entity);
 
     switch (verb) {
-      case "list": {
-        const rows = Array.from(table.values());
-        // Wire-Format des Listen-Queries: { rows, nextCursor }. Das
-        // KumikoScreen → EntityListBody zieht `data.rows` raus
-        // (siehe kumiko-screen.tsx:PagedRows). nextCursor ist immer
-        // null im Mock — wir machen keine Pagination.
+      case "list":
         return {
           isSuccess: true,
-          data: { rows, nextCursor: null } as unknown as TData,
+          data: answerMockList(type, Array.from(table.values()), payload) as unknown as TData,
         };
-      }
       case "detail": {
         const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
         const id = data["id"] as string | undefined;
