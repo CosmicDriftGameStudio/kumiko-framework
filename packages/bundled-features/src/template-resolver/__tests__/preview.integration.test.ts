@@ -3,10 +3,16 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, templateVariable } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  defineFeature,
+  templateVariable,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
+  fileRefEntity,
+  fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
@@ -58,6 +64,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
 const LOCALE = "de";
 const SLUG = "inv-mailer:notify:invoice";
 const emailTransport = createInMemoryTransport();
+const fileProvider = createInMemoryFileProvider();
 const addressOf = (userId: string): string => `${userId}@preview.test`;
 
 const invMailer = defineFeature("inv-mailer", (r) => {
@@ -120,7 +127,7 @@ let stack: TestStack;
 beforeAll(async () => {
   patchFileInstanceofForBunTest();
   stack = await setupTestStack({
-    files: { storageProvider: createInMemoryFileProvider() },
+    files: { storageProvider: fileProvider },
     features: [
       createFilesFeature(),
       createConfigFeature(),
@@ -611,7 +618,7 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
       },
       admin,
     );
-    await stack.http.writeOk(
+    const attachment = await stack.http.writeOk<{ fileRefId: string }>(
       TemplateResolverHandlers.resourceUpload,
       {
         sourceFileRefId: await uploadFile(admin, PDF_BYTES, {
@@ -625,6 +632,7 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
       },
       admin,
     );
+    return { attachmentFileRefId: attachment.fileRefId };
   }
 
   test("displayHtml shows the logo as a data URI while html keeps the cid", async () => {
@@ -647,6 +655,27 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
     expect(preview.attachments).toContainEqual(
       expect.objectContaining({ kind: "inline", name: "logo" }),
     );
+  });
+
+  test("a test mail whose attachment file ref is gone reports not_sent and sends nothing", async () => {
+    const admin = adminOf(65);
+    const { attachmentFileRefId } = await storeTemplateWithResources(admin);
+    const forgotten = await createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+      entityName: "fileRef",
+    }).forget(
+      { id: attachmentFileRefId },
+      createSystemUser(admin.tenantId),
+      createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "system" }),
+    );
+    expect(forgotten.isSuccess).toBe(true);
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE },
+      admin,
+    );
+    expectErrorIncludes(err, "template_test_mail_failed");
+    expectErrorIncludes(err, "not_sent");
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("a test mail carries the file attachment bytes", async () => {

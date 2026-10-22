@@ -10,6 +10,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
+import { localeFrBundle } from "@cosmicdrift/kumiko-locale-fr";
+import { localeItBundle } from "@cosmicdrift/kumiko-locale-it";
 import { findHandlerTranslationGaps } from "../../agent-tools/index.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 
@@ -41,6 +43,8 @@ describe("template-resolver handler titles", () => {
   test.each([
     ["de", localeDeBundle],
     ["es", localeEsBundle],
+    ["fr", localeFrBundle],
+    ["it", localeItBundle],
   ] as const)("every agent-callable write handler has a %s title", (_locale, bundle) => {
     const untitled = agentCallableWriteQns.filter(
       (handlerQn) => (bundle[handlerTitleKey(handlerQn)] ?? "").trim() === "",

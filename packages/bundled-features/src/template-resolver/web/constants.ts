@@ -4,6 +4,8 @@
 // RenderKind identifies the consumer class of a template. Plugin renderers in
 // `renderer-foundation` match on kind; the resolver here is kind-agnostic: it
 // only loads, and the content format (markdown/mjml/html) decides who renders it.
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+
 export const RENDER_KINDS = ["mail", "document-pdf", "image-snapshot"] as const;
 export type RenderKind = (typeof RENDER_KINDS)[number];
 
@@ -55,8 +57,10 @@ export const COLLECTION_REFUSED_KINDS = [
   "pdf-layout",
 ] as const satisfies readonly TemplateKind[];
 
-export function isCollectionRefusedKind(kind: string): boolean {
-  return COLLECTION_REFUSED_KINDS.some((refused) => refused === kind);
+export function isCollectionRefusedKind(
+  kind: unknown,
+): kind is (typeof COLLECTION_REFUSED_KINDS)[number] {
+  return isOneOf(COLLECTION_REFUSED_KINDS, kind);
 }
 
 export const CONTENT_FORMATS = ["markdown", "mjml", "html", "plain"] as const;
