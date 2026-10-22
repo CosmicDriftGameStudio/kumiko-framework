@@ -11,8 +11,14 @@ export function mailTextWithSlotsHtml(text: string): string {
   );
 }
 
-export function mailParagraph(text: string): string {
-  return `<p>${mailTextWithSlotsHtml(text)}</p>`;
+type MailParagraphOptions = { readonly showIf?: string };
+
+function paragraphOpenTag(options: MailParagraphOptions | undefined): string {
+  return options?.showIf === undefined ? "<p>" : `<p data-if="${escapeHtmlAttr(options.showIf)}">`;
+}
+
+export function mailParagraph(text: string, options?: MailParagraphOptions): string {
+  return `${paragraphOpenTag(options)}${mailTextWithSlotsHtml(text)}</p>`;
 }
 
 export function mailHeading(text: string): string {
@@ -27,8 +33,9 @@ export function mailParagraphWithLink(
   text: string,
   linkLabel: string,
   linkVariable: string,
+  options?: MailParagraphOptions,
 ): string {
-  return `<p>${mailTextWithSlotsHtml(text)} <a href="{{${escapeHtmlAttr(linkVariable)}}}">${escapeHtml(linkLabel)}</a></p>`;
+  return `${paragraphOpenTag(options)}${mailTextWithSlotsHtml(text)} <a href="{{${escapeHtmlAttr(linkVariable)}}}">${escapeHtml(linkLabel)}</a></p>`;
 }
 
 // One table row per list entry; the cell shows the entry's `field`.

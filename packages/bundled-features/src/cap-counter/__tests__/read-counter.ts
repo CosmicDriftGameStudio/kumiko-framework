@@ -1,19 +1,12 @@
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { CapCounterQueries } from "../constants.ts";
 
-type CounterReaderStack = {
-  readonly http: {
-    readonly queryOk: <T = unknown>(
-      type: string,
-      payload: unknown,
-      user: SessionUser,
-    ) => Promise<T>;
-  };
-};
+type CounterReaderStack = Pick<TestStack, "http">;
 
 export type CounterRow = Record<string, unknown>;
 
-export async function fetchCounterRow(
+export function fetchCounterRow(
   stack: CounterReaderStack,
   user: SessionUser,
   capName: string,
@@ -32,6 +25,11 @@ export async function fetchCounterValue(
   capName: string,
   periodStartIso: string,
 ): Promise<number | undefined> {
-  const value = (await fetchCounterRow(stack, user, capName, periodStartIso))?.["value"];
-  return typeof value === "number" ? value : undefined;
+  const row = await fetchCounterRow(stack, user, capName, periodStartIso);
+  if (row === null) return undefined;
+  const value = row["value"];
+  if (typeof value !== "number") {
+    throw new Error(`counter value is not a number: ${typeof value}`);
+  }
+  return value;
 }

@@ -137,6 +137,17 @@ describe("contractConfirmationVariables", () => {
     for (const row of rows) expect(sanitizeDocumentHtml(row.text).ok).toBe(true);
   });
 
+  test("ordered lists keep their numbers, starting at the authored start", () => {
+    expect(variablesFor("de", "1. Erster\n2. Zweiter").termsParagraphs).toEqual([
+      { text: "1. Erster" },
+      { text: "2. Zweiter" },
+    ]);
+    expect(variablesFor("de", "3. Dritter\n4. Vierter").termsParagraphs).toEqual([
+      { text: "3. Dritter" },
+      { text: "4. Vierter" },
+    ]);
+  });
+
   test("author HTML, images and links outside the mail link rules stay text the sanitizer keeps", () => {
     const terms = [
       'Siehe <b onclick="steal()">hier</b> & <script>steal()</script>.',

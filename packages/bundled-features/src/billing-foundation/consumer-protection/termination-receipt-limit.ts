@@ -14,28 +14,34 @@ function receiptBucketKey(ctx: HandlerContext, email: string): string | undefine
   return digest === undefined ? undefined : `${RECEIPT_BUCKET_PREFIX}:${digest}`;
 }
 
+export type ReceiptMailVerdict = "allowed" | "limited" | "unavailable";
+
 /** Consumes one receipt token for the recipient. Fails closed when the limiter
- *  errors or no digest key is wired: the declaration is already recorded, a missing receipt is the lesser harm. */
-export async function mayMailReceipt(ctx: HandlerContext, email: string): Promise<boolean> {
+ *  errors or no digest key is wired ("unavailable"): the declaration is already
+ *  recorded, a missing receipt is the lesser harm. */
+export async function mayMailReceipt(
+  ctx: HandlerContext,
+  email: string,
+): Promise<ReceiptMailVerdict> {
   // skip: no rate limiter wired, nothing to count against
-  if (!ctx.rateLimit) return true;
+  if (!ctx.rateLimit) return "allowed";
   try {
     const bucketKey = receiptBucketKey(ctx, email);
     if (bucketKey === undefined) {
       ctx.log?.warn(
         "[billing-foundation:termination] no rate-limit digest available, receipt mail withheld",
       );
-      return false;
+      return "unavailable";
     }
     const decision = await ctx.rateLimit.check(bucketKey, {
       limit: RECEIPT_MAILS_PER_RECIPIENT,
       windowSeconds: RECEIPT_WINDOW_SECONDS,
     });
-    return decision.allowed;
+    return decision.allowed ? "allowed" : "limited";
   } catch (error) {
     ctx.log?.warn(
       `[billing-foundation:termination] receipt rate limiter failed: ${error instanceof Error ? error.message : String(error)}`,
     );
-    return false;
+    return "unavailable";
   }
 }

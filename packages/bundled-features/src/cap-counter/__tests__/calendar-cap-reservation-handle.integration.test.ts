@@ -18,7 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { burst, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -374,5 +374,62 @@ describe("calendarCapReservationHandle", () => {
     expect(rejected.httpStatus).toBe(422);
     expect(rejected.details).toMatchObject({ reason: "cap_settle_below_consumed" });
     expect(await readCounterValue(user, "sweep-low-cap")).toBe(2);
+  });
+
+  test("consume and settle after a sweep of an unconsumed reservation count the total exactly once", async () => {
+    const user = adminFor(3211);
+    const reservationId = await reserve(user, "sweep-unused-cap", 5);
+
+    await sweepAfterTtl(user, "sweep-unused-cap");
+    expect(await readCounterValue(user, "sweep-unused-cap")).toBe(0);
+
+    await stack.http.writeOk(
+      CONSUME_QN,
+      { capName: "sweep-unused-cap", reservationId, units: 2 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-unused-cap")).toBe(2);
+
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "sweep-unused-cap", reservationId, actual: 5 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-unused-cap")).toBe(5);
+
+    await stack.http.writeOk(
+      SETTLE_QN,
+      { capName: "sweep-unused-cap", reservationId, actual: 5 },
+      user,
+    );
+    expect(await readCounterValue(user, "sweep-unused-cap")).toBe(5);
+  });
+
+  test("parallel consume and settle on a swept, deleted reservation end at the settled amount", async () => {
+    const user = adminFor(3212);
+    const ROUNDS = 5;
+    for (let round = 0; round < ROUNDS; round++) {
+      const capName = `sweep-race-cap-${round}`;
+      const reservationId = await reserve(user, capName, 5);
+      await sweepAfterTtl(user, capName);
+
+      const { responses } = await burst(stack, 2, (index) =>
+        index === 0
+          ? stack.http.write(CONSUME_QN, { capName, reservationId, units: 2 }, user)
+          : stack.http.write(SETTLE_QN, { capName, reservationId, actual: 5 }, user),
+      );
+      const [consumeResponse, settleResponse] = responses;
+
+      expect(settleResponse?.status).toBe(200);
+      // Settle winning first leaves a settled tombstone, so the consume is refused.
+      if (consumeResponse?.status !== 200) {
+        expect(consumeResponse?.status).toBe(422);
+        const body = (await consumeResponse?.json()) as {
+          error?: { details?: { reason?: string } };
+        };
+        expect(body.error?.details?.reason).toBe("cap_reservation_settled");
+      }
+      expect(await readCounterValue(user, capName)).toBe(5);
+    }
   });
 });

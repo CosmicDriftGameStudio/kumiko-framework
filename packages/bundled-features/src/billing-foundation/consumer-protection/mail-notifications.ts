@@ -69,10 +69,9 @@ export function terminationReceiptTemplate(): NotificationLocalizedTemplate {
         mailRepeatedRows("details", "text"),
         mailParagraph(texts.receiptNextSteps),
         mailParagraph(texts.receiptRevoke(OPERATOR_EMAIL_SLOT)),
-        mailParagraphWithLink(texts.receiptNotMe, texts.receiptNotMeLink, "revokeUrl").replace(
-          "<p>",
-          '<p data-if="revokeUrl">',
-        ),
+        mailParagraphWithLink(texts.receiptNotMe, texts.receiptNotMeLink, "revokeUrl", {
+          showIf: "revokeUrl",
+        }),
         mailParagraph(`${texts.contact} {operatorEmail}`),
       ].join(""),
     };

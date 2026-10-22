@@ -201,7 +201,9 @@ afterAll(async () => {
 });
 
 async function resetStack(target: TestStack): Promise<void> {
-  await target.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
+  await asRawClient(target.db).unsafe(
+    `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
+  );
   await asRawClient(target.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(target.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
   await seedNotificationTemplates(target.db, target.registry);

@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -200,8 +201,10 @@ beforeEach(async () => {
   checkoutCalls.length = 0;
   providerThrows = false;
   billingEnabled = true;
-  await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
-  await stack.db.unsafe?.(`DELETE FROM "${templateResourcesTable.tableName}"`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
+  );
+  await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
   await seedTerms("de", TERMS_CONTENT_DE);
 });
 
@@ -327,7 +330,7 @@ describe("consumerProtection on — start-plan-checkout", () => {
   });
 
   test("rejects with terms_unavailable when the terms block does not exist", async () => {
-    await stack.db.unsafe?.(`DELETE FROM "${templateResourcesTable.tableName}"`);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
     const admin = adminFor(8104);
     const error = await stack.http.writeErr(
       SubscriptionFoundationHandlers.startPlanCheckout,
