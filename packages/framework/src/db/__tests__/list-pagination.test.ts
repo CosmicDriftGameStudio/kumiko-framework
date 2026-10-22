@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { UnprocessableError } from "../../errors/index.ts";
-import { resolveListPagination } from "../event-store-executor-read.ts";
+import { resolveListPagination } from "../event-store-executor-read-paging.ts";
 
 describe("resolveListPagination — executor-level guard", () => {
   test("defaults: limit 50, offset 0", () => {

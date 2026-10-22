@@ -19,7 +19,12 @@
 import type { Writable } from "@cosmicdrift/kumiko-types/executor-brand";
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
-import type { EntityDefinition, FieldDefinition } from "../engine/types/index.ts";
+import type {
+  EntityDefinition,
+  EntityIndexDef,
+  EntityRelations,
+  FieldDefinition,
+} from "../engine/types/index.ts";
 import { isSqlExpression } from "./dialect.ts";
 import type {
   BuildEntityTableMetaOptions,
@@ -275,35 +280,69 @@ export function deriveEntityTableMeta(
 ): EntityTableMeta {
   const tableName = resolveTableName(entityName, entity, options?.featureName);
   const source = options?.source ?? "managed";
-  if (source === "unmanaged") {
-    assertUnmanagedTableName(tableName, "deriveEntityTableMeta");
-  }
   const idType = entity.idType ?? "uuid";
-  if (source === "unmanaged" && idType === "serial") {
-    // Unmanaged direct-write stores bypass validateRecordOwnedSubjects (it only walks
-    // feature.entities), yet encryptForDirectWrite still keys recordOwned and
-    // whenAbsent: "self" fields as `record:<entity>:<id>`; forgetSubject requires a UUID,
-    // so the value could never be shredded.
-    const recordOwnedField = Object.entries(entity.fields).find(([, field]) =>
-      isRecordKeyedField(field),
-    );
-    if (recordOwnedField) {
-      throw new Error(
-        `deriveEntityTableMeta("${entityName}", { source: "unmanaged" }): field "${recordOwnedField[0]}" is recordOwned (or whenAbsent: "self") but the entity declares idType: "serial" — the record subject key is "record:${entityName}:<id>" and forgetSubject validates that id as a UUID, so this field could never be shredded. Use idType: "uuid", or give the field a different personal stance.`,
-      );
-    }
-  }
+  if (source === "unmanaged") assertUnmanagedRules(entityName, entity, tableName, idType);
 
-  // Base columns first, then user-fields. User-fields with the same
-  // pg-name as a base-column OVERRIDE the base-column (last-wins, same
-  // behavior as drizzle's `{ ...base, ...fields }` spread in the table
-  // builder). Use case: user-session has `tenantId` as a field to enforce
-  // access control, fileRef has `insertedAt` as a field for sortable/
-  // filterable marking. The DB column stays the same, only the application
-  // metadata on the field side changes.
-  const baseCols = fullBaseColumns(idType, entity.softDelete === true);
+  const layout = collectEntityColumns(entity, idType);
+  const indexes: IndexMeta[] = [
+    { name: `${tableName}_tenant_id_idx`, columns: ["tenant_id"] },
+    ...foreignKeyIndexes(tableName, entity, options?.relations, layout.fieldNameToSnake),
+    ...blindIndexIndexes(tableName, layout.bidxSnakeByFieldSnake),
+    ...declaredIndexes(tableName, entity, layout),
+  ];
+
+  const piiSubjectFields = collectPiiEncryptedFields(entity);
+  const meta: EntityTableMeta = {
+    tableName,
+    columns: layout.columns,
+    indexes,
+    source,
+    ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
+    ...(entity.tenancy === "global" && { tenancy: "global" as const }),
+  };
+  return source === "unmanaged" ? brandWritable(meta) : meta;
+}
+
+type EntityColumnLayout = {
+  readonly columns: readonly ColumnMeta[];
+  readonly fieldNameToSnake: ReadonlyMap<string, string>;
+  readonly bidxSnakeByFieldSnake: ReadonlyMap<string, string>;
+};
+
+function assertUnmanagedRules(
+  entityName: string,
+  entity: EntityDefinition,
+  tableName: string,
+  idType: "uuid" | "serial",
+): void {
+  assertUnmanagedTableName(tableName, "deriveEntityTableMeta");
+  if (idType === "serial") assertRecordSubjectsShreddable(entityName, entity);
+}
+
+// Unmanaged direct-write stores bypass validateRecordOwnedSubjects (it only walks
+// feature.entities), yet encryptForDirectWrite still keys recordOwned and
+// whenAbsent: "self" fields as `record:<entity>:<id>`; forgetSubject requires a UUID,
+// so the value could never be shredded.
+function assertRecordSubjectsShreddable(entityName: string, entity: EntityDefinition): void {
+  const recordOwnedField = Object.entries(entity.fields).find(([, field]) =>
+    isRecordKeyedField(field),
+  );
+  if (recordOwnedField) {
+    throw new Error(
+      `deriveEntityTableMeta("${entityName}", { source: "unmanaged" }): field "${recordOwnedField[0]}" is recordOwned (or whenAbsent: "self") but the entity declares idType: "serial" — the record subject key is "record:${entityName}:<id>" and forgetSubject validates that id as a UUID, so this field could never be shredded. Use idType: "uuid", or give the field a different personal stance.`,
+    );
+  }
+}
+
+// A field column with a base column's pg name overrides it in place (last wins,
+// like `{ ...base, ...fields }`): user-session declares `tenantId` for access
+// control, fileRef `insertedAt` for sort/filter flags; the DB column is unchanged.
+function collectEntityColumns(
+  entity: EntityDefinition,
+  idType: "uuid" | "serial",
+): EntityColumnLayout {
   const colByName = new Map<string, ColumnMeta>();
-  for (const c of baseCols) colByName.set(c.name, c);
+  for (const c of fullBaseColumns(idType, entity.softDelete === true)) colByName.set(c.name, c);
 
   const fieldNameToSnake = new Map<string, string>();
   const bidxSnakeByFieldSnake = new Map<string, string>();
@@ -311,117 +350,117 @@ export function deriveEntityTableMeta(
     const fieldCols = fieldToColumnMeta(name, field, entity);
     for (const c of fieldCols) colByName.set(c.name, c);
     // Multi-column fields map to their primary column when its name IS the
-    // field's snake (text+bidx, money+currency) — matches the toSnakeCase
-    // fallback below, so explicit indexes keep resolving.
+    // field's snake (text+bidx, money+currency), so explicit indexes keep resolving.
     const primary = fieldCols[0];
     if (primary && primary.name === toSnakeCase(name)) fieldNameToSnake.set(name, primary.name);
     const bidxCol = fieldCols.find((c) => c.name.endsWith("_bidx"));
     if (primary && bidxCol) bidxSnakeByFieldSnake.set(primary.name, bidxCol.name);
   }
+  // Map insertion order keeps base columns first (overrides stay in place), then new field columns.
+  return { columns: [...colByName.values()], fieldNameToSnake, bidxSnakeByFieldSnake };
+}
 
-  // Preserve base-col order, then any new user-col-names in fields-order.
-  const columns: ColumnMeta[] = [];
-  const seen = new Set<string>();
-  for (const c of baseCols) {
-    const final = colByName.get(c.name);
-    if (final && !seen.has(final.name)) {
-      columns.push(final);
-      seen.add(final.name);
-    }
-  }
-  for (const c of colByName.values()) {
-    if (!seen.has(c.name)) {
-      columns.push(c);
-      seen.add(c.name);
-    }
-  }
-
-  const indexes: IndexMeta[] = [{ name: `${tableName}_tenant_id_idx`, columns: ["tenant_id"] }];
-
-  // FK-Indexes: file/image-Felder + belongsTo-Relations
+function foreignKeyIndexes(
+  tableName: string,
+  entity: EntityDefinition,
+  relations: EntityRelations | undefined,
+  fieldNameToSnake: ReadonlyMap<string, string>,
+): IndexMeta[] {
   const fkSnakeNames = new Set<string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type === "file" || field.type === "image") fkSnakeNames.add(toSnakeCase(name));
   }
-  if (options?.relations) {
-    for (const rel of Object.values(options.relations)) {
-      if (rel.type === "belongsTo") {
-        const snake = fieldNameToSnake.get(rel.foreignKey) ?? toSnakeCase(rel.foreignKey);
-        fkSnakeNames.add(snake);
-      }
+  for (const rel of Object.values(relations ?? {})) {
+    if (rel.type === "belongsTo") {
+      fkSnakeNames.add(fieldNameToSnake.get(rel.foreignKey) ?? toSnakeCase(rel.foreignKey));
     }
   }
-  for (const snake of fkSnakeNames) {
-    indexes.push({ name: `${tableName}_${snake}_idx`, columns: [snake] });
-  }
+  return [...fkSnakeNames].map((snake) => ({
+    name: `${tableName}_${snake}_idx`,
+    columns: [snake],
+  }));
+}
 
-  // lookupable fields: index on the bidx column — the query compiler's
-  // OR rewrite hits it on every equality lookup.
-  for (const bidxSnake of bidxSnakeByFieldSnake.values()) {
-    indexes.push({ name: `${tableName}_${bidxSnake}_idx`, columns: [bidxSnake] });
-  }
+// The query compiler's OR rewrite hits the bidx column on every equality lookup.
+function blindIndexIndexes(
+  tableName: string,
+  bidxSnakeByFieldSnake: ReadonlyMap<string, string>,
+): IndexMeta[] {
+  return [...bidxSnakeByFieldSnake.values()].map((bidxSnake) => ({
+    name: `${tableName}_${bidxSnake}_idx`,
+    columns: [bidxSnake],
+  }));
+}
 
-  // Explicitly declared indexes (EntityIndexDef). `def.where` is a
-  // SqlExpression (`sql\`…\`` from @cosmicdrift/kumiko-framework/db) —
-  // renderable via `.text`. Unknown where-shapes stay needsManualWhere.
-  for (const def of entity.indexes ?? []) {
-    const cols = def.columns.map(
-      (fieldName) => fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
-    );
-    const suffix = def.unique === true ? "unique" : "idx";
-    const indexName = def.name ?? `${tableName}_${cols.join("_")}_${suffix}`;
-    const explicitWhereSql = sqlExpressionText(def.where);
-    // Soft-deleted rows keep their value, so a full unique index would
-    // permanently block reuse; kept in lock-step with table-builder.ts.
-    const whereSql =
-      explicitWhereSql ??
-      (def.where === undefined && def.unique === true && entity.softDelete === true
-        ? SOFT_DELETE_LIVE_ROW_PREDICATE
-        : undefined);
-    indexes.push({
-      name: indexName,
-      columns: cols,
-      ...(def.unique === true && { unique: true }),
-      ...(whereSql !== undefined && { whereSql }),
-      ...(def.where !== undefined && explicitWhereSql === undefined && { needsManualWhere: true }),
-    });
-    // Unique index over lookupable columns: partial bidx counterpart, so
-    // uniqueness also holds for encrypted rows. The original stays
-    // for plaintext legacy rows; partial (IS NOT NULL) because bidx is
-    // NULL for erased/key-less rows.
-    if (def.unique === true && def.where === undefined) {
-      const bidxCols = cols.map((c) => bidxSnakeByFieldSnake.get(c) ?? c);
-      if (bidxCols.some((c, i) => c !== cols[i])) {
-        const notNullParts = bidxCols
-          .filter((c, i) => c !== cols[i])
-          .map((c) => `"${c}" IS NOT NULL`);
-        // Soft-deleted rows keep their bidx hash — without this, a restored
-        // row can't reuse a value a soft-deleted sibling still holds
-        // Kept in lock-step with table-builder.ts.
-        const whereParts =
-          entity.softDelete === true
-            ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE]
-            : notNullParts;
-        indexes.push({
-          name: `${indexName}_bidx`,
-          columns: bidxCols,
-          unique: true,
-          whereSql: whereParts.join(" AND "),
-        });
-      }
-    }
-  }
+function declaredIndexes(
+  tableName: string,
+  entity: EntityDefinition,
+  layout: EntityColumnLayout,
+): IndexMeta[] {
+  return (entity.indexes ?? []).flatMap((def) =>
+    declaredIndexWithBidxCounterpart(tableName, entity, def, layout),
+  );
+}
 
-  const piiSubjectFields = collectPiiEncryptedFields(entity);
-  const meta: EntityTableMeta = {
-    tableName,
-    columns,
-    indexes,
-    source,
-    ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
-    ...(entity.tenancy === "global" && { tenancy: "global" as const }),
+// `def.where` is a SqlExpression renderable via `.text`; unknown where-shapes
+// stay needsManualWhere.
+function declaredIndexWithBidxCounterpart(
+  tableName: string,
+  entity: EntityDefinition,
+  def: EntityIndexDef,
+  layout: EntityColumnLayout,
+): IndexMeta[] {
+  const cols = def.columns.map(
+    (fieldName) => layout.fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
+  );
+  const suffix = def.unique === true ? "unique" : "idx";
+  const indexName = def.name ?? `${tableName}_${cols.join("_")}_${suffix}`;
+  const explicitWhereSql = sqlExpressionText(def.where);
+  // Soft-deleted rows keep their value, so a full unique index would
+  // permanently block reuse; kept in lock-step with table-builder.ts.
+  const whereSql =
+    explicitWhereSql ??
+    (def.where === undefined && def.unique === true && entity.softDelete === true
+      ? SOFT_DELETE_LIVE_ROW_PREDICATE
+      : undefined);
+  const declared: IndexMeta = {
+    name: indexName,
+    columns: cols,
+    ...(def.unique === true && { unique: true }),
+    ...(whereSql !== undefined && { whereSql }),
+    ...(def.where !== undefined && explicitWhereSql === undefined && { needsManualWhere: true }),
   };
-  return source === "unmanaged" ? brandWritable(meta) : meta;
+  if (def.unique !== true || def.where !== undefined) return [declared];
+  const counterpart = bidxUniqueCounterpart(
+    indexName,
+    cols,
+    entity.softDelete === true,
+    layout.bidxSnakeByFieldSnake,
+  );
+  return counterpart ? [declared, counterpart] : [declared];
+}
+
+// Unique index over lookupable columns gets a partial bidx counterpart so
+// uniqueness also holds for encrypted rows; IS NOT NULL because bidx is NULL
+// for erased/key-less rows.
+function bidxUniqueCounterpart(
+  indexName: string,
+  cols: readonly string[],
+  softDelete: boolean,
+  bidxSnakeByFieldSnake: ReadonlyMap<string, string>,
+): IndexMeta | undefined {
+  const bidxCols = cols.map((c) => bidxSnakeByFieldSnake.get(c) ?? c);
+  const notNullParts = bidxCols.filter((c, i) => c !== cols[i]).map((c) => `"${c}" IS NOT NULL`);
+  if (notNullParts.length === 0) return undefined;
+  // Soft-deleted rows keep their bidx hash, so without the live-row predicate a
+  // restored row could not reuse a value a soft-deleted sibling still holds.
+  const whereParts = softDelete ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE] : notNullParts;
+  return {
+    name: `${indexName}_bidx`,
+    columns: bidxCols,
+    unique: true,
+    whereSql: whereParts.join(" AND "),
+  };
 }
 
 function sqlExpressionText(where: unknown): string | undefined {
