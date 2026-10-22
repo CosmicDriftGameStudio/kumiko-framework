@@ -38,6 +38,8 @@ const ADDRESS = "rename-recipient@test.com";
 const emailTransport = createInMemoryTransport();
 const testEmail = (userId: string) => `user-${userId}@test.com`;
 const user = createTestUser({ id: 2, roles: ["User"] });
+// Own user for the preferences-query tests so rows written by the delivery tests don't leak in.
+const queryUser = createTestUser({ id: 3, roles: ["User"] });
 
 const appFeature = defineFeature("app", (r) => {
   r.requires({ features: ["delivery"] });
@@ -114,10 +116,10 @@ beforeEach(() => {
 const tenantDb = () => createTenantDb({ db: stack.db, tenantId: user.tenantId });
 const sentTo = (address: string) => emailTransport.sent.filter((m) => m.to === address);
 
-async function storeFormerNamePreference(enabled: boolean): Promise<void> {
-  const result = await upsertPreference(tenantDb(), user, {
-    tenantId: user.tenantId,
-    userId: user.id,
+async function storeFormerNamePreference(enabled: boolean, owner = user): Promise<void> {
+  const result = await upsertPreference(tenantDb(), owner, {
+    tenantId: owner.tenantId,
+    userId: owner.id,
     notificationType: FORMER_TYPE,
     channel: "email",
     enabled,
@@ -172,6 +174,37 @@ describe("notification rename keeps preferences and opt-outs", () => {
     );
     const stored = prefs.rows.filter((row) => row["channel"] === "email");
     expect(stored.some((row) => row["notificationType"] === CURRENT_TYPE)).toBe(true);
+  });
+
+  test("preferences query reports a former-name row under the current name", async () => {
+    await storeFormerNamePreference(false, queryUser);
+    const prefs = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      DeliveryQueries.preferences,
+      {},
+      queryUser,
+    );
+    const emailRows = prefs.rows.filter((row) => row["channel"] === "email");
+    expect(emailRows.map((row) => [row["notificationType"], row["enabled"]])).toEqual([
+      [CURRENT_TYPE, false],
+    ]);
+  });
+
+  test("preferences query lets the current-name row win over a former-name row", async () => {
+    await storeFormerNamePreference(false, queryUser);
+    await stack.http.writeOk(
+      DeliveryHandlers.setPreference,
+      { notificationType: CURRENT_TYPE, channel: "email", enabled: true },
+      queryUser,
+    );
+    const prefs = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      DeliveryQueries.preferences,
+      {},
+      queryUser,
+    );
+    const emailRows = prefs.rows.filter((row) => row["channel"] === "email");
+    expect(emailRows.map((row) => [row["notificationType"], row["enabled"]])).toEqual([
+      [CURRENT_TYPE, true],
+    ]);
   });
 
   test("an enabled preference under the current name wins over a disabled former-name row", async () => {

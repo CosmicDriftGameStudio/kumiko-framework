@@ -399,7 +399,11 @@ describe("tenant run state in the run-logger", () => {
 
   test("a retried failure goes back to queued, the final failure is failed", async () => {
     const cb = logger(registry);
-    await cb.onJobQueued?.(job, "retry-1", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(job, "retry-1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     await cb.onJobStart?.(job, "retry-1", {
       attempt: 1,
       tenantVisibleRun: { tenantId: tenantA, subject: null },
@@ -424,7 +428,11 @@ describe("tenant run state in the run-logger", () => {
   test("a deferred run goes back to queued and leaves no run row behind", async () => {
     const cb = logger(registry);
     const meta = { attempt: 1, tenantVisibleRun: { tenantId: tenantA, subject: null } };
-    await cb.onJobQueued?.(job, "defer-1", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(job, "defer-1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     await cb.onJobStart?.(job, "defer-1", meta);
     expect((await rowOf("defer-1"))?.status).toBe("running");
     expect(await selectMany(db, jobRunsTable, { bullJobId: "defer-1" })).toHaveLength(1);
@@ -438,20 +446,36 @@ describe("tenant run state in the run-logger", () => {
 
   test("the same job id queued twice, or queued after it started, stays one row", async () => {
     const cb = logger(registry);
-    await cb.onJobQueued?.(job, "dup-1", { tenantId: tenantA, subject: null });
-    await cb.onJobQueued?.(job, "dup-1", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(job, "dup-1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
+    await cb.onJobQueued?.(job, "dup-1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     expect(await selectMany(db, tenantJobRunsTable, { bullJobId: "dup-1" })).toHaveLength(1);
 
     await cb.onJobStart?.(job, "dup-1", {
       tenantVisibleRun: { tenantId: tenantA, subject: null },
     });
-    await cb.onJobQueued?.(job, "dup-1", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(job, "dup-1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     expect((await rowOf("dup-1"))?.status).toBe("running");
   });
 
   test("a dropped queued job disappears, a running one does not", async () => {
     const cb = logger(registry);
-    await cb.onJobQueued?.(job, "drop-1", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(job, "drop-1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     await cb.onJobDropped?.(job, "drop-1", { tenantId: tenantA });
     expect(await rowOf("drop-1")).toBeUndefined();
 
@@ -472,8 +496,16 @@ describe("tenant run state in the run-logger", () => {
 
     test("each tenant sees only its own status and a foreign row is never overwritten", async () => {
       const cb = logger(registry);
-      await cb.onJobQueued?.(jobOfA, "7", { tenantId: tenantA, subject: null });
-      await cb.onJobQueued?.(jobOfA, "7", { tenantId: tenantB, subject: null });
+      await cb.onJobQueued?.(jobOfA, "7", {
+        tenantId: tenantA,
+        subject: null,
+        jobCreatedAtMs: Date.now(),
+      });
+      await cb.onJobQueued?.(jobOfA, "7", {
+        tenantId: tenantB,
+        subject: null,
+        jobCreatedAtMs: Date.now(),
+      });
 
       await cb.onJobStart?.(jobOfA, "7", {
         tenantVisibleRun: { tenantId: tenantA, subject: null },
@@ -495,8 +527,16 @@ describe("tenant run state in the run-logger", () => {
 
     test("two jobs of one tenant with the same id keep separate rows", async () => {
       const cb = logger(registry);
-      await cb.onJobQueued?.(jobOfA, "8", { tenantId: tenantA, subject: null });
-      await cb.onJobQueued?.(jobOfB, "8", { tenantId: tenantA, subject: null });
+      await cb.onJobQueued?.(jobOfA, "8", {
+        tenantId: tenantA,
+        subject: null,
+        jobCreatedAtMs: Date.now(),
+      });
+      await cb.onJobQueued?.(jobOfB, "8", {
+        tenantId: tenantA,
+        subject: null,
+        jobCreatedAtMs: Date.now(),
+      });
       await cb.onJobStart?.(jobOfB, "8", {
         tenantVisibleRun: { tenantId: tenantA, subject: null },
       });
@@ -514,7 +554,11 @@ describe("tenant run state in the run-logger", () => {
       finalAttempt: true,
       tenantVisibleRun: { subject: null },
     };
-    await cb.onJobQueued?.(reusedJob, "1", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(reusedJob, "1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     await cb.onJobStart?.(reusedJob, "1", {
       tenantVisibleRun: { tenantId: tenantA, subject: null },
     });
@@ -525,12 +569,41 @@ describe("tenant run state in the run-logger", () => {
     });
     expect(finishedRows.map((row) => row.status)).toEqual(["completed"]);
 
-    await cb.onJobQueued?.(reusedJob, "1", { tenantId: tenantA, subject: null });
+    // The new BullMQ job is created after the old row was queued.
+    await cb.onJobQueued?.(reusedJob, "1", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now() + 1_000,
+    });
     const requeued = await selectMany<{ status: string; jobName: string }>(db, tenantJobRunsTable, {
       bullJobId: "1",
       jobName: reusedJob,
     });
     expect(requeued.map((row) => row.status)).toEqual(["queued"]);
+
+    // A deduplicated add hands back the already finished job: same creation time,
+    // so its completed row must survive the re-announcement.
+    const dedupJob = "app:job:key-probe-dedup";
+    const dedupCreatedAtMs = Date.now() - 1_000;
+    await cb.onJobQueued?.(dedupJob, "3", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: dedupCreatedAtMs,
+    });
+    await cb.onJobStart?.(dedupJob, "3", {
+      tenantVisibleRun: { tenantId: tenantA, subject: null },
+    });
+    await cb.onJobComplete?.(dedupJob, "3", 5, [], done);
+    await cb.onJobQueued?.(dedupJob, "3", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: dedupCreatedAtMs,
+    });
+    const deduped = await selectMany<{ status: string }>(db, tenantJobRunsTable, {
+      bullJobId: "3",
+      jobName: dedupJob,
+    });
+    expect(deduped.map((row) => row.status)).toEqual(["completed"]);
 
     // Worker finished before the enqueue hook ran: no queued row exists yet.
     const racedJob = "app:job:key-probe-raced";
@@ -538,7 +611,11 @@ describe("tenant run state in the run-logger", () => {
       tenantVisibleRun: { tenantId: tenantA, subject: null },
     });
     await cb.onJobComplete?.(racedJob, "2", 5, [], done);
-    await cb.onJobQueued?.(racedJob, "2", { tenantId: tenantA, subject: null });
+    await cb.onJobQueued?.(racedJob, "2", {
+      tenantId: tenantA,
+      subject: null,
+      jobCreatedAtMs: Date.now(),
+    });
     const raced = await selectMany<{ status: string }>(db, tenantJobRunsTable, {
       bullJobId: "2",
       jobName: racedJob,

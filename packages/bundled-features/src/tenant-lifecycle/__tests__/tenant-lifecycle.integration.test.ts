@@ -34,6 +34,7 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { TenantHandlers, TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import {
+  DESTRUCTION_STAGE_MIN_SLICE_MS,
   DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_FAILED_EVENT_QN,
@@ -536,6 +537,28 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
     // and the tenant behind it still starts with time left.
     expect(earliest).toBeLessThanOrEqual(finishedAt + DESTRUCTION_STAGE_TICK_BUDGET_MS / 2);
     expect(latest).toBeLessThanOrEqual(finishedAt + DESTRUCTION_STAGE_TICK_BUDGET_MS);
+  });
+
+  test("with many destroying tenants every slice keeps the minimum", async () => {
+    selectivePoisonTargetTenantId = null;
+    deadlinesSeenByHook.length = 0;
+    const tenantCount =
+      Math.ceil(DESTRUCTION_STAGE_TICK_BUDGET_MS / DESTRUCTION_STAGE_MIN_SLICE_MS) + 5;
+    for (let i = 0; i < tenantCount; i++) {
+      await seedDestroyingTenant(testTenantId(9100 + i));
+    }
+
+    const startedAt = Date.now();
+    await runTenantDestructionSweep({
+      db: isolationStack.db,
+      registry: isolationStack.registry,
+    });
+
+    expect(deadlinesSeenByHook).toHaveLength(tenantCount);
+    // An even split would give each tenant under the minimum and starve chunking hooks.
+    for (const deadline of deadlinesSeenByHook) {
+      expect(deadline).toBeGreaterThanOrEqual(startedAt + DESTRUCTION_STAGE_MIN_SLICE_MS);
+    }
   });
 });
 

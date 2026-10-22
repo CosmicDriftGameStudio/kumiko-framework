@@ -262,15 +262,16 @@ async function recordTenantRunQueued(
   const now = Temporal.Now.instant();
   await transaction(db, async (tx) => {
     // A finished row under the same id is left over from before a Redis reset
-    // (ids restart at 1), not this job. Only rows that went through this hook
-    // (queuedAt set) qualify: a fast worker can finish before the hook runs,
-    // and that row is this job's own and must stay.
+    // (ids restart at 1), not this job. Only rows queued before this BullMQ job
+    // was created qualify: a fast worker can finish before the hook runs (no
+    // queuedAt), and a deduplicated add of an already finished job re-announces
+    // it with a creation time older than its own row. Both rows must stay.
     await deleteMany(tx, tenantJobRunsTable, {
       tenantId: key.tenantId,
       jobName,
       bullJobId,
       status: { in: ["completed", "failed"] },
-      queuedAt: { gt: Temporal.Instant.fromEpochMilliseconds(0) },
+      queuedAt: { lt: Temporal.Instant.fromEpochMilliseconds(meta.jobCreatedAtMs) },
     });
     // DO NOTHING: a fast worker can report the start before this enqueue hook
     // returns, and a repeated jobId (debounce, fan-out dedup) is the same job.

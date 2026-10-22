@@ -82,7 +82,7 @@ async function enqueuePerTenantChildren(
       // COMPLETED_JOB_RETENTION_AGE_SEC invariant check in createJobRunner.
       ...(wrapperJobId !== undefined ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) } : {}),
     });
-    await announceQueued(scope, actualName, actualDef, child.id, childData);
+    await announceQueued(scope, actualName, actualDef, child, childData);
   }
 }
 
@@ -203,7 +203,7 @@ async function requeueBehindSequentialLock(
   if (bullJob.id !== undefined && bullJob.id !== requeued.id) {
     await announceDropped(scope, bullJob.name, jobDef, bullJob.id, bullJob.data);
   }
-  await announceQueued(scope, bullJob.name, jobDef, requeued.id, requeuedData);
+  await announceQueued(scope, bullJob.name, jobDef, requeued, requeuedData);
 }
 
 // Sequential gate: try to claim the per-name lock. If another worker

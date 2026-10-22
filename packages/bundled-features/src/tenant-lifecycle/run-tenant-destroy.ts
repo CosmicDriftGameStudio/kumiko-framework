@@ -23,6 +23,7 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantEntity, tenantTable } from "../tenant/index.ts";
 import {
+  DESTRUCTION_STAGE_MIN_SLICE_MS,
   DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_COMPLETED_EVENT_QN,
@@ -461,7 +462,10 @@ export async function runTenantDestructionSweep(args: {
   // window and starve the ones behind it. Each slice starts when its tenant
   // starts: anchoring to a shared tick deadline would hand tenants after an
   // overrun a zero slice, and a no-progress stage counts as a failed attempt.
-  const sliceMs = DESTRUCTION_STAGE_TICK_BUDGET_MS / Math.max(1, destroying.length);
+  const sliceMs = Math.max(
+    DESTRUCTION_STAGE_MIN_SLICE_MS,
+    DESTRUCTION_STAGE_TICK_BUDGET_MS / Math.max(1, destroying.length),
+  );
   for (const row of destroying) {
     const tenantDeadlineAt = Date.now() + sliceMs;
     try {

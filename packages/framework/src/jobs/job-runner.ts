@@ -732,7 +732,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       stampGatedWriteOrigin(data);
 
       const job = await targetQueue.add(jobName, data, bullOpts);
-      await announceQueued(scope, jobName, jobDef, job.id, data);
+      await announceQueued(scope, jobName, jobDef, job, data);
       return job.id ?? "unknown";
     },
 
@@ -782,7 +782,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // Route to the job's declared lane, not a fixed queue — that's
         // the whole reason both queues are held.
         const job = await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));
-        await announceQueued(scope, name, jobDef, job.id, data);
+        await announceQueued(scope, name, jobDef, job, data);
       }
     },
     attachDispatcher(ref: DispatchWriteRef): void {

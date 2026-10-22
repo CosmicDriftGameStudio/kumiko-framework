@@ -97,10 +97,11 @@ export async function announceQueued(
   scope: JobRunnerScope,
   jobName: string,
   jobDef: JobDefinition,
-  bullJobId: string | undefined,
+  queuedJob: { readonly id?: string | undefined; readonly timestamp: number },
   data: Record<string, unknown>,
 ): Promise<void> {
   const { options } = scope;
+  const bullJobId = queuedJob.id;
   const declaration = jobDef.tenantVisibleRun;
   // skip: job did not opt in, no logger wired, or BullMQ returned no id
   if (!declaration || !options.onJobQueued || bullJobId === undefined) return;
@@ -114,7 +115,11 @@ export async function announceQueued(
       declaration.subjectFields,
       "tenantVisibleRun",
     );
-    await options.onJobQueued(jobName, bullJobId, { tenantId, subject });
+    await options.onJobQueued(jobName, bullJobId, {
+      tenantId,
+      subject,
+      jobCreatedAtMs: queuedJob.timestamp,
+    });
   } catch (err) {
     scope.errorLogger.warn("tenant-visible queued state not recorded", {
       job: jobName,
