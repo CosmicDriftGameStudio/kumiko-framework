@@ -114,6 +114,21 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
     expect(labelById.get(foreignTenantId)).toBe("Foreign Tenant");
   });
 
+  test("ids resolve exactly those tenants for a SystemAdmin and only the own one for a TenantAdmin", async () => {
+    const { id: operatorId } = await seedUser(stack.db, {
+      email: "ids-operator@example.com",
+      displayName: "Ids Operator",
+      emailVerified: true,
+    });
+    const operator: SessionUser = { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] };
+
+    expect(await queryDirectory(operator, { ids: [foreignTenantId] })).toEqual([
+      { id: foreignTenantId, label: "Foreign Tenant" },
+    ]);
+    expect(await queryDirectory(operator, { ids: [] })).toEqual([]);
+    expect(await queryDirectory(tenantAdmin(operatorId), { ids: [foreignTenantId] })).toEqual([]);
+  });
+
   test("a SystemAdmin search narrows the labels case-insensitively", async () => {
     const { id: operatorId } = await seedUser(stack.db, {
       email: "search-operator@example.com",

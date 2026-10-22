@@ -8,6 +8,11 @@ import {
   TENANT_OVERRIDES_REASON,
 } from "./tenant-override-selection.ts";
 
+type OverrideCountRow = Pick<
+  TemplateResourceRow,
+  "tenantId" | "slug" | "kind" | "status" | "version"
+>;
+
 export const tenantOverrideCountsResultSchema = z.object({
   totalTenants: z.number().nullable(),
   counts: z.array(z.object({ slug: z.string(), kind: z.string(), activeOverrides: z.number() })),
@@ -21,18 +26,17 @@ export const tenantOverrideCountsQuery = defineQueryHandler({
     "Counts, per template slug and kind, the enabled tenants that override it with an active version, next to the number of enabled tenants; one query for the whole template overview instead of one tenant-overrides call per row.",
   escapeHatch: { grants: ["unsafeRaw"], reason: TENANT_OVERRIDES_REASON },
   handler: async (_query, ctx) => {
-    const found = await selectMany<TemplateResourceRow>(
+    const found = await selectMany<OverrideCountRow>(
       ctx.db.unsafeRaw(),
       templateResourcesTable,
-      {
-        scope: "tenant",
-      },
+      { scope: "tenant" },
+      { fields: ["tenantId", "slug", "kind", "status", "version"] },
     );
     const enabledTenantIds = await loadEnabledTenantIds(ctx);
 
     const rowsBySlugAndKind = new Map<
       string,
-      { slug: string; kind: string; rows: TemplateResourceRow[] }
+      { slug: string; kind: string; rows: OverrideCountRow[] }
     >();
     for (const row of found) {
       const key = `${row.kind}|${row.slug}`;

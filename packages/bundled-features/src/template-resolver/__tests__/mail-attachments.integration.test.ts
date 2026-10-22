@@ -51,6 +51,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "link-archived",
     "link-archived-doc",
     "link-basic",
+    "link-image-key",
     "link-foreign",
     "link-foreign-doc",
     "link-invalid",
@@ -544,6 +545,37 @@ describe("template-resolver :: linked PDF template", () => {
       tenantA,
     );
     expect(Object.keys(await linkedOf(templateId, tenantA))).toHaveLength(10);
+  });
+
+  test("linking a PDF over an inline image key is refused and keeps the image", async () => {
+    await createTemplate(systemAdmin, "link-image-doc", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-image-key");
+    const logo = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await upload(tenantA, logo, { name: "logo.png", type: "image/png" }),
+        templateId,
+        key: "logo",
+        purpose: "image",
+      },
+      tenantA,
+    );
+    const before = await linkedOf(templateId, tenantA);
+
+    const refused = await link(tenantA, {
+      templateId,
+      key: "logo",
+      templateSlug: "link-image-doc",
+      fileName: "a.pdf",
+    });
+
+    expectErrorIncludes(refused, '"code":"key_in_use"');
+    expect(await linkedOf(templateId, tenantA)).toEqual(before);
   });
 
   test("a template of another tenant cannot be linked into", async () => {

@@ -1,5 +1,5 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
+import { toPostgresArrayLiteral, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { readStoredDraft } from "../../decrypt-draft.ts";
@@ -48,7 +48,7 @@ export async function selectStaleDraftsBatch(
      AND NOT ("id"::text = ANY($3::text[]))
      ORDER BY COALESCE("modified_at", "inserted_at") ASC
      LIMIT $2`,
-    [olderThanDays, batchSize, [...excludeIds]],
+    [olderThanDays, batchSize, toPostgresArrayLiteral([...excludeIds])],
   );
   return Promise.all(
     rows.map(async (row) => {
