@@ -393,7 +393,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.plans.planSwitchRequested":
     "Plan switch requested. It becomes active once the payment is confirmed.",
   "billing-foundation.plans.priceUnavailable": "Price not available",
-  "billing-foundation.plans.providerChoice": "Payment provider",
   "billing-foundation.plans.purchaseNotAllowed": "Only administrators can change the plan.",
   "billing-foundation.plans.reactivate": "Reactivate subscription",
   "billing-foundation.plans.subscriptionPending": "Your plan change is being processed.",

@@ -328,6 +328,22 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "billing-foundation.cancel.withdrawalHint":
     "El desistimiento solo es posible dentro del plazo legal.",
   "billing-foundation.consent.back": "Volver",
+  "billing-foundation.plans.planSwitchRequested":
+    "Cambio de plan solicitado. Se activará cuando se confirme el pago.",
+  "billing-foundation.planSwitch.title": "Confirmar cambio de plan",
+  "billing-foundation.planSwitch.summary": "{from} a {to}",
+  "billing-foundation.planSwitch.dueNow": "A pagar ahora: {amount}",
+  "billing-foundation.planSwitch.includesTax": "IVA de {tax} incluido",
+  "billing-foundation.planSwitch.credit": "Abono por el tiempo no utilizado: {amount}",
+  "billing-foundation.planSwitch.recurring": "Nuevo precio recurrente: {amount}",
+  "billing-foundation.planSwitch.effective": "Efectivo de inmediato",
+  "billing-foundation.planSwitch.pendingNote": "El cambio se activa tras la confirmación del pago.",
+  "billing-foundation.planSwitch.order": "Cambiar con obligación de pago",
+  "billing-foundation.plans.priceFrom": "desde",
+  "billing-foundation.consent.chooseProvider": "Proveedor de pago",
+  "billing-foundation.errors.providerNotOffered":
+    "Este proveedor de pago no está disponible en este momento.",
+  "billing-foundation.errors.providerRequired": "Elige un proveedor de pago para continuar.",
   "billing-foundation.consent.cancelAnytime":
     "Puedes cancelar en cualquier momento, con efecto al final del período actual.",
   "billing-foundation.consent.link.privacy": "Política de privacidad",

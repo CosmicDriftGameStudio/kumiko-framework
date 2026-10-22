@@ -25,7 +25,6 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.plans.everyInterval.year": { en: "every {count} years" },
   "billing-foundation.plans.choose": { en: "Choose {plan}" },
   "billing-foundation.plans.switch": { en: "Switch to {plan}" },
-  "billing-foundation.plans.providerChoice": { en: "Payment provider" },
   "billing-foundation.plans.planSwitchRequested": {
     en: "Plan switch requested. It becomes active once the payment is confirmed.",
   },
