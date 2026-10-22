@@ -75,8 +75,13 @@ features: [..., createSessionsFeature(), mfaFeature, createAccountSecurityFeatur
 5. **MFA state changes revoke every OTHER live session** (stolen-session defense) — never the session that made the change.
 6. **Enforcement is opt-in.** Without a tenant enabling `auth-mfa:config:required`, users choose for themselves whether to enroll.
 
+## Confirmation code input
+
+`src/web/confirmation-code-step.tsx` shows the `Input kind="code"` renderer primitive outside the MFA screen, for example an e-mail or invite confirmation code. Pass `length` (here 6), `autoFocus` and `onComplete`. The input accepts digits only, so pasting "123 456" yields `123456`, and `onComplete` fires once when the value reaches `length`. `autoComplete` defaults to `one-time-code`, so mobile keyboards offer the code from the SMS or mail. After a wrong code the step clears the value and bumps a `key`, which remounts the input and returns focus to it.
+
 ## Tests
 
 - **Baseline:** a user without MFA enrolled still gets a JWT straight from `/auth/login`.
 - **End-to-end:** enroll via `enable-start`/`enable-confirm`, log in (gets a challenge, no JWT), complete via `/auth/mfa/verify` (gets a JWT) — copies the `buildServer({ auth: ... })` block from the sample comment verbatim.
 - **Account security:** the composed screen boot-validates next to `auth-mfa` and `sessions` and shows a sidebar entry once `nav` is set.
+- **Confirmation code step:** typing or pasting six digits calls `onConfirm` once; a rejected code shows the error, clears the field and refocuses it.
