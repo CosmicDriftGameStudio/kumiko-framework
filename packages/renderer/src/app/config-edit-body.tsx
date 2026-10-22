@@ -172,9 +172,13 @@ export function ConfigEditBody({
   // Detail load: config:query:values returns ALL keys of the tenant.
   // We map them via screen.configKeys from short to qualified name onto our
   // form field values.
-  const valuesQuery = useQuery<ConfigValueResponse>("config:query:values", {});
+  const valuesQuery = useQuery<ConfigValueResponse>("config:query:values", {
+    scope: screen.scope,
+  });
 
-  const cascadeQuery = useQuery<Record<string, ConfigCascade>>("config:query:cascade", {});
+  const cascadeQuery = useQuery<Record<string, ConfigCascade>>("config:query:cascade", {
+    scope: screen.scope,
+  });
 
   const secretKeys = screen.secretKeys;
   const secretsQuery = useQuery<readonly StoredSecretRow[]>(

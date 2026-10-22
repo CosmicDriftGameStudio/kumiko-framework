@@ -65,7 +65,7 @@ export function RowActionsCell({
     // this feature exists to fix. An author-set `display` takes that choice over.
     const iconOnly = !hasExplicitDisplay && shouldRenderActionsIconOnly(visible);
     return (
-      <div className="flex w-full items-center gap-1 justify-start">
+      <div className="flex w-full flex-nowrap items-center gap-1 justify-start whitespace-nowrap">
         {visible.map((a) => (
           <RowActionButton key={a.id} row={row} action={a} iconOnly={iconOnly} compact={compact} />
         ))}
@@ -76,7 +76,7 @@ export function RowActionsCell({
     const inline = visible.filter((a) => a.display !== undefined);
     const rest = visible.filter((a) => a.display === undefined);
     return (
-      <div className="inline-flex flex-wrap items-center gap-1 justify-end">
+      <div className="inline-flex flex-nowrap items-center gap-1 justify-end whitespace-nowrap">
         {inline.map((a) => (
           <RowActionButton key={a.id} row={row} action={a} compact={compact} />
         ))}
@@ -94,7 +94,7 @@ export function RowActionsCell({
   const primary = primaryRowAction(visible);
   const rest = visible.filter((a) => a.id !== primary?.id);
   return (
-    <div className="inline-flex flex-wrap items-center gap-1 justify-end">
+    <div className="inline-flex flex-nowrap items-center gap-1 justify-end whitespace-nowrap">
       {primary !== undefined && <RowActionButton row={row} action={primary} asLink />}
       {rest.length > 0 && <RowActionsKebab row={row} actions={rest} />}
     </div>

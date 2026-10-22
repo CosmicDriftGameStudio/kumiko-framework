@@ -24,9 +24,11 @@ export function TitleCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) => (
     <div>
       {/* Titles wrap and slugs are capped, so long notification names keep status, usage and date in view. */}
-      <div className="max-w-48 whitespace-normal font-medium">{templateTitle(t, r)}</div>
+      <div className="max-w-48 whitespace-normal font-medium [overflow-wrap:anywhere]">
+        {templateTitle(t, r)}
+      </div>
       <span
-        className="block max-w-40 truncate font-mono text-xs text-muted-foreground"
+        className="block max-w-28 truncate font-mono text-xs text-muted-foreground"
         title={r.slug}
       >
         {r.slug}
