@@ -36,6 +36,8 @@ type ViewState = {
   readonly density: DataTableDensity;
   readonly pins: DataTableColumnPins;
   readonly widths: DataTableColumnWidths;
+  /** "" = not grouped. */
+  readonly groupBy: string;
 };
 
 export type ListViewState = {
@@ -52,6 +54,11 @@ export type ListViewState = {
   readonly widths: DataTableColumnWidths | undefined;
   readonly minWidths: DataTableColumnWidths | undefined;
   readonly setWidth: (field: string, width: number) => void;
+  /** Active group field, "" = not grouped. */
+  readonly groupBy: string;
+  /** Undefined unless `table.grouping.userChoice` is on. */
+  readonly groupByFields: readonly string[] | undefined;
+  readonly setGroupBy: (next: string) => void;
   readonly resetView: () => void;
   readonly viewIsDefault: boolean;
 };
@@ -107,6 +114,24 @@ function hasVisibleColumn(columns: readonly DataTableViewColumn[]): boolean {
   return columns.some((column) => column.visible);
 }
 
+function groupByChoices(grouping: ListTableOptions["grouping"]): readonly string[] | undefined {
+  if (grouping?.userChoice !== true) return undefined;
+  const offered = [
+    ...(grouping.field !== undefined ? [grouping.field] : []),
+    ...(grouping.fields ?? []),
+  ];
+  return [...new Set(offered)];
+}
+
+function isOfferedGroupBy(
+  grouping: ListTableOptions["grouping"],
+  saved: string | undefined,
+): saved is string {
+  if (saved === undefined) return false;
+  const choices = groupByChoices(grouping);
+  return choices !== undefined && (saved === "" || choices.includes(saved));
+}
+
 type ViewStateArgs = {
   readonly storeKey: string;
   readonly store: ListStateStore;
@@ -119,6 +144,7 @@ function readInitialView(args: ViewStateArgs, defaults: ViewState): ViewState {
     columnFields: args.schemaColumns.map((column) => column.field),
     filterFields: [],
   })?.view;
+  const savedGroupBy = saved?.groupBy;
   const merged =
     args.table.columnPicker === true && saved?.columns !== undefined
       ? mergeSavedColumns(args.schemaColumns, saved.columns)
@@ -133,6 +159,7 @@ function readInitialView(args: ViewStateArgs, defaults: ViewState): ViewState {
       args.table.resizing === true && saved?.widths !== undefined
         ? mergeSavedWidths(defaults.widths, saved.widths, minWidthsOf(args.schemaColumns))
         : defaults.widths,
+    groupBy: isOfferedGroupBy(args.table.grouping, savedGroupBy) ? savedGroupBy : defaults.groupBy,
   };
 }
 
@@ -144,6 +171,8 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
   const userChoosesDensity = table.density?.userChoice === true;
   const pinning = table.pinning === true;
   const resizing = table.resizing === true;
+  const groupByFields = useMemo(() => groupByChoices(table.grouping), [table.grouping]);
+  const userChoosesGroupBy = groupByFields !== undefined;
   const minWidths = useMemo(() => minWidthsOf(schemaColumns), [schemaColumns]);
   const defaults = useMemo<ViewState>(
     () => ({
@@ -151,8 +180,9 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
       density: table.density?.default ?? "comfortable",
       pins: pinning ? defaultPins(schemaColumns) : {},
       widths: resizing ? defaultWidths(schemaColumns, minWidths) : {},
+      groupBy: table.grouping?.field ?? "",
     }),
-    [schemaColumns, table.density?.default, pinning, resizing, minWidths],
+    [schemaColumns, table.density?.default, pinning, resizing, minWidths, table.grouping?.field],
   );
 
   const [seeded, setSeeded] = useState(() => ({
@@ -172,10 +202,11 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
           ...(userChoosesDensity && { density: next.density }),
           ...(pinning && { pins: next.pins }),
           ...(resizing && { widths: next.widths }),
+          ...(userChoosesGroupBy && { groupBy: next.groupBy }),
         },
       });
     },
-    [store, storeKey, columnPicker, userChoosesDensity, pinning, resizing],
+    [store, storeKey, columnPicker, userChoosesDensity, pinning, resizing, userChoosesGroupBy],
   );
 
   const setColumns = useCallback(
@@ -205,6 +236,10 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
       }),
     [commit, view, minWidths],
   );
+  const setGroupBy = useCallback(
+    (next: string) => commit({ ...view, groupBy: next }),
+    [commit, view],
+  );
   const resetView = useCallback(() => {
     setSeeded({ storeKey, view: defaults });
     const { view: _dropped, ...rest } = store.read(storeKey) ?? {};
@@ -222,11 +257,15 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
     widths: resizing ? view.widths : undefined,
     minWidths: resizing ? minWidths : undefined,
     setWidth,
+    groupBy: view.groupBy,
+    groupByFields,
+    setGroupBy,
     resetView,
     viewIsDefault:
       view.density === defaults.density &&
       (!columnPicker || sameColumns(view.columns, defaults.columns)) &&
       (!pinning || sameRecord(view.pins, defaults.pins)) &&
-      (!resizing || sameRecord(view.widths, defaults.widths)),
+      (!resizing || sameRecord(view.widths, defaults.widths)) &&
+      view.groupBy === defaults.groupBy,
   };
 }

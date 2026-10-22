@@ -1,3 +1,5 @@
+import type { ListAggregateMeasureKind } from "./list-aggregate-types.ts";
+
 export const LIST_TABLE_DENSITIES = ["comfortable", "compact"] as const;
 export type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];
 
@@ -13,7 +15,18 @@ export const LIST_TABLE_OPTION_KEYS = [
   "resizing",
   "keyboardNavigation",
   "export",
+  "grouping",
+  "totals",
 ] as const;
+export const LIST_TABLE_GROUPING_KEYS = [
+  "field",
+  "label",
+  "labels",
+  "collapsedWhen",
+  "userChoice",
+  "fields",
+] as const;
+export const LIST_TABLE_TOTAL_KEYS = ["field", "kind"] as const;
 export const LIST_TABLE_EXPORT_KEYS = ["xlsx", "maxRows"] as const;
 export const DEFAULT_EXPORT_MAX_ROWS = 10000;
 /** Hard cap: the server builds the whole workbook in memory. */
@@ -42,6 +55,31 @@ export type ListTableOptions = {
   };
   /** Shows an export button; the server reads the whole filtered list (not just the visible page). */
   readonly export?: ListTableExportOptions;
+  /** Server-side grouping: group headers with count and the `totals` measures over all matching rows; each open group loads its own rows. */
+  readonly grouping?: ListTableGrouping;
+  /** Footer row under the rows, computed by the server over all rows matching the current filters and search. In grouped mode the same measures show in each group header. */
+  readonly totals?: readonly ListTableTotal[];
+};
+
+export type ListTableGrouping = {
+  /** Start grouping. Without it the list starts ungrouped and the user picks from `fields`. */
+  readonly field?: string;
+  /** Groups whose key equals this start collapsed and load no rows until opened. */
+  readonly collapsedWhen?: string | number | boolean | null;
+  /** i18n key of the group header. Placeholders: `{count}` rows in the group, `{value}` the group's value. Default: the value itself. */
+  readonly label?: string;
+  /** Header i18n key per group key (as string), overriding `label`. */
+  readonly labels?: Readonly<Record<string, string>>;
+  /** Shows "Group by" in the view menu (needs `fields` or `field`) and remembers the choice per session. */
+  readonly userChoice?: boolean;
+  /** Fields offered under "Group by"; `field` is always offered. */
+  readonly fields?: readonly string[];
+};
+
+export type ListTableTotal = {
+  readonly field: string;
+  /** sum and avg on number, decimal, money and bigInt; min and max also on date and timestamp. Money is shown per currency, never added across currencies. */
+  readonly kind: ListAggregateMeasureKind;
 };
 
 export type ListTableExportOptions = {

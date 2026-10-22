@@ -926,6 +926,8 @@ export type DataTableProps = {
   readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
 } & DataTableTableBlock;
 
+export type DataTableTableBlockProps = Pick<DataTableProps, keyof DataTableTableBlock>;
+
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----
 
 /** Cell type for one column of an embedded-list field. Mirrors

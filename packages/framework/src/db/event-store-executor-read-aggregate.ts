@@ -15,11 +15,21 @@ import {
   groupedKeyOrderLimitSql,
   isListAggregateGroupable,
   isListAggregateMeasureSupported,
+  isPerCurrencyMeasure,
   listAggregateKeySql,
   listAggregateMeasureSql,
+  listCurrencyMeasureSql,
 } from "./aggregate-sql.ts";
 import { holdsCiphertextOrSecret } from "./entity-field-encryption.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
+import {
+  type CurrencyMeasureCandidate,
+  currencyColumnOf,
+  currencyMeasureAlias,
+  decodeCurrencyAmounts,
+  loadMeasureCurrencies,
+  type MeasureCurrencies,
+} from "./event-store-executor-read-aggregate-currencies.ts";
 import {
   appendShiftedClause,
   bindShiftedClause,
@@ -122,12 +132,42 @@ function planAggregate(
 }
 
 function emptyMeasureValues(plan: AggregatePlan): ListAggregateValue[] {
-  return plan.measures.map((m) =>
-    m.gate.kind === "silent" ? null : emptyListAggregateValue(m.kind),
+  return plan.measures.map((m) => {
+    if (m.gate.kind === "silent") return null;
+    return isPerCurrencyMeasure(m.kind, m.gate.def.type) ? [] : emptyListAggregateValue(m.kind);
+  });
+}
+
+function currencyCandidates(plan: AggregatePlan): CurrencyMeasureCandidate[] {
+  return plan.measures.flatMap((m) =>
+    m.gate.kind === "ok"
+      ? [{ kind: m.kind, field: m.field, def: m.gate.def, clause: m.gate.clause }]
+      : [],
   );
 }
 
-function renderSelectList(plan: AggregatePlan, where: ListWhere): string {
+function currencyMeasureSelects(
+  measureIndex: number,
+  kind: ListAggregateMeasureKind,
+  field: string,
+  readFilterSql: string | undefined,
+  currencies: readonly string[],
+  where: ListWhere,
+): string[] {
+  return currencies.map((currency, j) => {
+    where.params.push(currency);
+    const currencyMatch = `${where.colSql(currencyColumnOf(field))} = $${where.params.length}`;
+    const filterSql =
+      readFilterSql === undefined ? currencyMatch : `${currencyMatch} AND (${readFilterSql})`;
+    return `${listCurrencyMeasureSql(kind, where.colSql(field), filterSql)} AS ${currencyMeasureAlias(measureIndex, j)}`;
+  });
+}
+
+function renderSelectList(
+  plan: AggregatePlan,
+  where: ListWhere,
+  currencies: MeasureCurrencies,
+): string {
   const parts: string[] = [];
   if (plan.groupBy?.gate.kind === "ok") {
     const { def, clause } = plan.groupBy.gate;
@@ -140,6 +180,11 @@ function renderSelectList(plan: AggregatePlan, where: ListWhere): string {
     if (m.gate.kind === "silent") continue; // skip: an unreadable measure stays out of the SELECT and decodes to null
     const filterSql =
       m.gate.clause.kind === "sql" ? bindShiftedClause(where.params, m.gate.clause) : undefined;
+    if (isPerCurrencyMeasure(m.kind, m.gate.def.type)) {
+      const fieldCurrencies = currencies.get(m.field) ?? [];
+      parts.push(...currencyMeasureSelects(i, m.kind, m.field, filterSql, fieldCurrencies, where));
+      continue;
+    }
     parts.push(
       `${listAggregateMeasureSql(m.kind, m.gate.def.type, where.colSql(m.field), filterSql)} AS m${i}`,
     );
@@ -166,7 +211,8 @@ export async function aggregateList(
   }
   const { where, searchTruncated } = built;
 
-  const selectList = renderSelectList(plan, where);
+  const currencies = await loadMeasureCurrencies(ctx, currencyCandidates(plan), where, db);
+  const selectList = renderSelectList(plan, where, currencies);
   const whereText = where.whereSql.length > 0 ? ` WHERE ${where.whereSql.join(" AND ")}` : "";
   const groupText = grouped ? groupedKeyOrderLimitSql(MAX_AGGREGATE_GROUPS + 1) : "";
   const tableName = String(schemaTableName(ctx.table));
@@ -180,9 +226,13 @@ export async function aggregateList(
   const groups = rows.slice(0, MAX_AGGREGATE_GROUPS).map((row) => ({
     key: grouped ? aggregateKeyOf(row["k0"]) : null,
     count: Number(row["c"]),
-    measures: plan.measures.map((m, i) =>
-      m.gate.kind === "silent" ? null : decodeListAggregateValue(row[`m${i}`]),
-    ),
+    measures: plan.measures.map((m, i): ListAggregateValue => {
+      if (m.gate.kind === "silent") return null;
+      if (isPerCurrencyMeasure(m.kind, m.gate.def.type)) {
+        return decodeCurrencyAmounts(row, i, currencies.get(m.field) ?? []);
+      }
+      return decodeListAggregateValue(row[`m${i}`]);
+    }),
   }));
   return {
     groups,

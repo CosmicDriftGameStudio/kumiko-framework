@@ -24,7 +24,20 @@ export type ListAggregatePayload = {
   }[];
 };
 
-export type ListAggregateValue = number | string | null;
+// A money measure never adds amounts across currencies: sum, avg, min and max
+// answer one entry per currency present, in minor units.
+export type ListAggregateCurrencyAmount = {
+  readonly currency: string;
+  readonly value: number;
+};
+
+export type ListAggregateValue = number | string | null | readonly ListAggregateCurrencyAmount[];
+
+export function isListAggregateCurrencyAmounts(
+  value: ListAggregateValue | undefined,
+): value is readonly ListAggregateCurrencyAmount[] {
+  return Array.isArray(value);
+}
 
 export type ListAggregateGroup = {
   readonly key: AggregateKey;

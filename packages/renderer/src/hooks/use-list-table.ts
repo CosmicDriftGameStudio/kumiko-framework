@@ -36,6 +36,12 @@ export type ListTableProps = {
   readonly exportList?: DataTableExport;
 };
 
+export type ListTableState = {
+  readonly props: ListTableProps;
+  /** Field the list is grouped by right now; undefined = ungrouped. */
+  readonly groupField: string | undefined;
+};
+
 const PAGING_PAYLOAD_KEYS = ["limit", "offset", "cursor", "totalCount", "filter"] as const;
 
 function withoutPaging(payload: Readonly<Record<string, unknown>>): Record<string, unknown> {
@@ -52,7 +58,7 @@ export function useListTable({
   url,
   local,
   exportSource,
-}: ListTableArgs): ListTableProps {
+}: ListTableArgs): ListTableState {
   const nav = useNav();
   const store = useListStateStore();
   const options = table ?? NO_TABLE_OPTIONS;
@@ -86,7 +92,8 @@ export function useListTable({
     options.density !== undefined ||
     options.pinning === true ||
     options.resizing === true ||
-    options.keyboardNavigation === true;
+    options.keyboardNavigation === true ||
+    viewState.groupByFields !== undefined;
   const view = useMemo<DataTableViewOptions | undefined>(
     () =>
       hasView
@@ -108,6 +115,13 @@ export function useListTable({
                 onWidthChange: viewState.setWidth,
               }),
             ...(options.keyboardNavigation === true && { keyboardNavigation: true }),
+            ...(viewState.groupByFields !== undefined && {
+              groupBy: {
+                value: viewState.groupBy,
+                fields: viewState.groupByFields,
+                onChange: viewState.setGroupBy,
+              },
+            }),
             viewIsDefault: viewState.viewIsDefault,
             onViewReset: viewState.resetView,
           }
@@ -125,9 +139,15 @@ export function useListTable({
     return { ...exportSource, payload: withoutPaging(exportSource.payload), columns: ordered };
   }, [exportEnabled, exportSource, viewColumns, schemaColumns]);
 
-  return {
-    ...(view !== undefined && { view }),
-    ...(resetAll !== undefined && { resetAll }),
-    ...(exportList !== undefined && { exportList }),
-  };
+  const props = useMemo<ListTableProps>(
+    () => ({
+      ...(view !== undefined && { view }),
+      ...(resetAll !== undefined && { resetAll }),
+      ...(exportList !== undefined && { exportList }),
+    }),
+    [view, resetAll, exportList],
+  );
+  const groupField =
+    options.grouping !== undefined && viewState.groupBy !== "" ? viewState.groupBy : undefined;
+  return { props, groupField };
 }

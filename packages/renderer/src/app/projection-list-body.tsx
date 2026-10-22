@@ -3,13 +3,13 @@ import type {
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { ListGroupPageBridges } from "../components/list-group-page-bridges.tsx";
 import { RenderList } from "../components/render-list.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import { useListUrlState } from "../hooks/use-list-url-state.ts";
-import { useQuery } from "../hooks/use-query.ts";
 import { useTranslation } from "../i18n.tsx";
 import { type DataTableFacet, usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
@@ -39,8 +39,9 @@ import {
   runProjectionRowNavigate,
 } from "./row-actions.ts";
 import { findEditScreenFor } from "./screen-access.ts";
-import { buildListQueryPayload, type PagedRows, pageSizeOptionsFor } from "./screen-shared.tsx";
+import { buildListQueryPayload } from "./screen-shared.tsx";
 import { useProjectionDateRange } from "./use-projection-date-range.ts";
+import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
 // ---- projection-list ----
@@ -183,8 +184,6 @@ export function ProjectionListBody({
     dateRangePayload,
   ]);
 
-  const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
-
   const facetFilterFields = useMemo(
     () => (screen.facets ?? []).map((facet) => facet.field),
     [screen.facets],
@@ -194,7 +193,18 @@ export function ProjectionListBody({
     featureName: schema.featureName,
     payload: queryPayload,
     filterFields: facetFilterFields,
+    queryType: screen.query,
+    pageSize: limit,
+    paging: usePager ? "offset" : "cursor",
+    translate: effectiveTranslate,
   });
+  const listRows = useScreenListRows({
+    queryType: screen.query,
+    payload: queryPayload,
+    infinite: false,
+    aggregates: listTable.aggregates,
+  });
+  const refreshRows = listRows.refreshAfterWrite;
 
   const filterFacets = useMemo<DataTableFacet[]>(
     () => buildFilterFacets(resolvedFacetSpecs),
@@ -226,7 +236,7 @@ export function ProjectionListBody({
         translate: effectiveTranslate,
         dispatcher,
         nav,
-        refetch: rowsQuery.refetch,
+        refetch: refreshRows,
         openDrawer,
         defaultEditRowAction,
         host,
@@ -238,7 +248,7 @@ export function ProjectionListBody({
       dispatcher,
       clientActions,
       nav,
-      rowsQuery.refetch,
+      refreshRows,
       openDrawer,
       defaultEditRowAction,
       host,
@@ -252,7 +262,7 @@ export function ProjectionListBody({
         translate: effectiveTranslate,
         dispatcher,
         nav,
-        refetch: rowsQuery.refetch,
+        refetch: refreshRows,
         openDrawer,
         host,
         access: { appFeatures, userRoles },
@@ -263,7 +273,7 @@ export function ProjectionListBody({
       nav,
       host,
       dispatcher,
-      rowsQuery.refetch,
+      refreshRows,
       openDrawer,
       appFeatures,
       userRoles,
@@ -274,41 +284,41 @@ export function ProjectionListBody({
     rowActions: screen.rowActions,
     translate: effectiveTranslate,
     dispatcher,
-    reload: rowsQuery.refetch,
+    reload: refreshRows,
   });
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
     nav,
     host,
     dispatcher,
     openDrawer,
-    onWriteSuccess: rowsQuery.refetch,
+    onWriteSuccess: refreshRows,
   });
 
-  if (rowsQuery.loading && rowsQuery.data === null) {
+  if (listRows.firstLoad) {
     return <QueryLoadingBanner />;
   }
-  if (rowsQuery.error && rowsQuery.data === null) {
+  if (listRows.error && !listRows.hasData) {
     return (
       <QueryErrorBanner
-        error={rowsQuery.error}
+        error={listRows.error}
         translate={effectiveTranslate}
-        onRetry={rowsQuery.refetch}
+        onRetry={listRows.retry}
       />
     );
   }
   // A failed refetch keeps the last good data on screen.
-  const refetchErrorBanner = rowsQuery.error ? (
+  const refetchErrorBanner = listRows.error ? (
     <QueryErrorBanner
-      error={rowsQuery.error}
+      error={listRows.error}
       translate={effectiveTranslate}
-      onRetry={rowsQuery.refetch}
+      onRetry={listRows.retry}
     />
   ) : null;
 
-  // rowsQuery.data is typed as PagedRows but the query handler is free to
+  // listRows.page is typed as PagedRows but the query handler is free to
   // return anything at runtime (a bare array silently rendered an empty
   // table instead of surfacing the mismatch), so the shape is checked.
-  if (rowsQuery.data !== null && !Array.isArray(rowsQuery.data.rows)) {
+  if (listRows.page !== null && !Array.isArray(listRows.page.rows)) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-projection-list-bad-shape">
         Screen <Text variant="code">{screen.id}</Text> query{" "}
@@ -331,27 +341,17 @@ export function ProjectionListBody({
   // Same pager-construction as EntityListBody: no Pager UI until the
   // server-provided `total` arrives (guards pagination="pages" without
   // totalCount support).
-  const total = rowsQuery.data?.total;
-  const pager =
-    usePager && total !== undefined
-      ? {
-          page: urlState.page,
-          limit,
-          total,
-          onPageChange: urlState.setPage,
-          pageSizeOptions: pageSizeOptionsFor(limit),
-          onPageSizeChange: urlState.setPageSize,
-        }
-      : undefined;
+  const pager = listPager({ usePager, page: listRows.page, limit, urlState });
 
   return (
     <>
       {refetchErrorBanner}
+      <ListGroupPageBridges {...listTable.aggregates.groupPages} />
       <ReferenceFacetBridges specs={facetSpecs} onOptions={handleProjectionFacetOptions} />
       <RenderList
         screen={listScreen}
         entity={entity}
-        rows={rowsQuery.data?.rows ?? []}
+        rows={listRows.rows}
         featureName={schema.featureName}
         searchable={searchable}
         narrowed={isListNarrowed(activeSearch, urlState.filters)}
@@ -382,7 +382,7 @@ export function ProjectionListBody({
           dateRangeFacets,
           onDateRangeChange: handleDateRangeChange,
         })}
-        {...listTable}
+        {...listTable.props}
         {...((filterFacets.length > 0 || dateRangeFacets.length > 0) && {
           filterValues: urlState.filters,
           onFilterReset: urlState.clearFilters,
@@ -398,7 +398,7 @@ export function ProjectionListBody({
         onClose={closeDrawer}
         onSuccess={() => {
           closeDrawer();
-          void rowsQuery.refetch();
+          void refreshRows();
         }}
       />
     </>

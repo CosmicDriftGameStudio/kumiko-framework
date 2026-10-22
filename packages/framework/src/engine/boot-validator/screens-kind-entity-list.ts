@@ -5,6 +5,7 @@ import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.ts"
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { EntityDefinition } from "../types/index.ts";
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
+import { validateEntityListAggregateOptions } from "./entity-list-aggregate-options.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
@@ -383,12 +384,9 @@ export function validateEntityListScreen(
         `must be a positive integer.`,
     );
   }
-  validateListTableOptions(
-    `[Feature ${featureName}] Screen "${screenId}" (entityList)`,
-    screen.table,
-    screen.columns,
-    true,
-  );
+  const where = `[Feature ${featureName}] Screen "${screenId}" (entityList)`;
+  validateListTableOptions(where, screen.table, screen.columns, true);
+  validateEntityListAggregateOptions(where, screen, fields.entityDef);
   if (screen.defaultSort !== undefined) {
     validateEntityListDefaultSort(featureName, screenId, screen.defaultSort, fields);
   }

@@ -1,5 +1,7 @@
+import type { ListAggregateValue } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { defineFeature } from "../../engine/define-feature.ts";
 import {
+  createBooleanField,
   createDateField,
   createEntity,
   createMoneyField,
@@ -23,6 +25,7 @@ export const orderEntity = createEntity({
     category: createTextField({ personal: false, reason: "test_fixture" }),
     status: createSelectField({ options: ["open", "paid"] as const }),
     qty: createNumberField(),
+    rush: createBooleanField(),
     amount: createMoneyField(),
     placedAt: createTimestampField(),
     dueOn: createDateField(),
@@ -61,7 +64,7 @@ export type AggGroup = {
   readonly key: string | number | boolean | null;
   readonly label?: string | null;
   readonly count: number;
-  readonly measures: readonly (number | string | null)[];
+  readonly measures: readonly ListAggregateValue[];
 };
 
 export type AggResult = {

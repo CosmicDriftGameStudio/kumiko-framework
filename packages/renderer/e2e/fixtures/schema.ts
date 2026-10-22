@@ -14,6 +14,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer/web";
 import { dashboardScreen } from "./dashboard-fixture";
+import { expenseEntity, expenseScreens, expenseTranslations } from "./expense-fixture";
 
 export const thingEntity = {
   fields: {
@@ -235,8 +236,9 @@ export const e2eSchema: AppSchema = {
         "test:entity:task:field:priority": { en: "Priority", de: "Priorität" },
         "test:entity:task:field:estimate": { en: "Estimate", de: "Aufwand" },
         "test:entity:task:field:archived": { en: "Archived", de: "Archiviert" },
+        ...expenseTranslations,
       },
-      entities: { thing: thingEntity, task: taskEntity },
+      entities: { thing: thingEntity, task: taskEntity, expense: expenseEntity },
       screens: [
         thingEditScreen,
         thingListScreen,
@@ -252,6 +254,7 @@ export const e2eSchema: AppSchema = {
         taskBoardPlainScreen,
         taskBulkScreen,
         taskEditScreen,
+        ...expenseScreens,
       ],
       navs: [
         { id: "thing-list", label: "Things", screen: "thing-list", order: 10 },

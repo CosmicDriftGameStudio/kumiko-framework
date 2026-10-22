@@ -213,6 +213,9 @@ produces code that compiles and then fails in production.
   (`kind` is `sum`, `avg`, `count`, `min` or `max`) and the list answers with
   `{ groups: [{ key, label?, count, measures }] }` over the same filters,
   search and ownership, at most 200 groups (`truncated: true` beyond that).
+  A money measure answers per currency, `[{ currency, value }]` with `value`
+  in minor units, never one sum across currencies. `bigInt` measures come
+  back as JS numbers and are exact only up to 2^53.
   Custom handlers call `executor.aggregate(...)` or `answerListAggregate`.
 - Never change an event schema in place once it has been emitted. Version it
   (see `agents/examples/event-sourcing.md`).

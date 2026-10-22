@@ -29,11 +29,11 @@ export function useRelatedListState(
     defaultSort,
     known,
   });
-  const listTable = useListTable({
+  const { props: listTable, groupField } = useListTable({
     storeKey,
     table: section.table,
     schemaColumns,
     local: { atDefault: local.atDefault, reset: local.reset },
   });
-  return { ...local, listTable };
+  return { ...local, listTable, groupField };
 }

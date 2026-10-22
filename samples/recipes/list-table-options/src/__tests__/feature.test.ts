@@ -31,6 +31,8 @@ describe("list-table-options recipe", () => {
       resizing: true,
       keyboardNavigation: true,
       export: { xlsx: true, maxRows: 5000 },
+      grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
+      totals: [{ field: "estimateHours", kind: "sum" }],
     });
   });
 

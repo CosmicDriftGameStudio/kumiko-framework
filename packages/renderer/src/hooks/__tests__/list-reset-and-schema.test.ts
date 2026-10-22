@@ -60,4 +60,22 @@ describe("stored list state", () => {
     expect(sanitized?.view?.columns).toEqual([{ field: "name", visible: true }]);
     expect(sanitized?.view?.density).toBe("compact");
   });
+
+  test("a remembered group field survives only while it is a column; off is kept", () => {
+    expect(sanitizeStoredListState({ view: { groupBy: "city" } }, known)?.view?.groupBy).toBe(
+      "city",
+    );
+    expect(sanitizeStoredListState({ view: { groupBy: "" } }, known)?.view?.groupBy).toBe("");
+    expect(
+      sanitizeStoredListState({ view: { groupBy: "gone" } }, known)?.view?.groupBy,
+    ).toBeUndefined();
+  });
+
+  test("number range bounds hang off a known facet field", () => {
+    const sanitized = sanitizeStoredListState(
+      { params: { "f.amount.min": "10", "f.amount.max": "20", "f.other.min": "1" } },
+      { columnFields: [], filterFields: ["amount"] },
+    );
+    expect(sanitized?.params).toEqual({ "f.amount.min": "10", "f.amount.max": "20" });
+  });
 });

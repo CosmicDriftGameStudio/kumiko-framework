@@ -453,8 +453,9 @@ export type EntityListFacetExtraOption = {
 
 export type EntityListFacetConfig = {
   /** `"select"` (default): dropdown with checkboxes. `"chips"`: one toggle
-   *  chip per option, single choice. */
-  readonly display?: "select" | "chips";
+   *  chip per option, single choice. `"range"`: "from" and "to" inputs on a
+   *  number, decimal, money or bigInt field, sent as `gte`/`lte`. */
+  readonly display?: "select" | "chips" | "range";
   /** Chips show how many rows each option matches (other facets and the
    *  search apply). Counts come from the list query itself, one `limit: 1`
    *  count request per chip. */

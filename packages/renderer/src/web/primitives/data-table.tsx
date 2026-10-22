@@ -1,5 +1,5 @@
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
-import { ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import { Fragment, type ReactNode, useId, useState } from "react";
 import type { ListRowViewModel } from "../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../index.ts";
@@ -16,8 +16,16 @@ import { CardSortSelect } from "./data-table/card-sort-select.tsx";
 import { isPinningActive, isResizingActive } from "./data-table/column-layout-mode.ts";
 import { ColumnResizeHandle, ColumnWidthGroup } from "./data-table/column-resize-handle.tsx";
 import { densityClasses } from "./data-table/density.ts";
-import { ResetAllButton } from "./data-table/reset-all-button.tsx";
-import { RowGroupToggle, useToggledRowGroups } from "./data-table/row-group-toggle.tsx";
+import { buildFacetCluster } from "./data-table/facet-cluster.tsx";
+import {
+  bandClassName,
+  bandReactKey,
+  bandTestId,
+  buildDataTableItems,
+  type DataTableBandItem,
+  GroupBand,
+} from "./data-table/group-band.tsx";
+import { useToggledRowGroups } from "./data-table/row-group-toggle.tsx";
 import { SortableHeader } from "./data-table/sortable-header.tsx";
 import {
   EXPAND_TOGGLE_CELL_CLASS,
@@ -29,6 +37,7 @@ import {
 } from "./data-table/table-chrome.tsx";
 import { DataTableFooter, showFullTextOnHover } from "./data-table/table-footer.tsx";
 import { ToolbarEndCluster, toolbarEndHasContent } from "./data-table/toolbar-end-cluster.tsx";
+import { TotalsCard, TotalsFooterRow } from "./data-table/totals-footer.tsx";
 import { useBulkSelection } from "./data-table/use-bulk-selection.tsx";
 import {
   EXPAND_COLUMN_KEY,
@@ -40,7 +49,6 @@ import { useMeasuredColumnWidths } from "./data-table/use-measured-column-widths
 import { useRowKeyboardNavigation } from "./data-table/use-row-keyboard-navigation.ts";
 import { useViewColumns } from "./data-table/use-view-columns.ts";
 import {
-  buildTableItems,
   cellLinkProp,
   cellTitle,
   DataTableCell,
@@ -53,9 +61,7 @@ import {
   rowToneClass,
   showsBareCheckMark,
   TABULAR_COLUMN_TYPES,
-  type TableItem,
 } from "./data-table-cell.tsx";
-import { DateRangeFacetFilter, FacetFilter } from "./facet-filter.tsx";
 import { InfiniteSentinel, Pager } from "./pager.tsx";
 import { RowActionsCell } from "./row-actions.tsx";
 
@@ -98,6 +104,11 @@ export function DefaultDataTable({
   view,
   resetAll,
   exportList,
+  serverGroups,
+  totals,
+  notice,
+  rangeFacets,
+  onRangeChange,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell.
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -132,7 +143,7 @@ export function DefaultDataTable({
   const rowClickIsHidden = (row: ListRowViewModel): boolean =>
     rowClickAction?.isVisible !== undefined && !rowClickAction.isVisible(row);
   const hasTableActions = tableActions !== undefined && tableActions.length > 0;
-  const isEmpty = rows.length === 0;
+  const isEmpty = rows.length === 0 && (serverGroups?.groups.length ?? 0) === 0;
   const expansionIdPrefix = useId();
   const rowTestId = (row: ListRowViewModel): string => getRowTestId?.(row) ?? `row-${row.id}`;
   const isRowExpandable = renderExpandedRow !== undefined && onToggleRowExpanded !== undefined;
@@ -229,7 +240,7 @@ export function DefaultDataTable({
     </div>
   );
 
-  const tableItems = buildTableItems(rows, rowGrouping, toggledGroups);
+  const tableItems = buildDataTableItems(rows, rowGrouping, toggledGroups, serverGroups);
   const keyboardRow = useRowKeyboardNavigation({
     view,
     isNarrow,
@@ -237,15 +248,10 @@ export function DefaultDataTable({
     onSelect: selection.onKeyboardSelect,
   });
 
-  function renderGroupToggle(item: Extract<TableItem, { kind: "group" }>): ReactNode {
-    return (
-      <RowGroupToggle
-        groupKey={item.key}
-        collapsed={item.collapsed}
-        label={item.label}
-        onToggle={toggleGroup}
-      />
-    );
+  const schemaColumnByField = new Map(schemaColumns.map((col) => [col.field, col]));
+  const columnOf = (field: string) => schemaColumnByField.get(field);
+  function renderBand(item: DataTableBandItem): ReactNode {
+    return <GroupBand item={item} columnOf={columnOf} onClientToggle={toggleGroup} />;
   }
 
   function tableInner(): ReactNode {
@@ -327,11 +333,11 @@ export function DefaultDataTable({
           </TableHeader>
           <TableBody>
             {tableItems.map((item) => {
-              if (item.kind === "group") {
+              if (item.kind !== "row") {
                 return (
-                  <TableRow key={`group-${item.key}`} data-testid={`row-group-${item.key}`}>
-                    <TableCell colSpan={fullColSpan} className="bg-muted/40 p-0">
-                      {renderGroupToggle(item)}
+                  <TableRow key={bandReactKey(item)} data-testid={bandTestId(item)}>
+                    <TableCell colSpan={fullColSpan} className={bandClassName(item)}>
+                      {renderBand(item)}
                     </TableCell>
                   </TableRow>
                 );
@@ -458,6 +464,16 @@ export function DefaultDataTable({
               );
             })}
           </TableBody>
+          {totals !== undefined && (
+            <TotalsFooterRow
+              totals={totals}
+              columns={columns}
+              cellPin={pins.bodyCell}
+              leadingCells={[isRowExpandable, selection.active].filter(Boolean).length}
+              trailingCells={hasTableActions ? 1 : 0}
+              cellClassName={density.cell}
+            />
+          )}
         </TableRoot>
       </div>
     );
@@ -649,19 +665,20 @@ export function DefaultDataTable({
           />
           <ul className="m-0 list-none border-t border-border-row p-0">
             {tableItems.map((item) =>
-              item.kind === "group" ? (
-                <li
-                  key={`group-${item.key}`}
-                  data-testid={`row-group-${item.key}`}
-                  className="border-b border-border-row bg-muted/40"
-                >
-                  {renderGroupToggle(item)}
-                </li>
-              ) : (
+              item.kind === "row" ? (
                 renderCard(item.row)
+              ) : (
+                <li
+                  key={bandReactKey(item)}
+                  data-testid={bandTestId(item)}
+                  className={cn("border-b border-border-row", bandClassName(item))}
+                >
+                  {renderBand(item)}
+                </li>
               ),
             )}
           </ul>
+          {totals !== undefined && <TotalsCard totals={totals} columnOf={columnOf} />}
         </div>
       </div>
     );
@@ -674,7 +691,7 @@ export function DefaultDataTable({
   // Except total === 0: then there is nothing to paginate. Incompatible with
   // infinite scroll: the caller sets either pager OR onReachEnd.
   const pagerElement =
-    pager !== undefined && pager.total > 0 ? (
+    pager !== undefined && pager.total > 0 && serverGroups === undefined ? (
       <Pager
         page={pager.page}
         limit={pager.limit}
@@ -688,7 +705,7 @@ export function DefaultDataTable({
       />
     ) : undefined;
   const sentinelElement =
-    pagerElement === undefined && onReachEnd !== undefined ? (
+    pagerElement === undefined && onReachEnd !== undefined && serverGroups === undefined ? (
       <InfiniteSentinel
         onReachEnd={onReachEnd}
         loadingMore={loadingMore === true}
@@ -713,7 +730,7 @@ export function DefaultDataTable({
       </div>
       {pagerElement ?? (
         <DataTableFooter
-          count={rows.length}
+          count={serverGroups?.totalCount ?? rows.length}
           {...(itemNoun !== undefined && { itemNoun })}
           testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
         />
@@ -728,45 +745,19 @@ export function DefaultDataTable({
     </>
   );
 
-  const hasFacets =
-    filterFacets !== undefined && filterFacets.length > 0 && onFilterChange !== undefined;
-  const hasDateRangeFacets =
-    dateRangeFacets !== undefined && dateRangeFacets.length > 0 && onDateRangeChange !== undefined;
-  const hasActiveFilters =
-    filterValues !== undefined && Object.values(filterValues).some((v) => v.length > 0);
-  const showsResetAll = resetAll?.active === true;
-  const facetCluster =
-    hasFacets || hasDateRangeFacets || showsResetAll ? (
-      <div className="flex flex-wrap items-center gap-2">
-        {hasFacets &&
-          filterFacets.map((facet) => (
-            <FacetFilter
-              key={facet.field}
-              facet={facet}
-              selected={filterValues?.[facet.field] ?? []}
-              onChange={onFilterChange}
-              dense={fillsHeight}
-            />
-          ))}
-        {hasDateRangeFacets &&
-          dateRangeFacets.map((facet) => (
-            <DateRangeFacetFilter key={facet.field} facet={facet} onChange={onDateRangeChange} />
-          ))}
-        {resetAll === undefined && hasActiveFilters && onFilterReset !== undefined && (
-          <UiButton
-            variant="ghost"
-            size="sm"
-            className="h-9 px-2"
-            onClick={onFilterReset}
-            data-testid="facet-reset"
-          >
-            {tableTranslate?.("kumiko.list.filter.reset") ?? "Reset"}
-            <X />
-          </UiButton>
-        )}
-        {showsResetAll && <ResetAllButton onReset={resetAll.onReset} />}
-      </div>
-    ) : undefined;
+  const facetCluster = buildFacetCluster({
+    filterFacets,
+    filterValues,
+    onFilterChange,
+    onFilterReset,
+    dateRangeFacets,
+    onDateRangeChange,
+    rangeFacets,
+    onRangeChange,
+    resetAll,
+    notice,
+    dense: fillsHeight,
+  });
 
   const columnLabels = new Map(schemaColumns.map((col) => [col.field, col.label]));
 

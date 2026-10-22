@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-list-table-options",
-  "description": "Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density.",
+  "description": "Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density, server-side groups with sums, a totals row and a number range facet.",
   "private": true,
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*"

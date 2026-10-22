@@ -17,6 +17,8 @@ export type StoredListState = {
     readonly density?: ListTableDensity;
     readonly pins?: Readonly<Record<string, ListColumnPin>>;
     readonly widths?: Readonly<Record<string, number>>;
+    /** Chosen group field, "" = the user turned grouping off. */
+    readonly groupBy?: string;
   };
 };
 
@@ -28,6 +30,7 @@ const storedListStateSchema = z.object({
       density: z.enum(LIST_TABLE_DENSITIES).optional(),
       pins: z.record(z.string(), z.enum(LIST_COLUMN_PINS)).optional(),
       widths: z.record(z.string(), z.number().finite().positive()).optional(),
+      groupBy: z.string().optional(),
     })
     .optional(),
 });
@@ -53,14 +56,14 @@ export type KnownListFields = {
 
 const PLAIN_PARAM_SUFFIXES: ReadonlySet<string> = new Set(["sort", "dir", "q", "page", "size"]);
 const FILTER_PREFIX = "f.";
-const DATE_BOUND_SUFFIXES = [".from", ".to"] as const;
+const RANGE_BOUND_SUFFIXES = [".from", ".to", ".min", ".max"] as const;
 
 function isKnownParamSuffix(suffix: string, filterFields: ReadonlySet<string>): boolean {
   if (PLAIN_PARAM_SUFFIXES.has(suffix)) return true;
   if (!suffix.startsWith(FILTER_PREFIX)) return false;
   const filterKey = suffix.slice(FILTER_PREFIX.length);
   if (filterFields.has(filterKey)) return true;
-  return DATE_BOUND_SUFFIXES.some(
+  return RANGE_BOUND_SUFFIXES.some(
     (bound) => filterKey.endsWith(bound) && filterFields.has(filterKey.slice(0, -bound.length)),
   );
 }
@@ -95,11 +98,17 @@ export function sanitizeStoredListState(
   const density = state.view?.density;
   const pins = onKnownFields(state.view?.pins, columnFields);
   const widths = onKnownFields(state.view?.widths, columnFields);
+  const savedGroupBy = state.view?.groupBy;
+  const groupBy =
+    savedGroupBy === "" || (savedGroupBy !== undefined && columnFields.has(savedGroupBy))
+      ? savedGroupBy
+      : undefined;
   const view = {
     ...(columns !== undefined && { columns }),
     ...(density !== undefined && { density }),
     ...(pins !== undefined && { pins }),
     ...(widths !== undefined && { widths }),
+    ...(groupBy !== undefined && { groupBy }),
   };
   return {
     ...(params !== undefined && { params }),

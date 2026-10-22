@@ -1,4 +1,11 @@
 import type { ListColumnPin, ListTableDensity } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  DataTableListNotice,
+  DataTableRangeBound,
+  DataTableRangeFacet,
+  DataTableServerGroups,
+  DataTableTotals,
+} from "./data-table-aggregate-types.ts";
 
 export type DataTableDensity = ListTableDensity;
 export type DataTableColumnPin = ListColumnPin;
@@ -29,9 +36,18 @@ export type DataTableViewOptions = {
   readonly minWidths?: DataTableColumnWidths;
   readonly onWidthChange?: (field: string, width: number) => void;
   readonly keyboardNavigation?: boolean;
+  /** Present: the view menu has a "group by" section. */
+  readonly groupBy?: DataTableGroupByChoice;
   /** False once columns, order or density differ from the screen default. */
   readonly viewIsDefault: boolean;
   readonly onViewReset: () => void;
+};
+
+export type DataTableGroupByChoice = {
+  /** Active group field, "" = not grouped. */
+  readonly value: string;
+  readonly fields: readonly string[];
+  readonly onChange: (next: string) => void;
 };
 
 export type DataTableResetAll = {
@@ -59,4 +75,12 @@ export type DataTableTableBlock = {
   readonly resetAll?: DataTableResetAll;
   /** Present: the toolbar has an export button (web only). */
   readonly exportList?: DataTableExport;
+  /** Present: the rows are grouped on the server; replaces pager and infinite scroll. */
+  readonly serverGroups?: DataTableServerGroups;
+  /** Present: a footer row with the server-computed totals of the filtered list. */
+  readonly totals?: DataTableTotals;
+  /** Present: the toolbar says the answer is incomplete and asks to narrow the list. */
+  readonly notice?: DataTableListNotice;
+  readonly rangeFacets?: readonly DataTableRangeFacet[];
+  readonly onRangeChange?: (field: string, bound: DataTableRangeBound, value: string) => void;
 };
