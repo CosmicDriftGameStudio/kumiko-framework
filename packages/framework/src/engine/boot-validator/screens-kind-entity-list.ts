@@ -386,6 +386,7 @@ export function validateEntityListScreen(
     `[Feature ${featureName}] Screen "${screenId}" (entityList)`,
     screen.table,
     screen.columns,
+    true,
   );
   if (screen.defaultSort !== undefined) {
     validateEntityListDefaultSort(featureName, screenId, screen.defaultSort, fields);

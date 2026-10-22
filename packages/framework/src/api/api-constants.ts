@@ -11,6 +11,7 @@ export const Routes = {
   command: "/command",
   sse: "/sse",
   stream: "/stream",
+  exportXlsx: "/export/xlsx",
   auth: "/auth",
   authLogin: "/auth/login",
   authMfaVerify: "/auth/mfa/verify",
@@ -79,6 +80,7 @@ export const NON_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.command}`,
   `/api${Routes.sse}`,
   `/api${Routes.stream}`,
+  `/api${Routes.exportXlsx}`,
   // Namespace prefix used only for body-limit registration
   // (`/api/auth/*` in route-registrars.ts) — never dispatched as its own
   // route, so it carries no auth bypass either way. Classified non-public

@@ -94,6 +94,7 @@ export function validateProjectionListScreen(
     `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     screen.table,
     screen.columns,
+    true,
   );
   // Screen filter: field existence can't be checked without an entity (columns
   // aren't a complete field inventory of the underlying query), so only the

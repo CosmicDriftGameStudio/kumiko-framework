@@ -7,6 +7,8 @@ import {
   type ListColumnSpec,
 } from "../types/screen.ts";
 import { validateColumnLayout } from "./list-column-layout.ts";
+import { validateExportOptions } from "./list-table-export-options.ts";
+import { rejectUnknownKeys } from "./list-table-reject-unknown-keys.ts";
 
 const BOOLEAN_OPTION_KEYS = [
   "rememberState",
@@ -16,21 +18,6 @@ const BOOLEAN_OPTION_KEYS = [
   "resizing",
   "keyboardNavigation",
 ] as const;
-
-function rejectUnknownKeys(
-  where: string,
-  block: string,
-  value: Record<string, unknown>,
-  allowed: readonly string[],
-): void {
-  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
-  if (unknown.length > 0) {
-    throw new Error(
-      `${where} ${block} has unknown key(s) ${unknown.map((k) => `"${k}"`).join(", ")}. ` +
-        `Allowed keys: ${allowed.join(", ")}.`,
-    );
-  }
-}
 
 function validateDensity(where: string, density: unknown): void {
   if (!isPlainObject(density)) {
@@ -88,6 +75,7 @@ export function validateListTableOptions(
   where: string,
   table: unknown,
   columns: readonly ListColumnSpec[],
+  exportAllowed = false,
 ): void {
   if (table === undefined) {
     validateHiddenColumns(where, false, columns);
@@ -108,6 +96,7 @@ export function validateListTableOptions(
     }
   }
   if (table["density"] !== undefined) validateDensity(where, table["density"]);
+  if (table["export"] !== undefined) validateExportOptions(where, table["export"], exportAllowed);
   validateHiddenColumns(where, table["columnPicker"] === true, columns);
   validateColumnLayout(
     where,

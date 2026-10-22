@@ -29,6 +29,7 @@ describe("list-table-options recipe", () => {
       pinning: true,
       resizing: true,
       keyboardNavigation: true,
+      export: { xlsx: true, maxRows: 5000 },
     });
   });
 
@@ -46,7 +47,7 @@ describe("list-table-options recipe", () => {
 
   test("a misspelled table key is rejected with the allowed keys", () => {
     expect(() => validateBoot([featureWithBlock({ rememberStatee: true })])).toThrow(
-      /unknown key\(s\) "rememberStatee"\. Allowed keys: rememberState, resetAll, columnPicker, density/,
+      /unknown key\(s\) "rememberStatee"\. Allowed keys: rememberState, resetAll, columnPicker, density, pinning, resizing, keyboardNavigation, export/,
     );
   });
 
@@ -60,5 +61,13 @@ describe("list-table-options recipe", () => {
     expect(() =>
       validateBoot([featureWithBlock({ columnPicker: true, density: { default: "tight" } })]),
     ).toThrow(/table\.density\.default is "tight"/);
+  });
+
+  test("an export row limit above the hard cap is rejected", () => {
+    expect(() =>
+      validateBoot([
+        featureWithBlock({ columnPicker: true, export: { xlsx: true, maxRows: 100001 } }),
+      ]),
+    ).toThrow(/table\.export\.maxRows is 100001 .* at most 100000/);
   });
 });

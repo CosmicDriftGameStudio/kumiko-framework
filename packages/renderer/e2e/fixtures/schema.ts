@@ -75,6 +75,7 @@ export const taskListScreen: EntityListScreenDefinition = {
     resetAll: true,
     columnPicker: true,
     density: { default: "comfortable", userChoice: true },
+    export: { xlsx: true },
   },
   rowActions: [
     { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },

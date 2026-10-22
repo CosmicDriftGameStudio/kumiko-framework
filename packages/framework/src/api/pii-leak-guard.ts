@@ -11,8 +11,9 @@ const isProductionEnv = () => process.env["NODE_ENV"] === "production";
 // Bound to the full ciphertext shape (prefix, "<kind>:<id>" subject key, base64
 // blob of at least IV + GCM tag = 28 bytes) so a user-typed "kumiko-pii:v" in a
 // note or name field cannot turn every read of that record into a 500.
-const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^:"\s<>\\]+:[^:"\s<>\\]+:[A-Za-z0-9+/=]{40,}/;
-const CIPHERTEXT_REDACT_RE = new RegExp(CIPHERTEXT_RE.source, "g");
+export const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^:"\s<>\\]+:[^:"\s<>\\]+:[A-Za-z0-9+/=]{40,}/;
+export const CIPHERTEXT_REDACT_RE = new RegExp(CIPHERTEXT_RE.source, "g");
+export const CIPHERTEXT_REDACTION = "[pii-redacted]";
 
 // A PII subject ciphertext never belongs in an API response — its presence
 // means a raw DB read (fetchOne/selectMany) leaked to the surface. Dev/test

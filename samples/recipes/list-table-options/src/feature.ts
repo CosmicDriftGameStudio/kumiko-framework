@@ -54,6 +54,7 @@ export function createTaskBoardFeature(
     pinning: true,
     resizing: true,
     keyboardNavigation: true,
+    export: { xlsx: true, maxRows: 5000 },
   },
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {

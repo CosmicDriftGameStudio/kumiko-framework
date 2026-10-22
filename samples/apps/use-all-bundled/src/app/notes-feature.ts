@@ -45,6 +45,7 @@ export const noteEntity = createEntity({
       required: true,
       maxLength: 200,
       sortable: true,
+      searchable: true,
     }),
     customFields: customFieldsField(),
   },
@@ -65,6 +66,7 @@ const noteListScreen: EntityListScreenDefinition = {
     },
   ],
   searchable: true,
+  table: { export: { xlsx: true } },
   defaultSort: { field: "title", dir: "asc" },
   slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } },
   rowActions: [

@@ -373,7 +373,7 @@ async function readDispatchBody(
 // jsonb serialization of custom-fields payloads) walks the same object
 // graph an attacker controls, so an uncapped depth is a stack-overflow /
 // CPU-DoS vector even under the 1MB body-byte limit.
-function assertPayloadDepthAllowed(payload: unknown): void {
+export function assertPayloadDepthAllowed(payload: unknown): void {
   if (payloadDepth(payload, 0) > MAX_PAYLOAD_DEPTH) {
     throw new ValidationError({
       fields: [
@@ -507,7 +507,7 @@ function clientAbortResponse(c: Context, requestId: string | undefined, type?: u
 
 // For /query + /command: no isSuccess on success (just { data } / {ok}), so we
 // keep the same lean shape on failure — only the `error` key.
-function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
+export function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   if (isClientAbort(err)) return clientAbortResponse(c, requestId, type);
   logServerFault(err, requestId, type);

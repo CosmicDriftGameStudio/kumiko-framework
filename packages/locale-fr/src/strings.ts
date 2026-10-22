@@ -890,6 +890,11 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.list.sort.label": "Trier",
   "kumiko.list.sort.unsorted": "Non trié",
   "kumiko.list.reset-all": "Réinitialiser",
+  "kumiko.list.export": "Exporter",
+  "kumiko.list.export-busy": "Export en cours…",
+  "kumiko.list.export-too-many":
+    "Plus de {max} lignes. Réduisez la liste avec un filtre, puis relancez l'export.",
+  "kumiko.list.export-failed": "L'export a échoué. Veuillez réessayer.",
   "kumiko.list.view.menu": "Vue",
   "kumiko.list.view.columns": "Colonnes",
   "kumiko.list.view.density": "Densité",

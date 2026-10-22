@@ -50,7 +50,7 @@ import {
   useContext,
 } from "react";
 import type { DataTableDateRangeFacet, DataTableFacet } from "./data-table-facet-types.ts";
-import type { DataTableResetAll, DataTableViewOptions } from "./data-table-view-types.ts";
+import type { DataTableTableBlock } from "./data-table-view-types.ts";
 import type {
   FieldIssue,
   ListColumnViewModel,
@@ -916,11 +916,7 @@ export type DataTableProps = {
   /** Content of the area under an expanded row. Native renderers implement
    *  the same three props. */
   readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
-  /** View menu (column picker, density); absent = no menu. */
-  readonly view?: DataTableViewOptions;
-  /** Replaces the facet reset with one that also covers sort, search and page size. */
-  readonly resetAll?: DataTableResetAll;
-};
+} & DataTableTableBlock;
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----
 

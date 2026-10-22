@@ -39,3 +39,24 @@ export type DataTableResetAll = {
   readonly active: boolean;
   readonly onReset: () => void;
 };
+
+/** What the export button sends to POST /api/export/xlsx (xlsx is the only format). */
+export type DataTableExport = {
+  /** Screen QN `<feature>:screen:<id>`. */
+  readonly screen: string;
+  readonly screenShortId: string;
+  /** The list payload without paging keys; the server reads the whole filtered list. */
+  readonly payload: Readonly<Record<string, unknown>>;
+  /** Visible column ids in display order. */
+  readonly columns: readonly string[];
+};
+
+/** The DataTable props a screen's `table` block feeds. */
+export type DataTableTableBlock = {
+  /** View menu (column picker, density); absent = no menu. */
+  readonly view?: DataTableViewOptions;
+  /** Replaces the facet reset with one that also covers sort, search and page size. */
+  readonly resetAll?: DataTableResetAll;
+  /** Present: the toolbar has an export button (web only). */
+  readonly exportList?: DataTableExport;
+};
