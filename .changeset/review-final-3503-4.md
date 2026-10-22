@@ -8,7 +8,7 @@
 
 <!-- kumiko-changes
 feature: framework
-type: feature
+type: improvement
 title: ctx.loadAggregate can read a single event by version
 detail: The new atVersion option returns the event at that version of the stream (or nothing), with upcasting and the tenant filter. It cannot be combined with asOf. Workflow resume uses it for event references.
 -->
