@@ -52,6 +52,8 @@ const ALLOWLIST = [
   /^packages\/framework\/src\/event-store\/index\.ts$/,
   /^packages\/framework\/src\/event-store\/tenant-db-append\.ts$/,
   /^packages\/bundled-features\/src\/cap-counter\/cap-reservation\.ts$/,
+  // Catch-up of a missing terminal extract event in the caller tenant's own stream; JobContext has no appendEvent.
+  /^packages\/bundled-features\/src\/document-ingest-foundation\/append-missing-extract-event\.ts$/,
   /^packages\/bundled-features\/src\/user-data-rights-defaults\/hooks\/delivery-attempt\.userdata-hook\.ts$/,
   /^packages\/framework\/src\/db\/tenant-db\.ts$/,
   /^packages\/framework\/src\/db\/index\.ts$/,
