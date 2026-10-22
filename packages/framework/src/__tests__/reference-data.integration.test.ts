@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -280,6 +281,55 @@ describe("seedReferenceData", () => {
     const live = (await selectMany(stack.db, tagTable)).filter((r) => r["isDeleted"] === false);
     expect(live).toHaveLength(1);
     expect(live[0]).toMatchObject({ slug: "hot", tenantId: SYSTEM_TENANT_ID });
+  });
+
+  test("adopts a row seeded without events, applies the changed value and keeps it through a rebuild", async () => {
+    const legacyId = "00000000-0000-4000-8000-0000000000a1";
+    await seedRow(stack.db, statusTable, {
+      id: legacyId,
+      tenantId: SYSTEM_TENANT_ID,
+      version: 1,
+      slug: "legacy",
+      label: "Old label",
+      sortOrder: 42,
+    });
+
+    const defs: ReferenceDataDef[] = [
+      {
+        entityName: "status",
+        data: [{ slug: "legacy", label: "New label", sortOrder: 42 }],
+        upsertKey: "slug",
+      },
+    ];
+    expect(await seedReferenceData(defs, stack.registry, stack.db)).toEqual({
+      inserted: 1,
+      updated: 0,
+    });
+    // Second boot: the row now has a stream, so it is a plain no-op.
+    expect(await seedReferenceData(defs, stack.registry, stack.db)).toEqual({
+      inserted: 0,
+      updated: 0,
+    });
+
+    const changed: ReferenceDataDef[] = [
+      {
+        entityName: "status",
+        data: [{ slug: "legacy", label: "Newest label", sortOrder: 42 }],
+        upsertKey: "slug",
+      },
+    ];
+    expect(await seedReferenceData(changed, stack.registry, stack.db)).toEqual({
+      inserted: 0,
+      updated: 1,
+    });
+
+    await rebuildProjection("refdata:projection:status-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    const rows = (await readStatuses()).filter((r) => r["slug"] === "legacy");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: legacyId, label: "Newest label" });
   });
 
   test("skips empty data arrays", async () => {
