@@ -7,6 +7,7 @@ import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import { buildExecutorContext, type Table } from "./event-store-executor-context.ts";
 import { createReadVerbs } from "./event-store-executor-read.ts";
 import { createWriteVerbs } from "./event-store-executor-write.ts";
+import { withOwnTransactionOnPool } from "./event-store-executor-write-atomic.ts";
 import type { EntityRow } from "./table-builder.ts";
 
 export type {
@@ -16,7 +17,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 export { WritePurposes } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 
-// The executor writes events + auto-projection (entity table) in one TX.
+// The executor writes events + auto-projection (entity table) in one TX; on a pool runner it opens its own.
 // It no longer knows about user projections — those are driven by the
 // pipeline, which reads the StoredEvent surfaced on SaveContext/DeleteContext
 // and iterates the registry itself. Executor-level `registry` options were
@@ -57,7 +58,7 @@ export function createEventStoreExecutor(
 ): EventStoreExecutor {
   const ctx = buildExecutorContext(table, entity, options);
   return {
-    ...createWriteVerbs(ctx),
+    ...withOwnTransactionOnPool(createWriteVerbs(ctx)),
     ...createReadVerbs(ctx),
   };
 }
