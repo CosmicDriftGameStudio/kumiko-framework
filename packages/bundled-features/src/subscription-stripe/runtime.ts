@@ -33,7 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import Stripe from "stripe";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants.ts";
 
@@ -68,13 +68,14 @@ export type StripeRuntimeDeps = {
 // (the un-audited webhook path + the audited ctx read here) therefore returns
 // the JSON-quoted string and must parse it back. The factory fallback is a
 // plain env string and stays raw — so parsing is applied only to the store
-// read, never to the fallback.
+// read, never to the fallback. The error must not carry the input: the JSON
+// parser's own message would repeat the credential into logs and the 401 body.
 function parseStoredSecret(raw: string | undefined): string | undefined {
   if (raw === undefined || raw.length === 0) return undefined;
-  // parseJsonOrThrow is the sanctioned safe-parse (same helper the config
-  // resolver's deserializeValue uses for this very value) — mirrors how the
-  // store round-trips a backing:"secrets" text value.
-  const parsed = parseJsonOrThrow<unknown>(raw, "subscription-stripe credential (backing:secrets)");
+  const parsed = parseJsonSafe<unknown>(raw, undefined);
+  if (parsed === undefined) {
+    throw new Error("subscription-stripe credential (backing:secrets) is not valid JSON");
+  }
   return typeof parsed === "string" && parsed.length > 0 ? parsed : undefined;
 }
 

@@ -15,7 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import { createDodoHttp, type DodoRequest, type DodoSend } from "./client.ts";
 import { DODO_BASE_URLS, DodoEnvironments, SUBSCRIPTION_DODO_FEATURE } from "./constants.ts";
 
@@ -32,10 +32,15 @@ export type DodoRuntimeDeps = {
 };
 
 // backing:"secrets" values are stored JSON-serialized, so the store read has to
-// be parsed back; the env fallback is a plain string and stays raw.
+// be parsed back; the env fallback is a plain string and stays raw. The error
+// must not carry the input: the JSON parser's own message would repeat the
+// credential into logs and, for webhooks, into the 401 body.
 function parseStoredSecret(raw: string | undefined): string | undefined {
   if (raw === undefined || raw.length === 0) return undefined;
-  const parsed = parseJsonOrThrow<unknown>(raw, "subscription-dodo credential (backing:secrets)");
+  const parsed = parseJsonSafe<unknown>(raw, undefined);
+  if (parsed === undefined) {
+    throw new Error("subscription-dodo credential (backing:secrets) is not valid JSON");
+  }
   return typeof parsed === "string" && parsed.length > 0 ? parsed : undefined;
 }
 

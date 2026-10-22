@@ -71,3 +71,10 @@ type: improvement
 title: Provider choice moved into the checkout dialog
 detail: The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a "from" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval.
 -->
+
+<!-- kumiko-changes
+feature: subscription-stripe
+type: fix
+title: A malformed stored credential no longer leaks into the error
+detail: A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same.
+-->
