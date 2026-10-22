@@ -4209,7 +4209,6 @@
         "bindAutoRevokeFromFeature",
         "createSessionCallbacks",
         "createSessionsFeature",
-        "isPrincipalBlocked",
         "sessionRevokedSchema",
         "userSessionEntity",
         "userSessionTable"

@@ -562,7 +562,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     //   - user.updated as lifecycle event (updateUserLifecycle), so a
     //     read_users rebuild doesn't wipe the flip
     //   - sessions don't need active revocation — session-callbacks
-    //     re-validate user.status on every request (isPrincipalBlocked
+    //     re-validate the user row on every request (isPrincipalRowBlocked
     //     blocks Deleted).
     // Both idempotent (status set / revokedAt IS NULL filter), retry after
     // crash recovery is safe. User-feature guard: without the user feature

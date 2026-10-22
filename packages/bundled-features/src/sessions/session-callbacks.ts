@@ -18,12 +18,7 @@ import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { encryptForDirectWrite } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
-import {
-  isPrincipalBlocked,
-  isPrincipalRowBlocked,
-  type UserStatus,
-  userTable,
-} from "../user/index.ts";
+import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index.ts";
 import {
   DEFAULT_SESSION_EXPIRY_MS,
   LAST_SEEN_REFRESH_MS,
@@ -35,9 +30,6 @@ import {
   SESSION_REVOKED_EVENT_QN,
   sessionRevokedSchema,
 } from "./session-revoked-event.ts";
-
-// Re-exported so existing `../sessions` importers keep working unchanged.
-export { isPrincipalBlocked };
 
 type SettledLookup<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
 
