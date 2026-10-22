@@ -20,6 +20,8 @@ import { examplesFeature } from "../features/examples/feature";
 import { galleryFeature } from "../features/gallery/feature";
 import { aiTextDemoFeature } from "../features/widgets/ai-text-demo";
 import { widgetsFeature } from "../features/widgets/feature";
+import { workboardFeature } from "../features/workboard/feature";
+import { seedWorkboardTasks } from "../features/workboard/seed";
 import { seedStyleguideItems } from "./seed";
 
 const configResolver = createConfigResolver();
@@ -35,6 +37,7 @@ await runDevApp({
     contentFeature,
     aiTextDemoFeature,
     aiSettingsFeature,
+    workboardFeature,
   ],
   // Aktiviert die Upload-Routes (/api/files) + ctx.files für den Avatar-
   // Stresstest. In-Memory reicht für die Demo (nicht-persistent).
@@ -43,7 +46,7 @@ await runDevApp({
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],
-  seeds: [seedStyleguideItems, seedAiConnections],
+  seeds: [seedStyleguideItems, seedAiConnections, seedWorkboardTasks],
   extraContext: ({ registry }) => ({
     configResolver,
     _configAccessorFactory: createConfigAccessorFactory(registry, configResolver),

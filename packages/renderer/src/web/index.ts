@@ -111,6 +111,7 @@ export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
 export { PlainContentEditor } from "./app/plain-content-editor.tsx";
 export { useResolvers } from "./app/resolvers-context.tsx";
 export { RichContentEditor } from "./app/rich-content-editor.tsx";
+export { clearRememberedListState } from "./app/session-list-state-store.ts";
 export type { NavIconKey } from "./icons.tsx";
 export { Icon } from "./icons.tsx";
 export type { AppLayoutProps } from "./layout/app-layout.tsx";

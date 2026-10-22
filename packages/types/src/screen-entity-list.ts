@@ -5,6 +5,7 @@ import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } fr
 import type { ActionFormRedirect } from "./screen-action-form.ts";
 import type { DashboardPanelVisibility } from "./screen-dashboard.ts";
 import type { EditRelatedListSection, ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type { ListTableOptions } from "./screen-list-table.ts";
 
 // --- entityList ---
 
@@ -57,6 +58,9 @@ export type ListColumnSpec =
        *  `md` breakpoint (tables keep it). For columns that only make sense
        *  next to the others, like a sort key. */
       readonly hideOnNarrow?: boolean;
+      /** Start state for the column picker: the column begins hidden and the
+       *  user can show it. Only valid together with `table.columnPicker`. */
+      readonly hidden?: boolean;
       /** Dashboard list panels only. "bar": field holds a 0..1 fraction, drawn
        *  as bar + percent. "badge": field holds a label, drawn as a pill whose
        *  tone comes from `badgeToneField`. "datetime": field holds an ISO string or
@@ -421,7 +425,7 @@ export type RelatedListToolbarAction =
  *  `id` (tab id) and `countField` (tab badge) have no meaning outside a tabs
  *  layout and are therefore omitted. `kind` stays the discriminator so further
  *  expansion kinds can be added without a breaking change. */
-export type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField">;
+export type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" | "table">;
 
 /** An extra choice on a facet next to the field's own options: a named
  *  bundle of values ("Running" = several statuses) or "no filter" (`values:
@@ -510,6 +514,8 @@ export type EntityListScreenDefinition = {
   // fields) go lower; power-user lists (e.g. internal analytics) go
   // higher.
   readonly pageSize?: number;
+  /** Opt-in table behaviour: remembered state, reset, column picker, density. */
+  readonly table?: ListTableOptions;
   // Default sort on first mount. If the URL param `?sort=…` is set, that
   // wins; otherwise RenderList uses this default. `field` must be
   // sortable: true in the entity — the boot validator pins that.

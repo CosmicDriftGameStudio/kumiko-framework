@@ -12,6 +12,7 @@ import { type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ComboboxTestPage } from "./combobox-page";
 import { DateTestPage } from "./date-page";
+import { TestIdentityProvider } from "./identity-provider";
 import { createMockDispatcher } from "./mock-dispatcher";
 import { MoneyTestPage } from "./money-page";
 import { BOOM_SCREEN_ID, e2eSchema } from "./schema";
@@ -90,9 +91,12 @@ async function boot(): Promise<void> {
       {
         name: "test",
         components: { [BOOM_SCREEN_ID]: BoomScreen },
-        ...(new URLSearchParams(window.location.search).has("crash-root") && {
-          providers: [CrashingProvider],
-        }),
+        providers: [
+          TestIdentityProvider,
+          ...(new URLSearchParams(window.location.search).has("crash-root")
+            ? [CrashingProvider]
+            : []),
+        ],
       },
     ],
   });

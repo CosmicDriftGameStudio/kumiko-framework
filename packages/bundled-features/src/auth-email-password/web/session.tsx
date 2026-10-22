@@ -14,6 +14,7 @@ import {
   useSessionEndedSignal,
 } from "@cosmicdrift/kumiko-renderer";
 import { readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
+import { clearRememberedListState } from "@cosmicdrift/kumiko-renderer/web";
 import {
   createContext,
   type ReactNode,
@@ -216,6 +217,8 @@ export function SessionProvider({
 
   const logout = useCallback<SessionApi["logout"]>(async () => {
     await logoutApi();
+    // The reload below would hide the identity change from the list-state boot.
+    clearRememberedListState();
     if (postLogoutUrl !== undefined && typeof window !== "undefined") {
       // State stays untouched: flipping to unauthenticated would let an AuthGate
       // with loginUrl race this navigation to its own redirect.
@@ -251,6 +254,7 @@ export function SessionProvider({
   const userEmail = profile?.email;
   const userDisplayName = profile?.displayName;
   const userTimeZone = profile?.effectiveTimeZone;
+  const activeTenantId = state.activeTenantId ?? undefined;
   const currentUser = useMemo<CurrentUser | undefined>(
     () =>
       userId === undefined || userEmail === undefined || userDisplayName === undefined
@@ -260,8 +264,9 @@ export function SessionProvider({
             email: userEmail,
             displayName: userDisplayName,
             ...(userTimeZone !== undefined && { timeZone: userTimeZone }),
+            ...(activeTenantId !== undefined && { tenantId: activeTenantId }),
           },
-    [userId, userEmail, userDisplayName, userTimeZone],
+    [userId, userEmail, userDisplayName, userTimeZone, activeTenantId],
   );
   return (
     <SessionContext.Provider value={api}>

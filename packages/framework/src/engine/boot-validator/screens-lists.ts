@@ -14,6 +14,7 @@ import type {
   RowAction,
   ScreenDefinition,
 } from "../types/screen.ts";
+import { validateListTableOptions } from "./list-table-options.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
 import {
   assertWriteHandlerRegistered,
@@ -177,6 +178,13 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
       );
     }
   }
+  if (args.screenType === "entityList expandableRow" && Object.hasOwn(section, "table")) {
+    throw new Error(
+      `[Feature ${featureName}] ${where} does not support a table block. ` +
+        `Put table on the entityList screen itself.`,
+    );
+  }
+  validateListTableOptions(`[Feature ${featureName}] ${where}`, section.table, section.columns);
   if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
   if (section.defaultSort !== undefined) validateRelatedListDefaultSort(args, section.defaultSort);
   if (section.facets !== undefined) {

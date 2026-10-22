@@ -169,6 +169,7 @@ export function computeRelatedListSectionViewModel(
 ): EditRelatedListSectionViewModel {
   return {
     kind: "relatedList" as const,
+    ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
     title: translate(sectionSpec.title),
     query: sectionSpec.query,
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
@@ -180,6 +181,7 @@ export function computeRelatedListSectionViewModel(
     }),
     ...(sectionSpec.itemNoun !== undefined && { itemNoun: sectionSpec.itemNoun }),
     ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
+    ...(sectionSpec.table !== undefined && { table: sectionSpec.table }),
     ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
     ...(sectionSpec.searchable !== undefined && { searchable: sectionSpec.searchable }),
     ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),

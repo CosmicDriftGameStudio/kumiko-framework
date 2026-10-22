@@ -13,6 +13,7 @@ import type {
   ScreenFilter,
   ToolbarAction,
 } from "./screen-entity-list.ts";
+import type { ListTableOptions } from "./screen-list-table.ts";
 
 // --- projectionList ---
 
@@ -103,6 +104,8 @@ export type ProjectionListScreenDefinition = {
   readonly toolbarActions?: readonly ToolbarAction[];
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;
+  /** Opt-in table behaviour: remembered state, reset, column picker, density. */
+  readonly table?: ListTableOptions;
   readonly defaultSort?: ListSortSpec;
   /** Replaces the default empty-list title/hint; the create button stays when the list can create. */
   readonly emptyState?: ListEmptyStateSpec;

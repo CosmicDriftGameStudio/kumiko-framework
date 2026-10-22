@@ -48,8 +48,8 @@ import type {
   ListRowViewModel,
   Translate,
 } from "../headless/index.ts";
-import type { ListSort } from "../hooks/use-list-url-state.ts";
 import { useQuery } from "../hooks/use-query.ts";
+import { useRelatedListState } from "../hooks/use-related-list-state.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import {
@@ -307,8 +307,10 @@ export function RelatedListSection({
   // Local state, not URL state: a section `id` is optional, so there is no
   // stable URL key to namespace against — the section's sort is local for the
   // same reason. Consequence: search/filters reset on reload.
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<Readonly<Record<string, readonly string[]>>>({});
+  const { search, filters, sort, setSearch, setFilters, setSort, listTable } = useRelatedListState(
+    section,
+    nav.route?.screenId,
+  );
 
   const facetSpecs = useMemo(
     () => resolveProjectionFacetSpecs(section.facets, effectiveTranslate, featureName),
@@ -386,14 +388,13 @@ export function RelatedListSection({
   const onFilterChange = useCallback(
     (field: string, values: readonly string[]) =>
       setFilters((prev) => ({ ...prev, [field]: values })),
-    [],
+    [setFilters],
   );
-  const onFilterReset = useCallback(() => setFilters({}), []);
+  const onFilterReset = useCallback(() => setFilters({}), [setFilters]);
 
   // Sorted client-side over the already-loaded rows only. The section has no
   // pager (one-shot fetch); when that fetch is truncated (`nextCursor` set) the
   // truncation banner below tells the user the sorted set is partial.
-  const [sort, setSort] = useState<ListSort | null>(section.defaultSort ?? null);
   const sortAccessors = useMemo(() => {
     const accessors: Record<
       string,
@@ -624,6 +625,7 @@ export function RelatedListSection({
             {...(rowTone !== undefined && { rowTone })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
+            {...listTable}
             screenPadding={false}
             {...(hideTitle === true && { scrollBody: true, chromeless: true })}
             {...(embedded === true && { chromeless: true })}

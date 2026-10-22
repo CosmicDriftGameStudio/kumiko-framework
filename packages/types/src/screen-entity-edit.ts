@@ -13,6 +13,7 @@ import type {
   RowActionMode,
   RowFieldExtractor,
 } from "./screen-entity-list.ts";
+import type { ListTableOptions } from "./screen-list-table.ts";
 import type { ListFacetSpec } from "./screen-projection.ts";
 
 // --- entityEdit ---
@@ -294,6 +295,8 @@ export type EditRelatedListSection = {
    *  "3 Positionen"). Omitted: generic "entries" wording. */
   readonly itemNoun?: string;
   readonly pageSize?: number;
+  /** Opt-in table behaviour: remembered state, reset, column picker, density. */
+  readonly table?: ListTableOptions;
   /** Initial sort on mount, applied client-side over the already-loaded rows
    *  (this section has no pager; if the fetch is truncated, `nextCursor !== null`,
    *  the section shows a hint banner that the sort covers only the loaded rows).

@@ -9,6 +9,7 @@ import type {
   ListColumnSpec,
   ListFacetSpec,
   ListSortSpec,
+  ListTableOptions,
   OptionsQueryPayload,
   PlatformComponent,
   RelatedListGroupBy,
@@ -428,6 +429,7 @@ export type EditExtensionSectionViewModel = {
 // runs the query itself.
 export type EditRelatedListSectionViewModel = {
   readonly kind: "relatedList";
+  readonly id?: string;
   readonly title: string;
   readonly query: string;
   readonly parentParam?: string;
@@ -438,6 +440,7 @@ export type EditRelatedListSectionViewModel = {
   /** Untranslated plural-forms key, resolved with the row count by the list footer. */
   readonly itemNoun?: string;
   readonly pageSize?: number;
+  readonly table?: ListTableOptions;
   readonly defaultSort?: ListSortSpec;
   readonly searchable?: boolean;
   readonly facets?: readonly ListFacetSpec[];

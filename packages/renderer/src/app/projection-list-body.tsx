@@ -10,12 +10,8 @@ import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import { useListUrlState } from "../hooks/use-list-url-state.ts";
 import { useQuery } from "../hooks/use-query.ts";
-import { useOptionalTimeZone, useTranslation } from "../i18n.tsx";
-import {
-  type DataTableDateRangeFacet,
-  type DataTableFacet,
-  usePrimitives,
-} from "../primitives.tsx";
+import { useTranslation } from "../i18n.tsx";
+import { type DataTableFacet, usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
 import { DrawerHost, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
@@ -23,13 +19,9 @@ import { useClientActionRuntime } from "./client-actions.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { isListNarrowed, useListEmptyContent } from "./list-empty-content.ts";
 import {
-  buildDateRangePayload,
   buildFilterFacets,
   buildFilterPayload,
-  clampDateRange,
   mergeReferenceFacetOptions,
-  readDateRange,
-  resolveDateRangeFacets,
   resolveProjectionFacetSpecs,
 } from "./list-facets.ts";
 import { useNav } from "./nav.tsx";
@@ -47,6 +39,8 @@ import {
 } from "./row-actions.ts";
 import { findEditScreenFor } from "./screen-access.ts";
 import { buildListQueryPayload, type PagedRows, pageSizeOptionsFor } from "./screen-shared.tsx";
+import { useProjectionDateRange } from "./use-projection-date-range.ts";
+import { useScreenListTable } from "./use-screen-list-table.ts";
 
 // ---- projection-list ----
 
@@ -148,17 +142,10 @@ export function ProjectionListBody({
     [urlState.filters, facetSpecs],
   );
 
-  // dateRange facets bypass `filters` entirely — their two bounds
-  // become the top-level query params the facet declares, resolved from a
-  // calendar date to an instant in the viewer's zone.
-  const timeZone = useOptionalTimeZone();
-  const dateRangeSpecs = useMemo(
-    () => resolveDateRangeFacets(screen.facets, effectiveTranslate),
-    [screen.facets, effectiveTranslate],
-  );
-  const dateRangePayload = useMemo(
-    () => buildDateRangePayload(dateRangeSpecs, urlState.filters, timeZone),
-    [dateRangeSpecs, urlState.filters, timeZone],
+  const { dateRangePayload, dateRangeFacets, handleDateRangeChange } = useProjectionDateRange(
+    screen.facets,
+    effectiveTranslate,
+    urlState,
   );
 
   const queryPayload = useMemo(() => {
@@ -197,29 +184,21 @@ export function ProjectionListBody({
 
   const rowsQuery = useQuery<PagedRows>(screen.query, queryPayload, { live: true });
 
+  const facetFilterFields = useMemo(
+    () => (screen.facets ?? []).map((facet) => facet.field),
+    [screen.facets],
+  );
+  const listTable = useScreenListTable({
+    screenId: screen.id,
+    table: screen.table,
+    columns: screen.columns,
+    filterFields: facetFilterFields,
+  });
+
   const filterFacets = useMemo<DataTableFacet[]>(
     () => buildFilterFacets(resolvedFacetSpecs),
     [resolvedFacetSpecs],
   );
-  const dateRangeFacets = useMemo<DataTableDateRangeFacet[]>(
-    () =>
-      dateRangeSpecs.map((spec) => ({
-        field: spec.field,
-        label: spec.label,
-        ...readDateRange(urlState.filters, spec.field),
-      })),
-    [dateRangeSpecs, urlState.filters],
-  );
-  const handleDateRangeChange = useCallback(
-    (field: string, bound: "from" | "to", value: string) => {
-      urlState.setDateRange(
-        field,
-        clampDateRange(readDateRange(urlState.filters, field), bound, value),
-      );
-    },
-    [urlState.setDateRange, urlState.filters],
-  );
-
   // Entity targets: see EntityListBody.runNavigate for why the resolution happens
   // in the NavApi impl. Unlike there: NO row["id"]
   // fallback — projectionList rows come from an arbitrary query projection
@@ -394,6 +373,7 @@ export function ProjectionListBody({
           dateRangeFacets,
           onDateRangeChange: handleDateRangeChange,
         })}
+        {...listTable}
         {...((filterFacets.length > 0 || dateRangeFacets.length > 0) && {
           filterValues: urlState.filters,
           onFilterReset: urlState.clearFilters,

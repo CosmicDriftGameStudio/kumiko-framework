@@ -296,6 +296,12 @@ export type {
   ScreenFilterOp,
   ToolbarAction,
 } from "./screen-entity-list.ts";
+export type { ListTableDensity, ListTableOptions } from "./screen-list-table.ts";
+export {
+  LIST_TABLE_DENSITIES,
+  LIST_TABLE_DENSITY_KEYS,
+  LIST_TABLE_OPTION_KEYS,
+} from "./screen-list-table.ts";
 export type {
   ListFacetSpec,
   MetricNavigate,
