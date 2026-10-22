@@ -141,4 +141,31 @@ describe("SaveContext.event stays out of JSON responses", () => {
     const projected = await selectMany(stack.db, projectedTable, { itemId: created["id"] });
     expect(projected).toHaveLength(1);
   });
+
+  test("dispatcher.write, the entry of websocket writes, agent tools and jobs, strips the event", async () => {
+    const result = await stack.dispatcher.write(
+      "echo-event:write:item:create",
+      { name: "Direct" },
+      TestUsers.admin,
+    );
+    if (!result.isSuccess) throw new Error("write failed");
+    expect(result.data).not.toHaveProperty("event");
+    expect(postSaveEvents.at(-1)).toBeDefined();
+  });
+
+  test("dispatcher.batch strips the event from every result", async () => {
+    const batch = await stack.dispatcher.batch(
+      [
+        { type: "echo-event:write:item:create", payload: { name: "B1" } },
+        { type: "echo-event:write:item:create-enriched", payload: { name: "B2" } },
+      ],
+      TestUsers.admin,
+    );
+    expect(batch.isSuccess).toBe(true);
+    expect(batch.results).toHaveLength(2);
+    for (const entry of batch.results) {
+      if (!entry.isSuccess) throw new Error("batch entry failed");
+      expect(entry.data).not.toHaveProperty("event");
+    }
+  });
 });
