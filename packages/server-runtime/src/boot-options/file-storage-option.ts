@@ -116,14 +116,6 @@ export function resolveFileStorageOption(
   } else {
     provider = fileStorage.provider;
   }
-  if (provider === "s3-env" && missingS3.length > 0) {
-    throw new Error(`[runProdApp] fileStorage "s3-env" is missing: ${missingS3.join(", ")}.`);
-  }
-  if (provider === "inmemory" && deps.isProduction) {
-    throw new Error(
-      '[runProdApp] fileStorage "inmemory" loses every file on restart — not allowed with NODE_ENV=production.',
-    );
-  }
   const additional = fileStorage.providers ?? [];
   const wanted = new Set<FileStorageProviderName>([
     provider,
@@ -131,6 +123,14 @@ export function resolveFileStorageOption(
       (entry): entry is FileStorageProviderName => !isNamedS3FileProvider(entry),
     ),
   ]);
+  if (wanted.has("s3-env") && missingS3.length > 0) {
+    throw new Error(`[runProdApp] fileStorage "s3-env" is missing: ${missingS3.join(", ")}.`);
+  }
+  if (wanted.has("inmemory") && deps.isProduction) {
+    throw new Error(
+      '[runProdApp] fileStorage "inmemory" loses every file on restart — not allowed with NODE_ENV=production.',
+    );
+  }
   const named = additional.filter(isNamedS3FileProvider);
   assertNamedProviderNames(named);
   for (const entry of named) {

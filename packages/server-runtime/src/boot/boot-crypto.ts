@@ -39,6 +39,9 @@ export function resolveBootCrypto(
   masterKeyOverride?: MasterKeyProvider,
 ): BootCrypto {
   const masterKeyProvider = masterKeyOverride ?? envMasterKeyProviderIfConfigured(envSource);
+  // Providers defer their keyring check under KUMIKO_DRY_RUN_ENV; an app-supplied
+  // provider must still be rejected at boot, not at the first key access.
+  masterKeyProvider?.currentVersion();
 
   const dekCache = createDekCache();
   const configCipher = masterKeyProvider
@@ -66,8 +69,5 @@ function envMasterKeyProviderIfConfigured(
         envSource["KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION"] ?? "1",
     },
   });
-  // The provider defers its keyring check under KUMIKO_DRY_RUN_ENV; the boot
-  // must still reject a malformed keyring there.
-  provider.currentVersion();
   return provider;
 }

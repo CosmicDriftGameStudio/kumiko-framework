@@ -62,7 +62,11 @@ import {
 import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.ts";
 import { resolveBootCrypto } from "./boot-crypto.ts";
 import { jobRunLoggerCallbacks } from "./job-run-logger.ts";
-import { waitForDatabase, waitUntilDatabaseReachable } from "./wait-for-database.ts";
+import {
+  WAIT_FOR_DATABASE_DEADLINE_MS,
+  waitForDatabase,
+  waitUntilDatabaseReachable,
+} from "./wait-for-database.ts";
 import { assertWorkerMetricsOptions } from "./worker-metrics-server.ts";
 
 export type WorkerBootCoreOptions = Omit<RunWorkerAppOptions, "wireComponents">;
@@ -199,10 +203,12 @@ export async function bootWorkerProcess(
   }
 
   // Before the connections, so an abort leaks nothing.
+  const databaseWaitDeadline = Date.now() + WAIT_FOR_DATABASE_DEADLINE_MS;
   if (options.kms) {
     const kms = options.kms;
     const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
       processName: processName,
+      deadline: databaseWaitDeadline,
     });
     if (!kmsHealth.ok) {
       throw new Error(
@@ -228,7 +234,7 @@ export async function bootWorkerProcess(
     clientOptions: redisClientOptionsFromEnv(envSource),
   });
   try {
-    await waitForDatabase(db, { processName });
+    await waitForDatabase(db, { processName, deadline: databaseWaitDeadline });
   } catch (err) {
     await closeDb();
     await closeOutsideTransactionDb();

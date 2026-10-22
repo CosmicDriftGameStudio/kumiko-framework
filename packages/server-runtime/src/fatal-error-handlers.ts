@@ -26,6 +26,7 @@ export function installFatalErrorHandlers(options: FatalErrorHandlersOptions): (
   const exit = options.exit ?? ((code: number) => process.exit(code));
   const hardExitMs = options.hardExitMs ?? DEFAULT_HARD_EXIT_MS;
   let handling = false;
+  let stopRunning = false;
 
   const handle = (source: "uncaughtException" | "unhandledRejection") => (reason: unknown) => {
     // skip: a second fault during shutdown is already covered by the running stop and hard-exit timer
@@ -38,11 +39,13 @@ export function installFatalErrorHandlers(options: FatalErrorHandlersOptions): (
     });
     const hardExitTimer = setTimeout(() => exit(1), hardExitMs);
     hardExitTimer.unref();
+    stopRunning = true;
     void stop()
       .catch((stopError: unknown) => {
         logger.error("shutdown after fatal error failed", describeFatal(stopError));
       })
       .finally(() => {
+        stopRunning = false;
         clearTimeout(hardExitTimer);
         exit(1);
       });
@@ -53,6 +56,8 @@ export function installFatalErrorHandlers(options: FatalErrorHandlersOptions): (
   process.on("uncaughtException", onUncaughtException);
   process.on("unhandledRejection", onUnhandledRejection);
   return () => {
+    // stop() uninstalls first; during a fatal shutdown the listeners must stay so a second fault cannot hit the default crash path mid-flush
+    if (stopRunning) return;
     process.off("uncaughtException", onUncaughtException);
     process.off("unhandledRejection", onUnhandledRejection);
   };

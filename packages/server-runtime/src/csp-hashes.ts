@@ -6,7 +6,7 @@ export const CSP_HASHES_FILE = "csp-hashes.json";
 
 export type CspHashesFile = { readonly scriptSrc: readonly string[] };
 
-const INLINE_SCRIPT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+const INLINE_SCRIPT_PATTERN = /<script\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/script\s*>/gi;
 const SRC_ATTRIBUTE_PATTERN = /\ssrc\s*=/i;
 const TYPE_ATTRIBUTE_PATTERN = /\stype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
 // Data blocks (application/json, ld+json, templates) never execute, so

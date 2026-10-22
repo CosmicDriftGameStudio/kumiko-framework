@@ -33,6 +33,8 @@ export type WaitForDatabaseOptions = {
   readonly log?: (line: string) => void;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly now?: () => number;
+  // Absolute timestamp shared by sequential waits so a boot never exceeds one liveness window.
+  readonly deadline?: number;
 };
 
 function logToConsole(line: string): void {
@@ -58,7 +60,7 @@ export async function waitUntilDatabaseReachable<T>(
   options: WaitForDatabaseOptions,
 ): Promise<T> {
   const { processName, log = logToConsole, sleep = sleepReal, now = Date.now } = options;
-  const deadline = now() + WAIT_FOR_DATABASE_DEADLINE_MS;
+  const deadline = options.deadline ?? now() + WAIT_FOR_DATABASE_DEADLINE_MS;
   let backoffMs = WAIT_FOR_DATABASE_INITIAL_BACKOFF_MS;
 
   for (let attempt = 1; ; attempt++) {

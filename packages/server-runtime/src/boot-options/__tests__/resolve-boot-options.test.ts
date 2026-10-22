@@ -111,11 +111,29 @@ describe("fileStorage option", () => {
       { provider: "s3-env", providers: ["inmemory"] },
       {
         mountedFeatureNames: new Set(["file-provider-inmemory"]),
-        isProduction: true,
+        isProduction: false,
         envSource: S3_ENV,
       },
     );
     expect(resolved.features.map((f) => f.name)).toEqual(["file-provider-s3-env"]);
+  });
+
+  test("an additional inmemory provider is refused in production", () => {
+    expect(() =>
+      resolveFileStorageOption(
+        { provider: "s3-env", providers: ["inmemory"] },
+        { ...base, isProduction: true, envSource: S3_ENV },
+      ),
+    ).toThrow(/inmemory/);
+  });
+
+  test("an additional s3-env provider needs the S3 env", () => {
+    expect(() =>
+      resolveFileStorageOption(
+        { provider: "inmemory", providers: ["s3-env"] },
+        { ...base, isProduction: false, envSource: {} },
+      ),
+    ).toThrow(/S3_BUCKET/);
   });
 
   const resolveWithNamed = (names: readonly string[]) =>

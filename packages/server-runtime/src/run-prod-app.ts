@@ -163,7 +163,11 @@ import { runEnvGate } from "./boot/env-gate.ts";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
-import { waitForDatabase, waitUntilDatabaseReachable } from "./boot/wait-for-database.ts";
+import {
+  WAIT_FOR_DATABASE_DEADLINE_MS,
+  waitForDatabase,
+  waitUntilDatabaseReachable,
+} from "./boot/wait-for-database.ts";
 import type { BillingBootOption } from "./boot-options/billing-option.ts";
 import type { DemoModeOption } from "./boot-options/demo-mode.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
@@ -1011,10 +1015,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // KMS health gate: an app configured for crypto-shredding must not boot
   // against an unreachable key store — a silent start would answer every
   // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
+  const databaseWaitDeadline = Date.now() + WAIT_FOR_DATABASE_DEADLINE_MS;
   if (bootKms.kms) {
     const kms = bootKms.kms;
     const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
       processName: "runProdApp",
+      deadline: databaseWaitDeadline,
     });
     if (!kmsHealth.ok) {
       throw new Error(
@@ -1036,7 +1042,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
   logRedisConnectionState(redis, log);
 
-  await waitForDatabase(db, { processName: "runProdApp" });
+  await waitForDatabase(db, { processName: "runProdApp", deadline: databaseWaitDeadline });
 
   // Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found, build the resolver here (db +

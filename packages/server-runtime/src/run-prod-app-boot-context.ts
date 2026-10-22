@@ -237,9 +237,15 @@ function resolveDeliveryConfigResolver(
   hasDeliveryFeature: boolean,
   crypto: BootCrypto,
 ): ReturnType<typeof createBootConfigResolver> | undefined {
-  return opts.hasAuth || hasDeliveryFeature
-    ? createBootConfigResolver(opts.registry, opts.envSource, crypto, opts.appOverrides)
-    : undefined;
+  if (opts.hasAuth || hasDeliveryFeature) {
+    return createBootConfigResolver(opts.registry, opts.envSource, crypto, opts.appOverrides);
+  }
+  if (opts.appOverrides) {
+    throw new Error(
+      "[runProdApp] appOverrides needs `auth` or a delivery feature: without one no config resolver is built and the overrides would be ignored.",
+    );
+  }
+  return undefined;
 }
 
 type BootExtraContextOptions = {
