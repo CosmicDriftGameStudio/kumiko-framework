@@ -23,7 +23,7 @@ describe("new command", () => {
     expect(newCommand.roles).toContain("app-dev");
   });
 
-  test("scaffolds an app whose package.json pins @cosmicdrift/* to a caret range, not \"*\"", async () => {
+  test("scaffolds an app whose package.json pins @cosmicdrift/* to an exact version, not \"*\"", async () => {
     const cwd = tmp();
     const dest = join(cwd, "my-app");
     const spy = makeSpyOutput();
@@ -41,7 +41,7 @@ describe("new command", () => {
     expect(cosmicDeps.length).toBeGreaterThan(0);
     for (const [, range] of cosmicDeps) {
       expect(range).not.toBe("*");
-      expect(range).toMatch(/^\^\d+\.\d+\.\d+/);
+      expect(range).toMatch(/^\d+\.\d+\.\d+$/);
     }
   });
 
@@ -65,7 +65,7 @@ describe("new command", () => {
     expect(Object.keys(pkg.scripts)).toEqual(
       expect.arrayContaining(["test", "test:integration", "e2e"]),
     );
-    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\^\d+\.\d+\.\d+/);
+    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\d+\.\d+\.\d+$/);
     expect(pkg.devDependencies["@playwright/test"]).toBeDefined();
   });
 
