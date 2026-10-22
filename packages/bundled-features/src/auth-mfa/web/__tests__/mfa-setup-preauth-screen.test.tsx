@@ -5,6 +5,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
+import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../i18n.ts";
@@ -15,10 +16,9 @@ afterAll(() => {
   globalThis.fetch = originalFetch;
 });
 
-const realModule0 = { ...(await import("qrcode/lib/browser.js")) };
-mock.module("qrcode/lib/browser.js", () => ({
+mockModuleForFile("qrcode/lib/browser.js", await import("qrcode/lib/browser.js"), {
   default: { toString: mock(async () => "<svg></svg>") },
-}));
+});
 
 const { MfaSetupPreauthScreen } = await import("../mfa-setup-preauth-screen.tsx");
 
@@ -383,10 +383,4 @@ describe("MfaSetupPreauthScreen", () => {
       );
     });
   });
-});
-
-// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
-// The restore source is a spread copy: mock.module patches an already imported namespace in place.
-afterAll(() => {
-  mock.module("qrcode/lib/browser.js", () => realModule0);
 });

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   kumikoDefaultTranslations,
@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
+import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { BillingPlansResult, BillingPlanView, BillingProviderView } from "../../types.ts";
@@ -81,12 +82,10 @@ const useMutationSpy = mock((type: string) => {
   return { mutate, pending: false, error: null, data: null, reset: mock(() => {}) };
 });
 
-const actualRenderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
-mock.module("@cosmicdrift/kumiko-renderer", () => ({
-  ...actualRenderer,
+mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kumiko-renderer"), {
   useQuery: useQuerySpy,
   useMutation: useMutationSpy,
-}));
+});
 
 // Shows interpolation params for the cancel keys so the formatted dates are assertable.
 function testResolver(): ReturnType<typeof createStaticLocaleResolver> {
