@@ -6,9 +6,11 @@ export { countPdfPages } from "./pdf-page-count.ts";
 export { RendererPuppeteerClientQueries } from "./qualified-names.ts";
 export { puppeteerRender } from "./render.ts";
 export {
+  type RenderedPdfBytes,
   type RenderedPdfUpload,
   type RenderPdfArgs,
   renderPdfBeforeTransaction,
+  renderPdfBytes,
   type StoredRenderedPdf,
   storeRenderedPdf,
 } from "./render-and-store.ts";
