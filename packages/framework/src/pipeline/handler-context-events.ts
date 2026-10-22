@@ -6,6 +6,7 @@ import type {
   AppendEventArgs,
   AppendEventFn,
   FetchForWritingArgs,
+  HandlerContext,
   SessionUser,
 } from "../engine/types/index.ts";
 import {
@@ -199,12 +200,14 @@ function buildLoadAggregate(scope: HandlerContextScope) {
   const { ctx, user, tx, registry } = scope;
   return async (
     aggregateId: string,
-    loadOptions?: { readonly asOf?: Temporal.Instant },
+    loadOptions?: Parameters<HandlerContext["loadAggregate"]>[1],
   ): Promise<readonly StoredEvent[]> => {
     const dbSource = requireDbSource(ctx, tx, `ctx.loadAggregate("${aggregateId}")`);
     const events = loadOptions?.asOf
       ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
-      : await loadAggregate(dbSource, aggregateId, user.tenantId);
+      : await loadAggregate(dbSource, aggregateId, user.tenantId, {
+          ...(loadOptions?.atVersion !== undefined && { atVersion: loadOptions.atVersion }),
+        });
     return upcastStoredEvents(events, registry.getEventUpcasters(), {
       db: dbSource,
       tenantId: user.tenantId,

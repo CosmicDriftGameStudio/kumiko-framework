@@ -832,10 +832,14 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   //
   // `options.asOf` restricts to events whose createdAt is ≤ the given
   // timestamp — the point-in-time / "what did this aggregate look like
-  // yesterday" query.
+  // yesterday" query. `options.atVersion` reads only the event at that stream
+  // version (upcast, tenant-scoped), so following a stored event reference does
+  // not load a long stream.
   readonly loadAggregate: (
     aggregateId: string,
-    options?: { readonly asOf?: Temporal.Instant },
+    options?:
+      | { readonly asOf?: Temporal.Instant; readonly atVersion?: never }
+      | { readonly atVersion?: number; readonly asOf?: never },
   ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
 
   // Marten-aligned stream lifecycle. Archived streams become read-only:

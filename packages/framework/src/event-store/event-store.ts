@@ -300,7 +300,12 @@ export async function loadAggregate(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
-  options?: { readonly includeArchived?: boolean; readonly aggregateType?: string },
+  options?: {
+    readonly includeArchived?: boolean;
+    readonly aggregateType?: string;
+    // Point read of one event of the stream instead of the whole stream.
+    readonly atVersion?: number;
+  },
 ): Promise<readonly StoredEvent[]> {
   // "" must not fall through to the unfiltered load: a dynamically computed
   // type that came out empty would silently fold in foreign aggregate types.
@@ -314,9 +319,12 @@ export async function loadAggregate(
   const rows = await selectMany<SelectedEvent>(
     db,
     eventsTable,
-    options?.aggregateType !== undefined
-      ? { aggregateId, tenantId, aggregateType: options.aggregateType }
-      : { aggregateId, tenantId },
+    {
+      aggregateId,
+      tenantId,
+      ...(options?.aggregateType !== undefined && { aggregateType: options.aggregateType }),
+      ...(options?.atVersion !== undefined && { version: options.atVersion }),
+    },
     { orderBy: { col: "version", direction: "asc" } },
   );
   return rows.map(toStoredEvent);

@@ -90,6 +90,18 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     access: { roles: ["Admin"] },
   });
 
+  r.queryHandler({
+    name: "invoice:event-at",
+    schema: z.object({ id: z.uuid(), atVersion: z.number().int() }),
+    handler: async (query, ctx) => {
+      const events = await ctx.loadAggregate(query.payload.id, {
+        atVersion: query.payload.atVersion,
+      });
+      return events.map((evt) => ({ version: evt.version, type: evt.type, payload: evt.payload }));
+    },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+
   // Query handler — reduces raw events into a derived shape via
   // ctx.loadAggregate. Exposes live aggregation over HTTP.
   r.queryHandler({
@@ -277,5 +289,52 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     const rawApproved = raw.find((e) => e.type === "asoftest:event:approved");
     expect(rawApproved?.eventVersion).toBe(1);
     expect(rawApproved?.payload).toEqual({ amount: "42.50", approvedBy: "legacy" });
+  });
+});
+
+describe("ctx.loadAggregate atVersion", () => {
+  async function seedCreatedAndApproved(): Promise<string> {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "asoftest:write:invoice:create",
+      { customer: "Acme", status: "draft" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "asoftest:write:invoice:approve",
+      { id: created.id, amount: 1500, approvedBy: "boss" },
+      admin,
+    );
+    return created.id;
+  }
+
+  test("returns only the event at that version, upcasted", async () => {
+    const id = await seedCreatedAndApproved();
+
+    const second = await stack.http.queryOk<Array<{ version: number; type: string }>>(
+      "asoftest:query:invoice:event-at",
+      { id, atVersion: 2 },
+      admin,
+    );
+    const first = await stack.http.queryOk<Array<{ version: number; type: string }>>(
+      "asoftest:query:invoice:event-at",
+      { id, atVersion: 1 },
+      admin,
+    );
+
+    expect(second.map((evt) => evt.type)).toEqual(["asoftest:event:approved"]);
+    expect(second[0]).toMatchObject({ version: 2, payload: { amount: 1500, approvedBy: "boss" } });
+    expect(first.map((evt) => evt.type)).toEqual(["asof-invoice.created"]);
+  });
+
+  test("a version the stream does not have yields no events", async () => {
+    const id = await seedCreatedAndApproved();
+
+    const none = await stack.http.queryOk<unknown[]>(
+      "asoftest:query:invoice:event-at",
+      { id, atVersion: 99 },
+      admin,
+    );
+
+    expect(none).toEqual([]);
   });
 });
