@@ -1,4 +1,4 @@
-// fw#2490: `multiSelect` fields accept `filterable: true` at boot but the
+// `multiSelect` fields accept `filterable: true` at boot but the
 // executor's screen-filter WHERE builder only ever emitted scalar equality
 // (`col = $1`) against the jsonb-array column — Postgres rejects that as
 // "operator does not exist: jsonb = text" the first time a filter actually
@@ -155,7 +155,7 @@ describe("multiSelect filterable — jsonb containment, not scalar equality (fw#
     expect(result.rows).toHaveLength(0);
   });
 
-  // The issue's own diagnosis (fw#2490) points at buildWhereClause in
+  // The diagnosis points at buildWhereClause in
   // db/query.ts, not the screen-filter path above — that generic query
   // API is what direct app/handler code hits when it filters a multiSelect
   // column without going through a screen filter. Same jsonb-array bug,

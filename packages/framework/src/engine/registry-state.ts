@@ -54,7 +54,7 @@ export type IncomingRelation = {
   relation: RelationDefinition;
 };
 
-// One entry per `ReferenceFieldDef` with `searchable: true` (fw#2660) —
+// One entry per `ReferenceFieldDef` with `searchable: true` —
 // resolved once at boot so the read-path never re-parses `field.entity`
 // per request. `labelField` is guaranteed defined here: buildSearchableSortableCaches
 // throws at boot for a searchable reference missing an explicit labelField
@@ -65,7 +65,7 @@ export type SearchableReferenceField = {
   readonly labelField: string;
 };
 
-// One entry per `ReferenceFieldDef` with `sortable: true` (fw#2741). Same
+// One entry per `ReferenceFieldDef` with `sortable: true`. Same
 // resolved shape as the searchable variant and the same boot guarantee on
 // `labelField` — ORDER BY on the UUID column would look meaningful and be
 // arbitrary.
@@ -73,12 +73,12 @@ export type SortableReferenceField = SearchableReferenceField;
 
 const IMPLICIT_PROJECTION_SUFFIX = "-entity" as const;
 
-// Pro r.entity-Registration eine ImplicitProjection mit auto-generierten
-// apply-Handlern für die 4 Auto-Verben. Live-Pfad geht durch
-// EventStoreExecutor und schreibt direkt in die Tabelle; rebuildProjection
-// nutzt diese Definition um aus Events zu replayen. Beide rufen dieselbe
-// applyEntityEvent-Funktion → Live==Rebuild by-construction (verstärkt
-// durch implicit-projection-equivalence.integration.ts).
+// Each `r.entity` registration gets an implicit projection with generated
+// apply handlers for the four automatic verbs. The live path writes directly
+// to the table through EventStoreExecutor, while rebuildProjection replays
+// events through this definition. Both call applyEntityEvent, ensuring live
+// and rebuild use the same logic (also covered by
+// implicit-projection-equivalence.integration.ts).
 export function buildImplicitProjection(
   featureName: string,
   entityName: string,
@@ -90,7 +90,7 @@ export function buildImplicitProjection(
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
   // Backing table (r.entity({ name, ...def, backingTable })) is the one physical table
   // object shared by executor-writes, rebuild-replay, test-push and
-  // collectTableMetas — restoring the #255 invariant (test-push == generate).
+  // collectTableMetas — restoring the invariant (test-push == generate).
   // Validated as a superset of the field-derived columns so a field/table
   // disagreement fails at boot, not as a silent thin-vs-rich row.
   const drizzleTable =
@@ -98,8 +98,8 @@ export function buildImplicitProjection(
       ? resolveBackingTable(entityName, entity, backingTable)
       : buildEntityTable(entityName, entity);
   markExecutorManagedTable(drizzleTable);
-  // applyEntityEvent gibt ApplyResult zurück; SingleStreamApplyFn erwartet
-  // Promise<void>. Im rebuild-Pfad ist die Row irrelevant — wir discarden.
+  // applyEntityEvent returns ApplyResult, but SingleStreamApplyFn expects
+  // Promise<void>. The row is irrelevant during rebuild, so we discard it.
   const handler = async (
     event: Parameters<ProjectionDefinition["apply"][string]>[0],
     tx: Parameters<ProjectionDefinition["apply"][string]>[1],
@@ -114,10 +114,9 @@ export function buildImplicitProjection(
     // Registered for every entity so the erasure replays on rebuild.
     [`${entityName}.forgotten`]: handler,
   };
-  // Restore-Verb existiert nur für softDelete-Entities. Hard-Delete-
-  // Entities sollten keine restored-Events produzieren — würden sie es
-  // doch, würde applyEntityEvent intern als no-op laufen, aber wir
-  // registrieren den Handler gar nicht erst.
+  // The restore verb exists only for softDelete entities. Hard-delete entities
+  // should not produce restored events; if they did, applyEntityEvent would
+  // treat them as a no-op, so the handler is not registered.
   if (entity.softDelete) {
     apply[`${entityName}.restored`] = handler;
   }
@@ -421,8 +420,8 @@ export function mergeHookList<T>(
   map: Map<string, T[]>,
   source: Readonly<Record<string, readonly T[]>> | undefined,
 ): void {
-  // skip: optionaler entityHook-slot — features ohne postSave/preDelete/
-  // postDelete/postQuery lassen das slot undefined.
+  // skip: the optional entity-hook slot may be undefined when a feature has no
+  // postSave, preDelete, postDelete, or postQuery hooks.
   if (!source) return;
   for (const [name, fns] of Object.entries(source)) {
     const existing = map.get(name) ?? [];
@@ -440,10 +439,9 @@ export function mergeHookListQualified<T>(
   featureName: string,
   hookQnType: QnType,
 ): void {
-  // skip: optionaler hook-slot — defineFeature materialisiert zwar alle
-  // Slots, aber hand-gebaute Definitionen an System-Grenzen (Fixtures,
-  // Partial-Boots, s. registry.test.ts) lassen sie weg. Leeres Record
-  // statt Object.entries(undefined)-Crash.
+  // skip: the optional hook slot may be omitted by hand-built definitions at
+  // system boundaries (fixtures and partial boots), even though defineFeature
+  // materializes every slot. This avoids Object.entries(undefined) crashing.
   if (!source) return;
   for (const [name, fns] of Object.entries(source)) {
     const qualified = qualify(featureName, hookQnType, name);

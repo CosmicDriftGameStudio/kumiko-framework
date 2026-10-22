@@ -152,12 +152,11 @@ export function deriveKey(key: string, suffix: string): string {
   return ext === "" ? `${key}.${suffix}` : `${stem}.${suffix}${ext}`;
 }
 
-// The prefix that covers a key AND every `derive()`d variant of it —
-// `foo/bar.jpg` → `foo/bar.`, matching `foo/bar.jpg` and `foo/bar.medium.jpg`
-// alike, since derive() only ever inserts a suffix between the stem and the
-// extension. Used by the tenant-handover destroy sweep (kumiko-framework#3035)
-// to reach a moved fileRef's original plus every already-rendered derivative,
-// none of which have their own `file_refs` row.
+// The prefix that covers a key AND every `derive()`d variant of it — `foo/bar.jpg` → `foo/bar.`,
+// matching `foo/bar.jpg` and `foo/bar.medium.jpg` alike, since derive() only ever inserts a suffix
+// between the stem and the extension. Used by the tenant-handover destroy sweep to reach a moved
+// fileRef's original plus every already-rendered derivative, none of which have their own
+// `file_refs` row.
 export function storageKeyStemPrefix(key: string): string {
   const { stem, ext } = splitKeyExtension(key);
   return ext === "" ? `${key}.` : `${stem}.`;

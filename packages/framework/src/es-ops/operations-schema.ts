@@ -1,12 +1,6 @@
-// Tracking-Table für ES-Operations (Phase 1: seed-migrations; Phase 2+:
-// projection-rebuild, event-replay, stream-migration, ... — siehe
-// kumiko-platform/docs/plans/features/es-ops.md).
-//
-// File-ID-Tracking analog drizzle-kit: filename ist die ID, applied-set
-// liegt in dieser Tabelle. Pending = files-on-disk MINUS applied-set.
-//
-// operation_type-Discriminator lässt Phase 2+ dieselbe Tabelle nutzen,
-// kein Schema-Sprawl. CLI-Status filtert per type:
+// Tracks ES operations. The filename is the ID, so pending operations are files on disk minus the
+// applied set. The operation_type discriminator lets different operation types share one table
+// without schema sprawl; CLI status commands filter by type:
 //   bunx kumiko ops seed:status      → operation_type = "seed-migration"
 //   bunx kumiko ops projection:status → operation_type = "projection-rebuild"
 
@@ -16,7 +10,7 @@ import { type DbConnection, tableExists } from "../db/index.ts";
 import { unsafePushTables } from "../db/table-push.ts";
 
 export type EsOperationType = "seed-migration";
-// Phase 2+ extensions — append here when implemented:
+// Extensions — append here when implemented:
 // | "projection-rebuild"
 // | "event-replay"
 // | "stream-migration"
@@ -38,7 +32,7 @@ export const esOperationsTable = pgTable(
       .default(sql`now()`),
     durationMs: integer("duration_ms").notNull(),
     // Trace: came from boot-time auto-apply, explicit CLI, or CI step.
-    // Helps when forensics ask "wer hat das wann angestoßen".
+    // Supports forensic questions about who initiated the operation and when.
     appliedBy: text("applied_by").notNull().$type<EsOperationAppliedBy>(),
     // Optional human-readable annotation — surfaced in `ops <op>:status`.
     notes: text("notes"),

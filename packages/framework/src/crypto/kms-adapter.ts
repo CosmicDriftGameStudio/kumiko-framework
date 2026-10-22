@@ -7,12 +7,12 @@ import * as z from "zod";
 
 export * from "@cosmicdrift/kumiko-types/kms-adapter-types";
 
-// The KMS error classes live here and not in kumiko-types (#1629): callers
+// The KMS error classes live here and not in kumiko-types: callers
 // branch on them with `instanceof`, which needs a single copy of the class.
 
 // `satisfies z.ZodType<SubjectId>` plus the reverse check in subject-id-schema.test.ts bind this to the TS type
-// at compile time (fw#2801) — mint (subjectKeyForRecord) and shred (forget-subject) can no
-// longer drift apart on which subjects are valid, the way #2809 happened.
+// at compile time — mint (subjectKeyForRecord) and shred (forget-subject) can no
+// longer drift apart on which subjects are valid, the way it happened.
 export const subjectIdSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.uuid() }),
   z.object({

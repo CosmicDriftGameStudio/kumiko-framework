@@ -126,7 +126,7 @@ describe("where — WhereOperator", () => {
         { label: "y", score: 20 },
         { label: "z", score: 30 },
       ]);
-      // Array als WhereValue direkt ist valider IN-Shortcut (buildWhereClause L.2)
+      // An array passed directly as a WhereValue is a valid `IN` shortcut.
       const rows = await selectMany(db, meta, { label: ["x", "z"] as unknown as string });
       expect(rows.length).toBe(2);
     });

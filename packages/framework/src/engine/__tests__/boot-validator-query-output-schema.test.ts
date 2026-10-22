@@ -14,7 +14,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 const rowSchema = z.object({ id: z.string(), name: z.string() });
 const pagedSchema = z.object({ rows: z.array(rowSchema), nextCursor: z.string().nullable() });
 
-// fw#2493: query handlers can declare `outputSchema` — the Zod shape of
+// Query handlers can declare `outputSchema` — the Zod shape of
 // their return value — so the boot-validator can catch a typo in a screen's
 // column/field references against a query's result instead of that typo
 // surfacing as a silently-empty field at runtime.
@@ -779,8 +779,8 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
           schema: z.object({}),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           // Row schema passed directly instead of wrapping it in
-          // { rows: [...], nextCursor } — the mistake fw#2493's follow-up
-          // check catches instead of silently skipping every column check.
+          // { rows: [...], nextCursor } — the follow-up check
+          // catches this instead of silently skipping every column check.
           outputSchema: rowSchema,
           handler: async () => ({ rows: [], nextCursor: null }),
         }),

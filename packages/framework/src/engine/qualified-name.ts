@@ -47,7 +47,7 @@ function validateSegment(value: string, label: string, context?: string): void {
 
 // registry-ingest.ts also qualifies handlers/projections with these two —
 // not in the public QnTypes enum, but reachable as a type segment the same
-// way (#1991).
+// way.
 const NON_ENUM_QN_TYPES = ["stream", "projection", "workspace"] as const;
 
 // Every segment word that a fully-qualified QN can carry as its type.
@@ -61,7 +61,7 @@ const RESERVED_QN_SEGMENTS: ReadonlySet<string> = new Set<string>([
 // the trailing part. Both signals must hold together: the scope alone
 // repeating (e.g. entity "user:create" on feature "user") or a reserved word
 // alone appearing (e.g. "compliance:query:for-tenant") are both common,
-// legitimate sub-structure on their own (#1991).
+// legitimate sub-structure on their own.
 function isDoubleQualified(scope: string, segments: readonly string[]): boolean {
   const [first, second] = segments;
   return first === scope && second !== undefined && RESERVED_QN_SEGMENTS.has(second);

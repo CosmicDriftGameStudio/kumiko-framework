@@ -1,17 +1,17 @@
-// Storage-Provider readStream-API (S2.U3 Atom 3c.fix).
+// Storage-provider readStream API.
 //
-// Pinst:
-//   - In-memory-Provider: readStream yieldet die Bytes als single-chunk,
-//     Roundtrip identisch zu write+read.
-//   - Local-Provider: readStream nutzt fs.createReadStream → mehrere
-//     chunks fuer >hwm-Files. Lazy-Fail: ENOENT trifft erst beim ersten
-//     chunk-pull, nicht beim readStream-Aufruf.
-//   - Beide Provider: missing-key throw't beim Konsum, nicht bei
-//     readStream() — gleiches Lazy-Pattern wie S3.
+// Invariants:
+//   - In-memory provider: readStream yields the bytes as a single chunk,
+//     identical to the write+read round trip.
+//   - Local provider: readStream uses fs.createReadStream, yielding multiple
+//     chunks for files larger than the high-water mark. Failure is lazy: ENOENT
+//     occurs on the first chunk pull, not when readStream is called.
+//   - Both providers throw for a missing key during consumption, not when
+//     readStream() is called—the same lazy pattern as S3.
 //
-// readStream + writeStream sind ab Atom 3c.fix REQUIRED in der Provider-
-// Surface (kein optional). Der Type-Compiler erzwingt Implementierung,
-// kein silent runtime-throw mehr.
+// readStream and writeStream are required in the provider surface, not
+// optional. The type compiler enforces their implementation instead of
+// allowing a silent runtime throw.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -48,10 +48,10 @@ describe("FileStorageProvider.readStream — in-memory", () => {
 
   test("missing-key throw't beim ersten chunk-pull (lazy-Pattern)", async () => {
     const provider = createInMemoryFileProvider();
-    // readStream() selbst wirft NICHT — das Iterator-Object existiert.
+    // readStream() itself does not throw—the iterator object exists.
     const stream = provider.readStream("does/not/exist.bin");
     expect(stream).toBeDefined();
-    // Erst beim Iterieren faellt der Fehler.
+    // The error occurs only when iterating.
     await expect(collect(stream)).rejects.toThrow(/in-memory file not found/);
   });
 });
@@ -94,9 +94,9 @@ describe("FileStorageProvider.readStream — local", () => {
   });
 
   test("ENOENT throw't beim ersten chunk-pull (lazy-Pattern)", async () => {
-    // Pinst dass readStream() selbst kein Filesystem-Lookup macht;
-    // node:fs createReadStream emittiert error event erst beim Read-
-    // Versuch. Test-Coverage matched die Inmemory-Variante.
+    // This confirms that readStream() itself performs no filesystem lookup;
+    // node:fs createReadStream emits an error event only when reading is
+    // attempted. Test coverage matches the in-memory variant.
     const provider = createLocalProvider(basePath);
     const stream = provider.readStream("does/not/exist.bin");
     expect(stream).toBeDefined();

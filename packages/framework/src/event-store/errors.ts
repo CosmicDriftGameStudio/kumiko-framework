@@ -3,7 +3,7 @@
 // errors so the executor layer can map them to the framework's
 // WriteResult error contract (version_conflict).
 //
-// These live here and not in kumiko-types (#1629): `instanceof` needs a
+// These live here and not in kumiko-types: `instanceof` needs a
 // single copy of the class, which forced kumiko-types to be a peerDependency
 // and made every minor changeset resolve to a major bump.
 

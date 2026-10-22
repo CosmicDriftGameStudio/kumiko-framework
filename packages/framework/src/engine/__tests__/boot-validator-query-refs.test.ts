@@ -8,7 +8,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
 }
 
-// fw#2178: a screen's `query` (or a relatedList/dashboard-panel query) must
+// a screen's `query` (or a relatedList/dashboard-panel query) must
 // resolve to a query-handler actually registered via r.queryHandler(...) —
 // mirrors the existing rowAction/toolbarAction handler-existence check.
 describe("validateBoot — query QN refs (fw#2178)", () => {
@@ -29,7 +29,7 @@ describe("validateBoot — query QN refs (fw#2178)", () => {
   // (b) targets projectionDetail rather than entityEdit: screens.ts
   // unconditionally rejects a relatedList section on entityEdit/actionForm/
   // configEdit with its own "projectionDetail-only primitive" error
-  // (fw#2166, screens.ts:955/:621/:506) — that fires first in the per-feature
+  // (screens.ts:955/:621/:506) — that fires first in the per-feature
   // loop, before validateQueryRefs ever runs, so a dead QN there can't reach
   // this check. projectionDetail is the one screen type where relatedList is
   // actually reachable.

@@ -1,8 +1,8 @@
-// 225/2: der sicherheitskritische WHERE-Merge (caller-`where.tenantId`
-// darf den Tenant-Scope nur NARROWEN, nie erweitern) — hier gegen echtes
-// Postgres über den vollen HTTP-Pfad (setupTestStack), nicht nur als
-// SQL-String-Pin gegen den recording-Fake (tenant-db-where-merge.test.ts
-// bleibt als Schnell-Pin bestehen).
+// The security-critical WHERE merge (caller-`where.tenantId`
+// may only NARROW the tenant scope, never expand it) is tested here
+// against real Postgres through the full HTTP path (setupTestStack),
+// rather than only as an SQL-string pin against the recording fake
+// (tenant-db-where-merge.test.ts remains as a fast pin).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";
@@ -30,8 +30,8 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 
-// Die Handler reichen eine CALLER-KONTROLLIERTE where.tenantId in die
-// TenantDb — genau der Angriffsvektor, den der Merge neutralisieren muss.
+// The handlers pass a CALLER-CONTROLLED where.tenantId into TenantDb —
+// exactly the attack vector that the merge must neutralize.
 const probeFeature = defineFeature("where-merge-probe", (r) => {
   r.entity({ name: "note", ...noteEntity });
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: { roles: ["User"] } }));
@@ -85,9 +85,9 @@ describe("tenant-db WHERE merge — full stack", () => {
     await stack.http.writeOk("where-merge-probe:write:note:create", { title: "a-note" }, userA);
     await stack.http.writeOk("where-merge-probe:write:note:create", { title: "b-note" }, userB);
 
-    // userA fragt EXPLIZIT nach tenantB — der Merge IGNORIERT die fremde
-    // tenantId (fällt auf den eigenen Scope zurück): nie b-note, die
-    // fremde Row bleibt unsichtbar.
+    // userA EXPLICITLY requests tenantB — the merge IGNORES the foreign
+    // tenantId (falls back to the user's own scope): b-note is never
+    // returned, so the foreign row remains invisible.
     const crossRead = (await stack.http.queryOk(
       "where-merge-probe:query:list-for-tenant",
       { tenantId: tenantB },
@@ -96,7 +96,7 @@ describe("tenant-db WHERE merge — full stack", () => {
     expect(crossRead.map((r) => r.title)).not.toContain("b-note");
     expect(crossRead.every((r) => r.tenantId === tenantA)).toBe(true);
 
-    // Kontrolle: der eigene Tenant ist über denselben Pfad lesbar.
+    // Control: the user's own tenant remains readable through the same path.
     const ownRead = (await stack.http.queryOk(
       "where-merge-probe:query:list-for-tenant",
       { tenantId: tenantA },

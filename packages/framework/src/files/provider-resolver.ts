@@ -64,13 +64,13 @@ export type FileProviderContext = {
  * file-provider-inmemory, ...) registers an implementation via
  * `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`.
  *
- * **Plugin-Author-Warnung:** `ctx` ist EXPLIZIT ein FileProviderContext, nicht
- * ein voller HandlerContext. Felder ausserhalb der schmalen Surface (z.B.
- * `ctx.tx`, `ctx.actor`, `ctx.signal`) sind im Worker-Pfad NICHT vorhanden.
- * Cast `ctx as unknown as HandlerContext` fliegt zur Runtime im Worker — der
- * Crash kommt erst in production mit dem ersten S3-Tenant. Braucht ein Plugin
- * Felder ausserhalb FileProviderContext: lieber FileProviderContext explizit
- * erweitern (sichtbarer breaking change) als ctx-cast.
+ * **Plugin-Author-Warning:** `ctx` is EXPLICITLY a FileProviderContext, not
+ * a full HandlerContext. Fields outside the narrow surface (e.g.
+ * `ctx.tx`, `ctx.actor`, `ctx.signal`) are NOT available on the worker path.
+ * Casting `ctx as unknown as HandlerContext` fails at runtime on the worker —
+ * the crash only appears in production with the first S3 tenant. If a plugin
+ * needs fields outside FileProviderContext, extend FileProviderContext
+ * explicitly (a visible breaking change) rather than casting `ctx`.
  */
 export type FileProviderPlugin = {
   readonly build: (ctx: FileProviderContext, tenantId: string) => Promise<FileStorageProvider>;

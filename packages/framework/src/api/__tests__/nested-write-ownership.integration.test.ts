@@ -1,4 +1,4 @@
-// fw#2861 — nested-write parent-row ownership check. A custom (non-executor)
+// Nested-write parent-row ownership check. A custom (non-executor)
 // `:create` handler can hand back an EXISTING row instead of inserting a
 // fresh one (find-or-create, or a bug) — the framework must refuse to attach
 // nested children to a parent row the caller does not own, both across
@@ -157,7 +157,7 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
       if (existing) {
         return {
           isSuccess: true as const,
-          // #2912: a row without a tenantId key cannot be checked from the payload alone.
+          // A row without a tenantId key cannot be checked from the payload alone.
           data: event.payload.omitTenantId
             ? { id: existing.id, name: existing.name }
             : { id: existing.id, name: existing.name, tenantId: existing.tenant_id },

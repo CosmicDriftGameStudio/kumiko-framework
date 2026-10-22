@@ -45,7 +45,7 @@ describe("buildPgKmsOptions", () => {
 
   // The bug this parser exists for: every one of these used to pass through
   // Number() and produce a wrong-but-silent version, which makes the rotation
-  // slot unreachable and its rows unreadable (phronexsis#323).
+  // slot unreachable and its rows unreadable.
   test.each([
     ["1e21", "scientific notation survives Number.isInteger"],
     ["0x10", "hex coerces to 16"],
@@ -118,7 +118,7 @@ describe("resolveKmsWiring", () => {
     expect(wiring.allowPlaintextPii).toBe("solon pre-UI gate");
   });
 
-  // fw#2551: an ops script must be able to release the subject-keys pool in a
+  // An ops script must be able to release the subject-keys pool in a
   // `finally` without knowing which branch it got — this compiles only while
   // `close` sits on BOTH union members, and the plaintext branch must resolve
   // rather than blow up on a wiring that opened nothing.

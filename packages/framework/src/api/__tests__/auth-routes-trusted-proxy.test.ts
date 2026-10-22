@@ -1,4 +1,4 @@
-// kumiko-framework#1539: `trustedProxyHops` on AuthRoutesConfig. Verifies
+// Tests `trustedProxyHops` on AuthRoutesConfig. Verifies
 // the client-IP derivation behind /auth/mfa/verify's rate limiter — chosen
 // because it keys on bare IP (no email composite), so a wrong default here
 // is a shared-bucket DoS, not just a spoofing hole. Real Hono app + real
@@ -147,7 +147,7 @@ describe("AuthRoutesConfig.trustedProxyHops", () => {
   test("hops=1 with no XFF and no X-Real-IP collapses distinct clients into unknown", async () => {
     const app = await buildApp({ trustedProxyHops: 1 });
     // Three requests without either header must share the "unknown" bucket —
-    // a single 422 only proves "no throw", not the collapse (fw#1555#2).
+    // a single 422 only proves "no throw", not the collapse.
     const attempt = () => app.request(verifyRequest(undefined));
     expect((await attempt()).status).toBe(422);
     expect((await attempt()).status).toBe(422);

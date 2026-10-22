@@ -1,16 +1,16 @@
-// Index `tableName → projection-name` aus der Registry. Genutzt vom
-// app-seitigen Projection-Rebuild (`kumiko schema apply` liest die
-// rebuild-Marker → mappt Tabellen auf Projektionen → rebuildProjection).
+// Index `tableName → projection-name` from the registry, used by the
+// app-side projection rebuild (`kumiko schema apply` reads rebuild markers,
+// maps tables to projections, then calls rebuildProjection).
 //
-// Drizzle-frei: der Tabellen-Name kommt aus dem kumiko-Symbol das
-// buildEntityTable/deriveEntityTableMeta an die Table-Definition hängt.
+// Drizzle-free: the table name comes from the kumiko symbol attached to the
+// table definition by buildEntityTable/deriveEntityTableMeta.
 
 import { extractTableName } from "../db/index.ts";
 import type { Registry } from "../engine/types/feature.ts";
 
-/** Index `tableName → projection-name` aus der Registry. Nur Projections mit
- *  table-Definition (single-stream + multi-stream-with-table) zählen.
- *  Side-effect-only MSPs (table omitted) haben keinen Rebuild-Sinn. */
+/** Index `tableName → projection-name` from the registry. Only projections with
+ *  a table definition (single-stream + multi-stream-with-table) are included.
+ *  Side-effect-only MSPs (table omitted) cannot be rebuilt. */
 export function buildProjectionTableIndex(registry: Registry): ReadonlyMap<string, string> {
   const index = new Map<string, string>();
   for (const [name, def] of registry.getAllProjections()) {

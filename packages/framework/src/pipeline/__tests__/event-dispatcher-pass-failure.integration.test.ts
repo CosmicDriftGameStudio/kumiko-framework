@@ -1,18 +1,18 @@
-// kumiko-framework#2616 — processConsumer's db.begin rolled back the WHOLE
-// pass (including markProcessing/persistConsumerOutcome) whenever anything
-// inside it threw AFTER delivery succeeded, silently reverting attempts/
-// last_error/cursor to their pre-pass values. Combined with `context.log?.`,
-// a process without a logger lost the error entirely — in prod this looked
-// like a healthy consumer (status=idle, attempts=0, last_error=NULL) that
-// was actually looping at 24 rollbacks/sec.
+// processConsumer's db.begin rolled back the WHOLE pass (including
+// markProcessing/persistConsumerOutcome) whenever anything inside it threw
+// AFTER delivery succeeded, silently reverting attempts/last_error/cursor to
+// their pre-pass values. Combined with `context.log?.`, a process without a
+// logger lost the error entirely — in prod this looked like a healthy consumer
+// (status=idle, attempts=0, last_error=NULL) that was actually looping at 24
+// rollbacks/sec.
 //
-// The real prod trigger was never identified (see the issue), so this test
-// reproduces the SHAPE of the bug via a legitimate fault-injection point
-// instead of the unknown original cause: EventDispatcherOptions.meter is
-// dependency-injected, and emitLagFromTx (called INSIDE the same db.begin,
-// after delivery+persistConsumerOutcome already ran) is where a thrown
-// metric emission rolls back an otherwise-successful pass. No production
-// code is touched to make this reproducible.
+// The real prod trigger was never identified, so this test reproduces the
+// SHAPE of the bug via a legitimate fault-injection point instead of the
+// unknown original cause: EventDispatcherOptions.meter is dependency-injected,
+// and emitLagFromTx (called INSIDE the same db.begin, after
+// delivery+persistConsumerOutcome already ran) is where a thrown metric
+// emission rolls back an otherwise-successful pass. No production code is
+// touched to make this reproducible.
 
 import { afterAll, afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
 import { sharedWidgetEntity, sharedWidgetTable } from "@cosmicdrift/kumiko-testing/helpers";

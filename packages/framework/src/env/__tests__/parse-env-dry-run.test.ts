@@ -1,5 +1,5 @@
-// st15/7: der Dry-Run-Pfad lieferte `({} as Shape)` — jeder Zugriff silent
-// undefined. parseEnvDryRun liefert stattdessen ein ehrliches Partial.
+// The dry-run path used to return `({} as Shape)`, making every access silently
+// undefined. parseEnvDryRun instead returns an honest Partial.
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";

@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS "read_accounts_tenant_id_idx" ON "read_accounts" ("te
   // so replay must count the marker as applied or "unexpected-table"/
   // "unexpected columns" fires forever against a table the snapshot
   // correctly omits.
-  // #1473/2: CREATE TABLE IF NOT EXISTS is a no-op in real Postgres when
+  // CREATE TABLE IF NOT EXISTS is a no-op in real Postgres when
   // the table already exists — treating it as an overwrite here silently
   // discards whatever an in-between ALTER TABLE added, exactly the
   // copy-paste-migration class this replay exists to catch.
@@ -300,7 +300,7 @@ ALTER TABLE "widgets" SET SCHEMA "other";`,
   });
 
   test("kumiko-framework#1535: an unquoted CREATE TABLE identifier parses instead of failing loud", () => {
-    // Was "fails loud" pre-#1535 — but real committed migrations do this
+    // Was "fails loud" — but real committed migrations do this
     // (publicstatus's 0014_marketing-waitlist.sql), and the old behavior
     // turned an already-graceful missing-table report into a hard abort.
     // Unquoted identifiers must parse like quoted ones.
@@ -344,7 +344,7 @@ ALTER TABLE "widgets" SET SCHEMA "other";`,
     // Regression for the false-positive class: these are all real,
     // committed, shape-neutral DDL shapes (kumiko-studio's
     // 0002_file_refs_soft_delete.sql, publicstatus's
-    // 0020_add-monitor-checks.sql) that the #1535 fix must recognize
+    // 0020_add-monitor-checks.sql) that must recognize
     // instead of throwing "unparsed table-DDL statement".
     const dir = tmpMigrationsDir();
     try {

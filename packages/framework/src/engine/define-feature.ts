@@ -135,10 +135,10 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       postDelete: state.phasedLifecycleHooks.postDelete,
       preQuery: state.lifecycleHooks["preQuery"] ?? {},
       postQuery: state.lifecycleHooks["postQuery"] ?? {},
-      // @cast-boundary engine-bridge — die Hook-Registrierung erased die
-      // per-Slot-Signaturen zu LifecycleHookFn (Union, s. Cast in
-      // addLifecycleHook); die Branches dort sind die einzigen Producer und
-      // schreiben pro Slot typrichtig.
+      // @cast-boundary engine-bridge — hook registration erases the per-slot
+      // signatures to LifecycleHookFn (a union; see the cast in
+      // addLifecycleHook). The branches there are the only producers and write
+      // the correct type for each slot.
     } as HookMap,
     entityHooks: {
       postSave: state.entityPostSave,

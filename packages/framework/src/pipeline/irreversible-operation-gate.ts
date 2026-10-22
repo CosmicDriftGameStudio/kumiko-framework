@@ -61,7 +61,7 @@ export function assertIrreversibleOperationAllowed(operation: string): void {
 // Fields flagged readAsInstruction: true have their write payload presence checked here — the
 // same reasoning as assertIrreversibleOperationAllowed, but the irreversible property belongs to
 // the target field, not the verb. Presence in the payload (not a value comparison against the
-// loaded row) is the deliberate fail-closed choice — see kumiko-framework#3358.
+// loaded row) is the deliberate fail-closed choice.
 export function assertInstructionFieldWriteAllowed(
   entityName: string,
   verb: "create" | "update",

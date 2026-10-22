@@ -1,4 +1,4 @@
-// r.extendEntityProjection — registrar/registry contracts (#759). The
+// r.extendEntityProjection — registrar/registry contracts. The
 // runtime rebuild-replay behaviour is proven in
 // custom-fields/__tests__/custom-fields.integration.test.ts.
 

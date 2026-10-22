@@ -1,4 +1,4 @@
-// fw#2741 — a list sorted by a `sortable` reference field must order by the
+// A list sorted by a `sortable` reference field must order by the
 // target row's labelField, not by the FK column's UUID. The fixture pins three
 // mutually distinct orderings (label / own id / referenced UUID) so a passing
 // assertion can only come from the label expression, never from the column the
@@ -40,7 +40,7 @@ const orderTable = buildEntityTable("refSortOrder", orderEntity);
 
 // Same shape, but the reference column is Admin-only: a caller who cannot read
 // the column must not be able to probe its target's label through the ordering
-// (fw#2629 parity — the read path gates sorting like projection).
+// (the read path gates sorting like projection).
 const restrictedOrderEntity = createEntity({
   table: "read_ref_sort_restricted_orders",
   fields: {

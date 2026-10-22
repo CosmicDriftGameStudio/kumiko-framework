@@ -1,4 +1,4 @@
-// Snapshot-Tests fuer ROLES — faengt stille Drift ab.
+// Snapshot tests for ROLES — catch silent drift.
 
 import { describe, expect, test } from "bun:test";
 import { ROLES } from "../roles.ts";

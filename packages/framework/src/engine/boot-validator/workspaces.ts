@@ -48,9 +48,9 @@ const SETTINGS_HUB_AUDIENCE_NAV_QN_SET: ReadonlySet<string> = new Set(
   SETTINGS_HUB_AUDIENCE_NAV_QNS,
 );
 
-// fw#3019: apps that assign navs to workspaces via `r.workspace({ nav })`
-// or `r.nav({ workspaces })` never pass an explicit navAllowlist (solon#113)
-// — without this, warnOnUnreachableNavScreens never runs for them. Both
+// Apps that assign navs to workspaces via `r.workspace({ nav })`
+// or `r.nav({ workspaces })` never pass an explicit navAllowlist — without
+// this, warnOnUnreachableNavScreens never runs for them. Both
 // `WorkspaceDefinition.nav` and `NavDefinition.workspaces` already hold
 // fully-qualified QNs (validateWorkspaces/validateNavs compare them
 // directly against allNavQns/allWorkspaceQns), so no re-qualification is

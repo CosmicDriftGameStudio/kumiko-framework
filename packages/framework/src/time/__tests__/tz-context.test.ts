@@ -1,5 +1,5 @@
-// Unit-Tests für ctx.tz API.
-// Test-Fokus: korrekte Konvertierung Wall-Clock+TZ ↔ Instant ↔ JSON-Pair.
+// Unit tests for the ctx.tz API.
+// Test focus: correct Wall-Clock+TZ ↔ Instant ↔ JSON-Pair conversion.
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill } from "../polyfill.ts";
@@ -34,7 +34,7 @@ describe("ctx.tz — now / today", () => {
     const tz = createTzContext();
     const instant = tz.now();
     expect(typeof instant.epochMilliseconds).toBe("number");
-    // Sollte nahe an aktueller Wall-Time sein (innerhalb 5 Sekunden).
+    // Should be close to the current wall-clock time (within 5 seconds).
     expect(Math.abs(instant.epochMilliseconds - Date.now())).toBeLessThan(5000);
   });
 
@@ -47,8 +47,8 @@ describe("ctx.tz — now / today", () => {
   test("today(tz) liefert PlainDate ohne Zeit-Komponente", () => {
     const tz = createTzContext();
     const today = tz.today("Europe/Lisbon");
-    // PlainDate hat keine .hour-Property — wenn es eines hätte, wäre's ein
-    // ZonedDateTime und der Test würde TypeError werfen.
+    // PlainDate has no .hour property; if it did, it would be a
+    // ZonedDateTime and the test would throw a TypeError.
     expect("hour" in today).toBe(false);
     expect(today.toString()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
@@ -56,7 +56,7 @@ describe("ctx.tz — now / today", () => {
   test("todayRange(tz) liefert UTC-Instants für DB-Range-Query", () => {
     const tz = createTzContext();
     const range = tz.todayRange("Europe/Berlin");
-    // Differenz zwischen start + end ist genau 24h (oder 23/25h bei DST).
+    // The difference between start and end is exactly 24h (or 23/25h during DST).
     const diffHours =
       (range.end.epochMilliseconds - range.start.epochMilliseconds) / (1000 * 60 * 60);
     expect(diffHours).toBeGreaterThanOrEqual(23);
@@ -78,8 +78,8 @@ describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
     const zdt = tz.parse("2026-04-03T10:00:00", "Europe/Lisbon");
     const json = tz.toLocatedJson(zdt);
     expect(json).toEqual({ at: "2026-04-03T10:00:00", tz: "Europe/Lisbon" });
-    // Kein "Z", kein "+01:00" im at-Feld — sonst ist die JSON-Form nicht
-    // mehr idiotensicher.
+    // No "Z" or "+01:00" in the at field—the JSON format must remain
+    // unambiguous.
     expect(json.at).not.toContain("Z");
     expect(json.at).not.toContain("+");
   });
@@ -95,24 +95,24 @@ describe("ctx.tz — parse + JSON-Pair Konvertierungen", () => {
 
   test("Round-Trip funktioniert über DST-Übergang (Lisbon-Sommerzeit-Ende)", () => {
     const tz = createTzContext();
-    // 2026-10-25 in Lisbon: Fall-Back von 02:00 → 01:00. Wir nehmen 14:00,
-    // was eindeutig im WET ist (UTC+0).
+    // 2026-10-25 in Lisbon: fall-back from 02:00 → 01:00. We use 14:00,
+    // which is unambiguously in WET (UTC+0).
     const zdt = tz.parse("2026-10-25T14:00:00", "Europe/Lisbon");
     const json = tz.toLocatedJson(zdt);
     expect(json.at).toBe("2026-10-25T14:00:00");
     expect(json.tz).toBe("Europe/Lisbon");
     const restored = tz.fromLocatedJson(json);
-    // Nach DST-Wechsel ist Lisbon UTC+0 → 14:00 lokal = 14:00 UTC.
+    // After the DST change, Lisbon is UTC+0 → 14:00 local = 14:00 UTC.
     expect(restored.toInstant().toString()).toBe("2026-10-25T14:00:00Z");
   });
 });
 
 describe("ctx.tz — Cross-Server-TZ Garantie", () => {
   test("derselbe Wall-Clock+TZ liefert denselben UTC-Instant unabhängig vom Server-TZ", () => {
-    // Das ist der Kern der Migration: ein Server in Berlin und einer in
-    // Tokyo schicken denselben "Pickup 10:00 Lissabon" — beide müssen den
-    // gleichen UTC-Instant produzieren. Temporal erfüllt das per Design,
-    // wir prüfen es zur Sicherheit.
+    // This is the core of the migration: a server in Berlin and one in
+    // Tokyo send the same "Pickup 10:00 Lissabon"—both must produce the
+    // same UTC instant. Temporal guarantees this by design; we verify it
+    // as a safeguard.
     const tz = createTzContext();
     const zdt1 = tz.parse("2026-04-03T10:00:00", "Europe/Lisbon");
     const zdt2 = tz.fromLocatedJson({ at: "2026-04-03T10:00:00", tz: "Europe/Lisbon" });

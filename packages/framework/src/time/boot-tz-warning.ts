@@ -1,16 +1,16 @@
-// Boot-Warnung wenn die Prozess-Uhr nicht in UTC läuft. Der gesamte
-// Server-Code nimmt UTC an (System-TZ ist kein Konzept — siehe timezones.md);
-// eine abweichende Prozess-TZ lässt versehentliche new Date()-Pfade
-// lokal-abhängig brechen ("grün in UTC-CI, kaputt in Berlin-Prod"). Soft:
-// nicht-UTC ist in Dev legitim, daher Warnung statt Boot-Fehler.
+// Warn at boot when the process time zone is not UTC. All server code assumes UTC
+// (the system time zone is not a framework concept); a different process time zone
+// can make accidental new Date() paths behave differently locally ("green in UTC-CI,
+// broken in Berlin production"). This is a soft check: non-UTC is legitimate in
+// development, so warn instead of failing boot.
 
 function resolvedServerTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 /**
- * Warnt einmalig beim Server-Start, wenn die Prozess-TZ nicht UTC ist.
- * Parameter sind für Tests injizierbar. Gibt zurück, ob gewarnt wurde.
+ * Warn once at server startup when the process time zone is not UTC.
+ * Parameters are injectable for tests. Returns whether a warning was emitted.
  */
 export function warnIfNonUtcServerTimeZone(
   resolvedTimeZone: string = resolvedServerTimeZone(),

@@ -1,4 +1,4 @@
-// Integration test for `runConsumerCli` (kumiko-framework#1351).
+// Integration test for `runConsumerCli`.
 //
 // Recovery semantics themselves are already covered by
 // event-dispatcher-recovery — this only exercises the CLI layer: argv

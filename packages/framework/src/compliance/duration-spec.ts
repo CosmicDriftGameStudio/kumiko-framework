@@ -1,43 +1,41 @@
-// DurationSpec ↔ SQL-Interval ↔ Temporal.Duration converter.
+// Converts between DurationSpec, SQL intervals, and Temporal.Duration.
 //
-// Hintergrund: ComplianceProfile.userRights.gracePeriod ist
-// `{ days: number } | { hours: number }` (Discriminated Union). Caller
-// die das in eine Postgres-`interval`-SQL einsetzen brauchen einen
-// einzigen vertrauenswuerdigen Punkt, sonst springt ein
-// `{ hours: 6 }`-Override stillschweigend auf einen days-Default.
+// `ComplianceProfile.userRights.gracePeriod` is
+// `{ days: number } | { hours: number }` (a discriminated union). Callers
+// inserting it into a Postgres `interval` need one trusted conversion point;
+// otherwise an `{ hours: 6 }` override could silently use a days default.
 //
-// Single source of truth: hier. Andere Spec-Forms (months/years) im
-// retention-Pfad gehen ueber den breiteren `keep-for`-Parser, sind hier
-// bewusst nicht abgedeckt — das engt den Type ein und macht die SQL-
-// Renderung total.
+// This is the single source of truth. Other spec forms (months/years) in the
+// retention path use the broader `keep-for` parser and are deliberately not
+// supported here, keeping the type narrow and SQL rendering total.
 
 import { getTemporal } from "../time/index.ts";
 import type { DurationSpec, RetentionSpec } from "./profiles.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
-// Spec in Millisekunden. Source of truth fuer alle Konvertierungen
-// (Instant-add, optional fuer JS-Datumsrechnung).
+// Millisecond representation of the spec. All conversions use this source
+// of truth, including Instant addition and optional JavaScript date handling.
 export function durationSpecToMs(spec: DurationSpec): number {
   if ("days" in spec) return spec.days * 24 * 60 * 60 * 1000;
   return spec.hours * 60 * 60 * 1000;
 }
 
-// Frist berechnen ohne DB-now() — der App-Server-Clock ist
-// authoritative. Fuer Forget-Grace, Token-TTLs und Frist-Setzungen
-// where eine Toleranz von wenigen ms zwischen App und DB irrelevant
-// ist (Grace-Periods >= 6h, Tokens >= Minuten).
+// Computes the deadline without DB-now(); the app server clock is
+// authoritative. This is used for Forget-Grace, token TTLs, and deadline
+// assignments where a difference of a few milliseconds between the app and
+// database is irrelevant (grace periods >= 6h, tokens >= minutes).
 //
-// Schreibt direkt in `instant()`-customType-Spalten — kein interval-
-// SQL-Fragment, kein Codec-Bypass.
+// Writes directly to `instant()` custom-type columns—no interval SQL
+// fragment or codec bypass.
 export function addDurationSpec(now: Instant, spec: DurationSpec): Instant {
   return getTemporal().Instant.fromEpochMilliseconds(
     now.epochMilliseconds + durationSpecToMs(spec),
   );
 }
 
-// Lesbare Beschreibung fuer Logs / Error-Messages. Nicht i18n —
-// English-only-Operator-Output.
+// Human-readable descriptions for logs and error messages. Not localized;
+// operator output is English-only.
 export function describeDurationSpec(spec: DurationSpec): string {
   if ("days" in spec) return `${spec.days} day${spec.days === 1 ? "" : "s"}`;
   return `${spec.hours} hour${spec.hours === 1 ? "" : "s"}`;

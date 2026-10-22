@@ -1,4 +1,4 @@
-// Purge derived search documents for an erased PII subject (#1610).
+// Purge derived search documents for an erased PII subject.
 //
 // After kms.eraseKey the projection/event ciphertext is unreadable, but Meili
 // still holds the plaintext that createSearchEventConsumer decrypted into the
@@ -225,7 +225,7 @@ export async function purgeSearchDocumentsForSubject(
       const declaredFields = collectSearchableSubjectFields(entity);
       if (declaredFields.length === 0) continue;
       const tableName = resolveTableName(entityName, entity, undefined);
-      // Same post-eraseKey hazard as nullBlindIndexesForSubject (fw#2550):
+      // Same post-eraseKey hazard as nullBlindIndexesForSubject:
       // a mounted feature without its migration must not abort the purge
       // (and the audit event after it).
       if (!(await tableExists(db, tableName))) continue;

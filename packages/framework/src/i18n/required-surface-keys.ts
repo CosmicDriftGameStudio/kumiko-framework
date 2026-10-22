@@ -80,8 +80,8 @@ function isI18nKey(value: string): boolean {
 /**
  * `treatAsKey` bypasses the colon-only `isI18nKey` check — used by the Settings-Hub
  * generator's dot-form labels (`${feature}.settings`, mask titles), which are
- * always i18n references by construction, never literal display text (fw#2260).
- * `isI18nKey` itself also accepts dot-form labels explicitly marked via `i18nKey()` (fw#2313).
+ * always i18n references by construction, never literal display text.
+ * `isI18nKey` itself also accepts dot-form labels explicitly marked via `i18nKey()`.
  */
 function pushKey(out: Set<string>, value: string | undefined, treatAsKey = false): void {
   if (value !== undefined && (treatAsKey || isI18nKey(value))) out.add(value);
@@ -166,7 +166,7 @@ function pushDashboardScreenKeys(out: Set<string>, dashboard: DashboardScreenDef
 }
 
 function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
-  // skip: custom-Panel übersetzt sich selbst, kein Key hier
+  // skip: custom panels translate themselves, so no key is collected here
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
   if (panel.kind === "chart" || panel.kind === "stat-group") pushKey(out, panel.subtitle);
@@ -271,7 +271,7 @@ function pushExpandableRowKeys(out: Set<string>, section: EntityListExpandableRo
 }
 
 export type RequiredKeysOptions = {
-  /** Bypass `isI18nKey`'s colon-only check for generated dot-form labels (fw#2260). */
+  /** Bypass `isI18nKey`'s colon-only check for generated dot-form labels. */
   readonly treatDotFormAsKey?: boolean;
 };
 
@@ -306,7 +306,8 @@ export function requiredKeysFromScreen(
     }
     case "projectionList": {
       const list = screen;
-      // Keine Entity → keine field-label-Fallbacks; nur explizite Column-Labels.
+      // No entity means there are no field-label fallbacks; only explicit column labels are
+      // collected.
       for (const col of list.columns) {
         const normalized = normalizeListColumn(col);
         if (normalized.label !== undefined) pushKey(out, normalized.label);
@@ -548,7 +549,7 @@ export function buildEffectiveTranslationKeys(features: readonly FeatureDefiniti
     for (const key of Object.keys(feature.translations ?? {})) {
       out.add(`${feature.name}:${key}`);
       // Blank form too — Settings-Hub group namespaces (`group: "tenant-settings"`)
-      // require `${group}.settings` which is not `${feature}:${key}` (fw#2314).
+      // require `${group}.settings` which is not `${feature}:${key}`.
       out.add(key);
     }
   }

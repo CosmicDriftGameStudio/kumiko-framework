@@ -59,10 +59,10 @@ import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 export type Table = TableColumns;
 
-// Screen-Filter (Tier 2.7c) — Op-Mapping als Where-Operator. Boot-
-// Validator pinst field-Existenz + filterable + op-vs-Type-Compat.
-// `op` ist auf {eq,ne,lt,gt,lte,gte,in} normalisiert; "in" mit
-// empty-array ist explizit no-match.
+// Screen filter: maps an operator to a WhereObject condition.
+// The boot validator checks field existence, filterability, and operator/type compatibility.
+// `op` is normalized to {eq,ne,lt,gt,lte,gte,in}; "in" with an
+// empty array explicitly matches nothing.
 export function buildFilterWhere(
   field: string,
   op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in",
@@ -129,11 +129,11 @@ function scalarDefault(field: FieldDefinition): unknown {
   }
 }
 
-// F8 helper: PG-23505 (unique-violation) catched aus applyEntityEvent
-// (create + update Pfade) → WriteFailure(UniqueViolationError 409).
-// Andere Errors propagieren via re-throw. Lokal extrahiert weil das
-// Pattern an zwei Stellen im executor lebt — der Caller wrap't den
-// applyEntityEvent-call in try-catch und delegiert das Mapping hierher.
+// Maps PG-23505 (unique-violation) caught from applyEntityEvent
+// (create and update paths) to WriteFailure(UniqueViolationError 409).
+// Other errors propagate via re-throw. Extracted because this pattern
+// occurs in two places in the executor; the caller wraps the
+// applyEntityEvent call in try-catch and delegates the mapping here.
 //
 // Returns WriteFailure on match, null otherwise (caller re-throws).
 export function tryMapUniqueViolation(e: unknown, entityName: string): WriteFailure | null {
@@ -344,8 +344,8 @@ export function buildExecutorContext(
 
   // Pre-compute the set of sensitive field names once. The event log stores
   // these fields as table ciphertext (boot validates sensitive ⇒ pii |
-  // encrypted, #967) — the set only strips the caller-facing event echo so
-  // responses never carry the value (#820).
+  // encrypted) — the set only strips the caller-facing event echo so
+  // responses never carry the value.
   const sensitiveFields = new Set<string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     if ("sensitive" in field && field.sensitive === true) {
@@ -370,8 +370,8 @@ export function buildExecutorContext(
   }
 
   // No adapter configured = crypto-shredding off; pii fields stay plaintext
-  // (pre-#724 behavior). The hard boot gate ships with the prod-grade
-  // PgKmsAdapter (phase E).
+  // (previous behavior). The hard boot gate ships with the prod-grade
+  // PgKmsAdapter.
   function piiKms(): LocalKeyKmsAdapter | undefined {
     return options.kms ?? configuredPiiSubjectKms();
   }

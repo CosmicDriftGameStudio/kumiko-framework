@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 // Migrates create*Field(...) calls from the old flag-based PII API (pii,
 // userOwned, tenantOwned, subjectRef, allowPlaintext, lookupable,
-// searchable, sensitive) to the author-facing personal/find API
-// (kumiko-framework#2250). Idempotent — re-running is a no-op on already
-// migrated fields (skipped once a `personal` property is present).
+// searchable, sensitive) to the author-facing personal/find API.
+// Idempotent — re-running is a no-op on already migrated fields (skipped once
+// a `personal` property is present).
 //
 // Mapping table (exact):
 //   pii: true                           -> personal: "self"

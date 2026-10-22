@@ -8,8 +8,7 @@ import { testTenantId } from "../../seeding/seed-users.ts";
 import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 // r.systemScope() is feature-level (define-feature.ts), not per-job — so two
-// features prove both sides, mirroring pipeline/__tests__/ctx-systemdb.integration.test.ts
-// (the handler-dispatch counterpart from framework#2069/PR#2091).
+// features prove both sides, mirroring pipeline/__tests__/ctx-systemdb.integration.test.ts.
 
 type JobRunResult = {
   readonly name: "system" | "tenant" | "system-per-tenant";

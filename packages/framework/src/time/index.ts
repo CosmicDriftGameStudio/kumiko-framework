@@ -1,13 +1,13 @@
-// Time-Modul: Temporal-Polyfill + ctx.tz Helper.
+// Time module: Temporal polyfill + ctx.tz helper.
 //
-// Aktueller Stand (Iteration 1-4 von Gap-03 in samples/beammycar/MIGRATION.md):
-//   - ensureTemporalPolyfill: installiert Temporal global wenn nötig
-//   - getTemporal: type-safer Zugriff auf globalThis.Temporal
-//   - createTzContext: ctx.tz Factory mit now/today/parse/toLocatedJson/...
-//   - LocatedTimestampJson: API-Boundary-Form { at, tz }
-//   - isValidIanaTimeZone: IANA-Zonennamen-Validierung (type:"tz"-Felder)
-//   - warnIfNonUtcServerTimeZone: Boot-Warnung bei nicht-UTC Prozess-TZ
-//   - GeoTzProvider: optionaler Geo→Zone-Adapter (ctx.tz.fromCoordinates/fromAddress)
+// Provides:
+//   - ensureTemporalPolyfill: installs Temporal globally when needed
+//   - getTemporal: type-safe access to globalThis.Temporal
+//   - createTzContext: ctx.tz factory with now/today/parse/toLocatedJson/...
+//   - LocatedTimestampJson: API-boundary form { at, tz }
+//   - isValidIanaTimeZone: IANA time-zone name validation (type:"tz" fields)
+//   - warnIfNonUtcServerTimeZone: boot warning for a non-UTC process time zone
+//   - GeoTzProvider: optional geo-to-zone adapter (ctx.tz.fromCoordinates/fromAddress)
 
 export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning.ts";
 export type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz.ts";

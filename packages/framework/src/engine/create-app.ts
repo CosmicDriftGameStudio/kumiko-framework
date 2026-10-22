@@ -31,7 +31,7 @@ function inlineFormFieldMaps(
   return screen.confirm !== undefined ? [screen.fields, screen.confirm.fields] : [screen.fields];
 }
 
-// `currency: { kind: "literal", code }` (fw#2839) is only meaningful for a
+// `currency: { kind: "literal", code }` is only meaningful for a
 // code the app knows — a typo would otherwise render and submit amounts in a
 // currency no formatter or rate table covers.
 function validateLiteralCurrencyCode(
@@ -159,7 +159,7 @@ export function createApp(config: AppConfig): App {
       }
     }
     // A money field on an entity-less form screen names its own currency
-    // source (fw#2839) — a literal code has to be one the app actually knows,
+    // source — a literal code has to be one the app actually knows,
     // same rule the entity `defaultCurrency` check above applies.
     for (const [screenId, screen] of Object.entries(feature.screens ?? {})) {
       const inlineFields = inlineFormFieldMaps(screen);

@@ -1,4 +1,4 @@
-// #3227 — batchHandler wired into a real dispatcher pass: a successful
+// batchHandler wired into a real dispatcher pass: a successful
 // batch is delivered in one call (handler never runs, cursor lands at the
 // last event) and a batch+handler failure still dead-letters through the
 // normal errorPolicy machinery, delivering the poisoned event via handler

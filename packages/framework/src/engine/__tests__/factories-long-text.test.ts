@@ -1,12 +1,12 @@
 // createLongTextField + LongTextFieldDef contract tests.
 //
 // Pin the type-level enforcement so a refactor that re-adds sortable/
-// searchable/filterable to LongTextFieldDef breaks the build, not
-// silently degrades the field's semantics.
+// searchable/filterable to LongTextFieldDef breaks the build instead of
+// silently degrading the field's semantics.
 //
-// Sprint-5b-vorab introduced longText as a dedicated field-type for
-// source-code / markdown / blog-posts — explicitly NOT sortable /
-// searchable / filterable. Type-level enforcement statt soft-defaults.
+// longText is a dedicated field type for source code, markdown, and blog
+// posts—explicitly NOT sortable, searchable, or filterable. Type-level
+// enforcement prevents soft defaults.
 
 import { describe, expect, expectTypeOf, test } from "bun:test";
 import { createLongTextField } from "../factories.ts";
@@ -74,10 +74,10 @@ describe("LongTextFieldDef — type-level non-indexable enforcement", () => {
     // @ts-expect-error format is NOT allowed on longText
     const f4 = createLongTextField({ format: "email", personal: false, reason: "test_fixture" });
 
-    // Runtime sanity: trotz der @ts-expect-error-ignored options ist
-    // das field zur Laufzeit erfolgreich erzeugt — type-level-blockade
-    // wirkt nur compile-time. Wir pinnen den runtime-shape damit der
-    // Fake-Test-Guard sieht dass der test echte assertions hat.
+    // Runtime sanity: despite the @ts-expect-error-ignored options, the field
+    // is successfully created at runtime—type-level blocking applies only at
+    // compile time. Pin the runtime shape so the fake-test guard sees that
+    // the test contains real assertions.
     for (const f of [f1, f2, f3, f4]) {
       expect(f.type).toBe("longText");
       expect(f.required).toBe(false);

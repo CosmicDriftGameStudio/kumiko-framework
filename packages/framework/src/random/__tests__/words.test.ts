@@ -1,10 +1,10 @@
-// words.ts Invarianten-Tests (Phase 1, test-luecken-integration).
+// words.ts invariant tests.
 //
-// Schützt die Slug-Wortlisten gegen fehlerhafte Edits (Duplikate,
-// Großbuchstaben, Bindestriche, Müll-Einträge). Bewusst NICHT an die
-// veralteten Inline-Kommentare gebunden ("150 × 150", "4-8 Buchstaben") —
-// real sind es mehr Wörter und weitere Längen; getestet werden die echten
-// harten Invarianten + die dokumentierte Mindest-Diversität.
+// Protects the slug word lists from faulty edits (duplicates,
+// uppercase letters, hyphens, garbage entries). Deliberately NOT tied to
+// the outdated inline comments ("150 × 150", "4-8 Buchstaben") —
+// there are actually more words and additional lengths; these tests cover
+// the genuine hard invariants and the documented minimum diversity.
 
 import { describe, expect, test } from "bun:test";
 import { ADJECTIVES, NOUNS } from "../index.ts";

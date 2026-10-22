@@ -24,12 +24,12 @@
 // ```
 //
 // M.1.6 supports `concurrency: 1` only (sequential). Concurrent
-// execution (Promise.all-style) is Followup #12 — TX-sharing,
+// execution (Promise.all-style) requires its own audit cycle: TX-sharing,
 // AbortSignal-cancellation, and lifecycle-hook ordering each warrant
-// their own audit cycle (Q16).
+// separate review.
 //
-// Q15: `as` is required — without it, the current item is unreachable
-// from the sub-pipeline's resolvers. Q12: r.step.return inside `do` is
+// `as` is required — without it, the current item is unreachable
+// from the sub-pipeline's resolvers. `r.step.return` inside `do` is
 // rejected at build time (would trigger the discriminated-union
 // TData-Inference trap).
 
@@ -44,8 +44,8 @@ type ForEachArgs<TItem = unknown> = {
   readonly over: StepResolver<readonly TItem[]>;
   readonly as: string;
   readonly do: readonly StepInstance[];
-  // Reserved for Followup #12. Today only `1` is accepted; adding `N`
-  // requires the work documented in step-vocabulary.md Q16.
+  // Reserved for future concurrency support. Today only `1` is accepted; adding `N`
+  // requires the work documented in step-vocabulary.md.
   readonly concurrency?: 1;
 };
 

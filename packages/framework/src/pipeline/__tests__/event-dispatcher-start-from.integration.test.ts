@@ -1,5 +1,5 @@
 // EventConsumer.startFrom — opt-in cursor seed on FIRST registration
-// (fw#2482/1). Mounting a NEW consumer into an app whose event log is
+// Mounting a NEW consumer into an app whose event log is
 // already populated must not replay history and fire every side-effect
 // step retroactively.
 //

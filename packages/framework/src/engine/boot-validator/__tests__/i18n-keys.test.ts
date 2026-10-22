@@ -33,7 +33,7 @@ const configHub = defineFeature("config", (r) => {
   });
 });
 
-// fw#2260: the Settings-Hub generator (buildConfigFeatureSchema) labels a
+// The Settings-Hub generator (buildConfigFeatureSchema) labels a
 // masked config key's generated nav entry / configEdit section with the
 // dot-form key `${feature}.settings` — never colon-form. isI18nKey's
 // colon-only check dropped that label from the required-keys set, so a
@@ -101,16 +101,16 @@ describe("validateI18nSurfaceKeys — Settings-Hub generated dot-form label (fw#
   });
 });
 
-// PR #2314 idx2: buildConfigFeatureSchema varies the generated dot-form label
-// along two more paths that fw#2260's tests above never exercise — a tenant
-// key with an elevated (SystemAdmin) write role surfaces the same feature
-// under a second, broader scope (build-config-feature-schema.ts:142-158), and
-// a feature can opt into a configEdit section description
+// buildConfigFeatureSchema varies the generated dot-form label along two
+// more paths that the tests above never exercise — a tenant key with an
+// elevated (SystemAdmin) write role surfaces the same feature under a second,
+// broader scope (build-config-feature-schema.ts:142-158), and a feature can
+// opt into a configEdit section description
 // (build-config-feature-schema.ts:246-249). The `group`-namespace path is
-// deliberately left untested here — fw#2314 idx1 tracks it as broken
-// (treatDotFormAsKey requires an unsatisfiable `${group}.settings` key for a
-// namespace that has no matching feature), and a test would either fail on
-// the open bug or paper over it; it belongs with the idx1 fix, not this batch.
+// deliberately left untested here because treatDotFormAsKey requires an
+// unsatisfiable `${group}.settings` key for a namespace that has no matching
+// feature, and a test would either fail on the open bug or paper over it; it
+// belongs with the namespace fix, not this batch.
 describe("validateI18nSurfaceKeys — scoped label fallback for elevated write roles (PR #2314 idx2)", () => {
   function opsFeature(translationKeys: Record<string, { readonly en: string }>) {
     return defineFeature("ops", (r) => {
@@ -206,11 +206,11 @@ describe("validateI18nSurfaceKeys — gated configEdit section description (PR #
   });
 });
 
-// fw#2313: a hand-written dot-form label is indistinguishable from literal
-// display text, so isI18nKey only requires a translation for one explicitly
-// marked via i18nKey() — unmarked dot-form labels must keep failing silently
-// (that's the existing, intentional behavior for literal text like
-// "actions.open"), never crashing boot on their own.
+// A hand-written dot-form label is indistinguishable from literal display
+// text, so isI18nKey only requires a translation for one explicitly marked via
+// i18nKey() — unmarked dot-form labels must keep failing silently (that's the
+// existing, intentional behavior for literal text like "actions.open"), never
+// crashing boot on their own.
 describe("validateI18nSurfaceKeys — explicit i18nKey() dot-form opt-in (fw#2313)", () => {
   test("i18nKey()-marked dot-form label without a translation fails boot naming the key", () => {
     const feature = defineFeature("fw2313boot", (r) => {

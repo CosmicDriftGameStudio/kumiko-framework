@@ -6,12 +6,12 @@ import { deriveEntityTableMeta } from "../entity-table-meta.ts";
 import { asEntityTableMeta } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
-// Lock-step-Guard: buildEntityTable (Runtime-/Test-Stack-Pfad, Meta am
-// KUMIKO_META_SYMBOL) und deriveEntityTableMeta (Migrations-Pfad) müssen
-// für dieselbe EntityDefinition identische Spalten + Indexes produzieren.
-// Drift hier = Migration und Prod-Tabelle (bzw. collectTableMetas-Output)
-// gehen auseinander — gefunden als #255-Follow-up: select/number/bigInt
-// verloren ihre deklarierten defaults auf dem Builder-Pfad.
+// Lock-step guard: buildEntityTable (runtime/test-stack path, metadata on
+// KUMIKO_META_SYMBOL) and deriveEntityTableMeta (migration path) must produce
+// identical columns and indexes for the same EntityDefinition.
+// Any drift makes the migration and production table (or collectTableMetas
+// output) diverge; select/number/bigInt once lost their declared defaults on
+// the builder path.
 
 const entityWithDefaults = createEntity({
   table: "read_lockstep_probe",
@@ -82,9 +82,9 @@ describe("buildEntityTable ↔ deriveEntityTableMeta lock-step", () => {
   });
 });
 
-// Zweite Probe: softDelete + explizite Indexes (unique, partial, multi-col).
-// Diese Pfade generieren zusätzliche Spalten (deleted_at/_by) bzw. Index-
-// Metas — Drift hier blieb von der defaults-Probe oben unentdeckt.
+// Second probe: softDelete and explicit indexes (unique, partial, multi-column).
+// These paths generate additional columns (deleted_at/_by) and index metadata;
+// the defaults probe above did not detect drift in them.
 const entityWithSoftDeleteAndIndexes = createEntity({
   table: "read_lockstep_probe_sd",
   fields: {
@@ -139,8 +139,8 @@ describe("lock-step — softDelete + explizite Indexes", () => {
   });
 });
 
-// Dritte Probe: lookupable-Feld (#818) — bidx-Spalte, bidx-Index und das
-// partielle Unique-Pendant müssen auf beiden Pfaden identisch entstehen.
+// Third probe: lookupable field — the bidx column, bidx index, and partial
+// unique counterpart must be generated identically on both paths.
 const entityWithLookupable = createEntity({
   table: "read_lockstep_probe_bidx",
   fields: {
@@ -186,7 +186,7 @@ describe("lock-step — lookupable / blind-index (#818)", () => {
   });
 });
 
-// Fourth probe: softDelete + lookupable (#2464) — the partial bidx unique
+// Fourth probe: softDelete + lookupable — the partial bidx unique
 // must exclude soft-deleted rows from the uniqueness scope, otherwise a
 // soft-deleted row blocks the same value for a new/restored row.
 const entityWithSoftDeleteAndLookupable = createEntity({

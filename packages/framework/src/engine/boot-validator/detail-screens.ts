@@ -5,9 +5,9 @@ import { findEntityFeature } from "./screens.ts";
 
 // Entity name → the one screen that declares detailFor: "<entity>". Built
 // once, up front (before the per-feature validateScreens loop) so both this
-// module's own uniqueness check AND rowAction entity-targets (fw#2228,
-// screens.ts) resolve against the same map instead of re-walking every
-// feature's screens twice.
+// module's own uniqueness check AND rowAction entity-targets (in screens.ts)
+// resolve against the same map instead of re-walking every feature's
+// screens twice.
 export function collectDetailForScreens(
   features: readonly FeatureDefinition[],
   featureMap: ReadonlyMap<string, FeatureDefinition>,

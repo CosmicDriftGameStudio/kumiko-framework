@@ -1,20 +1,20 @@
-// Migration-Safety-Test: `ALTER TABLE … SET NOT NULL` schlägt fehl wenn
-// die Spalte vor der Migration NULL-Werte enthält.
+// Migration-safety test: `ALTER TABLE … SET NOT NULL` fails when
+// the column contains NULL values before the migration.
 //
-// Hintergrund: Der A-Fix (required → notNull in fieldToColumns) erzeugt
-// für bestehende Apps eine drift-fix-Migration mit `SET NOT NULL` auf
-// jedem required-Feld. Das ist sicher gegen FRISCHE DBs (keine Daten
-// drin), aber gefährlich gegen Prod-DBs in denen historisch NULL-Werte
-// reingerutscht sein könnten — die Migration kracht beim apply mit:
+// Background: The A-Fix (required → notNull in fieldToColumns) generates
+// a drift-fix migration for existing apps with `SET NOT NULL` on every
+// required field. This is safe for FRESH DBs (with no data), but dangerous
+// for production DBs where historical NULL values may have entered—the
+// migration fails during apply with:
 //
 //   ERROR: column "<name>" of relation "<table>" contains null values
 //   STATE: 23502 (not_null_violation)
 //
-// Dieser Test simuliert genau das. Schreibt eine Tabelle mit nullable
-// `key`, fügt eine Zeile mit NULL ein, versucht dann SET NOT NULL —
-// erwartet den Postgres-Error. Operations-Hinweis: vor dem deploy einer
-// solchen Migration eine Sanity-Query auf NULL-Counts in den betroffenen
-// Spalten laufen, oder DB drop'pen wenn der State Demo-State ist.
+// This test simulates that scenario. It creates a table with a nullable
+// `key`, inserts a row with NULL, then attempts SET NOT NULL and expects
+// the Postgres error. Operations note: before deploying such a migration,
+// run a sanity query for NULL counts in the affected columns, or drop the
+// DB if its state is only demo data.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "../../db/query.ts";
@@ -45,7 +45,7 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
         key text
       )
     `);
-    // NULL-Zeile einschleusen — simuliert prod state vor dem Drift-Fix.
+    // Inserts a NULL row to simulate production state before the drift fix.
     await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES (NULL)`);
 
     let caught: unknown;
@@ -70,12 +70,12 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
     await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES ('foo')`);
     await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES ('bar')`);
 
-    // Sollte ohne Throw durchlaufen.
+    // Must complete without throwing.
     await asRawClient(testDb.db).unsafe(
       `ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`,
     );
 
-    // Verifizieren: zukünftige NULL-Inserts werden jetzt blockiert.
+    // Verifies that future NULL inserts are now blocked.
     let caught: unknown;
     try {
       await asRawClient(testDb.db).unsafe(`INSERT INTO migration_safety_test (key) VALUES (NULL)`);
@@ -86,9 +86,9 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
   });
 
   test("SET NOT NULL auf leerer Tabelle ist trivial sicher", async () => {
-    // Frisch erstellt, keine Zeilen — der Fall in dem `migrate apply` nach
-    // einem DB-drop läuft. Dieser Pfad muss IMMER grün sein, sonst wäre
-    // jeder Greenfield-Deploy kaputt.
+    // Newly created with no rows—the case in which `migrate apply` runs after
+    // a DB drop. This path must ALWAYS succeed; otherwise every Greenfield
+    // deployment would fail.
     await asRawClient(testDb.db).unsafe(`
       CREATE TABLE migration_safety_test (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,7 +99,7 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
       `ALTER TABLE migration_safety_test ALTER COLUMN key SET NOT NULL`,
     );
 
-    // Beweis: information_schema zeigt die Spalte jetzt als NOT NULL.
+    // Verifies that information_schema now reports the column as NOT NULL.
     const rows = await asRawClient(testDb.db).unsafe<{ is_nullable: string }>(
       `SELECT is_nullable FROM information_schema.columns WHERE table_name = 'migration_safety_test' AND column_name = 'key'`,
     );

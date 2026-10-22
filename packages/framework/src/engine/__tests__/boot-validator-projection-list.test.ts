@@ -203,7 +203,7 @@ describe("validateBoot — projectionList screens", () => {
     expect(() => validateBoot([feature])).toThrow(/paginated is derived/);
   });
 
-  // fw#2164 Nebenbefund: the "at most one rowClick:true" cap (already
+  // Incidental finding: the "at most one rowClick:true" cap (already
   // enforced for entityList) didn't run for projectionList — a boot-time
   // gap, not a rendering one (the renderer only wires the first match, see
   // ProjectionListBody), but two conflicting rowClick actions on the same
@@ -381,11 +381,11 @@ describe("validateBoot — projectionList screens", () => {
     );
   });
 
-  // fw#2224: filter/facets are new on ProjectionListScreenDefinition — no
+  // filter/facets are new on ProjectionListScreenDefinition — no
   // entity to check field-existence against, so validation is either
   // structural (filter) or checked against the declared columns (facets),
   // plus the same "does the bound query's schema actually accept this
-  // param" check fw#2165 already does for search/sort.
+  // param" check already does for search/sort.
   describe("projectionList filter + facets (fw#2224)", () => {
     test('filter.op "in" requires an array value', () => {
       const feature = defineFeature("ledger", (r) => {
@@ -580,7 +580,7 @@ describe("validateBoot — projectionList screens", () => {
       expect(() => validateBoot([feature])).not.toThrow();
     });
 
-    // fw#3104: a dateRange facet sends its two bounds as the top-level params
+    // a dateRange facet sends its two bounds as the top-level params
     // it names, so `filters` is the wrong thing to require — the declared
     // param names are.
     test("a dateRange facet on a query that can't narrow by time is rejected at boot", () => {

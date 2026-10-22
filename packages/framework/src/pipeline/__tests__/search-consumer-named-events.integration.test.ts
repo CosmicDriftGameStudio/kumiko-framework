@@ -1,4 +1,4 @@
-// #2765 — named domain events (r.defineEvent, not created/updated/restored/
+// Named domain events (r.defineEvent, not created/updated/restored/
 // deleted/forgotten) on an entity with searchable fields must still reach
 // the search index. The event payload only carries the named event's own
 // field slice, so the consumer reads the live projection row instead.

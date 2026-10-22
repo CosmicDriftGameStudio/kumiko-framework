@@ -99,7 +99,7 @@ export function registerSignupRoutes(ctx: AuthRouteContext): void {
         // switcher), signup knows exactly ONE membership — the frontend UI uses
         // it directly as the redirect target.
         tenantKey: data.tenantKey,
-        // Cross-device try-first handover (kumiko-framework#3035 follow-up):
+        // Cross-device try-first handover:
         // present only when signup-confirm actually claimed a bound grant —
         // absent, not null, so a client that doesn't know the field sees
         // nothing unusual.

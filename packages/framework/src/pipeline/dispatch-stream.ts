@@ -101,7 +101,7 @@ async function* executeStreamInner(
   // When access is revoked mid-pull, `iterator.next()` is still in flight.
   // Awaiting `iterator.return()` in that state deadlocks async generators in
   // Bun (overlapping next+return). Track abandonment so finally skips the
-  // await; close is fire-and-forget instead (#1563).
+  // await; close is fire-and-forget instead.
   let abandonedForInvalidation = false;
   try {
     const handlerContext = await buildHandlerContext(ctx, type, user, origin);

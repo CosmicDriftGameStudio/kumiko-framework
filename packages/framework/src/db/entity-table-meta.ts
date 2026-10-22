@@ -210,7 +210,7 @@ function fieldToColumnMeta(
       return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'{}'::jsonb" }];
     case "date":
       // Real PG `date` — Temporal.PlainDate, no time-of-day/timezone
-      // component. See plainDate() in dialect.ts (kumiko-framework#1924).
+      // component. See plainDate() in dialect.ts.
       return [{ name: snake, pgType: "date", notNull: field.required === true }];
     case "timestamp":
       return [{ name: snake, pgType: "timestamptz", notNull: field.required === true }];
@@ -256,7 +256,7 @@ export function resolveTableName(
  * (convention: `store_*`) — or build columns by hand with `defineUnmanagedTable`.
  *
  * Named `derive*` (not `build*Meta`) so it is not mistaken for the unmanaged
- * escape hatch (#1208).
+ * escape hatch.
  */
 export function deriveEntityTableMeta(
   entityName: string,
@@ -372,7 +372,7 @@ export function deriveEntityTableMeta(
     const indexName = def.name ?? `${tableName}_${cols.join("_")}_${suffix}`;
     const explicitWhereSql = sqlExpressionText(def.where);
     // Soft-deleted rows keep their value, so a full unique index would
-    // permanently block reuse; kept in lock-step with table-builder.ts (framework#2593).
+    // permanently block reuse; kept in lock-step with table-builder.ts.
     const whereSql =
       explicitWhereSql ??
       (def.where === undefined && def.unique === true && entity.softDelete === true
@@ -397,7 +397,7 @@ export function deriveEntityTableMeta(
           .map((c) => `"${c}" IS NOT NULL`);
         // Soft-deleted rows keep their bidx hash — without this, a restored
         // row can't reuse a value a soft-deleted sibling still holds
-        // (framework#2464). Kept in lock-step with table-builder.ts.
+        // Kept in lock-step with table-builder.ts.
         const whereParts =
           entity.softDelete === true
             ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE]
@@ -471,7 +471,7 @@ function columnsByNameMeta(meta: EntityTableMeta): Map<string, ColumnMeta> {
 
 /**
  * Hand-built EntityTableMeta for direct-write stores (no entity base columns).
- * Prefer a `store_*` table name; `read_` is reserved for managed projections (#1220).
+ * Prefer a `store_*` table name; `read_` is reserved for managed projections.
  *
  * Escape hatch, not a shortcut: no audit trail, no automatic tenant_id index,
  * no softDelete — the app author owns tenant-scoping and retention for this

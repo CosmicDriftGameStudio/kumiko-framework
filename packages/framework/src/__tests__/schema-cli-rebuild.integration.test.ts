@@ -178,9 +178,9 @@ describe("runSchemaCli apply — projection rebuild", () => {
     expect(await counterFor(group)).toBeUndefined();
   });
 
-  // Marker zeigt auf eine Tabelle die KEINE registrierte Projektion hat →
-  // projections.size === 0 → Early-Return vor dem Rebuild-Schritt (kein Throw,
-  // exit 0). Bisher nur "kein Marker" und "keine Features" getestet.
+  // A marker can target a table with no registered projection: projections.size === 0
+  // causes an early return before rebuilding, without throwing and with exit 0.
+  // This covers the no-marker and no-features cases separately.
   test("with features: marker for a table with no registered projection → no rebuild, exit 0", async () => {
     await executor.create({ groupId: group, name: "x" }, admin, tdb);
 

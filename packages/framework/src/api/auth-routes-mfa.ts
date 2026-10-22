@@ -158,7 +158,7 @@ export function registerMfaPreauthEnableStartRoute(ctx: AuthRouteContext): void 
         // Second axis, independent of the IP-derived bucket above: the
         // preauthSetupToken is minted by login.write.ts and not freely
         // choosable, so this cap survives an attacker rotating
-        // x-forwarded-for to bypass the IP bucket (kumiko-framework#1522).
+        // x-forwarded-for to bypass the IP bucket.
         const tokenAllowed = await rateLimiter.check(preauthTokenKeyOf(body.preauthSetupToken));
         if (!tokenAllowed) {
           return c.json({ isSuccess: false, error: "rate_limited" }, 429);

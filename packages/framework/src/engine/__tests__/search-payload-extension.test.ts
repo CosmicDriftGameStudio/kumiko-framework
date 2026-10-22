@@ -3,7 +3,7 @@ import { buildSearchDocument } from "../../pipeline/system-hooks.ts";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
 import type { SearchPayloadContributorFn } from "../types/index.ts";
 
-// F3 — Search-Payload-Extension registers per-entity contributors that
+// Search-Payload-Extension registers per-entity contributors that
 // enrich the search-index doc during `buildSearchDocument`. Tests pin:
 //   1. r.searchPayloadExtension(entity, fn) lands keyed by entity-name
 //   2. Multiple contributors per entity stack (additive merge)
@@ -11,7 +11,7 @@ import type { SearchPayloadContributorFn } from "../types/index.ts";
 //   4. Empty for unknown entity
 //   5. Contributor-Function-Signature passes correct args + returns extras
 //   6. Boot-validation rejects typo'd entity-names (sibling-guard to
-//      entity-hooks boot-validation — Memory feedback_entity_hook_boot_validation)
+//      entity-hooks boot-validation)
 
 const noop: SearchPayloadContributorFn = () => ({});
 

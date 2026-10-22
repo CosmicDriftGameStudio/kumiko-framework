@@ -1,10 +1,10 @@
 // createJobTriggerEventConsumer — proves r.job's trigger.on can fire on an
-// r.defineEvent QN appended by a multiStreamProjection's unsafeAppendEvent
-// (kumiko-framework#1505). Mirrors document-ingest-foundation's actual
-// request-ingest MSP (upload → fileRef.created → an owned defineEvent),
-// the motivating case for this fix — fileRef.created itself never reaches
-// jobRunner.handleEvent because the upload route appends it via the raw
-// event-store executor, not a write-handler dispatch (see #1505).
+// r.defineEvent QN appended by a multiStreamProjection's unsafeAppendEvent.
+// Mirrors document-ingest-foundation's actual request-ingest MSP (upload →
+// fileRef.created → an owned defineEvent), the motivating case for this fix —
+// fileRef.created itself never reaches jobRunner.handleEvent because the
+// upload route appends it via the raw event-store executor, not a write-handler
+// dispatch.
 //
 // Not covered here: a job triggered on a write/query-handler QN still
 // firing exactly once (unaffected by the new consumer). The full suite

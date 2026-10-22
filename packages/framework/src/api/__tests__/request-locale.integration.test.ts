@@ -96,7 +96,7 @@ describe("ctx.locale falls back to the app's boot-configured defaultLocale", () 
   });
 });
 
-// fw#2333 — SessionUser.locale (persisted at login) sits between the
+// SessionUser.locale (persisted at login) sits between the
 // request-layer signal and the boot default: no live request signal falls
 // back to it, but a live signal still wins over it.
 describe("ctx.locale falls back to SessionUser.locale ahead of the boot default", () => {

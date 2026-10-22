@@ -215,7 +215,7 @@ describe("r.step.forEach", () => {
   it("rejects unsupported concurrency at build time (Q16: only 1 in M.1.6)", () => {
     // Cast (not @ts-expect-error) so the test stays valid when Q16
     // expands the type to accept N>1 — at that point this test should
-    // delete or move under a Followup #12 build-validator suite, not
+    // delete or move under a build-validator suite, not
     // silently break for unrelated reasons.
     expect(() =>
       buildForEachStep({

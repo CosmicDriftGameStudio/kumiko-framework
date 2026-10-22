@@ -1,13 +1,13 @@
-// PII field encryption with per-subject DEKs (crypto-shredding, #724 phase C).
+// PII field encryption with per-subject DEKs (crypto-shredding).
 // Same executor hook points as `encrypted: true`, but the key belongs to the
 // erase subject — kms.eraseKey(subject) makes every value unreadable at once.
 // Storage format is a sniffable string that fits existing text columns and
 // names its subject inline, so decrypt needs no schema change and no resolver:
 //   kumiko-pii:v2:<subjectKey>:<base64(iv|tag|ciphertext)>
-// v2 GCM-binds the ciphertext to `subjectKey|field` as AAD (#1263) — subject
+// v2 GCM-binds the ciphertext to `subjectKey|field` as AAD — subject
 // selects the DEK, field stops a cut-and-paste between two fields of the
 // SAME subject (same DEK, so key selection alone can't catch that) from
-// decrypting silently. v1 (no AAD) stays decrypt-only for pre-#1263 rows;
+// decrypting silently. v1 (no AAD) stays decrypt-only for older rows;
 // every new write emits v2.
 // v3 = v2 for jsonb fields: the plaintext is JSON.stringify(value) and decrypt
 // JSON.parses it back, so a jsonb string/number/object round-trips by type.
@@ -288,7 +288,7 @@ export async function decryptPiiFieldValues(
   for (const name of piiFields) {
     const value = out[name];
     // Pre-engine plaintext rows pass through unchanged (mixed-state reads
-    // work during rollout; backfill is tracked in kumiko-framework#799).
+    // work during rollout).
     if (!isPiiCiphertext(value)) continue;
     const { subject, blob, hasAad, isJson } = parseCiphertext(value);
     try {

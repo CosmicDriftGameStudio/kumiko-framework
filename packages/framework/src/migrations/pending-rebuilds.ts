@@ -1,15 +1,15 @@
-// Persistente Pending-Rebuild-Queue für den `kumiko schema apply`-Pfad.
+// Persistent pending-rebuild queue for the `kumiko schema apply` path.
 //
-// Problem (studio#36/#46): Apps lasen die rebuild-Marker nur für
-// `result.applied` der AKTUELLEN apply-Runde. Schlug der Projection-Rebuild
-// fehl (oder crashte der Prozess dazwischen), war der Marker-Bezug beim
-// nächsten apply weg — `applied` ist dann leer — und die Projektion blieb
-// stillschweigend unfertig, ohne Self-Service-Retry-Pfad.
+// Problem: Apps read rebuild markers only from `result.applied` for the
+// CURRENT apply round. If the projection rebuild failed (or the process
+// crashed in between), the marker reference was gone on the next apply —
+// `applied` was empty — leaving the projection silently incomplete without a
+// self-service retry path.
 //
-// Lösung: die betroffenen Tabellen werden VOR dem Rebuild in
-// `kumiko_pending_rebuilds` persistiert und erst nach erfolgreichem Rebuild
-// der zugehörigen Projektion gelöscht. Ein erneuter apply (auch ohne neue
-// Migrations) holt offene Rebuilds über `runPendingRebuilds` nach.
+// Solution: persist the affected tables in `kumiko_pending_rebuilds` BEFORE
+// the rebuild and delete them only after the associated projection rebuild
+// succeeds. A subsequent apply, even without new migrations, processes open
+// rebuilds through `runPendingRebuilds`.
 
 import type { DbConnection } from "../db/connection.ts";
 import { instant, table as pgTable, sql, text } from "../db/dialect.ts";
@@ -35,15 +35,15 @@ export const pendingRebuildsTable = pgTable("kumiko_pending_rebuilds", {
 });
 
 export async function createPendingRebuildsTable(db: DbConnection): Promise<void> {
-  // skip: table already exists — bootstrap läuft aus mehreren Pfaden
+  // skip: table already exists — bootstrap runs from multiple paths
   if (await tableExists(db, "public.kumiko_pending_rebuilds")) return;
   await unsafePushTables(db, { kumikoPendingRebuilds: pendingRebuildsTable });
 }
 
-/** Liest die rebuild-Marker der frisch applizierten Migrations und queued
- *  die betroffenen Tabellen. Upsert: ein bereits pending-er Tisch behält
- *  seinen Queue-Slot (queued_at bleibt, damit die Reihenfolge stabil ist) —
- *  migration_id zeigt auf die zuletzt flaggende Migration (Debug-Bezug). */
+/** Reads rebuild markers from freshly applied migrations and queues the
+ *  affected tables. Upsert: an already-pending table keeps its queue slot
+ *  (`queued_at` remains unchanged, preserving order), while `migration_id`
+ *  points to the latest migration that flagged it for debugging. */
 export async function queueRebuildsFromMarkers(
   db: DbConnection,
   options: { readonly migrationsDir: string; readonly appliedIds: readonly string[] },
@@ -84,7 +84,7 @@ export async function listPendingRebuilds(db: DbConnection): Promise<readonly st
 // table_name alone: a concurrent queueRebuildsFromMarkers can re-queue the same
 // table for a NEWER migration (upsert bumps migration_id, keeps the slot)
 // between the read and the clear. Scoping the delete to the snapshot's
-// migration_id leaves that fresh re-queue intact instead of dropping it. (#328)
+// migration_id leaves that fresh re-queue intact instead of dropping it.
 export async function clearPendingRebuilds(
   db: DbConnection,
   rows: readonly PendingRebuildRow[],
@@ -95,7 +95,7 @@ export async function clearPendingRebuilds(
 }
 
 export type PendingRebuildRun = {
-  /** Erfolgreich rebuildte Projektionen (Queue-Einträge geräumt). */
+  /** Projections rebuilt successfully (queue entries removed). */
   readonly rebuilt: readonly { readonly projection: string; readonly eventsProcessed: number }[];
   /** Fehlgeschlagene Projektionen — ihre Tabellen BLEIBEN pending. */
   readonly failed: readonly { readonly projection: string; readonly error: string }[];
@@ -104,19 +104,20 @@ export type PendingRebuildRun = {
    *  marker) OR were deliberately DROPped by a later migration in the same
    *  run (no data loss, no projection left to resolve) — drained, silent. */
   readonly unmapped: readonly string[];
-  /** In DIESEM Run via Marker geleerte managed-Tabellen ohne auflösbare
-   *  Projektion = das owning-Feature fehlt in der Komposition. Geräumt (kein
-   *  Stuck-Loop), aber LAUT geloggt — die Projektion ist jetzt leer. */
+  /** Managed tables emptied by a marker in THIS run without a resolvable
+   *  projection, indicating that the owning feature is missing from the
+   *  composition. They are drained to avoid a stuck loop, but logged loudly
+   *  because the projection is now empty. */
   readonly unresolvedManaged: readonly string[];
 };
 
 export type RunPendingRebuildsOptions = {
-  /** Tabellen, die in DIESEM apply-Run frisch via Marker gequeued wurden
-   *  (Rückgabe von `queueRebuildsFromMarkers`). Marker tragen nur managed
-   *  Tabellen — eine davon ohne auflösbare Projektion ist ein echter Defekt
-   *  (fehlendes Feature) und wird laut gemeldet statt still geleert. Fehlt die
-   *  Option, wird jede unmapped Tabelle als pre-existing/benign behandelt
-   *  (Verhalten vor #361). */
+  /** Tables freshly queued via markers in THIS apply run
+   *  (returned by `queueRebuildsFromMarkers`). Markers contain only managed
+   *  tables, so one without a resolvable projection is a real defect (a
+   *  missing feature) and is reported loudly instead of being silently
+   *  drained. Without this option, every unmapped table is treated as
+   *  pre-existing and benign. */
   readonly thisRunTables?: readonly string[];
 };
 
@@ -179,12 +180,12 @@ export function reportPendingRebuildRun(run: PendingRebuildRun, log: (line: stri
   }
 }
 
-/** Arbeitet die persistierte Queue ab: mappt Tabellen auf Projektionen,
- *  rebuildet jede betroffene Projektion und räumt ihre Tabellen erst nach
- *  ERFOLG aus der Queue. Fehlgeschlagene bleiben pending — der nächste
- *  apply (oder ein direkter Re-Call) holt sie nach. Unmapped-Tabellen werden
- *  geräumt (kein Stuck-Loop); die in diesem Run frisch geleerten managed-
- *  Tabellen ohne Projektion zusätzlich laut gemeldet (`unresolvedManaged`). */
+/** Processes the persistent queue: maps tables to projections, rebuilds each
+ *  affected projection, and removes its tables from the queue only after
+ *  SUCCESS. Failed tables remain pending and are retried by the next apply
+ *  (or a direct re-call). Unmapped tables are drained to avoid a stuck loop;
+ *  managed tables freshly emptied in this run without a projection are also
+ *  reported through `unresolvedManaged`. */
 export async function runPendingRebuilds(
   db: DbConnection,
   registry: Registry,
@@ -196,7 +197,7 @@ export async function runPendingRebuilds(
   }
   // (table → migration) snapshot read together with the table list; the clear
   // below scopes its DELETE to this migration_id so a concurrent re-queue for a
-  // newer migration survives instead of being dropped (#328).
+  // newer migration survives instead of being dropped.
   const migrationByTable = new Map(pendingRows.map((r) => [r.tableName, r.migrationId]));
   const snapshotRows = (tables: readonly string[]): readonly PendingRebuildRow[] =>
     tables.flatMap((tableName) => {
@@ -215,7 +216,7 @@ export async function runPendingRebuilds(
     if (projection === undefined) {
       // Markers only carry managed tables (rebuild-marker.ts). A table emptied
       // in THIS run with no resolving projection is a real defect (owning
-      // feature missing from the composition) → loud (#361) — unless the table
+      // feature missing from the composition) → loud — unless the table
       // no longer exists: then a later migration in the same run deliberately
       // DROPped it after migrating its data elsewhere, no data loss. Pre-
       // existing pending tables stay indistinguishable from old unmanaged
@@ -230,9 +231,9 @@ export async function runPendingRebuilds(
     byProjection.set(projection, [...(byProjection.get(projection) ?? []), tableName]);
   }
 
-  // Beide Klassen räumen: die Queue darf nicht ewig wachsen, und ein Re-Apply
-  // darf nicht sticky-stuck werfen. Die Lautstärke liegt im Log + Return-Feld,
-  // nicht im Liegenlassen.
+  // Both classes are drained: the queue must not grow indefinitely, and a
+  // re-apply must not remain stuck. The distinction is conveyed through the
+  // log and return field rather than by leaving entries queued.
   const drained = [...unmapped, ...unresolvedManaged];
   if (drained.length > 0) {
     await clearPendingRebuilds(db, snapshotRows(drained));

@@ -9,7 +9,7 @@ export const WRITE_HANDLER_QN_FORMAT_RE =
 
 // Matches `dispatcher.write("qn", ...)` and `<expr>.write("qn", ...)` —
 // same surface the CI guard scans. Dynamic QNs (variables, templates) are
-// intentionally skipped (known limitation, documented in #403).
+// intentionally skipped (known limitation).
 const DISPATCHER_WRITE_LITERAL_RE = /\.write\s*\(\s*["']([^"']+)["']/g;
 
 /** Extract string-literal write-handler QNs from TS/TSX source text. */

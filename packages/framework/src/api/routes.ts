@@ -164,7 +164,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
   // dispatch gates (feature/rate-limit/access/validation) plus the handler's
   // first yield — is raced against a heartbeat timeout BEFORE streamSSE, so
   // a gate failure that settles in time maps to its real HTTP status via
-  // queryErrorResponse instead of a flushed-200 error frame (framework#1517).
+  // queryErrorResponse instead of a flushed-200 error frame.
   api.post(Routes.stream, async (c) => {
     const user = getUser(c);
     const body = await readDispatchBody(c);
@@ -185,7 +185,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     // Hook the raw request signal directly so a client disconnect during the
     // pre-pull still reclaims the generator instead of leaking a Redis
     // subscription/DB cursor held open inside its still-unresolved first
-    // `.next()` (framework#1528).
+    // `.next()`.
     const signal = c.req.raw.signal;
     const onPrePullAbort = () => void generator.return(undefined);
     signal.addEventListener("abort", onPrePullAbort);

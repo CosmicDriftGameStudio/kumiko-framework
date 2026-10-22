@@ -445,7 +445,7 @@ describe("runPostSave phase routing", () => {
 });
 
 // =============================================================================
-// Sprint 8a: per-tenant entity-hook filter
+// Per-tenant entity-hook filter
 // =============================================================================
 //
 // Setup: Feature A owns the entity. Feature B registers an entity-hook
@@ -531,9 +531,9 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
   });
 
   test("effectiveFeatures wird PRO call konsultiert (kein staler Cache zwischen runPostSave-aufrufen)", async () => {
-    // Pin: currentEffectiveFeatures-helper ruft effectiveFeatures jedes
-    // mal neu — keine pipeline-internal Memoization. Toggle-flips müssen
-    // sofort greifen, nicht erst nach pipeline-restart.
+    // Pin: currentEffectiveFeatures calls effectiveFeatures for every call;
+    // the pipeline does not memoize it internally. Toggle changes take effect
+    // immediately rather than after a pipeline restart.
     const { registry, calls } = setupTwoFeatures();
     const pipeline = createLifecycleHooks(registry);
     const enabled = new Set<string>(["feat-a", "feat-b"]);

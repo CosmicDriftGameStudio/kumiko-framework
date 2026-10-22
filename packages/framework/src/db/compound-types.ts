@@ -1,15 +1,15 @@
-// Compound-Type Pipeline für den Executor.
+// Compound-type pipeline for the executor.
 //
-// Ein Compound-Type ist ein Field das aus EINEM API-Object und MEHREREN
-// DB-Spalten besteht. Beispiele:
+// A compound type is a field represented by ONE API object and MULTIPLE
+// DB columns. Examples:
 //   - locatedTimestamp: { at, tz, utc } ↔ <name>Utc + <name>Tz
 //   - money: { amount, currency } ↔ <name> + <name>Currency
-//   - (kommt) address: { street, zip, city } ↔ <name>Street + <name>Zip + <name>City
+//   - (upcoming) address: { street, zip, city } ↔ <name>Street + <name>Zip + <name>City
 //
-// Statt jeden Helper im Executor an 4 Stellen verschachtelt aufzurufen,
-// pipeline-iert diese Funktion alle Compound-Type-Konvertierungen in
-// einem Pass. Beim Hinzufügen eines neuen Compound-Types nur EINE Stelle
-// erweitern (das Array hier), nicht alle Executor-Aufrufe.
+// Instead of nesting every helper in the executor at four different points,
+// this function pipelines all compound-type conversions in one pass. Adding
+// a new compound type requires extending only ONE place (this array), rather
+// than every executor call.
 
 import type { EntityDefinition } from "../engine/types/index.ts";
 import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.ts";
@@ -20,9 +20,9 @@ type Converter = (
   entity: EntityDefinition,
 ) => Record<string, unknown>;
 
-// Reihenfolge ist egal solange die Konverter sich nicht gegenseitig
-// überlappen (z.B. money darf nicht ein Feld berühren das locatedTimestamp
-// schon erzeugt hat). Aktuell überlappen sie nicht — types sind disjunkt.
+// Order is irrelevant as long as the converters do not overlap (for example,
+// money must not touch a field already produced by locatedTimestamp). They do
+// not currently overlap—types are disjoint.
 const FLATTENERS: readonly Converter[] = [flattenLocatedTimestamp, flattenMoney];
 const REHYDRATORS: readonly Converter[] = [rehydrateLocatedTimestamp, rehydrateMoney];
 
@@ -37,7 +37,7 @@ export function flattenCompoundTypes(
 }
 
 /**
- * DB-Form (flat) → API-Form (combined). Wird nach jedem Read aufgerufen.
+ * DB form (flat) → API form (combined). Called after every read.
  */
 export function rehydrateCompoundTypes(
   row: Record<string, unknown>,

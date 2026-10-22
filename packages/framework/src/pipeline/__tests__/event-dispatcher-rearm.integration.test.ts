@@ -1,4 +1,4 @@
-// Issue #1350 — bounded auto-revival of a dead consumer.
+// Bounded auto-revival of a dead consumer.
 //
 // acquireConsumerState no longer parks a dead consumer forever: once its
 // last write is older than rearmCooldownMs it gets reset to idle and

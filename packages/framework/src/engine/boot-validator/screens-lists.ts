@@ -472,24 +472,23 @@ export function assertRefTargetRegistered(
   }
 }
 
-// Facets (fw#2224) — unlike filter, a field inventory IS available here: the
+// Facets — unlike filter, a field inventory IS available here: the
 // declared columns. A facet on a field with no column is almost always a
 // typo (the user never sees the field anywhere), so this is hard-checked
-// rather than just documented. Shared by projectionList and relatedList
-// (fw#2740) — `prefix` carries the caller's own screen/section message lead-in.
+// rather than just documented. Shared by projectionList and relatedList —
+// `prefix` carries the caller's own screen/section message lead-in.
 //
-// `type: "reference"` is exempt from the same-name-column rule (fw akte-
-// bedienkonzept-2): it filters by an id field (e.g. "propertyId") but
-// displays a different, human-readable column (e.g. "propertyLabel") — a
-// column named after the filter field would almost never exist, and
-// requiring one anyway would force apps to add a column no design calls
-// for just to satisfy this check. Its own `entity` is mandatory on the type
-// (TS, not just this validator) and is resolved below — that explicit,
-// checked declaration is this facet type's field inventory, filling the
-// same "not just a typo" role the column-name check plays for select/
-// boolean facets. select/boolean facets keep the column requirement
-// unchanged: both filter and display the same field, so a facet with no
-// matching column is still almost always a typo.
+// `type: "reference"` is exempt from the same-name-column rule: it filters
+// by an id field (e.g. "propertyId") but displays a different,
+// human-readable column (e.g. "propertyLabel") — a column named after the
+// filter field would almost never exist, and requiring one anyway would
+// force apps to add a column no design calls for just to satisfy this check.
+// Its own `entity` is mandatory on the type (TS, not just this validator) and
+// is resolved below — that explicit, checked declaration is this facet type's
+// field inventory, filling the same "not just a typo" role the column-name
+// check plays for select/boolean facets. select/boolean facets keep the
+// column requirement unchanged: both filter and display the same field, so a
+// facet with no matching column is still almost always a typo.
 export function validateListFacets(
   prefix: string,
   facets: readonly ListFacetSpec[],

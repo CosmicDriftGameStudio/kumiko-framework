@@ -5,7 +5,7 @@
 // whose (possibly years-old) payload makes its apply throw rolls the whole
 // replay back — the projection stays permanently un-rebuildable until the
 // event is repaired by hand. The upcaster dead-letter only quarantines
-// upcast-TRANSFORM failures, not apply failures (#760).
+// upcast-TRANSFORM failures, not apply failures.
 //
 // Quarantine mode (errorPolicy.skipApplyErrors on RebuildDeps, or
 // MspErrorMode.rebuild.skipApplyErrors on the MSP definition) confines each

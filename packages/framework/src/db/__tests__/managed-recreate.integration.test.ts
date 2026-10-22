@@ -1,4 +1,4 @@
-// #356: a generated migration that adds a NOT NULL ride-along column to a
+// A generated migration that adds a NOT NULL ride-along column to a
 // MANAGED projection must APPLY on a populated table — where the old additive
 // `ALTER TABLE ADD COLUMN ... NOT NULL` dies on existing rows. The generator
 // emits DROP+CREATE for that case; the rebuild (covered by
@@ -16,7 +16,7 @@ import { asRawClient } from "../query.ts";
 
 const ID_COL: ColumnMeta = { name: "id", pgType: "uuid", notNull: true, primaryKey: true };
 const NAME_COL: ColumnMeta = { name: "name", pgType: "text", notNull: true };
-// The studio#58/publicstatus#116 blocker shape: NOT NULL without a default.
+// The blocker shape: NOT NULL without a default.
 const ENVELOPE_COL: ColumnMeta = { name: "envelope", pgType: "jsonb", notNull: true };
 
 function managedMeta(tableName: string, columns: readonly ColumnMeta[]): EntityTableMeta {
@@ -49,7 +49,7 @@ describe("managed projection recreate applies on a populated table (#356)", () =
 
     // Generate the migration: managed table gains `envelope NOT NULL` → DROP+CREATE.
     // (An in-place ALTER ADD COLUMN ... NOT NULL would die on the two existing
-    // rows — that failure mode is exactly what #356 removes for projections.)
+    // rows — projections avoid that failure mode.)
     const prev = snapshotFromMetas([managedMeta("read_proof", [ID_COL, NAME_COL])]);
     const next = snapshotFromMetas([managedMeta("read_proof", [ID_COL, NAME_COL, ENVELOPE_COL])]);
     const sql = renderMigrationSql(diffSnapshots(prev, next), {

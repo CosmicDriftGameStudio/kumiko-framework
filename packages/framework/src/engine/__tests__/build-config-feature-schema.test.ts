@@ -398,7 +398,7 @@ describe("buildConfigFeatureSchema — access + workspace", () => {
   test("workspace access excludes the machine-only 'system' role when a machine key is masked", () => {
     // A masked machine-only key (write defaults to ["system"]) is excluded from
     // every human nav — its "system" role must not leak into the switcher gate
-    // just because it sits in the hub next to a human-writable key (#406/1).
+    // just because it sits in the hub next to a human-writable key.
     const mixed = defineFeature("mixedhub", (r) => {
       r.config({
         keys: {

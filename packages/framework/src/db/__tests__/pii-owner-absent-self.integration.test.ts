@@ -1,4 +1,4 @@
-// Entity PII field `personal: { of: "ownerId", whenAbsent: "self" }` (fw#3811):
+// Entity PII field `personal: { of: "ownerId", whenAbsent: "self" }`:
 // ownerless rows are encrypted under their own record key instead of the tenant
 // key, so a record-forget shreds them. Real HTTP + setupTestStack; the DB is
 // only read for the raw-storage asserts.

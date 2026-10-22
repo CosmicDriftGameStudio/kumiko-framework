@@ -92,7 +92,7 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     await expect(jwt.verify(token)).rejects.toThrow(/sub/);
   });
 
-  // fw#1636 — SessionUser.timezone must survive the sign/verify roundtrip
+  // SessionUser.timezone must survive the sign/verify roundtrip
   // (jwt.sign silently drops any field it doesn't explicitly copy).
   it("round-trips the timezone claim when set", async () => {
     const payload = await jwt.verify(await jwt.sign({ ...user, timezone: "Asia/Tokyo" }));
@@ -104,7 +104,7 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     expect(payload.timezone).toBeUndefined();
   });
 
-  // fw#2333 — SessionUser.locale must survive the sign/verify roundtrip,
+  // SessionUser.locale must survive the sign/verify roundtrip,
   // same contract as timezone above.
   it("round-trips the locale claim when set", async () => {
     const payload = await jwt.verify(await jwt.sign({ ...user, locale: "de-DE" }));

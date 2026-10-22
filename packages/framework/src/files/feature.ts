@@ -32,17 +32,16 @@ export type FilesFeatureOptions = {
   readonly uploadSweepGraceHours?: number;
 };
 
-// files — `fileRef` als ganz normales ES-Entity. Upload/Delete laufen über
-// den Standard-Entity-Executor (file-routes.ts: executor.create/delete →
-// `fileRef.created`/`fileRef.deleted` → applyEntityEvent materialisiert
-// `file_refs`). Soft-Delete/Anonymize/Restore/Retention kommen damit
-// generisch aus dem Entity-Lifecycle + data-retention — keine
-// file-spezifische Lösch-Logik.
+// `fileRef` is a regular ES entity. Uploads and deletes go through the standard
+// entity executor (file-routes.ts: executor.create/delete → `fileRef.created` /
+// `fileRef.deleted` → applyEntityEvent materializes `file_refs`), so soft-delete,
+// anonymization, restore and retention come generically from the entity lifecycle
+// and data-retention, with no file-specific deletion logic.
 //
-// `r.entity` macht die Tabelle für PII-Boot-Validation +
-// userData/tenantData-Extensions sichtbar und registriert die implizite
-// Entity-Projektion (für rebuildProjection). Liegt im Framework neben
-// file-routes + fileRefsTable; bundled-features/files re-exportiert nur.
+// `r.entity` exposes the table to PII boot validation and the userData/tenantData
+// extensions, and registers the implicit entity projection used by
+// rebuildProjection. It lives in the framework next to file-routes and
+// fileRefsTable; bundled-features/files only re-exports it.
 export const FILES_FEATURE = "files" as const;
 
 function assertValidSweepGraceHours(hours: number): void {

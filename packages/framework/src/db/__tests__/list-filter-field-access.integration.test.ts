@@ -1,4 +1,4 @@
-// fw#2629: `list()` guarded filtering/sorting only against unknown columns,
+// The `list()` guard checked filtering/sorting only against unknown columns,
 // not per-field `access.read`. A caller who cannot read a field could still
 // filter or sort by it — result count and row order become an oracle for a
 // value the response itself strips out (filterReadFields in

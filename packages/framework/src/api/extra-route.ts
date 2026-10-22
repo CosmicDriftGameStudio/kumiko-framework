@@ -1,5 +1,5 @@
 // ExtraRoute — declarative replacement for the old `extraRoutes: (app, deps)
-// => void` closure (kumiko-framework#3050). Every entry declares its access
+// => void` closure. Every entry declares its access
 // tier (`entry`) up front; buildServer wires the matching guard + deps
 // instead of handing every route a raw db/redis escape hatch.
 
@@ -22,7 +22,7 @@ export const ExtraRouteEntries = {
 export type ExtraRouteEntry = (typeof ExtraRouteEntries)[keyof typeof ExtraRouteEntries];
 
 export type AnonymousExtraRouteDeps = {
-  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic-Param ist im Framework-Boundary unsichtbar
+  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic parameter is invisible at the framework boundary
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
@@ -49,7 +49,7 @@ export type AnonymousExtraRoute = {
 };
 
 export type UserExtraRouteDeps = {
-  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic-Param ist im Framework-Boundary unsichtbar
+  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic parameter is invisible at the framework boundary
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly user: SessionUser;
@@ -93,7 +93,7 @@ export type RoleDispatchArgs = SystemDispatchArgs & {
 };
 
 export type SignatureExtraRouteDeps = {
-  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic-Param ist im Framework-Boundary unsichtbar
+  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic parameter is invisible at the framework boundary
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly secrets?: SecretsContext;

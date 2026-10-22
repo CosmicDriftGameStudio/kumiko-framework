@@ -1,19 +1,18 @@
-// Build-time Generator: EntityTableMeta[] → reviewbares SQL-Migration-File.
-// Ersatz für `drizzle-kit generate`.
+// Build-time generator: EntityTableMeta[] → reviewable SQL migration file.
+// Replacement for `drizzle-kit generate`.
 //
-// **NO-MAGIC-ON-DATA Kernprinzip** (siehe drizzle-replacement.md):
-//   - Generator emittiert SQL-Files für PR-Review/Edit
-//   - Generator wird NIE zur App-Runtime aufgerufen
-//   - Output ist Start-Form; App-Author darf das SQL hand-editieren
-//     (BRIN-Index, partial-Index, performance-tuning) bevor committed
-//   - Append-only: bestehende Migration-Files werden NIE überschrieben.
-//     Neue Schema-Diffs landen in einem NEUEN File mit incrementierter
-//     Sequence-Number.
+// **NO-MAGIC-ON-DATA core principle** (see drizzle-replacement.md):
+//   - The generator emits SQL files for PR review/editing.
+//   - The generator is NEVER called at app runtime.
+//   - The output is a starting point; app authors may hand-edit the SQL
+//     (BRIN index, partial index, performance tuning) before committing.
+//   - Append-only: existing migration files are NEVER overwritten.
+//     New schema diffs go into a NEW file with an incremented sequence number.
 //
-// **DESTRUCTIVE-ops** (DROP TABLE/COLUMN, INDEX-removal) werden als
-// AUSKOMMENTIERTE statements emittiert — Reviewer muss explizit
-// uncommenten + ggf. Data-Backup-Schritt vorlauf einfügen. Default:
-// niemals automatisch droppen.
+// **DESTRUCTIVE operations** (DROP TABLE/COLUMN, index removal) are emitted
+// as commented-out statements — reviewers must explicitly uncomment them
+// and may need to add a data-backup step beforehand. Default:
+// never drop automatically.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { errorCodeOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -65,7 +64,7 @@ export type TableDiff = {
   readonly droppedIndexes: readonly string[];
   // Same-named index whose shape (columns/unique/whereSql/needsManualWhere)
   // changed — recreated via DROP+CREATE rather than silently absorbed into
-  // the new snapshot with no emitted DDL (kumiko-framework#2492).
+  // the new snapshot with no emitted DDL.
   readonly changedIndexes: readonly IndexChange[];
   // Full target meta — carried so the renderer can emit DROP+CREATE for a
   // managed projection whose change cannot apply in-place (see
@@ -84,7 +83,7 @@ export function snapshotFromMetas(metas: readonly EntityTableMeta[]): Snapshot {
   // meaningful (table-add isn't a noisy re-sort of everything). Codepoint, not
   // localeCompare: the snapshot is serialized to byte-exact JSON and the table
   // order carries into the generated migration SQL — locale-dependent ordering
-  // would drift between macOS-dev and Linux-CI (#367).
+  // would drift between macOS-dev and Linux-CI.
   const sorted = [...metas].sort((a, b) => compareByCodepoint(a.tableName, b.tableName));
   return {
     version: SNAPSHOT_VERSION,
@@ -118,7 +117,7 @@ export function writeSnapshotJson(path: string, snapshot: Snapshot): void {
 }
 
 function indexMetaKey(idx: IndexMeta): string {
-  // Index-Identität via Name (PG-Constraint: unique innerhalb der DB)
+  // Index identity is based on its name (PostgreSQL constraint: unique within the database).
   return idx.name;
 }
 
@@ -350,8 +349,7 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
     // timestamptz → date: PG's implicit ::date cast (what a bare ALTER ...
     // TYPE without USING falls back to) reads the session TimeZone, so the
     // same row migrates to a different calendar day depending on who/where
-    // runs it — exactly the non-determinism kumiko-framework#1924 fixes.
-    // Anchor explicitly at UTC instead of trusting the session.
+    // runs it. Anchor explicitly at UTC instead of trusting the session.
     if ((from === "timestamptz" || from === "timestamptz(3)") && to === "date") {
       out.push(
         `-- ${from} → date: explicit UTC anchor — a bare cast would use the session TimeZone (non-deterministic).`,
@@ -491,7 +489,7 @@ export function renderMigrationSql(
         // needsManualWhere renders CREATE as a commented WARN (renderIndex),
         // since the generator can't express the new WHERE — the DROP has to
         // stay commented too, or the live index gets dropped with no
-        // executable replacement (kumiko-framework#2492 review).
+        // executable replacement.
         lines.push(
           nextIdxMeta.needsManualWhere === true
             ? `-- (review) DROP INDEX IF EXISTS ${quoteIdent(idxChange.name)};`

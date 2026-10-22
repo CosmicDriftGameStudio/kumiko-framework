@@ -1,28 +1,23 @@
 import { getTemporal } from "../time/index.ts";
 
-// Streaming-ZIP-Builder (S2.U3 Atom 3a) — pure-JS, dependency-frei.
+// Pure-JS streaming ZIP builder without dependencies.
 //
-// **Format-Wahl: STORE (kein DEFLATE).** Compression-frei + minimal —
-// fuer User-Data-Export-Bundles akzeptabel weil:
-//   - Storage-Provider (S3/R2) komprimiert eh on-the-wire (HTTP gzip)
-//   - JSON-Snippets sind klein, File-Binaries sind oft schon komprimiert
-//     (PNG/JPG/PDF/MP4/...)
-//   - DEFLATE braucht zlib + buffering pro Entry, killt das Streaming-
-//     Property
+// **Format: STORE (no DEFLATE).** Avoiding compression keeps the implementation minimal:
+//   - Storage providers (S3/R2) compress data on the wire (HTTP gzip).
+//   - JSON snippets are small, and file binaries are often already compressed
+//     (PNG/JPG/PDF/MP4/...).
+//   - DEFLATE requires zlib and per-entry buffering, which defeats streaming.
 //
-// **Streaming-Property:** Caller gibt `AsyncIterable<ZipEntry>`, jeder
-// Entry hat `data: AsyncIterable<Uint8Array>`. ZIP-Bytes werden
-// chunk-fuer-chunk yieldet — kein Entry haengt im Memory bis er fertig
-// ist. Storage-Provider's writeStream konsumiert direkt durch.
+// **Streaming:** The caller provides `AsyncIterable<ZipEntry>`, and each entry
+// has `data: AsyncIterable<Uint8Array>`. ZIP bytes are yielded chunk by chunk.
+// The storage provider's writeStream consumes them directly.
 //
-// **ZIP-Standard:** APPNOTE.TXT v6.3.10 (April 2022). STORE-Method,
-// kein ZIP64 (max 4 GB pro Entry, max 65535 Entries — fuer User-Daten-
-// Exports ausreichend; ZIP64-Support kommt wenn ein realer User mit
-// >4 GB single-File auftaucht). Kein UTF-8-Flag (filenames sind ASCII
-// in unserem Use-Case: "profile.json", "files/<id>.<ext>").
+// **ZIP standard:** APPNOTE.TXT v6.3.10 (April 2022). STORE method, no ZIP64
+// (maximum 4 GB per entry and 65535 entries). ZIP64 support is needed before
+// exporting a single file larger than 4 GB. The UTF-8 flag is enabled because
+// filenames may contain non-ASCII characters.
 //
-// **CRC32:** klassisches IEEE-802.3-Polynom (0xEDB88320). Lookup-Table
-// einmal initialisiert + cached.
+// **CRC32:** Classic IEEE-802.3 polynomial (0xEDB88320), with a cached lookup table.
 
 const ZIP_VERSION_NEEDED = 20; // 2.0 = STORE
 const ZIP_METHOD_STORE = 0;
@@ -36,70 +31,58 @@ const EOCD_SIG = 0x06054b50;
 
 const VERSION_MADE_BY = 0x031e; // 0x03 = UNIX, 0x1e = ZIP 3.0
 
-// General Purpose Flag Bit 11 (0x0800) = UTF-8 filename + comment encoding.
-// Wird default-on gesetzt: ASCII ist gueltiges UTF-8, also Win-Win.
-// Ohne Flag interpretieren aeltere ZIP-Tools filenames als CP437 — bei
-// Umlauten ("Bügel.pdf") wird das Mojibake.
+// General Purpose Flag Bit 11 (0x0800) enables UTF-8 encoding for filenames and comments.
+// ASCII is valid UTF-8, while omitting the flag makes older ZIP tools interpret
+// filenames as CP437, producing mojibake for non-ASCII characters such as umlauts.
 const GENERAL_PURPOSE_FLAGS = 0x0800;
 
-// External-Attrs (UNIX-Mode in High-Bytes) fuer regulaere Dateien mit
-// 0644-Permissions: `(S_IFREG | 0644) << 16 = 0o100644 << 16 = 0x81a40000`.
-// S_IFREG = 0o100000 (regular file), 0o644 = rw-r--r--. Ohne diese
-// Bits entpackt Info-ZIP mit Mode 0000 (EACCES beim Read).
+// Store UNIX file permissions in the high bytes of the external attributes.
+// Without `(S_IFREG | 0644) << 16 = 0o100644 << 16 = 0x81a40000`, Info-ZIP
+// extracts regular files with mode 0000, causing EACCES when they are read.
 const UNIX_REGULAR_FILE_0644 = 0o100644 << 16; // 0x81a40000
 
-// ZIP-Format-Limits ohne ZIP64-Extension. Atom 3a-Scope ist STORE-only;
-// ZIP64 kommt wenn ein realer User-Export diese Caps reisst.
+// STORE without ZIP64 is limited to 4 GB per entry and 65535 entries.
+// ZIP64 support is required before these limits can be exceeded.
 const ZIP_MAX_ENTRY_SIZE = 0xffffffff; // uint32 → 4 GB
 const ZIP_MAX_ENTRIES = 0xffff; // uint16 → 65535
 
 export interface ZipEntry {
-  /** Pfad im ZIP, slash-separated. ASCII (kein UTF-8-Flag gesetzt). */
+  /** Path inside the ZIP, slash-separated and UTF-8 encoded (general-purpose flag bit 11). */
   readonly path: string;
-  /** Body als AsyncIterable — kann lazy generated sein (kein Upfront-Memory). */
+  /** Body as an AsyncIterable; it may be generated lazily to avoid upfront memory use. */
   readonly data: AsyncIterable<Uint8Array>;
   /**
-   * Optional Modification-Time. Default = Now. ZIP nutzt MS-DOS-Format
-   * (2-Sek-Aufloesung). Wer Audit-Trail-Zeitpunkte haben will, setzt
-   * den Generation-Timestamp ueber alle Entries.
+   * Optional modification time. Defaults to the current time and uses the ZIP
+   * MS-DOS format with two-second precision. Set the generation timestamp on
+   * every entry when consistent audit-trail timestamps are required.
    */
   readonly mtime?: InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 }
 
 /**
- * Erzeugt einen ZIP-Stream als `AsyncIterable<Uint8Array>`. Caller (z.B.
- * `FileStorageProvider.writeStream`) konsumiert chunk-fuer-chunk, kein
- * Entry haengt im Memory bis fertig.
+ * Creates a ZIP stream as `AsyncIterable<Uint8Array>`. The caller, such as
+ * `FileStorageProvider.writeStream`, consumes the output chunk by chunk.
  *
- * Streaming-Lifecycle pro Entry:
- *   1. Local File Header (mit CRC32+size=0 als Placeholder; wir nutzen
- *      KEINE Streaming-Data-Descriptor weil Storage-Provider Random-
- *      Access nicht garantiert — wir collecten den Body in Memory pro
- *      Entry um CRC + size **vor** dem Header zu kennen.
- *      Trade-off: 1 Entry-Body im Memory at-a-time; bei <100 MB Files
- *      OK, bei >1 GB single-Files braeuchte ZIP64+Streaming-Descriptor).
- *   2. File Body (raw bytes)
- * Am Ende:
- *   3. Central Directory (eine Liste-Entry pro File mit CRC + size)
- *   4. EOCD (End Of Central Directory)
+ * Each entry's body is collected in memory before its local file header is
+ * emitted because non-seekable storage providers cannot use a streaming data
+ * descriptor, and the header must contain the CRC32 and size. This limits
+ * memory use to one entry body at a time; ZIP64 plus streaming descriptors
+ * would be needed for larger single files.
  */
 export async function* createZipStream(
   entries: AsyncIterable<ZipEntry>,
 ): AsyncIterable<Uint8Array> {
   const centralDirRecords: Uint8Array[] = [];
-  let offset = 0; // Bytes-Counter fuer central-dir entry's local-header-offset
+  let offset = 0; // Tracks the local-header offset for each central-directory entry
 
   for await (const entry of entries) {
-    // Body in Memory collecten — wir brauchen CRC32 + size VOR dem
-    // local-file-header (kein streaming-data-descriptor weil
-    // file-storage-providers nicht zwingend seek-able sind, aber wir
-    // wollen vermeiden dass der konsumierende Storage zwei-pass laesst).
+    // Collect the body before writing the local file header: non-seekable storage
+    // providers cannot use a streaming data descriptor, and a two-pass read
+    // would be required otherwise.
     const body = await collectBody(entry.data);
 
-    // Hard-Limit: STORE-Mode ohne ZIP64-Extension cappt bei uint32 (4 GB).
-    // Bei Ueberschreitung wuerde der Integer-Wrap silent ein korruptes
-    // ZIP produzieren (Decoder lesen Muell-Sizes). Lieber early-fail mit
-    // klarer Begruendung — Worker (Atom 3b) fängt das + setzt Job=failed.
+    // STORE without ZIP64 uses uint32 sizes. Fail early instead of allowing integer
+    // wraparound to produce a corrupt ZIP with incorrect sizes.
     if (body.byteLength > ZIP_MAX_ENTRY_SIZE) {
       throw new Error(
         `ZIP-Entry "${entry.path}" exceeds 4 GB limit (${body.byteLength} bytes). ` +
@@ -138,8 +121,7 @@ export async function* createZipStream(
     yield lfh;
     yield body;
 
-    // Central-Directory-Eintrag fuer diesen Entry — wir collecten ihn,
-    // emittieren ihn am Ende.
+    // Keep central-directory entries until all file bodies have been emitted.
     const cdh = new Uint8Array(46 + filenameBytes.byteLength);
     const cdhView = new DataView(cdh.buffer);
     cdhView.setUint32(0, CENTRAL_DIR_HEADER_SIG, true);
@@ -165,7 +147,7 @@ export async function* createZipStream(
     offset += lfh.byteLength + body.byteLength;
   }
 
-  // Central Directory: alle entries hintereinander
+  // Central directory: all entries back to back.
   const centralDirStart = offset;
   let centralDirSize = 0;
   for (const record of centralDirRecords) {
@@ -228,15 +210,14 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-// MS-DOS Date+Time encoding fuer ZIP-Header.
-// Date: bits 9-15=year-1980, 5-8=month, 0-4=day.
-// Time: bits 11-15=hour, 5-10=minute, 0-4=second/2.
+// MS-DOS date and time encoding for ZIP headers.
+// Date: bits 9-15 = year - 1980, 5-8 = month, 0-4 = day.
+// Time: bits 11-15 = hour, 5-10 = minute, 0-4 = second / 2.
 //
-// **UTC** statt lokaler Zeitzone: in einem DSGVO-Kontext ist der
-// ZIP-mtime Teil des Auskunfts-Artefakts. Verschiedene Server-Zeitzonen
-// wuerden sonst verschiedene mtime-Werte fuer denselben Generation-
-// Instant produzieren — Audit-Drift. UTC ist der Standard fuer alle
-// server-side-Timestamps im Repo (Temporal.Instant ueberall).
+// **UTC** instead of the local time zone: in a GDPR context the ZIP mtime is
+// part of the data-access export. Different server time zones would otherwise produce
+// different values for the same generation instant, causing audit drift. UTC is
+// used for server-side timestamps throughout the repository.
 function toDosTime(i: InstanceType<ReturnType<typeof getTemporal>["Instant"]>): {
   date: number;
   time: number;

@@ -1,6 +1,6 @@
 // _refs must only carry what the caller could read on the target entity itself
-// (access.read row scope, field-level read) — kumiko-framework#3617. Real HTTP
-// calls + setupTestStack, never createTestDispatcher.
+// (access.read row scope, field-level read). Real HTTP calls + setupTestStack,
+// never createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {

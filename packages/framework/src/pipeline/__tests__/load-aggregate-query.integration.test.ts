@@ -41,7 +41,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
   r.entity({ name: "asof-invoice", ...invoiceEntity });
 
   // Two domain events at different versions. v1→v2 migration bumps the
-  // "amount" field from string to integer cents, same pattern as B1.
+  // "amount" field from string to integer cents, following the same pattern.
   const approved = r.defineEvent(
     "approved",
     z.object({ amount: z.number().int(), approvedBy: z.string() }),
@@ -193,7 +193,7 @@ describe("ctx.loadAggregate via queryHandler — Marten AggregateStreamAsync equ
     );
     // Cutoff must come from the event row's created_at (Postgres now()), not
     // host wall-clock — Docker clock skew made Date()-based cutoffs exclude
-    // the create event (fw#2425).
+    // the create event.
     const beforeApprove = await loadAggregateRaw(stack.db, created.id, admin.tenantId);
     expect(beforeApprove).toHaveLength(1);
     const preApprove = beforeApprove[0]!.createdAt;

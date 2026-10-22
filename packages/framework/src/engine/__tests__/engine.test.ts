@@ -500,7 +500,7 @@ describe("createRegistry", () => {
     expect(all["profile:nav.title"]).toEqual({ de: "Profil", en: "Profile" });
   });
 
-  // #1105: a feature that already qualifies its own translation keys (nav
+  // A feature that already qualifies its own translation keys (nav
   // labels referencing "featureName:..." verbatim, see cap-counter) must not
   // be double-prefixed — else server-side t() can never resolve them.
   test("does not double-prefix translation keys that already carry the feature's own namespace", () => {
@@ -1302,7 +1302,7 @@ describe("createApp", () => {
     );
   });
 
-  // fw#2839: a literal currency source is only meaningful for a code the app
+  // A literal currency source is only meaningful for a code the app
   // knows — a typo would otherwise render and submit an unformattable amount.
   function literalCurrencyFeature(code: string) {
     return defineFeature("test", (r) => {
@@ -2432,7 +2432,7 @@ describe("registry boot validation", () => {
         handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      // Ein Job-Body, zwei Trigger — DRY-Pattern für Fanout-Cases.
+      // One job body, two triggers — a DRY pattern for fan-out cases.
       r.job(
         "fanout",
         { trigger: { on: ["shop:write:order:create", "shop:write:order:cancel"] } },
@@ -2456,7 +2456,7 @@ describe("registry boot validation", () => {
         handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      // create existiert, cancel nicht — zweiter Trigger ist Geist
+      // create exists, cancel does not — the second trigger is dangling
       r.job(
         "fanout",
         { trigger: { on: ["shop:write:order:create", "shop:write:order:ghost"] } },

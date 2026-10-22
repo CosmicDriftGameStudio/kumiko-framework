@@ -1,7 +1,7 @@
-// Coverage-Lücke (9% u+i, 0 Tests): assertExistsIn ist der referenzielle
-// Existenz-Check (FK-Ersatz im ES-Modell), den Write-Handler vor dem Schreiben
-// nutzen. Gibt er faelschlich null (= existiert) zurueck, schreibt der Handler
-// eine dangling/cross-tenant Reference. Schwerpunkt: Tenant-Isolation.
+// Coverage gap (9% u+i, 0 tests): assertExistsIn is the referential
+// existence check (FK replacement in the ES model) that write handlers must
+// use before writing. If it incorrectly returns null (= exists), the handler
+// writes a dangling/cross-tenant reference. Focus: tenant isolation.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
@@ -66,7 +66,7 @@ describe("assertExistsIn — DbConnection + explizite tenantId", () => {
   test("ISOLATION: fremder Tenant → NotFoundError (existiert, aber nicht im Scope)", async () => {
     const r = await assertExistsIn(stack.db, orderTable, {
       field: "id",
-      value: ID_B, // gehört tenantB
+      value: ID_B, // belongs to tenantB
       tenantId: tenantA,
     });
     expect(r).toBeInstanceOf(NotFoundError);

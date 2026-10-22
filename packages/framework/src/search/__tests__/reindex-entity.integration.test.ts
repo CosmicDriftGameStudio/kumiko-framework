@@ -1,6 +1,6 @@
 // reindexEntity — Integration Test
 // Proves: rows written before a search consumer ever indexed them (the
-// #1206 scenario — searchable:true added retroactively) become findable
+// searchable:true added retroactively) become findable
 // after a backfill run, soft-deleted rows stay excluded, and dryRun writes
 // nothing.
 
@@ -45,7 +45,7 @@ const widgetFeature = defineFeature("reindex-test", (r) => {
   r.entity({ name: "widget", ...widgetEntity });
 });
 
-// fw#1611: pii + searchable — the read-table column holds ciphertext, a
+// pii + searchable — the read-table column holds ciphertext, a
 // naive backfill would index blobs (or resurrect a crypto-shredded row).
 const contactEntity = createEntity({
   table: "read_reindex_contacts",
@@ -188,7 +188,7 @@ describe("reindexEntity", () => {
     expect(postResults).toHaveLength(0);
   });
 
-  // kumiko-framework#1549: a searchable field with no matching read-table
+  // a searchable field with no matching read-table
   // column (dropped/never-migrated) used to push one identical failures[]
   // entry per scanned row instead of failing fast — fails loud on the first
   // row's column set instead, which is invariant across the whole scan.
@@ -209,7 +209,7 @@ describe("reindexEntity", () => {
     }
   });
 
-  // fw#1611: reindexEntity read the read-table row (ciphertext for pii+
+  // reindexEntity read the read-table row (ciphertext for pii+
   // searchable fields) straight into the search document, skipping the
   // decrypt step createSearchEventConsumer applies on the live path.
   test("decrypts pii+searchable fields before indexing — backfill is findable by plaintext, not ciphertext", async () => {

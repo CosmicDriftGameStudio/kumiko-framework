@@ -1,4 +1,4 @@
-// Event-Store Performance — Gate A targets from the Sprint-B spike.
+// Event-Store Performance — Gate A targets from the spike.
 // Asserts that today's framework API holds the same latency envelope as
 // the raw-SQL spike used as proof before the ES pivot.
 //
@@ -12,8 +12,8 @@
 // latency, single-node PG. Production deploys are slower; these numbers
 // are the ceiling.
 //
-// Runs isolated in the `event-store-perf` CI job (test:integration:perf:eventstore,
-// #1940) — gate on p95 for typical latency; p99 keeps a separate tail budget for
+// Runs isolated in the `event-store-perf` CI job (test:integration:perf:eventstore)
+// — gate on p95 for typical latency; p99 keeps a separate tail budget for
 // residual scheduling noise. CI and the local docker-compose Postgres both run with
 // fsync/synchronous_commit/full_page_writes off — numbers aren't comparable to a
 // default-config Postgres.
@@ -145,7 +145,7 @@ describe("event-store performance — Gate A", () => {
     );
 
     // 25ms budget kept from the original spike doc's 10ms — an
-    // order-of-magnitude gate, not an idle-best-case one. Tracking: #325.
+    // order-of-magnitude gate, not an idle-best-case one.
     expect(p95).toBeLessThan(25);
     // Read-only path (no fsync), so no write-side spike excuse: ~100x p50 at most.
     expect(p99).toBeLessThan(100);

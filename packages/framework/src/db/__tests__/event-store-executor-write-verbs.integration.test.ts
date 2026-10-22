@@ -388,8 +388,8 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
     expect((result.error.details as { reason?: string }).reason).toBe("ownership_denied");
   });
 
-  // fw#1685: a preSave hook that derives a field the user never submitted
-  // must not have that field field-ownership-checked against the user —
+  // A preSave hook that derives a field the user never submitted
+  // must not have that field ownership-checked against the user —
   // only what the user actually wrote in `payload.changes` is checked.
   test("create: preSave-derived `note` (not submitted by the user) does not trigger ownership_denied", async () => {
     const result = await crud.create({ authorId: TestUsers.driver.id }, nonAdmin, tdb, {
@@ -415,7 +415,7 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
     expect(result.isSuccess).toBe(true);
   });
 
-  // Review-fix (kumiko-framework#1685): a preSave hook that echoes `id`/
+  // A preSave hook that echoes `id`/
   // `version` back in its return value must not have those leak into the
   // persisted row — the framework-minted aggregateId stays authoritative.
   test("create: preSave hook returning `id`/`version` does not override the minted aggregateId", async () => {
@@ -487,7 +487,7 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
 });
 
 // =============================================================================
-// expect precondition (kumiko-framework#3024) — declarative "genau einmal"
+// expect precondition — declarative "exactly once"
 // guard on update(). The version_conflict describe above proves the pre-
 // existing stream-version race protection; these prove `expect:` closes the
 // gap that leaves open: a caller (like updateUserLifecycle) that opts out of

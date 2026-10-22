@@ -16,7 +16,7 @@ import {
   withUnsafeRawGrant,
 } from "../tenant-db.ts";
 
-// db.global()'s runtime + write-gate behaviour (fw#2855). No Postgres needed —
+// db.global()'s runtime + write-gate behaviour. No Postgres needed —
 // the stub runner throws on first touch, so a test that reaches it fails loudly
 // instead of silently "passing" on an accidental real write.
 function unreachableRunner(): DbRunner {
@@ -53,7 +53,7 @@ const globalUnmanagedTable = defineUnmanagedTable({
   ],
 });
 
-// Regression coverage for the tenancy-brand type hole (fw#2855 review): an
+// Regression coverage for the tenancy-brand type hole: an
 // EntityDefinition object literal (bypassing createEntity) must not be
 // mis-branded "global" just because it lacks a `tenancy` property at all.
 const bareLiteralTable = buildEntityTable("globalGuardBareLiteral", {

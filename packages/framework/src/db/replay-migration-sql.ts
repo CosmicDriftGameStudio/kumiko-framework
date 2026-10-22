@@ -84,7 +84,7 @@ function parseColumnNames(body: string): Set<string> {
 // are not listed here: they change identity and are applied explicitly.
 const SHAPE_NEUTRAL_ALTER_CLAUSE_RE = new RegExp(
   [
-    `ALTER COLUMN\\s+${IDENT}\\s+TYPE\\b`, // #1085 int/bigint-catchup fixes
+    `ALTER COLUMN\\s+${IDENT}\\s+TYPE\\b`, // int/bigint-catchup fixes
     `ALTER COLUMN\\s+${IDENT}\\s+(SET|DROP)\\s+NOT NULL\\b`,
     `ALTER COLUMN\\s+${IDENT}\\s+(SET DEFAULT\\b|DROP DEFAULT\\b)`,
     `(ADD|DROP)\\s+CONSTRAINT\\s+${IDENT}`,
@@ -309,7 +309,7 @@ function applyStatement(
 // Reuses the real runner's file-discovery + statement-splitting
 // (loadMigrationsFromDir) instead of a second copy, so any future change to
 // sub-directory handling, numeric sort order, or the .sql filter can't
-// silently drift between the runner and this replay (#1522/9).
+// silently drift between the runner and this replay.
 export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
   const schema = new Map<string, MutableReplayedTable>();
   const migrations = loadMigrationsFromDir(migrationsDir, expandDestructiveMarkers);

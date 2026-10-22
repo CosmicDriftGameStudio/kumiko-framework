@@ -23,7 +23,7 @@ export { WritePurposes } from "@cosmicdrift/kumiko-types/event-store-executor-ty
 // removed to close the silent-bypass hole where a caller forgetting to pass
 // one would skip projections without any signal.
 //
-// Split into three files (#1005, Welle 2): this facade holds the public
+// Split into three files: this facade holds the public
 // types + the createEventStoreExecutor() factory. Context-building (crypto/
 // ownership helpers shared by every verb) lives in
 // event-store-executor-context.ts; the write verbs (create/update/delete/

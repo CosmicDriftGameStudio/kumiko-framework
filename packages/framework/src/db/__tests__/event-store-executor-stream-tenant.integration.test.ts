@@ -1,4 +1,4 @@
-// #3607 — streamTenantId addresses another tenant's stream without rewriting the acting user.
+// streamTenantId addresses another tenant's stream without rewriting the acting user.
 // Only a system-mode db or a tenant-mode db bound to that stream tenant may use it, and only for the tenant of the row it loaded.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

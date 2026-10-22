@@ -1,24 +1,23 @@
-// Runner für pending seed-migrations beim Boot.
+// Runner for pending seed migrations during boot.
 //
 // Flow:
-//   1. List seeds/<*.ts> sorted ascending (filename = chronologische ID)
+//   1. List seeds/<*.ts> sorted ascending (filename = chronological ID)
 //   2. SELECT id FROM kumiko_es_operations WHERE operation_type='seed-migration'
-//   3. pending = files \ applied
-//   4. Für jeden pending in Order:
-//      a. dynamic import → default-export (SeedMigration)
-//      b. wenn migration.skippable && env[KUMIKO_SKIP_ES_OPS_<sanitized>]='1':
-//         → log line + continue (kein Marker geschrieben)
-//      c. Tx start
+//   3. pending = files \\ applied
+//   4. For each pending migration in order:
+//      a. dynamic import → default export (SeedMigration)
+//      b. if migration.skippable && env[KUMIKO_SKIP_ES_OPS_<sanitized>]='1':
+//         → log line + continue (no marker written)
+//      c. Start transaction
 //      d. await migration.run(ctx)
-//      e. INSERT marker mit duration_ms + appliedBy
-//      f. Tx commit
-//   5. On any failure: Tx rollback + error log + throw
-//      → App-Boot bricht ab. Operator muss Failure fixen + retry.
+//      e. INSERT marker with duration_ms + appliedBy
+//      f. Commit transaction
+//   5. On any failure: transaction rollback + error log + throw
+//      → App boot aborts. The operator must fix the failure and retry.
 //
-// Skippable-Pattern: seed.skippable=true erlaubt im Notfall ein
-// `KUMIKO_SKIP_ES_OPS_<id>=1` env-flag um eine kaputte Migration zu
-// überspringen ohne ihr Code touchen zu müssen. NICHT als
-// Standard-Workflow — wirklich Notfall.
+// Emergency skip pattern: seed.skippable=true permits a
+// `KUMIKO_SKIP_ES_OPS_<id>=1` env flag to skip a broken migration
+// without touching its code. NOT a standard workflow — emergency use only.
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,21 +31,21 @@ import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "
 
 export type RunPendingSeedMigrationsArgs = {
   readonly db: DbConnection;
-  /** Absoluter Pfad zum seeds-Directory (typically <appRoot>/seeds). */
+  /** Absolute path to the seeds directory (typically <appRoot>/seeds). */
   readonly seedsDir: string;
-  /** Factory die den Context für jede einzelne seed-Migration erzeugt.
-   *  Caller bekommt einen DbRunner (Connection ODER aktive Tx) — Runner
-   *  ruft das pro-migration im tx-Scope auf. */
+  /** Factory that creates the context for each seed migration.
+   * The caller receives a DbRunner (connection OR active transaction); the
+   * runner invokes this once per migration within the transaction scope. */
   readonly createContext: (dbRunner: DbRunner) => SeedMigrationContext;
   /** Trace-marker: boot | cli | ci-pipeline. Landet in applied_by. */
   readonly appliedBy: EsOperationAppliedBy;
-  /** Optional registry für Dry-Run-Validation: parsed jeden seed-file und
-   *  checkt dass alle referenzierten handler-QNs in der Registry existieren
-   *  BEVOR die Migration läuft. Catched camelCase-typos + andere QN-Drift
-   *  zur Boot-Zeit statt mitten im write-cycle (Phase 1.5 / A2).
+  /** Optional registry for dry-run validation: parses each seed file and
+   * checks that all referenced handler QNs exist in the registry
+   * BEFORE the migration runs. This catches camelCase typos and other QN
+   * drift at boot rather than in the middle of a write cycle.
    *
-   *  Wenn weggelassen → kein Dry-Run (backward-compat für tests die ohne
-   *  Registry arbeiten). runProdApp reicht den richtigen Registry rein. */
+   * If omitted, no dry run is performed (backward compatibility for tests
+   * that do not provide a registry). runProdApp supplies the correct one. */
   readonly registry?: Registry;
   /** Optional line sink; the default logs under the "es-ops/seed-migration" namespace. */
   readonly logger?: (line: string) => void;
@@ -83,10 +82,10 @@ export async function runPendingSeedMigrations(
   const appliedIds: string[] = [];
   const skippedIds: string[] = [];
 
-  // Dry-Run-Pass (Phase 1.5 / A2): vor JEDER migration alle handler-QNs aus
-  // den seed-files parsen + gegen registry checken. Fail-fast vor erstem
-  // write — gibt klare error-message mit Datei + qn statt zur runtime
-  // "handler not found" mitten im migration-flow.
+  // Dry-run pass: before any migration, parse all handler QNs from the seed
+  // files and check them against the registry. Fail fast before the first
+  // write, with a clear error containing the file and QN instead of a runtime
+  // "handler not found" error in the middle of the migration flow.
   if (args.registry !== undefined) {
     const unknownQns: Array<{ id: string; qn: string }> = [];
     for (const entry of pending) {
@@ -121,11 +120,10 @@ export async function runPendingSeedMigrations(
     const start = Date.now();
     try {
       await args.db.begin(async (tx: DbRunner) => {
-        // Advisory-Lock: sequentialisiert Multi-Replica-Boots. Zweiter
-        // Pod blockt bis erster fertig ist, dann re-checked sein
-        // applied-set (außerhalb dieser Funktion in nächster Iteration)
-        // und findet den Marker → skip. Lock wird beim Tx-Commit
-        // automatisch released (xact-scope).
+        // Advisory lock: serializes multi-replica boots. The second pod blocks until
+        // the first finishes, then rechecks its applied set in the next
+        // iteration and finds the marker, so it skips the migration. The lock
+        // is released automatically when the transaction commits (xact scope).
         await acquireEsOpsAdvisoryLock(tx);
 
         if (await esOperationExists(tx, entry.id)) {
@@ -168,8 +166,8 @@ async function listSeedFiles(seedsDir: string): Promise<readonly SeedFileEntry[]
   try {
     entries = await readdir(seedsDir);
   } catch {
-    // Directory doesn't exist → treat as empty. App ohne seeds-Dir ist
-    // ein valider Zustand (no-op).
+    // A missing directory is treated as empty. An app without a seeds directory
+    // is a valid no-op state.
     return [];
   }
   return entries
@@ -178,11 +176,11 @@ async function listSeedFiles(seedsDir: string): Promise<readonly SeedFileEntry[]
     .sort() // filename = chronologische ID (date-prefix-convention)
     .map((name) => ({
       id: name.replace(/\.(ts|mts|js)$/, ""),
-      // resolve, nicht join: Bun's await import() braucht absolute Pfade.
-      // Wenn seedsDir relativ ist (z.B. "./seeds" aus runProdApp-Option),
-      // wäre der join-Pfad auch relativ → Bun's import-resolver such
-      // relativ zum runner.ts-Modul, nicht zu process.cwd() → fail mit
-      // "Cannot find module 'seeds/...' from '<runner-path>'".
+      // Resolve rather than join: Bun's await import() requires absolute paths.
+      // If seedsDir is relative (for example "./seeds" from a runProdApp
+      // option), the joined path would also be relative. Bun's import resolver
+      // would resolve it relative to runner.ts rather than process.cwd(),
+      // causing "Cannot find module 'seeds/...' from '<runner-path>'".
       filePath: path.resolve(seedsDir, name),
     }));
 }
@@ -220,16 +218,16 @@ function sanitizeForEnv(id: string): string {
   return id.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
 
-// Parse seed-file source + extract handler-QNs aus `systemWriteAs(...)`-
-// Calls. Reine regex (kein AST) — fängt die häufigen Inline-String-Cases:
+// Parse seed-file source and extract handler QNs from `systemWriteAs(...)`
+// calls. A regex (rather than an AST) handles common inline string cases:
 //   ctx.systemWriteAs("foo:write:bar", payload)
 //   systemWriteAs("foo:write:bar", ...)  (destructured)
 //
-// Edge-Cases die NICHT geguckt werden:
-//   - QN aus Variable: `const qn = "..."; ctx.systemWriteAs(qn, ...)`
-//   - String-Concat / Template-Literals mit dynamic vars
-// Diese Pattern sind selten in real seed-migrations + bleibt als known-
-// limitation dokumentiert. Wer dynamic-QN braucht, weiß was er tut.
+// Unsupported cases:
+//   - QN from a variable: `const qn = "..."; ctx.systemWriteAs(qn, ...)`
+//   - String concatenation or template literals with dynamic variables
+// These patterns are uncommon in real seed migrations. This limitation is
+// documented so callers requiring dynamic QNs understand the constraint.
 function extractWriteHandlerQns(source: string): readonly string[] {
   const pattern = /systemWriteAs\s*\(\s*["']([^"']+)["']/g;
   const out = new Set<string>();

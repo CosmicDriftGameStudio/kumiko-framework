@@ -1,8 +1,8 @@
-// Unit-Tests für formatKumikoDriftReport — per-cause Remediation.
-// Regression für review #155 finding 2: vor dem Fix hat der Report immer den
-// "kumiko schema apply"-Hint gezeigt, auch wenn das Problem ein checksum-
-// mismatch war (den apply NICHT löst). Operator folgte der Anweisung und
-// landete in einer Sackgasse.
+// Unit tests for formatKumikoDriftReport — per-cause remediation.
+// Regression: before this fix, the report always showed the
+// "kumiko schema apply" hint, even when the problem was a checksum
+// mismatch (which apply does NOT resolve). The operator followed the
+// instruction and ended up at a dead end.
 
 import { describe, expect, test } from "bun:test";
 import { formatKumikoDriftReport, type KumikoDriftReport } from "../kumiko-drift.ts";
@@ -64,8 +64,8 @@ describe("formatKumikoDriftReport", () => {
   });
 
   test("missing tables WITH pending → only the 'schema apply' hint (pending covers it)", () => {
-    // Wenn pending da ist, applied das die noch fehlenden Tabellen → kein
-    // Backup-Restore nötig. Verhindert verwirrenden Doppel-Hint.
+    // When pending migrations exist, applying them creates the missing tables, so no
+    // backup restoration is needed. Prevents a confusing duplicate hint.
     const report: KumikoDriftReport = {
       ...empty,
       ok: false,

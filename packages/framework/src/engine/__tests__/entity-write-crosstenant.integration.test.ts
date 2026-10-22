@@ -1,4 +1,4 @@
-// fw#2650/fw#2915 — escapeHatch on entity convention handlers. A
+// escapeHatch on entity convention handlers. A
 // SystemAdmin operator reads/writes a row that lives in a different tenant
 // than their own session. That needs two things: (1) an unfiltered db
 // instead of the caller's tenant-scoped one (so the row is even visible),

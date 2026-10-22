@@ -1,4 +1,4 @@
-// fw#2914 — TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not a raw
+// TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not a raw
 // DbRunner. A hook that hasn't declared `escapeHatch: { reason }` on its
 // `r.useExtension(...)` registration must not be able to reach raw SQL
 // through `ctx.db` at all — these are compile-time guarantees, not runtime

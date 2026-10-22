@@ -5,8 +5,8 @@
 // V2-V4 (export-without-erase / PII-entity-without-hook / tenantOwned-entity-
 // without-hook) moved off this framework-internal validator onto
 // `r.bootCheck()` calls declared by user-data-rights / user-data-rights-
-// defaults (#1314) — see boot-checks.test.ts in the bundled-features package
-// for their coverage.
+// defaults. Their coverage is in boot-checks.test.ts in the bundled-features
+// package.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { validateGdprStoragePersistence } from "../boot-validator/gdpr-storage.ts";

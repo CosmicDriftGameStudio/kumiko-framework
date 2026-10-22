@@ -1,13 +1,13 @@
-// IANA-Zonenname-Validierung. Intl.supportedValuesOf("timeZone") liefert nur
-// KANONISCHE Namen — gültige Aliase wie "US/Pacific", "GMT", "Etc/UTC" fehlen
-// darin, obwohl Intl.DateTimeFormat, Temporal und ctx.tz.parse sie alle
-// klaglos akzeptieren. Intl.DateTimeFormat selbst ist aber case-INSENSITIVE
-// ("europe/berlin" resolved klaglos zu "Europe/Berlin") — ein reines
-// try/catch würde also Tippfehler in der Groß-/Kleinschreibung durchlassen.
-// Der exakte Vergleich mit resolvedOptions().timeZone schließt das: ein
-// gültiger kanonischer Name ODER Alias resolved IMMER zu sich selbst
-// (empirisch verifiziert für US/Pacific, GMT, Etc/UTC), ein falsch-gecasteter
-// String resolved zur kanonischen Form und matcht damit nicht mehr exakt.
+// IANA time zone name validation. Intl.supportedValuesOf("timeZone") returns only
+// CANONICAL names — valid aliases such as "US/Pacific", "GMT", and "Etc/UTC" are
+// missing, even though Intl.DateTimeFormat, Temporal, and ctx.tz.parse all
+// accept them without issue. Intl.DateTimeFormat itself is case-INSENSITIVE
+// ("europe/berlin" resolves to "Europe/Berlin") — a simple try/catch would
+// therefore allow capitalization errors through.
+// The exact comparison with resolvedOptions().timeZone prevents this: a valid
+// canonical name OR alias ALWAYS resolves to itself (verified empirically for
+// US/Pacific, GMT, and Etc/UTC), while a incorrectly cased string resolves to
+// the canonical form and no longer matches exactly.
 export function isValidIanaTimeZone(value: string): boolean {
   try {
     return (

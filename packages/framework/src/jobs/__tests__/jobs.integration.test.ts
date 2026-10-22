@@ -209,7 +209,7 @@ const testFeature = defineFeature("test", (r) => {
     jobLog.push({ name: "test:job:log-probe", payload, timestamp: Date.now() });
   });
   // job-runner must build ctx.files the same way dispatch-shared.ts does for
-  // write-handlers/MSPs — regression guard for #1520 (ctx.files was never
+  // write-handlers/MSPs — regression guard (ctx.files was never
   // materialized for jobs, so ctx.files.ref(...).read() threw for every job).
   r.job("filesProbe", { trigger: { manual: true } }, async (payload, ctx) => {
     const content = await ctx.files!.ref(payload["key"] as string).read();
@@ -221,7 +221,7 @@ const testFeature = defineFeature("test", (r) => {
   });
 
   // job-runner must build ctx.notify/ctx.config the same way dispatch-shared.ts
-  // does for write-handlers — regression guard for #1532 (only ctx.files got
+  // does for write-handlers — regression guard (only ctx.files got
   // the same fix; ctx.notify/ctx.config stayed undefined for every job).
   r.job("notifyProbe", { trigger: { manual: true } }, async (payload, ctx) => {
     await ctx.notify!("test-notification", { to: payload["toUserId"] as string });
@@ -234,7 +234,7 @@ const testFeature = defineFeature("test", (r) => {
   });
 
   // ctx.write/queryAs throw until JobRunner.attachDispatcher() has run —
-  // regression guard for framework#2043. No test runner here ever calls
+  // regression guard. No test runner here ever calls
   // attachDispatcher(), so this always hits the stub.
   r.job("writeProbe", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
     await ctx.write("test:write:probe", {});
@@ -547,7 +547,7 @@ describe("concurrency: sequential", () => {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });
     // A post-close 'error' here is otherwise unhandled and bun:test
-    // attributes it to whichever test runs next (fw#1805).
+    // attributes it to whichever test runs next.
     queueA.on("error", () => {});
 
     try {
@@ -723,7 +723,7 @@ describe("concurrency: replace", () => {
           connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
         });
         // A post-close 'error' here is otherwise unhandled and bun:test
-        // attributes it to whichever test runs next (fw#1805).
+        // attributes it to whichever test runs next.
         queue.on("error", () => {});
         try {
           const waiting = (await queue.getWaiting()).filter(
@@ -1052,7 +1052,7 @@ describe("perTenant across multiple runner instances", () => {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });
     // A post-close 'error' here is otherwise unhandled and bun:test
-    // attributes it to whichever test runs next (fw#1805).
+    // attributes it to whichever test runs next.
     rawQueue.on("error", () => {});
     // Snapshot of completed wrapper runs — declared outside try so the
     // post-finally fan-out check can read it.
@@ -1071,7 +1071,7 @@ describe("perTenant across multiple runner instances", () => {
       expect(await rawQueue.getJobSchedulersCount()).toBe(1);
       // Wait for the asserted drain state while workers are still up —
       // stop() tears down consumers, so a post-finally sleep/assert races
-      // on unprocessed children (fw#2556: expected 4, got 2). Snapshot
+      // on unprocessed children. Snapshot
       // drainedCalls inside the predicate; do not assert a post-stop
       // log-length ceiling against drainedCalls — in-flight children can
       // still append after the snapshot. A ceiling against the live
@@ -1202,7 +1202,7 @@ describe("perTenant wrapper re-run for the same trigger", () => {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });
     // A post-close 'error' here is otherwise unhandled and bun:test
-    // attributes it to whichever test runs next (fw#1805).
+    // attributes it to whichever test runs next.
     rawQueue.on("error", () => {});
 
     const wrapperJobId = "fixed-wrapper-run";
@@ -1372,7 +1372,7 @@ describe("job registry", () => {
   });
 });
 
-// --- Boot gates: only an inline gate can abort a boot (fw#2590) ---
+// --- Boot gates: only an inline gate can abort a boot ---
 
 describe("boot gates", () => {
   const gateLog: string[] = [];
@@ -1422,7 +1422,7 @@ describe("boot gates", () => {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });
     // A post-close 'error' here is otherwise unhandled and bun:test
-    // attributes it to whichever test runs next (fw#1805).
+    // attributes it to whichever test runs next.
     queue.on("error", () => {});
 
     try {

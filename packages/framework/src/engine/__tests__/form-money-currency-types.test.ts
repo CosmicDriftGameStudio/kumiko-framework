@@ -1,10 +1,8 @@
-// fw#2839: the type half of the fail-closed currency-source gate. This PR
-// ships the break in one release instead of the #2810 warn-then-throw ladder,
-// on the premise that a consumer sees it from the COMPILER at bump time, not
-// only from a boot error in production. These `@ts-expect-error`s are that
-// premise: each turns into a test failure the moment the narrowing stops
-// catching an undeclared money field in one of the three forms an author
-// writes a screen in.
+// The type half of the fail-closed currency-source gate. It ships the break in one release instead
+// of the warn-then-throw ladder, on the premise that a consumer sees it from the COMPILER at bump
+// time, not only from a boot error in production. These `@ts-expect-error`s are that premise: each
+// turns into a test failure the moment the narrowing stops catching an undeclared money field in
+// one of the three forms an author writes a screen in.
 
 import { describe, expect, test } from "bun:test";
 import type {

@@ -1,4 +1,4 @@
-// backfillEventPiiEncryption (#799): pre-KMS plaintext events get re-
+// backfillEventPiiEncryption: pre-KMS plaintext events get re-
 // encrypted in place — entity lifecycle payloads (created / updated
 // changes+previous / forgotten previous) AND catalogued custom events.
 // Pre-KMS-forgotten subjects (detectable only via their *.forgotten event)
@@ -64,7 +64,7 @@ const crmFeature = defineFeature("crm", (r) => {
 // Qualified event-type strings are kebab-case (qn/toKebab, feature-config-
 // events-jobs.ts) — captured from defineEvent's own return value instead of
 // hand-written, so a camelCase event name (tenantNote → tenant-note) can
-// never drift from what the catalog is actually keyed by (fw#2801).
+// never drift from what the catalog is actually keyed by.
 let PING_EVENT_TYPE: string;
 let PING_TENANT_EVENT_TYPE: string;
 const pingSchema = z.object({
@@ -73,7 +73,7 @@ const pingSchema = z.object({
 });
 const mailerFeature = defineFeature("mailer", (r) => {
   // targetId is nullable, so the stance has to say what happens without an
-  // owner — the two events below cover both declarations (fw#2776).
+  // owner — the two events below cover both declarations.
   PING_EVENT_TYPE = r.defineEvent("ping", pingSchema, {
     piiFields: { address: { personal: { of: "targetId", whenAbsent: "plaintext" } } },
   }).name;
@@ -82,7 +82,7 @@ const mailerFeature = defineFeature("mailer", (r) => {
   }).name;
 });
 
-// fw#2801: custom events declaring a tenant/self subject — no entity,
+// Custom events declaring a tenant/self subject — no entity,
 // pure catalog events — proving the catalog branch resolves through the
 // same resolveEventSubject the live append path uses.
 let TENANT_NOTE_EVENT_TYPE: string;
@@ -129,10 +129,10 @@ const notesFeature = defineFeature("notes", (r) => {
   r.entity({ name: "slip", ...slipEntity });
 });
 
-// personal: { of: "id" } → recordOwned (kumiko-framework#2786): the row
+// personal: { of: "id" } → recordOwned: the row
 // itself is the subject, not a user/tenant reachable via an owner field.
-// fw#2790 — this fixture proves the pre-existing generic backfill already
-// covers the record subject kind for lifecycle events, no new code needed.
+// This fixture proves the pre-existing generic backfill already covers the
+// record subject kind for lifecycle events, no new code needed.
 const surveyEntity = createEntity({
   fields: {
     answer: createTextField({ personal: { of: "id" }, find: "none" }),
@@ -419,7 +419,7 @@ describe("backfillEventPiiEncryption", () => {
     expect(real.erasedUnresolvable).toBe(dry.erasedUnresolvable);
   });
 
-  // The prod bug this regression test guards (fw#2255) only ever manifested
+  // The prod bug this regression test guards only ever manifested
   // against a real subject-keys store (kumiko_subject_keys 20→22 rows during
   // a dry run) — the InMemoryKmsAdapter tests above can't see that, since
   // there is no row store to leak into. Run the same dry-run invariant
@@ -1116,7 +1116,7 @@ describe("backfillEventPiiEncryption: owner re-key (fw#3670)", () => {
   });
 });
 
-// fw#2790 — "Altbestand: Freitext-Klartext in kumiko_events". The
+// "Legacy data: plaintext free text in kumiko_events". The
 // recordOwned ("record") subject kind covers row-scoped free text with no
 // user/tenant owner. Nothing in this file's resolution path (subject-
 // resolver.ts / pii-field-encryption.ts) special-cases subject kind, so the
@@ -1144,7 +1144,7 @@ describe("backfillEventPiiEncryption: record subject (kumiko-framework#2786)", (
     // Exact prefix, not just "contains": the entity segment must be the
     // registry name forget-subject resolves ("survey"), not the table name
     // or a divergent aggregate_type — a wrong segment here would make the
-    // ciphertext unreachable by record-forget (fw#2790).
+    // ciphertext unreachable by record-forget.
     expect(String(created["answer"])).toStartWith(`${PII_CIPHERTEXT_PREFIX}record:survey:${s1}:`);
     expect(String(created["answer"])).not.toContain(`user:${s1}`);
   });

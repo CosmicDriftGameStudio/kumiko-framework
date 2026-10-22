@@ -1,6 +1,6 @@
 // projection-rebuild aborts instead of silently NULLing an already-populated
-// blind-index column when this process has no blind-index key configured
-// (fw#3091) — see assertNoBlindIndexLoss in db/queries/shadow-swap.ts.
+// blind-index column when this process has no blind-index key configured.
+// See assertNoBlindIndexLoss in db/queries/shadow-swap.ts.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";

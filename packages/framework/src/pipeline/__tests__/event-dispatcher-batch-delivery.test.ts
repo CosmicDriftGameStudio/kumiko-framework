@@ -1,4 +1,4 @@
-// #3227 — deliverEvents' batchHandler fast-path: batch success must land
+// deliverEvents' batchHandler fast-path: batch success must land
 // the exact outcome the per-event loop would produce, a batch throw falls
 // back to per-event delivery without bumping attempts for the failed
 // batch attempt itself, and pending-gap resolution still splits pending

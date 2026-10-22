@@ -1,6 +1,6 @@
 // H.2 Ownership — Full Leak-Prevention + Row-Grab + Straddle + Field-Level Matrix.
 //
-// Consolidates the three Phase 1–3 Integration suites (entity-read,
+// Consolidates the three Integration suites (entity-read,
 // entity-write, field-level) into one file with shared fixtures. Each
 // `describe` block maps to a cell of the core-auth.md Policy-Matrix.
 

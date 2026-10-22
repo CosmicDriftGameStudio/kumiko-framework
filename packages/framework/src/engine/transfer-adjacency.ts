@@ -84,7 +84,7 @@ function parentRefEdgesFrom(
 //
 // A type can legitimately be reached by more than one edge — `note.vehicleId`
 // and `note.campaignId` are distinct, and collapsing them by entity name would
-// leave one edge's rows behind, the silent partial move #3088 exists to end.
+// leave one edge's rows behind, causing a silent partial move.
 export function resolveTransferAdjacency(
   entities: ReadonlyMap<string, EntityDefinition>,
   rootEntityType?: string,
@@ -125,7 +125,7 @@ export function findOverDeepTransferChain(
     // skip: a cycle revisits a type already on this path, and schema depth
     // cannot measure how far it actually runs — that depends on the rows, not
     // the declaration. The mover carries this one instead, failing with
-    // `transfer_graph_too_deep` when its rounds run out (#3131).
+    // `transfer_graph_too_deep` when its rounds run out.
     if (onPath.includes(edge.entityName)) continue;
     const deeper = findOverDeepTransferChain(adjacency, [...onPath, edge.entityName]);
     if (deeper !== undefined) return deeper;

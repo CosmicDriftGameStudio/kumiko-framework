@@ -324,9 +324,9 @@ describe("renderPattern — single-pattern shape", () => {
     expect(out).toBe('r.metric({ name: "requests", type: "counter" });');
   });
 
-  // #2111 — a name-carrying pattern with a `*Raw` field re-emits the
+  // A name-carrying pattern with a `*Raw` field re-emits the
   // identifier verbatim; without it, the name flattens to its resolved
-  // literal same as before the fix.
+  // literal as before the fix.
   test("useExtension pattern re-emits extensionNameRaw verbatim over the resolved literal", () => {
     const out = renderPattern({
       kind: "useExtension",
@@ -411,10 +411,9 @@ describe("renderPattern — single-pattern shape", () => {
   });
 });
 
-// #2111 — registrar-call names authored as an imported/local constant
-// (`r.useExtension(EXT_TENANT_DATA, ...)`, the style #1746 taught the
-// parser to resolve) must not get inlined into their resolved string
-// literal on a render → parse round-trip — the framework's own
+// Registrar-call names authored as an imported/local constant
+// (`r.useExtension(EXT_TENANT_DATA, ...)`) must not get inlined into their
+// resolved string literal on a render → parse round-trip — the framework's own
 // bundled-features rely on the identifier reference surviving edits made
 // through the Designer to unrelated fields on the same pattern.
 const NAME_CONST_FEATURE = `

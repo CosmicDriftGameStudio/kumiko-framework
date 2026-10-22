@@ -405,7 +405,7 @@ describe("cross-field decrypt leak (kumiko-framework#1263)", () => {
     await kms.createKey(subject);
     const dek = await kms.getKey(subject);
 
-    // Hand-roll a pre-#1263 v1 blob (no setAAD) — real pre-migration rows
+    // Hand-roll a v1 blob (no setAAD) — real pre-migration rows
     // look exactly like this.
     const iv = randomBytes(12);
     const cipher = createCipheriv("aes-256-gcm", dek, iv);

@@ -2,13 +2,13 @@
 //
 // Idempotent on the supplied conflict-key columns (typically the
 // natural key + tenantId). Skips lifecycle hooks, field-access,
-// crypto-shredding, schema-versioning, audit-trail, read-access-log.
-// See "Was unsafeProjection.* überspringt" in
+// crypto-shredding, schema-versioning, audit-trail, and read-access-log.
+// See "What unsafeProjection.* skips" in
 // kumiko-platform/docs/archive/plans/architecture/intern/step-vocabulary.md.
 //
 // Use only on tables explicitly declared via r.requires.projection in
-// the owning feature. Aggregate-tables (registered via r.entity) are
-// rejected by boot-validation — domain mutation MUST go through
+// the owning feature. Aggregate tables (registered via r.entity) are
+// rejected by boot validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
 import { extractTableName } from "../../db/index.ts";

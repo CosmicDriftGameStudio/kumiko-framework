@@ -437,7 +437,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // GET /files/:id/variant/:name — a named derived version of the file.
   // Same tenant + guard gate as the download above; the original stays
   // reachable only through that route. The public, anonymous counterpart is
-  // a separate cut (#1951) and does not go through createFileRoutes.
+  // a separate cut and does not go through createFileRoutes.
   api.get("/files/:id/variant/:name", async (c) => {
     const user = getUser(c);
     const id = c.req.param("id");
@@ -516,7 +516,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       // pattern from the access-deny path above. Everything else (version
       // conflict 409, ownership 403, validation 422, internal 500) gets the
       // real status off the error so callers can distinguish recoverable
-      // from terminal — pauschales 404 hier hat genau das verschleiert.
+      // from terminal — a blanket 404 here had obscured exactly that.
       const { status, code } = deleteFailureResponseFor(result.error);
       return c.json({ error: code }, status);
     }
@@ -577,7 +577,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   });
 
   // Metadata without the bytes. Unlike the byte-serving routes, this returns
-  // fileName as JSON — and fileName is `personal: "self"` (fw#2423), so it must
+  // fileName as JSON — and fileName is `personal: "self"`, so it must
   // go through the entity executor's detail() to decrypt instead of
   // loadFileForTenant's raw, still-encrypted read.
   async function loadReadableFileMeta(id: string, user: SessionUser): Promise<FileMeta | null> {

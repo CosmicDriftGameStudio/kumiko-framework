@@ -59,9 +59,9 @@ describe("assertTransition / guardTransition", () => {
     cancelled: [],
   });
 
-  // assertTransition wirft UnprocessableError mit reason="invalid_transition"
-  // (HTTP 422). guardTransition ist Convenience-Wrapper mit derselben Logik —
-  // beide müssen identisch verhalten.
+  // assertTransition throws UnprocessableError with reason="invalid_transition"
+  // (HTTP 422). guardTransition is a convenience wrapper with the same logic;
+  // both paths must behave identically.
 
   test("method-form: erlaubter Übergang läuft durch", () => {
     expect(() => transitions.assertTransition("draft", "sent")).not.toThrow();
@@ -109,9 +109,8 @@ describe("assertTransition / guardTransition", () => {
   });
 
   test("identische details-shape zwischen assertTransition + failTransition", async () => {
-    // Beide Pfade müssen den gleichen Detail-Block bauen — Clients
-    // parsen den 422-Body uniform und dürfen kein "validTargets vs.
-    // allowed"-Branch fühlen.
+    // Both paths must build the same detail block because clients parse the 422
+    // body uniformly and must not need a "validTargets vs. allowed" branch.
     const { failTransition } = await import("../../errors/index.ts");
     type TransitionDetails = {
       from?: string;
@@ -126,15 +125,15 @@ describe("assertTransition / guardTransition", () => {
     } catch (e) {
       assertDetails = (e as UnprocessableError).details as TransitionDetails;
     }
-    // Wenn assertTransition nicht wirft (zukünftiger Bug), bleibt
-    // assertDetails undefined → Diagnose unklar. Frühzeitiger Check macht
-    // den Fehlerpfad eindeutig.
+    // If assertTransition fails to throw (a future bug), assertDetails remains
+    // undefined, making the diagnosis unclear. This early check makes the
+    // failure path explicit.
     expect(assertDetails).toBeDefined();
     const failResult = failTransition("draft", "paid", ["sent"]);
     const failDetails = failResult.error.details as TransitionDetails;
-    // assertTransition wirft via UnprocessableError → details bekommt
-    // automatisch `reason` injiziert; failTransition geht denselben
-    // Pfad. Strukturelle Felder müssen 1:1 matchen.
+    // assertTransition throws via UnprocessableError, which automatically injects
+    // `reason` into details; failTransition follows the same path. Structural
+    // fields must match exactly.
     expect(assertDetails?.from).toEqual(failDetails.from);
     expect(assertDetails?.to).toEqual(failDetails.to);
     expect(assertDetails?.allowed).toEqual(failDetails.allowed);

@@ -12,7 +12,7 @@ export function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
 
-// "v%" matches any format version (v1 no-AAD, v2 AAD-bound, #1263) — the
+// "v%" matches any format version (v1 no-AAD, v2 AAD-bound) — the
 // subject key placement is stable across versions.
 export function subjectCiphertextLikePattern(subjectKey: string): string {
   return `kumiko-pii:v%:${escapeLikePattern(subjectKey)}:%`;

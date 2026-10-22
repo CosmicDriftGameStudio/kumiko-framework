@@ -12,11 +12,11 @@ export type JwtPayload = {
   sub: string;
   tenantId: TenantId;
   roles: string[];
-  // IANA zone from user.timezone, set at login — see SessionUser.timezone
-  // (fw#1636). Absent → ctx.tz.user falls back to ctx.tz.tenant.
+  // IANA zone from user.timezone, set at login — see SessionUser.timezone.
+  // Absent → ctx.tz.user falls back to ctx.tz.tenant.
   timezone?: string;
-  // BCP-47 tag from user.locale, set at login — see SessionUser.locale
-  // (fw#2333). Absent → ctx.locale falls back further down the chain.
+  // BCP-47 tag from user.locale, set at login — see SessionUser.locale.
+  // Absent → ctx.locale falls back further down the chain.
   locale?: string;
   // Optional — present when a feature has registered auth claims via the
   // `r.authClaims()` hook system. Absent for stateless-JWT deployments

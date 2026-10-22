@@ -1,4 +1,4 @@
-// B1 — r.eventMigration + event_version routing (Marten upcaster).
+// r.eventMigration + event_version routing (Marten upcaster).
 //
 // Covers the two load-bearing claims:
 //   1. Stored v(N) payloads are transparently upgraded to v(current) when

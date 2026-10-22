@@ -1,9 +1,8 @@
-// Unit-Tests fuer DurationSpec-Helpers (S2.U5a.fix2).
+// Unit tests for DurationSpec helpers.
 //
-// Pinst beide Discriminated-Union-Branches (`{days}` + `{hours}`) plus
-// Edge-Cases die in den Integration-Tests nicht auftauchen (0-Werte,
-// Singular/Plural). Der Bug aus dem U5a-Review (`{hours: 6}` fiel auf
-// 30d-Default) wird hier zentral verhindert.
+// Covers both discriminated-union branches (`{days}` and `{hours}`) and edge
+// cases not covered by integration tests (zero values and singular/plural
+// forms). Prevents `{hours: 6}` from falling back to the 30-day default.
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -50,9 +49,8 @@ describe("addDurationSpec", () => {
     expect(t1.epochMilliseconds - t0.epochMilliseconds).toBe(6 * 60 * 60 * 1000);
   });
 
-  // Regression-Guard fuer den U5a-Bug: vorher fiel `{hours: 6}` auf
-  // `30 * 86_400_000`-Default zurueck. Wenn jemand den Branch wieder
-  // verliert, faellt dieser Test sofort um.
+  // Regression guard: `{hours: 6}` previously fell back to the
+  // `30 * 86_400_000` default. This test fails if that branch is lost again.
   test("hours-Branch ist NICHT auf days-Default mappable (U5a-Regression)", () => {
     const T = getTemporal();
     const t0 = T.Instant.fromEpochMilliseconds(1_700_000_000_000);

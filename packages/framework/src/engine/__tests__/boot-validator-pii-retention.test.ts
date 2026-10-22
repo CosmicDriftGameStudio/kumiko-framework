@@ -1,18 +1,18 @@
-// Boot-Validator-Tests für PII-Annotations + Retention (S0.2).
+// Boot-validator tests for PII annotations and retention.
 //
-// Pflicht-Validierungen (Error / throw):
-//   - Mutual exclusion: pii / userOwned / tenantOwned exklusiv pro Feld.
-//   - userOwned.ownerField muss existieren + ein reference-Feld sein.
-//   - retention.reference muss auf existierendes Feld oder Framework-
-//     Timestamp (createdAt/updatedAt/lastSeenAt/deletedAt) zeigen.
+// Required validations (error / throw):
+//   - Mutual exclusion: pii / userOwned / tenantOwned are exclusive per field.
+//   - userOwned.ownerField must exist and be a reference field.
+//   - retention.reference must target an existing field or framework timestamp
+//     (createdAt/updatedAt/lastSeenAt/deletedAt).
 //
-// Heuristik-Warnings (console.warn, kein throw):
-//   - Field-Name email/name/phone etc. ohne pii-Annotation.
-//   - Field-Name body/text/content etc. ohne userOwned-Annotation.
-//   - blockDelete-Strategy ohne anonymize-Felder.
-//   - userOwned.ownerField zeigt auf reference, target ist NICHT user.
+// Heuristic warnings (console.warn, no throw):
+//   - Field names such as email/name/phone without a pii annotation.
+//   - Field names such as body/text/content without a userOwned annotation.
+//   - blockDelete strategy without anonymize fields.
+//   - userOwned.ownerField targets a reference whose target is not user.
 //
-// allowPlaintext-Marker unterdrückt Heuristik-Warnings.
+// An allowPlaintext marker suppresses heuristic warnings.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
@@ -53,11 +53,10 @@ const rawLongTextField = <T>(f: T) => f as unknown as EntityLongTextFieldDef;
 // The heuristics under test only fire without a personal stance, which
 // the factories cannot produce.
 
-// Stubt einen leeren `<entity>:list`-Query-Handler damit der reference-
-// Field-Boot-Validator den Audit-Fix-#2-Check durchläßt. Wird gebraucht
-// wenn ein Test ein reference-Feld benutzt — sonst liefert der validator
-// "no list-query-handler is registered there".
-// biome-ignore lint/suspicious/noExplicitAny: Registrar-Typ ist generisch, hier reicht das.
+// Stubs an empty `<entity>:list` query handler so the reference-field boot
+// validator's check passes. This is needed when a test uses a reference field;
+// otherwise the validator reports "no list-query-handler is registered there".
+// biome-ignore lint/suspicious/noExplicitAny: The registrar type is generic, so any is sufficient here.
 function stubListHandler(r: any, entityName: string): void {
   r.queryHandler({
     name: `${entityName}:list`,
@@ -661,7 +660,7 @@ describe("validateBoot — PII annotations", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  // --- T1: PII-Annotations auf weiteren Field-Defs ---
+  // --- PII annotations on further field defs ---
 
   test("pii: true on number field passes (z.B. salary, kontostand)", () => {
     const feature = defineFeature("test", (r) => {
@@ -800,13 +799,13 @@ describe("validateBoot — PII annotations", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  // --- T3: Edge-Cases ---
+  // --- Edge cases ---
 
   test("pii on boolean field is ignored at runtime (TS prevents it at compile, runtime is silent)", () => {
-    // Boolean-FieldDef hat kein PiiAnnotations-Intersection. TypeScript
-    // wuerde `pii: true` auf createBooleanField() ablehnen. Runtime-Cast
-    // simuliert programmatisch konstruierte FieldDefs — Validator soll
-    // das stillschweigend tolerieren (kein Error, kein false-Warning).
+    // Boolean-FieldDef has no PiiAnnotations intersection. TypeScript
+    // would reject `pii: true` on createBooleanField(). The runtime cast
+    // simulates programmatically constructed FieldDefs; the validator should
+    // tolerate them silently (no error and no false warning).
     const feature = defineFeature("test", (r) => {
       r.entity({
         name: "thing",

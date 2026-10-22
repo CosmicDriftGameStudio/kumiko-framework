@@ -36,16 +36,12 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
     },
 
     async writeStream(key, source, _options): Promise<void> {
-      // Atomar via tmp-File + rename: ein Reader der den finalen Pfad
-      // sieht, sieht entweder die alte Version (falls vorhanden) oder
-      // die vollstaendige neue. Niemals einen halb-fertigen Stream.
-      // Falls der Stream mid-write bricht, ist das tmp-Cleanup
-      // best-effort — je nach OS-Race im stream-destroy-Pfad kann
-      // das `.tmp`-File kurz liegen bleiben. Kein Korrektheits-
-      // Problem (kein Reader sucht `*.tmp`-Patterns), nur Operations-
-      // Hygiene; ein periodischer cron-cleanup auf alten `.tmp`-Files
-      // ist die saubere Loesung wenn das in Production realistisch
-      // greift.
+      // Atomic via a temporary file and rename: readers see either the previous version (if any) or
+      // the complete new version, never a partially written stream. If the stream fails during
+      // writing, temporary-file cleanup is best-effort; an OS race in stream destruction can leave
+      // the `.tmp` file briefly. This affects operational hygiene only, because readers never
+      // search `*.tmp` patterns. A periodic cleanup of old `.tmp` files is appropriate if this runs
+      // in production.
       const filePath = resolveContainedPath(key);
       const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
       await mkdir(dirname(filePath), { recursive: true });
@@ -53,8 +49,8 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
         await pipeline(source, createWriteStream(tmpPath));
         await rename(tmpPath, filePath);
       } catch (e) {
-        // Best-effort tmp-Cleanup; wenn das auch failt, hat der
-        // Filesystem ein Problem das nicht in unserem Scope liegt.
+        // Best-effort temporary-file cleanup; if that also fails, the filesystem problem is outside
+        // this component's scope.
         await unlink(tmpPath).catch(() => {});
         throw e;
       }
@@ -66,24 +62,21 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
     },
 
     readStream(key: string): AsyncIterable<Uint8Array> {
-      // node:fs createReadStream ist ein AsyncIterable<Buffer>; Buffer
-      // extends Uint8Array. Wir bauen einen kleinen Adapter weil
-      // @types/node das asyncIterator als AsyncIterableIterator<any>
-      // typt — Adapter sichert die Surface auf Uint8Array.
-      // Default-highWaterMark = 64KB Chunks, was fuer ZIP-Stream-Konsum
-      // gut ist. Errors landen im for-await-Loop des Konsumenten
-      // (z.B. ENOENT bei Missing-File faellt erst beim ersten chunk-
-      // pull, nicht beim readStream-Aufruf — gleiches Lazy-Verhalten
-      // wie inmemory + S3).
+      // node:fs createReadStream is an AsyncIterable<Buffer>; Buffer extends Uint8Array. This
+      // adapter preserves a Uint8Array surface because @types/node types the async iterator as
+      // AsyncIterableIterator<any>. The default highWaterMark produces 64KB chunks, which suits ZIP
+      // stream consumption. Errors reach the consumer's for-await loop; for example, a missing file
+      // raises ENOENT on the first chunk pull rather than when readStream is called, matching the
+      // lazy behavior of in-memory and S3 providers.
       const filePath = resolveContainedPath(key);
       const stream = createReadStream(filePath);
       return {
         async *[Symbol.asyncIterator]() {
           for await (const chunk of stream) {
-            // Stream ohne encoding liefert Buffer. Buffer extends Uint8Array,
-            // aber @types/node typt asyncIterator als string|Buffer. View
-            // ohne copy auf dasselbe ArrayBuffer; runtime-check schliesst
-            // den string-Branch aus (Stream wurde nicht mit encoding= gesetzt).
+            // A stream without an encoding yields Buffer. Buffer extends Uint8Array, but
+            // @types/node types the async iterator as string|Buffer. Take a zero-copy view
+            // onto the same ArrayBuffer; the runtime check rules out the string branch
+            // because the stream was not opened with an encoding.
             if (typeof chunk === "string") {
               throw new Error(
                 "local-provider readStream: unexpected string chunk (encoding leaked)",

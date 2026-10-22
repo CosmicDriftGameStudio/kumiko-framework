@@ -212,11 +212,11 @@ describe("rebuildProjection — happy path", () => {
   });
 
   test("archived streams don't replay (fw#832) — stranded aggregate heals via archiveStream", async () => {
-    // Heilungs-Muster fuer eventlose Read-Side-Deletes im Bestand: ein
-    // Aggregat, dessen Live-Row (vor dem fw#832-Fix) read-side entfernt
-    // wurde, hinterlaesst ein created-Event ohne deleted — jeder Rebuild
-    // wuerde die Row resurrecten (bzw. an unique-Indexen kollidieren).
-    // archiveStream friert den Stream ein UND nimmt ihn aus dem Replay.
+    // Healing pattern for legacy read-side deletes without events: an
+    // aggregate whose live row was removed on the read side leaves a created
+    // event without a deleted event, so every rebuild would resurrect the row
+    // or collide with a unique index. archiveStream freezes the stream and
+    // excludes it from replay.
     const group = "00000000-0000-4000-8000-000000000020";
     const stranded = await executor.create({ groupId: group, name: "stranded" }, admin, tdb);
     if (!stranded.isSuccess) throw new Error("create failed");
@@ -234,9 +234,8 @@ describe("rebuildProjection — happy path", () => {
       registry,
     });
 
-    // Nur das survivor-Event replayed; das archivierte Aggregat traegt
-    // nicht mehr bei — auch nicht im #443-ground-truth-count (sonst
-    // wuerde der Recompute-Pfad endlos nachziehen).
+    // Only the survivor event is replayed; the archived aggregate no longer
+    // contributes, preventing the recompute path from continually catching up.
     expect(result.eventsProcessed).toBe(1);
     expect(await getCount(group)).toBe(1);
   });
@@ -404,7 +403,7 @@ describe("getAllProjectionProgress", () => {
     expect(behind[0]?.lastProcessedEventId).toBe(0n);
     expect(behind[0]?.lag).toBe(3n);
 
-    // Nach rebuild: cursor = HWM, lag wieder 0.
+    // After rebuild: the cursor equals the HWM, so lag is 0.
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
     const caughtUp = await getAllProjectionProgress(testDb.db, registry);
     expect(caughtUp[0]?.highWaterMark).toBe(3n);
@@ -715,7 +714,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
       db: testDb.db,
       registry,
       // Fires after the unlocked bulk drain (events 1+2 applied) and before the
-      // fence. A 3rd event committed here is exactly the write Phase 1's single
+      // fence. A 3rd event committed here is exactly the write the single
       // up-front SELECT missed — the fenced final drain must pick it up.
       __test_onBeforeFence: async () => {
         injected++;
@@ -724,7 +723,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     });
 
     expect(injected).toBe(1); // seam ran exactly once
-    // 2 bulk + 1 caught-up tail. Under Phase 1's up-front SELECT this is 2.
+    // 2 bulk + 1 caught-up tail. Under the up-front SELECT this is 2.
     expect(await getCount(group)).toBe(3);
   });
 
@@ -734,7 +733,7 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     // the fenced final drain (`WHERE id > cursor`) never revisits it. Under the
     // fence the subscribed-event set is final, so a count re-check detects the
     // shortfall and re-replays the full log into a fresh shadow — groupX, whose
-    // low-id event committed late, is no longer lost. See #443.
+    // low-id event committed late, is no longer lost.
     const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
     const groupX = "00000000-0000-4000-8000-000000000201";
     const groupY = "00000000-0000-4000-8000-000000000202";
@@ -777,11 +776,11 @@ describe("rebuildProjection — live-tail catch-up (#363 Phase 2)", () => {
     });
 
     expect(await getCount(groupY)).toBe(1);
-    expect(await getCount(groupX)).toBe(1); // #443 fixed: fenced count re-check re-replayed the missed low-id event
+    expect(await getCount(groupX)).toBe(1); // Fenced count re-check re-replayed the missed low-id event
   });
 
   test("(656/1) a clean rebuild with no concurrency does not trigger the #443 recompute", async () => {
-    // The #443 shortfall-recompute rebuilds the shadow a 2nd time and re-replays
+    // The shortfall-recompute rebuilds the shadow a 2nd time and re-replays
     // the whole log — correct on the rare path it guards, but a silent perf
     // regression if it fired on every rebuild. Its final values are identical
     // either way (full re-replay is idempotent), so only a call-count seam can
@@ -901,7 +900,7 @@ describe("rebuildProjection — stale-registry column fence (#835)", () => {
   // Simulates the rolling-deploy race: a migration added a column to the live
   // table, but the pod running the rebuild still carries the old registry
   // (EntityTableMeta without that column). The rebuild must abort instead of
-  // swapping in a shadow that silently drops the migrated column (#494 class).
+  // swapping in a shadow that silently drops the migrated column.
   test("aborts when the live table has a column the registry meta lacks — data survives", async () => {
     const group = "00000000-0000-4000-8000-000000000041";
     await appendCreatedEvent(group, "item1");

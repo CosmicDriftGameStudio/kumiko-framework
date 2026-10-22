@@ -1,16 +1,16 @@
-// Regression test for Welle 2.6.b — the `mergeDispatcherOptions` plumbing.
+// Regression test for the `mergeDispatcherOptions` plumbing.
 //
 // The command-dispatcher (packages/framework/src/pipeline/dispatcher.ts:997)
 // fires `jobRunner.handleEvent` as an afterCommit-hook. Without a jobRunner
 // reference IN the dispatcher's options, event-triggered jobs silently drop
-// on every write. Welle 2.5 built the jobRunner in the entrypoint factory
-// but never wired it in — welle 2.6.b closes that via mergeDispatcherOptions.
+// on every write. The entrypoint factory built the jobRunner
+// but never wired it in — this closes that via mergeDispatcherOptions.
 //
 // `job-event-trigger.integration.ts` only covers the path when the CALLER
 // hand-wires `dispatcherOptions: { jobRunner }`. This test pins the
 // auto-wiring path that a real app boot uses (`createAllInOneEntrypoint`) —
 // so a future refactor that drops the merge fails here instead of silently
-// regressing to the Welle-2.5 state.
+// regressing.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -174,7 +174,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
   });
 });
 
-// Regression test for #1046 — createJobRunner is built from the caller's
+// Regression test — createJobRunner is built from the caller's
 // RAW context, BEFORE buildServer ever merges observability.tracer/meter
 // into a context object of its own. Without threading the resolved
 // provider into the job-runner's context too, `context.meter` stayed
@@ -197,7 +197,7 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
     });
     await entry.start();
     try {
-      // If the job-runner never saw this meter (the #1046 bug), the poller's
+      // If the job-runner never saw this meter, the poller's
       // `if (context.meter)` guard skips entirely and no slots ever appear —
       // this assertion is the one that would have caught it.
       const snapshot = meter.snapshot().get("kumiko_job_queue_depth");
@@ -226,7 +226,7 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
   });
 });
 
-// Regression test for #1253 — effectiveFeatures was wired into
+// Regression test — effectiveFeatures was wired into
 // dispatcherOptions (command-dispatcher's feature-gate) but never merged
 // into the job-runner's context. A job handler reading
 // `context.effectiveFeatures?.(tenantId)` always saw undefined in prod.

@@ -1,6 +1,6 @@
 // runIn lane-routing helpers. Tiny module on purpose: both buildServer
-// (MSP-consumer filter) and the boot-validator (Welle 2.6.c coverage
-// check) need the same resolution rule, and duplicating it in two places
+// (MSP-consumer filter) and the boot-validator (coverage check)
+// need the same resolution rule, and duplicating it in two places
 // invites drift — when the default changes, one site gets updated and
 // the other silently doesn't.
 //

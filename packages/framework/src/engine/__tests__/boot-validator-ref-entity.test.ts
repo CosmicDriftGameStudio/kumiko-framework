@@ -13,9 +13,9 @@ const openToAllAccess = {
   access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
 };
 
-// fw#3108: refEntity on projectionList/relatedList columns and projectionDetail
+// refEntity on projectionList/relatedList columns and projectionDetail
 // fields must resolve to a registered entity, same as a reference facet
-// (fw#2224) — a typo or an unmounted target feature is otherwise a silent
+// — a typo or an unmounted target feature is otherwise a silent
 // render-time break instead of a boot error.
 describe("validateBoot — refEntity targets (fw#3108)", () => {
   test("projectionList column with a typo'd refEntity throws", () => {

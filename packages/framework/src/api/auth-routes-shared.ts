@@ -11,8 +11,7 @@ const log = createFallbackLogger("kumiko");
 // 429 comes from the per-route rate limit; handler errors map to the rest.
 export type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
 
-// Cross-device try-first handover (kumiko-framework#3035 follow-up,
-// offlot-app#454): an optional tenant-handover grant the signup-request
+// Cross-device try-first handover: an optional tenant-handover grant the signup-request
 // route forwards to the handler for server-side verification and binding —
 // the grant itself never appears anywhere else (URL, mail, log, response).
 export const SignupRequestBody = z.object({

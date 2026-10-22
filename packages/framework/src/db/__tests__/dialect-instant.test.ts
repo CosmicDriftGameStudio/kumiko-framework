@@ -1,15 +1,11 @@
-// instant() customType ist der Backing-Type für sowohl `type: "timestamp"`
-// als auch (heute aliased) `type: "date"`. Caller-Code schickt aber zwei
-// verschiedene String-Formate: zod-validate für date akzeptiert nur
-// YYYY-MM-DD, zod-validate für timestamp akzeptiert ISO-datetime. toDriver
-// muss BEIDE Formate coercen können — der Mismatch hat einen 500
-// internal_error in samples/apps/showcase produziert (Showcase-seed
-// schickte YYYY-MM-DD via item:create → dialect.toDriver → Temporal.Instant
-// wirft "Cannot parse: 2026-04-10").
+// instant() customType is the backing type for both `type: "timestamp"`
+// and the currently aliased `type: "date"`. Caller code sends two string
+// formats: zod validation for date accepts only YYYY-MM-DD, while timestamp
+// accepts an ISO datetime. toDriver must coerce both formats; otherwise a
+// date-only value reaches Temporal.Instant and throws `Cannot parse: 2026-04-10`.
 //
-// Tests pinnen alle drei Pfade (string-iso, date-only-string, instant) +
-// die invalid-Probe (echte Garbage muss weiterhin throwen — kein silent
-// swallowing).
+// These tests cover the three valid paths (ISO string, date-only string, and
+// instant) plus invalid input, which must still throw rather than be swallowed.
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -21,13 +17,13 @@ describe("instant() customType — toDriver", () => {
   });
 
   test("ISO-datetime mit Offset: normalisiert auf UTC-Z", () => {
-    // Temporal.Instant.from normalisiert +02:00 → Z mit korrekter Zeit.
+    // Temporal.Instant.from normalizes +02:00 → Z with the correct time.
     expect(toDriver("2026-04-10T13:45:00+02:00")).toBe("2026-04-10T11:45:00Z");
   });
 
   test("YYYY-MM-DD: coerced auf start-of-day UTC", () => {
-    // Forgiving overload für type:"date" — Zod-Validation lässt nur
-    // YYYY-MM-DD durch, dialect normalisiert auf instant.
+    // Forgiving overload for type:"date": Zod validation accepts only
+    // YYYY-MM-DD, so the dialect normalizes it to an instant.
     expect(toDriver("2026-04-10")).toBe("2026-04-10T00:00:00Z");
   });
 
@@ -40,8 +36,8 @@ describe("instant() customType — toDriver", () => {
   });
 
   test("Date-only mit Trailing-Whitespace: kein Match (strict regex)", () => {
-    // Strict damit "2026-04-10 extra" nicht silently zu start-of-day
-    // wird — das ist garantiert ein Caller-Bug, nicht "nett gemeint".
+    // Strict so "2026-04-10 extra" cannot silently become start-of-day;
+    // it indicates a caller bug rather than input to accept.
     expect(() => toDriver("2026-04-10 ")).toThrow(RangeError);
   });
 });

@@ -1,4 +1,4 @@
-// kumiko-framework#1480 twin bug: instantToDriver referenced the global
+// Twin bug: instantToDriver referenced the global
 // `Temporal` the same way instantFromDriver in db/query.ts did. Fixed
 // the same way — static import of `@cosmicdrift/kumiko-types/temporal` in
 // dialect.ts. This test deletes globalThis.Temporal before calling it,

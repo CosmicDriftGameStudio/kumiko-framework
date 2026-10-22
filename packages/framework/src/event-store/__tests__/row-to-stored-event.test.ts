@@ -1,6 +1,6 @@
-// Coverage-Lücke (unit + integration): toStoredEvent wird auf dem Event-Load-
-// Pfad ausgeführt, aber kein Test asserted das Mapping. Regression-Guard: ein
-// fallengelassenes/falsches Feld wäre stiller Datenverlust beim Replay.
+// Coverage gap (unit + integration): toStoredEvent runs on the event-load path, but no test asserts
+// the mapping. Regression guard: a dropped or incorrect field would silently cause data loss during
+// replay.
 
 import { describe, expect, test } from "bun:test";
 import type { TenantId } from "../../engine/types/index.ts";

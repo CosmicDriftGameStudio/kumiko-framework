@@ -28,7 +28,7 @@ function requiredKeysFromGeneratedConfigHub(schema: ConfigFeatureSchema): readon
 
   // The generator's section titles + mask-title field-label overrides are
   // dot-form i18n references (`${feature}.settings`), never literal display
-  // text, so treatDotFormAsKey bypasses isI18nKey's colon-only check (fw#2260).
+  // text, so treatDotFormAsKey bypasses isI18nKey's colon-only check.
   for (const screen of schema.screens) {
     for (const key of requiredKeysFromScreen(SETTINGS_HUB_FEATURE, screen, {
       treatDotFormAsKey: true,

@@ -387,7 +387,7 @@ export function parseHandlerCall(
   // (`r.writeHandler(eventCreateHandler)`, `r.queryHandler(someQuery())`)
   // that resolveObjectLiteralArg above couldn't turn into an object literal
   // (imported binding, factory call, ...). Keep it recognised as this kind
-  // instead of ParseErroring — see #1007. Opaque: renderWriteHandler/
+  // instead of ParseErroring. Opaque: renderWriteHandler/
   // renderQueryHandler re-emit `source.raw` verbatim when handlerName is
   // undefined.
   if (args.length === 1 && isRawRefSentinel(readDataLiteralNode(first))) {

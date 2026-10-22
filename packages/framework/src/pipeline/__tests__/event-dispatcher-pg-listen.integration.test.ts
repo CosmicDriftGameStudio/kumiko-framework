@@ -4,7 +4,7 @@
 //
 // The polling timer stays as a safety net. These tests pin NOTIFY wake
 // without waiting for the timer, and that start/stop still leaves LISTEN
-// working. #2042: poll interval is 60s here; assert delivery inside 5s —
+// working. The poll interval is 60s here; assert delivery inside 5s —
 // if LISTEN is dead the timer cannot rescue the assertion.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -52,7 +52,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [listenFeature],
     systemHooks: [],
-    // Timer effectively off — see file header (#2042). If LISTEN is
+    // Timer effectively off. If LISTEN is
     // broken, delivery only happens via this timer, so nothing arrives
     // before the 60s mark; the tests below wait a mere 5s.
     eventDispatcherPollIntervalMs: 60_000,

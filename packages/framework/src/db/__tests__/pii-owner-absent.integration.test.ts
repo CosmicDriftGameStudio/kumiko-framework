@@ -1,5 +1,5 @@
 // Entity PII field `personal: { of: "ownerId", whenAbsent: "tenant" }` with a
-// nullable owner (fw#3654): rows without an owner stay editable, deletable and
+// nullable owner: rows without an owner stay editable, deletable and
 // rebuildable with KMS on, encrypted under the tenant key instead of failing
 // with SubjectResolutionError. Real HTTP + setupTestStack; the DB is only read
 // for the raw-storage asserts.

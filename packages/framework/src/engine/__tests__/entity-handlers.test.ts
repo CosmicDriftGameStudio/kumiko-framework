@@ -134,7 +134,7 @@ describe("defineEntityWriteHandler", () => {
   });
 
   test("access is now a required option — omitting it is a type error", () => {
-    // @ts-expect-error access is required since fw#2855 — no implicit openToAll.
+    // @ts-expect-error access is required — no implicit openToAll.
     expect(() => defineEntityCreateHandler("note", noteEntity)).toThrow();
   });
 
@@ -228,7 +228,7 @@ describe("defineEntityQueryHandler", () => {
   test("list: schema is the exported entityListSchema, not a private copy", () => {
     const def = defineEntityListHandler("note", noteEntity, adminAccess);
     expect(def.schema).toBe(entityListSchema);
-    // money-horse#293: a consumer copy silently dropped these fields when it
+    // A consumer copy silently dropped these fields when it
     // drifted from the handler's actual schema — assert they still round-trip.
     expect(
       def.schema.safeParse({
@@ -355,7 +355,7 @@ describe("defineProjectionQueryHandler", () => {
 
   test("access is now a required option — omitting it is a type error", () => {
     expect(() =>
-      // @ts-expect-error access is required since fw#2855 — no implicit openToAll.
+      // @ts-expect-error access is required — no implicit openToAll.
       defineProjectionQueryHandler("revenue:list", "showcase:projection:customer-revenue"),
     ).toThrow();
   });
@@ -383,11 +383,11 @@ describe("defineProjectionQueryHandler", () => {
   });
 });
 
-// Verb-spezifische Wrappers — sind dünne Convenience-Layers über
-// defineEntityWriteHandler/QueryHandler. Tests checken nur dass sie
-// die richtige verb-suffixed Handler-Definition produzieren; das
-// Schema-Building + Executor-Body-Behavior ist in den umfangreichen
-// Tests von defineEntityWriteHandler/QueryHandler oben gedeckt.
+// Verb-specific wrappers are thin convenience layers over
+// defineEntityWriteHandler/QueryHandler. These tests only verify that they
+// produce the correct verb-suffixed handler definition; schema construction
+// and executor behavior are covered by the comprehensive tests for
+// defineEntityWriteHandler/QueryHandler above.
 
 describe("Verb-specific entity-handler factories", () => {
   test("defineEntityCreateHandler produziert <entity>:create", () => {
@@ -433,11 +433,11 @@ describe("Verb-specific entity-handler factories", () => {
   });
 
   test("Verb-Wrapper liefern Handler die identisch zu Legacy-API funktionieren", async () => {
-    // Equivalence-Probe: defineEntityCreateHandler("note", ...) ist nicht
-    // bloß ein Naming-Sugar — die Handler-Function muss bit-identisch zu
-    // defineEntityCreateHandler("note", ...) sein. Wir vergleichen
-    // hier die Schema-Identitäten + Handler-Namen; Behavior-Tests des
-    // Executors leben in event-store-executor.integration.ts.
+    // Equivalence probe: defineEntityCreateHandler("note", ...) is not
+    // merely naming sugar—the handler function must be bit-identical to
+    // defineEntityCreateHandler("note", ...). We compare the schema
+    // identities and handler names here; executor behavior tests live in
+    // event-store-executor.integration.ts.
     const newApi = defineEntityCreateHandler("note", noteEntity, adminAccess);
     const legacyApi = defineEntityCreateHandler("note", noteEntity, adminAccess);
     expect(newApi.name).toBe(legacyApi.name);

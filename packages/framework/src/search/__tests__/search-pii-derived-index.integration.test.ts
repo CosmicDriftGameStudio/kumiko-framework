@@ -1,4 +1,4 @@
-// fw#1610 — subject-annotated searchable fields: ciphertext in events,
+// Subject-annotated searchable fields: ciphertext in events,
 // plaintext in derived search index, purged on subject erase.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";

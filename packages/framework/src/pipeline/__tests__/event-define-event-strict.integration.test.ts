@@ -1,6 +1,6 @@
-// E.3 — r.defineEvent + ctx.appendEvent strict-mode (B1).
+// r.defineEvent + ctx.appendEvent strict-mode.
 //
-// Pre-E.3 ctx accepted any string as eventType and any value as payload;
+// Previously, ctx accepted any string as eventType and any value as payload;
 // payload went into the events-table raw, typos surfaced only at consumer-
 // time. Now:
 //

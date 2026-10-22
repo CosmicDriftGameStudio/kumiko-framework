@@ -115,7 +115,7 @@ export function matchesRule(
     // `where` rules produce SQL for the DB-side filter and have no in-memory
     // evaluator — the feature author owns the semantics. Only the read path
     // reaches SQL (buildOwnershipClause); on write maps the boot-validator
-    // rejects them outright (fw#2626), and the in-memory write helpers below
+    // rejects them outright, and the in-memory write helpers below
     // fail closed rather than calling in here.
     throw new Error(
       "where-rules can only be evaluated at the SQL layer (buildOwnershipClause); they are rejected on access.write at boot.",
@@ -270,7 +270,7 @@ export function shiftParams(fragment: SqlFragment, shift: number): SqlFragment {
 // is a boot-time misconfiguration; at request time we treat it as empty
 // (safe default) rather than passing silently.
 //
-// Caller obligations (fw#1700) — this function returns ONLY the ownership
+// Caller obligations — this function returns ONLY the ownership
 // fragment, not the full row-access contract. A raw-SQL caller (not going
 // through `ctx.db`, which already applies all three) must additionally:
 //   1. Pass `paramStart` as `params.length + 1` for its own already-bound
@@ -369,7 +369,7 @@ function ruleToFragment(
     });
     // Runtime backstop for the boot-time probe (boot-validator/ownership.ts):
     // an unqualified column in a correlated subquery silently turns into a
-    // fail-open tautology (fw#2639) — throw instead of shipping it.
+    // fail-open tautology — throw instead of shipping it.
     assertQualifiedWhereFragment(
       frag.sqlText,
       cachedTableColumnSqlNames(table),

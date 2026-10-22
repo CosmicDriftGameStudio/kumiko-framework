@@ -1,4 +1,4 @@
-// fw#2858 — a `tenancy: "global"` entity's event stream must live on
+// A `tenancy: "global"` entity's event stream must live on
 // SYSTEM_TENANT_ID (systemStream: true); otherwise it would silently fork
 // one stream per creating tenant while still being writable/readable
 // cross-tenant via db.global(table).

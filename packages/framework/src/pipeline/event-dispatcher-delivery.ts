@@ -381,7 +381,7 @@ export async function deliverEvents(
 // turn (see applyBatch for why). requestId falls back to a fresh id
 // because the dispatcher runs outside any HTTP request (background poll),
 // and a stable log-correlation handle is still useful for debugging.
-// #3043 — an event this apply writes is attributed to the consumer, not
+// An event this apply writes is attributed to the consumer, not
 // to whatever wrote the triggering event; causationId already links back.
 function buildConsumerRequestScope(
   consumer: EventConsumer,

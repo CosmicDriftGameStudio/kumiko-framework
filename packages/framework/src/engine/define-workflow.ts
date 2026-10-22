@@ -1,7 +1,7 @@
 // defineWorkflow — define a persistent, suspendable workflow.
 // Tier-3 / Workflow-only mount-point. See step-vocabulary.md Sample 2 for
 // the full lifecycle (run.started → wait → resume → run.completed) and
-// Q7 (Snapshot-at-Start) for the in-flight upgrade story.
+// Snapshot-at-Start for the in-flight upgrade story.
 
 import { createHash } from "node:crypto";
 import type { WriteEvent } from "./types/handlers.ts";
@@ -37,9 +37,9 @@ export type WorkflowDefinition<
   readonly name: string;
   readonly trigger: WorkflowTrigger;
   /**
-   * Declared expected events (D4, workflow-resume-loop.md) — the sole route
+   * Declared expected events (workflow-resume-loop.md) — the sole route
    * a waitForEvent step can reach an event type. Read at registration time
-   * to build the static apply-map (Phase 3b); values are plain event-type
+   * to build the static apply-map; values are plain event-type
    * strings, not the branded AwaitedEventType the pipeline closure sees.
    */
   readonly awaits?: TAwaits;
@@ -110,17 +110,17 @@ export function defineWorkflow<
 }
 
 /**
- * Q7 Snapshot-at-Start fingerprint. SHA-256 over the workflow's stable
+ * Snapshot-at-Start fingerprint. SHA-256 over the workflow's stable
  * identity (name + trigger + serialized pipeline-closure source). Persisted
  * in `workflow.run.started` and re-checked at every resume so a library-
  * upgrade that changes the closure source surfaces as a loud
  * `workflow-definition-changed` failure on in-flight runs instead of a
  * silent semantic drift.
  *
- * Limitations (will be tightened in M.5 with the Designer/AST layer):
+ * Limitations (will be tightened with the Designer/AST layer):
  *   - `build.toString()` captures the closure source but not bindings —
  *     two definitions that import different external helpers with the
- *     same source bytes would collide. Acceptable for M.4 because the
+ *     same source bytes would collide. Acceptable because the
  *     fingerprint is a *change-detector*, not a deep semantic identity.
  *   - Minifiers / source-maps will produce different fingerprints across
  *     environments. Run-the-fingerprint-in-the-same-environment is the
@@ -133,10 +133,10 @@ export function computeDefinitionFingerprint<
 >(
   workflow: Pick<WorkflowDefinition<TPayload, TData, TAwaits>, "name" | "trigger" | "pipelineDef">,
 ): string {
-  // `awaits` is part of the routing contract (D4, workflow-resume-loop.md):
+  // `awaits` is part of the routing contract (workflow-resume-loop.md):
   // changing which events a run waits on changes the run's behavior just
   // like changing the step source does, so a changed declaration must flip
-  // the fingerprint and trip the Q7 stale-definition check on resume.
+  // the fingerprint and trip the stale-definition check on resume.
   const material = JSON.stringify({
     name: workflow.name,
     trigger: workflow.trigger,

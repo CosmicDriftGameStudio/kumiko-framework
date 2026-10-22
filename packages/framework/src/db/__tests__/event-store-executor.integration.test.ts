@@ -134,11 +134,11 @@ describe("event-store-executor", () => {
   });
 });
 
-// Sensitive fields (#967): passwords/tokens/IBANs must be ciphertext-at-rest
+// Sensitive fields: passwords/tokens/IBANs must be ciphertext-at-rest
 // (boot validates sensitive ⇒ pii | encrypted). The event log carries the
 // table ciphertext — replay reproduces the row byte-identically. Plaintext
 // never lands in permanent history; the caller-facing event echo strips the
-// field entirely (#820).
+// field entirely.
 const SENSITIVE_TEST_KEY = Buffer.from("s3nS!t1vE.kP9xQ2@wN!vL$hR5yT8eU0").toString("base64");
 const sensitiveEntity = createEntity({
   table: "read_es_exec_sensitive",
@@ -205,7 +205,7 @@ describe("event-store-executor — sensitive fields", () => {
     expect(result.data.data["passwordHash"]).toBe("pw-hash-123");
     expect(result.data.data["apiToken"]).toBe("tok-abc");
 
-    // Event payload: ciphertext, byte-identical to the table column (#967).
+    // Event payload: ciphertext, byte-identical to the table column.
     const event = await lastEvent();
     expect(event.type).toBe("esExecSensitive.created");
     expect(event.payload["email"]).toBe("s@test.de");
@@ -216,7 +216,7 @@ describe("event-store-executor — sensitive fields", () => {
     )) as Array<{ password_hash: string }>;
     expect(event.payload["passwordHash"]).toBe(rawRows[0]!.password_hash);
 
-    // Caller-facing event echo stays stripped (#820).
+    // Caller-facing event echo stays stripped.
     if (!result.data.event) throw new Error("no event echo");
     expect(result.data.event.payload["passwordHash"]).toBeUndefined();
     expect(result.data.event.payload["apiToken"]).toBeUndefined();
@@ -257,7 +257,7 @@ describe("event-store-executor — sensitive fields", () => {
     expect(event.payload.previous.apiToken).toBeDefined();
     expect(event.payload.previous.apiToken).not.toBe("old-tok");
 
-    // Caller-facing event echo stays stripped (#820).
+    // Caller-facing event echo stays stripped.
     if (!result.data.event) throw new Error("no event echo");
     const echoPayload = result.data.event.payload as {
       changes: Record<string, unknown>;
@@ -317,19 +317,18 @@ describe("event-store-executor — sensitive fields", () => {
 describe("event-store-executor — detail liefert die Stream-Version", () => {
   const crud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
 
-  // Lifecycle-Writes (ctx.appendEvent) bumpen den Stream, ohne row.version
-  // anzufassen — gäbe detail die stale Row-Version heraus, liefe jedes
-  // darauf gebaute CRUD-Update (entityEdit nutzt detail.version als
-  // optimistic-lock-Basis) in ein garantiertes version_conflict.
-  // Prod-Repro: incident:open appended das Eröffnungs-Update → Stream v2,
-  // Row v1 → incident-edit konnte nie speichern.
+  // Lifecycle writes via ctx.appendEvent advance the stream without changing row.version.
+  // Returning the stale row version from detail would make every CRUD update built on
+  // entityEdit (which uses detail.version for optimistic locking) fail with
+  // version_conflict. For example, incident:open can advance the stream to v2 while
+  // the row remains at v1, preventing incident-edit from saving.
   test("nach ctx.appendEvent-artigem Stream-Bump: detail.version == Stream, Update damit erfolgreich", async () => {
     const created = await crud.create({ email: "stream@test.de" }, adminUser, tdb);
     expect(created.isSuccess).toBe(true);
     if (!created.isSuccess) return;
     const id = created.data.id;
 
-    // Hand-emittiertes Event auf demselben Aggregat (wie incident:post-update).
+    // Hand-emitted event on the same aggregate, as in incident:post-update.
     await append(testDb.db, {
       aggregateId: String(id),
       aggregateType: "esExecUser",
@@ -548,7 +547,7 @@ describe("event-store-executor — encrypted fields", () => {
     // Regression guard: direct executor.update() callers that don't opt into
     // skipUnchanged rely on today's always-re-encrypt behavior to force a
     // fresh ciphertext for an unchanged plaintext — e.g. auth-mfa's
-    // KEK-rotation job (reencrypt.job.ts) and the user-data-rights #494
+    // KEK-rotation job (reencrypt.job.ts) and the user-data-rights
     // backfill both resubmit the CURRENT value on purpose to land a real
     // event. A blanket value-diff here would silently break both.
     const created = await crud.create(
@@ -946,7 +945,7 @@ describe("event-store-executor — entity cache + encrypted fields", () => {
   });
 });
 
-// PII subject encryption (crypto-shredding, #724 phase C): pii/userOwned/
+// PII subject encryption (crypto-shredding): pii/userOwned/
 // tenantOwned fields are encrypted with the erase subject's DEK. Event
 // payload AND projection row carry ciphertext (live == rebuild); erasing the
 // subject key renders every value as the [[erased]] sentinel without
@@ -1052,7 +1051,7 @@ describe("event-store-executor — pii subject encryption", () => {
 
     // Same code path rebuildProjection replays: applyEntityEvent on the
     // PERSISTED event (ciphertext payload). The response echo carries the
-    // plaintext payload since #820 and must not be used as a replay source.
+    // plaintext payload and must not be used as a replay source.
     const responseEvent = created.data.event as { payload: Record<string, unknown> } | undefined;
     expect(responseEvent?.payload["email"]).toBe("rebuild@test.de");
     await asRawClient(testDb.db).unsafe(`TRUNCATE read_es_exec_pii RESTART IDENTITY CASCADE`);

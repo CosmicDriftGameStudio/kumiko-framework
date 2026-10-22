@@ -1,4 +1,4 @@
-// fw#2914 — reads the { escapeHatch: { reason } } convention off a
+// reads the { escapeHatch: { reason } } convention off a
 // `r.useExtension(...)` registration's untyped options bag. Registration-time
 // validation (feature-ui-extensions.ts's useExtension) already rejects an
 // empty reason, but options stays `Record<string, unknown>`, so orchestrators

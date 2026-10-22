@@ -36,9 +36,9 @@ import type { TenantDb, TenantDbMode } from "./tenant-db.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
-// of event-store-executor.ts (#1005, Welle 2) — behavior-preserving
-// relocation, not a redesign: unchanged from the original, now behind an
-// explicit ExecutorContext instead of the factory's local scope.
+// of event-store-executor.ts — behavior-preserving relocation, not a redesign:
+// unchanged from the original, now behind an explicit ExecutorContext instead
+// of the factory's local scope.
 
 // Defense-in-depth pagination guard. The handler boundary (entityListSchema)
 // already validates limit/offset, but the executor is public API for custom
@@ -128,7 +128,7 @@ type ListFilter = {
 
 // multiSelect stores its options as a jsonb array — a filter value is one
 // option, not the whole array, so eq/ne/in must check array containment
-// (`@>`) instead of scalar `=`/`<>`/`IN` against the jsonb column (fw#2490).
+// (`@>`) instead of scalar `=`/`<>`/`IN` against the jsonb column.
 // lt/gt/lte/gte have no containment analogue; the boot-validator already
 // blocks them for screen-declared filters (screen-filter-ops.ts
 // EQUALITY_ONLY), but a client-supplied facet filter reaches here
@@ -196,7 +196,7 @@ function applyScreenFilter(
     return;
   }
   for (const [field, value] of Object.entries(screen)) {
-    // #2015: `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in db/query.ts.
+    // `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in db/query.ts.
     if (value === null) {
       whereSql.push(`${colSql(field)} IS NULL`);
     } else if (Array.isArray(value)) {
@@ -223,7 +223,7 @@ function applyScreenFilter(
         whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
       }
     } else {
-      // Blind-index OR rewrite (#818), lock-step with buildWhereClause
+      // Blind-index OR rewrite, lock-step with buildWhereClause
       // in db/query.ts — equality on lookupable fields matches the
       // plaintext arm OR the HMAC arm.
       const bidxKey = configuredBlindIndexKey();
@@ -279,7 +279,7 @@ function deriveParentNarrowTypes(
   return narrowed;
 }
 
-// fw#2660 — above this many target-row matches, drop the reference clause
+// Above this many target-row matches, drop the reference clause
 // entirely instead of truncating: an arbitrary 200-row slice of "which
 // targets match" would silently hide rows a full-cardinality match would
 // have found. Native text search on the entity's own fields still applies.
@@ -299,7 +299,7 @@ type ReferenceSearchDescriptor = {
 };
 
 // Registry-declared `searchable` reference fields, plus the implicit
-// tenantId→tenant.name row-meta reference (fw#2660) — both resolve a text
+// tenantId→tenant.name row-meta reference — both resolve a text
 // search term against a target row's label instead of the raw FK column.
 function collectReferenceSearchDescriptors(
   table: Table,
@@ -329,9 +329,9 @@ function isSoftDeletedTargetHidden(targetEntity: EntityDefinition, targetTable: 
 }
 
 // Tenant-scoped ILIKE lookup against one reference target — never raw/
-// unscoped SQL, a match in a foreign tenant must never surface a row here
-// (fw#2660's hard constraint). Mirrors the main table's own tenant filter
-// (see the `table["tenantId"]` check further down in list()).
+// unscoped SQL, a match in a foreign tenant must never surface a row here.
+// Mirrors the main table's own tenant filter (see the `table["tenantId"]`
+// check further down in list()).
 async function resolveReferenceMatchesViaIlike(
   descriptor: ReferenceSearchDescriptor,
   searchTerm: string,
@@ -511,14 +511,14 @@ function referenceTargetTable(name: string, entity: EntityDefinition): Table {
 const SORT_LABEL_ALIAS = "__kumiko_sort_label";
 const STREAM_VERSION_ALIAS = "__streamVersion";
 
-// fw#2741 — resolve a `sortable: true` reference field's label inline for
+// Resolve a `sortable: true` reference field's label inline for
 // ORDER BY. A correlated scalar subquery, not a join: the result set keeps one
 // row per entity row, the read model stays untouched, and the lookup rides the
 // target's primary key. Tenant-scoped exactly like the search path — a foreign
 // tenant's label must never influence this tenant's ordering.
 // undefined means "cannot order by this label", which drops the sort to plain
 // id order; falling back to the UUID column would look deliberate to the user
-// while being arbitrary, which the issue calls worse than no sorting.
+// while being arbitrary, which is worse than no sorting.
 function buildReferenceSortExpr(
   outerTableName: string,
   ownColumnSql: string,
@@ -646,22 +646,21 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
 
       // Field-level read access gates filtering and sorting the same way it
       // gates the projected row: a caller who cannot read a field must not be
-      // able to probe its values through result counts or ordering (fw#2629).
-      // Hoisted above the search block (fw#2660) — a searchable-reference
-      // clause is the same probe surface as a filter/sort and must be gated
-      // the same way, before the reference-match query even runs.
+      // able to probe its values through result counts or ordering.
+      // Hoisted above the search block — a searchable-reference clause is the
+      // same probe surface as a filter/sort and must be gated the same way,
+      // before the reference-match query even runs.
       const fieldReadClause = (field: string) =>
         buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
 
-      // Build-Time options.searchAdapter gewinnt; runtime-Override ist
-      // Fallback für die defaultEntityQueryHandler-Pipe (die nutzt den
-      // ctx.searchAdapter erst zur Laufzeit weil createEventStoreExecutor
-      // beim Definition-Time noch keinen Server-Context hat).
+      // The build-time options.searchAdapter takes precedence; use the runtime override
+      // as a fallback because defaultEntityQueryHandler receives the search adapter only
+      // at runtime, when createEventStoreExecutor has no server context yet.
       const effectiveSearchAdapter = searchAdapter ?? runtimeOptions?.searchAdapter;
       let searchTruncated = false;
       if (payload.search) {
         const searchTerm = payload.search;
-        // #2032 — a search term with no adapter wired must fail loud, not
+        // A search term with no adapter wired must fail loud, not
         // silently return the unfiltered list dressed up as a search result.
         if (!effectiveSearchAdapter) {
           throw new UnprocessableError("search_adapter_not_wired", {
@@ -673,7 +672,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         }
         // Same choke-point as writes/index: systemStream docs live under
         // SYSTEM_TENANT_ID; everything else under the session tenant — db.mode
-        // must not invent a second predicate (kumiko-framework#2412).
+        // must not invent a second predicate.
         const searchTenantId = streamTenantFor(user);
         const results = await effectiveSearchAdapter.search(searchTenantId, searchTerm, {
           filterType: entityName,
@@ -682,14 +681,14 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         searchTruncated = results.length >= MAX_SEARCH_CANDIDATE_IDS;
         filterIds = results.map((r) => r.entityId);
 
-        // fw#2660 — union in reference-column label matches: a searchable
+        // Union in reference-column label matches: a searchable
         // reference field (or the implicit tenantId→tenant.name row-meta
         // reference) whose target row's labelField matches the search term
         // also counts as a hit on this entity, not just a raw text-field hit.
         const referenceSearch = runtimeOptions?.referenceSearch;
-        // fw#2629 parity: a caller who cannot read the reference column itself
-        // must not be able to infer its value by matching the target's label —
-        // same probe surface as filtering/sorting on it directly.
+        // A caller who cannot read the reference column itself must not be able
+        // to infer its value by matching the target's label — same probe
+        // surface as filtering/sorting on it directly.
         const descriptors = collectReferenceSearchDescriptors(
           table,
           referenceSearch,
@@ -750,7 +749,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           : undefined;
       const sortDescending = payload.sortDirection === "desc";
 
-      // fw#2741 — a reference column stores a UUID, so it is never sorted by
+      // A reference column stores a UUID, so it is never sorted by
       // directly: either the field opted into `sortable` and we order by the
       // target row's label, or the sort is dropped to plain id order.
       let sortField: string | undefined;

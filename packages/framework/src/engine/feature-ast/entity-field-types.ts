@@ -1,7 +1,7 @@
 // Shared field-type validation for EntityDefinition. Used by both the
 // static extractor (extractEntity, parse-time ParseError) and the runtime
 // PatternChange validator (pattern-change-schema.ts) so the two never drift
-// into reporting different "unknown field type" catalogues (#3137).
+// into reporting different "unknown field type" catalogues.
 
 import { FIELD_TYPE_NAMES } from "@cosmicdrift/kumiko-types/fields";
 import { isPlainObject, isRawRefSentinel } from "./extractors/shared.ts";

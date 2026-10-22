@@ -248,9 +248,8 @@ describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
   });
 });
 
-// cookieDomain — Bug-Bash-2 Wave I (Auth auf Marketing-Host): Login auf
-// dem Apex muss eine Session setzen die admin.<domain> mitliest. Ohne
-// Option bleibt das Cookie host-only (kein Domain-Attribut).
+// cookieDomain: Login on the apex must set a session readable by admin.<domain>.
+// Without this option, the cookie remains host-only (no Domain attribute).
 describe("auth-routes cookieDomain", () => {
   async function login(app: Hono): Promise<Response> {
     return app.request("/api/auth/login", {
@@ -274,19 +273,18 @@ describe("auth-routes cookieDomain", () => {
     expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);
   });
 
-  // Symmetrisch zum Logout (#321/1): wer mit cookieDomain SETZT, muss die
-  // host-only-Variante mit-invalidieren — sonst koexistiert nach dem ersten
-  // Deploy mit cookieDomain das alte host-only-Cookie neben dem neuen
-  // Domain-Cookie und der Server liest umgebungsabhängig das veraltete.
+  // As with logout, setting cookieDomain must also invalidate the host-only variant.
+  // Otherwise, after deployment, the old host-only cookie can coexist with the new
+  // Domain cookie, and the server may read the stale one depending on the environment.
   test("login: cookieDomain invalidiert zusätzlich die host-only-Variante", async () => {
     const { app } = await buildApp({ cookieDomain: "example.eu" });
     const raw = (await login(app)).headers.getSetCookie();
     const authCookies = raw.filter((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`));
     const csrfCookies = raw.filter((c) => c.startsWith(`${CSRF_COOKIE_BASE}=`));
-    // host-only-Delete: Max-Age=0 ohne Domain-Attribut.
+    // Host-only deletion: Max-Age=0 without a Domain attribute.
     expect(authCookies.some((c) => /Max-Age=0/i.test(c) && !/Domain=/i.test(c))).toBe(true);
     expect(csrfCookies.some((c) => /Max-Age=0/i.test(c) && !/Domain=/i.test(c))).toBe(true);
-    // ...neben dem echten Domain-Cookie (positive Max-Age).
+    // ...alongside the actual Domain cookie (with a positive Max-Age).
     expect(authCookies.some((c) => /Domain=example\.eu/i.test(c) && !/Max-Age=0/i.test(c))).toBe(
       true,
     );
@@ -295,7 +293,7 @@ describe("auth-routes cookieDomain", () => {
   test("ohne cookieDomain: KEIN zusätzlicher host-only-Delete beim Login", async () => {
     const { app } = await buildApp();
     const raw = (await login(app)).headers.getSetCookie();
-    // Nur das eine Set-Cookie pro Name, kein Max-Age=0-Delete.
+    // Exactly one Set-Cookie per name; no Max-Age=0 deletion.
     expect(raw.filter((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`)).length).toBe(1);
     expect(raw.some((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`) && /Max-Age=0/i.test(c))).toBe(
       false,
@@ -348,9 +346,8 @@ describe("auth-routes cookieDomain", () => {
     const csrfDeletes = raw.filter(
       (c) => c.startsWith(`${CSRF_COOKIE_BASE}=`) && /Max-Age=0/i.test(c),
     );
-    // Host-only-Bestand (vor cookieDomain gesetzt) + aktuelle Domain-
-    // Variante — beide müssen invalidiert werden, sonst wirkt der Logout
-    // auf dem alten Cookie nicht.
+    // The host-only cookie from before cookieDomain was set plus the current Domain
+    // variant must both be invalidated; otherwise logout does not affect the old cookie.
     expect(authDeletes.some((c) => /Domain=example\.eu/i.test(c))).toBe(true);
     expect(authDeletes.some((c) => !/Domain=/i.test(c))).toBe(true);
     expect(csrfDeletes.some((c) => /Domain=example\.eu/i.test(c))).toBe(true);

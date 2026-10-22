@@ -1,6 +1,6 @@
 // Canonical table source for both `kumiko schema generate` and setupTestStack
 // (entities, storeTables, projections, multiStreamProjections). One shared
-// source so the test-DB push and migrations cannot drift apart again (#255, #3102).
+// source so the test-DB push and migrations cannot drift apart again.
 
 import type { FeatureDefinition } from "../engine/types/index.ts";
 import { compareByCodepoint } from "../utils/index.ts";
@@ -13,10 +13,9 @@ import { enumerateFeatureTableSources } from "./feature-table-sources.ts";
 import { asEntityTableMeta } from "./query.ts";
 
 function canonicalColumnsKey(meta: EntityTableMeta): string {
-  // Spalten-Identität unabhängig von Deklarations-Reihenfolge und
-  // Objekt-Key-Order. Indexes bleiben außen vor: eine Projection-Table
-  // (buildEntityTable ohne relations) trägt legitim weniger FK-Indexes
-  // als das Entity-Meta derselben Tabelle.
+  // Column identity independent of declaration order and object-key order.
+  // Indexes are excluded: a projection table (buildEntityTable without relations)
+  // legitimately has fewer FK indexes than the entity metadata for the same table.
   return [...meta.columns]
     .sort((a, b) => compareByCodepoint(a.name, b.name))
     .map(
@@ -49,8 +48,8 @@ export function collectTableMetas(
   const metas: EntityTableMeta[] = [];
   const byName = new Map<string, { meta: EntityTableMeta; origin: string }>();
 
-  // Pass 1: kanonische Schema-Quellen, identisch zum bisherigen Template-
-  // Verhalten (gleiche Reihenfolge, gleiche deriveEntityTableMeta-Optionen).
+  // Pass 1: canonical schema sources, matching the previous template behavior
+  // (same order, same deriveEntityTableMeta options).
   for (const feature of features) {
     for (const [name, ent] of Object.entries(feature.entities ?? {})) {
       const fieldMeta = deriveEntityTableMeta(name, ent, { relations: feature.relations[name] });
@@ -77,10 +76,10 @@ export function collectTableMetas(
     }
   }
 
-  // Pass 2: table-tragende Registrierungen. Zwei Pässe, damit eine Entity-
-  // Tabelle aus Feature B gegen eine gleichnamige Projection-Table aus
-  // Feature A gewinnt — Entity-Metas sind die reichere Quelle (FK-Indexes
-  // aus relations).
+  // Pass 2: table-bearing registrations. Two passes ensure that an entity table
+  // from Feature B takes precedence over a same-named projection table from
+  // Feature A—entity metadata is the richer source because of FK indexes from
+  // relations.
   for (const feature of features) {
     for (const { table, origin } of enumerateFeatureTableSources(feature)) {
       const meta = asEntityTableMeta(table);

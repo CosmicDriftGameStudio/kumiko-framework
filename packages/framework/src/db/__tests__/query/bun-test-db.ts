@@ -1,5 +1,5 @@
-// Delegiert an createTestDb. "Bun" im Namen ist historisch; die Aliase
-// BunTestDb/createBunTestDb halten die migrierten Test-Files importierbar.
+// Delegates to createTestDb. "Bun" is historical; the aliases
+// BunTestDb/createBunTestDb keep migrated test files importable.
 
 import {
   type CreateTestDbOptions,

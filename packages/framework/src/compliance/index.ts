@@ -1,6 +1,5 @@
-// `@cosmicdrift/kumiko-framework/compliance` — Datenschutz/Compliance-
-// Foundation. Wird von Sprint-1+ Features genutzt (compliance-profiles,
-// data-retention, user-data-rights, ...).
+// `@cosmicdrift/kumiko-framework/compliance` — Data protection and compliance foundation.
+// Used by compliance-profiles, data-retention, user-data-rights, and related features.
 
 export {
   addDurationSpec,

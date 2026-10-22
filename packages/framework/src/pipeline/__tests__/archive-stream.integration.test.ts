@@ -1,4 +1,4 @@
-// C2 — archiveStream (Marten-aligned).
+// archiveStream (Marten-aligned).
 //
 // Marten's session.Events.ArchiveStream(id): the stream becomes read-only,
 // loads return an empty slice, further appends throw. Restoring un-archives.

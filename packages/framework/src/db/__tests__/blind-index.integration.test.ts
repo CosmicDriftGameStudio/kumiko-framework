@@ -1,7 +1,7 @@
-// Blind-Index end-to-end (#818): create/update schreiben die bidx-Spalte
-// (nie ins Event-Log), Equality-Lookups matchen über den OR-Rewrite sowohl
-// verschlüsselte als auch Klartext-Alt-Rows, Rebuild recomputet bidx aus
-// dem Ciphertext (erased → NULL), und der Forget-Sweep nullt sofort.
+// Blind-index end-to-end: create/update write the bidx column
+// (never the event log), equality lookups match both encrypted and
+// plaintext legacy rows through the OR rewrite, rebuild recomputes bidx from
+// the ciphertext (erased → NULL), and the forget sweep nulls it immediately.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -50,7 +50,7 @@ const personFeature = defineFeature("bidxtest", (r) => {
 const personTable = buildEntityTable("person", personEntity);
 
 // Lookupable entity whose read table is deliberately never created — used to
-// prove the forget sweep skips missing relations (fw#2550).
+// prove the forget sweep skips missing relations.
 const ghostEntity = createEntity({
   table: "read_bidx_ghosts_missing",
   fields: {
@@ -142,7 +142,7 @@ describe("blind-index write path", () => {
     expect(row["email_bidx"]).toBe(computeBlindIndex(TEST_KEY, "marc@example.com"));
     expect(isPiiCiphertext(row["email"])).toBe(true);
 
-    // Executor-Response: plaintext email, kein bidx-Leak.
+    // Executor response: plaintext email, no bidx leak.
     expect(created.data.data["email"]).toBe("marc@example.com");
     expect("emailBidx" in created.data.data).toBe(false);
 
@@ -194,7 +194,7 @@ describe("blind-index lookup (OR-rewrite)", () => {
     expect(legacyRow["email"]).toBe("legacy@example.com");
     expect(legacyRow["email_bidx"]).toBeNull();
 
-    // Rollout an: dieselbe Query matcht über den Plaintext-Arm.
+    // After rollout: the same query matches through the plaintext arm.
     configurePiiSubjectKms(kms);
     configureBlindIndexKey(TEST_KEY_B64);
     const hit = await fetchOne<Record<string, unknown>>(tdb, personTable, {

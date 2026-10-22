@@ -1,4 +1,4 @@
-// Type-level contract for the ES-write lock (#742): a write compiles only for a
+// Type-level contract for the ES-write lock: a write compiles only for a
 // table carrying `Writable` or a runner carrying the executor capability. A managed
 // EntityTable written without capability, or any table widened to a plain
 // SchemaTable, is a COMPILE error while reads stay open. The bodies below are never

@@ -1,4 +1,4 @@
-// fw#3620: a failed job attempt must reach the process log (runner logger) with
+// A failed job attempt must reach the process log (runner logger) with
 // attempt/final markers, without leaking the payload.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

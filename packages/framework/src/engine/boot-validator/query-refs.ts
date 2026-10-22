@@ -47,7 +47,7 @@ function checkVisibleWhenQueryRef(
 }
 
 // relatedList is currently only reachable on projectionDetail — screens.ts
-// rejects it outright on entityEdit/actionForm/configEdit (fw#2166). Walking
+// rejects it outright on entityEdit/actionForm/configEdit. Walking
 // the shared EditLayout uniformly here (instead of excluding those three
 // types) keeps this collector correct if that restriction is ever lifted.
 function checkEditLayoutQueryRefs(

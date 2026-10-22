@@ -1,4 +1,4 @@
-// kumiko-framework#3314: GET /api/schema is the only way a client gets the
+// GET /api/schema is the only way a client gets the
 // AppSchema now — HTML never carries it. anonymousAccess is deliberately
 // wired here (like http-route-entry.integration.test.ts): without it, a
 // wrongly-mounted route (jwtGuard skipping instead of rejecting) would

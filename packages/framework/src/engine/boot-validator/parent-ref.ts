@@ -1,7 +1,7 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { EntityDefinition, FeatureDefinition, QueryHandlerDef } from "../types/index.ts";
 
-// --- Parent-ref boot validation (fw#2766) ---
+// --- Parent-ref boot validation ---
 //
 // Join-row entities (EntityDefinition.parentRef) derive both the write-path
 // deny and the read-path SQL gate from one declaration. This is the boot-time

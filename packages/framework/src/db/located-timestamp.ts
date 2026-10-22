@@ -1,26 +1,25 @@
-// Auto-Convert für locatedTimestamp-Felder im DB-Layer.
+// Automatically converts locatedTimestamp fields in the DB layer.
 //
-// Vertrag (siehe auch db/money.ts — gleicher Compound-Type-Pattern):
-//   API-Form:    { at, tz } | { utc, tz }
-//   DB-Form:     <name>Utc TIMESTAMPTZ + <name>Tz TEXT
-//   Read-Form:   { at, tz, utc }
+// Contract (see also db/money.ts — the same compound-type pattern):
+//   API form:   { at, tz } | { utc, tz }
+//   DB form:    <name>Utc TIMESTAMPTZ + <name>Tz TEXT
+//   Read form:  { at, tz, utc }
 //
-// `at`-Default-Sicht beim Read: Pickup-Ort-lokal (utc projiziert in
-// gespeicherter tz). Server kennt User-TZ nicht — User-spezifische
-// Anzeige passiert client-seitig aus utc.
+// Default `at` view on read: local to the pickup location (`utc` projected into
+// the stored `tz`). The server does not know the user's time zone, so
+// user-specific display is derived from `utc` on the client.
 
 // Static import, not the ambient global: Bun doesn't expose Temporal on
 // globalThis, so this crashed with "Temporal is not defined" outside boot
-// paths that install it (#1480).
+// paths that install it.
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { EntityDefinition } from "../engine/types/index.ts";
 
-// Sprint F: <name>Utc-Spalte ist jetzt instant() (siehe dialect.ts) —
-// Drizzle gibt direkt Temporal.Instant zurück. Vor Sprint F kam ein PG-
-// Wire-Format-String "2026-04-15 09:00:00+00" rein der via String-Massage
-// zu ISO-8601 gemacht werden musste. Heute übernimmt der customType die
-// Konversion DB↔Instant — diese Funktion ist nur noch defensive Glue für
-// Legacy-Code-Pfade die noch Strings durchreichen (z.B. raw SQL).
+// The <name>Utc column uses instant() (see dialect.ts), so Drizzle returns Temporal.Instant.
+// Previously, a PostgreSQL wire-format string "2026-04-15 09:00:00+00" had to be
+// converted to ISO 8601 through string manipulation. The customType now handles
+// DB↔Instant conversion, so this function is only defensive glue for legacy code
+// paths that still pass strings (for example, raw SQL).
 function toInstant(value: unknown): Temporal.Instant | undefined {
   if (value instanceof Temporal.Instant) return value;
   if (typeof value !== "string") return undefined;
@@ -29,14 +28,14 @@ function toInstant(value: unknown): Temporal.Instant | undefined {
 }
 
 /**
- * API → DB: locatedTimestamp-Felder zu zwei flachen Spalten flatten.
+ * API → DB: flatten locatedTimestamp fields into two flat columns.
  *
- * - `{ at, tz }` (UI-Form) → `{ <name>Utc, <name>Tz }` (utc via Temporal berechnet)
- * - `{ utc, tz }` (Server-Form) → utc gewinnt direkt
- * - `{ at, tz, utc }` → utc gewinnt; at wird ignoriert (Konsistenz-Check ist
- *   Caller-Verantwortung)
+ * - `{ at, tz }` (UI form) → `{ <name>Utc, <name>Tz }` (`utc` calculated via Temporal)
+ * - `{ utc, tz }` (server form) → `utc` takes precedence
+ * - `{ at, tz, utc }` → `utc` takes precedence; `at` is ignored (the caller is
+ *   responsible for the consistency check)
  *
- * Pure — mutiert nicht.
+ * Pure — does not mutate.
  */
 export function flattenLocatedTimestamp(
   payload: Record<string, unknown>,
@@ -61,10 +60,10 @@ export function flattenLocatedTimestamp(
 
     if (pair.tz === undefined) continue;
     const tz = pair.tz;
-    // Sprint F: <name>Utc-Spalte ist instant() — Drizzle erwartet
-    // Temporal.Instant. Konvertierung pair.utc-string → Instant geht via
-    // toInstant() (kennt String + Instant); pair.at + tz → Instant via
-    // Temporal-Math.
+    // The <name>Utc column uses instant(); Drizzle expects
+    // Temporal.Instant. Conversion from pair.utc string → Instant goes through
+    // toInstant() (which handles strings and Instant values); pair.at + tz →
+    // Instant uses Temporal math.
     const instant: Temporal.Instant | undefined =
       pair.utc !== undefined
         ? toInstant(pair.utc)
@@ -89,13 +88,13 @@ export type LocatedTimestampRead = {
 };
 
 /**
- * DB → API: zwei flache Spalten zu combined { at, tz, utc } rehydraten.
+ * DB → API: rehydrate two flat columns into combined { at, tz, utc }.
  *
- * `at` ist immer Wall-Clock in der gespeicherten `tz` (Pickup-Ort-lokal).
- * Wer User-Sicht braucht, leitet aus `utc` selbst ab — der Server kennt
- * keine User-TZ.
+ * `at` is always the wall-clock time in the stored `tz` (local to the pickup
+ * location). To obtain a user-specific view, derive it from `utc` yourself —
+ * the server does not know the user's time zone.
  *
- * Pure — mutiert nicht.
+ * Pure — does not mutate.
  */
 export function rehydrateLocatedTimestamp(
   row: Record<string, unknown>,

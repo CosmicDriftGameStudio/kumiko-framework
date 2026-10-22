@@ -86,7 +86,7 @@ async function projectEntityEvent(
 }
 
 // The five write verbs (create/update/delete/forget/restore) of the event-
-// store-executor. Split out of event-store-executor.ts (#1005, Welle 2) —
+// store-executor. Split out of event-store-executor.ts —
 // behavior-preserving relocation, not a redesign: every closure below is
 // unchanged from the original, just relocated behind an explicit
 // ExecutorContext instead of capturing the factory's local scope directly.
@@ -120,10 +120,10 @@ type PreSaveFn = (
 ) => Promise<Record<string, unknown>>;
 
 // preSave runs before ownership checks: authorization must evaluate the row
-// as it will actually be persisted, including hook-derived fields
-// (kumiko-framework#1672). A throwing hook is an app-author bug (bad
-// business rule, not a framework fault) — map it to a clean writeFailure
-// instead of letting it propagate as an internal_error 500.
+// as it will actually be persisted, including hook-derived fields. A throwing
+// hook is an app-author bug (bad business rule, not a framework fault) — map it
+// to a clean writeFailure instead of letting it propagate as an internal_error
+// 500.
 async function runPreSave(
   preSave: PreSaveFn | undefined,
   changes: Record<string, unknown>,
@@ -138,7 +138,7 @@ async function runPreSave(
     const hookResult = await preSave(changes, previous, isNew);
     // A hook that echoes `id`/`version` back (e.g. `{ ...changes, id: x }`)
     // must not leak them into the persisted row — aggregateId already comes
-    // from generateId()/the loaded row, not from hook output (fw#1685).
+    // from generateId()/the loaded row, not from hook output.
     const { id: _hookId, version: _hookVersion, ...safe } = hookResult;
     // Hook output skips the handler's input validation yet goes straight into the projection.
     // Validated only, not replaced by the parse result: hooks may set fields in storage form.
@@ -392,12 +392,11 @@ export function createWriteVerbs(
       // per declared field. Role-level was already checked by the
       // dispatcher; here we enforce ownership-rules against the new row.
       //
-      // Which fields get checked is scoped to the pre-hook payload (fw#1685)
+      // Which fields get checked is scoped to the pre-hook payload
       // — a hook-derived field the user never submitted must not be
       // field-ownership-checked against the user. The rule for a checked
       // field is still evaluated against the full post-hook row (`data`) —
-      // an ownership rule can reference a column only a hook populates
-      // (kumiko-framework#1672).
+      // an ownership rule can reference a column only a hook populates.
       const fieldDeniedCreate = checkWriteFieldOwnership(
         entity,
         applyDefaults(payloadWithoutId),
@@ -425,40 +424,38 @@ export function createWriteVerbs(
       );
       if (unavailableOnCreate) return unavailableOnCreate;
 
-      // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
-      // dieselbe Pipeline. Caller schickt combined API-Form, Framework
-      // speichert flat DB-Form. Siehe db/compound-types.ts.
-      // subjectSource carries the freshly minted aggregateId: the create
-      // payload has no id column, but a pii:true self-subject resolves from it.
+      // All compound types (locatedTimestamp, money, ...) use the same pipeline: the
+      // caller sends the combined API form, the framework stores the flat DB form (see
+      // db/compound-types.ts).
+      // subjectSource carries the freshly minted aggregateId: the create payload has no id
+      // column, but a pii:true self-subject resolves from it.
       const flatCreateData = flattenCompoundTypes(data, entity);
       const flatData = await encryptForStorage(flatCreateData, user, {
         subjectSource: { ...flatCreateData, id: aggregateId },
         keyTenantId: streamTenantId,
       });
 
-      // 1. Append event (same TX as the projection write — both must succeed
-      //    or both roll back; the dispatcher wraps both in one transaction).
-      //    flatData is already table ciphertext for pii/encrypted fields, so
-      //    the immutable log never sees plaintext and replay reproduces the
-      //    row byte-identically (#967).
+      // 1. Append the event in the same transaction as the projection write — both must
+      //    succeed or both roll back; the dispatcher wraps them in one transaction.
+      //    flatData is already table ciphertext for pii/encrypted fields, so the immutable
+      //    log never sees plaintext and replay reproduces the row byte-for-byte.
       //
-      //    `expectedVersion: 0` heißt: stream existiert noch nicht. Bei
-      //    deterministic-aggregate-id-Patterns (z.B. uuidv5(tenantId|naturalKey))
-      //    ist es legitim dass create kollidiert — selbe id, schon vorhandener
-      //    stream → version_conflict statt internal_error. Update hat den
-      //    selben catch (siehe line 493+).
+      //    `expectedVersion: 0` means the stream does not yet exist. With deterministic
+      //    aggregate-ID patterns (for example, uuidv5(tenantId|naturalKey)), a create can
+      //    legitimately collide — the same ID has an existing stream — so return
+      //    version_conflict instead of internal_error. Update uses the same catch.
       let event: Awaited<ReturnType<typeof append>>;
       try {
         // Savepoint-scoped: postgres.js poisons the WHOLE surrounding
         // begin() once any statement inside it errors, even if the JS error
-        // is caught (kumiko-framework#1778) — a losing concurrent create's
-        // unique-violation would otherwise abort the caller's outer
-        // transaction and surface as internal_error at commit time instead
-        // of the version_conflict this catch classifies. runInSavepointIfSupported
-        // confines the failed INSERT to a nested scope that rolls back on
-        // its own (same pattern as ctx.tryAppendEvent), and falls back to a
-        // plain call when the runner is a bare pool connection with no active
-        // transaction to poison (seeds/tests calling the executor directly).
+        // is caught — a losing concurrent create's unique-violation
+        // would otherwise abort the caller's outer transaction and surface as
+        // internal_error at commit time instead of the version_conflict this
+        // catch classifies. runInSavepointIfSupported confines the failed
+        // INSERT to a nested scope that rolls back on its own (same pattern as
+        // ctx.tryAppendEvent), and falls back to a plain call when the runner
+        // is a bare pool connection with no active transaction to poison
+        // (seeds/tests calling the executor directly).
         event = await runInSavepointIfSupported(runner, async (sp) =>
           append(sp, {
             aggregateId,
@@ -492,22 +489,20 @@ export function createWriteVerbs(
         throw e;
       }
 
-      // 2. Update projection via applyEntityEvent — derselbe Code-Pfad den
-      //    rebuildProjection für Replay nutzt, mit demselben StoredEvent →
-      //    Live==Rebuild by-construction (#967).
+      // 2. Update the projection through applyEntityEvent — the same code path used by
+      //    rebuildProjection for replay, with the same StoredEvent, so live and rebuild
+      //    produce the same result by construction.
       //
-      //    F8-Patch: app-level unique-violations (z.B. (tenantId, email)
-      //    auf User-Entity, (tenantId, slug) auf Article) werfen pg-23505
-      //    aus der projection-INSERT. Ohne den catch propagiert das als
-      //    unhandled exception → 500 internal_error. Map auf
-      //    UniqueViolationError 409 damit Designer/Frontend einen sauberen
-      //    "duplicate" zeigen können statt cryptic "internal server error".
-      // Savepoint like the append above: an unclassified DB error out of the
-      // projection INSERT would otherwise poison the enclosing tx (postgres-js
-      // rejects the whole begin() once any statement in it failed), so a later
-      // write sharing that tx — a sibling write after a failed nested one —
-      // throws raw as a 500 instead of failing cleanly. The savepoint rolls the
-      // failed INSERT back; the error still propagates and stays catchable.
+      //    Application-level unique violations (for example, (tenantId, email) on a User
+      //    entity or (tenantId, slug) on an Article) produce pg-23505 from the projection
+      //    INSERT. Without this catch, the error propagates as an unhandled exception and
+      //    becomes a 500 internal_error. Map it to UniqueViolationError 409 so the
+      //    designer/frontend can show a clear "duplicate" message instead of a cryptic
+      //    "internal server error".
+      // Savepoint like the append above: an unclassified DB error from the projection
+      // INSERT would otherwise poison the enclosing transaction (postgres-js rejects the
+      // whole begin() once any statement in it fails). The savepoint rolls back the failed
+      // INSERT while allowing the error to propagate and remain catchable.
       let result: Awaited<ReturnType<typeof applyEntityEvent>>;
       try {
         result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>
@@ -522,8 +517,8 @@ export function createWriteVerbs(
         return writeFailure(new InternalError({ message: "projection insert returned no row" }));
       }
       const row = result.row;
-      // Read-Side Auto-Convert: DB-Form → API-combined-Form für alle
-      // Compound-Types in einem Pass.
+      // Read-side conversion: DB form → combined API form for all
+      // compound types in one pass.
       const projection = await decryptForRead(
         rehydrateCompoundTypes(row as DbRow, entity) as DbRow,
       );
@@ -548,7 +543,7 @@ export function createWriteVerbs(
           isNew: true,
           entityName,
           // Persisted event carries ciphertext by design — the caller-facing
-          // echo must be plaintext like every other response field (#820).
+          // echo must be plaintext like every other response field.
           event: echoEvent,
         }),
       };
@@ -626,7 +621,7 @@ export function createWriteVerbs(
       // touch on this specific row.
       //
       // Which fields get checked is scoped to `payload.changes` (the user's
-      // actual submission), NOT `changes` (post-preSave-hook data, fw#1685)
+      // actual submission), NOT `changes` (post-preSave-hook data)
       // — a hook-derived field the user never submitted (e.g. a system hook
       // setting `assignedTo`) has no business being field-ownership-checked
       // against the *user*, and doing so rejects writes the user is fully
@@ -634,7 +629,7 @@ export function createWriteVerbs(
       // already runs on this same pre-hook payload for consistency. The rule
       // for a checked field is still evaluated against the full post-hook
       // row (`changes` merged onto `previous`) — an ownership rule can
-      // reference a column only a hook populates (kumiko-framework#1672).
+      // reference a column only a hook populates.
       const fieldDeniedUpdate = checkWriteFieldOwnership(
         entity,
         payload.changes,
@@ -711,12 +706,13 @@ export function createWriteVerbs(
       }
 
       try {
-        // Compound-Types Auto-Convert (alle in einem Pass).
+        // Compound-type conversion in one pass.
         // subjectSource: partial changes may carry a pii field without its
-        // ownerField — the merged row still names the subject.
-        // skipUnchanged (#464) is opt-in: an identical resubmitted key is dropped before
-        // encryption so pii/encrypted fields get no fresh ciphertext for no real change.
-        // Direct callers (KEK rotation, #494 backfill) rely on the default to force a re-encrypt.
+        // ownerField — the merged row still identifies the subject.
+        // skipUnchanged is opt-in: an identical resubmitted key is dropped before
+        // encryption so pii/encrypted fields receive no fresh ciphertext when nothing
+        // actually changed.
+        // Direct callers (KEK rotation, backfill) rely on the default to force re-encryption.
         const submittedChanges = updateOptions?.skipUnchanged
           ? Object.fromEntries(
               Object.entries(changes).filter(
@@ -724,7 +720,7 @@ export function createWriteVerbs(
               ),
             )
           : changes;
-        // fw#3670: crypto-shredding follows the current owner, so personal
+        // Crypto-shredding follows the current owner, so personal
         // fields not in this update are re-written under the new owner's key.
         // Owner -> absent is not re-keyed; the value stays under the old owner.
         const changesToPersist = {
@@ -748,8 +744,8 @@ export function createWriteVerbs(
         // re-encrypt it before it's persisted so plaintext of pii/encrypted
         // fields doesn't land in the immutable log (flatChanges is already
         // ciphertext from encryptForStorage above).
-        // Owner chain for the ownerless-then-assigned row: previous owner, then the
-        // owner this event sets, then whenAbsent (fw#3654).
+        // Owner chain for the ownerless-then-assigned row: previous owner, then
+        // the owner this event sets, then whenAbsent.
         const encryptedPrevious = await encryptForStorage(previous, user, {
           keyTenantId: streamTenantId,
           ownerFallback: submittedChanges,
@@ -774,17 +770,16 @@ export function createWriteVerbs(
           }),
         );
 
-        // Live==Rebuild via applyEntityEvent mit demselben StoredEvent —
-        // apply liest nur `changes`, und die sind live wie im Replay
-        // identischer Ciphertext (#967).
+        // Live and rebuild use applyEntityEvent with the same StoredEvent —
+        // apply reads only `changes`, which contain identical ciphertext in live writes
+        // and replays.
         //
-        // F8-Patch: dasselbe unique-violation-handling wie im create-Pfad
-        // — ein update das einen unique-Index verletzt (z.B. email-update
-        // auf einen schon-existierenden Wert) wird mit 409 unique_violation
-        // statt 500 internal_error rückgemeldet.
-        // Savepoint like the create path: a raw DB error out of the projection
-        // UPDATE poisons the enclosing tx otherwise, so a sibling write after a
-        // failed nested one throws 500 instead of failing cleanly.
+        // An update that violates a unique index (for example, an email update to an
+        // already-existing value) is reported as 409 unique_violation instead of 500
+        // internal_error.
+        // Savepoint like the create path: a raw DB error from the projection UPDATE would
+        // otherwise poison the enclosing transaction, so a sibling write after a failed
+        // nested one would throw 500 instead of failing cleanly.
         let result: Awaited<ReturnType<typeof applyEntityEvent>>;
         try {
           result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>

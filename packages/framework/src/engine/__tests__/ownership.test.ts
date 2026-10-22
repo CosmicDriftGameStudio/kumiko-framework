@@ -196,7 +196,7 @@ describe("userCanReadFieldRow() — multi-role OR", () => {
     expect(userCanReadFieldRow(user, accessMap, { teamId: "ops" })).toBe(true);
   });
 
-  // fw#1700: matchesRule() throws on a where-rule (SQL-layer only, can't
+  // matchesRule() throws on a where-rule (SQL-layer only, can't
   // evaluate in-memory). A read map may legitimately carry one — it belongs
   // on the SQL path (buildOwnershipClause) — so an in-memory read check must
   // fail closed (deny, no throw) instead of crashing the caller with a 500.
@@ -283,7 +283,7 @@ describe("userCanWriteFieldRow() — Straddle-attack prevention", () => {
     expect(userCanWriteFieldRow(user, undefined, {}, {})).toBe(true);
   });
 
-  // fw#2626: the write path never reaches SQL, so a where-rule there can only
+  // The write path never reaches SQL, so a where-rule there can only
   // deny. Boot validation rejects the shape; this is the runtime backstop for
   // maps assembled outside validateBoot.
   test("role backed by a where-rule → fails closed (deny), does not throw", () => {
@@ -452,7 +452,7 @@ describe("userCanCreateFieldRow() — create case (no old row)", () => {
     expect(userCanCreateFieldRow(user, accessMap, { teamId: "ops" })).toBe(true);
   });
 
-  // fw#2626: create used to hand a where-rule to matchesRule(), which throws —
+  // Create used to hand a where-rule to matchesRule(), which throws —
   // every create against such an entity ended as a 500. It now denies, exactly
   // like userCanWriteFieldRow does for update/delete.
   test("role backed by a where-rule → fails closed (deny), does not throw", () => {

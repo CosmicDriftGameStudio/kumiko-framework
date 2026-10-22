@@ -1,4 +1,4 @@
-// Per-role projection of a fully-built AppSchema (fw#3314). GET /api/schema
+// Per-role projection of a fully-built AppSchema. GET /api/schema
 // used to ship the same full schema — screens, navs, workspaces, content
 // collections — to every authenticated user regardless of role, relying on
 // client-side UI checks (isUiAccessGranted) alone to hide what a role

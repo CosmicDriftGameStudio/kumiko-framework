@@ -1,7 +1,7 @@
 // Tenant storage usage — counts bytes + files per tenant from the event log.
 //
-// Tracking-only for Phase 1: no hard limit, no upload gatekeeping. Apps read
-// the row to decide what to do (show a warning, soft-throttle, bill, …).
+// Tracking-only: no hard limit, no upload gatekeeping. Apps read the row to
+// decide what to do (show a warning, soft-throttle, bill, …).
 // Enforcement is a conscious deferred call — we want production numbers
 // before picking thresholds (see "Storage tracking: counted now, enforced
 // later" in core-files.md).

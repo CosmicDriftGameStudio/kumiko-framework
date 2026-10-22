@@ -1,25 +1,25 @@
-// Random-Generator für human-readable Resource-Identifier:
-//   - Tenant-Keys ("happy-cloud", "swift-river-k8x")
-//   - Webhook-Subscriber-Slugs ("bold-falcon-receiver" mit custom nouns)
-//   - API-Key-Display-Names (3 Vorschläge anbieten beim Create)
-//   - Tenant-Subdomain-Vorschläge im Subdomain-Setup-Screen
-//   - Test-Fixtures mit lesbaren Identifiern
+// Random generator for human-readable resource identifiers:
+//   - Tenant keys ("happy-cloud", "swift-river-k8x")
+//   - Webhook subscriber slugs ("bold-falcon-receiver" with custom nouns)
+//   - API key display names (offer 3 suggestions on creation)
+//   - Tenant subdomain suggestions in the subdomain setup screen
+//   - Test fixtures with readable identifiers
 //
-// NICHT für Security-Token (CSRF, Session, API-Keys, OAuth-State,
-// Reset-Token). Math.random() ist nicht kryptografisch unvorhersagbar.
-// Authority-binding für Tenant-Keys läuft über JWT + DB-Lookup, nicht
-// über Slug-Geheimhaltung — der Slug darf erratbar sein.
+// NOT for security tokens (CSRF, session, API keys, OAuth state,
+// reset tokens). Math.random() is not cryptographically unpredictable.
+// Authority binding for tenant keys uses JWT + DB lookup, not slug secrecy;
+// the slug may be guessable.
 //
-// Universal-safe: Math.random() läuft in Bun, Node, Metro/RN, Expo-Web.
-// Keine node:crypto-Imports.
+// Safe across environments: Math.random() runs in Bun, Node, Metro/RN, and
+// Expo Web. No node:crypto imports.
 
 import { ADJECTIVES, NOUNS } from "./words.ts";
 
-// Alphabet ohne handgetippt verwechselbare Zeichen:
-//   - keine 0/O (Null vs Großbuchstabe O)
-//   - keine 1/l/I (Eins vs Kleinbuchstabe L vs Großbuchstabe I)
-// Resultat: 32 Zeichen, sicher beim Telefon-Buchstabieren UND beim
-// Mailtext-Copy-Paste in fremde Schriftarten.
+// Alphabet without characters that are easily confused when entered manually:
+//   - no 0/O (zero versus uppercase O)
+//   - no 1/l/I (one versus lowercase L versus uppercase I)
+// Result: 32 characters, safe for spelling over the phone AND for copying
+// from email text in unfamiliar fonts.
 const NO_CONFUSABLE_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz";
 const NO_CONFUSABLE_CHARS: readonly string[] = Object.freeze(NO_CONFUSABLE_ALPHABET.split(""));
 
@@ -28,7 +28,7 @@ function pickRandom<T>(arr: readonly T[]): T {
     throw new Error("pickRandom: cannot pick from empty array");
   }
   const value = arr[Math.floor(Math.random() * arr.length)];
-  // Length-Check oben garantiert dass index in-range ist.
+  // The length check above guarantees that the index is in range.
   if (value === undefined) {
     throw new Error("pickRandom: indexed value undefined (sparse array?)");
   }
@@ -36,23 +36,23 @@ function pickRandom<T>(arr: readonly T[]): T {
 }
 
 export type AdjNounNameOptions = {
-  /** Trennzeichen zwischen adj/noun (und ggf. suffix). Default "-". */
+  /** Separator between adj/noun (and, if applicable, suffix). Default "-". */
   readonly separator?: string;
-  /** Wenn gesetzt, wird ein random-suffix der Länge .length angehängt
-   *  (no-confusable-Alphabet). Empfohlen 3 Zeichen = 32^3 = 32.768
-   *  zusätzliche Combinations pro Wortpaar. */
+  /** If set, appends a random suffix of length .length
+   *  (no-confusable alphabet). 3 characters are recommended = 32^3 = 32,768
+   *  additional combinations per word pair. */
   readonly suffix?: { readonly length: number };
   /** Custom Adjective-Liste — default ADJECTIVES (191 generic). */
   readonly adjectives?: readonly string[];
-  /** Custom Noun-Liste — default NOUNS (173 generic). Apps die Domain-
-   *  spezifische Slugs wollen (z.B. webhook-feature mit eigenen
-   *  -receiver/-listener-Substantiven) reichen ihre eigene Liste. */
+  /** Custom noun list — default NOUNS (173 generic). Apps that want
+   *  domain-specific slugs (e.g. webhook features with their own
+   *  -receiver/-listener nouns) provide their own list. */
   readonly nouns?: readonly string[];
 };
 
-/** Sync Generator: produziert "happy-cloud" oder "happy-cloud-k8x"
- *  (mit suffix). Kein Conflict-Check — Caller verantwortlich für
- *  Uniqueness, oder generateUniqueName() für die async Variante. */
+/** Sync generator: produces "happy-cloud" or "happy-cloud-k8x"
+ *  (with suffix). No conflict check — the caller is responsible for
+ *  uniqueness, or can use generateUniqueName() for the async variant. */
 export function generateAdjNounName(options: AdjNounNameOptions = {}): string {
   const sep = options.separator ?? "-";
   const adjs = options.adjectives ?? ADJECTIVES;
@@ -64,9 +64,9 @@ export function generateAdjNounName(options: AdjNounNameOptions = {}): string {
   return name;
 }
 
-/** Random-String aus dem no-confusable-Alphabet. Für Suffix-bei-Kollision
- *  oder als standalone short-IDs (z.B. Webhook-Verifizierungs-Codes
- *  zum Vorlesen am Telefon). length ≥ 1. */
+/** Random string from the no-confusable alphabet. For suffixes after
+ *  collisions or as standalone short IDs (e.g. webhook verification codes
+ *  to be read aloud over the phone). length ≥ 1. */
 export function generateNoConfusableId(length: number): string {
   if (length < 1) {
     throw new Error(`generateNoConfusableId: length must be ≥ 1 (got ${length})`);
@@ -79,36 +79,36 @@ export function generateNoConfusableId(length: number): string {
 }
 
 export type GenerateUniqueNameOptions = {
-  /** Caller-Predicate. Returns true wenn der Name noch nicht vergeben
-   *  ist (typisch: DB-Query "select where slug=$1" → row count === 0). */
+  /** Caller predicate. Returns true if the name is not yet assigned
+   *  (typically: DB query "select where slug=$1" → row count === 0). */
   readonly isAvailable: (name: string) => Promise<boolean>;
-  /** Max Versuche OHNE Suffix bevor wir auf suffix-mode wechseln.
-   *  Default 3. Bei 33.043 Default-Combos und ~150 existierenden
-   *  Tenants liegt p(Kollision) < 1% — 3 Versuche reichen weit. */
+  /** Maximum attempts WITHOUT a suffix before switching to suffix mode.
+   *  Default 3. With 33,043 default combinations and ~150 existing
+   *  tenants, p(collision) < 1% — 3 attempts are more than sufficient. */
   readonly maxCleanAttempts?: number;
-  /** Suffix-Länge bei Kollision-Mode. Default 3 (= 32.768 Combinations
-   *  pro Wortpaar). */
+  /** Suffix length in collision mode. Default 3 (= 32,768 combinations
+   *  per word pair). */
   readonly suffixLength?: number;
-  /** Hard-Cap an Total-Versuchen bevor wir aufgeben. Default 20.
-   *  Praktisch nie erreicht — wenn doch, ist die Wortliste leer oder
-   *  isAvailable() returnt durchgängig false (DB-Bug). */
+  /** Hard cap on total attempts before giving up. Default 20.
+   *  Rarely reached in practice — if it is, the word list may be empty or
+   *  isAvailable() may return false consistently (DB bug). */
   readonly maxTotalAttempts?: number;
   readonly separator?: string;
   readonly adjectives?: readonly string[];
   readonly nouns?: readonly string[];
 };
 
-/** Generiert einen unique Adj-Noun-Slug indem es bis zu maxCleanAttempts
- *  saubere Wortpaare versucht, danach mit random Suffix bis maxTotal-
- *  Attempts. Wirft wenn auch das nicht hilft (= caller hat ein Bug
- *  mit isAvailable, oder die Wortliste ist defekt).
+/** Generates a unique Adj-Noun slug by trying up to maxCleanAttempts
+ *  clean word pairs, then using a random suffix up to maxTotal-
+ *  Attempts. Throws if that also fails (= the caller has a bug
+ *  in isAvailable, or the word list is defective).
  *
- *  Beispiel:
+ *  Example:
  *    const slug = await generateUniqueName({
  *      isAvailable: async (s) =>
  *        !(await db.select().from(tenants).where(eq(tenants.tenantKey, s)).then(r => r.length > 0)),
  *    });
- *    // → "happy-cloud" oder "happy-cloud-k8x" bei Kollision
+ *    // → "happy-cloud" or "happy-cloud-k8x" on collision
  */
 export async function generateUniqueName(options: GenerateUniqueNameOptions): Promise<string> {
   const maxClean = options.maxCleanAttempts ?? 3;

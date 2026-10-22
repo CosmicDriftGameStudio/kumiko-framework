@@ -186,8 +186,7 @@ export function readStringOrRaw(node: Node): string | RawRefSentinel | undefined
  * Like readStringLiteralArgs, but an argument that resolves to a raw-ref
  * sentinel is kept as that sentinel instead of failing the whole call. Used
  * where a value stands in for a single name/key and inlining its resolved
- * string would corrupt the render roundtrip (e.g. `r.requires(someFeature.name)`
- * — see #1009).
+ * string would corrupt the render roundtrip (e.g. `r.requires(someFeature.name)`).
  */
 export function readStringOrRawArgs(
   call: CallExpression,
@@ -277,7 +276,7 @@ export type NameLiteralRef = { readonly value: string; readonly raw?: string };
 
 /**
  * Like `readNameLiteral`, but for callers that must preserve an
- * identifier-authored name across a render → parse round-trip (see #2111).
+ * identifier-authored name across a render → parse round-trip.
  * `raw` is populated only when the node resolved via an identifier — a
  * string-literal node has nothing worth preserving beyond its value, and
  * setting `raw` for it too would make `JSON.stringify(value)` and

@@ -157,13 +157,12 @@ export type AddDefineEventArgs = {
   readonly name: string;
   readonly schemaSource: string;
   // Raw source of the `piiFields` option value (e.g. `'"none"'` or an object
-  // literal) — mandatory, mirroring r.defineEvent's own required stance
-  // (fw#2558).
+  // literal) — mandatory, mirroring r.defineEvent's own required stance.
   readonly piiFieldsSource: string;
   readonly version?: number;
   // Keyed by fromVersion (as a string) → the transform source text for the
   // fromVersion -> fromVersion+1 step. Folded in from the former
-  // addEventMigration (#1082 step 8).
+  // addEventMigration.
   readonly migrations?: Readonly<Record<string, string>>;
 };
 

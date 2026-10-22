@@ -1,6 +1,6 @@
 // Constructor invariants for ExtraRouteRejection's `retryAfterSeconds` option
-// (kumiko-framework#3168): it only makes sense together with 503 and must
-// render as a valid Retry-After delta-seconds header.
+// It only makes sense together with 503 and must render as a valid Retry-After
+// delta-seconds header.
 
 import { describe, expect, test } from "bun:test";
 import { ExtraRouteRejection } from "../extra-route.ts";

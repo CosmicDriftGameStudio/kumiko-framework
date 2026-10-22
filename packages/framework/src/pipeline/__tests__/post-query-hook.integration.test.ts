@@ -1,13 +1,10 @@
-// F1 postQuery-Hook integration test — verifies firing through the real
-// dispatcher pipeline (handler-keyed + entity-keyed, order, shape-variants).
+// postQuery hook integration test — verifies firing through the real dispatcher
+// pipeline for handler-keyed and entity-keyed hooks, including order and shape variants.
 //
-// Covers advisor-gaps from F1-self-review:
-//   - integration test against real dispatcher (gap #1)
-//   - order: handler-keyed fires BEFORE entity-keyed (gap #2)
-//   - {rows}-shape (the most common case for list-handlers) (gap #3)
+// Covers integration with the real dispatcher, handler-keyed hooks firing before
+// entity-keyed hooks, and the {rows} shape used by list handlers.
 //
-// Memory `feedback_no_fake_dispatcher`: real HTTP-Calls via setupTestStack,
-// nicht createTestDispatcher.
+// Uses real HTTP calls through setupTestStack rather than createTestDispatcher.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";

@@ -1,11 +1,11 @@
-// SeedMigrationContext-Builder. Caller (runProdApp/CLI) übergibt einen
-// schon-konfigurierten Dispatcher; der Builder produziert pro-Migration
-// einen tx-scoped Context der via dispatcher.write den existierenden
-// Handler-Pfad nutzt — gleiches Pattern wie ein User-UI-Click.
+// SeedMigrationContext builder. The caller (runProdApp/CLI) supplies a
+// preconfigured dispatcher; the builder creates a transaction-scoped context
+// for each migration that uses the existing handler path through
+// dispatcher.write—the same pattern as a user UI click.
 //
-// SystemUser bypassed Access-Checks (Standard-Seed-Pattern, siehe
-// config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
-// → audit-fähig.
+// The system user bypasses access checks (the standard seed pattern; see
+// config-seed.ts:40). Events have createdBy = SYSTEM_TENANT_ID user,
+// making them auditable.
 
 import { configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto/index.ts";
 import type { DbRunner } from "../db/index.ts";
@@ -30,40 +30,40 @@ export type CreateSeedMigrationContextArgs = {
   readonly dbRunner: DbRunner;
 };
 
-/** Builder: gibt eine factory-function zurück die der Runner pro-Migration
- *  aufruft. Der dbRunner kann eine Top-Connection oder eine Tx sein —
- *  Read-Helpers nutzen ihn direkt, systemWriteAs delegiert an dispatcher.
+/** Builder that returns a factory function called by the runner for each
+ *  migration. dbRunner may be a top-level connection or a transaction—read
+ *  helpers use it directly, while systemWriteAs delegates to the dispatcher.
  *
- *  Hinweis: dispatcher.write bekommt den Runner-tx NICHT durchgereicht —
- *  runBatch öffnet eine eigene Transaktion auf context.db (eigene Pool-
- *  Connection). Die Writes committen daher unabhängig: ein Runner-Failure
- *  rollt NUR den Marker-Insert + dbRunner-reads zurück, die dispatcher-Writes
- *  bleiben committed. Seeds MÜSSEN deshalb idempotent sein (verifiziert in
- *  runner.integration.test.ts „dispatcher-writes vor throw bleiben committed"). */
+ *  dispatcher.write does not receive the runner transaction: runBatch opens
+ *  a separate transaction on context.db (using a separate pool connection).
+ *  Writes therefore commit independently: a runner failure rolls back only
+ *  the marker insert and dbRunner reads; dispatcher writes remain committed.
+ *  Seeds must therefore be idempotent (verified in
+ *  runner.integration.test.ts “dispatcher-writes vor throw bleiben committed”). */
 export function createSeedMigrationContext(
   args: CreateSeedMigrationContextArgs,
 ): SeedMigrationContext {
-  // Default-Executor für System-scope-Aggregates (config-values, system
-  // text-content, etc.). Bei Tenant-scope-Aggregates muss der Caller
-  // explizit `tenantIdOverride` übergeben — siehe types.ts Doku.
+  // Default executor for system-scope aggregates (config-values, system
+  // text-content, etc.). For tenant-scope aggregates, the caller must
+  // explicitly provide `tenantIdOverride`—see the documentation in types.ts.
   const defaultSystemUser = createSystemUser(SYSTEM_TENANT_ID);
 
   return {
     systemWriteAs: async (handlerQualifiedName, payload, tenantIdOverride, extraRoles) => {
-      // tenantIdOverride: baut einen System-User mit der Stream-tenantId
-      // damit der Event-Store-Executor das Aggregate im richtigen Stream
-      // findet. Verhindert die version_conflict-Falle (siehe Memory
-      // feedback_event_store_tenant_consistency.md).
+      // tenantIdOverride creates a system user with the stream tenant ID so that
+      // the event-store executor finds the aggregate in the correct stream.
+      // This prevents the version_conflict failure.
       const executor =
         tenantIdOverride !== undefined || (extraRoles && extraRoles.length > 0)
           ? createSystemUser(tenantIdOverride ?? SYSTEM_TENANT_ID, extraRoles)
           : defaultSystemUser;
       const result = await args.dispatcher.write(handlerQualifiedName, payload, executor);
-      // Critical: WriteResult{isSuccess: false} würde sonst silent durchlaufen
-      // → Marker landet trotz failed-Write → Migration falsch als "applied"
-      // markiert. Hier throw damit der Runner's outer-tx rollback macht und
-      // Marker NICHT geschrieben wird. Seed-Author kann via try/catch eigene
-      // Fehler-Behandlung machen wenn ein soft-failure erwartet ist.
+      // Without this check, WriteResult{isSuccess: false} would pass silently,
+      // causing the marker to be written despite the failed write and the
+      // migration to be incorrectly marked as "applied". Throw so the
+      // runner's outer transaction rolls back and the marker is not written.
+      // Seed authors can use try/catch for custom handling when a soft failure
+      // is expected.
       if (!result.isSuccess) {
         const code = result.error?.code ?? "unknown";
         const message = result.error?.message ?? "(no message)";
@@ -135,5 +135,5 @@ export function createSeedMigrationContext(
   };
 }
 
-// Re-export für Caller-Convenience.
+// Re-export for caller convenience.
 export type { SeedMigrationContext } from "./types.ts";

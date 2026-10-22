@@ -1,5 +1,5 @@
 // Boot-time env validation for the subject-keys KMS, shared by every app that
-// mounts crypto-shredding. Lived copy-pasted in four apps before fw#1617; the
+// mounts crypto-shredding. It lived copy-pasted in four apps; the
 // copies drifted apart in their parsers, which is the failure mode this module
 // exists to end.
 //
@@ -42,8 +42,7 @@ export type PgKmsRotationEnv = KmsWiringEnv & {
  *  plaintext fallback) so a short-lived process can `finally { await
  *  wiring.close() }` without narrowing first. Skipping it leaves the adapter's
  *  connection pool holding the event loop open and the process never exits —
- *  a long-running server is supposed to hold it, every ops script is not
- *  (fw#2551). */
+ *  a long-running server is supposed to hold it, every ops script is not. */
 export type KmsWiringRelease = { readonly close: () => Promise<void> };
 
 export type ActiveKmsWiring = KmsWiringRelease & {
@@ -73,7 +72,7 @@ const DEFAULT_PLAINTEXT_REASON = "local dev without subject-keys KMS (fw#818)";
 // the integer kek_version column never hits that slot, silently leaving
 // rotation-window rows unreadable. Same class: "0x10" -> 16, " 2 " trimmed,
 // "-1"/"0" accepted as versions, values past MAX_SAFE_INTEGER rounded.
-// A digits-only regex closes all of these at once (phronexsis#323).
+// A digits-only regex closes all of these at once.
 function parseKekVersion(raw: string, fieldName: string): number {
   if (!/^[0-9]+$/.test(raw)) {
     throw new Error(`${fieldName} must be a positive integer, got "${raw}".`);

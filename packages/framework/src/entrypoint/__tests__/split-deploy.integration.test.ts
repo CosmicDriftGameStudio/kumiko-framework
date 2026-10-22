@@ -39,7 +39,7 @@ const splitFeature = defineFeature("split", (r) => {
 
 // Consumed by the worker's OWN eventDispatcher after worker.start() — proves
 // the write→afterCommit→MSP chain runs end-to-end inside the worker lane,
-// not just that the write itself lands in the event store (framework#1720).
+// not just that the write itself lands in the event store.
 const consumedNotes: string[] = [];
 
 const workerWriteFeature = defineFeature("workerWrite", (r) => {
@@ -301,7 +301,7 @@ describe("entrypoint factories", () => {
   });
 });
 
-// --- Welle 2.6.b: runIn lane-filtering ---
+// --- runIn lane-filtering ---
 //
 // Covers the per-lane consumer filtering added to buildServer. The feature
 // declares three MSPs, one per runIn value, plus jobs with different runIns.
@@ -408,7 +408,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
   });
 });
 
-// --- Welle 2.6.c: boot-validation ---
+// --- boot-validation ---
 //
 // Jobs with runIn="api" can only be consumed by an API process that has
 // runLocalJobs=true — workers never look at the "api" queue. The entrypoint

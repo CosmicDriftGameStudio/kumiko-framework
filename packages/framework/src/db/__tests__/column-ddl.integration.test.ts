@@ -1,4 +1,4 @@
-// DDL-Render-Test: alle pgTable Column-Types + Builder-Optionen.
+// DDL render test: all pgTable column types and builder options.
 import { describe, expect, test } from "bun:test";
 import {
   bigint,

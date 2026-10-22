@@ -15,13 +15,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { requiredKeysFromScreen, screenTitleKey } from "../../i18n/required-surface-keys.ts";
 
-// fw#2519: the engine barrel exported ScreenDefinition (the union) but not
+// The engine barrel exported ScreenDefinition (the union) but not
 // its individual members — apps splitting screens out of feature.ts into
 // their own module (kumiko-guard-ui's 300-line limit) could only type the
 // union, losing per-kind checking. Every type imported below comes from the
 // public "@cosmicdrift/kumiko-framework/engine" subpath, not an internal
-// ../types path — an internal import would pass before the fix too, since
-// the internal barrel already had these.
+// ../types path — an internal import would pass too, since the internal
+// barrel already had these.
 //
 // The import above is `import type`, erased at runtime — this file guards
 // the barrel at compile time only (tsc, via `check-wt.sh`/CI), not via

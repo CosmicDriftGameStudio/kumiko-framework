@@ -110,7 +110,7 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
     expect(noHints && "uiHints" in noHints).toBe(false);
   });
 
-  // #1039: backing:"secrets" routes the value through the envelope-encrypted
+  // Backing:"secrets" routes the value through the envelope-encrypted
   // secrets store — the manifest must report encrypted:true even without an
   // explicit `encrypted` flag, so generated docs don't mislabel Stripe-style
   // secret-backed config keys as plaintext. (createConfigKey never emits an

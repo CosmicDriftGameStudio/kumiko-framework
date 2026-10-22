@@ -9,7 +9,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
 }
 
-// fw#2166: projectionDetail screens can declare header `actions`, reusing
+// projectionDetail screens can declare header `actions`, reusing
 // RowAction (the displayed record stands in for the row). `rowClick` has no
 // row to target on a detail screen and is rejected outright; navigate/
 // writeHandler actions get the same existence checks as entityList/

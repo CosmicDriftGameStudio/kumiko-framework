@@ -75,10 +75,10 @@ export function rebuildMetaOrThrow(table: unknown, projectionName: string): Enti
 }
 
 // Fence against a rebuild running with a registry that does not match the
-// migrated live schema (#835): during a rolling deploy, a pod still running
+// migrated live schema: during a rolling deploy, a pod still running
 // the previous build can pick up an async rebuild job; its shadow — built from
 // the stale EntityTableMeta — would swap away a freshly-migrated column
-// (recurrence class of #494). Compares COLUMN NAMES only; a type-/nullability-
+// (a recurring failure). Compares COLUMN NAMES only; a type-/nullability-
 // only drift passes (schema regression, not data loss — the boot gate of the
 // next deploy catches it). A missing live table is fine: nothing to wipe.
 // Must run BEFORE buildShadowTable; columnNamesOf pins table_schema='public',
@@ -109,7 +109,7 @@ export async function assertLiveColumnsMatchMeta(
   );
 }
 
-// EntityTableMeta carries no RLS/policies, so the swap would silently drop them (#2907).
+// EntityTableMeta carries no RLS/policies, so the swap would silently drop them.
 export async function assertLiveTableHasNoRowLevelSecurity(
   tx: AnyDb,
   tableName: string,
@@ -194,7 +194,7 @@ const UNREACHABLE_SAMPLE_LIMIT = 20;
 // Runs INSIDE the rebuild tx, under the fence, before swapShadowIntoLive. A live
 // row whose aggregate id has NO event in the projection's source streams is
 // UNREACHABLE: no replay can ever reconstruct it, so the swap would silently
-// drop it. That is the #498 ghost — a row direct-inserted without ever emitting
+// drop it. That is a ghost row direct-inserted without ever emitting
 // a .created event. The static CI guard cannot see it in data that already
 // exists in production, or on table identifiers it couldn't resolve; this
 // catches it at cutover and aborts (tx rolls back, live untouched).
@@ -205,14 +205,14 @@ const UNREACHABLE_SAMPLE_LIMIT = 20;
 //   - a blind-index column recomputed to NULL after the subject's key is
 //     shredded (GDPR erase) — the NULL is the intended end state;
 //   - a `sensitive` column stripped from the event log by design;
-//   - an archived stream that stops replaying (fw#832) — the row's wipe is the
+//   - an archived stream that stops replaying — the row's wipe is the
 //     intended tombstone behavior, reported via backfill's `failed` list;
 //   - a legacy column direct-written before its handler emitted events, healed
-//     by the #494 backfill-then-rebuild flow.
+//     by the backfill-then-rebuild flow.
 // Checking event existence INCLUDING archived streams leaves every one of them
 // alone: those rows all have a real event, so they are not ghosts. Column-level
-// drift is a SEPARATE, non-blocking check — see countColumnDrift below (#916,
-// resolves the #722 open question: observe, don't block).
+// drift is a SEPARATE, non-blocking check — see countColumnDrift below,
+// which resolves the open question: observe, don't block.
 //
 // Implicit projections only (caller-gated). aggregate_id and the entity id are
 // both uuid, so the anti-join probes the events index without a cast.
@@ -384,8 +384,8 @@ async function assertBlindIndexKeyMatchesLive(
 }
 
 // The bidx column is schema-driven, not key-driven: it exists NULL in a
-// plaintext install and in the fw#1610 case (KMS configured, no index key),
-// both of which are correct as-is. Only a POPULATED column with no key
+// plaintext install and in the case where KMS is configured but no index key
+// is present, both of which are correct as-is. Only a POPULATED column with no key
 // configured in THIS process means the rebuild is about to overwrite proof
 // of a real index with NULL — that's the one provable data-loss case.
 export async function assertNoBlindIndexLoss(
@@ -425,9 +425,9 @@ export async function assertNoBlindIndexLoss(
 // live-vs-shadow divergence. A blind-index column (`<field>_bidx`) is
 // recomputed to NULL on GDPR key-shredding; the NULL is the intended end
 // state, not drift. Everything else that legitimately diverges (archived
-// streams, #494 backfill) either never reaches this comparison (archived rows
+// streams, backfill) either never reaches this comparison (archived rows
 // are absent from the shadow entirely, see swapShadowIntoLive) or IS real
-// column drift that the #494 backfill-then-rebuild flow relies on replay to
+// column drift that the backfill-then-rebuild flow relies on replay to
 // heal — reporting it (without blocking) is correct, not a false positive.
 const COLUMN_DRIFT_SAMPLE_LIMIT = 20;
 
@@ -440,21 +440,21 @@ export type ColumnDriftResult = {
 // Runs INSIDE the rebuild tx, in the same slot as assertNoUnreachableLiveRows
 // (after replay settles, before swapShadowIntoLive). Non-blocking counterpart
 // to the ghost-row guard: reports live rows whose column values differ from
-// the freshly-replayed shadow, WITHOUT aborting the swap (#916, resolves the
-// #722 open question in favor of observe-not-block).
+// the freshly-replayed shadow, WITHOUT aborting the swap (it resolves the
+// open question in favor of observe-not-block).
 //
 // Why non-blocking: a legacy column direct-written before its handler emitted
-// events (#494) diverges from replay by design — that divergence is exactly
+// events diverges from replay by design — that divergence is exactly
 // what the backfill-then-rebuild flow relies on replay to heal. Failing hard
 // here would make rebuild mutually exclusive with that shipped healing path.
-// There is no reliable metadata to distinguish "#494 healing in progress" from
+// There is no reliable metadata to distinguish "healing in progress" from
 // "someone else corrupted this row" short of an open-ended per-column policy
 // blocklist — wrong-by-default whenever a class is missed. So: surface it,
 // don't police it. The caller logs the result; ops decides.
 //
-// Caveat: sensitive CUSTOM fields still diverge until #972 (Subject-DEK
-// design) — regular sensitive fields carry event-payload ciphertext parity
-// post-#973 and don't drift. Both are reported the same as any other column
+// Caveat: sensitive CUSTOM fields still diverge until the Subject-DEK
+// design — regular sensitive fields carry event-payload ciphertext parity
+// post-design and don't drift. Both are reported the same as any other column
 // drift; this is deliberate (see module comment above), not an oversight.
 //
 // Relies on assertLiveColumnsMatchMeta having already run: live/shadow/meta

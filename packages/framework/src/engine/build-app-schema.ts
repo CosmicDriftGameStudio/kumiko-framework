@@ -1,22 +1,22 @@
-// Erzeugt aus einer Server-Registry das client-safe AppSchema das die
-// Browser-Renderer-Pipeline konsumiert. Genauer Zweck: dev-server kann
-// die ganze hand-geschriebene `clientSchema`-Spiegelung abschaffen, der
-// Server schickt einfach das aufgelöste AppSchema beim Boot mit.
+// Builds the client-safe AppSchema from a server registry for the
+// browser renderer pipeline. The dev server can therefore drop its entire
+// hand-written `clientSchema` mirror and simply send the resolved AppSchema
+// during boot.
 //
-// JSON-Safety: Wir projezieren explizit auf eine Whitelist statt
-// JSON.stringify-roundtripping. Functions würden silent gedroppt und
-// Zod-Schemas (v4 hat .toJSON, aber emittiert ein _zod-Envelope) würden
-// als komische Ghost-Properties auftauchen. Das hier ist ein bewusster
-// Vertrag: was die Browser-Renderer-Pipeline liest, taucht hier auf.
-// Neue Browser-needed-Fields müssen explizit erweitert werden.
+// JSON safety: project explicitly onto a whitelist instead of round-tripping
+// through JSON.stringify. Functions would be silently dropped, and Zod schemas
+// (v4 has .toJSON, but emits a _zod envelope) would appear as strange ghost
+// properties. This is an intentional contract: everything read by the browser
+// renderer pipeline must appear here. New fields needed by the browser must be
+// added explicitly.
 //
-// Aktuell projeziert (Stand 2026-04-25):
+// Currently projected:
 //   Entity:    { table?, fields: { type, required?, sortable?, default? } }
-//   Screen:    verbatim (ScreenDefinition ist von Haus aus JSON-safe —
-//              custom-screens haben keine functions, layout/columns/etc.
-//              sind plain literals)
-//   Nav:       verbatim (NavDefinition ist nur strings + literals)
-//   Workspace: verbatim definition + getWorkspaceNavs() von der Registry
+//   Screen:    verbatim (ScreenDefinition is JSON-safe by design —
+//              custom screens have no functions; layout/columns/etc. are
+//              plain literals)
+//   Nav:       verbatim (NavDefinition contains only strings + literals)
+//   Workspace: verbatim definition + getWorkspaceNavs() from the registry
 //   Translations: verbatim feature.translations (raw r.translations keys,
 //                 unfiltered — see FeatureSchema.translations doc)
 //
@@ -102,7 +102,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
       ),
       ...(navs.length > 0 && { navs }),
       ...(contentCollections.length > 0 && { contentCollections }),
-      // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
+      // Verbatim r.translations({keys}) — see FeatureSchema.translations
       // doc for why this must NOT go through registry.getAllTranslations()
       // (double-prefixes features that already qualify their own keys).
       ...(Object.keys(feature.translations ?? {}).length > 0 && {
@@ -113,12 +113,12 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     features.push(featureSchema);
   }
 
-  // Workspaces: getAllWorkspaces() liefert mit QUALIFIZIERTEN ids (das
-  // schreibt die Registry beim Store-Overwrite ein). Die Browser-
-  // Renderer erwartet aber kurze ids (matcht gegen URL-Segment, gegen
-  // navigate({ workspaceId })). Wir gehen direkt durch `feature.workspaces`
-  // — dort sind die ids noch in der Autor-Form (short) — und ziehen die
-  // pre-resolved navMembers aus der Registry.
+  // Workspaces: getAllWorkspaces() returns QUALIFIED ids (the Registry writes
+  // them during store overwrite). The browser renderer expects short ids
+  // (matching the URL segment and navigate({ workspaceId })). We therefore
+  // read directly from `feature.workspaces`, where the ids are still in the
+  // author's short form, and obtain the pre-resolved navMembers from the
+  // registry.
   let workspaces: WorkspaceSchema[] = [];
   for (const [featureName, feature] of registry.features) {
     for (const [shortId, definition] of Object.entries(feature.workspaces)) {
@@ -130,16 +130,16 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     }
   }
 
-  // Self-Populating Settings-Hub: aus den deklarierten Config-Keys mit `mask`
-  // werden Screens/Navs (+ eine Workspace) abgeleitet und hier eingehängt —
-  // kein manuelles r.screen/r.nav am App-Author.
+  // Self-populating Settings Hub: screens/navs (plus one workspace) are
+  // derived from the declared config keys with `mask` and attached here,
+  // so the app author does not need manual r.screen/r.nav declarations.
   const appHadWorkspaces = workspaces.length > 0;
   const generated = buildConfigFeatureSchema(registry);
   if (generated.screens.length > 0) {
     mergeSettingsHubIntoConfigFeature(features, generated);
-    // Flip-Schutz: nur für Apps die schon Workspaces nutzen. Bei einer
-    // workspace-losen App bleibt app.workspaces undefined → der Renderer zeigt
-    // alle Navs ungefiltert, die Hub-Navs inklusive.
+    // Flip protection: applies only to apps that already use workspaces. For an
+    // app without workspaces, app.workspaces remains undefined, so the renderer
+    // shows all navs without filtering, including the Hub navs.
     if (appHadWorkspaces) {
       const placed = placeSettingsHub(workspaces, generated);
       workspaces = placed.workspaces;
@@ -172,10 +172,11 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
   return schema;
 }
 
-// Hängt die generierten Hub-Screens/Navs an die config-FeatureSchema (qualified
-// dann als config:screen:* / config:nav:*). Existiert sie noch nicht (config
-// bundled-feature nicht gemountet), wird sie angelegt. find-or-create statt
-// fixem Push verhindert eine zweite FeatureSchema mit demselben featureName.
+// Attaches the generated Hub screens/navs to the config FeatureSchema
+// (qualified as config:screen:* / config:nav:*). If it does not yet exist
+// (because the config bundled feature is not mounted), it is created. Using
+// find-or-create instead of an unconditional push prevents a second
+// FeatureSchema with the same featureName.
 function mergeSettingsHubIntoConfigFeature(
   features: FeatureSchema[],
   generated: ConfigFeatureSchema,
@@ -328,8 +329,8 @@ export function findNonJsonSafePath(value: unknown, path: string): string | null
 
 // projectionList screens don't declare searchable/sortable/paginated as
 // authoring intent — they're derived here from the bound query handler's
-// Zod schema, the source of truth for what parameters it actually accepts
-// (fw#2165). A hand-written `searchable: true` still wins over the derived
+// Zod schema, the source of truth for what parameters it actually accepts.
+// A hand-written `searchable: true` still wins over the derived
 // default (screen.searchable ?? derived); the boot-validator (3a) rejects
 // one that contradicts the schema.
 function projectScreens(
@@ -474,30 +475,30 @@ function projectEntities(
   return out;
 }
 
-// EntityDefinition ist eine Discriminated-Union an Field-Types — wir
-// kennen alle JSON-safe Properties pro Field-Type. Statt jede Variante
-// einzeln auszuhandeln, walken wir die Field-Map und filtern auf die
-// Whitelist. Was nicht durchkommt: Server-only-runtime wie ZodValidate-
-// Functions, Computed-Functions, Default-Functions.
+// EntityDefinition is a discriminated union of field types, and we know the
+// JSON-safe properties for each type. Rather than handling every variant
+// separately, walk the field map and filter it through the whitelist. Values
+// that do not pass through include server-only runtime values such as
+// ZodValidate functions, computed functions, and default functions.
 function projectEntity(entityName: string, entity: EntityDefinition): EntityDefinition {
   const fieldsOut: Record<string, EntityFieldDefinition> = {};
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     assertValidMultilineRows(`Entity "${entityName}"`, fieldName, fieldDef);
     fieldsOut[fieldName] = projectField(fieldDef);
   }
-  // derivedFields MÜSSEN mit ins Client-Schema (nur die Metadaten, nicht die
-  // derive-fn): computeListViewModel löst eine entityList-Spalte über
-  // `entity.derivedFields[field].valueType` auf — fehlt der Eintrag, wirft es
-  // "references unknown field". Der executor hat den Wert server-seitig schon
-  // an die Row gehängt; der Client braucht nur den valueType für den Renderer.
+  // derivedFields MUST be included in the client schema (metadata only, not the
+  // derive function): computeListViewModel resolves an entityList column via
+  // `entity.derivedFields[field].valueType`; without the entry it throws
+  // "references unknown field". The executor has already attached the value
+  // server-side to the row; the client only needs valueType for rendering.
   const derivedOut: Record<string, ClientDerivedFieldDef> = {};
   for (const [name, derivedDef] of Object.entries(entity.derivedFields ?? {})) {
     derivedOut[name] = projectDerivedField(derivedDef);
   }
-  // EntityDefinition akzeptiert idType/access/searchWeight als optional —
-  // wir lassen die weg weil der Browser-Renderer sie nicht liest. `table`
-  // schicken wir mit, falls Apps `entity.table` direkt referenzieren.
-  // Kein Cast nötig: alle weggelassenen Felder sind `?`-optional.
+  // EntityDefinition accepts idType/access/searchWeight as optional, but we omit
+  // them because the browser renderer does not read them. `table` is included
+  // in case apps reference `entity.table` directly.
+  // No cast is needed: all omitted fields are optional (`?`).
   return {
     fields: fieldsOut,
     // @cast-boundary schema-walk: EntityDefinition.derivedFields is typed for
@@ -516,10 +517,10 @@ function projectEntity(entityName: string, entity: EntityDefinition): EntityDefi
   };
 }
 
-// Nur valueType durch — die derive-fn ist Server-only und NICHT JSON-safe
-// (würde sonst die Output-Walk-Guard triggern). Gibt ehrlich
-// ClientDerivedFieldDef zurück statt eine DerivedFieldDef vorzutäuschen,
-// die keine derive-fn hat.
+// Only valueType is forwarded — the derive function is server-only and is not
+// JSON-safe (it would otherwise trigger the output-walk guard). Return
+// ClientDerivedFieldDef honestly instead of pretending to return a
+// DerivedFieldDef without its derive function.
 function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef {
   return { valueType: derivedDef.valueType };
 }
@@ -582,21 +583,21 @@ function projectField(fieldDef: FieldDefinition): EntityFieldDefinition {
   if (typeof def["type"] === "string") out["type"] = def["type"];
   if (typeof def["required"] === "boolean") out["required"] = def["required"];
   if (typeof def["sortable"] === "boolean") out["sortable"] = def["sortable"];
-  // filterable steuert die Faceted-Filter-Dropdowns im Renderer (select/
-  // boolean) — muss daher ins Client-Schema.
+  // filterable controls the faceted filter dropdowns in the renderer (select/
+  // boolean), so it must be included in the client schema.
   if (typeof def["filterable"] === "boolean") out["filterable"] = def["filterable"];
   if (typeof def["searchable"] === "boolean") out["searchable"] = def["searchable"];
   if (isJsonSafeValue(def["default"])) out["default"] = def["default"];
-  // Select: options-Liste ist plain JSON, durchschicken.
+  // Select: the options list is plain JSON, so forward it.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
   if (isJsonSafeObject(def["optionTones"])) out["optionTones"] = def["optionTones"];
-  // Reference: entity-Target + labelField + multiple müssen zum Renderer.
-  // Der ReferenceInput baut die Options-Query aus refEntity/refFeature und
-  // resolved das Label über labelField — ohne diese Properties fällt das
-  // Dropdown leer aus (QN wird `<feature>:query::list` → 404).
+  // Reference: entity target, labelField, and multiple are required by the
+  // renderer. ReferenceInput builds the options query from refEntity/refFeature
+  // and resolves the label through labelField; without these properties, the
+  // dropdown is empty (the QN becomes `<feature>:query::list` → 404).
   if (typeof def["entity"] === "string") out["entity"] = def["entity"];
   if (typeof def["labelField"] === "string") out["labelField"] = def["labelField"];
-  // fw#2780: author-supplied picker source — without it the client falls back to the list handler.
+  // Author-supplied picker source — without it the client falls back to the list handler.
   if (typeof def["optionsQuery"] === "string") out["optionsQuery"] = def["optionsQuery"];
   // Select: tier/tenant availability of the static options, loaded by the renderer.
   if (typeof def["optionsAvailabilityQuery"] === "string")
@@ -607,22 +608,22 @@ function projectField(fieldDef: FieldDefinition): EntityFieldDefinition {
   if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer
-  // always falls back to the combobox (fw#2494). Select: display picks
+  // always falls back to the combobox. Select: display picks
   // "radio" | "dropdown" the same way.
   if (typeof def["display"] === "string") out["display"] = def["display"];
   if (typeof def["columns"] === "number") out["columns"] = def["columns"];
   if (typeof def["maxRows"] === "number") out["maxRows"] = def["maxRows"];
   // text/longText: textarea row count — DefaultInput renders a single-line
-  // input otherwise (fw#2497).
+  // input otherwise.
   if (typeof def["multiline"] === "boolean" || isJsonSafeObject(def["multiline"]))
     out["multiline"] = def["multiline"];
   // number: Zod write-boundary bounds. date/timestamp/locatedTimestamp:
-  // ISO-string picker bounds — same keys, different literal type (fw#2497).
+  // ISO-string picker bounds — same keys, different literal type.
   if (typeof def["min"] === "number" || typeof def["min"] === "string") out["min"] = def["min"];
   if (typeof def["max"] === "number" || typeof def["max"] === "string") out["max"] = def["max"];
-  // date/timestamp/locatedTimestamp: display/parsing locale override (fw#2497).
+  // date/timestamp/locatedTimestamp: display/parsing locale override.
   if (typeof def["locale"] === "string") out["locale"] = def["locale"];
-  // image/images: which camera a mobile capture opens (fw#2497).
+  // image/images: which camera a mobile capture opens.
   if (typeof def["capture"] === "string") out["capture"] = def["capture"];
   // number: display-only suffix, static or read from a sibling field of the row.
   const unit = def["unit"];
@@ -646,19 +647,19 @@ function projectField(fieldDef: FieldDefinition): EntityFieldDefinition {
   if (isJsonSafeObject(def["variants"])) out["variants"] = def["variants"];
   // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
   if (typeof def["scale"] === "number") out["scale"] = def["scale"];
-  // money: declared currency source (MoneyCurrencySource, fw#2933) — without
+  // money: declared currency source (MoneyCurrencySource) — without
   // it the renderer can't tell a "currency: { kind: 'tenant' }" field apart
   // from an undeclared one and always falls back to entity.defaultCurrency.
   if (isJsonSafeObject(def["currency"])) out["currency"] = def["currency"];
   // embedded lists: row-count bounds, computed cells, totals row, and the
-  // sibling-money-field totals check (fw#2497).
+  // sibling-money-field totals check.
   if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];
   if (typeof def["maxItems"] === "number") out["maxItems"] = def["maxItems"];
   if (isJsonSafeObject(def["derived"])) out["derived"] = def["derived"];
   if (isJsonSafeArray(def["totals"])) out["totals"] = def["totals"];
   if (isJsonSafeObject(def["totalsMatch"])) out["totalsMatch"] = def["totalsMatch"];
   // embedded lists: the sub-field map itself — without it the client-side
-  // edit view-model iterates `undefined` and the screen crashes (fw#2507).
+  // edit view-model iterates `undefined` and the screen crashes.
   // Recursive per sub-field, NOT a blanket isJsonSafeValue gate: a single
   // sub-field carrying a validator fn would otherwise drop the whole map,
   // and a blanket copy would ship server internals.

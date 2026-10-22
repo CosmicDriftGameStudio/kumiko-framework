@@ -176,7 +176,7 @@ export type ServerOptions = {
   errorDocs?: ErrorDocsConfig;
   // No `files` option: file-storage is wired by mounting `file-foundation` +
   // a `file-provider-*` feature. Upload routes, ctx.files and the GDPR jobs
-  // resolve the provider per-tenant through that single source (issue #608).
+  // resolve the provider per-tenant through that single source.
   // Upload-route policy (accessGuard/privilegedRoles/maxUploadSize) lives on
   // `createFilesFeature(opts?)`.
   // Async event-dispatcher config. The dispatcher is created automatically
@@ -290,12 +290,12 @@ export type ServerOptions = {
   //   "api":    picks up MSPs with runIn in {api, both}.
   //   "worker": picks up MSPs with runIn in {worker, both, undefined (default)}.
   //   "both":   all-in-one, no filtering — every MSP runs here.
-  // When omitted, defaults to "worker" — preserves pre-Welle-2.6 behaviour
+  // When omitted, defaults to "worker" — preserves previous behaviour
   // (every MSP runs on the single dispatcher, wherever it lives).
   processLane?: RunIn;
   // Stable identifier for THIS process in the event-consumer state table.
-  // Used as the `instance_id` on every per-instance consumer's cursor row
-  // (Welle 2.7). Shared consumers ignore this and always write the reserved
+  // Used as the `instance_id` on every per-instance consumer's cursor row.
+  // Shared consumers ignore this and always write the reserved
   // sentinel. Default: `process.env.KUMIKO_INSTANCE_ID ?? generateId()`
   // — a fresh UUID at boot is fine for single-process deploys, but
   // multi-instance deploys SHOULD set KUMIKO_INSTANCE_ID to a stable
@@ -314,7 +314,7 @@ export type ServerOptions = {
   // escape-hatches). Each entry declares its access tier (`entry`) up
   // front — buildServer wires the matching guard + deps, no handler gets a
   // raw db/redis. Mounted right after the r.httpRoute loop, before
-  // registerVersionRoute (kumiko-framework#3050).
+  // registerVersionRoute.
   extraRoutes?: readonly ExtraRouteDefinition[];
 };
 
@@ -340,7 +340,7 @@ export type KumikoServer = {
   // observability tracer/meter). Callers that build a second consumer of the
   // same registry outside this server (a dev-server's job-runners) must pass
   // THIS, not their own pre-buildServer literal, or that consumer reaches for
-  // fields only the request path has (#1232).
+  // fields only the request path has.
   context: AppContext;
 };
 
@@ -421,11 +421,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
 
-  // #2051 — a screen whose search box renders (kumiko-screen.tsx gates it on
+  // A screen whose search box renders (kumiko-screen.tsx gates it on
   // `screen.searchable ?? entity-has-searchable-field`, the same condition
   // used below) sends `payload.search` on every query. Without a
   // context.searchAdapter that throws UnprocessableError at request time
-  // (#2032) — surface the misconfig at boot instead of on the first search.
+  // — surface the misconfig at boot instead of on the first search.
   // Warn, not throw: unlike missing file-storage (uploads always fail),
   // list screens still work without search: only the search box is broken.
   // Several deployed apps (offlot-app, publicstatus, kumiko-studio,
@@ -454,8 +454,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // An explicit ServerOptions.sseBroker always wins (caller owns its
   // lifecycle) — createDefaultSseBroker is the single decision point every
   // other caller must funnel through instead of picking a broker on its
-  // own, so the REDIS_URL-gated cross-replica default (fw#2625) can't be
-  // silently bypassed the way runProdApp bypassed it before this existed.
+  // own, so the REDIS_URL-gated cross-replica default can't be silently
+  // bypassed the way runProdApp bypassed it before this existed.
   let sseBroker: SseBroker;
   let ownedRedisSseBroker: RedisSseBroker | undefined;
   if (options.sseBroker) {
@@ -493,7 +493,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
   // Warn when we fell back to a random UUID. The built-in SSE consumer is
-  // delivery="shared" (one cursor for all pods, fw#2625), so it no longer
+  // delivery="shared" (one cursor for all pods), so it no longer
   // writes a row per instance. The id still labels this process in the
   // app.started event and in per-instance consumers (opt-in delivery), where a
   // fresh id per boot leaves an orphaned cursor-row that pins pruneEvents
@@ -673,7 +673,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   if (jobTriggerConsumerEnabled && jobRunnerForTriggers) {
     systemConsumers.push(createJobTriggerEventConsumer(jobRunnerForTriggers, options.registry));
   }
-  // Default ON (#1524 global-by-default). Tests that opt out of SSE via
+  // Default ON (global-by-default). Tests that opt out of SSE via
   // systemConsumers.accessInvalidation=false (test-stack mirrors sse off)
   // skip the row so retention prune suites are not blocked by a lagging
   // cursor=0 consumer they never drain.
@@ -689,7 +689,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // baseDb DbRunner; tenant consistency comes from the triggering event's
   // own tenantId, not a per-event TenantDb scope.
   //
-  // Lane-filter (Welle 2.6.b): MSPs declare `runIn` to pin them to a
+  // Lane-filter: MSPs declare `runIn` to pin them to a
   // deploy-lane. An MSP with `runIn: "api"` won't be wired into the
   // worker-process dispatcher (and vice versa). `runIn: "both"` (or the
   // legacy undefined default of "worker") runs wherever a dispatcher is
@@ -904,7 +904,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   );
 
   // Tripwire: a kumiko-pii: ciphertext in a JSON response is always a bug
-  // (raw read leaked past a decrypt) — dev fails loud, prod redacts (#820).
+  // (raw read leaked past a decrypt) — dev fails loud, prod redacts.
   app.use("/api/*", piiCiphertextResponseGuard());
 
   // Auth middleware skips public paths (login, health) — those routes need
@@ -1084,7 +1084,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // also gets rejected below — the schema never reaches an unauthenticated
   // caller. The FULL schema is built lazily once — the registry is
   // immutable for this server's lifetime, so it's the same on every
-  // request — then projected per caller-role-set (fw#3314: a role only
+  // request — then projected per caller-role-set (a role only
   // sees the screens/navs/workspaces/content-collections it may reach,
   // not the whole app's schema) and cached per role key. Tenant is
   // deliberately NOT part of the key: the projection depends only on
@@ -1164,16 +1164,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
     );
   }
 
-  // Feature-deklarierte HTTP-Routes (r.httpRoute). Mount nach /api/* damit
-  // /api/* immer Vorrang hat — feature-Routes liegen ohnehin außerhalb
-  // (Boot-Validator blockt /api-Prefix). deps.app ist die Outer-App, sodass
-  // der Handler /api/query intern via app.fetch(...) nutzen kann (gleicher
-  // Auth-Pfad wie ein echter HTTP-Call). deps.systemQuery umgeht diesen
-  // Pfad bewusst — für Routes die einen FESTEN Tenant erzwingen müssen
-  // (z.B. legal-pages → immer SYSTEM_TENANT_ID), statt ihn per X-Tenant-
-  // Header vorzutäuschen (das sieht für die anonymousAccess-Auflösung
-  // wie ein normaler Client-Header aus und wird von resolverTrust:
-  // "authoritative"-Configs zurecht als Tenant-Override abgelehnt).
+  // Feature-declared HTTP routes (r.httpRoute). Mount after /api/* so /api/* always
+  // takes precedence; feature routes must be outside that prefix (the boot validator
+  // enforces this). deps.app is the outer app, so the handler can call /api/query
+  // internally through app.fetch(...) and use the same auth path as a real HTTP call.
+  // deps.systemQuery deliberately bypasses that path for routes that must enforce a
+  // FIXED tenant (for example, legal-pages always uses SYSTEM_TENANT_ID), rather than
+  // spoofing it through the X-Tenant header. That header looks like a normal client
+  // header to anonymousAccess resolution, so resolverTrust: "authoritative" configs
+  // correctly reject it as a tenant override.
   for (const feature of options.registry.features.values()) {
     for (const route of Object.values(feature.httpRoutes)) {
       // @wrapper-known semantic-alias
@@ -1248,8 +1247,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
     }
   }
 
-  // extraRoutes (kumiko-framework#3050) — declarative HTTP-routes with a
-  // Pflicht `entry` tier. Mounted after r.httpRoute for the same reason: an
+  // extraRoutes — declarative HTTP-routes with a
+  // required `entry` tier. Mounted after r.httpRoute for the same reason: an
   // extraRoute dispatching through `dispatcher` builds Hono's matcher, so
   // this must run before any seed that also dispatches (runProdApp/
   // createKumikoServer call buildServer before seeding).
@@ -1322,10 +1321,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     }
   }
 
-  // /version-Default registriert NACH feature-routes — Hono "first match
-  // wins", also gewinnt feature-deklariertes /version (z.B. App-spezifisches
-  // version-format mit Tenant-Stats) wenn vorhanden, sonst greift der
-  // Default-Handler aus BUILD_VERSION/BUILD_TIME-env-vars.
+  // The default /version route is registered AFTER feature routes — Hono uses
+  // "first match wins", so a feature-declared /version route (for example, an
+  // app-specific version format with tenant statistics) takes precedence when
+  // present; otherwise the default handler uses BUILD_VERSION/BUILD_TIME environment
+  // variables.
   registerVersionRoute(app);
 
   // Marks "no route matched this path" so tryHonoFirst (server-runtime)
@@ -1333,7 +1333,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // default-deny reads like file-derivatives' public-variant route) —
   // without this, tryHonoFirst's only signal was the status code, and a
   // matched route answering 404 got silently rewritten to the SPA shell
-  // with status 200 (kumiko-framework#2435). Must be the LAST thing wired
+  // with status 200. Must be the LAST thing wired
   // on `app`: this only fires when the router found no handler at all, so
   // a route's own `c.text(..., 404)` never passes through here. A handler
   // that calls `c.notFound()` instead of building its own Response DOES
@@ -1780,8 +1780,8 @@ function registryDeclaresFileFields(registry: Registry): boolean {
 // === false` is excluded — the boot-validator (entity-list-screens.ts) only
 // allows that on the whitelisted download-attempt-list-style screens, which
 // never render the box. This is the config-only half of the rule; the
-// client additionally gates on FeatureSchema.searchAdapterMissing (#2062,
-// set from the same `!options.context.searchAdapter` check below) so the
+// client additionally gates on FeatureSchema.searchAdapterMissing
+// (set from the same `!options.context.searchAdapter` check below) so the
 // box is actually suppressed once this function finds a hit.
 function entitiesWithSearchableScreen(registry: Registry): readonly string[] {
   const entities = new Set<string>();

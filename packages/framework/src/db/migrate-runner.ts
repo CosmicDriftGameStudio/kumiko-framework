@@ -1,18 +1,18 @@
-// Migrate-Runner: applied checked-in SQL-Files gegen eine DB.
-// Ersatz für `drizzle-kit migrate` als Runtime-Komponente.
+// Migration runner: applies checked-in SQL files to a database.
+// Replaces `drizzle-kit migrate` as a runtime component.
 //
-// **NO-MAGIC-ON-DATA Kernprinzip** (siehe drizzle-replacement.md):
-//   - Runner liest NUR checked-in `<dir>/*.sql` Files
-//   - Kein Reach-back zu EntityDefinition zur Runtime
-//   - Kein Auto-Apply-on-App-Boot — Deploy-Skript oder Init-Container ruft
-//     `kumiko migrate apply` als eigenen Schritt
-//   - Schema-Drift wird durch Checksum-Mismatch fail-loud detektiert
+// **NO-MAGIC-ON-DATA core principle** (see drizzle-replacement.md):
+//   - The runner reads ONLY checked-in `<dir>/*.sql` files.
+//   - It does not reach back to EntityDefinition at runtime.
+//   - It does not auto-apply on app boot — a deploy script or init container
+//     invokes `kumiko migrate apply` as a separate step.
+//   - Schema drift is detected fail-loudly through checksum mismatches.
 //
-// Tracking-Table `_kumiko_migrations(id, applied_at, checksum)`. id = filename
-// ohne .sql-Endung. Checksum = sha256 vom File-Content beim Apply. Wenn ein
-// schon-appliedes File nachträglich editiert wird, schlägt der nächste Apply
-// fehl mit klarer Fehlermeldung (production-DBs haben das alte SQL drin —
-// edit nachträglich = production-state inkonsistent mit committed-state).
+// Tracking table: `_kumiko_migrations(id, applied_at, checksum)`. `id` is the
+// filename without the `.sql` suffix. The checksum is the sha256 hash of the
+// file content at apply time. If an already-applied file is edited, the next
+// apply fails with a clear error (production databases contain the old SQL —
+// editing it makes production state inconsistent with committed state).
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -28,8 +28,8 @@ import {
 } from "./query.ts";
 
 export type Migration = {
-  readonly id: string; // filename ohne .sql
-  readonly checksum: string; // sha256-hex vom File-Content
+  readonly id: string; // filename without .sql
+  readonly checksum: string; // sha256 hex of the file content
   readonly statements: readonly string[];
 };
 
@@ -43,9 +43,9 @@ export type ApplyResult = {
   readonly skipped: readonly string[];
 };
 
-// Advisory-lock key (random 32-bit int, stable). Verhindert dass zwei
-// gleichzeitig bootende Pods beide migrate apply laufen lassen (zweiter
-// blockiert bis erster fertig).
+// Advisory-lock key (random 32-bit integer, stable). Prevents two Pods
+// booting at the same time from both running migrate apply (the second
+// blocks until the first finishes).
 export const MIGRATION_ADVISORY_LOCK_KEY = 0x6b756d69; // "kumi" in ASCII
 
 const MIGRATIONS_TABLE_DDL = `
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS "_kumiko_migrations" (
 )
 `.trim();
 
-// Plain `;`-split breaks on `;` inside comments/string literals (#1542).
+// Plain `;`-split breaks on `;` inside comments/string literals.
 type SqlScanState = "normal" | "lineComment" | "blockComment" | "singleQuote" | "doubleQuote";
 
 export function splitSqlStatements(sqlText: string): readonly string[] {
@@ -185,7 +185,7 @@ function sha256Hex(content: string): string {
 // returns Migration[] with id + checksum + statements. `preprocess` is an
 // optional hook applied to each file's raw content before splitting/hashing
 // — used by replayMigrationsDir to expand its DESTRUCTIVE-marker comments
-// without a second, drifting copy of this file-discovery logic (#1522/9).
+// without a second, drifting copy of this file-discovery logic.
 export function loadMigrationsFromDir(
   dir: string,
   preprocess?: (sql: string) => string,
@@ -283,9 +283,9 @@ export class MigrationChecksumMismatchError extends Error {
   }
 }
 
-// Apply pending migrations. Idempotent: schon applied migrations werden via
-// _kumiko_migrations-Lookup übersprungen. Checksum-Mismatch wirft fail-loud.
-// Advisory-Lock verhindert concurrent-apply-races.
+// Applies pending migrations. Idempotent: already-applied migrations are
+// skipped via the _kumiko_migrations lookup. Checksum mismatches fail loudly.
+// The advisory lock prevents concurrent-apply races.
 export async function runMigrations(
   db: DbConnection,
   migrations: readonly Migration[],
@@ -316,9 +316,9 @@ export async function runMigrations(
           skippedIds.push(m.id);
           continue;
         }
-        // Apply file content + INSERT tracking-row in einer TX. Wenn ein
-        // Statement bricht, Rollback inkl. Tracking-Row → kein partial-apply
-        // stuck in den books.
+        // Applies the file content and INSERT tracking row in one transaction. If a
+        // statement fails, the rollback includes the tracking row, so no partial
+        // apply remains stuck in the books.
         await conn.unsafe("BEGIN");
         try {
           for (const stmt of m.statements) {
@@ -348,8 +348,8 @@ export async function runMigrations(
   }
 }
 
-// Convenience: load + run in einem Call. Wird vom `kumiko migrate apply`
-// CLI-Command + von Test-Setup-Helfern verwendet.
+// Convenience: loads and runs migrations in one call. Used by the
+// `kumiko migrate apply` CLI command and by test setup helpers.
 export async function runMigrationsFromDir(db: DbConnection, dir: string): Promise<ApplyResult> {
   const migrations = loadMigrationsFromDir(dir);
   return runMigrations(db, migrations);

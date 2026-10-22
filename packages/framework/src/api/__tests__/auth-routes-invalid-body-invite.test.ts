@@ -38,7 +38,7 @@ function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
     async resolveActiveMembership() {
       return { kind: "rejected", reason: "not_a_member" };
     },
-    // Stream API added with r.streamHandler (#1446) — stub unused in these routes.
+    // Stream API added with r.streamHandler — stub unused in these routes.
     async *stream(): AsyncGenerator<unknown> {},
     // Not exercised by these routes.
     createMemberReader() {

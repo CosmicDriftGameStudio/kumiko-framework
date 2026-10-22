@@ -1,17 +1,17 @@
-// @no-server-stack: seed-runner ist boot-time-Code — dispatcher.write läuft
-// direkt vor entrypoint.start() (run-prod-app-Pattern), kein HTTP-route nötig.
+// @no-server-stack: the seed runner is boot-time code — dispatcher.write runs
+// immediately before entrypoint.start() (run-prod-app pattern), so no HTTP route is needed.
 //
-// Integration-Test gegen echtes Postgres + echten Dispatcher. Verifiziert:
-// - Marker landet in kumiko_es_operations nach Erfolg
-// - Idempotency: zweiter Boot skipped applied seeds
-// - Tx-Rollback bei Failure (kein Marker geschrieben)
-// - systemWriteAs leitet zum echten Handler im SYSTEM_TENANT-Stream durch
-// - WriteResult{isSuccess:false} bricht den Run ab (kein Marker)
+// Integration test against real Postgres and the real dispatcher. Verifies:
+// - The marker is written to kumiko_es_operations after success
+// - Idempotency: the second boot skips applied seeds
+// - Transaction rollback on failure (no marker is written)
+// - systemWriteAs reaches the real handler in the SYSTEM_TENANT stream
+// - WriteResult{isSuccess:false} aborts the run (no marker is written)
 //
-// createDispatcher statt setupTestStack/HTTP: der seed-runner ist boot-time-
-// Code, das dispatcher.write direkt vor entrypoint.start() ruft (siehe
-// run-prod-app.ts) — kein HTTP-route. Ein echtes esopstest-Feature liefert die
-// Handler, die die Seeds adressieren; nichts wird gemockt.
+// createDispatcher is used instead of setupTestStack/HTTP because the seed runner is
+// boot-time code that calls dispatcher.write immediately before entrypoint.start()
+// (see run-prod-app.ts), not an HTTP route. A real esopstest feature provides the
+// handlers targeted by the seeds; nothing is mocked.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -97,8 +97,8 @@ beforeAll(async () => {
   registry = createRegistry([seedTestFeature]);
   dispatcher = createDispatcher(registry, {
     db: testDb.db,
-    // Der seed-migration-Pfad nutzt weder redis noch entityCache — undefined
-    // ist hier safe, der `as never`-Cast unterdrückt nur die required-Typen.
+    // The seed-migration path uses neither redis nor entityCache — undefined
+    // is safe here; the `as never` cast only suppresses the required types.
     redis: undefined as never,
     entityCache: undefined as never,
     registry,
@@ -310,9 +310,9 @@ describe("runPendingSeedMigrations (integration)", () => {
   });
 
   test("WriteResult{isSuccess:false} → throw + Marker NICHT geschrieben", async () => {
-    // Critical: ohne diese Garantie würde ein silent-failed Write den Seed
-    // als "applied" markieren → beim nächsten Boot kein retry → DB-Drift
-    // bleibt unbemerkt.
+    // Without this guarantee, a silently failed Write would mark the seed as
+    // "applied", preventing a retry on the next boot and leaving database drift
+    // undetected.
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-write-fails.ts",
@@ -338,8 +338,8 @@ describe("runPendingSeedMigrations (integration)", () => {
         }),
       ).rejects.toThrow(/version_conflict/);
 
-      // Kein Marker — bei nächstem Boot würde der Seed retried. Und der
-      // fehlgeschlagene Write hat kein Event hinterlassen.
+      // No marker — the seed would be retried on the next boot, and the failed
+      // Write left no event behind.
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
       expect(await selectEvents()).toHaveLength(0);
@@ -349,18 +349,18 @@ describe("runPendingSeedMigrations (integration)", () => {
   });
 
   test("documented limitation: dispatcher-writes vor throw bleiben committed (idempotency-Pflicht für seeds)", async () => {
-    // Documents NICHT-Garantie aus dem README: systemWriteAs läuft durch den
-    // App-Dispatcher mit eigener tx-Verwaltung (runBatch öffnet eine eigene
-    // Transaktion auf context.db, der Runner-outer-tx wird NICHT durchgereicht)
-    // — die Runner-Tx schützt NUR den Marker-Insert + direct dbRunner-reads,
-    // NICHT die dispatcher-Writes. Daher müssen Seeds idempotent sein.
+    // Documented limitation: systemWriteAs runs through the app dispatcher,
+    // which manages its own transaction (runBatch opens a separate transaction
+    // on context.db; the runner's outer transaction is not passed through).
+    // The runner transaction therefore protects only the marker insert and
+    // direct dbRunner reads, not dispatcher writes. Seeds must be idempotent.
     //
-    // Test: dispatcher.write committet 1× erfolgreich, dann throws der Seed.
-    // Expectation:
-    //   - das Event ist committed (überlebt den Runner-Rollback)
-    //   - kein Marker (run wurde zurückgerollt)
-    //   - bei retry beim nächsten Boot muss der Write idempotent sein, sonst
-    //     Duplikat — genau die dokumentierte Pflicht.
+    // Test: dispatcher.write commits successfully once, then the seed throws.
+    // Expected:
+    //   - the event is committed and survives the runner rollback
+    //   - no marker is written because run is rolled back
+    //   - a retry on the next boot must be idempotent, or it will create a
+    //     duplicate — this is the documented requirement.
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-write-then-throw.ts",
@@ -387,12 +387,13 @@ describe("runPendingSeedMigrations (integration)", () => {
         }),
       ).rejects.toThrow(/post-write failure/);
 
-      // Event blieb committed — der dispatcher-tx ist vom runner-tx isoliert.
+      // The event remains committed because the dispatcher transaction is
+      // isolated from the runner transaction.
       const events = await selectEvents();
       expect(events).toHaveLength(1);
       expect(events[0]?.type).toBe("esops-probe.created");
-      // Marker NICHT gesetzt — retry beim nächsten Boot führt die Migration
-      // nochmal aus. Wenn der Write nicht idempotent ist → Duplikat.
+      // No marker is written, so the migration runs again on the next boot.
+      // A non-idempotent write would create a duplicate.
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);
     } finally {
@@ -401,12 +402,12 @@ describe("runPendingSeedMigrations (integration)", () => {
   });
 
   test("applied-set filter: entries already in kumiko_es_operations werden geskipped", async () => {
-    // Test deckt den loadAppliedIds-Filter ab (pending = files \ applied).
-    // Der pg_advisory_xact_lock + inner-tx re-check ist eine zweite Defense-
-    // Linie für echte parallel-Pod-Races zwischen loadAppliedIds und der
-    // pro-Migration Tx — diese Race ist empirisch nicht reproduzierbar in
-    // einem Single-Process-Test ohne extra Lock-Coordination. Wir verifizieren
-    // hier nur die obere Filter-Schicht (häufigster Pfad).
+    // Covers the loadAppliedIds filter (pending = files \ applied).
+    // The pg_advisory_xact_lock and inner-transaction re-check provide a second
+    // defense against parallel-pod races between loadAppliedIds and the
+    // per-migration transaction. This race is not reproducible in a single-
+    // process test without additional lock coordination, so this test verifies
+    // only the upper filter layer, which is the common path.
     const dir = makeTempSeedsDir([
       {
         name: "2026-05-20-race.ts",
@@ -421,7 +422,7 @@ describe("runPendingSeedMigrations (integration)", () => {
       },
     ]);
     try {
-      // Pre-seed marker als wäre ein parallel-Pod schon durch
+      // Pre-seed a marker as if a parallel pod had already completed.
       await insertOne(testDb.db, esOperationsTable, {
         id: "2026-05-20-race",
         operationType: "seed-migration",
@@ -430,9 +431,10 @@ describe("runPendingSeedMigrations (integration)", () => {
         notes: "applied by simulated parallel-pod",
       });
 
-      // Würde normalerweise als pending klassifiziert (loadAppliedIds liest
-      // BEFORE the tx) — der re-check inside tx muss das catchen. Wenn der
-      // re-check funktioniert, läuft `run()` nicht (kein Event, kein Throw).
+      // This would normally be classified as pending (loadAppliedIds reads
+      // BEFORE the transaction), so the re-check inside the transaction must
+      // catch it. If the re-check works, `run()` is not called (no event, no
+      // throw).
       await runPendingSeedMigrations({
         db: testDb.db,
         seedsDir: dir,
@@ -444,7 +446,7 @@ describe("runPendingSeedMigrations (integration)", () => {
 
       expect(await selectEvents()).toHaveLength(0);
       const markers = await selectMany(testDb.db, esOperationsTable);
-      expect(markers).toHaveLength(1); // nur der pre-seeded
+      expect(markers).toHaveLength(1); // only the pre-seeded marker
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -477,7 +479,7 @@ describe("runPendingSeedMigrations (integration)", () => {
         }),
       ).rejects.toThrow(/stop here/);
 
-      // Nur first hat marker — fails warf, never wurde nie attempted
+      // Only first has a marker — fails threw, and never was attempted.
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers.map((m) => m.id)).toEqual(["2026-05-19-first"]);
     } finally {

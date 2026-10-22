@@ -64,13 +64,12 @@ type AnyColumnBuilder = ColumnBuilder<any>;
 // Returns column(s) for a field. Most fields return a single entry,
 // money returns two (amount + currency).
 //
-// `required: true` auf einem FieldDefinition mappt **immer** auf .notNull()
-// in der DB-Spalte. Die alte Implementation hat das nur für reference-
-// fields gemacht — text/select/number/etc. waren stillschweigend nullable
-// in der DB, auch wenn der API-Validator required erzwungen hat. Folge:
-// hand-written PgTable-Definitionen mussten daneben mit .notNull() pflegen,
-// was zu Doppel-Definitionen + Schema-Drift führte. Jetzt ist r.entity
-// die einzige Wahrheit.
+// `required: true` on a FieldDefinition always maps to .notNull() in the
+// database column. Previously this applied only to reference fields, while
+// text/select/number/etc. remained silently nullable even when the API
+// validator enforced required. That forced hand-written PgTable definitions
+// to add .notNull(), causing duplicate definitions and schema drift. Now
+// r.entity is the single source of truth.
 function fieldToColumns(
   name: string,
   field: FieldDefinition,
@@ -81,18 +80,18 @@ function fieldToColumns(
   switch (field.type) {
     case "text":
     case "longText": {
-      // Beide mappen auf PG `text` (unbounded). Unterschied lebt nur
-      // im Type-Layer: longText hat kein sortable/searchable/filterable
-      // (Sprint 5b vorab). Reihenfolge default() VOR notNull(): drizzle's
-      // column-builder chained beides; ohne default() hat die generierte
-      // SQL keinen DEFAULT-clause (bricht ALTER TABLE ADD COLUMN auf
-      // existing rows). longText hat heute kein default-feld im type,
-      // aber der check `field.default !== undefined` ist defensive.
+      // Both map to PG `text` (unbounded). The difference exists only in the
+      // type layer: longText has no sortable/searchable/filterable support.
+      // The order default() before notNull() matters: the column builder
+      // chains both; without default(), the generated SQL has no DEFAULT
+      // clause, which breaks ALTER TABLE ADD COLUMN on existing rows.
+      // longText currently has no default field in its type, but checking
+      // `field.default !== undefined` is defensive.
       const base = text(snakeName);
       const withDefault =
         "default" in field && field.default !== undefined ? base.default(field.default) : base;
       const mainCol = { [name]: field.required ? withDefault.notNull() : withDefault };
-      // lookupable → nullable HMAC-Blind-Index-Spalte (lock-step mit
+      // lookupable → nullable HMAC blind-index column (kept in lockstep with
       // fieldToColumnMeta in entity-table-meta.ts).
       if (field.type === "text" && field.lookupable === true) {
         return { ...mainCol, [`${name}Bidx`]: text(`${snakeName}_bidx`) };
@@ -109,23 +108,23 @@ function fieldToColumns(
               : boolean(snakeName),
       };
     case "select": {
-      // default() durchreichen — entity-table-meta rendert deklarierte
-      // defaults, dieser Builder MUSS lock-step bleiben (sonst trägt das
-      // Meta am buildEntityTable-Objekt eine andere Spalte als die
-      // Migration, #255-Follow-up-Befund).
+      // Pass default() through because entity-table-meta renders declared
+      // defaults. This builder must stay in lockstep; otherwise the metadata
+      // on the buildEntityTable object describes a different column than the
+      // migration.
       const base = text(snakeName);
       const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }
     case "multiSelect":
-      // jsonb-Array<string> mit Default `[]` und immer NOT NULL.
+      // jsonb string array with default `[]`, always NOT NULL.
       //
-      // Der `required`-Flag auf MultiSelectFieldDef wird hier bewusst
-      // ignoriert: Mit Default `[]` ist das Feld strukturell never-null
-      // (Insert ohne Wert → leeres Array, nicht NULL). Read-Side-Code
-      // braucht keinen null-check, das ist API-Garantie. Wer "wirklich
-      // null" will (= "Feld noch nie gesetzt") nutzt einen separaten
-      // Status-Field oder ein optional-typed reference statt eines
+      // The `required` flag on MultiSelectFieldDef is intentionally ignored:
+      // with default `[]`, the field is structurally never null (an insert
+      // without a value produces an empty array, not NULL). Read-side code
+      // therefore needs no null check; this is an API guarantee. Code that
+      // needs actual null (meaning the field has never been set) should use
+      // a separate status field or an optional-typed reference instead of a
       // multi-select.
       return { [name]: jsonb(snakeName).default([]).notNull() };
     case "number": {
@@ -139,19 +138,18 @@ function fieldToColumns(
       return { [name]: field.required ? col.notNull() : col };
     }
     case "bigInt": {
-      // 64-bit-Integer fuer Audit-Counter, Byte-Sizes, Cumulative-Sums.
-      // mode:"number" liefert JS-`number` (sicher bis 2^53 ≈ 9 PB) statt
-      // JS-`bigint` — JSON-serialisierbar, Frontend-tauglich. Wer >2^53
-      // braucht (Astronomie-Astronomie), nutzt einen Text-Field mit
-      // eigenem Codec.
+      // 64-bit integer for audit counters, byte sizes, and cumulative sums.
+      // mode:"number" produces a JS `number` (safe up to 2^53 ≈ 9 PB) rather
+      // than JS `bigint`, making it JSON-serializable and frontend-friendly.
+      // Values above 2^53 should use a text field with a custom codec.
       const base = bigint(snakeName, { mode: "number" });
       const col = field.default !== undefined ? base.default(field.default) : base;
       return { [name]: field.required ? col.notNull() : col };
     }
     case "reference":
-      // Tier 2.7e-3: FK-Style UUID-Spalte. Multi-Mode (Tier 2.7e-Multi)
-      // speichert UUIDs als jsonb-Array<string>. Single-Mode bleibt
-      // klassische UUID-Spalte (NOT NULL nur bei required).
+      // FK-style UUID column. Multi-mode stores UUIDs as a jsonb string array;
+      // single-mode remains a conventional UUID column (NOT NULL only when
+      // required).
       if (field.multiple === true) {
         return { [name]: jsonb(snakeName).default([]).notNull() };
       }
@@ -159,11 +157,12 @@ function fieldToColumns(
         [name]: field.required ? uuid(snakeName).notNull() : uuid(snakeName),
       };
     case "money":
-      // BIGINT storing the integer minor unit (cents for EUR, yen for JPY —
-      // the currency column tells you which). INTEGER would cap at ~21 M EUR
-      // which is too tight for B2B invoices, property values or balance
-      // aggregates. BIGINT handles up to ~90 trillion EUR safely in JS.
-      // Currency hat immer einen Default, ist also strukturell .notNull().
+      // BIGINT stores the integer minor unit (cents for EUR, yen for JPY —
+      // the currency column identifies which). INTEGER would cap at about
+      // 21 M EUR, which is too low for B2B invoices, property values, or
+      // balance aggregates. BIGINT safely handles up to about 90 trillion
+      // EUR in JS.
+      // Currency always has a default, so it is structurally .notNull().
       return {
         [name]: field.required ? moneyAmount(snakeName).notNull() : moneyAmount(snakeName),
         [`${name}Currency`]: text(`${snakeName}_currency`)
@@ -171,47 +170,47 @@ function fieldToColumns(
           .notNull(),
       };
     case "embedded":
-      // jsonb mit default `{}` und immer NOT NULL — analog zu multiSelect.
-      // `required` wird bewusst ignoriert weil der Default das Feld
-      // strukturell never-null macht. Wer optional-embedded möchte (=
-      // "Feld komplett weglassen können") modelliert das über ein
-      // wrapper-feld mit boolean-flag oder discriminierte-union.
+      // jsonb with default `{}`, always NOT NULL, analogous to multiSelect.
+      // `required` is intentionally ignored because the default makes the
+      // field structurally never null. To make embedded data optional (so
+      // the field can be omitted entirely), model it with a wrapper field
+      // and boolean flag or a discriminated union.
       // multiple → the value is a list of rows, so the empty default is `[]`.
       return field.multiple === true
         ? { [name]: jsonb(snakeName).default([]).notNull() }
         : { [name]: jsonb(snakeName).default({}).notNull() };
     case "jsonb":
-      // Free-form jsonb — keys nicht schema-validated. Default `{}`, NOT NULL
-      // (analog zu embedded). Use-case: custom-fields-Bundle's host-entity-
-      // `customFields`-Spalte (tenant-definierte dynamische keys).
+      // Free-form jsonb — keys are not schema-validated. Default `{}`, NOT NULL
+      // (analogous to embedded). Use case: the host entity's custom-fields
+      // bundle in the `customFields` column, whose keys are tenant-defined.
       return { [name]: jsonb(snakeName).default({}).notNull() };
     case "date": {
       // Real PG `date` — no time-of-day, no timezone. Temporal.PlainDate
       // end-to-end (see plainDate() in dialect.ts). Was aliased on instant()
-      // = TIMESTAMPTZ until kumiko-framework#1924 (TZ-dependent round-trip).
+      // = TIMESTAMPTZ (TZ-dependent round-trip).
       const col = plainDate(snakeName);
       return { [name]: field.required ? col.notNull() : col };
     }
     case "timestamp": {
-      // UTC-Instant — gespeichert als TIMESTAMPTZ in PG, gelesen/geschrieben
-      // als Temporal.Instant via instant() customType (siehe dialect.ts).
-      // Sprint F: Single-Mode-Welt — Caller-Code kennt nur Temporal.Instant,
-      // nie JS-Date. Auch Vergleiche (lte/gt/orderBy) akzeptieren Instants
-      // direkt, kein .toString()-Cast nötig.
+      // UTC instant — stored as TIMESTAMPTZ in PG and read/written as
+      // Temporal.Instant through the instant() customType (see dialect.ts).
+      // Callers use only Temporal.Instant, never JS Date. Comparisons
+      // (lte/gt/orderBy) also accept Instants directly, so no .toString()
+      // cast is needed.
       const col = instant(snakeName);
       return { [name]: field.required ? col.notNull() : col };
     }
     case "tz": {
-      // IANA-Zonenname als TEXT — Validierung über Zod-Schema (kommt im
-      // Validator-Schritt). Snake-Convention: `pickup_tz`.
+      // IANA time-zone name as TEXT — validated through the Zod schema in the
+      // validator step. Snake-case convention: `pickup_tz`.
       const col = text(snakeName);
       return { [name]: field.required ? col.notNull() : col };
     }
     case "locatedTimestamp": {
-      // ZWEI Spalten als atomares Pair: <name>_utc TIMESTAMPTZ + <name>_tz TEXT.
-      // _utc ist instant() (Temporal.Instant), _tz ist text (IANA-Name).
-      // Auto-Convert (at+tz → utc beim Insert; utc+tz → at beim Read) wird
-      // im Executor verdrahtet (Phase C). required propagiert auf beide.
+      // Two columns form an atomic pair: <name>_utc TIMESTAMPTZ + <name>_tz TEXT.
+      // _utc is instant() (Temporal.Instant), and _tz is text (IANA name).
+      // The executor wires automatic conversion (at+tz → utc on insert;
+      // utc+tz → at on read). required propagates to both columns.
       const utc = instant(`${snakeName}_utc`);
       const tz = text(`${snakeName}_tz`);
       return {
@@ -245,12 +244,12 @@ function fieldToColumns(
  * Derives a table name from an entity name:
  * 1. camelCase → snake_case (e.g. "memberTask" → "member_task")
  * 2. Simple English pluralization (category→categories, status→statuses, task→tasks)
- * 3. `read_` prefix — markiert die Tabelle als Event-Sourced-Read-Model,
- *    damit im DB-Tool sofort erkennbar ist dass App-Code nicht direkt
- *    reinschreibt. Event-Store (kumiko_events) + Framework-State
- *    (kumiko_*) haben ihren eigenen Prefix, normale App-Side-Tables
- *    (ohne ES-Anbindung) haben keinen — die drei Kategorien sind damit
- *    im Tabellenbrowser unterscheidbar.
+ * 3. `read_` prefix — marks the table as an event-sourced read model so
+ *    it is immediately distinguishable in database tools and application
+ *    code is not expected to write to it directly. The event store
+ *    (`kumiko_events`) and framework state (`kumiko_*`) use their own
+ *    prefixes; ordinary app-side tables without event-sourcing have none.
+ *    The three categories are therefore distinguishable in the table browser.
  */
 const ES_PLURAL_SUFFIXES = ["s", "sh", "ch", "x"] as const;
 
@@ -269,24 +268,23 @@ export function toTableName(entityName: string): string {
   return `${READ_MODEL_PREFIX}${plural}`;
 }
 
-// Drizzle's PgTableWithColumns<any> erbt eine `[k: string]: any` Index-
-// Signature die in strict-mode (noUncheckedIndexedAccess + TS4111) jeden
-// konsumierenden Code zwingt auf Bracket-Notation auch für bekannte
-// Spalten. Da wir die Tabelle dynamisch aus EntityDefinition bauen,
-// kann TS Drizzle's volle Spalten-Inferenz nicht liefern — wir spiegeln
-// stattdessen die `fieldToColumns`-Logik im Type-System: jeder Field-Type
-// mappt auf einen konkreten data-Type, ColumnsForEntity baut daraus den
-// vollständigen Property-Bag.
+// Drizzle's PgTableWithColumns<any> inherits a `[k: string]: any` index
+// signature that, in strict mode (noUncheckedIndexedAccess + TS4111), forces
+// consumers to use bracket notation even for known columns. Because the
+// table is built dynamically from EntityDefinition, TypeScript cannot provide
+// Drizzle's full column inference. Instead, we mirror the `fieldToColumns`
+// logic in the type system: each field type maps to a concrete data type, and
+// ColumnsForEntity builds the complete property bag.
 //
-// Mit konkret-inferiertem `F` (via createEntity({ fields: { ... } }))
-// kommt das volle data-typing durch Drizzle's `eq()`/`select()`/`row.x`
-// am Call-Site an. Der alte `EntityDefinition` ohne Generic-Param fällt
-// auf `FieldsMap` zurück (= breaking-change-frei) — dort kennt TS die
-// Field-Types nicht, das Mapping kollabiert auf `AnyPgColumn`.
+// With a concretely inferred `F` (via createEntity({ fields: { ... } })),
+// Drizzle's full data typing reaches `eq()`/`select()`/`row.x` at the call
+// site. The old `EntityDefinition` without a generic parameter falls back to
+// `FieldsMap` for backwards compatibility; without known field types, the
+// mapping collapses to `AnyPgColumn`.
 //
-// Lock-step-Vertrag: jeder Branch hier muss zur Runtime-Entscheidung in
-// fieldToColumns passen. Type-Tests gegen repräsentative Entities (siehe
-// db/__tests__/drizzle-table-types.test.ts) catchen Drift.
+// Every branch here must match the runtime decision in fieldToColumns. Type
+// tests against representative entities in db/__tests__/drizzle-table-types.test.ts
+// catch drift.
 
 // Single column handle with concrete data + nullability phantom. After the
 // drizzle removal the runtime carries only the snake_case name + pg type
@@ -301,8 +299,8 @@ type Col<T> = ColumnHandle & { readonly __notNull: true; readonly __value?: T };
 type NullCol<T> = ColumnHandle & { readonly __notNull: false; readonly __value?: T };
 
 // Per-field column shape — matches `fieldToColumns`. Money +
-// locatedTimestamp produce two-column pairs. `notNull` propagiert von
-// `field.required` (literal preserved by createXField generics).
+// locatedTimestamp produce two-column pairs. `notNull` is propagated from
+// `field.required` (the literal is preserved by createXField generics).
 type ColumnsForField<K extends string, F extends FieldDefinition> = ValueColumnsForField<K, F> &
   BlindIndexColumnForField<K, F>;
 
@@ -327,7 +325,7 @@ type ValueColumnsForField<K extends string, F extends FieldDefinition> = F exten
       ? { readonly [P in K]: Col<boolean> }
       : { readonly [P in K]: NullCol<boolean> }
     : F extends { type: "multiSelect" }
-      ? // jsonb default `[]`, immer notNull
+      ? // jsonb default `[]`, always notNull
         { readonly [P in K]: Col<readonly string[]> }
       : F extends { type: "number" }
         ? F extends { required: true }
@@ -352,14 +350,14 @@ type ValueColumnsForField<K extends string, F extends FieldDefinition> = F exten
                   ? { readonly [P in K]: Col<string> }
                   : { readonly [P in K]: NullCol<string> }
                 : F extends { type: "embedded"; multiple: true }
-                  ? // jsonb default `[]`, immer notNull. ponytail: the row
+                  ? // jsonb default `[]`, always non-null. ponytail: the row
                     // type stays untyped like single-embedded; deriving it
                     // from `schema` needs a generic createEmbeddedListField
                     // that captures the literal schema — worth it once a
                     // consumer actually reads rows off the table type.
                     { readonly [P in K]: Col<readonly Readonly<Record<string, unknown>>[]> }
                   : F extends { type: "embedded" }
-                    ? // jsonb default `{}`, immer notNull
+                    ? // jsonb default `{}`, always notNull
                       { readonly [P in K]: Col<Readonly<Record<string, unknown>>> }
                     : F extends { type: "date" }
                       ? F extends { required: true }
@@ -397,9 +395,9 @@ type ColumnsForEntity<F extends FieldsMap> = UnionToIntersection<
   }[keyof F & string]
 >;
 
-// Base-Spalten von buildBaseColumns — `idType: "serial"` returnt number,
-// sonst uuid-as-string. `insertedAt` hat `default(now())`, ist also
-// strukturell non-null (Drizzle's `notNull` flag matcht das).
+// Base columns from buildBaseColumns — `idType: "serial"` returns number;
+// otherwise, UUID-as-string. `insertedAt` has `default(now())`, so it is
+// structurally non-null (Drizzle's `notNull` flag matches this).
 type BaseColumnsType<E extends EntityDefinition> = {
   readonly id: E extends { idType: "serial" } ? Col<number> : Col<string>;
   readonly tenantId: Col<string>;
@@ -410,10 +408,10 @@ type BaseColumnsType<E extends EntityDefinition> = {
   readonly modifiedById: NullCol<string>;
 };
 
-// SoftDelete-Spalten existieren nur wenn entity.softDelete === true. Das
-// Type-Level kann das nicht klein narrowen ohne Generic auf softDelete,
-// also unionen wir beide Sets — Lean-Entities sehen die never-präsenten
-// Spalten als typed-existierend, was dem alten `<any>`-Verhalten matcht.
+// Soft-delete columns exist only when entity.softDelete === true. The type
+// level cannot narrow this without a generic for softDelete, so both sets are
+// unioned — lean entities see the never-present columns as typed, matching
+// the previous `<any>` behavior.
 type SoftDeleteColumnsType = {
   readonly isDeleted: Col<boolean>;
   readonly deletedAt: NullCol<Temporal.Instant>;
@@ -507,12 +505,13 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
     id: idColumn,
     tenantId: uuid("tenant_id").notNull(),
     version: integer("version").default(1).notNull(),
-    // Sprint F: Temporal.Instant durchgängig (siehe instant() in dialect.ts).
-    // Vorher mode default "date" → Inkonsistenz mit user-defined timestamp
-    // Felder (mode "string"). Jetzt: ein Mode für alle Timestamps.
+    // Temporal.Instant is used throughout (see instant() in dialect.ts).
+    // Previously the default mode was "date", which was inconsistent with
+    // user-defined timestamp fields (mode "string"). A single mode is now
+    // used for all timestamps.
     // customType doesn't expose Drizzle's `defaultNow()` shortcut — use raw
-    // SQL so PG sets the value on insert and we don't need to pass an
-    // Instant from JS for every row create.
+    // SQL so PG sets the value on insert and callers need not pass an
+    // Instant for every row creation.
     insertedAt: instant("inserted_at").default(sql`now()`).notNull(),
     modifiedAt: instant("modified_at"),
     // User-IDs are stringified UUIDs post-ES migration. Text (not uuid) so the
@@ -608,9 +607,9 @@ export function buildEntityTable<E extends EntityDefinition>(
 
   // Default table name derived from entityName (e.g. "memberTask" → "read_member_tasks")
   const baseTableName = entity.table ?? toTableName(entityName);
-  // featureName-prefix wird zwischen read_ und den base-Namen geschoben,
-  // damit alle read-models einheitlich mit `read_` starten — egal ob
-  // featureName gesetzt ist oder nicht. Beispiel:
+  // The featureName prefix is inserted between read_ and the base name so
+  // all read models consistently start with `read_`, whether or not
+  // featureName is set. Examples:
   //   featureName="shop", base="read_orders"  →  "read_shop_orders"
   //   featureName=undef,  base="read_orders"  →  "read_orders"
   //   featureName="shop", base="orders" (no read_)  →  "shop_orders"
@@ -668,7 +667,7 @@ export function buildEntityTable<E extends EntityDefinition>(
           ).on(column);
         }
       }
-      // lookupable-Felder: Index auf der bidx-Spalte (lock-step mit
+      // lookupable fields: index the bidx column (kept in lockstep with
       // deriveEntityTableMeta).
       const bidxFieldByField = new Map<string, string>();
       for (const [name, field] of Object.entries(entity.fields)) {
@@ -680,10 +679,10 @@ export function buildEntityTable<E extends EntityDefinition>(
           indexes[idxName] = index(idxName).on(column);
         }
       }
-      // entity.indexes = composite/unique-Indices die der Author explizit
-      // deklariert hat. Spalten werden via field-name (camelCase) angesprochen,
-      // der Index-Name folgt der Convention <table>_<col1>_<col2>_<unique|idx>
-      // — Override via index.name möglich.
+      // entity.indexes contains composite/unique indexes explicitly declared by
+      // the author. Columns are addressed by field name (camelCase), and the
+      // index name follows <table>_<col1>_<col2>_<unique|idx>; index.name can
+      // override the convention.
       for (const def of entity.indexes ?? []) {
         const cols = def.columns
           .map((fieldName) => tHandle[fieldName])
@@ -707,12 +706,12 @@ export function buildEntityTable<E extends EntityDefinition>(
           chain = chain.where(def.where);
         } else if (def.unique === true && entity.softDelete === true) {
           // Soft-deleted rows keep their value, so a full unique index would
-          // permanently block reuse; kept in lock-step with entity-table-meta.ts (framework#2593).
+          // permanently block reuse; kept in lock-step with entity-table-meta.ts.
           chain = chain.where(sql.raw(SOFT_DELETE_LIVE_ROW_PREDICATE));
         }
         indexes[indexName] = chain;
-        // Partielles bidx-Pendant für unique-Indices über lookupable-Spalten
-        // (lock-step mit deriveEntityTableMeta).
+        // Partial bidx counterpart for unique indexes over lookupable fields
+        // (kept in lockstep with deriveEntityTableMeta).
         if (def.unique === true && def.where === undefined) {
           const bidxFieldNames = def.columns.map((c) => bidxFieldByField.get(c) ?? c);
           if (bidxFieldNames.some((c, i) => c !== def.columns[i])) {
@@ -725,7 +724,7 @@ export function buildEntityTable<E extends EntityDefinition>(
                 .map((c) => `"${toSnakeCase(c)}" IS NOT NULL`);
               // Soft-deleted rows keep their bidx hash — without this, a
               // restored row can't reuse a value a soft-deleted sibling still
-              // holds (framework#2464).
+              // holds.
               const whereText = (
                 entity.softDelete === true
                   ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE]

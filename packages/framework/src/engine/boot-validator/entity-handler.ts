@@ -20,16 +20,14 @@ import { isSelectOptionTone } from "./select-option-tone.ts";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
-// Field-Namen die typischerweise PII enthalten. Ohne `pii: true` /
-// `userOwned` / `tenantOwned` / `allowPlaintext`-Marker → Boot-Warning.
-// Lower-case compare für case-insensitive Match (displayName vs displayname).
+// Field names that typically contain PII. Without a `pii: true` /
+// `userOwned` / `tenantOwned` / `allowPlaintext` marker → boot warning.
+// Compare in lower case for case-insensitive matching (displayName vs displayname).
 //
-// Bewusst NICHT in der Liste:
-//   - `name` allein — zu viele Geschäfts-Kontexte (product.name,
-//     tenant.name, role.name) sind kein PII. Personen-Namen werden
-//     ueber displayName / firstName / lastName / fullName erfasst.
-//
-// Quelle: docs/plans/datenschutz/crypto-shredding.md Boot-Validation-Sektion.
+// Deliberately NOT included:
+//   - `name` alone — too many business contexts (product.name,
+//     tenant.name, role.name) are not PII. Personal names are detected
+//     through displayName / firstName / lastName / fullName.
 export const PII_DIRECT_NAME_HINTS: ReadonlySet<string> = new Set([
   "email",
   "phone",
@@ -57,8 +55,8 @@ export const PII_DIRECT_NAME_HINTS: ReadonlySet<string> = new Set([
   "bic",
 ]);
 
-// Field-Namen die typischerweise User-Generated-Content enthalten —
-// User-Forget muss diese mit Author-Subject-Key encrypten.
+// Field names that typically contain user-generated content —
+// User-Forget must encrypt these with the author subject key.
 export const PII_USER_OWNED_NAME_HINTS: ReadonlySet<string> = new Set([
   "body",
   "text",
@@ -402,18 +400,18 @@ export function validateAnonymousRateLimit(
   }
 }
 
-// --- MultiStreamProjection delivery-invariant ---
+// --- MultiStreamProjection delivery invariant ---
 //
-// `delivery: "per-instance"` mit einer `table` ist eine semantische Falle:
-// N Dispatcher-Instanzen würden parallel die gleichen INSERT/UPDATE-Zeilen
-// schreiben (Race / Duplicates), und ein Rebuild würde nur eine Zeile in
-// kumiko_event_consumers anfassen (die SHARED_INSTANCE_SENTINEL-Zeile),
-// während Live-Cursor in per-instance-Zeilen liegen → Cursor-Divergenz.
+// `delivery: "per-instance"` with a `table` is a semantic trap:
+// N dispatcher instances would write the same INSERT/UPDATE rows in parallel
+// (races / duplicates), and a rebuild would affect only one row in
+// kumiko_event_consumers (the SHARED_INSTANCE_SENTINEL row),
+// while live cursors reside in per-instance rows → cursor divergence.
 //
-// Die Invariante ist: per-instance-Consumer sind rein side-effect (SSE,
-// in-memory cache invalidation). Wer eine Tabelle materialisiert, braucht
-// shared delivery — das ist exactly-once globally und gibt dem Rebuild
-// einen einzigen Cursor zum zurücksetzen.
+// The invariant is: per-instance consumers are side-effect-only (SSE,
+// in-memory cache invalidation). Materializing a table requires
+// shared delivery — it is exactly-once globally and gives the rebuild
+// a single cursor to reset.
 export function validateMultiStreamProjections(feature: FeatureDefinition): void {
   for (const [name, msp] of Object.entries(feature.multiStreamProjections)) {
     if (msp.delivery === "per-instance" && msp.table !== undefined) {
@@ -426,18 +424,19 @@ export function validateMultiStreamProjections(feature: FeatureDefinition): void
   }
 }
 
-// --- Located-Timestamp validation ---
+// --- Located-timestamp validation ---
 //
-// Wenn ein Feld `type: "timestamp"` einen `locatedBy`-Marker trägt, muss das
-// referenzierte Feld in derselben Entity existieren UND vom Typ `tz` sein.
-// Sonst weiß weder DB-Wrapper noch JSON-Serializer welche TZ zur Wall-Clock
-// gehört → silent data loss bei Reads in anderer Server-TZ.
+// When a field with `type: "timestamp"` has a `locatedBy` marker, the
+// referenced field must exist in the same entity AND have type `tz`.
+// Otherwise neither the DB wrapper nor the JSON serializer knows which TZ
+// belongs to the wall clock → silent data loss when reading in another
+// server TZ.
 //
-// Die häufigste Quelle von Konflikten ist Hand-Konstruktion:
+// Manual construction is the most common source of conflicts:
 //   { foo: { type: "timestamp", locatedBy: "fooTz" } }
-// ohne das `fooTz`-Feld zu deklarieren. `createLocatedTimestampField()`
-// erzeugt stattdessen EIN Feld vom Typ "locatedTimestamp" — wer den nutzt,
-// fliegt nicht durch diesen Validator.
+// without declaring the `fooTz` field. `createLocatedTimestampField()`
+// instead creates ONE field of type "locatedTimestamp" — using it avoids
+// this validator.
 export function validateLocatedTimestamps(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const fields = entity.fields;
@@ -463,18 +462,18 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
   }
 }
 
-// --- Entity-Index validation ---
+// --- Entity-index validation ---
 //
-// entity.indexes deklariert Composite-/Unique-Indices über mehrere Feld-
-// Spalten. Häufige Fehler: Tippfehler im Feld-Namen, leere column-Liste,
-// Index auf einem Field das die DB-Spalte gar nicht existiert (file/image
-// in der multi-Variante). Catched at boot, lange bevor drizzle-kit beim
-// generate-Run zickt.
+// entity.indexes declares composite/unique indexes over multiple field
+// columns. Common errors include misspelled field names, an empty column
+// list, and an index on a field for which the DB has no column (file/image
+// in the multi-value variant). Catch these at boot, long before drizzle-kit
+// fails during the generate run.
 //
-// `tenantId` als einzige Spalte ist redundant — buildEntityTable legt
-// den Index sowieso automatisch an. Wir lassen die Composite-Form erlaubt
-// (`["tenantId", "key"]` ist sinnvoll), nur die rein-tenantId-Single-
-// column-Form blockieren wir.
+// A `tenantId`-only index is redundant because buildEntityTable creates
+// that index automatically. Composite forms remain allowed
+// (`["tenantId", "key"]` is useful); only the tenantId-only single-column
+// form is rejected.
 export function validateEntityIndexes(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     if (!entity.indexes) continue;
@@ -505,23 +504,23 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
           );
         }
         if (field && field.type === "longText") {
-          // longText ist semantisch "potentially-megabytes content" — ein
-          // BTREE-Index auf einer 1-MB-Spalte ist Performance-Disaster
-          // (PG würde in TOAST-pages dereferenzieren müssen für jeden
-          // Index-Lookup). Konsistent mit der type-level-decision dass
-          // longText kein sortable/searchable/filterable hat. Wer
-          // wirklich indexieren will, nimmt `text` mit den
-          // entsprechenden Skalierungs-Trade-offs.
+          // longText semantically means "potentially-megabytes content" — a
+          // BTREE index on a 1-MB column is a performance disaster
+          // (PG would need to dereference TOAST pages for every
+          // index lookup). This is consistent with the type-level decision
+          // that longText has no sortable/searchable/filterable flags. Anyone
+          // who truly needs indexing should use `text` with the
+          // corresponding scaling trade-offs.
           throw new Error(
             `${where}: column "${col}" is a longText field — these cannot be indexed. ` +
               `Use \`text\` if you need indexing, or rely on the SearchAdapter (Meilisearch) for full-text search on long content.`,
           );
         }
       }
-      // UNIQUE-constraint auf tenantId ist semantisch (1:1 tenant→entity)
-      // und NICHT redundant — buildEntityTable's auto-Index ist nur ein
-      // Performance-Hint, kein constraint. Nur die rein-tenantId-Single-
-      // column-non-unique-Form blockieren.
+      // A UNIQUE constraint on tenantId is semantically meaningful (1:1 tenant→entity)
+      // and NOT redundant — buildEntityTable's automatic index is only a
+      // performance hint, not a constraint. Only the tenantId-only,
+      // single-column, non-unique form is rejected.
       if (def.columns.length === 1 && def.columns[0] === "tenantId" && !def.unique) {
         throw new Error(
           `${where}: single-column index on "tenantId" is redundant — ` +
@@ -552,9 +551,9 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
   let found = false;
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      // Beide string-typed fields können encrypted sein. Die
-      // searchable/sortable-Konflikt-Checks gelten nur für `text`
-      // (longText hat diese flags type-level nicht).
+      // Both string-typed fields can be encrypted. The
+      // searchable/sortable conflict checks apply only to `text`
+      // (`longText` does not have these flags at the type level).
       if (field.type !== "text" && field.type !== "longText") continue;
       if (!field.encrypted) continue;
       found = true;
@@ -618,7 +617,7 @@ function isValidEmbeddedDecimalScale(scale: number): boolean {
   return Number.isInteger(scale) && scale >= 0 && scale <= 15;
 }
 
-// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef validation, shared by
+// ReferenceFieldDef validation, shared by
 // top-level reference fields and reference sub-fields of an embedded field
 // (only the field-path in error messages differs, e.g. "accountId" vs
 // "lines.accountId", so a failure is locatable either way).
@@ -699,7 +698,7 @@ function validateReferenceTarget(
   validateReferenceOptionsQuery(entityName, fieldPath, optionsQuery, feature, queryHandlers);
 }
 
-// fw#2780: the picker may source its options from a query handler instead of
+// The picker may source its options from a query handler instead of
 // the referenced entity's table. A typo'd QN would only surface as a 404 on
 // first Combobox open, so it is pinned at boot — same treatment as
 // `DashboardFilterDefinition.optionsQuery` (boot-validator/query-refs.ts).
@@ -728,7 +727,7 @@ function validateReferenceOptionsQuery(
   }
 }
 
-// Tier 2.7e-3 + Cross-Feature: ReferenceFieldDef validation for top-level
+// ReferenceFieldDef validation for top-level
 // reference fields (self-reference, entity → entity, is allowed). The actual
 // checks run in validateReferenceTarget — shared with the reference
 // sub-fields of an embedded field (validateEmbeddedFields).
@@ -959,10 +958,10 @@ function validateEmbeddedListMetadata(
 
 // --- MultiSelect field validation ---
 //
-// options muss non-empty sein (sonst wäre das Feld nicht benutzbar) und
-// default — wenn gesetzt — ist eine Teilmenge der options. Beides würde
-// auch im Zod-Schema bei runtime fehlschlagen, der Boot-Catch ist nur
-// die früheste Stelle für klare Fehlermeldungen.
+// options must be non-empty (otherwise the field cannot be used), and
+// default — when set — must be a subset of options. Both conditions would
+// also fail at runtime in the Zod schema; boot validation only provides
+// the earliest clear error messages.
 // Exhaustive over MultiSelectFieldDef["columns"] (the compiler flags a union
 // change); the TS union is gone at runtime for JS/JSON-sourced definitions.
 const CHECKBOX_COLUMN_COUNTS = {

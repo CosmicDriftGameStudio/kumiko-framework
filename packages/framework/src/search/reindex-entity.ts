@@ -1,5 +1,5 @@
 // One-time backfill for entities that only got `searchable: true` after rows
-// already existed (#1206). buildSearchDocument() only runs on the write path
+// already existed. buildSearchDocument() only runs on the write path
 // (createSearchEventConsumer, system-hooks.ts) — pre-existing rows never
 // pass through it, so they stay unfindable until their next write. This
 // re-derives a SearchDocument straight from the read-table row for every

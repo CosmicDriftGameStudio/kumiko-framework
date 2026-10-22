@@ -1,4 +1,4 @@
-// fw#2809 — a recordOwned field is encrypted under `record:<entity>:<id>`
+// A recordOwned field is encrypted under `record:<entity>:<id>`
 // (kms-adapter-types.ts) and forgetSubject's subjectIdSchema (crypto/kms-adapter.ts)
 // validates that id as a UUID. An idType: "serial" entity would encrypt such
 // a field but could never satisfy a forget-subject request for it — the boot

@@ -9,7 +9,7 @@ import type {
 } from "./types/index.ts";
 
 // A payload field that still holds null/undefined after parsing — the case
-// where an event-PII owner field yields no subject at append time (fw#2776).
+// where an event-PII owner field yields no subject at append time.
 // A `.default(...)` accepts undefined but parses to a value, so it is not
 // absentable.
 function isAbsentable(field: ZodType): boolean {
@@ -138,7 +138,7 @@ export function createEventDef<
   options: CreateEventDefOptions<TFeature, TInner, TPayload>,
 ): EventDef<TPayload, QualifiedEventName<TFeature, TInner>> {
   const { feature, name: eventName, schema } = options;
-  // Fail-closed PII stance gate (fw#2558) — runs before anything else so
+  // Fail-closed PII stance gate — runs before anything else so
   // an untyped JS consumer (no compiler to stop it) still can't register
   // an event without declaring whether its payload carries personal data.
   const missingStanceError = () =>

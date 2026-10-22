@@ -1,24 +1,24 @@
-// Sprint-8a Tier-Composition: framework-extension-point für per-tenant
+// Tier composition: framework extension point for per-tenant
 // effective-feature resolution.
 //
-// **Pattern (analog mail-foundation / file-foundation):** ein Feature
-// declares `r.extendsRegistrar("tenantTierResolver")` und plugins
-// implementieren via `r.useExtension("tenantTierResolver", "id", { build })`.
+// **Pattern (analogous to mail-foundation / file-foundation):** a feature
+// declares `r.extendsRegistrar("tenantTierResolver")`, and plugins
+// implement it via `r.useExtension("tenantTierResolver", "id", { build })`.
 //
-// **Auto-wiring im Framework:** runDevApp + runProdApp scannen das registry
-// nach genau diesem extension-name. Wenn ein plugin gefunden ist UND der
-// App-Author nicht selbst eine `effectiveFeatures`-callback gesetzt hat,
-// wird `plugin.build({ db, registry })` einmalig in onAfterSetup aufgerufen.
-// Der returned callback landet als `effectiveFeatures` im dispatcher.
+// **Framework auto-wiring:** runDevApp + runProdApp scan the registry
+// for this exact extension name. If a plugin is found AND the app author
+// has not set an `effectiveFeatures` callback, `plugin.build({ db, registry })`
+// is called once in onAfterSetup. The returned callback becomes
+// `effectiveFeatures` in the dispatcher.
 //
-// **Warum dieser Pattern:** App-Author mountet `createTierEngineFeature(opts)`
-// und das war's — kein Late-Bound-Holder im run-config, kein
-// effectiveFeatures-callback wiren. Das Framework macht den Late-Bound-Trick
-// intern. Memory `feedback_alles_ist_ein_feature`: Tier-Composition ist
-// ein Feature, nicht ein Subsystem mit App-spezifischem Wiring.
+// **Why this pattern:** the app author mounts
+// `createTierEngineFeature(opts)` and is done—no late-bound holder in the
+// run config and no need to wire an effectiveFeatures callback. The framework
+// handles the late-binding internally. Tier composition is a feature, not a
+// subsystem with app-specific wiring.
 //
-// **Apps ohne tier-engine:** wenn keine plugin registriert ist, framework
-// macht nichts — `effectiveFeatures` bleibt undefined, alle features sind on.
+// **Apps without a tier engine:** if no plugin is registered, the framework
+// does nothing—`effectiveFeatures` remains undefined, and all features are on.
 
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -28,31 +28,33 @@ import type { FeatureDefinition, Registry } from "./types/feature.ts";
 import type { TenantId } from "./types/identifiers.ts";
 
 /**
- * Extension-name unter dem ein tier-resolver-plugin im registry registriert
- * werden muss. Konstante damit `r.useExtension(TENANT_TIER_RESOLVER_EXT, ...)`
- * + framework's `getExtensionUsages(TENANT_TIER_RESOLVER_EXT)` typo-resistent
- * gegen den selben Wert prüfen.
+ * Extension name under which a tier-resolver plugin must be registered in the
+ * registry. The constant keeps `r.useExtension(TENANT_TIER_RESOLVER_EXT, ...)`
+ * and the framework's `getExtensionUsages(TENANT_TIER_RESOLVER_EXT)` aligned
+ * on the same value, preventing typos.
  */
 export const TENANT_TIER_RESOLVER_EXT = "tenantTierResolver";
 
 /**
- * Resolver-callback shape: synchron (dispatcher hot-path), per-tenant.
- * Returnt das effective feature-Set für den tenant. Implementations sollten
- * einen in-memory cache pflegen + per `r.entityHook` invalidieren.
+ * Resolver callback shape: synchronous (on the dispatcher's hot path), per
+ * tenant. Returns the tenant's effective feature set. Implementations should
+ * maintain an in-memory cache and invalidate it via `r.entityHook`.
  *
- * **System-context convention:** call mit SYSTEM_TENANT_ID erwartet die union
- * aller tier-features (siehe DispatcherOptions.effectiveFeatures doc-block).
+ * **System-context convention:** calls with SYSTEM_TENANT_ID must return the
+ * union of all tier features (see the DispatcherOptions.effectiveFeatures
+ * doc block).
  */
 export type EffectiveFeaturesResolver = ((tenantId: TenantId) => ReadonlySet<string>) & {
   /**
-   * Optionaler Live-Trial-Gate, vom dispatcher-feature-gate NUR konsultiert
-   * wenn der synchrone Resolver ein Feature als disabled meldet. Liest das
-   * Signup-Datum des Tenants live (tenant.inserted_at) und returnt true wenn
-   * der Tenant im Trial-Fenster ist UND das Feature zum Trial-Tier gehört.
-   * Async + nicht im Boot-Cache, weil der Trial zeit-abgeleitet ist (ändert
-   * sich zwischen Requests). Konsultiert an 3 Stellen: den 2 Dispatch-Gate-
-   * Aufrufstellen (checkFeatureEnabled) UND ctx.hasFeature im Handler-Body
-   * (fällt darauf zurück, wenn der synchrone Feature-Set-Check negativ ist).
+   * Optional live-trial gate, consulted by the dispatcher feature gate ONLY
+   * when the synchronous resolver reports a feature as disabled. Reads the
+   * tenant's signup date live (tenant.inserted_at) and returns true when the
+   * tenant is within the trial window AND the feature belongs to the trial
+   * tier. It is async and not part of the boot cache because the trial is
+   * time-dependent and can change between requests. Consulted at three
+   * locations: the two dispatch-gate call sites (checkFeatureEnabled) AND
+   * ctx.hasFeature in the handler body (as a fallback when the synchronous
+   * feature-set check is negative).
    */
   readonly trialGate?: TrialGate;
 };
@@ -63,10 +65,10 @@ export type EffectiveFeaturesResolver = ((tenantId: TenantId) => ReadonlySet<str
 export type TrialGate = (tenantId: TenantId, featureName: string) => Promise<boolean>;
 
 /**
- * Plugin-shape für tier-resolver-extension. Plugins implementieren `build`
- * als boot-time factory: kriegen `db` + `registry` (post-stack-setup),
- * laden initial cache aus DB, returnen den synchronen resolver-callback
- * (optional mit angehängtem `trialGate`).
+ * Plugin shape for the tier-resolver extension. Plugins implement `build`
+ * as a boot-time factory: they receive `db` + `registry` (after stack setup),
+ * load the initial cache from the database, and return the synchronous
+ * resolver callback, optionally with an attached `trialGate`.
  */
 export type TierResolverPlugin = {
   readonly build: (deps: {
@@ -78,13 +80,13 @@ export type TierResolverPlugin = {
 };
 
 /**
- * Scan a composed feature-list for a `tenantTierResolver`-extension usage.
- * Single plugin assumption — multiple wären ambiguous (welcher resolver
- * gewinnt). Memory `feedback_no_options_without_need`: kein multi-merge-
- * pattern bis es echten Use-Case gibt.
+ * Scans a composed feature list for a `tenantTierResolver` extension usage.
+ * Only one plugin is supported because multiple plugins would be ambiguous:
+ * it would be unclear which resolver should win. No multi-merge pattern is
+ * needed until there is a real use case.
  *
- * Geteilter helper für runDevApp + runProdApp damit der Pickup-Pfad
- * bit-identisch ist (drift-resistent).
+ * Shared by runDevApp + runProdApp so the pickup path remains byte-for-byte
+ * identical and cannot drift.
  */
 /** Narrows a registration's untyped `options` bag to the tier-resolver
  *  plugin shape — the only thing every implementation must provide is the

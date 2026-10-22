@@ -1,8 +1,8 @@
-// createFallbackLogger Unit-Tests (Phase 1, test-luecken-integration).
+// createFallbackLogger unit tests.
 //
-// Pinnt beide Pfade des Fallback-Loggers auf das identische
-// "[ns] msg"-Format — wrapped logger und console-Fallback dürfen
-// nicht divergieren (Log-Parser/Grep-Konsistenz).
+// Both fallback logger paths use the same "[ns] msg" format — the wrapped
+// logger and console fallback must not diverge to keep log parsing and grep
+// consistent.
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import type { Logger } from "../types.ts";

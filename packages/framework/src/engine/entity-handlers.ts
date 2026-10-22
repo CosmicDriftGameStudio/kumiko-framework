@@ -98,21 +98,20 @@ type ListPayload = {
   search?: string;
   sort?: string;
   sortDirection?: "asc" | "desc";
-  // Page-based Pagination: offset 0-basiert, mit limit zusammen statt
-  // cursor genutzt. Cursor ist für infinite-scroll / live-tailing
-  // präziser; offset ist für klassische Pager (← 1 2 ... N →) wo der
-  // User direkt zu "page 7" springen will. Nur EINE Variante pro
-  // Request — wenn beide gesetzt sind, gewinnt cursor (DB-stabil).
+  // Page-based pagination: offset is 0-based and used with limit instead of
+  // cursor. Cursor is more precise for infinite scrolling/live tailing; offset
+  // suits traditional pagers (← 1 2 ... N →) where the user can jump directly
+  // to "page 7". Only ONE variant per request—when both are set, cursor wins
+  // for database stability.
   offset?: number;
-  // Wenn true, liefert der executor zusätzlich eine `total`-Zahl im
-  // Response. Extra-Roundtrip auf der DB (COUNT(*)), nur dann sinnvoll
-  // wenn der Pager "Page X of Y" rendern muss. Infinite-Scroll oder
-  // unbedingte Lists lassen das weg um die COUNT-Kosten zu sparen.
+  // When true, the executor also returns a `total` value in the response.
+  // This adds a database round trip (COUNT(*)), so it is useful only when the
+  // pager must render "Page X of Y". Omit it for infinite scrolling or when
+  // the total is not needed to avoid the COUNT cost.
   totalCount?: boolean;
-  // Screen-Level Filter (Tier 2.7c) — Author-deklarierter, server-side
-  // applizierter WHERE-Clause. Drei Buckets der selben Entity ohne
-  // Custom-Pages: jedes Screen hat sein eigenes filter, alle nutzen
-  // den gleichen Query-Handler.
+  // Screen-level filter—an author-declared WHERE clause applied server-side.
+  // It provides three buckets of the same entity without custom pages: each
+  // screen has its own filter while all use the same query handler.
   filter?: {
     readonly field: string;
     readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
@@ -179,14 +178,14 @@ export const entityListSchema = z.object({
     .object({
       field: z.string(),
       op: z.enum(["eq", "ne", "lt", "gt", "lte", "gte", "in"]),
-      // Value ist `unknown` zur Compile-Zeit; Server-Side prüft beim
-      // Build der WHERE-Clause ob der Type zum Field passt. z.unknown()
-      // lässt alles durch; Type-Check kommt im executor.list.
+      // `unknown` at compile time; the server checks while building the WHERE
+      // clause that the value's type matches the field. z.unknown() accepts
+      // everything, so the type check occurs in executor.list.
       value: z.unknown(),
     })
     .optional(),
-  // User-gewählte Faceted-Filter (dynamisch). Additiv zum statischen
-  // `filter` — executor.list verknüpft alle mit AND.
+  // User-selected faceted filters are dynamic and additive to the static
+  // `filter`; executor.list combines all of them with AND.
   filters: z
     .array(
       z.object({
@@ -433,10 +432,10 @@ export function defineEntityWriteHandler(
           changes: dropEmptyWriteOnlyValues(entity, submitted.changes),
         };
         const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
-        // skipUnchanged (#464): API-driven updates diff against the stored
+        // skipUnchanged: API-driven updates diff against the stored
         // row so a resubmitted-but-identical field doesn't force a fresh
         // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
-        // KEK-rotation, the user-data-rights #494 backfill) don't go through
+        // KEK-rotation, the user-data-rights backfill) don't go through
         // this handler and keep today's always-re-encrypt behavior, which
         // they rely on to intentionally force a fresh event/ciphertext.
         return executor.update(payload, event.user, db, {
@@ -518,7 +517,7 @@ export function defineEntityQueryHandler(
   let schema: ZodType;
   let handler: QueryHandlerDef["handler"];
 
-  // Tier 2.7e server-eagerload: when the entity has reference fields, the
+  // Server-side eager loading: when the entity has reference fields, the
   // handler resolves the UUIDs against the referenced entities after the
   // main query. The `_refs` property lands on every row; the renderer-side
   // useReferenceLookup stays as a fallback (for apps that write custom
@@ -556,17 +555,16 @@ export function defineEntityQueryHandler(
     case "list":
       schema = entityListSchema;
       handler = async (query, ctx) => {
-        // Tier 2.7e Audit-Fix: SearchAdapter aus ctx durchreichen,
-        // damit payload.search zur Laufzeit gegen Meilisearch/InMem
-        // läuft (Remote-Combobox-Search). Der executor wird beim
-        // Definition-Time gebaut, kennt den Adapter also nicht —
-        // Runtime-Override holt das.
+        // Pass the SearchAdapter from ctx through so payload.search is executed
+        // against Meilisearch/InMem at runtime (remote combobox search). The
+        // executor is built at definition time and cannot know the adapter, so the
+        // runtime override supplies it.
         const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
         const db = dbFor(ctx);
         const result = await executor.list(listPayload, query.user, db, {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
           ...(ctx.includeDeleted === true && { includeDeleted: true }),
-          // fw#2660 — registry access only exists at request time, so the
+          // Registry access only exists at request time, so the
           // searchable-reference cache + entity resolver travel through the
           // same runtime-override extension point as searchAdapter above.
           referenceSearch: {

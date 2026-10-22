@@ -1,11 +1,11 @@
-// Runtime guard #722: before the rebuild swaps the shadow over the live table,
+// Runtime guard: before the rebuild swaps the shadow over the live table,
 // abort if a live row has NO event in the projection's source streams — a row
-// no replay can reconstruct (#498 ghost, direct-inserted without a .created
+// no replay can reconstruct (direct-inserted without a .created
 // event), which the swap would silently drop.
 //
 // The guard is deliberately narrow (event EXISTENCE only, not a column diff):
 // the framework legitimately makes live diverge from a fresh replay in shipped
-// ways (blind-index erase→NULL, sensitive-strip, archived-stream wipe, the #494
+// ways (blind-index erase→NULL, sensitive-strip, archived-stream wipe, the
 // backfill flow). Those rows all HAVE an event, so they are not ghosts and the
 // guard leaves them alone — proven by the "direct column-write" test below.
 
@@ -101,7 +101,7 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     if (!a.isSuccess) throw new Error("setup failed");
 
     // Drift: clone the event-backed row into a second id WITHOUT appending an
-    // event — the #498 ghost. No replay can ever reconstruct it.
+    // event — the ghost. No replay can ever reconstruct it.
     const [liveRow] = await selectMany(testDb.db, userTable, { id: a.data.id as string });
     if (!liveRow) throw new Error("live row missing");
     const ghostId = crypto.randomUUID();
@@ -111,7 +111,7 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     expect(await snapshotTable()).toHaveLength(2);
 
     await expect(rebuildProjection(projectionName, { db: testDb.db, registry })).rejects.toThrow(
-      // #915: exact count below the truncation limit, no misleading "+" suffix.
+      // Exact count below the truncation limit, no misleading "+" suffix.
       /^projection-rebuild ".*": 1 live rows in ".*" have no\s+event in the projection's source streams/,
     );
 
@@ -123,7 +123,7 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
 
   test("direct column-write on an event-backed row does NOT trip the guard", async () => {
     // The row has a .created event, so it is not a ghost. Its column state was
-    // direct-written without an event (the #494 / blind-index-erase class) — the
+    // direct-written without an event (the blind-index-erase class) — the
     // guard is event-existence-only and leaves it alone; the replay overwrites
     // the column from the event, which is the intended, shipped behavior.
     const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
@@ -136,8 +136,8 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
     );
 
     // No throw — the row is event-backed. Rebuild replays the create event.
-    // #916: the direct write IS reported as column drift (non-blocking) —
-    // this is the exact #494 healing case the guard leaves to replay.
+    // The direct write IS reported as column drift (non-blocking) —
+    // this is the exact healing case the guard leaves to replay.
     const result = await rebuildProjection(projectionName, { db: testDb.db, registry });
     expect(result.columnDriftCount).toBe(1);
 
@@ -164,17 +164,17 @@ describe("assert-no-unreachable-live-rows / #722 ghost-row guard", () => {
 
     const result = await rebuildProjection(projectionName, { db: testDb.db, registry });
 
-    // #916: the sample query is LIMITed to 20 rows, but the count must reflect
+    // The sample query is LIMITed to 20 rows, but the count must reflect
     // all 21 — a min(actual, 20) would silently understate severity to ops.
     expect(result.columnDriftCount).toBe(21);
   });
 
   test("archived stream (fw#832 tombstone) does NOT trip the guard", async () => {
     // archiveStream never deletes the .created event — projection rebuild
-    // deliberately excludes archived streams from replay (fw#832, see
-    // projection-rebuild.ts), so the row is wiped from live on swap. The
-    // guard only checks event EXISTENCE, not replay-inclusion, so it must
-    // not fire — this is the shipped tombstone behavior, not drift.
+    // deliberately excludes archived streams from replay (see projection-rebuild.ts),
+    // so the row is wiped from live on swap. The guard only checks event EXISTENCE,
+    // not replay-inclusion, so it must not fire — this is the shipped tombstone
+    // behavior, not drift.
     const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
     const a = await crud.create({ email: "a@test.de", firstName: "Alice" }, adminUser, tdb);
     if (!a.isSuccess) throw new Error("setup failed");

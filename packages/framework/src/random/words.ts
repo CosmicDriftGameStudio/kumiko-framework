@@ -1,26 +1,26 @@
-// Wortlisten für human-readable Resource-Slugs (Tenant-Keys, Webhook-
-// Subscribers, API-Key-Display-Names, Test-Fixtures). Heroku/Docker-
-// Style — adjective + noun produzieren aussprechbare, merkbare,
-// PII-freie Identifier.
+// Word lists for human-readable resource slugs (tenant keys, webhook-
+// subscribers, API-key display names, test fixtures). Heroku/Docker-
+// style — adjective + noun produce pronounceable, memorable,
+// PII-free identifiers.
 //
-// Auswahl-Kriterien:
-//   - Emotional-neutral und professionell (kein "fluffy", "sneaky")
-//   - Keine Tiernamen (Heroku-Cliché)
-//   - Keine Personennamen (cultural appropriation, prominenten-collision)
-//   - Keine Themen-Cluster (kein Wetter-only, kein Geographie-only)
-//   - Lowercase, ASCII-only, keine Bindestriche im Wort selbst
-//   - 3-10 Buchstaben pro Wort (kompakter Slug)
-//   - Aussprechbar in Deutsch UND Englisch (User-Telefon-Support)
-//   - Keine Wörter mit ambiguer Bedeutung in Englisch+Deutsch
+// Selection criteria:
+//   - Emotionally neutral and professional (no "fluffy", "sneaky")
+//   - No animal names (Heroku cliché)
+//   - No personal names (cultural appropriation, celebrity collisions)
+//   - No thematic clusters (neither weather-only nor geography-only)
+//   - Lowercase, ASCII-only, with no hyphens within a word
+//   - 3–10 letters per word (compact slug)
+//   - Pronounceable in German AND English (user phone support)
+//   - No words with ambiguous meanings in English and German
 //
-// 191 × 173 = 33.043 saubere Kombinationen. Birthday-Bound: ab ~180
-// Tenants wird kumulativ die erste Kollision wahrscheinlich (~50%);
-// pro Einzel-Draw bleibt p(Kollision) < 1% (vgl. generate.ts). Bei
-// Kollision greift der Suffix-Pfad in generateUniqueName.
+// 191 × 173 = 33,043 clean combinations. Birthday bound: from ~180
+// tenants onward, the first collision becomes likely cumulatively (~50%);
+// for an individual draw, p(collision) remains < 1% (see generate.ts). On
+// collision, the suffix path in generateUniqueName is used.
 //
-// Erweiterung: weitere Wörter unten anhängen reicht (sortiert ist
-// hilfreich für Reviews aber nicht erforderlich). Caller können auch
-// eigene Listen via generateUniqueName({ adjectives, nouns }) reichen.
+// Extension: appending more words below is sufficient (sorting helps with
+// reviews but is not required). Callers can also provide custom lists via
+// generateUniqueName({ adjectives, nouns }).
 
 export const ADJECTIVES: readonly string[] = Object.freeze([
   "agile",

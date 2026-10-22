@@ -1,37 +1,34 @@
-// Compliance-Profiles — DSGVO + sektorspezifische Regelwerke.
+// Compliance profiles — GDPR + sector-specific regulations.
 //
-// Tenant-Admin waehlt ein Profile beim Onboarding (Pflicht). Profile
-// buendelt User-Rights (Forget-Grace, Restriction, Auskunftsfrist),
-// Notification-Sprache, Breach-Disclosure, Audit-Log-Retention,
-// Sub-Processor-Anforderungen und Tenant-Destroy-Grace.
+// The tenant admin must select a profile during onboarding. A profile
+// bundles user rights (forget grace period, restriction, access-request
+// deadline), notification languages, breach disclosure, audit-log retention,
+// subprocessor requirements, and the tenant-destruction grace period.
 //
-// MVP-Set: 3 Profile + 1 Default-Fallback. Erweiterung via `extends`
-// trivial — neue Laender (uk-gdpr, ca-pipeda, us-ccpa, hipaa-healthcare)
-// kommen on-demand wenn Customer fragt.
+// Current set: three profiles plus one default fallback. Extending via
+// `extends` is straightforward; additional jurisdictions (uk-gdpr,
+// ca-pipeda, us-ccpa, hipaa-healthcare) can be added when needed.
 //
-// Edge-Case-Decisions (advisor-pinned 2026-05-06):
+// Edge-case decisions:
 //
-//   1. Default-Fallback: `resolveComplianceProfile(undefined)` returnt
-//      `minimal-no-region` mit `warning: "no-profile-selected"`. Caller
-//      sieht das und kann Onboarding-Banner triggern. Nie still
-//      resolven.
+//   1. Default fallback: `resolveComplianceProfile(undefined)` returns
+//      `minimal-no-region` with `warning: "no-profile-selected"`. The caller
+//      can use this to trigger an onboarding banner; resolution is never
+//      silent.
 //
-//   2. extends-Chain-Tiefe: nur 1-Level. de-hr-dsgvo-hgb extends
-//      eu-dsgvo, aber eu-dsgvo darf NICHT selbst extends haben. Boot-
-//      Validator (Sprint 1.3) prueft.
+//   2. Extends-chain depth: only one level is allowed. de-hr-dsgvo-hgb
+//      extends eu-dsgvo, but eu-dsgvo must not extend another profile. The
+//      boot validator checks this.
 //
-//   3. Deep-merge-Semantik vom Override: rekursiv. Override
-//      `{ userRights: { gracePeriod: { days: 60 } } }` auf eu-dsgvo
-//      laesst andere userRights-Felder unveraendert. Top-Level-Replace
-//      gibt es NICHT — Override muss strukturell exakt das Pfad-Tree
-//      treffen.
+//   3. Override deep-merge semantics: merging is recursive. An override such
+//      as `{ userRights: { gracePeriod: { days: 60 } } }` on eu-dsgvo leaves
+//      the other userRights fields unchanged. Top-level replacement is not
+//      supported; the override must target the corresponding property path.
 //
-//   4. Required-Field-Override: Override-Type ist `DeepPartial<...>`.
-//      TypeScript verhindert null-Drops zur Compile-Time. Runtime-Cast
-//      durch Tenant-Admin-Override-Endpoint laeuft durch Zod-Schema
-//      mit allen-Properties-optional (kein nullable).
-//
-// Siehe docs/plans/datenschutz/compliance-profiles.md.
+//   4. Required-field overrides: the override type is `DeepPartial<...>`.
+//      TypeScript prevents null drops at compile time. Runtime casts from
+//      the tenant-admin override endpoint pass through a Zod schema with
+//      all properties optional, but not nullable.
 
 import { isPlainObject } from "../utils/is-plain-object.ts";
 import type { BundleTier } from "./sub-processors.ts";
@@ -248,8 +245,8 @@ const RAW_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>
   },
 } satisfies Readonly<Record<ComplianceProfileKey, ComplianceProfileRaw>>;
 
-// Raw-Profile (vor extends-Resolution) — `extends`-Profile dürfen
-// Required-Felder weglassen, sie kommen vom Base-Profile dazu.
+// Raw profile (before extends resolution) — profiles with `extends` may
+// omit required fields because they are supplied by the base profile.
 type ComplianceProfileRaw = Partial<Omit<ComplianceProfile, "key" | "region" | "label">> & {
   readonly key: ComplianceProfileKey;
   readonly region: string;
@@ -257,13 +254,13 @@ type ComplianceProfileRaw = Partial<Omit<ComplianceProfile, "key" | "region" | "
   readonly extends?: ComplianceProfileKey;
 };
 
-// --- Tenant-Auswählbare Liste (ohne minimal-no-region) ---
+// --- Tenant-selectable list (excluding minimal-no-region) ---
 
 /**
- * Profile-Schluessel die der Tenant-Admin im Onboarding waehlen darf.
- * `minimal-no-region` ist bewusst NICHT in der Liste — es ist der
- * Default-Fallback fuer "noch keine Wahl getroffen", mit sichtbarer
- * Warning. Production-Tenants sollen ein echtes Profile waehlen.
+ * Profile keys that the tenant admin may select during onboarding.
+ * `minimal-no-region` is intentionally excluded: it is the default fallback
+ * for "no choice made yet" and produces a visible warning. Production
+ * tenants must select an actual profile.
  */
 export const SELECTABLE_PROFILE_KEYS = [
   "eu-dsgvo",
@@ -272,20 +269,18 @@ export const SELECTABLE_PROFILE_KEYS = [
 ] as const satisfies readonly ComplianceProfileKey[];
 
 /**
- * Top-Level-Properties des `ComplianceProfile`-Type, die ein Tenant-
- * Override modifizieren darf. Identifikations-Felder (key, region,
- * label, extends) sind ausgeschlossen — wer die overriden wuerde,
- * würde die Profile-Identität zerstoeren.
+ * Top-level `ComplianceProfile` properties that a tenant override may modify.
+ * Identity fields (key, region, label, extends) are excluded because
+ * overriding them would destroy the profile's identity.
  *
- * Single source of truth fuer:
- *   - set-profile-Handler-Whitelist (Tippfehler-Reject)
- *   - Snapshot-Test gegen Profile-Top-Level (Drift-Guard)
+ * This is the single source of truth for:
+ *   - the set-profile handler whitelist, which rejects typos
+ *   - the snapshot test that guards against drift from the profile's top level
  *
- * Wenn ein neues Top-Level-Property zu `ComplianceProfile` kommt
- * (z.B. `dataSubjectRights` oder `crossBorderTransferRules`), MUSS es
- * hier ergaenzt werden — sonst lehnt set-profile valide Overrides ab.
- * Der Snapshot-Test in profiles.test.ts faengt Drift in beide
- * Richtungen.
+ * When a new top-level property is added to `ComplianceProfile` (for example,
+ * `dataSubjectRights` or `crossBorderTransferRules`), it must be added here;
+ * otherwise set-profile rejects valid overrides. The snapshot test in
+ * profiles.test.ts detects drift in either direction.
  */
 export const OVERRIDABLE_PROFILE_KEYS: ReadonlySet<string> = new Set([
   "userRights",
@@ -305,11 +300,11 @@ export type ComplianceProfileOverride = DeepReadonly<DeepPartial<ComplianceProfi
 
 type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
 
-// Pfade die als ganzes Atom ersetzt werden (NICHT rekursiv gemergt).
-// Notwendig fuer Diskriminierte-Union-Types wo das Patch ein Schwester-
-// Property statt einer Override sein kann — z.B. retention von
-// { months: 24 } auf { years: 10 } wuerde sonst zu { months: 24, years: 10 }
-// werden, semantisch nonsense.
+// These paths are replaced as atomic values rather than merged recursively.
+// This is required for discriminated unions, where a patch may provide a
+// sibling property instead of an override; for example, changing retention
+// from { months: 24 } to { years: 10 } would otherwise produce
+// { months: 24, years: 10 }, which is semantically invalid.
 const ATOMIC_PATHS: ReadonlySet<string> = new Set([
   "userRights.gracePeriod",
   "userRights.auskunftFrist",
@@ -330,7 +325,7 @@ function deepMerge<T extends Record<string, unknown>>(
     const fullPath = path ? `${path}.${k}` : k;
     const existing = out[k];
     if (ATOMIC_PATHS.has(fullPath)) {
-      // Atomic — replace komplett statt rekursiv mergen.
+      // Atomic — replace completely instead of merging recursively.
       out[k] = v;
     } else if (isPlainObject(existing) && isPlainObject(v)) {
       out[k] = deepMerge(existing, v, fullPath);
@@ -342,13 +337,12 @@ function deepMerge<T extends Record<string, unknown>>(
 }
 
 /**
- * Resolved ein Profile inklusive `extends`-Auflösung. Wirft wenn die
- * extends-Chain tiefer als 1 Level ist (vermeidet Cycles + macht
- * Boot-Validation einfach).
+ * Resolves a profile, including its `extends` chain. Throws when the chain
+ * is deeper than one level to prevent cycles and keep boot validation simple.
  *
- * Edge-Case (gepinnt): das `extends`-Target darf selbst KEIN extends
- * haben. Wer doch eine Mehrstufen-Hierarchie braucht, definiert die
- * Stufen explizit (z.B. `de-hr-strict extends eu-dsgvo`, statt
+ * The `extends` target itself must not extend another profile. A required
+ * multi-level hierarchy must instead be defined explicitly (for example,
+ * `de-hr-strict extends eu-dsgvo` rather than
  * `de-hr-strict extends de-hr-dsgvo-hgb extends eu-dsgvo`).
  */
 function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
@@ -371,9 +365,9 @@ function resolveExtends(key: ComplianceProfileKey): ComplianceProfile {
 }
 
 /**
- * Pre-baked Profile-Liste (extends bereits aufgelöst). Beim Modul-Load
- * einmal berechnet — wirft bei Definition-Fehlern (Cycle, missing target)
- * sofort, nicht erst beim ersten Resolver-Call.
+ * Precomputed profile list with `extends` already resolved. It is computed
+ * once when the module loads, so definition errors (cycles or missing
+ * targets) are thrown immediately rather than on the first resolver call.
  */
 export const COMPLIANCE_PROFILES: Readonly<Record<ComplianceProfileKey, ComplianceProfile>> =
   Object.fromEntries(
@@ -388,19 +382,18 @@ export interface EffectiveComplianceProfile {
 }
 
 /**
- * Liefert das effektive Compliance-Profile fuer einen Tenant inklusive
- * Tenant-Override.
+ * Returns the effective compliance profile for a tenant, including its
+ * tenant override.
  *
- * Edge-Case-Verhalten (gepinnt):
+ * Edge-case behavior:
  *   - selection=undefined → minimal-no-region + warning="no-profile-selected"
- *   - selection=valid + override=undefined → effective profile, kein warning
- *   - selection=valid + override → deep-merged effective, kein warning
+ *   - selection=valid + override=undefined → effective profile, no warning
+ *   - selection=valid + override → deep-merged effective profile, no warning
  *
- * Production-Marker: das frueher hier vorgesehene "minimal-in-production"-
- * warning ist entfallen weil set-profile (Sprint 1.7 X1) minimal-no-region
- * nicht mehr als Tenant-Wahl akzeptiert. Wer Production-spezifisches
- * Verhalten braucht (z.B. Block-bei-Default), addiert den Marker spaeter
- * bei Bedarf.
+ * The former "minimal-in-production" warning was removed because
+ * set-profile no longer accepts minimal-no-region as a tenant selection.
+ * Production-specific behavior, such as blocking the default, can be added
+ * later if needed.
  */
 export function resolveComplianceProfile(args: {
   readonly selection?: ComplianceProfileKey;

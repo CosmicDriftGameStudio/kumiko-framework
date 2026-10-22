@@ -1,4 +1,4 @@
-// KEK rotation (#818 step 7): mid-rotation an adapter with the NEW active
+// KEK rotation: mid-rotation an adapter with the NEW active
 // KEK + previousKeks reads old-generation rows; rewrapSubjectKeys migrates
 // the estate to the new generation; afterwards previousKeks can be dropped.
 // Erased tombstones stay untouched, unknown generations fail loud as a

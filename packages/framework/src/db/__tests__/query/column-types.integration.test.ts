@@ -69,8 +69,8 @@ describe("column-type roundtrip", () => {
 
   test("bigint ±max (as bigint)", async () => {
     await withTable([{ name: "n", pgType: "bigint", notNull: true }], async ({ db, meta }) => {
-      // JS Number-Max = 2^53-1. Postgres bigint = ±2^63-1.
-      // db/query boundary coerziert string→bigint (siehe commit 0be2db9b).
+      // JavaScript's maximum safe integer is 2^53-1, while PostgreSQL bigint supports ±2^63-1.
+      // The db/query boundary coerces string→bigint.
       const bigPos = 9007199254740993n;
       const ins = await insertOne<{ id: string; n: bigint }>(db, meta, { n: bigPos });
       const row = await fetchOne<{ id: string; n: bigint }>(db, meta, { id: ins!.id });

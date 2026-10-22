@@ -80,8 +80,8 @@ export function renderCreateTable(meta: EntityTableMeta): string {
   return `CREATE TABLE "${meta.tableName}" (${cols})`;
 }
 
-// Test-Wrapper: Tabelle anlegen, fn aufrufen, Tabelle droppen.
-// fn bekommt {db, meta} — alle SQL-Operationen laufen direkt darauf.
+// Test wrapper: create a table, invoke fn, then drop the table.
+// fn receives {db, meta}; all SQL operations run directly against that database connection.
 export async function withTable<T>(
   columns: readonly ColumnMeta[],
   fn: (ctx: { db: unknown; meta: WritableTable }) => Promise<T>,

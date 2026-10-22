@@ -96,9 +96,9 @@ export function validateConfigKeyComputed(feature: FeatureDefinition): void {
 export function validateConfigKeyRequired(feature: FeatureDefinition): void {
   for (const [keyName, keyDef] of Object.entries(feature.configKeys ?? {})) {
     if (keyDef.required !== true) continue;
-    // required heißt "Tenant MUSS konfigurieren" — ein non-empty default
-    // oder ein computed-Resolver macht den Key nie unset, readiness könnte
-    // die Lücke nie melden: der required-Flag wäre eine stille Lüge.
+    // `required` means the tenant must configure the key. A non-empty default
+    // or computed resolver means the key can never be unset, so readiness could
+    // never report the omission and the flag would be misleading.
     if (keyDef.computed !== undefined) {
       throw new Error(
         `[Feature ${feature.name}] Config key "${keyName}" has required=true AND a computed resolver — a computed key can never be missing; drop one of the two`,
@@ -222,7 +222,7 @@ export function validateConfigKeyBacking(feature: FeatureDefinition): void {
   }
 }
 
-// --- Config key piiEncrypted compatibility (kumiko-platform#231/#459) ---
+// --- Config key piiEncrypted compatibility ---
 
 export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void {
   for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {

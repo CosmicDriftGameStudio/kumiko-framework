@@ -16,23 +16,23 @@ import type {
 } from "../types/index.ts";
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.ts";
 
-// --- Ownership rule validation (H.2) ---
+// --- Ownership rule validation ---
 //
 // Walks every entity.access and every field.access map, resolves each
 // FromRule against the cross-feature claim registry, and confirms the
 // referenced column exists on the entity. Catches typos, renames, and
 // cross-feature-claim-removal scenarios at boot instead of at request time.
 //
-// fw#2639: also probes every `{ kind: "where" }` rule against the where-rule
+// Also probes every `{ kind: "where" }` rule against the where-rule
 // lint (see ../where-rule-lint.ts) so a fail-open unqualified-column bug
 // fails the boot instead of waiting for a request from the right role.
 //
 // Field-level `access.read` rejects where-rules too: filterFieldsForRead
 // evaluates it in memory and userCanReadFieldRow fails closed on a where-rule.
 //
-// fw#2626: `access.write` maps reject `{ kind: "where" }` outright. A
-// where-rule is raw SQL and the write path never reaches SQL — it evaluates
-// rules in memory against the concrete row (userCanCreateFieldRow /
+// `access.write` maps reject `{ kind: "where" }` outright. A where-rule is
+// raw SQL and the write path never reaches SQL — it evaluates rules in memory
+// against the concrete row (userCanCreateFieldRow /
 // userCanWriteFieldRow), and a create has no row to run a predicate against
 // at all. Such a rule can therefore only ever deny, so the boot fails instead
 // of shipping an access map that silently locks the role out.
@@ -79,9 +79,8 @@ export function collectClaimKeys(
 // corpora go in as undefined — a three-feature stack genuinely does not know
 // which roles and claims the whole app declares, and answering that question
 // from a slice produces false "unknown role"/"unknown claim" errors. The
-// subset-invariant checks (#2639 where-lint, #2626 where-on-write, unknown
-// column) run in full: those hold or fail per feature, whatever else is
-// mounted.
+// subset-invariant checks (where-lint, where-on-write, unknown column) run in
+// full: those hold or fail per feature, whatever else is mounted.
 export function validateOwnershipBoot(features: readonly FeatureDefinition[]): void {
   for (const feature of features) {
     validateOwnershipRules(feature, undefined, undefined);

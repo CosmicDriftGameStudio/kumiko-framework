@@ -1,7 +1,7 @@
-// kumiko-framework#1977: r.httpRoute's systemQuery used to always run with
+// r.httpRoute's systemQuery used to always run with
 // requestContext.get()?.ip === undefined, so a `rateLimit: {per: "ip"}`
-// handler invoked through it silently never bucketed — see server.ts's
-// systemQuery wiring. Proves the fix: repeated calls through the same
+// handler invoked through it silently never bucketed (see server.ts's
+// systemQuery wiring). Proves the fix: repeated calls through the same
 // httpRoute, same client IP, DO hit the limit.
 
 import {

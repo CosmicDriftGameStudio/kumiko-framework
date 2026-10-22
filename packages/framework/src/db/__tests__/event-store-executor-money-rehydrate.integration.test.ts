@@ -1,4 +1,4 @@
-// fw#1855 — money columns in list()/detail() surfaced the raw minor-units
+// Money columns in list()/detail() surfaced the raw minor-units
 // integer instead of { amount, currency }: rehydrateCompoundTypes ran BEFORE
 // coerceRow on raw-SQL rows, so rehydrateMoney looked up the still-snake_case
 // key and silently no-op'd. money.test.ts/compound-types.test.ts only feed

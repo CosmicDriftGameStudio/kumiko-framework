@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { buildTarget, type TreeActionDef } from "../index.ts";
 
-// createTreeActionsStub — Test-Helper für Phase-0-Stub-Features. Das
-// `const`-Generic-Modifier forciert Literal-Inference, sodass die
-// Action-Namen als string-literal-Union ankommen (statt zu `string`
-// widening). In V.1.1 wird der Helper überflüssig: echte defineFeature-
-// Outputs haben dieselbe Shape und Tests konsumieren die direkt.
+// createTreeActionsStub — Test helper for stub features. The
+// `const` generic modifier forces literal inference so action names arrive
+// as a string-literal union instead of widening to `string`. Real
+// defineFeature outputs have the same shape, so tests can consume them
+// directly.
 function createTreeActionsStub<const TActions extends Record<string, TreeActionDef>>(spec: {
   readonly id: string;
   readonly treeActions: TActions;
@@ -78,23 +78,21 @@ describe("buildTarget — WithArgs-Action", () => {
 });
 
 describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", () => {
-  // Jeder Test paart ein @ts-expect-error-Block (compile-time-validation
-  // via TypeScript) mit einem runtime-expect über den korrespondierenden
-  // Happy-Path. Doppelt-Coverage: Compiler prüft Rejection, vitest prüft
-  // dass die korrekte Form bei valid input das richtige Ergebnis liefert.
-  // Memory `[Keine Fake-Tests]` — Tests müssen runtime-Verhalten prüfen,
-  // nicht nur Compile-Time (Fake-Test-Guard).
+  // Each test pairs an @ts-expect-error block (compile-time validation
+  // via TypeScript) with a runtime expectation for the corresponding
+  // happy path. This provides dual coverage: the compiler checks rejection,
+  // while the test checks that valid input produces the correct result.
+  // Runtime behavior must be tested rather than only compile-time behavior.
 
   test("unbekannte action wird vom Compiler abgelehnt", () => {
-    // @ts-expect-error — "delet" ist keine Action von textContentStub
+    // @ts-expect-error — "delet" is not an action of textContentStub
     buildTarget({ target: textContentStub, action: "delet" });
-    // Runtime: bekannte Action liefert valid TargetRef
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect(ref.action).toBe("list");
   });
 
   test("falsche args-shape wird vom Compiler abgelehnt", () => {
-    // @ts-expect-error — slug muss string sein, nicht number
+    // @ts-expect-error — slug must be a string, not a number
     buildTarget({ target: textContentStub, action: "edit", args: { slug: 42 } });
     // Runtime: korrekt-typed args liefern valid TargetRef
     const ref = buildTarget({
@@ -106,17 +104,15 @@ describe("buildTarget — Compile-Time-Safety (verified via @ts-expect-error)", 
   });
 
   test("args bei NoArgs-Action wird vom Compiler abgelehnt", () => {
-    // @ts-expect-error — list hat keine args, args-Feld nicht erlaubt
+    // @ts-expect-error — list has no args, so the args field is not allowed
     buildTarget({ target: textContentStub, action: "list", args: { x: 1 } });
-    // Runtime: NoArgs-Action ohne args-Feld liefert valid TargetRef
     const ref = buildTarget({ target: textContentStub, action: "list" });
     expect("args" in ref).toBe(false);
   });
 
   test("fehlende args bei WithArgs-Action wird vom Compiler abgelehnt", () => {
-    // @ts-expect-error — edit braucht args, fehlt
+    // @ts-expect-error — edit requires args, but they are missing
     buildTarget({ target: textContentStub, action: "edit" });
-    // Runtime: WithArgs-Action mit args liefert valid TargetRef
     const ref = buildTarget({
       target: textContentStub,
       action: "edit",

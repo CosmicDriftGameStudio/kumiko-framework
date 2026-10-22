@@ -30,8 +30,8 @@ function tmpDir(): string {
 
 describe("rebuildTablesFromDiff", () => {
   test("managed: new table rebuilt, additive-only change NOT rebuilt, dropped excluded", () => {
-    // read_a: nur eine nullable Spalte dazu → in-place ALTER, kein Rebuild.
-    // read_b: neue Tabelle → Rebuild. read_c gedroppt → nie im Marker.
+    // read_a: only a nullable column added → in-place ALTER, no rebuild.
+    // read_b: new table → rebuild. read_c dropped → never included in the marker.
     const prev = snapshotFromMetas([meta("read_a"), meta("read_c")]);
     const next = snapshotFromMetas([
       meta("read_a", { name: "title", pgType: "text", notNull: false }),

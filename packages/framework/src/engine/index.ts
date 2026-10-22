@@ -90,10 +90,9 @@ export {
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
-  // Legacy single-fn-with-verb-string API. Backwards-compat — neue
-  // Apps nehmen die verb-spezifischen Wrapper oben. Existierende
-  // Caller (Integration-Tests, alte bundled-features) bleiben so
-  // unverändert lauffähig.
+  // Legacy single-fn-with-verb-string API. Backwards compatibility — new
+  // apps use the verb-specific wrappers above. Existing callers (integration
+  // tests, old bundled-features) remain runnable without changes.
   defineEntityQueryHandler,
   defineEntityRestoreHandler,
   defineEntityUpdateHandler,
@@ -190,7 +189,7 @@ export {
   createTzField,
 } from "./factories.ts";
 // AST inspection + patching pipeline — used by the CLI scaffolder, the
-// Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts
+// Designer (C5), and the AI-Builder (L2). See feature-ast/index.ts
 // for the full surface area; we re-export the most-used types/functions
 // here so consumers can import everything from a single barrel.
 export type {

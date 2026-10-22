@@ -100,7 +100,7 @@ export function validateScreens(
   // features (a declarative list in the entity's owning feature navigates to
   // the consumer app's custom editors this way). The validator mirrors that:
   // same feature OR any feature. redirect/cancelTarget additionally accept a
-  // fully qualified cross-feature QN (resolveScreenTargetQn, #1946); short IDs
+  // fully qualified cross-feature QN (resolveScreenTargetQn); short IDs
   // stay same-feature as before.
   const navTargetShortIds = screenShortIdsFrom(allScreenQns);
   const navigateLookups: NavigateTargetLookups = {
@@ -201,7 +201,7 @@ export function validateScreens(
           );
         }
       }
-      // Screen filter (fw#2224) — field existence can't be checked without
+      // Screen filter — field existence can't be checked without
       // an entity (columns aren't a complete field inventory of the
       // underlying query), so only pin the structure: "in" requires an
       // array. Field validity is documented in the PR body.
@@ -322,7 +322,7 @@ export function validateScreens(
         );
       }
       // singleton has no row id in the path, but the auto-generated "Edit"
-      // action (fw#2166, defaultEditAction in kumiko-screen.tsx) navigates
+      // action (defaultEditAction in kumiko-screen.tsx) navigates
       // to the detailFor entity's entityEdit screen using that path id —
       // under singleton it would silently open that screen in CREATE mode
       // instead of editing the singleton row. Reject rather than let that
@@ -522,7 +522,7 @@ export function validateScreens(
           // extension that persists through the host's Save button has
           // nothing to save against. Extensions that persist themselves
           // (e.g. notes-history NotesSection, via their own dispatcher
-          // writes) are fine (solon#264).
+          // writes) are fine.
           if (section.contributesToFormSubmit === true) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) extension section ` +
@@ -732,9 +732,8 @@ export function validateScreens(
     }
 
     if (screen.type === "configEdit") {
-      // configEdit: layout/fields wie actionForm validieren, plus
-      // Cross-Check dass jeder qualifizierte Config-Key registriert
-      // ist und der scope mit dem Key matcht.
+      // Validate configEdit layout and fields like actionForm, then verify that
+      // every qualified config key is registered and its scope matches the key.
       const fieldNames = new Set(Object.keys(screen.fields));
       if (fieldNames.size === 0) {
         throw new Error(
@@ -804,8 +803,8 @@ export function validateScreens(
           );
         }
       }
-      // configKeys: jeder fieldName muss einen Mapping-Eintrag haben,
-      // jeder qualifizierte Key muss in der Registry existieren.
+      // configKeys: every fieldName must have a mapping entry, and every
+      // qualified key must exist in the registry.
       for (const fname of fieldNames) {
         const secretQn = screen.secretKeys?.[fname];
         if (secretQn !== undefined) {
@@ -982,9 +981,8 @@ export function validateScreens(
           );
         }
       }
-      // Pagination/Sort/Search-Validierung: Author-Fehler beim Boot
-      // fangen, damit kein "warum kommt die Liste leer / falsch
-      // sortiert"-Debug-Cycle zur Laufzeit losgeht.
+      // Validate pagination, sorting, and search at boot so authoring errors
+      // fail before runtime debugging of empty or incorrectly sorted lists.
       if (screen.pageSize !== undefined && screen.pageSize <= 0) {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (entityList) has pageSize=${screen.pageSize} — ` +
@@ -999,15 +997,13 @@ export function validateScreens(
               `field "${sortField}". Known fields: ${[...fieldNames].sort().join(", ")}`,
           );
         }
-        // sortable: true Pflicht — verhindert dass das UI auf einer
-        // Spalte sortiert, die Server-Side gar keinen DB-Index hat
-        // oder im Schema absichtlich nicht sortiert werden soll
-        // (Audit-Felder, Computed-Werte). `sortable` lebt heute nur
-        // auf TextFieldDef; "in"-narrow lässt das auch für andere
-        // Field-Types ohne explizites Flag durchfallen, was ok ist:
-        // Number/Date sind natürlich sortierbar, der Author kann sie
-        // im Author-Code als sortable markieren wenn das Field-Type
-        // es trägt (Erweiterung folgt).
+        // `sortable: true` is required so the UI never sorts on a column that has
+        // no server-side DB index or that the schema deliberately keeps unsortable
+        // (audit fields, computed values). `sortable` currently
+        // exists only on TextFieldDef; the `in` narrowing also permits other
+        // field types without an explicit flag, which is acceptable because
+        // Number/Date fields are naturally sortable. Authors can mark them
+        // sortable when their field type supports it.
         const fieldDef = entityDef.fields[sortField];
         const isSortable =
           fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true;
@@ -1028,15 +1024,14 @@ export function validateScreens(
             `Known screens in this feature: ${Object.keys(feature.screens).sort().join(", ") || "(none)"}.`,
         );
       }
-      // Screen-Filter (Tier 2.7c) — drei Layer Author-Code-Check:
-      //   1) Field existiert auf der Entity (Tippfehler = leere Liste
-      //      statt Crash; Boot-Fail ist deutlich besser).
-      //   2) Field hat `filterable: true` (Author opt-in, analog zu
-      //      `sortable`). Verhindert dass Audit-/Computed-/encrypted-
-      //      Felder unbeabsichtigt filterbar werden.
-      //   3) Op passt zum Field-Type. Lt/gt auf text-Feldern → Boot-
-      //      Fail mit Hinweis statt String-Sort-Surprise zur Laufzeit.
-      // Außerdem: "in" verlangt readonly Array.
+      // Screen filters are checked in three layers:
+      //   1) The field exists on the entity; a typo would otherwise produce an
+      //      empty list instead of a clear boot failure.
+      //   2) The field has `filterable: true`, preventing accidental filtering
+      //      of audit, computed, or encrypted fields.
+      //   3) The operation matches the field type, so lt/gt on text fields
+      //      fails at boot instead of causing surprising runtime behavior.
+      // Additionally, "in" requires a readonly array.
       if (screen.filter !== undefined) {
         const filterField = screen.filter.field;
         if (!fieldNames.has(filterField)) {
@@ -1078,9 +1073,9 @@ export function validateScreens(
           );
         }
       }
-      // Tier 2.7e-1: rowActions pinnen — navigate-target existiert (selbes
-      // Feature), writeHandler-QN ist registriert. Tippfehler fallen sonst
-      // erst beim ersten Klick als "Screen not found" / 404 auf.
+      // Pin rowActions at boot: a navigate target must exist in the same feature
+      // and a writeHandler QN must be registered. Typos would otherwise only
+      // surface on the first click as "Screen not found" or a 404.
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
           rejectRedirectOnListRowAction(feature.name, screenId, "entityList", action);
@@ -1101,7 +1096,7 @@ export function validateScreens(
             // the id for a screen owned by a different feature. Cross-feature
             // + entityEdit therefore MUST set an explicit entityId, or the
             // edit screen silently opens with no entity context at runtime.
-            // Entity-targets (fw#2228) are exempt: the renderer always
+            // Entity-targets are exempt: the renderer always
             // supplies an id for them (explicit entityId, else row["id"]),
             // regardless of which feature the resolved detailFor screen
             // belongs to.
@@ -1175,9 +1170,8 @@ export function validateScreens(
         }
         validateAtMostOneRowClick(feature.name, screenId, "entityList", screen.rowActions);
       }
-      // Tier 2.7e-2: toolbarActions — analog zu rowActions, aber bisher
-      // ohne Validator. Typo'd navigate-targets und unregistrierte
-      // writeHandler-QNs fallen bis hierhin erst beim Klick auf.
+      // toolbarActions, analogous to rowActions: misspelled navigate targets and
+      // unregistered writeHandler QNs fail at boot instead of on the first click.
       if (screen.toolbarActions !== undefined) {
         for (const action of screen.toolbarActions) {
           if (action.kind === "navigate") {
@@ -1449,9 +1443,9 @@ export function collectScreenQns(features: readonly FeatureDefinition[]): Set<st
   return set;
 }
 
-// Bare Screen-ids (ohne `<feature>:screen:`-Prefix) aus den qualifizierten
-// QNs — für die app-weite Auflösung von navigate-Targets (s. validateScreens).
-// Spiegelt den Runtime-Router, der bare ids feature-übergreifend matcht.
+// Extract bare screen IDs (without the `<feature>:screen:` prefix) from
+// qualified QNs for app-wide navigate-target resolution (see validateScreens).
+// This mirrors the runtime router, which matches bare IDs across features.
 export function screenShortIdsFrom(allScreenQns: ReadonlySet<string>): Set<string> {
   const marker = ":screen:";
   const set = new Set<string>();

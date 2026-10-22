@@ -8,7 +8,7 @@
 // the resolver-side PipelineCtx (run-pipeline.ts). Resolvers that need
 // prior step results destructure them from the resolver's ctx.
 //
-// Renamed from `pipeline()` (Followup #1) — it shared its name with the
+// Renamed from `pipeline()` — it shared its name with the
 // internal `packages/framework/src/pipeline/` directory (dispatcher,
 // lifecycle, outbox-poller), which made repo-wide grep for `pipeline`
 // return mixed results.
@@ -94,7 +94,7 @@ export function stepsPipeline<
 // awaits map wired into the closure. The cast below is the one place a
 // workflow's raw declared event-type strings become AwaitedEventType — safe
 // because pipelineDef.awaits only ever holds what defineWorkflow's `awaits`
-// carried in (D4, workflow-resume-loop.md), never an unchecked external
+// carried in (workflow-resume-loop.md), never an unchecked external
 // value.
 export function buildPipelineSteps<
   TPayload,

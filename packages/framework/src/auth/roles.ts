@@ -1,31 +1,31 @@
-// Zentrale Role-Konstanten der Plattform.
+// Central role constants for the platform.
 //
-// Hintergrund: Bundled-Features driften zwischen "Admin" (text-content,
-// secrets, ai-foundation, file-provider-s3) und "TenantAdmin" (tenant-
-// handler, publicstatus, platform). App-Builder fallen in diese Falle.
-// Diese Datei ist die Single Source of Truth — Bundled-Features
-// migrieren schrittweise auf die ROLES-Constants in den Sprint-
-// Touchpoints, an denen sie ohnehin angefasst werden.
+// Background: Bundled features have drifted between "Admin" (text-content,
+// secrets, ai-foundation, file-provider-s3) and "TenantAdmin" (tenant-
+// handler, publicstatus, platform), which can trap app builders.
+// This file is the single source of truth. Bundled features are migrated
+// gradually to the ROLES constants at touchpoints where they are already
+// being changed.
 //
-// Canonical-Names:
-//   TenantOwner            — Volle Tenant-Hoheit, einzige Rolle die
-//                            Tenant-Destroy triggern darf.
-//   TenantAdmin            — Tenant-Konfiguration + User-Management.
-//                            Bestehender String "Admin" wird hierauf
-//                            migriert.
-//   DataProtectionOfficer  — DPO; setzt Legal-Holds, sieht Authority-
-//                            Audit-Stream auch im silentMode (Sprint 6).
-//   SystemAdmin            — Plattform-Operator (NICHT Tenant-scoped).
-//                            Authority-Export, KMS-Recovery, Cross-
-//                            Tenant-Setup. Matched den bestehenden
-//                            "SystemAdmin"-String in text-content,
-//                            secrets, auth-email-password, etc.
-//   Member                 — Standard-Mitglied eines Tenants ohne
-//                            Admin-Rechte.
+// Canonical names:
+//   TenantOwner            — Full tenant authority; the only role allowed
+//                            to trigger tenant destruction.
+//   TenantAdmin            — Tenant configuration and user management.
+//                            The existing "Admin" string is migrated
+//                            to this role.
+//   DataProtectionOfficer  — DPO; sets legal holds and can view the
+//                            authority audit stream even in silentMode.
+//   SystemAdmin            — Platform operator (NOT tenant-scoped).
+//                            Authority export, KMS recovery, cross-tenant
+//                            setup. Matches the existing "SystemAdmin"
+//                            string in text-content, secrets,
+//                            auth-email-password, etc.
+//   Member                 — Standard tenant member without
+//                            administrative rights.
 
 /**
- * Plattform-weit standardisierte Role-Namen. Alle Datenschutz-Sprints
- * (1+) nutzen ausschliesslich diese Constants statt String-Literale.
+ * Platform-wide standardized role names. All privacy-related code uses
+ * these constants exclusively instead of string literals.
  */
 export const ROLES = {
   TenantOwner: "TenantOwner",
@@ -36,7 +36,7 @@ export const ROLES = {
 } as const;
 
 /**
- * Type-Union aller bekannten Role-Namen (Compile-Time-Check fuer
- * Handler-Access-Rules + Ownership-Maps).
+ * Union of all known role names for compile-time checks of
+ * handler access rules and ownership maps.
  */
 export type Role = (typeof ROLES)[keyof typeof ROLES];

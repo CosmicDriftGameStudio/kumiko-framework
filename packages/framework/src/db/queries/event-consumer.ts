@@ -32,7 +32,7 @@ export async function lockEventConsumersShareMode(db: AnyDb): Promise<void> {
 }
 
 // The MAX(id) horizon plus every currently-open id gap below it, read from a
-// single statement snapshot. Used both to seed startFrom "now" (#3231) and to
+// single statement snapshot. Used both to seed startFrom "now" and to
 // seed an MSP rebuild's handoff to the live dispatcher (msp-rebuild.ts).
 //
 // Scan lower bound: the consumer with the highest cursor already tracks every
@@ -101,7 +101,7 @@ export async function selectEventIdHorizonWithMissingRanges(
 // WithMissingRanges): a transaction holding a lower id can still be
 // in-flight at boot, and without seeding those gaps its event would commit
 // after the cursor already sits above it, so `id > cursor` would never
-// deliver it (#3231). The cheap existence check skips the scan entirely for
+// deliver it. The cheap existence check skips the scan entirely for
 // the (overwhelmingly common) case of an already-registered consumer.
 // ON CONFLICT DO NOTHING keeps both branches safe for an existing row: the
 // subquery only ever affects the row this statement inserts.

@@ -1,11 +1,11 @@
-// Client-safe Schema-Types. Wohnen in framework/ui-types statt renderer
-// damit der Server (createKumikoServer / buildAppSchema) sie produzieren
-// kann ohne renderer als Dependency zu ziehen. Renderer + Renderer-Web
-// re-exporten dieselben Symbole — Konsumenten merken den Umzug nicht.
+// Client-safe schema types. Live in framework/ui-types rather than renderer
+// so the server (createKumikoServer / buildAppSchema) can produce them
+// without pulling in renderer as a dependency. Renderer and Renderer-Web
+// re-export the same symbols, so consumers do not notice the move.
 //
-// Pattern: Types fließen "downstream" (framework → renderer → renderer-
-// web), Runtime-Helpers (toAppSchema, isAppSchema) bleiben renderer-side
-// weil das die Layer ist die mit den AppSchemas zur Laufzeit arbeitet.
+// Pattern: types flow "downstream" (framework → renderer → renderer-
+// web); runtime helpers (toAppSchema, isAppSchema) remain renderer-side
+// because that is the layer that works with AppSchemas at runtime.
 
 import type { TranslationKeys } from "../engine/types/config.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
@@ -32,26 +32,26 @@ export type FeatureSchema = {
   // already qualify their own keys — see registry-ingest.ts populate
   // Translations). Nav/screen labels resolve these keys directly via
   // `t(label)`, so shipping anything other than the raw authored string
-  // would break the lookup. Omitted when a feature declares none. #1059:
-  // without this, nav labels only resolved when an app ALSO duplicated the
+  // would break the lookup. Omitted when a feature declares none. Without
+  // this, nav labels only resolved when an app ALSO duplicated the
   // key in `web/i18n.ts` — most bundled features never did, so labels
   // rendered as raw i18n keys in the shell.
   readonly translations?: TranslationKeys;
-  // Workspaces — Legacy-Slot für single-feature-Apps. Bevorzugt liegt
-  // workspaces auf der AppSchema-Ebene weil ihre navMembers regelmäßig
-  // Cross-Feature-Navs referenzieren (siehe AppSchema-Doc). Hier als
-  // Fallback erhalten damit alte clientSchema-Files (vor AppSchema)
-  // ohne Migration weiter laufen — toAppSchema() hebt die Liste hoch.
+  // Workspaces — legacy slot for single-feature apps. They preferably live
+  // at the AppSchema level because their navMembers regularly reference
+  // cross-feature navs (see the AppSchema docs). Retained here as a
+  // fallback so old clientSchema files (from before AppSchema) continue
+  // working without migration — toAppSchema() lifts the list up.
   readonly workspaces?: readonly WorkspaceSchema[];
   // True only when the server confirmed at boot that no SearchAdapter is
   // wired on context.searchAdapter — mirrors the global (not per-entity)
-  // check behind api/server.ts's boot warning (#2051). Duplicated
+  // check behind api/server.ts's boot warning. Duplicated
   // identically across every feature purely so it threads through the
   // existing per-feature prop chain into screen renderers (kumiko-screen.tsx)
   // without a separate app-level plumbing path. Omitted for schemas that
   // don't flow through buildAppSchema() (hand-authored fixtures, legacy
   // toAppSchema()) — treated as "not missing" so search bars keep rendering
-  // exactly as before this flag existed (#2062).
+  // exactly as before this flag existed.
   readonly searchAdapterMissing?: boolean;
 };
 
@@ -72,20 +72,19 @@ export type WorkspaceSchema = {
   readonly navMembers: readonly string[];
 };
 
-// App-level schema. Bündelt ein oder mehrere FeatureSchemas + die App-
-// weiten Workspaces. Sinn der Trennung: Workspaces aggregieren über
-// Feature-Grenzen (admin-Workspace zeigt navs aus mehreren Features), und
-// die navMembers-Liste enthält voll qualifizierte QNs die der Browser
-// gegen die jeweilige feature-spezifische `navs`-Liste auflöst.
+// App-level schema. Bundles one or more FeatureSchemas with the app-wide
+// workspaces. The separation matters because workspaces aggregate across
+// feature boundaries (the admin workspace shows navs from multiple features),
+// and navMembers contains fully qualified QNs that the browser resolves
+// against each feature's `navs` list.
 //
-// Backwards-Compat: createKumikoApp + die Layouts (DefaultAppShell,
-// WorkspaceShell) akzeptieren beides — `FeatureSchema` (single-feature,
-// historisch) und `AppSchema` (multi-feature). Ein `toAppSchema(input)`-
-// Adapter normalisiert intern, sodass die ganze inneren Renderer-Pipeline
-// nur noch AppSchema kennt.
+// Backwards compatibility: createKumikoApp and the layouts (DefaultAppShell,
+// WorkspaceShell) accept both `FeatureSchema` (single-feature, historical)
+// and `AppSchema` (multi-feature). A `toAppSchema(input)` adapter normalizes
+// them internally, so the entire inner renderer pipeline only knows AppSchema.
 export type AppSchema = {
   readonly features: readonly FeatureSchema[];
-  // Optional — Apps ohne Workspaces nutzen DefaultAppShell und sehen
-  // schlicht die NavTree aller Features.
+  // Optional — apps without workspaces use DefaultAppShell and simply see
+  // the nav tree of all features.
   readonly workspaces?: readonly WorkspaceSchema[];
 };

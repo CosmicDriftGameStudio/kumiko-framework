@@ -7,16 +7,17 @@ import type { AppContext, PostQueryHookFn } from "../types/index.ts";
 // stub at the cast-boundary is sufficient — no real db/redis/registry needed.
 const stubContext = {} as unknown as AppContext;
 
-// postQuery-Hook (F1) — feuert nach Query-Handler-Execute, vor Field-Access-
-// Read-Filter. Zwei Registrierungs-Pfade:
+// postQuery hook runs after query-handler execution and before the field-access
+// read filter. Two registration paths:
 //   - r.hook({ type: "postQuery", target: "ns:query:list", handler }) — handler-keyed
-//   - r.hook({ type: "postQuery", target: { allOf: "thing" }, handler }) — entity-keyed (alle Queries)
+//   - r.hook({ type: "postQuery", target: { allOf: "thing" }, handler }) — entity-keyed (all
+//     queries)
 //
-// Diese Tests pinnen die Invarianten:
-//   1. Beide Registrierungs-Pfade landen in unabhängigen Maps
-//   2. Hook-Function-Type ist PostQueryHookFn (rows-shape input + output)
-//   3. Registry-Getter geben jeweilige Hooks zurück
-//   4. Mehrere Hooks pro Target sind möglich (stacking)
+// These tests pin the invariants:
+//   1. Both registration paths use independent maps
+//   2. The hook function type is PostQueryHookFn (rows-shaped input and output)
+//   3. Registry getters return the respective hooks
+//   4. Multiple hooks can be registered for the same target (stacking)
 
 const noop: PostQueryHookFn = async ({ rows }) => ({ rows });
 

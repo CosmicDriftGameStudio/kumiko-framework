@@ -1,12 +1,11 @@
-// Type-Tests für EntityTable<E>: pinned das vertragliche Verhalten der
-// Generic-Inferenz-Pipeline createEntity → buildEntityTable. Wenn ein
-// Branch in `fieldToColumns` driftet aber `ColumnsForField` im Type-
-// System nicht mitkommt (oder umgekehrt), schlagen diese Tests fehl
-// BEVOR ein Consumer in den Wald läuft.
+// Type tests for EntityTable<E>: pin the contractual behavior of the
+// generic inference pipeline createEntity → buildEntityTable. If a branch
+// in `fieldToColumns` drifts but `ColumnsForField` in the type system does
+// not follow (or vice versa), these tests fail BEFORE a consumer is affected.
 //
-// Ausschnitt — nicht jede Field-Art-Permutation getestet, sondern
-// repräsentative Fälle: required-Literal, required-Default, money-Pair,
-// locatedTimestamp-Pair, multiSelect-jsonb-default, idType-Variation.
+// A selection—not every field-type permutation is tested, but
+// representative cases: required-literal, required-default, money-pair,
+// locatedTimestamp-pair, multiSelect-jsonb-default, idType variation.
 
 import { describe, expect, expectTypeOf, test } from "bun:test";
 import {
@@ -59,10 +58,10 @@ describe("EntityTable<E> — Property-Names existieren", () => {
   });
 
   test("nicht-existierender Spaltenname ist Compile-Error", () => {
-    // @ts-expect-error — `nonExistent` ist nicht in der Entity deklariert.
-    // Wenn die Zeile compiles, war der Type-Refactor zu lasch (= Index-
-    // Signature wieder da). Das @ts-expect-error wird selbst zum Failure
-    // wenn der Error verschwindet → der Test bricht dann zur Compile-Zeit.
+    // @ts-expect-error — `nonExistent` is not declared in the entity.
+    // If the line compiles, the type refactor was too permissive (= the index-
+    // signature is back). The @ts-expect-error itself becomes a failure
+    // if the error disappears → the test then fails at compile time.
     const x = t.nonExistent;
     expect(x).toBeUndefined();
   });
@@ -104,8 +103,8 @@ describe("EntityTable<E> — locatedTimestamp produces Utc + Tz", () => {
   });
 
   test("Original-name (ohne Suffix) ist KEIN column", () => {
-    // @ts-expect-error — locatedTimestamp expandiert zu pickupUtc + pickupTz, nicht `pickup`.
-    // Wenn `pickup` kompiliert, ist FieldColumnNames-Map kaputt.
+    // @ts-expect-error — locatedTimestamp expands to pickupUtc + pickupTz, not `pickup`.
+    // If `pickup` compiles, the FieldColumnNames map is broken.
     const x = t.pickup;
     expect(x).toBeUndefined();
   });

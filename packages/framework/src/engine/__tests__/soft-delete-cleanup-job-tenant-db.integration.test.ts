@@ -1,4 +1,4 @@
-// fw#2914 — soft-delete cleanup runs through the real job runner with ctx.db as a
+// Soft-delete cleanup runs through the real job runner with ctx.db as a
 // tenant-filtered TenantDb: a run purges only its own tenant's expired rows.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";

@@ -193,7 +193,7 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return filterOwned(state.entityPostQueryHooks.get(entityName), effectiveFeatures);
     },
 
-    // F3 — Search-Payload-Extension contributors for an entity. Used by
+    // Search-Payload-Extension contributors for an entity. Used by
     // `buildSearchDocument` in system-hooks.ts to enrich the indexed payload.
     // `effectiveFeatures` filters out contributors owned by feature-toggle-
     // disabled features (parallel to getEntityPostQueryHooks etc.).

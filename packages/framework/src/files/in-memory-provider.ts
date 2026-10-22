@@ -35,9 +35,8 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
     },
 
     async writeStream(key, source, options) {
-      // In-Memory hat kein "Streaming" im real-physikalischen Sinn —
-      // wir collecten chunks in einen Uint8Array. Test-Tauglich, kein
-      // Production-Pfad.
+      // In-memory storage does not provide real streaming; it collects chunks
+      // into a Uint8Array. Suitable for tests, not a production path.
       const chunks: Uint8Array[] = [];
       let total = 0;
       for await (const chunk of source) {
@@ -60,12 +59,12 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
     },
 
     readStream(key) {
-      // In-Memory hat technisch keine Chunks, aber das Surface muss
-      // identisch zu echten Streamern (Local/S3) sein damit Test-Code
-      // den Pfad genauso geht. Wir yielden die Bytes als single-chunk.
-      // Map-lookup ist O(1), also kein Verlust durch eager-resolve.
-      // Throw passiert beim ersten chunk-pull — gleicher Lazy-Pattern
-      // wie S3 (request abgesetzt beim ersten Iterator-Step).
+      // In-memory storage has no chunks, but the surface must match real
+      // streamers (Local/S3) so test code exercises the same path. Yield the
+      // bytes as a single chunk.
+      // The O(1) map lookup avoids a cost from eager resolution.
+      // Errors are thrown on the first chunk pull, matching S3's lazy pattern
+      // (the request starts on the first iterator step).
       const entry = store.get(key);
       const captured = entry ? new Uint8Array(entry.data) : null;
       return {

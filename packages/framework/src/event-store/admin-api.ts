@@ -1,12 +1,11 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-// Event-Store Admin-API — Marten-Bypass für Legacy-Daten-Importe.
-// Spec + Verhalten: docs/plans/features/event-store-admin-api.md
+// Event-store admin API — bypasses Marten for legacy-data imports.
+// Specification and behavior: docs/plans/features/event-store-admin-api.md
 //
-// Guard-Rail: dieses Modul ist NICHT aus event-store/index.ts re-exportiert.
-// Import nur via deep-path `@cosmicdrift/kumiko-framework/event-store/admin-api`. Das
-// Guard-Script `scripts/guard-admin-api.ts` blockt Aufrufe aus App-Code —
-// Allowlist: samples/*/migration/, scripts/migrations/, die Definition
-// selbst, das Guard-Script selbst.
+// Guard rail: this module is NOT re-exported from event-store/index.ts. Import only via the deep
+// path `@cosmicdrift/kumiko-framework/event-store/admin-api`. The guard script
+// `scripts/guard-admin-api.ts` blocks calls from application code. Allowlist: samples/*/migration/,
+// scripts/migrations/, this definition, and the guard script itself.
 
 import type { DbRunner } from "../db/index.ts";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.ts";
@@ -34,11 +33,11 @@ export type RawEventToAppend = {
   readonly eventVersion?: number;
   readonly payload: Record<string, unknown>;
   readonly metadata: EventMetadata;
-  // Historisch preserved — MUSS gesetzt sein, kein Default auf now().
+  // Preserves the historical timestamp; it MUST be set and must not default to now().
   readonly createdAt: Temporal.Instant;
-  // Historisch preserved. Legacy-UserId oder 'system' für pre-auth Daten.
-  // Bewusst getrennt von metadata.userId: der Migration-Runner läuft unter
-  // einer eigenen Service-Identität, der Legacy-Actor ist der Ursprung.
+  // Preserves the historical actor: a legacy user ID or 'system' for pre-authentication data.
+  // Kept separate from metadata.userId because the migration runner uses its own service identity,
+  // while the legacy actor identifies the original source.
   readonly createdBy: string;
 };
 

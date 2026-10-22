@@ -176,8 +176,8 @@ export type EventDispatcher = {
   // Explicit runOnce() calls are not suppressed. Test-reset surface.
   withBackgroundPassesPaused<T>(fn: () => Promise<T>): Promise<T>;
   // Read-only view of the consumers this dispatcher is wired with. Exists
-  // for lane-filter assertions (Welle 2.6.b split-deploy tests) and for
-  // the boot-validator (Welle 2.6.c coverage check: every registered MSP
+  // for lane-filter assertions in split-deploy tests and for
+  // the boot-validator coverage check: every registered MSP
   // must appear in at least one process's dispatcher). No runtime semantics
   // — the list doesn't change after construction.
   readonly consumers: readonly EventConsumer[];
@@ -496,13 +496,13 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // consumers see the same disabled-set even if an operator flips a
     // toggle mid-pass, so "this event batch" decisions stay consistent.
     //
-    // Sprint-8a tier-composition: per-tenant resolver per-pass-konsultiert
-    // mit SYSTEM_TENANT_ID. Async-events sind tier-agnostic — wenn ein
-    // Tenant downgrade'd, sollen seine queued events trotzdem verarbeitet
-    // werden (events sind immutable, projection ist eventually-consistent).
-    // Tier-cuts wirken request-time im sync-dispatcher + lifecycle-pipeline,
-    // nicht im async-replay. App-level resolver entscheidet was er bei
-    // SYSTEM_TENANT_ID returnt (typisch: union-of-all-tier-features).
+    // Tier composition: the per-tenant resolver is consulted once per pass
+    // with SYSTEM_TENANT_ID. Async events are tier-agnostic — if a tenant is
+    // downgraded, its queued events are still processed (events are immutable,
+    // and the projection is eventually consistent).
+    // Tier cuts apply at request time in the sync dispatcher and lifecycle
+    // pipeline, not during async replay. The app-level resolver decides what
+    // it returns for SYSTEM_TENANT_ID (typically: the union of all tier features).
     const effective = context.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
     // Lock-free pre-check, once per pass: which consumers are provably idle

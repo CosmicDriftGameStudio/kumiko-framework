@@ -4,10 +4,10 @@ import type { EntityDefinition } from "../../engine/types/index.ts";
 import { asRawClient } from "../query.ts";
 import { unsafeCreateEntityTable, unsafeEnsureEntityTable } from "../table-push.ts";
 
-// unsafeEnsureEntityTable ist die idempotente Variante von unsafeCreateEntityTable —
-// existiert wegen des dev-server-Boot-Pfads (persistente DB, Table von
-// letztem Run). unsafeCreateEntityTable bleibt strict, damit Tests ein
-// falsches Schema nicht stillschweigend akzeptieren.
+// unsafeEnsureEntityTable is the idempotent variant of unsafeCreateEntityTable —
+// needed for the dev-server boot path, where the database persists and may contain
+// a table from the previous run. unsafeCreateEntityTable remains strict so tests do
+// not silently accept an incorrect schema.
 
 const tenantEntity: EntityDefinition = {
   fields: {

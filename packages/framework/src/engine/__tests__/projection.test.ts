@@ -84,8 +84,8 @@ describe("createRegistry — projection indexing", () => {
       r.projection(exampleProjection());
     });
     const registry = createRegistry([feature]);
-    // Filter Implicit-Projections (Sprint G — eine pro r.entity auto-
-    // registriert). Dieser Test prüft die explicit-Projection-Indexierung.
+    // Filter implicit projections (one is auto-registered per r.entity).
+    // This test checks explicit projection indexing.
     const byUnit = registry.getProjectionsForSource("unit").filter((p) => !p.isImplicit);
     expect(byUnit).toHaveLength(1);
     expect(byUnit[0]?.source).toBe("unit");
@@ -96,9 +96,8 @@ describe("createRegistry — projection indexing", () => {
       r.entity({ name: "unit", ...exampleEntity() });
     });
     const registry = createRegistry([feature]);
-    // r.entity registriert eine Implicit-Projection — die filtern wir hier
-    // explizit raus, weil dieser Test die Abwesenheit von explicit
-    // Projections beweisen will.
+    // r.entity registers an implicit projection, which is filtered out here
+    // because this test verifies the absence of explicit projections.
     expect(registry.getProjectionsForSource("unit").filter((p) => !p.isImplicit)).toHaveLength(0);
   });
 
@@ -168,7 +167,7 @@ describe("createRegistry — projection indexing", () => {
       r.projection(exampleProjection({ name: "other" }));
     });
     const registry = createRegistry([feature]);
-    // 2 explicit projections + 1 implicit (für r.entity "unit")
+    // 2 explicit projections + 1 implicit (for r.entity "unit")
     const explicit = [...registry.getAllProjections().values()].filter((p) => !p.isImplicit);
     expect(explicit).toHaveLength(2);
   });

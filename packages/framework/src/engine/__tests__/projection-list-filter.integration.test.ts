@@ -1,4 +1,4 @@
-// fw#2224: a projectionList screen can now declare `filter`/`facets`, but
+// A projectionList screen can now declare `filter`/`facets`, but
 // the wire contract that actually matters is the payload the query handler
 // receives — `screen.filter`/facet-toggles reach the server as
 // payload.filter/payload.filters (see kumiko-screen.tsx's ProjectionListBody

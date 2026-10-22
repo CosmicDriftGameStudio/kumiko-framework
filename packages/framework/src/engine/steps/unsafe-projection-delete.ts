@@ -6,7 +6,7 @@
 // r.requires.projection allowlist, must NOT be a registered
 // r.entity-aggregate-table. Skips the same set of framework-protections
 // (lifecycle hooks, field-access, audit-trail, etc.) — see
-// step-vocabulary.md "Was unsafeProjection.* überspringt".
+// step-vocabulary.md "What unsafeProjection.* skips".
 //
 // Convention (not enforced): most legitimate read-side deletions are
 // downstream of an aggregate event (e.g. delete-user → cascading

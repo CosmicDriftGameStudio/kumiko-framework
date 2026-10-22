@@ -1,4 +1,4 @@
-// Event-PII catalog (#799): defineEvent({ piiFields }) → createRegistry
+// Event-PII catalog: defineEvent({ piiFields }) → createRegistry
 // publishes the catalog → encryptEventPayloadPii encrypts under the owning
 // user's DEK. append() applies this on every write path; the pure pieces
 // are testable without a database.

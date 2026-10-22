@@ -13,21 +13,21 @@
 import type { TenantDb } from "../../db/tenant-db.ts";
 import type { Registry, TenantId } from "../types/index.ts";
 
-// SessionUser.id ist plattformweit `string` (kein Brand-Type). Wenn
-// jemals ein UserId-Brand eingefuehrt wird, ersetzt man hier den
-// inline-Type — andere Codebase-Stellen nutzen denselben Pfad.
+// SessionUser.id is `string` platform-wide (not a branded type). If
+// a UserId brand is introduced, replace the inline type here — other
+// codebase locations use the same path.
 type UserId = string;
 
 /**
- * Strategie für den Forget-Pfad pro Entity:
- *   - "delete":    Row physisch entfernen (Profil, Eigene Notizen, Sessions).
- *   - "anonymize": User-Reference auf null + Display-Felder auf
- *                  "[Geloescht]" — typisch für geteilte Daten (Tasks,
- *                  Comments) damit andere User die History nicht verlieren.
+ * Strategy for the forget path per entity:
+ *   - "delete":    Physically remove the row (profile, personal notes, sessions).
+ *   - "anonymize": Set the user reference to null and display fields to
+ *                  "[Geloescht]" — typical for shared data (tasks,
+ *                  comments) so other users do not lose the history.
  *
- * Cleanup-Job (Sprint 2 data-retention) entscheidet pro Entity über
- * Retention-Policy, welche Strategie greift. blockDelete-Entries lösen
- * IMMER `anonymize` aus damit Aufbewahrungs-Pflicht respektiert wird.
+ * The cleanup job applies the retention policy per entity to select the
+ * strategy. blockDelete entries ALWAYS use `anonymize` to respect retention
+ * obligations.
  */
 export type UserDataDeleteStrategy = "delete" | "anonymize";
 
@@ -46,7 +46,7 @@ export type UserDataDeleteStrategy = "delete" | "anonymize";
 export type TenantUserModel = "single-user" | "multi-user";
 
 /**
- * fw#2914 — `db` is a tenant-filtered `TenantDb`, bound to `tenantId`
+ * `db` is a tenant-filtered `TenantDb`, bound to `tenantId`
  * (or the per-user sub-tx in the forget path). Unfiltered access needs
  * `escapeHatch: { reason }` on the `r.useExtension(...)` registration,
  * then `ctx.db.unsafeRaw()`.
@@ -108,15 +108,15 @@ export interface UserDataHookCtx {
 }
 
 /**
- * Pro Feature/Entity-Snippet das im Export-Bundle landet. Sprint 2
- * orchestriert die JSON-Serialisierung; Hooks geben Plain-Records.
+ * Feature/entity snippet included in the export bundle. The export job
+ * orchestrates JSON serialization; hooks return plain records.
  */
 export interface UserDataExportSnippet {
   readonly entity: string;
   readonly rows: ReadonlyArray<Record<string, unknown>>;
   /**
-   * Optional: signed-URLs für File-Refs. user-data-rights packt sie
-   * separat ins ZIP unter `files/`. Andere Hooks lassen das leer.
+   * Optional signed URLs for file references. user-data-rights puts them
+   * separately in the ZIP under `files/`. Other hooks leave this empty.
    */
   readonly fileRefs?: ReadonlyArray<{
     readonly fileRefId: string;
@@ -126,23 +126,22 @@ export interface UserDataExportSnippet {
 }
 
 /**
- * Export-Hook: Sammelt alle Daten einer Entity die zu einem User
- * gehören. Wird im Daten-Export-Job pro registrierter Entity einmal
- * aufgerufen. Idempotent — kann mehrfach aufgerufen werden ohne
- * Side-Effects.
+ * Export hook: collects all data belonging to a user for an entity. It is
+ * called once per registered entity by the data export job. Idempotent — it
+ * can be called multiple times without side effects.
  *
- * Sprint 2 user-data-rights ruft das via Iteration über alle
- * `r.useExtension(EXT_USER_DATA, ...)`-Registrierungen.
+ * The data-rights runner invokes this by iterating over all
+ * `r.useExtension(EXT_USER_DATA, ...)` registrations.
  */
 export type UserDataExportHook = (ctx: UserDataHookCtx) => Promise<UserDataExportSnippet | null>;
 
 /**
- * Forget-Hook: Löscht oder anonymisiert die Entity-Rows die zu einem
- * User gehören. Strategy kommt vom Cleanup-Job (kann per Entity
- * unterschiedlich sein wegen Retention-Policy).
+ * Forget hook: deletes or anonymizes entity rows belonging to a user. The
+ * cleanup job supplies the strategy, which may differ by entity because of
+ * the retention policy.
  *
- * Idempotent — wenn der Job zweimal läuft (Crash-Recovery), darf der
- * Hook nicht crashen.
+ * Idempotent — if the job runs twice during crash recovery, the hook must not
+ * crash.
  *
  * Return additive to `void`: a hook can return `{status:"ok"}` or
  * `{status:"incomplete", reason}` to signal a partial success to the

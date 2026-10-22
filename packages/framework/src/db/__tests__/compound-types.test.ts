@@ -1,9 +1,9 @@
-// Tests für die Compound-Type-Pipeline.
-// Garantien die wir prüfen:
-//   - Identity bei leerem Payload / keinen Compound-Feldern
-//   - Beide Konverter werden gerufen wenn beide Field-Types vorkommen
-//   - Reihenfolge ist deterministisch + Konverter überlappen nicht
-//   - Pure (kein input-mutate)
+// Tests for the compound-type pipeline.
+// Invariants under test:
+//   - Identity for an empty payload or no compound fields
+//   - Both converters run when both field types are present
+//   - Ordering is deterministic and converters do not overlap
+//   - Pure operation (does not mutate the input)
 
 import { describe, expect, test } from "bun:test";
 import {
@@ -44,8 +44,8 @@ describe("flattenCompoundTypes — Pipeline", () => {
       },
       mixedEntity,
     );
-    // Beide Compound-Konverter müssen gefeuert haben.
-    // Sprint F: pickupUtc ist jetzt Temporal.Instant — vergleichen via .toString().
+    // Both compound converters must have run.
+    // pickupUtc is now a Temporal.Instant; compare it via .toString().
     expect(flat["label"]).toBe("ACME");
     expect((flat["pickupUtc"] as Temporal.Instant).toString()).toBe("2026-04-15T09:00:00Z");
     expect(flat["pickupTz"]).toBe("Europe/Lisbon");
@@ -101,7 +101,7 @@ describe("rehydrateCompoundTypes — Pipeline", () => {
       buyingPrice: { amount: 100, currency: "EUR" },
     };
     const round = rehydrateCompoundTypes(flattenCompoundTypes(original, mixedEntity), mixedEntity);
-    // pickup bekommt utc dazu beim Read (war beim Insert nicht gesetzt)
+    // utc is added to pickup when reading; it was not set during insertion
     expect((round["pickup"] as { utc: string }).utc).toBe("2026-04-15T09:00:00Z");
     expect(round["buyingPrice"]).toEqual({
       amount: 100,

@@ -1,7 +1,6 @@
-// Coverage-Lücke (0% unit + 0% integration): findTierResolverUsage ist der
-// geteilte Pickup-Helper für runDevApp + runProdApp. Findet er die Usage NICHT,
-// bleibt effectiveFeatures undefined → tier-gating still aus (alle Features on).
-// Genau dieser found-Pfad war in keinem Test exekutiert.
+// Covers the shared findTierResolverUsage pickup helper used by runDevApp + runProdApp.
+// If it fails to find the usage, effectiveFeatures remains undefined and tier-gating stays
+// disabled (all features remain on); this test exercises the found path.
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, defineFeature } from "../index.ts";

@@ -101,7 +101,7 @@ function isConfigWriteResult(data: unknown): data is { key: string; scope?: stri
   return typeof data.key === "string";
 }
 
-// fw#2462: dispatch-shared.ts caches the resolved tenant:config:timezone
+// dispatch-shared.ts caches the resolved tenant:config:timezone
 // value per tenant. A successful write to that key must drop the stale
 // entry — tenant/user scope only affects the writing tenant, system scope
 // changes the fallback every tenant without an override reads, so the
@@ -376,8 +376,8 @@ export async function executeNestedWrite(
   // enumerates columns generically WOULD see `tasks`; no such subscriber
   // exists today. If you add one that iterates `Object.keys(save.data)`,
   // filter by `entity.fields` membership to stay correct.
-  // handler-Result.data ist generic über alle Entity-Handler; nested-
-  // write inspiziert die shape strukturell.
+  // handler-Result.data is generic across all entity handlers; nested-
+  // write inspects the shape structurally.
   const parentWrapper = parentResult.data as Record<string, unknown>; // @cast-boundary engine-payload
   const parentRow = (parentWrapper["data"] ?? parentWrapper) as Record<string, unknown>; // @cast-boundary engine-payload
   const parentId = parentRow["id"];

@@ -117,7 +117,7 @@ describe("request body limit", () => {
   });
 });
 
-// fw#2145: BODY_LIMIT_PATHS inverted from an opt-in allowlist to an opt-out
+// BODY_LIMIT_PATHS was inverted from an opt-in allowlist to an opt-out
 // list — registerBodyLimit now mounts on /api/* by construction, and only
 // BODY_LIMIT_OPT_OUT_PATHS (api-constants.ts) escapes it. These tests prove
 // that inversion rather than re-testing individual paths.
@@ -168,8 +168,8 @@ describe("default coverage sweep — proves the default, not a hand-maintained l
     expect(res.status).not.toBe(413);
   });
 
-  // Regression for the DoD: "neue Route ohne Eintrag in irgendeiner Liste
-  // bekommt automatisch ein Limit". Mounts a route directly on the app
+  // Regression for the requirement "a new route without an entry in any list
+  // automatically gets a limit". Mounts a route directly on the app
   // after buildServer, with zero Routes/opt-out entries — and proves it
   // inherits the cap AND still serves a small body correctly (not an
   // accidental always-413).

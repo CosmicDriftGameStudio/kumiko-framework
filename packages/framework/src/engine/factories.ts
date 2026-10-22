@@ -69,7 +69,7 @@ function resolvePersonalFlags(
   };
 }
 
-// Resolves the author-facing `personal`/`find` annotations (kumiko-framework#2250)
+// Resolves the author-facing `personal`/`find` annotations
 // into the internal ResolvedPiiFlags every factory below merges into its
 // return value. `personal`, `find`, `reason` never survive into the field def.
 function expandPersonalAnnotations<T extends PersonalOverridesInput>(
@@ -132,7 +132,7 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-// Fail-closed stance gate (kumiko-framework#2921) for the two text-shaped
+// Fail-closed stance gate for the two text-shaped
 // factories — runs before expandPersonalAnnotations so an untyped JS caller
 // (no compiler to stop it) can't slip an unannotated text field past the
 // type layer either. The typed signature above already rejects a
@@ -173,13 +173,12 @@ function assertTextFieldStance(
   }
 }
 
-// Generic über `R extends true | false` (statt `boolean`) damit
-// `createTextField({ required: true })` literal `required: true` im
-// Return-Type behält. `boolean` würde widenen — EntityTable<E>'s
-// Mapped-Type könnte dann nicht zwischen `required: true` und
-// `required: false` dispatchen, jede Column würde zu nullable
-// degradieren. Default `R = false` matcht den runtime-default. Pattern
-// in jeder required-bearing factory unten.
+// Use generic `R extends true | false` instead of `boolean` so
+// `createTextField({ required: true })` preserves the literal `required: true`
+// in the return type. Widening to `boolean` would prevent EntityTable<E>'s
+// Mapped-Type from distinguishing `required: true` from `required: false`,
+// making every column nullable. Default `R = false` matches the runtime
+// default. This pattern is used in every required-bearing factory below.
 export function createTextField<R extends true | false = false>(
   overrides: Partial<Omit<TextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
     PersonalAnnotations & { required?: R },
@@ -197,13 +196,13 @@ export function createTextField<R extends true | false = false>(
 
 /**
  * Long-form text field for source-code, markdown, blog-posts, email-
- * templates — anything that can be megabytes large. Type-level differs
- * from `text`: keine sortable/searchable/filterable/format options.
- * DB-mapping ist identisch zu text (PG text ist unbounded).
+ * templates — anything that can be megabytes large. Its type-level API
+ * differs from `text`: it has no sortable/searchable/filterable/format options.
+ * The DB mapping is identical to text (`PG text` is unbounded).
  *
- * Soft-cap default: kein maxLength (PG text ist 1 GB hart begrenzt).
- * Setze einen explicit `maxLength` wenn du ein verirrtes Browser-Paste
- * früh ablehnen willst (z.B. 1_000_000 = 1 MB).
+ * Soft-cap default: no maxLength (`PG text` has a 1 GB hard limit).
+ * Set an explicit `maxLength` to reject an accidental browser paste early
+ * (for example, `1_000_000 = 1 MB`).
  */
 /**
  * Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`).
@@ -404,10 +403,10 @@ export function createEmbeddedListField(
   };
 }
 
-// Free-form jsonb-Spalte — siehe `JsonbFieldDef`-Doku. Schema-less, default
-// `{}`, NOT NULL. Hauptnutzer: custom-fields-Bundle (host-entity's
-// `customFields`-Spalte). Andere valid uses: tenant-config-blobs, AI-
-// inferred-metadata, future tags-arrays.
+// Free-form jsonb column — see the `JsonbFieldDef` documentation. Schema-less,
+// defaults to `{}`, and is NOT NULL. Primarily used by the custom-fields
+// bundle for the host entity's `customFields` column; other valid uses include
+// tenant configuration blobs, AI-inferred metadata, and future tag arrays.
 export function createJsonbField(
   overrides?: Partial<Omit<JsonbFieldDef, "type" | keyof ResolvedPiiFlags>> &
     PersonalAnnotationsNoFind,
@@ -430,20 +429,20 @@ export function createDateField<R extends true | false = false>(
 }
 
 /**
- * UTC-Instant — für Ereignisse die zu einem bestimmten Zeitpunkt passieren
- * (createdAt, loginAt, actualPickupAt). Temporal.Instant intern.
+ * UTC instant for events occurring at a specific point in time
+ * (createdAt, loginAt, actualPickupAt). Uses Temporal.Instant internally.
  *
- * Mit `locatedBy: "<name>Tz"` wird das Feld zum Wall-Clock-Pair eines
- * Termins an einem Ort — bevorzuge dafür `createLocatedTimestampField()`,
- * das EIN atomares Feld statt eines lose verdrahteten Pairs erzeugt.
+ * With `locatedBy: "<name>Tz"`, the field becomes a wall-clock pair for an
+ * appointment at a location — prefer `createLocatedTimestampField()` instead,
+ * which creates one atomic field rather than a loosely connected pair.
  */
 export function createTimestampField<R extends true | false = false>(
   overrides?: Partial<Omit<TimestampFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
     PersonalAnnotationsNoFind & { required?: R },
 ): TimestampFieldDef & { required: R } {
-  // Object-Build vermeidet hartcodiertes `required: false` im literal —
-  // das würde TS dazu bringen, R auf `boolean` zu widenen statt das
-  // literal `true`/`false` aus dem overrides-Argument zu inferieren.
+  // Building the object this way avoids hardcoding `required: false` in the
+  // literal, which would make TypeScript widen R to `boolean` instead of
+  // inferring the `true`/`false` literal from the overrides argument.
   return {
     ...expandPersonalAnnotations(overrides),
     type: "timestamp",
@@ -452,8 +451,9 @@ export function createTimestampField<R extends true | false = false>(
 }
 
 /**
- * IANA-Zonenname (z.B. "Europe/Berlin"). Wird im Boot/Schema-Validator
- * via `Intl.supportedValuesOf("timeZone")` geprüft (kommt im Zod-Schritt).
+ * IANA time-zone name (for example, "Europe/Berlin"). The boot/schema
+ * validator checks it using `Intl.supportedValuesOf("timeZone")` during the
+ * Zod step.
  */
 export function createTzField<R extends true | false = false>(
   overrides?: Partial<Omit<TzFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
@@ -537,14 +537,15 @@ export function createImagesField(
   return { type: "images", ...expandPersonalAnnotations(overrides) };
 }
 
-// `F` läuft OHNE Constraint im Generic-Param damit TS die literal-types
-// einzelner Field-Defs durchzieht (required: true bleibt true, nicht
-// boolean). Constraint-Match gegen FieldsMap würde widenen — siehe TS-
-// Issue um Constraint-Inferenz auf strukturellen Records. Stattdessen
-// validieren wir die Conformance via conditional return type: wenn F
-// nicht FieldsMap-compat ist, kollabiert der Return zu `never`.
-// `const F`: inline field literals (`{ type: "reference", ... }`) keep their
-// `type` literal without `as const`; otherwise it widens to string → `never`.
+// Leave `F` unconstrained so TypeScript preserves the literal types of
+// individual field definitions (`required: true` remains `true`, not
+// `boolean`). Constraining it to FieldsMap would widen them — see the
+// TypeScript issue concerning constraint inference for structural records.
+// Instead, conformance is validated through the conditional return type: if F
+// is not compatible with FieldsMap, the return type collapses to `never`.
+// `const F` preserves the `type` literal in inline field literals
+// (`{ type: "reference", ... }`) without `as const`; otherwise it widens to
+// string and produces `never`.
 export function createEntity<const F, const T extends EntityTenancy = "tenant">(def: {
   readonly table?: string;
   readonly fields: F;

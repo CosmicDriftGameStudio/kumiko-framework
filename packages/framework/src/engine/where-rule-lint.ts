@@ -1,4 +1,4 @@
-// Static lint for `WhereRule` SQL fragments (fw#2639).
+// Static lint for `WhereRule` SQL fragments.
 //
 // A `where`-rule hands the framework raw SQL. If the author writes an
 // unqualified column name inside a correlated subquery, Postgres binds it

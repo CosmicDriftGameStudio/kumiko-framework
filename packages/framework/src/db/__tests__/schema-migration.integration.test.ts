@@ -197,12 +197,10 @@ describe("schema migration workflows", () => {
   });
 
   test("workflow 3b: text field with default → DEFAULT-clause backfills existing rows", async () => {
-    // Pinned der text-default-bug: `createTextField({ default: "..." })`
-    // muss die DEFAULT-Klausel ins generierte SQL durchreichen, sonst
-    // bricht ALTER TABLE ADD COLUMN auf existing data (NOT NULL ohne
-    // DEFAULT failt). Vorher hat der text-Branch in table-builder das
-    // `field.default` ignoriert; dieser Test pinst dass es jetzt
-    // greift.
+    // `createTextField({ default: "..." })` must pass the DEFAULT clause through to the generated
+    // SQL; otherwise ALTER TABLE ADD COLUMN fails on existing data because NOT NULL lacks a
+    // DEFAULT. The text branch in table-builder previously ignored `field.default`, so this test
+    // verifies that the default is now applied.
     const initialEntity = createEntity({
       table: "wf3b_users",
       fields: {
@@ -294,7 +292,7 @@ describe("schema migration workflows", () => {
   });
 });
 
-// kumiko-framework#1924: `type:"date"` used to be a TIMESTAMPTZ alias — read
+// `type:"date"` used to be a TIMESTAMPTZ alias — read
 // gave back an ISO Instant, write took a bare "yyyy-mm-dd" that bound
 // straight to a timestamptz column via the session TZ. Both sides are now a
 // real PG `date` column round-tripping Temporal.PlainDate. This test proves
