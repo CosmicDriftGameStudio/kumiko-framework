@@ -232,7 +232,7 @@ export function formatSummaryParams(
 
 // Placeholders of `successMessage`: formatted submitted values, with a
 // reference field resolved to the chosen record's label. A lookup that fails or
-// misses the row (the lookup list is capped) falls back to the raw id.
+// misses the row falls back to the raw id.
 export async function resolveSuccessMessageParams(
   screen: ActionFormScreenDefinition,
   featureName: string,
@@ -251,9 +251,16 @@ export async function resolveSuccessMessageParams(
         target.entityName,
         def.labelField ?? "id",
       );
+      // Ask for exactly the chosen record so it cannot fall beyond the lookup cap: `ids` is the
+      // by-id input of directory sources, `filters` that of entity list handlers. A source that
+      // knows neither returns its capped list and the scan below still finds the row if present.
       const lookup = await dispatcher.query<{ rows: ReadonlyArray<Record<string, unknown>> }>(
         queryQn,
-        { limit: REFERENCE_LIST_LOOKUP_LIMIT },
+        {
+          limit: REFERENCE_LIST_LOOKUP_LIMIT,
+          ids: [raw],
+          filters: [{ field: "id", op: "in", value: [raw] }],
+        },
       );
       if (!lookup.isSuccess) return;
       const row = lookup.data.rows.find((candidate) => candidate["id"] === raw);

@@ -54,16 +54,18 @@ function dispatcherWith(handlerResult: "ok" | "rejected"): Dispatcher {
 function renderScreen(
   screenDefinition: ActionFormScreenDefinition,
   handlerResult: "ok" | "rejected" = "ok",
+  dispatcher: Dispatcher = dispatcherWith(handlerResult),
+  searchParams: Readonly<Record<string, string>> = { tenantId: "t-2" },
 ) {
   return render(
-    <DispatcherProvider dispatcher={dispatcherWith(handlerResult)}>
+    <DispatcherProvider dispatcher={dispatcher}>
       <NavProvider
         value={{
           route: { screenId: "tier-engine:screen:tier-admin" },
           navigate: () => {},
           replace: () => {},
           hrefFor: () => "",
-          searchParams: { tenantId: "t-2" },
+          searchParams,
           setSearchParams: () => {},
         }}
       >
@@ -99,6 +101,42 @@ describe("actionForm successMessage", () => {
     await waitFor(() =>
       expect(screen.getByTestId("action-form-success").textContent).toBe(
         "Assigned: PublicStatus.eu / granted",
+      ),
+    );
+  });
+
+  test("names a record that lies beyond the lookup cap by asking for exactly that id", async () => {
+    const crowdedDirectory = createMockDispatcher({
+      query: (async (type: string, payload?: { ids?: string[] }) => {
+        if (type !== "tenant:query:tenant-directory") {
+          return { isSuccess: true, data: { rows: [], nextCursor: null } };
+        }
+        const everyone = Array.from({ length: 300 }, (_, index) => ({
+          id: `t-${index}`,
+          label: `Tenant ${index}`,
+        }));
+        const capped = everyone.slice(0, 200);
+        return {
+          isSuccess: true,
+          data: {
+            rows:
+              payload?.ids === undefined
+                ? capped
+                : everyone.filter((r) => payload.ids?.includes(r.id)),
+            nextCursor: null,
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+    });
+    renderScreen(TIER_ACTION_FORM, "ok", crowdedDirectory, { tenantId: "t-250" });
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+
+    await submitWithNote();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("action-form-success").textContent).toBe(
+        "Assigned: Tenant 250 / granted",
       ),
     );
   });
