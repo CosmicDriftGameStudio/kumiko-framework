@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { hasUnsavedInput, requestLeave } from "../../index.ts";
 
 // Back/Forward cannot be vetoed, so the browser has already moved by the time the guard asks.
@@ -25,9 +26,7 @@ function stateAt(index: number): Record<string, number> {
 }
 
 function readIndex(): number | undefined {
-  const state: unknown = window.history.state;
-  if (typeof state !== "object" || state === null) return undefined;
-  const value = (state as Record<string, unknown>)[INDEX_KEY];
+  const value = propertyOf(window.history.state, INDEX_KEY);
   return typeof value === "number" ? value : undefined;
 }
 
@@ -69,6 +68,7 @@ export function handlePopstate(notify: () => void): void {
       commitCurrentUrl();
       notify();
     }
+    // skip: this popstate is the echo of our own history.go()
     return;
   }
   if (fallbackTargetUrl !== undefined) {
@@ -78,6 +78,7 @@ export function handlePopstate(notify: () => void): void {
     if (readUrl() !== target) window.history.replaceState(stateAt(committed.index), "", target);
     commitCurrentUrl();
     notify();
+    // skip: the pending fallback move is settled
     return;
   }
   const newIndex = readIndex();
@@ -91,11 +92,13 @@ export function handlePopstate(notify: () => void): void {
     } else {
       window.history.replaceState(stateAt(committed.index), "", committed.url);
     }
+    // skip: the open leave dialog keeps the decision
     return;
   }
   if (!hasUnsavedInput()) {
     commitCurrentUrl();
     notify();
+    // skip: nothing unsaved, the move stands
     return;
   }
   const targetUrl = readUrl();
@@ -111,6 +114,7 @@ export function handlePopstate(notify: () => void): void {
       pendingMoves.push("replay");
       window.history.go(delta);
     }, settle);
+    // skip: the leave request owns the rest of the move
     return;
   }
   window.history.pushState(stateAt(committed.index), "", committed.url);
