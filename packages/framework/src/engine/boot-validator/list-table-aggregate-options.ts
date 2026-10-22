@@ -42,11 +42,53 @@ function requireScreenColumn(
   field: string,
   columnFields: ReadonlySet<string>,
 ): void {
+  // skip: the field is a column, nothing to report
   if (columnFields.has(field)) return;
   throw new Error(
     `${where} ${path} "${field}" is not a column of this screen. ` +
       `Columns: ${[...columnFields].join(", ")}.`,
   );
+}
+
+const GROUPING_VALUE_CHECKS: readonly {
+  readonly key: string;
+  readonly isValid: (value: unknown) => boolean;
+  readonly expected: string;
+}[] = [
+  { key: "field", isValid: (v) => typeof v === "string", expected: "must be a string" },
+  { key: "fields", isValid: isStringArray, expected: "must be an array of field names" },
+  { key: "userChoice", isValid: (v) => typeof v === "boolean", expected: "must be a boolean" },
+  { key: "label", isValid: (v) => typeof v === "string", expected: "must be an i18n key" },
+  { key: "labels", isValid: isStringRecord, expected: "must map group keys to i18n keys" },
+  {
+    key: "collapsedWhen",
+    isValid: isGroupKeyScalar,
+    expected: "must be a string, number, boolean or null",
+  },
+];
+
+function validateGroupingValueTypes(where: string, grouping: Readonly<Record<string, unknown>>) {
+  for (const check of GROUPING_VALUE_CHECKS) {
+    const value = grouping[check.key];
+    if (value !== undefined && !check.isValid(value)) {
+      throw new Error(`${where} table.grouping.${check.key} ${check.expected}.`);
+    }
+  }
+}
+
+function validateGroupingFieldChoice(where: string, grouping: Readonly<Record<string, unknown>>) {
+  const { field, fields, userChoice } = grouping;
+  const offered = isStringArray(fields) ? fields : [];
+  if (field === undefined && (userChoice !== true || offered.length === 0)) {
+    throw new Error(
+      `${where} table.grouping has no field. Set field, or userChoice: true with at least one entry in fields.`,
+    );
+  }
+  if (fields !== undefined && userChoice !== true) {
+    throw new Error(
+      `${where} table.grouping.fields needs userChoice: true, or the user could never pick them.`,
+    );
+  }
 }
 
 function validateGroupingShape(
@@ -58,38 +100,9 @@ function validateGroupingShape(
     throw new Error(`${where} table.grouping must be an object like { field: "status" }.`);
   }
   rejectUnknownKeys(where, "table.grouping", grouping, LIST_TABLE_GROUPING_KEYS);
-  const { field, fields, userChoice, label, labels, collapsedWhen } = grouping;
-  if (field !== undefined && typeof field !== "string") {
-    throw new Error(`${where} table.grouping.field must be a string.`);
-  }
-  if (fields !== undefined && !isStringArray(fields)) {
-    throw new Error(`${where} table.grouping.fields must be an array of field names.`);
-  }
-  if (userChoice !== undefined && typeof userChoice !== "boolean") {
-    throw new Error(`${where} table.grouping.userChoice must be a boolean.`);
-  }
-  if (label !== undefined && typeof label !== "string") {
-    throw new Error(`${where} table.grouping.label must be an i18n key.`);
-  }
-  if (labels !== undefined && !isStringRecord(labels)) {
-    throw new Error(`${where} table.grouping.labels must map group keys to i18n keys.`);
-  }
-  if (collapsedWhen !== undefined && !isGroupKeyScalar(collapsedWhen)) {
-    throw new Error(
-      `${where} table.grouping.collapsedWhen must be a string, number, boolean or null.`,
-    );
-  }
-  if (field === undefined && (userChoice !== true || (fields ?? []).length === 0)) {
-    throw new Error(
-      `${where} table.grouping has no field. Set field, or userChoice: true with at least one entry in fields.`,
-    );
-  }
-  if (fields !== undefined && userChoice !== true) {
-    throw new Error(
-      `${where} table.grouping.fields needs userChoice: true, or the user could never pick them.`,
-    );
-  }
-  for (const name of groupingFieldsOf({ field, fields })) {
+  validateGroupingValueTypes(where, grouping);
+  validateGroupingFieldChoice(where, grouping);
+  for (const name of groupingFieldsOf(grouping)) {
     requireScreenColumn(where, "table.grouping field", name, columnFields);
   }
 }
@@ -141,6 +154,7 @@ export function validateListTableAggregateShape(
 }
 
 function rejectSecret(where: string, path: string, field: string, info: AggregateFieldInfo): void {
+  // skip: only secret fields are rejected here
   if (!info.secret) return;
   throw new Error(
     `${where} ${path} "${field}" is encrypted, personal or secret and cannot be grouped or summed.`,

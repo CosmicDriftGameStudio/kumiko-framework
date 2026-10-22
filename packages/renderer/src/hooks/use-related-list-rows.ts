@@ -69,6 +69,7 @@ export function useRelatedListRows(args: {
 
   const lastRefreshTokenRef = useRef(refreshToken);
   useEffect(() => {
+    // skip: the token has not changed since the last refetch
     if (lastRefreshTokenRef.current === refreshToken) return;
     lastRefreshTokenRef.current = refreshToken;
     void refetchOwn();

@@ -71,6 +71,7 @@ export function useScreenListRows({
 
   const lastDataRef = useRef<PagedRows | null>(null);
   useEffect(() => {
+    // skip: only a new answer of an infinite list is appended
     if (!infinite || data === null || data === lastDataRef.current) return;
     lastDataRef.current = data;
     setInfiniteState((current) =>
@@ -85,8 +86,10 @@ export function useScreenListRows({
   }, [data, infinite, resetKey]);
 
   const onReachEnd = useCallback(() => {
+    // skip: the next page waits for the current answer
     if (loading) return;
     const nextCursor = data?.nextCursor;
+    // skip: no cursor means the last page is loaded
     if (nextCursor === undefined || nextCursor === null) return;
     setInfiniteState((current) =>
       current.resetKey === resetKey ? { ...current, cursor: nextCursor } : current,
@@ -95,9 +98,11 @@ export function useScreenListRows({
 
   const refreshAfterWrite = useCallback(async () => {
     refreshAggregates();
+    // skip: grouped rows reload through the aggregates refresh
     if (grouped) return;
     if (infinite && cursor !== undefined) {
       setInfiniteState(freshInfiniteState(resetKey));
+      // skip: starting over refetches the first page
       return;
     }
     await refetchAfterWrite(refetch);
