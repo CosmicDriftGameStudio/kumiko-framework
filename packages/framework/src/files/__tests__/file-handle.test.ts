@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { variantSuffix } from "../../derivatives/variant-key.ts";
+import { derivativeListPrefix, variantSuffix } from "../../derivatives/variant-key.ts";
 import {
   createFileContext,
   createFileHandle,
@@ -31,6 +31,12 @@ describe("deriveKey", () => {
 });
 
 describe("storageKeyStemPrefix", () => {
+  test("matches derivativeListPrefix for keys with and without extension and dotted dirs", () => {
+    for (const key of ["t/a.jpg", "t/doc", "a.v2/b.jpg", "a.v2/b"]) {
+      expect(storageKeyStemPrefix(key)).toBe(derivativeListPrefix(key));
+    }
+  });
+
   test("matches the original key and every derived variant", () => {
     const prefix = storageKeyStemPrefix("tenant/vehicle/1/photo/abc.jpg");
     expect("tenant/vehicle/1/photo/abc.jpg".startsWith(prefix)).toBe(true);

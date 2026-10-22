@@ -4,9 +4,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import { selectMany } from "../db/query.ts";
 import { seedReferenceData } from "../db/reference-data.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
 import {
   createEntity,
   createNumberField,
@@ -14,7 +16,8 @@ import {
   defineFeature,
   type ReferenceDataDef,
 } from "../engine/index.ts";
-import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { createSystemUser } from "../engine/system-user.ts";
+import { type EntityId, SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { rebuildProjection } from "../pipeline/index.ts";
 
 const refField = { personal: false, reason: "is_reference_data" } as const;
@@ -35,12 +38,19 @@ const statusEntity = createEntity({
     sortOrder: createNumberField(refField),
   },
 });
+const tagEntity = createEntity({
+  table: "ref_tags",
+  fields: { slug: createTextField({ ...refField, required: true }) },
+  softDelete: true,
+});
+const tagTable = buildEntityTable("tag", tagEntity);
 const countryTable = buildEntityTable("country", countryEntity);
 const statusTable = buildEntityTable("status", statusEntity);
 
 const feature = defineFeature("refdata", (r) => {
   r.entity({ name: "country", ...countryEntity });
   r.entity({ name: "status", ...statusEntity });
+  r.entity({ name: "tag", ...tagEntity });
 });
 
 let stack: TestStack;
@@ -49,6 +59,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, countryEntity, "country");
   await unsafeCreateEntityTable(stack.db, statusEntity, "status");
+  await unsafeCreateEntityTable(stack.db, tagEntity, "tag");
 });
 
 afterAll(async () => {
@@ -243,6 +254,32 @@ describe("seedReferenceData", () => {
     const countries = await readCountries();
     expect(countries.find((r) => r["code"] === "DE")).toMatchObject({ name: "Germany" });
     expect(countries.find((r) => r["code"] === "CH")).toMatchObject({ name: "Schweiz" });
+  });
+
+  test("re-creates a soft-deleted row instead of failing the boot", async () => {
+    const defs: ReferenceDataDef[] = [{ entityName: "tag", data: [{ slug: "hot" }] }];
+    expect(await seedReferenceData(defs, stack.registry, stack.db)).toEqual({
+      inserted: 1,
+      updated: 0,
+    });
+
+    const [row] = await selectMany(stack.db, tagTable);
+    const systemUser = createSystemUser(SYSTEM_TENANT_ID);
+    const executor = createEventStoreExecutor(tagTable, tagEntity, { entityName: "tag" });
+    const deleted = await executor.delete(
+      { id: String(row?.["id"]) as EntityId },
+      systemUser,
+      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    );
+    expect(deleted.isSuccess).toBe(true);
+
+    expect(await seedReferenceData(defs, stack.registry, stack.db)).toEqual({
+      inserted: 1,
+      updated: 0,
+    });
+    const live = (await selectMany(stack.db, tagTable)).filter((r) => r["isDeleted"] === false);
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({ slug: "hot", tenantId: SYSTEM_TENANT_ID });
   });
 
   test("skips empty data arrays", async () => {

@@ -63,6 +63,7 @@ import {
   denyTenantDbWrites,
   tenantDbRunner,
   tenantDbWritesDeniedError,
+  tenantDbWritesDeniedReason,
 } from "./tenant-db-runner.ts";
 
 type Table = SchemaTable;
@@ -195,9 +196,7 @@ export function unsafeRawForDeclaredStep(
   holder: TenantDb | UncheckedSystemDb,
   reason: string,
 ): DbRunner {
-  if (reason.trim().length === 0) {
-    throw new Error("unsafeRawForDeclaredStep requires a non-empty reason");
-  }
+  assertReason("unsafeRawForDeclaredStep", reason);
   const runner = declaredUnsafeRawRunners.get(holder);
   if (!runner) {
     throw new InternalError({
@@ -401,7 +400,13 @@ export function createSystemDbView(
 // same connection/transaction. For code that must run caller-supplied callbacks (e.g. config
 // validators) without handing them a cross-tenant view.
 export function scopeTenantDbToTenant(db: TenantDb, tenantId: TenantId): TenantDb {
-  return createTenantDb({ db: tenantDbRunner(db), tenantId, mode: "tenant" });
+  const writesDeniedReason = tenantDbWritesDeniedReason(db);
+  return createTenantDb({
+    db: tenantDbRunner(db),
+    tenantId,
+    mode: "tenant",
+    ...(writesDeniedReason !== undefined && { grants: { writesDeniedReason } }),
+  });
 }
 
 // @cast-boundary tenant-db-row
@@ -414,6 +419,20 @@ export { tableNameOf };
 // A grant is only real when its reason is non-empty — `{ reason: "" }` must not silently unlock it.
 function hasGrant(decl: EscapeHatchDeclaration | undefined): boolean {
   return decl !== undefined && decl.reason.trim().length > 0;
+}
+
+// Tenant ids left over when the caller excludes some via ne/notIn; undefined for other operator forms.
+function tenantIdsAfterExclusion(
+  requested: unknown,
+  allowed: readonly unknown[],
+): readonly unknown[] | undefined {
+  if (!isPlainObject(requested)) return undefined;
+  if ("ne" in requested) return allowed.filter((t) => t !== requested["ne"]);
+  if (Array.isArray(requested["notIn"])) {
+    const excluded: readonly unknown[] = requested["notIn"];
+    return allowed.filter((t) => !excluded.includes(t));
+  }
+  return undefined;
 }
 
 // Tenant ids a where.tenantId filter asks for; undefined for operator forms
@@ -666,7 +685,12 @@ function buildTenantDb(
     const allowed = [tenantId, SYSTEM_TENANT_ID];
     const requested = where?.["tenantId"];
     if (requested !== undefined) {
-      const requestedList = requestedTenantIds(requested) ?? [];
+      const requestedList = requestedTenantIds(requested);
+      // An explicit exclusion or empty list must keep excluding, never widen to the full scope.
+      if (requestedList === undefined) {
+        return { ...where, tenantId: tenantIdsAfterExclusion(requested, allowed) ?? allowed };
+      }
+      if (requestedList.length === 0) return { ...where, tenantId: [] };
       const narrowed = requestedList.filter(
         (t): t is string => typeof t === "string" && allowed.includes(t),
       );

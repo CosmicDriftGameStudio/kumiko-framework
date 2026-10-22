@@ -196,6 +196,10 @@ export async function decryptPiiValueForSubject(
   }
 }
 
+export const ErasedSubjectHandlings = { sentinel: "sentinel" } as const;
+export type ErasedSubjectHandling =
+  (typeof ErasedSubjectHandlings)[keyof typeof ErasedSubjectHandlings];
+
 export interface EncryptPiiOptions {
   readonly onlyKeys?: Iterable<string>;
   // Write-time tenant for tenantOwned fields on rows without a tenantId column.
@@ -209,7 +213,7 @@ export interface EncryptPiiOptions {
   // Erasure writes must not fail on a subject whose key is already gone: that
   // subject's values are written as the erased sentinel (per field), other
   // subjects encrypt normally. Default: KeyErasedError propagates.
-  readonly onErasedSubject?: "sentinel";
+  readonly onErasedSubject?: ErasedSubjectHandling;
 }
 
 // String fields stay strings (ciphertext is a string); non-string fields may
@@ -263,7 +267,11 @@ export async function encryptPiiFieldValues(
       const dek = await getOrCreateDek(kms, subject, kmsCtx);
       out[name] = encryptValue(subject, dek, plaintext, name, isJsonbField);
     } catch (e) {
-      if (!(e instanceof KeyErasedError) || opts.onErasedSubject !== "sentinel") throw e;
+      if (
+        !(e instanceof KeyErasedError) ||
+        opts.onErasedSubject !== ErasedSubjectHandlings.sentinel
+      )
+        throw e;
       out[name] = PII_ERASED_SENTINEL;
     }
   }

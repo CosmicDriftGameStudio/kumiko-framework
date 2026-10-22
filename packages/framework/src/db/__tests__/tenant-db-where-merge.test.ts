@@ -140,6 +140,38 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
     expect(captured[0]?.values).not.toContain(SYSTEM);
   });
 
+  test("empty { in: [] } never widens to the full scope", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
+
+    await tdb.selectMany(table, { tenantId: { in: [] } });
+
+    expect(captured[0]?.values).not.toContain(own);
+    expect(captured[0]?.values).not.toContain(SYSTEM);
+    expect(captured[0]?.sql).toMatch(/FALSE|1 = 0|1=0|IN \(\)/i);
+  });
+
+  test("{ ne: SYSTEM } keeps excluding SYSTEM instead of re-adding it", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
+
+    await tdb.selectMany(table, { tenantId: { ne: SYSTEM } });
+
+    expect(captured[0]?.values).toContain(own);
+    expect(captured[0]?.values).not.toContain(SYSTEM);
+  });
+
+  test("{ notIn: [own] } keeps excluding own and never leaks foreign", async () => {
+    const captured: Captured[] = [];
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
+
+    await tdb.selectMany(table, { tenantId: { notIn: [own] } });
+
+    expect(captured[0]?.values).toContain(SYSTEM);
+    expect(captured[0]?.values).not.toContain(own);
+    expect(captured[0]?.values).not.toContain(foreign);
+  });
+
   test("mixed [own, foreign] drops the foreign id, keeps own", async () => {
     const captured: Captured[] = [];
     const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });

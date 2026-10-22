@@ -47,7 +47,12 @@ export async function seedReferenceData(
       const keyValue = row[upsertKey];
       if (keyValue === undefined) continue;
 
-      const existing = await fetchOne<ExistingRow>(db, table, { [upsertKey]: keyValue });
+      // Soft-deleted rows are invisible to executor.update, so treat them as missing and re-create.
+      const existing = await fetchOne<ExistingRow>(db, table, {
+        [upsertKey]: keyValue,
+        tenantId: SYSTEM_TENANT_ID,
+        ...(entity.softDelete && { isDeleted: false }),
+      });
 
       if (existing) {
         const changes: Record<string, unknown> = {};

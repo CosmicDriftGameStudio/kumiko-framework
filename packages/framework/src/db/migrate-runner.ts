@@ -339,7 +339,10 @@ export async function runMigrations(
 
       return { applied: appliedIds, skipped: skippedIds };
     } finally {
-      await conn.unsafe(`SELECT pg_advisory_unlock(${MIGRATION_ADVISORY_LOCK_KEY})`);
+      // A dropped session already released its lock; failing here would mask the migration error.
+      await conn
+        .unsafe(`SELECT pg_advisory_unlock(${MIGRATION_ADVISORY_LOCK_KEY})`)
+        .catch(() => undefined);
     }
   } finally {
     // A dead connection fails RESET; the pool drops it, so the migration's own outcome wins.
