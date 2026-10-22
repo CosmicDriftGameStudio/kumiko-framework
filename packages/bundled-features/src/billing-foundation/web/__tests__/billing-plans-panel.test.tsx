@@ -942,9 +942,3 @@ describe("BillingPlansPanel — in-app plan switch", () => {
     expect(screen.queryByTestId("plan-switch-confirm-dialog")).toBeNull();
   });
 });
-
-// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
-// The restore source is a spread copy: mock.module patches an already imported namespace in place.
-afterAll(() => {
-  mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
-});
