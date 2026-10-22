@@ -1,7 +1,7 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.ts";
 import { type OwnershipClause, shiftParams } from "../engine/ownership.ts";
-import type { EntityDefinition } from "../engine/types/index.ts";
+import type { EntityDefinition, FieldDefinition } from "../engine/types/index.ts";
 import { ValidationError } from "../errors/index.ts";
 import { isListFilterAllowed } from "./entity-field-encryption.ts";
 import { buildFilterWhere, type Table } from "./event-store-executor-context.ts";
@@ -207,6 +207,10 @@ export function collectListFilters(payload: {
   return payload.filters !== undefined ? [...single, ...payload.filters] : single;
 }
 
+function isJsonbArrayField(field: FieldDefinition | undefined): boolean {
+  return field?.type === "multiSelect" || (field?.type === "reference" && field.multiple === true);
+}
+
 export function applyListFilter(
   where: ListWhere,
   f: ListFilter,
@@ -243,9 +247,9 @@ export function applyListFilter(
     });
   }
   if (readClause.kind === "sql") appendShiftedClause(where, readClause);
-  if (entity.fields[f.field]?.type === "multiSelect") {
+  if (isJsonbArrayField(entity.fields[f.field])) {
     applyMultiSelectFilter(where.colSql, where.whereSql, where.params, f);
-    // skip: multiSelect already handled — don't fall through to applyScreenFilter
+    // skip: jsonb-array field already handled — don't fall through to applyScreenFilter
     return;
   }
   applyScreenFilter(table, where.colSql, where.whereSql, where.params, f);

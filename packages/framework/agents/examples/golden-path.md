@@ -107,6 +107,17 @@ describe("golden path: ticket", () => {
     expect(list.rows.map((row) => row.id)).toEqual([id]);
   });
 
+  test("closing an already closed ticket is rejected with 422", async () => {
+    const id = await openTicket("Duplicate close");
+    const close = { id, resolution: "Fixed" };
+    await stack.http.writeOk("helpdesk:write:ticket:close", close, admin);
+
+    const again = await stack.http.writeErr("helpdesk:write:ticket:close", close, admin);
+
+    expect(again.httpStatus).toBe(422);
+    expect(again.details).toEqual({ reason: "ticket_already_closed" });
+  });
+
   test("only an Admin may close a ticket", async () => {
     const id = await openTicket("Slow wifi");
 
@@ -144,7 +155,7 @@ import {
   emitEvent,
   setFields,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
@@ -180,6 +191,7 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
       if (!ticket) {
         return failNotFound("ticket", event.payload.id);
       }
+      if (ticket["isClosed"]) return failUnprocessable("ticket_already_closed");
       await emitEvent(ctx, ticketClosed, {
         aggregateId: event.payload.id,
         aggregateType: "ticket",

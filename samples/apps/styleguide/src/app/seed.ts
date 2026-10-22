@@ -1,5 +1,5 @@
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createTenantDb, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 
@@ -8,9 +8,6 @@ import { demoEntity } from "../features/demo/feature";
 // Gibt der List-View echte Rows mit Status-/Flag-Vielfalt. price (money)
 // bleibt leer — der Money-Input zeigt sich im Edit-Screen, im Seed lassen wir
 // ihn weg um nicht von der money-Payload-Form abzuhängen.
-// ponytail: kein Idempotenz-Check — die Screenshot-DB ist ephemer (frisch pro
-// Boot). Beim `bun run dev` gegen die persistente Dev-DB dupliziert ein
-// Neustart die Rows; das ist hier nur eine Demo, daher egal.
 const STATUSES = ["draft", "review", "published", "archived"] as const;
 
 // Fixed across boots (unlike the framework-minted ids for every other seed
@@ -19,7 +16,12 @@ const STATUSES = ["draft", "review", "published", "archived"] as const;
 // otherwise change every run.
 export const FIRST_STYLEGUIDE_ITEM_ID = "00000000-0000-4000-8000-0000000000f1";
 
+const demoItemTable = buildEntityTable("item", demoEntity);
+
 export const seedStyleguideItems: SeedFn = async (stack) => {
+  // The first row has a fixed id, so its presence means a persistent dev DB was seeded already.
+  if (await fetchOne(stack.db, demoItemTable, { id: FIRST_STYLEGUIDE_ITEM_ID })) return;
+
   // Bypass the write-handler HTTP path for the first row — its schema has
   // no `id` field (buildInsertSchema only exposes entity fields), so an
   // explicit id would be silently stripped before reaching the executor.

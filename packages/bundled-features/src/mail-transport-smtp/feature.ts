@@ -105,8 +105,7 @@ export function createMailTransportSmtpFeature() {
           return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
         },
         scope: "tenant",
-        // required: true ↔ the missing-secret throw in readPassword — keep in sync.
-        required: true,
+        // Only needed once authUser is set (readPassword throws then), so readiness must not demand it.
       });
 
       const configKeys = r.config({ keys: SMTP_CONFIG_KEYS });
@@ -191,14 +190,13 @@ async function buildSmtpTransport(
     "from",
     SMTP_HINT,
   );
-  const authUser = requireNonEmpty(
-    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.authUser),
-    FEATURE_NAME,
-    "authUser",
-    SMTP_HINT,
-  );
-
-  const password = await readPassword(ctx, tenantId);
+  const authUser = (
+    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.authUser)
+  )?.trim();
+  const auth =
+    authUser === undefined || authUser === ""
+      ? undefined
+      : { user: authUser, pass: await readPassword(ctx, tenantId) };
 
   let target: MailConnectTarget;
   try {
@@ -227,7 +225,7 @@ async function buildSmtpTransport(
     port,
     secure,
     from,
-    auth: { user: authUser, pass: password },
+    ...(auth && { auth }),
     ...(target.servername && { servername: target.servername }),
   });
 }

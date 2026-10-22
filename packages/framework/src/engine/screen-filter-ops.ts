@@ -32,6 +32,8 @@ export function getAllowedFilterOps(field: FieldDefinition): readonly ScreenFilt
     case "select":
     case "multiSelect":
       return EQUALITY_ONLY;
+    case "reference":
+      return field.multiple === true ? EQUALITY_ONLY : [];
     case "boolean":
       return BOOL_OPS;
     case "number":

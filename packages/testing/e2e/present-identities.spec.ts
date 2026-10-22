@@ -8,6 +8,7 @@ import {
   runMatrix,
   SCREENSHOT_DIR_ENV,
   boundaryGuardedTest as test,
+  withPresentedIdentities,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import { DESKTOP_VIEWPORT } from "../src/e2e/constants";
@@ -82,6 +83,20 @@ test("captureScreenshot refuses an empty `from`", async ({ page }) => {
   await expect(
     captureScreenshot(page, "identity-empty", { presentIdentities: [{ from: "", to: "x" }] }),
   ).rejects.toThrow(/`from` must not be empty/);
+});
+
+test("withPresentedIdentities restores the real values even when the callback throws", async ({
+  page,
+}) => {
+  await page.goto(identityUrl(GENERATED));
+  await expect(
+    withPresentedIdentities(page, IDENTITIES, async () => {
+      await expect(page.locator("#email")).toHaveValue(PRESENTABLE);
+      throw new Error("callback failed");
+    }),
+  ).rejects.toThrow("callback failed");
+  await expect(page.locator("#email")).toHaveValue(GENERATED);
+  await expect(page.locator("#who")).toHaveText(`Signed in as ${GENERATED}`);
 });
 
 const previousViewports = process.env["SCREENSHOT_VIEWPORTS"];

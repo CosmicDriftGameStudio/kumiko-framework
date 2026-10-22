@@ -27,6 +27,8 @@ export const UserDataRightsQueries = {
   exportStatus: "user-data-rights:query:export-status",
   myAuditLog: "user-data-rights:query:my-audit-log",
   downloadByJob: "user-data-rights:query:download-by-job",
+  downloadByToken: "user-data-rights:query:download-by-token",
+  listDownloadAttempts: "user-data-rights:query:list-download-attempts",
 } as const;
 
 // App-level config: tenant-occupancy model. "single-user" tells the forget
@@ -39,8 +41,12 @@ export const TENANT_MODEL_CONFIG_KEY = "user-data-rights:config:tenant-model" as
 export const UserDataRightsHandlers = {
   requestExport: "user-data-rights:write:request-export",
   requestDeletion: "user-data-rights:write:request-deletion",
+  requestDeletionByEmail: "user-data-rights:write:request-deletion-by-email",
+  confirmDeletionByToken: "user-data-rights:write:confirm-deletion-by-token",
   cancelDeletion: "user-data-rights:write:cancel-deletion",
   restrictAccount: "user-data-rights:write:restrict-account",
+  liftRestriction: "user-data-rights:write:lift-restriction",
+  runForgetCleanup: "user-data-rights:write:run-forget-cleanup",
 } as const;
 
 // Foreign QN: the lifecycle status (active / deletionRequested / restricted)

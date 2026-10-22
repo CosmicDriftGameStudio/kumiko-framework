@@ -303,6 +303,9 @@ describe("config helpers — validate (async write gate)", () => {
       tenantId,
       userId: null,
       db: createTenantDb({ db: unusedRunner, tenantId }),
+      readCascade: async () => {
+        throw new Error("readCascade not used in this test");
+      },
     });
     expect(seen).toEqual(["https://example.com"]);
   });

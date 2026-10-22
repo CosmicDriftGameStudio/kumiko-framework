@@ -155,7 +155,7 @@ export function ensureNamedImport(
       declaration.getNamedImports().length > 0,
   );
   if (target === undefined) {
-    sourceFile.insertImportDeclaration(declarations.length, {
+    sourceFile.addImportDeclaration({
       moduleSpecifier: specifier,
       namedImports: [name],
       isTypeOnly,

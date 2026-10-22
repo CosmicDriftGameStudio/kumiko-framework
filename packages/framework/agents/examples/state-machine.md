@@ -492,6 +492,7 @@ export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
 
 import type { EventDef } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { INVOICE_STATES } from "./entities/invoice.ts";
 
 export const FEATURE_NAME = "billing";
 export const ENTITY_NAME = "invoice";
@@ -523,8 +524,8 @@ export const INVOICE_CREATED_EVENT = `${ENTITY_NAME}.created` as const;
 
 export const emptyEventPayload = z.object({});
 export const statusForcedPayload = z.object({
-  newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
-  fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+  newStatus: z.enum(INVOICE_STATES),
+  fromStatus: z.enum(INVOICE_STATES),
 });
 
 // The EventDefs r.defineEvent returns inside the feature setup. Handlers receive them so that

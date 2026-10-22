@@ -90,3 +90,21 @@ export function mergeUpgradeSection(
   const others = sections.filter((candidate) => !candidate.startsWith(prefix));
   return [header, renderUpgradeSection(section), ...others].join("\n");
 }
+
+/** Pure string match on the rendered `- [open] <id> · ` prefix, in every section. */
+export function setManualStatusInChangelog(
+  content: string,
+  ids: ReadonlySet<string>,
+  resolution: "migrated" | "not-applicable",
+): string {
+  return content
+    .split("\n")
+    .map((line) => {
+      for (const id of ids) {
+        const open = `- [open] ${id} · `;
+        if (line.startsWith(open)) return `- [${resolution}] ${id} · ${line.slice(open.length)}`;
+      }
+      return line;
+    })
+    .join("\n");
+}

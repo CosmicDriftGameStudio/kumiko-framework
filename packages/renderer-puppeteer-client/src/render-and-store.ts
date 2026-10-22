@@ -82,12 +82,21 @@ function renderFailure(e: unknown, ctx: HandlerContext, slug: string): WriteResu
   return writeFailure(clientErrorForRenderFailure(e, ctx, slug));
 }
 
-// Renders and uploads the PDF while no transaction is open: the print service call can take
-// seconds and must not hold a pool connection. Use as a handler's `beforeTransaction`.
-export async function renderPdfBeforeTransaction(
+export type RenderedPdfBytes = {
+  readonly fileName: string;
+  readonly pdfBytes: Uint8Array;
+  readonly pageCount: number;
+  readonly sizeBytes: number;
+  readonly template: RenderedTemplateRef;
+  readonly layout?: RenderedTemplateRef;
+};
+
+// Renders without storing: no file, no rendered-pdf row. For callers that keep the bytes
+// themselves (mail attachment, download); same no-transaction rule as renderPdfBeforeTransaction.
+export async function renderPdfBytes(
   ctx: HandlerContext,
-  args: RenderPdfArgs,
-): Promise<BeforeTransactionResult<RenderedPdfUpload>> {
+  args: Pick<RenderPdfArgs, "slug" | "locale" | "variables">,
+): Promise<WriteResult<RenderedPdfBytes>> {
   const tenantId = ctx.user.tenantId;
   const plugin = createRendererFoundationApi(
     collectRendererPlugins(ctx.registry),
@@ -125,6 +134,30 @@ export async function renderPdfBeforeTransaction(
     );
   }
 
+  return {
+    isSuccess: true,
+    data: {
+      fileName: response.fileName,
+      pdfBytes: response.pdfBytes,
+      pageCount: response.pageCount,
+      sizeBytes: response.sizeBytes,
+      template,
+      ...(layout !== undefined && { layout }),
+    },
+  };
+}
+
+// Renders and uploads the PDF while no transaction is open: the print service call can take
+// seconds and must not hold a pool connection. Use as a handler's `beforeTransaction`.
+export async function renderPdfBeforeTransaction(
+  ctx: HandlerContext,
+  args: RenderPdfArgs,
+): Promise<BeforeTransactionResult<RenderedPdfUpload>> {
+  const rendered = await renderPdfBytes(ctx, args);
+  if (!rendered.isSuccess) return rendered;
+  const { fileName, pdfBytes, pageCount, sizeBytes, template, layout } = rendered.data;
+
+  const tenantId = ctx.user.tenantId;
   const uploaded = await uploadFileBytesBeforeTransaction(
     {
       db: ctx.db,
@@ -133,9 +166,9 @@ export async function renderPdfBeforeTransaction(
       user: ctx.user,
     },
     {
-      fileName: response.fileName,
+      fileName,
       mimeType: PDF_MIME_TYPE,
-      data: response.pdfBytes,
+      data: pdfBytes,
       ...(args.attachTo !== undefined && { attachTo: args.attachTo }),
     },
   );
@@ -149,8 +182,8 @@ export async function renderPdfBeforeTransaction(
       locale: args.locale,
       template,
       ...(layout !== undefined && { layout }),
-      pageCount: response.pageCount,
-      sizeBytes: response.sizeBytes,
+      pageCount,
+      sizeBytes,
     },
     ...(uploaded.release && { release: uploaded.release }),
   };

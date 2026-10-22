@@ -31,4 +31,8 @@ export {
   exportJobEntity,
   exportJobsTable,
 } from "./schema/export-job.ts";
-export { TENANT_MODEL_CONFIG_KEY } from "./web/constants.ts";
+export {
+  TENANT_MODEL_CONFIG_KEY,
+  UserDataRightsHandlers,
+  UserDataRightsQueries,
+} from "./web/constants.ts";

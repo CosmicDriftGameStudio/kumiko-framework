@@ -42,6 +42,7 @@ bun test
 // and its text contains exactly the inspections of the requested period.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -150,7 +151,7 @@ describe("export-audit", () => {
 
   test("a period with more inspections than the export holds is rejected instead of cut off", async () => {
     const assetName = "Großanlage";
-    for (let day = 0; day < 101; day += 1) {
+    for (let day = 0; day < MAX_LIST_LIMIT; day += 1) {
       const inspectedOn = new Date(Date.UTC(2025, 0, 1 + day)).toISOString().slice(0, 10);
       await addInspection(inspectedOn, "ok", `Prüfer-${day}`, assetName);
     }
@@ -185,6 +186,7 @@ import {
   createTextField,
   defineFeature,
   defineWriteHandler,
+  MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
@@ -221,7 +223,7 @@ function toFileNameSegment(text: string): string {
 }
 
 // One row above the limit tells "exactly full" from "cut off"; entity lists cap at 200 rows.
-const AUDIT_ROW_LIMIT = 100;
+const AUDIT_ROW_LIMIT = MAX_LIST_LIMIT - 1;
 
 const access = { access: { roles: ["Admin", "User"] } } as const;
 

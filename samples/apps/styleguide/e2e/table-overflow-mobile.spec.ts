@@ -50,8 +50,7 @@ test.describe("mobile (< md)", () => {
     // `row-` testid prefix as the cards themselves.
     const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action"])');
     await expect(cards.first()).toBeVisible();
-    // seed.ts does not deduplicate, so a persistent dev DB can hold more than the 8 seed rows.
-    expect(await cards.count()).toBeGreaterThanOrEqual(8);
+    await expect(cards).toHaveCount(8);
 
     // Cards are compact rows: title, the select column as a status
     // badge on the right, and up to three non-empty value columns as one

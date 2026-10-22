@@ -15,6 +15,7 @@ import {
   createTextField,
   defineFeature,
   defineWriteHandler,
+  MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
@@ -51,7 +52,7 @@ function toFileNameSegment(text: string): string {
 }
 
 // One row above the limit tells "exactly full" from "cut off"; entity lists cap at 200 rows.
-const AUDIT_ROW_LIMIT = 100;
+const AUDIT_ROW_LIMIT = MAX_LIST_LIMIT - 1;
 
 const access = { access: { roles: ["Admin", "User"] } } as const;
 

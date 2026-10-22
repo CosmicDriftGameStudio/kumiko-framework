@@ -63,6 +63,17 @@ describe("golden path: ticket", () => {
     expect(list.rows.map((row) => row.id)).toEqual([id]);
   });
 
+  test("closing an already closed ticket is rejected with 422", async () => {
+    const id = await openTicket("Duplicate close");
+    const close = { id, resolution: "Fixed" };
+    await stack.http.writeOk("helpdesk:write:ticket:close", close, admin);
+
+    const again = await stack.http.writeErr("helpdesk:write:ticket:close", close, admin);
+
+    expect(again.httpStatus).toBe(422);
+    expect(again.details).toEqual({ reason: "ticket_already_closed" });
+  });
+
   test("only an Admin may close a ticket", async () => {
     const id = await openTicket("Slow wifi");
 

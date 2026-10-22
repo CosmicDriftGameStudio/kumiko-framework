@@ -18,7 +18,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireConfigEncryption, requireSystemDb } from "../feature.ts";
+import { requireConfigEncryption, requireConfigResolver, requireSystemDb } from "../feature.ts";
 import { MASKED } from "../read-redaction.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 import {
@@ -106,13 +106,30 @@ export const setWrite = defineWriteHandler({
     if (patternError) return writeFailure(patternError);
 
     if (keyDef.validate) {
+      const validateDb = scopeTenantDbToTenant(db, tenantId);
       try {
         await keyDef.validate(event.payload.value, {
           key: event.payload.key,
           scope,
           tenantId,
           userId,
-          db: scopeTenantDbToTenant(db, tenantId),
+          db: validateDb,
+          readCascade: (qualifiedKey) => {
+            const cascadeKeyDef = ctx.registry.getConfigKey(qualifiedKey);
+            if (!cascadeKeyDef) {
+              throw new InternalError({
+                message: `[config:write:set] readCascade: unknown config key "${qualifiedKey}"`,
+              });
+            }
+            return requireConfigResolver(ctx, "config:write:set").getCascade(
+              qualifiedKey,
+              cascadeKeyDef,
+              tenantId,
+              event.user.id,
+              validateDb,
+              ctx.secrets,
+            );
+          },
         });
       } catch (error) {
         if (isKumikoError(error)) return writeFailure(error);

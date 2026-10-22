@@ -28,13 +28,21 @@ const loanMonthMs = (monthIndex: number): number => Date.UTC(2020, monthIndex, 1
 // screenshots stay stable.
 const growth = (1 + LOAN_MONTHLY_RATE) ** LOAN_MONTHS;
 const annuityMinor = (LOAN_PRINCIPAL_MINOR * LOAN_MONTHLY_RATE * growth) / (growth - 1);
+// Month index -> extra repayment, which shortens the term below LOAN_MONTHS.
+const EXTRA_REPAYMENTS_MINOR: ReadonlyMap<number, number> = new Map([
+  [84, 3_000_000],
+  [150, 2_000_000],
+]);
 let balanceMinor: number = LOAN_PRINCIPAL_MINOR;
 let interestPaidMinor = 0;
+let payoffMonth: number | undefined;
 const LOAN_REMAINING_POINTS = [{ atMs: loanMonthMs(0), value: LOAN_PRINCIPAL_MINOR }];
 const LOAN_INTEREST_POINTS = [{ atMs: loanMonthMs(0), value: 0 }];
 for (let i = 1; i <= LOAN_MONTHS; i++) {
   const interest = balanceMinor * LOAN_MONTHLY_RATE;
-  balanceMinor = Math.max(0, balanceMinor - (annuityMinor - interest));
+  const extraRepayment = EXTRA_REPAYMENTS_MINOR.get(i) ?? 0;
+  balanceMinor = Math.max(0, balanceMinor - (annuityMinor - interest) - extraRepayment);
+  if (balanceMinor === 0) payoffMonth ??= i;
   interestPaidMinor += interest;
   LOAN_REMAINING_POINTS.push({ atMs: loanMonthMs(i), value: Math.round(balanceMinor) });
   LOAN_INTEREST_POINTS.push({ atMs: loanMonthMs(i), value: Math.round(interestPaidMinor) });
@@ -44,10 +52,13 @@ const LOAN_SERIES = [
   { key: "interest", label: "widgets:dashboard:loan-interest", points: LOAN_INTEREST_POINTS },
 ];
 const LOAN_MARKERS = [
-  { atMs: loanMonthMs(84), label: { i18nKey: "widgets:dashboard:marker-extra-1" }, kind: "extra" },
-  { atMs: loanMonthMs(150), label: { i18nKey: "widgets:dashboard:marker-extra-2" }, kind: "extra" },
+  ...[...EXTRA_REPAYMENTS_MINOR.keys()].map((monthIndex, i) => ({
+    atMs: loanMonthMs(monthIndex),
+    label: { i18nKey: `widgets:dashboard:marker-extra-${i + 1}` },
+    kind: "extra",
+  })),
   {
-    atMs: loanMonthMs(LOAN_MONTHS),
+    atMs: loanMonthMs(payoffMonth ?? LOAN_MONTHS),
     label: { i18nKey: "widgets:dashboard:marker-payoff" },
     kind: "payoff",
   },

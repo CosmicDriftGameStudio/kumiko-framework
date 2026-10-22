@@ -442,12 +442,14 @@ export async function seedTextBlock(
     row: { id: string; version: number },
     current: TemplateResourceRow | null | undefined,
   ): Promise<{ id: string }> => {
+    // No folder option keeps the row's folder, so a re-seed cannot drop it from the content tree.
+    const folder = opts.folder === undefined ? (current?.folder ?? null) : fields.folder;
     // Skip no-op updates so a legal re-seed on every pod boot does not bump
     // version/modifiedAt (ETag, "last changed", event-store growth).
     if (
       current?.title === fields.title &&
       current?.content === fields.content &&
-      current?.folder === fields.folder
+      current?.folder === folder
     ) {
       return { id: String(row.id) };
     }
@@ -458,7 +460,7 @@ export async function seedTextBlock(
         changes: {
           title: fields.title,
           content: fields.content,
-          folder: fields.folder,
+          folder,
           // A re-seed must not revive an archived block; only a served one gets a new served version.
           ...(current?.status === "active" && servedStampChanges(row)),
         },
@@ -533,7 +535,11 @@ export type LegalContentBlock = {
 export async function seedLegalContentFromJson(
   db: DbConnection,
   blocks: readonly LegalContentBlock[],
-  opts: { readonly tenantId?: TenantId; readonly by?: SessionUser } = {},
+  opts: {
+    readonly tenantId?: TenantId;
+    readonly by?: SessionUser;
+    readonly folder?: string;
+  } = {},
 ): Promise<void> {
   const tenantId = opts.tenantId ?? SYSTEM_TENANT_ID;
   const by = opts.by ?? createSystemUser(tenantId);
@@ -544,6 +550,7 @@ export async function seedLegalContentFromJson(
       locale: block.locale,
       title: block.title,
       content: block.content,
+      ...(opts.folder !== undefined && { folder: opts.folder }),
       ifExists: "update",
       by,
     });
