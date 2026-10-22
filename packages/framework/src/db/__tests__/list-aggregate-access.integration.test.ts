@@ -66,6 +66,24 @@ describe("list aggregate field access", () => {
     expect(allowed.groups[0]?.measures).toEqual([50]);
   });
 
+  test("inherited object keys are unknown fields: silent, not an error", async () => {
+    await order({ title: "a", qty: 1 }, user.id);
+    for (const field of ["constructor", "toString", "__proto__"]) {
+      const asMeasure = await stack.http.queryOk<AggResult>(
+        LIST_ORDERS,
+        { aggregate: { measures: [{ field, kind: "count" }] } },
+        user,
+      );
+      const asGroup = await stack.http.queryOk<AggResult>(
+        LIST_ORDERS,
+        { aggregate: { groupBy: field, measures: [] } },
+        user,
+      );
+      expect(asMeasure.groups).toEqual([{ key: null, count: 1, measures: [null] }]);
+      expect(asGroup.groups).toEqual([]);
+    }
+  });
+
   test("groupBy on an unreadable or unknown field gives no groups and no error", async () => {
     await order({ title: "a", adminOnly: 50 }, user.id);
     const gated = await stack.http.queryOk<AggResult>(

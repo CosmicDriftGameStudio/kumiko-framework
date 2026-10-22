@@ -214,7 +214,7 @@ export function applyListFilter(
   entity: EntityDefinition,
   fieldReadClause: (field: string) => OwnershipClause,
 ): void {
-  if (table[f.field] === undefined) {
+  if (!Object.hasOwn(table, f.field)) {
     // skip: unknown field — not a real column, drop the filter (injection guard)
     return;
   }

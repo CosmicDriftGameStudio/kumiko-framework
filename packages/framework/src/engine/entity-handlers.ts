@@ -23,6 +23,7 @@ import { InternalError } from "../errors/index.ts";
 import { isSystemIdentity } from "../pipeline/system-identity-switch.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.ts";
+import { entityListRuntime } from "./entity-list-runtime-options.ts";
 import { assertReason } from "./escape-hatch-reason.ts";
 import { dropEmptyWriteOnlyValues } from "./field-access.ts";
 import { instructionFieldNames } from "./instruction-fields.ts";
@@ -201,7 +202,6 @@ export const entityListSchema = z.object({
       }),
     )
     .optional(),
-  // Groups and sums over the same WHERE; rows/paging/sort are ignored.
   aggregate: listAggregatePayloadSchema.optional(),
 });
 
@@ -569,26 +569,11 @@ export function defineEntityQueryHandler(
         // runtime override supplies it.
         const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
         const db = dbFor(ctx);
-        const runtimeOptions = {
-          ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
-          ...(ctx.includeDeleted === true && { includeDeleted: true }),
-          // Registry access only exists at request time, so the
-          // searchable-reference cache + entity resolver travel through the
-          // same runtime-override extension point as searchAdapter above.
-          referenceSearch: {
-            fields: ctx.registry.getSearchableReferences(entityName),
-            resolveEntity: (name: string) => ctx.registry.getEntity(name),
-          },
-          referenceSort: {
-            fields: ctx.registry.getSortableReferences(entityName),
-            resolveEntity: (name: string) => ctx.registry.getEntity(name),
-          },
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
-        };
-        const eagerLoadViewer = {
-          user: query.user,
-          parentVisibility: { entities: ctx.registry.getAllEntities() },
-        };
+        const { runtimeOptions, eagerLoadViewer, resolveEntity } = entityListRuntime(
+          ctx,
+          entityName,
+          query.user,
+        );
         if (listPayload.aggregate !== undefined) {
           return answerListAggregate(
             executor,
@@ -596,22 +581,12 @@ export function defineEntityQueryHandler(
             query.user,
             db,
             runtimeOptions,
-            {
-              entity,
-              resolveEntity: (name) => ctx.registry.getEntity(name),
-              viewer: eagerLoadViewer,
-            },
+            { entity, resolveEntity, viewer: eagerLoadViewer },
           );
         }
         const result = await executor.list(listPayload, query.user, db, runtimeOptions);
         const enrichedRows = hasRefFields
-          ? await enrichWithReferences(
-              result.rows,
-              entity,
-              (name) => ctx.registry.getEntity(name),
-              db,
-              eagerLoadViewer,
-            )
+          ? await enrichWithReferences(result.rows, entity, resolveEntity, db, eagerLoadViewer)
           : result.rows;
         return { ...result, rows: augmentDerivedFields(enrichedRows, entity) };
       };

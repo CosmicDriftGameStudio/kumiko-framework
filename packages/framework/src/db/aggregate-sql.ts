@@ -134,6 +134,10 @@ export function listAggregateMeasureSql(
   return `(${fn})::float8`;
 }
 
+export function groupedKeyOrderLimitSql(limit: number): string {
+  return ` GROUP BY 1 ORDER BY 1 ASC NULLS LAST LIMIT ${limit}`;
+}
+
 export function decodeListAggregateValue(raw: unknown): ListAggregateValue {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === "number" || typeof raw === "string") return raw;

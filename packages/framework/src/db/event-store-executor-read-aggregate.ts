@@ -12,6 +12,7 @@ import {
   aggregateKeyOf,
   decodeListAggregateValue,
   emptyListAggregateValue,
+  groupedKeyOrderLimitSql,
   isListAggregateGroupable,
   isListAggregateMeasureSupported,
   listAggregateKeySql,
@@ -65,7 +66,12 @@ function gateField(
   path: string,
 ): FieldGate {
   const def = ctx.entity.fields[field];
-  if (def === undefined || ctx.table[field] === undefined) return { kind: "silent" };
+  if (
+    def === undefined ||
+    !Object.hasOwn(ctx.entity.fields, field) ||
+    !Object.hasOwn(ctx.table, field)
+  )
+    return { kind: "silent" };
   const clause = fieldReadClause(field);
   if (clause.kind === "empty") return { kind: "silent" };
   if (holdsCiphertextOrSecret(ctx.entity, field)) {
@@ -130,14 +136,14 @@ function renderSelectList(plan: AggregatePlan, where: ListWhere): string {
     if (clause.kind === "sql") appendShiftedClause(where, clause);
   }
   parts.push("COUNT(*)::float8 AS c");
-  plan.measures.forEach((m, i) => {
-    if (m.gate.kind === "silent") return;
+  for (const [i, m] of plan.measures.entries()) {
+    if (m.gate.kind === "silent") continue; // skip: an unreadable measure stays out of the SELECT and decodes to null
     const filterSql =
       m.gate.clause.kind === "sql" ? bindShiftedClause(where.params, m.gate.clause) : undefined;
     parts.push(
       `${listAggregateMeasureSql(m.kind, m.gate.def.type, where.colSql(m.field), filterSql)} AS m${i}`,
     );
-  });
+  }
   return parts.join(", ");
 }
 
@@ -162,9 +168,7 @@ export async function aggregateList(
 
   const selectList = renderSelectList(plan, where);
   const whereText = where.whereSql.length > 0 ? ` WHERE ${where.whereSql.join(" AND ")}` : "";
-  const groupText = grouped
-    ? ` GROUP BY 1 ORDER BY 1 ASC NULLS LAST LIMIT ${MAX_AGGREGATE_GROUPS + 1}`
-    : "";
+  const groupText = grouped ? groupedKeyOrderLimitSql(MAX_AGGREGATE_GROUPS + 1) : "";
   const tableName = String(schemaTableName(ctx.table));
   const rows = await executeRawQueryRead<Record<string, unknown>>(
     tenantDbRunner(db),

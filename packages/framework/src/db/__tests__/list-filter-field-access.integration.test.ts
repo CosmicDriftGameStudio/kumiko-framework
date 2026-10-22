@@ -220,4 +220,21 @@ describe("list() field-level read access gates filter/sort (fw#2629)", () => {
     );
     expect(asAdmin.rows.map((r) => r.id)).toEqual([second.id, first.id]);
   });
+
+  test("inherited object keys as filter or sort field are unknown: silent, no error", async () => {
+    await seedTwoSecrets();
+    for (const field of ["constructor", "toString"]) {
+      const result = await stack.http.queryOk<ListResult>(
+        LIST_QN,
+        {
+          limit: 50,
+          totalCount: true,
+          sort: field,
+          filter: { field, op: "eq", value: "x" },
+        },
+        TestUsers.admin,
+      );
+      expect(result.total).toBe(2);
+    }
+  });
 });
