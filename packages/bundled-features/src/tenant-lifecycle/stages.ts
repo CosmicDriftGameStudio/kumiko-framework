@@ -163,6 +163,35 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOut
   return total.outcome();
 }
 
+// A user key outlives the tenant while the user still belongs to another live tenant:
+// erasing it would tombstone the key and break every later PII write for that user.
+async function userIdsWithoutOtherLiveTenant(
+  ctx: DestructionStageCtx,
+  userIds: readonly string[],
+): Promise<readonly string[]> {
+  // skip: no members, nothing to look up.
+  if (userIds.length === 0) return [];
+  const otherMemberships = (
+    await selectMany<{ userId: string; tenantId: string }>(ctx.db, tenantMembershipsTable, {
+      userId: { in: [...userIds] },
+    })
+  ).filter((membership) => membership.tenantId !== ctx.tenantId);
+  // skip: every member belongs to this tenant only.
+  if (otherMemberships.length === 0) return userIds;
+  const otherTenants = await selectMany<{ id: string; status: string }>(ctx.db, tenantTable, {
+    id: { in: [...new Set(otherMemberships.map((membership) => membership.tenantId))] },
+  });
+  const liveTenantIds = new Set(
+    otherTenants.filter((tenant) => tenant.status !== "destroyed").map((tenant) => tenant.id),
+  );
+  const retainedUserIds = new Set(
+    otherMemberships
+      .filter((membership) => liveTenantIds.has(membership.tenantId))
+      .map((membership) => membership.userId),
+  );
+  return userIds.filter((userId) => !retainedUserIds.has(userId));
+}
+
 async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   const kms = configuredPiiSubjectKms();
   if (!kms) {
@@ -177,7 +206,12 @@ async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<StageRunOutco
   const subjects: SubjectId[] = [
     { kind: "tenant", tenantId: ctx.tenantId },
     tenantRecordSubject,
-    ...memberships.map((m) => ({ kind: "user" as const, userId: m.userId })),
+    ...(
+      await userIdsWithoutOtherLiveTenant(
+        ctx,
+        memberships.map((m) => m.userId),
+      )
+    ).map((userId) => ({ kind: "user" as const, userId })),
   ];
   for (const subject of subjects) {
     await kms.eraseKey(subject, {
