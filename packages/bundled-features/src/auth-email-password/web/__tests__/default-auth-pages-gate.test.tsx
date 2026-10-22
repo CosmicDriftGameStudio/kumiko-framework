@@ -12,13 +12,16 @@ afterEach(() => {
   window.history.replaceState({}, "", "/");
 });
 
-function renderAt(path: string): ReturnType<typeof renderWithProviders> {
+function renderAt(path: string, basePath?: string): ReturnType<typeof renderWithProviders> {
   window.history.replaceState({}, "", path);
   return renderWithProviders(
     <DefaultAuthPagesGate>
       <div data-testid="app">APP</div>
     </DefaultAuthPagesGate>,
-    { session: makeSessionApi({ status: "unauthenticated", user: null }) },
+    {
+      session: makeSessionApi({ status: "unauthenticated", user: null }),
+      ...(basePath !== undefined && { basePath }),
+    },
   );
 }
 
@@ -40,6 +43,19 @@ describe("DefaultAuthPagesGate", () => {
 
   test("/reset-password needs a token, otherwise the app renders", () => {
     expect(renderAt("/reset-password").getByTestId("app")).toBeTruthy();
+  });
+
+  test("an app mounted under a base path matches the auth pages below it", () => {
+    const unlock = renderAt("/admin/unlock-account?token=abc", "/admin");
+    expect(unlock.queryByTestId("app")).toBeNull();
+    unlock.unmount();
+    const forgot = renderAt("/admin/forgot-password", "/admin");
+    expect(forgot.queryByTestId("app")).toBeNull();
+    expect(forgot.getByLabelText(/^Email/)).toBeTruthy();
+  });
+
+  test("under a base path the unprefixed auth paths belong to the host, not the app", () => {
+    expect(renderAt("/forgot-password", "/admin").getByTestId("app")).toBeTruthy();
   });
 
   test("other paths pass through", () => {

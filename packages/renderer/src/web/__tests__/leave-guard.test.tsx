@@ -191,6 +191,64 @@ describe("leave guard", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/previous"));
   });
 
+  test("a second Back while the dialog is open neither stacks an entry nor drops the request; confirming steps back once", async () => {
+    window.history.replaceState(null, "", "/previous");
+    window.history.pushState(null, "", "/tasks");
+    renderHarness(dispatcherWriting("success"));
+    typeTitle("draft");
+
+    act(() => {
+      window.history.replaceState(null, "", "/previous");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    const lengthWithDialog = window.history.length;
+
+    act(() => {
+      window.history.replaceState(null, "", "/elsewhere");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(window.location.pathname).toBe("/tasks");
+    expect(window.history.length).toBe(lengthWithDialog);
+    expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy();
+
+    const back = mock(() => {
+      window.history.replaceState(null, "", "/previous");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    const originalBack = window.history.back.bind(window.history);
+    window.history.back = back;
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+      await waitFor(() => expect(window.location.pathname).toBe("/previous"));
+      expect(back).toHaveBeenCalledTimes(1);
+      expect(window.history.length).toBe(lengthWithDialog);
+    } finally {
+      window.history.back = originalBack;
+    }
+  });
+
+  test("browser Back on a dirty form is undone by stepping forward again; Discard replays it without extra entries", async () => {
+    renderHarness(dispatcherWriting("success"));
+    typeTitle("draft");
+    fireEvent.click(screen.getByTestId("go-list"));
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/list"));
+    const lengthBefore = window.history.length;
+
+    window.history.back();
+
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    await waitFor(() => expect(window.location.pathname).toBe("/list"));
+    expect(window.history.length).toBe(lengthBefore);
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/tasks"));
+    expect(window.history.length).toBe(lengthBefore);
+    expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
   test("beforeunload is only prevented while the form holds unsaved input", () => {
     renderHarness(dispatcherWriting("success"));
     expect(beforeUnloadEvent().defaultPrevented).toBe(false);

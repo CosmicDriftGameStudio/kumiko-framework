@@ -13,6 +13,8 @@ export { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/u
 export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim.ts";
 export type { AppFeaturesProviderProps } from "./app/app-features-context.tsx";
 export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context.tsx";
+export { normalizeBasePath, prependBasePath, stripBasePath } from "./app/base-path.ts";
+export { BasePathProvider, useBasePath } from "./app/base-path-context.tsx";
 export type {
   ActionNotice,
   ActionNotifier,
