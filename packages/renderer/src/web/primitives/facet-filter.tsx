@@ -88,7 +88,7 @@ export function FacetFilter({
         <UiButton
           variant="outline"
           size="sm"
-          className={cn("h-9", dense && "h-8 border-border-strong px-2.5 max-md:h-11")}
+          className={cn("h-9", dense && "border-border-strong px-2.5")}
           data-testid={`facet-${facet.field}`}
         >
           {facet.label}

@@ -714,7 +714,7 @@ function ToolbarActionView({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && { icon: action.icon })}
-        size={showIconOnly ? "icon" : "sm"}
+        size={showIconOnly ? "icon" : "md"}
         {...(showIconOnly && { ariaLabel: action.label, title: action.label })}
         onClick={() => {
           if (needsConfirm) {

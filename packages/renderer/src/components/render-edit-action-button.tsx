@@ -49,7 +49,6 @@ export function RenderEditActionButton({
   action,
   iconOnly = false,
   hideIcon = false,
-  compactLabel = false,
   Button,
   Dialog,
   onError,
@@ -60,8 +59,6 @@ export function RenderEditActionButton({
   readonly iconOnly?: boolean;
   /** Record-header actions are text-only; the icon still shows when collapsed to icon-only. */
   readonly hideIcon?: boolean;
-  /** Short labelled button for a phone header, where a bare icon would hide what the action does. */
-  readonly compactLabel?: boolean;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly onError: (notice: ErrorNotice | null) => void;
@@ -91,7 +88,6 @@ export function RenderEditActionButton({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
-        {...(compactLabel && !showIconOnly && { size: "sm" as const })}
         {...(showIconOnly && {
           size: "icon" as const,
           ariaLabel: action.label,

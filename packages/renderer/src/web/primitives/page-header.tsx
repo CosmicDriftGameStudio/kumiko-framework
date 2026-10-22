@@ -2,6 +2,8 @@ import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { PageHeaderProps } from "../../index.ts";
 import { usePageHeaderSlot } from "../layout/page-header-slot.tsx";
+import { UNIFORM_BAR_CONTROLS_CLASSES } from "../layout/uniform-bar-controls.ts";
+import { cn } from "../lib/cn.ts";
 
 export function DefaultPageHeader({
   title,
@@ -55,7 +57,9 @@ export function DefaultPageHeader({
     return (
       <div data-kumiko-layout="page-header-inline" className="flex items-center gap-2 px-4 py-2">
         {status}
-        <div className="ml-auto flex items-center gap-2">{actions}</div>
+        <div className={cn("ml-auto flex items-center gap-2", UNIFORM_BAR_CONTROLS_CLASSES)}>
+          {actions}
+        </div>
       </div>
     );
   }

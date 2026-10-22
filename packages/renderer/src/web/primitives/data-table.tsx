@@ -19,6 +19,7 @@ import {
 import type { ListRowViewModel } from "../../headless/index.ts";
 import type { DataTableSortDir } from "../../index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../index.ts";
+import { UNIFORM_BAR_CONTROLS_CLASSES } from "../layout/uniform-bar-controls.ts";
 import { cn } from "../lib/cn.ts";
 import { Button as UiButton } from "../ui/button.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.tsx";
@@ -902,6 +903,7 @@ export function DefaultDataTable({
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
           className={cn(
             "flex flex-wrap items-center",
+            UNIFORM_BAR_CONTROLS_CLASSES,
             fillsHeight
               ? isNarrow
                 ? "shrink-0 gap-2 p-3"
@@ -914,7 +916,7 @@ export function DefaultDataTable({
             <div
               className={cn(
                 fillsHeight
-                  ? "relative w-full md:w-[300px] max-md:flex-1 [&_input]:border-border-strong [&_input]:pl-8 [&_input]:max-md:h-11 md:[&_input]:h-8"
+                  ? "relative w-full md:w-[300px] max-md:flex-1 [&_input]:border-border-strong [&_input]:pl-8 [&_input]:max-md:h-11"
                   : "flex-1 min-w-48 max-w-sm",
               )}
             >
@@ -957,6 +959,7 @@ export function DefaultDataTable({
           className={cn(
             "m-0 pb-2 text-sm text-muted-foreground",
             fillsHeight && (isNarrow ? "px-3" : "px-6"),
+            fillsHeight && !hasToolbar && "pt-4",
           )}
         >
           {toolbarDescription}

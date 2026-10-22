@@ -463,6 +463,15 @@ describe("CollapsibleSection", () => {
     );
     expect(container.querySelector("details")?.open).toBe(true);
   });
+
+  test("Kopfzeile hat dieselbe Höhe wie Eingabefelder", () => {
+    const { container } = render(
+      <CollapsibleSection title="Erweitert">
+        <span>Inhalt</span>
+      </CollapsibleSection>,
+    );
+    expect(container.querySelector("summary")?.className.split(" ")).toContain("h-9");
+  });
 });
 
 describe("DetailList", () => {
