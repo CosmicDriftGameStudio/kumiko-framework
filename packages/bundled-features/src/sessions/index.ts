@@ -15,7 +15,7 @@ export type {
   SessionCallbacksOptions,
   SessionMassRevoker,
 } from "./session-callbacks.ts";
-export { createSessionCallbacks, isPrincipalBlocked } from "./session-callbacks.ts";
+export { createSessionCallbacks } from "./session-callbacks.ts";
 export type { SessionRevokedPayload } from "./session-revoked-event.ts";
 export {
   SESSION_REVOKED_AGGREGATE_TYPE,
