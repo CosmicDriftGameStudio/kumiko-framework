@@ -208,7 +208,12 @@ produces code that compiles and then fails in production.
   one page (default 50, `limit` at most 200). Pass
   `filter: { field, op, value }` (`eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`)
   so the database filters, and `totalCount: true` to get `total` over all
-  matching rows; `limit: 1, totalCount: true` is a count query.
+  matching rows; `limit: 1, totalCount: true` is a count query. Groups and
+  sums are the same: pass `aggregate: { groupBy?, measures: [{ field, kind }] }`
+  (`kind` is `sum`, `avg`, `count`, `min` or `max`) and the list answers with
+  `{ groups: [{ key, label?, count, measures }] }` over the same filters,
+  search and ownership, at most 200 groups (`truncated: true` beyond that).
+  Custom handlers call `executor.aggregate(...)` or `answerListAggregate`.
 - Never change an event schema in place once it has been emitted. Version it
   (see `agents/examples/event-sourcing.md`).
 - Never read or write another tenant's data. `ctx.db` is tenant scoped on

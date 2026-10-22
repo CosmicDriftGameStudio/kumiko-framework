@@ -33,7 +33,7 @@ export function isSensitiveLabelField(entity: EntityDefinition, field: string): 
 
 // A `sensitive` (find: "secret") field is never comparable either, even while its value is still
 // legacy plaintext.
-function holdsCiphertextOrSecret(entity: EntityDefinition, field: string): boolean {
+export function holdsCiphertextOrSecret(entity: EntityDefinition, field: string): boolean {
   const def = entity.fields[field];
   if (def === undefined) return false;
   return ("sensitive" in def && def.sensitive === true) || isSensitiveLabelField(entity, field);

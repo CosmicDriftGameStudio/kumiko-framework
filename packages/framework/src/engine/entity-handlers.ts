@@ -1,4 +1,8 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import {
+  type ListAggregatePayload,
+  listAggregatePayloadSchema,
+} from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import type { ZodType } from "zod";
 import * as z from "zod";
 import type { DbRow } from "../db/connection.ts";
@@ -8,6 +12,7 @@ import {
   enrichWithReferences,
 } from "../db/eagerload.ts";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
+import { answerListAggregate } from "../db/list-aggregate-labels.ts";
 import { buildEntityTable, type EntityRow, type EntityTable } from "../db/table-builder.ts";
 import {
   acknowledgeConventionCrossTenant,
@@ -117,6 +122,7 @@ type ListPayload = {
     readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
     readonly value: unknown;
   };
+  aggregate?: ListAggregatePayload;
 };
 
 const idSchema = z.object({ id: z.uuid() });
@@ -195,6 +201,8 @@ export const entityListSchema = z.object({
       }),
     )
     .optional(),
+  // Groups and sums over the same WHERE; rows/paging/sort are ignored.
+  aggregate: listAggregatePayloadSchema.optional(),
 });
 
 function parseHandlerName<TVerb extends string>(
@@ -561,7 +569,7 @@ export function defineEntityQueryHandler(
         // runtime override supplies it.
         const listPayload = query.payload as ListPayload; // @cast-boundary engine-payload
         const db = dbFor(ctx);
-        const result = await executor.list(listPayload, query.user, db, {
+        const runtimeOptions = {
           ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
           ...(ctx.includeDeleted === true && { includeDeleted: true }),
           // Registry access only exists at request time, so the
@@ -569,18 +577,33 @@ export function defineEntityQueryHandler(
           // same runtime-override extension point as searchAdapter above.
           referenceSearch: {
             fields: ctx.registry.getSearchableReferences(entityName),
-            resolveEntity: (name) => ctx.registry.getEntity(name),
+            resolveEntity: (name: string) => ctx.registry.getEntity(name),
           },
           referenceSort: {
             fields: ctx.registry.getSortableReferences(entityName),
-            resolveEntity: (name) => ctx.registry.getEntity(name),
+            resolveEntity: (name: string) => ctx.registry.getEntity(name),
           },
           parentVisibility: { entities: ctx.registry.getAllEntities() },
-        });
+        };
         const eagerLoadViewer = {
           user: query.user,
           parentVisibility: { entities: ctx.registry.getAllEntities() },
         };
+        if (listPayload.aggregate !== undefined) {
+          return answerListAggregate(
+            executor,
+            { ...listPayload, aggregate: listPayload.aggregate },
+            query.user,
+            db,
+            runtimeOptions,
+            {
+              entity,
+              resolveEntity: (name) => ctx.registry.getEntity(name),
+              viewer: eagerLoadViewer,
+            },
+          );
+        }
+        const result = await executor.list(listPayload, query.user, db, runtimeOptions);
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(
               result.rows,

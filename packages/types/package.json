@@ -154,6 +154,10 @@
       "types": "./src/aggregate-types.ts",
       "default": "./src/aggregate-types.ts"
     },
+    "./list-aggregate-types": {
+      "types": "./src/list-aggregate-types.ts",
+      "default": "./src/list-aggregate-types.ts"
+    },
     "./tenant-db-types": {
       "types": "./src/tenant-db-types.ts",
       "default": "./src/tenant-db-types.ts"
@@ -432,6 +436,10 @@
       "./aggregate-types": {
         "types": "./dist/aggregate-types.d.ts",
         "default": "./dist/aggregate-types.js"
+      },
+      "./list-aggregate-types": {
+        "types": "./dist/list-aggregate-types.d.ts",
+        "default": "./dist/list-aggregate-types.js"
       },
       "./tenant-db-types": {
         "types": "./dist/tenant-db-types.d.ts",

@@ -95,6 +95,7 @@ export {
   enumerateFeatureTableSources,
   type FeatureTableSource,
 } from "./feature-table-sources.ts";
+export { answerListAggregate, labelListAggregateGroups } from "./list-aggregate-labels.ts";
 export {
   flattenLocatedTimestamp,
   type LocatedTimestampRead,
