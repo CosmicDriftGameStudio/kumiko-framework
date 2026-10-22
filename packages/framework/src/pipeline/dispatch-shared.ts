@@ -1,47 +1,28 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
-import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   RateLimitBucketRequest,
   RateLimitResolver,
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
-import { isAgentToolCallScope, requestContext, runWithOrigin } from "../api/request-context.ts";
+import { requestContext, runWithOrigin } from "../api/request-context.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbTx } from "../db/connection.ts";
-import { createHandlerCrossTenantReads } from "../db/cross-tenant-reads.ts";
-import { runInSavepoint, selectMany } from "../db/query.ts";
 import type { buildEntityTable } from "../db/table-builder.ts";
-import {
-  createTenantDb,
-  createUncheckedSystemDb,
-  hasTenantColumn,
-  type TenantDb,
-} from "../db/tenant-db.ts";
-import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
-import { mayOverrideTenant } from "../engine/cross-tenant.ts";
+import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import type { defineTransitions } from "../engine/state-machine.ts";
-import { createSystemUser } from "../engine/system-user.ts";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
   AgentRisk,
-  AggregateStreamHandle,
   AppContext,
-  AppendEventArgs,
   AppendEventFn,
   AuthClaimsContext,
-  ConfigAccessor,
-  FetchForWritingArgs,
   HandlerContext,
   JobRunnerRef,
-  MemberReader,
-  NotifyFn,
-  NotifyJobDispatcher,
   PayloadRateLimitOption,
   RateLimitDeclaration,
   RateLimitOption,
   Registry,
   SessionUser,
-  TenantWriteTarget,
   WriteResult,
 } from "../engine/types/index.ts";
 import {
@@ -50,54 +31,21 @@ import {
   resolveAgentExposure,
 } from "../engine/types/index.ts";
 import {
-  AccessDeniedError,
   FeatureDisabledError,
-  FrameworkReasons,
   InternalError,
   memberResolutionReadOnlyDenied,
   RateLimitError,
   RateLimitUnavailableError,
-  VersionConflictError,
   type WriteErrorInfo,
-  writeFailure,
 } from "../errors/index.ts";
-import {
-  archiveStream as archiveStreamHelper,
-  isStreamArchived,
-  restoreStream as restoreStreamHelper,
-} from "../event-store/archive.ts";
-import {
-  IdempotentAppendConflictError as EventStoreIdempotentAppendConflictError,
-  VersionConflictError as EventStoreVersionConflictError,
-} from "../event-store/errors.ts";
-import {
-  loadAggregate,
-  loadAggregateAsOf,
-  loadAggregateForWriting,
-  type StoredEvent,
-} from "../event-store/event-store.ts";
-import {
-  effectiveSnapshotGeneration,
-  type LoadAggregateWithSnapshotOptions,
-  type LoadAggregateWithSnapshotResult,
-  loadAggregateWithSnapshot,
-  type SnapshotReducer,
-  saveSnapshot,
-} from "../event-store/snapshot.ts";
-import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.ts";
-import { createTenantFileContext } from "../files/file-handle.ts";
-import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import {
   createEscapeHatchReporter,
-  createMetricsForFactory,
-  createMetricsHandle,
-  createNoopMetricsHandle,
   type EscapeHatchReportWindow,
   emitDispatcherError,
   emitDispatcherHandler,
   type getFallbackMeter,
-  getFallbackTracer,
+  type getFallbackTracer,
   observabilityContext,
 } from "../observability/index.ts";
 import {
@@ -105,36 +53,41 @@ import {
   buildPayloadBucketKey,
   normalizePayloadBucketValue,
 } from "../rate-limit/index.ts";
-import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";
 import { isPlainObject } from "../utils/is-plain-object.ts";
-import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
-import { appendDomainEventCore } from "./append-event-core.ts";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.ts";
 import { configAccessorFactoryOf } from "./config-accessor-factory.ts";
-import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
 import { executeQuery } from "./dispatch-query.ts";
-import { executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
   dispatcherSpanAttributes,
   isFailedWriteResult,
-  NestedWriteRollback,
 } from "./dispatcher-utils.ts";
+import { buildAuthFacet } from "./handler-context-auth.ts";
+import {
+  buildConfigFacet,
+  resolveHandlerLocale,
+  resolveHandlerTz,
+} from "./handler-context-config.ts";
+import {
+  buildFileFragment,
+  buildForTenantFragment,
+  buildHandlerDbFacet,
+} from "./handler-context-db.ts";
+import { buildDispatchFacet, createCommitSinks } from "./handler-context-dispatch.ts";
+import { buildEventStoreFacet } from "./handler-context-events.ts";
+import { buildNotifyFacet } from "./handler-context-notify.ts";
+import { buildObservabilityFacet } from "./handler-context-observability.ts";
+import {
+  buildPreSaveFragment,
+  buildRuntimeFragment,
+  resolveHandlerContextScope,
+} from "./handler-context-scope.ts";
 import type { IdempotencyGuard } from "./idempotency.ts";
 import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
-import { createMemberReaderFn } from "./member-reader.ts";
-import { createDeferringNotify } from "./notify-scope.ts";
-import {
-  createGatedIdentitySwitch,
-  createGatedMemberReader,
-  createGatedProjectionReader,
-  isSystemIdentity,
-  type ProjectionReader,
-  systemIdentitySwitchDenied,
-} from "./system-identity-switch.ts";
+import { createGatedIdentitySwitch, isSystemIdentity } from "./system-identity-switch.ts";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache.ts";
 import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.ts";
-import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.ts";
+import { rootWriteOrigin, type WriteOrigin } from "./write-origin.ts";
 
 export type { WriteOrigin } from "./write-origin.ts";
 
@@ -205,39 +158,6 @@ export function resolveAppPoolDb(ctx: DispatchContext): DbConnection | undefined
   return ctx.appContext.db as DbConnection | undefined; // @cast-boundary db-operator
 }
 
-// ctx.appendEvent — append a domain event onto a specific aggregate stream
-// in the current tx, then fire matching inline projections. Core logic
-// lives in appendDomainEventCore; this wrapper just locates dbSource +
-// stringifies the SessionUser id for the shared helper.
-async function appendDomainEvent(
-  ctx: DispatchContext,
-  args: AppendEventArgs & { readonly expectedVersion?: number },
-  user: SessionUser,
-  tx: DbTx | undefined,
-  callerFeature: string | undefined,
-): Promise<void> {
-  // Sink behind every append surface, so a resolved member stays read-only even via fetchForWriting handles.
-  if (isMemberResolutionPrincipal(user)) throw memberResolutionReadOnlyDenied();
-  const { registry } = ctx;
-  const dbSource = resolveDbSource(ctx, tx);
-  if (!dbSource) {
-    throw new InternalError({
-      message: `ctx.appendEvent("${args.type}") requires a database connection — none is configured.`,
-    });
-  }
-  await appendDomainEventCore(
-    {
-      registry,
-      db: dbSource,
-      tenantId: user.tenantId,
-      userId: String(user.id),
-      callSiteLabel: "ctx.appendEvent",
-      callerFeature,
-    },
-    args,
-  );
-}
-
 // r.systemScope() handlers must go through ctx.systemDb's guarded methods
 // (assertTenantMatch / acknowledgeCrossTenant) instead of plain ctx.db —
 // "system" mode has no tenant filter at all, so silent ctx.db or
@@ -246,7 +166,7 @@ async function appendDomainEvent(
 // runtime-only registry lookup, not a type-level discriminant), so instead
 // of omitting the key we hand back a Proxy that throws on first touch,
 // naming the handler and pointing at the matching ctx.systemDb escape hatch.
-function createSystemScopedDbGuard(
+export function createSystemScopedDbGuard(
   handlerType: string,
   fieldName: "db" | "dbOutsideTransaction",
   hint: string,
@@ -265,17 +185,6 @@ function createSystemScopedDbGuard(
 
 export function isMemberResolutionPrincipal(user: SessionUser): boolean {
   return user.origin === "member-resolution";
-}
-
-// DispatchContext.jobRunner is typed as the handleEvent-only JobRunnerRef but
-// holds the concrete runner at boot; narrow instead of casting.
-function isNotifyJobDispatcher(runner: unknown): runner is NotifyJobDispatcher {
-  return (
-    typeof runner === "object" &&
-    runner !== null &&
-    "dispatch" in runner &&
-    typeof runner.dispatch === "function"
-  );
 }
 
 async function denyMemberResolutionWrite(): Promise<never> {
@@ -472,764 +381,19 @@ export async function buildHandlerContext(
   // beforeTransaction phase: ctx.forTenant stays available but every target db denies writes.
   readOnlyForTenant = false,
 ): Promise<HandlerContext> {
-  const { registry, appContext: context, effectiveFeatures, jobRunner, lifecycle } = ctx;
-  const isSystem = registry.isHandlerSystemScoped(type);
-  // The outer dispatcher receives a DbConnection from the server/stack;
-  // AppContext's `db` union also allows TenantDb (for downstream hook calls),
-  // but at this point we're the root of the pipeline — cast is safe.
-  const dbSource = resolveDbSource(ctx, tx);
-  const reqCtx = requestContext.get();
-  // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write, query or stream escapeHatch.
-  const writeHandler = registry.getWriteHandler(type);
-  const writeEscapeHatch = writeHandler?.escapeHatch;
-  const isPerCommand = writeHandler?.transaction === "perCommand";
-  const denyDbWrites = transactionScope === "withoutTransaction";
-  const handlerEscapeHatch =
-    writeEscapeHatch ??
-    registry.getQueryHandler(type)?.escapeHatch ??
-    registry.getStreamHandler(type)?.escapeHatch;
-  const identitySwitchEscapeHatch = escapeHatchFor(handlerEscapeHatch, "systemIdentity");
-  const hasIdentitySwitchGrant = isSystem || identitySwitchEscapeHatch !== undefined;
-  const featureName = registry.getHandlerFeature(type);
-  const reportEscapeHatch = createEscapeHatchReporter({
-    handler: type,
-    tenantId: user.tenantId,
-    actor: user.id,
-    sink: context._escapeHatchAuditSink,
-    log: context.log ?? createFallbackLogger("dispatcher"),
-    window: ctx.escapeHatchReportWindow,
-  });
-  const identitySwitchGrantReason =
-    identitySwitchEscapeHatch?.reason ??
-    (isSystem ? `r.systemScope() feature "${featureName ?? "unknown"}"` : undefined);
-  const buildTenantScopedDb = (
-    source: DbConnection | DbTx,
-    signal: AbortSignal | undefined,
-    foreignTenantId?: TenantId,
-    denyWrites = false,
-  ) =>
-    createTenantDb({
-      db: source,
-      tenantId: foreignTenantId ?? user.tenantId,
-      mode: isSystem && foreignTenantId === undefined ? "system" : "tenant",
-      tracer: context.tracer,
-      meter: context.meter,
-      signal,
-      grants: {
-        ...(foreignTenantId === undefined && {
-          globalWrites: escapeHatchFor(writeEscapeHatch, "globalWrites"),
-          unsafeRaw: escapeHatchFor(handlerEscapeHatch, "unsafeRaw"),
-        }),
-        report: reportEscapeHatch,
-        memberReadOnly: isMemberResolutionPrincipal(user),
-        personalDataGate: buildPersonalDataGate(registry, origin),
-        projectionRegistry: registry,
-        ...(denyWrites && { writesDeniedReason: "without an open transaction" }),
-      },
-    });
-  // Propagate the request's AbortSignal so every TenantDb query throws when
-  // the client has disconnected — handlers with many sequential queries skip
-  // the rest of the chain instead of burning DB-CPU for results no one reads.
-  const db = dbSource
-    ? buildTenantScopedDb(dbSource, reqCtx?.signal, undefined, denyDbWrites)
-    : undefined;
-  // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
-  // through it survive a rollback of the handler's own transaction. No
-  // AbortSignal here: a client disconnect must not abort a durability write
-  // that is meant to outlive the request. Computed before `systemDb` below
-  // so its guarded escape hatch (ctx.systemDb.outsideTransaction) can wrap
-  // this same TenantDb instead of a second, independently-built one.
-  const outsideTxSource = ctx.outsideTransactionDb ?? resolveAppPoolDb(ctx);
-  const rawDbOutsideTransaction = outsideTxSource
-    ? buildTenantScopedDb(outsideTxSource, undefined)
-    : undefined;
-  const systemDb =
-    isSystem && db
-      ? createUncheckedSystemDb(db, rawDbOutsideTransaction, reportEscapeHatch)
-      : undefined;
-  // An agent tool call runs with the user's session but feeds the LLM context, so
-  // cross-tenant rows must never reach it, even when unsafeRaw implies the grant.
-  const crossTenantReadsReason = isAgentToolCallScope()
-    ? undefined
-    : crossTenantReadsGrantFor(handlerEscapeHatch)?.reason;
-  const crossTenantReads =
-    dbSource && crossTenantReadsReason !== undefined
-      ? createHandlerCrossTenantReads({
-          db: dbSource,
-          tenantId: user.tenantId,
-          tracer: context.tracer,
-          meter: context.meter,
-          signal: reqCtx?.signal,
-          reason: crossTenantReadsReason,
-          report: reportEscapeHatch,
-          grants: {
-            report: reportEscapeHatch,
-            memberReadOnly: isMemberResolutionPrincipal(user),
-            personalDataGate: buildPersonalDataGate(registry, origin),
-            projectionRegistry: registry,
-          },
-        })
-      : undefined;
-  // Exposed as ctx.db below — the internal `db` above stays the real,
-  // working TenantDb for this function's own use (config/derivatives
-  // accessors, systemDb construction).
-  const exposedDb =
-    isSystem && db
-      ? createSystemScopedDbGuard(
-          type,
-          "db",
-          "ctx.systemDb.assertTenantMatch(...) or ctx.systemDb.acknowledgeCrossTenant(...)",
-        )
-      : db;
-  // Same fail-closed treatment as `exposedDb` — a system handler reaching
-  // ctx.dbOutsideTransaction directly would be a second, unguarded door to
-  // the same cross-tenant access ctx.db closes off above.
-  const dbOutsideTransaction =
-    isSystem && rawDbOutsideTransaction
-      ? createSystemScopedDbGuard(
-          type,
-          "dbOutsideTransaction",
-          "ctx.systemDb.outsideTransaction.assertTenantMatch(...) or " +
-            "ctx.systemDb.outsideTransaction.acknowledgeCrossTenant(...)",
-        )
-      : rawDbOutsideTransaction;
-  const log = context.log?.child({
-    handler: type,
-    tenantId: user.tenantId,
-    userId: user.id,
-    ...(reqCtx && { requestId: reqCtx.requestId }),
-  });
-  // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
-  // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
-  const bridgeSink = afterCommitHooks ?? [];
-  // Query bridges and post-commit contexts get a throwaway sink: hooks pushed there never run.
-  const hasLiveCommitSink = afterCommitHooks !== undefined && transactionScope !== "postCommit";
-  const scheduleAfterCommit = (hook: AfterCommitHook): void => {
-    bridgeSink.push(hook);
-  };
-  const notifyFactory = context._notifyFactory;
-  const notifyJobDispatcher = isNotifyJobDispatcher(jobRunner) ? jobRunner : undefined;
-  // Inside the write tx the app pool's slots can all be held by waiting write txs, so the
-  // delivery's own DB work (broadcast lookup, attempt log, channel sends) runs on the outside-tx pool.
-  const notifyInTransactionFactory =
-    notifyFactory && tx !== undefined
-      ? (notifyUser: SessionUser, notifyTenantId: TenantId): NotifyFn =>
-          notifyFactory(
-            notifyUser,
-            notifyTenantId,
-            notifyJobDispatcher,
-            outsideTxSource,
-            context._fileProviderResolver,
-          )
-      : undefined;
-  const notifyAfterCommitFactory = notifyFactory
-    ? (notifyUser: SessionUser, notifyTenantId: TenantId): NotifyFn =>
-        notifyFactory(
-          notifyUser,
-          notifyTenantId,
-          notifyJobDispatcher,
-          undefined,
-          context._fileProviderResolver,
-        )
-    : undefined;
-  const notify = buildNotify();
-  function buildNotify(): NotifyFn | undefined {
-    if (!notifyAfterCommitFactory) return undefined;
-    const notifyAfterCommit = notifyAfterCommitFactory(user, user.tenantId);
-    if (!notifyInTransactionFactory) return notifyAfterCommit;
-    const notifyInTransaction = notifyInTransactionFactory(user, user.tenantId);
-    // A rolled-back write must leave no notification behind. Without any commit to wait for (a
-    // post-commit context) delivery stays immediate.
-    const notifyCommitSink = hasLiveCommitSink ? bridgeSink : outerNotifySink;
-    if (notifyCommitSink === undefined) return notifyInTransaction;
-    return createDeferringNotify({
-      registry,
-      tenantId: user.tenantId,
-      notifyAfterCommit,
-      notifyNow: notifyInTransaction,
-      scheduleAfterCommit: (hook) => {
-        notifyCommitSink.push(hook);
-      },
-    });
-  }
-  // Mirror notify: only built when the config feature wired its factory.
-  const configFactory = configAccessorFactoryOf(context);
-  const config =
-    configFactory && db
-      ? configFactory({
-          user: { id: user.id, tenantId: user.tenantId },
-          db,
-          secrets: context.secrets,
-        })
-      : undefined;
-  // Cross-tenant accessor for SystemAdmin/system callers. The
-  // identity is the target tenant's system user so the caller's own user-scope
-  // values never resolve into another tenant's config; the db is tenant-mode
-  // scoped to the target.
-  const configFor =
-    configFactory && dbSource
-      ? (targetTenantId: TenantId): ConfigAccessor => {
-          if (targetTenantId === user.tenantId && config) return config;
-          if (!isSystemIdentity(user) && !user.roles.includes("SystemAdmin")) {
-            throw new AccessDeniedError({
-              message: "ctx.configFor(otherTenant) requires the system role or SystemAdmin",
-              details: { reason: "config_for_requires_system_admin" },
-            });
-          }
-          const targetSystemUser = createSystemUser(targetTenantId);
-          return configFactory({
-            user: { id: targetSystemUser.id, tenantId: targetTenantId },
-            db: createTenantDb({
-              db: dbSource,
-              tenantId: targetTenantId,
-              mode: "tenant",
-              tracer: context.tracer,
-              meter: context.meter,
-              grants: { projectionRegistry: registry },
-            }),
-            secrets: context.secrets,
-          });
-        }
-      : undefined;
-  // Write handlers only, and not r.systemScope() ones (they have ctx.systemDb). The gate is the
-  // dispatcher's tenantIdOverride predicate, so no caller reaches more than it could via
-  // tenantIdOverride. The foreign db carries no unsafeRaw/globalWrites grant and is tenant mode
-  // bound to the target; the executor accepts streamTenantId only on a db bound to that tenant.
-  const forTenant =
-    !isSystem && dbSource && registry.getWriteHandler(type) !== undefined
-      ? (targetTenantId: TenantId): TenantWriteTarget => {
-          if (targetTenantId === user.tenantId && exposedDb) {
-            // Only perCommand handlers lose forTenant writes; reservations keep their pre-transaction contract.
-            const ownTenantDb =
-              denyDbWrites && !isPerCommand
-                ? buildTenantScopedDb(dbSource, reqCtx?.signal, undefined, readOnlyForTenant)
-                : exposedDb;
-            return { db: ownTenantDb, streamTenantId: undefined };
-          }
-          if (!mayOverrideTenant(user)) {
-            throw new AccessDeniedError({
-              details: { reason: FrameworkReasons.tenantOverrideRequiresSystemAdmin },
-            });
-          }
-          return {
-            db: buildTenantScopedDb(
-              dbSource,
-              reqCtx?.signal,
-              targetTenantId,
-              denyDbWrites && (isPerCommand || readOnlyForTenant),
-            ),
-            streamTenantId: targetTenantId,
-          };
-        }
-      : undefined;
-  // ctx.files resolved per-tenant through file-foundation (lazy — the
-  // provider is only resolved when a handle actually does I/O). Boot wires
-  // _fileProviderResolver when a file-provider plugin is mounted; falls back
-  // to a statically-injected context.files (tests).
-  const fileResolver = context._fileProviderResolver;
-  const files = fileResolver ? createTenantFileContext(fileResolver, user.tenantId) : context.files;
-  // ctx.derivatives builds on ctx.files (needs a FileContext to read the
-  // original + write the variant) plus db (to look up the FileRef row) — so
-  // it can only be constructed exactly when files+db both resolved; falls
-  // back to a statically-injected context.derivatives otherwise (tests).
-  const derivatives =
-    files && db
-      ? createDerivativesContext({ files, registry, db, tenantId: user.tenantId })
-      : context.derivatives;
-
-  // Observability — feature-bound metrics handle, so ctx.metrics.inc("foo")
-  // resolves to kumiko_<feature>_foo. Unknown feature falls back to noop
-  // so legacy internal handlers don't crash.
-  const tracer = context.tracer ?? getFallbackTracer();
-  const meter = context.meter;
-  const metrics =
-    meter && featureName ? createMetricsHandle(meter, featureName) : createNoopMetricsHandle();
-  // ctx.metricsFor(featureName) — shared/library code binds to a feature
-  // name of its own choosing instead of the dispatching handler's.
-  // Unregistered names no-op rather than throw.
-  const metricsFor = createMetricsForFactory(meter);
-
-  // A failed inner write has already appended its event and projections when a later
-  // step (e.g. an inTransaction hook) fails, and the outer handler may swallow the
-  // failure result. The savepoint makes the failure undo exactly the inner write; the
-  // inner afterCommit hooks only reach the outer sink if it succeeded.
-  const runNestedWriteInSavepoint = async (
-    asUser: SessionUser,
-    targetType: string,
-    payload: unknown,
-  ): Promise<WriteResult> => {
-    if (registry.getWriteHandler(targetType)?.transaction === "perCommand") {
-      return writeFailure(perCommandNestedDenied(targetType));
-    }
-    if (!tx) return executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink);
-    const innerAfterCommitHooks: AfterCommitHook[] = [];
-    try {
-      const result = await runInSavepoint(tx, async (savepointTx) => {
-        const innerResult = await executeWrite(
-          ctx,
-          targetType,
-          payload,
-          asUser,
-          origin,
-          savepointTx as DbTx, // @cast-boundary db-runner savepoint handle is a transaction handle
-          innerAfterCommitHooks,
-        );
-        if (isFailedWriteResult(innerResult)) throw new NestedWriteRollback(innerResult);
-        return innerResult;
-      });
-      bridgeSink.push(...innerAfterCommitHooks);
-      return result;
-    } catch (e) {
-      if (e instanceof NestedWriteRollback) return e.failure;
-      throw e;
-    }
-  };
-  // Savepoints on one connection are not serialized by the driver: two parallel nested writes would
-  // interleave their statements and a ROLLBACK TO of the first would also discard the second's rows.
-  // Writes nested one level deeper run on their own savepoint handle and therefore their own chain.
-  let nestedWriteChain: Promise<unknown> = Promise.resolve();
-  const executeNestedWriteInSavepoint = (
-    asUser: SessionUser,
-    targetType: string,
-    payload: unknown,
-  ): Promise<WriteResult> => {
-    const run = nestedWriteChain.then(() => runNestedWriteInSavepoint(asUser, targetType, payload));
-    nestedWriteChain = run.catch(() => undefined);
-    return run;
-  };
-  // Without an open transaction (post-commit hooks, stream/query handlers, perCommand handlers) a bare
-  // executeWrite would auto-commit event append, projections and inTransaction hooks separately and its
-  // afterCommit hooks would land in a sink nobody flushes. A batch-of-one gives the write its own
-  // transaction and its own flush.
-  const writeAsUser = async (asUser: SessionUser, targetType: string, payload: unknown) =>
-    transactionScope === "inTransaction"
-      ? executeNestedWriteInSavepoint(asUser, targetType, payload)
-      : unwrapSingle(
-          await runBatch(ctx, [{ type: targetType, payload }], asUser, undefined, origin),
-        );
-  const identitySwitchAudit = { reason: identitySwitchGrantReason, report: reportEscapeHatch };
-  const identitySwitch = createGatedIdentitySwitch(
-    `handler "${type}"`,
-    user,
-    hasIdentitySwitchGrant,
-    {
-      // Inherits the caller's origin, so switching to SYSTEM cannot shed an anonymous root.
-      queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeQuery(
-          ctx,
-          targetType,
-          payload,
-          asUser,
-          origin,
-          tx,
-          hasLiveCommitSink ? bridgeSink : outerNotifySink,
-        ), // @wrapper-known semantic-alias
-      writeAs: writeAsUser,
-    },
-    identitySwitchAudit,
-  );
-  // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
-  // on first actual use, not on every HandlerContext build.
-  let ungatedMemberReader: MemberReader | undefined;
-  const queryAsMember = createGatedMemberReader(
-    `handler "${type}"`,
-    hasIdentitySwitchGrant,
-    (userId, qn, payload) => {
-      ungatedMemberReader ??= createMemberReaderFn(ctx, user.tenantId, tx);
-      return ungatedMemberReader(userId, qn, payload);
-    },
-    { ...identitySwitchAudit, tenantId: user.tenantId },
-  );
-  // queryProjection works against both single-stream and multi-stream
-  // projections. MSPs without a table cannot be queried — those are
-  // side-effect-only consumers (no state to read back).
-  const findProjectionTable = (qualifiedName: string) =>
-    registry.getAllProjections().get(qualifiedName)?.table ??
-    registry.getAllMultiStreamProjections().get(qualifiedName)?.table;
-  const ungatedQueryProjection: ProjectionReader = async <T = Record<string, unknown>>(
-    qualifiedName: string,
-    queryOptions?: { readonly unsafeAllTenants?: boolean },
-  ): Promise<readonly T[]> => {
-    const projTable = findProjectionTable(qualifiedName);
-    if (!projTable) {
-      const singleNames = [...registry.getAllProjections().keys()];
-      const mspNames = [...registry.getAllMultiStreamProjections().keys()].filter(
-        (n) => registry.getAllMultiStreamProjections().get(n)?.table,
-      );
-      const all = [...singleNames, ...mspNames];
-      throw new InternalError({
-        message:
-          `ctx.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
-          `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
-      });
-    }
-    const dbSource = resolveDbSource(ctx, tx);
-    if (!dbSource) {
-      throw new InternalError({
-        message: `ctx.queryProjection("${qualifiedName}") requires a database connection — none is configured.`,
-      });
-    }
-    const where =
-      hasTenantColumn(projTable) && queryOptions?.unsafeAllTenants !== true
-        ? { tenantId: user.tenantId }
-        : undefined;
-    const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
-    return rows as readonly T[]; // @cast-boundary engine-payload
-  };
-  const queryProjection = createGatedProjectionReader(
-    `handler "${type}"`,
-    hasIdentitySwitchGrant,
-    ungatedQueryProjection,
-    identitySwitchAudit,
-    (qualifiedName) => {
-      const projTable = findProjectionTable(qualifiedName);
-      // Unknown projection: keep the grant check first, the ungated reader reports the real error.
-      return projTable === undefined || hasTenantColumn(projTable);
-    },
-  );
-  const bridge = {
-    query: (targetType: string, payload: unknown) =>
-      executeQuery(
-        ctx,
-        targetType,
-        payload,
-        user,
-        origin,
-        tx,
-        hasLiveCommitSink ? bridgeSink : outerNotifySink,
-      ), // @wrapper-known semantic-alias
-    queryAs: identitySwitch.queryAs,
-    write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
-    writeAs: identitySwitch.writeAs,
-    // Strict + unsafe share the same runtime — only the type-surface
-    // differs. The strict signature is what's exposed to typed callers;
-    // unsafe is the explicit escape-hatch for runtime-pluggable events.
-    appendEvent: (async (args: AppendEventArgs) => {
-      await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
-    }) as AppendEventFn, // @cast-boundary engine-bridge
-    unsafeAppendEvent: async (args: AppendEventArgs) => {
-      await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
-    },
-    // Savepoint-scoped append: catches a losing writer's VersionConflictError
-    // without poisoning the rest of the handler's transaction. postgres.js
-    // aborts the WHOLE begin() on an uncaught statement error
-    // (SQLSTATE 25P02) even if the JS error is caught — runInSavepoint
-    // wraps the append in a real SAVEPOINT so only that nested scope rolls
-    // back on conflict, and subsequent statements in the outer tx (e.g. a
-    // dedup-anchor insert) still succeed. Use when a handler must react to
-    // losing a concurrent-append race instead of failing the whole write.
-    tryAppendEvent: async (args: AppendEventArgs) => {
-      if (!tx) {
-        throw new InternalError({
-          message: `ctx.tryAppendEvent("${args.type}") requires an active transaction — no tx is threaded through this call.`,
-        });
-      }
-      try {
-        const event = await runInSavepoint(tx, (sp) =>
-          appendDomainEventCore(
-            {
-              registry,
-              db: sp,
-              tenantId: user.tenantId,
-              userId: String(user.id),
-              callSiteLabel: "ctx.tryAppendEvent",
-              callerFeature: registry.getHandlerFeature(type),
-            },
-            args,
-          ),
-        );
-        return { ok: true as const, event };
-      } catch (e) {
-        if (e instanceof EventStoreVersionConflictError) {
-          return { ok: false as const, conflict: e };
-        }
-        if (e instanceof EventStoreIdempotentAppendConflictError) {
-          return { ok: false as const, conflict: e };
-        }
-        throw e;
-      }
-    },
-    fetchForWriting: async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.fetchForWriting("${args.aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      // Stream-version authoritative (same policy as CRUD executor + Block 0), read together
-      // with the events so the pinned version covers exactly what the handler's rules saw.
-      const { events: storedEvents, streamVersion: fetchedVersion } = await loadAggregateForWriting(
-        dbSource,
-        args.aggregateId,
-        user.tenantId,
-        { aggregateType: args.aggregateType },
-      );
-      const events = await upcastStoredEvents(storedEvents, registry.getEventUpcasters(), {
-        db: dbSource,
-        tenantId: user.tenantId,
-      });
-
-      // Optimistic concurrency: if the caller knows the version they
-      // worked against (e.g. from a prior read-model row) and the stream
-      // has moved on, fail fast before any downstream work.
-      if (args.expectedVersion !== undefined && args.expectedVersion !== fetchedVersion) {
-        throw new VersionConflictError({
-          entityId: args.aggregateId,
-          expectedVersion: args.expectedVersion,
-          currentVersion: fetchedVersion,
-        });
-      }
-
-      // Pinned into every append: a write landing between fetch and append
-      // fails with VersionConflictError instead of stacking on a state the
-      // caller's business rules never saw. Bumps per appendOne so consecutive
-      // appends stay in order without re-reading the DB.
-      let handleVersion = fetchedVersion;
-      const appendOne = async (appendArgs: {
-        readonly type: string;
-        readonly payload: unknown;
-      }): Promise<void> => {
-        await appendDomainEvent(
-          ctx,
-          {
-            aggregateId: args.aggregateId,
-            aggregateType: args.aggregateType,
-            type: appendArgs.type,
-            payload: appendArgs.payload,
-            expectedVersion: handleVersion,
-          },
-          user,
-          tx,
-          registry.getHandlerFeature(type),
-        );
-        handleVersion += 1;
-      };
-
-      return {
-        events,
-        get version() {
-          return handleVersion;
-        },
-        appendOne,
-        hasEvent: (type: string) => events.some((e) => e.type === type),
-      };
-    },
-    loadAggregate: async (
-      aggregateId: string,
-      loadOptions?: { readonly asOf?: Temporal.Instant },
-    ): Promise<readonly StoredEvent[]> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.loadAggregate("${aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      const events = loadOptions?.asOf
-        ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
-        : await loadAggregate(dbSource, aggregateId, user.tenantId);
-      return upcastStoredEvents(events, registry.getEventUpcasters(), {
-        db: dbSource,
-        tenantId: user.tenantId,
-      });
-    },
-    archiveStream: async (
-      aggregateId: string,
-      archiveArgs: { readonly aggregateType: string; readonly reason?: string },
-    ): Promise<void> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.archiveStream("${aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      await archiveStreamHelper(dbSource, {
-        tenantId: user.tenantId,
-        aggregateId,
-        aggregateType: archiveArgs.aggregateType,
-        archivedBy: user.id,
-        reason: archiveArgs.reason,
-      });
-    },
-    restoreStream: async (aggregateId: string): Promise<void> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.restoreStream("${aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      await restoreStreamHelper(dbSource, user.tenantId, aggregateId);
-    },
-    isStreamArchived: async (aggregateId: string): Promise<boolean> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.isStreamArchived("${aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      return isStreamArchived(dbSource, user.tenantId, aggregateId);
-    },
-    snapshotAggregate: async (snapshotArgs: {
-      readonly aggregateId: string;
-      readonly aggregateType: string;
-      readonly version: number;
-      readonly state: Record<string, unknown>;
-      readonly snapshotVersion?: number;
-    }): Promise<void> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.snapshotAggregate("${snapshotArgs.aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      await saveSnapshot(dbSource, {
-        aggregateId: snapshotArgs.aggregateId,
-        tenantId: user.tenantId,
-        aggregateType: snapshotArgs.aggregateType,
-        version: snapshotArgs.version,
-        state: snapshotArgs.state,
-        snapshotVersion: effectiveSnapshotGeneration(
-          snapshotArgs.snapshotVersion ?? 1,
-          registry.getEntity(snapshotArgs.aggregateType)?.eventVersion,
-        ),
-      });
-    },
-    loadAggregateWithSnapshot: async <TState extends Record<string, unknown>>(
-      aggregateId: string,
-      reducer: SnapshotReducer<TState>,
-      initial: TState,
-      loadOptions?: Omit<LoadAggregateWithSnapshotOptions, "upcastEvent" | "entityEventVersionOf">,
-    ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
-      const dbSource = resolveDbSource(ctx, tx);
-      if (!dbSource) {
-        throw new InternalError({
-          message: `ctx.loadAggregateWithSnapshot("${aggregateId}") requires a database connection — none is configured.`,
-        });
-      }
-      // Upcaster-aware: pass an upcastEvent callback so loadAggregateWithSnapshot
-      // walks every delta through the registered chain before invoking the
-      // user's (sync) reducer. Async upcasters (DB-enrichment) are awaited
-      // inside loadAggregateWithSnapshot — feature authors never see legacy
-      // payload shapes regardless of which load path they chose.
-      const upcasters = registry.getEventUpcasters();
-      const upcastCtx = { db: dbSource, tenantId: user.tenantId };
-      return loadAggregateWithSnapshot<TState>(
-        dbSource,
-        aggregateId,
-        user.tenantId,
-        reducer,
-        initial,
-        {
-          ...loadOptions,
-          entityEventVersionOf: (aggregateType) => registry.getEntity(aggregateType)?.eventVersion,
-          upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx), // @wrapper-known semantic-alias
-        },
-      );
-    },
-    queryProjection,
-    // Thin pass-through: one resolve impl lives on the dispatcher, the
-    // handler surface just forwards the call so both entry points (login
-    // handler via ctx.resolveAuthClaims, switch-tenant route via
-    // dispatcher.resolveAuthClaims) cannot drift.
-    resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser), // @wrapper-known semantic-alias
-
-    // Thin pass-through, same reasoning as resolveAuthClaims above — one
-    // resolve impl lives on the dispatcher so callers can't drift apart.
-    // Internally queries memberships as SYSTEM, so it needs the same grant
-    // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
-    resolveActiveMembership: (userId: string, tenantId: TenantId) => {
-      if (!hasIdentitySwitchGrant) throw systemIdentitySwitchDenied(`handler "${type}"`);
-      return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
-    },
-
-    // Needs the same grant as a SYSTEM queryAs.
-    queryAsMember,
-
-    // Feature-effective check for in-handler opt-in logic. Scope:
-    // **current user's tenant** — for cross-tenant lookups (rare,
-    // SysAdmin operations) read effectiveFeatures(otherTenantId) directly.
-    // When the feature-toggles or tier-engine feature isn't wired (no
-    // effectiveFeatures callback), always returns true — apps without
-    // tier-cuts treat all features on.
-    //
-    // Falls back to the live trialGate when the sync set says the feature
-    // is off — the sync set never contains trial-tier features (time-
-    // derived, can't boot-cache), so without this a trial tenant checking
-    // a companion feature's toggle would silently read `false` even though
-    // the dispatch gate already lets trial-tier handlers run.
-    hasFeature: async (featureName: string): Promise<boolean> => {
-      if (!effectiveFeatures) return true;
-      if (effectiveFeatures(user.tenantId).has(featureName)) return true;
-      if (!effectiveFeatures.trialGate) return false;
-      return effectiveFeatures.trialGate(user.tenantId, featureName);
-    },
-  };
-
-  // Registry is always the dispatcher's registry — injecting it here lets
-  // tests/callers pass `context` without `registry` and still get a valid
-  // HandlerContext. The spread-then-assign order matters: anything in
-  // `context` can be overridden, but we want the authoritative registry
-  // from the dispatcher's own closure to win.
-  // ctx.tz is always present. tenant reads tenant:config:timezone through
-  // the already-built `config` accessor (raw qualified-key — no import of
-  // the tenant feature, framework/pipeline stays bundled-features-free);
-  // falls back to "UTC" when config is missing or the key is unset. user
-  // comes from SessionUser.timezone (set at login), else falls back to
-  // tenant (createTzContext's own default). An app-injected GeoTzProvider
-  // (context.geoTzProvider) feeds ctx.tz.fromCoordinates / fromAddress.
-  //
-  // Resolving this via `config()` is a config-table SELECT on every single
-  // dispatch — ctx.tenantTimezoneCache memoizes it per tenant.
-  // dispatch-write.ts invalidates on config:write:set/reset for this key.
-  // Only populate from a tx-free read (tx === undefined): a write-path
-  // lookup runs inside the caller's own open transaction, and caching a
-  // value read there could memoize state from a write earlier in that same
-  // transaction before it's known to commit. Reads always consult the
-  // cache regardless of tx, since serving a slightly stale cached value on
-  // the write path is harmless (bounded by ttlMs) and avoids reintroducing
-  // the SELECT on the hot path this fix targets.
-  let tenantTz: unknown;
-  if (config === undefined) {
-    tenantTz = undefined;
-  } else {
-    const cachedTz = ctx.tenantTimezoneCache.get(user.tenantId);
-    if (cachedTz) {
-      tenantTz = cachedTz.value;
-    } else {
-      const generationAtRead = ctx.tenantTimezoneCache.generation();
-      tenantTz = await config(TENANT_TIMEZONE_CONFIG_KEY);
-      if (tx === undefined) {
-        ctx.tenantTimezoneCache.setIfFresh(
-          user.tenantId,
-          typeof tenantTz === "string" ? tenantTz : undefined,
-          generationAtRead,
-        );
-      }
-    }
-  }
-  // Guarded against garbage: an unvalidated string here (free-form config
-  // key, legacy JWT claim predating validation) blows up every ctx.tz call
-  // for the whole tenant with a RangeError. Fall back to UTC/tenant instead
-  // of trusting the raw value.
-  const safeTenantTz =
-    typeof tenantTz === "string" && isValidIanaTimeZone(tenantTz) ? tenantTz : "UTC";
-  const safeUserTz =
-    user.timezone !== undefined && isValidIanaTimeZone(user.timezone) ? user.timezone : undefined;
-  const tz = createTzContext({
-    ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
-    ...(context.clock !== undefined ? { clock: context.clock } : {}),
-    tenant: safeTenantTz,
-    ...(safeUserTz !== undefined && { user: safeUserTz }),
-  });
-
-  // ctx.locale — request-layer signal (X-Locale header → Accept-Language,
-  // resolved once at the HTTP boundary by request-id-middleware.ts) wins;
-  // then SessionUser.locale (set at login — stale until re-login, same
-  // tradeoff as ctx.tz.user); falls back to the app's
-  // boot-configured defaultLocale, then DEFAULT_LOCALE. Mirrors ctx.tz's
-  // Request → Session → Boot-Default chain above.
-  const safeUserLocale =
-    user.locale !== undefined && isValidLocaleTag(user.locale) ? user.locale : undefined;
-  const locale = reqCtx?.locale ?? safeUserLocale ?? context.defaultLocale ?? DEFAULT_LOCALE;
+  const scope = resolveHandlerContextScope({ ctx, type, user, origin, tx, transactionScope });
+  const dbFacet = buildHandlerDbFacet(scope);
+  const observability = buildObservabilityFacet(scope);
+  const sinks = createCommitSinks(afterCommitHooks, transactionScope, outerNotifySink);
+  const notifyFacet = buildNotifyFacet(scope, sinks, dbFacet.outsideTxSource);
+  const configFacet = buildConfigFacet(scope, dbFacet.db);
+  const forTenantFragment = buildForTenantFragment(scope, dbFacet.exposedDb, readOnlyForTenant);
+  const fileFragment = buildFileFragment(scope, dbFacet.db);
+  const dispatchFacet = buildDispatchFacet(scope, sinks);
+  const authFacet = buildAuthFacet(scope);
+  const eventStoreFacet = buildEventStoreFacet(scope);
+  const tz = await resolveHandlerTz(scope, configFacet.config);
+  const locale = resolveHandlerLocale(scope);
 
   // The payload-bucket digest is dispatcher-internal; handlers must not be
   // able to compute bucket keys.
@@ -1239,61 +403,41 @@ export async function buildHandlerContext(
     _notifyInTransactionFactory: _omitOuterNotifyInTransactionFactory,
     _notifyAfterCommitFactory: _omitOuterNotifyAfterCommitFactory,
     ...contextForHandler
-  } = context;
+  } = scope.context;
   const handlerContext = {
     ...contextForHandler,
     ...(payloadDigest && { rateLimitDigest: createHandlerBoundDigest(payloadDigest, type) }),
-    ...(notifyInTransactionFactory && { _notifyInTransactionFactory: notifyInTransactionFactory }),
-    ...(notifyAfterCommitFactory && { _notifyAfterCommitFactory: notifyAfterCommitFactory }),
-    registry,
-    db: exposedDb,
-    dbOutsideTransaction,
-    ...(systemDb && { systemDb }),
-    ...(crossTenantReads && { crossTenantReads }),
-    log,
-    notify,
-    ...(config && { config }),
-    ...(configFor && { configFor }),
-    ...(forTenant && { forTenant }),
-    ...(files && { files }),
-    ...(derivatives && { derivatives }),
-    // preSave hooks need `changes`/`previous`/`isNew`, which only exist once
-    // a handler actually starts building its write — bound here so entity
-    // CRUD handlers (entity-handlers.ts) can forward it to the executor.
-    ...(lifecycle && {
-      runPreSave: (
-        handlerName: string,
-        changes: Record<string, unknown>,
-        previous: Readonly<Record<string, unknown>>,
-        isNew: boolean,
-      ) => lifecycle.runPreSave(handlerName, changes, previous, isNew, context),
-    }),
-    tracer,
-    metrics,
-    metricsFor,
+    ...notifyFacet.factoryFragment,
+    // Registry is always the dispatcher's registry — injecting it here lets
+    // tests/callers pass `context` without `registry` and still get a valid
+    // HandlerContext. The spread-then-assign order matters: anything in
+    // `context` can be overridden, but we want the authoritative registry
+    // from the dispatcher's own closure to win.
+    registry: scope.registry,
+    ...dbFacet.fragment,
+    log: observability.log,
+    notify: notifyFacet.notify,
+    ...configFacet.fragment,
+    ...forTenantFragment,
+    ...fileFragment,
+    ...buildPreSaveFragment(scope),
+    tracer: observability.tracer,
+    metrics: observability.metrics,
+    metricsFor: observability.metricsFor,
     tz,
     locale,
-    // Cancellation signal flows from the HTTP middleware via
-    // requestContext. Conditional spread so non-HTTP entry-points
-    // (jobs, dispatcher MSP-applies) don't get a phantom signal that
-    // would always read aborted=false but feel meaningful.
-    ...(reqCtx?.signal ? { signal: reqCtx.signal } : {}),
-    // Propagate the feature-toggle resolver so the lifecycle pipeline,
-    // MSP runner, and ctx.hasFeature all pull from the same source.
-    ...(effectiveFeatures && { effectiveFeatures }),
-    ...(ctx.cacheSync && { cacheSync: ctx.cacheSync }),
-    // Lets write handlers call ctx.jobRunner.dispatch(...) directly, same
-    // as a follow-up job would (test-stack.ts wires the matching runner).
-    ...(jobRunner && { jobRunner }),
+    ...buildRuntimeFragment(scope),
     // ctx.user as a convenience alias for event.user. The intuitive path—"the
     // context knows its user"—lets handlers avoid writing `event.user.tenantId`
     // and reduces errors in ctx.user access patterns. It is identical to
     // event.user; identity switches still use queryAs/writeAs.
     user,
     _tenantId: user.tenantId,
-    ...(hasLiveCommitSink && { scheduleAfterCommit }),
+    ...dispatchFacet.scheduleFragment,
     ...(includeDeleted && { includeDeleted: true }),
-    ...bridge,
+    ...dispatchFacet.bridge,
+    ...eventStoreFacet,
+    ...authFacet,
   } as HandlerContext; // @cast-boundary engine-bridge
 
   const scopedContext =
