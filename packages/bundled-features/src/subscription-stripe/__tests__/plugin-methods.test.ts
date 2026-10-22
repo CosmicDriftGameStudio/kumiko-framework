@@ -455,6 +455,22 @@ describe("createStripePortalSession", () => {
       portal(stubCtx, { providerCustomerId: "cus_001", returnUrl: "https://example.com/return" }),
     ).rejects.toBe(failure);
   });
+
+  test("a resource_missing error for another param is propagated, not read as a stale customer", async () => {
+    const stripe = buildStripe();
+    const failure = new Stripe.errors.StripeInvalidRequestError({
+      type: "invalid_request_error",
+      code: "resource_missing",
+      param: "configuration",
+      message: "No such configuration: 'bpc_x'",
+    });
+    spyOn(stripe.billingPortal.sessions, "create").mockRejectedValue(failure);
+
+    const portal = createStripePortalSession(ctxRuntime(stripe));
+    await expect(
+      portal(stubCtx, { providerCustomerId: "cus_001", returnUrl: "https://example.com/return" }),
+    ).rejects.toBe(failure);
+  });
 });
 
 // =============================================================================

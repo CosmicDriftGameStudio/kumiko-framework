@@ -3,6 +3,8 @@
 // category in the kumiko isolation model (runtime may import client, client
 // may only import client) — otherwise the runtime isolation guard throws on
 // the client imports. Same pattern as text-content/constants.
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+
 // Feature name
 export const TIER_ENGINE_FEATURE = "tier-engine" as const;
 
@@ -24,10 +26,8 @@ export const TierAssignmentSources = {
 export type TierAssignmentSource =
   (typeof TierAssignmentSources)[keyof typeof TierAssignmentSources];
 
-const TIER_ASSIGNMENT_SOURCE_VALUES: readonly string[] = Object.values(TierAssignmentSources);
-
 export function isTierAssignmentSource(value: unknown): value is TierAssignmentSource {
-  return typeof value === "string" && TIER_ASSIGNMENT_SOURCE_VALUES.includes(value);
+  return isOneOf(Object.values(TierAssignmentSources), value);
 }
 
 // Qualified query handler names.

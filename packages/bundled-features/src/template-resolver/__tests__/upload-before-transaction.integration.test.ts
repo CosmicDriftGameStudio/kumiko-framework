@@ -6,12 +6,15 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
 import {
+  createEventStoreExecutor,
+  createTenantDb,
   executeRawQuery,
   table as pgTable,
   selectMany,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createSystemUser,
   defineFeature,
   defineWriteHandler,
   SYSTEM_TENANT_ID,
@@ -20,6 +23,7 @@ import {
   createFileRefFromBytes,
   createFilesFeature,
   createInMemoryFileProvider,
+  fileRefEntity,
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -58,6 +62,9 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "release-bundle",
     "copy-release",
     "copy-source-changes",
+    "copy-pdf-link",
+    "copy-source-gone",
+    "copy-upload-fails",
     "orchestrated-upload",
     "orchestrated-bundle",
     "switched-upload",
@@ -103,11 +110,16 @@ async function idleInTransactionCount(): Promise<number> {
 // Runs once after the next binary was written, to change data between the before-transaction
 // phase and the transaction.
 let afterNextStorageWrite: (() => Promise<void>) | null = null;
+// 1-based number of the storage write that throws, counted from the next write.
+let failStorageWriteNumber: number | null = null;
+let storageWritesSeen = 0;
 
 const provider: InMemoryFileProvider = {
   ...baseProvider,
   async write(key, data, mimeType) {
     idleInTransactionAtStorageCall.push(await idleInTransactionCount());
+    storageWritesSeen += 1;
+    if (storageWritesSeen === failStorageWriteNumber) throw new Error("storage write failed");
     const written = await baseProvider.write(key, data, mimeType);
     const hook = afterNextStorageWrite;
     afterNextStorageWrite = null;
@@ -254,6 +266,8 @@ afterAll(async () => {
 
 beforeEach(() => {
   afterNextStorageWrite = null;
+  failStorageWriteNumber = null;
+  storageWritesSeen = 0;
   failTemplateSaveInTransaction = false;
   idleInTransactionAtStorageCall.length = 0;
 });
@@ -729,6 +743,110 @@ describe("a failure inside the transaction releases the copied binaries", () => 
     failTemplateSaveInTransaction = false;
 
     expect(err.httpStatus).toBe(500);
+    await expectUnchanged(before);
+    expect(
+      await selectMany(stack.db, templateResourcesTable, {
+        tenantId: tenantAAdmin.tenantId,
+        slug: files.slug,
+      }),
+    ).toHaveLength(0);
+  });
+});
+
+describe("copy-locale link and missing-file handling", () => {
+  test("a rendered-pdf link is carried over without any upload", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: "copy-pdf-link:doc:invoice",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>Rechnung</p>",
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+      },
+      systemAdmin,
+    );
+    const created = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: "copy-pdf-link",
+        kind: "mail",
+        meta: { subject: "Hello" },
+        locale: "de",
+        content: "<p>Hello</p>",
+        contentFormat: "html",
+        variableSchema: {},
+      },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceLinkPdf,
+      {
+        templateId: created.id,
+        key: "invoice",
+        templateSlug: "copy-pdf-link:doc:invoice",
+        fileName: "invoice.pdf",
+        tenantIdOverride: SYSTEM_TENANT_ID,
+      },
+      systemAdmin,
+    );
+    const before = await snapshot();
+    idleInTransactionAtStorageCall.length = 0;
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload("copy-pdf-link"),
+      tenantAAdmin,
+    );
+
+    expect(idleInTransactionAtStorageCall).toEqual([]);
+    await expectUnchanged(before);
+    expect(await linkedResourcesOf(copied.id, tenantAAdmin)).toEqual({
+      invoice: {
+        kind: "rendered-pdf",
+        templateSlug: "copy-pdf-link:doc:invoice",
+        fileName: "invoice.pdf",
+      },
+    });
+  });
+
+  test("an entry whose source file is gone is left out of the copy", async () => {
+    const files = await createSystemTemplateWithFiles("copy-source-gone");
+    const forgotten = await createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+      entityName: "fileRef",
+    }).forget(
+      { id: files.attachmentFileRefId },
+      createSystemUser(SYSTEM_TENANT_ID),
+      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    );
+    expect(forgotten.isSuccess).toBe(true);
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+
+    const linked = (await linkedResourcesOf(copied.id, tenantAAdmin)) as Record<string, unknown>;
+    expect(Object.keys(linked)).toEqual(["logo"]);
+  });
+
+  test("an upload failing on the second file releases the first copy", async () => {
+    const files = await createSystemTemplateWithFiles("copy-upload-fails");
+    const before = await snapshot();
+
+    storageWritesSeen = 0;
+    failStorageWriteNumber = 2;
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(storageWritesSeen).toBe(2);
     await expectUnchanged(before);
     expect(
       await selectMany(stack.db, templateResourcesTable, {

@@ -432,6 +432,7 @@ export function compileDocumentBodyToHandlebars(
     for (const element of Array.from(root.querySelectorAll("div[data-images]"))) {
       rewriteImagesBlock(element, state, options);
     }
+    // Order matters: the conditional wraps first so the row's #each lands inside the #if (evaluated once per list).
     for (const block of Array.from(root.querySelectorAll(`[${DOCUMENT_CONDITION_ATTRIBUTE}]`))) {
       rewriteConditionalBlock(block, state);
     }

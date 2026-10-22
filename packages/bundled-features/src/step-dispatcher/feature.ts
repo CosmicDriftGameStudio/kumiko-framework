@@ -75,6 +75,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
         retries: DELIVER_RETRIES,
         backoff: "exponential",
         maxPerTenant: { limit: DELIVER_MAX_PER_TENANT, onLimit: "defer" },
+        schema: deliverJobPayloadSchema,
         escapeHatch: { reason: DELIVER_ESCAPE_HATCH_REASON },
       },
       async (payload, ctx) => {
