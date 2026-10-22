@@ -16,6 +16,11 @@ function validateRedirects(options: HostRoutingOptions): void {
     if (!REDIRECT_PATH_PATTERN.test(rule.from)) {
       throw new Error(`host-routing: redirect from must be a path like "/old", got "${rule.from}"`);
     }
+    if (rule.from === "/api" || rule.from.startsWith("/api/")) {
+      throw new Error(
+        `host-routing: redirect from must not be an /api path, it would never fire, got "${rule.from}"`,
+      );
+    }
     if (!REDIRECT_TARGET_PATTERN.test(rule.to)) {
       throw new Error(
         `host-routing: redirect to must be a same-origin path or an https URL without query, got "${rule.to}"`,
