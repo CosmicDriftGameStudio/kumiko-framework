@@ -138,3 +138,18 @@ export type JobRunnerOptions = {
   // removal, sequential re-enqueue under a new id).
   onJobDropped?: (jobName: string, jobId: string, meta: JobDroppedMeta) => void;
 };
+
+// Structural instead of BullMQ's `Job` so boot gates can invoke the same
+// execution path inline. A real `Job` stays assignable, so handleJob is
+// still a valid BullMQ Processor.
+export type JobInvocation = {
+  readonly id?: string | undefined;
+  readonly name: string;
+  readonly data: Record<string, unknown>;
+  readonly attemptsMade: number;
+  /** False for inline invocations (boot gates): nothing retries a throw. */
+  readonly retryable?: boolean;
+  readonly processedOn?: number | undefined;
+  moveToDelayed?(timestamp: number, token?: string): Promise<void>;
+  updateData?(data: Record<string, unknown>): Promise<void>;
+};

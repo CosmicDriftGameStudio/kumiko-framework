@@ -1,79 +1,59 @@
-/// <reference types="temporal-polyfill/global" preserve="true" />
-
-import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type { JobsOptions } from "bullmq";
-import { DelayedError, Queue, UnrecoverableError, Worker } from "bullmq";
+import { DelayedError, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.ts";
-import type { DbConnection, DbRow } from "../db/connection.ts";
-import { createCrossTenantReads } from "../db/cross-tenant-reads.ts";
+import type { DbConnection } from "../db/connection.ts";
 import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
-import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { bridgeStub } from "../engine/bridge-stub.ts";
-import { qnScope } from "../engine/qualified-name.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type {
   DispatchWriteRef,
-  JobContext,
-  JobDeferral,
-  JobDefinition,
   JobRunIn,
   JobTriggerEvent,
-  MemberReader,
   SessionUser,
   TenantId,
 } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
-import { createTenantFileContext } from "../files/file-handle.ts";
-import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
 import type { Tracer } from "../observability/index.ts";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
-  createMetricsForFactory,
-  emitJobLastSuccess,
   flushEscapeHatchAudits,
   getFallbackTracer,
   registerStandardMetrics,
-  withEscapeHatchAuditScope,
 } from "../observability/index.ts";
-import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import { createDistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
-import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
-import { buildPersonalDataGate, parseWriteOrigin } from "../pipeline/write-origin.ts";
 import { cronRepeatOptions } from "./cron-repeat-options.ts";
+import { prepareJobRun } from "./job-runner-context.ts";
+import { applyHandlerDeferral, executeJobInSpan } from "./job-runner-execution.ts";
+import {
+  claimSequentialSlot,
+  deferOverTenantLimit,
+  fanOutPerTenantJob,
+  PER_TENANT_PREFIX,
+  perTenantTargetOf,
+  releaseSequentialSlot,
+  resolveJobDefinitionOrFail,
+} from "./job-runner-gates.ts";
 import {
   BOOT_GATE_SLOW_WARN_MS,
   BOOT_REDIS_TIMEOUT_MS,
   buildRetryBullOpts,
   COMPLETED_JOB_RETENTION_AGE_SEC,
   captureTraceContext,
-  createJobLogger,
-  DEFAULT_MAX_DEFERS,
-  DEFER_BACKOFF_MAX_DOUBLINGS,
-  DEFER_COUNT_KEY,
-  DEFER_DELAY_CAP_MS,
   FAILED_JOB_RETENTION_AGE_SEC,
-  HANDLER_DEFER_COUNT_KEY,
-  isJobTriggerEvent,
-  jobSubjectKey,
   maxRetryWindowMs,
-  missingDbProxy,
   parseRedisOpts,
   payloadMatchesTriggerFilter,
-  priorAttemptsOf,
-  readTraceContext,
-  resolveJobTz,
   STOP_QUEUE_READY_TIMEOUT_MS,
   stampGatedWriteOrigin,
   startQueueDepthPolling,
   TRACE_CONTEXT_KEY,
-  tenantFailureMessageKey,
   timeoutReject,
 } from "./job-runner-helpers.ts";
 import {
@@ -82,18 +62,18 @@ import {
   DEFAULT_QUEUE_NAME_PREFIX,
   markSchedulersSeen,
   ORPHAN_SCHEDULER_GRACE_MS,
-  perTenantChildJobId,
   queueNameFor,
   removeOrphanJobSchedulers,
   schedulerIdForJobName,
 } from "./job-runner-schedulers.ts";
-import type {
-  JobLogEntry,
-  JobMeta,
-  JobOutcomeMeta,
-  JobRunner,
-  JobRunnerOptions,
-} from "./job-runner-types.ts";
+import {
+  announceDropped,
+  announceQueued,
+  isOverPerTenantLimit,
+  type JobRunnerScope,
+  laneForJob,
+} from "./job-runner-scope.ts";
+import type { JobInvocation, JobMeta, JobRunner, JobRunnerOptions } from "./job-runner-types.ts";
 import { resolveMaxPerTenant } from "./max-per-tenant.ts";
 
 export { serializeJobSubject } from "./job-runner-helpers.ts";
@@ -229,13 +209,6 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }
   }
 
-  // Resolve the lane for a job — "worker" is the default because that's the
-  // sensible prod lane (heavy async off the request path). Jobs that opted
-  // into "api" must have been validated at registry boot already.
-  function laneForJob(def: { readonly runIn?: JobRunIn | undefined }): JobRunIn {
-    return def.runIn ?? "worker";
-  }
-
   // Sequential coordination: BullMQ OSS has no `group`, so we serialise
   // same-name jobs ourselves with a per-name Redis lock. Only built when at
   // least one job actually requested it — keeps the no-sequential boot path
@@ -262,14 +235,6 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       `${RedisKeys.lock}seq:${queueNamePrefix}:${lockScope}:`,
     );
   }
-  // Default lock-TTL for sequential jobs that didn't declare a timeout.
-  // 5 minutes matches BullMQ's default stalledInterval — long enough for
-  // any reasonable handler, short enough that a crashed worker recovers
-  // without manual intervention.
-  const SEQUENTIAL_DEFAULT_TTL_SEC = 305;
-  // How long to wait before re-trying a busy sequential lock. Short enough
-  // to feel responsive, long enough that we don't hammer Redis.
-  const SEQUENTIAL_RETRY_DELAY_MS = 200;
 
   // Two queue-clients — one per lane. Every runner holds both, regardless of
   // its own consumerLane, so dispatch()/handleEvent() always write to the
@@ -317,773 +282,48 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // JobContext.write/writeAs/queryAs throw until this is set — see JobContext doc.
   let dispatchWriteRef: DispatchWriteRef | undefined;
 
-  // Counts active + waiting jobs with this name for this tenant across
-  // BOTH lane queues. Jobs with the same name should only live in one
-  // lane (jobDef.runIn is static), but walking both is cheap and avoids
-  // a subtle bug if someone ever reassigns a job to a different lane
-  // between deploys while old queue contents are still draining.
-  // `activeOnly` + `self` serve the defer check, which runs inside the job being
-  // counted: it must not see waiting jobs or itself, and only counts jobs that
-  // became active before it. Without that order, workers that fetch a burst of
-  // jobs together all see each other as active and all defer, again and again.
-  async function isOverPerTenantLimit(
-    jobName: string,
-    tenantId: string,
-    max: number,
-    scope: {
-      readonly activeOnly?: boolean;
-      readonly self?: { readonly id: string | undefined; readonly processedOn: number | undefined };
-    } = {},
-  ): Promise<boolean> {
-    const results = await Promise.all([
-      queues.api.getActive(),
-      queues.worker.getActive(),
-      ...(scope.activeOnly ? [] : [queues.api.getWaiting(), queues.worker.getWaiting()]),
-    ]);
-    let count = 0;
-    for (const list of results) {
-      for (const j of list) {
-        if (j.name !== jobName) continue;
-        if (scope.self && !isActiveBefore(j, scope.self)) continue;
-        const t = (j.data as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
-        if (t === tenantId) {
-          count += 1;
-          if (count >= max) return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  function isActiveBefore(
-    other: { readonly id?: string | undefined; readonly processedOn?: number | undefined },
-    self: { readonly id: string | undefined; readonly processedOn: number | undefined },
-  ): boolean {
-    if (other.id === self.id) return false;
-    if (self.processedOn === undefined) return true;
-    const otherProcessedOn = other.processedOn ?? 0;
-    if (otherProcessedOn !== self.processedOn) return otherProcessedOn < self.processedOn;
-    return (other.id ?? "") < (self.id ?? "");
-  }
-
-  // Growing delay bounds Redis and worker load while one tenant has a large
-  // backlog: every deferred job would otherwise be re-checked every deferMs.
-  function deferDelayMs(deferMs: number, deferCount: number): number {
-    const grown = Math.min(
-      deferMs * 2 ** Math.min(deferCount, DEFER_BACKOFF_MAX_DOUBLINGS),
-      DEFER_DELAY_CAP_MS,
-    );
-    return grown + Math.floor(Math.random() * deferMs);
-  }
-
-  // Structural instead of BullMQ's `Job` so boot gates can invoke the same
-  // execution path inline. A real `Job` stays assignable, so handleJob is
-  // still a valid BullMQ Processor.
-  type JobInvocation = {
-    readonly id?: string | undefined;
-    readonly name: string;
-    readonly data: Record<string, unknown>;
-    readonly attemptsMade: number;
-    /** False for inline invocations (boot gates): nothing retries a throw. */
-    readonly retryable?: boolean;
-    readonly processedOn?: number | undefined;
-    moveToDelayed?(timestamp: number, token?: string): Promise<void>;
-    updateData?(data: Record<string, unknown>): Promise<void>;
+  const scope: JobRunnerScope = {
+    registry,
+    context,
+    options,
+    allJobs,
+    queues,
+    consumerLane,
+    tracer,
+    errorLogger,
+    sequentialLock,
+    getActiveTenantIds,
+    escapeHatchReportWindow,
+    systemCronEscapeHatchDedup,
+    getSelfRunner: () => selfRunner,
+    getDispatchWriteRef: () => dispatchWriteRef,
   };
 
-  function isJobDeferral(value: unknown): value is JobDeferral {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      "kind" in value &&
-      value.kind === "job-deferral"
-    );
-  }
-
-  function priorDeferCountOf(data: Record<string, unknown>, key: string): number {
-    const prior = data[key];
-    return typeof prior === "number" ? prior : 0;
-  }
-
-  // Only err.message, never payload or the logs array: job payloads can carry PII.
-  function logFailedAttempt(entry: {
-    readonly job: string;
-    readonly jobId: string;
-    readonly attempt: number;
-    readonly finalAttempt: boolean;
-    readonly err: unknown;
-  }): void {
-    errorLogger.error("job failed", {
-      job: entry.job,
-      jobId: entry.jobId,
-      attempt: entry.attempt,
-      // BullMQ never retries an UnrecoverableError, whatever attempts remain.
-      final: entry.finalAttempt || entry.err instanceof UnrecoverableError,
-      error: scrubLogText(entry.err instanceof Error ? entry.err.message : String(entry.err)),
-      ...(entry.err instanceof Error &&
-        entry.err.stack && { stack: scrubLogText(entry.err.stack) }),
-    });
-  }
-
-  async function reportPreRunFailure(
-    jobName: string,
-    bullJob: JobInvocation,
-    err: unknown,
-  ): Promise<void> {
-    const message = err instanceof Error ? err.message : String(err);
-    await options.onJobFailed?.(jobName, bullJob.id ?? "unknown", message, [
-      { level: "error", message, timestamp: Temporal.Now.instant() },
-    ]);
-  }
-
-  function handlerPayloadOf(data: Record<string, unknown>): Record<string, unknown> {
-    const payload: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(data)) {
-      if (!k.startsWith("_")) payload[k] = v;
-    }
-    return payload;
-  }
-
-  function tenantIdOfJobData(data: Record<string, unknown>): string {
-    return (
-      (data["_tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
-      (data["tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
-      SYSTEM_TENANT_ID
-    );
-  }
-
-  // Tenant-visible queued state. A callback or subject problem must never fail
-  // the enqueue; a bad subject config surfaces as a failed run instead.
-  async function announceQueued(
-    jobName: string,
-    jobDef: JobDefinition,
-    bullJobId: string | undefined,
-    data: Record<string, unknown>,
-  ): Promise<void> {
-    const declaration = jobDef.tenantVisibleRun;
-    // skip: job did not opt in, no logger wired, or BullMQ returned no id
-    if (!declaration || !options.onJobQueued || bullJobId === undefined) return;
-    const tenantId = tenantIdOfJobData(data);
-    // skip: tenant-less run — no tenant-scoped query could ever read it
-    if (tenantId === SYSTEM_TENANT_ID) return;
-    try {
-      const subject = jobSubjectKey(
-        jobName,
-        handlerPayloadOf(data),
-        declaration.subjectFields,
-        "tenantVisibleRun",
-      );
-      await options.onJobQueued(jobName, bullJobId, { tenantId, subject });
-    } catch (err) {
-      errorLogger.warn("tenant-visible queued state not recorded", {
-        job: jobName,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  async function announceDropped(
-    jobName: string,
-    jobDef: JobDefinition,
-    bullJobId: string,
-    data: Record<string, unknown>,
-  ): Promise<void> {
-    // skip: job did not opt in or no logger wired
-    if (!jobDef.tenantVisibleRun || !options.onJobDropped) return;
-    const tenantId = tenantIdOfJobData(data);
-    // skip: tenant-less run — announceQueued never recorded a row for it
-    if (tenantId === SYSTEM_TENANT_ID) return;
-    try {
-      await options.onJobDropped(jobName, bullJobId, { tenantId });
-    } catch (err) {
-      errorLogger.warn("tenant-visible queued state not cleared", {
-        job: jobName,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
   async function handleJob(bullJob: JobInvocation, token?: string): Promise<void> {
-    const rawName = bullJob.name;
-
-    // Handle perTenant dispatch jobs — fan out to one job per tenant. The
-    // fan-out re-enqueues into the lane the actual job is assigned to;
-    // the _perTenant wrapper itself always lives in the consumer-lane
-    // (it's picked up by this runner's own worker).
-    if (rawName.startsWith("_perTenant:")) {
-      const actualName = rawName.slice("_perTenant:".length);
-      // These throws happen before runInSpan, so its onJobFailed never sees them
-      // and a drained test stack would stay green over a fan-out that never ran.
-      try {
-        if (!getActiveTenantIds) {
-          if (registry.getQueryHandler(ACTIVE_TENANT_IDS_QUERY_NAME)) {
-            throw new Error(
-              `perTenant job "${actualName}": the tenant feature is mounted but the job runner has no ` +
-                "`context.db`: pass a DbConnection in the runner context or supply options.getActiveTenantIds",
-            );
-          }
-          throw new Error(
-            `perTenant job "${actualName}" requires either options.getActiveTenantIds or the ` +
-              `tenant feature mounted (it registers "${ACTIVE_TENANT_IDS_QUERY_NAME}", which the ` +
-              "framework uses to resolve active tenants on its own)",
-          );
-        }
-        const actualDef = allJobs.get(actualName);
-        if (!actualDef) {
-          throw new Error(`Unknown job: ${actualName}`);
-        }
-        const tenantIds = await getActiveTenantIds();
-        const targetQueue = queues[laneForJob(actualDef)];
-        // wrapperJobId is only absent for a Job BullMQ somehow never assigned
-        // an id to (not observed in practice) — falling back to a constant
-        // there would collide every such run's children onto the same ids
-        // and silently swallow later runs as "duplicates", which is worse
-        // than the duplicate this is meant to prevent. Skip id-based dedup
-        // for that edge case instead: enqueue plainly, same as before.
-        const wrapperJobId = bullJob.id;
-        for (const tenantId of tenantIds) {
-          const childData = { ...bullJob.data, _tenantId: tenantId };
-          const child = await targetQueue.add(actualName, childData, {
-            ...buildRetryBullOpts(actualDef),
-            // Dedup over wrapper retries only holds as long as the children
-            // stay in Redis for the wrapper's whole retry window — see the
-            // COMPLETED_JOB_RETENTION_AGE_SEC invariant check above.
-            ...(wrapperJobId !== undefined
-              ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
-              : {}),
-          });
-          await announceQueued(actualName, actualDef, child.id, childData);
-        }
-      } catch (err) {
-        // A retry may still succeed, and a succeeding wrapper reports no completion
-        // that could clear an earlier failure, so only the final attempt is reported.
-        const retries = allJobs.get(actualName)?.retries ?? 0;
-        const finalAttempt = bullJob.attemptsMade + 1 >= retries + 1;
-        logFailedAttempt({
-          job: rawName,
-          jobId: bullJob.id ?? "unknown",
-          attempt: bullJob.attemptsMade + 1,
-          finalAttempt,
-          err,
-        });
-        if (finalAttempt) {
-          await reportPreRunFailure(rawName, bullJob, err);
-        }
-        throw err;
-      }
+    const perTenantTarget = perTenantTargetOf(bullJob.name);
+    if (perTenantTarget !== undefined) {
+      await fanOutPerTenantJob(scope, bullJob, perTenantTarget);
       // skip: fan-out dispatcher job, per-tenant children enqueued
       return;
     }
-
-    const jobName = rawName;
-    const jobDef = allJobs.get(jobName);
-    if (!jobDef) {
-      const err = new Error(`Unknown job: ${jobName}`);
-      // Final regardless of attempts left: a retry cannot make the job exist.
-      logFailedAttempt({
-        job: jobName,
-        jobId: bullJob.id ?? "unknown",
-        attempt: bullJob.attemptsMade + 1,
-        finalAttempt: true,
-        err,
-      });
-      await reportPreRunFailure(jobName, bullJob, err);
-      throw err;
-    }
-
-    // maxPerTenant defer: checked before anything is recorded for this run, so a
-    // deferred pickup leaves no span, run-log entry or failure trace and does not
-    // consume an attempt (moveToDelayed + DelayedError, not a retry).
-    const maxPerTenant = resolveMaxPerTenant(jobDef);
-    const deferTenantId = bullJob.data["_tenantId"];
-    if (
-      maxPerTenant?.onLimit === "defer" &&
-      typeof deferTenantId === "string" &&
-      token !== undefined &&
-      bullJob.moveToDelayed &&
-      (await isOverPerTenantLimit(jobName, deferTenantId, maxPerTenant.limit, {
-        activeOnly: true,
-        self: { id: bullJob.id, processedOn: bullJob.processedOn },
-      }))
-    ) {
-      const deferCount = priorDeferCountOf(bullJob.data, DEFER_COUNT_KEY);
-      await bullJob.updateData?.({ ...bullJob.data, [DEFER_COUNT_KEY]: deferCount + 1 });
-      await bullJob.moveToDelayed(
-        Date.now() + deferDelayMs(maxPerTenant.deferMs, deferCount),
-        token,
-      );
+    const jobDef = await resolveJobDefinitionOrFail(scope, bullJob);
+    if ((await deferOverTenantLimit(scope, jobDef, bullJob, token)) === "deferred") {
       throw new DelayedError();
     }
-
-    // Sequential gate: try to claim the per-name lock. If another worker
-    // (or this worker on a different bullJob) holds it, re-enqueue with a
-    // small delay and exit *successfully* — using throw would burn the
-    // job's retry budget and pollute failure metrics, but a re-enqueue
-    // looks like an ordinary handoff to BullMQ.
-    let sequentialToken: string | null = null;
-    if (jobDef.concurrency === "sequential" && sequentialLock) {
-      const ttlSec = jobDef.timeout
-        ? Math.ceil(jobDef.timeout / 1000) + 5
-        : SEQUENTIAL_DEFAULT_TTL_SEC;
-      sequentialToken = await sequentialLock.acquire(jobName, { ttlSeconds: ttlSec });
-      if (!sequentialToken) {
-        // Re-enqueue onto the job's own lane-queue. In practice that's the
-        // same queue the worker just picked from (since only the consuming
-        // lane runs handleJob at all), but route explicitly — no implicit
-        // coupling to "whichever queue the caller happened to be on".
-        // Attempts already spent travel in _priorAttempts so a lock conflict
-        // on a retry cannot hand out a fresh budget and exceed `retries`.
-        const priorAttempts = priorAttemptsOf(bullJob.data) + bullJob.attemptsMade;
-        const requeuedData = { ...bullJob.data, _priorAttempts: priorAttempts };
-        const requeued = await queues[laneForJob(jobDef)].add(jobName, requeuedData, {
-          delay: SEQUENTIAL_RETRY_DELAY_MS,
-          ...buildRetryBullOpts(jobDef, priorAttempts),
-        });
-        if (bullJob.id !== undefined && bullJob.id !== requeued.id) {
-          await announceDropped(jobName, jobDef, bullJob.id, bullJob.data);
-        }
-        await announceQueued(jobName, jobDef, requeued.id, requeuedData);
-        // skip: lock taken, work re-enqueued with delay, current invocation done
-        return;
-      }
+    const slot = await claimSequentialSlot(scope, jobDef, bullJob);
+    if (slot.kind === "requeued") {
+      // skip: lock taken, work re-enqueued with delay, current invocation done
+      return;
     }
-
-    const jobId = bullJob.id ?? "unknown";
-    const startTime = Date.now();
-    const logs: JobLogEntry[] = [];
-
-    // Extract meta from job data. `attempt` is BullMQ's own counter
-    // (1-based on the first run, incremented on each retry) — threading
-    // it through lets the logger tag the run-started event with the
-    // retry number, so audit queries distinguish fresh from retry runs
-    // without peeking at BullMQ internals.
-    const rawData = bullJob.data as DbRow;
-    const attempt = bullJob.attemptsMade + 1 + priorAttemptsOf(rawData);
-    const meta: JobMeta = {
-      triggeredById: rawData["_triggeredById"] as string | undefined, // @cast-boundary dynamic-key
-      payload: rawData["_payload"] as string | undefined, // @cast-boundary dynamic-key
-      attempt,
-    };
-
-    // Build handler payload (without internal meta fields)
-    const payload = handlerPayloadOf(rawData);
-
-    // Determine tenantId and triggeredBy from meta
-    const tenantId = tenantIdOfJobData(rawData);
-    const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null; // @cast-boundary dynamic-key
-
-    // Tenant-visible failure record (JobDefinition.tenantVisibleFailure). The
-    // subject is read from the handler payload, so it is resolved here where
-    // the payload is built, not in the callbacks.
-    const tenantVisibleDecl = jobDef.tenantVisibleFailure;
-    const tenantVisibleRunDecl = jobDef.tenantVisibleRun;
-    // A bad subject config must surface as a failed run, so it is thrown from
-    // inside runInSpan below instead of here, before any run record exists.
-    let tenantVisibleSubject: string | null = null;
-    let tenantVisibleRunSubject: string | null = null;
-    let subjectConfigError: Error | undefined;
-    if (tenantVisibleRunDecl) {
-      try {
-        tenantVisibleRunSubject = jobSubjectKey(
-          jobName,
-          payload,
-          tenantVisibleRunDecl.subjectFields,
-          "tenantVisibleRun",
-        );
-      } catch (err) {
-        subjectConfigError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-    if (tenantVisibleDecl && !subjectConfigError) {
-      try {
-        tenantVisibleSubject = jobSubjectKey(
-          jobName,
-          payload,
-          tenantVisibleDecl.subjectFields,
-          "tenantVisibleFailure",
-        );
-      } catch (err) {
-        subjectConfigError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-    // BullMQ stops retrying once attemptsMade reaches the configured attempts
-    // (`retries + 1`), so this is the attempt whose failure is final.
-    const finalAttempt = bullJob.retryable === false || attempt >= (jobDef.retries ?? 0) + 1;
-    const outcomeMeta = (messageKey: string | null, unrecoverable = false): JobOutcomeMeta => ({
-      tenantId,
-      // BullMQ never retries an UnrecoverableError, whatever attempts are left.
-      finalAttempt: finalAttempt || unrecoverable,
-      ...(tenantVisibleDecl &&
-        !subjectConfigError && {
-          tenantVisible: { subject: tenantVisibleSubject, messageKey },
-        }),
-      ...(tenantVisibleRunDecl &&
-        !subjectConfigError && { tenantVisibleRun: { subject: tenantVisibleRunSubject } }),
-    });
-
-    // Carry `_triggerName` from rawData when set — handleEvent injects it on
-    // multi-trigger dispatch; exposed as jobContext.triggerName so handlers
-    // don't dig through the raw payload themselves.
-    const triggerName = rawData["_triggerName"] as string | undefined; // @cast-boundary dynamic-key
-
-    // Same carry-through for `_triggerEvent` — handleEvent injects it when
-    // the job-trigger event consumer supplied the stored event that fired
-    // this run (see createJobTriggerEventConsumer).
-    const rawTriggerEvent = rawData["_triggerEvent"];
-    const triggerEvent = isJobTriggerEvent(rawTriggerEvent) ? rawTriggerEvent : undefined;
-
-    // Absent = legacy or ungated root; present but invalid fails the run closed.
-    const rawWriteOrigin = rawData["_writeOrigin"]; // @cast-boundary dynamic-key
-    let jobOrigin: WriteOrigin | undefined;
-    let writeOriginInvalid = false;
-    if (rawWriteOrigin !== undefined) {
-      const parsed = parseWriteOrigin(rawWriteOrigin);
-      if (parsed) {
-        jobOrigin = { ...parsed, viaJob: jobName };
-      } else {
-        writeOriginInvalid = true;
-      }
-    }
-    const jobPersonalDataGate = jobOrigin ? buildPersonalDataGate(registry, jobOrigin) : undefined;
-
-    // Mirror dispatch-shared.ts buildHandlerContext: ctx.files must resolve
-    // through the same _fileProviderResolver for jobs as for write-handlers,
-    // otherwise event-triggered jobs silently get an unresolved ctx.files.
-    const fileResolver = context._fileProviderResolver;
-    const files = fileResolver ? createTenantFileContext(fileResolver, tenantId) : context.files;
-    const jobSystemUser = createSystemUser(tenantId);
-    // Same buildHandlerContext parity as ctx.files above: ctx.notify/ctx.config
-    // must resolve for jobs the same way they do for write-handlers, or an
-    // app-author job calling ctx.notify(...)/ctx.config(...) hits a TypeError
-    // at runtime the write-handler path never would.
-    const notify = context._notifyFactory?.(
-      jobSystemUser,
-      tenantId,
-      selfRunner,
-      undefined,
-      context._fileProviderResolver,
-    );
-    const configDb = context.db as DbConnection | undefined; // @cast-boundary db-operator
-    // Shared by the config accessor and ctx.derivatives below — both need the
-    // same tenant-scoped db, and building it twice would let the two calls
-    // drift apart. Always "system" mode regardless of the job's own
-    // systemScope() status (pre-existing, not something this change alters)
-    // — isSystemJob below is what actually keeps ctx.systemDb off a
-    // non-system job; it is the only thing standing between this db and an
-    // unchecked cross-tenant escape hatch for such a job. Gated like jobDb so
-    // ctx.systemDb, built from it, is gated too.
-    const tenantScopedDb = configDb
-      ? createTenantDb({
-          db: configDb,
-          tenantId,
-          mode: "system",
-          grants: {
-            projectionRegistry: registry,
-            ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
-          },
-        })
-      : undefined;
-    const isSystemJob = registry.isJobSystemScoped(jobName);
-    // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
-    const isSystemCronRun =
-      triggeredById === null && jobDef.escapeHatch !== undefined && "cron" in jobDef.trigger;
-    const reportEscapeHatch = createEscapeHatchReporter({
-      handler: jobName,
-      tenantId,
-      actor: jobSystemUser.id,
-      sink: context._escapeHatchAuditSink,
-      log: errorLogger,
-      window: escapeHatchReportWindow,
-      ...(triggeredById !== null && { caller: triggeredById }),
-      ...(isSystemCronRun && { processDedup: systemCronEscapeHatchDedup }),
-      ...(context.meter && { meter: context.meter }),
-    });
-    const systemDb =
-      isSystemJob && tenantScopedDb
-        ? createUncheckedSystemDb(tenantScopedDb, undefined, reportEscapeHatch)
-        : undefined;
-    const jobDb = configDb
-      ? createTenantDb({
-          db: configDb,
-          tenantId,
-          mode: "tenant",
-          tracer: context.tracer,
-          meter: context.meter,
-          grants: {
-            unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
-            globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
-            report: reportEscapeHatch,
-            projectionRegistry: registry,
-            ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
-          },
-        })
-      : undefined;
-    const crossTenantReadsReason = crossTenantReadsGrantFor(jobDef.escapeHatch)?.reason;
-    const crossTenantReads =
-      tenantScopedDb && crossTenantReadsReason !== undefined
-        ? createCrossTenantReads(tenantScopedDb, crossTenantReadsReason, reportEscapeHatch)
-        : undefined;
-    const configFactory = configAccessorFactoryOf(context);
-    const config =
-      configFactory && tenantScopedDb
-        ? configFactory({
-            user: { id: jobSystemUser.id, tenantId },
-            db: tenantScopedDb,
-            secrets: context.secrets,
-          })
-        : undefined;
-    // Mirror dispatch-shared.ts: ctx.derivatives needs files+db, same
-    // tenant-scoped db the config accessor above uses.
-    const derivatives =
-      files && tenantScopedDb
-        ? createDerivativesContext({
-            files,
-            registry,
-            db: tenantScopedDb,
-            tenantId,
-          })
-        : context.derivatives;
-    // Per-job-run reader, created lazily on queryAsMember's first call and
-    // cached for the rest of this run.
-    let memberReader: MemberReader | undefined;
-    const identitySwitchHatch = escapeHatchFor(jobDef.escapeHatch, "systemIdentity");
-    const identitySwitchGrantReason =
-      identitySwitchHatch?.reason ??
-      (isSystemJob ? `r.systemScope() feature of job "${jobName}"` : undefined);
-    const ungatedQueryAs = (user: SessionUser, qn: string, payload: unknown) => {
-      if (!dispatchWriteRef) {
-        throw new Error(
-          "JobContext.queryAs called before dispatcher attached — call attachDispatcher() first",
-        );
-      }
-      return dispatchWriteRef.queryAs(user, qn, payload, jobOrigin);
-    };
-    const gatedIdentitySwitch = createGatedIdentitySwitch(
-      `job "${jobName}"`,
-      jobSystemUser,
-      isSystemJob || identitySwitchHatch !== undefined,
-      {
-        queryAs: ungatedQueryAs,
-        writeAs: async (user: SessionUser, qn: string, payload: unknown) => {
-          if (!dispatchWriteRef) {
-            throw new Error(
-              "JobContext.writeAs called before dispatcher attached — call attachDispatcher() first",
-            );
-          }
-          return dispatchWriteRef.write(user, qn, payload, jobOrigin);
-        },
-      },
-      { reason: identitySwitchGrantReason, report: reportEscapeHatch },
-    );
-    const jobContextWithoutTz: Omit<JobContext, "tz"> = {
-      defer: (delayMs) => {
-        if (!Number.isInteger(delayMs) || delayMs <= 0) {
-          throw new RangeError(
-            `Job "${jobName}": ctx.defer needs a positive integer delay in ms (got ${delayMs})`,
-          );
-        }
-        if (token === undefined || !bullJob.moveToDelayed) {
-          throw new InternalError({
-            message: `Job "${jobName}": ctx.defer needs a queued run; it is not available inline (boot gate).`,
-          });
-        }
-        return { kind: "job-deferral", delayMs };
-      },
-      ...context,
-      db: jobDb ?? missingDbProxy(jobName),
-      files,
-      derivatives,
-      ...(notify !== undefined && { notify }),
-      ...(config !== undefined && { config }),
-      ...(systemDb && { systemDb }),
-      ...(crossTenantReads && { crossTenantReads }),
-      // The runner owns the registry it resolved this job from — expose it so
-      // workers can reach projections/jobs without the app author duplicating
-      // it into `context` (the JobContext contract guarantees `registry`).
-      registry,
-      // Expose the runner so handlers can chain a follow-up job. Symmetric with
-      // how the command-dispatcher hands write-handlers their jobRunner.
-      ...(selfRunner !== undefined && { jobRunner: selfRunner }),
-      systemUser: jobSystemUser,
-      triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
-      attempt,
-      finalAttempt,
-      log: createJobLogger(logs),
-      metricsFor: createMetricsForFactory(context.meter),
-      ...(triggerName !== undefined && { triggerName }),
-      ...(triggerEvent !== undefined && { triggerEvent }),
-      write: (qn: string, payload: unknown) => {
-        if (!dispatchWriteRef) {
-          throw new Error(
-            "JobContext.write called before dispatcher attached — call attachDispatcher() first",
-          );
-        }
-        return dispatchWriteRef.write(jobSystemUser, qn, payload, jobOrigin);
-      },
-      writeAs: gatedIdentitySwitch.writeAs,
-      queryAs: gatedIdentitySwitch.queryAs,
-      queryAsMember: (userId: string, qn: string, payload: unknown) => {
-        if (!dispatchWriteRef) {
-          throw new Error(
-            "JobContext.queryAsMember called before dispatcher attached — call attachDispatcher() first",
-          );
-        }
-        // Lazy per-run reader, mirroring the handler-context reader.
-        memberReader ??= dispatchWriteRef.createMemberReader(tenantId);
-        return memberReader(userId, qn, payload);
-      },
-    };
-
-    if (tenantVisibleRunDecl && !subjectConfigError) {
-      meta.tenantVisibleRun = { tenantId, subject: tenantVisibleRunSubject };
-    }
-    await options.onJobStart?.(jobName, jobId, meta);
-
-    // Cross-process trace continuation: if the enqueuing code captured a
-    // parent span, start the job.execute span as its child. Works for event
-    // and manual triggers; cron jobs start a fresh root span.
-    const parentContext = readTraceContext(rawData);
-
-    // Correlation propagation: the scheduling request's correlationId was
-    // packed into _correlationId at dispatch time. Re-enter requestContext.run
-    // so event writes during this job stamp the same correlation as the
-    // request that scheduled it. Cron/boot jobs (no scheduler) start fresh
-    // — correlationId = new requestId, no parent causation.
-    const inheritedCorrelationId = (rawData["_correlationId"] as string | undefined) ?? undefined; // @cast-boundary dynamic-key
-    const jobRequestId = requestContext.generateId();
-    const jobCorrelationId = inheritedCorrelationId ?? jobRequestId;
-
-    const deferred: { deferral?: JobDeferral } = {};
-    const runInSpan = async (): Promise<void> => {
-      try {
-        if (subjectConfigError) {
-          // Retrying cannot fix a declaration error.
-          throw new UnrecoverableError(subjectConfigError.message);
-        }
-        if (writeOriginInvalid) {
-          throw new InternalError({
-            message:
-              `Job "${jobName}" received an unparseable _writeOrigin — refusing to run without ` +
-              "a trustworthy anonymous-root gate.",
-          });
-        }
-        const handlerResult = await requestContext.run(
-          {
-            requestId: jobRequestId,
-            correlationId: jobCorrelationId,
-            // Events a job writes carry the job as their origin.
-            handler: jobName,
-            feature: registry.getJobFeature(jobName) ?? qnScope(jobName),
-            writeOrigin: jobOrigin,
-            tenantId,
-            ...(triggeredById !== null && { userId: triggeredById }),
-          },
-          async () =>
-            jobDef.handler(payload, {
-              ...jobContextWithoutTz,
-              tz: await resolveJobTz(config, context),
-            }),
-        );
-        if (isJobDeferral(handlerResult)) {
-          const maxDefers = jobDef.maxDefers ?? DEFAULT_MAX_DEFERS;
-          if (priorDeferCountOf(bullJob.data, HANDLER_DEFER_COUNT_KEY) >= maxDefers) {
-            // The counter never resets, so a retry would hit the cap again.
-            throw new UnrecoverableError(
-              `Job "${jobName}" was deferred ${maxDefers} times (maxDefers); giving up.`,
-            );
-          }
-          deferred.deferral = handlerResult;
-          // skip: the deferral is applied after the span closes, below
-          return;
-        }
-        // Stamped before the observer hook: a throwing onJobComplete must not
-        // make a run that actually succeeded look dead to the liveness alert.
-        if (context.meter) {
-          try {
-            emitJobLastSuccess(context.meter, jobName);
-          } catch (err) {
-            errorLogger.warn("job last-success metric failed", {
-              job: jobName,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-        const duration = Date.now() - startTime;
-        await options.onJobComplete?.(jobName, jobId, duration, logs, outcomeMeta(null));
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        logs.push({ level: "error", message: errorMsg, timestamp: Temporal.Now.instant() });
-        logFailedAttempt({ job: jobName, jobId, attempt, finalAttempt, err });
-        await options.onJobFailed?.(
-          jobName,
-          jobId,
-          errorMsg,
-          logs,
-          outcomeMeta(
-            tenantFailureMessageKey(err, tenantVisibleDecl),
-            err instanceof UnrecoverableError,
-          ),
-        );
-        throw err;
-      }
-    };
-
-    // Unified span creation: withSpan handles start/end + status/exception
-    // recording identically for both parent-context and no-parent paths.
-    // When parentContext is set, the new parent-aware StartSpanOptions
-    // plumbs it through to startSpan — no manual try/finally needed.
+    const run = prepareJobRun(scope, jobDef, bullJob, token);
+    await options.onJobStart?.(run.jobName, run.jobId, run.meta);
     try {
-      await withEscapeHatchAuditScope(() =>
-        tracer.withSpan(
-          "job.execute",
-          {
-            attributes: {
-              "job.name": jobName,
-              "job.id": jobId,
-              "job.attempt": attempt,
-              "kumiko.tenant_id": tenantId,
-              // Lane-routing attributes. `run_in` is the job's
-              // declared lane (explicit or default-"worker"); `consumer_lane`
-              // is which runner actually executed it. They diverge in
-              // all-in-one (both lanes live in one process) but must match
-              // in split deploys — a mismatch in prod logs signals a
-              // misrouted job that slipped past the boot-validator.
-              "kumiko.job.run_in": laneForJob(jobDef),
-              // Omit attribute entirely when no consumer (enqueuer-only runner) —
-              // SpanAttributeValue doesn't accept undefined.
-              ...(consumerLane !== undefined ? { "kumiko.job.consumer_lane": consumerLane } : {}),
-            },
-            ...(parentContext ? { parent: parentContext } : {}),
-          },
-          runInSpan,
-        ),
-      );
-      if (deferred.deferral && token !== undefined && bullJob.moveToDelayed) {
-        // Run-log bookkeeping must not turn a defer into a failure.
-        try {
-          await options.onJobDeferred?.(jobName, jobId, meta);
-        } catch (err) {
-          errorLogger.warn("job deferred hook failed", {
-            job: jobName,
-            jobId,
-            error: scrubLogText(err instanceof Error ? err.message : String(err)),
-          });
-        }
-        await bullJob.updateData?.({
-          ...bullJob.data,
-          [HANDLER_DEFER_COUNT_KEY]: priorDeferCountOf(bullJob.data, HANDLER_DEFER_COUNT_KEY) + 1,
-        });
-        await bullJob.moveToDelayed(Date.now() + deferred.deferral.delayMs, token);
+      const deferral = await executeJobInSpan(scope, run);
+      if ((await applyHandlerDeferral(scope, run, bullJob, deferral, token)) === "deferred") {
         throw new DelayedError();
       }
     } finally {
-      // Release the sequential lock value-matched (Lua compare-and-delete
-      // inside DistributedLock). A TTL-expired lock that's been claimed by
-      // a different owner stays put — releasing it would break sequencing
-      // for the new owner.
-      if (sequentialToken && sequentialLock) {
-        await sequentialLock.release(jobName, sequentialToken);
-      }
+      await releaseSequentialSlot(scope, run.jobName, slot.lockToken);
     }
   }
 
@@ -1157,7 +397,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           schedulerIdForJobName(name),
           cronRepeatOptions(jobDef.trigger),
           {
-            name: jobDef.perTenant ? `_perTenant:${name}` : name,
+            name: jobDef.perTenant ? `${PER_TENANT_PREFIX}${name}` : name,
             data: {},
             // Queue-level defaultJobOptions (jobRetentionOpts) covers
             // retention; a count here would sweep queue-wide again and
@@ -1319,7 +559,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       for (const [name, jobDef] of allJobs) {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if (jobDef.runOnBoot) {
-          const bootName = jobDef.perTenant ? `_perTenant:${name}` : name;
+          const bootName = jobDef.perTenant ? `${PER_TENANT_PREFIX}${name}` : name;
           const bootJobId = bootJobIdForJobName(name);
           const client = await consumerQueue.client;
           const alreadyEnqueued = await client.hexists(bootEnqueuedKey, bootJobId);
@@ -1410,7 +650,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         const perTenantData: Record<string, unknown> = { ...(payload ?? {}) };
         stampGatedWriteOrigin(perTenantData);
         const job = await targetQueue.add(
-          `_perTenant:${jobName}`,
+          `${PER_TENANT_PREFIX}${jobName}`,
           perTenantData,
           buildRetryBullOpts(jobDef),
         );
@@ -1429,7 +669,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
         if (
           tenantId !== undefined &&
-          (await isOverPerTenantLimit(jobName, tenantId, maxPerTenant.limit))
+          (await isOverPerTenantLimit(scope, jobName, tenantId, maxPerTenant.limit))
         ) {
           return "skipped:max-per-tenant";
         }
@@ -1453,7 +693,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           for (const j of waiting) {
             if (j.name === jobName && j.id) {
               await j.remove();
-              await announceDropped(jobName, jobDef, j.id, j.data);
+              await announceDropped(scope, jobName, jobDef, j.id, j.data);
             }
           }
           break;
@@ -1492,7 +732,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       stampGatedWriteOrigin(data);
 
       const job = await targetQueue.add(jobName, data, bullOpts);
-      await announceQueued(jobName, jobDef, job.id, data);
+      await announceQueued(scope, jobName, jobDef, job.id, data);
       return job.id ?? "unknown";
     },
 
@@ -1534,7 +774,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // jobs must respect the per-tenant cap or the limit is one-sided.
         const maxPerTenant = resolveMaxPerTenant(jobDef);
         if (maxPerTenant?.onLimit === "skip" && user?.tenantId !== undefined) {
-          if (await isOverPerTenantLimit(name, String(user.tenantId), maxPerTenant.limit)) {
+          if (await isOverPerTenantLimit(scope, name, String(user.tenantId), maxPerTenant.limit)) {
             continue;
           }
         }
@@ -1542,7 +782,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // Route to the job's declared lane, not a fixed queue — that's
         // the whole reason both queues are held.
         const job = await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));
-        await announceQueued(name, jobDef, job.id, data);
+        await announceQueued(scope, name, jobDef, job.id, data);
       }
     },
     attachDispatcher(ref: DispatchWriteRef): void {
