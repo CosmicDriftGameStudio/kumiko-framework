@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "generated": "2026-10-21",
+  "generated": "2026-10-22",
   "totalSuspect": 75,
   "perFile": {
     "packages/bundled-features/src/billing-foundation/checkout-core.ts": {

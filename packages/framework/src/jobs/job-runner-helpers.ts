@@ -23,7 +23,7 @@ import { emitJobQueueDepth } from "../observability/index.ts";
 import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.ts";
 import { isPersonalDataGated } from "../pipeline/write-origin.ts";
 import { createTzContext, isValidIanaTimeZone } from "../time/index.ts";
-import type { JobLogEntry, JobSubjectValue } from "./job-runner-types.ts";
+import type { JobInvocation, JobLogEntry, JobSubjectValue } from "./job-runner-types.ts";
 
 // Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
 // (a security-relevant escape hatch that must fail the run closed), a
@@ -152,6 +152,16 @@ export function missingDbProxy(jobName: string): TenantDb {
 export function priorAttemptsOf(data: Record<string, unknown>): number {
   const value = data["_priorAttempts"];
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+export function attemptNumberOf(bullJob: JobInvocation): number {
+  return bullJob.attemptsMade + 1 + priorAttemptsOf(bullJob.data);
+}
+
+// BullMQ stops retrying once attemptsMade reaches the configured attempts
+// (`retries + 1`), so this is the attempt whose failure is final.
+export function isFinalAttempt(bullJob: JobInvocation, jobDef: JobDefinition): boolean {
+  return bullJob.retryable === false || attemptNumberOf(bullJob) >= (jobDef.retries ?? 0) + 1;
 }
 
 // Only a translation key ever travels to the tenant: the thrown error's own

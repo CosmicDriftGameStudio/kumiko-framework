@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runGit } from "../../_git-test-helpers";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
-import { defaultStatusDeps, runStatus, statusCommand } from "../status";
+import { DOCKER_PROBE_TIMEOUT_MS, type run } from "../_spawn";
+import { defaultStatusDeps, dockerComposeProbe, runStatus, statusCommand } from "../status";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -65,16 +66,32 @@ describe("status command", () => {
     process.env["PATH"] = originalPath === undefined ? binDir : `${binDir}:${originalPath}`;
 
     const spy = makeSpyOutput();
-    const start = Date.now();
-    const exit = await statusCommand.run(makeContext({ cwd, out: spy.out }));
-    const elapsedMs = Date.now() - start;
+    const exit = await runStatus(makeContext({ cwd, out: spy.out }), {
+      ...realGitDeps,
+      probeDocker: dockerComposeProbe(50),
+    });
 
     expect(exit).toBe(0);
-    // Loose bounds: prove the probe ran (not ENOENT) and was capped well under sleep 30.
-    expect(elapsedMs).toBeGreaterThanOrEqual(1000);
-    expect(elapsedMs).toBeLessThan(15_000);
     const joined = spy.logs.join("\n");
     expect(joined).toContain("Docker probe timed out (daemon slow or hung)");
+  });
+
+  test("dockerComposeProbe defaults to the shared probe timeout and compose arguments", async () => {
+    const calls: Array<{ cmd: string; args: readonly string[]; opts: unknown }> = [];
+    const spyRun: typeof run = async (cmd, args, opts) => {
+      calls.push({ cmd, args, opts });
+      return { status: 0, stdout: "", stderr: "", timedOut: false };
+    };
+
+    await dockerComposeProbe(undefined, spyRun)("/some/cwd");
+
+    expect(calls).toEqual([
+      {
+        cmd: "docker",
+        args: ["compose", "ps", "--format", "json"],
+        opts: { cwd: "/some/cwd", timeoutMs: DOCKER_PROBE_TIMEOUT_MS },
+      },
+    ]);
   });
 
   test("missing docker binary is reported as not found, not as a timeout", async () => {

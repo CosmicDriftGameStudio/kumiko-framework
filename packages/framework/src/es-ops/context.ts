@@ -67,9 +67,7 @@ export function createSeedMigrationContext(
       if (!result.isSuccess) {
         const code = result.error?.code ?? "unknown";
         const message = result.error?.message ?? "(no message)";
-        throw new Error(
-          `[es-ops/seed-migration] systemWriteAs("${handlerQualifiedName}") failed: ${code} — ${message}`,
-        );
+        throw new Error(`systemWriteAs("${handlerQualifiedName}") failed: ${code} — ${message}`);
       }
       return result;
     },

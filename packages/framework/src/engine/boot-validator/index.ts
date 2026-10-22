@@ -4,6 +4,7 @@ import { dedupeFeatures } from "../dedupe-features.ts";
 import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.ts";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
+import { validateProjectionAllowlist } from "../validate-projection-allowlist.ts";
 import { validateAccessDeclarations } from "./access-declarations.ts";
 import { warnOnUniqueAccessRoles } from "./access-roles.ts";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring.ts";
@@ -368,6 +369,7 @@ export function validateBoot(
   validateGdprStoragePersistence(features);
   validateGlobalTenancyEntities(features);
   validateFeatureBootChecks(features);
+  validateProjectionAllowlist(features);
 
   if (hasEncryptedFields) {
     // Availability check, not env-presence: eagerly building the keyring

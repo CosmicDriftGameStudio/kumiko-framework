@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-21
+verified: 2026-10-22
 evidence: "Decisions recorded from maintainer sessions; each entry names the code or issue it rests on where one exists."
 ---
 
@@ -91,3 +91,7 @@ A tenant-scoped handler or job that only has to read other tenants' rows declare
 ### 2026-10-21 Public packages are MIT, not BUSL-1.1
 
 BUSL-1.1 was chosen in 2026-05 to keep a large vendor from forking the framework into a hosted offering without giving anything back. The review on 2026-10-21 showed the trade-off no longer holds: a framework with one maintainer gains more from adoption and contributors than it loses to a hypothetical fork, BUSL is a sticking point in dependency scans (the own license guard denies it), and the Additional Use Grant forced every hosting question into a mail thread. All `@cosmicdrift/*` packages, `create-kumiko-app` and the repo switch to MIT; the dependency-license exceptions for BUSL stay, because every version up to 0.386.0 was published under it and a consumer may still pin one. Contributions come in under MIT with a DCO sign-off instead of a CLA, so the copyright stays with the contributors and a later relicensing would again need everyone's consent.
+
+### 2026-10-22 Complexity cap 60, files under 1200 lines, projection allowlist at boot
+
+A function above cyclomatic complexity 60 fails the complexity guard in the repo's own files, even with a complexity-budget tag or a baseline entry. The tag and the per-file baseline only cover the range from 15 to 60. Production files stay under 1200 lines, frozen by the file-size baseline as before; this replaces the 2000-line limit from 2026-10-21. `validateBoot` runs `validateProjectionAllowlist`, so a write handler that writes a projection it did not declare, or writes an aggregate table directly, fails at boot instead of passing silently. Aggregate tables are matched by their physical table name.

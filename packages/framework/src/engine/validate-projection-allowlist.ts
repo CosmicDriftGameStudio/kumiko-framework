@@ -25,6 +25,7 @@
 
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { resolveTableName } from "../db/entity-table-meta.ts";
 import { schemaTableName } from "../db/table-introspection.ts";
 import { getStep } from "./define-step.ts";
 import { buildPipelineSteps } from "./pipeline.ts";
@@ -87,7 +88,7 @@ export function validateProjectionAllowlist(features: readonly FeatureDefinition
   const aggregateTables = new Map<string, string>();
   for (const f of features) {
     for (const [entityName, entity] of Object.entries(f.entities ?? {})) {
-      const tableName = entity.table ?? entityName;
+      const tableName = resolveTableName(entityName, entity, undefined);
       const existing = aggregateTables.get(tableName);
       if (existing && existing !== f.name) {
         throw new Error(

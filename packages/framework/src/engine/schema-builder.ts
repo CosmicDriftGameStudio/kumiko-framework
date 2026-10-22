@@ -90,7 +90,207 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
   }
 }
 
-// kumiko-lint-ignore complexity-budget field→zod switch is the single schema source of truth
+type FieldOf<K extends FieldDefinition["type"]> = Extract<FieldDefinition, { type: K }>;
+
+type FieldToZodContext = { readonly applyDefaults: boolean; readonly isUpdate: boolean };
+
+function textFieldToZod(field: FieldOf<"text">, { applyDefaults, isUpdate }: FieldToZodContext) {
+  let schema = z.string();
+  if (field.maxLength) schema = schema.max(field.maxLength);
+  if (field.minLength) {
+    // "" must stay valid for optional fields and writeOnly updates (""
+    // = unchanged); `required` rejects it separately via min(1) below.
+    const minLength = field.minLength;
+    schema = schema.refine((value) => value.length === 0 || value.length >= minLength, {
+      message: `at least ${minLength} characters`,
+    });
+  }
+  if (field.writeOnly === true) {
+    // Update: "" = unchanged (dropped before the executor), null = clear,
+    // unless required. Create: "" would leave a required field unset.
+    if (!isUpdate) return field.required ? schema.min(1) : schema;
+    return field.required ? schema : schema.nullable();
+  }
+  if (field.format === "email") schema = schema.email();
+  if (field.format === "url") schema = schema.url();
+  if (field.format === "iban") {
+    // "" stays valid for an optional field; `required` rejects it via min(1) below.
+    schema = schema.superRefine((value, ctx) => {
+      if (value !== "" && !isValidIban(value)) {
+        ctx.addIssue({ code: "invalid_format", format: "iban", input: value });
+      }
+    });
+  }
+  if (field.format === "month") {
+    // "" stays valid for an optional field; `required` rejects it via min(1) below.
+    schema = schema.refine((value) => value === "" || MONTH_PATTERN.test(value), {
+      message: "expected a month as YYYY-MM",
+    });
+  }
+  if (field.required) schema = schema.min(1);
+  return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
+}
+
+function longTextFieldToZod(field: FieldOf<"longText">, applyDefaults: boolean): z.ZodTypeAny {
+  // longText has no `format` variant (by type design). Only optional
+  // maxLength and required are supported; otherwise it is an unrestricted
+  // z.string().
+  let schema = z.string();
+  if (field.maxLength) schema = schema.max(field.maxLength);
+  if (field.required) schema = schema.min(1);
+  return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
+}
+
+function selectFieldToZod(field: FieldOf<"select">, applyDefaults: boolean): z.ZodTypeAny {
+  const [first, ...rest] = field.options;
+  if (!first) return z.string();
+  const enumSchema = z.enum([first, ...rest]);
+  if (field.default !== undefined) {
+    // Untouched <select> sends "" too; with a default that maps to the
+    // default (same semantics as undefined) instead of the invalid-value
+    // rejection. A field with a default is never "unset" —
+    // true on both insert AND update, so this branch (and its "" → default
+    // mapping) fires regardless of applyDefaults; only the `.default(...)`
+    // schema-level fallback for OMITTED input is update-gated below.
+    // `null` maps the same way: the no-default branch below normalizes
+    // an untouched select to null, and a client that reuses that value
+    // against a defaulted field must not get rejected either.
+    const mapped = z.preprocess(
+      (value) => (value === "" || value === null ? field.default : value),
+      enumSchema,
+    );
+    return applyDefaults ? mapped.default(field.default) : mapped;
+  }
+  if (field.required) return enumSchema;
+  // Optional select without a default: an untouched HTML <select> submits
+  // "" for its placeholder option. Treat that as "unset" (null) instead of
+  // an invalid enum value — null (not undefined) so the value survives the
+  // JSON-serialized event payload and an update can actually clear a
+  // previously-set select back to unset, not just skip validation.
+  return z.preprocess((value) => (value === "" ? null : value), enumSchema.nullable());
+}
+
+function multiSelectFieldToZod(
+  field: FieldOf<"multiSelect">,
+  applyDefaults: boolean,
+): z.ZodTypeAny {
+  const [first, ...rest] = field.options;
+  if (!first) return z.array(z.string());
+  // `required: true` means non-empty, as with a `text` field.
+  // An empty array is rejected; the global `.optional()` wrapping
+  // in buildInsertSchema determines whether the field may be omitted.
+  let schema = z.array(z.enum([first, ...rest]));
+  if (field.required) schema = schema.min(1);
+  return field.default !== undefined && applyDefaults ? schema.default([...field.default]) : schema;
+}
+
+function numberFieldToZod(field: FieldOf<"number">, applyDefaults: boolean): z.ZodTypeAny {
+  let schema = z.number();
+  // `integer: true` maps to a Postgres int4 column (entity-table-meta.ts)
+  // — bound it here so an out-of-range write fails loud (400) at the
+  // schema boundary instead of dying in Postgres (22003 → 500).
+  if (field.integer) schema = schema.int().min(-2147483648).max(2147483647);
+  if (field.min !== undefined) schema = schema.min(field.min);
+  if (field.max !== undefined) schema = schema.max(field.max);
+  return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
+}
+
+function decimalFieldToZod(field: FieldOf<"decimal">, applyDefaults: boolean): z.ZodTypeAny {
+  // Stored as numeric(precision, scale), surfaced as JS number. Bound the
+  // value at the write boundary so an over-range or over-scale input fails
+  // loud here instead of being silently rounded/rejected by Postgres.
+  const limit = 10 ** (field.precision - field.scale);
+  const schema = z
+    .number()
+    .gt(-limit)
+    .lt(limit)
+    .refine((n) => isRepresentableAtScale(n, field.scale), {
+      message: `at most ${field.scale} decimal places`,
+    });
+  return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
+}
+
+function moneyFieldToZod(currencies: readonly string[]): z.ZodTypeAny {
+  const [first, ...rest] = currencies;
+  if (!first) throw new Error("No currencies configured");
+  return z.object({
+    amount: z.number(),
+    currency: z.enum([first, ...rest]),
+  });
+}
+
+function embeddedFieldToZod(field: FieldOf<"embedded">): z.ZodTypeAny {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const [subName, subField] of Object.entries(field.schema)) {
+    const zodSub = embeddedSubFieldToZod(subField);
+    shape[subName] = subField.required ? zodSub : zodSub.optional();
+  }
+  const baseRow = z.object(shape);
+  const derived = field.derived;
+  // The server is the authority for derived cells: a row is recomputed
+  // here, overwriting whatever the client sent, instead of merely
+  // being checked against it.
+  const row =
+    derived === undefined
+      ? baseRow
+      : z.preprocess((value) => withDerivedCells(value, derived, field.schema), baseRow);
+  if (field.multiple !== true) return row;
+  // `required: true` means non-empty, same reading as multiSelect —
+  // whether the key may be omitted at all is decided by buildInsertSchema
+  // off the same flag. `minItems` overrides that default when set.
+  let list = z.array(row);
+  if (field.maxItems !== undefined) list = list.max(field.maxItems);
+  const min = field.minItems ?? (field.required === true ? 1 : undefined);
+  if (min === undefined) return list;
+  // A custom issue rather than min(): other arrays (multiSelect) share zod's
+  // too_small and must not read "rows"; the bridge honours params.i18nKey.
+  return list.superRefine((rows, ctx) => {
+    // skip: the minimum is met, nothing to report
+    if (rows.length >= min) return;
+    ctx.addIssue({
+      code: "custom",
+      input: rows,
+      params: {
+        i18nKey: `errors.validation.list_min_rows.${min === 1 ? "one" : "other"}`,
+        minimum: min,
+      },
+    });
+  });
+}
+
+function timestampFieldToZod(field: FieldOf<"timestamp">): z.ZodTypeAny {
+  // When locatedBy is set: wall-clock time without an offset (ISO datetime
+  // without `Z`). Otherwise: ISO UTC datetime (with `Z`). Both are validated
+  // against the ISO-8601 schema through z.iso.datetime; precision (with or
+  // without an offset) depends on locatedBy.
+  const schema = field.locatedBy !== undefined ? z.iso.datetime({ local: true }) : z.iso.datetime();
+  return withDateBounds(schema, field.min, field.max);
+}
+
+function locatedTimestampToZod(): z.ZodTypeAny {
+  // Combined wall-clock and time-zone object. On write, either
+  // { at, tz } (typical for a UI form, with utc calculated) or { utc, tz }
+  // (typical for server-to-server communication, with at calculated) is
+  // accepted. On read, the read wrapper provides all three fields.
+  //
+  // The schema guarantees only tz plus at least one of at or utc.
+  const at = z.iso.datetime({ local: true });
+  const tz = z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
+  const utc = z.iso.datetime();
+  return z.union([
+    z.object({ at, tz, utc: utc.optional() }),
+    z.object({ utc, tz, at: at.optional() }),
+  ]);
+}
+
+function fileListFieldToZod(field: FieldOf<"files" | "images">): z.ZodTypeAny {
+  // Multi file: array of fileRef UUIDs. Same story as the singular
+  // variant — the element type has to match the UUID column on
+  // fileRefsTable.id.
+  const ids = z.array(z.uuid());
+  return field.maxCount === undefined ? ids : ids.max(field.maxCount);
+}
+
 export function fieldToZod(
   field: FieldDefinition,
   currencies: readonly string[],
@@ -100,122 +300,26 @@ export function fieldToZod(
   // back to it; buildUpdateSchema passes applyDefaults: false so an omitted
   // field on update stays omitted (a `{ title }` patch must not clobber
   // other columns with their defaults) while a field's own default value is
-  // still known here for "" → default mapping (select case below).
+  // still known here for "" → default mapping (selectFieldToZod).
   const applyDefaults = opts.applyDefaults ?? true;
+  const ctx: FieldToZodContext = { applyDefaults, isUpdate: opts.isUpdate === true };
   switch (field.type) {
-    case "text": {
-      let schema = z.string();
-      if (field.maxLength) schema = schema.max(field.maxLength);
-      if (field.minLength) {
-        // "" must stay valid for optional fields and writeOnly updates (""
-        // = unchanged); `required` rejects it separately via min(1) below.
-        const minLength = field.minLength;
-        schema = schema.refine((value) => value.length === 0 || value.length >= minLength, {
-          message: `at least ${minLength} characters`,
-        });
-      }
-      if (field.writeOnly === true) {
-        // Update: "" = unchanged (dropped before the executor), null = clear,
-        // unless required. Create: "" would leave a required field unset.
-        if (opts.isUpdate !== true) return field.required ? schema.min(1) : schema;
-        return field.required ? schema : schema.nullable();
-      }
-      if (field.format === "email") schema = schema.email();
-      if (field.format === "url") schema = schema.url();
-      if (field.format === "iban") {
-        // "" stays valid for an optional field; `required` rejects it via min(1) below.
-        schema = schema.superRefine((value, ctx) => {
-          if (value !== "" && !isValidIban(value)) {
-            ctx.addIssue({ code: "invalid_format", format: "iban", input: value });
-          }
-        });
-      }
-      if (field.format === "month") {
-        // "" stays valid for an optional field; `required` rejects it via min(1) below.
-        schema = schema.refine((value) => value === "" || MONTH_PATTERN.test(value), {
-          message: "expected a month as YYYY-MM",
-        });
-      }
-      if (field.required) schema = schema.min(1);
-      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
-    }
-    case "longText": {
-      // longText has no `format` variant (by type design). Only optional
-      // maxLength and required are supported; otherwise it is an unrestricted
-      // z.string().
-      let schema = z.string();
-      if (field.maxLength) schema = schema.max(field.maxLength);
-      if (field.required) schema = schema.min(1);
-      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
-    }
+    case "text":
+      return textFieldToZod(field, ctx);
+    case "longText":
+      return longTextFieldToZod(field, applyDefaults);
     case "boolean": {
       const schema = z.boolean();
       return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
-    case "select": {
-      const [first, ...rest] = field.options;
-      if (!first) return z.string();
-      const enumSchema = z.enum([first, ...rest]);
-      if (field.default !== undefined) {
-        // Untouched <select> sends "" too; with a default that maps to the
-        // default (same semantics as undefined) instead of the invalid-value
-        // rejection. A field with a default is never "unset" —
-        // true on both insert AND update, so this branch (and its "" → default
-        // mapping) fires regardless of applyDefaults; only the `.default(...)`
-        // schema-level fallback for OMITTED input is update-gated below.
-        // `null` maps the same way: the no-default branch below normalizes
-        // an untouched select to null, and a client that reuses that value
-        // against a defaulted field must not get rejected either.
-        const mapped = z.preprocess(
-          (value) => (value === "" || value === null ? field.default : value),
-          enumSchema,
-        );
-        return applyDefaults ? mapped.default(field.default) : mapped;
-      }
-      if (field.required) return enumSchema;
-      // Optional select without a default: an untouched HTML <select> submits
-      // "" for its placeholder option. Treat that as "unset" (null) instead of
-      // an invalid enum value — null (not undefined) so the value survives the
-      // JSON-serialized event payload and an update can actually clear a
-      // previously-set select back to unset, not just skip validation.
-      return z.preprocess((value) => (value === "" ? null : value), enumSchema.nullable());
-    }
-    case "multiSelect": {
-      const [first, ...rest] = field.options;
-      if (!first) return z.array(z.string());
-      // `required: true` means non-empty, as with a `text` field.
-      // An empty array is rejected; the global `.optional()` wrapping
-      // in buildInsertSchema determines whether the field may be omitted.
-      let schema = z.array(z.enum([first, ...rest]));
-      if (field.required) schema = schema.min(1);
-      return field.default !== undefined && applyDefaults
-        ? schema.default([...field.default])
-        : schema;
-    }
-    case "number": {
-      let schema = z.number();
-      // `integer: true` maps to a Postgres int4 column (entity-table-meta.ts)
-      // — bound it here so an out-of-range write fails loud (400) at the
-      // schema boundary instead of dying in Postgres (22003 → 500).
-      if (field.integer) schema = schema.int().min(-2147483648).max(2147483647);
-      if (field.min !== undefined) schema = schema.min(field.min);
-      if (field.max !== undefined) schema = schema.max(field.max);
-      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
-    }
-    case "decimal": {
-      // Stored as numeric(precision, scale), surfaced as JS number. Bound the
-      // value at the write boundary so an over-range or over-scale input fails
-      // loud here instead of being silently rounded/rejected by Postgres.
-      const limit = 10 ** (field.precision - field.scale);
-      const schema = z
-        .number()
-        .gt(-limit)
-        .lt(limit)
-        .refine((n) => isRepresentableAtScale(n, field.scale), {
-          message: `at most ${field.scale} decimal places`,
-        });
-      return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
-    }
+    case "select":
+      return selectFieldToZod(field, applyDefaults);
+    case "multiSelect":
+      return multiSelectFieldToZod(field, applyDefaults);
+    case "number":
+      return numberFieldToZod(field, applyDefaults);
+    case "decimal":
+      return decimalFieldToZod(field, applyDefaults);
     case "bigInt": {
       // JS-`number` round-trip via mode:"number"; exact up to 2^53.
       // The safe-integer cap ensures that a caller passing a float (for example,
@@ -224,108 +328,36 @@ export function fieldToZod(
       const schema = z.number().int().safe();
       return field.default !== undefined && applyDefaults ? schema.default(field.default) : schema;
     }
-    case "money": {
-      const [first, ...rest] = currencies;
-      if (!first) throw new Error("No currencies configured");
-      return z.object({
-        amount: z.number(),
-        currency: z.enum([first, ...rest]),
-      });
-    }
-    case "embedded": {
-      const shape: Record<string, z.ZodTypeAny> = {};
-      for (const [subName, subField] of Object.entries(field.schema)) {
-        const zodSub = embeddedSubFieldToZod(subField);
-        shape[subName] = subField.required ? zodSub : zodSub.optional();
-      }
-      const baseRow = z.object(shape);
-      const derived = field.derived;
-      // The server is the authority for derived cells: a row is recomputed
-      // here, overwriting whatever the client sent, instead of merely
-      // being checked against it.
-      const row =
-        derived === undefined
-          ? baseRow
-          : z.preprocess((value) => withDerivedCells(value, derived, field.schema), baseRow);
-      if (field.multiple !== true) return row;
-      // `required: true` means non-empty, same reading as multiSelect —
-      // whether the key may be omitted at all is decided by buildInsertSchema
-      // off the same flag. `minItems` overrides that default when set.
-      let list = z.array(row);
-      if (field.maxItems !== undefined) list = list.max(field.maxItems);
-      const min = field.minItems ?? (field.required === true ? 1 : undefined);
-      if (min === undefined) return list;
-      // A custom issue rather than min(): other arrays (multiSelect) share zod's
-      // too_small and must not read "rows"; the bridge honours params.i18nKey.
-      return list.superRefine((rows, ctx) => {
-        // skip: the minimum is met, nothing to report
-        if (rows.length >= min) return;
-        ctx.addIssue({
-          code: "custom",
-          input: rows,
-          params: {
-            i18nKey: `errors.validation.list_min_rows.${min === 1 ? "one" : "other"}`,
-            minimum: min,
-          },
-        });
-      });
-    }
-    case "jsonb": {
+    case "money":
+      return moneyFieldToZod(currencies);
+    case "embedded":
+      return embeddedFieldToZod(field);
+    case "jsonb":
       // Free-form jsonb — keys are tenant-/runtime-defined. Validation
       // passes through any plain object.
       return z.record(z.string(), z.unknown());
-    }
-    case "date": {
-      const schema = z.string().date();
-      return withDateBounds(schema, field.min, field.max);
-    }
-    case "timestamp": {
-      // When locatedBy is set: wall-clock time without an offset (ISO datetime
-      // without `Z`). Otherwise: ISO UTC datetime (with `Z`). Both are validated
-      // against the ISO-8601 schema through z.iso.datetime; precision (with or
-      // without an offset) depends on locatedBy.
-      const schema =
-        field.locatedBy !== undefined ? z.iso.datetime({ local: true }) : z.iso.datetime();
-      return withDateBounds(schema, field.min, field.max);
-    }
-    case "tz": {
+    case "date":
+      return withDateBounds(z.string().date(), field.min, field.max);
+    case "timestamp":
+      return timestampFieldToZod(field);
+    case "tz":
       // IANA time-zone name, validated against the runtime's zone list
       // (isValidIanaTimeZone). An invalid name fails at the write boundary
       // instead of later in ctx.tz.parse / Temporal.
       return z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
-    }
-    case "locatedTimestamp": {
-      // Combined wall-clock and time-zone object. On write, either
-      // { at, tz } (typical for a UI form, with utc calculated) or { utc, tz }
-      // (typical for server-to-server communication, with at calculated) is
-      // accepted. On read, the read wrapper provides all three fields.
-      //
-      // The schema guarantees only tz plus at least one of at or utc.
-      const at = z.iso.datetime({ local: true });
-      const tz = z.string().refine(isValidIanaTimeZone, { message: "invalid IANA time zone" });
-      const utc = z.iso.datetime();
-      return z.union([
-        z.object({ at, tz, utc: utc.optional() }),
-        z.object({ utc, tz, at: at.optional() }),
-      ]);
-    }
+    case "locatedTimestamp":
+      return locatedTimestampToZod();
     case "file":
-    case "image": {
+    case "image":
       // Single file: stores a fileRef UUID — must match fileRefsTable.id
       // (uuid column). Pre-fix this was z.number() from an era when the
       // column was (wrongly) integer; the table-builder fix to uuid needs
       // a matching validation-layer fix here or the CRUD pipeline rejects
       // every valid UUID with "expected number".
       return z.uuid();
-    }
     case "files":
-    case "images": {
-      // Multi file: array of fileRef UUIDs. Same story as the singular
-      // variant — the element type has to match the UUID column on
-      // fileRefsTable.id.
-      const ids = z.array(z.uuid());
-      return field.maxCount === undefined ? ids : ids.max(field.maxCount);
-    }
+    case "images":
+      return fileListFieldToZod(field);
     case "reference":
       // Validates the UUID shape. Checking that the reference exists
       // (the row exists in the referenced table and belongs to the tenant) is

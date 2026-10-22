@@ -29,7 +29,6 @@ import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import { createDistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
 import { cronRepeatOptions } from "./cron-repeat-options.ts";
-import { prepareJobRun } from "./job-runner-context.ts";
 import { applyHandlerDeferral, executeJobInSpan } from "./job-runner-execution.ts";
 import {
   claimSequentialSlot,
@@ -39,6 +38,7 @@ import {
   perTenantTargetOf,
   releaseSequentialSlot,
   resolveJobDefinitionOrFail,
+  startJobRun,
 } from "./job-runner-gates.ts";
 import {
   BOOT_GATE_SLOW_WARN_MS,
@@ -315,15 +315,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // skip: lock taken, work re-enqueued with delay, current invocation done
       return;
     }
-    const run = prepareJobRun(scope, jobDef, bullJob, token);
-    await options.onJobStart?.(run.jobName, run.jobId, run.meta);
     try {
+      const run = await startJobRun(scope, jobDef, bullJob, token);
       const deferral = await executeJobInSpan(scope, run);
       if ((await applyHandlerDeferral(scope, run, bullJob, deferral, token)) === "deferred") {
         throw new DelayedError();
       }
     } finally {
-      await releaseSequentialSlot(scope, run.jobName, slot.lockToken);
+      await releaseSequentialSlot(scope, bullJob.name, slot.lockToken);
     }
   }
 

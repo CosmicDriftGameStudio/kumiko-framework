@@ -326,6 +326,7 @@ describe("runPendingSeedMigrations (integration)", () => {
         `,
       },
     ]);
+    const logLines: string[] = [];
     try {
       await expect(
         runPendingSeedMigrations({
@@ -334,9 +335,14 @@ describe("runPendingSeedMigrations (integration)", () => {
           appliedBy: "boot",
           registry,
           createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
-          logger: () => {},
+          logger: (line) => logLines.push(line),
         }),
       ).rejects.toThrow(/version_conflict/);
+
+      // The runner's own logger already carries the es-ops/seed-migration namespace.
+      const failureLine = logLines.find((line) => line.startsWith("✗"));
+      expect(failureLine).toContain("systemWriteAs(");
+      expect(failureLine).not.toContain("[es-ops/seed-migration]");
 
       // No marker — the seed would be retried on the next boot, and the failed
       // Write left no event behind.

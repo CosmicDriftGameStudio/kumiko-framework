@@ -7,6 +7,7 @@ import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import * as z from "zod";
 import { table as pgTable, text, uuid } from "../../db/dialect.ts";
+import { toTableName } from "../../db/table-builder.ts";
 import { defineFeature } from "../define-feature.ts";
 import { defineWriteHandler } from "../define-handler.ts";
 import { defineStep } from "../define-step.ts";
@@ -618,5 +619,57 @@ describe("validateProjectionAllowlist", () => {
     });
 
     expect(() => validateProjectionAllowlist([happyFeature])).not.toThrow();
+  });
+
+  describe("aggregate tables are keyed by physical table name", () => {
+    const physical = toTableName("widget");
+    const widgetFields = {
+      label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    };
+
+    it("rejects unsafeProjectionUpsert on the derived table of an entity without `table`", () => {
+      const ownerFeature = defineFeature("vproj-derived-owner", (r) => {
+        r.entity({ name: "widget", ...createEntity({ fields: widgetFields }) });
+      });
+      const trespasserFeature = defineFeature("vproj-derived-trespasser", (r) => {
+        r.requires.projection(physical);
+        const derivedTable = pgTable(physical, {
+          id: uuid("id").primaryKey().defaultRandom(),
+          label: text("label").notNull(),
+        });
+        r.writeHandler(
+          defineWriteHandler({
+            name: "sneaky",
+            schema: z.object({}),
+            access: { roles: ["User"] },
+            perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
+              r.step.unsafeProjectionUpsert({
+                table: derivedTable,
+                on: ["id"],
+                row: () => ({ label: "trespass" }),
+              }),
+              r.step.return({ isSuccess: true as const, data: { ok: true } }),
+            ]),
+          }),
+        );
+      });
+
+      expect(() => validateProjectionAllowlist([ownerFeature, trespasserFeature])).toThrow(
+        /aggregate-projection of feature "vproj-derived-owner"/,
+      );
+    });
+
+    it("rejects a derived table colliding with an explicit table of another feature", () => {
+      const derivedFeature = defineFeature("vproj-collide-derived", (r) => {
+        r.entity({ name: "widget", ...createEntity({ fields: widgetFields }) });
+      });
+      const explicitFeature = defineFeature("vproj-collide-explicit", (r) => {
+        r.entity({ name: "gadget", ...createEntity({ table: physical, fields: widgetFields }) });
+      });
+
+      expect(() => validateProjectionAllowlist([derivedFeature, explicitFeature])).toThrow(
+        /registered by both feature/,
+      );
+    });
   });
 });

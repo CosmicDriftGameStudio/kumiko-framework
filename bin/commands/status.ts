@@ -7,12 +7,15 @@ type StatusDeps = {
   readonly runGit: (cwd: string, args: readonly string[]) => Promise<RunResult>;
 };
 
+export function dockerComposeProbe(
+  timeoutMs = DOCKER_PROBE_TIMEOUT_MS,
+  runCommand: typeof run = run,
+): StatusDeps["probeDocker"] {
+  return (cwd) => runCommand("docker", ["compose", "ps", "--format", "json"], { cwd, timeoutMs });
+}
+
 export const defaultStatusDeps: StatusDeps = {
-  probeDocker: (cwd) =>
-    run("docker", ["compose", "ps", "--format", "json"], {
-      cwd,
-      timeoutMs: DOCKER_PROBE_TIMEOUT_MS,
-    }),
+  probeDocker: dockerComposeProbe(),
   runGit: (cwd, args) => run("git", args, { cwd }),
 };
 
