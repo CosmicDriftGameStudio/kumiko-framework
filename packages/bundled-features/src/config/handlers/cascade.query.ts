@@ -1,13 +1,14 @@
 import {
   type ConfigCascade,
   type ConfigCascadeLevel,
+  ConfigScopes,
   defineQueryHandler,
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { requireConfigResolver, requireSystemDb } from "../feature.ts";
 import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction.ts";
-import { hasConfigAccess } from "../write-helpers.ts";
+import { hasConfigAccess, keyDefAtScope } from "../write-helpers.ts";
 
 export const cascadeQuery = defineQueryHandler({
   name: "cascade",
@@ -15,6 +16,7 @@ export const cascadeQuery = defineQueryHandler({
     "Shows, per config key the caller may read, the value at every cascade level (user, tenant, system, app override, default) and which level won; use it to explain where a setting's current value comes from.",
   schema: z.object({
     keys: z.array(z.string()).optional(),
+    scope: z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]).optional(),
   }),
   access: {
     openToAll: {
@@ -47,7 +49,7 @@ export const cascadeQuery = defineQueryHandler({
       const keyDef = allKeys.get(key);
       if (!keyDef) continue;
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
-      keyDefs.set(key, keyDef);
+      keyDefs.set(key, keyDefAtScope(keyDef, query.payload.scope));
       filteredKeys.push(key);
     }
 

@@ -1,6 +1,7 @@
 import {
   type ConfigKeyDefinition,
   type ConfigScope,
+  ConfigScopes,
   type ConfigValueSource,
   defineQueryHandler,
   isEncryptedAtRest,
@@ -8,7 +9,7 @@ import {
 import * as z from "zod";
 import { requireConfigResolver, requireSystemDb } from "../feature.ts";
 import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction.ts";
-import { hasConfigAccess } from "../write-helpers.ts";
+import { hasConfigAccess, keyDefAtScope } from "../write-helpers.ts";
 
 export const valuesQuery = defineQueryHandler({
   name: "values",
@@ -16,6 +17,7 @@ export const valuesQuery = defineQueryHandler({
     "Returns the effective value, scope and winning source for every config key the caller may read (optionally narrowed to `keys`), with encrypted and secret-backed values masked; use it to inspect the current settings.",
   schema: z.object({
     keys: z.array(z.string()).optional(),
+    scope: z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]).optional(),
   }),
   // Per-key read access enforced via hasConfigAccess inside the handler.
   access: {
@@ -44,7 +46,7 @@ export const valuesQuery = defineQueryHandler({
     for (const [qualifiedKey, keyDef] of allKeys) {
       if (requestedKeys !== undefined && !requestedKeys.has(qualifiedKey)) continue;
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
-      keyDefs.set(qualifiedKey, keyDef);
+      keyDefs.set(qualifiedKey, keyDefAtScope(keyDef, query.payload.scope));
       filteredKeys.push(qualifiedKey);
     }
 

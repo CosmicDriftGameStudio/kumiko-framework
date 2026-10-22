@@ -1639,10 +1639,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               fields: readonly EditFieldViewModel[],
               columns: number,
               gridKey: string,
+              columnsDeclared: boolean | undefined,
             ): ReactNode => (
               <Grid
                 key={gridKey}
-                columns={columns}
+                columns={usesFieldFlow && columnsDeclared !== true ? 1 : columns}
                 {...(isSettingsList ? { list: true } : usesFieldFlow && { flow: true })}
               >
                 {fields.map((field: EditFieldViewModel) => (
@@ -1707,6 +1708,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                           group.fields,
                           group.columns,
                           `${sectionKey}-group-${groupIndex}-grid`,
+                          group.columnsDeclared,
                         )}
                       </Card>
                     ))}
@@ -1740,7 +1742,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   })}
                   testId={`section-${sectionKey}`}
                 >
-                  {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
+                  {renderFieldGrid(
+                    section.fields,
+                    section.columns,
+                    `${sectionKey}-grid`,
+                    section.columnsDeclared,
+                  )}
                 </Card>
               );
               return wrapWizardStep(sectionKey, cardEl);
@@ -1772,7 +1779,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 testId={`section-${sectionKey}`}
               >
                 {showsAllRequiredHint && insideDrawer && sectionIndex === 0 && allRequiredHint}
-                {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
+                {renderFieldGrid(
+                  section.fields,
+                  section.columns,
+                  `${sectionKey}-grid`,
+                  section.columnsDeclared,
+                )}
               </Section>
             );
             return wrapWizardStep(sectionKey, sectionEl);

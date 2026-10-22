@@ -158,7 +158,7 @@ const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   money: "w-40 shrink-0 [&_label]:whitespace-nowrap",
   date: "w-full sm:w-[200px]",
   timestamp: "w-full sm:w-[328px]",
-  select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",
+  select: "w-full sm:w-60 sm:has-[[data-radio-list]]:w-full",
   full: "w-full",
   // self-start: the label shares the top line with neighbouring labels. The
   // switch (1.15rem) gets (h-9 input − switch) / 2 margin to sit on the input line.
@@ -186,7 +186,8 @@ export function DefaultGrid({
       </div>
     );
   }
-  if (flow === true) {
+  const declaresColumns = typeof columns === "number" && columns >= 2;
+  if (flow === true && (insideDrawerBody || !declaresColumns)) {
     return (
       <div
         {...groupProps}
@@ -246,7 +247,11 @@ export function DefaultGrid({
     <div
       {...groupProps}
       data-testid={testId}
-      className="grid gap-[var(--kumiko-grid-gap,1rem)] grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
+      className={cn(
+        "grid gap-[var(--kumiko-grid-gap,1rem)] grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]",
+        flow === true &&
+          "items-end has-[[data-appendix-below]]:items-start has-[[role=alert]]:items-start",
+      )}
       style={style}
     >
       {children}
@@ -261,6 +266,7 @@ export function DefaultGridCell({ span, width, children }: GridCellProps): React
       <div
         className={cn(
           "min-w-0 max-w-full",
+          width === "full" && "sm:[grid-column:1/-1]",
           insideDrawerBody
             ? (DRAWER_FIELD_CELL_WIDTH_CLASS[width] ?? FIELD_CELL_WIDTH_CLASS[width])
             : FIELD_CELL_WIDTH_CLASS[width],

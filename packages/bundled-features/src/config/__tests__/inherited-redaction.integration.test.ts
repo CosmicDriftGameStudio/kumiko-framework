@@ -207,3 +207,25 @@ describe("inheritedToTenant redaction — config:query:values", () => {
     expect(res[SMTP_HOST]?.source).toBe("missing");
   });
 });
+
+describe("inheritedToTenant redaction — read scope cannot bypass it", () => {
+  test("a tenant-side admin asking for scope system still gets redacted values on both queries", async () => {
+    const cascade = await stack.http.queryOk<Cascades>(
+      ConfigQueries.cascade,
+      { keys: [SMTP_HOST, SMTP_PASS], scope: "system" },
+      tenantAdmin,
+    );
+    for (const key of [SMTP_HOST, SMTP_PASS]) {
+      expect(systemLevel(cascade, key)?.value).toBeUndefined();
+      expect(systemLevel(cascade, key)?.hasValue).toBe(false);
+    }
+
+    const values = await stack.http.queryOk<Record<string, { value: unknown }>>(
+      ConfigQueries.values,
+      { scope: "system" },
+      tenantAdmin,
+    );
+    expect(values[SMTP_HOST]?.value).toBeUndefined();
+    expect(values[SMTP_PASS]?.value).toBeUndefined();
+  });
+});

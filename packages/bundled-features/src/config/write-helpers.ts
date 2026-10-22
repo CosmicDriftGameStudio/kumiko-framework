@@ -194,18 +194,30 @@ export function validateScope(
   definedScope: ConfigScope,
   key: string,
 ): KumikoError | null {
-  const levels: Record<ConfigScope, number> = {
-    [ConfigScopes.system]: 0,
-    [ConfigScopes.tenant]: 1,
-    [ConfigScopes.user]: 2,
-  };
-  if (levels[requestedScope] > levels[definedScope]) {
+  if (SCOPE_LEVEL[requestedScope] > SCOPE_LEVEL[definedScope]) {
     return new UnprocessableError("invalid_scope", {
       i18nKey: "config.errors.invalidScope",
       details: { key, definedScope, requestedScope },
     });
   }
   return null;
+}
+
+const SCOPE_LEVEL: Record<ConfigScope, number> = {
+  [ConfigScopes.system]: 0,
+  [ConfigScopes.tenant]: 1,
+  [ConfigScopes.user]: 2,
+};
+
+// Reads a tenant/user key at a narrower scope, e.g. system for a system-level screen.
+export function keyDefAtScope(
+  keyDef: ConfigKeyDefinition,
+  readScope: ConfigScope | undefined,
+): ConfigKeyDefinition {
+  if (readScope === undefined || SCOPE_LEVEL[readScope] >= SCOPE_LEVEL[keyDef.scope]) {
+    return keyDef;
+  }
+  return { ...keyDef, scope: readScope };
 }
 
 export function resolveScopeIds(
