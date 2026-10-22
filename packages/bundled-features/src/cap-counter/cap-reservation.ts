@@ -473,7 +473,11 @@ async function consumeClaimedRow(
     if (!booked.isSuccess) return booked;
     await txDb.updateMany(
       capReservationsTable,
-      { consumedAmount: claimed.consumedAmount + options.units },
+      {
+        consumedAmount: claimed.consumedAmount + options.units,
+        // Keep the tombstone alive past its last consume, else a later consume would start a fresh one and double count.
+        expiresAt: Temporal.Now.instant().add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }),
+      },
       ownRow,
     );
     return booked;

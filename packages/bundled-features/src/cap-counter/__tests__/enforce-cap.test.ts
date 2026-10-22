@@ -508,4 +508,18 @@ describe("CapExceededError reset info", () => {
       /must be after periodStartIso/,
     );
   });
+
+  test("assertBelowHardCap rejects a misconfigured period even below the limit", () => {
+    const cap = {
+      capName: "c",
+      limit: 10,
+      profile: "hardSlot" as const,
+      periodStartIso: "2026-07-01T00:00:00Z",
+    };
+    expect(() => assertBelowHardCap(0, { ...cap, periodEndIso: "2026-07-01T00:00:00Z" })).toThrow(
+      /must be after periodStartIso/,
+    );
+    expect(() => assertBelowHardCap(0, { ...cap, periodEndIso: "not-a-date" })).toThrow();
+    expect(() => assertBelowHardCap(0, cap)).not.toThrow();
+  });
 });

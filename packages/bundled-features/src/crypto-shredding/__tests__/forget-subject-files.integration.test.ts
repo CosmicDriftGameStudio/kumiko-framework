@@ -8,6 +8,7 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   createEventStoreExecutor,
   createTenantDb,
+  executeRawQuery,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
@@ -354,6 +355,32 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(await fileRefExists(target.passportId)).toBe(false);
     expect(await fileRefExists(target.scanId)).toBe(false);
     expect(await memory.exists(target.coverKey)).toBe(true);
+  });
+
+  test("a failing owner lookup of the record row still writes the audit event with a cleanupError", async () => {
+    const target = await seedDossier("target");
+    // The lookup reads tenant_id; a missing column stands in for any database error there.
+    await executeRawQuery(
+      stack.db,
+      'ALTER TABLE "read_ff_dossier" RENAME COLUMN "tenant_id" TO "tenant_id_moved"',
+      [],
+    );
+    try {
+      const spec = forgetRecord(target.id);
+      const err = await stack.http.writeErr(spec.name, spec.payload, spec.as);
+      expect(err.httpStatus).toBeGreaterThanOrEqual(500);
+    } finally {
+      await executeRawQuery(
+        stack.db,
+        'ALTER TABLE "read_ff_dossier" RENAME COLUMN "tenant_id_moved" TO "tenant_id"',
+        [],
+      );
+    }
+
+    const events = await forgottenEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload["subjectKey"]).toBe(`record:dossier:${target.id}`);
+    expect(events[0]?.payload["cleanupError"]).toBeString();
   });
 
   test("user subject: a userOwned file uploaded by someone else is removed with the owner's forget; other users' files stay", async () => {

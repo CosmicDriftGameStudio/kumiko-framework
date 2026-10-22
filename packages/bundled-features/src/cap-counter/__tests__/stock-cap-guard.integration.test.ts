@@ -151,9 +151,21 @@ const guardedCreateItemHandler = stockGuard.withStockCap(createItemHandler, {
   field: "capName",
 });
 
+const importItemHandler: WriteHandlerDef = { ...createItemHandler, name: "import-item" };
+const guardedImportItemHandler = stockGuard.withStockCap(importItemHandler, {
+  table: capCounterTable,
+  limit: (caps: { maxItems: number }) => caps.maxItems,
+  where: { capName: "http-stock-item" },
+  code: "import_stock_cap_exceeded",
+  i18nKey: "cap.stock-exceeded",
+  field: "capName",
+});
+
 const STOCK_ITEM_QN = "stock-item:write:create-item";
+const IMPORT_ITEM_QN = "stock-item:write:import-item";
 const stockItemFeature = defineFeature("stock-item", (r) => {
   r.writeHandler(guardedCreateItemHandler);
+  r.writeHandler(guardedImportItemHandler);
 });
 
 describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", () => {
@@ -194,6 +206,27 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
     expect(error.httpStatus).toBe(422);
     expect(error.i18nKey).toBe("cap.stock-exceeded");
     expect(error.details).toMatchObject({ reason: "stock_cap_exceeded", current: 2, limit: 2 });
+  });
+
+  test("two handlers capping the same rows under different codes serialize against each other", async () => {
+    const admin = tenantAdminOnlyFor(3104);
+
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        httpStack.http.write(
+          index % 2 === 0 ? STOCK_ITEM_QN : IMPORT_ITEM_QN,
+          { capName: "http-stock-item" },
+          admin,
+        ),
+      ),
+    );
+
+    expect(responses.filter((response) => response.status === 200)).toHaveLength(STOCK_LIMIT);
+    expect(
+      await createTenantDb({ db: httpStack.db, tenantId: admin.tenantId }).count(capCounterTable, {
+        capName: "http-stock-item",
+      }),
+    ).toBe(STOCK_LIMIT);
   });
 
   test("tenant B with 0 rows still succeeds (tenant isolation through the real dispatcher)", async () => {

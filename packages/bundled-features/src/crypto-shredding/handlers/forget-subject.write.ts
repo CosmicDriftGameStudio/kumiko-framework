@@ -324,11 +324,6 @@ async function sweepDerivedSubjectData(
   audit: { readonly requestId: string; readonly erasedBy: string },
   rawSubject: SubjectIdInput,
 ): Promise<string | undefined> {
-  const recordTenantId = await owningTenantOfRecordSubject(
-    crossTenantRunner,
-    ctx.registry.features,
-    rawSubject,
-  );
   const failureLabels: string[] = [];
   const runStep = async (step: (runner: DbRunner) => Promise<void>): Promise<void> => {
     try {
@@ -367,8 +362,14 @@ async function sweepDerivedSubjectData(
   });
 
   // File columns hold only the fileRef id, so the key erase never reaches the bytes.
-  await runStep((crossTenantSubjectRunner) =>
-    purgeFilesReachingSubject({
+  await runStep(async (crossTenantSubjectRunner) => {
+    // Inside the step: a failing owner lookup must land in the audit label, not abort the handler.
+    const recordTenantId = await owningTenantOfRecordSubject(
+      crossTenantSubjectRunner,
+      ctx.registry.features,
+      rawSubject,
+    );
+    await purgeFilesReachingSubject({
       registry: ctx.registry,
       db: crossTenantSubjectRunner,
       subject,
@@ -376,8 +377,8 @@ async function sweepDerivedSubjectData(
       ...(recordTenantId !== undefined && { recordTenantId }),
       resolveDeleteBytes: resolveFileBytesDeleter(ctx),
       missingStorage: { mode: "fail" },
-    }),
-  );
+    });
+  });
 
   return failureLabels[0];
 }
