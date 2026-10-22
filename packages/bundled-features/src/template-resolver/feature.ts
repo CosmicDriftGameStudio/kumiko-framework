@@ -29,7 +29,7 @@ import { makeResourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts"
 import { makeResourceRemoveWrite } from "./handlers/resource-remove.write.ts";
 import { makeResourceUploadWrite } from "./handlers/resource-upload.write.ts";
 import { makeSendTestWrite } from "./handlers/send-test.write.ts";
-import { sendTestStatusQuery } from "./handlers/send-test-status.query.ts";
+import { makeSendTestStatusQuery } from "./handlers/send-test-status.query.ts";
 import { makeSetWrite } from "./handlers/set.write.ts";
 import { tenantOverrideCountsQuery } from "./handlers/tenant-override-counts.query.ts";
 import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.ts";
@@ -191,7 +191,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       preview: r.queryHandler(previewQuery),
       documentBlocks: r.queryHandler(documentBlocksQuery),
       exportBundle: r.queryHandler(exportBundleQuery),
-      sendTestStatus: r.queryHandler(sendTestStatusQuery),
+      sendTestStatus: r.queryHandler(makeSendTestStatusQuery(policy)),
     };
 
     for (const collection of collections) {

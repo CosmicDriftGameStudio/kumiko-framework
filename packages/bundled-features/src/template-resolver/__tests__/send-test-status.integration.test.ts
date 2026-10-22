@@ -28,7 +28,7 @@ import { createTemplateResolverFeature } from "../feature.ts";
 import { templateResourceEntity } from "../table.ts";
 import { TemplateResolverQueries } from "../web/qualified-names.ts";
 
-const admin = createTestUser({ id: 801, roles: ["TenantAdmin"], tenantId: testTenantId(801) });
+const admin = createTestUser({ id: 801, roles: ["SystemAdmin"], tenantId: testTenantId(801) });
 const ADDRESS = "editor@send-test-status.test";
 
 async function statusOf(stack: TestStack): Promise<unknown> {

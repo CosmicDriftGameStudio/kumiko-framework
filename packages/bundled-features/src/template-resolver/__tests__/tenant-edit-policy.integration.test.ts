@@ -530,6 +530,57 @@ describe("template edit policy :: tenantEditable for one mail slug", () => {
   });
 });
 
+describe("template edit policy :: read handlers follow the tenantEditable roles", () => {
+  const editor = createTestUser({ id: 5, roles: ["Editor"], tenantId: testTenantId(10) });
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature({
+          tenantEditable: [{ kind: "mail", slug: OPEN_SLUG, access: { roles: ["Editor"] } }],
+        }),
+      ],
+    });
+    await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+    for (const slug of [OPEN_SLUG, CLOSED_SLUG]) {
+      await stack.http.writeOk(
+        TemplateResolverHandlers.upsertSystem,
+        mailPayload(slug, { status: "active" }),
+        systemAdmin,
+      );
+    }
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  test("the overview lists an opted-in role exactly the released template and refuses a TenantAdmin", async () => {
+    const overview = await stack.http.queryOk<{ rows: readonly { slug: string }[] }>(
+      TemplateResolverQueries.overview,
+      {},
+      editor,
+    );
+    expect(overview.rows.map((row) => row.slug)).toEqual([OPEN_SLUG]);
+
+    const denied = await stack.http.queryErr(TemplateResolverQueries.overview, {}, tenantAdmin);
+    expect(denied.httpStatus).toBe(403);
+  });
+
+  test("send-test-status answers an opted-in role and refuses a TenantAdmin", async () => {
+    const status = await stack.http.queryOk(TemplateResolverQueries.sendTestStatus, {}, editor);
+    expect(status).toEqual({ canSend: false, reason: "no_channel" });
+
+    const denied = await stack.http.queryErr(
+      TemplateResolverQueries.sendTestStatus,
+      {},
+      tenantAdmin,
+    );
+    expect(denied.httpStatus).toBe(403);
+  });
+});
+
 describe("template edit policy :: mount validation", () => {
   const access = { roles: ["TenantAdmin"] };
 
