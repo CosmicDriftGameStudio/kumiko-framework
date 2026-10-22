@@ -331,6 +331,24 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "billing-foundation.cancel.withdrawalHint":
     "Une rétractation n'est possible que pendant le délai légal de rétractation.",
   "billing-foundation.consent.back": "Retour",
+  "billing-foundation.plans.planSwitchRequested":
+    "Changement d'offre demandé. Il sera actif une fois le paiement confirmé.",
+  "billing-foundation.planSwitch.title": "Confirmer le changement d'offre",
+  "billing-foundation.planSwitch.summary": "{from} vers {to}",
+  "billing-foundation.planSwitch.dueNow": "À payer maintenant : {amount}",
+  "billing-foundation.planSwitch.includesTax": "dont {tax} de TVA",
+  "billing-foundation.planSwitch.credit": "Crédit pour la période non utilisée : {amount}",
+  "billing-foundation.planSwitch.recurring": "Nouveau prix récurrent : {amount}",
+  "billing-foundation.planSwitch.effective": "Effectif immédiatement",
+  "billing-foundation.planSwitch.pendingNote":
+    "Le changement devient actif après confirmation du paiement.",
+  "billing-foundation.planSwitch.order": "Changer avec obligation de paiement",
+  "billing-foundation.plans.priceFrom": "à partir de",
+  "billing-foundation.consent.chooseProvider": "Prestataire de paiement",
+  "billing-foundation.errors.providerNotOffered":
+    "Ce prestataire de paiement n'est pas disponible pour le moment.",
+  "billing-foundation.errors.providerRequired":
+    "Choisissez un prestataire de paiement pour continuer.",
   "billing-foundation.consent.cancelAnytime":
     "Vous pouvez résilier à tout moment, avec effet à la fin de la période en cours.",
   "billing-foundation.consent.link.privacy": "Politique de confidentialité",

@@ -412,7 +412,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.plans.planSwitchRequested":
     "Planwechsel beauftragt. Er wird nach Zahlungsbestätigung aktiv.",
   "billing-foundation.plans.priceUnavailable": "Preis nicht verfügbar",
-  "billing-foundation.plans.providerChoice": "Zahlungsanbieter",
   "billing-foundation.plans.purchaseNotAllowed": "Nur Administratoren können den Tarif ändern.",
   "billing-foundation.plans.reactivate": "Abo reaktivieren",
   "billing-foundation.plans.subscriptionPending": "Dein Tarifwechsel wird gerade verarbeitet.",
