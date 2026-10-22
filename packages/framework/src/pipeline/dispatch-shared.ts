@@ -1598,6 +1598,7 @@ export async function enforceRateLimit(
   handlerName: string,
   user: SessionUser,
   isSystemScope: boolean,
+  costOverride?: number,
 ): Promise<void> {
   const { appContext: context } = ctx;
   // skip: handler explicitly opts out via rateLimit: { disabled: true }
@@ -1618,13 +1619,14 @@ export async function enforceRateLimit(
     // skip: ip-bucket + no IP (non-HTTP entry point) — pass through before
     // requiring a resolver; HTTP path always has an IP + L1/L2 middleware.
     if (bucket.kind === "skip") continue;
-    const chargedKey = `${bucket.key}|${option.limit}|${option.windowSeconds}|${option.cost}`;
+    const cost = costOverride ?? option.cost;
+    const chargedKey = `${bucket.key}|${option.limit}|${option.windowSeconds}|${cost}`;
     // skip: this exact bucket, limit and window was already charged by the entry dispatch
     if (charged?.has(chargedKey)) continue;
     pending.push({
       request: {
         bucket: bucket.key,
-        config: { limit: option.limit, windowSeconds: option.windowSeconds, cost: option.cost },
+        config: { limit: option.limit, windowSeconds: option.windowSeconds, cost },
       },
       chargedKey,
     });

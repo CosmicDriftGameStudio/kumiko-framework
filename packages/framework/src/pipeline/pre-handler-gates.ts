@@ -7,6 +7,7 @@ import { runValidation } from "../engine/validation.ts";
 import {
   AccessDeniedError,
   FrameworkReasons,
+  InternalError,
   isKumikoError,
   ValidationError,
   validationErrorFromZod,
@@ -43,6 +44,7 @@ async function rejectRateLimited(
   handler: WriteHandlerDef,
   type: string,
   user: SessionUser,
+  costOverride?: number,
 ): Promise<WriteFailure | undefined> {
   try {
     await enforceRateLimit(
@@ -51,12 +53,22 @@ async function rejectRateLimited(
       type,
       user,
       ctx.registry.isHandlerSystemScoped(type),
+      costOverride,
     );
   } catch (e) {
     if (isKumikoError(e)) return writeFailure(e);
     throw e;
   }
   return undefined;
+}
+
+function normalizeRateLimitCost(handlerName: string, cost: number): number {
+  if (!Number.isFinite(cost)) {
+    throw new InternalError({
+      message: `Handler "${handlerName}" rateLimitCost returned ${cost}; expected a finite number.`,
+    });
+  }
+  return Math.max(1, Math.ceil(cost));
 }
 
 async function rejectPayloadRateLimited(
@@ -131,7 +143,7 @@ async function rejectBeforeParse(
 ): Promise<WriteFailure | undefined> {
   const disabled = await rejectDisabledFeature(ctx, type, user);
   if (disabled) return disabled;
-  if (mode === "charge") {
+  if (mode === "charge" && !handler.rateLimitCost) {
     const rateLimited = await rejectRateLimited(ctx, handler, type, user);
     if (rateLimited) return rateLimited;
   }
@@ -151,6 +163,17 @@ async function rejectAfterParse(
 ): Promise<WriteFailure | undefined> {
   const overrideDenied = tenantOverrideDenied(user, payload);
   if (overrideDenied) return writeFailure(overrideDenied);
+  if (mode === "charge" && handler.rateLimitCost) {
+    // Cost comes from the validated payload, so this bucket is billed after the parse instead of before it.
+    const rateLimited = await rejectRateLimited(
+      ctx,
+      handler,
+      type,
+      user,
+      normalizeRateLimitCost(type, handler.rateLimitCost(payload)),
+    );
+    if (rateLimited) return rateLimited;
+  }
   if (mode === "charge") {
     const rateLimited = await rejectPayloadRateLimited(ctx, handler, type, user, payload);
     if (rateLimited) return rateLimited;

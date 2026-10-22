@@ -163,6 +163,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   for (const [name, handler] of Object.entries(feature.writeHandlers)) {
     validateTenantlessAnonymous(feature.name, name, handler);
     validateAdditionalRateLimits(feature.name, name, handler);
+    validateRateLimitCost(feature.name, name, handler);
     validatePerCommandTransaction(feature.name, name, handler);
   }
 }
@@ -299,6 +300,21 @@ export function validateTenantlessAnonymous(
     throw new Error(
       `${where} with rateLimit.per "${per}" — every anonymous visitor shares the same ` +
         `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((allowed) => `"${allowed}"`).join(" or ")}.`,
+    );
+  }
+}
+
+export function validateRateLimitCost(
+  featureName: string,
+  handlerName: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  // skip: no payload-derived cost declared
+  if (!handler.rateLimitCost) return;
+  if (handler.rateLimit === undefined || isRateLimitDisabled(handler.rateLimit)) {
+    throw new Error(
+      `write handler "${featureName}:write:${handlerName}" declares rateLimitCost without an active rateLimit — ` +
+        `the cost is booked on the rateLimit buckets, so declare rateLimit or drop rateLimitCost.`,
     );
   }
 }
