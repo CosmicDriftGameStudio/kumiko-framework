@@ -317,3 +317,49 @@ describe("jobs:query:failures (fw#3079)", () => {
     expect(rows[0]?.subject).toBeNull();
   });
 });
+
+describe("jobs:query:failures read access for app roles (fw#3927)", () => {
+  const member = createTestUser({ id: 7, tenantId: tenantA, roles: ["PropertyManager"] });
+
+  async function queryAs(readRoles: readonly string[] | undefined): Promise<Response> {
+    const registry = createRegistry([
+      appFeature,
+      createJobsFeature(readRoles ? { readRoles } : {}),
+    ]);
+    const server = buildServer({ registry, context: { db, registry }, jwtSecret: JWT_SECRET });
+    const token = await server.jwt.sign(member);
+    return server.app.request("/api/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        type: JobQueries.failures,
+        payload: { jobName: "app:job:role-read" },
+      }),
+    });
+  }
+
+  beforeAll(async () => {
+    for (const tenantId of [tenantA, tenantB]) {
+      await insertOne(db, tenantJobFailuresTable, {
+        tenantId,
+        jobName: "app:job:role-read",
+        subject: null,
+        messageKey: DECLARED_KEY,
+        failedAt: Temporal.Now.instant(),
+      });
+    }
+  });
+
+  test("a member with only a configured app role reads the own tenant, not another one", async () => {
+    const res = await queryAs(["PropertyManager"]);
+    const body = await res.json();
+    expect(res.status, JSON.stringify(body)).toBe(200);
+    expect(body.data.rows).toHaveLength(1);
+  });
+
+  test("without readRoles the same member is denied", async () => {
+    const res = await queryAs(undefined);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.code).toBe("access_denied");
+  });
+});
