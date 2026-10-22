@@ -64,6 +64,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-silent-skip` | Guard: finds "silent skip" spots in production code. | - |
 | `guard-tailwind-scan-surface` | Guard: `className` string-literal tokens under kumiko-framework's `packages/bundled-features/src/**` must already be reachable through the real Tailwind `@source` scan surface (`packages/renderer/src` + `samples/**\/src`, see `packages/renderer/src/web/styles.css`). | `kumiko-lint-ignore tailwind-scan-surface` |
 | `guard-tenant-escalation` | Guard: tenant / privilege-escalation safety. | - |
+| `guard-test-es-fixtures` | Guard: tests seed event-sourced state through the event store, not through hand-written SQL. | - |
 | `guard-test-stack-drift` | Guard: *.integration.ts / *.integration.test.ts files must not construct a parallel server stack. | - |
 | `guard-test-template-drift` | Guard: apps must not locally reimplement the e2e/screenshot template that `@cosmicdrift/kumiko-testing` already owns. | - |
 | `guard-test-timeouts` | Guard: tests wait for a condition, not for time. | - |

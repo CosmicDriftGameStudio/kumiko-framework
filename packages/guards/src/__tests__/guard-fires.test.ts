@@ -269,6 +269,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
     expectedMessage: /while loop polls with sleep/,
   },
+  "Test-ES-Fixtures Guard": {
+    path: `${PKG}/features/x/__tests__/x.integration.test.ts`,
+    code: 'declare function run(sql: string): unknown;\nexport const seed = () => run("INSERT INTO kumiko_events (id) VALUES (1)");',
+    expectedMessage: /raw INSERT INTO kumiko_events/,
+  },
   "File Size": {
     path: `${PKG}/features/x/huge.ts`,
     code: "export const line = 1;\n".repeat(2001),

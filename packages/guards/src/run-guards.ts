@@ -47,6 +47,7 @@ import { guard as restrictedSymbols } from "./guard-restricted-symbols";
 import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
+import { guard as testEsFixtures } from "./guard-test-es-fixtures";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
 import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
@@ -81,6 +82,7 @@ export const GUARDS = [
   appFeatureStructure,
   libTestCoverage,
   testTimeouts,
+  testEsFixtures,
   testTemplateDrift,
   fileSize,
   commentIssueRefOnly,
