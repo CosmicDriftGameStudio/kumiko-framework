@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "table block on entityList, projectionList and relatedList",
+    "detail": "The new optional table block (rememberState, resetAll, columnPicker, density with default and userChoice) is validated at boot; unknown keys, hidden columns without columnPicker and invalid density values are rejected. Columns accept hidden: true. Remembered state lives in sessionStorage per tenant and user and is cleared on logout or identity change."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "runProdApp passes errorDocs and instanceId to the server",

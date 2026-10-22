@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "DataTable view menu, remembered list state and compact density",
+    "detail": "Lists with a table block show a view menu (columns, density, reset view) and a reset-all button. Remembered query parameters are copied into the URL once; links with explicit parameters win. Compact density uses 32px rows with 4px cell padding. New keys kumiko.list.reset-all and kumiko.list.view.* in all locale packages."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "List view model and cell formats as tables",
