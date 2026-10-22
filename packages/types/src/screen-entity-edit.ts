@@ -232,7 +232,7 @@ export function relatedListGroupKey(value: unknown): string {
 }
 
 export function relatedListGroupHeaderLabel(
-  groupBy: RelatedListGroupBy,
+  groupBy: Pick<RelatedListGroupBy, "label" | "labels">,
   groupKey: string,
 ): string | undefined {
   const labels = groupBy.labels;

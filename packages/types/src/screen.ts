@@ -303,7 +303,9 @@ export type {
   ListColumnPin,
   ListTableDensity,
   ListTableExportOptions,
+  ListTableGrouping,
   ListTableOptions,
+  ListTableTotal,
 } from "./screen-list-table.ts";
 export {
   DEFAULT_EXPORT_MAX_ROWS,
@@ -311,7 +313,9 @@ export {
   LIST_TABLE_DENSITIES,
   LIST_TABLE_DENSITY_KEYS,
   LIST_TABLE_EXPORT_KEYS,
+  LIST_TABLE_GROUPING_KEYS,
   LIST_TABLE_OPTION_KEYS,
+  LIST_TABLE_TOTAL_KEYS,
   MAX_EXPORT_MAX_ROWS,
 } from "./screen-list-table.ts";
 export type {

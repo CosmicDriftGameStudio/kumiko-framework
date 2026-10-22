@@ -13,6 +13,7 @@ import {
   relatedListGroupKey,
 } from "../types/index.ts";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
+import { validateListTableAggregateQuery } from "./list-table-aggregate-query.ts";
 import { findEntity } from "./parent-ref.ts";
 import { getZodObjectShape } from "./zod-shape.ts";
 
@@ -110,6 +111,7 @@ function validateOneProjectionListScreen(
 
   validateProjectionListFilterSchemaAcceptance(prefix, screen, schema);
   validateProjectionListFacetsSchemaAcceptance(prefix, screen, schema);
+  validateListTableAggregateQuery({ prefix, ...screen, handler, featureMap });
 }
 
 // filter sends `payload.filter` — same 422 footgun as facets below
@@ -286,6 +288,11 @@ function validateRelatedListParentFilter(
 // A collapsed group without a header has no toggle, so its rows could never be opened.
 function validateRelatedListGroupBy(prefix: string, section: EditRelatedListSection): void {
   const groupBy = section.groupBy;
+  if (groupBy !== undefined && section.table?.grouping !== undefined) {
+    throw new Error(
+      `${prefix}: declares both groupBy (groups the loaded page) and table.grouping (groups on the server). Keep one.`,
+    );
+  }
   const collapsedKey =
     groupBy?.collapsedWhen === undefined ? undefined : relatedListGroupKey(groupBy.collapsedWhen);
   if (
@@ -317,6 +324,7 @@ export function validateRelatedListSectionQueries(features: readonly FeatureDefi
     validateRelatedListFacets(prefix, section, schema);
     validateRelatedListParentFilter(prefix, section, schema, handler, featureMap);
     validateRelatedListGroupBy(prefix, section);
+    validateListTableAggregateQuery({ prefix, ...section, handler, featureMap });
   };
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {

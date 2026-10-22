@@ -134,6 +134,26 @@ export function listAggregateMeasureSql(
   return `(${fn})::float8`;
 }
 
+export function isPerCurrencyMeasure(
+  kind: ListAggregateMeasureKind,
+  fieldType: FieldType,
+): boolean {
+  return fieldType === "money" && kind !== "count";
+}
+
+// No COALESCE on SUM: a currency absent from a group must read NULL so it can be left out.
+export function listCurrencyMeasureSql(
+  kind: ListAggregateMeasureKind,
+  columnSql: string,
+  filterSql: string,
+): string {
+  const fn =
+    kind === "sum"
+      ? `SUM(${columnSql}) FILTER (WHERE ${filterSql})`
+      : aggregateFunctionSql(kind, columnSql, filterSql);
+  return kind === "avg" ? `ROUND(${fn})::float8` : `(${fn})::float8`;
+}
+
 export function groupedKeyOrderLimitSql(limit: number): string {
   return ` GROUP BY 1 ORDER BY 1 ASC NULLS LAST LIMIT ${limit}`;
 }

@@ -20,6 +20,10 @@ import {
   orderEntity,
 } from "./list-aggregate-fixture.ts";
 
+function eur(value: number): { currency: string; value: number } {
+  return { currency: "EUR", value };
+}
+
 type ListResult = { readonly rows: readonly { readonly id: string }[]; readonly total?: number };
 
 describe("list aggregate", () => {
@@ -101,8 +105,8 @@ describe("list aggregate", () => {
 
     expect(agg.groups.reduce((n, g) => n + g.count, 0)).toBe(list.total ?? -1);
     expect(agg.groups).toEqual([
-      { key: "open", count: 2, measures: [6, 3, 3050, 2000] },
-      { key: "paid", count: 1, measures: [10, 10, 125, 125] },
+      { key: "open", count: 2, measures: [6, 3, [eur(3050)], [eur(2000)]] },
+      { key: "paid", count: 1, measures: [10, 10, [eur(125)], [eur(125)]] },
     ]);
   });
 
@@ -238,9 +242,84 @@ describe("list aggregate", () => {
       "2026-05-09T08:30:00.250Z",
       "2026-01-15",
       "2026-04-02",
-      1234,
-      5567,
+      [eur(1234)],
+      [eur(5567)],
     ]);
+  });
+
+  test("money measures answer one value per currency and never add across currencies", async () => {
+    await order({ title: "a", status: "open", amount: { amount: 10, currency: "EUR" } });
+    await order({ title: "b", status: "open", amount: { amount: 5, currency: "USD" } });
+    await order({ title: "c", status: "open", amount: { amount: 2.5, currency: "EUR" } });
+    await order({ title: "d", status: "paid", amount: { amount: 7, currency: "USD" } });
+    await order({ title: "e", status: "paid" });
+    const agg = await stack.http.queryOk<AggResult>(
+      LIST_ORDERS,
+      {
+        aggregate: {
+          groupBy: "status",
+          measures: [
+            { field: "amount", kind: "sum" },
+            { field: "amount", kind: "avg" },
+            { field: "amount", kind: "count" },
+          ],
+        },
+      },
+      admin,
+    );
+    expect(agg.groups).toEqual([
+      {
+        key: "open",
+        count: 3,
+        measures: [
+          [eur(1250), { currency: "USD", value: 500 }],
+          [eur(625), { currency: "USD", value: 500 }],
+          3,
+        ],
+      },
+      {
+        key: "paid",
+        count: 2,
+        measures: [[{ currency: "USD", value: 700 }], [{ currency: "USD", value: 700 }], 1],
+      },
+    ]);
+    const filtered = await stack.http.queryOk<AggResult>(
+      LIST_ORDERS,
+      {
+        filters: [{ field: "status", op: "eq", value: "paid" }],
+        aggregate: { measures: [{ field: "amount", kind: "sum" }] },
+      },
+      admin,
+    );
+    expect(filtered.groups).toEqual([
+      { key: null, count: 2, measures: [[{ currency: "USD", value: 700 }]] },
+    ]);
+  });
+
+  test("each group key filters the list back to exactly that group's rows", async () => {
+    const acme = await stack.http.writeOk<{ id: string }>(CREATE_CUSTOMER, { name: "Acme" }, admin);
+    await order({ title: "a", rush: true, dueOn: "2026-04-02", customerId: acme.id, qty: 1 });
+    await order({ title: "b", rush: false, dueOn: "2026-04-02", qty: 2 });
+    await order({ title: "c", dueOn: "2026-05-01", customerId: acme.id, qty: 3 });
+    for (const groupBy of ["rush", "dueOn", "customerId", "placedAt"]) {
+      const agg = await stack.http.queryOk<AggResult>(
+        LIST_ORDERS,
+        { aggregate: { groupBy, measures: [] } },
+        admin,
+      );
+      for (const group of agg.groups) {
+        const list = await stack.http.queryOk<ListResult>(
+          LIST_ORDERS,
+          { totalCount: true, filters: [{ field: groupBy, op: "eq", value: group.key }] },
+          admin,
+        );
+        expect({ groupBy, key: group.key, rows: list.total }).toEqual({
+          groupBy,
+          key: group.key,
+          rows: group.count,
+        });
+      }
+    }
   });
 
   test("groupBy on a reference keys by id and labels by the target labelField", async () => {
