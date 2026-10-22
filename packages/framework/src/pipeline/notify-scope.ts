@@ -8,6 +8,7 @@ import type {
   Registry,
 } from "../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../errors/index.ts";
+import { parseJsonOrThrow } from "../utils/safe-json.ts";
 import type { AfterCommitHook } from "./dispatcher-utils.ts";
 
 function isTenantBroadcast(to: NotifyOptions["to"]): to is { readonly tenant: TenantId } {
@@ -30,7 +31,7 @@ function snapshotNotifyOptions(options: NotifyOptions): NotifyOptions {
   try {
     return structuredClone(options);
   } catch {
-    return JSON.parse(JSON.stringify(options));
+    return parseJsonOrThrow<NotifyOptions>(JSON.stringify(options), "notify options snapshot");
   }
 }
 

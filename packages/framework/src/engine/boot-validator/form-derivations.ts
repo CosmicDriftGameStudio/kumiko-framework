@@ -37,6 +37,7 @@ function validateUnitCompatibility(
         `${prefix}.${target}: a "${derivation.op}" over ${moneyCount > 0 ? "money" : "number/decimal"} sources needs a ${moneyCount > 0 ? "money" : "number/decimal"} target.`,
       );
     }
+    // skip: sum/subtract fully validated above.
     return;
   }
   if (moneyCount > 1 || (derivation.op === "percent" && moneyFlags[1] === true)) {

@@ -57,6 +57,7 @@ export function installFatalErrorHandlers(options: FatalErrorHandlersOptions): (
   process.on("unhandledRejection", onUnhandledRejection);
   return () => {
     // stop() uninstalls first; during a fatal shutdown the listeners must stay so a second fault cannot hit the default crash path mid-flush
+    // skip: fatal shutdown in progress, see above.
     if (stopRunning) return;
     process.off("uncaughtException", onUncaughtException);
     process.off("unhandledRejection", onUnhandledRejection);

@@ -72,6 +72,18 @@ function syncProviderEventId(
   return `sync:${createHash("sha256").update(hashInput).digest("hex")}`;
 }
 
+// The retrieval time stands in for the provider's event time, so a webhook emitted before
+// this snapshot cannot roll the synced state back later. Provider webhook times are
+// whole-second and come from the provider's clock, so the stamp is floored and shifted back:
+// a genuine webhook right after the sync must not look older than the snapshot.
+const SYNC_SNAPSHOT_EVENT_TIME_MARGIN_SECONDS = 5;
+
+function snapshotEventTime(): Temporal.Instant {
+  return Temporal.Now.instant()
+    .round({ smallestUnit: "second", roundingMode: "floor" })
+    .subtract({ seconds: SYNC_SNAPSHOT_EVENT_TIME_MARGIN_SECONDS });
+}
+
 export const syncSubscriptionHandler: WriteHandlerDef = {
   name: "sync-subscription",
   agent: { expose: false },
@@ -143,9 +155,7 @@ export const syncSubscriptionHandler: WriteHandlerDef = {
       tier: snapshot.tier,
       currentPeriodEndIso: snapshot.currentPeriodEnd,
       cancelAtIso: snapshot.cancelAt,
-      // The retrieval time stands in for the provider's event time, so a webhook
-      // emitted before this snapshot cannot roll the synced state back later.
-      providerEventAtIso: Temporal.Now.instant().toString(),
+      providerEventAtIso: snapshotEventTime().toString(),
     });
 
     return {

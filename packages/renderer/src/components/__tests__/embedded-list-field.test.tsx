@@ -657,7 +657,12 @@ describe("EmbeddedListField — labelled footer totals", () => {
     );
     expect(captured?.totals).toEqual([
       { field: "amount", label: "Amount", value: 15000 },
-      { field: "amount+vatAmount", label: "Done.", value: 17850, money: true },
+      {
+        field: "amount+vatAmount:kumiko.actionForm.success",
+        label: "Done.",
+        value: 17850,
+        money: true,
+      },
     ]);
   });
 });

@@ -14,8 +14,10 @@ import type { Logger } from "../../logging/types.ts";
 import { ESCAPE_HATCH_USED_SIGNAL } from "../../observability/escape-hatch-report.ts";
 import { createTestUser } from "../../seeding/seed-users.ts";
 
+const GLOBAL_STORE_TABLE_NAME = "store_fw2861_escape_hatch_audit_items";
+
 const globalStoreTable = defineUnmanagedTable({
-  tableName: "store_fw2861_escape_hatch_audit_items",
+  tableName: GLOBAL_STORE_TABLE_NAME,
   tenancy: "global",
   columns: [
     {
@@ -167,6 +169,7 @@ describe("escape-hatch uses report through AppContext._escapeHatchAuditSink", ()
         reason: GLOBAL_WRITE_REASON,
         tenantId: user.tenantId,
         actor: user.id,
+        target: { id: GLOBAL_STORE_TABLE_NAME, tenantId: user.tenantId },
       },
     ]);
   });

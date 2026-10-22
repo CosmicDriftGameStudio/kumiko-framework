@@ -106,9 +106,11 @@ export const linkWaitlistOnSignup: MultiStreamApplyFn = async (event, tx) => {
     platformActor(),
     db,
   );
+  // skip: linked.
   if (updated.isSuccess) return;
   // A concurrent admin change that already moved the entry out of `invited` makes the link
   // moot; otherwise throw so the at-least-once consumer redelivers.
+  // skip: the entry left `invited` concurrently.
   if ((await findInvited())?.id !== id) return;
   throw new Error(`waitlist:link-on-signup: could not link waitlist entry ${id}`);
 };
