@@ -40,7 +40,13 @@ export async function createTestRedis(opts: CreateTestRedisOptions = {}): Promis
   const prefix = opts.borrowKeyPrefix ?? `kt:${generateId().slice(-8)}:`;
   // Callers that check redis.status (rate-limit resolver) must not see "connect" on their first call.
   const redis = new Redis(redisUrl, { keyPrefix: prefix, lazyConnect: true });
-  await redis.connect();
+  try {
+    await redis.connect();
+  } catch (error) {
+    // Without this the client keeps retrying in the background and holds the process open.
+    redis.disconnect();
+    throw error;
+  }
 
   async function deleteKeysMatching(pattern: string): Promise<void> {
     // Open a prefix-less client for the scan — ioredis' keyPrefix is applied
