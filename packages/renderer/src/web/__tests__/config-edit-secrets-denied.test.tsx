@@ -18,8 +18,7 @@ const providerScreen: ConfigEditScreenDefinition = {
   fields: {
     host: { type: "text" },
     password: { type: "text", writeOnly: true },
-    // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
-  } as ConfigEditScreenDefinition["fields"],
+  },
   layout: { sections: [{ title: "SMTP", fields: ["host", "password"] }] },
 };
 const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [providerScreen] };
