@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acquireGuardRunSlot, type GuardRunSlotOptions } from "../run-slots";
@@ -117,7 +125,7 @@ describe("acquireGuardRunSlot", () => {
       options({
         pid: 222,
         isPidAlive: () => true,
-        now: () => Date.now() + 16 * 60_000,
+        now: () => Date.now() + 3 * 60 * 60_000,
         sleep: () => {
           throw new Error("must not wait for a stale slot");
         },
@@ -128,6 +136,43 @@ describe("acquireGuardRunSlot", () => {
     release();
     expect(readdirSync(slotsDir)).toEqual([]);
   });
+
+  test("a live owner running longer than 15 minutes keeps its slot", () => {
+    const release111 = acquireGuardRunSlot(options({ pid: 111, isPidAlive: () => true }));
+    expect(() =>
+      acquireGuardRunSlot(
+        options({
+          pid: 222,
+          isPidAlive: () => true,
+          now: () => Date.now() + 20 * 60_000,
+          sleep: () => {
+            throw new Error("waited");
+          },
+        }),
+      ),
+    ).toThrow("waited");
+    expect(readdirSync(slotsDir)).toEqual(["slot-0"]);
+    release111();
+  });
+
+  test.skipIf(process.getuid === undefined)(
+    "a group/world-accessible slots dir fails open without waiting or claiming",
+    () => {
+      chmodSync(slotsDir, 0o777);
+      const logged: string[] = [];
+      const release = acquireGuardRunSlot(
+        options({
+          log: (line) => logged.push(line),
+          sleep: () => {
+            throw new Error("must not wait");
+          },
+        }),
+      );
+      expect(logged).toEqual(["→ guard slots unavailable (EUNSAFE), running without limit"]);
+      expect(readdirSync(slotsDir)).toEqual([]);
+      release();
+    },
+  );
 
   test("filesystem errors fail open without a slot", () => {
     const blocker = join(slotsDir, "blocker");

@@ -18,8 +18,8 @@
 #      sub-repo's own package.json `test` script — refuses the push if that
 #      script is missing.
 #
-# Before the checks below, the hook runs a gitleaks scan of origin/main..HEAD
-# when the binary is installed.
+# Before the checks below, the hook runs a gitleaks scan of origin/main..<pushed sha>
+# for every pushed ref when the binary is installed.
 #
 # Extension point: a tracked, executable scripts/pre-push-extra.sh runs
 # before the main check in every branch above, with KUMIKO_PUSH_REPO_ROOT
@@ -123,11 +123,27 @@ if ! command -v gitleaks >/dev/null 2>&1; then
 elif ! git -C "$REPO_ROOT" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
   echo "[pre-push] origin/main not found — secret scan skipped" >&2
 else
-  echo "[pre-push] gitleaks git origin/main..HEAD"
-  if ! (cd "$REPO_ROOT" && gitleaks git --no-banner --redact --log-opts="origin/main..HEAD" .); then
-    echo "[pre-push] gitleaks found secrets — refusing push" >&2
-    exit 1
+  # git passes "<local ref> <local sha> <remote ref> <remote sha>" per pushed ref on stdin;
+  # scan those tips (not HEAD), skip deletes. Without stdin (direct call) fall back to HEAD.
+  SCAN_TIPS=""
+  PUSH_LINES=0
+  if [ ! -t 0 ]; then
+    while read -r _local_ref LOCAL_SHA _remote_ref _remote_sha; do
+      [ -n "$LOCAL_SHA" ] || continue
+      PUSH_LINES=$((PUSH_LINES + 1))
+      case "$LOCAL_SHA" in *[!0]*) SCAN_TIPS="$SCAN_TIPS $LOCAL_SHA" ;; esac
+    done
   fi
+  if [ "$PUSH_LINES" -eq 0 ]; then
+    SCAN_TIPS=" HEAD"
+  fi
+  for SCAN_TIP in $SCAN_TIPS; do
+    echo "[pre-push] gitleaks git origin/main..$SCAN_TIP"
+    if ! (cd "$REPO_ROOT" && gitleaks git --no-banner --redact --log-opts="origin/main..$SCAN_TIP" .); then
+      echo "[pre-push] gitleaks found secrets — refusing push" >&2
+      exit 1
+    fi
+  done
 fi
 
 # infra#559/#569: from a worktree, `--git-common-dir` resolves to the main

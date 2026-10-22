@@ -1,3 +1,9 @@
+// Comment-language ratchet: no new German comments in product code. No NLP —
+// German markers are common function words or umlaut characters in the comment text.
+// Baseline mode compares per-file counts against a frozen file (more than the
+// baseline fails, fewer is allowed but does not rewrite it); `--touched` fails
+// on any German comment that overlaps a line added since `--base`.
+
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { scanCommentTrivia } from "./_lib/comment-trivia";
@@ -7,12 +13,6 @@ import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { resolvePushRepoRoot } from "./_lib/push-root";
 import { resolveRepoRoots } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
-
-// Comment-language ratchet: no new German comments in product code. No NLP —
-// German markers are common function words or umlaut characters in the comment text.
-// Baseline mode compares per-file counts against a frozen file (more than the
-// baseline fails, fewer is allowed but does not rewrite it); `--touched` fails
-// on any German comment that overlaps a line added since `--base`.
 
 export const COMMENT_LANG_FLAGS: readonly string[] = [
   "--touched",

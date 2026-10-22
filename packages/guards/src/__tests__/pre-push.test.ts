@@ -125,10 +125,12 @@ function runHook(
   cwd: string,
   ceilingDir: string,
   extraEnv: Record<string, string> = {},
+  stdin?: string,
 ): { output: string; exitCode: number } {
   const result = Bun.spawnSync([HOOK_PATH], {
     cwd,
     env: { ...fixtureEnv(ceilingDir), ...extraEnv },
+    ...(stdin === undefined ? {} : { stdin: Buffer.from(stdin) }),
   });
   return {
     output: result.stdout.toString() + result.stderr.toString(),
@@ -729,6 +731,48 @@ describe("kumiko-pre-push", () => {
       );
       expect(output).toContain("gitleaks found secrets — refusing push");
       expect(output).not.toContain("bun run test (standalone)");
+    });
+
+    test("scans the pushed shas from stdin, skips deletes", () => {
+      const dir = writeStandaloneRepoWithOriginMain();
+      const stubDir = join(tmp, "stub-bin");
+      mkdirSync(stubDir);
+      writeExecutable(
+        join(stubDir, "gitleaks"),
+        '#!/usr/bin/env sh\necho "GITLEAKS_ARGS=$*"\nexit 0\n',
+      );
+      const zeroSha = "0".repeat(40);
+      const sha = "a".repeat(40);
+
+      const { output, exitCode } = runHook(
+        dir,
+        tmp,
+        { PATH: `${stubDir}:${process.env["PATH"] ?? ""}` },
+        `refs/heads/x ${sha} refs/heads/x ${zeroSha}\n(delete) ${zeroSha} refs/heads/gone ${sha}\n`,
+      );
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain(`--log-opts=origin/main..${sha} .`);
+      expect(output).not.toContain("origin/main..HEAD");
+      expect(output.match(/GITLEAKS_ARGS=/g)?.length).toBe(1);
+    });
+
+    test("a delete-only push runs no secret scan", () => {
+      const dir = writeStandaloneRepoWithOriginMain();
+      const stubDir = join(tmp, "stub-bin");
+      mkdirSync(stubDir);
+      writeExecutable(join(stubDir, "gitleaks"), "#!/usr/bin/env sh\nexit 1\n");
+      const zeroSha = "0".repeat(40);
+
+      const { output, exitCode } = runHook(
+        dir,
+        tmp,
+        { PATH: `${stubDir}:${process.env["PATH"] ?? ""}` },
+        `(delete) ${zeroSha} refs/heads/gone ${"b".repeat(40)}\n`,
+      );
+
+      expect(exitCode).toBe(0);
+      expect(output).not.toContain("gitleaks found secrets");
     });
 
     test("missing origin/main warns instead of failing", () => {

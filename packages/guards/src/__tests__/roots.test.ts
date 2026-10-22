@@ -214,3 +214,30 @@ describe("findLocalRepo — kind 'framework' is reserved for kumiko-framework", 
     rmSync(ws, { recursive: true, force: true });
   });
 });
+
+describe("findLocalRepo — the manifest walk stops at the git root", () => {
+  test("a kumiko.json above the git root of a manifest-less repo is ignored", () => {
+    const ws = workspace();
+    writeRepo(ws, {
+      name: "outer",
+      layout: { manifest: { kind: "app", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] } },
+    });
+    const repo = join(ws, "own-repo");
+    writePkg(repo, "own-repo");
+    const env: Record<string, string> = {
+      ...gitEnv(),
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CEILING_DIRECTORIES: ws,
+    };
+    expect(Bun.spawnSync(["git", "-C", repo, "init", "-q", "-b", "main"], { env }).success).toBe(
+      true,
+    );
+    const nested = join(repo, "src");
+    mkdirSync(nested, { recursive: true });
+
+    const local = findLocalRepo(nested);
+
+    expect(local?.absPath).toBe(repo);
+    rmSync(ws, { recursive: true, force: true });
+  });
+});

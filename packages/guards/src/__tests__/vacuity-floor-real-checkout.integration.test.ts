@@ -15,7 +15,7 @@ describe("Vacuity-Floor gegen den echten Checkout", () => {
   // this test past its 15 s budget on CI.
   test("jeder Guard bekommt Dateien oder ist legitim leer", () => {
     const roots = resolveRepoRoots();
-    if (roots.length === 0) return;
+    expect(roots.length).toBeGreaterThan(0);
     const problems = GUARDS.flatMap((guard) => {
       const scans = scanRoots(guard.scan, roots);
       if (scans.length === 0) return [];
@@ -29,7 +29,7 @@ describe("Vacuity-Floor gegen den echten Checkout", () => {
 
   test("der lokale Repo-Root liefert eine positive Source-Surface und Dateien für eine Source-Scan-Spec", () => {
     const roots = resolveRepoRoots();
-    if (roots.length === 0) return;
+    expect(roots.length).toBeGreaterThan(0);
     const spec: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };
     const [scan] = scanRoots(spec, roots);
     expect(scan?.sourceSurface).toBeGreaterThan(0);

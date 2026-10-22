@@ -1,11 +1,3 @@
-import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-import { Project } from "ts-morph";
-import { cliFlagsError, type GuardViolation, reportResults } from "./_lib/guard-kit";
-import { frameworkTsConfigPath, resolveRepoRoots } from "./_lib/roots";
-
 // Public exports of packages/framework and packages/bundled-features must not
 // disappear (rename/removal) without a breaking changelog entry.
 //
@@ -29,6 +21,14 @@ import { frameworkTsConfigPath, resolveRepoRoots } from "./_lib/roots";
 // Scope: only the two packages with a changes.json home. packages/framework
 // has ONE changelog (src/changes.json); packages/bundled-features has one PER
 // FEATURE (src/<feature>/changes.json, feature = first export-key segment).
+
+import { spawnSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { Project } from "ts-morph";
+import { cliFlagsError, type GuardViolation, reportResults } from "./_lib/guard-kit";
+import { frameworkTsConfigPath, resolveRepoRoots } from "./_lib/roots";
 
 export const PUBLIC_EXPORTS_CHANGELOG_FLAGS: readonly string[] = [
   "--write-baseline",

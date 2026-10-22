@@ -97,6 +97,8 @@ const GUARD_NAME_PREFIX = "--guard=";
 
 export type RunGuardsCliDeps = {
   readonly writeBaselineRoots?: readonly RepoRoot[];
+  readonly acquireSlot?: () => () => void;
+  readonly buildProject?: typeof buildSharedProject;
 };
 
 // Shared by the direct `bun run-guards.ts` invocation below and by the
@@ -158,9 +160,9 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
   const strictSecurityBaseline = flags.includes("--strict-security-baseline");
   const guards = strictSecurityBaseline ? GUARDS.filter(isSecurityGuard) : GUARDS;
   // Taken before the ts-morph project is built: that is where the memory goes.
-  const releaseSlot = acquireGuardRunSlot();
+  const releaseSlot = (deps.acquireSlot ?? acquireGuardRunSlot)();
   try {
-    const project = buildSharedProject(guards);
+    const project = (deps.buildProject ?? buildSharedProject)(guards);
     printGuardKitBanner(guards.length, project);
     return reportResults(runGuards(guards, project, { strictSecurityBaseline }));
   } finally {
