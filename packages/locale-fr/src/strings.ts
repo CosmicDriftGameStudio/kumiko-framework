@@ -1169,7 +1169,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver:write:archive-system:title": "Archiver le modèle système",
   "template-resolver:write:discard-draft:title": "Supprimer le brouillon",
   "template-resolver:write:discard-draft-system:title": "Supprimer le brouillon du modèle système",
-  "template-resolver:write:reset-to-system:title": "Rétablir le modèle système",
+  "template-resolver:write:reset-to-system:title": "Revenir au modèle système",
   "template-resolver:write:set:title": "Enregistrer le texte",
   "template-resolver:write:import-bundle:title": "Importer le modèle",
   "template-resolver:write:import-bundle-system:title": "Importer un modèle système",

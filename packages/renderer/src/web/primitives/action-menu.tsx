@@ -83,7 +83,7 @@ export function ActionMenu({
             return <DropdownMenuSeparator key={`sep-${idx}`} />;
           }
           if (item.kind === "label") {
-            // biome-ignore lint/suspicious/noArrayIndexKey: Separators have no ID, so their position provides identity
+            // biome-ignore lint/suspicious/noArrayIndexKey: labels have no ID either, so their position provides identity
             return <DropdownMenuLabel key={`label-${idx}`}>{item.label}</DropdownMenuLabel>;
           }
           return (

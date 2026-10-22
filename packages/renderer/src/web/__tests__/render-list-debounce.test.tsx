@@ -203,6 +203,46 @@ describe("RenderList — Search-Debounce", () => {
     expect(onSearchChange).toHaveBeenLastCalledWith("abc");
   });
 
+  test("verspätetes Echo eines älteren Emits sendet den schon gesendeten neueren Wert nicht erneut", () => {
+    const onSearchChange = mock();
+    const tree = (searchValue: string) => (
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <RenderList
+            screen={screenDef}
+            entity={entity}
+            rows={[]}
+            featureName="t"
+            searchable
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+          />
+        </PrimitivesProvider>
+      </LocaleProvider>
+    );
+    const { rerender } = render(tree(""));
+    const input = screen.getByPlaceholderText(
+      /kumiko\.list\.search-placeholder|suchen/i,
+    ) as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "a" } });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    fireEvent.change(input, { target: { value: "ab" } });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(onSearchChange.mock.calls).toEqual([["a"], ["ab"]]);
+
+    rerender(tree("a"));
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    expect(input.value).toBe("ab");
+    expect(onSearchChange.mock.calls).toEqual([["a"], ["ab"]]);
+  });
+
   test("externer Wechsel auf den zuletzt gesendeten Wert wird nach einem anderen externen Wert wieder übernommen", () => {
     const onSearchChange = mock();
     const tree = (searchValue: string) => (

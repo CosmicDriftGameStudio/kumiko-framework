@@ -30,4 +30,22 @@ describe("createBoundedLoadCache", () => {
     });
     expect(reloads).toBe(1);
   });
+
+  test("a handled failure that shouldKeep rejects is retried on the next call", async () => {
+    type Result = { readonly ok: boolean };
+    const get = createBoundedLoadCache<Result>(
+      4,
+      () => {},
+      (result) => result.ok,
+    );
+    expect(await get("doc", () => Promise.resolve({ ok: false }))).toEqual({ ok: false });
+    await Promise.resolve();
+    expect(await get("doc", () => Promise.resolve({ ok: true }))).toEqual({ ok: true });
+    let reloads = 0;
+    await get("doc", () => {
+      reloads += 1;
+      return Promise.resolve({ ok: true });
+    });
+    expect(reloads).toBe(0);
+  });
 });

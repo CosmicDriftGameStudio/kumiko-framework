@@ -21,6 +21,9 @@ export function createLiveRefetchScheduler(
     inFlight = true;
     try {
       await run();
+    } catch {
+      // The caller surfaces its own load errors in state; a failed run must
+      // neither become an unhandled rejection nor drop the queued follow-up.
     } finally {
       inFlight = false;
     }

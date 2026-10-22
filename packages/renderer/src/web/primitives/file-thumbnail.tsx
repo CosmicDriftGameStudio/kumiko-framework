@@ -103,6 +103,12 @@ const META_CACHE_LIMIT = 500;
 const metaCache = new Map<string, Promise<FileMeta | null>>();
 let pendingMetaIds = new Map<string, (meta: FileMeta | null) => void>();
 
+/** File names are per-user data and the server re-checks access per request, so
+ *  the cache must not outlive the session that filled it. */
+export function clearFileMetaCache(): void {
+  metaCache.clear();
+}
+
 function parseBatchMeta(json: unknown): ReadonlyMap<string, FileMeta> {
   const metaById = new Map<string, FileMeta>();
   if (typeof json !== "object" || json === null || !("files" in json)) return metaById;

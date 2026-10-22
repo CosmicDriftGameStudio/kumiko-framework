@@ -1157,7 +1157,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver:write:archive-system:title": "Archivia modello di sistema",
   "template-resolver:write:discard-draft:title": "Scarta bozza",
   "template-resolver:write:discard-draft-system:title": "Scarta bozza del modello di sistema",
-  "template-resolver:write:reset-to-system:title": "Ripristina modello di sistema",
+  "template-resolver:write:reset-to-system:title": "Ripristina al modello di sistema",
   "template-resolver:write:set:title": "Salva testo",
   "template-resolver:write:import-bundle:title": "Importa modello",
   "template-resolver:write:import-bundle-system:title": "Importa modello di sistema",

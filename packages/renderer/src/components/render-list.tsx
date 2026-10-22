@@ -181,7 +181,8 @@ export type ToolbarActionButton = {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Icon-less actions are promoted too (with a "plus" fallback at the call site).
+// Icon-less actions are promoted too; on phones the call site falls back to a
+// "plus" icon, on desktop the label carries the action.
 function isHeaderPromotableToolbarAction(action: ToolbarActionButton): boolean {
   return action.style === "primary" && !needsActionConfirm(action);
 }
@@ -251,21 +252,27 @@ export function RenderList(props: RenderListProps): ReactNode {
   // The parent may echo our own debounced emits back late (router/URL round
   // trip), possibly after a newer emit already went out; adopting such a stale
   // echo would erase keys typed in between. All unechoed emits are kept, and a
-  // matching echo drops itself and every older one.
+  // matching echo drops itself and every older one. The render phase only reads
+  // the list (a discarded or repeated render must find the echo again); the
+  // matched entries are dropped in an effect.
   const pendingEmitsRef = useRef<string[]>([]);
   if (searchValue !== syncedSearchValue) {
     setSyncedSearchValue(searchValue);
-    const echoIndex = pendingEmitsRef.current.indexOf(searchValue ?? "");
-    if (echoIndex >= 0) {
-      pendingEmitsRef.current.splice(0, echoIndex + 1);
-    } else {
+    if (!pendingEmitsRef.current.includes(searchValue ?? "")) {
       setLocalQ(searchValue ?? "");
       pendingEmitsRef.current = [];
     }
   }
   useEffect(() => {
+    const echoIndex = pendingEmitsRef.current.indexOf(syncedSearchValue ?? "");
+    if (echoIndex >= 0) pendingEmitsRef.current.splice(0, echoIndex + 1);
+  }, [syncedSearchValue]);
+  useEffect(() => {
     if (onSearchChange === undefined) return;
     if (localQ === (searchValue ?? "")) return;
+    // A late echo of an older emit changes searchValue but must not re-send
+    // the value that is already in flight.
+    if (pendingEmitsRef.current.at(-1) === localQ) return;
     const timer = setTimeout(() => {
       pendingEmitsRef.current.push(localQ);
       onSearchChange(localQ);

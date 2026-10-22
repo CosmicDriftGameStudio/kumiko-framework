@@ -1157,7 +1157,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver:write:discard-draft:title": "Descartar borrador",
   "template-resolver:write:discard-draft-system:title":
     "Descartar borrador de la plantilla del sistema",
-  "template-resolver:write:reset-to-system:title": "Restablecer la plantilla del sistema",
+  "template-resolver:write:reset-to-system:title": "Restablecer a la plantilla del sistema",
   "template-resolver:write:set:title": "Guardar texto",
   "template-resolver:write:import-bundle:title": "Importar plantilla",
   "template-resolver:write:import-bundle-system:title": "Importar plantilla del sistema",

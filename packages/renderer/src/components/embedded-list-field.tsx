@@ -216,7 +216,7 @@ function EmbeddedListFieldInner({
       };
     }
     return {
-      field: entry.from.join("+"),
+      field: `${entry.from.join("+")}:${entry.label}`,
       label: t(entry.label),
       value: entry.from.reduce((sum, name) => sum + sumEmbeddedListColumn(rows, name), 0),
       money: entry.from.every((name) => cells.find((c) => c.field === name)?.type === "money"),

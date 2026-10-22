@@ -40,6 +40,10 @@ export async function fetchFileRefBlob(
   };
 }
 
+// The browser starts the download after click() returns; Safari and some
+// Firefox versions fail it when the blob URL is already revoked.
+const OBJECT_URL_REVOKE_DELAY_MS = 40_000;
+
 export function saveBlobAsFile(fileName: string, blob: Blob, options?: { bom?: boolean }): void {
   const payload = options?.bom === true ? new Blob([UTF8_BOM, blob], { type: blob.type }) : blob;
   const url = URL.createObjectURL(payload);
@@ -54,7 +58,7 @@ export function saveBlobAsFile(fileName: string, blob: Blob, options?: { bom?: b
       anchor.remove();
     }
   } finally {
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_REVOKE_DELAY_MS);
   }
 }
 

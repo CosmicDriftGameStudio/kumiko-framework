@@ -24,9 +24,13 @@ const MAX_CACHED_DOCUMENTS = 4;
 
 export type PdfPreviewSource = { readonly base64: string } | { readonly url: string };
 
-const cachedDocument = createBoundedLoadCache<LoadedDocument>(MAX_CACHED_DOCUMENTS, (loaded) => {
-  if (loaded.ok) void loaded.loadingTask.destroy();
-});
+const cachedDocument = createBoundedLoadCache<LoadedDocument>(
+  MAX_CACHED_DOCUMENTS,
+  (loaded) => {
+    if (loaded.ok) void loaded.loadingTask.destroy();
+  },
+  (loaded) => loaded.ok,
+);
 
 function decodeBase64(base64: string): Uint8Array {
   const binary = atob(base64);
