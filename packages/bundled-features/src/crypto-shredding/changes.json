@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "forget-subject audit event survives a failing record owner lookup",
+    "detail": "The lookup of the record row's owning tenant now runs inside the file purge step, so a database error there is reported as cleanupError on the subject-forgotten event instead of aborting the handler after the key was erased."
+  },
+  {
     "version": "0.377.0",
     "type": "fix",
     "title": "Forgetting a user also removes their unbound pending uploads",

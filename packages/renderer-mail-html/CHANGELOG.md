@@ -1,5 +1,80 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.388.0
+
+### Patch Changes
+
+- 7ef7e6c: Mail footer, richText meta lines and PDF image conditions hardened.
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: Mail footer cannot be dropped, richText in subject is plain text
+  detail: An mjml layout without the mailFooterHtml placeholder now gets the platform footer appended before the end of the body. Layout links to the imprint or unsubscribe URL only count when they sit in the header, signature or footer region and have link text. richText variables in subject, preview and other meta lines render as plain text instead of raw HTML. An invalid tenant time zone is logged as a warning.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: fix
+  title: Conditions on images variables work in the PDF render
+  detail: A data-condition on an images variable now shows its block when the record has resolvable images, instead of never. Record image loading stops once the byte budget is used up, caps the number of looked-up ids, and ignores image blocks whose variable is not declared as images.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [ff553d1]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [4e3bb2c]
+- Updated dependencies [ff553d1]
+- Updated dependencies [6262122]
+- Updated dependencies [453b3f0]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [ed4e21b]
+- Updated dependencies [374a12b]
+- Updated dependencies [cecdf71]
+- Updated dependencies [014b9ab]
+- Updated dependencies [37db191]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [5520352]
+- Updated dependencies [a0a8204]
+- Updated dependencies [2924949]
+- Updated dependencies [c52702e]
+- Updated dependencies [b62e6cd]
+- Updated dependencies [1e3e94d]
+- Updated dependencies [084c9c0]
+- Updated dependencies [c5b197e]
+- Updated dependencies [c2a97fd]
+- Updated dependencies [669cd2e]
+- Updated dependencies [3c57f8f]
+- Updated dependencies [2fb7e2b]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+- Updated dependencies [1425622]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-renderer@0.388.0
+  - @cosmicdrift/kumiko-bundled-features@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

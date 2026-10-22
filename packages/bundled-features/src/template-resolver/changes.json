@@ -1,5 +1,53 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Template overrides, key collisions and by-tenant queries",
+    "detail": "link-pdf refuses a key that already holds an inline image (key_in_use). by-tenant no longer runs a query per row, tenant-override-counts selects only the needed columns, and tenant-overrides resolves names beyond the first 200 tenants or users through the new ids filter of the tenant and member directories. Notification preference and form-draft cleanup queries bind array parameters as Postgres array literals."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Re-seeding keeps archived system templates, drops stale drafts and adds only missing bundle locales",
+    "detail": "A boot-time re-seed no longer reactivates an archived system template and clears an open system draft when the seeded content changes. A bundle with resources seeded with ifExists skip imports only the missing locales instead of overwriting existing system rows. copy-locale fails with version_conflict when its source changed between the upload and the transaction, and releases the uploaded files."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "isCollectionRefusedKind is a type predicate",
+    "detail": "isCollectionRefusedKind accepts unknown and narrows to the refused kinds; tier-engine's isTierAssignmentSource shares the isOneOf implementation. Behavior is unchanged."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Layout usage list matches the overview",
+    "detail": "The usage query of a mail layout filters the mail rows by the caller's visibility like the overview and logs a warning when the 5000-row limit cuts the result."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Admin views follow the delivery rule of rendering",
+    "detail": "List, find-by-id, diff-to-system, validate, preview and the document base hide a collection row that a locked system template of the same slug shadows, as mail, PDF and the resolver already do."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Seeded title key must look like a namespace:key",
+    "detail": "seedSystemTemplate rejects a titleI18nKey without a namespace prefix or with whitespace, so free text cannot pass as a key and show up raw in the UI."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Failing release keeps the upload error",
+    "detail": "When releasing already uploaded files fails after a refused upload in copy-locale or bundle import, the release error is logged and the original error is returned, and the releases run once."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Mail layout enums and hex color pattern are exported client-side",
+    "detail": "The layout editor imports the width, font, accent line and button style lists plus the hex pattern from the template-resolver web barrel instead of keeping copies, so editor and server validation cannot drift."
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Template overview reports tenant overrides per template",

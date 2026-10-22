@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Deliver job validates its payload at the trigger",
+    "detail": "The deliver job now declares its payload schema, so a manual trigger with an invalid payload is rejected up front instead of throwing inside the handler and consuming all retries."
+  },
+  {
     "version": "0.365.1",
     "type": "fix",
     "title": "step-dispatcher delivers each dispatch as a retried job, so a slow receiver no longer delays other tenants",

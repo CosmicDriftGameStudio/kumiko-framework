@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Encrypted drafts without a PII key service raise an error",
+    "detail": "Reading a ciphertext draft with no PII subject key service configured throws instead of returning an empty draft, so the stale-draft cleanup defers it and no longer releases its file refs as if it were empty."
+  },
+  {
     "version": "0.379.0",
     "type": "breaking",
     "title": "Form draft content is encrypted per owner",

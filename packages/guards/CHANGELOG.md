@@ -1,5 +1,114 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.388.0
+
+### Patch Changes
+
+- 044428c: `kumiko-schema` and the standalone `kumiko schema apply` bundle print all of their messages in English now. The remaining German lines (missing schema file or migrations folder, unknown subcommand, the help text, the generate hints, the standalone apply progress lines) were translated. `runSchemaCli()` dispatches each subcommand through a table to its own handler, and `requiredKeysFromScreen()` collects keys through one collector per screen kind.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema output in English, schema CLI and screen key collection split per kind
+  detail: Visible change: kumiko-schema (and the dev `kumiko schema` command) now prints "is missing", "App convention", "No schema changes detected — no new migration file written.", "Review, hand-edit if needed, then git add + commit.", "is missing — run schema generate <name> first.", "No kumiko/migrations/ — the app is still on the legacy drizzle path.", "Unknown subcommand" / "Allowed", "must declare `export const ENTITY_METAS: EntityTableMeta[]`" and an English help text instead of the German lines. The standalone `kumiko schema apply` of production bundles prints "Creating framework infrastructure tables (idempotent)…", "Applying kumiko migrations (…)…", "… is missing — kumiko/migrations/ must be part of the image." and "Unknown command: kumiko … / The standalone bundle only supports 'kumiko schema apply'.". Scripts that matched the German text need the English one. Exit codes, the order of the output lines and which lines go to stderr are unchanged. runSchemaCli() keeps its signature; each subcommand lives in its own file under schema-cli/. requiredKeysFromScreen() returns the same keys in the same order; a screen with an unknown type (only reachable through a cast) yields just its title key.
+  -->
+- f81f639: The hard complexity cap drops from 60 to 40. The thin-wrapper guard no longer reports functions that fill a slot of a typed table.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Complexity hard cap 40, thin-wrapper guard skips typed table slots
+  detail: A function above complexity 40 in the repo's own files fails the complexity guard, independent of the complexity baseline and of the complexity-budget tag, also with --no-baseline. The thin-wrapper guard skips a function that is a value of an object literal with a declared type or a satisfies check, inline or referenced by name, because the table fixes its signature.
+  migration: Split every function above complexity 40 before the bump; the complexity-budget tag and the baseline do not cover it. `bun check-complexity.ts --all --no-baseline` lists them under "Above hard cap".
+  -->
+- 7e54012: The complexity guard has a hard cap: a function above complexity 60 in the repo's own files always fails, whatever the baseline or a budget tag says. `check-complexity.ts --all` lists every hotspot instead of the first 30. The file-size threshold drops from 2000 to 1200 lines.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Complexity hard cap, --all, file-size threshold 1200
+  detail: Functions with complexity above 60 are a violation in the repo's own files, independent of the complexity baseline and of the complexity-budget tag, also with --no-baseline. The report lists them in their own section. `bun check-complexity.ts --all` prints all hotspots in the standalone run, --write-baseline and --no-baseline. The file-size guard now freezes files above 1200 lines instead of 2000.
+  migration: Consumer repos without a complexity baseline get a hard error for functions above complexity 60; split them. File size stays a warning there without a baseline; with one, files between 1200 and 2000 lines count as new hits until `--write-baseline` is run.
+  -->
+- 0528a2d: Fix managed-file sync, static config parsing and boot cleanup.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed CI, app jobs and static config parsing
+  detail: The public ci.yml sets MEILI_URL and MEILI_MASTER_KEY for the Meilisearch service. App-owned workflow jobs with a trailing comment or a quoted name survive a sync. kumiko.config.ts with shorthand or spread siblings next to literal ports is read as defined instead of invalid.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp releases connections when the boot fails
+  detail: A failing boot closes the database pools, the Redis client and the KMS adapter it already opened. The KMS health wait logs "KMS not reachable" instead of "database not reachable".
+  -->
+- a10796c: Guards infrastructure hardening: pre-push scans the pushed shas, the guard run slot dir must be private, the manifest walk stops at the git root.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Harden guards infrastructure (pre-push scan range, slot dir, root walk)
+  detail: The pre-push secret scan covers every pushed ref instead of HEAD. The guard slot directory is created 0700 and ignored when not private; slot max age is 2 h. findLocalRepo no longer picks up a kumiko.json above the git root. Runtime-isolation keeps web/dev/ files as client.
+  -->
+- 70f0718: Guard accuracy fixes: import types, mock.module and template literals in import-extensions, no file-name false positives in comment-issue-ref-only, entity registrations with constant or shorthand names, direct writes on package catalog tables without own ES tables, and neutral rewrite commands.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Guards report fewer false results
+  detail: The import-extensions guard now also checks import types, mock.module and template-literal specifiers. The comment-issue-ref-only guard no longer treats file names like round2.ts as plan labels. The direct-entity-writes guard recognises r.entity registrations with a constant or shorthand name, reports direct writes on package catalog tables even when the scope has no own ES tables, keeps receiver text on one line and names the installed kumiko-guards bin in its catalog rewrite hint. The app-feature-structure guard no longer tells dev/ and scripts/ files to move under web/, and the bundled license exceptions drop the stale first-party and create-kumiko-app entries.
+  -->
+- ab7c4ee: Guard and CI fixes: exception handling, timeout detection, renderer boundaries, import extensions and agent examples.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Dependency exceptions, timeout and boundary guards no longer miss or invent findings
+  detail: A renewed license or security exception now wins over an expired earlier one, license exceptions must match the package license and a real semver range, and only exceptions that suppressed an advisory block on near expiry. The test-timeouts guard also flags union-typed and untyped timeout arguments, the renderer-boundaries guard covers headless and live imports, import-extensions ignores real .js files without a .ts sibling, and the generated agent examples now include bin, e2e, seeds and scripts files.
+  -->
+- c23dce0: The guards `--explain` run now honors the injectable project builder, so its no-slot behavior is covered by a fast unit test.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Guards --explain uses the injectable project builder
+  detail: runGuardsCli builds the explain project through the same buildProject dependency as the check run, which lets tests assert that --explain takes no guard run slot without parsing the whole repository.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [374a12b]
+- Updated dependencies [014b9ab]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+  - @cosmicdrift/kumiko-framework@0.388.0
+
 ## 0.387.0
 
 ### Minor Changes

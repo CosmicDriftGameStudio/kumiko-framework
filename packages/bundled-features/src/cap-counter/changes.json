@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Consume on a released reservation extends its tombstone",
+    "detail": "Every consume against a released reservation tombstone now pushes its expiry out, so a long-running job that consumes across the sweep can no longer lose the tombstone and have its earlier units counted twice at settle."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Misconfigured cap period fails on every enforcement",
+    "detail": "A periodEndIso that is unparsable or not after periodStartIso now throws on each enforceCap or reservation call instead of only once the hard cap is reached, so a bad period no longer turns into a 500 at the limit instead of cap_exceeded."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Stock cap lock covers the counted rows, not the error code",
+    "detail": "withStockCap serializes on the table and where filter that are counted, so two handlers capping the same rows under different codes can no longer both pass the check in parallel and exceed the cap together."
+  },
+  {
     "version": "0.378.0",
     "type": "fix",
     "title": "Stock caps are atomic under parallel writes",

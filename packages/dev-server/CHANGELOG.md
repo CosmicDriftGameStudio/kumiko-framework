@@ -1,5 +1,192 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.388.0
+
+### Patch Changes
+
+- 7e54012: `runProdApp` passes `errorDocs` and `instanceId` to the server. `ApiEntrypointOptions` now carries both fields. Before, the entrypoint dropped them silently, so the `errorDocs` option of `runProdApp` had no effect, and a `KUMIKO_INSTANCE_ID` set only in a custom `envSource` never reached the server, which fell back to `process.env`. The boot-abort cleanup of `runProdApp` moved into a helper that also swallows synchronously throwing cleanups, and `wireDevAuth` now takes only the config fields it reads.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: runProdApp passes errorDocs and instanceId to the server
+  detail: ApiEntrypointOptions now carries errorDocs and instanceId and createApiEntrypoint forwards them to the server. Before, runProdApp dropped its errorDocs option, and a KUMIKO_INSTANCE_ID set only in a custom envSource never reached the server, which fell back to process.env. The boot-abort cleanup of runProdApp also moved into a helper that swallows synchronously throwing cleanups.
+  -->
+- f81f639: The registry checks physical-table collisions against the table name the DDL creates, so two entities of different features with the same physical table now fail at boot. `WorkerEntrypointOptions` carries `instanceId`, and `runWorkerApp` reads `KUMIKO_INSTANCE_ID` from its `envSource`. The PII and retention validator, the cascade-delete hook, `computeListViewModel`, `applyFormatSpec` and the field projection of `buildAppSchema` are rule tables with unchanged messages and order, and the remaining German dev messages are English.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Physical-table collisions use the DDL table name
+  detail: createRegistry compared entity tables under a feature-prefixed name that no DDL path creates, so an entity whose explicit table equals another feature's derived table name, or two entities with the same explicit table in different features, registered fine and then emitted the same CREATE TABLE twice. The check now uses the unprefixed physical name, the same as the store-table check and the migrate runner.
+  migration: Apps where two entities share a physical table name fail at boot with "has physical table ... which collides with entity ...". Give one of them a different `table`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Worker entrypoint takes instanceId
+  detail: WorkerEntrypointOptions now carries instanceId (moved to BaseEntrypointOptions, so the API and all-in-one options keep it) and createWorkerEntrypoint forwards it to the server. runWorkerApp reads KUMIKO_INSTANCE_ID from its envSource like runProdApp, so with KUMIKO_INSTANCE_ID set, per-instance consumers in the worker and its app.started event use the same id. Before, the worker server only saw process.env.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PII, retention and cascade-delete rules as tables, English dev messages
+  detail: validatePiiAndRetention runs one checker per rule in a fixed order, and the cascade-delete hook dispatches each relation through a table of onDelete strategies. Error and warning texts, their order, transaction boundaries and event order are unchanged. buildAppSchema forwards field properties through an ordered table, and kumiko-upgrade and the pii-personal-migration codemod run one function per step; their output is byte-identical. The dev warnings of normalizeListColumn and buildAppSchema are now English.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: List view model and cell formats as tables
+  detail: computeListViewModel resolves each column through an ordered list of resolvers and applyFormatSpec dispatches through a table of cell formatters. Output is unchanged; a format named like an Object.prototype member such as "toString" still takes the unknown-format path.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: English buildServerBundle errors
+  detail: The errors for a missing bin/main.ts and a missing bin/kumiko.ts in buildServerBundle are now English.
+  -->
+- 0c73470: createKumikoServer is split into named boot phases in their own files next to create-kumiko-server.ts. Routes, responses, log output, start and stop order and the public exports are unchanged.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Named boot phases for the dev server
+  detail: createKumikoServer now reads as a list of phases: client bundles, Tailwind stylesheet, HTML templates, stack boot, background runners, fetch handler, HTTP server, shutdown, file watchers and signal handlers. Each phase lives in its own create-kumiko-server-*.ts file. Request routing is a route table instead of one if chain, and the file watcher classifies changes through suffix and directory tables. Responses, headers, cookies, the reload stream, log lines, exit codes and the start and stop order stay the same. PROD_BUNDLES_ENV, STYLESHEET_WATCH_ENV and resolveStylesheet are still exported from the package index.
+  -->
+- d4dde3f: `runProdApp()`, `runDevApp()` and `setupTestStack()` are now short composers that call one named phase function per boot step. Step order, log and error texts, wait paths and shutdown order are unchanged.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp split into boot phases, boot steps shared with dev and worker
+  detail: runProdApp() keeps its signature and behavior. Config resolution, feature composition, dependency connection, request context, auth wiring, entrypoint, seeds and the returned handle now live in run-prod-app-*.ts files next to run-prod-app.ts. Steps that prod, dev and the worker ran as copies (env defaults, feature composition, boot validation, the auth-mfa switch-tenant gate, the tier and feature-toggle resolver, standard boot seeds, shared auth routes, the KMS health gate and the database pools) live once in the new subpath @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. requireEnv is still exported from run-prod-app under the same name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp split into boot phases
+  detail: runDevApp() keeps its signature and behavior. Config resolution and boot validation (run-dev-app-config.ts), late-bound tier, session and token wiring plus the onAfterSetup step (run-dev-app-auth.ts) and the createKumikoServer options (run-dev-app-server-options.ts) are separate phases. Steps shared with prod come from @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. A new unit test covers the late-bound tier resolver's boot-order guard and trialGate delegation.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: setupTestStack split into setup phases
+  detail: setupTestStack() keeps its signature and behavior. Feature validation, storage provisioning with its DDL cleanup, cache sync, services, the job runner and the server start are separate phases in stack/test-stack-setup.ts. The cleanup on a failed setup still stops the job runner, closes cache sync and drops the test database and Redis in that order.
+  -->
+- 044428c: `kumiko-schema` and the standalone `kumiko schema apply` bundle print all of their messages in English now. The remaining German lines (missing schema file or migrations folder, unknown subcommand, the help text, the generate hints, the standalone apply progress lines) were translated. `runSchemaCli()` dispatches each subcommand through a table to its own handler, and `requiredKeysFromScreen()` collects keys through one collector per screen kind.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema output in English, schema CLI and screen key collection split per kind
+  detail: Visible change: kumiko-schema (and the dev `kumiko schema` command) now prints "is missing", "App convention", "No schema changes detected — no new migration file written.", "Review, hand-edit if needed, then git add + commit.", "is missing — run schema generate <name> first.", "No kumiko/migrations/ — the app is still on the legacy drizzle path.", "Unknown subcommand" / "Allowed", "must declare `export const ENTITY_METAS: EntityTableMeta[]`" and an English help text instead of the German lines. The standalone `kumiko schema apply` of production bundles prints "Creating framework infrastructure tables (idempotent)…", "Applying kumiko migrations (…)…", "… is missing — kumiko/migrations/ must be part of the image." and "Unknown command: kumiko … / The standalone bundle only supports 'kumiko schema apply'.". Scripts that matched the German text need the English one. Exit codes, the order of the output lines and which lines go to stderr are unchanged. runSchemaCli() keeps its signature; each subcommand lives in its own file under schema-cli/. requiredKeysFromScreen() returns the same keys in the same order; a screen with an unknown type (only reachable through a cast) yields just its title key.
+  -->
+- cecdf71: CLI and dev-server hardening: managed/scripts checks warn before adoption, sync-managed resolves the repo root, resources are released on boot failure, late-bound revokers unbind safely, server lockfile is verified.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: check, sync-managed and backfill-pii handle failure and subdirectories correctly
+  detail: kumiko check only warns about unresolvable managed files or package.json scripts until kumiko.config.ts calls defineAppConfig. sync-managed resolves the repo root like check instead of using cwd. ops backfill-pii closes the KMS wiring when registry creation fails. The agent command reuses allAppFeatures from the framework config.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: runDevApp releases the KMS on any boot failure; server lockfile is verified
+  detail: runDevApp closes the KMS wiring when a boot gate throws before the server is created. Stopping one app no longer replaces the session, MFA and PAT revokers a newer app bound on the same feature instances: the bind functions of sessions, auth-mfa and personal-access-tokens return an unbind that only clears its own binding. writeServerLockfile replays the frozen install the runtime image runs, so a lock that did not re-resolve fails in kumiko-build.
+  -->
+- 0528a2d: Fix managed-file sync, static config parsing and boot cleanup.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed CI, app jobs and static config parsing
+  detail: The public ci.yml sets MEILI_URL and MEILI_MASTER_KEY for the Meilisearch service. App-owned workflow jobs with a trailing comment or a quoted name survive a sync. kumiko.config.ts with shorthand or spread siblings next to literal ports is read as defined instead of invalid.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp releases connections when the boot fails
+  detail: A failing boot closes the database pools, the Redis client and the KMS adapter it already opened. The KMS health wait logs "KMS not reachable" instead of "database not reachable".
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [ff553d1]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [d4dde3f]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [f81f639]
+- Updated dependencies [7e54012]
+- Updated dependencies [7e54012]
+- Updated dependencies [4e3bb2c]
+- Updated dependencies [ff553d1]
+- Updated dependencies [6262122]
+- Updated dependencies [453b3f0]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [ed4e21b]
+- Updated dependencies [374a12b]
+- Updated dependencies [cecdf71]
+- Updated dependencies [014b9ab]
+- Updated dependencies [0528a2d]
+- Updated dependencies [37db191]
+- Updated dependencies [b62c381]
+- Updated dependencies [a10796c]
+- Updated dependencies [70f0718]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [5520352]
+- Updated dependencies [a0a8204]
+- Updated dependencies [7ef7e6c]
+- Updated dependencies [006f789]
+- Updated dependencies [2924949]
+- Updated dependencies [73258c0]
+- Updated dependencies [c52702e]
+- Updated dependencies [b62e6cd]
+- Updated dependencies [1e3e94d]
+- Updated dependencies [084c9c0]
+- Updated dependencies [c5b197e]
+- Updated dependencies [c2a97fd]
+- Updated dependencies [669cd2e]
+- Updated dependencies [3c57f8f]
+- Updated dependencies [2fb7e2b]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [c23dce0]
+- Updated dependencies [ff5f68e]
+- Updated dependencies [1425622]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-server-runtime@0.388.0
+  - @cosmicdrift/kumiko-renderer@0.388.0
+  - @cosmicdrift/kumiko-bundled-features@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+  - @cosmicdrift/kumiko-testing@0.388.0
+  - @cosmicdrift/kumiko-guards@0.388.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

@@ -1,5 +1,75 @@
 # @cosmicdrift/kumiko-types
 
+## 0.388.0
+
+### Minor Changes
+
+- e1c01e4: The entity list query takes an optional `aggregate` payload and answers with groups and measures instead of rows, so a table can show group headers and sums over all matching rows rather than one page.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Groups and sums on the entity list query
+  detail: Pass aggregate with an optional groupBy field and up to 20 measures (sum, avg, count, min, max per field) to a list query. The answer is groups with key, count, one value per measure in request order and, for a reference groupBy, the label of the referenced row. Screen filters, search, ownership and field read access apply exactly as for rows; a field the caller may not read yields null or no groups, and encrypted, personal or secret fields and unsuitable field types are rejected with a validation error. At most 200 groups are returned, with truncated set beyond that. Custom query handlers use executor.aggregate or answerListAggregate.
+  -->
+- ee0aaf9: Write handlers can book rateLimit tokens per payload element with `rateLimitCost`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: rateLimitCost for write handlers
+  detail: A write handler can declare `rateLimitCost: (payload) => number`. The result is booked on every declared `rateLimit` bucket instead of the options' static `cost`; values below 1 count as 1 and non-finite values fail the request. The bucket is charged after schema validation, so an invalid payload costs nothing, and a rejected request consumes no tokens. Boot fails when `rateLimitCost` is set without an active `rateLimit`, or on an anonymous or ip-limited handler, because the cost books after the parse and such a handler would lose its pre-parse protection.
+  migration: Optional. Bulk handlers should add `rateLimitCost: (p) => p.files.length` so a request with many items is not counted as one.
+  -->
+
+### Patch Changes
+
+- 4ce85cd: Bumps the pinned postgres.js fork to 3.4.9-kumiko.2. A connection that dies while a query is still buffered now reconnects right away instead of hanging until `connect_timeout`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Reconnect after an outage no longer waits out connect_timeout
+  detail: The postgres.js fork left the write buffer of a dead socket in place, so the first query after a database outage queued its startup message behind stale bytes and failed with CONNECT_TIMEOUT after 30 seconds. The fork now resets the buffer when the socket closes, and the next query opens a fresh connection immediately.
+  -->
+- 32cf2fe: Review fixes: a version conflict reuses the version the event store already reports.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Version conflicts skip the extra stream-version lookup
+  detail: The CRUD executor reports the current version carried by the event store conflict and queries the stream again only when the conflict carries none.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: distinctOn documents that system reference rows compete for newest
+  detail: The tenant-scoped read set includes system reference rows, so they take part in the newest-row pick; the docs name the tenantId filter that restricts it to own rows, and tests pin both behaviours. Tests also cover the createDbConnection ssl and onNotice options, the version-conflict race over HTTP, and the advisory-lock waiter probe is scoped to its own lock.
+  -->
+- da784a9: Review fixes: the upgrade check lists the codemod an improvement runs on apply, the package-merge codemod no longer leaves a target in both dependencies and devDependencies, the notification template meta type carries senderName and replyTo, and comments are corrected or rewrapped.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade check names the codemod an improvement runs on apply
+  detail: kumiko-upgrade without --apply now prints the codemod of each improvement entry, the same way it prints the migration of breaking entries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Package-merge codemod keeps one entry per target package
+  detail: When the merge target is already listed in dependencies, the old devDependencies entry is dropped; when the old entry is in dependencies and the target only in devDependencies, the target moves to dependencies so the runtime entry wins.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: NotificationTemplateMeta declares senderName and replyTo
+  detail: The type now matches the mail template meta schema of the template resolver, which accepts senderName and replyTo.
+  -->
+
 ## 0.387.0
 
 ### Patch Changes

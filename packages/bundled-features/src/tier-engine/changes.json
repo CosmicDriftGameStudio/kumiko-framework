@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "set-tenant-tier no longer accepts source default",
+    "detail": "The source field of set-tenant-tier is limited to manual and billing. The value default is reserved for the signup default tier and made a manual grant look like a billing row that the next sync overwrites."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated tierEngineFeature constant is removed",

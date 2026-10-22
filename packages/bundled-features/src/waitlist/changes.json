@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Link-on-signup failures, legacy re-run and purge audit order",
+    "detail": "link-on-signup throws when the entry update fails and the entry is still invited, so the consumer redelivers. The offlot legacy migration skips rows that are already imports. purge writes its audit event before shredding keys."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Admin notice language comes from adminLocale",
+    "detail": "The admin notice mail used the request locale, which is the entrant's browser language. The new adminLocale option (en, de or es, default en) sets the operator's language."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Legacy migration dry run counts the streams it would archive",
+    "detail": "The dry run now runs the read-only archive checks and reports archivedStreams without writing; the CLI prints \"would archive\" for it."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "Spanish admin notice for new waitlist entries",

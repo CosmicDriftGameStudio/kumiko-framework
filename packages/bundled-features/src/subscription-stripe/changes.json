@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "Stripe plugin has a displayName",
+    "detail": "The Stripe plugin sets displayName \"Stripe\", which the provider choice in the billing panel shows."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "A malformed stored credential no longer leaks into the error",
+    "detail": "A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same."
+  },
+  {
     "version": "0.370.0",
     "type": "improvement",
     "title": "stripeEnvSchema adds price slots to the Stripe env block",

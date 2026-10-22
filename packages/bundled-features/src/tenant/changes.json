@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Tenant directory search contract documented",
+    "detail": "A search returns the first limit matches in tenant-key order, sorted by label afterwards; the handler description now says so."
+  },
+  {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Tenant directory search stops decrypting once the limit is reached",

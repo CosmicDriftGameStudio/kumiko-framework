@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "Six-cell code input, autofocus, auto-submit and recovery switch",
+    "detail": "The MFA login, setup, disable and regenerate screens use the six-cell code input with autofocus. Login and setup submit automatically on the sixth digit; disable and regenerate keep the explicit confirm button. Verify, disable and regenerate can switch to a recovery-code field. New keys auth.mfa.verify.useRecoveryCode, useAuthenticatorCode, recoveryCode and recoverySubtitle in all locale packages; auth.mfa.disable.code now names the authenticator code only."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "MFA setup uses the shared QR secret primitive",

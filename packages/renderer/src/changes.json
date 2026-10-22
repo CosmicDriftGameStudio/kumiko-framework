@@ -1,5 +1,54 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "List view model and cell formats as tables",
+    "detail": "computeListViewModel resolves each column through an ordered list of resolvers and applyFormatSpec dispatches through a table of cell formatters. Output is unchanged; a format named like an Object.prototype member such as \"toString\" still takes the unknown-format path."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Single-line row actions, stable form columns and select width, system-scope configEdit",
+    "detail": "Row actions never wrap onto a second line; the template overview lets long titles break and cuts the slug earlier so the table keeps room at 1280 px. In screen forms a section with explicitly declared columns (two or more) lays out as that many columns, and a select cell is as wide as a text cell instead of growing with its help text. A configEdit screen with scope system now reads the system level, so a SystemAdmin no longer sees the value of their own tenant row."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Uniform control height in page headers and list toolbars, spacing for projectionList descriptions",
+    "detail": "Buttons in the page header (create, toolbarActions, detail actions, form actions and app-added buttons such as the AI button) and in list toolbars (search, filters, secondary actions) now share one height, independent of the size a screen or app requested. A toolbarAction promoted into the page header no longer renders smaller than the standard create button. A projectionList without a toolbar no longer glues its description to the page header. The header of a CollapsibleSection (\"Erweitert\") has the same height as the form controls next to it."
+  },
+  {
+    "version": "0.388.0",
+    "type": "breaking",
+    "title": "Input gets kind \"code\" and autoFocus on kind \"text\"",
+    "detail": "Input has a new kind \"code\" (length, onComplete, autoFocus, autoComplete defaulting to one-time-code), a single real input shown as separate cells; onComplete fires once when input, paste or autofill reaches full length and the value holds digits only. kind \"text\" gains autoFocus.",
+    "migration": "custom Input implementations (PrimitivesProvider override) with an exhaustive switch over props.kind need a case \"code\"; delegating to DefaultInput from @cosmicdrift/kumiko-renderer/web is enough"
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Renderer low-severity robustness fixes",
+    "detail": "The list search echo handling no longer mutates state during render and no longer re-sends an already sent value. A failing live refetch no longer drops a queued follow-up run. Downloaded blob URLs are revoked after a delay, failed PDF loads are retried on the next mount, the file meta cache is cleared when the app gate unmounts, and renderFlow rejects duplicate node ids and unknown icons. The es/fr/it titles of the reset-to-system action now say the tenant template is reset to the system template."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Renderer review fixes for lookups, dropzone, markSaved, actionForm reset and dashboard gates",
+    "detail": "Reference labels show \"Unknown\" only when the lookup page was complete; a related-list column keeps sortable on fields without a sortable key; a files dropzone lists and can remove files already in the value; extension markSaved accepts the written field names, no longer clears other sections' dirty state; an actionForm with load and resetOnSuccess reloads the record before resetting; fallback panels no longer flash before the visibility gate answers; identical text blocks get unique keys; the missing-screen warning names the route id."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "useTenantCurrency hook",
+    "detail": "The tenant currency resolution of the entity edit prefill is exported as a hook with an explicit fallback for errors and missing values and no query when no currency is needed; the mail preview uses it only for templates with a money variable."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "ChoiceCards widget and PlanCard price prefix",
+    "detail": "ChoiceCards is a card-styled radio group (title, description, aside, native radios, keyboard operable) for exclusive choices that need more than a segment label. PlanCardPrice takes an optional prefix shown before the amount, for example \"from\"."
+  },
+  {
     "version": "0.385.0",
     "type": "improvement",
     "title": "View-model inputs take only the entity parts they read",

@@ -1,5 +1,144 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.388.0
+
+### Patch Changes
+
+- cecdf71: CLI and dev-server hardening: managed/scripts checks warn before adoption, sync-managed resolves the repo root, resources are released on boot failure, late-bound revokers unbind safely, server lockfile is verified.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: check, sync-managed and backfill-pii handle failure and subdirectories correctly
+  detail: kumiko check only warns about unresolvable managed files or package.json scripts until kumiko.config.ts calls defineAppConfig. sync-managed resolves the repo root like check instead of using cwd. ops backfill-pii closes the KMS wiring when registry creation fails. The agent command reuses allAppFeatures from the framework config.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: runDevApp releases the KMS on any boot failure; server lockfile is verified
+  detail: runDevApp closes the KMS wiring when a boot gate throws before the server is created. Stopping one app no longer replaces the session, MFA and PAT revokers a newer app bound on the same feature instances: the bind functions of sessions, auth-mfa and personal-access-tokens return an unbind that only clears its own binding. writeServerLockfile replays the frozen install the runtime image runs, so a lock that did not re-resolve fails in kumiko-build.
+  -->
+- 0528a2d: Fix managed-file sync, static config parsing and boot cleanup.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed CI, app jobs and static config parsing
+  detail: The public ci.yml sets MEILI_URL and MEILI_MASTER_KEY for the Meilisearch service. App-owned workflow jobs with a trailing comment or a quoted name survive a sync. kumiko.config.ts with shorthand or spread siblings next to literal ports is read as defined instead of invalid.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp releases connections when the boot fails
+  detail: A failing boot closes the database pools, the Redis client and the KMS adapter it already opened. The KMS health wait logs "KMS not reachable" instead of "database not reachable".
+  -->
+- 2fb7e2b: Review fixes: the waitlist legacy migration dry run reports the streams it would archive, the document designer shares its mail layout constants and tenant currency lookup with the server and renderer, drops stale picked preview values, and reads singular tenant counts correctly.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Legacy migration dry run counts the streams it would archive
+  detail: The dry run now runs the read-only archive checks and reports archivedStreams without writing; the CLI prints "would archive" for it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Picked preview values are filtered to declared variables
+  detail: A picked record value for a variable the template does not declare no longer travels into the preview or test mail, which the server rejected as an unknown variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Singular tenant counts in the override texts
+  detail: The override summary and the system origin bar use plural forms, so one customising tenant reads "1 tenant has its own version" in en, de and es.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Mail layout enums and hex color pattern are exported client-side
+  detail: The layout editor imports the width, font, accent line and button style lists plus the hex pattern from the template-resolver web barrel instead of keeping copies, so editor and server validation cannot drift.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useTenantCurrency hook
+  detail: The tenant currency resolution of the entity edit prefill is exported as a hook with an explicit fallback for errors and missing values and no query when no currency is needed; the mail preview uses it only for templates with a money variable.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [0c73470]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [ff553d1]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [d4dde3f]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [f81f639]
+- Updated dependencies [7e54012]
+- Updated dependencies [7e54012]
+- Updated dependencies [4e3bb2c]
+- Updated dependencies [ff553d1]
+- Updated dependencies [6262122]
+- Updated dependencies [453b3f0]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [ed4e21b]
+- Updated dependencies [374a12b]
+- Updated dependencies [cecdf71]
+- Updated dependencies [014b9ab]
+- Updated dependencies [0528a2d]
+- Updated dependencies [37db191]
+- Updated dependencies [b62c381]
+- Updated dependencies [a10796c]
+- Updated dependencies [70f0718]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [5520352]
+- Updated dependencies [a0a8204]
+- Updated dependencies [006f789]
+- Updated dependencies [2924949]
+- Updated dependencies [73258c0]
+- Updated dependencies [c52702e]
+- Updated dependencies [b62e6cd]
+- Updated dependencies [1e3e94d]
+- Updated dependencies [084c9c0]
+- Updated dependencies [c5b197e]
+- Updated dependencies [c2a97fd]
+- Updated dependencies [669cd2e]
+- Updated dependencies [3c57f8f]
+- Updated dependencies [2fb7e2b]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [c23dce0]
+- Updated dependencies [ff5f68e]
+- Updated dependencies [1425622]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-server-runtime@0.388.0
+  - @cosmicdrift/kumiko-dev-server@0.388.0
+  - @cosmicdrift/kumiko-renderer@0.388.0
+  - @cosmicdrift/kumiko-bundled-features@0.388.0
+  - @cosmicdrift/kumiko-testing@0.388.0
+  - @cosmicdrift/kumiko-guards@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "English buildServerBundle errors",
+    "detail": "The errors for a missing bin/main.ts and a missing bin/kumiko.ts in buildServerBundle are now English."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "Named boot phases for the dev server",
+    "detail": "createKumikoServer now reads as a list of phases: client bundles, Tailwind stylesheet, HTML templates, stack boot, background runners, fetch handler, HTTP server, shutdown, file watchers and signal handlers. Each phase lives in its own create-kumiko-server-*.ts file. Request routing is a route table instead of one if chain, and the file watcher classifies changes through suffix and directory tables. Responses, headers, cookies, the reload stream, log lines, exit codes and the start and stop order stay the same. PROD_BUNDLES_ENV, STYLESHEET_WATCH_ENV and resolveStylesheet are still exported from the package index."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "runDevApp split into boot phases",
+    "detail": "runDevApp() keeps its signature and behavior. Config resolution and boot validation (run-dev-app-config.ts), late-bound tier, session and token wiring plus the onAfterSetup step (run-dev-app-auth.ts) and the createKumikoServer options (run-dev-app-server-options.ts) are separate phases. Steps shared with prod come from @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. A new unit test covers the late-bound tier resolver's boot-order guard and trialGate delegation."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "runDevApp releases the KMS on any boot failure; server lockfile is verified",
+    "detail": "runDevApp closes the KMS wiring when a boot gate throws before the server is created. Stopping one app no longer replaces the session, MFA and PAT revokers a newer app bound on the same feature instances: the bind functions of sessions, auth-mfa and personal-access-tokens return an unbind that only clears its own binding. writeServerLockfile replays the frozen install the runtime image runs, so a lock that did not re-resolve fails in kumiko-build."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Managed CI, app jobs and static config parsing",
+    "detail": "The public ci.yml sets MEILI_URL and MEILI_MASTER_KEY for the Meilisearch service. App-owned workflow jobs with a trailing comment or a quoted name survive a sync. kumiko.config.ts with shorthand or spread siblings next to literal ports is read as defined instead of invalid."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "runDevApp stop releases the late-bound revokers",

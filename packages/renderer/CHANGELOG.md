@@ -1,5 +1,268 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.388.0
+
+### Minor Changes
+
+- 453b3f0: Six-cell one-time code input for the MFA screens: autofocus, auto-submit on the last digit in login and setup, and a recovery-code switch in verify, disable and regenerate.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Input gets kind "code" and autoFocus on kind "text"
+  detail: Input has a new kind "code" (length, onComplete, autoFocus, autoComplete defaulting to one-time-code), a single real input shown as separate cells; onComplete fires once when input, paste or autofill reaches full length and the value holds digits only. kind "text" gains autoFocus.
+  migration: custom Input implementations (PrimitivesProvider override) with an exhaustive switch over props.kind need a case "code"; delegating to DefaultInput from @cosmicdrift/kumiko-renderer/web is enough
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: Six-cell code input, autofocus, auto-submit and recovery switch
+  detail: The MFA login, setup, disable and regenerate screens use the six-cell code input with autofocus. Login and setup submit automatically on the sixth digit; disable and regenerate keep the explicit confirm button. Verify, disable and regenerate can switch to a recovery-code field. New keys auth.mfa.verify.useRecoveryCode, useAuthenticatorCode, recoveryCode and recoverySubtitle in all locale packages; auth.mfa.disable.code now names the authenticator code only.
+  -->
+- 1425622: Dodo Payments as a subscription provider, and billing-foundation offers several providers side by side.
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: New subscription provider for Dodo Payments
+  detail: createSubscriptionDodoFeature() registers the "dodo" subscription provider (Merchant of Record). It verifies Standard Webhooks signatures, maps Dodo events to the foundation events, creates hosted checkouts and portal sessions, and switches plans in the app through previewPlanSwitch and applyPlanSwitch. Config keys are api-key, webhook-secret, billing-live and environment. Plan switches need a Product Collection in Dodo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: dodoEnvSchema declares the Dodo product id slots
+  detail: dodoEnvSchema({ prices: ["PRO"] }) adds one optional DODO_PRODUCT_PRO slot per plan next to the API key and webhook key, and checks the pdt_ prefix. It is the counterpart to stripeEnvSchema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Several subscription providers in one catalog
+  detail: The billing-plans query returns providers (name, displayName, plans, note) when more than one provider is offered, and start-plan-checkout takes providerName. consumerProtection.providerTexts overrides checkoutNote and vatNote per provider, and the consent record carries providerName. switch-plan always uses the provider of the existing subscription.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: In-app plan switch with a preview and consent
+  detail: A provider plugin that implements previewPlanSwitch and applyPlanSwitch switches plans without a hosted portal. The new plan-switch-preview query returns the proration, the billing-plans result carries inAppPlanSwitch, and the panel shows PlanSwitchConfirmDialog with the withdrawal consent checkboxes. The confirmation mail is sent when the plan_changed webhook arrives with the consent id.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: A catalog with several providers no longer throws an ambiguous-provider error
+  detail: With more than one subscription provider mounted, billing-plans and start-plan-checkout used to throw. They now list the providers; start-plan-checkout answers with errors.providerRequired when several are offered and no providerName is given, and errors.providerNotOffered for an unknown one. Plugins have to set displayName.
+  migration: Set displayName on custom subscriptionProvider plugins. Callers that send start-plan-checkout with several providers mounted must pass providerName.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: Stripe plugin has a displayName
+  detail: The Stripe plugin sets displayName "Stripe", which the provider choice in the billing panel shows.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: billing boot option takes stripe and/or dodo
+  detail: billing.stripe is now optional and billing.dodo is new (priceToTier, oneOffPriceIds). At least one is required. resolveBillingOption returns features (an array) instead of feature, and one webhook route serves every provider on stripe.webhookPath or SUBSCRIPTION_WEBHOOK_PATH. DODO_PAYMENTS_API_KEY and DODO_PAYMENTS_WEBHOOK_KEY are the env bridge.
+  migration: Callers of resolveBillingOption use billing.features instead of billing.feature.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings for the provider choice and the in-app plan switch
+  detail: Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: ChoiceCards widget and PlanCard price prefix
+  detail: ChoiceCards is a card-styled radio group (title, description, aside, native radios, keyboard operable) for exclusive choices that need more than a segment label. PlanCardPrice takes an optional prefix shown before the amount, for example "from".
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Provider choice moved into the checkout dialog
+  detail: The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a "from" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: A malformed stored credential no longer leaks into the error
+  detail: A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same.
+  -->
+
+### Patch Changes
+
+- f81f639: The registry checks physical-table collisions against the table name the DDL creates, so two entities of different features with the same physical table now fail at boot. `WorkerEntrypointOptions` carries `instanceId`, and `runWorkerApp` reads `KUMIKO_INSTANCE_ID` from its `envSource`. The PII and retention validator, the cascade-delete hook, `computeListViewModel`, `applyFormatSpec` and the field projection of `buildAppSchema` are rule tables with unchanged messages and order, and the remaining German dev messages are English.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Physical-table collisions use the DDL table name
+  detail: createRegistry compared entity tables under a feature-prefixed name that no DDL path creates, so an entity whose explicit table equals another feature's derived table name, or two entities with the same explicit table in different features, registered fine and then emitted the same CREATE TABLE twice. The check now uses the unprefixed physical name, the same as the store-table check and the migrate runner.
+  migration: Apps where two entities share a physical table name fail at boot with "has physical table ... which collides with entity ...". Give one of them a different `table`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Worker entrypoint takes instanceId
+  detail: WorkerEntrypointOptions now carries instanceId (moved to BaseEntrypointOptions, so the API and all-in-one options keep it) and createWorkerEntrypoint forwards it to the server. runWorkerApp reads KUMIKO_INSTANCE_ID from its envSource like runProdApp, so with KUMIKO_INSTANCE_ID set, per-instance consumers in the worker and its app.started event use the same id. Before, the worker server only saw process.env.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PII, retention and cascade-delete rules as tables, English dev messages
+  detail: validatePiiAndRetention runs one checker per rule in a fixed order, and the cascade-delete hook dispatches each relation through a table of onDelete strategies. Error and warning texts, their order, transaction boundaries and event order are unchanged. buildAppSchema forwards field properties through an ordered table, and kumiko-upgrade and the pii-personal-migration codemod run one function per step; their output is byte-identical. The dev warnings of normalizeListColumn and buildAppSchema are now English.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: List view model and cell formats as tables
+  detail: computeListViewModel resolves each column through an ordered list of resolvers and applyFormatSpec dispatches through a table of cell formatters. Output is unchanged; a format named like an Object.prototype member such as "toString" still takes the unknown-format path.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: English buildServerBundle errors
+  detail: The errors for a missing bin/main.ts and a missing bin/kumiko.ts in buildServerBundle are now English.
+  -->
+- ff553d1: Row actions stay on one line, edit forms keep declared columns and select width, and a system-scope configEdit reads the system level.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Single-line row actions, stable form columns and select width, system-scope configEdit
+  detail: Row actions never wrap onto a second line; the template overview lets long titles break and cuts the slug earlier so the table keeps room at 1280 px. In screen forms a section with explicitly declared columns (two or more) lays out as that many columns, and a select cell is as wide as a text cell instead of growing with its help text. A configEdit screen with scope system now reads the system level, so a SystemAdmin no longer sees the value of their own tenant row.
+  -->
+- 6262122: Header actions and list toolbars render every button and the search at one height, and a projectionList description keeps its distance from the page header.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Uniform control height in page headers and list toolbars, spacing for projectionList descriptions
+  detail: Buttons in the page header (create, toolbarActions, detail actions, form actions and app-added buttons such as the AI button) and in list toolbars (search, filters, secondary actions) now share one height, independent of the size a screen or app requested. A toolbarAction promoted into the page header no longer renders smaller than the standard create button. A projectionList without a toolbar no longer glues its description to the page header. The header of a CollapsibleSection ("Erweitert") has the same height as the form controls next to it.
+  -->
+- 5520352: Renderer robustness fixes and clearer template-reset wording in es/fr/it.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer low-severity robustness fixes
+  detail: The list search echo handling no longer mutates state during render and no longer re-sends an already sent value. A failing live refetch no longer drops a queued follow-up run. Downloaded blob URLs are revoked after a delay, failed PDF loads are retried on the next mount, the file meta cache is cleared when the app gate unmounts, and renderFlow rejects duplicate node ids and unknown icons. The es/fr/it titles of the reset-to-system action now say the tenant template is reset to the system template.
+  -->
+- a0a8204: Renderer fixes: no false "Unknown" reference labels from capped lookups, sortable related-list columns, existing dropzone files, markSaved no longer hides unsaved input, actionForm reload after reset, dashboard gate flicker and key collisions.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer review fixes for lookups, dropzone, markSaved, actionForm reset and dashboard gates
+  detail: Reference labels show "Unknown" only when the lookup page was complete; a related-list column keeps sortable on fields without a sortable key; a files dropzone lists and can remove files already in the value; extension markSaved accepts the written field names, no longer clears other sections' dirty state; an actionForm with load and resetOnSuccess reloads the record before resetting; fallback panels no longer flash before the visibility gate answers; identical text blocks get unique keys; the missing-screen warning names the route id.
+  -->
+- 2fb7e2b: Review fixes: the waitlist legacy migration dry run reports the streams it would archive, the document designer shares its mail layout constants and tenant currency lookup with the server and renderer, drops stale picked preview values, and reads singular tenant counts correctly.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Legacy migration dry run counts the streams it would archive
+  detail: The dry run now runs the read-only archive checks and reports archivedStreams without writing; the CLI prints "would archive" for it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Picked preview values are filtered to declared variables
+  detail: A picked record value for a variable the template does not declare no longer travels into the preview or test mail, which the server rejected as an unknown variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Singular tenant counts in the override texts
+  detail: The override summary and the system origin bar use plural forms, so one customising tenant reads "1 tenant has its own version" in en, de and es.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Mail layout enums and hex color pattern are exported client-side
+  detail: The layout editor imports the width, font, accent line and button style lists plus the hex pattern from the template-resolver web barrel instead of keeping copies, so editor and server validation cannot drift.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useTenantCurrency hook
+  detail: The tenant currency resolution of the entity edit prefill is exported as a hook with an explicit fallback for errors and missing values and no query when no currency is needed; the mail preview uses it only for templates with a money variable.
+  -->
+- da784a9: Review fixes: the upgrade check lists the codemod an improvement runs on apply, the package-merge codemod no longer leaves a target in both dependencies and devDependencies, the notification template meta type carries senderName and replyTo, and comments are corrected or rewrapped.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade check names the codemod an improvement runs on apply
+  detail: kumiko-upgrade without --apply now prints the codemod of each improvement entry, the same way it prints the migration of breaking entries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Package-merge codemod keeps one entry per target package
+  detail: When the merge target is already listed in dependencies, the old devDependencies entry is dropped; when the old entry is in dependencies and the target only in devDependencies, the target moves to dependencies so the runtime entry wins.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: NotificationTemplateMeta declares senderName and replyTo
+  detail: The type now matches the mail template meta schema of the template resolver, which accepts senderName and replyTo.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [374a12b]
+- Updated dependencies [014b9ab]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

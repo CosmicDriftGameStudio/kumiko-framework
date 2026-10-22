@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Undecryptable mail account no longer stops polling of other accounts",
+    "detail": "Any decryption failure of an account address (corrupt envelope, missing key, AAD mismatch) is logged by error class and the account is skipped; the other accounts keep polling."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Rename audit reason comes from the caller role",
+    "detail": "update-account records tenant_admin or system_admin from the caller's roles and honors a client-supplied reason only for the system identity, so a form call can no longer write system reasons such as watch_supervisor. The rename form no longer carries a reason field and the reason payload field is optional."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Seen-message lookup handles listings of any size",
+    "detail": "filterUnknownMessageIds queries the already seen provider message ids in chunks of 1000, so a full-mailbox listing no longer exceeds the Postgres bind parameter limit and aborts the account's poll."
+  },
+  {
     "version": "0.378.0",
     "type": "fix",
     "title": "Mailbox list accepts the screen's limit",

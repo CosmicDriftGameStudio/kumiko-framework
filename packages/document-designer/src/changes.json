@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Picked preview values are filtered to declared variables",
+    "detail": "A picked record value for a variable the template does not declare no longer travels into the preview or test mail, which the server rejected as an unknown variable."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Singular tenant counts in the override texts",
+    "detail": "The override summary and the system origin bar use plural forms, so one customising tenant reads \"1 tenant has its own version\" in en, de and es."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Seeded layout titles show translated in the PDF editor and mail rail",
+    "detail": "A layout seeded with a title i18n key now shows its translated name in the PDF editor header and the mail editor properties rail instead of the raw key."
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Layout, mail and PDF template editors load lazily",

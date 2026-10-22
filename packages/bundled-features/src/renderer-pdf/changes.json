@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "renderTablePdf validates the document for direct callers",
+    "detail": "renderTablePdf parses the document against pdfTableDocumentSchema and throws RendererError invalid_payload above the row, column and cell caps. Title, subtitle, meta entries, headers, empty text, footer text and page label now have length caps and meta at most 500 entries."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "renderTablePdf rejects tables above 10000 rows, 30 columns or 5000 characters per cell",
