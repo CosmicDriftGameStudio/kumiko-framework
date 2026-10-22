@@ -57,6 +57,31 @@ describe("installFatalErrorHandlers", () => {
     expect(ctx.logged).toHaveLength(1);
   });
 
+  test("uninstalling from inside a running fatal stop keeps the listeners so a second fault is still absorbed", async () => {
+    let releaseStop: () => void = () => {};
+    let uninstallFromStop: () => void = () => {};
+    const ctx = setup(async () => {
+      uninstallFromStop();
+      await new Promise<void>((resolve) => {
+        releaseStop = resolve;
+      });
+    });
+    uninstallFromStop = () => ctx.uninstall();
+    uninstall = ctx.uninstall;
+    const listenersWhenInstalled = process.listenerCount("unhandledRejection");
+
+    process.emit("uncaughtException", new Error("first"));
+    const listenersDuringStop = process.listenerCount("unhandledRejection");
+    process.emit("unhandledRejection", new Error("second"), Promise.resolve());
+    expect(ctx.exitCodes).toEqual([]);
+    releaseStop();
+    await ctx.exited;
+
+    expect(listenersDuringStop).toBe(listenersWhenInstalled);
+    expect(ctx.exitCodes).toEqual([1]);
+    expect(ctx.logged).toHaveLength(1);
+  });
+
   test("a hanging stop is cut off by the hard-exit timer", async () => {
     const ctx = setup(() => new Promise<void>(() => {}), 5);
     uninstall = ctx.uninstall;

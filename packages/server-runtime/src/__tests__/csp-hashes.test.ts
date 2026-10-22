@@ -30,6 +30,14 @@ describe("inlineScriptHashes", () => {
   });
 });
 
+describe("inlineScriptHashes quoted attributes", () => {
+  test("a > inside a quoted attribute value does not truncate the hashed content", () => {
+    const inline = "window.x = 1;";
+    const html = `<script data-cfg="a>b" data-other='c>d'>${inline}</script>`;
+    expect(inlineScriptHashes(html)).toEqual([sha256Of(inline)]);
+  });
+});
+
 describe("parseCspHashes", () => {
   test("accepts a list of sha256 hashes", () => {
     const hash = `sha256-${"A".repeat(43)}=`;

@@ -112,3 +112,28 @@ describe("waitUntilDatabaseReachable", () => {
     expect(totalSlept).toBe(WAIT_FOR_DATABASE_DEADLINE_MS);
   });
 });
+
+describe("waitUntilDatabaseReachable shared deadline", () => {
+  test("two sequential waits on one deadline sleep at most one deadline window together", async () => {
+    const first = harness([pgError("ECONNREFUSED")]);
+    const second = harness([pgError("ECONNREFUSED")]);
+    const sleepsTogether = () => [...first.sleeps, ...second.sleeps].reduce((a, b) => a + b, 0);
+    // both harnesses share one clock via the second one reading the first's progress
+    let clock = 0;
+    const clockedOptions = (h: ReturnType<typeof harness>) => ({
+      ...h.options,
+      sleep: async (ms: number) => {
+        h.sleeps.push(ms);
+        clock += ms;
+      },
+      now: () => clock,
+      deadline: WAIT_FOR_DATABASE_DEADLINE_MS,
+    });
+
+    await expect(waitUntilDatabaseReachable(first.ping, clockedOptions(first))).rejects.toThrow();
+    await expect(waitUntilDatabaseReachable(second.ping, clockedOptions(second))).rejects.toThrow();
+
+    expect(sleepsTogether()).toBeLessThanOrEqual(WAIT_FOR_DATABASE_DEADLINE_MS);
+    expect(second.sleeps).toEqual([]);
+  });
+});

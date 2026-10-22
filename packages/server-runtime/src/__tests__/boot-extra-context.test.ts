@@ -48,6 +48,19 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
     expect(typeof ctx["_notifyFactory"]).toBe("function");
   });
 
+  test("appOverrides without auth or delivery feature aborts instead of being dropped", () => {
+    expect(() =>
+      buildBootExtraContext({
+        db: fakeDb,
+        features: [otherFeature],
+        envSource: {},
+        registry,
+        hasAuth: false,
+        appOverrides: { "widgets:config:name": "x" },
+      }),
+    ).toThrow(/appOverrides needs `auth` or a delivery feature/);
+  });
+
   test("no delivery feature → _notifyFactory not wired", () => {
     const ctx = buildBootExtraContext({
       db: fakeDb,

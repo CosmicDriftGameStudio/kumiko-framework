@@ -50,10 +50,20 @@ function pickShape(
   return picked;
 }
 
+function sysadminTenantNeedsEnvId(seeds: ProdSeedsConfig): boolean {
+  const { sysadminFromEnv } = seeds;
+  return (
+    typeof sysadminFromEnv === "object" &&
+    sysadminFromEnv.tenant !== undefined &&
+    sysadminFromEnv.tenant.id === undefined
+  );
+}
+
 function seedEnvBlock(seeds: ProdSeedsConfig): OptionEnvBlock | undefined {
   const keys: string[] = [];
   const required: string[] = [];
-  if (seeds.demoTenant && seeds.demoTenant.id === undefined) {
+  const demoTenantNeedsEnvId = seeds.demoTenant !== undefined && seeds.demoTenant.id === undefined;
+  if (demoTenantNeedsEnvId || sysadminTenantNeedsEnvId(seeds)) {
     keys.push("DEMO_TENANT_ID");
     required.push("DEMO_TENANT_ID");
   }
@@ -82,7 +92,10 @@ function fileStorageEnvBlocks(fileStorage: BootOptionFields["fileStorage"]): Opt
     blocks.push({
       source: "runProdApp.fileStorage",
       shape: s3EnvSchema.shape,
-      required: fileStorage.provider === "s3-env" ? S3_REQUIRED_KEYS : [],
+      required:
+        fileStorage.provider === "s3-env" || fileStorage.providers?.includes("s3-env")
+          ? S3_REQUIRED_KEYS
+          : [],
     });
   }
   for (const provider of fileStorage?.providers ?? []) {

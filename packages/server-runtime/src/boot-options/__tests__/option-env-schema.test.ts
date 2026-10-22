@@ -35,6 +35,32 @@ describe("withBootOptionEnvBlocks", () => {
     expect(kindOf(auto, "S3_BUCKET")).toBe("optional");
   });
 
+  test('an additional "s3-env" provider requires the S3 keys', () => {
+    const wired = withBootOptionEnvBlocks(appSchema(), {
+      features: [],
+      fileStorage: { provider: "inmemory", providers: ["s3-env"] },
+    });
+    expect(kindOf(wired, "S3_BUCKET")).toBe("required");
+  });
+
+  test("a sysadmin tenant without an id requires DEMO_TENANT_ID", () => {
+    const wired = withBootOptionEnvBlocks(appSchema(), {
+      features: [],
+      seeds: { sysadminFromEnv: { tenant: { key: "ops", name: "Ops" } } },
+    });
+    expect(kindOf(wired, "DEMO_TENANT_ID")).toBe("required");
+
+    const withId = withBootOptionEnvBlocks(appSchema(), {
+      features: [],
+      seeds: {
+        sysadminFromEnv: {
+          tenant: { id: "00000000-0000-4000-8000-000000000001", key: "ops", name: "Ops" },
+        },
+      },
+    });
+    expect(kindOf(withId, "DEMO_TENANT_ID")).toBe("absent");
+  });
+
   test("kmsMode and billing add their blocks, plaintextReason adds none", () => {
     const wired = withBootOptionEnvBlocks(appSchema(), {
       features: [],

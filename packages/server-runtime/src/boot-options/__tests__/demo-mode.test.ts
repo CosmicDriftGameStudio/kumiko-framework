@@ -53,6 +53,23 @@ describe("withDemoReadOnlyFetch", () => {
     expect(inner.seen).toEqual(["1.2.3.4", "5.6.7.8", "9.9.9.9"]);
   });
 
+  test.each([
+    ["POST", "/upload"],
+    ["PUT", "/files/abc"],
+    ["DELETE", "/api/anything"],
+    ["POST", "/unsubscribe"],
+    ["POST", "/api/query/"],
+    ["POST", "/api/auth/login/"],
+  ])("%s %s is blocked, only the exact allowlist paths pass", async (method, path) => {
+    const inner = recordingHandler();
+    const fetch = withDemoReadOnlyFetch(inner.handler, { readOnly: true });
+
+    const res = await fetch(new Request(`http://demo.test${path}`, { method }));
+
+    expect(res.status).toBe(403);
+    expect(inner.seen).toEqual([]);
+  });
+
   test("allowedWritePaths opens an extra path", async () => {
     const inner = recordingHandler();
     const fetch = withDemoReadOnlyFetch(inner.handler, {
