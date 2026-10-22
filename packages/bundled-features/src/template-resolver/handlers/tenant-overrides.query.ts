@@ -1,5 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineQueryHandler,
+  MAX_LIST_LIMIT,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TenantQueries } from "../../tenant/index.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
@@ -18,8 +22,39 @@ const directorySchema = z.object({
 
 type OverrideStatus = "active" | "draft";
 
-function labelsOf(raw: unknown): ReadonlyMap<string, string> {
-  return new Map(directorySchema.parse(raw).rows.map((row) => [row.id, row.label]));
+function chunksOf<T>(items: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    chunks.push(items.slice(start, start + size));
+  }
+  return chunks;
+}
+
+type DirectoryQueryContext = {
+  readonly query: (name: string, payload: { ids: string[] }) => Promise<unknown>;
+};
+
+// Looks up only the ids the overrides need, so labels never depend on the directory's default cap.
+async function labelsFor(
+  ctx: DirectoryQueryContext,
+  queryName: string,
+  ids: ReadonlySet<string>,
+): Promise<ReadonlyMap<string, string>> {
+  const labels = new Map<string, string>();
+  for (const chunk of chunksOf([...ids], MAX_LIST_LIMIT)) {
+    const raw = await ctx.query(queryName, { ids: chunk });
+    for (const row of directorySchema.parse(raw).rows) labels.set(row.id, row.label);
+  }
+  return labels;
+}
+
+function changerIdsOf(rows: readonly TemplateResourceRow[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const changedById = row.modifiedById ?? row.insertedById;
+    if (changedById !== null) ids.add(changedById);
+  }
+  return ids;
 }
 
 function statusOf(row: TemplateResourceRow): OverrideStatus {
@@ -73,10 +108,14 @@ export const tenantOverridesQuery = defineQueryHandler({
     const bestByTenant = pickBestRowPerTenant(found, enabledTenantIds);
     const best = [...bestByTenant.values()];
     const tenantLabels = hasTenantFeature
-      ? labelsOf(await ctx.query(TenantQueries.tenantDirectory, {}))
+      ? await labelsFor(
+          ctx,
+          TenantQueries.tenantDirectory,
+          new Set(best.map((row) => row.tenantId)),
+        )
       : new Map<string, string>();
     const userLabels = hasTenantFeature
-      ? labelsOf(await ctx.query(TenantQueries.memberDirectory, {}))
+      ? await labelsFor(ctx, TenantQueries.memberDirectory, changerIdsOf(best))
       : new Map<string, string>();
 
     const rows = best

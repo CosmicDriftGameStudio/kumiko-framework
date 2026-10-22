@@ -179,14 +179,39 @@ export async function isRowDeliveredTo(
   return isSystemAdmin(user) || (await isRowDelivered(db, policy, row));
 }
 
+// One system-slug lookup per kind instead of one query per row, because by-tenant is anonymous.
 export async function filterDeliveredTo(
   db: DbRunner | TenantDb,
   policy: TemplateDeliveryPolicy,
   user: { readonly roles: readonly string[] },
   rows: readonly TemplateResourceRow[],
 ): Promise<TemplateResourceRow[]> {
-  const flags = await Promise.all(rows.map((row) => isRowDeliveredTo(db, policy, user, row)));
-  return rows.filter((_, index) => flags[index]);
+  if (isSystemAdmin(user)) return [...rows];
+  const served = rows.filter((row) => isRowServed(policy, row));
+  const shadowable = served.filter(
+    (row) => row.tenantId !== SYSTEM_TENANT_ID && isServedByCollectionOnly(policy, row),
+  );
+  const slugsByKind = new Map<string, Set<string>>();
+  for (const row of shadowable) {
+    const slugs = slugsByKind.get(row.kind) ?? new Set<string>();
+    slugs.add(row.slug);
+    slugsByKind.set(row.kind, slugs);
+  }
+  const systemKeys = new Set<string>();
+  for (const [kind, slugs] of slugsByKind) {
+    const systemRows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId: SYSTEM_TENANT_ID,
+      kind,
+      slug: [...slugs],
+    });
+    for (const systemRow of systemRows) systemKeys.add(`${kind}|${systemRow.slug}`);
+  }
+  return served.filter(
+    (row) =>
+      row.tenantId === SYSTEM_TENANT_ID ||
+      !isServedByCollectionOnly(policy, row) ||
+      !systemKeys.has(`${row.kind}|${row.slug}`),
+  );
 }
 
 export async function systemTemplateExists(

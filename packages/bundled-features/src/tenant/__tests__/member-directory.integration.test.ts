@@ -99,6 +99,25 @@ describe("tenant:query:member-directory (fw#3107)", () => {
     });
   });
 
+  test("ids resolve exactly those users, a TenantAdmin only within their own tenant", async () => {
+    const adminId = await seedMember(ownTenantId, "Ids Admin", ["TenantAdmin"]);
+    await seedMember(ownTenantId, "Ids Colleague", ["User"]);
+    const foreignId = await seedMember(foreignTenantId, "Ids Foreign", ["User"]);
+
+    expect(await queryDirectory(tenantAdmin(adminId), { ids: [adminId] })).toEqual([
+      { id: adminId, label: "Ids Admin" },
+    ]);
+    expect(await queryDirectory(tenantAdmin(adminId), { ids: [foreignId] })).toEqual([]);
+    expect(
+      await queryDirectory(
+        { id: adminId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
+        {
+          ids: [foreignId],
+        },
+      ),
+    ).toEqual([{ id: foreignId, label: "Ids Foreign" }]);
+  });
+
   test("a TenantAdmin gets their own members as id/label, never a foreign-tenant user", async () => {
     const adminId = await seedMember(ownTenantId, "Own Admin", ["TenantAdmin"]);
     const colleagueId = await seedMember(ownTenantId, "Own Colleague", ["User"]);

@@ -27,6 +27,8 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
     limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(MAX_LIST_LIMIT),
     // Sent by the reference combobox while the user types.
     search: z.string().trim().min(1).optional(),
+    // Resolves exactly these tenants; callers that know their ids must not depend on the cap.
+    ids: z.array(z.string().min(1)).max(MAX_LIST_LIMIT).optional(),
   }),
   access: { roles: access.admin },
   description:
@@ -39,14 +41,15 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
           "tenant:query:tenant-directory requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
       });
     }
-    const { limit, search } = query.payload;
+    const { limit, search, ids } = query.payload;
+    if (ids?.length === 0) return { rows: [], nextCursor: null };
     const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;
     let tenants: readonly { id: unknown; name?: unknown }[];
     if (isSystemAdmin(query.user)) {
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as tenant:query:tenant:list did",
       );
-      tenants = await selectMany(db, tenantTable, undefined, {
+      tenants = await selectMany(db, tenantTable, ids === undefined ? undefined : { id: ids }, {
         limit: scanLimit,
         orderBy: [
           { col: "key", direction: "asc" },
@@ -56,7 +59,7 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
       const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });
-      tenants = row ? [row] : [];
+      tenants = row && (ids === undefined || ids.includes(query.user.tenantId)) ? [row] : [];
     }
     // name is ciphertext at rest, so the SQL page is keyed by the plaintext
     // `key`; label order and search happen in memory after decrypting.

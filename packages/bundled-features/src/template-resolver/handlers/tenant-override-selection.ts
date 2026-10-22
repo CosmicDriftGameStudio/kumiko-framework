@@ -21,8 +21,10 @@ export async function loadEnabledTenantIds(
   return new Set(tenantIdsSchema.parse(await ctx.query(TenantQueries.activeTenantIds, {})));
 }
 
+export type OverrideCandidate = Pick<TemplateResourceRow, "tenantId" | "status" | "version">;
+
 // One row per tenant: its active override wins over a draft, then the newest version.
-function isBetterRow(candidate: TemplateResourceRow, current: TemplateResourceRow): boolean {
+function isBetterRow(candidate: OverrideCandidate, current: OverrideCandidate): boolean {
   if ((candidate.status === "active") !== (current.status === "active")) {
     return candidate.status === "active";
   }
@@ -30,18 +32,18 @@ function isBetterRow(candidate: TemplateResourceRow, current: TemplateResourceRo
 }
 
 function isCountedTenantRow(
-  row: TemplateResourceRow,
+  row: OverrideCandidate,
   enabledTenantIds: ReadonlySet<string> | null,
 ): boolean {
   if (row.tenantId === SYSTEM_TENANT_ID || row.status === "archived") return false;
   return enabledTenantIds === null || enabledTenantIds.has(row.tenantId);
 }
 
-export function pickBestRowPerTenant(
-  found: readonly TemplateResourceRow[],
+export function pickBestRowPerTenant<TRow extends OverrideCandidate>(
+  found: readonly TRow[],
   enabledTenantIds: ReadonlySet<string> | null,
-): Map<string, TemplateResourceRow> {
-  const bestByTenant = new Map<string, TemplateResourceRow>();
+): Map<string, TRow> {
+  const bestByTenant = new Map<string, TRow>();
   for (const row of found) {
     if (!isCountedTenantRow(row, enabledTenantIds)) continue;
     const current = bestByTenant.get(row.tenantId);

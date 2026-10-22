@@ -87,6 +87,10 @@ function keyInUse(): WriteResult<never> {
   );
 }
 
+function isImageKey(links: Readonly<Record<string, LinkedResourceEntry>>, key: string) {
+  return typeof links[key] === "string";
+}
+
 function isAttachmentKey(links: Readonly<Record<string, LinkedResourceEntry>>, key: string) {
   const occupant = links[key];
   return occupant !== undefined && typeof occupant !== "string";
@@ -481,8 +485,7 @@ async function checkAttachmentTarget(args: {
   if (otherAttachmentCount(linked, key) >= MAX_FILE_ATTACHMENTS_PER_TEMPLATE) {
     return attachmentLimitFailure();
   }
-  const occupant = linked[key];
-  if (occupant !== undefined && typeof occupant === "string") return keyInUse();
+  if (isImageKey(linked, key)) return keyInUse();
   return { isSuccess: true, data: { row, linked } };
 }
 
@@ -638,6 +641,7 @@ export async function linkTemplatePdfAttachment(args: {
   if (row.kind !== "mail") return attachmentNeedsMailTemplate();
 
   const linked = parseLinkedResourceEntries(row.linkedResources);
+  if (isImageKey(linked, key)) return keyInUse();
   if (otherAttachmentCount(linked, key) >= MAX_FILE_ATTACHMENTS_PER_TEMPLATE) {
     return attachmentLimitFailure();
   }

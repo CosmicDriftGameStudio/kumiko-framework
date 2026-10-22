@@ -1,5 +1,5 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
+import { toPostgresArrayLiteral, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 export type NotificationPreferenceRow = {
@@ -27,6 +27,6 @@ export async function selectNotificationPreferences(
          OR (notification_type = '*' AND channel = $4)
          OR (notification_type = ANY($3::text[]) AND channel = '*')
        )`,
-    [tenantId, userId, notificationTypeNames, channelName],
+    [tenantId, userId, toPostgresArrayLiteral(notificationTypeNames), channelName],
   );
 }

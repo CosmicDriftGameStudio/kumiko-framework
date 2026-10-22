@@ -50,6 +50,8 @@ export const memberDirectoryQuery = definePagedQueryHandler({
     limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(MAX_LIST_LIMIT),
     // Sent by the reference combobox while the user types.
     search: z.string().trim().min(1).optional(),
+    // Resolves exactly these users; callers that know their ids must not depend on the cap.
+    ids: z.array(z.string().min(1)).max(MAX_LIST_LIMIT).optional(),
   }),
   access: { roles: access.admin },
   description:
@@ -62,7 +64,8 @@ export const memberDirectoryQuery = definePagedQueryHandler({
           "tenant:query:member-directory requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
       });
     }
-    const { limit, search } = query.payload;
+    const { limit, search, ids } = query.payload;
+    if (ids?.length === 0) return { rows: [], nextCursor: null };
     // Without a search the first `limit` rows are enough; with one, every
     // candidate must be decrypted before the limit can apply.
     const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;
@@ -71,13 +74,16 @@ export const memberDirectoryQuery = definePagedQueryHandler({
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as user:query:user:list did",
       );
-      users = await selectMany(db, userTable, undefined, {
+      users = await selectMany(db, userTable, ids === undefined ? undefined : { id: ids }, {
         limit: scanLimit,
         orderBy: { col: "id", direction: "asc" },
       });
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
-      const userIds = (await loadMemberUserIds(db, query.user.tenantId)).slice(0, scanLimit);
+      const requestedIds = ids === undefined ? undefined : new Set(ids);
+      const userIds = (await loadMemberUserIds(db, query.user.tenantId))
+        .filter((id) => requestedIds === undefined || requestedIds.has(id))
+        .slice(0, scanLimit);
       users =
         userIds.length > 0
           ? await selectMany(
