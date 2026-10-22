@@ -13,19 +13,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   configureEntityFieldEncryption,
-  createDbConnection,
   type DbConnection,
-  dbConnectionOptionsFromEnv,
-  outsideTransactionPoolOptionsFromEnv,
-  serverTimeoutOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
-  type EffectiveFeaturesResolver,
   type FeatureDefinition,
-  findTierResolverUsage,
   type Registry,
-  requireTierResolverPlugin,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -42,7 +35,6 @@ import {
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
-  type CacheSyncBus,
   createRedisCacheSyncBus,
   redisClientOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
@@ -53,7 +45,7 @@ import { Redis } from "ioredis";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
-import { requireEnv } from "../run-prod-app.ts";
+import { requireEnv } from "../require-env.ts";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -63,10 +55,11 @@ import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.ts";
 import { resolveBootCrypto } from "./boot-crypto.ts";
 import { jobRunLoggerCallbacks } from "./job-run-logger.ts";
 import {
-  WAIT_FOR_DATABASE_DEADLINE_MS,
-  waitForDatabase,
-  waitUntilDatabaseReachable,
-} from "./wait-for-database.ts";
+  buildEffectiveFeaturesResolver,
+  openDatabasePools,
+  waitForKmsHealthy,
+} from "./shared-boot-steps.ts";
+import { WAIT_FOR_DATABASE_DEADLINE_MS, waitForDatabase } from "./wait-for-database.ts";
 import { assertWorkerMetricsOptions } from "./worker-metrics-server.ts";
 
 export type WorkerBootCoreOptions = Omit<RunWorkerAppOptions, "wireComponents">;
@@ -121,17 +114,6 @@ export async function resolveWorkerEnvSource(
         logPrefix: `[${processName}]`,
       })
     : rawEnvSource;
-}
-
-async function buildTierEffectiveFeatures(
-  features: readonly FeatureDefinition[],
-  db: DbConnection,
-  registry: Registry,
-  cacheSync: CacheSyncBus,
-): Promise<EffectiveFeaturesResolver | undefined> {
-  const tierResolverUsage = findTierResolverUsage(features);
-  if (!tierResolverUsage) return undefined;
-  return requireTierResolverPlugin(tierResolverUsage).build({ db, registry, cacheSync });
 }
 
 async function assertWorkerSchemaCurrent(
@@ -205,29 +187,13 @@ export async function bootWorkerProcess(
   // Before the connections, so an abort leaks nothing.
   const databaseWaitDeadline = Date.now() + WAIT_FOR_DATABASE_DEADLINE_MS;
   if (options.kms) {
-    const kms = options.kms;
-    const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
-      processName: processName,
-      target: "KMS",
-      deadline: databaseWaitDeadline,
-    });
-    if (!kmsHealth.ok) {
-      throw new Error(
-        `[${processName}] BOOT ABORTED — KMS health check failed (latency ${kmsHealth.latencyMs}ms)`,
-      );
-    }
+    await waitForKmsHealthy(options.kms, processName, databaseWaitDeadline);
   }
 
-  const { db, close: closeDb } = createDbConnection({
-    url: databaseUrl,
-    ...dbConnectionOptionsFromEnv(envSource),
-    ...serverTimeoutOptionsFromEnv(envSource),
-  });
-  const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection({
-    url: databaseUrl,
-    ...outsideTransactionPoolOptionsFromEnv(envSource),
-    ...serverTimeoutOptionsFromEnv(envSource),
-  });
+  const { db, closeDb, outsideTransactionDb, closeOutsideTransactionDb } = openDatabasePools(
+    databaseUrl,
+    envSource,
+  );
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
   const cacheSync = createRedisCacheSyncBus({
@@ -244,21 +210,13 @@ export async function bootWorkerProcess(
     throw err;
   }
 
-  let resolvedEffectiveFeatures = await buildTierEffectiveFeatures(
+  const resolvedEffectiveFeatures = await buildEffectiveFeaturesResolver({
     features,
+    featureToggles: profile.featureToggles,
     db,
     registry,
     cacheSync,
-  );
-  if (profile.featureToggles) {
-    const bound = await profile.featureToggles.bind({
-      db,
-      registry,
-      cacheSync,
-      tierResolver: resolvedEffectiveFeatures,
-    });
-    resolvedEffectiveFeatures = bound.resolver;
-  }
+  });
 
   if (options.migrations !== false) {
     try {

@@ -12,114 +12,57 @@
 // query, or a custom LoginRateLimiter, use `createKumikoServer` directly from
 // @cosmicdrift/kumiko-dev-server.
 
-import {
-  AuthErrors,
-  AuthHandlers,
-  AuthQueries,
-} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import {
-  type SeedAdminOptions,
-  seedAdminGuarded,
-} from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import {
-  EXT_SESSION_STORE,
-  resolveSessionStore,
-  resolveTokenVerifier,
-  type SessionStore,
-} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import {
-  AUTH_MFA_FEATURE,
-  AuthMfaHandlers,
-  bindMfaRevokeAllOtherSessionsFromFeature,
-  bindMfaTokenSecretsFromFeature,
-  bindRevokeAllPatTokensFromFeature,
-} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import type { SeedAdminOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
   buildEnvConfigOverrides,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import type { PostAuthLandingResolver } from "@cosmicdrift/kumiko-framework/api";
 import {
-  bindPatAutoRevokeOnPasswordChangeFromFeature,
-  PAT_FEATURE,
-  patRateLimitFromFeature,
-  revokeAllPatTokensForUser,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import {
-  bindAutoRevokeFromFeature,
-  SESSIONS_FEATURE,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import type {
-  PostAuthLandingResolver,
-  SessionMetadata,
-  TokenVerifier,
-} from "@cosmicdrift/kumiko-framework/api";
-import {
-  createInMemoryLoginRateLimiter,
   parseTrustedProxyHopsEnv,
   TRUSTED_PROXY_HOPS_ENV,
 } from "@cosmicdrift/kumiko-framework/api";
+import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
-  configureBlindIndexKey,
-  configurePiiSubjectKms,
-  type KmsAdapter,
-} from "@cosmicdrift/kumiko-framework/crypto";
-import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import {
-  collectWriteHandlerQns,
-  createRegistry,
-  type EffectiveFeaturesResolver,
   type FeatureDefinition,
-  FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
-  FILE_STORAGE_PROVIDER_ENV,
   findTierResolverUsage,
   type Registry,
-  requireTierResolverPlugin,
-  type SessionUser,
-  type TenantId,
   type ValidateBootOptions,
-  validateAppCustomScreenWriteQns,
-  validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { type ComposedEnvSchema, parseEnv } from "@cosmicdrift/kumiko-framework/env";
+import type { ComposedEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
-import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { PageHeadResolver } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import {
-  assertStackBootRequirements,
-  type BillingBootOption,
-  type DemoModeOption,
-  type FileStorageBootOption,
-  isSeedFnList,
-  type KmsMode,
-  type MailBootOption,
-  type ProdSeedsConfig,
-  rejectRemovedEffectiveFeatures,
-  resolveBootOptionWiring,
-  withBootOptionEnvBlocks,
+import type {
+  BillingBootOption,
+  DemoModeOption,
+  FileStorageBootOption,
+  KmsMode,
+  MailBootOption,
+  ProdSeedsConfig,
 } from "@cosmicdrift/kumiko-server-runtime";
-import { applyBootSeeds } from "@cosmicdrift/kumiko-server-runtime/boot/apply-boot-seeds";
-import { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
-import {
-  buildComposeAuthOptions,
-  composeFeatures,
-} from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { assertPiiBootInvariants } from "@cosmicdrift/kumiko-server-runtime/pii-boot-gate";
-import { assertSessionBootInvariants } from "@cosmicdrift/kumiko-server-runtime/session-boot-gate";
+import type { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type KumikoServerHandle,
-  logInfo,
 } from "./create-kumiko-server.ts";
 import {
-  captureEphemeralDevPiiKms,
-  type DevPiiKmsResolution,
-  resolveDevPiiKms,
-} from "./resolve-dev-pii-kms.ts";
+  createDevLateBindings,
+  createLateBoundEffectiveFeatures,
+  runDevAfterSetup,
+  wireDevAuth,
+} from "./run-dev-app-auth.ts";
+import {
+  type BootFailureCleanup,
+  configureDevBootCrypto,
+  type DevBootConfig,
+  resolveDevAuthRegistry,
+  resolveDevBootConfig,
+  validateDevBoot,
+} from "./run-dev-app-config.ts";
+import { buildDevServerOptions } from "./run-dev-app-server-options.ts";
 import { renderWelcomeBanner } from "./welcome-banner.ts";
 
 // Re-exports the shared auth setup types so apps need only one import path.
@@ -149,9 +92,6 @@ import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   loggerFromExtraContext,
-  requireEnv,
-  resolveAuthMail,
-  resolveUnsubscribeWiring,
   type UnsubscribeOption,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
@@ -343,8 +283,6 @@ export type RunDevAppOptions = {
   readonly errorDocs?: ErrorDocsConfig;
 };
 
-type BootFailureCleanup = { release: (() => Promise<void>) | undefined };
-
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
   const bootFailure: BootFailureCleanup = { release: undefined };
   try {
@@ -360,223 +298,106 @@ async function bootDevApp(
   options: RunDevAppOptions,
   bootFailure: BootFailureCleanup,
 ): Promise<KumikoServerHandle> {
-  // Automatically mixes standard features in auth mode through composeFeatures.
-  // runProdApp and the per-app Drizzle schema generator use the same helper,
-  // keeping migrations and runtime feature composition aligned.
-  const rawEnvSource = options.envSource ?? process.env;
-  const seedsConfig =
-    options.seeds !== undefined && !isSeedFnList(options.seeds) ? options.seeds : undefined;
-  const stackSeeds =
-    options.seeds === undefined
-      ? []
-      : isSeedFnList(options.seeds)
-        ? options.seeds
-        : (options.seeds.run ?? []);
-  if (options.envSchema) {
-    // Free dev seeds take the test stack; the env blocks only read the declarative part.
-    const { seeds: _devSeeds, kms: devKms, ...bootFields } = options;
-    const composed = withBootOptionEnvBlocks(options.envSchema, {
-      ...bootFields,
-      ...(devKms && { kms: devKms }),
-      ...(seedsConfig && { seeds: { ...seedsConfig, run: [] } }),
-      features: options.features,
-    });
-    parseEnv(composed.schema, rawEnvSource, { sources: composed.sources });
-  }
-  rejectRemovedEffectiveFeatures(options);
-  const wiring = await resolveBootOptionWiring(
-    {
-      features: options.features,
-      ...(options.mail && { mail: options.mail }),
-      ...(options.fileStorage && { fileStorage: options.fileStorage }),
-      ...(options.kmsMode !== undefined && { kmsMode: options.kmsMode }),
-      ...(options.billing && { billing: options.billing }),
-      ...(options.featureToggles && { featureToggles: true }),
-      ...(options.demoMode && { demoMode: options.demoMode }),
-      ...(seedsConfig && { seeds: { ...seedsConfig, run: [] } }),
-      ...(options.kms && { kms: options.kms }),
-      ...(options.blindIndexKey !== undefined && { blindIndexKey: options.blindIndexKey }),
-      ...(options.auth && { auth: options.auth }),
-    },
-    rawEnvSource,
+  const config = await resolveDevBootConfig(options, bootFailure);
+  const bootCrypto = validateDevBoot(options, config);
+  const lateBindings = createDevLateBindings();
+  const tierResolverUsage = findTierResolverUsage(config.features);
+  const effectiveFeatures = createLateBoundEffectiveFeatures(
+    lateBindings,
+    Boolean(tierResolverUsage || config.wiring.featureToggles),
   );
-  bootFailure.release = () => wiring.kms.close();
-  const envSource: Record<string, string | undefined> =
-    Object.keys(wiring.envDefaults).length > 0
-      ? { ...wiring.envDefaults, ...rawEnvSource }
-      : rawEnvSource;
-  assertStackBootRequirements(
-    {
-      features: options.features,
-      ...(options.featureToggles && { featureToggles: true }),
-    },
-    ["featureToggles"],
+  const { releasePiiKms } = configureDevBootCrypto(
+    options,
+    config,
+    bootCrypto,
+    lateBindings.resets,
+    bootFailure,
   );
-  // Normalizes auth.mail into the explicit flow fields, symmetrically with
-  // runProdApp. hmacSecret is read from the JWT_SECRET environment value and
-  // fails fast when unavailable. From this point on, use effectiveAuth rather
-  // than options.auth.
-  const effectiveAuth = options.auth
-    ? resolveAuthMail(options.auth, requireEnv("JWT_SECRET", envSource, "runDevApp"), envSource, {
-        mailConfigured: wiring.mailConfigured,
-      })
-    : undefined;
-  const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
-  const { unsubscribeLinks, unsubscribeRoutes } = resolveUnsubscribeWiring({
-    unsubscribe: options.unsubscribe,
-    publicOrigin: undefined,
-    mailBaseUrl: effectiveAuth?.mail?.baseUrl,
-    envSource,
-    warn: (message) => createFallbackLogger("runDevApp").warn(message),
-  });
-  const extraRoutes =
-    unsubscribeRoutes.length === 0 && wiring.extraRoutes.length === 0
-      ? options.extraRoutes
-      : [...(options.extraRoutes ?? []), ...unsubscribeRoutes, ...wiring.extraRoutes];
-  const features = composeFeatures([...options.features, ...wiring.features], {
-    includeBundled: !!effectiveAuth,
-    ...(composeAuthOptions && { authOptions: composeAuthOptions }),
-  });
+  const { registry, sessionStoreProviderMounted } = resolveDevAuthRegistry(config);
+  const extraContext = buildDevExtraContext(options, config, registry, bootCrypto);
+  const auth = wireDevAuth(config, registry, sessionStoreProviderMounted, lateBindings);
 
-  // An explicitly wired file provider (options.files) satisfies the
-  // FILE_STORAGE_PROVIDER boot gate. Passed via the validateBoot env option
-  // instead of mutating process.env, so nothing leaks into later runDevApp
-  // calls in the same process.
-  const baseBootEnv = {
-    ...wiring.envDefaults,
-    ...(options.validateBootOptions?.env ?? process.env),
-  };
-  const hasBootEnvDefaults = Object.keys(wiring.envDefaults).length > 0;
-  const bootOptions: ValidateBootOptions | undefined =
-    options.files !== undefined && baseBootEnv[FILE_STORAGE_PROVIDER_ENV] === undefined
-      ? {
-          ...options.validateBootOptions,
-          env: { ...baseBootEnv, [FILE_STORAGE_PROVIDER_ENV]: FILE_STORAGE_PROVIDER_BOOT_SENTINEL },
-        }
-      : hasBootEnvDefaults
-        ? { ...options.validateBootOptions, env: baseBootEnv }
-        : options.validateBootOptions;
+  const trustedProxyHops =
+    options.trustedProxyHops ??
+    config.effectiveAuth?.trustedProxyHops ??
+    parseTrustedProxyHopsEnv(config.envSource[TRUSTED_PROXY_HOPS_ENV], "runDevApp");
 
-  // Run boot validation before creating the server. This catches the same
-  // errors runProdApp catches (unqualified navigation or handler QNs,
-  // screen-access violations), which would otherwise only show up as a prod pod
-  // in CrashLoopBackOff. It throws
-  // synchronously before a socket is opened.
-  // Resolve this before validateBoot: an app-supplied masterKey provider must
-  // satisfy the encrypted-field gate exactly as it does in runProdApp.
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
-  validateBoot(features, {
-    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
-    ...bootOptions,
+  const handle = await createKumikoServer({
+    ...buildDevServerOptions({
+      options,
+      config,
+      auth,
+      extraContext,
+      trustedProxyHops,
+      effectiveFeatures,
+    }),
+    onAfterSetup: (stack) => runDevAfterSetup(stack, { config, bootCrypto, auth, lateBindings }),
   });
-  warnIfNonUtcServerTimeZone();
-  validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
+  bootFailure.release = undefined;
 
-  // Tier-Composition auto-wire: scan features for a
-  // tenantTierResolver-extension and wire a late-bound wrapper here; it is
-  // filled in onAfterSetup (where stack.db + stack.registry are available).
-  // The global operator toggles layer over the same wrapper.
-  // App-Author sees nothing — `createTierEngineFeature(opts)` mounts +
-  // framework auto-wires.
-  const tierResolverUsage = findTierResolverUsage(features);
-  const tierResolverHolder: { resolver: EffectiveFeaturesResolver | undefined } = {
-    resolver: undefined,
-  };
-  const finalEffectiveFeatures: EffectiveFeaturesResolver | undefined =
-    tierResolverUsage || wiring.featureToggles
-      ? Object.assign(
-          (tenantId: TenantId) => {
-            // Defensive: Server starts AFTER onAfterSetup completes, so the
-            // resolver is filled before any request comes in. Throwing here
-            // means a programming error (boot order) rather than silent
-            // "all-features-on" misbehavior.
-            if (!tierResolverHolder.resolver) {
-              throw new Error(
-                "tier-resolver: extension found but resolver not yet built — boot order issue?",
-              );
-            }
-            return tierResolverHolder.resolver(tenantId);
-          },
-          {
-            // The real trialGate lands on holder.resolver only after plugin.build(). Delegate rather than
-            // copy it because this wrapper closure is created before build().
-            // Return false when no trial gate is available.
-            trialGate: (tenantId: TenantId, featureName: string): Promise<boolean> =>
-              tierResolverHolder.resolver?.trialGate?.(tenantId, featureName) ??
-              Promise.resolve(false),
-          },
-        )
-      : undefined;
-
-  // Provide the configResolver default for the config feature in auth mode;
-  // in no-auth mode, leave that choice to the caller. Wrap the factory so the
-  // spread applies to its result; spreading the function itself is a no-op. The
-  // ENV-to-config bridge supplies app-override defaults from `env:` keys.
-  // The temporary registry extracts only config keys because the resolver is
-  // built before server boot, and stack.registry only exists from onAfterSetup;
-  // createKumikoServer builds its own registry internally.
-  // The app-wide cipher for `encrypted: true` entity fields is resolved lazily
-  // by executors, symmetrically with runProdApp.
-  configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
-  // Configure Subject-KMS and blind-index handling, symmetrically with
-  // runProdApp. Dev warns instead of failing for plaintext PII, but kms with
-  // lookupable fields still requires blindIndexKey because lookups would fail
-  // in every mode.
-  const piiKms: DevPiiKmsResolution =
-    options.kmsMode !== undefined
-      ? {
-          kms: wiring.kms.kms,
-          blindIndexKey: wiring.kms.blindIndexKey,
-          generatedBlindIndexKey: false,
-          mode: wiring.kms.kms ? "app-kms" : "plaintext",
-        }
-      : resolveDevPiiKms(options);
-  configurePiiSubjectKms(piiKms.kms);
-  configureBlindIndexKey(piiKms.blindIndexKey);
-  const releaseEphemeralPiiKms = captureEphemeralDevPiiKms(piiKms);
-  // The auth features bind database-backed revokers onto their (possibly shared) instances;
-  // stop() swaps them for inert ones so a later stack in the same process never reaches this
-  // app's closed connection.
-  const resetLateBindings: Array<() => void> = [];
-  const releasePiiKms = async (): Promise<void> => {
-    for (const reset of resetLateBindings) reset();
-    releaseEphemeralPiiKms();
-    await wiring.kms.close();
-  };
-  bootFailure.release = releasePiiKms;
-  assertPiiBootInvariants(features, {
-    kms: piiKms.kms,
-    blindIndexKey: piiKms.blindIndexKey,
-    mode: "dev",
-  });
-  if (piiKms.mode === "ephemeral-default") {
-    logInfo(
-      "[runDevApp] PII encrypted with in-memory KMS (ephemeral DB); pass kms: false to opt out",
-    );
+  if (options.welcomeBanner) {
+    const banner = renderDevWelcomeBanner(options, config, handle);
+    // biome-ignore lint/suspicious/noConsole: boot-time UX print, opt-in via welcomeBanner.
+    console.log(`\n${banner}\n`);
   }
-  // Throwaway registry, built once and reused below — mirrors runProdApp's
-  // `createRegistry(features)` right after validateBoot. Symmetric
-  // sessionStoreProviderMounted check to runProdApp's (registry.getExtension-
-  // Usages, not a raw features.some(...) scan) so dev and prod never ask the
-  // same question two different ways again.
-  const registry = effectiveAuth ? createRegistry(features) : undefined;
-  const sessionStoreProviderMounted =
-    registry !== undefined && registry.getExtensionUsages(EXT_SESSION_STORE).length > 0;
-  assertSessionBootInvariants({
-    hasAuth: Boolean(effectiveAuth),
-    sessionStoreProviderMounted,
-    mode: "dev",
+
+  return {
+    ...handle,
+    stop: async () => {
+      try {
+        await handle.stop();
+      } finally {
+        await releasePiiKms();
+      }
+    },
+  };
+}
+
+function renderDevWelcomeBanner(
+  options: RunDevAppOptions,
+  config: DevBootConfig,
+  handle: KumikoServerHandle,
+): string {
+  const { effectiveAuth } = config;
+  const overrides = typeof options.welcomeBanner === "object" ? options.welcomeBanner : {};
+  const port = handle.server?.port ?? options.port ?? 3000;
+  return renderWelcomeBanner({
+    url: `http://localhost:${port}`,
+    ...(effectiveAuth?.admin && {
+      admin: {
+        email: effectiveAuth.admin.email,
+        password: effectiveAuth.admin.password,
+      },
+    }),
+    ...(overrides.featuresDir !== undefined && { featuresDir: overrides.featuresDir }),
+    ...(overrides.docsUrl !== undefined && { docsUrl: overrides.docsUrl }),
   });
+}
+
+// Provide the configResolver default for the config feature in auth mode;
+// in no-auth mode, leave that choice to the caller. Wrap the factory so the
+// spread applies to its result; spreading the function itself is a no-op. The
+// ENV-to-config bridge supplies app-override defaults from `env:` keys.
+// The temporary registry extracts only config keys because the resolver is
+// built before server boot, and stack.registry only exists from onAfterSetup;
+// createKumikoServer builds its own registry internally.
+// Automatically wire templateResolver and feature-gated secrets, symmetrically
+// with runProdApp. Unlike prod, the database is available here only in the
+// factory dependencies because createKumikoServer builds the stack. Therefore
+// use a factory: buildBootExtraContext runs with hasAuth:false because
+// configResolver already comes from cfgExtra, and cfgExtra values override
+// the boot defaults.
+function buildDevExtraContext(
+  options: RunDevAppOptions,
+  config: DevBootConfig,
+  registry: Registry | undefined,
+  bootCrypto: ReturnType<typeof resolveBootCrypto>,
+): CreateKumikoServerOptions["extraContext"] {
+  const { features, envSource, unsubscribeLinks } = config;
   const cfgExtra = registry
     ? mergeConfigResolverDefault(options.extraContext, registry, envSource, bootCrypto.configCipher)
     : options.extraContext;
-  // Automatically wire templateResolver and feature-gated secrets, symmetrically
-  // with runProdApp. Unlike prod, the database is available here only in the
-  // factory dependencies because createKumikoServer builds the stack. Therefore
-  // use a factory: buildBootExtraContext runs with hasAuth:false because
-  // configResolver already comes from cfgExtra, and cfgExtra values override
-  // the boot defaults.
-  const extraContext: CreateKumikoServerOptions["extraContext"] = (deps) => {
+  return (deps) => {
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
     const bootLogger = loggerFromExtraContext(base);
     const boot = buildBootExtraContext({
@@ -597,289 +418,6 @@ async function bootDevApp(
       ...base,
     };
   };
-
-  // Sessions: late-bound holder — resolveSessionStore needs concrete db+
-  // registry (only after setupTestStack). Wired when sessions feature is
-  // mounted; no auth.sessions opt-in anymore.
-  let sessionStore: SessionStore | undefined;
-  const requireSessionStore = (): SessionStore => {
-    if (!sessionStore) {
-      throw new Error("[runDevApp] sessionStore accessed before onAfterSetup");
-    }
-    return sessionStore;
-  };
-  // Token-verifier opt-in: same late-bound holder pattern — resolveTokenVerifier
-  // needs the real db+registry (only concrete after setupTestStack). Wired
-  // whenever a provider feature (personal-access-tokens today) is mounted.
-  let tokenVerifier: TokenVerifier | undefined;
-  const patFeature = features.find((f) => f.name === PAT_FEATURE);
-  const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
-  // Same master secret as runProdApp. Without JWT_SECRET the feature keeps
-  // its explicit secrets, or its handlers report the missing binding.
-  const devMasterSecret = envSource["JWT_SECRET"];
-  if (mfaFeature && devMasterSecret) {
-    bindMfaTokenSecretsFromFeature(mfaFeature)?.(devMasterSecret, envSource);
-  }
-  if (
-    effectiveAuth &&
-    mfaFeature &&
-    registry?.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined
-  ) {
-    throw new Error(
-      `[runDevApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +
-        "createAuthEmailPasswordFeature registers it only when mfaStatusChecker is set, and without it " +
-        "POST /auth/switch-tenant would mint sessions without the second factor",
-    );
-  }
-  const patAuthFragment = patFeature
-    ? {
-        tokenVerifier: (rawToken: string) => {
-          if (!tokenVerifier) {
-            throw new Error("[runDevApp] token-verifier accessed before onAfterSetup");
-          }
-          return tokenVerifier(rawToken);
-        },
-        patRateLimiter: (() => {
-          const rl = patRateLimitFromFeature(patFeature);
-          return createInMemoryLoginRateLimiter(rl.maxRequests, rl.windowMs);
-        })(),
-      }
-    : {};
-
-  // Parity with runProdApp: gate on sessionStore provider, not
-  // the sessions feature name — a custom provider must also wire auth
-  // callbacks. sessionStoreProviderMounted computed above via the registry
-  // (same check as runProdApp) — not recomputed here.
-  const sessionAuthFragment =
-    effectiveAuth && sessionStoreProviderMounted
-      ? {
-          sessionCreator: (user: SessionUser, meta: SessionMetadata) =>
-            requireSessionStore().creator(user, meta),
-          sessionRevoker: (sid: string) => requireSessionStore().revoker(sid),
-          sessionChecker: (sid: string, userId: string) =>
-            requireSessionStore().checker(sid, userId),
-        }
-      : {};
-
-  const trustedProxyHops =
-    options.trustedProxyHops ??
-    effectiveAuth?.trustedProxyHops ??
-    parseTrustedProxyHopsEnv(envSource[TRUSTED_PROXY_HOPS_ENV], "runDevApp");
-
-  const handle = await createKumikoServer({
-    features,
-    ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
-    ...(options.errorDocs && { errorDocs: options.errorDocs }),
-    ...(options.clientEntries !== undefined && { clientEntries: options.clientEntries }),
-    ...(options.hostDispatch !== undefined && { hostDispatch: options.hostDispatch }),
-    ...(options.resolvePageHead !== undefined && { resolvePageHead: options.resolvePageHead }),
-    ...(options.stylesheet !== undefined && { stylesheet: options.stylesheet }),
-    ...(options.stylesheetWatch !== undefined && { stylesheetWatch: options.stylesheetWatch }),
-    ...(options.htmlPath !== undefined && { htmlPath: options.htmlPath }),
-    ...(options.port !== undefined && { port: options.port }),
-    ...(options.watchDirs !== undefined && { watchDirs: options.watchDirs }),
-    ...(options.installSignalHandlers !== undefined && {
-      installSignalHandlers: options.installSignalHandlers,
-    }),
-    ...(extraContext !== undefined && { extraContext }),
-    ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
-    ...(options.files !== undefined && { files: options.files }),
-    ...(extraRoutes !== undefined && { extraRoutes }),
-    ...(options.wire !== undefined && { wire: options.wire }),
-    ...(trustedProxyHops !== undefined && { trustedProxyHops }),
-    ...(options.demoMode && { wrapFetch: wiring.wrapFetch }),
-    ...(finalEffectiveFeatures !== undefined && {
-      effectiveFeatures: finalEffectiveFeatures,
-    }),
-    ...(effectiveAuth && {
-      auth: {
-        membershipQuery: TenantQueries.memberships,
-        loginHandler: AuthHandlers.login,
-        loginErrorStatusMap: effectiveAuth.loginErrorStatusMap ?? {
-          [AuthErrors.invalidCredentials]: 401,
-          [AuthErrors.noMembership]: 403,
-        },
-        ...(effectiveAuth.cookieDomain !== undefined && {
-          cookieDomain: effectiveAuth.cookieDomain,
-        }),
-        ...(effectiveAuth.retiredCookieDomains !== undefined && {
-          retiredCookieDomains: effectiveAuth.retiredCookieDomains,
-        }),
-        ...(effectiveAuth.allowedOrigins !== undefined && {
-          allowedOrigins: effectiveAuth.allowedOrigins,
-        }),
-        ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
-          unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
-        }),
-        ...(effectiveAuth.trustedProxyHops !== undefined && {
-          trustedProxyHops: effectiveAuth.trustedProxyHops,
-        }),
-        ...(effectiveAuth.postAuthLanding !== undefined && {
-          postAuthLanding: effectiveAuth.postAuthLanding,
-        }),
-        ...sessionAuthFragment,
-        ...patAuthFragment,
-        ...(mfaFeature && {
-          mfaVerifyHandler: AuthMfaHandlers.verify,
-          switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
-          mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
-          mfaPreauthConfirmHandler: AuthMfaHandlers.enableConfirmPreauth,
-        }),
-        ...(effectiveAuth.passwordReset && {
-          passwordReset: {
-            requestHandler: AuthHandlers.requestPasswordReset,
-            confirmHandler: AuthHandlers.resetPassword,
-          },
-        }),
-        ...(effectiveAuth.emailVerification && {
-          emailVerification: {
-            requestHandler: AuthHandlers.requestEmailVerification,
-            confirmHandler: AuthHandlers.verifyEmail,
-          },
-        }),
-        ...(effectiveAuth.accountUnlock && {
-          accountUnlock: {
-            requestHandler: AuthHandlers.requestAccountUnlock,
-            confirmHandler: AuthHandlers.confirmAccountUnlock,
-          },
-        }),
-        ...(effectiveAuth.signup && {
-          signup: {
-            requestHandler: AuthHandlers.signupRequest,
-            confirmHandler: AuthHandlers.signupConfirm,
-          },
-        }),
-        ...(effectiveAuth.invite && {
-          invite: {
-            acceptHandler: AuthHandlers.inviteAccept,
-            acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
-            signupCompleteHandler: AuthHandlers.inviteSignupComplete,
-            infoHandler: AuthQueries.inviteInfo,
-          },
-        }),
-      },
-    }),
-    onAfterSetup: async (stack) => {
-      // Build tier-resolver BEFORE any seeds so seeds can rely
-      // on the resolver being live (e.g. seed that writes a SystemAdmin's
-      // tier-assignment can immediately read tier-cuts).
-      if (tierResolverUsage) {
-        tierResolverHolder.resolver = await requireTierResolverPlugin(tierResolverUsage).build({
-          db: stack.db,
-          registry: stack.registry,
-          cacheSync: stack.cacheSync,
-        });
-      }
-      if (wiring.featureToggles) {
-        const bound = await wiring.featureToggles.bind({
-          db: stack.db,
-          registry: stack.registry,
-          cacheSync: stack.cacheSync,
-          tierResolver: tierResolverHolder.resolver,
-        });
-        tierResolverHolder.resolver = bound.resolver;
-      }
-      if (effectiveAuth && stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0) {
-        // Secure-by-default: resolve sessionStore provider; bind
-        // password-change mass-revoke + MFA revokeAllOthers.
-        const store = await resolveSessionStore({
-          db: stack.db,
-          registry: stack.registry,
-        });
-        const sessionsFeature = features.find((f) => f.name === SESSIONS_FEATURE);
-        if (sessionsFeature) {
-          bindReleasable(
-            bindAutoRevokeFromFeature(sessionsFeature),
-            store.massRevoker,
-            resetLateBindings,
-          );
-        }
-        if (mfaFeature) {
-          bindReleasable(
-            bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature),
-            store.revokeAllOthers,
-            resetLateBindings,
-          );
-        }
-        if (mfaFeature && patFeature) {
-          bindReleasable(
-            bindRevokeAllPatTokensFromFeature(mfaFeature),
-            (userId) => revokeAllPatTokensForUser(stack.db, userId),
-            resetLateBindings,
-          );
-        }
-        sessionStore = store;
-      }
-      if (patFeature) {
-        tokenVerifier = (rawToken) =>
-          resolveTokenVerifier({ db: stack.db, registry: stack.registry }, rawToken);
-        // Password-change → PAT-revoke: independent of sessions/MFA being
-        // mounted, so wired unconditionally here whenever PAT itself is.
-        bindReleasable(
-          bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature),
-          (userId) => revokeAllPatTokensForUser(stack.db, userId),
-          resetLateBindings,
-        );
-      }
-      if (effectiveAuth) {
-        await seedAdminGuarded(stack.db, effectiveAuth.admin);
-      }
-      // Apply r.config({ seeds }) declared by any registered feature.
-      // Runs before user-supplied seed callbacks so those can read /
-      // override the deploy-defaults. The helper indirection is what
-      // config-seed-boot.integration.ts pins — keep it as a single call.
-      for (const seed of wiring.shortcutSeeds) {
-        await seed(stack.db);
-      }
-      await applyBootSeeds({
-        registry: stack.registry,
-        db: stack.db,
-        ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
-      });
-      for (const seed of stackSeeds) {
-        await seed(stack);
-      }
-    },
-  });
-  bootFailure.release = undefined;
-
-  if (options.welcomeBanner) {
-    const overrides = typeof options.welcomeBanner === "object" ? options.welcomeBanner : {};
-    const port = handle.server?.port ?? options.port ?? 3000;
-    const banner = renderWelcomeBanner({
-      url: `http://localhost:${port}`,
-      ...(effectiveAuth?.admin && {
-        admin: {
-          email: effectiveAuth.admin.email,
-          password: effectiveAuth.admin.password,
-        },
-      }),
-      ...(overrides.featuresDir !== undefined && { featuresDir: overrides.featuresDir }),
-      ...(overrides.docsUrl !== undefined && { docsUrl: overrides.docsUrl }),
-    });
-    // biome-ignore lint/suspicious/noConsole: boot-time UX print, opt-in via welcomeBanner.
-    console.log(`\n${banner}\n`);
-  }
-
-  return {
-    ...handle,
-    stop: async () => {
-      try {
-        await handle.stop();
-      } finally {
-        await releasePiiKms();
-      }
-    },
-  };
-}
-
-// Binds a late-bound revoker and records its unbind for when the app stops.
-function bindReleasable<Revoker>(
-  bind: ((revoker: Revoker) => () => void) | undefined,
-  revoker: Revoker,
-  resets: Array<() => void>,
-): void {
-  if (bind) resets.push(bind(revoker));
 }
 
 // Exported for the wiring-contract test (config-resolver-default.integration):

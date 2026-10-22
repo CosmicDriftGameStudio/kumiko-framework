@@ -50,6 +50,10 @@
       "types": "./src/boot/apply-boot-seeds.ts",
       "default": "./src/boot/apply-boot-seeds.ts"
     },
+    "./boot/shared-boot-steps": {
+      "types": "./src/boot/shared-boot-steps.ts",
+      "default": "./src/boot/shared-boot-steps.ts"
+    },
     "./boot/boot-crypto": {
       "types": "./src/boot/boot-crypto.ts",
       "default": "./src/boot/boot-crypto.ts"
@@ -136,6 +140,10 @@
       "./boot/apply-boot-seeds": {
         "types": "./dist/boot/apply-boot-seeds.d.ts",
         "default": "./dist/boot/apply-boot-seeds.js"
+      },
+      "./boot/shared-boot-steps": {
+        "types": "./dist/boot/shared-boot-steps.d.ts",
+        "default": "./dist/boot/shared-boot-steps.js"
       },
       "./boot/boot-crypto": {
         "types": "./dist/boot/boot-crypto.d.ts",
