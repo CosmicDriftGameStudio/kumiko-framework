@@ -55,10 +55,9 @@ export {
   type DevHostDispatch,
   type DevHostDispatchResult,
   type KumikoServerHandle,
-  PROD_BUNDLES_ENV,
-  resolveStylesheet,
-  STYLESHEET_WATCH_ENV,
 } from "./create-kumiko-server.ts";
+export { PROD_BUNDLES_ENV } from "./create-kumiko-server-client-bundles.ts";
+export { resolveStylesheet, STYLESHEET_WATCH_ENV } from "./create-kumiko-server-stylesheet.ts";
 export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema.ts";
 export type {
   AuthoringStyle,

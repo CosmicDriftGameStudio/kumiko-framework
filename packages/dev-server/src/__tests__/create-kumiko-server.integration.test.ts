@@ -1,40 +1,25 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ExtraRouteRejection,
   NO_ROUTE_MATCH_HEADER_NAME,
-  requestContext,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createBooleanField,
-  createEntity,
-  createTextField,
-  defineFeature,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getSetCookieValue, readSseFrames } from "@cosmicdrift/kumiko-testing/helpers";
-import * as z from "zod";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type DevHostDispatchResult,
   type KumikoServerHandle,
-  PROD_BUNDLES_ENV,
-  STYLESHEET_WATCH_ENV,
 } from "../create-kumiko-server.ts";
+import { PROD_BUNDLES_ENV } from "../create-kumiko-server-client-bundles.ts";
+import { STYLESHEET_WATCH_ENV } from "../create-kumiko-server-stylesheet.ts";
+import { probeFeature } from "./create-kumiko-server-probe.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -42,47 +27,6 @@ const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 // Kumiko pipeline. It drives the fetch handler directly rather than through
 // Bun.serve and a socket because Vitest runs under Node. Bun would produce the
 // same responses; routing is runtime-neutral.
-
-const probeEntity = createEntity({
-  fields: {
-    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
-    done: createBooleanField(),
-  },
-  table: "kumiko_server_probe",
-});
-
-const probeFeature = defineFeature("dev-server-probe", (r) => {
-  r.entity({ name: "probe", ...probeEntity });
-  // Anonymous query for hostDispatch's deps.systemQuery — proves the
-  // dev path gets the same anonymous-role dispatch-deps shape as prod.
-  r.queryHandler({
-    name: "ping",
-    schema: z.object({}),
-    access: { roles: ["anonymous"] },
-    handler: async () => ({ pong: true }),
-  });
-  // Echoes the resolved client IP — proves a real Bun.serve socket address
-  // reaches requestContext.ip through handleFetch (every other test drives
-  // h.fetch()/handle.fetch() directly, never Bun.serve's real socket).
-  r.queryHandler({
-    name: "whoami",
-    schema: z.object({}),
-    access: { roles: ["anonymous"] },
-    handler: async () => ({ ip: requestContext.get()?.ip }),
-  });
-  // SystemAdmin-gated write — the `entry:"signature"` / `wire` tests verify
-  // that echoing user.tenantId and roles passes through the real dispatcher
-  // (Zod and access checks) with the target tenant's system user.
-  r.writeHandler({
-    name: "probe-write",
-    schema: z.object({ note: z.string() }),
-    access: { roles: ["SystemAdmin"] },
-    handler: async (event) => ({
-      isSuccess: true as const,
-      data: { tenantSeen: event.user.tenantId, roles: event.user.roles },
-    }),
-  });
-});
 
 let handle: KumikoServerHandle | undefined;
 
@@ -410,6 +354,15 @@ describe("createKumikoServer (Multi-Entry)", () => {
       const res = await handle.fetch(new Request("http://localhost/"));
       expect(res.status).toBe(500);
       expect(await res.text()).toContain("hostDispatch: file not found: /nonexistent/page.html");
+    });
+
+    test("static-html → 200 with the file verbatim: no reload snippet, no minted cookies", async () => {
+      handle = await bootNotFound(() => ({ kind: "static-html", file: join(tmpDir, "gone.html") }));
+      const res = await handle.fetch(new Request("http://localhost/"));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+      expect(res.headers.get("set-cookie")).toBeNull();
+      expect(await res.text()).toBe("<html><body>unknown tenant</body></html>");
     });
   });
 
@@ -769,6 +722,60 @@ describe("createKumikoServer — hot-reload broadcast", () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test("a failing rebuild keeps serving the last good bundle and broadcasts no reload", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-watch-"));
+    const entry = join(tmpDir, "client.tsx");
+    writeFileSync(entry, "export const ping = 1;\n");
+
+    let builds = 0;
+    let failNextBuild = false;
+    let signalFailedBuild: (() => void) | undefined;
+    const failedBuildSeen = new Promise<void>((resolve) => {
+      signalFailedBuild = resolve;
+    });
+    const watchEvents = fakeDirectoryWatch();
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        clientEntry: entry,
+        stylesheet: false,
+        _watchDirectory: watchEvents.watchDirectory,
+        _buildBundle: async () => {
+          builds += 1;
+          if (failNextBuild) {
+            failNextBuild = false;
+            signalFailedBuild?.();
+            throw new Error("client bundle failed");
+          }
+          return { js: `// build-${builds}`, map: "" };
+        },
+      });
+      const sseRes = await handle.fetch(new Request("http://localhost/_reload"));
+
+      failNextBuild = true;
+      watchEvents.emit("web/broken.tsx");
+      await failedBuildSeen;
+      const afterFailure = await handle.fetch(new Request("http://localhost/client.js"));
+      expect(await afterFailure.text()).toBe("// build-1");
+
+      watchEvents.emit("web/fixed.tsx");
+      const frames = await readSseFrames(sseRes, { until: (frame) => frame.event === "reload" });
+      const reloadedFiles = frames
+        .filter((frame) => frame.event === "reload")
+        .map((frame) => String(JSON.parse(frame.data)));
+      expect(reloadedFiles).toEqual(["web/fixed.tsx"]);
+      const afterFix = await handle.fetch(new Request("http://localhost/client.js"));
+      expect(await afterFix.text()).toBe("// build-3");
+
+      await handle.stop();
+      handle = undefined;
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 // runDevApp gains resolvePageHead parity with
@@ -911,21 +918,6 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () =>
   });
 });
 
-// A dotted GET path (e.g. /marketing/hero.png) used to fall through the SPA
-// catch-all's "no dot" filter straight to the API stack and 404 — works in
-// prod (buildStaticFallback's disk lookup under staticDir) but not dev,
-// which had no public/-serving at all. publicDir is process.cwd()-relative
-// (same App-Root convention as resolveStylesheet's src/styles.css lookup),
-// so these tests chdir into a fixture directory for the boot.
-const probeRobotsRouteFeature = defineFeature("dev-server-probe-robots-route", (r) => {
-  r.httpRoute({
-    method: "GET",
-    path: "/robots.txt",
-    anonymous: true,
-    handler: async (c) => c.text("ROUTE-ROBOTS", 200),
-  });
-});
-
 const probeJobFeature = defineFeature("dev-server-probe-job", (r) => {
   r.job("probe-job", { trigger: { manual: true }, runIn: "worker" }, async () => {});
 });
@@ -966,245 +958,6 @@ describe("createKumikoServer — ephemeral job queues", () => {
     handle = undefined;
 
     expect(await listQueueKeysOfBoot(jobQueueNamePrefix)).toEqual([]);
-  });
-});
-
-describe("createKumikoServer — public/ static files", () => {
-  test("GET on an existing file under public/ → 200, correct content-type + content", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-")));
-    const publicDir = join(tmpDir, "public");
-    mkdirSync(join(publicDir, "marketing"), { recursive: true });
-    writeFileSync(join(publicDir, "marketing", "hero.png"), "PNGDATA");
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      const res = await handle.fetch(new Request("http://localhost/marketing/hero.png"));
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("image/png");
-      expect(await res.text()).toBe("PNGDATA");
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("traversal attempts never serve a file from outside public/", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-traversal-")));
-    const publicDir = join(tmpDir, "public");
-    mkdirSync(publicDir, { recursive: true });
-    // Secret sits as a SIBLING of public/ — a traversal that escapes
-    // containment would read this instead of 404ing.
-    writeFileSync(join(tmpDir, "secret.txt"), "TOP-SECRET");
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-
-      // WHATWG URL parsing already collapses a literal ".." segment (it's
-      // delimited by a real "/"), so this pins the composed behavior —
-      // request never reaches secret.txt — rather than the guard itself.
-      const literal = await handle.fetch(new Request("http://localhost/../secret.txt"));
-      expect(literal.status).not.toBe(200);
-
-      // %2e%2e%2f is the actual vector the decode+resolve+containment guard
-      // exists for: URL path-parsing only normalizes dot-segments split by a
-      // literal "/", so an encoded slash survives untouched into pathname —
-      // without the explicit decode in resolvePublicFilePath this would
-      // resolve straight to tmpDir/secret.txt.
-      const encoded = await handle.fetch(new Request("http://localhost/%2e%2e%2fsecret.txt"));
-      expect(encoded.status).not.toBe(200);
-
-      // A decoded NUL byte must be a router miss, not a readFile throw -> 500.
-      const nul = await handle.fetch(new Request("http://localhost/foo%00.png"));
-      expect(nul.status).toBe(404);
-
-      // Neither attempt leaked the secret's content through any other path
-      // (e.g. as an error body).
-      expect(await literal.clone().text()).not.toContain("TOP-SECRET");
-      expect(await encoded.clone().text()).not.toContain("TOP-SECRET");
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("a symlink under public/ pointing outside it is never served", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-symlink-")));
-    const publicDir = join(tmpDir, "public");
-    mkdirSync(publicDir, { recursive: true });
-    writeFileSync(join(tmpDir, "secret.txt"), "TOP-SECRET");
-    // Lexically inside public/, so resolvePublicFilePath's containment check
-    // passes; only the realpath guard in servePublicFile catches the escape.
-    symlinkSync(join(tmpDir, "secret.txt"), join(publicDir, "leak.txt"));
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      const res = await handle.fetch(new Request("http://localhost/leak.txt"));
-      expect(res.status).not.toBe(200);
-      expect(await res.text()).not.toContain("TOP-SECRET");
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("a public/ that is itself a symlink still serves its files", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-linkdir-")));
-    const sharedAssets = join(tmpDir, "shared-assets");
-    mkdirSync(sharedAssets, { recursive: true });
-    writeFileSync(join(sharedAssets, "logo.png"), "PNGDATA");
-    writeFileSync(join(tmpDir, "secret.txt"), "TOP-SECRET");
-    symlinkSync(sharedAssets, join(tmpDir, "public"));
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      const res = await handle.fetch(new Request("http://localhost/logo.png"));
-      expect(res.status).toBe(200);
-      expect(await res.text()).toBe("PNGDATA");
-      const encoded = await handle.fetch(new Request("http://localhost/%2e%2e%2fsecret.txt"));
-      expect(encoded.status).not.toBe(200);
-      const backslash = await handle.fetch(new Request("http://localhost/..%5Csecret.txt"));
-      expect(backslash.status).not.toBe(200);
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("an r.httpRoute owning a dotted path wins over the file in public/", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-route-")));
-    const publicDir = join(tmpDir, "public");
-    mkdirSync(publicDir, { recursive: true });
-    writeFileSync(join(publicDir, "robots.txt"), "FILE-ROBOTS");
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeRobotsRouteFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      const res = await handle.fetch(new Request("http://localhost/robots.txt"));
-      expect(res.status).toBe(200);
-      expect(await res.text()).toBe("ROUTE-ROBOTS");
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("HEAD on a file under public/ → 200 with the file's content-type", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-head-")));
-    const publicDir = join(tmpDir, "public");
-    mkdirSync(join(publicDir, "marketing"), { recursive: true });
-    writeFileSync(join(publicDir, "marketing", "hero.png"), "PNGDATA");
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      const res = await handle.fetch(
-        new Request("http://localhost/marketing/hero.png", { method: "HEAD" }),
-      );
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("image/png");
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  test("a dot-less path still hits the SPA catch-all, not the public/-file lookup", async () => {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-spa-")));
-    const publicDir = join(tmpDir, "public");
-    mkdirSync(publicDir, { recursive: true });
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      const res = await handle.fetch(new Request("http://localhost/some/client-route"));
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toMatch(/text\/html/);
-      expect(await res.text()).toMatch(/<div id="root">/);
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-});
-
-describe("createKumikoServer — renderer/web fonts under /assets/kumiko/fonts", () => {
-  const FONTS_SOURCE_DIR = join(import.meta.dir, "../../../renderer/src/web/fonts");
-
-  async function withFixtureCwd(run: () => Promise<void>): Promise<void> {
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-fonts-")));
-    const cwdBefore = process.cwd();
-    process.chdir(tmpDir);
-    try {
-      handle = await createKumikoServer({
-        features: [probeFeature],
-        port: 0,
-        installSignalHandlers: false,
-      });
-      await run();
-    } finally {
-      process.chdir(cwdBefore);
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  }
-
-  test("GET on a shipped font → 200, font/woff2, the file's bytes", async () => {
-    await withFixtureCwd(async () => {
-      const res = await handle?.fetch(
-        new Request("http://localhost/assets/kumiko/fonts/ibm-plex-sans-latin-400.woff2"),
-      );
-      expect(res?.status).toBe(200);
-      expect(res?.headers.get("content-type")).toBe("font/woff2");
-      const expected = readFileSync(join(FONTS_SOURCE_DIR, "ibm-plex-sans-latin-400.woff2"));
-      expect(Buffer.from(await (res as Response).arrayBuffer()).equals(expected)).toBe(true);
-    });
-  });
-
-  test("unknown names and traversal attempts → 404, never file content", async () => {
-    await withFixtureCwd(async () => {
-      for (const path of [
-        "/assets/kumiko/fonts/nope.woff2",
-        "/assets/kumiko/fonts/OFL.txt",
-        "/assets/kumiko/fonts/../styles.css",
-        "/assets/kumiko/fonts/..%2fstyles.css",
-        "/assets/kumiko/fonts/%2e%2e%2f%2e%2e%2fpackage.json",
-        "/assets/kumiko/fonts/ibm-plex-sans-latin-400.woff2/x",
-      ]) {
-        const res = await handle?.fetch(new Request(`http://localhost${path}`));
-        expect(res?.status, path).toBe(404);
-      }
-    });
   });
 });
 

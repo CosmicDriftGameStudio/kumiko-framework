@@ -15,7 +15,7 @@ import {
   resolveStylesheet,
   resolveStylesheetWatch,
   STYLESHEET_WATCH_ENV,
-} from "../create-kumiko-server.ts";
+} from "../create-kumiko-server-stylesheet.ts";
 
 describe("resolveStylesheet", () => {
   test("string → resolved absolute path", () => {
