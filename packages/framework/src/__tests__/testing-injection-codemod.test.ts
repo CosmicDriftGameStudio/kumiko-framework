@@ -28,6 +28,13 @@ const FIXTURES: readonly Fixture[] = [
     manual: 0,
   },
   {
+    name: "keeps the header comment above the injected import",
+    input: `// header line 1\n// header line 2\n\nimport { setupAppTestStack } from "@cosmicdrift/kumiko-testing";\nimport { x } from "y";\n\nexport const y = x;\n`,
+    expected: `// header line 1\n// header line 2\nimport { x } from "y";\nimport { setupAppTestStack } from "${DEV}";\n\nexport const y = x;\n`,
+    rewrites: 1,
+    manual: 0,
+  },
+  {
     name: "merges into an existing dev-server/testing import",
     input: `import { seedTenant } from "@cosmicdrift/kumiko-testing";\nimport { setupAppTestStack } from "${DEV}";\n`,
     expected: `import { setupAppTestStack, seedTenant } from "${DEV}";\n`,
