@@ -4,6 +4,7 @@ export const DOCUMENT_DESIGNER_FEATURE = "document-designer" as const;
 export const TEMPLATES_SCREEN_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_SCREEN_ID = "platform-templates" as const;
 export const LAYOUT_EDITOR_SCREEN_ID = "layout-editor" as const;
+export const PLATFORM_LAYOUT_EDITOR_SCREEN_ID = "platform-layout-editor" as const;
 export const PDF_TEMPLATE_EDITOR_SCREEN_ID = "pdf-template-editor" as const;
 export const MAIL_EDITOR_SCREEN_ID = "mail-editor" as const;
 

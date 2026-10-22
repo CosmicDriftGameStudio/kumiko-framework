@@ -5,7 +5,9 @@ import { createDocumentDesignerFeature } from "../feature.ts";
 import { documentDesignerClient } from "../web/client-plugin.tsx";
 import {
   DocumentDesignerCells,
+  LAYOUT_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
+  PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
   TEMPLATE_EDITOR_SCREENS,
 } from "../web/constants.ts";
 
@@ -74,6 +76,28 @@ describe("document-designer feature", () => {
       ["edit-mail-layout", TEMPLATE_EDITOR_SCREENS["mail-layout"]],
       ["edit-pdf-layout", TEMPLATE_EDITOR_SCREENS["pdf-layout"]],
     ]);
+  });
+
+  test("layout rows open the system editor from the platform overview and the tenant editor from the tenant overview", () => {
+    const registry = createRegistry(features);
+    const targetOf = (screenId: string, actionId: string): string | undefined => {
+      const screen = registry.getScreen(screenId);
+      if (screen?.type !== "projectionList") throw new Error("not a projectionList");
+      const action = (screen.rowActions ?? []).find((candidate) => candidate.id === actionId);
+      return action?.kind === "navigate" ? action.screen : undefined;
+    };
+    for (const actionId of ["edit-mail-layout", "edit-pdf-layout"]) {
+      expect(targetOf("document-designer:screen:templates", actionId)).toBe(
+        LAYOUT_EDITOR_SCREEN_ID,
+      );
+      expect(targetOf("document-designer:screen:platform-templates", actionId)).toBe(
+        PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
+      );
+    }
+    expect(
+      registry.getScreen(`document-designer:screen:${PLATFORM_LAYOUT_EDITOR_SCREEN_ID}`)?.access,
+    ).toEqual({ roles: ["SystemAdmin"] });
+    expect(documentDesignerClient().components).toHaveProperty(PLATFORM_LAYOUT_EDITOR_SCREEN_ID);
   });
 
   test("the client plugin provides exactly the cell renderers the platform overview names", () => {

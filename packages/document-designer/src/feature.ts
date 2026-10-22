@@ -11,6 +11,7 @@ import {
   LAYOUT_EDITOR_SCREEN_ID,
   MAIL_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
+  PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
   PLATFORM_TEMPLATES_NAV_ID,
   PLATFORM_TEMPLATES_SCREEN_ID,
   TEMPLATES_NAV_ID,
@@ -48,7 +49,7 @@ export function createDocumentDesignerFeature(
       query: OVERVIEW_QUERY,
       columns: templateColumns({ platform: false }),
       facets: [...TEMPLATE_FACETS],
-      rowActions: templateRowActions(),
+      rowActions: templateRowActions({ platform: false }),
       searchable: true,
       searchPlaceholder: i18nKey("documentDesigner.search"),
       pagination: "pages",
@@ -70,7 +71,7 @@ export function createDocumentDesignerFeature(
       query: OVERVIEW_QUERY,
       columns: templateColumns({ platform: true }),
       facets: [...TEMPLATE_FACETS],
-      rowActions: templateRowActions(),
+      rowActions: templateRowActions({ platform: true }),
       searchable: true,
       searchPlaceholder: i18nKey("documentDesigner.search"),
       pagination: "pages",
@@ -93,6 +94,15 @@ export function createDocumentDesignerFeature(
       description: "documentDesigner.screen.layoutEditor.description",
       dormant: true,
       access: { roles: access.roles(...editorRoles) },
+    });
+
+    r.screen({
+      id: PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: PLATFORM_LAYOUT_EDITOR_SCREEN_ID } },
+      description: "documentDesigner.screen.layoutEditor.description",
+      dormant: true,
+      access: { roles: access.systemAdmin },
     });
 
     r.screen({

@@ -86,20 +86,21 @@ function LayoutEditorLoader({
   );
 }
 
-export function LayoutEditor(): ReactNode {
+export function LayoutEditor({
+  scope = "tenant",
+}: {
+  readonly scope?: "tenant" | "system";
+}): ReactNode {
   const nav = useNav();
   const roles = useUserRoles();
   const [kind, setKind] = useState<LayoutKind>(() => parseLayoutKind(nav.searchParams["kind"]));
   const slug = nav.searchParams["slug"] ?? DEFAULT_LAYOUT_SLUG;
-  // `isSystemAdmin` below means "edits the system layout": a tenant row opens in tenant scope even for a SystemAdmin.
-  const editsSystemLayout =
-    roles?.includes("SystemAdmin") === true && nav.searchParams["origin"] !== "tenant";
   return (
     <LayoutEditorLoader
       key={kind}
       kind={kind}
       slug={slug}
-      isSystemAdmin={editsSystemLayout}
+      isSystemAdmin={scope === "system" && roles?.includes("SystemAdmin") === true}
       onKindChange={setKind}
     />
   );

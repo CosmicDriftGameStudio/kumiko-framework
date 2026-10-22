@@ -1564,6 +1564,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "screen:templates.title": "Templates",
   "screen:platform-templates.title": "System templates",
   "screen:layout-editor.title": "Layout",
+  "screen:platform-layout-editor.title": "System layout",
   "screen:pdf-template-editor.title": "PDF template",
   "document-designer:nav.templates": "Templates",
   "document-designer:nav.platformTemplates": "System templates",

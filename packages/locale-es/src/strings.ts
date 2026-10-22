@@ -1603,6 +1603,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "screen:templates.title": "Plantillas",
   "screen:platform-templates.title": "Plantillas del sistema",
   "screen:layout-editor.title": "Diseño",
+  "screen:platform-layout-editor.title": "Diseño del sistema",
   "screen:pdf-template-editor.title": "Plantilla PDF",
   "document-designer:nav.templates": "Plantillas",
   "document-designer:nav.platformTemplates": "Plantillas del sistema",
