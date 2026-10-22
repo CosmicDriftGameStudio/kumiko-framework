@@ -66,8 +66,22 @@ type SynthesizedField = EntityDefinition["fields"][string];
 
 type SortableCapableField = Extract<SynthesizedField, { readonly sortable?: boolean }>;
 
+// Keyed on the type, not on key presence: most factories omit `sortable`
+// from the definition, so `"sortable" in field` would drop the column flag.
+const NON_SORTABLE_FIELD_TYPES: ReadonlySet<SynthesizedField["type"]> = new Set([
+  "longText",
+  "multiSelect",
+  "embedded",
+  "jsonb",
+  "tz",
+  "file",
+  "image",
+  "files",
+  "images",
+]);
+
 function isSortableCapable(field: SynthesizedField): field is SortableCapableField {
-  return "sortable" in field;
+  return !NON_SORTABLE_FIELD_TYPES.has(field.type);
 }
 
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";

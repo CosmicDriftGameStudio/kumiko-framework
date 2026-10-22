@@ -60,6 +60,12 @@ export function referenceOptionSource(
   return referenceLookupSource(refFeature, refEntity, field.refLabelField ?? "id");
 }
 
+// A page with a continuation cursor is only a prefix of the referenced rows,
+// so a missing id in it proves nothing about the row's existence.
+export function isCompleteRowPage(data: { readonly nextCursor?: string | null } | null): boolean {
+  return data !== null && (data.nextCursor ?? null) === null;
+}
+
 /** Empty while the query loads (or fails), so callers fall back to the raw id.
  *  `featureName` is the reference's target feature, not the screen's. */
 export function useReferenceLookup(
@@ -70,9 +76,14 @@ export function useReferenceLookup(
   readonly map: ReferenceLookupMap;
   readonly loading: boolean;
   readonly failed: boolean;
+  /** False when the lookup page was capped: absent ids may still exist. */
+  readonly complete: boolean;
 } {
   const { queryQn, labelKey } = referenceLookupSource(featureName, refEntity, labelField);
-  const result = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
+  const result = useQuery<{
+    rows: ReadonlyArray<Record<string, unknown>>;
+    nextCursor?: string | null;
+  }>(queryQn, {
     limit: REFERENCE_LIST_LOOKUP_LIMIT,
   });
   const translate = useTranslation();
@@ -98,5 +109,10 @@ export function useReferenceLookup(
     }
     return out;
   }, [result.data, labelKey, systemLabel, translate]);
-  return { map, loading: result.loading, failed: result.error !== null };
+  return {
+    map,
+    loading: result.loading,
+    failed: result.error !== null,
+    complete: isCompleteRowPage(result.data),
+  };
 }

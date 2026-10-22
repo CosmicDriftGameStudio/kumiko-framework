@@ -29,12 +29,14 @@ function Harness({
   maxCount,
   onValue,
   resetRef,
+  initial = [],
 }: {
+  readonly initial?: readonly string[];
   readonly maxCount?: number;
   readonly onValue: (value: readonly string[]) => void;
   readonly resetRef: { current: () => void };
 }): ReactNode {
-  const [value, setValue] = useState<readonly string[]>([]);
+  const [value, setValue] = useState<readonly string[]>(initial);
   resetRef.current = () => setValue([]);
   return (
     <FilesDropzoneInput
@@ -61,13 +63,14 @@ function pick(files: readonly File[]): void {
 
 const pdf = (name: string) => new File(["%PDF"], name, { type: "application/pdf" });
 
-function mount(maxCount?: number) {
+function mount(maxCount?: number, initial?: readonly string[]) {
   const values: (readonly string[])[] = [];
   const resetRef = { current: () => {} };
   const utils = render(
     <Harness
       onValue={(v) => values.push(v)}
       resetRef={resetRef}
+      {...(initial !== undefined && { initial })}
       {...(maxCount !== undefined && { maxCount })}
     />,
   );
@@ -105,6 +108,28 @@ describe("FilesDropzoneInput", () => {
 
     await waitFor(() => expect(values.at(-1)).toEqual(["id-b"]));
     expect(queryByText("a.pdf")).toBeNull();
+  });
+
+  test("files already in the value show a row that can be removed", async () => {
+    const { values, getAllByTestId, queryByText, getByText } = mount(undefined, [
+      "id-old-1",
+      "id-old-2",
+    ]);
+    expect(getByText("id-old-1")).toBeTruthy();
+    expect(getAllByTestId("zone-row")).toHaveLength(2);
+
+    fireEvent.click(getAllByTestId("zone-remove")[0] as HTMLElement);
+
+    await waitFor(() => expect(values.at(-1)).toEqual(["id-old-2"]));
+    expect(queryByText("id-old-1")).toBeNull();
+  });
+
+  test("an upload next to existing files adds one row, not a duplicate id row", async () => {
+    const { values, getAllByTestId } = mount(undefined, ["id-old"]);
+    nextReplies = [{ status: 201, body: { id: "id-new" } }];
+    pick([pdf("a.pdf")]);
+    await waitFor(() => expect(values.at(-1)).toEqual(["id-old", "id-new"]));
+    await waitFor(() => expect(getAllByTestId("zone-row")).toHaveLength(2));
   });
 
   test("an external reset clears the value and every row", async () => {

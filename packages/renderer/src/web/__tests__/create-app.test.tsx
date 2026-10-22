@@ -188,16 +188,26 @@ describe("createKumikoApp", () => {
       searchParams: {},
       setSearchParams: () => {},
     };
-    await mountApp({
-      schema: baseSchema,
-      dispatcher: makeDispatcher(),
-      navAdapter: () => memoryNav,
-    });
-    expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
-    expect(screen.queryByText(/Screen not found/)).toBeNull();
-    expect(screen.queryByText(/tasks:screen:releases/)).toBeNull();
-    fireEvent.click(screen.getByTestId("kumiko-screen-not-found-home"));
-    expect(navigate).toHaveBeenCalledWith({ screenId: "task-edit" });
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await mountApp({
+        schema: baseSchema,
+        dispatcher: makeDispatcher(),
+        navAdapter: () => memoryNav,
+      });
+      expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
+      expect(screen.queryByText(/Screen not found/)).toBeNull();
+      expect(screen.queryByText(/tasks:screen:releases/)).toBeNull();
+      const warnings = warn.mock.calls.map((call) => String(call[0]));
+      expect(warnings.some((text) => text.includes('screen "releases" is not in the schema'))).toBe(
+        true,
+      );
+      expect(warnings.some((text) => text.includes("tasks:screen:releases"))).toBe(false);
+      fireEvent.click(screen.getByTestId("kumiko-screen-not-found-home"));
+      expect(navigate).toHaveBeenCalledWith({ screenId: "task-edit" });
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("rootId override: mounts into a different DOM id", async () => {

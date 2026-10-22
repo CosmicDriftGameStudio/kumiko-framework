@@ -200,7 +200,18 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     options: GateOptions = {},
     fallbackNavLabel?: string,
     titleTranslations?: Readonly<Record<string, string>>,
-  ): void {
+  ): { readonly flipAvailability: (next: boolean) => Promise<void> } {
+    let currentAvailable = available;
+    let fireLiveEvent: (() => void) | undefined;
+    const subscribe: LiveEventSubscriber = (entity, listener) => {
+      if (entity !== "tier") return () => {};
+      fireLiveEvent = () =>
+        listener({
+          type: "event",
+          data: { aggregateType: "tier", eventType: "updated", createdAt: "2026-01-01T00:00:00Z" },
+        });
+      return () => {};
+    };
     const schema: FeatureSchema = {
       ...buildSchema(options),
       navs: [
@@ -213,7 +224,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     const dispatcher = createMockDispatcher({
       query: (async (type: string) =>
         type === GATE_QUERY
-          ? { isSuccess: true, data: { chatAlertsAvailable: available } }
+          ? { isSuccess: true, data: { chatAlertsAvailable: currentAvailable } }
           : {
               isSuccess: true,
               data: { rows: [{ id: "r1", name: "UPGRADE ROW" }], nextCursor: null },
@@ -221,32 +232,42 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     });
     renderWithSidebar(
       <DispatcherProvider dispatcher={dispatcher}>
-        <AppFeaturesProvider features={[schema]}>
-          <UserRolesProvider roles={["User"]}>
-            <NavProvider
-              value={{
-                route: { screenId: "channels" },
-                navigate: () => {},
-                replace: () => {},
-                hrefFor: () => "",
-                searchParams: {},
-                setSearchParams: () => {},
-              }}
-            >
-              <LocaleProvider
-                resolver={createStaticLocaleResolver()}
-                fallbackBundles={[{ en: titleTranslations ?? {} }]}
+        <LiveEventsProvider value={subscribe}>
+          <AppFeaturesProvider features={[schema]}>
+            <UserRolesProvider roles={["User"]}>
+              <NavProvider
+                value={{
+                  route: { screenId: "channels" },
+                  navigate: () => {},
+                  replace: () => {},
+                  hrefFor: () => "",
+                  searchParams: {},
+                  setSearchParams: () => {},
+                }}
               >
-                <PageHeaderSlotProvider>
-                  <ShellHeader schema={schema} />
-                  <KumikoScreen schema={schema} qn="billing:screen:channels" />
-                </PageHeaderSlotProvider>
-              </LocaleProvider>
-            </NavProvider>
-          </UserRolesProvider>
-        </AppFeaturesProvider>
+                <LocaleProvider
+                  resolver={createStaticLocaleResolver()}
+                  fallbackBundles={[{ en: titleTranslations ?? {} }]}
+                >
+                  <PageHeaderSlotProvider>
+                    <ShellHeader schema={schema} />
+                    <KumikoScreen schema={schema} qn="billing:screen:channels" />
+                  </PageHeaderSlotProvider>
+                </LocaleProvider>
+              </NavProvider>
+            </UserRolesProvider>
+          </AppFeaturesProvider>
+        </LiveEventsProvider>
       </DispatcherProvider>,
     );
+    return {
+      flipAvailability: async (next) => {
+        currentAvailable = next;
+        await act(async () => {
+          fireLiveEvent?.();
+        });
+      },
+    };
   }
 
   const crumbCount = (): number =>
@@ -270,6 +291,17 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     expect(crumbCount()).toBe(1);
     expect(document.querySelector("h1")?.textContent).toBe("Upgrade plan");
     expect(screen.queryByText("Channels")).toBeNull();
+  });
+
+  test("the real screen's title and breadcrumb return once the condition becomes met", async () => {
+    const { flipAvailability } = renderInShell(false, { fallback: "upgrade" }, "Upgrade plan");
+    await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Upgrade plan"));
+
+    await flipAvailability(true);
+
+    await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Channels"));
+    expect(crumbCount()).toBe(1);
+    expect(screen.queryByText("Upgrade plan")).toBeNull();
   });
 
   test("a fallback without nav entry is headed by its translated screen title", async () => {

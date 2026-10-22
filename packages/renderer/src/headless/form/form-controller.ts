@@ -272,6 +272,14 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     invalidate();
   }
 
+  function runRebaseFields(fields: readonly string[]): void {
+    initial = {
+      ...initial,
+      ...Object.fromEntries(fields.map((field) => [field, values[field]])),
+    };
+    invalidate();
+  }
+
   // Stale-submit-safe rebase. Difference to runRebase: the baseline is
   // taken from the values that were actually SENT to the server, not
   // from `values` at the moment the server replied. If the user typed
@@ -345,6 +353,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       invalidate();
     },
     rebase: runRebase,
+    rebaseFields: runRebaseFields,
     setCtx(nextCtx) {
       // Cast back to TCtx: setCtx's public signature takes unknown so
       // callers don't need to plumb generics. If conditions depend on ctx

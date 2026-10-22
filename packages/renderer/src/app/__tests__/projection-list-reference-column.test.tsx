@@ -38,6 +38,7 @@ const DELETED_USER_ID = "33333333-3333-4333-8333-333333333333";
 const ERASED_TENANT_ID = "44444444-4444-4444-8444-444444444444";
 
 let capturedProps: DataTableProps | undefined;
+let memberDirectoryHasMore = false;
 let memberDirectoryFails = false;
 let failedDirectoryCalls = 0;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -112,7 +113,10 @@ function stubDispatcher(): Dispatcher {
         }
         return {
           isSuccess: true,
-          data: { rows: [{ id: REAL_USER_ID, label: "Ada Lovelace" }], nextCursor: null },
+          data: {
+            rows: [{ id: REAL_USER_ID, label: "Ada Lovelace" }],
+            nextCursor: memberDirectoryHasMore ? "more-members" : null,
+          },
         };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
@@ -252,6 +256,20 @@ describe("actor column resolves display names (fw#3103)", () => {
       expect(actorCell(REAL_USER_ID)).toBe("—");
     } finally {
       memberDirectoryFails = false;
+    }
+  });
+
+  test("a capped directory page never claims a missing actor is unknown", async () => {
+    capturedProps = undefined;
+    memberDirectoryHasMore = true;
+    try {
+      renderLogScreen(ACTOR_COLUMN);
+      await waitFor(() => {
+        expect(actorCell(REAL_USER_ID)).toBe("Ada Lovelace");
+      });
+      expect(actorCell(DELETED_USER_ID)).toBe(DELETED_USER_ID);
+    } finally {
+      memberDirectoryHasMore = false;
     }
   });
 

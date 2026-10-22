@@ -66,10 +66,12 @@ export type ExtensionSectionProps = {
    *  `snapshot.errors` on the field instead of a collective message.
    *  Undefined outside entityEdit sections. */
   readonly validate?: () => boolean;
-  /** Marks the current host form values as saved after the section wrote
-   *  them itself, so a following navigation does not ask to discard.
+  /** Marks host form values as saved after the section wrote them itself, so
+   *  a following navigation does not ask to discard. Pass the field names the
+   *  section persisted: other host fields keep their unsaved state. Without
+   *  `fields`, every current host value counts as saved.
    *  Undefined outside entityEdit sections and the entityEdit footer slot. */
-  readonly markSaved?: () => void;
+  readonly markSaved?: (fields?: readonly string[]) => void;
   /** Whether the host form has unsaved changes. Only set in the entityEdit
    *  footer slot (`screen.slots.footer`); undefined in all other mounts. */
   readonly hasUnsavedChanges?: boolean;

@@ -317,6 +317,7 @@ export function ActionFormBody({
     loadableFieldNames,
   );
   const loadedValues = loadState?.status === "ready" ? loadState.values : undefined;
+  const refetchLoadedValues = loadState?.status === "ready" ? loadState.refetch : undefined;
   const initial = useMemo(() => {
     // With `load` the loaded record is the only source of values: a crafted link
     // or a row's params must not seed fields the record would otherwise own.
@@ -414,7 +415,12 @@ export function ActionFormBody({
         } else if (hasSuccessLinks || screen.resetOnSuccess === true) {
           publish(effectiveTranslate("kumiko.actionForm.success"));
         }
-        if (screen.resetOnSuccess === true) setFormEpoch((epoch) => epoch + 1);
+        if (screen.resetOnSuccess === true) {
+          // A loaded record is stale after the write: reseed the form from the fresh one.
+          const remountForm = (): void => setFormEpoch((epoch) => epoch + 1);
+          if (refetchLoadedValues === undefined) remountForm();
+          else void refetchLoadedValues().finally(remountForm);
+        }
       }
       // Without a redirect the form stays put; returnTo only replaces an existing
       // navigation, and never one to a record screen (see redirectTargetsRecord).
@@ -439,6 +445,7 @@ export function ActionFormBody({
       dispatcher,
       locale,
       effectiveTranslate,
+      refetchLoadedValues,
     ],
   );
   // The success box disappears with the next edit; a submit clears it itself.

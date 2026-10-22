@@ -16,6 +16,7 @@ import {
   NavProvider,
   navigateWithReturnTo,
   RenderEdit,
+  useExtensionFormSubmit,
   useNav,
 } from "../../index.ts";
 import { KumikoLink, useBrowserNavApi } from "../app/nav.tsx";
@@ -245,6 +246,26 @@ describe("leave guard with an extension section that saves host values itself", 
         </button>
         <button
           type="button"
+          data-testid="save-title-and-leave"
+          onClick={() => {
+            markSaved?.(["title"]);
+            nav.navigate({ screenId: "list" });
+          }}
+        >
+          save title
+        </button>
+        <button
+          type="button"
+          data-testid="save-other-and-leave"
+          onClick={() => {
+            markSaved?.(["unrelated"]);
+            nav.navigate({ screenId: "list" });
+          }}
+        >
+          save other
+        </button>
+        <button
+          type="button"
           data-testid="leave-without-mark"
           onClick={() => nav.navigate({ screenId: "list" })}
         >
@@ -333,6 +354,66 @@ describe("leave guard with an extension section that saves host values itself", 
 
     await waitFor(() => expect(window.location.pathname).toBe("/list"));
     expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
+  test("markSaved with the written fields lets the navigation pass", async () => {
+    renderExtensionForm();
+    fireEvent.click(screen.getByTestId("patch-host"));
+    fireEvent.click(screen.getByTestId("save-title-and-leave"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/list"));
+    expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
+  test("markSaved for other fields keeps the patched host field unsaved and asks before leaving", async () => {
+    renderExtensionForm();
+    fireEvent.click(screen.getByTestId("patch-host"));
+    fireEvent.click(screen.getByTestId("save-other-and-leave"));
+
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    expect(window.location.pathname).toBe("/tasks");
+  });
+
+  test("markSaved from one section keeps another section's unsaved input guarded", async () => {
+    function DirtySection(): ReactNode {
+      useExtensionFormSubmit({ dirty: true, onSubmit: async () => ({ isSuccess: true }) });
+      return null;
+    }
+    const twoSectionScreen: EntityEditScreenDefinition = {
+      ...extensionScreen,
+      layout: {
+        sections: [
+          ...extensionScreen.layout.sections,
+          {
+            kind: "extension",
+            title: "Other",
+            component: { react: { __component: "DirtySection" } },
+          },
+        ],
+      },
+    };
+    render(
+      <BrowserNav>
+        <DispatcherProvider dispatcher={dispatcherWriting("success")}>
+          <ExtensionSectionsProvider value={{ SelfSaver, DirtySection }}>
+            <RenderEdit<TaskValues>
+              screen={twoSectionScreen}
+              entity={taskEntity}
+              featureName="tasks"
+              initial={{ title: "" }}
+              writeCommand="task:update"
+              entityId="t-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+        <LeaveGuardDialog />
+      </BrowserNav>,
+    );
+    fireEvent.click(screen.getByTestId("patch-host"));
+    fireEvent.click(screen.getByTestId("save-and-leave"));
+
+    await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+    expect(window.location.pathname).toBe("/tasks");
   });
 
   test("without markSaved the same patched form asks before leaving", async () => {

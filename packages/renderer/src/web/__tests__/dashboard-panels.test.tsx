@@ -1774,6 +1774,40 @@ describe("dashboard text panel", () => {
     },
   };
 
+  test("identical blocks and list entries render once each without duplicate-key warnings", async () => {
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      renderDashboard(
+        {
+          id: "help",
+          type: "dashboard",
+          panels: [
+            {
+              kind: "text",
+              id: "dup",
+              blocks: [
+                { kind: "hint", text: "demo.help.hint" },
+                { kind: "hint", text: "demo.help.hint" },
+                { kind: "list", items: ["demo.help.item-1", "demo.help.item-1"] },
+              ],
+            },
+          ],
+        } as DashboardScreenDefinition,
+        {},
+        { locale: "en", translations },
+      );
+      const panel = await screen.findByTestId("dashboard-panel-dup");
+      expect(panel.querySelectorAll("[data-block=hint]")).toHaveLength(2);
+      expect(within(panel).getAllByRole("listitem")).toHaveLength(2);
+      const keyWarnings = consoleError.mock.calls.filter((call) =>
+        String(call[0]).includes("same key"),
+      );
+      expect(keyWarnings).toHaveLength(0);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   test("renders every block kind with translated text and the code verbatim", async () => {
     renderDashboard(textDashboard(), {}, { locale: "en", translations });
     const panel = await screen.findByTestId("dashboard-panel-intro");

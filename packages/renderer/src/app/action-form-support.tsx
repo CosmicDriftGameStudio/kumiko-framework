@@ -34,7 +34,11 @@ export type ActionFormLoadState =
   | { readonly status: "loading" }
   | { readonly status: "error"; readonly error: DispatcherError }
   | { readonly status: "missing-record" }
-  | { readonly status: "ready"; readonly values: Readonly<Record<string, unknown>> };
+  | {
+      readonly status: "ready";
+      readonly values: Readonly<Record<string, unknown>>;
+      readonly refetch: () => Promise<void>;
+    };
 
 /** A sensitive, writeOnly or password field never takes a value from a loaded
  *  record: the form must not echo a secret back into an input. */
@@ -81,7 +85,7 @@ export function useActionFormLoad(
   if (query.error !== null) return { status: "error", error: query.error };
   if (query.loading) return { status: "loading" };
   if (query.data === null) return { status: "missing-record" };
-  return { status: "ready", values };
+  return { status: "ready", values, refetch: query.refetch };
 }
 
 /** Banner for every `load` state that is not "ready". */
