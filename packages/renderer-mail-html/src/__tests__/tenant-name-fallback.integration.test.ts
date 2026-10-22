@@ -1,7 +1,7 @@
 // Without managed-pages mounted there is no branding title config key, so the
 // document context fell back to an empty tenantName.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { ConfigAccessor, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createLogger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { TENANT_TIMEZONE_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -74,7 +75,20 @@ describe("readDocumentFormat tenant time zone", () => {
     expect((await formatWith("Europe/Berlin")).timeZone).toBe("Europe/Berlin");
   });
 
+  afterEach(() => setProcessLogger(null));
+
   test("ignores an invalid zone instead of failing the render", async () => {
+    const logLines: Record<string, unknown>[] = [];
+    setProcessLogger(
+      createLogger({
+        destination: {
+          write(chunk: string) {
+            logLines.push(JSON.parse(chunk));
+          },
+        },
+      }),
+    );
     expect((await formatWith("Mars/Olympus")).timeZone).toBeUndefined();
+    expect(JSON.stringify(logLines)).toContain("Mars/Olympus");
   });
 });

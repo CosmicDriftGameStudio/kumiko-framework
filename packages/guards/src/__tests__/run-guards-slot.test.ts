@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { Project } from "ts-morph";
 import { runGuardsCli } from "../run-guards";
 
 function slotSpy(): {
@@ -43,6 +44,22 @@ describe("runGuardsCli — guard run slot", () => {
       expect(runGuardsCli(["--guard=x"], { acquireSlot: slot.acquireSlot })).toBe(1);
     } finally {
       errorSpy.mockRestore();
+    }
+    expect(slot.acquired()).toBe(0);
+  });
+
+  test("--explain takes no slot", () => {
+    const slot = slotSpy();
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      expect(
+        runGuardsCli(["--explain"], {
+          acquireSlot: slot.acquireSlot,
+          buildProject: () => new Project({ useInMemoryFileSystem: true }),
+        }),
+      ).toBe(0);
+    } finally {
+      logSpy.mockRestore();
     }
     expect(slot.acquired()).toBe(0);
   });

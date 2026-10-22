@@ -117,7 +117,7 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
     return 1;
   }
   if (flags.includes("--explain")) {
-    for (const line of explainGuards(GUARDS, buildSharedProject(GUARDS))) {
+    for (const line of explainGuards(GUARDS, (deps.buildProject ?? buildSharedProject)(GUARDS))) {
       console.log(line);
     }
     return 0;
