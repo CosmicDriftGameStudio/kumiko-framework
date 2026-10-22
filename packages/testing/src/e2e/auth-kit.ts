@@ -273,8 +273,14 @@ export async function loginViaUi(page: Page, credentials: LoginCredentials): Pro
   // avoids racing the transition from the password form.
   const codeField = page.locator("#mfa-verify-code");
   await expect(codeField).toBeVisible();
-  await codeField.fill(await unburnedTotpCode(credentials.mfaTotpSecret));
-  await codeField.press("Enter");
+  const code = await unburnedTotpCode(credentials.mfaTotpSecret);
+  // The sixth digit submits on its own and disables the field; an Enter press would race that.
+  await Promise.all([
+    page.waitForResponse(
+      (response) => response.url().includes("/api/auth/mfa/verify") && response.ok(),
+    ),
+    codeField.fill(code),
+  ]);
   await expect(codeField).toHaveCount(0);
 }
 
