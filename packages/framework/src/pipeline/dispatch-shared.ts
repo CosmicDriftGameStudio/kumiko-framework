@@ -272,6 +272,9 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
     scheduleAfterCommit: () => {
       throw memberResolutionReadOnlyDenied();
     },
+    scheduleAfterRollback: () => {
+      throw memberResolutionReadOnlyDenied();
+    },
     // A read as a member gets no system-scope DB, preSave pipeline or file storage.
     runPreSave: undefined,
     systemDb: undefined,
@@ -346,6 +349,7 @@ export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): Ha
     write: denySurface(beforeTransactionDenied, "write"),
     writeAs: denySurface(beforeTransactionDenied, "writeAs"),
     scheduleAfterCommit: denySurface(beforeTransactionDenied, "scheduleAfterCommit"),
+    scheduleAfterRollback: denySurface(beforeTransactionDenied, "scheduleAfterRollback"),
     ...(handlerContext.notify && { notify: denySurface(beforeTransactionDenied, "notify") }),
     ...(handlerContext.jobRunner && {
       jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),

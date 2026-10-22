@@ -657,6 +657,9 @@ type SharedContextFields = {
   // hooks synchronously. Absent outside a write
   // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
   readonly scheduleAfterCommit?: (hook: () => Promise<void>) => void;
+  // Runs when the handler transaction (or enclosing savepoint) does not commit, also after a failed COMMIT of
+  // unknown outcome, so write it idempotent and outcome-safe. Present only inside a transaction scope.
+  readonly scheduleAfterRollback?: (hook: () => Promise<void>) => void;
   // Present on HandlerContext/JobContext; hooks receive HandlerContext as
   // AppContext, so it's optional here. See HandlerContext.queryAsMember.
   readonly queryAsMember?: MemberReader;

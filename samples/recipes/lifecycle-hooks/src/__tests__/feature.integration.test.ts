@@ -11,7 +11,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { articleEntity, articlesFeature, hookLog } from "../feature";
+import { articleEntity, articlesFeature, hookLog, reservedSlots } from "../feature";
 
 let stack: TestStack;
 
@@ -30,6 +30,7 @@ afterAll(async () => {
 beforeEach(() => {
   stack.events.reset();
   hookLog.length = 0;
+  reservedSlots.clear();
 });
 
 describe("validation hook: single handler", () => {
@@ -194,5 +195,28 @@ describe("preDelete + postDelete entity hooks", () => {
     await stack.http.writeOk<SaveContext>("blog:write:article:delete", { id: created.id }, editor);
 
     expect(hookLog.map((e) => e.type)).toEqual(["deleted"]);
+  });
+});
+
+describe("scheduleAfterRollback", () => {
+  test("keeps the outside-transaction reservation when the write commits", async () => {
+    await stack.http.writeOk(
+      "blog:write:article:reserve-slot",
+      { slot: "kept", reject: false },
+      editor,
+    );
+
+    expect(reservedSlots.has("kept")).toBe(true);
+  });
+
+  test("gives the reservation back when the write rolls back", async () => {
+    const error = await stack.http.writeErr(
+      "blog:write:article:reserve-slot",
+      { slot: "released", reject: true },
+      editor,
+    );
+
+    expectErrorIncludes(error, "slot_rejected");
+    expect(reservedSlots.has("released")).toBe(false);
   });
 });

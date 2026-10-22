@@ -16,6 +16,7 @@ import {
 } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
+import { flushAfterRollback } from "./after-rollback-sink.ts";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
 import { resolveAppPoolDb } from "./dispatch-shared.ts";
 import { executeNestedWrite, executeWrite } from "./dispatch-write.ts";
@@ -92,6 +93,10 @@ async function runReservedCommand(
   return res;
 }
 
+function rollbackLogger(scope: ReservedCommandScope) {
+  return createFallbackLogger("dispatcher", scope.ctx.appContext.log);
+}
+
 // Sequential fallback without an outer transaction. A failure result and a throw both end the
 // batch, so both give the reserved capacity back.
 async function runCommandsWithoutTransaction(
@@ -109,11 +114,13 @@ async function runCommandsWithoutTransaction(
         // No tx means no rollback — but we still drop afterCommit hooks,
         // matching the semantic "failure = side-effects don't fire".
         await scope.reservations.releaseAll();
+        await flushAfterRollback(scope.afterCommitHooks, rollbackLogger(scope));
         return { index: i, error: res.error };
       }
     }
   } catch (e) {
     await scope.reservations.releaseAll();
+    await flushAfterRollback(scope.afterCommitHooks, rollbackLogger(scope));
     throw e;
   }
   return undefined;
@@ -349,6 +356,7 @@ async function runBatchBody(
     // Rollback or failed COMMIT: the transaction is over, so the reserved capacity goes back.
     // The release is outcome-safe: it only gives back a reservation row the handler tx did not delete.
     await reservations.releaseAll();
+    await flushAfterRollback(afterCommitHooks, createFallbackLogger("dispatcher", context.log));
     if (e instanceof BatchRollback) {
       // Thrown inside the callback, so the tx rolled back. A 4xx is
       // deterministic and stays cached; a 5xx may be transient.

@@ -27,6 +27,10 @@ back.
 - **`r.hook({ type: "postDelete", target: { allOf: entityRef }, handler })`** — fires after commit.
   External side effects (logs, notifications) belong here because
   failures cannot roll the delete back.
+- **`ctx.scheduleAfterRollback(fn)`** — the counterpart of `scheduleAfterCommit`: runs `fn` when
+  the handler transaction (or the enclosing savepoint of a nested `ctx.write`) does not commit.
+  Use it to give back something reserved outside the transaction, like the slot in
+  `article:reserve-slot`. A failed COMMIT triggers it too, so write the callback idempotent.
 
 ## When to reach for it
 
