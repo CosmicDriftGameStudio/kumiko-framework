@@ -1,4 +1,4 @@
-import type { AccessRule, Registry } from "../engine/types/index.ts";
+import type { AccessRule, OwnershipMap, Registry } from "../engine/types/index.ts";
 
 // Access rules of the query handlers that let a role read an entity (the
 // handler's own entity or one it declares via liveEntities). A live signal
@@ -28,4 +28,18 @@ export function collectEntityReadAccess(
     }
   }
   return rulesByEntity;
+}
+
+// Entities whose own access.read narrows rows per role (e.g. Driver sees only assigned rows).
+// A signal for such an entity must not name ids to a role that does not read every row.
+export function collectEntityRowReadMaps(registry: Registry): ReadonlyMap<string, OwnershipMap> {
+  const mapsByEntity = new Map<string, OwnershipMap>();
+  for (const [entityName, entity] of registry.getAllEntities()) {
+    const readMap = entity.access?.read;
+    if (readMap === undefined || Object.keys(readMap).length === 0) continue;
+    for (const aggregateType of new Set([entityName, toKebabCase(entityName)])) {
+      mapsByEntity.set(aggregateType, readMap);
+    }
+  }
+  return mapsByEntity;
 }

@@ -12,6 +12,7 @@ import {
 import {
   createRequestHelper,
   createTestDb,
+  createTestRedis,
   type TestDb,
   unsafeCreateEntityTable,
   unsafePushTables,
@@ -2052,6 +2053,41 @@ describe("upload through a plain provider resolver", () => {
       expect(await selectMany(isolatedDb.db, fileUploadLedgerTable, {})).toHaveLength(0);
     } finally {
       await isolatedDb.cleanup();
+    }
+  });
+});
+
+describe("GET /files/meta charge by id count", () => {
+  test("a user who spends the id budget in a few requests is answered 429, another user is not", async () => {
+    const testRedis = await createTestRedis();
+    try {
+      const limitedServer = buildServer({
+        registry: createRegistry([tenantFeature]),
+        context: {
+          db: testDb.db,
+          redis: testRedis.redis,
+          _fileProviderResolver: () => Promise.resolve(createLocalProvider(storagePath)),
+        },
+        jwtSecret: JWT_SECRET,
+      });
+      const ids = Array.from(
+        { length: 100 },
+        (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      );
+      const getMeta = async (user: SessionUser): Promise<Response> =>
+        limitedServer.app.request(`/api/files/meta?ids=${ids.join(",")}`, {
+          headers: { Authorization: `Bearer ${await limitedServer.jwt.sign(user)}` },
+        });
+
+      for (let request = 0; request < 10; request++) {
+        expect((await getMeta(adminUser)).status).toBe(200);
+      }
+      expect((await getMeta(adminUser)).status).toBe(429);
+      expect(
+        (await getMeta({ ...adminUser, id: "11111111-0000-4000-8000-000000000071" })).status,
+      ).toBe(200);
+    } finally {
+      await testRedis.cleanup();
     }
   });
 });

@@ -4,10 +4,12 @@ import * as z from "zod";
 import { tenantChannel } from "../../engine/constants.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
+import { from } from "../../engine/ownership.ts";
 import { createRegistry } from "../../engine/registry.ts";
+import type { SessionUser } from "../../engine/types/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { authMiddleware } from "../auth-middleware.ts";
-import { collectEntityReadAccess } from "../entity-read-access.ts";
+import { collectEntityReadAccess, collectEntityRowReadMaps } from "../entity-read-access.ts";
 import { createJwtHelper } from "../jwt.ts";
 import {
   type AccessInvalidationCredential,
@@ -399,6 +401,77 @@ describe("sse-route frame naming", () => {
     const wire = JSON.parse(frame.data);
     expect(wire).not.toHaveProperty("id");
     expect(wire).not.toHaveProperty("version");
+  });
+
+  describe("row-filtered read access", () => {
+    const registry = createRegistry([
+      defineFeature("demo", (r) => {
+        r.entity({
+          name: "contract",
+          ...createEntity({
+            table: "contracts",
+            fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+            access: { read: { Admin: "all", Driver: from("user:id", "assigneeId") } },
+          }),
+        });
+        r.queryHandler({
+          name: "list-contracts",
+          schema: z.object({}),
+          handler: async () => ({}),
+          access: { roles: ["Admin", "Driver"] },
+          liveEntities: ["contract"],
+        });
+      }),
+    ]);
+
+    async function firstContractSignal(user: SessionUser): Promise<Record<string, unknown>> {
+      const { broker, send } = createSendCapturingBroker();
+      const jwt = createJwtHelper(JWT_SECRET);
+      const token = await jwt.sign(user);
+      const app = new Hono();
+      app.use("/api/*", authMiddleware(jwt));
+      app.route(
+        "/api",
+        createSseRoute(broker, {
+          anonymousLiveEntities: new Set(),
+          entityReadAccess: collectEntityReadAccess(registry),
+          entityRowReadMaps: collectEntityRowReadMaps(registry),
+        }),
+      );
+      const controller = new AbortController();
+      const responsePromise = Promise.resolve(
+        app.request("/api/sse", {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        }),
+      );
+      const sendEvent = await send;
+      const reader = (await responsePromise).body!.getReader();
+      sendEvent({
+        type: "contract.updated",
+        data: {
+          id: "unassigned-contract",
+          aggregateType: "contract",
+          version: 4,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      });
+      const frame = await readNextEntityFrame(reader);
+      controller.abort();
+      return JSON.parse(frame.data);
+    }
+
+    test("a role limited to its own rows gets the signal without id or version", async () => {
+      const wire = await firstContractSignal(TestUsers.driver);
+      expect(wire).toMatchObject({ aggregateType: "contract" });
+      expect(wire).not.toHaveProperty("id");
+      expect(wire).not.toHaveProperty("version");
+    });
+
+    test("a role that reads every row still gets id and version", async () => {
+      const wire = await firstContractSignal(TestUsers.admin);
+      expect(wire).toMatchObject({ id: "unassigned-contract", version: 4 });
+    });
   });
 
   test("non-entity events (no aggregateType) keep event.type as the frame name", async () => {

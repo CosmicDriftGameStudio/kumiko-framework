@@ -95,6 +95,11 @@ export function createClientErrorRoute(options: ClientErrorRouteOptions): Hono {
   const logger = createFallbackLogger("client-errors");
   const routePath = `/api${Routes.clientErrors}`;
 
+  // Always on: the shared limiter fails open when Redis is down, this per-process window is the floor.
+  app.post(
+    Routes.clientErrors,
+    inMemoryIpRateLimit(options.clientIpResolver, options.now ?? Date.now),
+  );
   if (options.resolver) {
     app.post(
       Routes.clientErrors,
@@ -105,11 +110,6 @@ export function createClientErrorRoute(options: ClientErrorRouteOptions): Hono {
         clientIpResolver: options.clientIpResolver,
         ...(options.meter && { meter: options.meter }),
       }),
-    );
-  } else {
-    app.post(
-      Routes.clientErrors,
-      inMemoryIpRateLimit(options.clientIpResolver, options.now ?? Date.now),
     );
   }
   app.post(

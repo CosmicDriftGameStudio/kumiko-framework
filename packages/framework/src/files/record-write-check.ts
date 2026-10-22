@@ -83,3 +83,21 @@ export function createRecordWriteCheck(args: {
     return RecordWriteDecisions.writable;
   };
 }
+
+// The stored row, read through the given db so a transaction sees the lock state it commits against.
+export async function isStoredRecordLocked(args: {
+  readonly registry: Registry;
+  readonly db: TenantDb;
+  readonly entityType: string;
+  readonly entityId: string;
+}): Promise<boolean> {
+  const { registry, db, entityType, entityId } = args;
+  const entity = registry.getEntity(entityType);
+  const table = findImplicitEntityTable(registry, entityType);
+  if (!entity || !table || entity.lockedWhen === undefined) return false;
+  const row = await db.fetchOne<Record<string, unknown>>(table, {
+    id: entityId,
+    ...(entity.softDelete === true && { isDeleted: false }),
+  });
+  return row !== undefined && isRecordLocked(entity.lockedWhen, row);
+}

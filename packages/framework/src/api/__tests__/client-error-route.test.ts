@@ -51,3 +51,32 @@ describe("client error route without Redis", () => {
     expect((await post("10.0.0.1")).status).toBe(429);
   });
 });
+
+describe("client error route with a failing shared limiter", () => {
+  test("still limits to 10 reports per minute per IP when the resolver throws", async () => {
+    const unreachable = async (): Promise<never> => {
+      throw new Error("redis unreachable");
+    };
+    const app = createClientErrorRoute({
+      resolver: {
+        check: unreachable,
+        enforce: unreachable,
+        enforceAll: unreachable,
+        peek: unreachable,
+      },
+      clientIpResolver: createClientIpResolver(1, "client-error-route.test"),
+      identifySession: async () => {},
+      now: () => 1_000_000,
+    });
+    const post = () =>
+      app.request("/client-errors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-forwarded-for": "10.0.0.9" },
+        body: JSON.stringify({ errorId: crypto.randomUUID(), kind: "render", message: "boom" }),
+      });
+
+    for (let i = 0; i < 10; i++) expect((await post()).status).toBe(204);
+
+    expect((await post()).status).toBe(429);
+  });
+});

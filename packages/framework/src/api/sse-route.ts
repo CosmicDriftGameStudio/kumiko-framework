@@ -3,7 +3,7 @@ import { streamSSE } from "hono/streaming";
 import { hasAccess } from "../engine/access.ts";
 import { tenantChannel } from "../engine/constants.ts";
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
-import type { AccessRule, SessionUser } from "../engine/types/index.ts";
+import type { AccessRule, OwnershipMap, SessionUser } from "../engine/types/index.ts";
 import { Routes } from "./api-constants.ts";
 import { getAuthTokenExpiry, getStaleCredentialCode, getUser } from "./auth-middleware.ts";
 import { clearSessionCookies, getSessionCookies } from "./session-cookies.ts";
@@ -56,6 +56,7 @@ export const SSE_MAX_PENDING_WRITES_PER_CLIENT = 10_000;
 export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
   readonly entityReadAccess: ReadonlyMap<string, readonly AccessRule[]>;
+  readonly entityRowReadMaps?: ReadonlyMap<string, OwnershipMap>;
   readonly now?: () => number;
 };
 
@@ -124,7 +125,16 @@ function entitySignalDetail(
     hasAccess(user, rule),
   );
   if (granting.length === 0) return "none";
-  return granting.some((rule) => "roles" in rule) ? "identified" : "anonymous";
+  if (!granting.some((rule) => "roles" in rule)) return "anonymous";
+  return readsEveryRow(user, options.entityRowReadMaps?.get(aggregateType))
+    ? "identified"
+    : "anonymous";
+}
+
+// Mirrors buildOwnershipClause: without a map every row is visible, otherwise only a role mapped to "all" sees them all.
+function readsEveryRow(user: SessionUser, rowReadMap: OwnershipMap | undefined): boolean {
+  if (rowReadMap === undefined) return true;
+  return user.roles.some((role) => rowReadMap[role] === "all");
 }
 
 type SseWireFrame = { readonly name: string; readonly data: unknown };

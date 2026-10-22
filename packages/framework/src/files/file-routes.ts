@@ -1,3 +1,4 @@
+import type { RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import { Hono } from "hono";
@@ -28,6 +29,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "../engine/types/index.ts";
+import { createFailOpenReporter, respondRateLimited } from "../rate-limit/middleware.ts";
 import { listActionFormFileFields, mayUseActionForm } from "./action-form-upload.ts";
 import { buildContentDispositionHeader } from "./content-disposition.ts";
 import {
@@ -40,7 +42,11 @@ import { fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import type { FileProviderResolver } from "./provider-resolver.ts";
 import type { RecordReadCheck } from "./record-read-check.ts";
-import { type RecordWriteCheck, RecordWriteDecisions } from "./record-write-check.ts";
+import {
+  isStoredRecordLocked,
+  type RecordWriteCheck,
+  RecordWriteDecisions,
+} from "./record-write-check.ts";
 import { neutralFileNameForMimeType } from "./resolve-content-type.ts";
 import { parseMaxSize, resolveServedContentType } from "./types.ts";
 import { withUploadLedger } from "./upload-ledger.ts";
@@ -91,6 +97,9 @@ export type FileAccessGuard = (args: {
 
 export type FileRoutesOptions = {
   readonly db: DbConnection;
+  // Charges GET /files/meta by id count, because every id costs a KMS-decrypting read.
+  // Absent: the route is limited only by the global request limiter.
+  readonly metaBatchRateLimitResolver?: RateLimitResolver;
   // Per-tenant provider resolver — resolves through file-foundation so uploads,
   // ctx.files and the GDPR jobs all hit the same store. Resolution runs under
   // system identity for the secret-read; request-user authorization is the
@@ -126,6 +135,8 @@ const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
 const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 
 const MAX_BATCH_META_IDS = 100;
+const META_BATCH_IDS_PER_WINDOW = 1_000;
+const META_BATCH_WINDOW_SECONDS = 60;
 // Each detail() read decrypts through the KMS pool; a bounded chunk keeps one batch from hogging it.
 const BATCH_META_CONCURRENCY = 10;
 
@@ -218,7 +229,8 @@ export function readFilesRouteOptions(
 }
 
 export function createFileRoutes(options: FileRoutesOptions): Hono {
-  const { db } = options;
+  const { db, metaBatchRateLimitResolver } = options;
+  const reportMetaBatchLimiterFailOpen = createFailOpenReporter("files-meta-batch");
   // Plain resolvers (not built via withFileProviderResolver) get the ledger on the route's own root connection.
   const resolveProvider: FileProviderResolver = options.resolveProvider.uploadLedgerFor
     ? options.resolveProvider
@@ -352,6 +364,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     const data = new Uint8Array(await file.arrayBuffer());
     const files = createTenantFileContext(resolveProvider, user.tenantId);
+    const { registry } = options;
+    const isAttachTargetLocked =
+      registry !== undefined && entityType !== undefined && entityId !== undefined
+        ? (rowDb: TenantDb) => isStoredRecordLocked({ registry, db: rowDb, entityType, entityId })
+        : undefined;
     const outcome = await storeFileAsFileRef(
       {
         user,
@@ -364,6 +381,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
           await files.ref(key).delete();
           await files.forgetUploadBytes(key);
         },
+        ...(isAttachTargetLocked ? { isAttachTargetLocked } : {}),
       },
       {
         fileName: file.name,
@@ -376,6 +394,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       },
     );
     if (outcome.kind === "rejected") return c.json({ error: outcome.error }, 400);
+    if (outcome.kind === "target-locked") {
+      return c.json({ error: "record_locked: the record is locked" }, 409);
+    }
     if (outcome.kind === "failed") return c.json({ error: "upload_failed" }, 500);
     return c.json(outcome.fileRef, 201);
   });
@@ -388,6 +409,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const user = getUser(c);
     const ids = [...new Set((c.req.query("ids") ?? "").split(",").filter((id) => isUuid(id)))];
     if (ids.length > MAX_BATCH_META_IDS) return c.json({ error: "too_many_ids" }, 400);
+    if (metaBatchRateLimitResolver && ids.length > 0) {
+      const bucket = `files-meta:${user.tenantId}:${user.id}`;
+      try {
+        const decision = await metaBatchRateLimitResolver.check(bucket, {
+          limit: META_BATCH_IDS_PER_WINDOW,
+          windowSeconds: META_BATCH_WINDOW_SECONDS,
+          cost: ids.length,
+        });
+        if (!decision.allowed) return respondRateLimited(c, decision, bucket);
+      } catch (e) {
+        reportMetaBatchLimiterFailOpen(e);
+      }
+    }
     const files: FileMeta[] = [];
     for (let start = 0; start < ids.length; start += BATCH_META_CONCURRENCY) {
       const chunk = ids.slice(start, start + BATCH_META_CONCURRENCY);
