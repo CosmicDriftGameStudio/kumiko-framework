@@ -2272,7 +2272,7 @@
         "RequestContextData",
         "readonlyRequestContext",
         "requestContext",
-        "runAsDirectCallEntry",
+        "runAsAgentToolCallEntry",
         "runWithOrigin",
         "runWithWriteOrigin",
         "setRequestIdentity"

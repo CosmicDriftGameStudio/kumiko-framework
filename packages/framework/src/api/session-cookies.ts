@@ -96,10 +96,10 @@ export function expireLegacySessionCookieVariants(
     // skip: the unprefixed names are the only legacy variant when the config writes __Host- names.
     return;
   }
-  if (cookies.secure) {
-    deleteCookie(c, sessionCookieName(AUTH_COOKIE_BASE, { secure: true }), hostPrefixedDelete);
-    deleteCookie(c, sessionCookieName(CSRF_COOKIE_BASE, { secure: true }), hostPrefixedDelete);
-  }
+  // Sent even with secureCookies:false: TLS may still terminate at a proxy, and over plain HTTP the
+  // browser drops the Secure delete without effect.
+  deleteCookie(c, sessionCookieName(AUTH_COOKIE_BASE, { secure: true }), hostPrefixedDelete);
+  deleteCookie(c, sessionCookieName(CSRF_COOKIE_BASE, { secure: true }), hostPrefixedDelete);
 }
 
 const hostPrefixedDelete = { path: "/", secure: true } as const;

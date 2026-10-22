@@ -53,6 +53,7 @@ defineFeature("shop", (r) => {
   r.screen({ id: "orphan-list", type: "entityList", entity: "item", columns: ["title"] });
   r.nav({ id: "items", label: "Items", screen: "shop:screen:item-list" });
   r.nav({ id: "orphan", label: "Orphan", screen: "shop:screen:orphan-list" });
+  r.translations({ keys: { "shop:greeting": { en: "Hello" } } });
 }),
 ]);
 ${optionsExport}
@@ -126,6 +127,16 @@ navAllowlistExempt: new Set(["shop:nav:orphan"]),
     const cap = captureOut();
     const code = await runSchemaCli(["validate"], appCwd, cap.out);
     expect(code).toBe(0);
+  });
+
+  test("requiredLocales from VALIDATE_BOOT_OPTIONS fails the boot step for a locale the keys lack", async () => {
+    writeNavFixture(
+      appCwd,
+      `export const VALIDATE_BOOT_OPTIONS = { requiredLocales: ["en", "xx"] };`,
+    );
+    const { code, cap } = await validateWithWarnings();
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("is missing required locale(s) xx");
   });
 
   test.each([

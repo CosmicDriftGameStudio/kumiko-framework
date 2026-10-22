@@ -1,6 +1,6 @@
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { isKumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
+import { runAsAgentToolCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { FILTER_OPS, isRecord } from "./filter-ops.ts";
@@ -427,7 +427,7 @@ export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCa
   }
 
   try {
-    return await runAsDirectCallEntry(async () => {
+    return await runAsAgentToolCallEntry(async () => {
       switch (descriptor.kind) {
         case "search":
           return await dispatchSearch(descriptor, dispatcher, user, toolName, input);

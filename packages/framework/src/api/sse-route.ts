@@ -186,6 +186,19 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
       let lastProgressAt = now();
       const isStalled = () =>
         pendingWrites > 0 && now() - lastProgressAt > SSE_STALLED_CLIENT_TIMEOUT_MS;
+      // Pings go through the same accounting: an awaited ping would block on a client that
+      // stopped reading, and the stall check below would never run again.
+      const writeTracked = (event: string, data: string): void => {
+        if (pendingWrites === 0) lastProgressAt = now();
+        pendingWrites += 1;
+        stream
+          .writeSSE({ event, data })
+          .catch(closeStream)
+          .finally(() => {
+            pendingWrites -= 1;
+            lastProgressAt = now();
+          });
+      };
       const clientId = broker.addClient(
         channel,
         (event) => {
@@ -202,16 +215,7 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
               // skip: this client is gone, the frame has no audience
               return;
             }
-            const data = JSON.stringify(frame.data);
-            if (pendingWrites === 0) lastProgressAt = now();
-            pendingWrites += 1;
-            stream
-              .writeSSE({ event: frame.name, data })
-              .catch(closeStream)
-              .finally(() => {
-                pendingWrites -= 1;
-                lastProgressAt = now();
-              });
+            writeTracked(frame.name, JSON.stringify(frame.data));
           } catch {
             // skip: an unserializable frame ends this client's stream, not the broadcast
             closeStream();
@@ -249,7 +253,7 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
             stream.abort();
             break;
           }
-          await stream.writeSSE({ event: "ping", data: "" });
+          writeTracked("ping", "");
           await Promise.race([stream.sleep(SSE_HEARTBEAT_INTERVAL_MS), ended]);
         }
       } finally {
