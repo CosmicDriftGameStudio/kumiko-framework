@@ -38,5 +38,4 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   },
   [formFieldKey("accountId")]: { en: "Mailbox" },
   [formFieldKey("displayName")]: { en: "Name" },
-  [formFieldKey("reason")]: { en: "Reason" },
 };

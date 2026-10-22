@@ -65,6 +65,9 @@ function rawMsg(providerMessageId: string): RawInboundMessage {
   };
 }
 
+// Ids with this prefix only exercise the lookup; ingesting tens of thousands of messages is not the point.
+const LISTING_ONLY_PREFIX = "bulk-";
+
 const probePlugin: InboundMailProviderPlugin = {
   verify: async () => {},
   fetch: async (ctx, account, _cursor, opts) => {
@@ -74,7 +77,9 @@ const probePlugin: InboundMailProviderPlugin = {
     calls.push({ metricsFor: ctx.metricsFor, unknownIds: unknown && [...unknown] });
     fetchCallsByAccount.set(account.id, calls);
     return {
-      messages: (unknown ? [...unknown] : []).map(rawMsg),
+      messages: (unknown ? [...unknown] : [])
+        .filter((id) => !id.startsWith(LISTING_ONLY_PREFIX))
+        .map(rawMsg),
       nextCursor: { calls: calls.length },
       hasMore: false,
     };
@@ -206,5 +211,21 @@ describe("watch-supervisor — filterUnknownMessageIds", () => {
     listingByAccount.set(ingestedAccountId, ["shared-id"]);
     await supervisor.pollOnce();
     expect(lastUnknownIds(ingestedAccountId)).toEqual([]);
+  });
+
+  test("a listing beyond the Postgres bind parameter limit is looked up in chunks", async () => {
+    const accountId = await connectProbeAccount(4306);
+    const supervisor = createSupervisor();
+    listingByAccount.set(accountId, ["seen-first"]);
+    await supervisor.pollOnce();
+    const hugeListing = Array.from(
+      { length: 70_000 },
+      (_, index) => `${LISTING_ONLY_PREFIX}${index}`,
+    );
+
+    listingByAccount.set(accountId, ["seen-first", ...hugeListing]);
+    await supervisor.pollOnce();
+
+    expect(lastUnknownIds(accountId)).toEqual(hugeListing);
   });
 });

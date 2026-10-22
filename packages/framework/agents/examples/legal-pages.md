@@ -80,7 +80,7 @@ await runProdApp({
   // Required (1): routes run anonymous, need tenant resolution
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
   // Required (2): boot check + internal lookup use ctx.templateResolver
-  extraContext: ({ db }) => ({
+  extraContext: ({ db, registry }) => ({
     templateResolver: createTemplateResolverApi(db, registry),
   }),
 });

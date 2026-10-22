@@ -7,7 +7,8 @@
 // provider-concrete.
 
 import { describe, expect, test } from "bun:test";
-import { createMailFoundationFeature } from "../feature.ts";
+import { createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createMailFoundationFeature, tenantMailTransport } from "../feature.ts";
 
 describe("mailFoundationFeature — shape", () => {
   test("has the expected name", () => {
@@ -41,5 +42,16 @@ describe("mailFoundationFeature — registers extension-point", () => {
     // r.extendsRegistrar("mailTransport", ...) lands in
     // feature.registrarExtensions keyed by extension-name.
     expect(createMailFoundationFeature().registrarExtensions["mailTransport"]).toBeDefined();
+  });
+});
+
+describe("tenantMailTransport", () => {
+  test("yields null without a tenant config so the channel falls back to the app transport", async () => {
+    const transport = await tenantMailTransport({
+      tenantId: SYSTEM_TENANT_ID,
+      registry: createRegistry([]),
+    });
+
+    expect(transport).toBeNull();
   });
 });

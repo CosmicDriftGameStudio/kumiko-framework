@@ -30,33 +30,32 @@ export type HostRoutingDispatchFn = (
 
 const tenantKeyExistsResultSchema = z.object({ exists: z.boolean() });
 
-async function isTenantKeyKnown(systemQuery: PageHeadSystemQuery, key: string): Promise<boolean> {
+async function existsViaSystemQuery(
+  systemQuery: PageHeadSystemQuery,
+  queryType: string,
+  payload: Record<string, string>,
+): Promise<boolean> {
   let result: unknown;
   try {
-    result = await systemQuery(HostRoutingQueries.tenantKeyExists, { key }, SYSTEM_TENANT_ID);
+    result = await systemQuery(queryType, payload, SYSTEM_TENANT_ID);
   } catch (error) {
     if (error instanceof ValidationError) return false;
-    // Over the rate limit every key looks the same: serve the tenant shell,
-    // which leaks nothing; the API behind it still resolves the tenant itself.
+    // Over the rate limit every key looks the same: serve the shell, which
+    // leaks nothing. The API resolver is authoritative and answers
+    // tenant_required for unknown hosts, while a 404 would hit visitors
+    // behind a shared NAT under load.
     if (error instanceof RateLimitError) return true;
     throw error;
   }
   return tenantKeyExistsResultSchema.parse(result).exists;
 }
 
-async function isHostKnown(systemQuery: PageHeadSystemQuery, host: string): Promise<boolean> {
-  let result: unknown;
-  try {
-    result = await systemQuery(HostRoutingQueries.hostTenantExists, { host }, SYSTEM_TENANT_ID);
-  } catch (error) {
-    if (error instanceof ValidationError) return false;
-    // The shell is harmless: the API resolver is authoritative and answers
-    // tenant_required for unknown hosts, while a 404 would hit visitors behind
-    // a shared NAT under load.
-    if (error instanceof RateLimitError) return true;
-    throw error;
-  }
-  return tenantKeyExistsResultSchema.parse(result).exists;
+function isTenantKeyKnown(systemQuery: PageHeadSystemQuery, key: string): Promise<boolean> {
+  return existsViaSystemQuery(systemQuery, HostRoutingQueries.tenantKeyExists, { key });
+}
+
+function isHostKnown(systemQuery: PageHeadSystemQuery, host: string): Promise<boolean> {
+  return existsViaSystemQuery(systemQuery, HostRoutingQueries.hostTenantExists, { host });
 }
 
 function serve(

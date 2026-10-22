@@ -21,8 +21,9 @@ import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "
  *   config   — tenant config reads (host/port/... of the plugins)
  *   registry — extension lookup in the factory (not plugin-internal)
  *   secrets  — tenant secret reads (IMAP password, OAuth refresh token)
- *   auditUserId  — audit identity for secret reads. Handler path: the dispatcher
- *              sets the caller user ID; worker path: system identity.
+ *   auditUserId  — audit identity for secret reads. Handler path: unset,
+ *              requireSecretsContext falls back to ctx.user.id; worker/provider
+ *              path: system identity set by the resolver.
  *   metricsFor — metrics handle of a feature by name, same behavior as
  *              HandlerContext.metricsFor: unregistered metrics are a silent
  *              no-op instead of a throw.
@@ -172,7 +173,7 @@ export type InboundMailProviderPlugin = {
        *  for password accounts and providers without an oauth flow. */
       readonly accessToken?: string;
       /** Batch lookup of the provider message ids not yet ingested for this
-       *  account (committed seen anchors, one query per call). Call it after
+       *  account (committed seen anchors; lists of any size are fine, queried in chunks). Call it after
        *  the listing/delta page and download MIME only for the returned ids.
        *  Ingest dedup stays the correctness anchor; this only saves downloads. */
       readonly filterUnknownMessageIds?: (

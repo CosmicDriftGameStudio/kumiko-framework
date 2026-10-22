@@ -77,8 +77,6 @@ export const mailAccountListScreen: ProjectionListScreenDefinition = {
   dormant: true,
 };
 
-// The reason is the audit label update-account requires; it is not in the
-// layout, so the default is what gets written.
 export const mailAccountEditScreen: ActionFormScreenDefinition = {
   id: MAIL_ACCOUNT_EDIT_SCREEN_ID,
   type: "actionForm",
@@ -87,7 +85,6 @@ export const mailAccountEditScreen: ActionFormScreenDefinition = {
   fields: {
     accountId: { type: "text", required: true },
     displayName: { type: "text", required: true, maxLength: 200 },
-    reason: { type: "text", default: "tenant_admin" },
   },
   layout: {
     sections: [{ fields: [{ field: "accountId", readOnly: true }, "displayName"] }],
