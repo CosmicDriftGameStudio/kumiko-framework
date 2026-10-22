@@ -83,11 +83,16 @@ features: [..., createSessionsFeature(), mfaFeature, createAccountSecurityFeatur
 5. **MFA state changes revoke every OTHER live session** (stolen-session defense) — never the session that made the change.
 6. **Enforcement is opt-in.** Without a tenant enabling `auth-mfa:config:required`, users choose for themselves whether to enroll.
 
+## Confirmation code input
+
+`src/web/confirmation-code-step.tsx` shows the `Input kind="code"` renderer primitive outside the MFA screen, for example an e-mail or invite confirmation code. Pass `length` (here 6), `autoFocus` and `onComplete`. The input accepts digits only, so pasting "123 456" yields `123456`, and `onComplete` fires once when the value reaches `length`. `autoComplete` defaults to `one-time-code`, so mobile keyboards offer the code from the SMS or mail. After a wrong code the step clears the value and bumps a `key`, which remounts the input and returns focus to it.
+
 ## Tests
 
 - **Baseline:** a user without MFA enrolled still gets a JWT straight from `/auth/login`.
 - **End-to-end:** enroll via `enable-start`/`enable-confirm`, log in (gets a challenge, no JWT), complete via `/auth/mfa/verify` (gets a JWT) — copies the `buildServer({ auth: ... })` block from the sample comment verbatim.
 - **Account security:** the composed screen boot-validates next to `auth-mfa` and `sessions` and shows a sidebar entry once `nav` is set.
+- **Confirmation code step:** typing or pasting six digits calls `onConfirm` once; a rejected code shows the error, clears the field and refocuses it.
 
 ## Source files
 
@@ -387,4 +392,114 @@ export {
   userMfaEntity,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 export { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
+```
+
+### src/web/__tests__/confirmation-code-step.test.tsx
+
+```tsx
+import { describe, expect, mock, test } from "bun:test";
+import { PrimitivesProvider } from "@cosmicdrift/kumiko-renderer";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ConfirmationCodeStep } from "../confirmation-code-step.tsx";
+
+function renderStep(onConfirm: (code: string) => Promise<boolean>): void {
+  render(
+    <PrimitivesProvider value={defaultPrimitives}>
+      <ConfirmationCodeStep onConfirm={onConfirm} />
+    </PrimitivesProvider>,
+  );
+}
+
+function type(value: string): void {
+  fireEvent.change(screen.getByTestId("confirmation-code"), { target: { value } });
+}
+
+describe("ConfirmationCodeStep", () => {
+  test("focuses the input on mount", () => {
+    renderStep(async () => true);
+    expect(document.activeElement).toBe(screen.getByTestId("confirmation-code"));
+  });
+
+  test("does not confirm before six digits", () => {
+    const onConfirm = mock(async (_code: string) => true);
+    renderStep(onConfirm);
+    type("12345");
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  test("pasted '123 456' confirms once with 123456", async () => {
+    const onConfirm = mock(async (_code: string) => true);
+    renderStep(onConfirm);
+    type("123 456");
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    expect(onConfirm).toHaveBeenCalledWith("123456");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  test("a rejected code shows the error, clears the field and refocuses", async () => {
+    const onConfirm = mock(async (_code: string) => false);
+    renderStep(onConfirm);
+    type("123456");
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    const input = screen.getByTestId("confirmation-code");
+    expect(input).toHaveProperty("value", "");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+```
+
+### src/web/confirmation-code-step.tsx
+
+```tsx
+import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import { type ReactNode, useState } from "react";
+
+const CONFIRMATION_CODE_LENGTH = 6;
+
+export type ConfirmationCodeStepProps = {
+  /** Resolves true when the server accepted the code. */
+  readonly onConfirm: (code: string) => Promise<boolean>;
+};
+
+export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): ReactNode {
+  const { Input, Banner } = usePrimitives();
+  const [code, setCode] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [rejected, setRejected] = useState(false);
+
+  const confirm = async (submittedCode: string): Promise<void> => {
+    if (pending) return;
+    setPending(true);
+    setRejected(false);
+    const accepted = await onConfirm(submittedCode).finally(() => setPending(false));
+    if (accepted) return;
+    setRejected(true);
+    setCode("");
+    // The input was disabled while pending and lost focus; remounting restores autoFocus.
+    setAttempt((n) => n + 1);
+  };
+
+  return (
+    <>
+      <Input
+        key={attempt}
+        kind="code"
+        length={CONFIRMATION_CODE_LENGTH}
+        id="confirmation-code"
+        name="confirmation-code"
+        testId="confirmation-code"
+        value={code}
+        onChange={setCode}
+        onComplete={(next) => void confirm(next)}
+        disabled={pending}
+        hasError={rejected}
+        autoFocus
+      />
+      {rejected ? <Banner variant="error">That code is not valid. Try again.</Banner> : null}
+    </>
+  );
+}
 ```

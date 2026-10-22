@@ -656,9 +656,12 @@
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
+        "react": "^19.2.6",
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-testing": "workspace:*",
+        "@types/react": "^19.2.14",
       },
     },
     "samples/recipes/basic-entity": {
