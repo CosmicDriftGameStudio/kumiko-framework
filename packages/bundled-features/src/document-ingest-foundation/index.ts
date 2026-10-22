@@ -2,6 +2,13 @@
 
 export { documentIngestAggregateId } from "./aggregate-id.ts";
 export {
+  type AppendMissingExtractEventDeps,
+  type AppendMissingExtractEventOptions,
+  type AppendMissingExtractEventResult,
+  appendMissingDocumentExtractEvent,
+  type ExistingDocumentExtract,
+} from "./append-missing-extract-event.ts";
+export {
   type DocumentExtractMeta,
   documentExtractEntity,
   documentExtractsTable,
@@ -14,8 +21,12 @@ export {
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   DOCUMENT_INGEST_SKIPPED_EVENT_QN,
   DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
+  type DocumentExtractFailedPayload,
+  type DocumentExtractReadyPayload,
   type DocumentIngestRequestedPayload,
   type DocumentIngestSkippedPayload,
+  documentExtractFailedPayloadSchema,
+  documentExtractReadyPayloadSchema,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events.ts";

@@ -47,3 +47,18 @@ export const documentIngestSkippedPayloadSchema = z.object({
   reason: z.enum(["file-too-large", "unsupported-mime-type"]),
 });
 export type DocumentIngestSkippedPayload = z.infer<typeof documentIngestSkippedPayloadSchema>;
+
+// Terminal events of a document-extract stream. The QNs belong to the provider that registers
+// them; the foundation only owns the shared payload shape.
+export const documentExtractReadyPayloadSchema = z.object({
+  documentExtractId: z.string().min(1),
+  fileRefId: z.string().min(1),
+});
+export type DocumentExtractReadyPayload = z.infer<typeof documentExtractReadyPayloadSchema>;
+
+export const documentExtractFailedPayloadSchema = z.object({
+  documentExtractId: z.string().min(1),
+  fileRefId: z.string().min(1),
+  error: z.string().min(1),
+});
+export type DocumentExtractFailedPayload = z.infer<typeof documentExtractFailedPayloadSchema>;
