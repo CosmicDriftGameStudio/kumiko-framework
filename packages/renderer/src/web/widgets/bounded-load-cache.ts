@@ -21,6 +21,7 @@ export function createBoundedLoadCache<T>(
 
   const evictIdle = (protectedKey?: string): void => {
     for (const [key, entry] of entries) {
+      // skip: back within the bound, nothing more to evict
       if (entries.size <= max) return;
       const idle = (users.get(key) ?? 0) === 0;
       const settled = everRetained.has(key) || entries.size > max * 2;
@@ -54,6 +55,7 @@ export function createBoundedLoadCache<T>(
         const remaining = (users.get(key) ?? 1) - 1;
         if (remaining > 0) {
           users.set(key, remaining);
+          // skip: other consumers still hold the entry
           return;
         }
         users.delete(key);
