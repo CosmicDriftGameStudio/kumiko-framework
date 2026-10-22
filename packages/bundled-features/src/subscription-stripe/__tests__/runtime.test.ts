@@ -160,8 +160,22 @@ describe("StripeCtxRuntime.clientForCtx", () => {
       secrets: stubSecrets({ [API_KEY_HANDLE.name]: "sk_test_raw_unquoted" }, { raw: true }),
     });
     await expect(rt.ctx.clientForCtx(ctx)).rejects.toThrow(
-      /Invalid JSON in subscription-stripe credential/,
+      "subscription-stripe credential (backing:secrets) is not valid JSON",
     );
+  });
+
+  test("the malformed-credential error does not leak the stored value", async () => {
+    const rt = makeRuntimes();
+    const secrets = stubSecrets(
+      { [API_KEY_HANDLE.name]: "sk_test_x", [WEBHOOK_SECRET_HANDLE.name]: "whsec_AbC123" },
+      { raw: true },
+    );
+    const failure = await rt.webhook.resolve(secrets).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    if (!(failure instanceof Error)) return;
+    expect(failure.message).not.toContain("sk_test_x");
+    expect(failure.message).not.toContain("whsec_AbC123");
+    expect(failure.cause).toBeUndefined();
   });
 });
 
