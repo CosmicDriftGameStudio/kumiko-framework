@@ -172,7 +172,9 @@ function repointDeclaration(
 function isWholeModuleReference(declaration: NamedDeclaration): boolean {
   if (Node.isImportDeclaration(declaration)) {
     return (
-      declaration.getNamespaceImport() !== undefined || declaration.getDefaultImport() !== undefined
+      declaration.getNamespaceImport() !== undefined ||
+      declaration.getDefaultImport() !== undefined ||
+      declaration.getNamedImports().length === 0
     );
   }
   return declaration.isNamespaceExport() || declaration.getNamedExports().length === 0;
@@ -186,6 +188,13 @@ function usesSplitName(
   const namespaceName = Node.isImportDeclaration(declaration)
     ? declaration.getNamespaceImport()?.getText()
     : undefined;
+  if (
+    Node.isImportDeclaration(declaration) &&
+    declaration.getDefaultImport() === undefined &&
+    namespaceName === undefined
+  ) {
+    return false; // side-effect import: nothing is used, so any package of the old module serves
+  }
   if (namespaceName === undefined) return true;
   return sourceFile
     .getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)

@@ -157,4 +157,15 @@ describe("pin-drift.jq guard", () => {
       ).toBe(`@cosmicdrift/kumiko-framework@${range} (expected 0.354.0)`);
     }
   });
+
+  test("|| union drifts only when no alternative contains the release version", () => {
+    const union = ">=0.1.0 <0.2.0 || >=0.354.0";
+    expect(
+      runGuard({ peerDependencies: { "@cosmicdrift/kumiko-framework": union } }, EXPECTED_RANGE_ERA),
+    ).toBe("");
+    const stale = ">=0.1.0 <0.2.0 || >=0.355.0";
+    expect(
+      runGuard({ peerDependencies: { "@cosmicdrift/kumiko-framework": stale } }, EXPECTED_RANGE_ERA),
+    ).toBe(`@cosmicdrift/kumiko-framework@${stale} (expected 0.354.0)`);
+  });
 });

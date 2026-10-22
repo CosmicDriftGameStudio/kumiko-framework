@@ -15,6 +15,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 export type PackageGraph = ReadonlyMap<string, readonly string[]>;
 
@@ -30,16 +31,22 @@ function namesOf(block: unknown): string[] {
   return typeof block === "object" && block !== null ? Object.keys(block) : [];
 }
 
-function readManifests(packagesDir: string): Manifest[] {
+export function readManifests(packagesDir: string): Manifest[] {
   const manifests: Manifest[] = [];
   for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
+    const manifestPath = join(packagesDir, entry.name, "package.json");
+    let raw: string;
     try {
-      manifests.push(
-        JSON.parse(readFileSync(join(packagesDir, entry.name, "package.json"), "utf8")),
-      );
-    } catch {
-      // skip: a directory without a readable package.json is not a workspace package
+      raw = readFileSync(manifestPath, "utf8");
+    } catch (error) {
+      if (errorCodeOf(error) === "ENOENT") continue; // a directory without package.json is not a workspace package
+      throw error;
+    }
+    try {
+      manifests.push(JSON.parse(raw));
+    } catch (error) {
+      throw new Error(`${manifestPath}: invalid JSON (${error instanceof Error ? error.message : String(error)})`);
     }
   }
   return manifests;

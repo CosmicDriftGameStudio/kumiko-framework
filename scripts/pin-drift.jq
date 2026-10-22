@@ -14,12 +14,13 @@
 # A peer that is not a plain version (e.g. ">=0.353.0 <1.0.0") is an explicit
 # range: it drifts when its lower bound (">=X.Y.Z") is above the release version,
 # when the release version reaches its upper bound ("<X.Y.Z" / "<=X.Y.Z"), or when
-# no ">=" lower bound is recognizable ("*", "0.x", "||" unions).
+# no ">=" lower bound is recognizable ("*", "0.x"). A "||" union drifts only if every
+# alternative drifts, i.e. no alternative contains the release version.
 def stripCaret: sub("^[\\^~]"; "");
 def isPlainVersion: test("^[\\^~]?[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.+-]*)?$");
 def semverParts: capture("(?<a>[0-9]+)\\.(?<b>[0-9]+)\\.(?<c>[0-9]+)") | [.a, .b, .c] | map(tonumber);
 def rangeBounds($pattern): [scan($pattern) | .[0] | semverParts];
-def rangeDrifts($expectedVersion):
+def alternativeDrifts($expectedVersion):
   ($expectedVersion | semverParts) as $want
   | rangeBounds(">=\\s*([0-9]+\\.[0-9]+\\.[0-9]+)") as $lowers
   | rangeBounds("<\\s*([0-9]+\\.[0-9]+\\.[0-9]+)") as $uppersExclusive
@@ -28,6 +29,8 @@ def rangeDrifts($expectedVersion):
     or any($lowers[]; . > $want)
     or any($uppersExclusive[]; . <= $want)
     or any($uppersInclusive[]; . < $want);
+def rangeDrifts($expectedVersion):
+  [split("||")[] | alternativeDrifts($expectedVersion)] | all;
 
 (
   ((.dependencies // {}) | to_entries | map(. + { exact: true }))

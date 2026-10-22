@@ -16,7 +16,7 @@ export function isIntegrationPerfFile(filePath: string): boolean {
 // app's `kumiko check guards` builds a TypeScript program over the framework sources, which
 // takes ~2 s alone but blows the budget when three other --parallel workers own the runner's
 // cores. They run after the bulk lane without --parallel, like the perf gates.
-const SUBPROCESS_INTEGRATION_FILES: ReadonlySet<string> = new Set([
+export const SUBPROCESS_INTEGRATION_FILES: ReadonlySet<string> = new Set([
   "packages/cli/src/__tests__/scaffold-check.integration.test.ts",
 ]);
 
