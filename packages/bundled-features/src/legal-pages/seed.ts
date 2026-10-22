@@ -42,12 +42,15 @@ async function loadBlocksFromJson(path: string): Promise<readonly LegalContentBl
 
 // Boot seed for runProdApp's `seeds: [...]`. The JSON template is authoritative
 // (ifExists "update"), so legally required text changes reach rows seeded once.
-export function legalContentSeed(source: LegalContentSeedSource): LegalContentSeedFn {
+export function legalContentSeed(
+  source: LegalContentSeedSource,
+  options?: { readonly folder?: string },
+): LegalContentSeedFn {
   return async ({ db }) => {
     const blocks =
       "blocks" in source
         ? legalContentBlocksSchema.parse(source.blocks)
         : await loadBlocksFromJson(source.path);
-    await seedLegalContentFromJson(db, blocks);
+    await seedLegalContentFromJson(db, blocks, options);
   };
 }
