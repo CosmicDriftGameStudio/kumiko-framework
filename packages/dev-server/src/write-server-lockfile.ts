@@ -30,6 +30,24 @@ function findSeedLockfile(startDir: string): string | undefined {
   }
 }
 
+type BunRun = { readonly exitCode: number; readonly output: string };
+
+async function runBun(args: readonly string[], cwd: string): Promise<BunRun> {
+  // process.execPath: the lock format has to match the Bun that built the bundle.
+  const proc = Bun.spawn({
+    cmd: [process.execPath, ...args],
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    proc.exited,
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  return { exitCode, output: stderr.trim() || stdout.trim() };
+}
+
 export async function writeServerLockfile(
   options: WriteServerLockfileOptions,
 ): Promise<ServerLockfileResult> {
@@ -38,25 +56,22 @@ export async function writeServerLockfile(
   const seedLockfile = findSeedLockfile(options.cwd);
   if (seedLockfile !== undefined) await copyFile(seedLockfile, lockfile);
 
-  // process.execPath: the lock format has to match the Bun that built the bundle.
-  const install = Bun.spawn({
-    cmd: [process.execPath, "install", "--lockfile-only"],
-    cwd: outDir,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [exitCode, stdout, stderr] = await Promise.all([
-    install.exited,
-    new Response(install.stdout).text(),
-    new Response(install.stderr).text(),
-  ]);
-  if (exitCode !== 0) {
+  const install = await runBun(["install", "--lockfile-only"], outDir);
+  if (install.exitCode !== 0) {
     throw new Error(
-      `bun install --lockfile-only failed in ${outDir} (exit ${exitCode}); shipping dist-server without a lockfile would leave runtime versions unpinned.\n${stderr.trim() || stdout.trim()}`,
+      `bun install --lockfile-only failed in ${outDir} (exit ${install.exitCode}); shipping dist-server without a lockfile would leave runtime versions unpinned.\n${install.output}`,
     );
   }
-  if (!existsSync(lockfile)) {
-    throw new Error(`bun install --lockfile-only did not write ${lockfile}`);
+  // A seeded copy exists before the install, so file presence proves nothing: replay the
+  // runtime stage's frozen install to catch a lock that never re-resolved for this package.json.
+  const frozen = await runBun(
+    ["install", "--production", "--frozen-lockfile", "--lockfile-only"],
+    outDir,
+  );
+  if (frozen.exitCode !== 0) {
+    throw new Error(
+      `${lockfile} does not satisfy ${join(outDir, "package.json")} (frozen install exit ${frozen.exitCode}); the runtime image build would fail.\n${frozen.output}`,
+    );
   }
   return seedLockfile === undefined
     ? { mode: "resolved", lockfile }

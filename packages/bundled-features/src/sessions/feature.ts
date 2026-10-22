@@ -59,8 +59,10 @@ export type SessionsFeatureOptions = {
   readonly adminAccess?: "admin" | "systemAdmin";
 };
 
-export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => void;
-export type BindRevokeAllOtherSessions = (revoker: SessionAllOthersRevoker) => void;
+// The returned unbind only clears the binding while it is still this revoker, so a stack that
+// stops later cannot unbind a newer stack sharing the same feature instance.
+export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => () => void;
+export type BindRevokeAllOtherSessions = (revoker: SessionAllOthersRevoker) => () => void;
 
 // Reads the late-bind setter off a mounted sessions feature's exports.
 // run{Prod,Dev}App call it once the DB connection is concrete — the feature
@@ -236,6 +238,9 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
 
       const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {
         boundAutoRevoke = revoker;
+        return () => {
+          if (boundAutoRevoke === revoker) boundAutoRevoke = undefined;
+        };
       };
 
       r.translations({ keys: SESSIONS_I18N });

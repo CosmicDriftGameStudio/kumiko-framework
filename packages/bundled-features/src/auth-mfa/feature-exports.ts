@@ -8,7 +8,7 @@ import type { MfaTokenSecretsEnv } from "./token-secrets.ts";
 
 export type BindMfaRevokeAllOtherSessions = (
   revoker: (userId: string, currentSid: string | undefined) => Promise<number>,
-) => void;
+) => () => void;
 
 // Reads the late-bind setter off a mounted auth-mfa feature's exports —
 // mirrors sessions' own bindAutoRevokeFromFeature. run{Prod,Dev}App call
@@ -79,7 +79,7 @@ export function bindMfaTokenSecretsFromFeature(
   return undefined;
 }
 
-export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<number>) => void;
+export type BindRevokeAllPatTokens = (revoker: (userId: string) => Promise<number>) => () => void;
 
 // Reads the late-bind setter off a mounted auth-mfa feature's exports —
 // run{Prod,Dev}App call this once the personal-access-tokens feature (if

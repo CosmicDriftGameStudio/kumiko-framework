@@ -87,4 +87,29 @@ describe("sessions auto-revoke binding", () => {
 
     expect(revoker).not.toHaveBeenCalled();
   });
+
+  test("unbinding an earlier revoker keeps a newer binding on the shared instance active", async () => {
+    const first = mock(async (_userId: string) => 1);
+    const second = mock(async (_userId: string) => 1);
+    const feature = createSessionsFeature();
+    const bind = bindAutoRevokeFromFeature(feature);
+
+    const unbindFirst = bind?.(first);
+    bind?.(second);
+    unbindFirst?.();
+    await userPostSaveHook(feature)(passwordChange);
+
+    expect(second).toHaveBeenCalledWith("user-1");
+    expect(first).not.toHaveBeenCalled();
+  });
+
+  test("unbinding the current revoker leaves the hook a silent no-op", async () => {
+    const revoker = mock(async (_userId: string) => 1);
+    const feature = createSessionsFeature();
+
+    bindAutoRevokeFromFeature(feature)?.(revoker)();
+    await userPostSaveHook(feature)(passwordChange);
+
+    expect(revoker).not.toHaveBeenCalled();
+  });
 });

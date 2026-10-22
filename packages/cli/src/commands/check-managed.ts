@@ -35,8 +35,18 @@ export async function runManagedCheckStep(
   uiRoots: readonly string[],
 ): Promise<number> {
   const managed: ManagedFilesModule = await import("@cosmicdrift/kumiko-dev-server/managed-files");
-  const facts = managed.resolveManagedAppFacts({ appRoot: repoRoot, uiRoots });
-  const result = managed.checkManagedFiles(facts);
+  let result: ReturnType<ManagedFilesModule["checkManagedFiles"]>;
+  try {
+    result = managed.checkManagedFiles(
+      managed.resolveManagedAppFacts({ appRoot: repoRoot, uiRoots }),
+    );
+  } catch (error) {
+    // Before defineAppConfig is adopted the managed step only warns, also when the facts cannot be resolved.
+    if (managed.readStaticAppConfig(repoRoot).kind === "defined") throw error;
+    out.log(`    ! ${error instanceof Error ? error.message : String(error)}`);
+    out.log(`    ${NOT_ADOPTED_NOTE}`);
+    return 0;
+  }
   const drift = result.files.filter(managed.isManagedDrift);
   const local = result.files.filter((report) => report.state === "local");
   const okCount = result.files.length - drift.length - local.length;

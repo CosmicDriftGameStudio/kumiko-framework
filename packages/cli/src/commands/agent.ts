@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { allConfiguredFeatures, loadAppConfig } from "./load-app-config";
+import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
+import { loadAppConfig } from "./load-app-config";
 import type { CliCommand } from "./types";
 
 const LINT_SUBCOMMAND = "lint";
@@ -39,7 +40,7 @@ export const agentCommand: CliCommand = {
       "@cosmicdrift/kumiko-bundled-features/agent-tools"
     );
 
-    const features = allConfiguredFeatures(config);
+    const features = allAppFeatures(config);
     const gaps = findAgentDocGaps(features);
     const translationGaps = findHandlerTranslationGaps(features);
 

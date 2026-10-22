@@ -28,8 +28,16 @@ export async function runScriptsCheckStep(
   uiRoots: readonly string[],
 ): Promise<number> {
   const managed: ManagedFilesModule = await import("@cosmicdrift/kumiko-dev-server/managed-files");
-  const report = managed.checkAppScripts(readScripts(repoRoot), { hasUi: uiRoots.length > 0 });
   const adopted = managed.readStaticAppConfig(repoRoot).kind === "defined";
+  let scripts: Record<string, string>;
+  try {
+    scripts = readScripts(repoRoot);
+  } catch (error) {
+    if (adopted) throw error;
+    out.log(`    ! ${error instanceof Error ? error.message : String(error)}`);
+    return 0;
+  }
+  const report = managed.checkAppScripts(scripts, { hasUi: uiRoots.length > 0 });
   if (report.knownExtras.length > 0)
     out.log(`    extras (standard): ${report.knownExtras.join(", ")}`);
   if (report.appExtras.length > 0) out.log(`    extras (app): ${report.appExtras.join(", ")}`);

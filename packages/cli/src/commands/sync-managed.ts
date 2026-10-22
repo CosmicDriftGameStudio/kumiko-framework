@@ -1,4 +1,4 @@
-import { loadRepoManifest, REPO_MANIFEST_FILE } from "../repo-manifest";
+import { REPO_MANIFEST_FILE } from "../repo-manifest";
 import type { CliCommand, CliCommandContext } from "./types";
 
 const SYNC_FLAGS = ["--write", "--adopt"] as const;
@@ -11,9 +11,13 @@ export async function runSyncManaged(ctx: CliCommandContext): Promise<number> {
     );
     return 1;
   }
-  const { manifest } = loadRepoManifest(ctx.cwd, {
-    warn: (message) => ctx.out.err(`  ${message}`),
-  });
+  const { findLocalRepo } = await import("@cosmicdrift/kumiko-guards");
+  const repo = findLocalRepo(ctx.cwd);
+  if (repo === undefined) {
+    ctx.out.err(`  No Kumiko repo above ${ctx.cwd}. Add a ${REPO_MANIFEST_FILE} at the repo root.`);
+    return 1;
+  }
+  const { manifest } = repo;
   if (manifest.kind !== "app") {
     ctx.out.err(
       `  sync-managed needs kind "app" in ${REPO_MANIFEST_FILE}, got "${manifest.kind}".`,
@@ -23,7 +27,7 @@ export async function runSyncManaged(ctx: CliCommandContext): Promise<number> {
   const write = ctx.argv.includes("--write");
   const managed = await import("@cosmicdrift/kumiko-dev-server/managed-files");
   const facts = managed.resolveManagedAppFacts({
-    appRoot: ctx.cwd,
+    appRoot: repo.absPath,
     uiRoots: manifest.uiRoots ?? [],
   });
   for (const error of managed.listManagedErrors(facts)) ctx.out.err(`  ✗ ${error}`);
