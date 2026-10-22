@@ -42,30 +42,6 @@
       "expires": "2027-05-06"
     },
     {
-      "package": "@cosmicdriftgamestudio/*",
-      "version": "*",
-      "license": "UNLICENSED",
-      "reason": "Eigene private CDGS-Workspace-Packages (kumiko-guards, später kumiko-ai-*, kumiko-designer etc.). UNLICENSED = proprietary, kein Public-License-Risk weil intern in der Org bleibt (GH-Packages access:restricted).",
-      "reviewedBy": "Marc, 2026-05-06",
-      "expires": "2030-05-06"
-    },
-    {
-      "package": "@cosmicdrift/*",
-      "version": "*",
-      "license": "BUSL-1.1",
-      "reason": "Eigene Public-Workspace-Packages (kumiko-framework + 6 weitere). Wir sind der Licensor — BUSL-1.1 ist unser eigener Lizenz-Choice für die public NPM-Pakete. Der License-Check denied BUSL-1.1 als generic-Pattern (für Third-Party-Deps korrekt), aber für eigene Packages ist's der designierte Lizenz.",
-      "reviewedBy": "Marc, 2026-05-06",
-      "expires": "2030-05-06"
-    },
-    {
-      "package": "create-kumiko-app",
-      "version": "*",
-      "license": "BUSL-1.1",
-      "reason": "Unscoped Workspace-Paket — `bun create kumiko-app` resolved zu `bunx create-kumiko-app`, daher KEIN @cosmicdrift/-Scope möglich. Analog zur @cosmicdrift/*-Exception unser eigener Lizenz-Choice; eigene Eintrag weil Wildcard-Pattern unscoped Pakete nicht matched.",
-      "reviewedBy": "Marc, 2026-06-21",
-      "expires": "2030-06-21"
-    },
-    {
       "package": "khroma",
       "version": "*",
       "license": "MIT",

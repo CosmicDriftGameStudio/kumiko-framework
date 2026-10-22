@@ -19,6 +19,7 @@ describe("comment-issue-ref-only guard", () => {
     "// Fix for ent#12",
     "// Phase 3",
     "// round5",
+    "// Phase 3.",
     "/** S2.H1 */",
     "// Follow-up: kumiko-framework#88, Wave 4",
   ])("flags a comment that only references a tracker or plan: %s", (comment) => {
@@ -34,6 +35,9 @@ describe("comment-issue-ref-only guard", () => {
     "// &#39; is the escaped apostrophe",
     "// A plain comment without any reference",
     "// see extractors/round2.ts",
+    "// see round2.ts",
+    "// load phase1.sql",
+    "// see dir/S2.H1",
     "// @timeout-exception: #3118 paces repeated dispatch attempts, nothing to poll for",
   ])("leaves a comment with an explanation or without a reference alone: %s", (comment) => {
     expect(isIssueRefOnlyComment(comment)).toBe(false);

@@ -141,6 +141,6 @@ describe("loadLicenseExceptions", () => {
       expect(entry.reviewedBy).not.toBe("");
       expect(Number.isNaN(Date.parse(entry.expires))).toBe(false);
     }
-    expect(loadLicenseExceptions([])).toHaveLength(9);
+    expect(loadLicenseExceptions([])).toHaveLength(6);
   });
 });

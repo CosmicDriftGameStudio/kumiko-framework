@@ -206,10 +206,7 @@ function entityRegistrationOf(call: CallExpression): EntityRegistration | undefi
     return undefined;
   }
   const definition = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  const nameProp = definition?.getProperty("name");
-  if (!definition || nameProp?.getKind() !== SyntaxKind.PropertyAssignment) return undefined;
-  const nameValue = nameProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
-  if (nameValue?.getKind() !== SyntaxKind.StringLiteral) return undefined;
+  if (!definition?.getProperty("name")) return undefined;
   return {
     entityDid: spreadEntityDefinitionId(definition),
     overrideTableDid: entityTableOverrideId(definition),
@@ -601,7 +598,7 @@ function deriveCatalogs(
 }
 
 const REWRITE_CATALOGS_COMMAND =
-  'bun packages/guards/src/run-guards.ts --write-baseline --guard="Direct-Entity-Writes Guard"';
+  'bunx kumiko-guards guards --write-baseline --guard="Direct-Entity-Writes Guard"';
 
 // Published packages whose catalog exists on disk although they define no ES table any more.
 function publishedRootsWithCatalog(files: readonly SourceFile[]): Set<string> {
@@ -670,6 +667,13 @@ function writeCatalogs(files: readonly SourceFile[], esTables: ReadonlySet<Table
   }
 }
 
+const MAX_RECEIVER_TEXT_LENGTH = 60;
+
+// Function-form receivers are arbitrary expressions; keep the message on one greppable line.
+function compactReceiverText(node: Node): string {
+  return node.getText().replace(/\s+/g, "").slice(0, MAX_RECEIVER_TEXT_LENGTH);
+}
+
 export function scanDirectWrites(
   sf: SourceFile,
   esTables: ReadonlySet<TableId>,
@@ -706,7 +710,7 @@ export function scanDirectWrites(
       if (isInsideProjectionApply(call)) continue;
       out.push({
         line: call.getStartLineNumber(),
-        receiver: w.receiver.getText(),
+        receiver: compactReceiverText(w.receiver),
         op: w.op,
         table: w.tableArg.getText(),
         snippet: call.getText().slice(0, 120),
@@ -717,7 +721,7 @@ export function scanDirectWrites(
 
     out.push({
       line: call.getStartLineNumber(),
-      receiver: w.receiver.getText(),
+      receiver: compactReceiverText(w.receiver),
       op: w.op,
       table: w.tableArg.getText(),
       snippet: call.getText().slice(0, 120),
@@ -726,6 +730,13 @@ export function scanDirectWrites(
   }
   return out;
 }
+
+type DirectWriteViolation = {
+  file: string;
+  line: number;
+  message: string;
+  neverFrozen?: boolean;
+};
 
 export const guard: AstGuard = {
   name: "Direct-Entity-Writes Guard",
@@ -738,7 +749,28 @@ export const guard: AstGuard = {
     // Merge all collections BEFORE the empty-set check — otherwise a repo that only uses r.entity
     // would skip every scan: the canary fires falsely and writes on entity tables go undetected.
     const esTables = collectScopeEsTables(files);
+    const firstFile = files[0];
+    const externalEsTables = firstFile
+      ? createExternalEsTables(firstFile.getProject())
+      : { has: () => false };
+
+    const writeViolations: DirectWriteViolation[] = [];
+    for (const sf of files) {
+      const file = sf.getFilePath();
+      if (EXCLUDE.test(file)) continue;
+
+      for (const hit of scanDirectWrites(sf, esTables, externalEsTables)) {
+        writeViolations.push({
+          file: path.relative(ROOT, file),
+          line: hit.line,
+          message: `[${hit.kind}] ${hit.receiver}.${hit.op}(${hit.table}) — ${hit.snippet}`,
+        });
+      }
+    }
+
     if (esTables.size === 0) {
+      // Writes on catalog tables of installed packages are real findings even without own ES tables.
+      if (writeViolations.length > 0) return { violations: writeViolations };
       // An empty set means either the repo has no event store at all, or the
       // scan lost the ES definitions while table writes are still present.
       if (!hasAnyTableWriteOrDeclaration(files)) return { violations: [] };
@@ -754,30 +786,10 @@ export const guard: AstGuard = {
       };
     }
 
-    const violations: Array<{
-      file: string;
-      line: number;
-      message: string;
-      neverFrozen?: boolean;
-    }> = catalogViolations(files, esTables);
-
-    const firstFile = files[0];
-    const externalEsTables = firstFile
-      ? createExternalEsTables(firstFile.getProject())
-      : { has: () => false };
-
-    for (const sf of files) {
-      const file = sf.getFilePath();
-      if (EXCLUDE.test(file)) continue;
-
-      for (const hit of scanDirectWrites(sf, esTables, externalEsTables)) {
-        violations.push({
-          file: path.relative(ROOT, file),
-          line: hit.line,
-          message: `[${hit.kind}] ${hit.receiver}.${hit.op}(${hit.table}) — ${hit.snippet}`,
-        });
-      }
-    }
+    const violations: DirectWriteViolation[] = [
+      ...catalogViolations(files, esTables),
+      ...writeViolations,
+    ];
 
     return { violations };
   },

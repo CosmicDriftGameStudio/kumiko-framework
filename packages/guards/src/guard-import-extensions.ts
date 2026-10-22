@@ -15,7 +15,7 @@
  */
 
 import { dirname, resolve } from "node:path";
-import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const SCAN: ScanSpec = {
@@ -48,8 +48,10 @@ function hasSourceSibling(sf: SourceFile, base: string, extension: string): bool
 }
 
 function relativeJsSpecifier(sf: SourceFile, node: Node | undefined): string | undefined {
-  const literal = node?.asKind(SyntaxKind.StringLiteral);
-  const value = literal?.getLiteralValue();
+  const value =
+    node !== undefined && (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node))
+      ? node.getLiteralValue()
+      : undefined;
   if (value === undefined || BUILD_OUTPUT_SEGMENT.test(value)) return undefined;
   const [, base = "", extension = ""] = RELATIVE_JS_SPECIFIER.exec(value) ?? [];
   if (base === "" || !hasSourceSibling(sf, base, extension)) return undefined;
@@ -67,8 +69,15 @@ function findJsSpecifiers(sf: SourceFile): Finding[] {
   for (const declaration of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
     add(declaration.getModuleSpecifier());
   }
+  for (const importType of sf.getDescendantsOfKind(SyntaxKind.ImportType)) {
+    const argument = importType.getArgument();
+    if (Node.isLiteralTypeNode(argument)) add(argument.getLiteral());
+  }
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    if (call.getExpression().getKind() === SyntaxKind.ImportKeyword) add(call.getArguments()[0]);
+    const callee = call.getExpression();
+    if (callee.getKind() === SyntaxKind.ImportKeyword || callee.getText() === "mock.module") {
+      add(call.getArguments()[0]);
+    }
   }
   return findings;
 }

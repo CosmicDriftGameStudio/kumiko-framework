@@ -32,6 +32,32 @@ describe("Import-Extensions Guard", () => {
     expect(violations[0]?.message).toContain("import-extensions");
   });
 
+  test("flags import types, mock.module and template-literal specifiers", () => {
+    const { violations } = guard.run(
+      files({
+        [PATH]: [
+          `type A = typeof import("./a.js");`,
+          `mock.module("./a.js", () => ({}));`,
+          "const m = await import(`./a.js`);",
+        ].join("\n"),
+        "packages/demo/src/a.ts": "export const a = 1;",
+      }),
+    );
+    expect(violations.map((v) => v.line)).toEqual([1, 2, 3]);
+  });
+
+  test("accepts import types and mock.module that already name the source file", () => {
+    const { violations } = guard.run(
+      files({
+        [PATH]: [`type A = typeof import("./a.ts");`, `mock.module("./a.ts", () => ({}));`].join(
+          "\n",
+        ),
+        "packages/demo/src/a.ts": "export const a = 1;",
+      }),
+    );
+    expect(violations).toEqual([]);
+  });
+
   test("accepts .ts/.tsx, extensionless, package and non-relative specifiers", () => {
     const { violations } = guard.run(
       files({
