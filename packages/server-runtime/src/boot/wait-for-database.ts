@@ -39,6 +39,9 @@ export type WaitForDatabaseOptions = {
   readonly deadline?: number;
 };
 
+/** Injectable clock and sink; tests drive the backoff without real waiting. */
+export type DatabaseWaitClock = Pick<WaitForDatabaseOptions, "log" | "sleep" | "now">;
+
 function logToConsole(line: string): void {
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log(line);

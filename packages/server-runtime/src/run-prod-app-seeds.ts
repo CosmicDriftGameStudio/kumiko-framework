@@ -112,6 +112,8 @@ export async function runProdBootSeeds(
     admin: composed.effectiveAuth?.admin,
     shortcutSeeds: config.bootOptionWiring.shortcutSeeds,
     cipher: composed.bootCrypto.configCipher,
+    processName: "runProdApp",
+    ...(options.databaseWait && { databaseWait: options.databaseWait }),
   });
   const hasSeeds = config.bootOptionWiring.customSeeds.length > 0 || options.seedsDir !== undefined;
   const seedContext = hasSeeds ? buildSeedContext(run) : undefined;

@@ -45,7 +45,7 @@ import {
 } from "../compose-features.ts";
 import type { RunProdAppAuthOptions } from "../run-prod-app.ts";
 import { applyBootSeeds } from "./apply-boot-seeds.ts";
-import { waitUntilDatabaseReachable } from "./wait-for-database.ts";
+import { type DatabaseWaitClock, waitUntilDatabaseReachable } from "./wait-for-database.ts";
 
 /** Returns `envSource` itself (it may be `process.env`) when there is nothing to layer under it. */
 export function withEnvDefaults(
@@ -109,20 +109,29 @@ export async function applyStandardBootSeeds(deps: {
   readonly admin: SeedAdminOptions | undefined;
   readonly shortcutSeeds: readonly DbSeedFn[];
   readonly cipher: EnvelopeCipher | undefined;
+  readonly processName: string;
+  readonly databaseWait?: DatabaseWaitClock;
 }): Promise<void> {
-  const { db, registry, admin, shortcutSeeds, cipher } = deps;
-  if (admin) {
-    await seedAdminGuarded(db, admin);
-  }
-  for (const seed of shortcutSeeds) {
-    await seed(db);
-  }
-  // The helper indirection is what config-seed-boot.integration.ts pins — keep it as a single call.
-  await applyBootSeeds({
-    registry,
-    db,
-    ...(cipher && { cipher }),
-  });
+  const { db, registry, admin, shortcutSeeds, cipher, processName, databaseWait } = deps;
+  // Seeds are idempotent, so a transient connection error re-runs the whole sequence; any other
+  // error stays fatal. Later boot steps build on the seeds, so this cannot continue in the background.
+  await waitUntilDatabaseReachable(
+    async () => {
+      if (admin) {
+        await seedAdminGuarded(db, admin);
+      }
+      for (const seed of shortcutSeeds) {
+        await seed(db);
+      }
+      // The helper indirection is what config-seed-boot.integration.ts pins — keep it as a single call.
+      await applyBootSeeds({
+        registry,
+        db,
+        ...(cipher && { cipher }),
+      });
+    },
+    { ...databaseWait, processName, target: "database (boot seeds)" },
+  );
 }
 
 const MFA_ROUTE_HANDLERS = {
@@ -242,8 +251,10 @@ export async function waitForKmsHealthy(
   kms: KmsAdapter,
   processName: string,
   deadline: number,
+  clock?: DatabaseWaitClock,
 ): Promise<void> {
   const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
+    ...clock,
     processName,
     target: "KMS",
     deadline,

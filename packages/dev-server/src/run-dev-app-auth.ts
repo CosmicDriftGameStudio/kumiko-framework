@@ -253,6 +253,7 @@ export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupConte
     admin: effectiveAuth?.admin,
     shortcutSeeds: wiring.shortcutSeeds,
     cipher: bootCrypto.configCipher,
+    processName: "runDevApp",
   });
   for (const seed of config.stackSeeds) {
     await seed(stack);
