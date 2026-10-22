@@ -40,3 +40,13 @@ describe("jobs screens + handler access alignment", () => {
     expect(rolesOf(jobs.writeHandlers["retry"]?.access)).toEqual(roles);
   });
 });
+
+describe("createJobsFeature readRoles", () => {
+  test("rejects the anonymous role", () => {
+    expect(() => createJobsFeature({ readRoles: ["anonymous"] })).toThrow(/anonymous/);
+  });
+
+  test("accepts app roles", () => {
+    expect(() => createJobsFeature({ readRoles: ["PropertyManager"] })).not.toThrow();
+  });
+});
