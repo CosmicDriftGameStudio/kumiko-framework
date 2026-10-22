@@ -74,8 +74,9 @@ export const purgeHandler = defineWriteHandler<"purge", typeof PurgeSchema, Wait
         }),
       );
     }
-    await purgeWaitlistRows(db, rows, event.user.id);
+    // Audit first: purgeWaitlistRows shreds KMS keys, which a later failure cannot roll back.
     await appendAudit(ctx, WAITLIST_PURGED_EVENT_QN, rows.length);
+    await purgeWaitlistRows(db, rows, event.user.id);
     return { isSuccess: true, data: { purged: rows.length } };
   },
 });

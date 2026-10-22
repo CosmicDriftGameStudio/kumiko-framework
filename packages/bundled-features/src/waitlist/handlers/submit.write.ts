@@ -73,9 +73,10 @@ async function hasOpenEntryForEmail(email: string, ctx: HandlerContext): Promise
   return found.rows.length > 0;
 }
 
-// The resolver usually reads config; run it outside the handler transaction's
-// critical section so a failing statement cannot abort the transaction that holds
-// the entry, and a slow resolver does not extend the per-email advisory lock.
+// The resolver usually reads config. It runs before the per-email advisory lock so a
+// slow resolver does not extend the lock. It still shares the handler transaction: a
+// thrown JS error is swallowed here, but a failed SQL statement inside it would abort
+// the transaction, so resolvers must not issue statements that can fail.
 async function resolveAdminRecipient(
   opts: WaitlistOptions,
   ctx: HandlerContext,

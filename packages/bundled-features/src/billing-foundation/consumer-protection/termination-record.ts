@@ -249,25 +249,8 @@ export function createRecordContractTerminationHandler(
 
       // The public job runs at least once: a second run must not call the
       // provider or append again.
-      const alreadyRecorded = stream.events
-        .map((e) =>
-          e.type === CONTRACT_TERMINATION_REQUESTED_EVENT_QN
-            ? contractTerminationRequestedPayloadSchema.safeParse(e.payload).data
-            : undefined,
-        )
-        .find((recordedPayload) => recordedPayload?.requestId === payload.requestId);
-      if (alreadyRecorded) {
-        return {
-          isSuccess: true as const,
-          data: {
-            receivedAtIso: alreadyRecorded.receivedAtIso,
-            effectiveAtIso: alreadyRecorded.effectiveAtIso,
-            providerCancel: alreadyRecorded.providerCancel,
-            noticeReason: null,
-            withdrawalPeriodExpired: false,
-          } satisfies RecordContractTerminationResult,
-        };
-      }
+      const alreadyRecorded = findRecordedTermination(stream.events, payload.requestId);
+      if (alreadyRecorded) return recordedTerminationResult(alreadyRecorded);
 
       // A revoked public declaration never reaches the provider.
       if (hasRevocation(stream.events, payload.requestId)) {
@@ -301,6 +284,13 @@ export function createRecordContractTerminationHandler(
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
+      // A concurrent run with the same requestId may have recorded while we were
+      // at the provider; a second append would duplicate the event and the notice.
+      const recordedMeanwhile = findRecordedTermination(
+        streamAfterProviderCall.events,
+        payload.requestId,
+      );
+      if (recordedMeanwhile) return recordedTerminationResult(recordedMeanwhile);
       // A revocation that landed during the provider call found no cancel to take back.
       if (hasRevocation(streamAfterProviderCall.events, payload.requestId)) {
         await takeBackLateRevokedCancel(ctx, consumerProtection, {
@@ -345,6 +335,32 @@ export function createRecordContractTerminationHandler(
         } satisfies RecordContractTerminationResult,
       };
     },
+  };
+}
+
+export function findRecordedTermination(
+  events: readonly { type: string; payload: unknown }[],
+  requestId: string,
+): ContractTerminationRequestedPayload | undefined {
+  return events
+    .map((e) =>
+      e.type === CONTRACT_TERMINATION_REQUESTED_EVENT_QN
+        ? contractTerminationRequestedPayloadSchema.safeParse(e.payload).data
+        : undefined,
+    )
+    .find((recordedPayload) => recordedPayload?.requestId === requestId);
+}
+
+function recordedTerminationResult(recorded: ContractTerminationRequestedPayload) {
+  return {
+    isSuccess: true as const,
+    data: {
+      receivedAtIso: recorded.receivedAtIso,
+      effectiveAtIso: recorded.effectiveAtIso,
+      providerCancel: recorded.providerCancel,
+      noticeReason: null,
+      withdrawalPeriodExpired: false,
+    } satisfies RecordContractTerminationResult,
   };
 }
 

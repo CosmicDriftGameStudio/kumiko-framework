@@ -23,7 +23,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { importWaitlistEntry, type WaitlistImportEntry, waitlistImportId } from "./import.ts";
+import {
+  importWaitlistEntry,
+  isWaitlistImportId,
+  type WaitlistImportEntry,
+  waitlistImportId,
+} from "./import.ts";
 import { WAITLIST_STATUS, type WaitlistStatus } from "./web/constants.ts";
 
 export const LEGACY_WAITLIST_SOURCES = ["offlot", "publicstatus"] as const;
@@ -243,6 +248,12 @@ export async function migrateLegacyWaitlist(
   let archivedStreams = 0;
   if (!options.dryRun && options.from === "offlot") await createArchivedStreamsTable(db);
   for (const row of rows) {
+    // The offlot default source is the entity table: rows a previous run imported
+    // are already migrated entries and must neither be re-imported nor archived.
+    if (options.from === "offlot" && isWaitlistImportId(String(row["id"]))) {
+      skipped += 1;
+      continue;
+    }
     const entry =
       options.from === "offlot"
         ? await mapOfflotRow(row)
