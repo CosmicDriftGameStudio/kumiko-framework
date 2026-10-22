@@ -49,7 +49,7 @@ export const cascadeQuery = defineQueryHandler({
       const keyDef = allKeys.get(key);
       if (!keyDef) continue;
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
-      keyDefs.set(key, keyDefAtScope(keyDef, query.payload.scope));
+      keyDefs.set(key, keyDefAtScope(keyDef, query.payload.scope, query.user.roles));
       filteredKeys.push(key);
     }
 

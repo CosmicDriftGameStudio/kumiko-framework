@@ -210,11 +210,17 @@ const SCOPE_LEVEL: Record<ConfigScope, number> = {
 };
 
 // Reads a tenant/user key at a narrower scope, e.g. system for a system-level screen.
+// Only a SystemAdmin may widen the read to the platform level; everyone else keeps the normal cascade.
 export function keyDefAtScope(
   keyDef: ConfigKeyDefinition,
   readScope: ConfigScope | undefined,
+  roles: readonly string[],
 ): ConfigKeyDefinition {
-  if (readScope === undefined || SCOPE_LEVEL[readScope] >= SCOPE_LEVEL[keyDef.scope]) {
+  if (
+    readScope === undefined ||
+    !roles.includes("SystemAdmin") ||
+    SCOPE_LEVEL[readScope] >= SCOPE_LEVEL[keyDef.scope]
+  ) {
     return keyDef;
   }
   return { ...keyDef, scope: readScope };

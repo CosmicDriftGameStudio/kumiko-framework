@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import {
+  access,
+  type ConfigCascade,
+  createTenantConfig,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -15,12 +20,13 @@ import { ConfigHandlers, ConfigQueries } from "../web/constants.ts";
 
 const PLAN_NAME = "platform:config:plan-name";
 const systemAdmin = TestUsers.systemAdmin;
+const tenantAdmin = createTestUser({ id: 2 });
 
 const platformFeature = defineFeature("platform", (r) => {
   r.requires({ features: ["config"] });
   return r.config({
     keys: {
-      planName: createTenantConfig("text", { write: access.systemAdmin, read: access.systemAdmin }),
+      planName: createTenantConfig("text", { write: access.systemAdmin, read: access.admin }),
     },
   });
 });
@@ -74,5 +80,27 @@ describe("config:query:values with a read scope", () => {
     const res = await stack.http.queryOk<Values>(ConfigQueries.values, {}, systemAdmin);
 
     expect(res[PLAN_NAME]?.value).toBe("own-tenant-value");
+  });
+
+  test("a tenant admin asking for scope system keeps the tenant cascade and never gets the system value", async () => {
+    const res = await stack.http.queryOk<Values>(
+      ConfigQueries.values,
+      { scope: "system" },
+      tenantAdmin,
+    );
+    const scoped = await stack.http.queryOk<Record<string, ConfigCascade>>(
+      ConfigQueries.cascade,
+      { keys: [PLAN_NAME], scope: "system" },
+      tenantAdmin,
+    );
+    const unscoped = await stack.http.queryOk<Record<string, ConfigCascade>>(
+      ConfigQueries.cascade,
+      { keys: [PLAN_NAME] },
+      tenantAdmin,
+    );
+
+    expect(res[PLAN_NAME]?.value).toBe("own-tenant-value");
+    expect(res[PLAN_NAME]?.source).toBe("tenant-row");
+    expect(scoped).toEqual(unscoped);
   });
 });

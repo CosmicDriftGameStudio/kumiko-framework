@@ -8,5 +8,5 @@ config:query:values and config:query:cascade accept an optional read scope.
 feature: config
 type: improvement
 title: config:query:values and config:query:cascade accept a read scope
-detail: Both queries take an optional scope (system, tenant, user). With scope system the cascade of a tenant or user key is evaluated at system level, so the system row is returned even when the caller's own tenant has a row for the key. Inherited-value redaction still applies. Without scope the behavior is unchanged.
+detail: Both queries take an optional scope (system, tenant, user). With scope system the cascade of a tenant or user key is evaluated at system level, so the system row is returned even when the caller's own tenant has a row for the key. Only a SystemAdmin gets the narrowed read; other callers keep the normal cascade. Inherited-value redaction still applies. Without scope the behavior is unchanged.
 -->

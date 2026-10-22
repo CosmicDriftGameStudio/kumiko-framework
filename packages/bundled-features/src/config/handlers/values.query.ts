@@ -46,7 +46,7 @@ export const valuesQuery = defineQueryHandler({
     for (const [qualifiedKey, keyDef] of allKeys) {
       if (requestedKeys !== undefined && !requestedKeys.has(qualifiedKey)) continue;
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
-      keyDefs.set(qualifiedKey, keyDefAtScope(keyDef, query.payload.scope));
+      keyDefs.set(qualifiedKey, keyDefAtScope(keyDef, query.payload.scope, query.user.roles));
       filteredKeys.push(qualifiedKey);
     }
 
