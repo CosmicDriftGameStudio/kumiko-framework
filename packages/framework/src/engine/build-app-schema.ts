@@ -55,6 +55,14 @@ import type {
 
 const log = createFallbackLogger("kumiko");
 
+// Workspace ids are only unique per feature, and the schema carries the short id. The owner stays
+// off the serialized schema; the tenant-level feature strip reads it from here by object identity.
+const workspaceOwnerByDefinition = new WeakMap<WorkspaceSchema["definition"], string>();
+
+export function workspaceOwnerOf(definition: WorkspaceSchema["definition"]): string | undefined {
+  return workspaceOwnerByDefinition.get(definition);
+}
+
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only
    *  `createKumikoServer` opts in; prod boot + unit tests stay silent. */
@@ -123,8 +131,10 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
   for (const [featureName, feature] of registry.features) {
     for (const [shortId, definition] of Object.entries(feature.workspaces)) {
       const qualified = `${featureName}:workspace:${shortId}`;
+      const projectedDefinition = { ...definition, id: shortId };
+      workspaceOwnerByDefinition.set(projectedDefinition, featureName);
       workspaces.push({
-        definition: { ...definition, id: shortId },
+        definition: projectedDefinition,
         navMembers: registry.getWorkspaceNavs(qualified),
       });
     }

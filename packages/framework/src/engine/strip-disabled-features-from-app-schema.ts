@@ -15,6 +15,7 @@
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.ts";
 import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
+import { workspaceOwnerOf } from "./build-app-schema.ts";
 import { isToggleableFeature } from "./effective-features.ts";
 import { isPureGroupingNav } from "./project-app-schema-for-roles.ts";
 import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
@@ -162,14 +163,17 @@ export function stripDisabledFeaturesFromAppSchema(
     return navs.length > 0 ? { ...rest, navs } : rest;
   });
 
-  // Workspace definitions carry the short id the author declared; the owning
-  // feature is only known to the registry.
+  // Workspace ids are unique per feature only, so the owner decides. A definition the build did
+  // not register (schema assembled elsewhere) falls back to the short id.
   const disabledWorkspaceIds = new Set(
     disabledFeatureNames.flatMap((featureName) =>
       Object.keys(registry.features.get(featureName)?.workspaces ?? {}),
     ),
   );
-  const workspaces = schema.workspaces?.filter((ws) => !disabledWorkspaceIds.has(ws.definition.id));
+  const workspaces = schema.workspaces?.filter((ws) => {
+    const owner = workspaceOwnerOf(ws.definition);
+    return owner === undefined ? !disabledWorkspaceIds.has(ws.definition.id) : !disabled.has(owner);
+  });
 
   const { workspaces: _original, ...restSchema } = schema;
   return {

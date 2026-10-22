@@ -90,3 +90,24 @@ describe("stripDisabledFeaturesFromAppSchema", () => {
     expect(navIds).toEqual(["home"]);
   });
 });
+
+describe("stripDisabledFeaturesFromAppSchema workspaces", () => {
+  const activeFeature = defineFeature("active-ws", (r) => {
+    r.nav({ id: "home", label: "Home" });
+    r.workspace({ id: "main", label: "Active main", nav: ["active-ws:nav:home"] });
+  });
+  const disabledFeature = defineFeature("disabled-ws", (r) => {
+    r.toggleable({ default: false });
+    r.nav({ id: "tool", label: "Tool" });
+    r.workspace({ id: "main", label: "Disabled main", nav: ["disabled-ws:nav:tool"] });
+    r.workspace({ id: "extra", label: "Disabled extra", nav: ["disabled-ws:nav:tool"] });
+  });
+  const wsRegistry = createRegistry([activeFeature, disabledFeature]);
+
+  test("a disabled feature's workspace does not remove an active feature's workspace with the same short id", () => {
+    const result = stripDisabledFeaturesFromAppSchema(buildAppSchema(wsRegistry), wsRegistry, [
+      "disabled-ws",
+    ]);
+    expect(result.workspaces?.map((ws) => ws.definition.label)).toEqual(["Active main"]);
+  });
+});
