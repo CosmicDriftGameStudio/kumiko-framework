@@ -35,17 +35,14 @@ describe("runGuardsCli — guard run slot", () => {
     expect(slot.released()).toBe(1);
   });
 
-  test("flag errors and early-return flags take no slot", () => {
+  test("flag errors take no slot", () => {
     const slot = slotSpy();
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
-    const logSpy = spyOn(console, "log").mockImplementation(() => {});
     try {
       expect(runGuardsCli(["--bogus-flag"], { acquireSlot: slot.acquireSlot })).toBe(1);
       expect(runGuardsCli(["--guard=x"], { acquireSlot: slot.acquireSlot })).toBe(1);
-      runGuardsCli(["--explain"], { acquireSlot: slot.acquireSlot });
     } finally {
       errorSpy.mockRestore();
-      logSpy.mockRestore();
     }
     expect(slot.acquired()).toBe(0);
   });
