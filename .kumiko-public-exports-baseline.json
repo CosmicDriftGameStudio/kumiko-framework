@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-10-20",
-  "asOfVersion": "0.383.0",
+  "generated": "2026-10-22",
+  "asOfVersion": "0.387.0",
   "packages": {
     "framework": {
       "./compliance": [
@@ -722,6 +722,7 @@
         "validateAppCustomScreenWriteQns",
         "validateBoot",
         "validateChangelog",
+        "walkStepInstances",
         "withFormDerivations",
         "withResponseData"
       ],
@@ -856,17 +857,20 @@
         "EntityEditActionPlacement",
         "EntityEditScreenDefinition",
         "EntityEventMigration",
+        "EntityFieldDefinition",
         "EntityHandlerOptions",
         "EntityHookMap",
         "EntityId",
         "EntityIndexDef",
         "EntityListExpandableRow",
         "EntityListScreenDefinition",
+        "EntityLongTextFieldDef",
         "EntityObjectDefinition",
         "EntityProjectionExtension",
         "EntityQueryHandlerOptions",
         "EntityRef",
         "EntityRelations",
+        "EntityTextFieldDef",
         "EntityWriteHandlerOptions",
         "EscapeHatchAuditSink",
         "EscapeHatchDeclaration",
@@ -1039,6 +1043,7 @@
         "Registry",
         "RelationDefinition",
         "ResolvedPiiFlags",
+        "ResolvedPiiStance",
         "RetentionDef",
         "RoleAccessPersonalData",
         "RoleAccessRule",
@@ -2270,6 +2275,7 @@
       ],
       "./internal/request-context": [
         "RequestContextData",
+        "isAgentToolCallScope",
         "readonlyRequestContext",
         "requestContext",
         "runAsDirectCallEntry",
@@ -2281,6 +2287,7 @@
         "AnyDb",
         "Lifecycle",
         "SEARCHABLE_FALSE_WHITELIST",
+        "acquireSessionAdvisoryLock",
         "addMissingColumns",
         "addMissingIndexes",
         "columnNamesOf",
@@ -2291,6 +2298,8 @@
         "dropDatabaseIfExists",
         "featureHasI18nSurface",
         "isClosedConnectionError",
+        "listDatabaseNamesWithPrefix",
+        "renameDatabase",
         "requiredKeysFromFeature",
         "schemaTableName",
         "tableToMeta",
@@ -3167,6 +3176,7 @@
         "BillingPlanPrice",
         "BillingPlanView",
         "BillingPlansResult",
+        "BillingProviderView",
         "CONSENT_LOCALES",
         "ConsentLocale",
         "ConsentPayload",
@@ -3186,6 +3196,7 @@
         "PaymentEvent",
         "PaymentEventHeaders",
         "PaymentEventPayload",
+        "PlanSwitchPreview",
         "ProviderPrice",
         "ProviderSubscriptionSnapshot",
         "RecurringInterval",
@@ -3272,6 +3283,17 @@
         "createSubscriptionStripeFeature",
         "stripeEnvSchema",
         "subscriptionStripeEnvSchema"
+      ],
+      "./subscription-dodo": [
+        "DODO_BASE_URLS",
+        "DODO_PROVIDER_NAME",
+        "DodoEnvironment",
+        "DodoEnvironments",
+        "SUBSCRIPTION_DODO_FEATURE",
+        "SubscriptionDodoOptions",
+        "createSubscriptionDodoFeature",
+        "dodoEnvSchema",
+        "subscriptionDodoEnvSchema"
       ],
       "./subscription-mollie": [
         "MOLLIE_PROVIDER_NAME",
@@ -4289,6 +4311,7 @@
         "mintPatToken",
         "patRateLimitFromFeature",
         "patRevokedSchema",
+        "patScopeOptionKey",
         "revokeAllPatTokensForUser"
       ],
       "./feature-toggles": [

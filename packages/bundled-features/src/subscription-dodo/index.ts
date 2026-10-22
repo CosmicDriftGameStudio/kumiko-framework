@@ -10,6 +10,7 @@ export {
 } from "./constants.ts";
 export {
   createSubscriptionDodoFeature,
+  dodoEnvSchema,
   type SubscriptionDodoOptions,
   subscriptionDodoEnvSchema,
 } from "./feature.ts";

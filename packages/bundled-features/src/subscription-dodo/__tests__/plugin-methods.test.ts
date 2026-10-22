@@ -170,6 +170,7 @@ describe("retrievePrices", () => {
     pdt_once: {
       product_id: "pdt_once",
       price: { type: "one_time_price", price: 500, currency: "EUR" },
+      metadata: { credits: "50" },
     },
     pdt_usage: { product_id: "pdt_usage", price: { type: "usage_based_price" } },
   };
@@ -178,7 +179,7 @@ describe("retrievePrices", () => {
     return id in products ? { body: products[id] } : { status: 404 };
   };
 
-  test("maps recurring, one-off and skips usage-based products", async () => {
+  test("maps recurring, one-off with product metadata and skips usage-based products", async () => {
     const { runtime, calls } = setup(respond);
     const prices = await createDodoRetrievePrices(runtime, createDodoPriceCache())(stubCtx(), [
       "pdt_month",
@@ -202,7 +203,7 @@ describe("retrievePrices", () => {
         interval: null,
         intervalCount: 1,
         active: true,
-        metadata: {},
+        metadata: { credits: "50" },
       },
     ]);
     expect(calls.map((c) => c.method)).toEqual(["GET", "GET", "GET"]);

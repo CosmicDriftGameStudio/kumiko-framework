@@ -15,6 +15,7 @@ import {
   demoAdminEnvSchema,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { dodoEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-dodo";
 import { stripeEnvSchema } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
@@ -36,6 +37,7 @@ const appEnvSchema = z.object({
   ...buildInfoEnvSchema.shape,
   ...demoAdminEnvSchema.shape,
   ...stripeEnvSchema({ prices: ["PRO", "TEAM"] }).shape,
+  ...dodoEnvSchema({ prices: ["PRO", "TEAM"] }).shape,
   ...createS3EnvSchema({ prefix: "RELEASES_S3_" }).shape,
   APP_PUBLIC_URL: z.url().describe("Public origin of the app, used in mail links."),
 });

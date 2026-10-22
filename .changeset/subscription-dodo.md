@@ -15,6 +15,13 @@ detail: createSubscriptionDodoFeature() registers the "dodo" subscription provid
 -->
 
 <!-- kumiko-changes
+feature: subscription-dodo
+type: improvement
+title: dodoEnvSchema declares the Dodo product id slots
+detail: dodoEnvSchema({ prices: ["PRO"] }) adds one optional DODO_PRODUCT_PRO slot per plan next to the API key and webhook key, and checks the pdt_ prefix. It is the counterpart to stripeEnvSchema.
+-->
+
+<!-- kumiko-changes
 feature: billing-foundation
 type: improvement
 title: Several subscription providers in one catalog
