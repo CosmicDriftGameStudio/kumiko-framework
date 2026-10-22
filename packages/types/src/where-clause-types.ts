@@ -42,6 +42,7 @@ export type SelectOptions = {
   // Newest-row-per-key reads without unsafeRaw: one row per distinct value of
   // these fields (Postgres DISTINCT ON), the first by `orderBy`. Postgres needs
   // `orderBy` to start with these fields in the same order; omitted `orderBy`
-  // defaults to them ascending.
+  // defaults to them ascending. The tenant-scoped read set includes SYSTEM_TENANT_ID reference
+  // rows, so they compete for "newest"; add `tenantId: db.tenantId` to the where to pick own rows only.
   readonly distinctOn?: readonly [string, ...string[]];
 };
