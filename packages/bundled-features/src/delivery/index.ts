@@ -74,6 +74,11 @@ export {
 export { currentNotificationType } from "./notification-type-aliases.ts";
 export { createDeliveryNotifyFactory } from "./notify-factory.ts";
 export {
+  buildSystemChannelContext,
+  type SystemChannelContextDeps,
+  type SystemChannelContextOptions,
+} from "./system-channel-context.ts";
+export {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
   notificationAddressOptOutsTable,

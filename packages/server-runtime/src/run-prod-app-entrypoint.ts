@@ -12,6 +12,7 @@ import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
 import { makeDispatchSystemQuery, makeDispatchSystemWrite } from "./extra-routes-deps.ts";
+import { makeFilesForTenant } from "./files-for-tenant.ts";
 import type { RunProdAppOptions } from "./run-prod-app.ts";
 import { buildProdAuthRoutes, type ProdAuthWiring } from "./run-prod-app-auth.ts";
 import type { ProdBootConfig, ProdComposedFeatures } from "./run-prod-app-config.ts";
@@ -181,6 +182,7 @@ export async function runProdWireHook(
       db: connections.db,
       redis: connections.redis,
       registry: composed.registry,
+      filesForTenant: makeFilesForTenant(entrypoint.context),
       ...(bootCrypto.masterKeyProvider && { masterKeyProvider: bootCrypto.masterKeyProvider }),
       ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
       metricsFor: createMetricsForFactory(entrypoint.observability.meter),
