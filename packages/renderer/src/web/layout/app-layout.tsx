@@ -57,7 +57,9 @@ export function AppLayout({
         )}
       >
         {topbar}
-        {/* main has NO padding—screens (forms, lists, demo pages) manage their own padding so action bars can span edge-to-edge without negative-margin tricks that conflict with `position: sticky`. */}
+        {/* main has NO padding—screens (forms, lists, demo pages) manage their own padding so
+           action bars can span edge-to-edge without negative-margin tricks that conflict with
+           `position: sticky`. */}
         <main className={cn("flex-1 overflow-auto", fill === true && "min-h-0", mainClassName)}>
           {children}
         </main>

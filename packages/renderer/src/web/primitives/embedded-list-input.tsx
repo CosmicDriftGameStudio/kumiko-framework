@@ -699,7 +699,13 @@ export function EmbeddedListInput({
         <div data-testid={testIdFor("desktop")} className="hidden min-w-0 md:block">
           <div className="min-w-0 overflow-hidden rounded-lg border bg-card">
             <div className="relative min-w-0">
-              {/* This div — not ui/table.tsx's own `data-slot=table-container` wrapper — is the single source of truth for horizontal scroll: a table wider than its container must become reachable via a real, visible scrollbar instead of silently clipping columns. The nested selector below neutralizes the vendored wrapper's own overflow-x-auto so scrollLeft/scrollWidth/canScroll* all read from one place — two nested auto-scroll containers would otherwise let the inner one absorb the scroll and leave this ref/effect permanently reading scrollLeft=0. */}
+              {/* This div — not ui/table.tsx's own `data-slot=table-container` wrapper — is the
+                 single source of truth for horizontal scroll: a table wider than its container
+                 must become reachable via a real, visible scrollbar instead of silently clipping
+                 columns. The nested selector below neutralizes the vendored wrapper's own
+                 overflow-x-auto so scrollLeft/scrollWidth/canScroll* all read from one place — two
+                 nested auto-scroll containers would otherwise let the inner one absorb the scroll
+                 and leave this ref/effect permanently reading scrollLeft=0. */}
               <div
                 ref={setScrollContainerEl}
                 data-testid={testIdFor("desktop-scroll")}

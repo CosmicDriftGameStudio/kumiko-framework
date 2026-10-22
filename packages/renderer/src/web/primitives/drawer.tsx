@@ -61,7 +61,10 @@ export function DefaultDrawer({
           <XIcon className="size-4" />
         </button>
       </div>
-      {/* React re-parents portal content into the enclosing React tree for event bubbling (it only escapes the DOM tree, not the fiber tree) — without stopping it here, submitting the hosted actionForm would also bubble into an ancestor <form>'s onSubmit if the drawer was opened from inside one (same fix as DefaultModal). */}
+      {/* React re-parents portal content into the enclosing React tree for event bubbling (it only
+         escapes the DOM tree, not the fiber tree) — without stopping it here, submitting the
+         hosted actionForm would also bubble into an ancestor <form>'s onSubmit if the drawer was
+         opened from inside one (same fix as DefaultModal). */}
       <div
         data-testid={testId !== undefined ? `${testId}-body` : undefined}
         onSubmit={(e) => e.stopPropagation()}

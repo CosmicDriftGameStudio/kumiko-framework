@@ -162,6 +162,10 @@ function mergeDependencyBlock(
   moved: ReadonlyMap<string, string>,
   ownName: unknown,
   describe: (description: string) => void,
+  hooks: {
+    readonly isDuplicatedElsewhere: (target: string) => boolean;
+    readonly onAdded: (target: string) => void;
+  },
 ): Record<string, string> | undefined {
   const next: Record<string, string> = {};
   let changed = false;
@@ -173,7 +177,10 @@ function mergeDependencyBlock(
     }
     changed = true;
     describe(`${name} -> ${target}`);
-    if (target !== ownName && !(target in block)) next[target] = range;
+    if (target !== ownName && !(target in block) && !hooks.isDuplicatedElsewhere(target)) {
+      next[target] = range;
+      hooks.onAdded(target);
+    }
   }
   if (!changed) return undefined;
   return isSortedKeys(block)
@@ -198,19 +205,54 @@ function transformPackageJson(
   const moved = movedPackages(mappings);
   const record: Record<string, unknown> = { ...manifest };
   let changed = false;
+  const addedToDependencies = new Set<string>();
   for (const blockName of DEPENDENCY_BLOCKS) {
     const block = record[blockName];
     if (!isStringRecord(block)) continue;
-    const merged = mergeDependencyBlock(block, moved, record["name"], (description) => {
-      result.rewrites.push({
-        file: filePath,
-        line: 1,
-        description: `${blockName}: ${description}`,
-      });
-    });
+    const merged = mergeDependencyBlock(
+      block,
+      moved,
+      record["name"],
+      (description) => {
+        result.rewrites.push({
+          file: filePath,
+          line: 1,
+          description: `${blockName}: ${description}`,
+        });
+      },
+      {
+        // npm/bun resolve a package listed in both dependencies and devDependencies by
+        // block order, so the runtime entry wins and the dev copy is dropped below.
+        isDuplicatedElsewhere: (target) =>
+          blockName === "devDependencies" &&
+          isStringRecord(record["dependencies"]) &&
+          target in record["dependencies"],
+        onAdded: (target) => {
+          if (blockName === "dependencies") addedToDependencies.add(target);
+        },
+      },
+    );
     if (merged === undefined) continue;
     record[blockName] = merged;
     changed = true;
+  }
+  const devBlock = record["devDependencies"];
+  if (addedToDependencies.size > 0 && isStringRecord(devBlock)) {
+    const kept = Object.fromEntries(
+      Object.entries(devBlock).filter(([name]) => !addedToDependencies.has(name)),
+    );
+    if (Object.keys(kept).length !== Object.keys(devBlock).length) {
+      record["devDependencies"] = kept;
+      for (const target of addedToDependencies) {
+        if (target in devBlock) {
+          result.rewrites.push({
+            file: filePath,
+            line: 1,
+            description: `devDependencies: ${target} dropped, dependencies already lists it`,
+          });
+        }
+      }
+    }
   }
   if (!changed) return source;
   const trailingNewline = source.endsWith("\n") ? "\n" : "";

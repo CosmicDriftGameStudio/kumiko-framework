@@ -1074,6 +1074,9 @@ export async function runUpgradeCli(
       if (verbose && e.detail) {
         out.log(`      ${e.detail}`);
       }
+      if (hasCodemod(e)) {
+        out.log(`      → codemod: ${e.codemod} (runs on --apply)`);
+      }
     }
     out.log("");
   }

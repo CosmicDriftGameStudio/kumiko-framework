@@ -518,7 +518,8 @@ async function processUser(args: {
       // is what makes this crash-safe: eraseKey-throw → tx rollback → user
       // stays DeletionRequested → next run retries; flip-throw after a
       // successful erase → retry re-runs the idempotent hooks and eraseKey
-      // (contractually a no-op on an erased/unknown subject). Erasing after
+      // (idempotent: a repeat erase keeps the original tombstone, an unknown
+      // subject gets one). Erasing after
       // the flip instead would risk a permanent silent miss: user already
       // Deleted, no run ever picks him up again, key stays live.
       if (kms) {

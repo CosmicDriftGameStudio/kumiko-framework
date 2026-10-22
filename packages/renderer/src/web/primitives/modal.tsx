@@ -30,7 +30,11 @@ export function DefaultModal({
       <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">
         {title}
       </DialogPrimitive.Title>
-      {/* React re-parents portal content into the enclosing React tree for event bubbling (it only escapes the DOM tree, not the fiber tree) — without stopping it here, submitting a form hosted in this modal would also bubble into an ancestor <form>'s onSubmit if the modal was opened from inside one (e.g. a reference field's create dialog nested in the host entity's own form). */}
+      {/* React re-parents portal content into the enclosing React tree for event bubbling (it only
+         escapes the DOM tree, not the fiber tree) — without stopping it here, submitting a form
+         hosted in this modal would also bubble into an ancestor <form>'s onSubmit if the modal was
+         opened from inside one (e.g. a reference field's create dialog nested in the host entity's
+         own form). */}
       {/* The modal is the frame: a hosted form renders bare (no card, no
           second padding) under the modal's own title. */}
       <div onSubmit={(e) => e.stopPropagation()}>

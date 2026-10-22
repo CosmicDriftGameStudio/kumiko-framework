@@ -416,12 +416,12 @@ export const BOOT_FEATURES = APP_FEATURES.filter(
   (feature) => feature.name !== FEATURE_TOGGLES_FEATURE,
 );
 
-// Smoke signup — enables createAuthSelfRegistrationToggleFeature via
-// composeFeatures when passed as authOptions (#1521 Option A). Same shape
-// as run{Dev,Prod}App's auth.signup; appUrl is a stub (no real mail in boot).
 // locale-de is mounted, so every translation key must exist in German and English.
 export const VALIDATE_BOOT_OPTIONS = { requiredLocales: ["de", "en"] } as const;
 
+// Smoke signup — enables createAuthSelfRegistrationToggleFeature via
+// composeFeatures when passed as authOptions (#1521 Option A). Same shape
+// as run{Dev,Prod}App's auth.signup; appUrl is a stub (no real mail in boot).
 export const AUTH_COMPOSE_OPTIONS = {
   signup: {
     appUrl: "http://localhost:4186/signup",
