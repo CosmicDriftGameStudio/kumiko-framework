@@ -5,7 +5,11 @@
 // KMS is global module state, hence a file of its own.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -165,7 +169,9 @@ afterAll(async () => {
 beforeEach(async () => {
   emailTransport.sent.length = 0;
   lastConsentId = undefined;
-  await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
+  );
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
   await seedNotificationTemplates(stack.db, stack.registry);
@@ -273,5 +279,50 @@ describe("consumer protection mails with an active PII KMS", () => {
     expect(receipts).toHaveLength(1);
     expect(receipts[0]?.html).not.toContain(PII_CIPHERTEXT_PREFIX);
     expect(receipts[0]?.text).not.toContain(PII_CIPHERTEXT_PREFIX);
+  });
+
+  test("an erased subject gets no confirmation mail", async () => {
+    const buyer = await createBuyer(8304);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      {
+        tier: "pro",
+        consent: {
+          earlyPerformanceRequested: true,
+          withdrawalLossAcknowledged: true,
+          consentTextVersion: consentTextVersion("de"),
+          locale: "de",
+        },
+      },
+      buyer,
+    );
+    if (lastConsentId === undefined) throw new Error("provider did not receive a consentId");
+
+    await configuredPiiSubjectKms()?.eraseKey(
+      { kind: "user", userId: buyer.id },
+      { requestId: "consumer-protection-pii-kms", userId: buyer.id, eraseReason: "test" },
+    );
+    await postSubscriptionCreated(buyer.tenantId, "evt_kms_3", lastConsentId);
+    await stack.drainJobs();
+
+    expect(emailTransport.sent).toHaveLength(0);
+  });
+
+  test("an erased subject cannot terminate by mail and gets no receipt", async () => {
+    const buyer = await createBuyer(8305);
+    await postSubscriptionCreated(buyer.tenantId, "evt_kms_4");
+
+    await configuredPiiSubjectKms()?.eraseKey(
+      { kind: "user", userId: buyer.id },
+      { requestId: "consumer-protection-pii-kms", userId: buyer.id, eraseReason: "test" },
+    );
+    await stack.http.writeErr(
+      SubscriptionFoundationHandlers.terminateContract,
+      { declarationType: "termination", terminationKind: "ordinary" },
+      buyer,
+    );
+    await stack.drainJobs();
+
+    expect(emailTransport.sent).toHaveLength(0);
   });
 });

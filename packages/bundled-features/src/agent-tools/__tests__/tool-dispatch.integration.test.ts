@@ -164,6 +164,8 @@ const scribeFeature = defineFeature("agent-tools-test-scribe", (r) => {
 
 const XTR_PROBE_QN = "agent-tools-test-xtr:query:probe";
 
+const XTR_DELEGATING_QN = "agent-tools-test-xtr:query:delegating";
+
 const crossTenantProbeFeature = defineFeature("agent-tools-test-xtr", (r) => {
   r.queryHandler({
     name: "probe",
@@ -175,6 +177,14 @@ const crossTenantProbeFeature = defineFeature("agent-tools-test-xtr", (r) => {
     },
     description: "Reports whether the handler received ctx.crossTenantReads.",
     handler: async (_query, ctx) => ({ hasReads: ctx.crossTenantReads !== undefined }),
+  });
+
+  r.queryHandler({
+    name: "delegating",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    description: "Reaches the granted probe through ctx.query.",
+    handler: (query, ctx) => ctx.query(XTR_PROBE_QN, query.payload),
   });
 });
 
@@ -346,6 +356,23 @@ describe("dispatchToolCall — a crossTenantReads grant stays closed for agent t
       dispatchTable: catalog.dispatchTable,
       runId: "run-xtr-1",
       toolCallId: "call-xtr-1",
+    });
+
+    expect(result).toEqual({ ok: true, data: { hasReads: false } });
+    expect(escapeHatchAuditKinds).not.toContain("cross-tenant-read");
+  });
+
+  test("a tool handler delegating to the granted handler keeps the marker across nesting", async () => {
+    const manifest = buildAgentManifest(stack.registry, { locale: "en", roles: adminA.roles });
+    const catalog = buildToolCatalog(stack.registry, manifest, { mode: "edit" });
+    const result = await dispatchToolCall({
+      dispatcher: stack.dispatcher,
+      user: adminA,
+      toolName: toolNameForQn(XTR_DELEGATING_QN),
+      input: {},
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-xtr-2",
+      toolCallId: "call-xtr-2",
     });
 
     expect(result).toEqual({ ok: true, data: { hasReads: false } });

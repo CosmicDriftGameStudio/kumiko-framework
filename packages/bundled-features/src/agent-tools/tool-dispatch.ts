@@ -411,13 +411,13 @@ function dispatchClient(
   }
 }
 
-/** Executes one LLM-issued tool call. Never throws — a missing tool, a missing argument, a
- *  disallowed filter field, or a rejected handler call (cap check, validation, ...) all come
- *  back as `{ ok: false }` so the agent loop can feed the error back to the model instead of
- *  crashing. Client errors (< 500) keep their message and carry a `code`; 429 adds
- *  `retryable`. Server-side failures (>= 500, unknown throws) are logged and returned as a
- *  generic message so internals never reach the model. `request.user` must be the caller's real identity — every server-kind tool runs
- *  through the same permission-checked dispatcher pipeline as a normal HTTP request. */
+/** Executes one LLM-issued tool call. Never throws: every failure comes back as `{ ok: false }`
+ *  so the agent loop can feed the error back to the model instead of crashing.
+ *  Handler and dispatcher failures carry a `code` (429 adds `retryable`); client errors (< 500)
+ *  keep their message, server failures (>= 500, unknown throws) are logged and returned as a
+ *  generic message. Local validation errors (unknown tool, bad arguments) have no `code`.
+ *  `request.user` must be the caller's real identity: server-kind tools run through the same
+ *  permission-checked pipeline as an HTTP request. */
 export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCallResult> {
   const { dispatcher, user, toolName, input, dispatchTable, runId, toolCallId } = request;
   const classifyFailure = createFailureClassifier(toolName, request.log ?? fallbackLog);
