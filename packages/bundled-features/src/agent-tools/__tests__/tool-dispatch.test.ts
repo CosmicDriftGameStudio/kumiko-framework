@@ -8,7 +8,7 @@ import {
   ValidationError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { ToolCallRequest, ToolDispatcher } from "../tool-dispatch.ts";
-import { dispatchToolCall } from "../tool-dispatch.ts";
+import { dispatchToolCall, TOOL_CALL_ERROR_CODES } from "../tool-dispatch.ts";
 import type { ToolDispatchDescriptor } from "../types.ts";
 
 const CALLER: SessionUser = { id: "user-1", tenantId: "tenant-1", roles: ["member"] };
@@ -130,7 +130,11 @@ describe("dispatchToolCall — search/findBy (unchanged behaviour)", () => {
     const dispatcher = recordingDispatcher();
     const result = await dispatchToolCall(request({ dispatcher, toolName: "search_ghost" }));
 
-    expect(result).toEqual({ ok: false, error: 'Unknown tool "search_ghost"' });
+    expect(result).toEqual({
+      ok: false,
+      error: 'Unknown tool "search_ghost"',
+      code: TOOL_CALL_ERROR_CODES.unknownTool,
+    });
     expect(dispatcher.queryCalls).toHaveLength(0);
   });
 
@@ -216,7 +220,7 @@ describe("dispatchToolCall — get_/list_ server query tools", () => {
     const missing = await dispatchToolCall(
       request({ dispatcher, toolName: "get_vendor", input: {} }),
     );
-    expect(missing.ok).toBe(false);
+    expect(missing).toMatchObject({ ok: false, code: TOOL_CALL_ERROR_CODES.invalidToolCall });
     expect(dispatcher.queryCalls).toHaveLength(0);
 
     const result = await dispatchToolCall(
@@ -464,7 +468,7 @@ describe("dispatchToolCall — client tools", () => {
 
   test("ask_user requires a non-empty question", async () => {
     const missing = await dispatchToolCall(request({ toolName: "ask_user", input: {} }));
-    expect(missing.ok).toBe(false);
+    expect(missing).toMatchObject({ ok: false, code: TOOL_CALL_ERROR_CODES.invalidToolCall });
 
     const result = await dispatchToolCall(
       request({ toolName: "ask_user", input: { question: "Which vendor?", options: ["A", "B"] } }),
