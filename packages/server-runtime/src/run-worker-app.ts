@@ -61,6 +61,7 @@ import {
   type SystemWireDeps,
 } from "./extra-routes-deps.ts";
 import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
+import { makeFilesForTenant } from "./files-for-tenant.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
 import type { ConfigOverridesInput } from "./run-prod-app-boot-context.ts";
 
@@ -293,6 +294,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
       db,
       redis,
       registry,
+      filesForTenant: makeFilesForTenant(entrypoint.context),
       metricsFor: createMetricsForFactory(entrypoint.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
       dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),

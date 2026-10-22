@@ -146,6 +146,8 @@ export type ApiEntrypoint = {
   // Command-dispatcher behind /api/* — for writes outside the HTTP
   // pipeline (provider-webhook routes, see KumikoServer.dispatcher).
   readonly dispatcher: Dispatcher;
+  // AppContext after buildServer wired it, incl. the file-provider resolver.
+  readonly context: AppContext;
   // Same instance as the dispatcher behind /api/*, for seed dispatchers outside the HTTP pipeline.
   readonly lifecycleHooks: LifecycleHooks;
   // Set when `eventDispatcher.runLocal: true` built a local poller —
@@ -164,6 +166,7 @@ export type WorkerEntrypoint = {
   readonly eventDispatcher: EventDispatcher;
   readonly jobRunner: JobRunner;
   readonly observability: ObservabilityProvider;
+  readonly context: AppContext;
   // Same dispatcher the API process exposes. App-wired background
   // components that need the dispatcher directly (not JobContext.write)
   // still persist through it.
@@ -441,6 +444,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     lifecycle,
     observability: server.observability,
     dispatcher: server.dispatcher,
+    context: server.context,
     lifecycleHooks: server.lifecycleHooks,
     ...(server.eventDispatcher && { eventDispatcher: server.eventDispatcher }),
     mode: "api",
@@ -484,6 +488,7 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
     jobRunner,
     observability: server.observability,
     dispatcher: server.dispatcher,
+    context: server.context,
     mode: "worker",
     async start() {
       await eventDispatcher.start();
@@ -558,6 +563,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
     jobRunner: workerJobRunner,
     observability: server.observability,
     dispatcher: server.dispatcher,
+    context: server.context,
     lifecycleHooks: server.lifecycleHooks,
     mode: "all-in-one",
     async start() {

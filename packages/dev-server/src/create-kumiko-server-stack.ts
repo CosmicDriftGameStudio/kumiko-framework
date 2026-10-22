@@ -5,6 +5,7 @@ import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-
 import {
   makeDispatchSystemQuery,
   makeDispatchSystemWrite,
+  makeFilesForTenant,
 } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
 import {
   pushEntityProjectionTables,
@@ -91,6 +92,7 @@ export async function bootDevStack(
       // so application code sees the same interface in development and production.
       redis: stack.redis.redis,
       registry: stack.registry,
+      filesForTenant: makeFilesForTenant(stack.context),
       metricsFor: createMetricsForFactory(stack.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(stack.dispatcher),
       dispatchSystemQuery: makeDispatchSystemQuery(stack.dispatcher),
