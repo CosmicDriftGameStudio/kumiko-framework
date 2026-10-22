@@ -10,6 +10,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -82,6 +83,17 @@ const tenantOrigins = new Map<TenantId, () => Promise<string | null>>([
   [tenantOriginInsecure, async () => "http://acme.insecure.example"],
 ]);
 
+const warnings: Array<{ msg: string; data: Record<string, unknown> | undefined }> = [];
+const recordingLog: Logger = {
+  info: () => {},
+  debug: () => {},
+  error: () => {},
+  warn: (msg, data) => {
+    warnings.push({ msg, data });
+  },
+  child: () => recordingLog,
+};
+
 const optOutsSeenByApp: Array<{ payload: UnsubscribeAddressPayload; tenantId: TenantId }> = [];
 const rawOptOutJobPayloads: unknown[] = [];
 
@@ -120,6 +132,7 @@ beforeAll(async () => {
     jobs: { consumerLane: "worker" },
     extraContext: (deps) => {
       const ctx = createDeliveryTestContext(deps, {
+        log: recordingLog,
         unsubscribeLinks: {
           secret: UNSUBSCRIBE_SECRET,
           baseUrl: BASE_URL,
@@ -209,6 +222,28 @@ describe("unsubscribe link origin", () => {
     const mails = transport.sent.filter((sent) => sent.to.startsWith("counted-user-"));
     expect(mails).toHaveLength(2);
     expect(countedOriginLookups).toBe(1);
+  });
+
+  test("warns once per notify call when the origin falls back, without error text or addresses", async () => {
+    for (const tenantId of [tenantOriginThrows, tenantOriginInsecure]) {
+      warnings.length = 0;
+      await deliveryService.notify(
+        NEWS,
+        {
+          to: [`warn-${tenantId}-1`, `warn-${tenantId}-2`, `warn-${tenantId}-3`],
+          data: { title: "News", body: "Hello" },
+        },
+        createSystemUser(tenantId),
+        tenantId,
+      );
+
+      const fallbackWarnings = warnings.filter((entry) => entry.msg.includes("falls back"));
+      expect(fallbackWarnings).toHaveLength(1);
+      const logged = JSON.stringify(fallbackWarnings);
+      expect(logged).not.toContain("custom-domain lookup down");
+      expect(logged).not.toContain("acme.insecure.example");
+      expect(logged).not.toContain("warn-");
+    }
   });
 
   test("falls back to the app origin on null, a throw or a non-https origin", async () => {
