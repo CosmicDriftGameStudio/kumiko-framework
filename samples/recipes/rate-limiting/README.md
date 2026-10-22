@@ -28,6 +28,24 @@ exhausted) and no bucket is charged. Each `per` may appear once; an empty list f
 An anonymous handler needs every bucket to be ip-keyed, and `{ disabled: true, reason }`
 stays a single declaration.
 
+## Cost per payload element
+
+A bulk handler books one token per item instead of one per request. Declare `rateLimitCost`
+next to `rateLimit`:
+
+```ts illustration
+r.writeHandler({
+  // ...
+  rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
+  rateLimitCost: (payload) => payload.files.length,
+});
+```
+
+The cost is computed from the validated payload and booked on every declared bucket, so an
+invalid payload costs nothing and a rejected request consumes nothing. Results below 1 count
+as 1. Because it books after the parse, boot rejects `rateLimitCost` on anonymous or ip-limited
+handlers.
+
 ## Per-payload limits
 
 A public write handler that mails an address typed by the caller is also limited per

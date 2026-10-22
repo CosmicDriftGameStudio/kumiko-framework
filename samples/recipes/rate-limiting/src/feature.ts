@@ -33,5 +33,17 @@ export function createRateLimitShowcaseFeature(): FeatureDefinition {
         { per: "tenant+handler", limit: 3, windowSeconds: 3600 },
       ],
     });
+
+    // Bulk upload: a request books one token per item instead of one per request. The cost
+    // comes from the validated payload, so a schema-invalid request costs nothing; a request
+    // that would exceed the remaining budget is rejected and consumes nothing.
+    r.writeHandler({
+      name: "bulk-upload",
+      schema: z.object({ files: z.array(z.string()).min(1).max(20) }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin", "User"] },
+      rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
+      rateLimitCost: (payload) => payload.files.length,
+    });
   });
 }
