@@ -34,6 +34,698 @@ bun test
 
 ## Source files
 
+### e2e/build-server.ts
+
+```ts
+// Tiny Bun server that builds and serves the e2e bundle — same shape as
+// writeform-section/e2e/build-server.ts, radically stripped down (no
+// Postgres, no auth). The MockDispatcher (fixtures/mock-dispatcher.ts)
+// replaces the whole stack.
+//
+// The AppSchema is NOT duplicated in the client bundle (drift risk against
+// the real feature code). Instead this server process builds the schema
+// from the real src/feature.ts via createRegistry + buildAppSchema (both
+// pure, no DB/HTTP) and serves it as JSON over /schema.json — client.tsx
+// fetches it on boot.
+//
+// Port 4190: 4172-4189 are taken by other samples/apps (see their
+// playwright.config.ts/package.json), 4190 is free.
+//
+// /styles.css is REALLY compiled from Tailwind (not stubbed) — this recipe
+// exists to prove a real box-model fix (fw#2778: a relatedList tab panel
+// must size to its content, not stretch to fill). Without real CSS the
+// getBoundingClientRect() measurements in height.spec.ts would be against
+// unstyled browser default flow, not the actual flex chain under test.
+// Entry stylesheet = fixtures/styles.css, a local wrapper that re-exports
+// renderer/web's styles.css and adds an @source covering this e2e dir.
+//
+// One-shot build, no watcher (the server only runs for the test duration)
+// — dies hard on a Tailwind CLI/build failure instead of degrading to an
+// empty stylesheet and letting the layout assertions pass vacuously.
+
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  canResolveTailwindStylesheet,
+  resolveTailwindCli,
+} from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
+import { createOrderDeskFeature } from "../src/feature";
+
+const HERE = resolve(import.meta.dir);
+const ENTRY = resolve(HERE, "fixtures/client.tsx");
+const HTML_PATH = resolve(HERE, "fixtures/index.html");
+
+async function buildStylesheet(): Promise<string> {
+  const cliPath = resolveTailwindCli({ bun: Bun, cwd: HERE });
+  if (cliPath === undefined) {
+    throw new Error(
+      "record-detail-layout/e2e: @tailwindcss/cli not resolvable — run `bun install` at the repo root.",
+    );
+  }
+  const entryCss = resolve(HERE, "fixtures/styles.css");
+  if (!canResolveTailwindStylesheet(entryCss, { bun: Bun, cwd: HERE })) {
+    throw new Error(
+      `record-detail-layout/e2e: tailwindcss not resolvable for ${entryCss} — peer dependency missing at the stylesheet's location.`,
+    );
+  }
+  const outDir = mkdtempSync(join(tmpdir(), "record-detail-layout-e2e-tw-"));
+  try {
+    const outPath = join(outDir, "styles.css");
+    const bunBin = process.argv[0] ?? "bun";
+    const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath], {
+      cwd: HERE,
+    });
+    if (!build.success) {
+      throw new Error(
+        `record-detail-layout/e2e: tailwind build failed (exit ${build.exitCode})\n${build.stderr.toString()}`,
+      );
+    }
+    return await Bun.file(outPath).text();
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
+}
+
+const css = await buildStylesheet();
+
+const port = Number(process.env["PORT"] ?? 4190);
+
+const registry = createRegistry([createOrderDeskFeature()]);
+const schema = buildAppSchema(registry);
+const schemaJson = JSON.stringify(schema);
+
+const built = await Bun.build({
+  entrypoints: [ENTRY],
+  target: "browser",
+  sourcemap: "linked",
+});
+
+if (!built.success) {
+  // biome-ignore lint/suspicious/noConsole: e2e build script — no logger wired
+  for (const log of built.logs) console.error(log);
+  throw new Error("record-detail-layout/e2e: client bundle failed");
+}
+
+const jsOutput = built.outputs.find((o) => o.path.endsWith(".js"));
+const mapOutput = built.outputs.find((o) => o.path.endsWith(".js.map"));
+if (!jsOutput) throw new Error("record-detail-layout/e2e: bundle has no .js output");
+
+const js = await jsOutput.text();
+const map = mapOutput ? await mapOutput.text() : "";
+const html = await Bun.file(HTML_PATH).text();
+
+Bun.serve({
+  port,
+  fetch(req: Request): Response {
+    const url = new URL(req.url);
+    if (url.pathname === "/client.js") {
+      return new Response(js, {
+        headers: { "Content-Type": "application/javascript; charset=utf-8" },
+      });
+    }
+    if (url.pathname === "/client.js.map") {
+      return new Response(map, { headers: { "Content-Type": "application/json; charset=utf-8" } });
+    }
+    if (url.pathname === "/schema.json") {
+      return new Response(schemaJson, {
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+    if (url.pathname === "/styles.css") {
+      return new Response(css, { headers: { "Content-Type": "text/css; charset=utf-8" } });
+    }
+    if (url.pathname === "/api/sse" || url.pathname.startsWith("/sse")) {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(": connected\n\n"));
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+    return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  },
+});
+
+// biome-ignore lint/suspicious/noConsole: e2e build script — no logger wired
+console.log(`record-detail-layout/e2e build-server listening on http://localhost:${port}`);
+```
+
+### e2e/fixtures/client.tsx
+
+```tsx
+// Browser entry for record-detail-layout/e2e (fw#2778). Fetches the
+// server-built AppSchema (built from the real src/feature.ts, see
+// build-server.ts) and mounts createKumikoApp with the MockDispatcher.
+//
+// Pattern copied from writeform-section/e2e/fixtures/client.tsx: the shell
+// renders its own explicitly-keyed KumikoScreen (entityId="order-1") instead
+// of createKumikoApp's routed `children` — that's the only way to pin a
+// projectionDetail screen's entityId without forking the URL-routing
+// internals. `screenQn` is still required (createKumikoApp throws without a
+// resolvable initial route), but the routed content it produces is unused.
+//
+// DefaultAppShell wraps the screen in the same viewport-height chrome
+// (`h-svh` shell, `main` scrolls internally) a real app gives it — the
+// fillHeight/scrollBody chain under test only resolves against a genuinely
+// height-constrained ancestor, not document-flow. `user` grants the
+// "Admin" role order-detail's screen access requires.
+//
+// order-detail is a projectionDetail screen in `layout.mode: "tabs"` — the
+// first tab ("items", a relatedList section) is active by default (no `tab`
+// search param), which is exactly the fw#2778 scenario: a lone relatedList
+// tab that must size to its content when short and scroll internally when
+// long, instead of stretching the tab panel to the bottom.
+
+import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
+import { ExtensionSectionsProvider } from "@cosmicdrift/kumiko-renderer";
+import { createKumikoApp, DefaultAppShell, KumikoScreen } from "@cosmicdrift/kumiko-renderer/web";
+import type { ReactNode } from "react";
+import { createMockDispatcher } from "./mock-dispatcher";
+
+const ORDER_DETAIL_SCREEN_QN = "order-desk:screen:order-detail";
+
+// Plugin-mounted "extension" tab (fw#3234 padding-parity screenshots) — no
+// own Card/Section, exactly what guard-no-framed-extension-sections
+// enforces: the host's own tabs-mode Card is the only frame this gets.
+function OrderInternalNote(): ReactNode {
+  const tallPx = Number.parseInt(
+    new URLSearchParams(window.location.search).get("noteHeight") ?? "",
+    10,
+  );
+  return (
+    <div>
+      <p data-testid="order-internal-note">
+        Handled by Jonas Weber, escalate if unpaid past Sep 1.
+      </p>
+      {Number.isFinite(tallPx) && tallPx > 0 && (
+        <>
+          <div style={{ height: tallPx }} />
+          <p data-testid="order-internal-note-end">End of note</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Shell({
+  schema,
+}: {
+  readonly children: ReactNode;
+  readonly schema: AppSchema;
+}): ReactNode {
+  const feature = schema.features[0];
+  // KumikoScreen sits directly under DefaultAppShell's <main> — same as the
+  // real RoutedScreen (create-app.tsx) — so RenderEdit's `fillHeight` chain
+  // (h-full all the way down) resolves against `main`'s own, genuinely
+  // height-constrained box. A wrapper div here without its own h-full would
+  // break that percentage-height chain at the very first link.
+  return (
+    <DefaultAppShell
+      brand={<span>Order Desk</span>}
+      schema={schema}
+      user={{ id: "u1", roles: ["Admin"] }}
+    >
+      {feature !== undefined && (
+        <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+          <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
+        </ExtensionSectionsProvider>
+      )}
+    </DefaultAppShell>
+  );
+}
+
+async function boot(): Promise<void> {
+  const root = document.getElementById("root");
+  if (root === null) throw new Error("record-detail-layout/e2e: #root not found");
+
+  const response = await fetch("/schema.json");
+  if (!response.ok) {
+    throw new Error(`record-detail-layout/e2e: /schema.json fetch failed with ${response.status}`);
+  }
+  const schema = (await response.json()) as AppSchema;
+
+  createKumikoApp({
+    schema,
+    dispatcher: createMockDispatcher(),
+    shell: Shell,
+    screenQn: ORDER_DETAIL_SCREEN_QN,
+  });
+}
+
+boot().catch((error: unknown) => {
+  const root = document.getElementById("root");
+  if (root !== null) {
+    root.textContent = `record-detail-layout/e2e: boot failed — ${String(error)}`;
+  }
+  throw error;
+});
+```
+
+### e2e/fixtures/mock-dispatcher.ts
+
+```ts
+// In-memory dispatcher for record-detail-layout/e2e (fw#2778). Same shape as
+// writeform-section/e2e/fixtures/mock-dispatcher.ts — implements only the
+// three query QNs order-desk's projectionDetail screen needs:
+//
+//   - "order-desk:query:order:detail" — the screen's own header/metrics row.
+//   - "order-desk:query:order:items"  — the "items" relatedList tab.
+//   - "order-desk:query:order:payments" — the "payments" relatedList tab.
+//
+// The "items" row count is driven by the page's own `?items=<n>` URL param
+// (read at query time, not baked into the fixture) so the same server can
+// back both the short-list and long-list layout measurements the
+// fw#2778 fix needs — a fixed row count would need two fixtures.
+
+import type {
+  BatchResult,
+  Command,
+  Dispatcher,
+  DispatcherStatus,
+  PendingFile,
+  PendingWrite,
+  QueryOpts,
+  QueryResult,
+  Store,
+  WriteOpts,
+  WriteResult,
+} from "@cosmicdrift/kumiko-renderer/headless";
+
+const QUERY_ORDER_DETAIL = "order-desk:query:order:detail";
+const QUERY_ORDER_ITEMS = "order-desk:query:order:items";
+const QUERY_ORDER_PAYMENTS = "order-desk:query:order:payments";
+
+const ORDER_DETAIL_FIELDS = {
+  customerName: "Aiko Tanaka",
+  orderNumber: "SO-10482",
+  status: "processing",
+  totalAmount: "€ 1,248.00",
+  outstandingAmount: "€ 312.00",
+  itemCount: "3",
+  placedAt: "2026-08-21",
+};
+
+function itemsCountFromUrl(): number {
+  const raw = new URLSearchParams(window.location.search).get("items");
+  const parsed = raw === null ? Number.NaN : Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+}
+
+function buildItemRows(count: number): Array<Record<string, unknown>> {
+  return Array.from({ length: count }, (_, i) => ({
+    sku: `KB-${100 + i}`,
+    description: `Item ${i + 1}`,
+    quantity: 1,
+    unitPrice: 10 + i,
+  }));
+}
+
+const ONLINE_STORE: Store<DispatcherStatus> = {
+  getSnapshot: () => "online",
+  subscribe: () => () => {},
+};
+
+export function createMockDispatcher(): Dispatcher {
+  async function write<TData = unknown>(type: string): Promise<WriteResult<TData>> {
+    throw new Error(`mock-dispatcher: unsupported write qn "${type}"`);
+  }
+
+  async function query<TData = unknown>(
+    type: string,
+    payload: unknown,
+    _opts?: QueryOpts,
+  ): Promise<QueryResult<TData>> {
+    if (type === QUERY_ORDER_DETAIL) {
+      const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
+      const id = (data["id"] as string | undefined) ?? "order-1";
+      return { isSuccess: true, data: { id, ...ORDER_DETAIL_FIELDS } as unknown as TData };
+    }
+    if (type === QUERY_ORDER_ITEMS) {
+      return { isSuccess: true, data: { rows: buildItemRows(itemsCountFromUrl()) } as TData };
+    }
+    if (type === QUERY_ORDER_PAYMENTS) {
+      return {
+        isSuccess: true,
+        data: {
+          rows: [
+            { paidAt: "2026-08-21", amount: 936, method: "card", status: "settled" },
+            { paidAt: "2026-08-25", amount: 312, method: "invoice", status: "pending" },
+          ],
+        } as TData,
+      };
+    }
+    throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
+  }
+
+  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+    const results: WriteResult[] = [];
+    for (const cmd of commands) results.push(await write(cmd.type, cmd.payload, opts));
+    return { isSuccess: true, results };
+  }
+
+  return {
+    write,
+    query,
+    batch,
+    statusStore: ONLINE_STORE,
+    async *stream() {},
+    pendingWrites: (): readonly PendingWrite[] => [],
+    pendingFiles: (): readonly PendingFile[] => [],
+  };
+}
+```
+
+### e2e/height.spec.ts
+
+```ts
+// Tab-panel height spec (fw#2778): a relatedList tab in a projectionDetail
+// "Akte" (order-detail's default "items" tab) must size to its content when
+// the list is short, and cap at the panel's available height (scrolling
+// internally) when the list is long — never stretch the card to the bottom
+// of the panel regardless of row count. No hardcoded pixel positions: every
+// assertion compares the card's live box model against `main`'s (the real,
+// viewport-height-constrained ancestor from DefaultAppShell) and against
+// itself across the two row-count scenarios.
+//
+// `?items=<n>` (read by fixtures/mock-dispatcher.ts) switches between the
+// short-list and long-list scenario without needing two fixtures.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
+
+async function gotoOrderDetail(page: Page, items: number): Promise<void> {
+  await page.goto(`/?items=${items}`);
+  await expect(page.getByTestId("render-edit-form")).toBeVisible();
+  await expect(page.getByTestId("render-list-table")).toBeVisible();
+}
+
+function mainLocator(page: Page) {
+  return page.locator("main").first();
+}
+
+// Structural, not class-name-coupled: FormScreenShell renders exactly one
+// wrapping div holding [headerRegion-wrapper?, card] as direct children —
+// the card (cardSurface()) is always the last of those (see DefaultForm in
+// packages/renderer/src/web/primitives/index.tsx).
+function cardLocator(page: Page) {
+  return page.locator('[data-testid="render-edit-form"] > div > div').last();
+}
+
+function tabsLocator(page: Page) {
+  return page.getByTestId("kumiko-screen-projection-detail-tabs");
+}
+
+test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
+  // The design refresh (#3381) made detail tabs a full-bleed "board": the
+  // relatedList scroll region fills the panel down to the footer instead of
+  // the card sizing to its rows (fw#2778's original behavior). What must
+  // still hold: the rows themselves keep their natural height, and the
+  // region never exceeds the panel.
+  test("short list: the scroll region fills the panel while the table keeps its content height", async ({
+    page,
+  }) => {
+    await gotoOrderDetail(page, 3);
+    const main = await mainLocator(page).boundingBox();
+    const region = await page.getByTestId("render-list-table-scroll").boundingBox();
+    const table = await page.getByTestId("render-list-table").boundingBox();
+    if (main === null || region === null || table === null) throw new Error("missing bounding box");
+    expect(region.y + region.height).toBeLessThanOrEqual(main.y + main.height + 4);
+    expect(table.height).toBeLessThan(region.height);
+    expect(table.height).toBeLessThan(main.height * 0.4);
+    await expect(page.getByTestId("render-list-table-footer")).toBeVisible();
+  });
+
+  test("long list: the tab-panel card is capped at the panel's available height and the table scrolls internally", async ({
+    page,
+  }) => {
+    await gotoOrderDetail(page, 60);
+    const main = await mainLocator(page).boundingBox();
+    const card = await cardLocator(page).boundingBox();
+    if (main === null || card === null) throw new Error("missing bounding box");
+    // Card never exceeds the panel height it's confined to (small tolerance
+    // for the header card's own margin above it).
+    expect(card.height).toBeLessThanOrEqual(main.height + 4);
+
+    // The document itself does not grow with the row count — the table
+    // scrolls INSIDE the card, the page never gets a body scrollbar.
+    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    expect(scrollHeight).toBeLessThanOrEqual(viewportHeight + 4);
+
+    // Some ancestor between the <table> and the card actually clips and
+    // scrolls its content (tableInner's own `overflow-y-auto` div — the
+    // `<table>` sits inside an extra `overflow-x-auto` wrapper from
+    // ui/table.tsx first, whose reported `overflow-y` computed value is
+    // "auto" too per the CSS overflow-x/y coupling rule even though it
+    // never actually clips vertically, so this checks the real effect
+    // (scrollHeight > clientHeight) rather than the computed style). That's
+    // the "scrolls in place" half of the fix — the previous assertion
+    // already proved the card doesn't grow to make room for it instead.
+    const tableWrapperOverflows = await page.getByTestId("render-list-table").evaluate((table) => {
+      let el: HTMLElement | null = table.parentElement;
+      while (el !== null && el.scrollHeight <= el.clientHeight + 1) {
+        el = el.parentElement;
+      }
+      return el !== null;
+    });
+    expect(tableWrapperOverflows).toBe(true);
+  });
+
+  test("record header (subtitle, metrics) and tab strip stay fully visible, uncompressed, in both scenarios", async ({
+    page,
+  }) => {
+    const subtitle = page.getByTestId("kumiko-screen-projection-detail-subtitle");
+    const metrics = page.getByTestId("kumiko-screen-projection-detail-metrics");
+    const heights: { tabs: number; subtitle: number; metrics: number }[] = [];
+    for (const items of [3, 60]) {
+      await gotoOrderDetail(page, items);
+      const tabs = await tabsLocator(page).boundingBox();
+      if (tabs === null) throw new Error(`missing tabs bounding box (items=${items})`);
+      expect(tabs.height).toBeGreaterThan(20);
+      // The title now lives in the shell's page header, not in the screen.
+      await expect(subtitle).toBeVisible();
+      await expect(metrics).toBeVisible();
+      const subtitleBox = await subtitle.boundingBox();
+      const metricsBox = await metrics.boundingBox();
+      if (subtitleBox === null || metricsBox === null) {
+        throw new Error(`missing header bounding box (items=${items})`);
+      }
+      heights.push({ tabs: tabs.height, subtitle: subtitleBox.height, metrics: metricsBox.height });
+      for (const region of [subtitle, metrics]) {
+        const clipped = await region.evaluate((el) => el.scrollHeight > el.clientHeight + 1);
+        expect(clipped).toBe(false);
+      }
+    }
+    const [few, many] = heights;
+    if (few === undefined || many === undefined) throw new Error("missing height samples");
+    expect(many.tabs).toBeCloseTo(few.tabs, 0);
+    expect(many.subtitle).toBeCloseTo(few.subtitle, 0);
+    expect(many.metrics).toBeCloseTo(few.metrics, 0);
+  });
+});
+
+test.describe("record-detail-layout — tall tab panel scrolls", () => {
+  test.use({ viewport: { width: 1440, height: 772 } });
+
+  test("an extension tab taller than the viewport scrolls its sections wrapper to the last element", async ({
+    page,
+  }) => {
+    await page.goto("/?tab=internal-note&noteHeight=1400");
+    const note = page.getByTestId("order-internal-note");
+    await expect(note).toBeVisible();
+    const end = page.getByTestId("order-internal-note-end");
+
+    // Nearest scrollable ancestor of the panel content: the sections wrapper.
+    const scroller = await note.evaluateHandle((el) => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node !== null && !/(auto|scroll)/.test(getComputedStyle(node).overflowY)) {
+        node = node.parentElement;
+      }
+      if (node === null) throw new Error("no scrollable ancestor");
+      return node;
+    });
+    const metrics = () =>
+      scroller.evaluate((el) => ({
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        scrollTop: el.scrollTop,
+      }));
+
+    const before = await metrics();
+    expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
+
+    const box = await note.boundingBox();
+    if (box === null) throw new Error("missing note bounding box");
+    await page.mouse.move(box.x + 10, box.y + 10);
+    await page.mouse.wheel(0, 3000);
+    await expect.poll(async () => (await metrics()).scrollTop).toBeGreaterThan(0);
+
+    await expect(end).toBeInViewport();
+  });
+});
+```
+
+### e2e/padding-parity-screenshots.spec.ts
+
+```ts
+// Manual visual evidence for fw#3234 review round 2 (padding parity) — one
+// screenshot per tab kind (fields, relatedList, extension) plus the head
+// card + screen actions, Desktop and Phone (see playwright.config.ts
+// "chromium-desktop-screenshots" / "chromium-phone" projects, enabled only
+// with PADDING_PARITY_SCREENSHOTS=1). Not an
+// assertion-bearing regression test (the DOM-level padding assertions live
+// in projection-detail.test.tsx) — this only captures what a reviewer sees.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+
+test("record-detail-layout — all tab kinds + screen actions, one screenshot per tab", async ({
+  page,
+}, testInfo) => {
+  const tabIds = ["items", "payments", "details", "internal-note"];
+  for (const tabId of tabIds) {
+    await page.goto(`/?tab=${tabId}`);
+    await expect(page.getByTestId("render-edit-form")).toBeVisible();
+    await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();
+    if (tabId === "internal-note") {
+      await expect(page.getByTestId("order-internal-note")).toBeVisible();
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(`${tabId}.png`),
+      fullPage: true,
+    });
+  }
+});
+```
+
+### e2e/phone-viewport.spec.ts
+
+```ts
+// Phone-viewport tab strip (fw#3234): order-detail's tabs Card frame must
+// stay within the panel's own width on a narrow phone viewport — no
+// horizontal document scroll from the tab strip or the Card chrome around
+// it. Runs against the "chromium-phone" project (see playwright.config.ts),
+// a real iPhone-sized viewport, not a resized desktop window.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+
+test("record-detail-layout — tab strip fits the phone viewport width (fw#3234)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByTestId("render-edit-form")).toBeVisible();
+  await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();
+
+  const overflowsHorizontally = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflowsHorizontally).toBe(false);
+
+  const tabsBox = await page
+    .getByTestId("kumiko-screen-projection-detail-tabs")
+    .evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(tabsBox.scrollWidth).toBeLessThanOrEqual(tabsBox.clientWidth);
+});
+```
+
+### e2e/playwright.config.ts
+
+```ts
+// Playwright config for record-detail-layout/e2e. Boots the minimal
+// build-server (see e2e/build-server.ts) — a real browser + real React
+// bundle against a MockDispatcher, no full Kumiko stack. Pattern copied
+// from samples/recipes/writeform-section/e2e/playwright.config.ts.
+//
+// Port 4190: see the build-server.ts comment for the port allocation
+// overview of the other samples/apps ports.
+//
+// Config lives IN e2e/ itself — Playwright's webServer.command runs by
+// default with cwd = the config's directory, i.e. relative to e2e/ itself
+// (not to the package root). testDir therefore stays "." instead of
+// "./e2e", and webServer.command calls build-server.ts without an "e2e/"
+// prefix.
+
+import { defineConfig, devices } from "@playwright/test";
+
+// The padding-parity spec only captures screenshots for manual review (no
+// regression assertions), so it stays out of regular runs and costs no runner
+// minutes unless this flag is set.
+const WITH_PARITY_SCREENSHOTS = !!process.env["PADDING_PARITY_SCREENSHOTS"];
+
+const PORT = 4190;
+const BASE_URL = `http://localhost:${PORT}`;
+
+export default defineConfig({
+  testDir: ".",
+  testIgnore: ["**/fixtures/**", "build-server.ts"],
+  fullyParallel: false,
+  forbidOnly: !!process.env["CI"],
+  retries: 0,
+  workers: 1,
+  reporter: [["list"]],
+  timeout: 15_000,
+  expect: { timeout: 3_000 },
+
+  use: {
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    actionTimeout: 5_000,
+    navigationTimeout: 10_000,
+  },
+
+  projects: [
+    {
+      name: "chromium",
+      testIgnore: /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    // Desktop copy of padding-parity-screenshots.spec.ts, distinct from the
+    // "chromium" project above (that one ignores it) so the screenshot spec
+    // gets its own explicit project name instead of hiding in "chromium"'s
+    // catch-all — matches the phone project's split for the same reason.
+    ...(WITH_PARITY_SCREENSHOTS
+      ? [
+          {
+            name: "chromium-desktop-screenshots",
+            testMatch: /padding-parity-screenshots\.spec\.ts$/,
+            use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+          },
+        ]
+      : []),
+    // Phone viewport (fw#3234): the tab strip must stay within the panel
+    // width — no horizontal document scroll — down to a narrow phone frame.
+    // Plain Desktop Chrome with an iPhone-sized viewport, not the "iPhone
+    // 13" device preset (isMobile/hasTouch touch emulation is flaky in this
+    // sandbox's headless chromium) — width is what fw#3234 cares about.
+    {
+      name: "chromium-phone",
+      testMatch: WITH_PARITY_SCREENSHOTS
+        ? /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/
+        : /phone-viewport\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
+    },
+  ],
+
+  webServer: {
+    command: "bun build-server.ts",
+    url: BASE_URL,
+    env: { PORT: String(PORT) },
+    reuseExistingServer: !process.env["CI"],
+    timeout: 30_000,
+    stdout: "pipe",
+    stderr: "pipe",
+  },
+});
+```
+
 ### src/__tests__/feature.test.ts
 
 ```ts

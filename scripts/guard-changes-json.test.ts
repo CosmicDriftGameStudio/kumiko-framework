@@ -228,6 +228,16 @@ describe("findPrivateRepoReferences", () => {
     expect(findPrivateRepoReferences("./solon/docs")).toEqual(["solon/docs"]);
     expect(findPrivateRepoReferences("apps/solon/src")).toEqual(["solon/src"]);
     expect(findPrivateRepoReferences("website/src/x and offlot-web/src/y")).toEqual(["website/src/x", "offlot-web/src/y"]);
+    expect(findPrivateRepoReferences("solon-web/src/app.tsx and publicstatus-web/src/x")).toEqual([
+      "solon-web/src/app.tsx",
+      "publicstatus-web/src/x",
+    ]);
+    expect(findPrivateRepoReferences("github.com/CosmicDriftGameStudio/publicstatus-web/pull/1")).toEqual([
+      "github.com/CosmicDriftGameStudio/publicstatus-web/",
+    ]);
+    expect(findPrivateRepoReferences("github.com/CosmicDriftGameStudio/solon-web/pull/1")).toEqual([
+      "github.com/CosmicDriftGameStudio/solon-web/",
+    ]);
     expect(findPrivateRepoReferences("github.com/CosmicDriftGameStudio/offlot-app/pull/3")).toEqual([
       "github.com/CosmicDriftGameStudio/offlot-app/",
     ]);

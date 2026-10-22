@@ -142,6 +142,35 @@ describe("runSecurityCheck", () => {
     ).toBe(1);
   });
 
+  test("an unused exception expiring soon does not block", async () => {
+    const unusedExpiringSoon = securityException({
+      advisory: "GHSA-zzzz-zzzz-zzzz",
+      package: "other-pkg",
+      expires: "2026-10-21",
+    });
+    expect(
+      await runSecurityCheck({
+        repoRoot: repoWithLockfile(),
+        reportOnly: false,
+        runAudit: async () => ({}),
+        exceptions: [unusedExpiringSoon],
+        nowMs: NOW,
+      }),
+    ).toBe(0);
+  });
+
+  test("an expired earlier exception does not shadow a valid later one for the same advisory", () => {
+    const expiredBundled = securityException({ expires: "2026-10-01" });
+    const renewedInRepo = securityException({ expires: "2026-12-31" });
+    const evaluation = evaluateSecurity(
+      parseAuditReport(report("high")),
+      [expiredBundled, renewedInRepo],
+      NOW,
+    );
+    expect(evaluation.blocking).toEqual([]);
+    expect(evaluation.usedExceptions).toEqual([renewedInRepo]);
+  });
+
   test("a clean audit passes", async () => {
     expect(
       await runSecurityCheck({

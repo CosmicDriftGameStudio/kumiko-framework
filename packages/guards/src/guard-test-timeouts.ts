@@ -32,7 +32,7 @@
  * Consumer (via the published `kumiko-guards` CLI):
  *   kumiko-guards guards --guard=test-timeouts
  */
-import { type CallExpression, Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, Node, type SourceFile, SyntaxKind, type Type } from "ts-morph";
 import {
   type AstGuard,
   type GuardOutcome,
@@ -182,12 +182,20 @@ function declarationBaseCallee(callee: Node): Node {
 }
 
 // An identifier can be the Playwright test body (`test(title, details, body)`) or an options
-// variable like `{ retry: 2 }`, so it only counts when its type is a number or carries `timeout`.
+// variable like `{ retry: 2 }`, so only its type decides. Every other non-function expression
+// (conditional, member access, call) is treated as a timeout so a union or untyped value cannot hide one.
 function isTimeoutArgument(arg: Node): boolean {
   if (Node.isObjectLiteralExpression(arg)) return hasTimeoutProperty(arg);
   if (Node.isArrowFunction(arg) || Node.isFunctionExpression(arg)) return false;
+  if (!Node.isIdentifier(arg)) return true;
   const type = arg.getType();
-  return type.isNumber() || type.isNumberLiteral() || type.getProperty("timeout") !== undefined;
+  if (type.isAny() || type.isUnknown()) return true;
+  const carriesNumber = (t: Type): boolean => t.isNumber() || t.isNumberLiteral();
+  return (
+    carriesNumber(type) ||
+    (type.isUnion() && type.getUnionTypes().some(carriesNumber)) ||
+    type.getProperty("timeout") !== undefined
+  );
 }
 
 function declarationTimeoutReason(

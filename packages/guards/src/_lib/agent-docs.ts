@@ -336,14 +336,21 @@ function renderExamplesIndex(recipes: readonly Recipe[]): string {
   );
 }
 
+const RECIPE_SKIPPED_DIRS = new Set(["node_modules", "screenshots", "dist"]);
+const GENERATED_FILE = /\.generated\./;
+
 function listSourceFiles(dir: string, prefix = ""): string[] {
   if (!existsSync(dir)) return [];
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const rel = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
     if (entry.isDirectory()) {
-      found.push(...listSourceFiles(join(dir, entry.name), rel));
-    } else if (SOURCE_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+      if (!RECIPE_SKIPPED_DIRS.has(entry.name))
+        found.push(...listSourceFiles(join(dir, entry.name), rel));
+    } else if (
+      SOURCE_EXTENSIONS.some((extension) => entry.name.endsWith(extension)) &&
+      !GENERATED_FILE.test(entry.name)
+    ) {
       found.push(rel);
     }
   }
@@ -362,13 +369,11 @@ function renderRecipe(recipe: Recipe): string {
   if (existsSync(readmePath)) {
     parts.push(`## README\n\n${readFileSync(readmePath, "utf-8").replace(/\r\n/g, "\n").trim()}`);
   }
-  const sourceBlocks = listSourceFiles(join(recipe.dir, "src")).map((rel) => {
-    const content = readFileSync(join(recipe.dir, "src", rel), "utf-8")
-      .replace(/\r\n/g, "\n")
-      .trimEnd();
+  const sourceBlocks = listSourceFiles(recipe.dir).map((rel) => {
+    const content = readFileSync(join(recipe.dir, rel), "utf-8").replace(/\r\n/g, "\n").trimEnd();
     const fence = fenceFor(content);
     const language = rel.endsWith(".tsx") ? "tsx" : "ts";
-    return `### src/${rel}\n\n${fence}${language}\n${content}\n${fence}`;
+    return `### ${rel}\n\n${fence}${language}\n${content}\n${fence}`;
   });
   if (sourceBlocks.length > 0) parts.push(`## Source files\n\n${sourceBlocks.join("\n\n")}`);
   return finishFile(`${RECIPES_REL}/${recipe.slug}`, parts.join("\n\n"));

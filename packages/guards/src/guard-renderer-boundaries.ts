@@ -11,6 +11,9 @@
  * emits SVG strings and the live dispatcher is a fetch client, so the symbol and JSX-tag rules would be noise there. They stay free
  * of react-dom, jsdom and any import of `src/web`.
  *
+ * `headless` additionally may not import react, the renderer root or anything outside its own
+ * folder (server/mail bundles import it); the shared layer may not import `live`.
+ *
  * Deliberately simple: a regex scan over the source text. False positives
  * (e.g. "window" in a string literal) are possible but rare — the guard is a
  * maintenance alarm, not a semantic proof.
@@ -40,6 +43,24 @@ const FORBIDDEN_IMPORTS = [
   /from ["']@cosmicdrift\/kumiko-headless(?:\/.*)?["']/,
   /from ["']@cosmicdrift\/kumiko-dispatcher-live["']/,
 ];
+
+// `headless` is consumed server-side (prod bundle, mail HTML): it must stay free of React and of
+// the shared layer, so it may only import itself and third-party packages other than react.
+const HEADLESS_FORBIDDEN_IMPORTS = [
+  /from ["']react(?:\/.*)?["']/,
+  /from ["']@cosmicdrift\/kumiko-renderer(?:\/(?!headless(?:["'/]))[^"']*)?["']/,
+];
+
+// The fetch/document.cookie dispatcher client belongs to consumers of `live`, not the shared layer.
+const SHARED_FORBIDDEN_IMPORTS = [
+  /from ["'](?:\.\.?\/)+live(?:\/.*)?["']/,
+  /from ["']@cosmicdrift\/kumiko-renderer\/live(?:\/.*)?["']/,
+];
+
+// dev-console.ts is a dependency-free console wrapper, safe in server bundles.
+const HEADLESS_ALLOWED_LEAF = /(?:^|\/)dev-console(?:\.ts)?$/;
+
+const RELATIVE_SPECIFIER = /from ["'](\.\.?\/[^"']*)["']/;
 
 // Runtime symbols that mean DOM/browser. `\b` prevents substring matches
 // (e.g. "origin" not matched as "origin.foo"). This is a coarse guard — a
@@ -82,6 +103,34 @@ type Violation = {
   readonly excerpt: string;
 };
 
+const RENDERER_SRC = `${path.sep}packages${path.sep}renderer${path.sep}src${path.sep}`;
+
+// Absolute path of `packages/renderer/src/<dir>` containing `file`, or "" when it is elsewhere.
+function rendererSrcSubdir(file: string, dir: string): string {
+  const marker = `${RENDERER_SRC}${dir}${path.sep}`;
+  const index = file.indexOf(marker);
+  return index === -1 ? "" : file.slice(0, index + marker.length - 1);
+}
+
+function isInside(dir: string, target: string): boolean {
+  return target === dir || target.startsWith(dir + path.sep);
+}
+
+function escapesHeadless(file: string, line: string): boolean {
+  const headlessDir = rendererSrcSubdir(file, "headless");
+  const specifier = RELATIVE_SPECIFIER.exec(line)?.[1];
+  if (headlessDir === "" || specifier === undefined) return false;
+  if (HEADLESS_ALLOWED_LEAF.test(specifier)) return false;
+  return !isInside(headlessDir, path.resolve(path.dirname(file), specifier));
+}
+
+function isSharedLayer(file: string): boolean {
+  return (
+    file.includes(RENDERER_SRC) &&
+    ["headless", "live", "web"].every((dir) => rendererSrcSubdir(file, dir) === "")
+  );
+}
+
 function walk(dir: string, skippedDirs: readonly string[] = []): string[] {
   const out: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -111,15 +160,18 @@ export function findViolations(file: string, root: string, importRulesOnly = fal
     const trimmed = line.trim();
     if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
 
-    for (const pattern of FORBIDDEN_IMPORTS) {
-      if (pattern.test(line)) {
-        violations.push({
-          file: path.relative(root, file),
-          line: i + 1,
-          rule: "forbidden-import",
-          excerpt: trimmed,
-        });
-      }
+    const importPatterns = [
+      ...FORBIDDEN_IMPORTS,
+      ...(rendererSrcSubdir(file, "headless") !== "" ? HEADLESS_FORBIDDEN_IMPORTS : []),
+      ...(isSharedLayer(file) ? SHARED_FORBIDDEN_IMPORTS : []),
+    ];
+    if (importPatterns.some((pattern) => pattern.test(line)) || escapesHeadless(file, line)) {
+      violations.push({
+        file: path.relative(root, file),
+        line: i + 1,
+        rule: "forbidden-import",
+        excerpt: trimmed,
+      });
     }
     if (importRulesOnly) continue;
     for (const pattern of FORBIDDEN_SYMBOLS) {

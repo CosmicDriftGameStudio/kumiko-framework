@@ -40,6 +40,8 @@ const PRIVATE_REPOS = [
   "infra",
   "mfg-hausverwaltung",
   "offlot-web",
+  "publicstatus-web",
+  "solon-web",
   "space-conquest",
   "website",
 ] as const;

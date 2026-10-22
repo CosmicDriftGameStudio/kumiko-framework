@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { AGENT_DOCS_DIR, writeAgentDocs } from "../_lib/agent-docs";
+import { AGENT_DOCS_DIR, renderAgentDocs, writeAgentDocs } from "../_lib/agent-docs";
 import { check } from "../guard-agent-docs-drift";
 import { fixtureRoot } from "./parent-workspace-fixture";
 
@@ -190,6 +190,25 @@ describe("agent-docs-drift guard", () => {
     });
     try {
       expect(() => writeAgentDocs(root)).toThrow(/Bad_Name/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("recipe examples include sources outside src/ but skip generated and vendored files", () => {
+    const root = makeRepo({
+      "samples/recipes/demo/bin/api.ts": "export const api = 1;\n",
+      "samples/recipes/demo/e2e/flow.spec.ts": "export const flow = 1;\n",
+      "samples/recipes/demo/.kumiko/routes.generated.ts": "export const generated = 1;\n",
+      "samples/recipes/demo/node_modules/dep/index.ts": "export const dep = 1;\n",
+    });
+    try {
+      const example = renderAgentDocs(root).get("examples/demo.md") ?? "";
+      expect(example).toContain("### bin/api.ts");
+      expect(example).toContain("### e2e/flow.spec.ts");
+      expect(example).toContain("### src/feature.ts");
+      expect(example).not.toContain("routes.generated");
+      expect(example).not.toContain("node_modules");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

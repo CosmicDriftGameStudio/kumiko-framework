@@ -88,6 +88,947 @@ the draft (reopening the wizard starts fresh on step 1).
 
 ## Source files
 
+### e2e/_helpers/select-combobox.ts
+
+```ts
+// Select fields with ≤4 options render as a SegmentedSelect
+// (role="radiogroup"/role="radio", data-testid="segmented-${id}") instead
+// of the ComboboxInput dropdown (data-testid="combobox-${id}"). This
+// recipe's `category` (4 options) and `condition` (2 options) both hit the
+// segmented path today, but the helper stays dual-mode so it keeps working
+// if either field's option count crosses the dropdown threshold.
+
+import { expect, type Page } from "@playwright/test";
+
+export async function selectCombobox(
+  page: Page,
+  field: string,
+  optionLabel: string,
+): Promise<void> {
+  const segmented = page.getByTestId(`segmented-kumiko-edit-${field}`);
+  if ((await segmented.count()) > 0) {
+    await segmented.getByRole("radio", { name: optionLabel, exact: true }).click();
+    return;
+  }
+  await page.getByTestId(`combobox-kumiko-edit-${field}`).click();
+  await page.getByRole("option", { name: optionLabel, exact: true }).click();
+}
+
+export async function expectSelectedOption(
+  page: Page,
+  field: string,
+  optionLabel: string,
+): Promise<void> {
+  const segmented = page.getByTestId(`segmented-kumiko-edit-${field}`);
+  if ((await segmented.count()) > 0) {
+    await expect(segmented.getByRole("radio", { name: optionLabel, exact: true })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    return;
+  }
+  await expect(page.getByTestId(`combobox-kumiko-edit-${field}`)).toContainText(optionLabel);
+}
+```
+
+### e2e/build-server.ts
+
+```ts
+// Tiny Bun server that builds and serves the e2e bundle — counterpart to
+// the build-server in packages/renderer/e2e, radically stripped down
+// (no Postgres, no auth). The MockDispatcher (fixtures/mock-dispatcher.ts)
+// replaces the whole stack.
+//
+// Difference from the renderer/web blueprint: the AppSchema is NOT
+// duplicated in the client bundle (drift risk against the real feature
+// code). Instead this server process builds the schema from the real
+// src/feature.ts via createRegistry + buildAppSchema (both pure, no
+// DB/HTTP) and serves it as JSON over /schema.json — client.tsx fetches
+// it on boot. That keeps server-side framework code (defineFeature,
+// r.crud, r.screen) out of the browser bundle.
+//
+// Port 4188: 4172-4181/4186 are taken by other samples/apps (see their
+// playwright.config.ts/package.json), 4188 is free.
+//
+// /styles.css is REALLY compiled from Tailwind (not stubbed) — the
+// 375px-viewport specs (wizard-mobile.spec.ts) check real layout
+// properties (overlap, horizontal overflow, whether the Next button
+// disappears under the simulated keyboard). Without real CSS those would
+// be fake assertions against unstyled browser default flow. Entry
+// stylesheet = fixtures/styles.css, a local wrapper that re-exports
+// renderer/web's styles.css and adds an @source covering this e2e dir —
+// renderer/web's own @source globs only scan samples/**/src/**, which
+// misses e2e/fixtures/client.tsx.
+// One-shot build, no watcher (the server only runs for the test duration)
+// — same CLI-resolve mechanism as create-kumiko-server.ts, but without
+// its non-fatal degradation: if the CLI is missing or the build fails,
+// the server must die hard instead of serving an empty stylesheet stub
+// and letting the layout assertions pass vacuously.
+
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
+import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  canResolveTailwindStylesheet,
+  resolveTailwindCli,
+} from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
+import { listingsFeature } from "../src/feature";
+
+const HERE = resolve(import.meta.dir);
+const ENTRY = resolve(HERE, "fixtures/client.tsx");
+const HTML_PATH = resolve(HERE, "fixtures/index.html");
+
+async function buildStylesheet(): Promise<string> {
+  const cliPath = resolveTailwindCli({ bun: Bun, cwd: HERE });
+  if (cliPath === undefined) {
+    throw new Error(
+      "wizard-form/e2e: @tailwindcss/cli not resolvable — run `bun install` at the repo root.",
+    );
+  }
+  const entryCss = resolve(HERE, "fixtures/styles.css");
+  if (!canResolveTailwindStylesheet(entryCss, { bun: Bun, cwd: HERE })) {
+    throw new Error(
+      `wizard-form/e2e: tailwindcss not resolvable for ${entryCss} — peer dependency missing at the stylesheet's location.`,
+    );
+  }
+  const outDir = mkdtempSync(join(tmpdir(), "wizard-form-e2e-tw-"));
+  try {
+    const outPath = join(outDir, "styles.css");
+    const bunBin = process.argv[0] ?? "bun";
+    const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath], {
+      cwd: HERE,
+    });
+    if (!build.success) {
+      throw new Error(
+        `wizard-form/e2e: tailwind build failed (exit ${build.exitCode})\n${build.stderr.toString()}`,
+      );
+    }
+    return await Bun.file(outPath).text();
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
+}
+
+const css = await buildStylesheet();
+
+const port = Number(process.env["PORT"] ?? 4188);
+
+const registry = createRegistry([listingsFeature, createFormDraftFeature(), createConfigFeature()]);
+const schema = buildAppSchema(registry);
+const schemaJson = JSON.stringify(schema);
+
+const built = await Bun.build({
+  entrypoints: [ENTRY],
+  target: "browser",
+  sourcemap: "linked",
+});
+
+if (!built.success) {
+  // biome-ignore lint/suspicious/noConsole: e2e build script — no logger wired
+  for (const log of built.logs) console.error(log);
+  throw new Error("wizard-form/e2e: client bundle failed");
+}
+
+const jsOutput = built.outputs.find((o) => o.path.endsWith(".js"));
+const mapOutput = built.outputs.find((o) => o.path.endsWith(".js.map"));
+if (!jsOutput) throw new Error("wizard-form/e2e: bundle has no .js output");
+
+const js = await jsOutput.text();
+const map = mapOutput ? await mapOutput.text() : "";
+const html = await Bun.file(HTML_PATH).text();
+
+Bun.serve({
+  port,
+  fetch(req: Request): Response {
+    const url = new URL(req.url);
+    if (url.pathname === "/client.js") {
+      return new Response(js, {
+        headers: { "Content-Type": "application/javascript; charset=utf-8" },
+      });
+    }
+    if (url.pathname === "/client.js.map") {
+      return new Response(map, { headers: { "Content-Type": "application/json; charset=utf-8" } });
+    }
+    if (url.pathname === "/schema.json") {
+      return new Response(schemaJson, {
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+    if (url.pathname === "/styles.css") {
+      return new Response(css, { headers: { "Content-Type": "text/css; charset=utf-8" } });
+    }
+    if (url.pathname === "/api/sse" || url.pathname.startsWith("/sse")) {
+      // Long-lived empty stream in case some primitive/hook opens an
+      // EventSource after all — without a correct SSE response this
+      // would produce a "MIME type text/html" console error instead of a
+      // clean no-op.
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(": connected\n\n"));
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+    return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  },
+});
+
+// biome-ignore lint/suspicious/noConsole: e2e build script — no logger wired
+console.log(`wizard-form/e2e build-server listening on http://localhost:${port}`);
+```
+
+### e2e/fixtures/client.tsx
+
+```tsx
+// Browser entry for wizard-form/e2e. Fetches the server-built AppSchema
+// (see build-server.ts — built from the real src/feature.ts, not
+// duplicated here) and mounts createKumikoApp with the MockDispatcher.
+//
+// screenQn points explicitly at the wizard screen: the only screen in
+// this schema requires roles: ["Admin", "User"] (no openToAll screen
+// exists), createKumikoApp would throw at boot without an explicit
+// screenQn ("no screen reachable without role restriction"). The
+// DefaultAppShell `user` prop supplies the role that screenAccessAllows
+// checks client-side.
+//
+// listingsClient is the REAL client registration from src/web/ — the
+// recipe's own wiring, not an e2e-only duplicate — so this fixture proves
+// the shipped registration actually resolves ListingReviewSection.
+
+import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
+import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
+import type { ReactNode } from "react";
+import { listingsClient } from "../../src/web";
+import { createMockDispatcher } from "./mock-dispatcher";
+
+const WIZARD_SCREEN_QN = "listings:screen:listing-wizard";
+const E2E_USER = { id: "e2e-user", roles: ["Admin"] };
+
+function Brand(): ReactNode {
+  return <strong className="text-foreground tracking-tight">Wizard Form E2E</strong>;
+}
+
+function AppShell({
+  children,
+  schema,
+}: {
+  readonly children: ReactNode;
+  readonly schema: AppSchema;
+}): ReactNode {
+  return (
+    <DefaultAppShell brand={<Brand />} schema={schema} user={E2E_USER}>
+      {children}
+    </DefaultAppShell>
+  );
+}
+
+async function boot(): Promise<void> {
+  const root = document.getElementById("root");
+  if (root === null) throw new Error("wizard-form/e2e: #root not found");
+
+  const response = await fetch("/schema.json");
+  if (!response.ok) {
+    throw new Error(`wizard-form/e2e: /schema.json fetch failed with ${response.status}`);
+  }
+  const schema = (await response.json()) as AppSchema;
+
+  createKumikoApp({
+    schema,
+    dispatcher: createMockDispatcher(),
+    shell: AppShell,
+    screenQn: WIZARD_SCREEN_QN,
+    clientFeatures: [listingsClient],
+  });
+}
+
+boot().catch((error: unknown) => {
+  // A rejected boot() would otherwise become a silent unhandled rejection —
+  // surface it in the DOM so a failing e2e run shows the real cause instead
+  // of a blank #root.
+  const root = document.getElementById("root");
+  if (root !== null) {
+    root.textContent = `wizard-form/e2e: boot failed — ${String(error)}`;
+  }
+  throw error;
+});
+```
+
+### e2e/fixtures/mock-dispatcher.ts
+
+```ts
+// In-memory dispatcher for wizard-form/e2e. Implements the dispatcher
+// interface from @cosmicdrift/kumiko-renderer/headless without the HTTP layer, its
+// own lean variant (no import from renderer/web/e2e — its fixtures are
+// package-internal, not exported).
+//
+// Serves two QN formats:
+//   - 4-segment CRUD (`<feature>:<write|query>:<entity>:<verb>`) — only
+//     `listings:write:listing:create` is needed (no list/detail/
+//     update/delete for this spec, YAGNI).
+//   - 3-segment form-draft QNs (FormDraftHandlers/FormDraftQueries) —
+//     save/discard/get, exactly as packages/bundled-features/src/
+//     form-draft/constants.ts defines them.
+//
+// CRITICAL: the draft state does NOT live in the in-memory closure — a
+// real page.reload() throws away the whole JS heap, so an in-memory mock
+// would always return null after reload. The mock plays the server here,
+// and persistence belongs on the server. Draft blobs land in localStorage
+// (Playwright gives each test a fresh BrowserContext — automatically
+// test-isolated). The listing CRUD table stays in-memory on purpose: it
+// doesn't need to survive a reload, only the draft does.
+
+import type {
+  BatchResult,
+  Command,
+  Dispatcher,
+  DispatcherStatus,
+  PendingFile,
+  PendingWrite,
+  QueryOpts,
+  QueryResult,
+  Store,
+  WriteOpts,
+  WriteResult,
+} from "@cosmicdrift/kumiko-renderer/headless";
+
+type Row = Record<string, unknown> & { id: string };
+
+type FormDraftBlob = {
+  readonly values: Record<string, unknown>;
+  readonly stepIndex: number;
+  readonly savedAt: string;
+};
+
+const FORM_DRAFT_SAVE = "form-draft:write:save";
+const FORM_DRAFT_DISCARD = "form-draft:write:discard";
+const FORM_DRAFT_GET = "form-draft:query:get";
+const FORM_DRAFT_LIST = "form-draft:query:list";
+const DRAFT_STORAGE_PREFIX = "mock-form-draft:";
+export const CREATED_LISTINGS_KEY = "mock-created-listings";
+
+let nextId = 1;
+
+function generateId(): string {
+  return `mock-${nextId++}`;
+}
+
+// Exported so the spec builds the same localStorage key instead of
+// hardcoding the prefix — a rename here would otherwise silently break
+// wizard.spec.ts's draft assertions without any test going red (fw#1911).
+export function draftStorageKey(draftKey: string): string {
+  return `${DRAFT_STORAGE_PREFIX}${draftKey}`;
+}
+
+const ONLINE_STORE: Store<DispatcherStatus> = {
+  getSnapshot: () => "online",
+  subscribe: () => () => {},
+};
+
+export function createMockDispatcher(): Dispatcher {
+  const tables = new Map<string, Map<string, Row>>();
+
+  function getTable(entity: string): Map<string, Row> {
+    let table = tables.get(entity);
+    if (!table) {
+      table = new Map();
+      tables.set(entity, table);
+    }
+    return table;
+  }
+
+  async function write<TData = unknown>(
+    type: string,
+    payload: unknown,
+    _opts?: WriteOpts,
+  ): Promise<WriteResult<TData>> {
+    const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
+
+    if (type === FORM_DRAFT_SAVE) {
+      const draftKey = data["draftKey"] as string;
+      const blob: FormDraftBlob = {
+        values: (data["values"] ?? {}) as Record<string, unknown>,
+        stepIndex: (data["stepIndex"] as number | undefined) ?? 0,
+        savedAt: Temporal.Now.instant().toString(),
+      };
+      localStorage.setItem(draftStorageKey(draftKey), JSON.stringify(blob));
+      return { isSuccess: true, data: {} as unknown as TData };
+    }
+    if (type === FORM_DRAFT_DISCARD) {
+      const draftKey = data["draftKey"] as string;
+      localStorage.removeItem(draftStorageKey(draftKey));
+      return { isSuccess: true, data: {} as unknown as TData };
+    }
+
+    const parts = type.split(":");
+    if (parts.length < 4) {
+      throw new Error(
+        `mock-dispatcher: invalid write qn "${type}" — expected <feature>:write:<entity>:<verb>`,
+      );
+    }
+    const [, , entity, verb] = parts as [string, string, string, string];
+    if (verb !== "create") {
+      throw new Error(`mock-dispatcher: unsupported write verb "${verb}" (qn=${type})`);
+    }
+    const table = getTable(entity);
+    const id = (data["id"] as string | undefined) ?? generateId();
+    const row: Row = { ...data, id };
+    table.set(id, row);
+    // Mirrored to localStorage so e2e specs can assert the create payload
+    // from Playwright's page.evaluate() without reaching into this closure.
+    const created = JSON.parse(localStorage.getItem(CREATED_LISTINGS_KEY) ?? "[]") as Row[];
+    created.push(row);
+    localStorage.setItem(CREATED_LISTINGS_KEY, JSON.stringify(created));
+    return { isSuccess: true, data: row as unknown as TData };
+  }
+
+  async function query<TData = unknown>(
+    type: string,
+    payload: unknown,
+    _opts?: QueryOpts,
+  ): Promise<QueryResult<TData>> {
+    if (type === FORM_DRAFT_GET) {
+      const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
+      const draftKey = data["draftKey"] as string;
+      const raw = localStorage.getItem(draftStorageKey(draftKey));
+      const draft = raw === null ? null : (JSON.parse(raw) as FormDraftBlob);
+      return { isSuccess: true, data: { draft } as unknown as TData };
+    }
+    if (type === FORM_DRAFT_LIST) {
+      // Mirrors the real handler's LIKE-prefix scan (issue #1913's
+      // RenderEdit mount-time fallback needs this for create-mode wizards
+      // whose sessionStorage-held draftId was lost — new tab, cleared
+      // storage) — same source of truth as FORM_DRAFT_SAVE/GET above.
+      const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
+      const screenId = data["screenId"] as string;
+      const prefix = draftStorageKey(`${screenId}:`);
+      const drafts: Array<{
+        readonly id: string;
+        readonly draftKey: string;
+        readonly stepIndex: number;
+        readonly savedAt: string;
+      }> = [];
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key === null || !key.startsWith(prefix)) continue;
+        const raw = localStorage.getItem(key);
+        if (raw === null) continue;
+        const blob = JSON.parse(raw) as FormDraftBlob;
+        const draftKey = key.slice(DRAFT_STORAGE_PREFIX.length);
+        drafts.push({ id: draftKey, draftKey, stepIndex: blob.stepIndex, savedAt: blob.savedAt });
+      }
+      return { isSuccess: true, data: { drafts } as unknown as TData };
+    }
+    throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
+  }
+
+  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+    const results: WriteResult[] = [];
+    for (const cmd of commands) results.push(await write(cmd.type, cmd.payload, opts));
+    return { isSuccess: true, results };
+  }
+
+  return {
+    write,
+    query,
+    batch,
+    statusStore: ONLINE_STORE,
+    async *stream() {},
+    pendingWrites: (): readonly PendingWrite[] => [],
+    pendingFiles: (): readonly PendingFile[] => [],
+  };
+}
+```
+
+### e2e/playwright.config.ts
+
+```ts
+// Playwright config for wizard-form/e2e. Boots the minimal build-server
+// (see e2e/build-server.ts) — a real browser + real React bundle against
+// a MockDispatcher, no full Kumiko stack. Pattern copied from
+// packages/renderer/playwright.config.ts.
+//
+// Port 4188: see the build-server.ts comment for the port allocation
+// overview of the other samples/apps ports.
+//
+// Unlike the renderer/web blueprint (config sits at the package root, e2e/
+// is only testDir), this config lives IN e2e/ itself — Playwright's
+// webServer.command runs by default with cwd = the config's directory,
+// i.e. relative to e2e/ itself (not to the package root). testDir
+// therefore stays "." instead of "./e2e", and webServer.command calls
+// build-server.ts without an "e2e/" prefix.
+
+import { defineConfig, devices } from "@playwright/test";
+
+const PORT = 4188;
+const BASE_URL = `http://localhost:${PORT}`;
+
+export default defineConfig({
+  testDir: ".",
+  // build-server.ts + fixtures/* are not a test — Playwright must ignore the build path.
+  testIgnore: ["**/fixtures/**", "build-server.ts"],
+  fullyParallel: false,
+  forbidOnly: !!process.env["CI"],
+  retries: 0,
+  workers: 1,
+  reporter: [["list"]],
+  timeout: 15_000,
+  expect: { timeout: 3_000 },
+
+  use: {
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    actionTimeout: 5_000,
+    navigationTimeout: 10_000,
+  },
+
+  projects: [
+    {
+      name: "chromium",
+      // Chromium runs desktop wizard specs only — mobile-375 owns wizard-mobile.spec.ts.
+      testMatch: ["**/wizard.spec.ts"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // iPhone SE/Mini class (375px) — acceptance criterion from #1917:
+    // Chrome (progress/back/next/step title) renders correctly at the
+    // narrowest common phone width, and the Next button stays reachable
+    // when the virtual keyboard shrinks the viewport. Desktop Chrome base
+    // instead of a mobile device descriptor — avoids isMobile/hasTouch
+    // side effects (touch events instead of click) that pure layout
+    // assertions don't need.
+    {
+      name: "mobile-375",
+      testMatch: ["wizard-mobile.spec.ts"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 375, height: 667 } },
+    },
+  ],
+
+  webServer: {
+    command: "bun build-server.ts",
+    url: BASE_URL,
+    env: { PORT: String(PORT) },
+    reuseExistingServer: !process.env["CI"],
+    timeout: 30_000,
+    stdout: "pipe",
+    stderr: "pipe",
+  },
+});
+```
+
+### e2e/wizard-mobile.spec.ts
+
+```ts
+// Wizard Form Sample — 375px mobile chrome (CosmicDriftGameStudio/kumiko-framework#1917)
+//
+// Acceptance from the Offlot counter-check (#1908): at the narrowest common
+// phone width (iPhone SE/mini class, 375px), the progress indicator,
+// back/next buttons, and step title must render correctly (no horizontal
+// overflow, no overlap), and the next button must not disappear under the
+// virtual keyboard after a text field gains focus. Pure test-gap fix against
+// chrome already merged in #1886 — no new functionality.
+//
+// Runs in its own "mobile-375" Playwright project (see playwright.config.ts)
+// against the same build-server as wizard.spec.ts, now with REAL Tailwind
+// CSS instead of the earlier empty /styles.css stub (see the build-server.ts
+// comment) — without real CSS, the layout assertions here would be fake
+// assertions against unstyled browser default flow.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
+import { selectCombobox } from "./_helpers/select-combobox";
+
+async function gotoWizard(page: Page): Promise<void> {
+  await page.goto("/listing-wizard");
+  await expect(page.getByTestId("render-edit-form")).toBeVisible();
+}
+
+function rectsOverlap(a: DOMRectLike, b: DOMRectLike): boolean {
+  return !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
+}
+
+type DOMRectLike = { top: number; bottom: number; left: number; right: number };
+
+async function boundingRect(locator: Locator): Promise<DOMRectLike> {
+  const box = await locator.boundingBox();
+  if (box === null) throw new Error("boundingRect: element has no box (not rendered/visible)");
+  return { top: box.y, bottom: box.y + box.height, left: box.x, right: box.x + box.width };
+}
+
+async function assertNoOverlap(a: Locator, b: Locator): Promise<void> {
+  const [rectA, rectB] = await Promise.all([boundingRect(a), boundingRect(b)]);
+  expect(rectsOverlap(rectA, rectB)).toBe(false);
+}
+
+// Guard against a vacuously-green run: cardFooter (packages/renderer/
+// src/web/primitives/index.tsx) sets "flex" on the actions footer. Without
+// compiled Tailwind CSS this would stay the browser default "block" — the
+// following layout assertions would then run against unstyled markup
+// instead of the real chrome.
+async function assertCssIsLive(page: Page): Promise<void> {
+  const display = await page
+    .getByTestId("render-edit-form-actions")
+    .evaluate((el) => getComputedStyle(el).display);
+  expect(display).toBe("flex");
+}
+
+test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
+  test("step 1: step label and Next fit the viewport without overlap", async ({ page }) => {
+    await gotoWizard(page);
+    await assertCssIsLive(page);
+
+    // Below lg the step rail collapses to the compact step label; the
+    // progress bar no longer exists on screen-form wizards.
+    await expect(page.getByTestId("render-edit-wizard-progress")).toHaveCount(0);
+    const stepLabel = page.getByTestId("render-edit-wizard-step-label");
+    const next = page.getByTestId("render-edit-wizard-next");
+
+    await expect(stepLabel).toBeVisible();
+    await expect(stepLabel).toHaveText("Step 1 of 3 · Basics");
+    await expect(next).toBeVisible();
+    // Step 1 has no Back button — asserted by the desktop spec too.
+    await expect(page.getByTestId("render-edit-wizard-back")).toHaveCount(0);
+
+    const overflowsHorizontally = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(overflowsHorizontally).toBe(false);
+
+    await assertNoOverlap(stepLabel, next);
+  });
+
+  test("step 2: Back and Next render side by side without overlapping", async ({ page }) => {
+    await gotoWizard(page);
+    await assertCssIsLive(page);
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    const back = page.getByTestId("render-edit-wizard-back");
+    const next = page.getByTestId("render-edit-wizard-next");
+    await expect(back).toBeVisible();
+    await expect(next).toBeVisible();
+    await assertNoOverlap(back, next);
+  });
+
+  test("Next stays reachable after focusing a field and the viewport shrinking (simulated keyboard)", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    await assertCssIsLive(page);
+
+    const titleInput = page.getByTestId("field-title").locator("input");
+    await titleInput.fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await titleInput.focus();
+
+    // Simulates a virtual keyboard covering roughly the bottom half of an
+    // iPhone SE screen (667 -> 300 visible height) — the standard Playwright
+    // pattern for mobile-keyboard testing (real devices don't expose keyboard
+    // height to the page, so viewport-shrink is the closest approximation).
+    await page.setViewportSize({ width: 375, height: 300 });
+
+    const next = page.getByTestId("render-edit-wizard-next");
+    // No scrollIntoView before this assertion — that would make it trivially
+    // pass regardless of layout. toBeInViewport() checks the button is
+    // actually inside the now-shrunk visual area, unassisted.
+    await expect(next).toBeInViewport();
+
+    // Functional confirmation: the button isn't just geometrically in
+    // bounds, it's actually clickable and advances the wizard.
+    await next.click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+  });
+});
+```
+
+### e2e/wizard.spec.ts
+
+```ts
+// Wizard Form Sample — E2E
+//
+// Boots the real client bundle (real React tree, real `EditLayout.mode:
+// "wizard"` step transitions, real form-draft save/resume wiring in
+// RenderEdit) against a MockDispatcher — see e2e/build-server.ts +
+// e2e/fixtures/*. Proves what an integration test against the handler
+// contract can't: that a user can actually click through the wizard, that
+// a blocked step really keeps its error on screen instead of advancing,
+// and that a page reload resumes exactly where the draft left off.
+//
+// draftKey for create-mode = `${screen.id}:new:${draftId}` (issue #1913) —
+// `draftId` is a client-minted UUID (see render-edit.tsx's `draftKey`
+// useMemo), so this spec matches on the `listing-wizard:new:` prefix
+// rather than a single literal key.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
+import { expectSelectedOption, selectCombobox } from "./_helpers/select-combobox";
+import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";
+
+const DRAFT_STORAGE_PREFIX = draftStorageKey("listing-wizard:new:");
+
+async function gotoWizard(page: Page): Promise<void> {
+  await page.goto("/listing-wizard");
+  await expect(page.getByTestId("render-edit-form")).toBeVisible();
+}
+
+async function draftInStorage(page: Page): Promise<unknown> {
+  // The draftId is a client-minted UUID (issue #1913), unknown ahead of
+  // time — scan for the one key under this screen's create-mode prefix
+  // instead of matching a fixed key.
+  return page.evaluate((prefix) => {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) return localStorage.getItem(key);
+    }
+    return null;
+  }, DRAFT_STORAGE_PREFIX);
+}
+
+async function createdListings(page: Page): Promise<Record<string, unknown>[]> {
+  const raw = await page.evaluate((key) => localStorage.getItem(key), CREATED_LISTINGS_KEY);
+  return raw === null ? [] : (JSON.parse(raw) as Record<string, unknown>[]);
+}
+
+test.describe("wizard-form — step navigation, validation, draft resume", () => {
+  test("clicking Next/Back moves forward and back through all 3 steps", async ({ page }) => {
+    await gotoWizard(page);
+
+    // Step 1 — Basics
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
+    await expect(page.getByTestId("render-edit-wizard-back")).toHaveCount(0);
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Vintage desk lamp");
+    await expectSelectedOption(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    // Step 2 — Pricing
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+    // Regression for the `hidden` prop fix in primitives/index.tsx's
+    // DefaultSection: the prop used to be accepted but never wired into the
+    // DOM at all, so an inactive step stayed fully visible/interactive.
+    // toBeHidden() checks computed CSS visibility, not just DOM attributes.
+    await expect(page.getByTestId("field-title")).toBeHidden();
+    await page.getByTestId("field-price").locator("input").fill("42");
+    await selectCombobox(page, "condition", "used");
+    await expect(page.getByTestId("field-price").locator("input")).toHaveValue("42");
+    await expectSelectedOption(page, "condition", "used");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    // Step 3 — Review
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 3 of 3 · Review",
+    );
+    await expect(page.getByTestId("listing-review")).toBeVisible();
+    await expect(page.getByTestId("render-edit-submit")).toBeVisible();
+    await expect(page.getByTestId("render-edit-wizard-next")).toHaveCount(0);
+    // Back to Pricing, back to Basics.
+    await page.getByTestId("render-edit-wizard-back").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+    await page.getByTestId("render-edit-wizard-back").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
+  });
+
+  test("desktop viewport shows wizard step chips with aria-current", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoWizard(page);
+    const step0 = page.getByTestId("render-edit-wizard-steps-step-0");
+    await expect(step0).toBeVisible();
+    await expect(step0).toHaveAttribute("aria-current", "step");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toBeHidden();
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("render-edit-wizard-steps-step-1")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+  });
+
+  test("the step rail keeps its own 36px row height inside the wizard's padded chrome and follows the step", async ({
+    page,
+  }) => {
+    // Screen-form wizards render a vertical step rail instead of the
+    // progress bar. Same regression class as fw#1963/#1967 (the progress bar's
+    // `h-2` used to be eaten by the chrome's padding): a rail row (`h-9`) must
+    // keep its own box inside the padded chrome. A jsdom unit test can't catch
+    // this (layout returns 0 there); only a real browser box model does.
+    await gotoWizard(page);
+    const rail = page.getByTestId("render-edit-wizard-steps");
+    const step0 = page.getByTestId("render-edit-wizard-steps-step-0");
+    const step1 = page.getByTestId("render-edit-wizard-steps-step-1");
+
+    await expect(rail).toBeVisible();
+    await expect(page.getByTestId("render-edit-wizard-progress")).toHaveCount(0);
+    await expect(step0).toHaveAttribute("aria-current", "step");
+    await expect(step0).toHaveCSS("height", "36px");
+    await expect(step1).toHaveCSS("height", "36px");
+
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(step1).toHaveAttribute("aria-current", "step");
+    await expect(step0).not.toHaveAttribute("aria-current", "step");
+    await expect(step1).toHaveCSS("height", "36px");
+  });
+
+  test("an empty required field blocks Next and shows a field error", async ({ page }) => {
+    await gotoWizard(page);
+    // Fill category (also required) so the block is attributable to title
+    // alone, not "any required field in the step is empty".
+    await selectCombobox(page, "category", "electronics");
+
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    await expect(page.getByTestId("field-title-errors")).toBeVisible();
+    await expect(page.getByTestId("field-title-errors")).toHaveAttribute("role", "alert");
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
+  });
+
+  // Per-step JS validation (handleWizardNext -> controller.validate(currentStepFields))
+  // blocking a middle step, not just step 1 — a real-browser twin of the
+  // jsdom unit-test coverage for fw#1910.
+  test("a later step's own empty required field blocks Next from advancing past it", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    // price defaults to 0 (a valid value for a required number field) —
+    // must be actively cleared to exercise the empty-required-field path,
+    // not just left untouched.
+    await page.getByTestId("field-price").locator("input").fill("");
+    await selectCombobox(page, "condition", "new");
+    await page.getByTestId("render-edit-wizard-next").click();
+
+    // Still on step 2 — Review (step 3) stays mounted-but-hidden, same as
+    // an inactive step's fields elsewhere in this spec, not visible.
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+    await expect(page.getByTestId("listing-review")).toBeHidden();
+    await expect(page.getByTestId("field-price-errors")).toBeVisible();
+  });
+
+  test("values survive navigating back to a previous step", async ({ page }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Old bicycle");
+    await selectCombobox(page, "category", "vehicles");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    await page.getByTestId("render-edit-wizard-back").click();
+
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
+    await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Old bicycle");
+  });
+
+  test("a reload mid-wizard resumes at the same step with the same values", async ({ page }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Draft desk lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    // saveDraft() is fire-and-forget (`void dispatcher.write(...)` in
+    // render-edit.tsx) — wait for the step to actually change before
+    // reloading so the reload doesn't race an in-flight draft save.
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    await page.reload();
+
+    await expect(page.getByTestId("render-edit-form")).toBeVisible();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+    await page.getByTestId("render-edit-wizard-back").click();
+    await expect(page.getByTestId("field-title").locator("input")).toHaveValue("Draft desk lamp");
+  });
+
+  test("submit creates the listing and discards the draft — reopening starts fresh", async ({
+    page,
+  }) => {
+    await gotoWizard(page);
+    await page.getByTestId("field-title").locator("input").fill("Submit test lamp");
+    await selectCombobox(page, "category", "furniture");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 2 of 3 · Pricing",
+    );
+
+    await page.getByTestId("field-price").locator("input").fill("99");
+    await selectCombobox(page, "condition", "new");
+    await page.getByTestId("render-edit-wizard-next").click();
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 3 of 3 · Review",
+    );
+
+    await expect.poll(() => draftInStorage(page)).not.toBeNull();
+    await page.getByTestId("render-edit-submit").click();
+    // discardDraft() is awaited before onSubmit fires (render-edit.tsx:
+    // `await discardDraft()` runs before `onSubmit?.(result)`) — poll
+    // localStorage directly instead of a UI signal, this recipe registers
+    // no entityList screen so there's no post-submit navigation to wait out.
+    await expect.poll(() => draftInStorage(page)).toBeNull();
+
+    // The create payload actually reached the dispatcher with values
+    // accumulated across all three steps — not just that the draft got
+    // discarded (discard also fires on a failed write in other flows).
+    const listings = await createdListings(page);
+    expect(listings).toHaveLength(1);
+    expect(listings[0]).toMatchObject({
+      title: "Submit test lamp",
+      category: "furniture",
+      price: 99,
+      condition: "new",
+    });
+
+    await page.reload();
+
+    await expect(page.getByTestId("render-edit-wizard-step-label")).toHaveText(
+      "Step 1 of 3 · Basics",
+    );
+    await expect(page.getByTestId("field-title").locator("input")).toHaveValue("");
+  });
+});
+```
+
 ### src/__tests__/feature.integration.test.ts
 
 ```ts

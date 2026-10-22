@@ -63,6 +63,26 @@ describe("evaluateLicenses", () => {
     expect(blockedNames(packages, [exception({ package: "bin-*" })])).toEqual([]);
   });
 
+  test("a renewed repo exception wins over an expired bundled one for the same package", () => {
+    const expired = exception({ package: "x", expires: "2026-10-01" });
+    const renewed = exception({ package: "x", expires: "2027-10-01" });
+    expect(blockedNames([pkg("x", "MPL-2.0")], [expired, renewed])).toEqual([]);
+    expect(blockedNames([pkg("x", "MPL-2.0")], [expired])).toEqual(["x"]);
+  });
+
+  test("an exception does not cover a package whose license changed", () => {
+    const mplOnly = exception({ package: "x", license: "MPL-2.0" });
+    expect(blockedNames([pkg("x", "MPL-2.0")], [mplOnly])).toEqual([]);
+    expect(blockedNames([pkg("x", "GPL-3.0")], [mplOnly])).toEqual(["x"]);
+    expect(blockedNames([pkg("x", null)], [mplOnly])).toEqual([]);
+  });
+
+  test("a caret or tilde version range only covers versions it satisfies", () => {
+    const ranged = exception({ package: "x", version: "^1.0.0" });
+    expect(blockedNames([pkg("x", "MPL-2.0", "1.4.2")], [ranged])).toEqual([]);
+    expect(blockedNames([pkg("x", "MPL-2.0", "9.0.0")], [ranged])).toEqual(["x"]);
+  });
+
   test("OR picks the best option, AND needs all parts clean", () => {
     expect(blockedNames([pkg("dual", "(GPL-3.0 OR MIT)")])).toEqual([]);
     expect(blockedNames([pkg("both", "MIT AND GPL-3.0")])).toEqual(["both"]);

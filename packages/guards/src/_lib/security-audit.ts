@@ -35,6 +35,7 @@ export type SecurityEvaluation = {
   readonly blocking: AuditAdvisory[];
   readonly warnings: AuditAdvisory[];
   readonly suppressed: AuditAdvisory[];
+  readonly usedExceptions: SecurityException[];
   readonly counts: Record<Severity, number>;
 };
 
@@ -90,12 +91,20 @@ function matchesAdvisory(exceptionAdvisory: string, advisoryId: string, url: str
 function findSecurityException(
   advisory: AuditAdvisory,
   exceptions: readonly SecurityException[],
+  nowMs: number,
 ): SecurityException | undefined {
-  return exceptions.find(
+  const matching = exceptions.filter(
     (ex) =>
       matchesAdvisory(ex.advisory, advisory.advisoryId, advisory.url) &&
       (ex.package === "*" || matchesPackageName(ex.package, advisory.package)),
   );
+  // An expired earlier entry (e.g. bundled) must not shadow a valid later one (e.g. repo-level).
+  return matching.find((ex) => isSecurityExceptionActive(ex, nowMs)) ?? matching[0];
+}
+
+// isExceptionValid() treats a missing expiry as "forever valid", which is wrong for security: such an exception would suppress a critical permanently.
+function isSecurityExceptionActive(exception: SecurityException, nowMs: number): boolean {
+  return Boolean(exception.expires) && isExceptionValid(exception.expires, nowMs).valid;
 }
 
 export function evaluateSecurity(
@@ -107,18 +116,16 @@ export function evaluateSecurity(
   const blocking: AuditAdvisory[] = [];
   const warnings: AuditAdvisory[] = [];
   const suppressed: AuditAdvisory[] = [];
+  const usedExceptions = new Set<SecurityException>();
 
   for (const advisory of advisories) {
     counts[advisory.severity] += 1;
-    const exception = findSecurityException(advisory, exceptions);
-    // isExceptionValid() treats a missing expiry as "forever valid", which is wrong for security: such an exception would suppress a critical permanently.
-    const covered =
-      exception !== undefined &&
-      Boolean(exception.expires) &&
-      isExceptionValid(exception.expires, nowMs).valid;
+    const exception = findSecurityException(advisory, exceptions, nowMs);
+    const covered = exception !== undefined && isSecurityExceptionActive(exception, nowMs);
 
     if (covered) {
       suppressed.push(advisory);
+      usedExceptions.add(exception);
     } else if (FAIL_SEVERITIES.has(advisory.severity)) {
       blocking.push(advisory);
     } else if (advisory.severity === "moderate") {
@@ -126,7 +133,7 @@ export function evaluateSecurity(
     }
   }
 
-  return { blocking, warnings, suppressed, counts };
+  return { blocking, warnings, suppressed, usedExceptions: [...usedExceptions], counts };
 }
 
 /** True when `bytes` starts with the gzip magic header (1f 8b). */
