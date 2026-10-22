@@ -10,7 +10,8 @@ Selector fields in the generated provider forms now carry the owner feature in t
 
 <!-- kumiko-changes
 feature: framework
-type: fix
+type: breaking
 title: provider selector option labels are unique per owner
-detail: The selector field id of a provider form is qualified with its owner feature. An app that overrides the old key config:entity:__config-edit__:field:provider:option:<value> must move that override to the qualified field id.
+detail: The selector field id of a provider form is qualified with its owner feature, so the translation keys of its option labels change.
+migration: move app translation overrides from config:entity:__config-edit__:field:provider:option:<value> to the owner-qualified field id, field:mail-foundation-provider:option:<value> or field:file-foundation-provider:option:<value>
 -->
