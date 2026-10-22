@@ -1,5 +1,571 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.388.0
+
+### Minor Changes
+
+- 4e3bb2c: The jobs feature takes `readRoles` so app roles can read their tenant's job failures and runs.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: readRoles for tenant job status
+  detail: `createJobsFeature({ readRoles: ["PropertyManager"] })` lets those app roles call `jobs:query:failures` and `jobs:query:tenant-runs` for their own tenant. They are added to the default `User`, `Editor` and admin roles, which stay. Before, a member who only holds app roles got access_denied.
+  migration: Optional. Apps whose members hold only their own roles pass `createJobsFeature({ readRoles: [...] })`.
+  -->
+- 453b3f0: Six-cell one-time code input for the MFA screens: autofocus, auto-submit on the last digit in login and setup, and a recovery-code switch in verify, disable and regenerate.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Input gets kind "code" and autoFocus on kind "text"
+  detail: Input has a new kind "code" (length, onComplete, autoFocus, autoComplete defaulting to one-time-code), a single real input shown as separate cells; onComplete fires once when input, paste or autofill reaches full length and the value holds digits only. kind "text" gains autoFocus.
+  migration: custom Input implementations (PrimitivesProvider override) with an exhaustive switch over props.kind need a case "code"; delegating to DefaultInput from @cosmicdrift/kumiko-renderer/web is enough
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: Six-cell code input, autofocus, auto-submit and recovery switch
+  detail: The MFA login, setup, disable and regenerate screens use the six-cell code input with autofocus. Login and setup submit automatically on the sixth digit; disable and regenerate keep the explicit confirm button. Verify, disable and regenerate can switch to a recovery-code field. New keys auth.mfa.verify.useRecoveryCode, useAuthenticatorCode, recoveryCode and recoverySubtitle in all locale packages; auth.mfa.disable.code now names the authenticator code only.
+  -->
+- 1425622: Dodo Payments as a subscription provider, and billing-foundation offers several providers side by side.
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: New subscription provider for Dodo Payments
+  detail: createSubscriptionDodoFeature() registers the "dodo" subscription provider (Merchant of Record). It verifies Standard Webhooks signatures, maps Dodo events to the foundation events, creates hosted checkouts and portal sessions, and switches plans in the app through previewPlanSwitch and applyPlanSwitch. Config keys are api-key, webhook-secret, billing-live and environment. Plan switches need a Product Collection in Dodo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: dodoEnvSchema declares the Dodo product id slots
+  detail: dodoEnvSchema({ prices: ["PRO"] }) adds one optional DODO_PRODUCT_PRO slot per plan next to the API key and webhook key, and checks the pdt_ prefix. It is the counterpart to stripeEnvSchema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Several subscription providers in one catalog
+  detail: The billing-plans query returns providers (name, displayName, plans, note) when more than one provider is offered, and start-plan-checkout takes providerName. consumerProtection.providerTexts overrides checkoutNote and vatNote per provider, and the consent record carries providerName. switch-plan always uses the provider of the existing subscription.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: In-app plan switch with a preview and consent
+  detail: A provider plugin that implements previewPlanSwitch and applyPlanSwitch switches plans without a hosted portal. The new plan-switch-preview query returns the proration, the billing-plans result carries inAppPlanSwitch, and the panel shows PlanSwitchConfirmDialog with the withdrawal consent checkboxes. The confirmation mail is sent when the plan_changed webhook arrives with the consent id.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: A catalog with several providers no longer throws an ambiguous-provider error
+  detail: With more than one subscription provider mounted, billing-plans and start-plan-checkout used to throw. They now list the providers; start-plan-checkout answers with errors.providerRequired when several are offered and no providerName is given, and errors.providerNotOffered for an unknown one. Plugins have to set displayName.
+  migration: Set displayName on custom subscriptionProvider plugins. Callers that send start-plan-checkout with several providers mounted must pass providerName.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: Stripe plugin has a displayName
+  detail: The Stripe plugin sets displayName "Stripe", which the provider choice in the billing panel shows.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: billing boot option takes stripe and/or dodo
+  detail: billing.stripe is now optional and billing.dodo is new (priceToTier, oneOffPriceIds). At least one is required. resolveBillingOption returns features (an array) instead of feature, and one webhook route serves every provider on stripe.webhookPath or SUBSCRIPTION_WEBHOOK_PATH. DODO_PAYMENTS_API_KEY and DODO_PAYMENTS_WEBHOOK_KEY are the env bridge.
+  migration: Callers of resolveBillingOption use billing.features instead of billing.feature.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings for the provider choice and the in-app plan switch
+  detail: Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: ChoiceCards widget and PlanCard price prefix
+  detail: ChoiceCards is a card-styled radio group (title, description, aside, native radios, keyboard operable) for exclusive choices that need more than a segment label. PlanCardPrice takes an optional prefix shown before the amount, for example "from".
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Provider choice moved into the checkout dialog
+  detail: The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a "from" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: A malformed stored credential no longer leaks into the error
+  detail: A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same.
+  -->
+
+### Patch Changes
+
+- ff553d1: config:query:values and config:query:cascade accept an optional read scope.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: config:query:values and config:query:cascade accept a read scope
+  detail: Both queries take an optional scope (system, tenant, user). With scope system the cascade of a tenant or user key is evaluated at system level, so the system row is returned even when the caller's own tenant has a row for the key. Only a SystemAdmin gets the narrowed read; other callers keep the normal cascade. Inherited-value redaction still applies. Without scope the behavior is unchanged.
+  -->
+- ed4e21b: Billing and waitlist review fixes: contract termination no longer records twice for concurrent runs, revocation resumes a cancel recorded mid-flight, subscription sync carries a provider event time, waitlist link-on-signup surfaces failed updates, the offlot legacy migration skips entries it imported before, and the purge audit event is written before keys are shredded.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Concurrent termination runs, revocation resume and sync ordering
+  detail: record-contract-termination re-checks the requestId after the provider call so a concurrent run appends nothing. Revocation resumes a period-end cancel that was recorded between its two stream reads. sync-subscription stamps the snapshot time as providerEventAtIso so a late older webhook cannot reactivate a synced cancellation.
+  -->
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Link-on-signup failures, legacy re-run and purge audit order
+  detail: link-on-signup throws when the entry update fails and the entry is still invited, so the consumer redelivers. The offlot legacy migration skips rows that are already imports. purge writes its audit event before shredding keys.
+  -->
+- 374a12b: Review fixes: tenant destroy sweep keeps a minimum slice per tenant, inbound-mail polling skips any account whose address fails to decrypt, the delivery preferences query reports renamed notification types under their current name, and a deduplicated job add no longer resets a finished tenant run row.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: Destroy sweep keeps a minimum time slice per tenant
+  detail: With many tenants in destroying state the shared tick budget no longer shrinks a tenant's slice below two seconds, so chunking hooks make progress instead of failing the stage as no-progress attempts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Undecryptable mail account no longer stops polling of other accounts
+  detail: Any decryption failure of an account address (corrupt envelope, missing key, AAD mismatch) is logged by error class and the account is skipped; the other accounts keep polling.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Preferences query reports renamed notification types under the current name
+  detail: Rows stored under a former notification name are returned with the current name and collapsed per channel with the delivery precedence (current-name row wins, otherwise any disabled row disables), so settings screens show the effective state.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Deduplicated job add keeps the finished tenant run row
+  detail: JobQueuedMeta carries the BullMQ creation time of the job. The queued hook only removes finished rows queued before that time (leftovers of a Redis reset), so re-announcing an already finished job no longer turns its row back into queued.
+  -->
+- cecdf71: CLI and dev-server hardening: managed/scripts checks warn before adoption, sync-managed resolves the repo root, resources are released on boot failure, late-bound revokers unbind safely, server lockfile is verified.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: check, sync-managed and backfill-pii handle failure and subdirectories correctly
+  detail: kumiko check only warns about unresolvable managed files or package.json scripts until kumiko.config.ts calls defineAppConfig. sync-managed resolves the repo root like check instead of using cwd. ops backfill-pii closes the KMS wiring when registry creation fails. The agent command reuses allAppFeatures from the framework config.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: runDevApp releases the KMS on any boot failure; server lockfile is verified
+  detail: runDevApp closes the KMS wiring when a boot gate throws before the server is created. Stopping one app no longer replaces the session, MFA and PAT revokers a newer app bound on the same feature instances: the bind functions of sessions, auth-mfa and personal-access-tokens return an unbind that only clears its own binding. writeServerLockfile replays the frozen install the runtime image runs, so a lock that did not re-resolve fails in kumiko-build.
+  -->
+- 37db191: Template resolver and directory fixes: linking a PDF no longer replaces an inline image under the same key, by-tenant loads shadowing system templates once per kind instead of per row, tenant-override-counts reads only the columns it needs, tenant-overrides resolves labels for exactly the tenants and users it lists (tenant and member directories accept an optional ids filter), and array parameters of the notification preference and form-draft cleanup queries use Postgres array literals.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Template overrides, key collisions and by-tenant queries
+  detail: link-pdf refuses a key that already holds an inline image (key_in_use). by-tenant no longer runs a query per row, tenant-override-counts selects only the needed columns, and tenant-overrides resolves names beyond the first 200 tenants or users through the new ids filter of the tenant and member directories. Notification preference and form-draft cleanup queries bind array parameters as Postgres array literals.
+  -->
+- 2924949: Template seeding no longer undoes admin decisions, and copy-locale rejects a source that changed during the upload.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Re-seeding keeps archived system templates, drops stale drafts and adds only missing bundle locales
+  detail: A boot-time re-seed no longer reactivates an archived system template and clears an open system draft when the seeded content changes. A bundle with resources seeded with ifExists skip imports only the missing locales instead of overwriting existing system rows. copy-locale fails with version_conflict when its source changed between the upload and the transaction, and releases the uploaded files.
+  -->
+- c52702e: Review follow-ups: the audit list cursor comment names the real 400 status, the `dispatchToolCall` JSDoc states that local validation errors carry no `code`, and the agent tool, audit, auth and billing integration tests gain coverage and isolation fixes.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: dispatchToolCall documents which failures carry a code
+  detail: Only handler and dispatcher failures carry a code; local validation errors such as an unknown tool or bad arguments come back without one, and the JSDoc now says so.
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Oversized audit cursor is documented as a 400 validation error
+  detail: The cursor pattern comment now names the validation error (400) the API actually returns instead of 422.
+  -->
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Tests cover nested agent grants, erased subjects and anonymous change-password
+  detail: Integration tests now check that a delegating tool handler keeps the cross-tenant-read marker closed, that an erased subject gets no consumer-protection mail, and that the anonymous change-password check runs once; the audit seed helper uses withEnv.
+  -->
+- b62e6cd: Review fixes for billing-foundation consumer protection and cap-counter tests: ordered lists keep their numbers in the contract confirmation mail, the revoke paragraph uses a typed show-if option, the stored user email decrypt helper is shared, the receipt mail distinguishes a rate limit from an unavailable limiter, an abandoned checkout no longer reopens the withdrawal period, and a same-second update no longer revives a canceled subscription.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Ordered terms lists keep their numbers in the confirmation mail
+  detail: The contract confirmation mail prefixes each item of an ordered Markdown list with its number, so references such as "see no. 3" in terms and cancellation policies stay intact.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Operator notice tells an unavailable receipt limiter from a reached limit
+  detail: When the termination receipt mail is withheld because the rate limiter failed or has no digest key, the operator notice reports "receipt_not_sent" instead of the per-recipient limit reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: An abandoned plan-change checkout no longer restarts the withdrawal period
+  detail: The withdrawal period now runs from the latest subscription start only; a checkout consent without a following subscription start does not reopen it, so a later withdrawal of an old contract is cancelled at period end.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Same-second provider update cannot revive a canceled subscription
+  detail: When a non-terminal state event carries the same provider timestamp as a stored cancellation, it is treated as late and discarded.
+  -->
+- 1e3e94d: Review fixes: a consume on a released cap reservation keeps its tombstone alive, calendar cap periods are validated on every enforcement, stock caps serialize on the counted set instead of the error code, forget-subject writes its audit event even when the record owner lookup fails, and the email channel docs describe what happens without an app transport.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Consume on a released reservation extends its tombstone
+  detail: Every consume against a released reservation tombstone now pushes its expiry out, so a long-running job that consumes across the sweep can no longer lose the tombstone and have its earlier units counted twice at settle.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Misconfigured cap period fails on every enforcement
+  detail: A periodEndIso that is unparsable or not after periodStartIso now throws on each enforceCap or reservation call instead of only once the hard cap is reached, so a bad period no longer turns into a 500 at the limit instead of cap_exceeded.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Stock cap lock covers the counted rows, not the error code
+  detail: withStockCap serializes on the table and where filter that are counted, so two handlers capping the same rows under different codes can no longer both pass the check in parallel and exceed the cap together.
+  -->
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject audit event survives a failing record owner lookup
+  detail: The lookup of the record row's owning tenant now runs inside the file purge step, so a database error there is reported as cleanupError on the subject-forgotten event instead of aborting the handler after the key was erased.
+  -->
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: fix
+  title: Corrected description of an email channel without app transport
+  detail: Without an app transport only notifications declared with tenantTransport true are delivered; all others fail with missing_credentials, so such apps must mark every outgoing notification or keep an app transport.
+  -->
+  
+  <!-- kumiko-changes
+  feature: config
+  type: fix
+  title: Remove unreachable branch in configRowHoldsValue
+  detail: The undefined key definition is now handled together with the plaintext comparison, dropping a dead return without changing behavior.
+  -->
+- 084c9c0: Review fixes: an inline mail image no longer swallows transient storage errors, the unsubscribe tenant origin is resolved once per notify call, one-click unsubscribe POSTs keep the JSON rejection, the resubscribe limit has its own page text, and form drafts fail loudly when the PII key service is missing.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Inline mail image retries on transient storage errors
+  detail: Only a missing file storage for the file's tenant sends the mail without the inline image; any other read error (timeout, provider failure, DB) is rethrown so the send job retries instead of mailing without the logo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Unsubscribe tenant origin resolved once per notify call
+  detail: The app's tenantOrigin callback runs once per notify call and tenant instead of once per recipient and channel, so a newsletter no longer causes one lookup and one fallback warning per address. The docs state the callback must only return verified, active domains.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: One-click unsubscribe POST keeps the JSON rejection
+  detail: RFC 8058 one-click POSTs (form body List-Unsubscribe=One-Click) answer an invalid or expired token with the JSON 400 again and skip the branding lookup; only browser form submits get the HTML page.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Resubscribe limit page has its own text
+  detail: A browser that hits the resubscribe limit sees that the address cannot be subscribed again here, instead of the generic "try again later" error (new key mail.unsubscribe.resubscribeLimitReached in en, de, es, fr, it).
+  -->
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: fix
+  title: Encrypted drafts without a PII key service raise an error
+  detail: Reading a ciphertext draft with no PII subject key service configured throws instead of returning an empty draft, so the stale-draft cleanup defers it and no longer releases its file refs as if it were empty.
+  -->
+- c5b197e: Review fixes: the mailbox rename audit reason is derived from the caller role, inbound-mail seen-id lookups run in chunks, the tenant mail transport falls back to the app transport without tenant config, and renderTablePdf enforces the document size caps for direct callers.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Rename audit reason comes from the caller role
+  detail: update-account records tenant_admin or system_admin from the caller's roles and honors a client-supplied reason only for the system identity, so a form call can no longer write system reasons such as watch_supervisor. The rename form no longer carries a reason field and the reason payload field is optional.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Seen-message lookup handles listings of any size
+  detail: filterUnknownMessageIds queries the already seen provider message ids in chunks of 1000, so a full-mailbox listing no longer exceeds the Postgres bind parameter limit and aborts the account's poll.
+  -->
+  
+  <!-- kumiko-changes
+  feature: mail-foundation
+  type: fix
+  title: Tenant mail transport falls back to the app transport without tenant config
+  detail: tenantMailTransport returns null when the channel context carries no tenant config, instead of throwing on every send, so the channel uses the app transport as documented.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-pdf
+  type: fix
+  title: renderTablePdf validates the document for direct callers
+  detail: renderTablePdf parses the document against pdfTableDocumentSchema and throws RendererError invalid_payload above the row, column and cell caps. Title, subtitle, meta entries, headers, empty text, footer text and page label now have length caps and meta at most 500 entries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: host-routing
+  type: fix
+  title: Redirects documented as hostDispatch-only
+  detail: The redirects option and README state that redirects run inside hostDispatch, so only for requests that reach the HTML fallback; a from matching a static file or an API route never fires. The shared existence lookup of the host and resolver modes is one helper.
+  -->
+- c2a97fd: Review fixes: the step-dispatcher deliver job rejects an invalid payload at the trigger instead of burning its retries, the collection-refused and tier-assignment-source guards are type predicates built on isOneOf, and the stale-customer, locale-title, copy-locale and test-mail behaviors are covered by tests.
+  
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Deliver job validates its payload at the trigger
+  detail: The deliver job now declares its payload schema, so a manual trigger with an invalid payload is rejected up front instead of throwing inside the handler and consuming all retries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: isCollectionRefusedKind is a type predicate
+  detail: isCollectionRefusedKind accepts unknown and narrows to the refused kinds; tier-engine's isTierAssignmentSource shares the isOneOf implementation. Behavior is unchanged.
+  -->
+- 669cd2e: Review fixes for template-resolver: the layout usage list sees the same rows as the overview, admin views apply the same delivery rule as rendering, seeded title keys are format-checked, and a failing rollback no longer hides the upload error.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Layout usage list matches the overview
+  detail: The usage query of a mail layout filters the mail rows by the caller's visibility like the overview and logs a warning when the 5000-row limit cuts the result.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Admin views follow the delivery rule of rendering
+  detail: List, find-by-id, diff-to-system, validate, preview and the document base hide a collection row that a locked system template of the same slug shadows, as mail, PDF and the resolver already do.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Seeded title key must look like a namespace:key
+  detail: seedSystemTemplate rejects a titleI18nKey without a namespace prefix or with whitespace, so free text cannot pass as a key and show up raw in the UI.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Failing release keeps the upload error
+  detail: When releasing already uploaded files fails after a refused upload in copy-locale or bundle import, the release error is logged and the original error is returned, and the releases run once.
+  -->
+- 3c57f8f: Review fixes: set-tenant-tier accepts only the sources manual and billing, the waitlist admin notice language comes from a new adminLocale option, and the tenant directory search contract is documented.
+  
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: fix
+  title: set-tenant-tier no longer accepts source default
+  detail: The source field of set-tenant-tier is limited to manual and billing. The value default is reserved for the signup default tier and made a manual grant look like a billing row that the next sync overwrites.
+  -->
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Admin notice language comes from adminLocale
+  detail: The admin notice mail used the request locale, which is the entrant's browser language. The new adminLocale option (en, de or es, default en) sets the operator's language.
+  -->
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: Tenant directory search contract documented
+  detail: A search returns the first limit matches in tenant-key order, sorted by label afterwards; the handler description now says so.
+  -->
+- 2fb7e2b: Review fixes: the waitlist legacy migration dry run reports the streams it would archive, the document designer shares its mail layout constants and tenant currency lookup with the server and renderer, drops stale picked preview values, and reads singular tenant counts correctly.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Legacy migration dry run counts the streams it would archive
+  detail: The dry run now runs the read-only archive checks and reports archivedStreams without writing; the CLI prints "would archive" for it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Picked preview values are filtered to declared variables
+  detail: A picked record value for a variable the template does not declare no longer travels into the preview or test mail, which the server rejected as an unknown variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Singular tenant counts in the override texts
+  detail: The override summary and the system origin bar use plural forms, so one customising tenant reads "1 tenant has its own version" in en, de and es.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Mail layout enums and hex color pattern are exported client-side
+  detail: The layout editor imports the width, font, accent line and button style lists plus the hex pattern from the template-resolver web barrel instead of keeping copies, so editor and server validation cannot drift.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useTenantCurrency hook
+  detail: The tenant currency resolution of the entity edit prefill is exported as a hook with an explicit fallback for errors and missing values and no query when no currency is needed; the mail preview uses it only for templates with a money variable.
+  -->
+- 22bc0a7: Review fixes: seeded layout titles resolve in the PDF editor and mail rail, the client-error rate limiter evicts the least recently seen IPs instead of resetting every window, the SSE heartbeat ping counts towards stalled-client detection, and the `__Host-` session cookies are expired even with `secureCookies:false`. The exported `runAsDirectCallEntry` is now `runAsAgentToolCallEntry`.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Seeded layout titles show translated in the PDF editor and mail rail
+  detail: A layout seeded with a title i18n key now shows its translated name in the PDF editor header and the mail editor properties rail instead of the raw key.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Client-error rate limit survives address rotation
+  detail: Without Redis, the per-process limiter now drops the least recently seen IPs when more than 10000 are tracked, so a flood of fresh addresses no longer resets the window of every other IP.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Stalled SSE clients are dropped without further broadcasts
+  detail: The heartbeat ping is written and tracked like entity frames instead of awaited, so a client that stopped reading is aborted at the next heartbeat after the stall timeout and releases its broker slot.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Leftover __Host- cookies are expired with secureCookies:false too
+  detail: Clearing the session cookies now always sends the Secure delete for the __Host- auth and csrf variants when the configured names are unprefixed, so an app switched to secureCookies:false behind a TLS proxy no longer keeps a stale __Host- csrf cookie.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: runAsDirectCallEntry renamed to runAsAgentToolCallEntry
+  detail: The internal request-context helper also marks its scope as an agent tool call, so the name now says so; it stays reserved for dispatchToolCall.
+  migration: replace imports of runAsDirectCallEntry from @cosmicdrift/kumiko-framework/internal/request-context with runAsAgentToolCallEntry; the signature is unchanged
+  -->
+- da784a9: Review fixes: the upgrade check lists the codemod an improvement runs on apply, the package-merge codemod no longer leaves a target in both dependencies and devDependencies, the notification template meta type carries senderName and replyTo, and comments are corrected or rewrapped.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade check names the codemod an improvement runs on apply
+  detail: kumiko-upgrade without --apply now prints the codemod of each improvement entry, the same way it prints the migration of breaking entries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Package-merge codemod keeps one entry per target package
+  detail: When the merge target is already listed in dependencies, the old devDependencies entry is dropped; when the old entry is in dependencies and the target only in devDependencies, the target moves to dependencies so the runtime entry wins.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: NotificationTemplateMeta declares senderName and replyTo
+  detail: The type now matches the mail template meta schema of the template resolver, which accepts senderName and replyTo.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [d4dde3f]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [ff553d1]
+- Updated dependencies [6262122]
+- Updated dependencies [453b3f0]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [374a12b]
+- Updated dependencies [014b9ab]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [5520352]
+- Updated dependencies [a0a8204]
+- Updated dependencies [73258c0]
+- Updated dependencies [2fb7e2b]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+- Updated dependencies [1425622]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-renderer@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+  - @cosmicdrift/kumiko-testing@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

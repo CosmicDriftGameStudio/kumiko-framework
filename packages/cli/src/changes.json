@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "check, sync-managed and backfill-pii handle failure and subdirectories correctly",
+    "detail": "kumiko check only warns about unresolvable managed files or package.json scripts until kumiko.config.ts calls defineAppConfig. sync-managed resolves the repo root like check instead of using cwd. ops backfill-pii closes the KMS wiring when registry creation fails. The agent command reuses allAppFeatures from the framework config."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "Internal peer dependencies are published as exact versions",

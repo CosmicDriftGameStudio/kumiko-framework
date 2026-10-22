@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Corrected description of an email channel without app transport",
+    "detail": "Without an app transport only notifications declared with tenantTransport true are delivered; all others fail with missing_credentials, so such apps must mark every outgoing notification or keep an app transport."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "resolveEmail receives a typed tenant database",

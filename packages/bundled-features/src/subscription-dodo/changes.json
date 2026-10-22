@@ -1,0 +1,14 @@
+[
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "New subscription provider for Dodo Payments",
+    "detail": "createSubscriptionDodoFeature() registers the \"dodo\" subscription provider (Merchant of Record). It verifies Standard Webhooks signatures, maps Dodo events to the foundation events, creates hosted checkouts and portal sessions, and switches plans in the app through previewPlanSwitch and applyPlanSwitch. Config keys are api-key, webhook-secret, billing-live and environment. Plan switches need a Product Collection in Dodo."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "dodoEnvSchema declares the Dodo product id slots",
+    "detail": "dodoEnvSchema({ prices: [\"PRO\"] }) adds one optional DODO_PRODUCT_PRO slot per plan next to the API key and webhook key, and checks the pdt_ prefix. It is the counterpart to stripeEnvSchema."
+  }
+]

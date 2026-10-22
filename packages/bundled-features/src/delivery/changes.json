@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Preferences query reports renamed notification types under the current name",
+    "detail": "Rows stored under a former notification name are returned with the current name and collapsed per channel with the delivery precedence (current-name row wins, otherwise any disabled row disables), so settings screens show the effective state."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Inline mail image retries on transient storage errors",
+    "detail": "Only a missing file storage for the file's tenant sends the mail without the inline image; any other read error (timeout, provider failure, DB) is rethrown so the send job retries instead of mailing without the logo."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Unsubscribe tenant origin resolved once per notify call",
+    "detail": "The app's tenantOrigin callback runs once per notify call and tenant instead of once per recipient and channel, so a newsletter no longer causes one lookup and one fallback warning per address. The docs state the callback must only return verified, active domains."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "One-click unsubscribe POST keeps the JSON rejection",
+    "detail": "RFC 8058 one-click POSTs (form body List-Unsubscribe=One-Click) answer an invalid or expired token with the JSON 400 again and skip the branding lookup; only browser form submits get the HTML page."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Resubscribe limit page has its own text",
+    "detail": "A browser that hits the resubscribe limit sees that the address cannot be subscribed again here, instead of the generic \"try again later\" error (new key mail.unsubscribe.resubscribeLimitReached in en, de, es, fr, it)."
+  },
+  {
     "version": "0.383.0",
     "type": "fix",
     "title": "delivery-log projection masks the recipient address",

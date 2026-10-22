@@ -1,5 +1,115 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.388.0
+
+### Patch Changes
+
+- d4dde3f: `runProdApp()`, `runDevApp()` and `setupTestStack()` are now short composers that call one named phase function per boot step. Step order, log and error texts, wait paths and shutdown order are unchanged.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp split into boot phases, boot steps shared with dev and worker
+  detail: runProdApp() keeps its signature and behavior. Config resolution, feature composition, dependency connection, request context, auth wiring, entrypoint, seeds and the returned handle now live in run-prod-app-*.ts files next to run-prod-app.ts. Steps that prod, dev and the worker ran as copies (env defaults, feature composition, boot validation, the auth-mfa switch-tenant gate, the tier and feature-toggle resolver, standard boot seeds, shared auth routes, the KMS health gate and the database pools) live once in the new subpath @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. requireEnv is still exported from run-prod-app under the same name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp split into boot phases
+  detail: runDevApp() keeps its signature and behavior. Config resolution and boot validation (run-dev-app-config.ts), late-bound tier, session and token wiring plus the onAfterSetup step (run-dev-app-auth.ts) and the createKumikoServer options (run-dev-app-server-options.ts) are separate phases. Steps shared with prod come from @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. A new unit test covers the late-bound tier resolver's boot-order guard and trialGate delegation.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: setupTestStack split into setup phases
+  detail: setupTestStack() keeps its signature and behavior. Feature validation, storage provisioning with its DDL cleanup, cache sync, services, the job runner and the server start are separate phases in stack/test-stack-setup.ts. The cleanup on a failed setup still stops the job runner, closes cache sync and drops the test database and Redis in that order.
+  -->
+- 73258c0: Testing helper fixes: barrier timeout, SSE CRLF, boundary guard on all pages, Redis connect cleanup.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Barrier, SSE reader, boundary guard and Redis helper fixes
+  detail: createBarrier rejects late arrivals after a timeout instead of hanging. readSseFrames accepts CRLF and CR line endings. The error-boundary guard observes every page of the context and no longer fails on closed pages. createTestRedis disconnects the client when the initial connect fails. createE2eSeedRoutes of the e2e/seed-route subpath is also available as createE2eSeedRoutesWith, the old name stays as a deprecated alias.
+  -->
+- 52859ba: Review fixes: stricter boot checks for handler field references and `r.requires`, `r.bootCheck` failures no longer get a redundant suffix, embedded lists keep `minItems` in the JSON schema, and tests share one console-call filter helper.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unknown keys in a handler field references meta fail the boot
+  detail: A references meta such as `{ entity: "channel", bY: "key" }` is reported as invalid instead of silently reading as an id reference, so a misspelled `by` can no longer turn a business-key field into an id field.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: r.requires rejects malformed arguments
+  detail: `r.requires` now throws when called with more than one argument or without a `features` string array, instead of dropping extra arguments or registering the object as a dependency name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: r.bootCheck failures keep the check's own message
+  detail: The boot error no longer appends a generic sentence, so messages ending in a period are not doubled and the check's text is the whole explanation.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Embedded list minimum stays in the JSON schema
+  detail: A required or `minItems` embedded list again reports `minItems` in `z.toJSONSchema` output, so agent manifests tell callers that at least one row is needed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: consoleCallsMentioning helper for console spies
+  detail: `@cosmicdrift/kumiko-testing/helpers` exports `consoleCallsMentioning(spy, fragment)` and `ConsoleSpyLike`, replacing the per-file filters tests used to ignore console output of other test files.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [f81f639]
+- Updated dependencies [7e54012]
+- Updated dependencies [7e54012]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [374a12b]
+- Updated dependencies [014b9ab]
+- Updated dependencies [0528a2d]
+- Updated dependencies [b62c381]
+- Updated dependencies [a10796c]
+- Updated dependencies [70f0718]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [c23dce0]
+- Updated dependencies [ff5f68e]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+  - @cosmicdrift/kumiko-guards@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

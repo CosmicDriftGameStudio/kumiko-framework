@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Destroy sweep keeps a minimum time slice per tenant",
+    "detail": "With many tenants in destroying state the shared tick budget no longer shrinks a tenant's slice below two seconds, so chunking hooks make progress instead of failing the stage as no-progress attempts."
+  },
+  {
     "version": "0.365.0",
     "type": "fix",
     "title": "One sweep tick shares a single stage budget between all destroying tenants",

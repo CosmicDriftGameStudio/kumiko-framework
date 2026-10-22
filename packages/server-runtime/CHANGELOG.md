@@ -1,5 +1,288 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.388.0
+
+### Minor Changes
+
+- 1425622: Dodo Payments as a subscription provider, and billing-foundation offers several providers side by side.
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: New subscription provider for Dodo Payments
+  detail: createSubscriptionDodoFeature() registers the "dodo" subscription provider (Merchant of Record). It verifies Standard Webhooks signatures, maps Dodo events to the foundation events, creates hosted checkouts and portal sessions, and switches plans in the app through previewPlanSwitch and applyPlanSwitch. Config keys are api-key, webhook-secret, billing-live and environment. Plan switches need a Product Collection in Dodo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: dodoEnvSchema declares the Dodo product id slots
+  detail: dodoEnvSchema({ prices: ["PRO"] }) adds one optional DODO_PRODUCT_PRO slot per plan next to the API key and webhook key, and checks the pdt_ prefix. It is the counterpart to stripeEnvSchema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Several subscription providers in one catalog
+  detail: The billing-plans query returns providers (name, displayName, plans, note) when more than one provider is offered, and start-plan-checkout takes providerName. consumerProtection.providerTexts overrides checkoutNote and vatNote per provider, and the consent record carries providerName. switch-plan always uses the provider of the existing subscription.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: In-app plan switch with a preview and consent
+  detail: A provider plugin that implements previewPlanSwitch and applyPlanSwitch switches plans without a hosted portal. The new plan-switch-preview query returns the proration, the billing-plans result carries inAppPlanSwitch, and the panel shows PlanSwitchConfirmDialog with the withdrawal consent checkboxes. The confirmation mail is sent when the plan_changed webhook arrives with the consent id.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: A catalog with several providers no longer throws an ambiguous-provider error
+  detail: With more than one subscription provider mounted, billing-plans and start-plan-checkout used to throw. They now list the providers; start-plan-checkout answers with errors.providerRequired when several are offered and no providerName is given, and errors.providerNotOffered for an unknown one. Plugins have to set displayName.
+  migration: Set displayName on custom subscriptionProvider plugins. Callers that send start-plan-checkout with several providers mounted must pass providerName.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: Stripe plugin has a displayName
+  detail: The Stripe plugin sets displayName "Stripe", which the provider choice in the billing panel shows.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: billing boot option takes stripe and/or dodo
+  detail: billing.stripe is now optional and billing.dodo is new (priceToTier, oneOffPriceIds). At least one is required. resolveBillingOption returns features (an array) instead of feature, and one webhook route serves every provider on stripe.webhookPath or SUBSCRIPTION_WEBHOOK_PATH. DODO_PAYMENTS_API_KEY and DODO_PAYMENTS_WEBHOOK_KEY are the env bridge.
+  migration: Callers of resolveBillingOption use billing.features instead of billing.feature.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings for the provider choice and the in-app plan switch
+  detail: Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: ChoiceCards widget and PlanCard price prefix
+  detail: ChoiceCards is a card-styled radio group (title, description, aside, native radios, keyboard operable) for exclusive choices that need more than a segment label. PlanCardPrice takes an optional prefix shown before the amount, for example "from".
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Provider choice moved into the checkout dialog
+  detail: The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a "from" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: A malformed stored credential no longer leaks into the error
+  detail: A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same.
+  -->
+
+### Patch Changes
+
+- 7e54012: `runProdApp` passes `errorDocs` and `instanceId` to the server. `ApiEntrypointOptions` now carries both fields. Before, the entrypoint dropped them silently, so the `errorDocs` option of `runProdApp` had no effect, and a `KUMIKO_INSTANCE_ID` set only in a custom `envSource` never reached the server, which fell back to `process.env`. The boot-abort cleanup of `runProdApp` moved into a helper that also swallows synchronously throwing cleanups, and `wireDevAuth` now takes only the config fields it reads.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: runProdApp passes errorDocs and instanceId to the server
+  detail: ApiEntrypointOptions now carries errorDocs and instanceId and createApiEntrypoint forwards them to the server. Before, runProdApp dropped its errorDocs option, and a KUMIKO_INSTANCE_ID set only in a custom envSource never reached the server, which fell back to process.env. The boot-abort cleanup of runProdApp also moved into a helper that swallows synchronously throwing cleanups.
+  -->
+- f81f639: The registry checks physical-table collisions against the table name the DDL creates, so two entities of different features with the same physical table now fail at boot. `WorkerEntrypointOptions` carries `instanceId`, and `runWorkerApp` reads `KUMIKO_INSTANCE_ID` from its `envSource`. The PII and retention validator, the cascade-delete hook, `computeListViewModel`, `applyFormatSpec` and the field projection of `buildAppSchema` are rule tables with unchanged messages and order, and the remaining German dev messages are English.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Physical-table collisions use the DDL table name
+  detail: createRegistry compared entity tables under a feature-prefixed name that no DDL path creates, so an entity whose explicit table equals another feature's derived table name, or two entities with the same explicit table in different features, registered fine and then emitted the same CREATE TABLE twice. The check now uses the unprefixed physical name, the same as the store-table check and the migrate runner.
+  migration: Apps where two entities share a physical table name fail at boot with "has physical table ... which collides with entity ...". Give one of them a different `table`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Worker entrypoint takes instanceId
+  detail: WorkerEntrypointOptions now carries instanceId (moved to BaseEntrypointOptions, so the API and all-in-one options keep it) and createWorkerEntrypoint forwards it to the server. runWorkerApp reads KUMIKO_INSTANCE_ID from its envSource like runProdApp, so with KUMIKO_INSTANCE_ID set, per-instance consumers in the worker and its app.started event use the same id. Before, the worker server only saw process.env.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PII, retention and cascade-delete rules as tables, English dev messages
+  detail: validatePiiAndRetention runs one checker per rule in a fixed order, and the cascade-delete hook dispatches each relation through a table of onDelete strategies. Error and warning texts, their order, transaction boundaries and event order are unchanged. buildAppSchema forwards field properties through an ordered table, and kumiko-upgrade and the pii-personal-migration codemod run one function per step; their output is byte-identical. The dev warnings of normalizeListColumn and buildAppSchema are now English.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: List view model and cell formats as tables
+  detail: computeListViewModel resolves each column through an ordered list of resolvers and applyFormatSpec dispatches through a table of cell formatters. Output is unchanged; a format named like an Object.prototype member such as "toString" still takes the unknown-format path.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: English buildServerBundle errors
+  detail: The errors for a missing bin/main.ts and a missing bin/kumiko.ts in buildServerBundle are now English.
+  -->
+- d4dde3f: `runProdApp()`, `runDevApp()` and `setupTestStack()` are now short composers that call one named phase function per boot step. Step order, log and error texts, wait paths and shutdown order are unchanged.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp split into boot phases, boot steps shared with dev and worker
+  detail: runProdApp() keeps its signature and behavior. Config resolution, feature composition, dependency connection, request context, auth wiring, entrypoint, seeds and the returned handle now live in run-prod-app-*.ts files next to run-prod-app.ts. Steps that prod, dev and the worker ran as copies (env defaults, feature composition, boot validation, the auth-mfa switch-tenant gate, the tier and feature-toggle resolver, standard boot seeds, shared auth routes, the KMS health gate and the database pools) live once in the new subpath @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. requireEnv is still exported from run-prod-app under the same name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp split into boot phases
+  detail: runDevApp() keeps its signature and behavior. Config resolution and boot validation (run-dev-app-config.ts), late-bound tier, session and token wiring plus the onAfterSetup step (run-dev-app-auth.ts) and the createKumikoServer options (run-dev-app-server-options.ts) are separate phases. Steps shared with prod come from @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. A new unit test covers the late-bound tier resolver's boot-order guard and trialGate delegation.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: setupTestStack split into setup phases
+  detail: setupTestStack() keeps its signature and behavior. Feature validation, storage provisioning with its DDL cleanup, cache sync, services, the job runner and the server start are separate phases in stack/test-stack-setup.ts. The cleanup on a failed setup still stops the job runner, closes cache sync and drops the test database and Redis in that order.
+  -->
+- 0528a2d: Fix managed-file sync, static config parsing and boot cleanup.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed CI, app jobs and static config parsing
+  detail: The public ci.yml sets MEILI_URL and MEILI_MASTER_KEY for the Meilisearch service. App-owned workflow jobs with a trailing comment or a quoted name survive a sync. kumiko.config.ts with shorthand or spread siblings next to literal ports is read as defined instead of invalid.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp releases connections when the boot fails
+  detail: A failing boot closes the database pools, the Redis client and the KMS adapter it already opened. The KMS health wait logs "KMS not reachable" instead of "database not reachable".
+  -->
+- 006f789: Boot hardening in server-runtime: shared database wait deadline, stricter master-key and file-storage validation, fatal handlers stay installed during fatal shutdown.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Boot validation and shutdown hardening
+  detail: The KMS and app database waits share one deadline so a boot never outlasts the liveness window. An app-supplied master key provider is checked at boot, also in a dry run. Additional fileStorage providers get the same production and S3 checks as the default one, and their env keys are validated. appOverrides without auth or delivery feature abort instead of being dropped. A fatal shutdown keeps its listeners installed, and inline script hashing handles a ">" inside quoted attributes.
+  -->
+- 084c9c0: Review fixes: an inline mail image no longer swallows transient storage errors, the unsubscribe tenant origin is resolved once per notify call, one-click unsubscribe POSTs keep the JSON rejection, the resubscribe limit has its own page text, and form drafts fail loudly when the PII key service is missing.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Inline mail image retries on transient storage errors
+  detail: Only a missing file storage for the file's tenant sends the mail without the inline image; any other read error (timeout, provider failure, DB) is rethrown so the send job retries instead of mailing without the logo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Unsubscribe tenant origin resolved once per notify call
+  detail: The app's tenantOrigin callback runs once per notify call and tenant instead of once per recipient and channel, so a newsletter no longer causes one lookup and one fallback warning per address. The docs state the callback must only return verified, active domains.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: One-click unsubscribe POST keeps the JSON rejection
+  detail: RFC 8058 one-click POSTs (form body List-Unsubscribe=One-Click) answer an invalid or expired token with the JSON 400 again and skip the branding lookup; only browser form submits get the HTML page.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Resubscribe limit page has its own text
+  detail: A browser that hits the resubscribe limit sees that the address cannot be subscribed again here, instead of the generic "try again later" error (new key mail.unsubscribe.resubscribeLimitReached in en, de, es, fr, it).
+  -->
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: fix
+  title: Encrypted drafts without a PII key service raise an error
+  detail: Reading a ciphertext draft with no PII subject key service configured throws instead of returning an empty draft, so the stale-draft cleanup defers it and no longer releases its file refs as if it were empty.
+  -->
+- ff5f68e: The boot seed dispatcher of `runProdApp` now runs the same write lifecycle as the dispatcher behind `/api/*`. Before, it got no lifecycle hooks, so seed writes and seed migrations (`seedsDir`) skipped the whole lifecycle: a file a seed stored with `createFileRef` and `attachTo` was never bound to the record the seed wrote (it kept `entity_id = null` and the file access guard answered 404 for everyone but the uploader), and preSave, postSave, preDelete and postDelete hooks, the tenant check of file references and the disposal of removed file references did not run either.
+  
+  What changes for existing apps: seeds now go through the same hooks as a user write. A hook that throws inside the transaction fails the seed and with it the boot. Seeds that write on every boot run their hooks on every update, because the dedup key includes the handler version. File binding applies to seeds that write as the system user, which is the user `createFileRef` uploads as.
+  
+  `ApiEntrypoint`, `AllInOneEntrypoint` and `KumikoServer` expose the hooks as `lifecycleHooks`, the same instance the API dispatcher uses.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Seed writes run the save lifecycle, so seeded files bind to their records
+  detail: runProdApp built the boot seed dispatcher without lifecycle hooks, so seed writes and seed migrations skipped file binding (entity_id stayed null, other users got 404), the pre/post save and delete hooks, the tenant check of file references and the disposal of removed file references. The seed dispatcher now reuses the lifecycle hooks of the API dispatcher, exposed as lifecycleHooks on the entrypoints and on KumikoServer. A hook that throws inside the transaction now fails the seed and the boot.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [ff553d1]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [4e3bb2c]
+- Updated dependencies [ff553d1]
+- Updated dependencies [6262122]
+- Updated dependencies [453b3f0]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [ed4e21b]
+- Updated dependencies [374a12b]
+- Updated dependencies [cecdf71]
+- Updated dependencies [014b9ab]
+- Updated dependencies [37db191]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [5520352]
+- Updated dependencies [a0a8204]
+- Updated dependencies [7ef7e6c]
+- Updated dependencies [2924949]
+- Updated dependencies [c52702e]
+- Updated dependencies [b62e6cd]
+- Updated dependencies [1e3e94d]
+- Updated dependencies [084c9c0]
+- Updated dependencies [c5b197e]
+- Updated dependencies [c2a97fd]
+- Updated dependencies [669cd2e]
+- Updated dependencies [3c57f8f]
+- Updated dependencies [2fb7e2b]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+- Updated dependencies [1425622]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-renderer@0.388.0
+  - @cosmicdrift/kumiko-bundled-features@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

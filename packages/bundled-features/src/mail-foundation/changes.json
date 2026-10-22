@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Tenant mail transport falls back to the app transport without tenant config",
+    "detail": "tenantMailTransport returns null when the channel context carries no tenant config, instead of throwing on every send, so the channel uses the app transport as documented."
+  },
+  {
     "version": "0.378.0",
     "type": "improvement",
     "title": "Email sending offers a platform default and an own SMTP server",

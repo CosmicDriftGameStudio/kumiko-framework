@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Mail footer cannot be dropped, richText in subject is plain text",
+    "detail": "An mjml layout without the mailFooterHtml placeholder now gets the platform footer appended before the end of the body. Layout links to the imprint or unsubscribe URL only count when they sit in the header, signature or footer region and have link text. richText variables in subject, preview and other meta lines render as plain text instead of raw HTML. An invalid tenant time zone is logged as a warning."
+  },
+  {
     "version": "0.378.0",
     "type": "fix",
     "title": "Typed placeholders in mail subject lines are formatted",

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "config:query:values and config:query:cascade accept a read scope",
+    "detail": "Both queries take an optional scope (system, tenant, user). With scope system the cascade of a tenant or user key is evaluated at system level, so the system row is returned even when the caller's own tenant has a row for the key. Only a SystemAdmin gets the narrowed read; other callers keep the normal cascade. Inherited-value redaction still applies. Without scope the behavior is unchanged."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Remove unreachable branch in configRowHoldsValue",
+    "detail": "The undefined key definition is now handled together with the plaintext comparison, dropping a dead return without changing behavior."
+  },
+  {
     "version": "0.364.0",
     "type": "fix",
     "title": "Config key validate() receives a db scoped to the written tenant",

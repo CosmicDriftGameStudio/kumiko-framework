@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Conditions on images variables work in the PDF render",
+    "detail": "A data-condition on an images variable now shows its block when the record has resolvable images, instead of never. Record image loading stops once the byte budget is used up, caps the number of looked-up ids, and ignores image blocks whose variable is not declared as images."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "Retry documentation matches the client",

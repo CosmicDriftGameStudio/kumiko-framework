@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "runProdApp split into boot phases, boot steps shared with dev and worker",
+    "detail": "runProdApp() keeps its signature and behavior. Config resolution, feature composition, dependency connection, request context, auth wiring, entrypoint, seeds and the returned handle now live in run-prod-app-*.ts files next to run-prod-app.ts. Steps that prod, dev and the worker ran as copies (env defaults, feature composition, boot validation, the auth-mfa switch-tenant gate, the tier and feature-toggle resolver, standard boot seeds, shared auth routes, the KMS health gate and the database pools) live once in the new subpath @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. requireEnv is still exported from run-prod-app under the same name."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "runProdApp releases connections when the boot fails",
+    "detail": "A failing boot closes the database pools, the Redis client and the KMS adapter it already opened. The KMS health wait logs \"KMS not reachable\" instead of \"database not reachable\"."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Boot validation and shutdown hardening",
+    "detail": "The KMS and app database waits share one deadline so a boot never outlasts the liveness window. An app-supplied master key provider is checked at boot, also in a dry run. Additional fileStorage providers get the same production and S3 checks as the default one, and their env keys are validated. appOverrides without auth or delivery feature abort instead of being dropped. A fatal shutdown keeps its listeners installed, and inline script hashing handles a \">\" inside quoted attributes."
+  },
+  {
+    "version": "0.388.0",
+    "type": "breaking",
+    "title": "billing boot option takes stripe and/or dodo",
+    "detail": "billing.stripe is now optional and billing.dodo is new (priceToTier, oneOffPriceIds). At least one is required. resolveBillingOption returns features (an array) instead of feature, and one webhook route serves every provider on stripe.webhookPath or SUBSCRIPTION_WEBHOOK_PATH. DODO_PAYMENTS_API_KEY and DODO_PAYMENTS_WEBHOOK_KEY are the env bridge.",
+    "migration": "Callers of resolveBillingOption use billing.features instead of billing.feature."
+  },
+  {
     "version": "0.385.0",
     "type": "improvement",
     "title": "Database wait ignores Bun.SQL error codes",

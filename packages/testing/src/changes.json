@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "setupTestStack split into setup phases",
+    "detail": "setupTestStack() keeps its signature and behavior. Feature validation, storage provisioning with its DDL cleanup, cache sync, services, the job runner and the server start are separate phases in stack/test-stack-setup.ts. The cleanup on a failed setup still stops the job runner, closes cache sync and drops the test database and Redis in that order."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Barrier, SSE reader, boundary guard and Redis helper fixes",
+    "detail": "createBarrier rejects late arrivals after a timeout instead of hanging. readSseFrames accepts CRLF and CR line endings. The error-boundary guard observes every page of the context and no longer fails on closed pages. createTestRedis disconnects the client when the initial connect fails. createE2eSeedRoutes of the e2e/seed-route subpath is also available as createE2eSeedRoutesWith, the old name stays as a deprecated alias."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "consoleCallsMentioning helper for console spies",
+    "detail": "`@cosmicdrift/kumiko-testing/helpers` exports `consoleCallsMentioning(spy, fragment)` and `ConsoleSpyLike`, replacing the per-file filters tests used to ignore console output of other test files."
+  },
+  {
     "version": "0.386.0",
     "type": "fix",
     "title": "Integration test stacks clone a migrated template database",

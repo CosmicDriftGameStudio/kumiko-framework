@@ -1,5 +1,60 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Concurrent termination runs, revocation resume and sync ordering",
+    "detail": "record-contract-termination re-checks the requestId after the provider call so a concurrent run appends nothing. Revocation resumes a period-end cancel that was recorded between its two stream reads. sync-subscription stamps the snapshot time as providerEventAtIso so a late older webhook cannot reactivate a synced cancellation."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Ordered terms lists keep their numbers in the confirmation mail",
+    "detail": "The contract confirmation mail prefixes each item of an ordered Markdown list with its number, so references such as \"see no. 3\" in terms and cancellation policies stay intact."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Operator notice tells an unavailable receipt limiter from a reached limit",
+    "detail": "When the termination receipt mail is withheld because the rate limiter failed or has no digest key, the operator notice reports \"receipt_not_sent\" instead of the per-recipient limit reason."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "An abandoned plan-change checkout no longer restarts the withdrawal period",
+    "detail": "The withdrawal period now runs from the latest subscription start only; a checkout consent without a following subscription start does not reopen it, so a later withdrawal of an old contract is cancelled at period end."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Same-second provider update cannot revive a canceled subscription",
+    "detail": "When a non-terminal state event carries the same provider timestamp as a stored cancellation, it is treated as late and discarded."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "Several subscription providers in one catalog",
+    "detail": "The billing-plans query returns providers (name, displayName, plans, note) when more than one provider is offered, and start-plan-checkout takes providerName. consumerProtection.providerTexts overrides checkoutNote and vatNote per provider, and the consent record carries providerName. switch-plan always uses the provider of the existing subscription."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "In-app plan switch with a preview and consent",
+    "detail": "A provider plugin that implements previewPlanSwitch and applyPlanSwitch switches plans without a hosted portal. The new plan-switch-preview query returns the proration, the billing-plans result carries inAppPlanSwitch, and the panel shows PlanSwitchConfirmDialog with the withdrawal consent checkboxes. The confirmation mail is sent when the plan_changed webhook arrives with the consent id."
+  },
+  {
+    "version": "0.388.0",
+    "type": "breaking",
+    "title": "A catalog with several providers no longer throws an ambiguous-provider error",
+    "detail": "With more than one subscription provider mounted, billing-plans and start-plan-checkout used to throw. They now list the providers; start-plan-checkout answers with errors.providerRequired when several are offered and no providerName is given, and errors.providerNotOffered for an unknown one. Plugins have to set displayName.",
+    "migration": "Set displayName on custom subscriptionProvider plugins. Callers that send start-plan-checkout with several providers mounted must pass providerName."
+  },
+  {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "Provider choice moved into the checkout dialog",
+    "detail": "The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a \"from\" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "Late Stripe events are dropped",

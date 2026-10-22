@@ -1,5 +1,148 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.388.0
+
+### Patch Changes
+
+- ff553d1: Row actions stay on one line, edit forms keep declared columns and select width, and a system-scope configEdit reads the system level.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Single-line row actions, stable form columns and select width, system-scope configEdit
+  detail: Row actions never wrap onto a second line; the template overview lets long titles break and cuts the slug earlier so the table keeps room at 1280 px. In screen forms a section with explicitly declared columns (two or more) lays out as that many columns, and a select cell is as wide as a text cell instead of growing with its help text. A configEdit screen with scope system now reads the system level, so a SystemAdmin no longer sees the value of their own tenant row.
+  -->
+- 2fb7e2b: Review fixes: the waitlist legacy migration dry run reports the streams it would archive, the document designer shares its mail layout constants and tenant currency lookup with the server and renderer, drops stale picked preview values, and reads singular tenant counts correctly.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Legacy migration dry run counts the streams it would archive
+  detail: The dry run now runs the read-only archive checks and reports archivedStreams without writing; the CLI prints "would archive" for it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Picked preview values are filtered to declared variables
+  detail: A picked record value for a variable the template does not declare no longer travels into the preview or test mail, which the server rejected as an unknown variable.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Singular tenant counts in the override texts
+  detail: The override summary and the system origin bar use plural forms, so one customising tenant reads "1 tenant has its own version" in en, de and es.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Mail layout enums and hex color pattern are exported client-side
+  detail: The layout editor imports the width, font, accent line and button style lists plus the hex pattern from the template-resolver web barrel instead of keeping copies, so editor and server validation cannot drift.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useTenantCurrency hook
+  detail: The tenant currency resolution of the entity edit prefill is exported as a hook with an explicit fallback for errors and missing values and no query when no currency is needed; the mail preview uses it only for templates with a money variable.
+  -->
+- 22bc0a7: Review fixes: seeded layout titles resolve in the PDF editor and mail rail, the client-error rate limiter evicts the least recently seen IPs instead of resetting every window, the SSE heartbeat ping counts towards stalled-client detection, and the `__Host-` session cookies are expired even with `secureCookies:false`. The exported `runAsDirectCallEntry` is now `runAsAgentToolCallEntry`.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Seeded layout titles show translated in the PDF editor and mail rail
+  detail: A layout seeded with a title i18n key now shows its translated name in the PDF editor header and the mail editor properties rail instead of the raw key.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Client-error rate limit survives address rotation
+  detail: Without Redis, the per-process limiter now drops the least recently seen IPs when more than 10000 are tracked, so a flood of fresh addresses no longer resets the window of every other IP.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Stalled SSE clients are dropped without further broadcasts
+  detail: The heartbeat ping is written and tracked like entity frames instead of awaited, so a client that stopped reading is aborted at the next heartbeat after the stall timeout and releases its broker slot.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Leftover __Host- cookies are expired with secureCookies:false too
+  detail: Clearing the session cookies now always sends the Secure delete for the __Host- auth and csrf variants when the configured names are unprefixed, so an app switched to secureCookies:false behind a TLS proxy no longer keeps a stale __Host- csrf cookie.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: runAsDirectCallEntry renamed to runAsAgentToolCallEntry
+  detail: The internal request-context helper also marks its scope as an agent tool call, so the name now says so; it stays reserved for dispatchToolCall.
+  migration: replace imports of runAsDirectCallEntry from @cosmicdrift/kumiko-framework/internal/request-context with runAsAgentToolCallEntry; the signature is unchanged
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [ff553d1]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [4e3bb2c]
+- Updated dependencies [ff553d1]
+- Updated dependencies [6262122]
+- Updated dependencies [453b3f0]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [ed4e21b]
+- Updated dependencies [374a12b]
+- Updated dependencies [cecdf71]
+- Updated dependencies [014b9ab]
+- Updated dependencies [37db191]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [5520352]
+- Updated dependencies [a0a8204]
+- Updated dependencies [7ef7e6c]
+- Updated dependencies [2924949]
+- Updated dependencies [c52702e]
+- Updated dependencies [b62e6cd]
+- Updated dependencies [1e3e94d]
+- Updated dependencies [084c9c0]
+- Updated dependencies [c5b197e]
+- Updated dependencies [c2a97fd]
+- Updated dependencies [669cd2e]
+- Updated dependencies [3c57f8f]
+- Updated dependencies [2fb7e2b]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+- Updated dependencies [1425622]
+  - @cosmicdrift/kumiko-framework@0.388.0
+  - @cosmicdrift/kumiko-renderer@0.388.0
+  - @cosmicdrift/kumiko-bundled-features@0.388.0
+  - @cosmicdrift/kumiko-types@0.388.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

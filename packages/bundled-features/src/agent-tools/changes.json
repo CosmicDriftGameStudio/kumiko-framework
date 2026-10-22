@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "dispatchToolCall documents which failures carry a code",
+    "detail": "Only handler and dispatcher failures carry a code; local validation errors such as an unknown tool or bad arguments come back without one, and the JSDoc now says so."
+  },
+  {
     "version": "0.366.0",
     "type": "improvement",
     "title": "Agent tool failures are classified instead of passing raw messages through",

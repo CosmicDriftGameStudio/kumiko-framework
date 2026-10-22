@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "German strings for the provider choice and the in-app plan switch",
+    "detail": "Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "Translations for the default-filter empty state",

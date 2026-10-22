@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.388.0",
+    "type": "improvement",
+    "title": "readRoles for tenant job status",
+    "detail": "`createJobsFeature({ readRoles: [\"PropertyManager\"] })` lets those app roles call `jobs:query:failures` and `jobs:query:tenant-runs` for their own tenant. They are added to the default `User`, `Editor` and admin roles, which stay. Before, a member who only holds app roles got access_denied.",
+    "migration": "Optional. Apps whose members hold only their own roles pass `createJobsFeature({ readRoles: [...] })`."
+  },
+  {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Deduplicated job add keeps the finished tenant run row",
+    "detail": "JobQueuedMeta carries the BullMQ creation time of the job. The queued hook only removes finished rows queued before that time (leftovers of a Redis reset), so re-announcing an already finished job no longer turns its row back into queued."
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Event consumers screen with restart, skip, pause and resume",

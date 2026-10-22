@@ -1,5 +1,213 @@
 # @cosmicdrift/kumiko-locale-fr
 
+## 0.388.0
+
+### Minor Changes
+
+- 453b3f0: Six-cell one-time code input for the MFA screens: autofocus, auto-submit on the last digit in login and setup, and a recovery-code switch in verify, disable and regenerate.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Input gets kind "code" and autoFocus on kind "text"
+  detail: Input has a new kind "code" (length, onComplete, autoFocus, autoComplete defaulting to one-time-code), a single real input shown as separate cells; onComplete fires once when input, paste or autofill reaches full length and the value holds digits only. kind "text" gains autoFocus.
+  migration: custom Input implementations (PrimitivesProvider override) with an exhaustive switch over props.kind need a case "code"; delegating to DefaultInput from @cosmicdrift/kumiko-renderer/web is enough
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: Six-cell code input, autofocus, auto-submit and recovery switch
+  detail: The MFA login, setup, disable and regenerate screens use the six-cell code input with autofocus. Login and setup submit automatically on the sixth digit; disable and regenerate keep the explicit confirm button. Verify, disable and regenerate can switch to a recovery-code field. New keys auth.mfa.verify.useRecoveryCode, useAuthenticatorCode, recoveryCode and recoverySubtitle in all locale packages; auth.mfa.disable.code now names the authenticator code only.
+  -->
+- 1425622: Dodo Payments as a subscription provider, and billing-foundation offers several providers side by side.
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: New subscription provider for Dodo Payments
+  detail: createSubscriptionDodoFeature() registers the "dodo" subscription provider (Merchant of Record). It verifies Standard Webhooks signatures, maps Dodo events to the foundation events, creates hosted checkouts and portal sessions, and switches plans in the app through previewPlanSwitch and applyPlanSwitch. Config keys are api-key, webhook-secret, billing-live and environment. Plan switches need a Product Collection in Dodo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-dodo
+  type: improvement
+  title: dodoEnvSchema declares the Dodo product id slots
+  detail: dodoEnvSchema({ prices: ["PRO"] }) adds one optional DODO_PRODUCT_PRO slot per plan next to the API key and webhook key, and checks the pdt_ prefix. It is the counterpart to stripeEnvSchema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Several subscription providers in one catalog
+  detail: The billing-plans query returns providers (name, displayName, plans, note) when more than one provider is offered, and start-plan-checkout takes providerName. consumerProtection.providerTexts overrides checkoutNote and vatNote per provider, and the consent record carries providerName. switch-plan always uses the provider of the existing subscription.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: In-app plan switch with a preview and consent
+  detail: A provider plugin that implements previewPlanSwitch and applyPlanSwitch switches plans without a hosted portal. The new plan-switch-preview query returns the proration, the billing-plans result carries inAppPlanSwitch, and the panel shows PlanSwitchConfirmDialog with the withdrawal consent checkboxes. The confirmation mail is sent when the plan_changed webhook arrives with the consent id.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: A catalog with several providers no longer throws an ambiguous-provider error
+  detail: With more than one subscription provider mounted, billing-plans and start-plan-checkout used to throw. They now list the providers; start-plan-checkout answers with errors.providerRequired when several are offered and no providerName is given, and errors.providerNotOffered for an unknown one. Plugins have to set displayName.
+  migration: Set displayName on custom subscriptionProvider plugins. Callers that send start-plan-checkout with several providers mounted must pass providerName.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: Stripe plugin has a displayName
+  detail: The Stripe plugin sets displayName "Stripe", which the provider choice in the billing panel shows.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: billing boot option takes stripe and/or dodo
+  detail: billing.stripe is now optional and billing.dodo is new (priceToTier, oneOffPriceIds). At least one is required. resolveBillingOption returns features (an array) instead of feature, and one webhook route serves every provider on stripe.webhookPath or SUBSCRIPTION_WEBHOOK_PATH. DODO_PAYMENTS_API_KEY and DODO_PAYMENTS_WEBHOOK_KEY are the env bridge.
+  migration: Callers of resolveBillingOption use billing.features instead of billing.feature.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings for the provider choice and the in-app plan switch
+  detail: Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: ChoiceCards widget and PlanCard price prefix
+  detail: ChoiceCards is a card-styled radio group (title, description, aside, native radios, keyboard operable) for exclusive choices that need more than a segment label. PlanCardPrice takes an optional prefix shown before the amount, for example "from".
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Provider choice moved into the checkout dialog
+  detail: The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a "from" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: A malformed stored credential no longer leaks into the error
+  detail: A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same.
+  -->
+
+### Patch Changes
+
+- 5520352: Renderer robustness fixes and clearer template-reset wording in es/fr/it.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer low-severity robustness fixes
+  detail: The list search echo handling no longer mutates state during render and no longer re-sends an already sent value. A failing live refetch no longer drops a queued follow-up run. Downloaded blob URLs are revoked after a delay, failed PDF loads are retried on the next mount, the file meta cache is cleared when the app gate unmounts, and renderFlow rejects duplicate node ids and unknown icons. The es/fr/it titles of the reset-to-system action now say the tenant template is reset to the system template.
+  -->
+- 084c9c0: Review fixes: an inline mail image no longer swallows transient storage errors, the unsubscribe tenant origin is resolved once per notify call, one-click unsubscribe POSTs keep the JSON rejection, the resubscribe limit has its own page text, and form drafts fail loudly when the PII key service is missing.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Inline mail image retries on transient storage errors
+  detail: Only a missing file storage for the file's tenant sends the mail without the inline image; any other read error (timeout, provider failure, DB) is rethrown so the send job retries instead of mailing without the logo.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Unsubscribe tenant origin resolved once per notify call
+  detail: The app's tenantOrigin callback runs once per notify call and tenant instead of once per recipient and channel, so a newsletter no longer causes one lookup and one fallback warning per address. The docs state the callback must only return verified, active domains.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: One-click unsubscribe POST keeps the JSON rejection
+  detail: RFC 8058 one-click POSTs (form body List-Unsubscribe=One-Click) answer an invalid or expired token with the JSON 400 again and skip the branding lookup; only browser form submits get the HTML page.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Resubscribe limit page has its own text
+  detail: A browser that hits the resubscribe limit sees that the address cannot be subscribed again here, instead of the generic "try again later" error (new key mail.unsubscribe.resubscribeLimitReached in en, de, es, fr, it).
+  -->
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: fix
+  title: Encrypted drafts without a PII key service raise an error
+  detail: Reading a ciphertext draft with no PII subject key service configured throws instead of returning an empty draft, so the stale-draft cleanup defers it and no longer releases its file refs as if it were empty.
+  -->
+- 6884324: Review fixes: a failing trial gate hides the add-on in the app schema instead of failing the request, error docs links skip app-overridden error codes, anonymous sessions never bind pending uploads in the save pipeline, and failed uploads drop their ledger row.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Failing trial gate no longer breaks GET /api/schema
+  detail: The trial gates of all disabled toggleable features run in parallel; a gate that throws counts as not unlocked, hides the add-on and is logged, so the client still boots.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: No docsUrl for app error codes without a framework page
+  detail: An app subclass that overrides the error code with an uncovered reason no longer links to a framework page that does not exist; the field is absent unless errorDocs covers the reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Anonymous sessions cannot bind pending uploads on save
+  detail: The save pipeline now applies the same anonymous-session exclusion as the pending file ref helpers, so one visitor cannot attach another visitor's pending upload to their record.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Failed uploads drop their upload ledger row
+  detail: When the fileRef create fails after the bytes were written, POST /files and createFileRefFromBytes now delete the bytes and forget the ledger row instead of leaving it for the next sweep.
+  -->
+- Updated dependencies [7e54012]
+- Updated dependencies [f81f639]
+- Updated dependencies [bd38fdc]
+- Updated dependencies [7447ac1]
+- Updated dependencies [7e54012]
+- Updated dependencies [b4be520]
+- Updated dependencies [e1c01e4]
+- Updated dependencies [2b49eb8]
+- Updated dependencies [be79841]
+- Updated dependencies [1adee91]
+- Updated dependencies [9eec92b]
+- Updated dependencies [044428c]
+- Updated dependencies [9ba9cf4]
+- Updated dependencies [7e54012]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [374a12b]
+- Updated dependencies [014b9ab]
+- Updated dependencies [b62c381]
+- Updated dependencies [ab7c4ee]
+- Updated dependencies [22bc0a7]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [5e03e77]
+- Updated dependencies [52859ba]
+- Updated dependencies [6884324]
+- Updated dependencies [2638a4a]
+- Updated dependencies [b137525]
+- Updated dependencies [f507989]
+- Updated dependencies [da784a9]
+- Updated dependencies [ff5f68e]
+  - @cosmicdrift/kumiko-framework@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

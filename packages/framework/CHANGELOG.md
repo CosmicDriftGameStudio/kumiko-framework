@@ -1,5 +1,477 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.388.0
+
+### Minor Changes
+
+- e1c01e4: The entity list query takes an optional `aggregate` payload and answers with groups and measures instead of rows, so a table can show group headers and sums over all matching rows rather than one page.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Groups and sums on the entity list query
+  detail: Pass aggregate with an optional groupBy field and up to 20 measures (sum, avg, count, min, max per field) to a list query. The answer is groups with key, count, one value per measure in request order and, for a reference groupBy, the label of the referenced row. Screen filters, search, ownership and field read access apply exactly as for rows; a field the caller may not read yields null or no groups, and encrypted, personal or secret fields and unsuitable field types are rejected with a validation error. At most 200 groups are returned, with truncated set beyond that. Custom query handlers use executor.aggregate or answerListAggregate.
+  -->
+- ee0aaf9: Write handlers can book rateLimit tokens per payload element with `rateLimitCost`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: rateLimitCost for write handlers
+  detail: A write handler can declare `rateLimitCost: (payload) => number`. The result is booked on every declared `rateLimit` bucket instead of the options' static `cost`; values below 1 count as 1 and non-finite values fail the request. The bucket is charged after schema validation, so an invalid payload costs nothing, and a rejected request consumes no tokens. Boot fails when `rateLimitCost` is set without an active `rateLimit`, or on an anonymous or ip-limited handler, because the cost books after the parse and such a handler would lose its pre-parse protection.
+  migration: Optional. Bulk handlers should add `rateLimitCost: (p) => p.files.length` so a request with many items is not counted as one.
+  -->
+- 22bc0a7: Review fixes: seeded layout titles resolve in the PDF editor and mail rail, the client-error rate limiter evicts the least recently seen IPs instead of resetting every window, the SSE heartbeat ping counts towards stalled-client detection, and the `__Host-` session cookies are expired even with `secureCookies:false`. The exported `runAsDirectCallEntry` is now `runAsAgentToolCallEntry`.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Seeded layout titles show translated in the PDF editor and mail rail
+  detail: A layout seeded with a title i18n key now shows its translated name in the PDF editor header and the mail editor properties rail instead of the raw key.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Client-error rate limit survives address rotation
+  detail: Without Redis, the per-process limiter now drops the least recently seen IPs when more than 10000 are tracked, so a flood of fresh addresses no longer resets the window of every other IP.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Stalled SSE clients are dropped without further broadcasts
+  detail: The heartbeat ping is written and tracked like entity frames instead of awaited, so a client that stopped reading is aborted at the next heartbeat after the stall timeout and releases its broker slot.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Leftover __Host- cookies are expired with secureCookies:false too
+  detail: Clearing the session cookies now always sends the Secure delete for the __Host- auth and csrf variants when the configured names are unprefixed, so an app switched to secureCookies:false behind a TLS proxy no longer keeps a stale __Host- csrf cookie.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: runAsDirectCallEntry renamed to runAsAgentToolCallEntry
+  detail: The internal request-context helper also marks its scope as an agent tool call, so the name now says so; it stays reserved for dispatchToolCall.
+  migration: replace imports of runAsDirectCallEntry from @cosmicdrift/kumiko-framework/internal/request-context with runAsAgentToolCallEntry; the signature is unchanged
+  -->
+
+### Patch Changes
+
+- 7e54012: `runProdApp` passes `errorDocs` and `instanceId` to the server. `ApiEntrypointOptions` now carries both fields. Before, the entrypoint dropped them silently, so the `errorDocs` option of `runProdApp` had no effect, and a `KUMIKO_INSTANCE_ID` set only in a custom `envSource` never reached the server, which fell back to `process.env`. The boot-abort cleanup of `runProdApp` moved into a helper that also swallows synchronously throwing cleanups, and `wireDevAuth` now takes only the config fields it reads.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: runProdApp passes errorDocs and instanceId to the server
+  detail: ApiEntrypointOptions now carries errorDocs and instanceId and createApiEntrypoint forwards them to the server. Before, runProdApp dropped its errorDocs option, and a KUMIKO_INSTANCE_ID set only in a custom envSource never reached the server, which fell back to process.env. The boot-abort cleanup of runProdApp also moved into a helper that swallows synchronously throwing cleanups.
+  -->
+- f81f639: The registry checks physical-table collisions against the table name the DDL creates, so two entities of different features with the same physical table now fail at boot. `WorkerEntrypointOptions` carries `instanceId`, and `runWorkerApp` reads `KUMIKO_INSTANCE_ID` from its `envSource`. The PII and retention validator, the cascade-delete hook, `computeListViewModel`, `applyFormatSpec` and the field projection of `buildAppSchema` are rule tables with unchanged messages and order, and the remaining German dev messages are English.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Physical-table collisions use the DDL table name
+  detail: createRegistry compared entity tables under a feature-prefixed name that no DDL path creates, so an entity whose explicit table equals another feature's derived table name, or two entities with the same explicit table in different features, registered fine and then emitted the same CREATE TABLE twice. The check now uses the unprefixed physical name, the same as the store-table check and the migrate runner.
+  migration: Apps where two entities share a physical table name fail at boot with "has physical table ... which collides with entity ...". Give one of them a different `table`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Worker entrypoint takes instanceId
+  detail: WorkerEntrypointOptions now carries instanceId (moved to BaseEntrypointOptions, so the API and all-in-one options keep it) and createWorkerEntrypoint forwards it to the server. runWorkerApp reads KUMIKO_INSTANCE_ID from its envSource like runProdApp, so with KUMIKO_INSTANCE_ID set, per-instance consumers in the worker and its app.started event use the same id. Before, the worker server only saw process.env.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: PII, retention and cascade-delete rules as tables, English dev messages
+  detail: validatePiiAndRetention runs one checker per rule in a fixed order, and the cascade-delete hook dispatches each relation through a table of onDelete strategies. Error and warning texts, their order, transaction boundaries and event order are unchanged. buildAppSchema forwards field properties through an ordered table, and kumiko-upgrade and the pii-personal-migration codemod run one function per step; their output is byte-identical. The dev warnings of normalizeListColumn and buildAppSchema are now English.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: List view model and cell formats as tables
+  detail: computeListViewModel resolves each column through an ordered list of resolvers and applyFormatSpec dispatches through a table of cell formatters. Output is unchanged; a format named like an Object.prototype member such as "toString" still takes the unknown-format path.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: English buildServerBundle errors
+  detail: The errors for a missing bin/main.ts and a missing bin/kumiko.ts in buildServerBundle are now English.
+  -->
+- bd38fdc: The list read verb, the column builder for entity fields, the derivation of entity table metadata and the per-table migration diff are split into small named steps. Generated SQL, list results, table metadata and migration plans are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Named steps for list reads, field columns, table metadata and table diffs
+  detail: The list read verb runs search, sort, cursor boundary, filters, stream-version projection, row rehydration and the next cursor as named steps in their own files next to event-store-executor-read.ts, and detail() shares the ownership and row rehydration steps. Field columns come from one emitter per field type in a typed table, so a new field type fails the typecheck until it has an emitter, and an unknown type from untyped input still throws "unhandled field type". deriveEntityTableMeta collects columns, foreign-key, blind-index and declared indexes in separate steps with the same overloads and error texts. diffOneTable compares columns and indexes through one comparator per kind and keeps the order of added, dropped and changed entries.
+  -->
+- 7447ac1: The feature AST matches pattern ids, classifies editability and renders patterns through one typed table per kind instead of long switch statements. Rendered source, editability and id matching are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Per-kind tables for feature-AST id matching, editability and rendering
+  detail: callMatchesId() looks up one matcher per PatternId kind in a typed table in feature-ast/pattern-id-matchers.ts next to patch.ts. getEditability() reads a table keyed by pattern kind, and renderPattern() dispatches through one renderer per pattern kind. All three tables are typed over their kind union, so a new kind does not compile until it has an entry. The feature-ast barrel exports the same names as before.
+  -->
+- 7e54012: `validateBoot` now calls `validateProjectionAllowlist`. Violations that passed silently before fail at boot: `unsafeProjectionUpsert`/`unsafeProjectionDelete` without `r.requires.projection`, on aggregate tables, tier-2 steps without `r.requires.step`, pipeline closures that read the payload while the step list is built, and two features registering the same aggregate table. Aggregate tables are matched by their physical table name, so an entity without an explicit `table` is protected as well.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot enforces the projection allowlist
+  detail: The projection allowlist validator existed but was never called from validateBoot. It now runs as the last cross-feature check. It also keys aggregate tables by the physical table name (entity.table or the derived read_* name) instead of the entity name, so unsafeProjection steps on the table of an entity without an explicit table, and duplicate tables between a derived and an explicit name, are detected.
+  migration: Apps with such violations fail at boot. Add the missing r.requires.projection or r.requires.step declaration, or use r.step.aggregate.* for aggregate tables.
+  -->
+- b4be520: The auth-mfa recipe shows the code input outside the MFA screens.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Recipe for Input kind "code" in a confirmation step
+  detail: samples/recipes/auth-mfa has a ConfirmationCodeStep for e-mail or invite codes that uses Input kind "code" with length, autoFocus and onComplete, clears and refocuses after a rejected code, and has a DOM test. The agent example for auth-mfa includes it.
+  -->
+- 2b49eb8: `buildServer()` is now a short composer that calls one installer per middleware and one mounter per route group in a fixed, documented order.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: buildServer split into middleware installers and route mounters
+  detail: buildServer() keeps its signature and behavior. Boot checks, pre-app wiring, the event dispatcher, middleware installers and route mounters now live in server-*.ts files next to server.ts. withFileProviderResolver and makeDispatchSystemWrite/makeDispatchWriteAs/makeDispatchSystemQuery are still exported from the api barrel under the same names.
+  -->
+- be79841: The where-clause builder, driver-row coercion and the event-store write verbs are split into small named steps. Generated SQL, coercion results and write errors are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Where-clause emitters, coercer table and named write steps
+  detail: buildWhereClause() now dispatches through one emitter per WhereOperator key in a typed table, and coerceDriverRow() looks up one coercer per pgType. Table introspection, value preparation, row coercion, closed-connection handling and aggregate SQL live in their own files next to db/query.ts. The create and update write verbs run preSave, field and ownership checks, the record-lock guard, select-option checks, the version check, the append and the projection as named steps. The db barrel exports the same names as before.
+  -->
+- 1adee91: The job runner's per-run path is split into named steps for the pre-run gates, the run context, the handler span and the deferral. Gate order, log lines, callbacks and Redis writes are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Job runner run path split into named steps
+  detail: handleJob() in jobs/job-runner.ts now composes the perTenant fan-out, the unknown-job check, the maxPerTenant defer gate and the sequential lock (job-runner-gates.ts), the run context with its db, service and dispatch facets (job-runner-context.ts), the job.execute span with success and failure recording (job-runner-execution.ts) and the handler deferral. The runner's shared state travels in one scope object (job-runner-scope.ts). The jobs barrel exports the same names as before. New integration tests cover unknown jobs taken from the queue, a perTenant wrapper for an unknown job, a perTenant job without a tenant resolver and ctx.defer with a non-positive delay.
+  -->
+- 9eec92b: The handler context builder and the write pipeline are split into named steps. The handler context keeps the same fields, field order and checks; gate order, error texts, savepoints and after-commit hooks of a write are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Handler context and write pipeline split into named steps
+  detail: buildHandlerContext() in pipeline/dispatch-shared.ts now composes one builder per facet of the flat HandlerContext: the shared scope (handler-context-scope.ts), the tenant-scoped db handles, forTenant and file contexts (handler-context-db.ts), the commit sinks with ctx.query/write/queryAs/writeAs and nested writes in savepoints (handler-context-dispatch.ts), ctx.notify (handler-context-notify.ts), config, configFor, tz and locale (handler-context-config.ts), the event store surfaces and ctx.queryProjection (handler-context-events.ts), the identity-gated auth surfaces and ctx.hasFeature (handler-context-auth.ts) and log, tracer and metrics (handler-context-observability.ts). executeWriteInner() in pipeline/dispatch-write.ts runs the entry checks, the pre-handler gates with the reservation, the transition guard, the handler call and the settle step with reservation confirm, lifecycle and after-commit hooks as separate functions; executeNestedWrite() checks the nested foreign keys, verifies the parent row and writes the children in their own steps. Public exports are unchanged. New tests cover the ctx.snapshotAggregate/ctx.loadAggregateWithSnapshot roundtrip with tenant isolation and the no-database error text of the event store surfaces.
+  -->
+- 044428c: `kumiko-schema` and the standalone `kumiko schema apply` bundle print all of their messages in English now. The remaining German lines (missing schema file or migrations folder, unknown subcommand, the help text, the generate hints, the standalone apply progress lines) were translated. `runSchemaCli()` dispatches each subcommand through a table to its own handler, and `requiredKeysFromScreen()` collects keys through one collector per screen kind.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-schema output in English, schema CLI and screen key collection split per kind
+  detail: Visible change: kumiko-schema (and the dev `kumiko schema` command) now prints "is missing", "App convention", "No schema changes detected — no new migration file written.", "Review, hand-edit if needed, then git add + commit.", "is missing — run schema generate <name> first.", "No kumiko/migrations/ — the app is still on the legacy drizzle path.", "Unknown subcommand" / "Allowed", "must declare `export const ENTITY_METAS: EntityTableMeta[]`" and an English help text instead of the German lines. The standalone `kumiko schema apply` of production bundles prints "Creating framework infrastructure tables (idempotent)…", "Applying kumiko migrations (…)…", "… is missing — kumiko/migrations/ must be part of the image." and "Unknown command: kumiko … / The standalone bundle only supports 'kumiko schema apply'.". Scripts that matched the German text need the English one. Exit codes, the order of the output lines and which lines go to stderr are unchanged. runSchemaCli() keeps its signature; each subcommand lives in its own file under schema-cli/. requiredKeysFromScreen() returns the same keys in the same order; a screen with an unknown type (only reachable through a cast) yields just its title key.
+  -->
+- 9ba9cf4: `validateScreens()` is now a short loop that runs the shared screen checks once and then dispatches each screen to its own validator through a table keyed by the screen kind.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: validateScreens split into one validator per screen kind
+  detail: validateScreens() keeps its signature, its error messages and the order in which it reports the first error. The per-kind validators live in screens-kind-*.ts next to screens.ts, and checks shared by several kinds (empty columns or sections, header actions, write-handler registration) live in screens-kind-shared.ts and screens-actions.ts. A screen whose type is not a known kind now fails boot with an explicit "unknown type" error.
+  -->
+- 7e54012: The sequential-job lock is released when `prepareJobRun` or `onJobStart` throws, so later runs of the same job no longer wait for the lock TTL. Such run-start failures now also reach the process log ("job failed") and `onJobFailed`. The seed-migration `systemWriteAs` error message no longer repeats the `es-ops/seed-migration` namespace that the runner logger already prints. The maxDefers integration test waits for the final job state instead of sleeping.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Sequential job lock released when run setup fails
+  detail: handleJob() claimed the sequential lock before prepareJobRun() and the onJobStart hook, but only released it in the finally block that started after them. A throwing onJobStart left the lock until its TTL (305 s) and every further invocation of that job was requeued behind it. Both calls now run inside the try and the lock is released by job name. A failure there is logged and, on the final attempt, reported through onJobFailed. The seed-migration failure message starts with systemWriteAs(...) instead of the duplicated [es-ops/seed-migration] prefix.
+  -->
+- 4ce85cd: Bumps the pinned postgres.js fork to 3.4.9-kumiko.2. A connection that dies while a query is still buffered now reconnects right away instead of hanging until `connect_timeout`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Reconnect after an outage no longer waits out connect_timeout
+  detail: The postgres.js fork left the write buffer of a dead socket in place, so the first query after a database outage queued its startup message behind stale bytes and failed with CONNECT_TIMEOUT after 30 seconds. The fork now resets the buffer when the socket closes, and the next query opens a fresh connection immediately.
+  -->
+- 374a12b: Review fixes: tenant destroy sweep keeps a minimum slice per tenant, inbound-mail polling skips any account whose address fails to decrypt, the delivery preferences query reports renamed notification types under their current name, and a deduplicated job add no longer resets a finished tenant run row.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: Destroy sweep keeps a minimum time slice per tenant
+  detail: With many tenants in destroying state the shared tick budget no longer shrinks a tenant's slice below two seconds, so chunking hooks make progress instead of failing the stage as no-progress attempts.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Undecryptable mail account no longer stops polling of other accounts
+  detail: Any decryption failure of an account address (corrupt envelope, missing key, AAD mismatch) is logged by error class and the account is skipped; the other accounts keep polling.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Preferences query reports renamed notification types under the current name
+  detail: Rows stored under a former notification name are returned with the current name and collapsed per channel with the delivery precedence (current-name row wins, otherwise any disabled row disables), so settings screens show the effective state.
+  -->
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Deduplicated job add keeps the finished tenant run row
+  detail: JobQueuedMeta carries the BullMQ creation time of the job. The queued hook only removes finished rows queued before that time (leftovers of a Redis reset), so re-announcing an already finished job no longer turns its row back into queued.
+  -->
+- 014b9ab: Codemods: `testing-move` keeps side-effect and empty imports of the old paths, `feature-layout` rewrites directory imports of moved `index` files.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Codemods no longer drop side-effect imports or miss moved index files
+  detail: The testing-move codemod repoints side-effect and empty imports instead of deleting them. The feature-layout codemod rewrites directory imports such as "./components" when the moved file is components/index.ts.
+  -->
+- b62c381: Review fixes: deferred notify with non-cloneable data, form derivation currency and unit checks, metric label i18n keys, round-trip of backingTable, empty nav groups of disabled features, global-write audit per table.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Review fixes for notify, form derivations, i18n keys, feature AST, nav stripping and escape-hatch audit
+  detail: A deferred ctx.notify with Temporal values in data no longer fails the write. Form derivations take the literal currency or the source currency before the client value, reject mixed-currency operands, and the boot validator now rejects derive definitions that mix money with number/decimal units or use non-numeric sources. Metric labels of projectionDetail screens are required i18n keys. The feature AST keeps backingTable on spread entity definitions. Pure grouping navs emptied by disabled features are removed. db.global() writes are audited per table.
+  -->
+- ab7c4ee: Guard and CI fixes: exception handling, timeout detection, renderer boundaries, import extensions and agent examples.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Dependency exceptions, timeout and boundary guards no longer miss or invent findings
+  detail: A renewed license or security exception now wins over an expired earlier one, license exceptions must match the package license and a real semver range, and only exceptions that suppressed an advisory block on near expiry. The test-timeouts guard also flags union-typed and untyped timeout arguments, the renderer-boundaries guard covers headless and live imports, import-extensions ignores real .js files without a .ts sibling, and the generated agent examples now include bin, e2e, seeds and scripts files.
+  -->
+- 32cf2fe: Review fixes: a version conflict reuses the version the event store already reports.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Version conflicts skip the extra stream-version lookup
+  detail: The CRUD executor reports the current version carried by the event store conflict and queries the stream again only when the conflict carries none.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: distinctOn documents that system reference rows compete for newest
+  detail: The tenant-scoped read set includes system reference rows, so they take part in the newest-row pick; the docs name the tenantId filter that restricts it to own rows, and tests pin both behaviours. Tests also cover the createDbConnection ssl and onNotice options, the version-conflict race over HTTP, and the advisory-lock waiter probe is scoped to its own lock.
+  -->
+- 5e03e77: Review fixes: tenant reads keep empty and exclusion tenant filters narrow, scoped TenantDbs stay write-denied, reference-data seeding re-creates soft-deleted rows, and version-conflict details report the version actually appended against.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Empty and exclusion tenant filters no longer widen a read
+  detail: A where.tenantId of { in: [] } now returns no rows, and { ne } or { notIn } keep excluding the named tenants instead of falling back to the caller's full scope. scopeTenantDbToTenant keeps the write denial of its source TenantDb.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot seeding re-creates soft-deleted reference rows
+  detail: The seed lookup only considers live system-tenant rows, so a soft-deleted reference row is created anew instead of aborting the boot with a not-found error.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Version conflict on update reports the appended-against version
+  detail: The racing update path now reports expectedVersion as the stream version it appended against, also with skipOptimisticLock or an expect precondition. A failed advisory unlock after a dropped session no longer hides the migration error.
+  -->
+- 52859ba: Review fixes: stricter boot checks for handler field references and `r.requires`, `r.bootCheck` failures no longer get a redundant suffix, embedded lists keep `minItems` in the JSON schema, and tests share one console-call filter helper.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unknown keys in a handler field references meta fail the boot
+  detail: A references meta such as `{ entity: "channel", bY: "key" }` is reported as invalid instead of silently reading as an id reference, so a misspelled `by` can no longer turn a business-key field into an id field.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: r.requires rejects malformed arguments
+  detail: `r.requires` now throws when called with more than one argument or without a `features` string array, instead of dropping extra arguments or registering the object as a dependency name.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: r.bootCheck failures keep the check's own message
+  detail: The boot error no longer appends a generic sentence, so messages ending in a period are not doubled and the check's text is the whole explanation.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Embedded list minimum stays in the JSON schema
+  detail: A required or `minItems` embedded list again reports `minItems` in `z.toJSONSchema` output, so agent manifests tell callers that at least one row is needed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: consoleCallsMentioning helper for console spies
+  detail: `@cosmicdrift/kumiko-testing/helpers` exports `consoleCallsMentioning(spy, fragment)` and `ConsoleSpyLike`, replacing the per-file filters tests used to ignore console output of other test files.
+  -->
+- 6884324: Review fixes: a failing trial gate hides the add-on in the app schema instead of failing the request, error docs links skip app-overridden error codes, anonymous sessions never bind pending uploads in the save pipeline, and failed uploads drop their ledger row.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Failing trial gate no longer breaks GET /api/schema
+  detail: The trial gates of all disabled toggleable features run in parallel; a gate that throws counts as not unlocked, hides the add-on and is logged, so the client still boots.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: No docsUrl for app error codes without a framework page
+  detail: An app subclass that overrides the error code with an uncovered reason no longer links to a framework page that does not exist; the field is absent unless errorDocs covers the reason.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Anonymous sessions cannot bind pending uploads on save
+  detail: The save pipeline now applies the same anonymous-session exclusion as the pending file ref helpers, so one visitor cannot attach another visitor's pending upload to their record.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Failed uploads drop their upload ledger row
+  detail: When the fileRef create fails after the bytes were written, POST /files and createFileRefFromBytes now delete the bytes and forget the ledger row instead of leaving it for the next sweep.
+  -->
+- 2638a4a: Review fixes: HTML fragments such as forms and iframes are no longer relabelled as XML, file uploads go through the tenant file context and its upload ledger, the upload ledger refuses a connection that is already inside a transaction, and a failed job runner start leaves no scheduler refresh timer behind.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: More HTML roots are kept out of the XML content type
+  detail: Uploads without a declared content type whose root element is a common HTML element (form, iframe, input, table parts, media and others) are no longer labelled application/xml.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: POST /files uses the tenant file context and a transaction-safe upload ledger
+  detail: The upload route records and forgets upload bytes through the resolver's ledger like every other file context, and createFileUploadLedger throws when given a connection already inside a transaction.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A failed runner start no longer leaves a scheduler refresh timer behind
+  detail: The scheduler-seen refresh timer starts only after the rest of start() succeeded, so a failed start does not keep stamping for a runner that is not running.
+  -->
+- b137525: Review fixes: a job no longer fails when the tenant timezone config read throws, the escape-hatch process dedup drops expired entries, handler cross-tenant reads are metered per call, and a beforeTransaction phase and its handler see the same parsed payload.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Job runs survive a failing tenant timezone config read
+  detail: A throwing tenant timezone config read now logs a warning and falls back to UTC for ctx.tz instead of failing a job that never uses ctx.tz.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Escape-hatch process dedup no longer grows without bound
+  detail: Entries older than the daily re-audit interval are swept, so row-level cross-tenant read targets in long-lived workers are not kept forever.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Handler cross-tenant reads count in the escape-hatch metric
+  detail: Handlers now report to the escape-hatch meter like jobs do, so every ctx.crossTenantReads call is counted while the audit event stays deduplicated per report window.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: beforeTransaction phase and handler share one parsed payload
+  detail: The payload parsed for the pre-transaction phases is handed to the handler as is, so schema defaults or transforms that generate values no longer differ between the phase and the handler.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cascade delete and set-null load only child ids
+  detail: The cascade handler selects the id column instead of full child rows before calling the executor per child.
+  -->
+- f507989: Review fixes: codemods report re-exports, namespace destructuring and ambiguous `requires` arguments instead of silently passing, `schema validate` names the violated FeatureDefinition key, and handler-context construction takes an options object.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Codemods stop miscompiling or skipping ambiguous sites
+  detail: testing-injection rewrites named re-exports of moved names and reports export-star, testing-move reports namespace destructuring and qualified type references of split names, and object-form no longer rewrites r.requires(identifier) but reports it for a manual check.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: schema validate names the violated FeatureDefinition key
+  detail: A malformed FEATURES entry now reports the first key that is missing or has the wrong type instead of always pointing at the name.
+  -->
+- da784a9: Review fixes: the upgrade check lists the codemod an improvement runs on apply, the package-merge codemod no longer leaves a target in both dependencies and devDependencies, the notification template meta type carries senderName and replyTo, and comments are corrected or rewrapped.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade check names the codemod an improvement runs on apply
+  detail: kumiko-upgrade without --apply now prints the codemod of each improvement entry, the same way it prints the migration of breaking entries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Package-merge codemod keeps one entry per target package
+  detail: When the merge target is already listed in dependencies, the old devDependencies entry is dropped; when the old entry is in dependencies and the target only in devDependencies, the target moves to dependencies so the runtime entry wins.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: NotificationTemplateMeta declares senderName and replyTo
+  detail: The type now matches the mail template meta schema of the template resolver, which accepts senderName and replyTo.
+  -->
+- ff5f68e: The boot seed dispatcher of `runProdApp` now runs the same write lifecycle as the dispatcher behind `/api/*`. Before, it got no lifecycle hooks, so seed writes and seed migrations (`seedsDir`) skipped the whole lifecycle: a file a seed stored with `createFileRef` and `attachTo` was never bound to the record the seed wrote (it kept `entity_id = null` and the file access guard answered 404 for everyone but the uploader), and preSave, postSave, preDelete and postDelete hooks, the tenant check of file references and the disposal of removed file references did not run either.
+  
+  What changes for existing apps: seeds now go through the same hooks as a user write. A hook that throws inside the transaction fails the seed and with it the boot. Seeds that write on every boot run their hooks on every update, because the dedup key includes the handler version. File binding applies to seeds that write as the system user, which is the user `createFileRef` uploads as.
+  
+  `ApiEntrypoint`, `AllInOneEntrypoint` and `KumikoServer` expose the hooks as `lifecycleHooks`, the same instance the API dispatcher uses.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Seed writes run the save lifecycle, so seeded files bind to their records
+  detail: runProdApp built the boot seed dispatcher without lifecycle hooks, so seed writes and seed migrations skipped file binding (entity_id stayed null, other users got 404), the pre/post save and delete hooks, the tenant check of file references and the disposal of removed file references. The seed dispatcher now reuses the lifecycle hooks of the API dispatcher, exposed as lifecycleHooks on the entrypoints and on KumikoServer. A hook that throws inside the transaction now fails the seed and the boot.
+  -->
+- Updated dependencies [e1c01e4]
+- Updated dependencies [4ce85cd]
+- Updated dependencies [ee0aaf9]
+- Updated dependencies [32cf2fe]
+- Updated dependencies [da784a9]
+  - @cosmicdrift/kumiko-types@0.388.0
+
 ## 0.387.0
 
 ### Patch Changes

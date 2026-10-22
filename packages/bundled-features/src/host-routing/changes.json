@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.388.0",
+    "type": "fix",
+    "title": "Redirects documented as hostDispatch-only",
+    "detail": "The redirects option and README state that redirects run inside hostDispatch, so only for requests that reach the HTML fallback; a from matching a static file or an API route never fires. The shared existence lookup of the host and resolver modes is one helper."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "tenantBy resolver, apex path tenants, redirects and anonymous query allowlist",
