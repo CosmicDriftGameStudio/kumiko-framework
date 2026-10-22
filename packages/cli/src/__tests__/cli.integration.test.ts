@@ -101,7 +101,7 @@ describe("kumiko cli", () => {
     };
     expect(pkg.scripts["e2e"]).toBeDefined();
     expect(pkg.scripts["test:integration"]).toContain("--parallel");
-    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\^\d+\.\d+\.\d+/);
+    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   test("new app rejects bad name", async () => {
