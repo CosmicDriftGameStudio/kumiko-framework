@@ -1036,24 +1036,6 @@ export type JobContext = SharedContextFields & {
   readonly _tenantId?: TenantId;
 };
 
-/**
- * What a provider plugin (`build`, `capabilitiesFor`, ...) may read. Both write/query handlers
- * and jobs can produce one (`providerPluginContextFromHandler`, `providerPluginContextFromJob`),
- * so a plugin never depends on a request-bound field.
- */
-export type ProviderPluginContext = Pick<
-  HandlerContext,
-  | "db"
-  | "dbOutsideTransaction"
-  | "systemDb"
-  | "registry"
-  | "user"
-  | "log"
-  | "triggeredBy"
-  | "config"
-  | "secrets"
->;
-
 // --- Handler Functions ---
 
 export type WriteHandlerFn<TPayload = unknown, TData = unknown> = (
