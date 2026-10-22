@@ -19,6 +19,7 @@ import {
   extractTableInfo,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { localeEs } from "@cosmicdrift/kumiko-locale-es";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { ENTITY_METAS } from "../../kumiko/schema";
@@ -45,6 +46,26 @@ afterAll(() => {
 });
 
 describe("use-all-bundled boot", () => {
+  test("validateBoot — every translation key exists in es, en and de (offlot required locales)", () => {
+    const withEs = composeFeatures([...APP_FEATURES, localeEs()], {
+      includeBundled: true,
+      authOptions: AUTH_COMPOSE_OPTIONS,
+    });
+    // The sample's own label features ship no Spanish copy; every framework-owned feature must.
+    const sampleOwned = ["personal-access-tokens", "cap-overview-labels", "collection-labels"];
+    let message = "";
+    try {
+      validateBoot(withEs, { requiredLocales: ["es", "en", "de"] });
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    const foreignGaps = message
+      .split("\n")
+      .filter((line) => line.startsWith("[i18n] Feature "))
+      .filter((line) => !sampleOwned.some((name) => line.startsWith(`[i18n] Feature "${name}"`)));
+    expect(foreignGaps).toEqual([]);
+  });
+
   test("validateBoot — every r.requires resolves", () => {
     expect(() => validateBoot(composedFeatures)).not.toThrow();
   });

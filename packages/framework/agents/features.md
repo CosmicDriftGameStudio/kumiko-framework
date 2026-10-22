@@ -616,6 +616,23 @@ Category: infrastructure
 
 Requires: `secrets`
 
+## subscription-dodo
+
+Dodo Payments provider plugin for `billing-foundation`. Dodo acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant), plus a `billingLive` master switch and an `environment` key (test | live). `environment` is its own key because Dodo serves test and live mode from different API hosts and a live key must never hit the test host or the other way round; `billingLive` only decides whether checkouts are offered at all. All four are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionDodoFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env to secrets bridge fallbacks (`DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true. Webhooks arrive at `/api/subscription/webhook/dodo` and are verified per the Standard Webhooks spec (HMAC-SHA256 over id, timestamp and the raw body, 5 minute tolerance); events for products outside `priceToTier` or without tenant metadata are dropped. Implements hosted checkout, customer portal, cancel and resume, `retrievePrices` (10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `plan_changed` webhook to move the tier. A plan switch in Dodo requires all plan products to belong to one Product Collection.
+
+Category: billing
+
+Requires: `billing-foundation`, `config`, `secrets`
+
+Config keys:
+
+| Key | Type | Scope | Default |
+| --- | --- | --- | --- |
+| `api-key` | text | system |  |
+| `billing-live` | boolean | system | `false` |
+| `environment` | select | system | `test` |
+| `webhook-secret` | text | system |  |
+
 ## subscription-mollie
 
 Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case. Mount via `createSubscriptionMollieFeature({ apiKey, webhookUrl, priceToTier, priceToConfig })` — the factory validates that `priceToTier` and `priceToConfig` keys are identical at boot time. Implements `verifyAndParseWebhook` (lazy Mollie-API fetch + heuristic event-type mapping) and `createCheckoutSession` (customer + first-payment with `sequenceType="first"`); `createPortalSession` and `cancelSubscription` are not available because Mollie has no customer portal and requires a `customerId` that the plugin contract does not carry.
