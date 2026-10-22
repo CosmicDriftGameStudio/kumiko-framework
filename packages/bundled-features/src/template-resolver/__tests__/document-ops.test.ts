@@ -118,6 +118,18 @@ describe("template-resolver :: applyDocumentOps", () => {
     expect(documentBlocksOf(result.doc)).toHaveLength(5);
   });
 
+  test("a find across a formatting change reports text_spans_formatting, not text_not_found", () => {
+    expect(
+      codes(apply([{ op: "replaceText", blockId: "b1", find: "Rechnung wichtig", replace: "X" }])),
+    ).toEqual(["ops.0.find:text_spans_formatting"]);
+  });
+
+  test("a find with a placeholder reports placeholder_not_replaceable", () => {
+    expect(
+      codes(apply([{ op: "replaceText", blockId: "b1", find: "{{invoiceNumber}}", replace: "X" }])),
+    ).toEqual(["ops.0.find:placeholder_not_replaceable"]);
+  });
+
   test("reports the failing op with its path and code", () => {
     expect(codes(apply([{ op: "removeBlock", blockId: "b99" }]))).toEqual([
       "ops.0.blockId:unknown_block",

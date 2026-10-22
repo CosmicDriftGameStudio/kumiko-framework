@@ -1321,6 +1321,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.patch.textNotFound": "Der Text {find} wurde im Block nicht gefunden.",
   "templateResolver.errors.patch.textAmbiguous":
     "Der Text {find} kommt {count}-mal im Block vor; verwenden Sie einen längeren Text.",
+  "templateResolver.errors.patch.textSpansFormatting":
+    "Der Text {find} überspannt einen Formatwechsel im Block; ersetzen Sie jeden formatierten Teil einzeln.",
+  "templateResolver.errors.patch.placeholderNotReplaceable":
+    "Der Platzhalter {find} lässt sich nicht als Text ersetzen; ändern Sie den Text drumherum mit einer anderen Operation oder entfernen Sie den Block.",
   "templateResolver.errors.patch.blockNotAllowed":
     "Der Blocktyp {type} ist in {kind}-Vorlagen nicht verfügbar.",
   "templateResolver.errors.patch.blockTypeMismatch":
@@ -1344,6 +1348,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Im Konto ist keine E-Mail-Adresse hinterlegt, an die die Testmail gehen könnte.",
   "templateResolver.errors.testMail.failed": "Die Testmail konnte nicht gesendet werden.",
   "templateResolver.errors.resource.tooLarge": "Das Bild ist zu groß.",
+  "templateResolver.errors.resource.sourceUnreadable":
+    "Eine Datei der Quellvorlage konnte nicht gelesen werden, daher wurde nichts kopiert.",
   "templateResolver.errors.resource.unsupportedImage":
     "Diese Datei ist kein unterstütztes Bild. Erlaubt sind PNG, JPEG, WebP und GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
@@ -1947,8 +1953,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Plattform-Versand (Standard)",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",
   "mail-transport-smtp.settings": "Eigener SMTP-Server",
-  "config:entity:__config-edit__:field:provider:option:": "Plattform-Versand (Standard)",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Eigener SMTP-Server",
+  "config:entity:__config-edit__:field:mail-foundation-provider:option:":
+    "Plattform-Versand (Standard)",
+  "config:entity:__config-edit__:field:mail-foundation-provider:option:smtp": "Eigener SMTP-Server",
   "mail-transport-smtp.settings.secrets": "SMTP-Anmeldung",
   "mail-transport-smtp.settings.description":
     "Die Zugangsdaten bekommst du von deinem Mail-Anbieter, zum Beispiel Brevo, Postmark, Amazon SES oder deinem eigenen Server.",

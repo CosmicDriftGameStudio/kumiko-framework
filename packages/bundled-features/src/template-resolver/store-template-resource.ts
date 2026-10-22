@@ -19,7 +19,7 @@ import {
   type UploadedFileBytes,
   uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
-import { fileContextForTenant } from "../file-foundation/index.ts";
+import { fileContextForTenant, readFileRefContent } from "../file-foundation/index.ts";
 import { extensionForResourceContentType, requireForTenant } from "../shared/index.ts";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
@@ -29,13 +29,13 @@ import {
 import { executor } from "./handlers/shared.ts";
 import {
   attachmentEntriesOf,
+  isFileAttachmentEntry,
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
   templatePdfAttachmentLinkSchema,
 } from "./linked-resources.ts";
 import { normalizeResourceImage } from "./resource-image.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
-import { readTemplateResource } from "./template-resources.ts";
 import { ACTIVE_TEMPLATE_STATUS, SYSTEM_TENANT_ID } from "./web/constants.ts";
 import { TemplateResolverErrors } from "./web/qualified-names.ts";
 
@@ -290,6 +290,44 @@ export type PreparedLinkedResourceCopy = {
   readonly upload?: UploadedFileBytes;
 };
 
+// The source row's own fileName is personal data and may be ciphertext, so the copy is named from
+// the link entry or the key.
+function copiedFileName(key: string, entry: LinkedResourceEntry, contentType: string): string {
+  if (typeof entry !== "string" && isFileAttachmentEntry(entry)) return entry.fileName;
+  return `${key}.${extensionForResourceContentType(contentType) ?? "bin"}`;
+}
+
+function sourceUnreadable(): WriteResult<never> {
+  return writeFailure(
+    new UnprocessableError(TemplateResolverErrors.resourceSourceUnreadable, {
+      i18nKey: "templateResolver.errors.resource.sourceUnreadable",
+    }),
+  );
+}
+
+// Undefined: the fileRef row exists but its bytes cannot be read, which must not look like a
+// deleted file. The provider is chosen by the tenant of the fileRef, not by the caller's.
+async function readCopySource(
+  ctx: HandlerContext,
+  fileRefId: string,
+): Promise<{ contentType: string; bytes: Uint8Array } | null | undefined> {
+  try {
+    const found = await readFileRefContent({
+      db: ctx.db,
+      filesForTenant: (tid) => fileContextForTenant(ctx, ctx.user.tenantId, tid),
+      fileRefId,
+      allowedTenantIds: [SYSTEM_TENANT_ID, ctx.user.tenantId],
+    });
+    return found === null ? null : { contentType: found.contentType, bytes: found.content };
+  } catch (cause) {
+    ctx.log?.warn("template copy: source file could not be read", {
+      fileRefId,
+      errorClass: cause instanceof Error ? cause.name : typeof cause,
+    });
+    return undefined;
+  }
+}
+
 // beforeTransaction half: copies the file behind every entry into the target tenant's storage, so a
 // template copied from the system default keeps working once the tenant exports it or measures its
 // attachments. An entry whose source file is gone is left out: it could not be resolved at render
@@ -309,14 +347,20 @@ export async function prepareLinkedResourceCopiesBeforeTransaction(args: {
         copies.push({ key, entry });
         continue;
       }
-      const file = await readTemplateResource(
-        ctx,
-        typeof entry === "string" ? entry : entry.fileRefId,
-      );
-      if (file === null) continue;
+      const source = await readCopySource(ctx, typeof entry === "string" ? entry : entry.fileRefId);
+      if (source === undefined) {
+        await releaseAfterFailure(ctx, releases);
+        return sourceUnreadable();
+      }
+      // skip: the source fileRef is deleted or unknown, so there is nothing to copy
+      if (source === null) continue;
       const uploaded = await uploadToTenant(
         { ctx, user, tenantId },
-        { fileName: file.fileName, mimeType: file.contentType, data: file.bytes },
+        {
+          fileName: copiedFileName(key, entry, source.contentType),
+          mimeType: source.contentType,
+          data: source.bytes,
+        },
       );
       if (!uploaded.isSuccess) {
         await releaseAfterFailure(ctx, releases);

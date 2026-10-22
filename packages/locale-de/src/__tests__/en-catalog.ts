@@ -1280,6 +1280,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.patch.textNotFound": "The text {find} was not found in the block.",
   "templateResolver.errors.patch.textAmbiguous":
     "The text {find} occurs {count} times in the block; use a longer text.",
+  "templateResolver.errors.patch.textSpansFormatting":
+    "The text {find} crosses a formatting change in the block; replace each formatted part on its own.",
+  "templateResolver.errors.patch.placeholderNotReplaceable":
+    "The placeholder {find} cannot be replaced as text; set the text around it with another operation or remove the block.",
   "templateResolver.errors.patch.blockNotAllowed":
     "The block type {type} is not available in {kind} templates.",
   "templateResolver.errors.patch.blockTypeMismatch":
@@ -1302,6 +1306,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Your account has no email address to send the test mail to.",
   "templateResolver.errors.testMail.failed": "The test mail could not be sent.",
   "templateResolver.errors.resource.tooLarge": "The image is too large.",
+  "templateResolver.errors.resource.sourceUnreadable":
+    "A file of the source template could not be read, so nothing was copied.",
   "templateResolver.errors.resource.unsupportedImage":
     "This file is not a supported image. Use PNG, JPEG, WebP or GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
@@ -1895,8 +1901,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Platform sending (default)",
   "mail-transport-inmemory.settings": "Test inbox (in memory)",
   "mail-transport-smtp.settings": "Own SMTP server",
-  "config:entity:__config-edit__:field:provider:option:": "Platform sending (default)",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Own SMTP server",
+  "config:entity:__config-edit__:field:mail-foundation-provider:option:":
+    "Platform sending (default)",
+  "config:entity:__config-edit__:field:mail-foundation-provider:option:smtp": "Own SMTP server",
   "mail-transport-smtp.settings.secrets": "SMTP sign-in",
   "mail-transport-smtp.settings.description":
     "The connection details come from your mail provider, for example Brevo, Postmark, Amazon SES or your own server.",

@@ -69,7 +69,10 @@ describe("mail transport settings for tenant admins", () => {
     const form = screenOf(built, "mail-foundation-tenant", "configEdit");
     expect(form.dormant).toBeUndefined();
     expect(form.access).toEqual({ roles: ["TenantAdmin"] });
-    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["", "smtp"] });
+    expect(form.fields["mail-foundation-provider"]).toMatchObject({
+      type: "select",
+      options: ["", "smtp"],
+    });
     expect(Object.values(form.configKeys)).toEqual([
       "mail-foundation:config:provider",
       "mail-transport-smtp:config:host",
@@ -111,7 +114,7 @@ describe("mail transport settings for tenant admins", () => {
       r.translations({ keys: { "mail-transport-smtp.settings": { de: "SMTP-Server" } } });
     });
     const built = buildConfigFeatureSchema(createRegistry([germanOnly, ...features()]));
-    const optionKey = "config:entity:__config-edit__:field:provider:option:";
+    const optionKey = "config:entity:__config-edit__:field:mail-foundation-provider:option:";
     expect(built.translations?.[`${optionKey}smtp`]).toEqual({
       en: "Own SMTP server",
       de: "SMTP-Server",
@@ -125,9 +128,14 @@ describe("mail transport settings for tenant admins", () => {
     const registry = createRegistry([...features(), createMailTransportInMemoryFeature()]);
     const built = buildConfigFeatureSchema(registry);
     const form = screenOf(built, "mail-foundation-tenant", "configEdit");
-    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["", "smtp"] });
+    expect(form.fields["mail-foundation-provider"]).toMatchObject({
+      type: "select",
+      options: ["", "smtp"],
+    });
     expect(
-      built.translations?.["config:entity:__config-edit__:field:provider:option:inmemory"],
+      built.translations?.[
+        "config:entity:__config-edit__:field:mail-foundation-provider:option:inmemory"
+      ],
     ).toBeUndefined();
     expect(selectablePluginIds(registry, MAIL_TRANSPORT_EXTENSION)).toEqual(["inmemory", "smtp"]);
   });

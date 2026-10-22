@@ -30,7 +30,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createMailTransportSmtpFeature } from "../feature.ts";
 
-const PROVIDER_FIELD = "provider";
+const PROVIDER_FIELD = "mail-foundation-provider";
 const HOST_FIELD = "mail-transport-smtp-host";
 const PASSWORD_FIELD = "mail-transport-smtp-smtp-password";
 

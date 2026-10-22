@@ -389,6 +389,23 @@ function removeBlockOp(
   return null;
 }
 
+export const REPLACE_TEXT_ISSUE_CODES = {
+  notFound: "text_not_found",
+  spansFormatting: "text_spans_formatting",
+  placeholderNotReplaceable: "placeholder_not_replaceable",
+} as const;
+
+// document-blocks shows the line across formatting runs with placeholders as {{name}},
+// so a find that is visible there but lies in no single text node needs its own explanation.
+function textNotMatchedCode(block: JSONContent, find: string): string {
+  if (!textLinesOf(block).some((line) => line.includes(find))) {
+    return REPLACE_TEXT_ISSUE_CODES.notFound;
+  }
+  return find.includes("{{")
+    ? REPLACE_TEXT_ISSUE_CODES.placeholderNotReplaceable
+    : REPLACE_TEXT_ISSUE_CODES.spansFormatting;
+}
+
 function replaceTextOp(
   state: OpState,
   op: Extract<DocumentOp, { op: "replaceText" }>,
@@ -401,7 +418,9 @@ function replaceTextOp(
     (sum, node) => sum + occurrencesOf(node.text ?? "", op.find),
     0,
   );
-  if (count === 0) return patchIssue(`${path}.find`, "text_not_found", { find: op.find });
+  if (count === 0) {
+    return patchIssue(`${path}.find`, textNotMatchedCode(entry.node, op.find), { find: op.find });
+  }
   if (count > 1) return patchIssue(`${path}.find`, "text_ambiguous", { find: op.find, count });
   entry.node = replaceInContent([entry.node], op.find, op.replace)[0] ?? entry.node;
   return null;

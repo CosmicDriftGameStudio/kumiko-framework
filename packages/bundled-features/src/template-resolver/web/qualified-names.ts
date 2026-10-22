@@ -68,6 +68,7 @@ export const TemplateResolverErrors = {
   bundleLocalesDiffer: "bundle_locales_differ",
   resourceTooLarge: "template_resource_too_large",
   resourceUnsupportedImage: "template_resource_unsupported_image",
+  resourceSourceUnreadable: "template_resource_source_unreadable",
   attachmentUnsupportedType: "template_attachment_unsupported_type",
   attachmentLimit: "template_attachment_limit",
   attachmentInvalid: "template_attachment_invalid",
