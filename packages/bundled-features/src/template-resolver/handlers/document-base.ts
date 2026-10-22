@@ -5,8 +5,9 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { isRowDeliveredTo } from "../api.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
+import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import type { DocumentHtmlKind } from "../web/constants.ts";
@@ -50,7 +51,7 @@ export async function loadDocumentBase(
   const ownIsVisible =
     own !== undefined &&
     !isSystemOnlyTemplateHiddenFrom(user, ctx.registry, own) &&
-    isRowServedTo(deliveryPolicyOf(ctx.registry), user, own);
+    (await isRowDeliveredTo(ctx.db, deliveryPolicyOf(ctx.registry), user, own));
   if (own !== undefined && ownIsVisible) {
     const working = toWorkingRow(own, user.tenantId);
     return {

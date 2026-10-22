@@ -269,6 +269,20 @@ export async function releaseAll(releases: readonly Release[]): Promise<void> {
   if (rejected?.status === "rejected") throw rejected.reason;
 }
 
+// Failure paths: a failing release must not replace the upload error the caller needs to see.
+export async function releaseAfterFailure(
+  ctx: HandlerContext,
+  releases: readonly Release[],
+): Promise<void> {
+  try {
+    await releaseAll(releases);
+  } catch (releaseError) {
+    ctx.log?.warn("template upload rollback: releasing stored files failed", {
+      error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+    });
+  }
+}
+
 // `upload` is absent for a rendered-PDF link, which carries no file.
 export type PreparedLinkedResourceCopy = {
   readonly key: string;
@@ -305,14 +319,14 @@ export async function prepareLinkedResourceCopiesBeforeTransaction(args: {
         { fileName: file.fileName, mimeType: file.contentType, data: file.bytes },
       );
       if (!uploaded.isSuccess) {
-        await releaseAll(releases);
+        await releaseAfterFailure(ctx, releases);
         return uploaded;
       }
       if (uploaded.release) releases.push(uploaded.release);
       copies.push({ key, entry, upload: uploaded.data });
     }
   } catch (cause) {
-    await releaseAll(releases);
+    await releaseAfterFailure(ctx, releases);
     throw cause;
   }
   return { isSuccess: true, data: copies, release: () => releaseAll(releases) };

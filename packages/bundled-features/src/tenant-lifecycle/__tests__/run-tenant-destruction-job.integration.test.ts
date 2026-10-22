@@ -147,9 +147,12 @@ describe("run-tenant-destruction cron", () => {
       },
       { id: DUE_TENANT },
     );
+    const usesBefore = meteredUses("unsafe-raw");
 
     await runJob();
 
+    expect(auditedKinds()).not.toContain("unsafe-raw");
+    expect(meteredUses("unsafe-raw")).toBe(usesBefore);
     const [row] = await selectMany(stack.db, tenantTable, { id: DUE_TENANT });
     expect(row?.["status"]).toBe("destroyRequested");
     const events = await loadAggregate(stack.db, DUE_TENANT, DUE_TENANT);

@@ -59,6 +59,13 @@ describe("sampleValuesFor", () => {
     expect(values["lines"]).toContainEqual({ entry: "<p>[Name der Statusseite]</p>" });
   });
 
+  test("a richText sample escapes its label so a label cannot inject markup", () => {
+    const values = sampleValuesFor({
+      body: templateVariable.richText({ label: "<b>x</b>" }),
+    });
+    expect(values["body"]).toBe("<p>[&lt;b&gt;x&lt;/b&gt;]</p>");
+  });
+
   test("a text example given as i18n key reads as its translation, other types stay as declared", () => {
     const labelText = (key: string): string =>
       ({ "status:mail.example.title": "Neue Störung", "status:mail.example.stage": "Prüfung" })[

@@ -1,8 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { filterDeliveredTo } from "../api.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
+import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../web/constants.ts";
@@ -47,23 +48,21 @@ export const listQuery = defineQueryHandler({
     })) as TemplateResourceRow[];
 
     const deliveryPolicy = deliveryPolicyOf(ctx.registry);
-    return rows
-      .filter(
-        (row) =>
-          !isHiddenSystemDraft(query.user, row) &&
-          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row) &&
-          isRowServedTo(deliveryPolicy, query.user, row),
-      )
-      .map((row) => ({
-        id: String(row.id),
-        tenantId: row.tenantId,
-        slug: row.slug,
-        kind: row.kind,
-        locale: row.locale,
-        scope: row.scope,
-        status: row.status,
-        contentFormat: row.contentFormat,
-        modifiedAt: row.modifiedAt,
-      }));
+    const candidates = rows.filter(
+      (row) =>
+        !isHiddenSystemDraft(query.user, row) &&
+        !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row),
+    );
+    return (await filterDeliveredTo(ctx.db, deliveryPolicy, query.user, candidates)).map((row) => ({
+      id: String(row.id),
+      tenantId: row.tenantId,
+      slug: row.slug,
+      kind: row.kind,
+      locale: row.locale,
+      scope: row.scope,
+      status: row.status,
+      contentFormat: row.contentFormat,
+      modifiedAt: row.modifiedAt,
+    }));
   },
 });

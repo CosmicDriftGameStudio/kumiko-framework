@@ -85,9 +85,18 @@ export type SeedSystemTemplateOptions = {
   readonly ifExists?: SeedIfExists;
 };
 
+// Namespace prefix plus path, no whitespace: keeps free text from passing as a key that the UI
+// would then show raw.
+const I18N_KEY_FORMAT = /^[^\s:]+:\S+$/;
+
 function seedTitleColumn(opts: SeedSystemTemplateOptions, label: string): string | null {
   if (opts.title !== undefined && opts.titleI18nKey !== undefined) {
     throw new Error(`${label} rejected: set either title or titleI18nKey, not both`);
+  }
+  if (opts.titleI18nKey !== undefined && !I18N_KEY_FORMAT.test(opts.titleI18nKey)) {
+    throw new Error(
+      `${label} rejected: titleI18nKey "${opts.titleI18nKey}" is not a "namespace:key" i18n key`,
+    );
   }
   return opts.titleI18nKey ?? opts.title ?? null;
 }

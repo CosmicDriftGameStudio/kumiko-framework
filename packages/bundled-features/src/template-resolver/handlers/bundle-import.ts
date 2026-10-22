@@ -23,6 +23,7 @@ import {
   prepareTemplateResourceBeforeTransaction,
   type Release,
   readTemplateResourceMaxBytes,
+  releaseAfterFailure,
   releaseAll,
 } from "../store-template-resource.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
@@ -152,14 +153,14 @@ export async function prepareTemplateBundleBeforeTransaction(
             })
           : await prepareTemplateResourceBeforeTransaction(common);
       if (!result.isSuccess) {
-        await releaseAll(releases);
+        await releaseAfterFailure(args.ctx, releases);
         return result;
       }
       if (result.release) releases.push(result.release);
       prepared.set(key, result.data);
     }
   } catch (cause) {
-    await releaseAll(releases);
+    await releaseAfterFailure(args.ctx, releases);
     throw cause;
   }
   return { isSuccess: true, data: prepared, release: () => releaseAll(releases) };

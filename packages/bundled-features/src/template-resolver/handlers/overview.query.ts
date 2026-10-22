@@ -155,6 +155,19 @@ function effectiveRowsOf(
     : null;
 }
 
+export function isRowVisibleToCaller(
+  policy: TemplateEditPolicy,
+  user: Parameters<typeof isHiddenSystemDraft>[0],
+  registry: Parameters<typeof isSystemOnlyTemplateHiddenFrom>[1],
+  row: TemplateResourceRow,
+): boolean {
+  return (
+    !isHiddenSystemDraft(user, row) &&
+    !isSystemOnlyTemplateHiddenFrom(user, registry, row) &&
+    mayEditTemplate(policy, user, row)
+  );
+}
+
 export function effectiveMailLayoutSlugs(
   rows: readonly TemplateResourceRow[],
   policy: TemplateDeliveryPolicy,
@@ -385,11 +398,8 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
         });
       }
 
-      const visibleRows = rows.filter(
-        (row) =>
-          !isHiddenSystemDraft(query.user, row) &&
-          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row) &&
-          mayEditTemplate(policy, query.user, row),
+      const visibleRows = rows.filter((row) =>
+        isRowVisibleToCaller(policy, query.user, ctx.registry, row),
       );
       const deliveryPolicy = deliveryPolicyOf(ctx.registry);
       const { drafts, layoutSlugByDocument } = buildDrafts(

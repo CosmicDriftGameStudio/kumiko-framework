@@ -158,12 +158,14 @@ export function createTemplateResolverApi(
   };
 }
 
+type DeliveredRowKey = Pick<TemplateResourceRow, "tenantId" | "kind" | "slug">;
+
 // The one delivery rule for a stored row: unlocked, and a collection entry never shadows a system
 // template of the same slug that the app did not unlock.
 export async function isRowDelivered(
   db: DbRunner | TenantDb,
   policy: TemplateDeliveryPolicy,
-  row: TemplateResourceRow,
+  row: DeliveredRowKey,
 ): Promise<boolean> {
   if (!isRowServed(policy, row)) return false;
   if (row.tenantId === SYSTEM_TENANT_ID || !isServedByCollectionOnly(policy, row)) return true;
@@ -174,7 +176,7 @@ export async function isRowDeliveredTo(
   db: DbRunner | TenantDb,
   policy: TemplateDeliveryPolicy,
   user: { readonly roles: readonly string[] },
-  row: TemplateResourceRow,
+  row: DeliveredRowKey,
 ): Promise<boolean> {
   return isSystemAdmin(user) || (await isRowDelivered(db, policy, row));
 }

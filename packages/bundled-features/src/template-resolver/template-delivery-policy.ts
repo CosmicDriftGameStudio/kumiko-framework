@@ -1,6 +1,5 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { isSystemAdmin } from "./template-draft.ts";
 import { SYSTEM_TENANT_ID } from "./web/constants.ts";
 import { TEMPLATE_RESOLVER_FEATURE } from "./web/qualified-names.ts";
 
@@ -43,16 +42,6 @@ export function isRowServed(
   row: DeliveryTarget & { readonly tenantId: string },
 ): boolean {
   return row.tenantId === SYSTEM_TENANT_ID || isTenantOverrideServed(policy, row);
-}
-
-// A SystemAdmin sees every stored row, so a locked override can still be reset; everyone else
-// sees only what is delivered, which keeps a locked override out of the template-resolver queries for a TenantAdmin (the audit log keeps the history).
-export function isRowServedTo(
-  policy: TemplateDeliveryPolicy,
-  user: { readonly roles: readonly string[] },
-  row: DeliveryTarget & { readonly tenantId: string },
-): boolean {
-  return isSystemAdmin(user) || isRowServed(policy, row);
 }
 
 function isDeliveryTarget(value: unknown): value is DeliveryTarget {
