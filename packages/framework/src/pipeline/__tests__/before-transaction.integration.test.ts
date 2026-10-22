@@ -58,7 +58,13 @@ const releaseCalls: string[] = [];
 const reservationOutsideHandles: boolean[] = [];
 const reservationOutsideReads: number[] = [];
 
-const DENIED_SURFACES = ["writeAs", "scheduleAfterCommit", "notify", "jobRunner"] as const;
+const DENIED_SURFACES = [
+  "writeAs",
+  "scheduleAfterCommit",
+  "scheduleAfterRollback",
+  "notify",
+  "jobRunner",
+] as const;
 const deniedSurfacePayload = z.object({ surface: z.enum(DENIED_SURFACES) });
 
 const notifyFactory: NotifyFactory = () => async () => ({ kind: "dispatched", deliveries: [] });
@@ -262,6 +268,9 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
             break;
           case "scheduleAfterCommit":
             ctx.scheduleAfterCommit?.(async () => {});
+            break;
+          case "scheduleAfterRollback":
+            ctx.scheduleAfterRollback?.(async () => {});
             break;
           case "notify":
             await ctx.notify?.("before-tx-probe", { route: { email: "probe@example.com" } });

@@ -35,6 +35,10 @@ back.
 - **`r.hook({ type: "postDelete", target: { allOf: entityRef }, handler })`** — fires after commit.
   External side effects (logs, notifications) belong here because
   failures cannot roll the delete back.
+- **`ctx.scheduleAfterRollback(fn)`** — the counterpart of `scheduleAfterCommit`: runs `fn` when
+  the handler transaction (or the enclosing savepoint of a nested `ctx.write`) does not commit.
+  Use it to give back something reserved outside the transaction, like the slot in
+  `article:reserve-slot`. A failed COMMIT triggers it too, so write the callback idempotent.
 
 ## When to reach for it
 
@@ -71,7 +75,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { articleEntity, articlesFeature, hookLog } from "../feature";
+import { articleEntity, articlesFeature, hookLog, reservedSlots } from "../feature";
 
 let stack: TestStack;
 
@@ -90,6 +94,7 @@ afterAll(async () => {
 beforeEach(() => {
   stack.events.reset();
   hookLog.length = 0;
+  reservedSlots.clear();
 });
 
 describe("validation hook: single handler", () => {
@@ -256,6 +261,29 @@ describe("preDelete + postDelete entity hooks", () => {
     expect(hookLog.map((e) => e.type)).toEqual(["deleted"]);
   });
 });
+
+describe("scheduleAfterRollback", () => {
+  test("keeps the outside-transaction reservation when the write commits", async () => {
+    await stack.http.writeOk(
+      "blog:write:article:reserve-slot",
+      { slot: "kept", reject: false },
+      editor,
+    );
+
+    expect(reservedSlots.has("kept")).toBe(true);
+  });
+
+  test("gives the reservation back when the write rolls back", async () => {
+    const error = await stack.http.writeErr(
+      "blog:write:article:reserve-slot",
+      { slot: "released", reject: true },
+      editor,
+    );
+
+    expectErrorIncludes(error, "slot_rejected");
+    expect(reservedSlots.has("released")).toBe(false);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -276,7 +304,12 @@ import {
   defineFeature,
   type SaveContext,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  ConflictError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
+import * as z from "zod";
 
 export const articleEntity = createEntity({
   table: "read_sample_articles",
@@ -298,6 +331,9 @@ export const articleEntity = createEntity({
 // Collect hook events for testing
 export const hookLog: { type: string; data: Record<string, unknown> }[] = [];
 
+// Stands in for a quota held in an external system, outside the handler transaction.
+export const reservedSlots = new Set<string>();
+
 const editorWrite = { access: { roles: ["Admin", "Editor"] } } as const;
 
 export const articlesFeature = defineFeature("blog", (r) => {
@@ -310,6 +346,23 @@ export const articlesFeature = defineFeature("blog", (r) => {
     defineEntityUpdateHandler("article", articleEntity, editorWrite),
   );
   r.writeHandler(defineEntityDeleteHandler("article", articleEntity, editorWrite));
+
+  // --- scheduleAfterRollback: give back a reservation made outside the transaction when it does
+  // not commit. The callback must be idempotent: a failed COMMIT also triggers it.
+  r.writeHandler({
+    name: "article:reserve-slot",
+    schema: z.object({ slot: z.string(), reject: z.boolean() }),
+    access: editorWrite.access,
+    handler: async (event, ctx) => {
+      const { slot, reject } = event.payload;
+      reservedSlots.add(slot);
+      ctx.scheduleAfterRollback?.(async () => {
+        reservedSlots.delete(slot);
+      });
+      if (reject) return writeFailure(new UnprocessableError("slot_rejected"));
+      return { isSuccess: true as const, data: {} };
+    },
+  });
 
   // --- Validation hook on create: reject banned words + length ---
   r.hook({

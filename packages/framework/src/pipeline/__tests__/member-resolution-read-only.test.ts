@@ -34,10 +34,9 @@ const DENIED_CALLS = [
 
 function readOnlyContext(): Record<string, unknown> {
   const wired = Object.fromEntries(
-    [...DROPPED_SURFACES, ...DENIED_CALLS, "scheduleAfterCommit"].map((key) => [
-      key,
-      () => "escalated",
-    ]),
+    [...DROPPED_SURFACES, ...DENIED_CALLS, "scheduleAfterCommit", "scheduleAfterRollback"].map(
+      (key) => [key, () => "escalated"],
+    ),
   );
   // @cast-boundary test stub — applyMemberResolutionReadOnly only spreads and overwrites.
   const ctx = { ...wired, jobRunner: { handleEvent: () => "ran" } } as unknown as HandlerContext;
@@ -80,14 +79,16 @@ describe("applyMemberResolutionReadOnly", () => {
     });
   });
 
-  test("scheduleAfterCommit and the jobRunner proxy throw synchronously", () => {
+  test("scheduleAfterCommit, scheduleAfterRollback and the jobRunner proxy throw synchronously", () => {
     const readOnly = readOnlyContext();
     // @cast-boundary test stub — sync surfaces, not promise-returning.
-    const scheduleAfterCommit = surface(readOnly, "scheduleAfterCommit") as () => void;
+    const schedulers = ["scheduleAfterCommit", "scheduleAfterRollback"].map(
+      (key) => surface(readOnly, key) as () => void,
+    );
     // @cast-boundary test stub — denyingJobRunnerProxy throws on any property read.
     const jobRunner = surface(readOnly, "jobRunner") as { handleEvent: unknown };
 
-    expect(() => scheduleAfterCommit()).toThrow(AccessDeniedError);
+    for (const schedule of schedulers) expect(() => schedule()).toThrow(AccessDeniedError);
     expect(() => jobRunner.handleEvent).toThrow(AccessDeniedError);
   });
 

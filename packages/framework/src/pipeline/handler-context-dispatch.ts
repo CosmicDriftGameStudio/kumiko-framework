@@ -1,7 +1,13 @@
+import { runWithWriteOrigin } from "../api/request-context.ts";
 import type { DbTx } from "../db/connection.ts";
 import { runInSavepoint } from "../db/query.ts";
 import type { SessionUser, WriteResult } from "../engine/types/index.ts";
 import { writeFailure } from "../errors/index.ts";
+import {
+  type AfterRollbackHook,
+  afterRollbackHooksOf,
+  carrySavepointRollbackHooks,
+} from "./after-rollback-sink.ts";
 import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
 import { executeQuery } from "./dispatch-query.ts";
 import { type HandlerTransactionScope, perCommandNestedDenied } from "./dispatch-shared.ts";
@@ -70,8 +76,10 @@ async function runNestedWriteInSavepoint(
       return innerResult;
     });
     bridgeSink.push(...innerAfterCommitHooks);
+    carrySavepointRollbackHooks(innerAfterCommitHooks, bridgeSink, false);
     return result;
   } catch (e) {
+    carrySavepointRollbackHooks(innerAfterCommitHooks, bridgeSink, true);
     if (e instanceof NestedWriteRollback) return e.failure;
     throw e;
   }
@@ -105,6 +113,9 @@ export function buildDispatchFacet(scope: HandlerContextScope, sinks: CommitSink
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     sinks.bridgeSink.push(hook);
   };
+  const scheduleAfterRollback = (hook: AfterRollbackHook): void => {
+    afterRollbackHooksOf(sinks.bridgeSink).push(() => runWithWriteOrigin(origin, hook));
+  };
   const executeNestedWriteInSavepoint = createSerializedNestedWriter(scope, sinks);
   // Without an open transaction (post-commit hooks, stream/query handlers, perCommand handlers) a bare
   // executeWrite would auto-commit event append, projections and inTransaction hooks separately and its
@@ -136,6 +147,11 @@ export function buildDispatchFacet(scope: HandlerContextScope, sinks: CommitSink
       write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
       writeAs: identitySwitch.writeAs,
     },
-    scheduleFragment: { ...(sinks.hasLiveCommitSink && { scheduleAfterCommit }) },
+    scheduleFragment: {
+      ...(sinks.hasLiveCommitSink && { scheduleAfterCommit }),
+      // perCommand and no-tx paths have earlier commands already committed: nothing to compensate on rollback.
+      ...(sinks.hasLiveCommitSink &&
+        transactionScope === "inTransaction" && { scheduleAfterRollback }),
+    },
   };
 }
