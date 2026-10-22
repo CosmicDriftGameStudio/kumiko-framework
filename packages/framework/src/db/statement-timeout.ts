@@ -6,7 +6,8 @@ const UNBOUNDED_POOL_CLOSE_TIMEOUT_SECONDS = 5;
 // PII backfill and projection rebuilds legitimately run longer. The cap is a connect-time session
 // setting, so the run gets its own short-lived pool with the same options minus the cap: one shared
 // connection would deadlock code that holds a lock in a tx while its DDL runs on another connection.
-// Handles not created by createDbConnection (tx, savepoint, siblings) are passed through.
+// Handles not created by createDbConnection (tx, savepoint, siblings, gated runner proxies) are passed through
+// unchanged and keep the cap; a caller holding such a runner lifts it itself (SET LOCAL in its own transaction).
 export async function withoutStatementTimeout<R, T>(
   db: R,
   run: (db: R | PgClient) => Promise<T>,

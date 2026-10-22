@@ -8,7 +8,7 @@
 import type { DbRunner } from "../db/connection.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
-import { withoutStatementTimeout } from "../db/statement-timeout.ts";
+import { asRawClient, runInNewTransaction, runnerCanBeginTransaction } from "../db/query.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import {
   buildSearchDocument,
@@ -59,26 +59,31 @@ function rowToState(
   return state;
 }
 
-export function reindexEntity(
+// Server pools cap statement_timeout, and a batch scan over a large table can outlast it. The caller's
+// runner (often a gated proxy around the pool) is used as is, so the cap is lifted per batch
+// with SET LOCAL instead of moving the scan to an ungated sibling pool. A runner already inside a
+// transaction keeps the caller's setting rather than leaking ours into its remaining statements.
+async function readBatchWithoutStatementTimeout(
+  db: DbRunner,
+  sqlText: string,
+  params: unknown[],
+): Promise<readonly Record<string, unknown>[]> {
+  if (!runnerCanBeginTransaction(db)) {
+    return executeRawQueryRead<Record<string, unknown>>(db, sqlText, params);
+  }
+  return runInNewTransaction(db, async (tx) => {
+    await asRawClient(tx).unsafe("SET LOCAL statement_timeout = 0");
+    return executeRawQueryRead<Record<string, unknown>>(tx, sqlText, params);
+  });
+}
+
+export async function reindexEntity(
   db: DbRunner,
   registry: Registry,
   searchAdapter: SearchAdapter,
   entityName: string,
   tenantId: TenantId,
   options: ReindexEntityOptions = {},
-): Promise<ReindexEntityResult> {
-  return withoutStatementTimeout(db, (unboundedDb) =>
-    scanAndIndexEntity(unboundedDb, registry, searchAdapter, entityName, tenantId, options),
-  );
-}
-
-async function scanAndIndexEntity(
-  db: DbRunner,
-  registry: Registry,
-  searchAdapter: SearchAdapter,
-  entityName: string,
-  tenantId: TenantId,
-  options: ReindexEntityOptions,
 ): Promise<ReindexEntityResult> {
   const entity = registry.getEntity(entityName);
   if (!entity) {
@@ -118,7 +123,7 @@ async function scanAndIndexEntity(
   for (;;) {
     // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
     const afterLastId = lastId === undefined ? "" : `AND ${quoteIdent("id")} > $3`;
-    const rows = await executeRawQueryRead<Record<string, unknown>>(
+    const rows = await readBatchWithoutStatementTimeout(
       db,
       `SELECT * FROM ${quoteIdent(tableName)}
         WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter} ${afterLastId}
