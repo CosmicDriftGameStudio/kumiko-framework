@@ -3176,6 +3176,7 @@
         "BillingPlanPrice",
         "BillingPlanView",
         "BillingPlansResult",
+        "BillingProviderView",
         "CONSENT_LOCALES",
         "ConsentLocale",
         "ConsentPayload",
@@ -3195,6 +3196,7 @@
         "PaymentEvent",
         "PaymentEventHeaders",
         "PaymentEventPayload",
+        "PlanSwitchPreview",
         "ProviderPrice",
         "ProviderSubscriptionSnapshot",
         "RecurringInterval",
@@ -3281,6 +3283,17 @@
         "createSubscriptionStripeFeature",
         "stripeEnvSchema",
         "subscriptionStripeEnvSchema"
+      ],
+      "./subscription-dodo": [
+        "DODO_BASE_URLS",
+        "DODO_PROVIDER_NAME",
+        "DodoEnvironment",
+        "DodoEnvironments",
+        "SUBSCRIPTION_DODO_FEATURE",
+        "SubscriptionDodoOptions",
+        "createSubscriptionDodoFeature",
+        "dodoEnvSchema",
+        "subscriptionDodoEnvSchema"
       ],
       "./subscription-mollie": [
         "MOLLIE_PROVIDER_NAME",

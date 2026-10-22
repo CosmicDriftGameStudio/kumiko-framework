@@ -139,6 +139,8 @@ const productSchema = z.object({
     }),
     z.object({ type: z.literal("usage_based_price") }),
   ]),
+  // nullish: an older product without metadata must not fail the whole price lookup.
+  metadata: z.record(z.string(), z.string()).nullish(),
 });
 type DodoProduct = z.infer<typeof productSchema>;
 
@@ -150,7 +152,7 @@ function mapDodoProduct(product: DodoProduct): ProviderPrice | null {
     unitAmount: price.price,
     currency: price.currency.toLowerCase(),
     active: true,
-    metadata: {},
+    metadata: product.metadata ?? {},
   };
   if (price.type === "one_time_price") return { ...base, interval: null, intervalCount: 1 };
   const rawInterval = price.payment_frequency_interval.toLowerCase();

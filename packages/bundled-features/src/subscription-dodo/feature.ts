@@ -58,6 +58,32 @@ export const subscriptionDodoEnvSchema = z.object({
     .optional(),
 });
 
+type DodoProductEnvShape<TPrice extends string> = {
+  [Key in `DODO_PRODUCT_${TPrice}`]: z.ZodOptional<z.ZodString>;
+};
+
+/** Dodo env block plus one `DODO_PRODUCT_<NAME>` slot per plan product the app
+ *  maps to a tier, e.g. `dodoEnvSchema({ prices: ["PRO", "TEAM"] })`.
+ *  Shares its bridge fields with `subscriptionDodoEnvSchema`, so spreading
+ *  it into `composeEnvSchema({ extend })` next to the mounted feature is no
+ *  key clash. */
+export function dodoEnvSchema<const TPrice extends string>(options: {
+  readonly prices: readonly TPrice[];
+}) {
+  const productShape = Object.fromEntries(
+    options.prices.map((price) => [
+      `DODO_PRODUCT_${price}`,
+      z
+        .string()
+        .regex(/^pdt_/, `DODO_PRODUCT_${price} must start with 'pdt_'`)
+        .optional()
+        .describe(`Dodo Payments product id (\`pdt_...\`) of the ${price} plan.`),
+    ]),
+    // @cast-boundary schema-walk — Object.fromEntries widens to an index signature; the entries are exactly one optional string per listed price.
+  ) as DodoProductEnvShape<TPrice>;
+  return z.object({ ...subscriptionDodoEnvSchema.shape, ...productShape });
+}
+
 export type SubscriptionDodoOptions = {
   /** Bridge-fallback API key; the `api-key` config key wins when set. */
   readonly apiKey?: string;

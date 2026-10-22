@@ -9,6 +9,7 @@ import { createAuthMfaFeature } from "../auth-mfa/index.ts";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.ts";
 import {
   createSubscriptionDodoFeature,
+  dodoEnvSchema,
   subscriptionDodoEnvSchema,
 } from "../subscription-dodo/index.ts";
 import {
@@ -200,6 +201,39 @@ describe("subscriptionDodoEnvSchema", () => {
 
   it("attaches the schema via r.envSchema() on the factory", () => {
     expect(createSubscriptionDodoFeature().envSchema).toBe(subscriptionDodoEnvSchema);
+  });
+});
+
+describe("dodoEnvSchema", () => {
+  it("adds one optional product slot per listed price next to the bridge keys", () => {
+    const schema = dodoEnvSchema({ prices: ["PRO", "TEAM"] });
+    const parsed = parseEnv(schema, { DODO_PRODUCT_PRO: "pdt_R8AWMPiV8RyJElcCKvAID" });
+    expect(parsed.DODO_PRODUCT_PRO).toBe("pdt_R8AWMPiV8RyJElcCKvAID");
+    expect(parsed.DODO_PRODUCT_TEAM).toBeUndefined();
+    expect(schema.shape.DODO_PAYMENTS_API_KEY).toBe(
+      subscriptionDodoEnvSchema.shape.DODO_PAYMENTS_API_KEY,
+    );
+    expect(schema.shape.DODO_PAYMENTS_WEBHOOK_KEY).toBe(
+      subscriptionDodoEnvSchema.shape.DODO_PAYMENTS_WEBHOOK_KEY,
+    );
+  });
+
+  it("rejects a product id without the pdt_ prefix", () => {
+    try {
+      parseEnv(dodoEnvSchema({ prices: ["PRO"] }), { DODO_PRODUCT_PRO: "price_1" });
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(asBootError(err).errors.map((e) => e.name)).toEqual(["DODO_PRODUCT_PRO"]);
+    }
+  });
+
+  it("composes next to the mounted feature without a key clash", () => {
+    const composed = composeEnvSchema({
+      features: [createSubscriptionDodoFeature()],
+      extend: dodoEnvSchema({ prices: ["PRO"] }),
+    });
+    expect(composed.sources["DODO_PAYMENTS_API_KEY"]).toBe("subscription-dodo");
+    expect(composed.sources["DODO_PRODUCT_PRO"]).toBe("app");
   });
 });
 
