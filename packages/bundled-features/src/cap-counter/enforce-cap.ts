@@ -71,8 +71,9 @@ export function assertBelowHardCap(
   },
 ): void {
   const tolerance = CAP_TOLERANCES[cap.profile];
+  // Validated on every call so a misconfigured period fails deterministically, not only at the limit.
+  const resetAt = resolvePeriodEndIso(cap.periodStartIso, cap.periodEndIso);
   if (valueSeenByLastUnit >= cap.limit * tolerance.hard) {
-    const resetAt = resolvePeriodEndIso(cap.periodStartIso, cap.periodEndIso);
     throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
       ...(resetAt !== undefined && { resetAt }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),

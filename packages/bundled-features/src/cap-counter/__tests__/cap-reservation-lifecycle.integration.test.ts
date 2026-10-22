@@ -32,7 +32,7 @@ import type {
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { readRollingCapUsage } from "../book-cap-usage.ts";
-import { CapCounterHandlers } from "../constants.ts";
+import { CapCounterHandlers, ROLLING_RELEASED_EVENT_QN } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
@@ -493,6 +493,8 @@ describe("withRollingCapEnforcement - reservation lifecycle", () => {
       userFor(tenantNumber, 1, ["TenantAdmin", "SystemAdmin"]),
     );
     const now = Temporal.Now.instant();
+    // Whole milliseconds, so the stored timestamp round-trips to the same string.
+    const reservedAt = Temporal.Instant.fromEpochMilliseconds(now.epochMilliseconds - 61 * 60_000);
     await insertOne(db, capReservationsTable, {
       id: generateId(),
       tenantId,
@@ -501,7 +503,7 @@ describe("withRollingCapEnforcement - reservation lifecycle", () => {
       periodStartIso: null,
       amount: 2,
       expiresAt: now.subtract({ minutes: 1 }),
-      createdAt: now.subtract({ minutes: 61 }),
+      createdAt: reservedAt,
     });
     expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(2);
 
@@ -510,6 +512,11 @@ describe("withRollingCapEnforcement - reservation lifecycle", () => {
     // 2 orphaned - 2 expired + 1 new
     expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(1);
     expect(await reservationRows(tenantNumber)).toHaveLength(0);
+    const released = (await selectMany(db, eventsTable, { tenantId })).filter(
+      (event) => event["type"] === ROLLING_RELEASED_EVENT_QN,
+    );
+    expect(released).toHaveLength(1);
+    expect(released[0]?.["payload"]).toMatchObject({ incrementedAt: reservedAt.toString() });
   });
 });
 

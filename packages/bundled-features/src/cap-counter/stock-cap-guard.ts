@@ -40,6 +40,13 @@ export type StockCapSpec<TCaps> = {
   readonly field: string;
 };
 
+// Lock on the counted set, not on `code`: two handlers capping the same rows under
+// different codes must still serialize against each other.
+function countedSetKey(spec: Pick<StockCapSpec<unknown>, "table" | "where">): string {
+  const where = Object.entries(spec.where ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  return `${spec.table.tableName}:${JSON.stringify(where)}`;
+}
+
 export type StockCapGuard<TCaps> = {
   readonly checkStockCap: (
     db: TenantDb,
@@ -81,7 +88,7 @@ export function createStockCapGuard<TCaps>(
         // ctx.db is the handler's transaction, so the xact lock releases with its commit or
         // rollback. A handler wrapped in several caps must list them in the same order
         // everywhere; Postgres aborts one side of an inverse order with a deadlock error.
-        await ctx.db.advisoryXactLock(STOCK_CAP_LOCK_NAMESPACE, spec.code);
+        await ctx.db.advisoryXactLock(STOCK_CAP_LOCK_NAMESPACE, countedSetKey(spec));
         const failure = await checkStockCap(ctx.db, spec, { config: ctx.config });
         return failure ?? handler.handler(event, ctx);
       },

@@ -4,6 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -22,14 +23,26 @@ import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
-import { hashUnsubscribeAddress } from "../address-opt-out.ts";
-import { DELIVERY_UNSUBSCRIBE_PATH } from "../constants.ts";
+import {
+  addressOptOutAggregateIdForTests,
+  hashUnsubscribeAddress,
+  MAX_ADDRESS_OPT_OUT_GENERATIONS_FOR_TESTS,
+} from "../address-opt-out.ts";
+import {
+  DELIVERY_RESUBSCRIBE_PATH,
+  DELIVERY_UNSUBSCRIBE_PATH,
+  DeliveryErrors,
+} from "../constants.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import {
   type UnsubscribeAddressPayload,
   unsubscribeAddressPayloadSchema,
 } from "../handlers/unsubscribe-address.write.ts";
-import { notificationAddressOptOutsTable, notificationPreferencesTable } from "../tables.ts";
+import {
+  notificationAddressOptOutEntity,
+  notificationAddressOptOutsTable,
+  notificationPreferencesTable,
+} from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
 import { createUnsubscribeRoutes, signAddressUnsubscribeToken } from "../unsubscribe.ts";
@@ -226,6 +239,65 @@ describe("unsubscribe pages in the mail's language", () => {
     const html = await res.text();
     expect(html).toContain('<html lang="en">');
     expect(html).toContain("Unsubscribe from these emails?");
+  });
+});
+
+describe("resubscribe at the generation limit", () => {
+  async function undoTokenAtLastGeneration(address: string, locale: string): Promise<string> {
+    const addressHash = hashUnsubscribeAddress(address);
+    if (addressHash === undefined) throw new Error("blind-index key not configured for this test");
+    const optOutExecutor = createEventStoreExecutor(
+      notificationAddressOptOutsTable,
+      notificationAddressOptOutEntity,
+      { entityName: "notification-address-opt-out" },
+    );
+    const seeded = await optOutExecutor.create(
+      {
+        id: addressOptOutAggregateIdForTests(
+          tenantWithOrigin,
+          addressHash,
+          NEWS,
+          "email",
+          MAX_ADDRESS_OPT_OUT_GENERATIONS_FOR_TESTS - 1,
+        ),
+        addressHash,
+        notificationType: NEWS,
+        channel: "email",
+      },
+      createSystemUser(tenantWithOrigin),
+      createTenantDb({ db: stack.db, tenantId: tenantWithOrigin }),
+    );
+    expect(seeded.isSuccess).toBe(true);
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: tenantWithOrigin, notificationType: NEWS, channel: "email", address, locale },
+      UNSUBSCRIBE_SECRET,
+    );
+    const done = await postForm(DELIVERY_UNSUBSCRIBE_PATH, { token });
+    expect(done.status).toBe(200);
+    return hiddenResubscribeToken(await done.text());
+  }
+
+  test("a form caller gets an HTML page in the mail's language with 409", async () => {
+    const undoToken = await undoTokenAtLastGeneration("limit-form@external.test", "de");
+
+    const res = await postForm(DELIVERY_RESUBSCRIBE_PATH, { token: undoToken });
+
+    expect(res.status).toBe(409);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain('<html lang="de">');
+  });
+
+  test("a JSON caller still gets the JSON error body with 409", async () => {
+    const undoToken = await undoTokenAtLastGeneration("limit-json@external.test", "de");
+
+    const res = await stack.app.request(DELIVERY_RESUBSCRIBE_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: undoToken }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: { code: DeliveryErrors.resubscribeLimitReached } });
   });
 });
 

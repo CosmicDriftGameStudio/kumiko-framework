@@ -31,7 +31,7 @@ import {
   reserveCalendarCapUsage,
 } from "../calendar-cap-usage-reservation.ts";
 import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.ts";
-import { CAP_RESERVATION_TTL_MINUTES } from "../constants.ts";
+import { CAP_RESERVATION_TTL_MINUTES, CAP_SETTLED_TOMBSTONE_TTL_MINUTES } from "../constants.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { capReservationsTable } from "../tables.ts";
@@ -353,6 +353,28 @@ describe("calendarCapReservationHandle", () => {
       user,
     );
     expect(await readCounterValue(user, "sweep-consume-cap")).toBe(5);
+  });
+
+  test("a consume just before the tombstone expires keeps it, so the later settle books the total once", async () => {
+    const user = adminFor(3216);
+    const capName = "tombstone-ttl-cap";
+    const reservationId = await reserve(user, capName, 5);
+    await stack.http.writeOk(CONSUME_QN, { capName, reservationId, units: 2 }, user);
+    const sweptAt = Temporal.Now.instant().add({ minutes: CAP_RESERVATION_TTL_MINUTES + 1 });
+    setSystemTime(sweptAt.epochMilliseconds);
+    await stack.http.writeOk(SWEEP_QN, { capName }, user);
+
+    const justBeforeExpiry = sweptAt.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES - 1 });
+    setSystemTime(justBeforeExpiry.epochMilliseconds);
+    await stack.http.writeOk(CONSUME_QN, { capName, reservationId, units: 1 }, user);
+
+    setSystemTime(
+      sweptAt.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES + 5 }).epochMilliseconds,
+    );
+    await stack.http.writeOk(SWEEP_QN, { capName }, user);
+    await stack.http.writeOk(SETTLE_QN, { capName, reservationId, actual: 5 }, user);
+
+    expect(await readCounterValue(user, capName)).toBe(5);
   });
 
   test("settle below the units consumed before a sweep is rejected and changes nothing", async () => {

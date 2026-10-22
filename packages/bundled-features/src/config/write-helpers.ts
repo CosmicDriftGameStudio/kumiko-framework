@@ -75,8 +75,9 @@ export async function configRowHoldsValue(
   serializedValue: string,
 ): Promise<boolean> {
   if (row?.value === null || row?.value === undefined) return false;
-  if (!keyDef?.encrypted && !keyDef?.piiEncrypted) return row.value === serializedValue;
-  if (!keyDef) return false;
+  if (keyDef === undefined || (!keyDef.encrypted && !keyDef.piiEncrypted)) {
+    return row.value === serializedValue;
+  }
   try {
     return (await decryptStoredValue(row.value, keyDef, cipher, qualifiedKey)) === serializedValue;
   } catch {
