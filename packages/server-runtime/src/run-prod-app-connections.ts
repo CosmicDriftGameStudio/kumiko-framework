@@ -11,7 +11,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/redis";
 import { Redis } from "ioredis";
 import { openDatabasePools, waitForKmsHealthy } from "./boot/shared-boot-steps.ts";
-import { WAIT_FOR_DATABASE_DEADLINE_MS, waitForDatabase } from "./boot/wait-for-database.ts";
+import {
+  type DatabaseWaitClock,
+  WAIT_FOR_DATABASE_DEADLINE_MS,
+  waitForDatabase,
+} from "./boot/wait-for-database.ts";
 import type { RunProdAppOptions } from "./run-prod-app.ts";
 import type { ProdBootConfig, RegisterBootAbortCleanup } from "./run-prod-app-config.ts";
 
@@ -32,14 +36,15 @@ export async function connectProdDependencies(
   config: ProdBootConfig,
   log: Logger,
   registerAbortCleanup: RegisterBootAbortCleanup,
+  databaseWait?: DatabaseWaitClock,
 ): Promise<ProdConnections> {
   const { bootKms, databaseUrl, redisUrl, envSource } = config;
   // KMS health gate: an app configured for crypto-shredding must not boot
   // against an unreachable key store — a silent start would answer every
   // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
-  const databaseWaitDeadline = Date.now() + WAIT_FOR_DATABASE_DEADLINE_MS;
+  const databaseWaitDeadline = (databaseWait?.now ?? Date.now)() + WAIT_FOR_DATABASE_DEADLINE_MS;
   if (bootKms.kms) {
-    await waitForKmsHealthy(bootKms.kms, "runProdApp", databaseWaitDeadline);
+    await waitForKmsHealthy(bootKms.kms, "runProdApp", databaseWaitDeadline, databaseWait);
   }
 
   const pools = openDatabasePools(databaseUrl, envSource);
@@ -49,7 +54,11 @@ export async function connectProdDependencies(
   registerAbortCleanup(() => redis.disconnect());
   logRedisConnectionState(redis, log);
 
-  await waitForDatabase(pools.db, { processName: "runProdApp", deadline: databaseWaitDeadline });
+  await waitForDatabase(pools.db, {
+    ...databaseWait,
+    processName: "runProdApp",
+    deadline: databaseWaitDeadline,
+  });
 
   // One bus per process: the tier resolver, the dispatcher and the file-provider
   // resolver all subscribe to it (invalidation across the API pods).
