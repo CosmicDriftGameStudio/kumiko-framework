@@ -1506,12 +1506,29 @@ describe("boot gates", () => {
     const runner = createGateRunner(feature, prefix);
     try {
       await expect(runner.start()).rejects.toThrow(/did not finish within 100ms/);
-      expect(gateLifecycle).toEqual([]);
-
       await runner.stop();
 
       expect(gateLifecycle).toEqual(["gate-finished"]);
     } finally {
+      await purge(prefix);
+    }
+  });
+
+  test("a failed start() settles the timed-out gate without a stop() call", async () => {
+    const gateLifecycle: string[] = [];
+    const feature = defineFeature("settledgate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true, timeout: 100 }, async () => {
+        await sleep(400);
+        gateLifecycle.push("gate-finished");
+      });
+    });
+    const prefix = uniquePrefix();
+    const runner = createGateRunner(feature, prefix);
+    try {
+      await expect(runner.start()).rejects.toThrow(/did not finish within 100ms/);
+      expect(gateLifecycle).toEqual(["gate-finished"]);
+    } finally {
+      await runner.stop();
       await purge(prefix);
     }
   });
