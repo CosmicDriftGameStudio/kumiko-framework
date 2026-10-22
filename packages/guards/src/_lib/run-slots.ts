@@ -1,11 +1,20 @@
-import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 const DEFAULT_SLOTS = 2;
 const POLL_INTERVAL_MS = 1000;
 const PIDLESS_ORPHAN_AGE_MS = 60_000;
 // Upper bound against pid reuse after SIGKILL/OOM: a reused pid would otherwise hold the slot forever.
-const MAX_SLOT_AGE_MS = 15 * 60_000;
+// The slot mtime is never refreshed, so this must exceed the longest legitimate guard run.
+const MAX_SLOT_AGE_MS = 2 * 60 * 60_000;
 const PID_FILE = "pid";
 
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -31,13 +40,19 @@ export function resolveGuardSlotCount(environment: Environment): number {
   return Number(raw);
 }
 
+function errorCode(error: unknown): string {
+  return error instanceof Error && "code" in error && typeof error.code === "string"
+    ? error.code
+    : "unknown";
+}
+
 function defaultIsPidAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
   } catch (error) {
     // EPERM means the process exists but belongs to another user.
-    return error instanceof Error && "code" in error && error.code === "EPERM";
+    return errorCode(error) === "EPERM";
   }
 }
 
@@ -71,12 +86,6 @@ function isOrphanedSlot(
   if (ownerPid !== undefined) return !isPidAlive(ownerPid);
   // No pid file: the owner is either between mkdir and writeFile or died in that gap.
   return ageMs > PIDLESS_ORPHAN_AGE_MS;
-}
-
-function errorCode(error: unknown): string {
-  return error instanceof Error && "code" in error && typeof error.code === "string"
-    ? error.code
-    : "unknown";
 }
 
 function tryClaimSlot(slotPath: string, pid: number): boolean {
@@ -148,6 +157,24 @@ function defaultSlotsDir(): string {
   return uid === undefined ? "/tmp/kumiko-guard-slots" : `/tmp/kumiko-guard-slots-${uid}`;
 }
 
+// The default dir lives in a shared /tmp: another local user could pre-create it (or swap in a
+// symlink) to hold slots forever or redirect the pid write.
+function assertPrivateOwnDirectory(dir: string): void {
+  const uid = process.getuid?.();
+  if (uid === undefined) return;
+  const stats = lstatSync(dir);
+  if (
+    stats.isSymbolicLink() ||
+    !stats.isDirectory() ||
+    stats.uid !== uid ||
+    (stats.mode & 0o077) !== 0
+  ) {
+    throw Object.assign(new Error(`${dir} is not a private directory owned by the current user`), {
+      code: "EUNSAFE",
+    });
+  }
+}
+
 export function acquireGuardRunSlot(options: GuardRunSlotOptions = {}): () => void {
   const slotCount = resolveGuardSlotCount(options.environment ?? process.env);
   if (slotCount === 0) return () => {};
@@ -164,7 +191,8 @@ export function acquireGuardRunSlot(options: GuardRunSlotOptions = {}): () => vo
   for (;;) {
     let slotPath: string | undefined;
     try {
-      mkdirSync(slotsDir, { recursive: true });
+      mkdirSync(slotsDir, { recursive: true, mode: 0o700 });
+      assertPrivateOwnDirectory(slotsDir);
       slotPath = claimFreeSlot(slotsDir, slotCount, pid, isPidAlive, now);
     } catch (error) {
       // A throttle must never block the push: fail open.

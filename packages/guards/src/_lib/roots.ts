@@ -183,14 +183,18 @@ function isDerivedAppFallback(root: RepoRoot): boolean {
   return root.manifestSource === "derived" && root.kind === "app";
 }
 
-/** The repo of the nearest `kumiko.json` at or above `start`, which is the app root in a git tree that holds several. */
-function nearestManifestRepo(start: string): RepoRoot | undefined {
+/**
+ * The repo of the nearest `kumiko.json` at or above `start`, which is the app root in a git tree
+ * that holds several. The walk stops at the git toplevel, so a foreign `kumiko.json` further up
+ * (workspace parent, home dir) never captures a repo that has none of its own.
+ */
+function nearestManifestRepo(start: string, stopAt: string | undefined): RepoRoot | undefined {
   for (let curr = start; ; curr = dirname(curr)) {
     if (existsSync(join(curr, REPO_MANIFEST_FILE))) {
       const repo = repoAt(curr);
       if (repo) return repo;
     }
-    if (curr === dirname(curr)) return undefined;
+    if (curr === stopAt || curr === dirname(curr)) return undefined;
   }
 }
 
@@ -210,9 +214,9 @@ function nearestManifestRepo(start: string): RepoRoot | undefined {
  */
 export function findLocalRepo(cwd: string = process.cwd()): RepoRoot | undefined {
   const start = resolve(cwd);
-  const fromManifest = nearestManifestRepo(start);
-  if (fromManifest) return fromManifest;
   const toplevel = gitToplevelOf(start);
+  const fromManifest = nearestManifestRepo(start, toplevel);
+  if (fromManifest) return fromManifest;
   const fromGit = toplevel !== undefined ? repoAt(toplevel) : undefined;
   if (fromGit) return fromGit;
   let fallback: RepoRoot | undefined;

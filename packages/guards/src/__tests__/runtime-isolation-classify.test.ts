@@ -700,4 +700,8 @@ describe("feature layout: the runtime follows from the path, no marker needed", 
     expect(classifyByPath("packages/bundled-features/src/demo/__tests__/a.test.ts")).toBe("test");
     expect(classifyByPath("packages/bundled-features/src/demo/scripts/gen.ts")).toBe("tooling");
   });
+
+  test("client code under web/dev/ stays client", () => {
+    expect(classifyByPath("packages/bundled-features/src/demo/web/dev/a.tsx")).toBe("client");
+  });
 });

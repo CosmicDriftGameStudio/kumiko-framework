@@ -49,7 +49,6 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   // sample and import kumiko-testing/e2e; without this rule they read as
   // runtime code importing the test tier. Deliberately not any nested e2e/.
   [/^(?:e2e|packages\/[^/]+\/e2e|samples\/(?:.+\/)?e2e)\//, "test"],
-  [/(?:^|\/)dev\//, "dev"],
   [/(?:^|\/)scripts\//, "tooling"],
   [/(?:^|\/)bin\//, "tooling"],
   [/\/drizzle\/[^/]+\.ts$/, "tooling"],
@@ -75,6 +74,8 @@ const PATH_RULES: readonly (readonly [RegExp, Runtime])[] = [
   // some other package.
   [/(?:^|\/)web\//, "client"],
   [/\/web\.tsx?$/, "client"],
+  // After the web/ carve-out: client code under web/dev/ must stay client.
+  [/(?:^|\/)dev\//, "dev"],
   [/^packages\/framework\/src\/(?:time|utils|engine\/types|errors)\//, "client"],
 
   // More single-file carve-outs, same "package marker is coarser than the

@@ -27,7 +27,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-agent-docs-drift` | Guard: the generated agent docs under `packages/framework/agents/` must match what `bun run gen:agent-docs` renders from the current sources (feature manifest, renderer web exports, sample recipes), and every `agents/<file>.md` path the hand-written `packages/framework/AGENTS.md` points at must exist in that generated set. | - |
 | `guard-app-feature-structure` | App features follow the bundled-features convention (reference: tenant/): feature.ts = registration only, screens under web/, handlers under handlers/. | `kumiko-lint-ignore app-feature-structure` |
 | `guard-comment-issue-ref-only` | Comment Issue-Ref Guard: a comment that holds only an issue or PR reference or a planning label (`#1234`, `fw#1234`, `Phase 3`, `S2.H1`) and no explanatory word is a violation. | `kumiko-lint-ignore comment-issue-ref-only` |
-| `guard-comment-lang` | - | `kumiko-lint-ignore comment-lang` |
+| `guard-comment-lang` | Comment-language ratchet: no new German comments in product code. | `kumiko-lint-ignore comment-lang` |
 | `guard-cross-feature-imports` | Guard: blocks cross-feature deep imports. | `kumiko-lint-ignore cross-feature-import` |
 | `guard-direct-entity-writes` | Guard: forbids direct DB writes on tables registered as ES-entity projections. | - |
 | `guard-direct-fetch` | Guard: finds raw `fetch(` calls in server code outside the client-scoped exceptions. | `kumiko-lint-ignore direct-fetch` |
@@ -41,10 +41,10 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-i18n-keys` | Guard: i18n keys must be defined before they are used. | - |
 | `guard-i18n-locale-mount` | Guard: app mount points must register the German locale feature when the repo depends on @cosmicdrift/kumiko-locale-de. | - |
 | `guard-i18n-locale-terminology` | Guard: locale bundle values must follow Mandant/Organización terminology. | `kumiko-lint-ignore i18n-locale-terminology` |
-| `guard-i18n-ui-strings` | No hardcoded UI text in app web code: JSX text nodes and label-like string props must go through t("…") keys (guard-i18n-keys then checks that the keys are defined — this guard closes the gap before that: strings that never became keys, e.g. | `kumiko-lint-ignore i18n-ui-strings` |
+| `guard-i18n-ui-strings` | No hardcoded UI text in app web code: JSX text nodes and label-like string props must go through t("…") keys (guard-i18n-keys then checks that the keys are defined — this guard closes the gap before that: strings that never became keys, e.g. "Loading tenants…"). | `kumiko-lint-ignore i18n-ui-strings` |
 | `guard-import-extensions` | Guard: relative imports in TypeScript sources name the source file (`./foo.ts`), not the emitted one (`./foo.js`). | - |
 | `guard-lib-test-coverage` | lib/ is the home of extracted logic (computation, parsing, mapping) — the no-logic-in-views guard pushes it there, this guard ensures it is also TESTED at the new location. | `kumiko-lint-ignore lib-test-coverage` |
-| `guard-no-custom-primitives` | Apps no longer build their own UI primitives: components with primitive names (…Card, …Table, …Badge, …Button, …Chart, ProgressBar, MiniStat, …) exist in the framework (usePrimitives() resp. | `kumiko-lint-ignore no-custom-primitives` |
+| `guard-no-custom-primitives` | Apps no longer build their own UI primitives: components with primitive names (…Card, …Table, …Badge, …Button, …Chart, ProgressBar, MiniStat, …) exist in the framework (usePrimitives() resp. widgets/) — app rebuilds drift visually and cost every migration twice. | `kumiko-lint-ignore no-custom-primitives` |
 | `guard-no-date-api` | Guard: finds Date-API patterns in production code where they are banned. | - |
 | `guard-no-direct-fs` | Guard: finds direct `node:fs`/`fs` imports outside an allowlist. | `kumiko-lint-ignore direct-fs` |
 | `guard-no-direct-process-env` | No-Direct-Process-Env Guard. | - |
@@ -54,7 +54,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-no-raw-hooks` | Rerender protection: raw useEffect/useLayoutEffect + fetch() in app screens are the source of the endless-rerender class (unstable deps, setState-in-effect) and bypass the framework hook set (useQuery/ useMutation/useDisclosure — useQuery can go live via SSE). | `kumiko-lint-ignore no-raw-hooks` |
 | `guard-no-temporal-polyfill-import` | Guard: finds value imports from `temporal-polyfill` outside kumiko-types. | - |
 | `guard-primitives-discipline` | Guard: enforces that app-/feature-web code uses UI building blocks from the framework primitives, not hand-rolled Tailwind on raw HTML tags. | `kumiko-lint-ignore primitives-discipline` |
-| `guard-public-exports-changelog` | - | - |
+| `guard-public-exports-changelog` | Public exports of packages/framework and packages/bundled-features must not disappear (rename/removal) without a breaking changelog entry. | - |
 | `guard-raw-classname` | Design comes from widgets/theme tokens, not raw Tailwind in app code. | `kumiko-lint-ignore raw-classname` |
 | `guard-raw-interactive-elements` | Guard: raw interactive HTML elements in feature UI. | `kumiko-lint-ignore raw-interactive-elements` |
 | `guard-raw-sql` | Raw-SQL Guard — blocks `.unsafe()` / `asRawClient()` outside allowed paths. | `kumiko-lint-ignore raw-sql` |

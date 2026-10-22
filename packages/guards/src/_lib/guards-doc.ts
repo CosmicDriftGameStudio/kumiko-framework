@@ -34,10 +34,13 @@ function headerComment(source: string): string {
   return body.join("\n");
 }
 
+// Abbreviations that end in a period but not the sentence.
+const SENTENCE_END_RE = /(?<!\be\.g|\bi\.e|\bresp|\bz\. B|\bvs|\betc)\.(\s|$)/;
+
 function purposeOf(source: string): string {
   const paragraph = headerComment(source).split(/\n\s*\n/)[0] ?? "";
   const flat = paragraph.replace(/\s+/g, " ").trim();
-  const sentenceEnd = flat.search(/\.(\s|$)/);
+  const sentenceEnd = flat.search(SENTENCE_END_RE);
   const sentence = sentenceEnd === -1 ? flat : flat.slice(0, sentenceEnd + 1);
   return sentence.replace(/\|/g, "\\|") || "-";
 }
