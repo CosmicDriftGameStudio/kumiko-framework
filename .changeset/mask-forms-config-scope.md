@@ -1,5 +1,6 @@
 ---
 "@cosmicdrift/kumiko-renderer": patch
+"@cosmicdrift/kumiko-document-designer": patch
 ---
 
 Row actions stay on one line, edit forms keep declared columns and select width, and a system-scope configEdit reads the system level.
@@ -8,5 +9,5 @@ Row actions stay on one line, edit forms keep declared columns and select width,
 feature: renderer
 type: fix
 title: Single-line row actions, stable form columns and select width, system-scope configEdit
-detail: Row actions never wrap onto a second line. In screen forms a section with explicitly declared columns (two or more) lays out as that many columns, and a select cell is as wide as a text cell instead of growing with its help text. A configEdit screen with scope system now reads the system level, so a SystemAdmin no longer sees the value of their own tenant row.
+detail: Row actions never wrap onto a second line; the template overview lets long titles break and cuts the slug earlier so the table keeps room at 1280 px. In screen forms a section with explicitly declared columns (two or more) lays out as that many columns, and a select cell is as wide as a text cell instead of growing with its help text. A configEdit screen with scope system now reads the system level, so a SystemAdmin no longer sees the value of their own tenant row.
 -->
