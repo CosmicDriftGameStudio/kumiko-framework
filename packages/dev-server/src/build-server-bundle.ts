@@ -94,7 +94,7 @@ const BUILD_ONLY_EXTERNALS = [
 export type BuildServerBundleOptions = {
   /** App-Root. Default: process.cwd(). */
   readonly cwd?: string;
-  /** Output-Folder relativ zu cwd. Default: "dist-server". */
+  /** Output folder relative to cwd. Default: "dist-server". */
   readonly outDir?: string;
   /** Additional packages that must be installed at runtime
    *  (beyond RUNTIME_EXTERNALS). App-specific; defaults to empty. */
@@ -178,7 +178,7 @@ export async function buildServerBundle(
   const serverEntry = discoverServerEntry(cwd);
   if (!serverEntry) {
     throw new Error(
-      `[buildServerBundle] Kein bin/main.ts in ${cwd}.\n  Convention: bin/main.ts ist der Server-Bootstrap.`,
+      `[buildServerBundle] No bin/main.ts in ${cwd}.\n  Convention: bin/main.ts is the server bootstrap.`,
     );
   }
 
@@ -186,7 +186,7 @@ export async function buildServerBundle(
   const kumikoCli = repoRoot ? join(repoRoot, "bin/kumiko.ts") : undefined;
   if (kumikoCli && !existsSync(kumikoCli)) {
     throw new Error(
-      `[buildServerBundle] Repo-Root erkannt (${repoRoot}), aber bin/kumiko.ts fehlt — kann Migrate-CLI nicht bündeln.`,
+      `[buildServerBundle] Found the repo root (${repoRoot}), but bin/kumiko.ts is missing, so the migrate CLI cannot be bundled.`,
     );
   }
 

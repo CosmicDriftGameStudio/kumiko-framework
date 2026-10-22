@@ -442,13 +442,13 @@ defineFeature("legacy", (r) => {
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "relation")).toBeUndefined();
   });
 
-  test("removePattern finds a positional hook by type+string target", () => {
+  test("removePattern finds an object-form hook by type+string target", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "hook", hookType: "postSave", target: "task" });
     expect(parseSourceFile(sf).patterns.filter((p) => p.kind === "hook")).toHaveLength(1);
   });
 
-  test("removePattern finds a positional hook with an allOf target", () => {
+  test("removePattern finds an object-form hook with an allOf target", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "hook", hookType: "preDelete", target: { allOf: "task" } });
     expect(parseSourceFile(sf).patterns.filter((p) => p.kind === "hook")).toHaveLength(1);
@@ -460,13 +460,13 @@ defineFeature("legacy", (r) => {
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "job")).toBeUndefined();
   });
 
-  test("removePattern finds a writeHandler by positional name", () => {
+  test("removePattern finds an object-form writeHandler by name", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "writeHandler", handlerName: "task:create" });
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "writeHandler")).toBeUndefined();
   });
 
-  test("removePattern finds a queryHandler by positional name", () => {
+  test("removePattern finds an object-form queryHandler by name", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "queryHandler", handlerName: "task:list" });
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "queryHandler")).toBeUndefined();
@@ -693,7 +693,7 @@ defineFeature("inventory", (r) => {
     expect(reparsed.patterns).toEqual([]);
   });
 
-  test("removePattern finds a positional hook whose target is an inline { name } ref", () => {
+  test("removePattern finds an object-form hook whose target is an inline { name } ref", () => {
     const sf = makeSourceFile(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 

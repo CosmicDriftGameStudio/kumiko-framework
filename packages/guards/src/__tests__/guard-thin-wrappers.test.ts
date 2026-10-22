@@ -81,6 +81,34 @@ describe("collectFindings — excluded patterns (the detection bug fixes)", () =
   });
 });
 
+describe("collectFindings — typed table slots", () => {
+  const MATCHER = "function matchById(call: Call) { return matchProperty(call, 'id'); }";
+
+  test("a named function referenced by a Record-typed table is not a finding", () => {
+    const code = `${MATCHER}\nconst MATCHERS: Record<Kind, Matcher> = { nav: matchById, screen: matchById };`;
+    expect(findingFor(code, "matchById")).toBeUndefined();
+  });
+
+  test("a satisfies-typed table with shorthand and inline entries is not a finding", () => {
+    const code = [
+      "function json(value: unknown) { return stringify(value); }",
+      "const FORMATTERS = { json, text: (value: unknown) => String(value), date: (v: Date) => formatDate(v) } as const satisfies Formatters;",
+    ].join("\n");
+    expect(findingFor(code, "json")).toBeUndefined();
+    expect(findingFor(code, "date")).toBeUndefined();
+  });
+
+  test("the same function stays a finding when the table is untyped or it is only called", () => {
+    expect(
+      findingFor(`${MATCHER}\nconst MATCHERS = { nav: matchById };`, "matchById")?.callee,
+    ).toBe("matchProperty");
+    expect(findingFor(`${MATCHER}\nmatchById(call);`, "matchById")?.callee).toBe("matchProperty");
+    expect(
+      findingFor("const OPTIONS = { date: (v: Date) => formatDate(v) };", "date")?.callee,
+    ).toBe("formatDate");
+  });
+});
+
 describe("check.run — RepoCheck seam (warning-only)", () => {
   test("unmarked wrapper is a warning, never a violation", async () => {
     const dir = mkdtempSync(join(tmpdir(), "thin-wrapper-guard-"));

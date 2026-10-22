@@ -44,6 +44,7 @@ import {
 import {
   createEventConsumerStateTable,
   createProjectionStateTable,
+  getConsumerState,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
@@ -97,6 +98,17 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
       });
     },
   );
+});
+
+// A per-instance MSP keys its cursor row by the dispatcher's instance id, which makes
+// the id the worker resolved observable in kumiko_event_consumers.
+const perInstanceProbeFeature = defineFeature("worker-instance-probe", (r) => {
+  r.multiStreamProjection({
+    name: "echo",
+    delivery: "per-instance",
+    runIn: "worker",
+    apply: { "worker-probe:event:never-emitted": async () => {} },
+  });
 });
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000002";
@@ -207,6 +219,31 @@ describe("runWorkerApp", () => {
       expect(mine).toHaveLength(1);
       expect(mine[0]?.tenantId).toBe(SYSTEM_TENANT_ID);
       expect(mine[0]?.payload).toMatchObject({ version: "4.5.6" });
+    } finally {
+      await close();
+    }
+  });
+
+  test("the worker dispatcher takes KUMIKO_INSTANCE_ID from envSource, like the API process", async () => {
+    const dbUrl = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+    await boot({
+      features: [workerProbeFeature, perInstanceProbeFeature],
+      envSource: {
+        DATABASE_URL: dbUrl,
+        REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
+        JWT_SECRET: "test-runworker-secret-32-chars-min!!",
+        KUMIKO_INSTANCE_ID: "worker-env-source-pod",
+      },
+    });
+
+    const { db, close } = createDbConnection({ url: dbUrl });
+    try {
+      const state = await getConsumerState(
+        db,
+        "worker-instance-probe:projection:echo",
+        "worker-env-source-pod",
+      );
+      expect(state?.instanceId).toBe("worker-env-source-pod");
     } finally {
       await close();
     }

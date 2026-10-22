@@ -232,86 +232,131 @@ function unitDisplaySpec(spec: Record<string, unknown>): Intl.NumberFormatOption
   return isOneOf(INTL_UNIT_DISPLAYS, v) ? v : "short";
 }
 
+type CellFormatSpec = { format: string } & Record<string, unknown>;
+type CellTranslate = ((key: string) => string) | undefined;
+type CellFormatter = (spec: CellFormatSpec, value: unknown, translate: CellTranslate) => string;
+
+function isEmptyCellValue(value: unknown): boolean {
+  return value === null || value === undefined || value === "";
+}
+
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
   translate?: (key: string) => string,
 ): string {
-  const isEmpty = value === null || value === undefined || value === "";
   // priority renders its emptyLabel for empty values — every other format
   // collapses empty to "".
-  if (isEmpty && spec.format !== "priority") return "";
-  switch (spec.format) {
-    case "timestamp":
-    case "date":
-      return formatDateCell(value, spec.format, {
-        locale: stringSpec(spec, "locale"),
-        dateStyle: dateStyleSpec(spec, "dateStyle"),
-        timeStyle: spec.format === "timestamp" ? dateStyleSpec(spec, "timeStyle") : undefined,
-        timeZone: spec.format === "timestamp" ? stringSpec(spec, "timeZone") : undefined,
-      });
-    case "boolean": {
-      if (value === true) {
-        const trueLabel = stringSpec(spec, "trueLabel");
-        return trueLabel === undefined ? "✓" : (translate?.(trueLabel) ?? trueLabel);
-      }
-      if (value === false) {
-        const falseLabel = stringSpec(spec, "falseLabel");
-        return falseLabel === undefined ? "" : (translate?.(falseLabel) ?? falseLabel);
-      }
-      return "";
-    }
-    case "currency": {
-      const sym = stringSpec(spec, "symbol") ?? "";
-      return sym.length > 0 ? `${value} ${sym}` : String(value);
-    }
-    case "number":
-    case "decimal":
-    case "bigInt":
-      return formatNumberCell(
-        value,
-        stringSpec(spec, "locale"),
-        booleanSpec(spec, "grouping") ?? true,
-        spec.format === "bigInt" ? {} : fractionDigitsSpec(spec),
-      );
-    case "unit":
-      return formatUnitCell(
-        value,
-        stringSpec(spec, "unit"),
-        stringSpec(spec, "locale"),
-        unitDisplaySpec(spec),
-      );
-    case "priority": {
-      const emptyLabel = stringSpec(spec, "emptyLabel") ?? EMPTY_VALUE_PLACEHOLDER;
-      const prefix = stringSpec(spec, "prefix") ?? "";
-      if (isEmpty || value === 0) return emptyLabel;
-      return `${prefix}${value}`;
-    }
-    case "enumOption": {
-      const keyPrefix = stringSpec(spec, "keyPrefix");
-      const labelFor = (item: unknown): string => {
-        const raw = typeof item === "string" ? item : String(item);
-        if (keyPrefix === undefined || translate === undefined) return raw;
-        const key = `${keyPrefix}${raw}`;
-        const translated = translate(key);
-        return translated === key ? raw : translated;
-      };
-      // multiSelect-style columns hold an array of option values
-      return Array.isArray(value) ? value.map(labelFor).join(", ") : labelFor(value);
-    }
-    // Thumbnails and file links are drawn by the web list cell; this is the
-    // text fallback for every other surface.
-    case "image":
-    case "file":
-      return Array.isArray(value) ? value.join(", ") : String(value);
-    case "json":
-      return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
-    default:
-      if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-        rendererWarn(
-          `[kumiko] applyFormatSpec: unknown format key "${spec.format}" — registered via FieldFormatRegistry module augmentation?`,
-        );
-      }
-      return typeof value === "string" ? value : String(value);
+  if (isEmptyCellValue(value) && spec.format !== "priority") return "";
+  if (!isBuiltInCellFormat(spec.format)) return formatUnknownCellFormat(spec, value);
+  return CELL_FORMATTERS[spec.format](spec, value, translate);
+}
+
+function formatTemporalCell(spec: CellFormatSpec, value: unknown): string {
+  const isTimestamp = spec.format === "timestamp";
+  return formatDateCell(value, spec.format, {
+    locale: stringSpec(spec, "locale"),
+    dateStyle: dateStyleSpec(spec, "dateStyle"),
+    timeStyle: isTimestamp ? dateStyleSpec(spec, "timeStyle") : undefined,
+    timeZone: isTimestamp ? stringSpec(spec, "timeZone") : undefined,
+  });
+}
+
+function formatBooleanCell(spec: CellFormatSpec, value: unknown, translate: CellTranslate): string {
+  if (value === true) {
+    const trueLabel = stringSpec(spec, "trueLabel");
+    return trueLabel === undefined ? "✓" : (translate?.(trueLabel) ?? trueLabel);
   }
+  if (value === false) {
+    const falseLabel = stringSpec(spec, "falseLabel");
+    return falseLabel === undefined ? "" : (translate?.(falseLabel) ?? falseLabel);
+  }
+  return "";
+}
+
+function formatCurrencyCell(spec: CellFormatSpec, value: unknown): string {
+  const sym = stringSpec(spec, "symbol") ?? "";
+  return sym.length > 0 ? `${value} ${sym}` : String(value);
+}
+
+function formatNumericCell(spec: CellFormatSpec, value: unknown): string {
+  return formatNumberCell(
+    value,
+    stringSpec(spec, "locale"),
+    booleanSpec(spec, "grouping") ?? true,
+    spec.format === "bigInt" ? {} : fractionDigitsSpec(spec),
+  );
+}
+
+function formatUnitSpecCell(spec: CellFormatSpec, value: unknown): string {
+  return formatUnitCell(
+    value,
+    stringSpec(spec, "unit"),
+    stringSpec(spec, "locale"),
+    unitDisplaySpec(spec),
+  );
+}
+
+function formatPriorityCell(spec: CellFormatSpec, value: unknown): string {
+  const emptyLabel = stringSpec(spec, "emptyLabel") ?? EMPTY_VALUE_PLACEHOLDER;
+  const prefix = stringSpec(spec, "prefix") ?? "";
+  if (isEmptyCellValue(value) || value === 0) return emptyLabel;
+  return `${prefix}${value}`;
+}
+
+function formatEnumOptionCell(
+  spec: CellFormatSpec,
+  value: unknown,
+  translate: CellTranslate,
+): string {
+  const keyPrefix = stringSpec(spec, "keyPrefix");
+  const labelFor = (item: unknown): string => {
+    const raw = typeof item === "string" ? item : String(item);
+    if (keyPrefix === undefined || translate === undefined) return raw;
+    const key = `${keyPrefix}${raw}`;
+    const translated = translate(key);
+    return translated === key ? raw : translated;
+  };
+  // multiSelect-style columns hold an array of option values
+  return Array.isArray(value) ? value.map(labelFor).join(", ") : labelFor(value);
+}
+
+// Thumbnails and file links are drawn by the web list cell; this is the
+// text fallback for every other surface.
+function formatFileCell(_spec: CellFormatSpec, value: unknown): string {
+  return Array.isArray(value) ? value.join(", ") : String(value);
+}
+
+function formatJsonCell(spec: CellFormatSpec, value: unknown): string {
+  return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
+}
+
+const CELL_FORMATTERS = {
+  timestamp: formatTemporalCell,
+  date: formatTemporalCell,
+  boolean: formatBooleanCell,
+  currency: formatCurrencyCell,
+  number: formatNumericCell,
+  decimal: formatNumericCell,
+  bigInt: formatNumericCell,
+  unit: formatUnitSpecCell,
+  priority: formatPriorityCell,
+  enumOption: formatEnumOptionCell,
+  image: formatFileCell,
+  file: formatFileCell,
+  json: formatJsonCell,
+} as const satisfies Readonly<Record<string, CellFormatter>>;
+
+// Own-key check: a format such as "toString" must not resolve to an inherited member.
+function isBuiltInCellFormat(format: string): format is keyof typeof CELL_FORMATTERS {
+  return Object.hasOwn(CELL_FORMATTERS, format);
+}
+
+function formatUnknownCellFormat(spec: CellFormatSpec, value: unknown): string {
+  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+    rendererWarn(
+      `[kumiko] applyFormatSpec: unknown format key "${spec.format}" — registered via FieldFormatRegistry module augmentation?`,
+    );
+  }
+  return typeof value === "string" ? value : String(value);
 }

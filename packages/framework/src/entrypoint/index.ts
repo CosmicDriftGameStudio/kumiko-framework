@@ -78,6 +78,7 @@ export type BaseEntrypointOptions = {
   // Pass one in when you want to register caller-specific shutdown hooks
   // alongside the framework's.
   readonly lifecycle?: Lifecycle;
+  readonly instanceId?: ServerOptions["instanceId"];
 };
 
 // Shape the JobRunner block takes in every entrypoint mode. Extracted so
@@ -124,7 +125,6 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   };
   readonly trustedProxyHops?: ServerOptions["trustedProxyHops"];
   readonly errorDocs?: ServerOptions["errorDocs"];
-  readonly instanceId?: ServerOptions["instanceId"];
 };
 
 export type WorkerEntrypointOptions = BaseEntrypointOptions &
@@ -307,6 +307,7 @@ function buildWorkerServer(
     jwtSecret: opts.jwtSecret,
     lifecycle,
     processLane: "worker",
+    instanceId: opts.instanceId,
     observability: opts.observability,
     dispatcherOptions,
     systemHooks: opts.systemHooks,

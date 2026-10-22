@@ -163,7 +163,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     const offender = findNonJsonSafePath(schema, "schema");
     if (offender !== null) {
       log.error(
-        `buildAppSchema: Output ist nicht JSON-safe — nicht-serialisierbarer Wert bei "${offender}" (Funktions-Renderer oder Klassen-Instanz im Schema?).`,
+        `buildAppSchema: output is not JSON-safe, non-serializable value at "${offender}" (a function renderer or class instance in the schema?).`,
         { offender },
       );
     }
@@ -576,88 +576,105 @@ function assertValidScreenMultilineRows(
 // satisfies the discriminated union with an unnarrowed `type` string — the
 // cast bridges the variant inference TS can't recompute from a generic
 // Record.
-// kumiko-lint-ignore complexity-budget flat per-property whitelist walk, one independent `if` per FieldDefinition property — same shape as schema-builder.ts's field→zod switch
-function projectField(fieldDef: FieldDefinition): EntityFieldDefinition {
-  const def = fieldDef as Record<string, unknown>; // @cast-boundary schema-walk
-  const out: Record<string, unknown> = {};
-  if (typeof def["type"] === "string") out["type"] = def["type"];
-  if (typeof def["required"] === "boolean") out["required"] = def["required"];
-  if (typeof def["sortable"] === "boolean") out["sortable"] = def["sortable"];
+type FieldPropertyGate = (value: unknown) => boolean;
+
+const isStringValue: FieldPropertyGate = (value) => typeof value === "string";
+const isBooleanValue: FieldPropertyGate = (value) => typeof value === "boolean";
+const isNumberValue: FieldPropertyGate = (value) => typeof value === "number";
+const isTrueValue: FieldPropertyGate = (value) => value === true;
+const isNumberOrStringValue: FieldPropertyGate = (value) =>
+  typeof value === "number" || typeof value === "string";
+const isBooleanOrJsonSafeObject: FieldPropertyGate = (value) =>
+  typeof value === "boolean" || isJsonSafeObject(value);
+const isUnitSpec: FieldPropertyGate = (value) =>
+  typeof value === "string" || (isPlainObject(value) && typeof value["field"] === "string");
+
+// Forwarded in this order, so the client schema keeps its key order.
+const FORWARDED_FIELD_PROPERTIES: readonly (readonly [
+  key: string,
+  isForwarded: FieldPropertyGate,
+])[] = [
+  ["type", isStringValue],
+  ["required", isBooleanValue],
+  ["sortable", isBooleanValue],
   // filterable controls the faceted filter dropdowns in the renderer (select/
   // boolean), so it must be included in the client schema.
-  if (typeof def["filterable"] === "boolean") out["filterable"] = def["filterable"];
-  if (typeof def["searchable"] === "boolean") out["searchable"] = def["searchable"];
-  if (isJsonSafeValue(def["default"])) out["default"] = def["default"];
+  ["filterable", isBooleanValue],
+  ["searchable", isBooleanValue],
+  ["default", isJsonSafeValue],
   // Select: the options list is plain JSON, so forward it.
-  if (Array.isArray(def["options"])) out["options"] = def["options"];
-  if (isJsonSafeObject(def["optionTones"])) out["optionTones"] = def["optionTones"];
+  ["options", Array.isArray],
+  ["optionTones", isJsonSafeObject],
   // Reference: entity target, labelField, and multiple are required by the
   // renderer. ReferenceInput builds the options query from refEntity/refFeature
   // and resolves the label through labelField; without these properties, the
   // dropdown is empty (the QN becomes `<feature>:query::list` → 404).
-  if (typeof def["entity"] === "string") out["entity"] = def["entity"];
-  if (typeof def["labelField"] === "string") out["labelField"] = def["labelField"];
+  ["entity", isStringValue],
+  ["labelField", isStringValue],
   // Author-supplied picker source — without it the client falls back to the list handler.
-  if (typeof def["optionsQuery"] === "string") out["optionsQuery"] = def["optionsQuery"];
+  ["optionsQuery", isStringValue],
   // Select: tier/tenant availability of the static options, loaded by the renderer.
-  if (typeof def["optionsAvailabilityQuery"] === "string")
-    out["optionsAvailabilityQuery"] = def["optionsAvailabilityQuery"];
+  ["optionsAvailabilityQuery", isStringValue],
   // Select: options only offered while a sibling-field condition holds; the renderer filters, the write path enforces.
-  if (Array.isArray(def["conditionalOptions"]))
-    out["conditionalOptions"] = def["conditionalOptions"];
-  if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
+  ["conditionalOptions", Array.isArray],
+  ["multiple", isBooleanValue],
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer
   // always falls back to the combobox. Select: display picks
   // "radio" | "dropdown" the same way.
-  if (typeof def["display"] === "string") out["display"] = def["display"];
-  if (typeof def["columns"] === "number") out["columns"] = def["columns"];
-  if (typeof def["maxRows"] === "number") out["maxRows"] = def["maxRows"];
+  ["display", isStringValue],
+  ["columns", isNumberValue],
+  ["maxRows", isNumberValue],
   // text/longText: textarea row count — DefaultInput renders a single-line
   // input otherwise.
-  if (typeof def["multiline"] === "boolean" || isJsonSafeObject(def["multiline"]))
-    out["multiline"] = def["multiline"];
+  ["multiline", isBooleanOrJsonSafeObject],
   // number: Zod write-boundary bounds. date/timestamp/locatedTimestamp:
   // ISO-string picker bounds — same keys, different literal type.
-  if (typeof def["min"] === "number" || typeof def["min"] === "string") out["min"] = def["min"];
-  if (typeof def["max"] === "number" || typeof def["max"] === "string") out["max"] = def["max"];
+  ["min", isNumberOrStringValue],
+  ["max", isNumberOrStringValue],
   // date/timestamp/locatedTimestamp: display/parsing locale override.
-  if (typeof def["locale"] === "string") out["locale"] = def["locale"];
+  ["locale", isStringValue],
   // image/images: which camera a mobile capture opens.
-  if (typeof def["capture"] === "string") out["capture"] = def["capture"];
+  ["capture", isStringValue],
   // number: display-only suffix, static or read from a sibling field of the row.
-  const unit = def["unit"];
-  if (typeof unit === "string" || (isPlainObject(unit) && typeof unit["field"] === "string"))
-    out["unit"] = unit;
+  ["unit", isUnitSpec],
   // number/decimal/bigInt: `false` drops thousands separators (e.g. a year).
-  if (typeof def["grouping"] === "boolean") out["grouping"] = def["grouping"];
+  ["grouping", isBooleanValue],
   // text: "password" masks the input and blocks URL prefill in the renderer.
-  if (typeof def["format"] === "string") out["format"] = def["format"];
+  ["format", isStringValue],
   // Write-response redaction stays server-side; the renderer needs the flag to
   // refuse any prefill (URL or handoff) into the field.
-  if (def["sensitive"] === true) out["sensitive"] = true;
+  ["sensitive", isTrueValue],
   // Without it the renderer shows a plain text input for a field whose value never leaves the server.
-  if (def["writeOnly"] === true) out["writeOnly"] = true;
+  ["writeOnly", isTrueValue],
   // timestamp: the edit view-model derives its wall-clock input mode from this.
-  if (typeof def["locatedBy"] === "string") out["locatedBy"] = def["locatedBy"];
+  ["locatedBy", isStringValue],
   // file/image/images: upload picker constraints; the first variant key picks
   // the preview variant.
-  if (isJsonSafeArray(def["accept"])) out["accept"] = def["accept"];
-  if (typeof def["maxSize"] === "string") out["maxSize"] = def["maxSize"];
-  if (isJsonSafeObject(def["variants"])) out["variants"] = def["variants"];
+  ["accept", isJsonSafeArray],
+  ["maxSize", isStringValue],
+  ["variants", isJsonSafeObject],
   // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
-  if (typeof def["scale"] === "number") out["scale"] = def["scale"];
+  ["scale", isNumberValue],
   // money: declared currency source (MoneyCurrencySource) — without
   // it the renderer can't tell a "currency: { kind: 'tenant' }" field apart
   // from an undeclared one and always falls back to entity.defaultCurrency.
-  if (isJsonSafeObject(def["currency"])) out["currency"] = def["currency"];
+  ["currency", isJsonSafeObject],
   // embedded lists: row-count bounds, computed cells, totals row, and the
   // sibling-money-field totals check.
-  if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];
-  if (typeof def["maxItems"] === "number") out["maxItems"] = def["maxItems"];
-  if (isJsonSafeObject(def["derived"])) out["derived"] = def["derived"];
-  if (isJsonSafeArray(def["totals"])) out["totals"] = def["totals"];
-  if (isJsonSafeObject(def["totalsMatch"])) out["totalsMatch"] = def["totalsMatch"];
+  ["minItems", isNumberValue],
+  ["maxItems", isNumberValue],
+  ["derived", isJsonSafeObject],
+  ["totals", isJsonSafeArray],
+  ["totalsMatch", isJsonSafeObject],
+];
+
+function projectField(fieldDef: FieldDefinition): EntityFieldDefinition {
+  const def = fieldDef as Record<string, unknown>; // @cast-boundary schema-walk
+  const out: Record<string, unknown> = {};
+  for (const [key, isForwarded] of FORWARDED_FIELD_PROPERTIES) {
+    if (isForwarded(def[key])) out[key] = def[key];
+  }
   // embedded lists: the sub-field map itself — without it the client-side
   // edit view-model iterates `undefined` and the screen crashes.
   // Recursive per sub-field, NOT a blanket isJsonSafeValue gate: a single

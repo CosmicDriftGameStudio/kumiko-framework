@@ -14,7 +14,7 @@ const [, , cmd, ...rest] = Bun.argv;
 if (cmd !== "schema") {
   // biome-ignore lint/suspicious/noConsole: CLI output is the feature.
   console.error(
-    `\n  Unbekannt: kumiko ${cmd ?? ""} — nur 'kumiko schema <sub>' im Standalone-Bundle.\n`,
+    `\n  Unknown command: kumiko ${cmd ?? ""}. The standalone bundle only supports 'kumiko schema <sub>'.\n`,
   );
   process.exit(1);
 }

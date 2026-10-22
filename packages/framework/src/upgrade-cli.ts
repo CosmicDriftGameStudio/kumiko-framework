@@ -832,24 +832,29 @@ function matchManualRefs(
   return { resolvedIds, errors };
 }
 
+function failUpgrade(out: UpgradeCliOut, ...lines: readonly string[]): number {
+  out.err("");
+  for (const line of lines) out.err(`  ${line}`);
+  out.err("");
+  return 1;
+}
+
 function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir: string): number {
-  const fail = (...lines: string[]): number => {
-    out.err("");
-    for (const line of lines) out.err(`  ${line}`);
-    out.err("");
-    return 1;
-  };
   const input = parseResolveInput(args);
-  if ("error" in input) return fail(input.error);
+  if ("error" in input) return failUpgrade(out, input.error);
   const read = readMarker(targetDir);
   if (read.kind === "missing") {
-    return fail(`No .kumiko/upgrade-state.json under ${targetDir}, nothing to resolve.`);
+    return failUpgrade(
+      out,
+      `No .kumiko/upgrade-state.json under ${targetDir}, nothing to resolve.`,
+    );
   }
-  if (read.kind === "invalid") return fail("invalid .kumiko/upgrade-state.json, fix it first.");
+  if (read.kind === "invalid")
+    return failUpgrade(out, "invalid .kumiko/upgrade-state.json, fix it first.");
 
   const open = read.marker.pendingManual;
   const { resolvedIds, errors } = matchManualRefs(open, input.refs);
-  if (errors.length > 0) return fail(...errors, "Nothing was written.");
+  if (errors.length > 0) return failUpgrade(out, ...errors, "Nothing was written.");
   const { reason } = input;
 
   const resolution: ManualResolution = getFlag(args, "not-applicable")
@@ -893,40 +898,27 @@ kumiko-upgrade --resolve <id|version>[,<id|version>...] --reason "<text>" [--not
   --dry-run          with --apply, report what would run without writing anything
   --help, -h         print this usage and exit`;
 
-// kumiko-lint-ignore complexity-budget CLI orchestration moved from bin/commands/upgrade.ts — same branching surface, shared by kumiko upgrade + published kumiko-upgrade bin
-export async function runUpgradeCli(
-  argv: readonly string[],
+type UpgradeBaseline = {
+  readonly currentVersion: string;
+  readonly installedVersion: string | null;
+  readonly markerRead: MarkerRead;
+};
+
+type UpgradePlan = UpgradeBaseline & {
+  readonly targetInstalledVersion: string | null;
+  readonly allEntries: readonly ChangelogEntry[];
+  readonly pending: readonly ChangelogEntry[];
+};
+
+type Planned<T> =
+  | { readonly kind: "ok"; readonly value: T }
+  | { readonly kind: "error"; readonly lines: readonly string[] };
+
+function resolveUpgradeBaseline(
   cwd: string,
-  out: UpgradeCliOut,
-  options?: { readonly repoRoot?: string },
-): Promise<number> {
-  if (argv.includes("--help") || argv.includes("-h")) {
-    out.log(UPGRADE_USAGE);
-    return 0;
-  }
-  // Standalone CLI entry, not booted via runProdApp/runDevApp — Temporal needs an explicit polyfill here.
-  await ensureTemporalPolyfill();
-  const repoRoot = options?.repoRoot ?? cwd;
-  const args = parseArgs(argv);
-  const jsonMode = getFlag(args, "json");
-  const verbose = getFlag(args, "verbose");
-  const fromFlag = getStringFlag(args, "from");
-
-  // Resolved once here (not just inside --apply) so both the filter
-  // baseline below and the --apply codemod run target the same directory.
-  const dirFlag = getStringFlag(args, "dir");
-  const targetDir = dirFlag ? resolve(dirFlag) : cwd;
-  if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
-    out.err("");
-    out.err(`  --dir path is not a directory: ${targetDir}`);
-    out.err("");
-    return 1;
-  }
-
-  if (args.flags.has("resolve")) {
-    return resolveManualMigrations(out, args, targetDir);
-  }
-
+  targetDir: string,
+  fromFlag: string | undefined,
+): Planned<UpgradeBaseline> {
   // Always resolve the actually installed version, even when --from is set,
   // so --json can report both the filter baseline and what's really there.
   const installedVersion = readCurrentVersion(cwd);
@@ -941,38 +933,43 @@ export async function runUpgradeCli(
   const markerRead = readMarker(targetDir);
   const marker = fromFlag === undefined ? markerRead : { kind: "missing" as const };
   if (marker.kind === "invalid") {
-    out.err("");
-    out.err("  invalid .kumiko/upgrade-state.json, fix it or pass --from <version>");
-    out.err("");
-    return 1;
+    return {
+      kind: "error",
+      lines: ["invalid .kumiko/upgrade-state.json, fix it or pass --from <version>"],
+    };
   }
   const currentVersion =
     fromFlag ?? (marker.kind === "ok" ? marker.version : undefined) ?? installedVersion;
   if (!currentVersion) {
-    out.err("");
-    out.err("  Could not detect Kumiko version.");
-    out.err("  Run from an app directory with node_modules, or use --from <version>.");
-    out.err("");
-    return 1;
+    return {
+      kind: "error",
+      lines: [
+        "Could not detect Kumiko version.",
+        "Run from an app directory with node_modules, or use --from <version>.",
+      ],
+    };
   }
-
   if (!SEMVER_RE.test(currentVersion)) {
-    out.err("");
-    out.err(`  Invalid version format: "${currentVersion}" — expected x.y.z`);
-    out.err("");
-    return 1;
+    return {
+      kind: "error",
+      lines: [`Invalid version format: "${currentVersion}" — expected x.y.z`],
+    };
   }
+  return { kind: "ok", value: { currentVersion, installedVersion, markerRead } };
+}
 
+function collectAllChangelogEntries(cwd: string): Planned<readonly ChangelogEntry[]> {
   const featuresDirs = findFeaturesDirs(cwd);
   const packageChangelogFiles = findPackageChangelogFiles(cwd);
   if (featuresDirs.length === 0 && packageChangelogFiles.length === 0) {
-    out.err("");
-    out.err("  Could not find bundled-features directory.");
-    out.err("  Run from framework/enterprise repo or an app with node_modules.");
-    out.err("");
-    return 1;
+    return {
+      kind: "error",
+      lines: [
+        "Could not find bundled-features directory.",
+        "Run from framework/enterprise repo or an app with node_modules.",
+      ],
+    };
   }
-
   const allEntries: ChangelogEntry[] = [];
   for (const dir of featuresDirs) {
     allEntries.push(...collectChangelogs(dir));
@@ -980,6 +977,17 @@ export async function runUpgradeCli(
   for (const changelogFile of packageChangelogFiles) {
     allEntries.push(...readChangelogFile(changelogFile));
   }
+  return { kind: "ok", value: allEntries };
+}
+
+function planUpgrade(args: ParsedArgs, cwd: string, targetDir: string): Planned<UpgradePlan> {
+  const dirFlag = getStringFlag(args, "dir");
+  const baseline = resolveUpgradeBaseline(cwd, targetDir, getStringFlag(args, "from"));
+  if (baseline.kind === "error") return baseline;
+  const entries = collectAllChangelogEntries(cwd);
+  if (entries.kind === "error") return entries;
+  const { currentVersion, installedVersion } = baseline.value;
+  const allEntries = entries.value;
   // Installed version of the target the marker belongs to (cwd unless --dir).
   const targetInstalledVersion = dirFlag ? readCurrentVersion(targetDir) : installedVersion;
   // Changelogs can be found in a parent workspace's newer install. A change
@@ -989,109 +997,142 @@ export async function runUpgradeCli(
       ? allEntries
       : allEntries.filter((entry) => compareVersions(entry.version, targetInstalledVersion) <= 0);
   const pending = sortEntries(filterEntriesAfter(installedEntries, currentVersion));
+  return {
+    kind: "ok",
+    value: { ...baseline.value, targetInstalledVersion, allEntries, pending },
+  };
+}
 
-  if (getFlag(args, "apply")) {
-    // Marker must reflect what is actually installed under the target (or
-    // cwd), not the filter baseline above — otherwise CI stays green forever.
-    const markerVersion = targetInstalledVersion;
-    const dryRun = getFlag(args, "dry-run");
-    if (markerVersion === null && !dryRun) {
-      out.err("");
-      out.err(`  Could not detect the installed Kumiko version under ${targetDir}.`);
-      out.err("  Refusing to write an upgrade marker without it (--from is only a filter).");
-      out.err("");
-      return 1;
+async function applyPlannedUpgrade(
+  out: UpgradeCliOut,
+  args: ParsedArgs,
+  plan: UpgradePlan,
+  repoRoot: string,
+  targetDir: string,
+): Promise<number> {
+  // Marker must reflect what is actually installed under the target (or
+  // cwd), not the filter baseline above — otherwise CI stays green forever.
+  const markerVersion = plan.targetInstalledVersion;
+  const dryRun = getFlag(args, "dry-run");
+  if (markerVersion === null && !dryRun) {
+    return failUpgrade(
+      out,
+      `Could not detect the installed Kumiko version under ${targetDir}.`,
+      "Refusing to write an upgrade marker without it (--from is only a filter).",
+    );
+  }
+  out.log("");
+  const code = await applyCodemods(
+    out,
+    plan.pending,
+    repoRoot,
+    targetDir,
+    dryRun,
+    markerVersion ?? plan.currentVersion,
+    carryOf(plan.markerRead),
+    plan.currentVersion,
+    getFlag(args, "verbose") ? manualDetailsOf(plan.allEntries) : undefined,
+  );
+  out.log("");
+  return code;
+}
+
+function reportUpgradeJson(out: UpgradeCliOut, plan: UpgradePlan): number {
+  const { currentVersion, installedVersion } = plan;
+  const { pendingManual } = carryOf(plan.markerRead);
+  const pendingWithManualId = plan.pending.map((entry) => {
+    const manualId = manualIdOf(entry);
+    return manualId === undefined ? entry : { ...entry, manualId };
+  });
+  out.log(
+    JSON.stringify(
+      { currentVersion, installedVersion, pending: pendingWithManualId, pendingManual },
+      null,
+      2,
+    ),
+  );
+  return 0;
+}
+
+function logEntryDetail(out: UpgradeCliOut, entry: ChangelogEntry, verbose: boolean): void {
+  if (verbose && entry.detail) {
+    out.log(`      ${entry.detail}`);
+  }
+}
+
+function logBreakingSection(
+  out: UpgradeCliOut,
+  breaking: readonly ChangelogEntry[],
+  verbose: boolean,
+): void {
+  // skip: no breaking entries, the section is omitted
+  if (breaking.length === 0) return;
+  out.log(`  ⚠ BREAKING (${breaking.length})`);
+  out.log("");
+  for (const e of breaking) {
+    const manualId = manualIdOf(e);
+    out.log(`    ${e.version} · ${e.title}${manualId === undefined ? "" : `  [${manualId}]`}`);
+    logEntryDetail(out, e, verbose);
+    if (e.migration) {
+      out.log(`      → Migration: ${e.migration}`);
     }
     out.log("");
-    const code = await applyCodemods(
-      out,
-      pending,
-      repoRoot,
-      targetDir,
-      dryRun,
-      markerVersion ?? currentVersion,
-      carryOf(markerRead),
-      currentVersion,
-      verbose ? manualDetailsOf(allEntries) : undefined,
-    );
-    out.log("");
-    return code;
   }
+}
 
-  if (jsonMode) {
-    const { pendingManual } = carryOf(markerRead);
-    const pendingWithManualId = pending.map((entry) => {
-      const manualId = manualIdOf(entry);
-      return manualId === undefined ? entry : { ...entry, manualId };
-    });
-    out.log(
-      JSON.stringify(
-        { currentVersion, installedVersion, pending: pendingWithManualId, pendingManual },
-        null,
-        2,
-      ),
-    );
-    return 0;
+function logNonBreakingSection(
+  out: UpgradeCliOut,
+  heading: string,
+  entries: readonly ChangelogEntry[],
+  verbose: boolean,
+  showCodemod: boolean,
+): void {
+  // skip: no entries of this type, the section is omitted
+  if (entries.length === 0) return;
+  out.log(`  ✓ ${heading} (${entries.length})`);
+  out.log("");
+  for (const e of entries) {
+    out.log(`    ${e.version} · ${e.title}`);
+    logEntryDetail(out, e, verbose);
+    if (showCodemod && hasCodemod(e)) {
+      out.log(`      → codemod: ${e.codemod} (runs on --apply)`);
+    }
   }
+  out.log("");
+}
 
+function reportUpgradeText(out: UpgradeCliOut, plan: UpgradePlan, verbose: boolean): number {
+  const { pending } = plan;
   const breaking = pending.filter((e) => e.type === "breaking");
-  const improvements = pending.filter((e) => e.type === "improvement");
-  const fixes = pending.filter((e) => e.type === "fix");
-  const openManual = carryOf(markerRead).pendingManual;
+  const openManual = carryOf(plan.markerRead).pendingManual;
+  const manualDetails = verbose ? manualDetailsOf(plan.allEntries) : undefined;
 
   out.log("");
-  out.log(`  Upgrade: ${currentVersion} → latest`);
+  out.log(`  Upgrade: ${plan.currentVersion} → latest`);
   out.log("");
 
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
     out.log("");
-    logOpenManual(out, openManual, verbose ? manualDetailsOf(allEntries) : undefined);
+    logOpenManual(out, openManual, manualDetails);
     return 0;
   }
 
-  if (breaking.length > 0) {
-    out.log(`  ⚠ BREAKING (${breaking.length})`);
-    out.log("");
-    for (const e of breaking) {
-      const manualId = manualIdOf(e);
-      out.log(`    ${e.version} · ${e.title}${manualId === undefined ? "" : `  [${manualId}]`}`);
-      if (verbose && e.detail) {
-        out.log(`      ${e.detail}`);
-      }
-      if (e.migration) {
-        out.log(`      → Migration: ${e.migration}`);
-      }
-      out.log("");
-    }
-  }
-
-  if (improvements.length > 0) {
-    out.log(`  ✓ IMPROVEMENTS (${improvements.length})`);
-    out.log("");
-    for (const e of improvements) {
-      out.log(`    ${e.version} · ${e.title}`);
-      if (verbose && e.detail) {
-        out.log(`      ${e.detail}`);
-      }
-      if (hasCodemod(e)) {
-        out.log(`      → codemod: ${e.codemod} (runs on --apply)`);
-      }
-    }
-    out.log("");
-  }
-
-  if (fixes.length > 0) {
-    out.log(`  ✓ FIXES (${fixes.length})`);
-    out.log("");
-    for (const e of fixes) {
-      out.log(`    ${e.version} · ${e.title}`);
-      if (verbose && e.detail) {
-        out.log(`      ${e.detail}`);
-      }
-    }
-    out.log("");
-  }
+  logBreakingSection(out, breaking, verbose);
+  logNonBreakingSection(
+    out,
+    "IMPROVEMENTS",
+    pending.filter((e) => e.type === "improvement"),
+    verbose,
+    true,
+  );
+  logNonBreakingSection(
+    out,
+    "FIXES",
+    pending.filter((e) => e.type === "fix"),
+    verbose,
+    false,
+  );
 
   if (breaking.length > 0) {
     out.log("  ⚠ Review breaking changes above before upgrading.");
@@ -1099,6 +1140,42 @@ export async function runUpgradeCli(
     out.log("");
   }
 
-  logOpenManual(out, openManual, verbose ? manualDetailsOf(allEntries) : undefined);
+  logOpenManual(out, openManual, manualDetails);
   return 0;
+}
+
+// Shared by `kumiko upgrade` and the published kumiko-upgrade bin.
+export async function runUpgradeCli(
+  argv: readonly string[],
+  cwd: string,
+  out: UpgradeCliOut,
+  options?: { readonly repoRoot?: string },
+): Promise<number> {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    out.log(UPGRADE_USAGE);
+    return 0;
+  }
+  // Standalone CLI entry, not booted via runProdApp/runDevApp — Temporal needs an explicit polyfill here.
+  await ensureTemporalPolyfill();
+  const args = parseArgs(argv);
+
+  // Resolved once here (not just inside --apply) so both the filter
+  // baseline and the --apply codemod run target the same directory.
+  const dirFlag = getStringFlag(args, "dir");
+  const targetDir = dirFlag ? resolve(dirFlag) : cwd;
+  if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
+    return failUpgrade(out, `--dir path is not a directory: ${targetDir}`);
+  }
+
+  if (args.flags.has("resolve")) {
+    return resolveManualMigrations(out, args, targetDir);
+  }
+
+  const planned = planUpgrade(args, cwd, targetDir);
+  if (planned.kind === "error") return failUpgrade(out, ...planned.lines);
+  if (getFlag(args, "apply")) {
+    return applyPlannedUpgrade(out, args, planned.value, options?.repoRoot ?? cwd, targetDir);
+  }
+  if (getFlag(args, "json")) return reportUpgradeJson(out, planned.value);
+  return reportUpgradeText(out, planned.value, getFlag(args, "verbose"));
 }

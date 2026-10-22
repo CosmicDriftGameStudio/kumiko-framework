@@ -20,7 +20,7 @@ export function populateFeatureCore(state: RegistryState, feature: FeatureDefini
       throw new Error(`Duplicate entity: "${name}" (registered by multiple features)`);
     }
     state.entityMap.set(name, entity);
-    const physical = resolveTableName(name, entity, feature.name);
+    const physical = resolveTableName(name, entity, undefined);
     const clash = state.physicalTableOwners.get(physical);
     if (clash?.kind === "store") {
       throw new Error(

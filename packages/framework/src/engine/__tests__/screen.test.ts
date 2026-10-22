@@ -1512,7 +1512,7 @@ describe("createRegistry — screen indexing", () => {
       });
     });
     const warehouse = defineFeature("warehouse", (r) => {
-      r.entity({ name: "item", ...productEntity() });
+      r.entity({ name: "item", ...productEntity(), table: "items" });
       r.screen({ id: "list", type: "entityList", entity: "item", columns: ["name"] });
     });
     const registry = createRegistry([shop, warehouse]);

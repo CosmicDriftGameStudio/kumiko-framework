@@ -161,7 +161,7 @@ export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, 
     typeof col.renderer === "function"
   ) {
     log.warn(
-      `normalizeListColumn: Feld "${col.field}" hat einen Funktions-Renderer — dieser wird von JSON.stringify verworfen. Bitte auf FormatSpec ({ format: "..." }) migrieren.`,
+      `normalizeListColumn: field "${col.field}" has a function renderer, which JSON.stringify drops. Migrate it to a FormatSpec ({ format: "..." }).`,
     );
   }
   return col;

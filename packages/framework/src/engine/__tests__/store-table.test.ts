@@ -176,8 +176,8 @@ describe("createRegistry — storeTable aggregation", () => {
       table: "shop_widgets",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
-    // resolveTableName mirrors the migrate-runner — pin the exact physical name.
-    const physical = resolveTableName("widget", widget, "shop");
+    // The DDL path derives table names without a feature prefix — pin that physical name.
+    const physical = resolveTableName("widget", widget, undefined);
     const clashing = defineUnmanagedTable({
       tableName: physical,
       columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
@@ -198,6 +198,56 @@ describe("createRegistry — storeTable aggregation", () => {
     expect(() => createRegistry([tableFeature, entityFeature])).toThrow(
       new RegExp(`Entity "widget".*collides with r.storeTable\\("${physical}"\\)`),
     );
+  });
+});
+
+describe("createRegistry — entity physical-table collisions use the DDL table name", () => {
+  const textField = () => createTextField({ personal: false, reason: "test_fixture" });
+
+  test("an explicit tableName equal to another feature's derived table name is rejected", () => {
+    const widget = createEntity({ fields: { name: textField() } });
+    const derived = resolveTableName("widget", widget, undefined);
+    const gadget = createEntity({ table: derived, fields: { name: textField() } });
+    const shop = defineFeature("shop", (r) => {
+      r.entity({ name: "widget", ...widget });
+    });
+    const other = defineFeature("other", (r) => {
+      r.entity({ name: "gadget", ...gadget });
+    });
+
+    expect(() => createRegistry([shop, other])).toThrow(
+      new RegExp(
+        `Entity "gadget" \\(feature "other"\\) has physical table "${derived}" which collides with entity "widget" \\(feature "shop"\\)`,
+      ),
+    );
+  });
+
+  test("the same explicit tableName in two features is rejected", () => {
+    const first = createEntity({ table: "shared_things", fields: { name: textField() } });
+    const second = createEntity({ table: "shared_things", fields: { name: textField() } });
+    const featA = defineFeature("a", (r) => {
+      r.entity({ name: "firstThing", ...first });
+    });
+    const featB = defineFeature("b", (r) => {
+      r.entity({ name: "secondThing", ...second });
+    });
+
+    expect(() => createRegistry([featA, featB])).toThrow(
+      /Entity "secondThing".*collides with entity "firstThing" \(feature "a"\)/,
+    );
+  });
+
+  test("distinct table names across features still register", () => {
+    const first = createEntity({ fields: { name: textField() } });
+    const second = createEntity({ fields: { name: textField() } });
+    const featA = defineFeature("a", (r) => {
+      r.entity({ name: "firstThing", ...first });
+    });
+    const featB = defineFeature("b", (r) => {
+      r.entity({ name: "secondThing", ...second });
+    });
+
+    expect(() => createRegistry([featA, featB])).not.toThrow();
   });
 });
 
