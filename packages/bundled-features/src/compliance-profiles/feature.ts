@@ -22,24 +22,23 @@ export {
   tenantComplianceProfileTable,
 } from "./schema/profile-selection.ts";
 
-// compliance-profiles — Tenant-weite DSGVO/Compliance-Profile-Wahl.
+// compliance-profiles — Tenant-wide GDPR/compliance profile selection.
 //
-// Pflicht beim Tenant-Onboarding (Sprint 1.5 Banner-API). Profile
-// buendelt User-Rights-Grace, Notification-Sprache, Breach-Disclosure,
-// Audit-Retention und Sub-Processor-Anforderungen.
+// Required during tenant onboarding. Each profile bundles user-rights grace
+// periods, notification language, breach-disclosure rules, audit retention,
+// and sub-processor requirements.
 //
-// Cross-Feature-API: r.exposesApi("compliance.forTenant") — andere
-// Features (user-data-rights in Sprint 2, tenant-lifecycle in Sprint 5)
-// rufen den Profile-Resolver via QN-Pattern (siehe legal-pages →
-// text-content fuer Pattern-Beispiel).
+// Cross-feature API: r.exposesApi("compliance.forTenant") — other features
+// resolve the profile through the QN pattern (see legal-pages → text-content
+// for an example).
 //
-// Architektur-Note: Profile-Selection lebt als separate Entity
-// (tenantComplianceProfile), nicht als config-key im tenant-Feature.
-// Begruendung in schema/profile-selection.ts.
+// Architectural note: Profile selection is stored as a separate entity
+// (tenantComplianceProfile), not as a config key in the tenant feature.
+// The reason is documented in schema/profile-selection.ts.
 export type ComplianceProfilesFeatureOptions = {
   // Access gate for the profile-picker screen and the `set-profile` write it
   // submits to — both move together so the nav entry a role sees always
-  // matches a callable handler (#2033). Default access.admin includes
+  // matches a callable handler. Default access.admin includes
   // TenantAdmin, who in a line-of-business app is the operator, not the
   // platform — pass access.systemAdmin to keep this platform-only and out
   // of their nav.
@@ -59,10 +58,10 @@ export function createComplianceProfilesFeature(
       category: "compliance",
       recommended: false,
     });
-    // Standalone — kein r.requires noetig: tenantId kommt aus dem User-
-    // Context, Profile-Selection ist eigene Entity, sub-processor-Liste
-    // sind Constants. Wenn S1.4+ Cross-Feature-Reads dazukommen, kommt
-    // r.requires hier rein.
+    // Standalone — r.requires is not needed: tenantId comes from the user
+    // context, profile selection is a separate entity, and the sub-processor
+    // list consists of constants. Add r.requires if cross-feature reads are
+    // introduced.
     r.entity({ name: "tenant-compliance-profile", ...tenantComplianceProfileEntity });
 
     r.exposesApi("compliance.forTenant");

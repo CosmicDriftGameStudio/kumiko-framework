@@ -29,7 +29,7 @@ import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
 // If the table is registered as an r.entity, the framework makes it a
 // rebuildable implicit projection whose replay finds zero matching events and
 // swaps an EMPTY shadow over the live table — silently wiping every active
-// session on the next projection rebuild (deploy / `schema apply`). #498/#494.
+// session on the next projection rebuild (deploy / `schema apply`).
 //
 // Pre-fix both tests are RED: the implicit projection "sessions:projection:
 // user-session-entity" exists and rebuilding it empties store_user_sessions.

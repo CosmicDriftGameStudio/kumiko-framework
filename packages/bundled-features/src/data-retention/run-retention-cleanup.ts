@@ -1,42 +1,41 @@
-// Retention-Cleanup-Runner (S2.D2b) — pure Function, vom retention-cleanup-Cron
-// pro fan-out-Tenant aufgerufen.
+// Retention-Cleanup-Runner — pure function, called by the retention-cleanup cron
+// for each fan-out tenant.
 //
-// Iteriert alle implicit-Entity-Projektionen, loest pro Entity die effektive
-// Retention-Policy (3-Schicht-Resolver, siehe resolver.ts) und wendet die
-// Strategy auf Rows an deren reference-Timestamp aelter als der keepFor-Cutoff
-// ist:
+// Iterates all implicit entity projections, resolves the effective retention
+// policy per entity (3-layer resolver, see resolver.ts), and applies the
+// strategy to rows whose reference timestamp is older than the keepFor cutoff:
 //
-//   - hardDelete  → executor.forget pro Row (Event → rebuild-safe hard purge).
+//   - hardDelete  → executor.forget per row (event → rebuild-safe hard purge).
 //                   Entities with file/image/files/images fields: bytes first
 //                   (incl. derivatives), then the fileRef row(s), then the row;
 //                   shared fileRefs (other owner, other row of the same table)
 //                   stay untouched.
-//   - softDelete  → executor.delete pro Row (Event → rebuild-safe soft-delete),
-//                   nur auf noch-nicht-geloeschte (isDeleted:false-Filter)
-//   - anonymize   → executor.update pro Row mit den Werten der per-Feld
-//                   anonymize-Funktionen; Row bleibt (fields.ts-Contract)
-//   - blockDelete → waehrend keepFor unangetastet (Aufbewahrungs-Pflicht;
-//                   user-forget loest anonymize aus). NACH Ablauf laufen die
-//                   anonymize-Funktionen — Geschaeftsdaten bleiben, Personen-
-//                   Bezug raus (fields.ts:44-47).
+//   - softDelete  → executor.delete per row (event → rebuild-safe soft-delete),
+//                   only on not-yet-deleted rows (isDeleted:false filter)
+//   - anonymize   → executor.update per row with the values of the per-field
+//                   anonymize functions; row remains (fields.ts contract)
+//   - blockDelete → untouched during keepFor (retention requirement;
+//                   user-forget triggers anonymize). AFTER expiration, the
+//                   anonymize functions run — business data remains, the person-
+//                   identifying link is removed (fields.ts:44-47).
 //
-// Über den Executor statt Batch-deleteMany/updateMany: ein eventloser Batch-Write
-// auf die (erased) Projektions-Tabelle wird beim Projection-Rebuild
-// gewischt/resurrektiert — das #648-Loch. Kosten: N Events pro Cleanup statt ein
-// Batch-Statement (per-Row-Ceiling, Batch-Event-Variante als Follow-up).
+// Via the executor instead of batch-deleteMany/updateMany: an eventless batch write
+// to the (erased) projection table is wiped/resurrected during a projection rebuild.
+// Cost: N events per cleanup instead of one batch statement (per-row ceiling, with
+// a batch-event variant later).
 //
-// **Schaerfer als soft-delete-cleanup:** dieser Cron hardDeleted LIVE Rows
-// (keyed auf reference, Default createdAt), nicht bereits-soft-geloeschte.
-// Darum die Spalten-Existenz-Pruefung vor jedem WHERE — eine fehlende/vertippte
-// reference-Spalte wuerde sonst ein malformed/all-matching WHERE ergeben und
-// pauschal loeschen.
+// **Stricter than soft-delete-cleanup:** this cron hard-deletes LIVE rows
+// (keyed on reference, default createdAt), not already-soft-deleted ones.
+// Therefore the column-existence check comes before every WHERE — a missing/mistyped
+// reference column would otherwise produce a malformed/all-matching WHERE and
+// delete everything.
 //
-// **anonymize-Idempotenz ohne Marker-Spalte:** die anonymize-Funktionen sind
-// row-unabhaengig (`() => unknown`) — einmal pro Entity ausgewertet ergeben
-// sie die Ziel-Werte. Eine Row die sie schon traegt wird uebersprungen, der
-// taegliche Re-Lauf appended also null Events. Der WHERE matcht anonymisierte
-// Rows weiter (reference bleibt alt), deshalb id-Cursor-Paging statt einer
-// einzelnen Page — sonst verstopfen erledigte Rows das batchLimit-Fenster.
+// **anonymize idempotence without a marker column:** the anonymize functions are
+// row-independent (`() => unknown`) — evaluated once per entity, they produce
+// the target values. A row that already carries them is skipped, so the
+// daily rerun appends zero events. The WHERE continues to match anonymized
+// rows (reference remains old), hence id-cursor paging instead of a single
+// page — otherwise completed rows clog the batchLimit window.
 
 import {
   collectPiiSubjectFields,
@@ -90,13 +89,13 @@ import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override
 const DEFAULT_BATCH_LIMIT = 1000;
 const DEFAULT_REFERENCE_FIELD = "createdAt";
 
-// Der Boot-Validator (boot-validator/pii-retention.ts FRAMEWORK_TIMESTAMP_FIELDS)
-// erlaubt diese Aliase als retention.reference, auch wenn sie nicht in
-// entity.fields deklariert sind — die physischen Spalten heissen aber anders
-// (table-builder.ts: inserted_at/modified_at). Hier zur Cleanup-Zeit auf das
-// echte Entity-Feld mappen, sonst trifft die Spalten-Existenz-Pruefung unten
-// und der Cron wuerde lautlos nichts tun. deletedAt/lastSeenAt sind echte
-// Felder (softDelete bzw. session) und brauchen keine Uebersetzung.
+// The boot validator (boot-validator/pii-retention.ts FRAMEWORK_TIMESTAMP_FIELDS)
+// permits these aliases as retention.reference even when they are not declared in
+// entity.fields, but the physical columns use different names
+// (table-builder.ts: inserted_at/modified_at). Map them to the actual entity field
+// during cleanup; otherwise the column existence check below would cause the cron
+// to do nothing silently. deletedAt/lastSeenAt are real fields (softDelete and
+// session respectively) and need no translation.
 const FRAMEWORK_REFERENCE_ALIAS: Readonly<Record<string, string>> = {
   createdAt: "insertedAt",
   updatedAt: "modifiedAt",
@@ -109,14 +108,16 @@ export interface RunRetentionCleanupArgs {
   /** Layer-2 preset from resolveTenantRetentionPreset, resolved once per tenant
    *  by the caller rather than per entity here. null = layers 1 and 3 only. */
   readonly preloadedTenantPreset: RetentionPresetKey | null;
-  /** Now-Injection — Tests pinnen den Wert ohne Date-Mock (Pattern keep-for.ts). */
+  /**
+   * Injects the current time so tests can pin it without mocking the date (pattern keep-for.ts).
+   */
   readonly now: Instant;
   readonly batchLimit?: number;
   /** Storage access for hardDelete entities with file/image/files/images fields.
    *  Missing while fileRefs are due → the row stays (skipped "missing_file_storage"),
    *  fail-closed instead of orphaning bytes. */
   readonly files?: FileContext;
-  /** KMS for erasing a hardDeleted row's own subject key (Refs #2057). Defaults
+  /** KMS for erasing a hardDeleted row's own subject key. Defaults
    *  to configuredPiiSubjectKms() (same fallback as run-forget-cleanup.ts);
    *  undefined/no-KMS-configured skips erasure entirely — the row is still
    *  hard-deleted, only crypto-shredding of its DEK is not attempted. */
@@ -138,7 +139,10 @@ export interface RunRetentionCleanupResult {
   readonly softDeleted: number;
   /** Rows deren anonymize-Feld-Funktionen angewendet wurden (anonymize + abgelaufene blockDelete). */
   readonly anonymized: number;
-  /** Anomalien: Policy referenziert eine Spalte die die Tabelle nicht hat, oder anonymize ohne anonymize-Felder. */
+  /**
+   * Anomalies where the policy references a missing table column or anonymize has no anonymize
+   * fields.
+   */
   readonly skipped: readonly RetentionCleanupSkip[];
 }
 
@@ -160,7 +164,7 @@ async function purgeMatchingRows(
   return count;
 }
 
-// --- hardDelete crypto-shredding (Refs #2057) ---
+// --- hardDelete crypto-shredding ---
 //
 // recordOwned/self-pii resolution (subject-resolver.ts) only ever reads
 // `row.id` for these two kinds — resolveRecordSubject uses opts.entityName +
@@ -266,7 +270,7 @@ async function forgetRowAndEraseKeys(args: {
   });
 }
 
-// --- hardDelete + file-fields (kumiko-framework#3089) ---
+// --- hardDelete + file-fields ---
 
 // Throws (unsafe key, missing list permission) must fail this row closed,
 // not abort the whole tenant run.
@@ -497,9 +501,9 @@ export async function runRetentionCleanup(
 
   // Retention writes go through the executor (events) so a projection rebuild
   // replays the cleanup — a batch deleteMany/updateMany on the (erased)
-  // projection table is eventless and gets wiped/resurrected on rebuild (the
-  // #648 hole this closes). The cron acts as the system actor; the WHERE already
-  // tenant-scopes, so a system-mode TenantDb (no extra filter) is correct.
+  // projection table is eventless and gets wiped/resurrected on rebuild.
+  // The cron acts as the system actor; the WHERE already tenant-scopes, so a
+  // system-mode TenantDb (no extra filter) is correct.
   // ponytail: per-row events, one batchLimit-sized page per entity per run —
   // the daily cron converges (hardDelete removes rows, softDelete's isDeleted
   // filter shrinks the set). A single batched forget/delete event is a follow-up.
@@ -518,8 +522,9 @@ export async function runRetentionCleanup(
   const overrideByEntity = new Map(overrideRows.map((r) => [r.entityName, { config: r.config }]));
 
   for (const proj of registry.getAllProjections().values()) {
-    // Nur implicit-Entity-Projektionen mit Tabelle — wie soft-delete-cleanup.
-    // Custom-Projektionen + unmanaged-Tables (z.B. sessions) sind kein Target.
+    // Only implicit entity projections with a table are targets, as in
+    // soft-delete-cleanup. Custom projections and unmanaged tables (such as
+    // sessions) are excluded.
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
     const entityName = proj.source;
 
@@ -546,9 +551,9 @@ export async function runRetentionCleanup(
 
     const cutoff = computeCutoff(policy.keepFor, now);
     const where: WhereObject = { [referenceField]: { lt: cutoff } };
-    // Tenant-Scope nur wenn die Tabelle eine tenantId-Spalte hat — identisch zu
-    // soft-delete-cleanup. Ohne diesen Filter wuerde ein Tenant die Rows eines
-    // anderen treffen.
+    // Apply tenant scoping only when the table has a tenantId column, as in
+    // soft-delete-cleanup. Without this filter, one tenant could affect another
+    // tenant's rows.
     if (propertyOf(proj.table, "tenantId") !== undefined) {
       where["tenantId"] = tenantId;
     }

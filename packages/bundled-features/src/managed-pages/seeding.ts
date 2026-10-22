@@ -1,6 +1,6 @@
-// Test-/Seed-Helper für managed-pages. Legt eine Page direkt über den
-// Event-Store-Executor an — gleicher Pfad wie der echte set-Handler, aber
-// ohne Access-Check. Default ifExists="skip".
+// Test/seed helper for managed-pages. Creates a page directly through the
+// event-store executor—the same path as the real set handler, but without an
+// access check. Default ifExists="skip".
 
 import {
   createEventStoreExecutor,
@@ -33,9 +33,9 @@ export type SeedPageOptions = {
 };
 
 export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise<{ id: string }> {
-  // Default-user muss user.tenantId === opts.tenantId haben (sonst landet
-  // der event-store-stream im falschen tenant-bucket → version_conflict
-  // bei späteren echten writes). TestUsers.systemAdmin ist testTenantId(1).
+  // The default user must have user.tenantId === opts.tenantId; otherwise the
+  // event-store stream ends up in the wrong tenant bucket → version_conflict
+  // on subsequent real writes. TestUsers.systemAdmin is testTenantId(1).
   const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
   const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
 
@@ -70,8 +70,8 @@ export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise
       if (!result.isSuccess) {
         throw new Error(`seedPage create failed: ${JSON.stringify(result)}`);
       }
-      // @cast-boundary db-row: executor.create result.data ist die inserted
-      // Drizzle-Row (Record<string, unknown>), projected nach RETURNING.
+      // @cast-boundary db-row: executor.create result.data is the inserted
+      // Drizzle row (Record<string, unknown>), projected from RETURNING.
       const data = result.data as Partial<PageRow>;
       if (data.id === undefined) {
         throw new Error("seedPage: executor.create did not return an id");

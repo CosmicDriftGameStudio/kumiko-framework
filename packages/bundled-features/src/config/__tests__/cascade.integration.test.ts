@@ -577,15 +577,14 @@ describe("config:query:cascade handler", () => {
 // for app authors that need every config key for a scope at once (bulk
 // export/backup tooling, admin dashboards) — NOT wired to any handler in
 // this repo. `resolver.getAll(...)` is the ONLY call site in the whole
-// codebase (verified via grep, kumiko-framework#1529); there is no handler
+// codebase; there is no handler
 // to route this through, so calling it directly isn't the
-// handfed-context/createTestDispatcher anti-pattern the "echte HTTP-Calls"
+// handfed-context/createTestDispatcher anti-pattern the "real HTTP calls"
 // rule targets — that rule is about bypassing a REAL handler's dispatch
 // path, and none exists here to bypass. This deliberately stays in the
 // .integration.test.ts file rather than a standalone .test.ts because it
 // shares the cascadeFeature/seed fixture above (duplicating that ~100-line
-// setup just to rename the file would cost more than it buys — see
-// kumiko-framework#1437).
+// setup just to rename the file would cost more than it buys).
 describe("getAll", () => {
   test("getAll picks the most specific row (user > tenant > system)", async () => {
     await stack.http.writeOk(

@@ -1,6 +1,6 @@
-// #1455: enforcement policy blocks an unenrolled user at login
+// Enforcement policy blocks an unenrolled user at login
 // (mfa-setup-required) — the response must carry a preauthSetupToken so a
-// later pre-auth enroll step (#1231) can look the user back up without a
+// later pre-auth enroll step can look the user back up without a
 // session. Real HTTP through setupTestStack, both auth-mfa and
 // auth-email-password mounted together (mirrors auth.integration.test.ts).
 
@@ -138,7 +138,7 @@ describe("login: mfa-setup-required carries a verifiable preauthSetupToken", () 
     }
   });
 
-  // fw#2333 — completing the blocked login via auth-mfa:write:enable-start-
+  // Completing the blocked login via auth-mfa:write:enable-start-
   // preauth + enable-confirm-preauth must carry the user's stored locale
   // into the session it mints, same as a plain login.
   async function completeMfaSetupRequiredLogin(opts: {

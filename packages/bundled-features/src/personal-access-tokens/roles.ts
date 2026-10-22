@@ -12,8 +12,8 @@ import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index
 // time would keep a since-revoked admin role for the token's whole (months-long)
 // life. Returns null when the user has no membership in that tenant: removed
 // from the tenant → the PAT stops authenticating there. Also null when the
-// user's lifecycle status blocks them (fw security-welle2) — collapsed onto
-// the same "no roles" outcome as missing-membership so a blocked user's PAT
+// user's lifecycle status blocks them — collapsed onto the same "no roles"
+// outcome as missing-membership so a blocked user's PAT
 // gets an identical 401 to an unknown token (no status oracle).
 export async function resolvePatRoles(
   db: DbConnection,

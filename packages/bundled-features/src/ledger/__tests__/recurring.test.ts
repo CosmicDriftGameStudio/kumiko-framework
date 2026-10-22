@@ -7,7 +7,7 @@ import {
   scheduleReference,
 } from "../recurring.ts";
 
-// Pure projection + Soll/Ist merge — no DB, no Date API (the window/asOf are
+// Pure projection + planned/actual merge — no DB, no Date API (the window/asOf are
 // params), so these are deterministic and cover the recurring primitive's logic
 // the integration test then proves end-to-end against a real dispatcher.
 

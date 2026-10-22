@@ -5,9 +5,9 @@ import { featureMounted } from "./feature-mounted.ts";
 // userData-Hooks for the sessions feature's user-session rows (ip, userAgent).
 //
 // user-session is an unmanaged direct-write store (no event stream, excluded
-// from projection rebuilds — see sessions/feature.ts #494/#498), so a direct
-// DELETE is legal here and survives rebuilds; the executor path the ES
-// entities use does not apply.
+// from projection rebuilds, see sessions/feature.ts), so a direct DELETE is
+// legal here and survives rebuilds; the executor path the ES entities use does
+// not apply.
 //
 // Both forget strategies hard-delete: a session row without its user is
 // worthless (revocation audit trail loses its subject), and ip/userAgent are

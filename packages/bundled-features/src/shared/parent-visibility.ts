@@ -91,7 +91,7 @@ export async function hostRowIsGone(
   return row === undefined || row["isDeleted"] === true;
 }
 
-// Write-path half of the parentRef gate (fw#2766). Resolves the join entity's
+// Write-path half of the parentRef gate. Resolves the join entity's
 // own `parentRef` declaration from the registry — the same object the read
 // path's SQL gate reads — so the field names and the allowedTypes allowlist
 // exist in exactly one place instead of once per path.
@@ -104,7 +104,7 @@ export async function joinRowParentIsVisible(
 ): Promise<boolean> {
   const parentRef = registry.getEntity(joinEntityName)?.parentRef;
   // A mount whose join entity lost its declaration can't derive a gate —
-  // deny rather than silently fall back to the pre-#2766 open behaviour.
+  // deny rather than silently fall back to the open behaviour.
   if (parentRef === undefined) return false;
 
   const entityType = payload[parentRef.entityTypeField];

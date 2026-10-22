@@ -3,12 +3,12 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type PageRow, pagesTable } from "../table.ts";
 
-// Public-Read aller published Pages eines Tenants — Discovery-Quelle für
-// sitemap.xml/llms.txt (siehe seo-Feature). Anders als by-slug (single-row,
-// nur der angefragte Slug) listet dies alle published Slugs auf einmal, SQL-
-// seitig auf `published = true` gefiltert (Drafts nie im Ergebnis, kein
-// Body-Content — Discovery-Zweck braucht nur Slug/Title/updatedAt).
-// Anonymous: explizit in roles, symmetrisch zu text-content's by-tenant.
+// Public read of all published pages for a tenant, used to discover URLs for
+// sitemap.xml/llms.txt (see the seo feature). Unlike by-slug, which fetches one
+// slug's content, this lists all published slugs in one query, filtered in SQL
+// with `published = true`; drafts never appear, and only slug/title/updatedAt are
+// returned because discovery does not require body content.
+// Anonymous access is explicit in roles, matching text-content's by-tenant.
 export type PublishedPageSummary = {
   readonly slug: string;
   readonly lang: string;
@@ -19,8 +19,8 @@ export type PublishedPageSummary = {
 export const byTenantPublishedQuery = defineQueryHandler({
   name: "by-tenant-published",
   schema: z.object({
-    /** Optional cross-tenant read — nur für SystemAdmin. Symmetrisch zur
-     *  by-slug.query Override-Logik. */
+    /** Optional cross-tenant read — only for SystemAdmin. Matches the override
+     *  logic in by-slug.query. */
     tenantIdOverride: z.string().min(1).optional(),
   }),
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },

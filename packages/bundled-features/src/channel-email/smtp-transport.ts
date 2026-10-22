@@ -1,37 +1,39 @@
-// SMTP-Transport für EmailTransport-Interface. nodemailer-basiert
-// (battle-tested, TLS-AUTH-Pool-Reconnect handled). Universaler default
-// für apps die keinen Vendor-spezifischen Sender wollen — funktioniert
-// gegen jeden SMTP-Server (Gmail, eigener Postfix, Brevo-SMTP-relay,
-// Office 365, Mailhog für lokales testing).
+// SMTP transport for the EmailTransport interface, based on nodemailer
+// (battle-tested, handles TLS, auth and pool reconnects). It is the universal
+// default for apps that do not need a vendor-specific sender and works with
+// any SMTP server (Gmail, a private
+// Postfix server, a Brevo SMTP relay, Office 365, or Mailhog for local
+// testing).
 //
-// Why SMTP statt Vendor-API als default:
-//   1. EU-Story: kein Daten an US-Vendor, App-Owner wählt Server.
-//   2. Self-Hosting: Customer kann eigenen Mailserver nutzen, kein
+// Why SMTP instead of a vendor API as the default:
+//   1. EU data control: the app owner chooses the server instead of sending
+//      data to a US vendor.
+//   2. Self-hosting: customers can use their own mail server without an
 //      external account.
-//   3. Universalität: jeder Vendor (Brevo, Resend, Mailgun, Postmark)
-//      bietet auch SMTP — wer Brevo will, setzt Brevos SMTP-Credentials.
+//   3. Universality: every vendor (Brevo, Resend, Mailgun, Postmark) also
+//      offers SMTP, so Brevo users can provide Brevo SMTP credentials.
 //
-// Transport-Pool: nodemailer.createTransport({pool: true}) hält bis zu
-// 5 Verbindungen offen + reused. Bei kleinen Apps reicht das; für High-
-// Volume-Apps muss der Caller eine eigene Implementation mit
-// dedizierter Queue (BullMQ + retry) drüberlegen.
+// The transport pool (createTransport({ pool: true })) keeps up to 5
+// connections open and reuses them. That is enough for small apps; for
+// high-volume apps the caller must layer its own implementation with a
+// dedicated queue (BullMQ + retry) on top.
 
 import { createTransport, type Transporter } from "nodemailer";
 import addressparser from "nodemailer/lib/addressparser";
 import type { EmailAttachment, EmailMessage, EmailTransport } from "./types.ts";
 
 export type SmtpTransportOptions = {
-  /** SMTP-Server-Host (z.B. "smtp.gmail.com", "in-v3.mailjet.com",
-   *  "localhost" für Mailhog/MailCatcher in dev). */
+  /** SMTP server host (for example, "smtp.gmail.com", "in-v3.mailjet.com",
+   *  or "localhost" for Mailhog/MailCatcher in development). */
   readonly host: string;
-  /** Default 587 (STARTTLS). 465 für implicit-TLS, 25 für unencrypted
-   *  (nur lokal/intern, nie public). */
+  /** Default 587 (STARTTLS). 465 uses implicit TLS; 25 is unencrypted
+   *  (for local/internal use only, never public). */
   readonly port?: number;
-  /** TLS-Mode: true = implicit TLS auf port 465, false = STARTTLS auf
-   *  587 (oder plain auf 25). Default false (STARTTLS standard). */
+  /** TLS mode: true = implicit TLS on port 465, false = STARTTLS on
+   *  587 (or plain on 25). The default is false (STARTTLS). */
   readonly secure?: boolean;
-  /** Optional auth — manche internal-relays nehmen IP-whitelisting statt
-   *  Login. Wenn gesetzt, beide felder pflicht. */
+  /** Optional authentication — some internal relays use IP allowlisting
+   *  instead of login. When set, both fields are required. */
   readonly auth?: {
     readonly user: string;
     readonly pass: string;
@@ -120,8 +122,8 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
   };
 }
 
-/** Env-Felder die `createSmtpTransportFromEnv` liest. Apps die SMTP
- *  nutzen extenden ihr env-Schema um genau diese Keys. */
+/** Environment fields read by `createSmtpTransportFromEnv`. Apps that use
+ *  SMTP should extend their environment schema with exactly these keys. */
 export type SmtpEnv = {
   readonly SMTP_HOST?: string;
   readonly SMTP_PORT?: string;
@@ -132,14 +134,15 @@ export type SmtpEnv = {
 };
 
 /**
- * Boot-Time-Transport aus env. Ohne `SMTP_HOST` → `null` (Caller behandelt
- * das als "kein Mail-Versand", statt zu crashen). Port wird zu Number
- * gecoerced (default 587), `secure` ist `SMTP_SECURE === "true"`, auth nur
- * wenn user UND pass gesetzt sind.
+ * Creates a transport at boot time from the environment. Without
+ * `SMTP_HOST`, returns `null` so the caller can treat this as no mail
+ * delivery instead of crashing. The port is coerced to a number (default
+ * 587); `secure` is `SMTP_SECURE === "true"`; authentication is included
+ * only when both the user and password are set.
  *
- * Ersetzt den identischen `env.SMTP_HOST ? createSmtpTransport({...}) : null`
- * Block den jede App in bin/main.ts + bin/server.ts hand-rollte — nur die
- * From-Default (`fallbackFrom`) variiert pro App.
+ * Replaces the repeated `env.SMTP_HOST ? createSmtpTransport({...}) : null`
+ * block that each app previously implemented in bin/main.ts and
+ * bin/server.ts. Only the From default (`fallbackFrom`) varies by app.
  */
 export function createSmtpTransportFromEnv(
   env: SmtpEnv,

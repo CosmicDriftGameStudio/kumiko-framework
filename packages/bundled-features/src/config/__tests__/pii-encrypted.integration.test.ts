@@ -1,4 +1,4 @@
-// piiEncrypted config keys (kumiko-platform#231/#459): the value is
+// piiEncrypted config keys: the value is
 // subject-KMS-encrypted at rest (tenant-row → tenant subject, user-row →
 // user subject), decrypted on read for authorized readers — unlike
 // `encrypted`/`backing="secrets"`, which the `values` query always masks

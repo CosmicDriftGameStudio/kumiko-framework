@@ -1,44 +1,44 @@
 // kumiko-feature-version: 1
 //
-// inbound-mail-foundation — Plugin-Host für eingehende E-Mail
-// (Inbox-Föderation). Gegenstück zu mail-foundation (outbound): getrennte
-// Extension-Points, getrennter State — Architektur-Vorbild ist
-// file-foundation (Foundation besitzt State), nicht mail-transport.
+// inbound-mail-foundation — Plugin host for inbound e-mail
+// (inbox federation). Counterpart to mail-foundation (outbound): separate
+// extension points, separate state — architectural model is
+// file-foundation (the foundation owns state), not mail-transport.
 //
-// **Multi-Provider von Tag 1** (wie billing-foundation): KEIN globaler
-// `provider`-config-key. Ein Tenant verbindet parallel IMAP- und (später)
-// M365-/Gmail-Postfächer; der Provider steht pro MailAccount.
+// **Multi-provider from day one** (as with billing-foundation): NO global
+// `provider` config key. A tenant can connect IMAP and (later) M365/Gmail
+// mailboxes in parallel; the provider is specified per MailAccount.
 //
-// **Was diese Foundation liefert:**
-//   1. **Plugin-API** für Inbound-Provider via r.extendsRegistrar
+// **What this foundation provides:**
+//   1. **Plugin API** for inbound providers via r.extendsRegistrar
 //      ("inboundMailProvider"): verify/fetch/oauth?/watch? (types.ts).
-//   2. **3 event-sourced Streams** — mail-account (Lifecycle),
-//      inbound-message (genau EIN received-Event pro Mail, deterministic
-//      aggregateId ⇒ exactly-once trotz at-least-once-Ingest),
-//      mail-thread (Rollup). Volle Historie replay-fähig für spätere
-//      Consumer (Business-Prozesse: Ticket, Beleg, Auto-Antwort).
-//   3. **Inline-Projections** auf read_mail_accounts /
+//   2. **3 event-sourced streams** — mail-account (lifecycle),
+//      inbound-message (exactly ONE received event per message, deterministic
+//      aggregateId ⇒ exactly-once despite at-least-once ingest),
+//      mail-thread (rollup). Full replayable history for later
+//      consumers (business processes: ticket, receipt, auto-reply).
+//   3. **Inline projections** into read_mail_accounts /
 //      read_inbound_messages / read_mail_threads (read-your-own-write).
-//   4. **Write-/Query-Handler**: connect/update/disconnect-account,
+//   4. **Write/query handlers**: connect/update/disconnect-account,
 //      ingest-message (programmatic, SystemAdmin), account:list +
-//      message:list (PII-decrypted, scope-gefiltert).
-//   5. **createInboundMailConnectRoutes**: OAuth-Connect + anonymer
-//      Callback (außerhalb /api/*), state HMAC-signiert.
-//   6. **createInboundMailSupervisor**: app-verdrahteter Watch-(IDLE)-
-//      Supervisor mit Backoff + Reconciliation-Poll.
+//      message:list (PII-decrypted, scope-filtered).
+//   5. **createInboundMailConnectRoutes**: OAuth connect + anonymous
+//      callback (outside /api/*), with HMAC-signed state.
+//   6. **createInboundMailSupervisor**: app-wired watch (IDLE)
+//      supervisor with backoff + reconciliation poll.
 //
-// **Was diese Foundation NICHT macht:**
-//   - Keine Business-Semantik (Intent, Ticket, Zuweisung, gelesen/
-//     erledigt) — das gehört dem App-Consumer (z.B. via Event-Job auf
-//     inbound-message-received + eigener Projection).
-//   - Kein Body-Blob im Event-Store: rawMime → file-foundation via
-//     Supervisor-storeBody-Hook, Event trägt nur bodyRef.
-//   - Kein IMAP-Flag-Write-back (V1) — Inbox-Status lebt beim Consumer.
+// **What this foundation does NOT do:**
+//   - No business semantics (intent, ticket, assignment, read/
+//     completed) — those belong to the app consumer (for example, via an
+//     event job on inbound-message-received + its own projection).
+//   - No body blob in the event store: rawMime → file-foundation via
+//     the Supervisor-storeBody-Hook; the event carries only bodyRef.
+//   - No IMAP flag write-back (V1) — inbox status belongs to the consumer.
 //
 // **PII/GDPR:** address/from/to/cc/subject/snippet are `personal: "tenant"`
 // — encrypted BEFORE every event append (the only write path), event log AND
 // projections carry ciphertext; tenant-destroy shreds the subject key
-// (crypto-shredding, same pattern as billing-foundation #800). The destroy
+// (crypto-shredding, the same pattern as billing-foundation). The destroy
 // hook additionally archives all streams + deletes the rows.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -111,7 +111,7 @@ export function createInboundMailFoundationFeature() {
         category: "notifications",
         recommended: false,
       });
-      // EXT_TENANT_DATA-Hook braucht den tenant-lifecycle-Host.
+      // The EXT_TENANT_DATA hook requires the tenant-lifecycle host.
       r.requires({ features: ["tenant-lifecycle"] });
 
       // 5 fine-grained domain-events (Payload-Schemas: events.ts).
@@ -135,7 +135,7 @@ export function createInboundMailFoundationFeature() {
         piiFields: "none",
       });
 
-      // Inline projections — apply in derselben TX wie der Append.
+      // Inline projections — apply in the same transaction as the append.
       r.projection({
         name: "mail-account",
         source: MAIL_ACCOUNT_AGGREGATE_TYPE,
@@ -177,7 +177,7 @@ export function createInboundMailFoundationFeature() {
 
       // Sync machinery: high-frequency tick state, deliberately NOT
       // event-sourced — r.storeTable keeps the migration DDL but excludes the
-      // tables from the projection rebuild (#494/#498 class).
+      // tables from the projection rebuild.
       r.storeTable(syncCursorTable, {
         reason: "read_side.mail_sync_cursors_direct_write",
       });
@@ -203,8 +203,8 @@ export function createInboundMailFoundationFeature() {
       r.screen(mailAccountEditScreen);
       r.translations({ keys: INBOUND_MAIL_FOUNDATION_I18N });
 
-      // Entity-genaue GDPR-Destroy-Hooks — der gdpr-storage-Boot-Validator
-      // prueft die EXT_TENANT_DATA-Registrierung pro tenant-subject-Entity.
+      // Entity-specific GDPR destroy hooks — the gdpr-storage boot validator
+      // checks the EXT_TENANT_DATA registration for each tenant-subject entity.
       r.useExtension(EXT_TENANT_DATA, "mail-account", {
         destroy: mailAccountTenantDestroyHook,
         escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
@@ -218,7 +218,7 @@ export function createInboundMailFoundationFeature() {
         escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
       });
 
-      // Data-Retention (#957) — perTenant fan-out (one run per tenant, like
+      // Data-Retention — perTenant fan-out (one run per tenant, like
       // data-retention:retention-cleanup): runInboundMailRetention's raw query
       // helpers need the unfiltered runner, so the handler declares escapeHatch
       // and reaches for ctx.db.unsafeRaw(). Without this cron, read_inbound_messages
@@ -245,10 +245,10 @@ export function createInboundMailFoundationFeature() {
           const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
           const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 
-          // Body-Objekte liegen in file-foundation. Provider lazy + memoized —
-          // heute schreibt der Ingest kein bodyRef (storeBody-Hook ungebunden),
-          // der Provider wird also nie gebaut. Sobald storeBody wired ist, raeumt
-          // die Retention die Bodies mit ab.
+          // Body objects are stored in file-foundation. The provider is lazy and memoized —
+          // ingest currently writes no bodyRef (the storeBody hook is not wired),
+          // so the provider is never built. Once storeBody is wired, retention
+          // also cleans up the bodies.
           let providerPromise: Promise<FileStorageProvider> | null = null;
           const deleteBodyObject = async (bodyRef: string): Promise<void> => {
             if (!providerPromise) {

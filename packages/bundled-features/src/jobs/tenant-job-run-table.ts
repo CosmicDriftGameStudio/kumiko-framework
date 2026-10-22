@@ -13,7 +13,7 @@ import {
 
 export type TenantJobRunStatus = "queued" | "running" | "completed" | "failed";
 
-// The tenant's own view of a job's run state (fw#3616). Direct-write store
+// The tenant's own view of a job's run state. Direct-write store
 // like store_job_runs, written by job-run-logger.ts from the runner callbacks.
 //
 // store_job_runs cannot serve the tenant: it anchors every run on the system

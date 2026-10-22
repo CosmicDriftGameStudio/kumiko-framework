@@ -1,4 +1,4 @@
-// fw#2971 — withUnsafeRawGrant was un-exported, so an app-owned CapSpec.usage()
+// withUnsafeRawGrant was un-exported, so an app-owned CapSpec.usage()
 // provider's db.unsafeRaw() call was rejected even though caps:usage itself
 // runs with r.systemScope(). caps-usage.query.ts now declares its own
 // escapeHatch so those providers keep working. This proves the grant
@@ -54,7 +54,7 @@ const rawSqlSumCap: CapSpec = {
   },
 };
 
-// #2974: tenant-caps:list calls usage()/usageBatch() with the platform-wide systemDb
+// tenant-caps:list calls usage()/usageBatch() with the platform-wide systemDb
 const rawSqlSumBatchCap: CapSpec = {
   id: "raw-sql-sum-batch",
   label: "test.cap.rawSqlSumBatch",

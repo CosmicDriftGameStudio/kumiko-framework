@@ -1,13 +1,12 @@
-// Forget-Hook fail-closed Integration-Test.
+// Fail-closed integration test for the forget hook.
 //
-// Beweist den Vertrag von runForgetCleanup für den fileRef-delete-Hook: wenn
-// `storageProvider.delete()` fehlschlägt, wirft der Hook → die per-User-Sub-Tx
-// rollt zurück → der User bleibt `DeletionRequested`, die Row + Binary bleiben,
-// der Fehler landet im `errors`-Array. Der nächste Run (Storage wieder ok)
-// konvergiert sauber, weil `delete` idempotent ist. Ohne den Throw würde ein
-// transienter Storage-Fehler die Row permanent hard-löschen, den User auf
-// `Deleted` flippen und die Binary dauerhaft verwaisen lassen (Art.-17-Erasure
-// still unvollständig).
+// Verifies the `fileRef` delete-hook contract: if `storageProvider.delete()`
+// fails, the hook throws, the per-user sub-transaction rolls back, the user
+// remains `DeletionRequested`, the row and binary remain, and the error is
+// added to the `errors` array. The next run converges once storage recovers
+// because `delete` is idempotent. Without the throw, a transient storage
+// failure would permanently hard-delete the row, set the user to `Deleted`,
+// and leave the binary orphaned, leaving Article 17 erasure incomplete.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -203,7 +202,7 @@ describe("forget fail-closed :: storage.delete failure aborts the row hard-delet
 // TransactionSql — which has `.savepoint`, not `.begin`. The per-user sub-tx
 // must open as a SAVEPOINT here; the previous `.begin`-only path threw on every
 // user when invoked this way (the cron path), so production deleted nobody while
-// these direct-connection tests stayed green. #214.
+// these direct-connection tests stayed green.
 describe("forget-cleanup through the real dispatcher :: per-user savepoint nests under the handler tx", () => {
   const systemUser = {
     id: "00000000-0000-4000-8000-0000000000ff",

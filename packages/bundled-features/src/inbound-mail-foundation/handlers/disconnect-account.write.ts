@@ -1,11 +1,11 @@
-// disconnect-account — Tenant-Admin trennt ein Postfach. Stream bleibt
-// (Audit-Historie), Status wird disconnected, der Watch-Supervisor
-// überspringt den Account ab dem nächsten Tick. Secret-Cleanup (IMAP-
-// Passwort/Refresh-Token im Slot accountId) macht der Aufrufer-Flow —
-// der Handler fasst den secrets-Pfad nicht an.
+// disconnect-account — A TenantAdmin disconnects a mailbox. The stream is retained
+// for audit history, the status becomes disconnected, and the watch supervisor
+// skips the account starting with the next tick. Secret cleanup (IMAP password/
+// refresh token in the accountId slot) is handled by the caller flow; this handler
+// does not touch the secrets path.
 //
-// Idempotent: disconnect auf bereits disconnected Account ist ein
-// success-no-op (kein zweites Event) — Doppelklick-/Retry-freundlich.
+// Idempotent: disconnecting an already disconnected account is a success no-op
+// with no second event, making double-clicks and retries safe.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";

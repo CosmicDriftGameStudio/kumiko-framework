@@ -1,6 +1,6 @@
 /**
  * Merge app-facing AnonymousAccessConfig with auth-foundation tenant providers.
- * Providers win over any leftover callback fields (hard cutover #1374).
+ * Providers win over any leftover callback fields.
  * Test stacks may still pass Resolved callbacks when no provider is mounted.
  */
 import type {
@@ -30,7 +30,7 @@ export async function resolveAnonymousAccessFromRegistry(
   // (EXT_TENANT_RESOLVER/EXT_TENANT_EXISTENCE) alone must never make
   // anonymousAccess become defined for an app that never set it — that
   // would upgrade every roles:["anonymous"] handler to reachable without
-  // a JWT the moment such a routing feature is mounted (#1452).
+  // a JWT the moment such a routing feature is mounted.
   if (!base) {
     const needing = ANONYMOUS_ROUTE_FEATURES.filter((name) => deps.registry.getFeature(name));
     if (needing.length > 0) {
@@ -42,7 +42,7 @@ export async function resolveAnonymousAccessFromRegistry(
     return undefined;
   }
 
-  // Fail-closed (#1374 security): inline tenantResolver without trust is the
+  // Fail-closed (security): inline tenantResolver without trust is the
   // old ambiguous config — providers always carry trust; test stacks must too.
   if (
     !tenantResolver &&
@@ -57,7 +57,7 @@ export async function resolveAnonymousAccessFromRegistry(
     );
   }
 
-  // Providers win (#1374). When none are mounted, keep any test-injected
+  // Providers win. When none are mounted, keep any test-injected
   // Resolved callbacks so framework middleware suites stay self-contained.
   return {
     ...(base ?? {}),

@@ -1,6 +1,6 @@
-// Default-Bundles für die auth-mfa Feature-UI. Merged in mit
-// authMfaClient() analog zu emailPasswordClient() aus auth-email-password.
-// Keys folgen `auth.mfa.<area>.<slug>`.
+// Default bundles for the auth-mfa feature UI, merged by
+// authMfaClient() analogously to emailPasswordClient() from auth-email-password.
+// Keys follow `auth.mfa.<area>.<slug>`.
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 

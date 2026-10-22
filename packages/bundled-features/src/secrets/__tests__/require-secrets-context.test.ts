@@ -1,16 +1,14 @@
-// requireSecretsContext-Surface-Tests (S2.U3 Atom 3b.fix2).
+// Verifies that `requireSecretsContext` works with the narrow FileProviderContext
+// surface, not only with the full HandlerContext.
+// Regression guard for the latent worker-path bug:
+//   - Before the fix, `ctx as unknown as HandlerContext` was passed through
+//   - In the worker path, `ctx.auditUserId` is undefined (the dispatcher sets it
+//     only in the request path), causing `auditUserId missing` to be thrown
+//   - The worker wrapper now explicitly sets `auditUserId: SYSTEM_USER_ID`
 //
-// Pinst dass `requireSecretsContext` mit dem schmalen FileProviderContext-
-// Surface funktioniert — nicht nur mit voller HandlerContext.
-// Regression-Pin fuer den latenten Worker-Pfad-Bug:
-//   - Vor 3b.fix wurde `ctx as unknown as HandlerContext` durchgereicht
-//   - Im Worker-Pfad ist `ctx.auditUserId` undefined (dispatcher setzt es nur
-//     im request-Pfad), also throw `auditUserId missing`
-//   - Fix: Worker-Wrap setzt explizit `auditUserId: SYSTEM_USER_ID`
-//
-// Der Test inszeniert beide Surfaces (HandlerContext-shape via type-assert
-// + FileProviderContext-shape direkt) und prueft dass beide den happy-path
-// + den fehlt-auditUserId-throw durchlaufen.
+// The test exercises both surfaces (HandlerContext shape via a type assertion
+// and FileProviderContext shape directly) and verifies that both the happy path
+// and the missing-auditUserId error are handled.
 
 import { describe, expect, mock, test } from "bun:test";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -81,10 +79,10 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
   });
 
   test("audit-userId reaches secrets.get when call is delegated", async () => {
-    // Pinst den Audit-Pfad: wenn ein Plugin secrets.get(...) aufruft, kommt
-    // auditUserId als audit.userId ohne Override durch. Das ist der Grund warum
-    // SYSTEM_USER_ID nicht durch einen ad-hoc-magic-string ersetzt werden
-    // darf — sonst wird der Audit-Trail inkonsistent.
+    // Pins the audit path: when a plugin calls secrets.get(...), auditUserId is
+    // passed through as audit.userId without an override. This is why
+    // SYSTEM_USER_ID must not be replaced with an ad hoc magic string; otherwise,
+    // the audit trail becomes inconsistent.
     const raw = makeRawSecretsContext();
     const ctx = {
       secrets: raw,

@@ -127,7 +127,7 @@ export type FoldersFeatureOptions = {
   /** Row-level ownership on the folder-assignment rows themselves — orthogonal
    *  to `access`, which only gates whether a caller may dispatch set/clear/list
    *  at all. Not needed to keep a caller from reading assignments on host
-   *  entities they can't see: that gate is default-on since fw#2766 and derives
+   *  entities they can't see: that gate is default-on and derives
    *  from the entity's `parentRef`. Use `ownership.read` for an ADDITIONAL row
    *  rule on the assignment row itself; it is AND-ed with the host-visibility
    *  gate. Applies only to `folder-assignment`; the `folder` catalog stays

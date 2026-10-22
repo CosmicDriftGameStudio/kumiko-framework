@@ -28,7 +28,7 @@ export function defineCreateWithTenantDefaults(
   options: {
     /** Required — this is a write-path helper; making it optional let a
      *  forgetful caller register a create handler with no access rule at
-     *  all (fw#1581). */
+     *  all. */
     readonly access: AccessRule;
     /** Money field names whose `currency` is filled from tenant-settings when missing. */
     readonly currencyFields?: readonly string[];
@@ -75,7 +75,7 @@ export function defineCreateWithTenantDefaults(
       }
 
       // Re-validate against the unrelaxed entity schema so config-filled
-      // values still honor select/enum field constraints (fw#1581) — and so
+      // values still honor select/enum field constraints — and so
       // a missing currency after failed/missing tenant-settings mount fails
       // loud instead of inserting half-filled money rows.
       const filled = baseSchema.parse(payload);

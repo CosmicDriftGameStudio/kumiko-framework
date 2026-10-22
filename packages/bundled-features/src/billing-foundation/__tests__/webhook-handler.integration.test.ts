@@ -1,8 +1,8 @@
-// Integration-tests for createSubscriptionWebhookRoute (kumiko-framework
-// #3050). No injected dispatchWrite/resolveProvider stubs anymore — the
-// route is a real `entry:"signature"` extraRoute mounted through
-// setupTestStack, driven with real HTTP against the real dispatcher +
-// registry (never createTestDispatcher, per project rule).
+// Integration-tests for createSubscriptionWebhookRoute. No injected
+// dispatchWrite/resolveProvider stubs anymore — the route is a real
+// `entry:"signature"` extraRoute mounted through setupTestStack, driven with
+// real HTTP against the real dispatcher + registry (never
+// createTestDispatcher, per project rule).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";

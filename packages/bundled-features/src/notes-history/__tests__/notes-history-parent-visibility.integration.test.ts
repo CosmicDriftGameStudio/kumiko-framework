@@ -1,4 +1,4 @@
-// fw#2627 — add-note previously trusted entityType/entityId straight from the
+// add-note previously trusted entityType/entityId straight from the
 // client, so any dispatch-eligible tenant user could attach a note to a
 // parent object they had no read access to. The parent-visibility check is
 // unconditional (default-on, no opt-in): entityType must name a registered
@@ -6,8 +6,7 @@
 // (tenant scope plus its `access.read` ownership) before add-note accepts
 // the write — on every mount, `parents` or not. `parents`, when set, only
 // narrows FURTHER to an allowlist of permitted parent entity names; it is
-// not what turns the check on (see `openStack` tests below, which mount
-// notes-history with no `parents` at all and still enforce the check).
+// not what turns the check on.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";

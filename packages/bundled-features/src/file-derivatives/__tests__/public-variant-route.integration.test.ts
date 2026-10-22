@@ -2,9 +2,9 @@
 // Authorization header, tenant resolved ONLY from Host (never the payload),
 // default-deny when no `derivativePublicPredicate` is registered for the
 // FileRef's entityType (or it returns false), the variant spec resolving
-// from the FileRef's field declaration (not a fixed preset map, #1985), and
-// the Step-1 requestContext fix that makes `rateLimit: {per: "ip"}` actually
-// gate an r.httpRoute handler invoked via systemQuery (#1951).
+// from the FileRef's field declaration (not a fixed preset map), and
+// the requestContext fix that makes `rateLimit: {per: "ip"}` actually
+// gate an r.httpRoute handler invoked via systemQuery.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -55,9 +55,9 @@ let otherWidgetId = "";
 let noPredicateId = "";
 
 // `full` deliberately overrides the built-in preset's maxEdge (2560) — this
-// is what proves the route resolves the spec from the field declaration
-// (#1985), not from the frozen preset constants. `plan` is a name with no
-// preset counterpart at all — the exact motivating case from #1985 (an app
+// is what proves the route resolves the spec from the field declaration,
+// not from the frozen preset constants. `plan` is a name with no
+// preset counterpart at all — the exact motivating case (an app
 // declaring its own variant name). `heroWide` uses characters (uppercase,
 // underscore-adjacent camelCase) outside a naive `[a-z0-9-]` guard — the
 // `variants` map has no runtime charset constraint, so the route's
@@ -73,7 +73,7 @@ const widgetEntity = createEntity({
         plan: { maxEdge: 4096, format: "webp" },
         heroWide: { maxEdge: 3200, format: "webp" },
         // No format — resize-without-reformat, the legitimate reason
-        // spec.format can be omitted (see #2021).
+        // spec.format can be omitted.
         raw: { maxEdge: 160 },
       },
     }),
@@ -86,7 +86,7 @@ const widgetEntity = createEntity({
 // predicate registered for this entityType" default-deny case below needs
 // an entity that upload can attach to, distinct from "the entityType string
 // isn't registered at all" (which upload now rejects before the file ever
-// reaches file_refs, see kumiko-framework#3005).
+// reaches file_refs).
 const noPredicateEntity = createEntity({
   table: "public_variant_no_predicate",
   fields: {
@@ -272,7 +272,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   test("syntactically malformed variant names → 404, pre-check runs before any DB/systemQuery work", async () => {
     const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
     // Well-formed-looking but unregistered names (e.g. "not-a-preset") now
-    // reach the DB — the pre-check is purely syntactic since #1985, not a
+    // reach the DB — the pre-check is purely syntactic, not a
     // name list. Only pathological input is rejected here.
     const malformedNames = [
       "a".repeat(65), // over the 64-char cap
@@ -355,7 +355,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("malformed fileRefId → 404, pre-check runs before any DB/systemQuery work", async () => {
-    // Unlike #1950 (auth-gated), this route is anonymous — a non-UUID id
+    // Unlike auth-gated routes, this route is anonymous — a non-UUID id
     // reaching fetchOne() would throw Postgres 22P02 on an unauthenticated
     // request, an unauth DoS primitive. Must 404 at the httpRoute pre-check.
     const res = await stack.app.request(`http://${HOST_A}/media/not-a-uuid/thumb`);
@@ -381,7 +381,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     expect(res.status).toBe(404);
   });
 
-  // #2021 — the "raw" variant has no `format`, so its mimeType comes from
+  // The "raw" variant has no `format`, so its mimeType comes from
   // outputMimeType's fallback branch. `img` has no `accept`, so the source
   // mimeType is exactly the client-controlled `file.type` from the upload —
   // this proves the anonymous route no longer echoes it verbatim.

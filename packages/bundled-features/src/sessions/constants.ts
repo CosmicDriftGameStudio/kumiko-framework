@@ -9,7 +9,7 @@ export const SessionHandlers = {
   revoke: "sessions:write:user-session:revoke",
   revokeAllOthers: "sessions:write:user-session:revoke-all-others",
   /** Privileged: System-Caller (cross-feature) revokes ALL live sessions
-   *  fuer einen User. Genutzt von user-data-rights:restrict-account
+   *  for a user. Used by user-data-rights:restrict-account
    *  (DSGVO Art. 18 Account-Freeze). */
   revokeAllForUser: "sessions:write:user-session:revoke-all-for-user",
 } as const;

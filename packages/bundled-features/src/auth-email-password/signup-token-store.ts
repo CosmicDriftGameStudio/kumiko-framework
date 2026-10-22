@@ -79,14 +79,14 @@ export async function deleteSignupToken(
  *  retry isn't blocked by a stale burn marker. */
 export const unburnSignupToken = store.unburn;
 
-// Cross-device try-first handover (kumiko-framework#3035 follow-up,
-// offlot-app#454): signup-request binds a verified tenant-handover grant to
-// its own signup token, in a SIBLING Redis namespace keyed the same way
-// (sha256(token)) so it stays byte-compatible with the token store above
-// without going through it — the binding has its own lifecycle (survives a
-// resend, is read once by signup-confirm) that doesn't fit the token↔email
-// pairing. Only {entityType, rowId, sourceTenantId} is ever stored — never
-// the grant token or the email (see shared/signup-handover.ts).
+// Cross-device try-first handover:
+// signup-request binds a verified tenant-handover grant to its own signup token,
+// in a SIBLING Redis namespace keyed the same way (sha256(token)) so it stays
+// byte-compatible with the token store above without going through it — the
+// binding has its own lifecycle (survives a resend, is read once by
+// signup-confirm) that doesn't fit the token↔email pairing. Only
+// {entityType, rowId, sourceTenantId} is ever stored — never the grant token
+// or the email (see shared/signup-handover.ts).
 const SIGNUP_HANDOVER_KEY_PREFIX = "signup:handover:";
 
 const signupHandoverBindingSchema = z.object({

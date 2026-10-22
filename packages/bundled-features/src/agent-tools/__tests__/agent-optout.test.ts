@@ -25,7 +25,7 @@ import { changeEmailWrite } from "../../user-profile/handlers/change-email.write
 import { buildAgentManifest } from "../agent-manifest.ts";
 import { buildToolCatalog, toolNameForQn } from "../tool-catalog.ts";
 
-// #2700/#2702 — bundled handlers that carry secrets/irreversible-erase risk are now
+// Bundled handlers that carry secrets/irreversible-erase risk are now
 // opted out of the agent tool catalog via `agent: { expose: false }`, and the app-side
 // `denyQns` cut removes a handler the catalog would otherwise expose (including the
 // entity-CRUD tools, which bypass the manifest entirely).

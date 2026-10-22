@@ -1,4 +1,4 @@
-// sessions self-registers as auth-foundation's sessionStore provider (#1371)
+// sessions self-registers as auth-foundation's sessionStore provider
 // instead of only being wired by hand into buildServer({ auth: { ... } }).
 
 import { describe, expect, test } from "bun:test";

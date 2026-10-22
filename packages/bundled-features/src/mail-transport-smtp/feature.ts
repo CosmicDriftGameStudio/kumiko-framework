@@ -1,29 +1,29 @@
 // kumiko-feature-version: 1
 //
-// mail-transport-smtp — concrete SMTP-implementation for the
-// mail-foundation plugin-API.
+// mail-transport-smtp — concrete SMTP implementation for the
+// mail-foundation plugin API.
 //
-// **Was diese Feature liefert:**
-//   1. Provider-spezifische Tenant-Config (host/port/secure/from/authUser)
-//      und Secret (smtp.password). Self-contained — mail-foundation kennt
-//      diese Schlüssel nicht; wenn ein App-Owner zwischen SMTP und Brevo-
-//      API wechseln will, hat er pro-Plugin eigenständige Config-Sets.
-//   2. **Plugin-Registration** via `r.useExtension("mailTransport",
-//      "smtp", { build })`. Beim Boot kennt mail-foundation's
-//      Factory-Lookup damit den name "smtp" ↔ build-Funktion.
-//   3. `build(ctx, tenantId)` liest die config-keys + secret und ruft
-//      `createSmtpTransport()` aus channel-email auf. Das ist der
-//      EINZIGE Cross-Feature-Import dieses Plugins — bewusst lokal
-//      gehalten, mail-foundation bleibt provider-frei.
+// **What this feature provides:**
+//   1. Provider-specific tenant config (host/port/secure/from/authUser)
+//      and secret (smtp.password). Self-contained — mail-foundation does not
+//      know these keys; when an app owner switches between SMTP and the Brevo
+//      API, each plugin has its own independent config sets.
+//   2. **Plugin registration** via `r.useExtension("mailTransport",
+//      "smtp", { build })`. At boot, mail-foundation's factory lookup maps
+//      the name "smtp" to the build function.
+//   3. `build(ctx, tenantId)` reads the config keys and secret, then calls
+//      `createSmtpTransport()` from channel-email. This is the plugin's
+//      ONLY cross-feature import, deliberately kept local so
+//      mail-foundation remains provider-independent.
 //
-// **Pattern-Vorbild:** mirrors `channel-email` registering itself for
-// `delivery`. Diese Feature ist analog: registriert sich für
-// mail-foundation's "mailTransport"-Extension-Point.
+// **Pattern reference:** mirrors `channel-email` registering itself for
+// `delivery`. This feature is analogous: it registers for
+// mail-foundation's "mailTransport" extension point.
 //
-// **Boot-Dependencies:**
+// **Boot dependencies:**
 //   - `mail-foundation` — extension-point owner
-//   - `config` — für die Tenant-Config-Keys
-//   - `secrets` — für das verschlüsselte SMTP-Password
+//   - `config` — for the tenant config keys
+//   - `secrets` — for the encrypted SMTP password
 
 import type { lookup } from "node:dns/promises";
 import {

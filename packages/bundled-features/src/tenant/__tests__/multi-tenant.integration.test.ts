@@ -230,8 +230,8 @@ describe("multi-tenant user", () => {
     expect(tenantIds).toContain(testTenantId(1));
     expect(tenantIds).toContain(testTenantId(2));
 
-    // tenantName/tenantKey machen die Memberships im UI unterscheidbar
-    // (Tenant-Switcher) — die Query reichert sie aus der tenants-Tabelle an.
+    // tenantName/tenantKey make memberships distinguishable in the UI
+    // (tenant switcher); the query enriches them from the tenants table.
     const acme = memberships.find(
       (m: Record<string, unknown>) => m["tenantId"] === testTenantId(1),
     );
@@ -318,13 +318,13 @@ describe("perTenant jobs", () => {
   });
 });
 
-// --- Scenario 6: disabled tenant verschwindet aus allen Auth-Flächen ---
+// --- Scenario 6: disabled tenant disappears from all auth surfaces ---
 //
-// tenant:write:disable legt den Tenant still: memberships-Query filtert ihn,
-// damit listet /auth/tenants ihn nicht mehr (Switcher), switch-tenant lehnt
-// ab (not_a_member) und der Login wählt ihn nicht. active-tenant-ids lässt
-// ihn ebenfalls aus (perTenant-Jobs). enable macht alles rückgängig.
-// Läuft bewusst NACH den perTenant-Job-Tests — die erwarten 2 aktive Tenants.
+// tenant:write:disable silences the tenant: the memberships query filters it,
+// so /auth/tenants no longer lists it (switcher), switch-tenant rejects it
+// (not_a_member), and login does not select it. active-tenant-ids also excludes
+// it (perTenant jobs). enable reverses all of this.
+// Deliberately runs AFTER the perTenant job tests, which expect 2 active tenants.
 
 describe("disabled tenant", () => {
   const user = createTestUser({ id: 10 });
@@ -370,23 +370,23 @@ describe("disabled tenant", () => {
   });
 });
 
-// --- Scenario 7: memberships batch-load (#324) ---
+// --- Scenario 7: memberships batch-load ---
 //
-// Die memberships-Query reichert alle Tenants in EINEM IN-Batch an statt eines
-// fetchOne pro Membership. Dieser Test deckt die zwei Dinge ab, die der
-// Batch-Refactor brechen könnte: korrektes Keying jeder Membership auf IHREN
-// Tenant (kein Kollaps/Vertauschen bei mehreren Memberships) und die Toleranz
-// gegenüber einer fehlenden Tenant-Projection-Row (Drift → Membership bleibt
-// gelistet, kein Login-Lockout). Läuft als letzter Block — eigener User, kein
-// geteilter Tenant-State.
+// The memberships query enriches all tenants in one IN-batch instead of using
+// one fetchOne per membership. This test covers the two things the batch
+// refactor could break: correctly keying each membership to ITS tenant (no
+// collapsing or swapping when there are multiple memberships) and tolerating
+// a missing tenant projection row (drift → the membership remains listed,
+// avoiding a login lockout). Runs as the final block with its own user and no
+// shared tenant state.
 
 describe("memberships batch-load (#324)", () => {
   const batchUserId = "11111111-0000-4000-8000-000000000020";
   const driftTenantId = testTenantId(777);
 
   test("enriches every membership from one IN-batch, keeps drift rows", async () => {
-    // tenant 1 (ACME) + tenant 2 (Beta Inc) existieren und sind enabled;
-    // driftTenant wurde nie erstellt → keine Projection-Row.
+    // tenants 1 (ACME) and 2 (Beta Inc) exist and are enabled;
+    // driftTenant was never created, so there is no projection row.
     for (const tenantId of [testTenantId(1), testTenantId(2), driftTenantId]) {
       const r = await writeAsSystem(TenantHandlers.addMember, {
         userId: batchUserId,
@@ -408,8 +408,8 @@ describe("memberships batch-load (#324)", () => {
     expect(beta?.["tenantName"]).toBe("Beta Inc");
     expect(beta?.["tenantKey"]).toBe("beta");
 
-    // Drift: Membership zeigt auf einen Tenant ohne Projection-Row → bleibt
-    // gelistet, nur ohne tenantName/tenantKey.
+    // Drift: the membership refers to a tenant without a projection row, so
+    // it remains listed without tenantName/tenantKey.
     const drift = memberships.find((m) => m["tenantId"] === driftTenantId);
     expect(drift).toBeDefined();
     expect(drift?.["tenantName"]).toBeUndefined();

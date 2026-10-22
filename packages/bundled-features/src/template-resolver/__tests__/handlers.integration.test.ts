@@ -57,9 +57,9 @@ let stack: TestStack;
 let db: DbConnection;
 
 const systemAdmin = TestUsers.systemAdmin;
-// Explizite, distinct tenantIds — createTestUser default-falls auf
-// TestUsers.admin.tenantId (alle User im selben Tenant). Wir testen
-// Tenant-Isolation, deshalb pro Test-User eigener Tenant.
+// Explicit, distinct tenantIds — createTestUser defaults to
+// TestUsers.admin.tenantId (all users would otherwise share one tenant).
+// Each test user therefore uses a separate tenant to test tenant isolation.
 const tenantA_Admin = createTestUser({
   id: 2,
   roles: ["TenantAdmin"],
@@ -94,13 +94,12 @@ const basePayload = {
   linkedResources: {},
 };
 
-// Audit-Trail via event-store-executor: kein dedizierter Test, weil
-// `stack.events.postSave` im aktuellen Test-Stack-Setup nicht aktiv
-// populated wird (Pipeline-Hooks-Wiring unterschiedlich zum Prod-Path).
-// Indirekter Beweis: alle Resolver/Handler-Tests funktionieren — würde
-// der executor nicht in die DB schreiben, würden findById/list/
-// resolveTemplate alles nichts finden. Wenn echtes Audit-Log-Test
-// gebraucht wird: direkt `read_events`-Tabelle abfragen.
+// The event-store executor has no dedicated audit-trail test because
+// `stack.events.postSave` is not populated in the current test-stack setup
+// (pipeline-hook wiring differs from the production path). The resolver and
+// handler tests provide indirect evidence: if the executor did not write to
+// the database, findById/list/resolveTemplate would find nothing. A dedicated
+// audit-log test should query the `read_events` table directly.
 describe("template-resolver :: upsertSystem", () => {
   test("SystemAdmin kann System-Template anlegen", async () => {
     const result = await stack.http.writeOk<Record<string, unknown>>(
@@ -307,9 +306,9 @@ describe("template-resolver :: publish + archive", () => {
     expectErrorIncludes(err, "access_denied");
   });
 
-  // SystemAdmin-Cross-Tenant-Publish/Archive nicht implementiert: ctx.db ist
-  // tenant-scoped (createTenantDb in dispatcher). Braucht `tenantIdOverride`
-  // im Schema wie upsertTenant. M2-Erweiterung wenn Admin-UI das fordert.
+  // Cross-tenant publish/archive for SystemAdmin is not implemented: ctx.db is
+  // tenant-scoped (createTenantDb in dispatcher). It requires
+  // `tenantIdOverride` in the schema, as in upsertTenant.
 });
 
 describe("template-resolver :: findById query", () => {
@@ -356,9 +355,9 @@ describe("template-resolver :: findById query", () => {
     expect((result as { tenantId: string }).tenantId).toBe(SYSTEM_TENANT_ID);
   });
 
-  // SystemAdmin-Cross-Tenant-FindById nicht implementiert — gleicher Grund
-  // wie publish/archive. ctx.db tenant-scoped, braucht tenantIdOverride im
-  // findById-Schema. M2-Erweiterung.
+  // Cross-tenant findById for SystemAdmin is not implemented for the same
+  // reason as publish/archive. ctx.db is tenant-scoped and the findById
+  // schema requires tenantIdOverride.
 });
 
 describe("template-resolver :: list query", () => {
@@ -404,11 +403,10 @@ describe("template-resolver :: list query", () => {
     expect(slugs).not.toContain("list-system-2");
   });
 
-  // Regressions-Pin 230/2 — SystemAdmin-Zweige der list-Query. Empirisch
-  // (und gewollt): auch SystemAdmin sieht über die TenantDb nur den
-  // [own, SYSTEM]-Scope — es gibt KEINE Cross-Tenant-Sicht auf fremde
-  // Tenant-Templates. TestUsers.systemAdmin lebt in testTenantId(1),
-  // NICHT im System-Tenant.
+  // The list query intentionally limits SystemAdmin to the [own, SYSTEM]
+  // scope through TenantDb; it provides no cross-tenant view of other tenant
+  // templates. TestUsers.systemAdmin belongs to testTenantId(1), not the
+  // system tenant.
   test("SystemAdmin + includeSystem=false → nur eigener Tenant, weder System- noch Fremd-Templates", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
@@ -502,7 +500,6 @@ describe("template-resolver :: list query", () => {
     expect(drafts.map((r) => r.slug)).toContain("filter-draft");
     expect(drafts.map((r) => r.slug)).not.toContain("filter-active");
 
-    // Sicherstellen dass draft existiert
     expect(draft.id).toBeTruthy();
   });
 });

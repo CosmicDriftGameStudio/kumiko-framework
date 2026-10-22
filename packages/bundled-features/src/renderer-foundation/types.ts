@@ -10,9 +10,9 @@ import type {
 } from "../template-resolver/index.ts";
 import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.ts";
 
-// RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
-// (renderer-foundation api) je nach kind oder explizit. Plugin selbst
-// entscheidet nicht — es bekommt eine schon aufgelöste Form.
+// RenderRequest — plugins receive this. The caller selects resource mode
+// (renderer-foundation API) by kind or explicitly. Plugins do not decide this;
+// they receive an already-resolved form.
 export type RenderRequest =
   | { kind: "mail"; payload: MailPayload }
   | { kind: "document-pdf"; payload: DocumentPdfPayload; options?: PdfOptions }
@@ -157,13 +157,12 @@ export type ImageOptions = {
   readonly quality?: number;
 };
 
-// RendererContext — schmale Surface (Kumiko-Style, matcht FileProviderContext
-// + ChannelContext). Plugins, die Service-Access brauchen, holen sich
-// templateResolver/etc. via direkten Bundle-Import + ctx.db (cross-feature-
-// public-API). KEIN extraContext-Pass-Through — Plugin importiert pure-
-// Function-Factories statt App-ctx zu casten.
+// RendererContext — a narrow surface (Kumiko-style, matching FileProviderContext
+// + ChannelContext). Plugins that need services obtain templateResolver/etc. via
+// direct bundle imports + ctx.db (cross-feature public API). No extraContext
+// pass-through: plugins import pure function factories instead of casting App-ctx.
 //
-// **Beispiel renderer-mail-html:**
+// **Example renderer-mail-html:**
 //   import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 //   const tplApi = createTemplateResolverApi(ctx.db, ctx.registry);
 //   const layout = await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind });
@@ -178,9 +177,9 @@ export type RendererContext = {
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
 };
 
-// RendererPlugin-Contract — pro Plugin (renderer-mail-html,
-// renderer-puppeteer-client). Plugin deklariert welche kinds es bedienen
-// kann; Foundation-Resolver wählt basierend auf Tenant-Config + kind.
+// RendererPlugin contract — per plugin (renderer-mail-html,
+// renderer-puppeteer-client). The plugin declares which kinds it can handle;
+// the Foundation resolver selects one based on tenant config + kind.
 //
 // Plugin invariants:
 // - `kinds` has at least one entry, otherwise the plugin is never picked.

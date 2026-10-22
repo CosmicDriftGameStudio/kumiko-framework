@@ -1,5 +1,5 @@
 // The read twin of notes-history-parent-visibility.integration.test.ts
-// (fw#2766). add-note was gated against the host row's own read path, but
+// add-note was gated against the host row's own read path, but
 // `note-entry:list` returned every note of the tenant. None of the mounts
 // below set `ownership`, which used to be the only lever.
 

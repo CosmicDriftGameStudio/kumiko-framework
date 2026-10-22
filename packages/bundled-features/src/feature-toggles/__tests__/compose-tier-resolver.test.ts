@@ -247,8 +247,8 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     // The old code only checked `readOverride(name) !== false` on
     // "pat-companion" itself (which has no override, so it stayed) without
     // ever re-running the requires() cascade over the tier-granted set —
-    // exactly the class of bug #1471/1 describes (channel-email staying up
-    // after its `delivery` dependency is killed).
+    // exactly this class of bug: channel-email staying up
+    // after its `delivery` dependency is killed.
     const tierResolver: EffectiveFeaturesResolver = (tenantId: TenantId) =>
       tenantId === SYSTEM_TENANT_ID
         ? new Set(["personal-access-tokens", "pat-companion"])

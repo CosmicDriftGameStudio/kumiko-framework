@@ -1,15 +1,14 @@
-// GET /api/user/export-status (S2.U3 Atom 2) — User-Polling.
+// GET /api/user/export-status — user polling.
 //
-// Liefert den meist-aktuellen ExportJob des aufrufenden Users (in
-// Reihenfolge: aktiver Job zuerst, sonst neuester done/failed).
+// Returns the calling user's most recent ExportJob (active jobs first,
+// otherwise the newest done/failed job).
 //
-// **Cross-User-Isolation:** Filter ist `userId === query.user.id` — kein
-// User kann fremde Job-Status sehen, auch nicht via ID-Guess. Pre-Check
-// uses ctx.db.unsafeRaw — ExportJob is tenant-agnostic (see plan doc,
-// "Cross-Tenant-Semantik").
+// **Cross-User-Isolation:** The filter is `userId === query.user.id`, so no
+// user can view another user's job status, even by guessing an ID. The
+// pre-check uses ctx.db.unsafeRaw because ExportJob is tenant-agnostic.
 //
-// **Read-Only-Endpoint:** Pollt nur, kein State-Flip. Idempotent + cache-
-// fest. UI poll-Intervall typisch 2-5s waehrend running.
+// **Read-Only-Endpoint:** Polling only; it does not change state. The endpoint
+// is idempotent and cacheable. The UI typically polls every 2-5s while running.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";

@@ -1,4 +1,4 @@
-// H.2 — row-level READ ownership for note-entry. Before this fix,
+// Row-level READ ownership for note-entry. Before this fix,
 // noteEntryEntity had no `access`, so buildOwnershipClause always returned
 // PASS_CLAUSE and any dispatch-eligible user could list every note in the
 // tenant, including notes on host entities they can't otherwise see.
@@ -10,7 +10,7 @@
 // renumbered past the tenant-scope filter's already-consumed slots
 // (event-store-executor-read.ts), not just happen to work at `$1`.
 //
-// fw#2627 made add-note's parent-visibility check unconditional: entityType
+// The add-note parent-visibility check is now unconditional: entityType
 // must now name a registered entity, and the row must exist and be visible
 // to the caller. This file tests NOTE-level ownership, not parent-level, so
 // the fixture `project` entity below is deliberately registered with NO
@@ -275,9 +275,9 @@ describe("unqualified where-rule fails closed, not open (fw#2639)", () => {
     // the lint ever sees the bad SQL, and boot-validator/ownership.ts's
     // probeWhereRule swallows that and moves on.
     //
-    // add-note's parent-visibility check is unconditional since fw#2627, so
-    // this stack also needs the PASS_CLAUSE project fixture mounted — this
-    // block otherwise stays focused on the note-entry ownership rule.
+    // add-note's parent-visibility check is unconditional, so this stack also
+    // needs the PASS_CLAUSE project fixture mounted — this block otherwise
+    // stays focused on the note-entry ownership rule.
     unqualifiedStack = await setupTestStack({
       features: [
         createNotesHistoryFeature({ ownership: unqualifiedOwnership }),

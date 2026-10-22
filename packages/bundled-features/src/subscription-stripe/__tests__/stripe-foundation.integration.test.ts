@@ -1,16 +1,15 @@
-// Integration-test: Stripe-Plugin → subscription-foundation → DB.
+// Integration test: Stripe plugin → subscription foundation → database.
 //
-// Beweist die echte Verdrahtung:
-//   1. Stripe-event mit valider Signatur kommt am webhook-handler an
-//   2. Stripe-Plugin verifiziert + parsed → SubscriptionEvent
-//   3. webhook-handler dispatched zu process-event-handler
-//   4. process-event-handler schreibt subscription + subscription-event
-//      in die DB
+// Verifies the real wiring:
+//   1. A Stripe event with a valid signature reaches the webhook handler.
+//   2. The Stripe plugin verifies and parses it into a SubscriptionEvent.
+//   3. The webhook handler dispatches it to the process-event handler.
+//   4. The process-event handler writes the subscription and subscription event
+//      to the database.
 //
-// Type-checks fangen struct-mismatch, NICHT runtime-mismatches (Zod-
-// validation des process-event-schema könnte stricter sein als der
-// Stripe-output liefert). Dieser Test fängt das Spalten-Mapping +
-// Verdrahtungs-Bugs ab.
+// Type checks catch structural mismatches, not runtime mismatches (the Zod
+// validation in the process-event schema could be stricter than the Stripe
+// output). This test catches column-mapping and wiring bugs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -46,10 +45,10 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createSubscriptionStripeFeature } from "../feature.ts";
 
-// Qualified-names der runtime-keys (drift-pin: müssen 1:1 dem entsprechen,
-// was r.config(...) im feature build qualifiziert — `subscription-stripe:
-// config:<shortName>`, backing:"secrets"). Scenario 5 setzt sie via
-// config:write:set + beweist die Resolution durch den Webhook.
+// Qualified names of the runtime keys (drift pin: they must exactly match
+// the names qualified by r.config(...) in the feature build — `subscription-stripe:
+// config:<shortName>`, backing:"secrets"). Scenario 5 sets them via
+// config:write:set and verifies resolution through the webhook.
 const API_KEY_CONFIG_QN = "subscription-stripe:config:api-key";
 const WEBHOOK_SECRET_CONFIG_QN = "subscription-stripe:config:webhook-secret";
 
@@ -67,9 +66,9 @@ let db: DbConnection;
 const stripeForFixtures = new Stripe(TEST_API_KEY);
 
 beforeAll(async () => {
-  // subscription-stripe requires jetzt config + secrets. Scenarios 1–4
-  // nutzen den factory-fallback (kein system-secret geseedet, kein
-  // systemSecrets gewired) → resolve fällt auf die options-Keys zurück.
+  // subscription-stripe now requires config and secrets. Scenarios 1–4 use
+  // the factory fallback (no system secret is seeded and no systemSecrets are
+  // wired), so resolution falls back to the option keys.
   const stripeFeature = createSubscriptionStripeFeature({
     webhookSecret: TEST_SECRET,
     apiKey: TEST_API_KEY,
@@ -111,9 +110,9 @@ beforeAll(async () => {
     extraRoutes: [createSubscriptionWebhookRoute()],
   });
   db = stack.db;
-  // subscriptionsProjectionTable wird von setupTestStack automatisch
-  // gepusht (r.projection mit `table`-Property → auto-push). config +
-  // secrets brauchen ihre Tabellen explizit.
+  // subscriptionsProjectionTable is pushed automatically by setupTestStack
+  // (r.projection with a `table` property triggers auto-push). config and
+  // secrets require their tables explicitly.
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
 });
@@ -209,8 +208,8 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
     const res = await postStripeWebhook(payload, sig);
     expect(res.status).toBe(200);
 
-    // Prüfe DB-state: subscription-row + subscription-event-row für
-    // diesen Tenant.
+    // Verify the database state: a subscription row and subscription-event row
+    // for this tenant.
     const admin = createTestUser({
       id: 4001,
       tenantId: tenantStringId,
@@ -227,8 +226,8 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
     expect(subs.rows[0]?.["providerCustomerId"]).toBe("cus_4001");
     expect(subs.rows[0]?.["tier"]).toBe("business");
     expect(subs.rows[0]?.["status"]).toBe("active");
-    // Drift-pin: deterministic aggregate-id matched zwischen Stripe-Plugin
-    // (foundation-side) und expected uuid.
+    // Drift pin: the deterministic aggregate ID must match between the Stripe
+    // plugin (foundation side) and the expected UUID.
     expect(subs.rows[0]?.["id"]).toBe(subscriptionAggregateId(tenantStringId));
 
     const esEvents = await loadAggregate(
@@ -344,14 +343,14 @@ describe("scenario 2: invalid sig → 401, kein DB-write", () => {
 
     const res = await postStripeWebhook(payload, wrongSig);
     expect(res.status).toBe(401);
-    // extraRoutes' generic signature-rejection code (kumiko-framework#3050)
+    // extraRoutes' generic signature-rejection code
     // — verify() throws a plain Error on sig mismatch, buildServer maps any
     // non-ExtraRouteRejection throw from verify() to this code.
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("extra_route_signature_invalid");
 
-    // Drift-pin: foundation-DB ist unberührt — kein subscription-row
-    // für diesen Tenant entstanden.
+    // Drift pin: the foundation database remains untouched; no subscription row
+    // was created for this tenant.
     const admin = createTestUser({
       id: 4002,
       tenantId: tenantStringId,
@@ -382,13 +381,13 @@ describe("scenario 3: idempotency via Stripe-retry", () => {
     const body1 = (await res1.json()) as { processed: boolean; duplicate: boolean };
     expect(body1.duplicate).toBe(false);
 
-    // Stripe retry-storm — selber event mit selber providerEventId
+    // Stripe retry storm: the same event with the same providerEventId
     const res2 = await postStripeWebhook(payload, sig);
     expect(res2.status).toBe(200);
     const body2 = (await res2.json()) as { processed: boolean; duplicate: boolean };
     expect(body2.duplicate).toBe(true);
 
-    // Drift-pin: nur ein event im subscription-stream
+    // Drift pin: only one event exists in the subscription stream
     const esEvents = await loadAggregate(
       db,
       subscriptionAggregateId(tenantStringId),
@@ -529,10 +528,10 @@ describe("scenario 4b: customer.subscription.updated with a new price re-syncs t
 });
 
 // =============================================================================
-// Scenario 5: runtime-secret-Pfad — webhook verifiziert gegen ein in der DB
-// geseedetes system-secret (NICHT gegen den factory-fallback). Beweist die
-// end-to-end-Resolution + dass das system-secret den Fallback schlägt
-// (Rotation ohne Redeploy).
+// Scenario 5: runtime-secret path — the webhook verifies against a system
+// secret seeded in the database, not the factory fallback. Verifies end-to-end
+// resolution and that the system secret takes precedence over the fallback
+// (rotation without redeployment).
 // =============================================================================
 
 const SEEDED_WEBHOOK_SECRET = "whsec_runtime_seeded_distinct";
@@ -540,11 +539,12 @@ const SEEDED_API_KEY = "sk_test_runtime_seeded";
 
 describe("scenario 5: runtime-secret resolution", () => {
   test("seeded system-secret schlägt factory-fallback: sig gegen seeded secret → 200 + DB-row", async () => {
-    // Set beide Keys via config:write:set (backing:"secrets") als SystemAdmin
-    // — exakt was der abgeleitete Sysadmin-configEdit-Screen / der Bridge-Seed
-    // in prod dispatcht. Der Wert landet JSON-serialisiert envelope-encrypted
-    // im secrets-Store; der Webhook löst ihn via parseStoredSecret wieder auf.
-    // SEEDED_WEBHOOK_SECRET ≠ TEST_SECRET (der fallback).
+    // Set both keys via config:write:set (backing:"secrets") as SystemAdmin,
+    // exactly as the generated Sysadmin-configEdit screen or the bridge seed
+    // dispatches in production. The value is JSON-serialized and envelope-
+    // encrypted in the secrets store; the webhook resolves it through
+    // parseStoredSecret.
+    // SEEDED_WEBHOOK_SECRET ≠ TEST_SECRET (the fallback).
     const sysAdmin = createTestUser({
       id: 9001,
       tenantId: SYSTEM_TENANT_ID,
@@ -571,8 +571,8 @@ describe("scenario 5: runtime-secret resolution", () => {
         priceId: "price_pro_monthly",
       }),
     );
-    // Signiert mit dem GESEEDETEN secret — würde der webhook noch den
-    // fallback (TEST_SECRET) nutzen, schlüge die Verifikation fehl.
+    // Sign with the seeded secret — if the webhook still used the fallback
+    // (TEST_SECRET), verification would fail.
     const sig = await signEvent(payload, SEEDED_WEBHOOK_SECRET);
 
     const res = await postStripeWebhook(payload, sig);
@@ -594,8 +594,8 @@ describe("scenario 5: runtime-secret resolution", () => {
   });
 
   test("sig gegen den (jetzt obsoleten) fallback-secret → 401, wenn system-secret gesetzt ist", async () => {
-    // Drift-pin der Präzedenz: nachdem das system-secret gesetzt ist,
-    // darf der alte env/fallback-secret NICHT mehr verifizieren.
+    // Drift pin for precedence: after the system secret is set, the old
+    // environment/fallback secret must no longer verify.
     const payload = JSON.stringify(
       buildStripeSubscriptionEvent({ eventId: "evt_4005_stale", tenantId: testTenantId(4006) }),
     );
@@ -606,18 +606,18 @@ describe("scenario 5: runtime-secret resolution", () => {
 });
 
 // =============================================================================
-// Scenario 6: billing-live-Gate (#104) durch den vollen Stack.
+// Scenario 6: billing-live gate through the full stack.
 //
-// Die #104-Invariante (kein Live-Checkout solange billing-live nicht true) war
-// bislang nur mit gestubbter ctx.config getestet (runtime.test.ts) — kein Test
-// fuhr die Kette factory → r.config → ctx.config(handle) real durch. Eigener
-// Stack OHNE api-key/webhook-secret-Fallback, damit das Gate-Öffnen hermetisch
-// als UnconfiguredError sichtbar wird (api-key fehlt) statt in einem echten
-// Stripe-Netzwerk-Call. Ein reiner default-off-Beweis genügt nicht: er kann
-// "korrektes Handle, Wert fehlt" nicht von "falsches Handle, immer undefined"
-// trennen (beide → feature_disabled). Erst der positive Fall (billing-live via
-// config:write:set auf dem kanonischen QN setzen → Gate öffnet) beweist die
-// Handle-Resolution real.
+// The invariant that live checkout is unavailable until billing-live is true
+// was previously tested only with a stubbed ctx.config (runtime.test.ts); no
+// test exercised the factory → r.config → ctx.config(handle) chain for real.
+// This stack has no api-key or webhook-secret fallback, so opening the gate
+// exposes an UnconfiguredError (the api key is missing) instead of making a
+// real Stripe network call. A default-off check alone is insufficient: it
+// cannot distinguish a correct handle whose value is missing from an incorrect
+// handle that always returns undefined (both produce feature_disabled). The
+// positive case, setting billing-live through config:write:set on the
+// canonical qualified name, verifies handle resolution for real.
 // =============================================================================
 
 const BILLING_LIVE_CONFIG_QN = "subscription-stripe:config:billing-live";
@@ -697,8 +697,8 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
     );
     expect(closed.code).toBe("feature_disabled");
 
-    // billing-live=true auf dem kanonischen QN setzen (was der abgeleitete
-    // Sysadmin-configEdit-Screen in prod dispatcht).
+    // Set billing-live=true on the canonical qualified name, as the generated
+    // Sysadmin-configEdit screen dispatches in production.
     const sysAdmin = createTestUser({
       id: 6002,
       tenantId: SYSTEM_TENANT_ID,

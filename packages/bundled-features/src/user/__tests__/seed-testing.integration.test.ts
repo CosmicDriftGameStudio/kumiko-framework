@@ -1,10 +1,10 @@
-// Tests für seedUser. Vier Invarianten:
-//   1. Projection-Row landet mit email/displayName/passwordHash
-//   2. Event `user.created` landet auf dem Aggregate-Stream
-//   3. Idempotenz über `email` — zweiter Call liefert dieselbe userId
-//      ohne neuen Insert/Event
-//   4. `passwordHash`-Field ist optional (User ohne Passwort, z.B. SSO-
-//      Federation, soll auch funktionieren)
+// Tests for seedUser. Four invariants:
+//   1. The projection row contains email/displayName/passwordHash
+//   2. The `user.created` event is written to the aggregate stream
+//   3. Idempotency by `email` — a second call returns the same userId
+//      without a new insert/event
+//   4. The `passwordHash` field is optional (users without a password, such
+//      as SSO federation users, must also work)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -87,7 +87,7 @@ describe("seedUser", () => {
 
     const rows = await selectMany(stack.db, userTable, { email: "carol@example.com" });
     expect(rows).toHaveLength(1);
-    // Original-displayName bleibt — zweiter Call wurde geskippt, kein update.
+    // The original displayName remains — the second call was skipped, so no update occurred.
     expect(rows[0]?.["displayName"]).toBe("Carol");
 
     const created = await selectMany(stack.db, eventsTable, { aggregateType: "user" });

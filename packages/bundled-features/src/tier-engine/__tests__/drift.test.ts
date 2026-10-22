@@ -3,9 +3,9 @@ import { tierAssignmentAggregateId } from "../aggregate-id.ts";
 import { createTierEngineFeature } from "../feature.ts";
 import { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "../web/constants.ts";
 
-// Drift-Pin-Tests — diese Werte sind Cross-File-Contracts, ein Wechsel
-// muss bewusst geschehen und die anderen Stellen mitziehen. Wenn diese
-// Tests rot werden: stop, denk nach, sync alle Stellen.
+// Drift-pin tests — these values are cross-file contracts; changes must be deliberate and
+// coordinated with every other usage. If these tests fail, stop and synchronize all affected
+// locations.
 
 describe("tier-engine drift pins", () => {
   test("TIER_ENGINE_FEATURE matches the registered feature-name", () => {

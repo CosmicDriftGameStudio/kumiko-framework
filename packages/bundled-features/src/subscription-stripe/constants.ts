@@ -1,8 +1,8 @@
 // Feature name
 export const SUBSCRIPTION_STRIPE_FEATURE = "subscription-stripe" as const;
 
-// entityName under den der Plugin gegen "subscriptionProvider"
-// registriert. Matcht den path-segment in der webhook-URL
+// entityName under which the plugin registers itself as
+// "subscriptionProvider". It must match the path segment in the webhook URL
 // `/api/subscription/webhook/stripe`.
 export const STRIPE_PROVIDER_NAME = "stripe" as const;
 
@@ -14,10 +14,8 @@ export const STRIPE_API_KEY_CONFIG = "api-key" as const;
 export const STRIPE_WEBHOOK_SECRET_CONFIG = "webhook-secret" as const;
 export const STRIPE_BILLING_LIVE_CONFIG = "billingLive" as const;
 
-// =============================================================================
-// Stripe-event-types die wir auf normalisierte SubscriptionEventTypes
-// mappen. Stripe hat ~80 event-types insgesamt; wir filtern auf 5.
-// =============================================================================
+// Stripe event types that map to normalized SubscriptionEventTypes.
+// Stripe has approximately 80 event types; we filter to five.
 
 export const StripeEventTypes = {
   customerSubscriptionCreated: "customer.subscription.created",

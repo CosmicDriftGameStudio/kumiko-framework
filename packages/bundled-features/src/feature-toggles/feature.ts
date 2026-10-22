@@ -104,7 +104,7 @@ export function createFeatureTogglesFeature(
     r.translations({ keys: FEATURE_TOGGLES_I18N });
 
     // toggle-cache-sync — multi-instance snapshot propagation. One shared
-    // cursor reads every toggle-set event once (fw#2625); the winning
+    // cursor reads every toggle-set event once; the winning
     // process's handler calls runtime.broadcastToggle, which publishes on
     // GlobalFeatureToggleRuntime's syncSignal so every process (including
     // the one that won the cursor) applies the flip to its own snapshot —

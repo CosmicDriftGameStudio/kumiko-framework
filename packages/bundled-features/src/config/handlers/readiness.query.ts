@@ -74,17 +74,17 @@ export async function collectMissingRequiredConfig(
   db: TenantDb,
   gate?: RequiredKeyGate,
   options?: {
-    /** Verdict-Pfade (Rollup, selbst role-gated) MÜSSEN ungefiltert zählen:
-     *  der Per-Key-read-Filter ist Info-Disclosure-Schutz für den
-     *  openToAll-Handler — im Verdict droppte er SystemAdmin-gated
-     *  required-Keys still und meldete ready:true trotz Lücke. */
+    /** Verdict paths (rollup, themselves role-gated) MUST count without filtering:
+     *  the per-key read filter protects the openToAll handler from information
+     *  disclosure, but in the verdict it dropped SystemAdmin-gated required keys
+     *  and incorrectly reported ready:true despite the gap. */
     readonly skipAccessFilter?: boolean;
   },
 ): Promise<ReadinessMissingKey[]> {
   const resolver = requireConfigResolver(ctx, callerQn);
   const effectiveGate = gate ?? (await buildProviderSelectionGate(ctx, callerQn, user, db));
-  // Kandidaten erst sammeln, dann EIN Batch-Resolve — die sequentielle
-  // resolver.get-Schleife war ein N+1 über alle required Keys (272/1).
+  // Collect candidates first, then perform ONE batch resolve — the sequential
+  // resolver.get loop was an N+1 operation across all required keys (272/1).
   type KeyDef =
     ReturnType<typeof ctx.registry.getAllConfigKeys> extends ReadonlyMap<string, infer D>
       ? D
@@ -153,7 +153,7 @@ export const readinessQuery = defineQueryHandler({
       db,
     );
     // Additive, display-ready fields for the admin-shell dashboard stat
-    // panel (fw#2312) — `missing` itself stays untouched for existing
+    // panel — `missing` itself stays untouched for existing
     // consumers that read the array directly.
     return {
       missing,

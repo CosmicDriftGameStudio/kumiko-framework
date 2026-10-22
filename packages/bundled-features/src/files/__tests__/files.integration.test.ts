@@ -1,11 +1,11 @@
-// files-feature integration tests (S1.5 + S1.7).
+// Files-feature integration tests.
 //
-// Tests sortiert nach Verhaltens-Tiefe:
-//   1. Feature-Definition Smoke (Boot-Validation passes)
-//   2. Cross-Feature-Behavior: fileRef-Entity ist als Hook-Anker für
-//      Sprint-2-userData-Extension nutzbar
-//   3. DDL-Konsistenz: fileRefsTable (buildEntityTable) + fileRefEntity
-//      zeigen auf dieselbe Postgres-Struktur (Drift-Guard)
+// Tests grouped by behavioral depth:
+//   1. Feature-definition smoke test (boot validation passes)
+//   2. Cross-feature behavior: the fileRef entity can serve as a hook anchor
+//      for user-data extensions
+//   3. DDL consistency: fileRefsTable (buildEntityTable) and fileRefEntity
+//      point to the same PostgreSQL structure (drift guard)
 
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
@@ -34,8 +34,8 @@ afterAll(async () => {
 
 describe("files :: feature-definition smoke", () => {
   test("Boot ist clean (PII-Annotations + Event-Schema valide)", async () => {
-    // setupTestStack hat das feature im beforeAll geladen — wenn Boot-
-    // Validation fehlschlägt, würde dieser Block nie laufen.
+    // setupTestStack loaded the feature in beforeAll; if boot validation fails,
+    // this block would never run.
     expect(stack).toBeDefined();
   });
 
@@ -51,27 +51,27 @@ describe("files :: feature-definition smoke", () => {
 
 describe("files :: cross-feature behavior (F1, S1.7)", () => {
   test("Sprint-2-Pattern: ein Consumer-Feature kann r.useExtension(EXT_USER_DATA, fileRef, ...) registrieren", async () => {
-    // Stub-Feature simuliert die Sprint-2-Semantik: extendsRegistrar
-    // (kommt aus user-data-rights) + useExtension auf fileRef.
+    // The stub feature simulates the user-data semantics: extendsRegistrar
+    // comes from user-data-rights, and useExtension targets fileRef.
     const userDataProvider = defineFeature("test-user-data-provider", (r) => {
       r.extendsRegistrar(EXT_USER_DATA, {
-        // Spec-stub — Sprint 2 wird die echten Hook-Signaturen liefern.
+        // Spec-stub — the actual hook signatures will be provided later.
       });
     });
 
     const consumer = defineFeature("test-files-consumer", (r) => {
       r.requires({ features: ["files", "test-user-data-provider"] });
       r.useExtension(EXT_USER_DATA, "fileRef", {
-        // Stub-Hooks: in Sprint 2 werden diese die echte Forget-/Export-
-        // Logik tragen. Hier reicht: useExtension findet die fileRef-
-        // Entity in der Registry → kein Boot-Error.
+        // Stub hooks: these will carry the actual forget/export logic later. For this
+        // test, it is enough that useExtension finds the fileRef entity in the
+        // registry without a boot error.
         export: async () => null,
         delete: async () => undefined,
       });
     });
 
-    // Eigener Test-Stack damit dieser Sub-Test isoliert vom outer
-    // beforeAll-Stack laeuft.
+    // Use a separate test stack so this sub-test runs in isolation from the outer
+    // beforeAll stack.
     const crossStack = await setupTestStack({
       features: [feature, userDataProvider, consumer],
     });
@@ -86,16 +86,15 @@ describe("files :: cross-feature behavior (F1, S1.7)", () => {
 
     const consumer = defineFeature("test-broken-consumer", (r) => {
       r.requires({ features: ["test-user-data-provider-2"] });
-      // GHOSTLY: useExtension auf "ghostEntity" gibt es nirgends.
+      // GHOSTLY: no entity named "ghostEntity" exists.
       r.useExtension(EXT_USER_DATA, "ghostEntity", { export: async () => null });
     });
 
-    // Boot soll laufen — es ist NICHT der Job des Boot-Validators zu
-    // pruefen ob die referenced Entity existiert (Extensions sind
-    // generisch, "ghostEntity" könnte ein App-Entity in einem anderen
-    // Feature sein). Test dokumentiert das aktuelle Verhalten als
-    // Regression-Guard. Sprint 2 schaerft ggf. mit
-    // validateUserDataExtensionTargets.
+    // Boot should succeed: the boot validator is not responsible for checking
+    // whether the referenced entity exists. Extensions are generic, so
+    // "ghostEntity" could be an application entity in another feature. This
+    // test records the current behavior as a regression guard.
+    // validateUserDataExtensionTargets may tighten this behavior later.
     const ghostStack = await setupTestStack({
       features: [userDataProvider, consumer],
     });
@@ -118,15 +117,15 @@ describe("files :: DDL-Konsistenz (M3, S1.7)", () => {
   }
 
   test("Feature-Entity-Felder matchen die Framework-pgTable column-set", () => {
-    // Framework's fileRefsTable ist die Quelle der Wahrheit fuer die
-    // DB-Struktur. Feature-Entity ist Schema-Sicht. Beide muessen
-    // konsistent sein — sonst landet Sprint-2's userData-Hook in
-    // Drift-Hell beim Forget-Flow.
+    // Framework's fileRefsTable is the source of truth for the database
+    // structure. The feature entity is the schema view; both must remain
+    // consistent, or the user-data hook will encounter drift during the
+    // forget flow.
     //
-    // Vergleich: alle Feature-Felder muessen als Spalten in der pgTable
-    // existieren (umgekehrt darf pgTable framework-managed Spalten haben
-    // wie tenantId/createdAt/updatedAt/deletedAt — die deklariert das
-    // Framework automatisch beim buildEntityTable-Mapping).
+    // Every feature field must exist as a column in the pgTable. Conversely,
+    // the pgTable may contain framework-managed columns such as
+    // tenantId/createdAt/updatedAt/deletedAt, which the framework adds
+    // automatically through the buildEntityTable mapping.
     const pgColumns = pgColumnNames();
     const featureFields = Object.keys(fileRefEntity.fields);
 

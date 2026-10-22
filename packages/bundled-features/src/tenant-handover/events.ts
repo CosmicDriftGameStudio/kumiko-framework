@@ -1,12 +1,10 @@
 import * as z from "zod";
 
-// Audit trail for a completed claim (kumiko-framework#3035's audit-entry
-// requirement: names the source tenant, destination tenant, entities and
-// their counts). Its own aggregate, decoupled from the transferred root's
-// stream — same reasoning as
-// sessions' SESSION_REVOKED_EVENT: a fresh aggregate id per occurrence needs
-// no predecessor version and can never conflict with a concurrent write on
-// the entity it describes.
+// Audit trail for a completed claim (audit-entry requirement: names the source tenant, destination
+// tenant, entities and their counts). Its own aggregate, decoupled from the transferred root's
+// stream — same reasoning as sessions' SESSION_REVOKED_EVENT: a fresh aggregate id per occurrence
+// needs no predecessor version and can never conflict with a concurrent write on the entity it
+// describes.
 //
 // _SHORT — r.defineEvent(short, schema) in feature.ts, framework prefixes it
 //          to the QN below.

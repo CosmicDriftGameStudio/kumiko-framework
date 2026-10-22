@@ -1,7 +1,7 @@
 // Generic Stripe/PayPal-webhook → tier-engine sync route. Extracted from the
-// near-identical webhook-route.ts app copies in show-pony and publicstatus
-// (infra#446) — the only per-app variables were the TierName union/default,
-// so it is now a factory parameter.
+// near-identical webhook-route.ts app copies in show-pony and publicstatus — the
+// only per-app variables were the TierName union/default, so it is now a factory
+// parameter.
 
 import {
   isTierAssignmentSource,

@@ -7,7 +7,7 @@ import { tenantComplianceProfileTable } from "../schema/profile-selection.ts";
 
 // Onboarding banner trigger for tenant admin.
 //
-// Sprint 1.5 — minimal API endpoint, the UI banner comes in a later UI
+// Minimal API endpoint, the UI banner comes in a later UI
 // sprint. Pure read query: does an entry exist in tenantComplianceProfile
 // for the current tenant?
 //
@@ -20,7 +20,7 @@ import { tenantComplianceProfileTable } from "../schema/profile-selection.ts";
 // option of createComplianceProfilesFeature) — passing the option through
 // would widen call access by default to all three access.admin roles
 // (including SystemAdmin). Instead the handler takes `pickerReachableRoles`
-// and deliberately resolves the #2063 special case: if the *caller's*
+// and deliberately resolves the special case: if the *caller's*
 // roles no longer intersect the picker's `access` option, the query stops
 // reporting needsSelection — otherwise a tenant admin would be told to
 // open a screen they can't reach.
@@ -37,8 +37,8 @@ export function createNeedsProfileQuery(pickerReachableRoles: readonly string[])
       })) as { profileKey: ComplianceProfileKey } | null; // @cast-boundary db-runner
 
       if (row) {
-        // S1.7 X1: minimal-no-region is no longer settable via set-profile
-        // (Zod). If Sprint 2 ships a seedComplianceProfile helper that
+        // Minimal-no-region is no longer settable via set-profile
+        // (Zod). If a seedComplianceProfile helper ships that
         // reintroduces the migration edge case, a defensive path belongs
         // here again — until then, every existing entry is a deliberately
         // chosen production profile.

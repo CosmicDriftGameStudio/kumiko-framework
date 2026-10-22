@@ -1,7 +1,7 @@
-// Contract- und Pure-Logic-Tests für inbound-provider-imap.
-// Netz-lose Tests: Cursor-Semantik, References-Normalisierung,
-// Credential-Dokument, Fehler-Mapping. Der echte IMAP-Roundtrip
-// (greenmail/dovecot) ist opt-in, siehe imap-live.integration.test.ts.
+// Contract and pure-logic tests for inbound-provider-imap.
+// Offline tests: cursor semantics, References normalization,
+// credential document, and error mapping. The actual IMAP round trip
+// (greenmail/dovecot) is opt-in; see imap-live.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
@@ -58,7 +58,7 @@ describe("cursor — UIDVALIDITY:lastUid", () => {
     } catch (e) {
       expect(isInboundCursorInvalidError(e)).toBe(true);
     }
-    // Unverändert bzw. kein Cursor: kein Throw.
+    // No throw when unchanged or when there is no cursor.
     assertUidValidity({ uidValidity: "17", lastUid: 42 }, "17");
     assertUidValidity(null, "18");
   });

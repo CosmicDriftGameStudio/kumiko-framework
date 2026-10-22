@@ -1,4 +1,4 @@
-// Regression guard for fw#1648: dispatch-shared.ts hardcodes the literal
+// Regression guard: dispatch-shared.ts hardcodes the literal
 // "tenant:config:timezone" (TENANT_TIMEZONE_CONFIG_KEY) since framework/pipeline
 // can't import the bundled `tenant` feature. tz-resolution.integration.test.ts
 // exercises that literal against a standalone probe feature, which can't see a
@@ -29,7 +29,7 @@ const probeFeature = defineFeature("tz-probe", (r) => {
 });
 
 // Query (not write) probe for the caching tests below: dispatcher.query()
-// never opens a transaction, which is the hot path fw#2462 targets and the
+// never opens a transaction, which is the hot path targeted and the
 // only path buildHandlerContext is allowed to populate the cache from.
 const queryProbeFeature = defineFeature("tz-cache-probe", (r) => {
   r.requires({ features: ["tenant"] });
@@ -72,7 +72,7 @@ describe("ctx.tz.tenant against the real tenant feature (fw#1648)", () => {
   });
 });
 
-// fw#2462: dispatch-shared.ts now caches the resolved tenant:config:timezone
+// dispatch-shared.ts now caches the resolved tenant:config:timezone
 // value per tenant instead of resolving it on every dispatch. These tests
 // prove the cache is actually consulted (config() isn't re-invoked on a
 // repeat read) and that config:write:set/reset correctly invalidate it —

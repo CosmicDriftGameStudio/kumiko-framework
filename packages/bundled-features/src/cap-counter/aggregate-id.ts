@@ -1,16 +1,15 @@
 import { v5 as uuidv5 } from "uuid";
 
-// Fixed UUID-namespace für die cap-counter-aggregate-id-Ableitung.
-// Generiert einmalig (2026-05-02), in Stein gemeißelt: ein Wechsel würde
-// jeden existing aggregate-Stream re-keyen → kaputter event-replay,
-// kaputte counter-history, verlorener Audit-Trail. Drift-Pin in
-// __tests__/drift.test.ts pinnt den UUID-Wert.
+// Fixed UUID namespace for deriving cap-counter aggregate IDs.
+// Generated once (2026-05-02) and immutable: changing it would re-key every
+// existing aggregate stream, breaking event replay and counter history and
+// losing the audit trail. The drift test in __tests__/drift.test.ts pins the UUID.
 const CAP_COUNTER_NAMESPACE = "9c1bf2a3-6e4d-4f5b-8a9c-2d3e4f5a6b7c";
 
-// Separater Namespace für Rolling-Window-Counter (Sprint 4). Eigener
-// Namespace damit das aggregate-id NIE mit einem Calendar-Counter
-// kollidiert, selbst wenn jemand "1970-01-01..." als periodStart in
-// den Calendar-Pfad reinpasst. Drift-Pin in __tests__/drift.test.ts.
+// Separate namespace for rolling-window counters. This prevents the aggregate ID
+// from colliding with a calendar counter, even if "1970-01-01..." is passed as
+// periodStart through the calendar path. The drift test in __tests__/drift.test.ts
+// pins the UUID.
 const CAP_COUNTER_ROLLING_NAMESPACE = "8b2ad0c6-1f3e-4f7c-9b8a-3c4d5e6f7a8b";
 
 /**

@@ -18,7 +18,7 @@ export const selfRegistrationStatusQuery = defineQueryHandler({
   description:
     "Reports whether self-registration is currently switched on, readable without signing in, so a signup page can hide its own form instead of collecting an address that would be silently ignored.",
   handler: async (_query, ctx) => {
-    // Same fail-open reasoning as signup-request.write.ts (#1468): only
+    // Same fail-open reasoning as signup-request.write.ts: only
     // report disabled when the toggle feature is actually composed.
     const gated = ctx.registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) !== undefined;
     return { enabled: gated ? await ctx.hasFeature(AUTH_SELF_REGISTRATION_FEATURE) : true };

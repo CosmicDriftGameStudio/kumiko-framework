@@ -54,8 +54,8 @@ function renderWith(ui: ReactElement, dispatcher: Dispatcher): ReturnType<typeof
 // CI runs this file in its own `bun test` process (own ci.yml step), NOT in the
 // shared `kumiko check` run — see bunfig.ci.toml pathIgnorePatterns. The shared
 // single-process happy-dom corrupts React event delegation after ~30 prior DOM
-// test files mount/unmount, so the click never reached the submit handler here
-// (#457). A fresh process has no such accumulation.
+// test files mount/unmount, so the click never reached the submit handler. A fresh
+// process has no such accumulation.
 describe("RequestAccountDeletionScreen", () => {
   test("Submit → write(request-deletion-by-email) + enumeration-safe Success", async () => {
     const calls: WriteCall[] = [];

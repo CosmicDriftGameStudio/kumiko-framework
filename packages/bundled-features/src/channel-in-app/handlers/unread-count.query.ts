@@ -16,10 +16,9 @@ export const unreadCountQuery = defineQueryHandler({
   description:
     "Counts the calling user's unread in-app notification messages; use it for an inbox badge or to check whether a user has pending notifications.",
   handler: async (query, ctx) => {
-    // The query helpers in db/query.ts have no aggregate helper — selectMany alle matching rows,
-    // count() in JS. Pragma: unread-counts sind low-cardinality (user-
-    // scoped, max ~hunderte rows). Wenn das wachsen sollte: raw .unsafe()
-    // mit COUNT(*).
+    // The query helpers in db/query.ts have no aggregate helper, so selectMany returns all matching
+    // rows and count() runs in JS. This is acceptable because unread counts are low-cardinality and
+    // user-scoped, with at most a few hundred rows; use raw .unsafe() with COUNT(*) if that grows.
     const rows = await selectMany(ctx.db, inAppMessagesTable, {
       userId: query.user.id,
       isRead: false,

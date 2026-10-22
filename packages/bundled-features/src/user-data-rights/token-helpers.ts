@@ -1,30 +1,27 @@
-// Download-Token-Helper (S2.U3 Atom 4a).
+// Generates a cryptographically secure token to authorize the export ZIP download.
+// Follows the Magic-Link/Bearer-Token pattern with a hash stored in the database:
 //
-// Generiert ein kryptographisch-sicheres Token zur Authorisierung des
-// Export-ZIP-Downloads. Pattern matched Magic-Link/Bearer-Token mit DB-
-// gespeichertem Hash:
-//
-//   1. Worker generiert plain-Token (32 byte random base64url) + Hash
+//   1. The worker generates a plain token (32 random bytes, base64url) and its hash
 //      (SHA256 hex).
-//   2. DB speichert NUR den Hash. Plain bleibt im Worker-Memory.
-//   3. Atom 5 (Notification) versendet plain via Email an User.
-//   4. Atom 4b (Download-Endpoint) hashet incoming-Token + vergleicht
-//      mit DB-Hash → konstantes-Zeit-Vergleich gegen timing-attacks.
+//   2. The database stores ONLY the hash. The plain token remains in worker memory.
+//   3. The notification step sends the plain token to the user by email.
+//   4. The download endpoint hashes the incoming token and compares it with the
+//      database hash using a constant-time comparison to prevent timing attacks.
 //
-// **Multi-use within TTL** (User-Choice 4a-Plan): Token wird NICHT
-// "consumed" beim Download — User kann mehrfach downloaden bis expiresAt.
-// Pattern matched Google-Takeout (7d) + Facebook-Data-Download (4d).
+// **Multi-use within TTL:** The token is NOT "consumed" on download, so the user
+// can download repeatedly until expiresAt. This matches Google-Takeout (7d) and
+// Facebook-Data-Download (4d).
 //
 // **Universal Web-Crypto API:** crypto.getRandomValues + crypto.subtle.digest
-// laeuft in Bun + Node 19+ + Browser identisch — keine plattform-
-// spezifischen Imports (Memory `feedback_universal_deps`).
+// runs identically in Bun, Node 19+, and browsers, avoiding platform-specific
+// imports.
 
 /**
- * Generiert ein neues Download-Token. plain wird dem User via Email
- * zugestellt (Atom 5); hash landet in der Token-DB-Row.
+ * Generates a new download token. The plain token is sent to the user by email;
+ * the hash is stored in the token database row.
  *
- * Token-Format: 32 byte random → base64url-encoded (~43 chars). URL-safe
- * fuer Magic-Link-Verwendung (kein +/= das URL-encoded werden muesste).
+ * Token format: 32 random bytes → base64url-encoded (~43 chars). URL-safe for
+ * Magic-Link use (no +/= characters that would need to be URL-encoded).
  */
 export async function generateDownloadToken(): Promise<{
   readonly plain: string;
@@ -37,11 +34,10 @@ export async function generateDownloadToken(): Promise<{
 }
 
 /**
- * Hashed einen plain-Token zu seiner DB-Repraesentation. Verify-Pfad
- * (Atom 4b's Download-Endpoint): hashed incoming-Token + sucht den Hash
- * in DB. Konstante-Zeit-String-Vergleich verhindert timing-attacks
- * (das macht der Caller via `crypto.subtle`-vergleich oder secure-
- * compare-helper).
+ * Hashes a plain token into its database representation. In the verification path,
+ * the download endpoint hashes the incoming token and looks up the hash in the
+ * database. A constant-time string comparison prevents timing attacks; the caller
+ * performs it via `crypto.subtle` or a secure comparison helper.
  */
 export async function hashDownloadToken(plain: string): Promise<string> {
   const encoded = new TextEncoder().encode(plain);
@@ -50,7 +46,7 @@ export async function hashDownloadToken(plain: string): Promise<string> {
 }
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {
-  // btoa erwartet binary-string. atob/btoa sind universal in Bun + Node + Browser.
+  // btoa expects a binary string. atob/btoa are universal in Bun, Node, and browsers.
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i] as number); // @cast-boundary dynamic-key

@@ -1,15 +1,15 @@
-// SignupScreen — Magic-Link-Self-Signup, Step 1.
+// SignupScreen — Magic-Link self-signup, Step 1.
 //
-// Form mit Email-Input. Submit triggert /api/auth/signup-request
-// (silent-success, kein account-enumeration). UI zeigt unconditional
-// ein "Mail unterwegs"-Confirm mit Resend-Button — auch wenn die Email
-// schon registriert ist (Server schickt dann dieselbe Mail mit dem
-// existing Token aus Redis = idempotent).
+// Form with an email input. Submission triggers /api/auth/signup-request
+// (silent success, no account enumeration). The UI always shows a
+// "email on its way" confirmation with a Resend button, even if the email
+// is already registered (the server then sends the same email with the
+// existing token from Redis, making the request idempotent).
 //
-// App ist verantwortlich, den Screen unter einer URL zu mounten (z.B.
-// /signup) und ihn anonymous reachable zu machen (AuthPathGate VOR
-// AuthGate). Apex-Marketing kann via Link "Kostenlos starten" auf den
-// /signup-Pfad routen.
+// The app is responsible for mounting the screen at a URL (e.g.
+// /signup) and making it anonymously reachable (AuthPathGate before
+// AuthGate). An apex marketing site can route its "Start for free" link to
+// the /signup path.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -20,7 +20,7 @@ import { AuthCard } from "./auth-form-primitives.tsx";
 export type SignupScreenProps = {
   readonly title?: string;
   readonly subtitle?: ReactNode;
-  /** href für den "Bereits einen Account?"-Link. App-spezifisch — Default
+  /** href for the "Already have an account?" link. App-specific; defaults to
    *  "/login". */
   readonly loginHref?: string;
 };
@@ -67,9 +67,9 @@ export function SignupScreen({
   };
 
   const onResend = async (): Promise<void> => {
-    // Resend nutzt den gleichen Endpunkt — Server returnt den existing
-    // Token aus Redis und schickt eine zweite Mail mit dem GLEICHEN
-    // Activation-Link (alte Mail bleibt also gültig).
+    // Resend uses the same endpoint: the server returns the existing
+    // token from Redis and sends a second email with the SAME
+    // activation link, so the old email remains valid.
     setSubmitting(true);
     setError(null);
     try {

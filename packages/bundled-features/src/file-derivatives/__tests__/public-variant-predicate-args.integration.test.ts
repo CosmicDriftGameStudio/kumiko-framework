@@ -1,4 +1,4 @@
-// Proves #1989/2: DerivativePublicPredicateArgs carries `fieldName` and
+// Proves that DerivativePublicPredicateArgs carries `fieldName` and
 // `variant` (not just entityId/tenantId) through to `isPublic`, so an app
 // can opt individual variants out of public serving instead of every
 // declared variant on an entityType being implicitly public once the

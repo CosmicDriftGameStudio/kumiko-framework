@@ -1,4 +1,4 @@
-// T1.5b — per-field fieldAccess.write enforcement for set/clear handlers.
+// Per-field fieldAccess.write enforcement for set/clear handlers.
 //
 // Verifies that when a fieldDefinition carries
 // `serializedField.fieldAccess.write = [<role>, ...]`, the set and clear
@@ -6,7 +6,7 @@
 // when handler-level RBAC (TenantAdmin/TenantMember) admits them.
 //
 // Inverse: when fieldAccess.write is absent or empty, the handlers behave
-// exactly as in B2 (no extra gate) — the existing roundtrip-test suite
+// exactly as before (no extra gate) — the existing roundtrip-test suite
 // stays green, and we add an explicit covers-the-no-op-path test here too.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";

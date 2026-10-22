@@ -1,4 +1,4 @@
-// The actual ownership change (kumiko-framework#3035): raw SQL against the
+// The actual ownership change: raw SQL against the
 // read-model tables, because moving a row across the tenant boundary is
 // exactly the kind of write the framework's entity write map cannot express
 // (it is single-tenant-scoped by design — that boundary is the whole point
@@ -15,10 +15,10 @@
 // `transaction()` call, rolling back everything the handler already did).
 // `moveRootRow` — called as row-bound-grant's `commitAnchor` — is therefore
 // the ONLY statement that must itself combine the anchor-spend with the
-// first write (#3023's hard rule: a write issued after `ok: true` can lose
-// its work to a crash while the grant is already burned). Everything after
+// first write: a write issued after `ok: true` can lose
+// its work to a crash while the grant is already burned. Everything after
 // it rides the same transaction: if a later step throws (an undeclared
-// child entity, kumiko-framework#3035's named-error requirement), the WHOLE
+// child entity, the named-error requirement), the WHOLE
 // transaction — root row included — rolls back, so a caller can safely
 // retry the same token after fixing the app's `transferable` declarations.
 
@@ -64,8 +64,7 @@ export async function moveRootRow(args: {
 // history + storage-usage counters — fileRef is a standard ES entity (see
 // files-storage-tracking.md), so without those two follow-ups a later write
 // against a moved fileRef can't load its stream, and a projection rebuild
-// would put the row back into the source tenant (kumiko-framework#3131-adjacent
-// gap, item 4).
+// would put the row back into the source tenant.
 async function moveFileRefs(args: {
   readonly db: DbRunner;
   readonly registry: Registry;
@@ -210,7 +209,7 @@ async function moveEdgeRows(args: {
 // Everything the root ownership write does NOT cover: the root's own event
 // history + attached files, plus the rows, event history and attached files of
 // every descendant the declared transfer graph reaches, however deep and by
-// however many paths (#3088, #3131).
+// however many paths.
 // Returns a count per moved entity name (the
 // write handler turns this into the audit entry) — `fileRef` is a single
 // pooled count across root + every child, since it is not itself part of the
@@ -264,7 +263,7 @@ export async function moveTransferGraph(args: {
 
   const adjacency = resolveTransferAdjacency(registry, rootEntityName);
 
-  // A worklist, not a level-wise walk (#3131): each batch of rows that actually
+  // A worklist, not a level-wise walk: each batch of rows that actually
   // changed hands becomes the parent ids for the edges leading away from its
   // type. The same edge therefore runs again whenever a later round discovers
   // more rows of its parent type, which is what a type reachable by two paths
@@ -274,7 +273,7 @@ export async function moveTransferGraph(args: {
   // every statement filters on `tenantCol = sourceTenantId` and RETURNS only
   // the rows it flipped, so a row enters this worklist exactly once and the
   // source tenant holds finitely many. Do not add an edge-level visited set to
-  // "bound" this — that is precisely the bug #3131 removed.
+  // "bound" this — that would reintroduce the bug.
   let pending: readonly { readonly entityName: string; readonly rowIds: readonly string[] }[] = [
     { entityName: rootEntityName, rowIds: [rootRowId] },
   ];

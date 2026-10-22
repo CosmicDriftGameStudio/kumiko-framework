@@ -4,13 +4,12 @@
 // Insert (upsert, for idempotent at-least-once redelivery) on every
 // suspension: wait, waitForEvent, retry. Delete on WORKFLOW_RESUMED or a
 // terminal run outcome (completed/failed) — a run only ever has one row
-// pending at a time (D1: a later suspension always targets a fresh
-// stepIndex, since the prior one was resumed away first), so deleting by
+// pending at a time (a later suspension always targets a fresh stepIndex,
+// since the prior one was resumed away first), so deleting by
 // (tenantId, runId) alone is exact.
 //
-// No resume logic here — framework#2513 Phase 2 owns the job that reads
-// this table and dispatches the actual resume. This projection only writes
-// the rows.
+// No resume logic here — the job that reads this table and dispatches the
+// actual resume is separate. This projection only writes the rows.
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { deleteMany, fetchOne, upsertOnConflict } from "@cosmicdrift/kumiko-framework/db";
@@ -81,8 +80,8 @@ async function upsertPending(tx: DbRunner, row: PendingRow): Promise<void> {
     workflowRunPendingTable,
     {
       ...row,
-      // Phase 3's event-subscriber writes these when the awaited event
-      // arrives — Phase 1 never touches them, insert or update.
+      // The event-subscriber writes these when the awaited event
+      // arrives — they are never touched here, on insert or update.
       triggerEventType: null,
       triggerEventRef: null,
       triggerPayload: null,

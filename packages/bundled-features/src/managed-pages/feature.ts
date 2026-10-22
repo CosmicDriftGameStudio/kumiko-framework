@@ -23,13 +23,13 @@ import { MANAGED_PAGES_I18N } from "./web/i18n.ts";
 // 60s-shared-cache saves the origin-revalidate roundtrip; CMS edits are live within 60s.
 const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 
-// QN-Konstante als dokumentierter Public-Contract — der Render-Pfad ruft
-// die by-slug-Query via systemQuery in-process (kein Code-Import des
-// Handlers, symmetrisch zum legal-pages-Muster).
+// QN constant as a documented public contract — the render path calls
+// the by-slug query in-process via systemQuery (without importing the
+// handler's code, symmetrically with the legal-pages pattern).
 const BY_SLUG_QN = "managed-pages:query:by-slug";
 
-// Raw Handler-Return von bySlugQuery (published-only) — systemQuery dispatcht
-// direkt gegen den Handler, keine `{data}`-Envelope wie am /api/query-Wire.
+// Raw handler return from bySlugQuery (published-only) — systemQuery dispatches
+// directly to the handler, without the `{data}` envelope used on the /api/query wire.
 type BySlugQueryResult = {
   title: string;
   body: string;
@@ -83,61 +83,61 @@ export type ManagedPagesWrapLayout = (opts: {
 }) => string;
 
 export type ManagedPagesOptions = {
-  /** Host → tenantId für anonyme per-Tenant-Auslieferung. NULL → 404 (kein
-   *  Tenant für diesen Host). Apex-/Marketing-Apps geben hier ihre Subdomain-
-   *  /Custom-Domain-Auflösung rein; single-tenant gibt konstant einen
-   *  tenantId (oder SYSTEM_TENANT_ID) zurück. Erforderlich, weil der Apex-
-   *  Host keinen ambient ctx.tenantId hat. */
+  /** Host → tenantId for anonymous per-tenant delivery. NULL → 404 (no
+   *  tenant for this host). Apex/marketing apps provide their subdomain or
+   *  custom-domain resolution here; single-tenant apps return a constant
+   *  tenantId (or SYSTEM_TENANT_ID). Required because the apex host has no
+   *  ambient ctx.tenantId. */
   readonly resolveApexTenant: (host: string) => Promise<string | null> | string | null;
-  /** Custom Layout-Wrapper (Branding/Chrome). Default: minimaler
-   *  page-render-Skeleton. Erhält slug + SEO-Meta zur freien Nutzung.
-   *  **`branding` ist RAW, untrusted tenant input.** `title`/`description`
-   *  sind am Write nur längen-gecappt, NICHT HTML-escaped; `customCss` ist
-   *  ungesanitet. Der Wrapper MUSS sie über die Boundary-Helper emittieren
-   *  (alle re-exported von `@cosmicdrift/kumiko-bundled-features/managed-pages`):
-   *  `brandingHeaderHtml(branding)` + `brandingStyleBlock(branding)` (escapen
-   *  Header/Theme) und — mit allowCustomCss — `tenantStyleBlock(branding.
-   *  customCss)` ins `<head>` plus `TENANT_CONTENT_ATTR` am Body-Container. Ein
-   *  Custom-Wrapper der `branding.title` selbst interpoliert ist stored XSS;
-   *  der Default-Wrapper nutzt durchweg die Helper. */
+  /** Custom layout wrapper (branding/chrome). Default: a minimal page-render
+   *  skeleton. Receives slug + SEO meta for free use.
+   *  **`branding` is RAW, untrusted tenant input.** `title`/`description`
+   *  are only length-capped on write, NOT HTML-escaped; `customCss` is
+   *  unsanitized. The wrapper MUST emit them through the boundary helpers
+   *  (all re-exported from `@cosmicdrift/kumiko-bundled-features/managed-pages`):
+   *  `brandingHeaderHtml(branding)` + `brandingStyleBlock(branding)` (which
+   *  escape header/theme) and, with allowCustomCss, `tenantStyleBlock(branding.
+   *  customCss)` in the `<head>` plus `TENANT_CONTENT_ATTR` on the body
+   *  container. A custom wrapper that interpolates `branding.title` itself is
+   *  stored XSS; the default wrapper uses the helpers throughout. */
   readonly wrapLayout?: ManagedPagesWrapLayout;
-  /** Basis-Pfad der Page-Routes. Default "/p" → GET /p/:slug. */
+  /** Base path for page routes. Default "/p" → GET /p/:slug. */
   readonly basePath?: string;
-  /** Default-Sprache wenn `?lang=` fehlt. Default "en". */
+  /** Default language when `?lang=` is missing. Default "en". */
   readonly defaultLang?: string;
-  /** Aktiviert die per-Tenant Custom-CSS-Capability (raw, untrusted): ein
-   *  `branding-custom-css` Config-Key + ein CSS-Feld im Branding-Editor + die
-   *  Render-Emission als scoped, allowlist-sanitized `<style data-tenant-css>`.
-   *  Default **false** (fail-closed — opt-in für untrusted-Tenant-Input). Auch
-   *  wenn true, wird die Emission zusätzlich per-Tenant über das
-   *  `managed-pages-css`-Toggle (createManagedPagesCssFeature) gegated, sobald
-   *  ein feature-toggles/tier-engine-Runtime verdrahtet ist. Der Render-time-
-   *  Sanitizer (page-render/css-sanitize) ist der Safety-Boundary. */
+  /** Enables the per-tenant custom CSS capability (raw, untrusted): a
+   *  `branding-custom-css` config key + a CSS field in the branding editor +
+   *  render emission as a scoped, allowlist-sanitized `<style data-tenant-css>`.
+   *  Default **false** (fail-closed — opt-in for untrusted tenant input). Even
+   *  when true, emission is additionally gated per tenant by the
+   *  `managed-pages-css` toggle (createManagedPagesCssFeature) once a
+   *  feature-toggles/tier-engine runtime is wired. The render-time sanitizer
+   *  (page-render/css-sanitize) is the safety boundary. */
   readonly allowCustomCss?: boolean;
 };
 
-// managed-pages — vom Tenant editierbare, server-gerenderte Public-Pages.
-// Generalisiert das legal-pages-Render-Muster: eine dynamische Slug-Route
-// (`GET /p/:slug`), die den Tenant aus dem Host auflöst (resolveApexTenant),
-// die published Page lädt, Markdown gehärtet rendert (page-render) und über
-// einen optionalen wrapLayout in Chrome legt. Drafts → 404. Per-Tenant-
-// Content wird per `Vary: Host` cache-isoliert.
+// managed-pages — tenant-editable, server-rendered public pages.
+// Generalizes the legal-pages rendering pattern: a dynamic slug route
+// (`GET /p/:slug`) that resolves the tenant from the Host (resolveApexTenant),
+// loads the published page, renders hardened Markdown (page-render), and wraps
+// it in chrome through an optional wrapLayout. Drafts → 404. Per-tenant
+// content is cache-isolated through `Vary: Host`.
 //
-// Admin-Authoring: registriert entityList + entityEdit für `page` (TenantAdmin/
-// SystemAdmin) + die Convention-CRUD-Handler die der Renderer per Konvention
-// dispatcht. Die Screens MÜSSEN hier liegen (Boot-Validator verlangt entity-Ref
-// same-feature); Nav/Workspace bleibt App-Sache.
+// Admin authoring: registers entityList + entityEdit for `page` (TenantAdmin/
+// SystemAdmin) and the convention CRUD handlers dispatched by the renderer.
+// The screens MUST live here (the boot validator requires the entity reference
+// in the same feature); navigation/workspace remains the app's responsibility.
 //
-// Voraussetzungen am App-Bootstrap:
-//   • anonymousAccess so verdrahtet, dass der X-Tenant-Header honoriert wird
-//     — Multi-Tenant nutzt einen tenantResolver (oder keinen defaultTenantId).
-//     Ein fixer defaultTenantId lockt Single-Tenant und lehnt den per-Page
-//     gesetzten X-Tenant mit 400 tenant_mismatch ab.
-//   • Admin-UI: die App zeigt via `r.nav({ screen: "managed-pages:screen:
-//     page-list" })` + Workspace-Eintrag auf die hier deklarierten Screens
-//     (cross-feature Nav→Screen ist global-validiert) und grantet ihren Admins
-//     TenantAdmin. Ohne Nav bleiben die Screens dormant — kein Leak in
-//     flat-nav-Apps die managed-pages nur zum Public-Render nutzen.
+// App bootstrap requirements:
+//   • anonymousAccess must be wired to honor the X-Tenant header
+//     — multi-tenant apps use a tenantResolver (or no defaultTenantId).
+//     A fixed defaultTenantId locks the app to single-tenant mode and rejects
+//     the per-page X-Tenant with 400 tenant_mismatch.
+//   • Admin UI: the app exposes these screens via `r.nav({ screen:
+//     "managed-pages:screen:page-list" })` plus a workspace entry
+//     (cross-feature Nav→Screen is globally validated) and grants its admins
+//     TenantAdmin. Without navigation, the screens remain dormant — no leak in
+//     flat-nav apps that use managed-pages only for public rendering.
 export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDefinition {
   const wrapLayout: ManagedPagesWrapLayout =
     opts.wrapLayout ??
@@ -192,8 +192,8 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       path: `${basePath}/:slug`,
       anonymous: true,
       handler: async (c, { systemQuery }) => {
-        // `param("slug")` ist string|undefined, weil `path` ein computed
-        // Template ist (Hono inferiert `:slug` nur aus String-Literalen).
+        // `param("slug")` is string|undefined because `path` is a computed
+        // template (Hono infers `:slug` only from string literals).
         const slug = c.req.param("slug");
         if (!slug) return c.text("not found", 404);
         const lang = c.req.query("lang") || defaultLang;
@@ -204,13 +204,13 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         const tenantId = await opts.resolveApexTenant(host);
         if (!tenantId) return c.text("not found", 404);
 
-        // Page + branding read in parallel, beide über systemQuery in-
-        // process gegen den host-resolved tenantId erzwungen (kein X-Tenant-
-        // Header-Trick über app.fetch — der sähe für einen host-basierten
-        // anonymousAccess-Resolver wie ein Client-Override aus und würde
-        // von resolverTrust: "authoritative" zurecht abgelehnt; siehe
-        // systemQuery's Doc in http-route.ts). Branding ist Deko → ein
-        // Fehlschlag degradiert zum unbranded Default, blockt nie die Page.
+        // Page and branding are read in parallel, both forced through systemQuery
+        // in-process for the host-resolved tenantId (no X-Tenant header trick
+        // through app.fetch — for a host-based anonymousAccess resolver, that
+        // would look like a client override and would rightly be rejected by
+        // resolverTrust: "authoritative"; see systemQuery's documentation in
+        // http-route.ts). Branding is decorative → a failure degrades to the
+        // unbranded default and never blocks the page.
         let pageSettled: { ok: true; data: BySlugQueryResult } | { ok: false };
         let brandingResult: BrandingTokens;
         try {
@@ -246,8 +246,8 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           "content-type": "text/html; charset=utf-8",
           vary: "Host",
         } as const;
-        // 304 (Revision unverändert) und HEAD überspringen beide das
-        // Markdown-Rendern — der Body wird ohnehin verworfen.
+        // 304 (unchanged revision) and HEAD both skip Markdown rendering — the body
+        // would be discarded anyway.
         if (etagMatches(c.req.raw.headers.get("if-none-match"), etag) || c.req.method === "HEAD") {
           return cachedSecurePageResponse(c.req.raw, {
             body: null,

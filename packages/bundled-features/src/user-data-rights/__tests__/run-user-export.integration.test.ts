@@ -1,18 +1,18 @@
-// User-Data-Export Integration-Test (S2.U3).
+// User data export integration test.
 //
-// User-Explicit-Anforderung "alle daten enthalten, ES + files; PII
-// check in daten; alle wichtigen cross data matrix checks".
+// Explicit requirements: include all data, including entities and files;
+// check PII in the data; and cover the important cross-data matrix cases.
 //
-// Pinst:
-//   - Bundle enthaelt user-Profil + fileRefs aller Tenant-Memberships
-//     (Cross-Tenant zusammengefuehrt in einem Output).
-//   - PII-Surface: passwordHash + roles + status sind NICHT im Bundle
-//     (User-Hook-Selektion).
-//   - File-Binaries kommen NICHT inline — nur Stueckliste mit
-//     storageKey + fileName (ZIP-Bau ist optional Async-Wrap).
-//   - Other-User-Isolation: Bobs Files nicht in Alices Bundle.
-//   - Orphan-User (0 Memberships): user-Profil-Hook laeuft trotzdem
-//     ueber Pseudo-Tenant.
+// Pins:
+//   - The bundle contains the user profile and fileRefs from all tenant
+//     memberships, merged across tenants into one output.
+//   - The PII surface excludes passwordHash, roles, and status from the
+//     bundle through user-hook selection.
+//   - File binaries are not included inline; only a manifest with storageKey
+//     and fileName is included. ZIP construction may wrap this asynchronously.
+//   - Other-user isolation: Bob's files must not appear in Alice's bundle.
+//   - For an orphan user with no memberships, the user-profile hook still
+//     runs through a pseudo-tenant.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -102,8 +102,9 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
   await unsafeCreateEntityTable(stack.db, configValueEntity);
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  // fileRef ist buildEntityTable-getrieben (softDelete) — echte Entity-Tabelle
-  // pushen statt hand-CREATE, damit is_deleted/deleted_at/deleted_by_id da sind.
+  // fileRef uses buildEntityTable for soft deletion; push the real entity table
+  // instead of creating it manually so is_deleted, deleted_at, and deleted_by_id
+  // are present.
   await unsafePushTables(stack.db, { fileRefsTable });
 });
 
@@ -185,9 +186,9 @@ describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {
     expect(bundle.userId).toBe(ALICE_ID);
     expect(bundle.tenants).toHaveLength(2);
 
-    // user-Entity in beiden Tenant-Sections (Hook ist tenant-agnostisch
-    // und liefert dasselbe Profil — das ist OK fuer den export-pfad,
-    // App-Author kann Bundle pro Tenant trennen wenn gewuenscht).
+    // The user entity appears in both tenant sections because the hook is
+    // tenant-agnostic and returns the same profile. This is valid for the export
+    // path; an application can split the bundle by tenant if needed.
     const tenantA = bundle.tenants.find((t) => t.tenantId === TENANT_A);
     expect(tenantA).toBeDefined();
     const userSnippet = tenantA?.entities.find((e) => e.entity === "user");
@@ -196,10 +197,9 @@ describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {
     expect(String(userSnippet?.rows[0]?.["email"])).toBe("alice@example.com");
     expect(String(userSnippet?.rows[0]?.["displayName"])).toBe("Alice Test");
 
-    // fileRefs cross-tenant: 2 in A, 1 in B → 4 Snippet-Eintraege
-    // (2× user + 2× fileRef-Entries) und Flat-fileRefs hat 4 Eintraege
-    // total (2 in A + 1 in B = 3 ist falsch — die fileRef-Hook listet
-    // pro Tenant → also 2 + 1 = 3 fileRefs flat).
+    // FileRefs are collected per tenant: two in A and one in B, for three flat
+    // fileRefs total. The bundle also contains the corresponding user and fileRef
+    // snippets in each tenant section.
     expect(bundle.fileRefs).toHaveLength(3);
     const fileNamesA = bundle.fileRefs
       .filter((f) => f.tenantId === TENANT_A)
@@ -227,14 +227,13 @@ describe("runUserExport :: PII-Surface (Datenschutz-Audit)", () => {
       now: NOW(),
     });
 
-    // Roundtrip durch JSON.stringify — auch wenn ein Hook das Feld
-    // versehentlich exposed, faellt es hier auf.
+    // The JSON round trip catches a field that a hook accidentally exposes.
     const serialized = JSON.stringify(bundle);
     expect(serialized).not.toContain("secret-hash-must-not-leak");
     expect(serialized).not.toContain("SecretAdmin");
     expect(serialized).not.toContain("HiddenRole");
 
-    // Strukturell pruefen: user-Profil-Row hat keine privileged-Felder.
+    // Verify structurally that the user-profile row omits privileged fields.
     const userSnippet = bundle.tenants[0]?.entities.find((e) => e.entity === "user");
     const profile = userSnippet?.rows[0];
     expect(profile?.["passwordHash"]).toBeUndefined();
@@ -264,7 +263,7 @@ describe("runUserExport :: Cross-User-Isolation", () => {
     expect(aliceFileNames).toContain("alice-private.pdf");
     expect(aliceFileNames).not.toContain("bob-private.pdf");
 
-    // user-Profil enthaelt ALICE's email, nicht Bobs.
+    // The user profile must contain Alice's email, not Bob's.
     const userRow = aliceBundle.tenants[0]?.entities.find((e) => e.entity === "user")?.rows[0];
     expect(String(userRow?.["email"])).toBe("alice@example.com");
     expect(JSON.stringify(aliceBundle)).not.toContain("bob.distinct@example.com");
@@ -293,7 +292,7 @@ describe("runUserExport :: Orphan-User (0 Memberships)", () => {
 
 describe("runUserExport :: Empty-State", () => {
   test("User existiert nicht → leeres Bundle ohne Error", async () => {
-    // KEIN seedUser — der user-Hook returnt null wenn nichts da ist.
+    // No user is seeded; the user hook returns null when no row exists.
     const bundle = await runUserExport({
       db: stack.db,
       registry: stack.registry,
@@ -301,10 +300,10 @@ describe("runUserExport :: Empty-State", () => {
       now: NOW(),
     });
 
-    // Orphan-Path laeuft trotzdem (Hook returnt null → kein Snippet).
+    // The orphan path still runs; a null hook result produces no snippet.
     expect(bundle.userId).toBe(ORPHAN_ID);
     expect(bundle.fileRefs).toEqual([]);
-    // Der user-Hook gibt `null` zurueck → keine entities-Section.
+    // The user hook returns `null`, so no entities section is produced.
     const allUserSnippets = bundle.tenants.flatMap((t) =>
       t.entities.filter((e) => e.entity === "user"),
     );
@@ -319,8 +318,8 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
     try {
       await seedUser(ALICE_ID, { email: "alice.kms@example.com", displayName: "Alice KMS" });
       await seedMembership(ALICE_ID, TENANT_A);
-      // Read-Pfad-Test: die Spalten tragen echten Subject-Ciphertext, wie
-      // sie ein Executor-Write hinterlassen haette (Write-Pfad: PR 1/2).
+      // Read-path test: the columns contain real subject ciphertext, as an
+      // executor write would leave them.
       const encrypted = await encryptPiiFieldValues(
         { id: ALICE_ID, email: "alice.kms@example.com", displayName: "Alice KMS" },
         userEntity,
@@ -582,10 +581,10 @@ describe("runUserExport :: fileRef PII export via the fileRefs side-channel (#19
 
     expect(bundle.fileRefs).toHaveLength(1);
     const ref = bundle.fileRefs[0];
-    // Bug #1955: this used to be the raw `kumiko-pii:v2:...` ciphertext
+    // This used to be the raw `kumiko-pii:v2:...` ciphertext
     // string instead of the person's actual file name.
     expect(ref?.fileName).toBe(PLAINTEXT_NAME);
-    // Bug #1955 effect 2: buildFileRefZipPath sanitized the ciphertext into
+    // buildFileRefZipPath sanitized the ciphertext into
     // a garbled underscore-mangled path — the ZIP entry must carry the
     // readable name instead.
     expect(ref?.zipPath).toContain("alice-cv");

@@ -1,8 +1,8 @@
-// Beweist dass der retention-cleanup-Cron mit perTenant-Fan-out in der
-// komponierten Registry landet. Ohne perTenant feuert der Cron global einmal,
-// ctx hat keinen Tenant → der Handler returnt sofort → es wird NICHTS
-// bereinigt (silent no-op). r.job geht durch einen anderen Pfad als der
-// synthetische soft-delete-cleanup-Job, deshalb hier explizit gepinnt.
+// Proves that the retention-cleanup cron with perTenant fan-out reaches the
+// composed registry. Without perTenant, the cron fires globally once; ctx has no
+// tenant, so the handler returns immediately and cleans up NOTHING (silent no-op).
+// r.job follows a different path from the synthetic soft-delete-cleanup job, so
+// it is pinned explicitly here.
 
 import { describe, expect, test } from "bun:test";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";

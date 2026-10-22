@@ -1,4 +1,4 @@
-// fw#2861 — createEscapeHatchAuditSink persists an escape-hatch-use event as
+// createEscapeHatchAuditSink persists an escape-hatch-use event as
 // audit:event:escape-hatch-used, visible through the existing audit:query:list
 // handler. Real HTTP calls + setupTestStack — never createTestDispatcher.
 // Modelled on audit.integration.test.ts for users/tenant setup + resetEventStore.

@@ -25,7 +25,7 @@
 //
 // Every key is derived from sha256(token), never the raw token — Redis key
 // names, MONITOR output, replica traffic, and memory/backup dumps never
-// carry the bearer secret in the clear (#2174). The by-subject entry stores
+// carry the bearer secret in the clear. The by-subject entry stores
 // the *hash* of the live token, not the token itself, so it can only be
 // used to invalidate (delete the matching forward entry) — never to
 // recover or resend the original token. A resend therefore always mints a

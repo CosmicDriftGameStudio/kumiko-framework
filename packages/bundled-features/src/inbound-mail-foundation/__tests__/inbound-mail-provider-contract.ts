@@ -25,7 +25,7 @@ export function describeInboundMailProviderContract(
     // Whether the provider implements `watch` — read from the plugin's
     // module-level export (e.g. `Boolean(imapInboundMailPlugin.watch)`),
     // not by calling `factory()`. Calling the factory eagerly to probe
-    // this (#1337) ran the imap caller's fixture construction even when
+    // this ran the imap caller's fixture construction even when
     // `skip` was true (the exact case the skip exists to avoid), and left
     // an eager Promise unawaited/uncaught on an async factory. Defaults to
     // true (run the watch test) when omitted.

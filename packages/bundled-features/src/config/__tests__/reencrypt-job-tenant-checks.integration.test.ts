@@ -1,4 +1,4 @@
-// Regression guard for kumiko-framework#2072: the KEK-rotation job's
+// Regression guard: the KEK-rotation job's
 // systemScope() fail-closed checks — createSystemDbView().
 // acknowledgeCrossTenant() gating the initial cross-tenant scan,
 // assertRowsTenant() re-verifying each per-tenant slice before it's served

@@ -1,4 +1,4 @@
-// resolveTenantResolver / resolveTenantExistence + optional multiplicity (#1373).
+// resolveTenantResolver / resolveTenantExistence + optional multiplicity.
 
 import { describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";

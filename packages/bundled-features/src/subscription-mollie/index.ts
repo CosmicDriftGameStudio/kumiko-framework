@@ -1,9 +1,9 @@
 // Public API of the subscription-mollie bundled-feature.
 //
-// **Internal-only** (NICHT im public-barrel — App-Builder nutzt das nie direkt):
-//   - verifyAndParseMollieWebhook (intern vom feature.ts factory aufgerufen)
+// **Internal-only** (not in the public barrel—the App Builder never uses it directly):
+//   - verifyAndParseMollieWebhook (called internally by the feature.ts factory)
 //   - mapMollieEventType / mapMollieStatus / extractMollieId (pure helpers,
-//     test-only — direct-import aus dem File wenn echt mal extern gebraucht)
+//     test-only—direct-import from the file if ever genuinely needed externally)
 
 export { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants.ts";
 export {

@@ -27,7 +27,7 @@ function isTogglePayload(value: unknown): value is { featureName: string; enable
   );
 }
 
-// fw#2625: gives toggle-cache-sync the cross-replica transport its shared
+// Gives toggle-cache-sync the cross-replica transport its shared
 // dispatcher cursor needs — without this, only the one process that won
 // the shared cursor's toggle-set event would ever learn about a flip.
 // Standalone Redis transport for callers that want their own connections;

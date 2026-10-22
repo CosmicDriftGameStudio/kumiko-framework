@@ -4,9 +4,9 @@ import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../f
 import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas.ts";
 import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 
-// B1 unit-tests: feature-shape, schema-validation, aggregate-id determinism.
-// Integration tests (full-stack via setupTestStack) kommen in B2 wenn der
-// MSP + Read-Pipeline da ist — die testen ES-Loop end-to-end.
+// Unit tests cover feature shape, schema validation, and aggregate-ID determinism.
+// Integration tests (full-stack via setupTestStack) will be added when the
+// MSP + read pipeline exists; they test the ES loop end to end.
 
 describe("createCustomFieldsFeature shape", () => {
   test("registers field-definition entity + 6 write-handlers + 1 query-handler", () => {
@@ -124,11 +124,10 @@ describe("fieldDefinitionAggregateId determinism", () => {
   });
 });
 
-// Role-Naming-Drift (Wave J): die CustomFieldsFormSection dispatcht die
-// Bundle-QNs hart — Apps mit eigenem Rollen-Vokabular (publicstatus:
-// "Admin"/"Editor") müssen die Access-Rollen der Value-Writes + des
-// fieldDefinition-List-Queries überschreiben können, sonst ist jeder
-// Save/Load für App-User access_denied.
+// The CustomFieldsFormSection dispatches hard-coded bundle QNs, so apps with
+// their own role vocabulary (publicstatus: "Admin"/"Editor") must be able to
+// override the access roles for value writes and the fieldDefinition list query;
+// otherwise every save/load for app users fails with access_denied.
 describe("createCustomFieldsFeature access-options", () => {
   function writeAccess(
     feature: ReturnType<typeof createCustomFieldsFeature>,
@@ -152,7 +151,7 @@ describe("createCustomFieldsFeature access-options", () => {
     const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
     expect(writeAccess(feature, "set-custom-field")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "clear-custom-field")).toEqual(["Admin", "Editor"]);
-    // Definition-CRUD bleibt unberührt — dafür existieren App-Wrapper.
+    // Definition CRUD remains unchanged because app wrappers handle it.
     expect(writeAccess(feature, "define-tenant-field")).toEqual(["TenantAdmin"]);
   });
 
@@ -175,10 +174,10 @@ describe("createCustomFieldsFeature access-options", () => {
   test("valueWriteRoles erbt in den List-Default wenn fieldDefinitionListRoles fehlt", () => {
     const feature = createCustomFieldsFeature({ valueWriteRoles: ["Admin", "Editor"] });
     const roles = listAccess(feature);
-    // Value-Writer können laden …
+    // Value writers must also be able to load.
     expect(roles).toContain("Admin");
     expect(roles).toContain("Editor");
-    // … und Admins behalten den List-Zugriff.
+    // Admins must retain list access.
     expect(roles).toContain("TenantAdmin");
   });
 
@@ -190,7 +189,7 @@ describe("createCustomFieldsFeature access-options", () => {
     expect(listAccess(feature)).toEqual(["Viewer"]);
   });
 
-  // #2296 — define-/update-/delete-tenant-field were hard-wired to
+  // define-/update-/delete-tenant-field were hard-wired to
   // ["TenantAdmin"] with no override; fieldDefinitionWriteRoles closes that gap.
   test("fieldDefinitionWriteRoles überschreibt define-, update- UND delete-tenant-field", () => {
     const feature = createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin", "Editor"] });

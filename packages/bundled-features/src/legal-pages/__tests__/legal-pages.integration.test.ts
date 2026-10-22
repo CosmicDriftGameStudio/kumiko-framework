@@ -29,10 +29,10 @@ const textFeature = createTemplateResolverFeature();
 const legalFeature = createLegalPagesFeature();
 
 beforeAll(async () => {
-  // legal-pages braucht zwei wirings:
-  //   1. anonymousAccess für die /legal/*-Routes (laufen ohne JWT)
-  //   2. extraContext.templateResolver damit der Boot-Check + interner
-  //      Cross-Feature-Lookup ohne direct DB-Coupling funktioniert
+  // legal-pages requires two wirings:
+  //   1. anonymousAccess for the /legal/* routes (which run without JWT)
+  //   2. extraContext.templateResolver so the boot check and internal
+  //      cross-feature lookup work without direct DB coupling
   stack = await setupTestStack({
     features: [textFeature, legalFeature],
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
@@ -43,7 +43,7 @@ beforeAll(async () => {
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
 
-  // Seed legal blocks für SYSTEM_TENANT in DE
+  // Seed legal blocks for SYSTEM_TENANT in DE
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "imprint",
@@ -117,10 +117,9 @@ describe("legal-pages :: GET /legal/privacy (EN, not seeded)", () => {
 
 describe("legal-pages :: edge-cases", () => {
   test("Block existiert mit body=null → Route returnt 404 statt leerer HTML", async () => {
-    // seedTextBlock erlaubt body=null als legitimer Stub-State.
-    // Routes sollen das als "not configured" behandeln, NICHT als
-    // valides leeres Page rendern (würde DSGVO-pflichtige Page als
-    // existent vortäuschen).
+    // seedTextBlock permits body=null as a legitimate stub state.
+    // Routes must treat this as "not configured", NOT as a valid empty page
+    // (which would falsely present a GDPR-required page as existing).
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "imprint",
@@ -128,10 +127,10 @@ describe("legal-pages :: edge-cases", () => {
       title: "Mentions légales",
       content: null,
     });
-    // Keine /legal/imprint-fr-Route registriert (LEGAL_ROUTES ist
-    // de+en) — wir adden nicht extra. Stattdessen testen wir das
-    // Verhalten via direct getBlock-Lookup gegen einen leeren
-    // privacy-en Block (existiert noch nicht im stack-setup).
+    // No /legal/imprint-fr route is registered (LEGAL_ROUTES contains
+    // de+en), so we do not add one just for this test. Instead, test the
+    // behavior through a direct getBlock lookup against an empty
+    // privacy-en block (which does not yet exist in the stack setup).
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "privacy",
@@ -146,8 +145,8 @@ describe("legal-pages :: edge-cases", () => {
   });
 
   test("Markdown-Body mit <script> wird escaped (XSS-Härtung)", async () => {
-    // Server-Render ist gegen untrusted Tenant-Authoren gehärtet:
-    // Raw-HTML im Markdown-Body wird als Text escaped (kein Passthrough).
+    // Server rendering is hardened against untrusted tenant authors:
+    // Raw HTML in the Markdown body is escaped as text (not passed through).
     await seedTextBlock(db, {
       tenantId: SYSTEM_TENANT_ID,
       slug: "imprint",
@@ -258,16 +257,16 @@ describe("legal-pages :: boot gate wiring", () => {
 // verifies that the logic detects blocks missing in SYSTEM_TENANT.
 describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () => {
   test("legal-pages serven SYSTEM_TENANT-Texte auch wenn tenantResolver einen anderen Tenant zurückgibt", async () => {
-    // Simuliert publicstatus's Setup: host-basierter tenantResolver der
-    // tenant-subdomain → tenant-tenantId resolved. Ohne den X-Tenant-Fix
-    // würde /legal/impressum für tenant-x.example.com tenant-x's
-    // (leeren) imprint-Block abfragen → 404. Mit Fix immer SYSTEM_TENANT.
+    // Simulates publicstatus's setup: a host-based tenantResolver resolves
+    // the tenant subdomain to a tenant ID. Without the X-Tenant fix,
+    // /legal/impressum for tenant-x.example.com would query tenant-x's
+    // empty imprint block and return 404. With the fix, it always uses SYSTEM_TENANT.
     const otherTenantId = "22222222-2222-4222-8222-222222222222";
     const hostScopedStack = await setupTestStack({
       features: [createTemplateResolverFeature(), createLegalPagesFeature()],
       anonymousAccess: {
-        // Resolver gibt IMMER einen anderen Tenant zurück — wenn legal-
-        // pages den respektieren würde, wäre der DB-Lookup leer.
+        // The resolver always returns another tenant—if legal-pages respected it,
+        // the database lookup would be empty.
         tenantResolver: () => otherTenantId,
         // Mirrors publicstatus's real subdomain resolver: the tenant is
         // derived from the host, which the client cannot forge — trusted
@@ -282,7 +281,7 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
     try {
       await unsafeCreateEntityTable(hostScopedStack.db, templateResourceEntity);
 
-      // Block NUR im SYSTEM_TENANT seeden — NICHT im otherTenantId
+      // Seed the block only in SYSTEM_TENANT — not in otherTenantId
       await seedTextBlock(hostScopedStack.db, {
         tenantId: SYSTEM_TENANT_ID,
         slug: "imprint",
@@ -495,9 +494,9 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
 });
 
 describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
-  // Direkter Test der Boot-Check-Logik mit constructed ctx-Objects —
-  // keine JobRunner-Coupling, keine Test-Stacks. Das ist die echte
-  // Verhalten-Test-Surface; r.job() ist nur thin shell darum.
+  // Directly tests the boot-check logic with constructed context objects—
+  // without JobRunner coupling or test stacks. This is the actual behavior
+  // test surface; r.job() is only a thin shell around it.
 
   type Block = { slug: string; lang: string; title: string; content: string | null };
 

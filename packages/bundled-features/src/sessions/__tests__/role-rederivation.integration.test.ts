@@ -42,7 +42,7 @@ import { createSessionCallbacks, type SessionCallbacks } from "../session-callba
 import { sessionCallbacksFromLateBound } from "../testing.ts";
 import { makeSessionHelpers } from "./test-helpers.ts";
 
-// Proves the core DoD of #2148: a role change written directly to
+// Proves the core DoD: a role change written directly to
 // tenantMembershipsTable takes effect on the very next request made with an
 // ALREADY-ISSUED, still-live token — no re-login, no JWT expiry needed.
 // Deliberately bypasses update-member-roles.write.ts (which force-revokes

@@ -21,11 +21,11 @@ export const MEMBER_ROLES_CELL_COMPONENT = "MemberRolesCell" as const;
 
 /** Closed allowlist for invite-role picker — never free text (escalation guard). */
 // Admin (rank 2) shares the invite-create screen with TenantAdmin — TenantAdmin
-// must not appear here or Admin sees an unassignable option (fw#2414).
+// must not appear here or Admin sees an unassignable option.
 export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin"] as const;
 // Full rank list for memberRolesEditScreen: it is prefilled with a member's
 // *current* roles, so it must represent every rank a membership can hold,
-// including TenantAdmin (fw#2452). The screen hides what the caller may not
+// including TenantAdmin. The screen hides what the caller may not
 // assign via TenantQueries.memberRoleAvailability.
 export const OWNER_INVITE_ROLE_OPTIONS = [
   "User",

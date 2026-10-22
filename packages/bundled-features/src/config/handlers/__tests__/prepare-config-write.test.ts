@@ -209,7 +209,7 @@ describe("prepareConfigWrite", () => {
     expect(result.scope).toBe(ConfigScopes.system);
   });
 
-  // #396: a tenant self-service key (admin-editable) that provisioning /
+  // A tenant self-service key (admin-editable) that provisioning /
   // migration must ALSO set via ctx.systemWriteAs. access.withSystem(admin)
   // adds SYSTEM_ROLE without collapsing the key to system-only.
   describe("access.withSystem (provisionable tenant key)", () => {

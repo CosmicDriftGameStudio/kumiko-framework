@@ -58,7 +58,7 @@ export const retryWrite = defineWriteHandler({
       );
     }
 
-    // payload is stored encrypted under the triggering user's DEK (#799),
+    // payload is stored encrypted under the triggering user's DEK,
     // same mechanism as detail.query.ts/list.query.ts — decrypt before
     // parsing it as JSON. A key erased since the run finished decrypts to
     // PII_ERASED_SENTINEL, which is not JSON; reject the retry rather than

@@ -1,21 +1,21 @@
 // kumiko-feature-version: 1
 //
-// file-provider-inmemory — In-Memory-FileProvider für die file-
-// foundation Plugin-API. Speichert Files in einem per-Tenant-Map
-// statt in S3/Hetzner-Object-Storage. Für Demos, Sample-Apps und
-// Tests ohne MinIO-Container.
+// file-provider-inmemory — In-memory file provider for the file-
+// foundation plugin API. Stores files in a per-tenant Map instead
+// of S3/Hetzner object storage. Intended for demos, sample apps,
+// and tests without a MinIO container.
 //
-// **Was diese Feature liefert:**
-//   1. Plugin-Registration via `r.useExtension("fileProvider",
+// **What this feature provides:**
+//   1. Plugin registration via `r.useExtension("fileProvider",
 //      "inmemory", { build })`.
-//   2. **Pro-Tenant Storage.** Jeder Tenant kriegt einen eigenen
-//      InMemoryFileProvider — Tenant-Isolation by-design, keine
-//      Pfad-Konvention nötig.
+//   2. **Per-tenant storage.** Each tenant gets its own
+//      InMemoryFileProvider, providing tenant isolation by design
+//      without requiring a path convention.
 //
-// **Pattern-Vorbild:** mirrors file-provider-s3.
+// **Pattern reference:** mirrors file-provider-s3.
 //
-// **NICHT für Production.** Buffer ist Process-Memory, geht beim
-// Restart verloren + wächst monoton mit jedem write.
+// **NOT for production.** The buffer is process memory, is lost on
+// restart, and grows monotonically with every write.
 
 import type {
   FileProviderContext,
@@ -50,7 +50,7 @@ export function listKeys(tenantId: string): readonly string[] {
   return providersByTenant.get(tenantId)?.keys() ?? [];
 }
 
-/** Demo/Test-Helper: leere den Tenant-Storage. */
+/** Demo/test helper: clears a tenant's storage. */
 export function clearStorage(tenantId: string): void {
   providersByTenant.get(tenantId)?.clear();
 }
@@ -70,9 +70,9 @@ export function createFileProviderInMemoryFeature() {
         category: "storage",
         recommended: false,
       });
-      // Kein requires auf "config" oder "secrets" — der
-      // In-Memory-Provider hat keine Config + kein Secret. Nur die
-      // file-foundation muss da sein (Plugin-extension-point).
+      // No requirement for "config" or "secrets": the
+      // in-memory provider has neither configuration nor secrets. Only
+      // file-foundation must be present as the plugin extension point.
       r.requires({ features: ["file-foundation"] });
 
       const plugin: FileProviderPlugin = {

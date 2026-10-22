@@ -136,9 +136,9 @@ describe("LoginScreen", () => {
     expect(screen.queryByRole("link", { name: /Forgot password/i })).toBeNull();
   });
 
-  // Bug-Bash 2026-06-07 (Bug 1): Login-Screen ist oft die einzige
-  // öffentliche Seite einer Admin-Domain — ohne erreichbares Impressum
-  // verletzt die Domain die Impressumspflicht.
+  // The login screen is often the only public page of an admin domain —
+  // without an accessible legal notice, the domain violates legal-notice
+  // requirements.
   test("legalLinks-prop → Impressum/Datenschutz-Links mit korrekten hrefs", () => {
     renderWithProviders(
       <LoginScreen
@@ -161,8 +161,8 @@ describe("LoginScreen", () => {
     expect(screen.queryByTestId("login-legal-links")).toBeNull();
   });
 
-  // Resend-Flow: bei email_not_verified bietet der LoginScreen einen
-  // "Send verification email again"-Link im Fehler-Banner an.
+  // Resend flow: when email_not_verified occurs, LoginScreen offers a
+  // "Send verification email again" link in the error banner.
   describe("resend verification on email_not_verified", () => {
     async function loginUntilEmailNotVerified(): Promise<void> {
       fireEvent.change(screen.getByLabelText(/^Email/), {
@@ -190,7 +190,7 @@ describe("LoginScreen", () => {
 
     test("renders resend button only after email_not_verified failure", async () => {
       renderWithProviders(<LoginScreen />, { session: unverifiedSession() });
-      // Vor Submit gibt es keinen Resend-Trigger
+      // No resend trigger is available before submission
       expect(screen.queryByRole("button", { name: /erneut senden/i })).toBeNull();
       await loginUntilEmailNotVerified();
       expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
@@ -206,11 +206,11 @@ describe("LoginScreen", () => {
       await waitFor(() => {
         expect(requestEmailVerificationMock).toHaveBeenCalledWith("demo@example.com");
       });
-      // Banner variant="info" setzt kein role — wir suchen per Text
+      // A banner with variant="info" has no role, so find it by text
       await waitFor(() => {
         expect(screen.getByText("We've sent you a new verification email.")).toBeTruthy();
       });
-      // Fehler-Banner (role=alert) ist weg, Success-Banner ist da
+      // The error banner (role=alert) is gone, and the success banner is present
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
@@ -227,7 +227,7 @@ describe("LoginScreen", () => {
       await waitFor(() => {
         expect(screen.getByRole("alert").textContent).toMatch(/Please wait a moment and try again/);
       });
-      // Original-Fehler bleibt sichtbar
+      // The original error remains visible
       expect(screen.getByRole("alert").textContent).toMatch(/Email address not yet verified/);
     });
 
@@ -248,8 +248,8 @@ describe("LoginScreen", () => {
       await loginUntilEmailNotVerified();
       expect(screen.getByRole("button", { name: "Send verification email again" })).toBeTruthy();
 
-      // User korrigiert die Email-Eingabe — Resend-Button darf nicht mehr
-      // sichtbar sein, damit kein silent-send an typo-Adresse passiert
+      // The user corrects the email input — the resend button must no longer be
+      // visible, preventing a silent send to a mistyped address
       fireEvent.change(screen.getByLabelText(/^Email/), {
         target: { value: "typo@example.com" },
       });

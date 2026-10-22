@@ -165,7 +165,7 @@ export function createMembersScreen(options?: {
 // feature.ts when `TenantFeatureOptions.inviteScreen` is set — see
 // createMembersScreen's doc comment above for why.
 export function createInviteCreateScreen(assignableAppRoles: AssignableAppRoles = new Map()) {
-  // Admin sees this screen too, so only app roles Admin may grant are offered (fw#2414).
+  // Admin sees this screen too, so only app roles Admin may grant are offered.
   const appRoleOptions = [...assignableAppRoles]
     .filter(([, assignableFrom]) => isAssignableByRole(assignableFrom, "Admin"))
     .map(([role]) => role);

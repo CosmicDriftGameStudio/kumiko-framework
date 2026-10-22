@@ -5,8 +5,8 @@ import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { downloadAttemptsTable } from "../schema/download-attempt.ts";
 
-// Operator-Query: invalid Download-Attempts (S2.U7).
-// DPO-Sicht fuer Brute-Force-Detection. Tenant-isolated via WHERE.
+// Operator query for invalid download attempts. Provides tenant-isolated visibility for data
+// protection officers investigating brute-force probing.
 
 const MAX_LIMIT = 100;
 const REQUEST_ID = "user-data-rights:list-download-attempts";

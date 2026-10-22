@@ -40,7 +40,7 @@ export const listQuery = defineQueryHandler({
       where["status"] = query.payload.status;
     }
 
-    // @cast-boundary db-row — selectMany returnt unknown[]; Row-Shape ist
+    // @cast-boundary db-row — selectMany returns unknown[]; Row shape is
     // durch templateResourcesTable + buildBaseColumns garantiert.
     const rows = (await selectMany(ctx.db, templateResourcesTable, where, {
       limit: 500,

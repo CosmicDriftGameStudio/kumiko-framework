@@ -1,25 +1,26 @@
-// Public-Gate für die anonyme Account-Löschung. Matcht window.location.pathname:
+// Public gate for anonymous account deletion. Matches window.location.pathname:
 // requestPath → RequestAccountDeletionScreen, confirmPath →
-// ConfirmAccountDeletionScreen, sonst durch zur App. Spiegelt makeAuthGate
-// (auth-email-password) — userDataRightsClient hängt es als Gate ein, die App
-// listet den Client VOR dem Auth-Client, damit ein anonymer Besucher die Lösch-
-// Maske statt der Login-Maske sieht. Path-Match beim Render: Apex-Übergänge
-// (der Verify-Link) sind Full-Page-Loads, kein Client-Router.
+// ConfirmAccountDeletionScreen, otherwise passes through to the app. Mirrors
+// makeAuthGate (auth-email-password) — userDataRightsClient adds it as a gate,
+// and the app lists this client BEFORE the auth client so an anonymous visitor
+// sees the deletion screen instead of the login screen. Matching during render:
+// Apex transitions (the verification link) are full-page loads, not client-router
+// transitions.
 //
-// confirmPath MUSS dem Pfad der server-seitigen deletionVerifyUrl entsprechen —
-// der ConfirmScreen liest das ?token aus eben dieser URL.
+// confirmPath MUST match the path of the server-side deletionVerifyUrl —
+// ConfirmScreen reads the ?token from that URL.
 
 import type { ComponentType, ReactNode } from "react";
 import { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen.tsx";
 import { RequestAccountDeletionScreen } from "./request-deletion-screen.tsx";
 
 export type PublicDeletionRoutes = {
-  /** Login-freie Route für die Email-Antrags-Maske (z.B. "/account/delete"). */
+  /** Login-free route for the email request screen (e.g. "/account/delete"). */
   readonly requestPath: string;
-  /** Login-freie Route für die Token-Bestätigung; = Pfad der deletionVerifyUrl. */
+  /** Login-free route for token confirmation; path of deletionVerifyUrl. */
   readonly confirmPath: string;
-  /** Chrome um die Screen-Card. Default: vollflächig zentriert (wie der Auth-
-   *  defaultShell). Apps reichen ihre eigene Shell (z.B. Marketing-Header). */
+  /** Shell around the screen card. Default: full-screen centered (like the auth-
+   *  defaultShell). Apps can provide their own shell (e.g. a marketing header). */
   readonly shell?: (screen: ReactNode) => ReactNode;
 };
 

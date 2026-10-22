@@ -2,12 +2,12 @@
 // pipeline until first suspension or completion, and writing run-completed.
 //
 // wait / retry / waitForEvent suspensions are all resumable — the
-// resume-due-runs job + resume-run handler (framework#2513 Phase 2) wake
-// wait/retry via a plain wakeAt timeout; waitForEvent additionally gets
-// woken early by the event-subscriber (Phase 3b, event-subscriber.ts) when
-// its awaited event arrives, and by the same wakeAt timeout otherwise
-// (D1's `wakeAt ?? timeoutAt`). startAndRunWorkflow returns a silent
-// "suspended" outcome for all three instead of throwing.
+// resume-due-runs job + resume-run handler wake wait/retry via a plain
+// wakeAt timeout; waitForEvent additionally gets woken early by the
+// event-subscriber (event-subscriber.ts) when its awaited event arrives,
+// and by the same wakeAt timeout otherwise (D1's `wakeAt ?? timeoutAt`).
+// startAndRunWorkflow returns a silent "suspended" outcome for all three
+// instead of throwing.
 
 import type {
   HandlerContext,

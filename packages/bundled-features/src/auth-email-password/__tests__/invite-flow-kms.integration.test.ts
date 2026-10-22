@@ -1,9 +1,8 @@
-// Auth-Flows mit aktivem PII-KMS + Blind-Index (#818 PR 2): user.email und
-// invitation.email liegen als Ciphertext in der DB. Login und alle drei
-// Invite-Accept-Branches müssen über die generierte email_bidx-Spalte
-// (Equality-Lookup) bzw. decryptStoredEmail (Vergleich/Weiterverwendung)
-// unverändert funktionieren — vor diesem PR war jeder dieser Pfade mit
-// KMS silently broken.
+// Auth flows with active PII-KMS and blind index: user.email and
+// invitation.email are stored as ciphertext in the DB. Login and all three
+// invite-accept branches must continue to work through the generated
+// email_bidx column (equality lookup) and decryptStoredEmail
+// (comparison/reuse); KMS had silently broken each path.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -122,8 +121,8 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  // KMS + bidx-Key MUESSEN vor den Seeds stehen — seedUser läuft über den
-  // Executor, die Rows sollen den verschlüsselten Prod-Zustand abbilden.
+  // KMS + bidx key MUST be configured before seeding—seedUser runs through
+  // the executor, and the rows must represent encrypted production state.
   kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
   configureBlindIndexKey(BIDX_KEY);
@@ -295,8 +294,8 @@ describe("auth flows with active KMS + blind index", () => {
     const body = (await res.json()) as { isSuccess: boolean; user: { id: string } };
     expect(body.isSuccess).toBe(true);
 
-    // Carol-Row: eigener user-Subject-Ciphertext (nicht der invitation-
-    // Ciphertext durchgereicht) + Klartext-abgeleiteter displayName.
+    // The user receives a separate user-subject ciphertext rather than the
+    // invitation ciphertext, while displayName is derived from plaintext.
     const row = await rawUserRow(body.user.id);
     expect(isPiiCiphertext(row["email"])).toBe(true);
     expect(String(row["email"])).toContain(body.user.id);

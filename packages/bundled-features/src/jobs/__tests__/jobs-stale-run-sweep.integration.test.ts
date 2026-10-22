@@ -1,4 +1,4 @@
-// Integration test for the stale-run-sweep job (#2246). Dispatches
+// Integration test for the stale-run-sweep job. Dispatches
 // jobs:job:stale-run-sweep through the real jobRunner (setupTestStack +
 // BullMQ worker), same pattern as jobs-retention.integration.test.ts — a
 // hand-built JobContext would only prove the handler function works in

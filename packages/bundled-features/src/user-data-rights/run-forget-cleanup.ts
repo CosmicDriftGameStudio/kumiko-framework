@@ -1,39 +1,32 @@
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
-// Forget-Cleanup-Runner (S2.U5b) — pure-Function Pipeline.
+// Forget-cleanup runner — pure-function pipeline.
 //
-// After the grace period (S2.U5a sets gracePeriodEnd) this runner iterates
-// over all users in DeletionRequested state and triggers the EXT_USER_DATA
-// delete hooks in every tenant the user is or was a member of (membership
-// history from kumiko_events).
+// After the grace period, this runner processes users in DeletionRequested
+// state and triggers EXT_USER_DATA delete hooks in every tenant where the user
+// is or was a member, using membership history from kumiko_events.
 //
-// **Cross-tenant iteration:** a forget request in tenant A must remove the
-// user's data in ALL of their tenants, including tenants they left before
-// the request — see
-// docs/plans/architecture/user-data-rights.md "Cross-Tenant-Semantik".
+// **Cross-tenant iteration:** a request in tenant A must remove the user's data
+// in all of their tenants, including tenants they left before the request.
 //
-// **Strategy-Dispatch:** Pro Entity entscheidet die data-retention-
-// policy (per-Tenant Override moeglich), ob "delete" oder "anonymize"
-// gefahren wird. blockDelete (Aufbewahrungs-Pflicht) ergibt zwingend
-// "anonymize" — Daten-Objekt bleibt physisch da, Personen-Bezug raus.
+// **Strategy dispatch:** each entity's data-retention policy determines whether
+// to run "delete" or "anonymize". A blockDelete policy always produces
+// "anonymize", leaving the data object in place while removing its association
+// with the person.
 //
-// **Per-User-Atomicity (advisor-pinned):** Jeder User wird in einer
-// eigenen Sub-Transaction abgewickelt (db.transaction → SAVEPOINT wenn
-// Outer-Tx aktiv, BEGIN sonst). Folge: ein failing Hook bei User A
-// rollt nur dessen Sub-Tx zurueck, User B + bisherige User-Status-Flips
-// bleiben commit-able. Ohne diese Sub-Tx wuerde der Outer-Dispatcher-Tx
-// (alle writeHandler laufen in `db.begin(...)`) den ganzen
-// Cleanup-Run beim ersten Hook-Throw zurueckrollen.
+// **Per-user atomicity:** each user runs in its own sub-transaction
+// (db.transaction → SAVEPOINT when an outer transaction is active, BEGIN
+// otherwise). A failing hook rolls back only that user's transaction, while
+// other users and previously completed status changes remain commit-able.
+// Without this isolation, the outer dispatcher transaction would roll back the
+// entire cleanup run on the first hook failure.
 //
-// **Idempotenz:** Hooks sind idempotent designed (siehe
-// engine/extensions/user-data.ts). Doppellauf nach Crash-Recovery muss
-// safe sein. Status-Flip auf "Deleted" am Ende sorgt dafuer, dass next
-// Lauf den User nicht mehr findet.
+// **Idempotency:** hooks are designed to be idempotent, so rerunning after
+// crash recovery is safe. Flipping the status to "Deleted" at the end keeps
+// the user out of subsequent runs.
 //
-// **Error-Handling:** Ein hook der wirft soll den Lauf NICHT stoppen —
-// andere User sollen weiter abgearbeitet werden. Errors werden
-// gesammelt + zurueckgegeben fuer Operator-Visibility. Ein User mit
-// gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
-// retried automatisch).
+// **Error handling:** a throwing hook must not stop the run. Errors are
+// collected and returned for operator visibility, while a user with failed
+// hooks remains in DeletionRequested for automatic retry.
 
 import {
   configuredPiiSubjectKms,
@@ -90,18 +83,15 @@ import { updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 /**
- * Notification-Callback fuer den Forget-Cleanup-Pfad (Atom 5b). Pattern
- * matched Atom 5 (Export). Throw bubbelt zum r.job-Wrap; jobs-feature
- * persistiert den failed-Run in jobRunsTable (siehe
- * jobs/__tests__/jobs-feature.integration.ts Scenario 2 — der throw-
- * Pfad eines r.job-handlers wird dort gepinnt).
+ * Callback for the forget-cleanup path. A callback failure propagates to the
+ * r.job wrapper so the jobs feature can persist the failed run.
  *
- * **executedAt:** Zeitpunkt des delete-Flips. Wird als ISO-String
- * uebergeben damit App-Author den frei in Email-Template einbauen kann.
+ * **executedAt:** The time of the delete flip, passed as an ISO string so the
+ * app author can insert it into an email template.
  *
- * **tenantIds:** alle Memberships die der User vor dem Delete hatte.
- * Email-Template kann das nutzen ("dein Account in Tenant X+Y wurde
- * geloescht"). Bei orphan-User (0 Memberships) ist die Liste leer.
+ * **tenantIds:** All memberships the user had before deletion. An email
+ * template can use this to describe which tenant accounts were deleted. The
+ * list is empty for an orphan user with no memberships.
  */
 export type SendDeletionExecutedEmailFn = (args: {
   readonly userId: string;
@@ -117,14 +107,13 @@ export interface RunForgetCleanupArgs {
   readonly db: DbRunner;
   readonly registry: Registry;
   /**
-   * Now-Injection — Tests koennen den Wert pinnen ohne Date-Mock.
-   * Pattern aus data-retention/keep-for.ts (advisor-pinned).
+   * Injects the current time so tests can control it without mocking the date.
    */
   readonly now: Instant;
 
-  /** Atom 5b — Email-Notification beim delete-flip. Optional;
-   *  ohne Callback laeuft Worker still (User hatte schon
-   *  request-deletion-Email + grace-period-Erinnerung). */
+  /** Sends an optional email notification after the delete flip. Without a
+   * callback, the worker remains silent because the user already received the
+   * request-deletion email and grace-period reminder. */
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
 
   /**
@@ -147,8 +136,8 @@ export interface RunForgetCleanupArgs {
   readonly kms?: KmsAdapter;
 
   /**
-   * Search adapter for purging derived Meili docs of searchable subject-PII
-   * (#1610). Same seam as forget-subject. Omitted → no search purge (apps
+   * Search adapter for purging derived Meili docs of searchable subject-PII.
+   * Same seam as forget-subject. Omitted → no search purge (apps
    * without Meili).
    */
   readonly searchAdapter?: SearchAdapter;
@@ -162,7 +151,7 @@ export interface RunForgetCleanupArgs {
    */
   readonly tenantModel?: TenantUserModel;
 
-  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // Sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
   // escapeHatch when its delete hook calls ctx.db.unsafeRaw().
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
@@ -196,11 +185,11 @@ export interface ForgetCleanupIncomplete {
 }
 
 export interface RunForgetCleanupResult {
-  /** User die in diesem Lauf von DeletionRequested → Deleted geflippt wurden. */
+  /** Users flipped from DeletionRequested to Deleted during this run. */
   readonly processedUserIds: readonly string[];
-  /** Anzahl entity-hook-calls die wirklich gelaufen sind (success oder fail). */
+  /** Number of entity-hook calls that actually ran, whether successful or failed. */
   readonly hookCallsAttempted: number;
-  /** Hook-Errors fuer Operator-Visibility. Lauf bricht nicht ab — siehe Header. */
+  /** Hook errors collected for operator visibility; the run continues. */
   readonly errors: readonly ForgetCleanupError[];
   /** Hooks that reported `{status:"incomplete"}` — partial success, user still Deleted. */
   readonly incomplete: readonly ForgetCleanupIncomplete[];
@@ -276,8 +265,8 @@ export async function runForgetCleanup(
     return { processedUserIds: [], hookCallsAttempted: 0, errors: [], incomplete: [] };
   }
 
-  // Step 2: Sammle alle EXT_USER_DATA-Usages einmalig — Liste der
-  // (entityName, deleteHook)-Pairs aller registrierten Provider-Features.
+  // Step 2: collect all EXT_USER_DATA usages once, i.e. the
+  // (entityName, deleteHook) pairs of all registered provider features.
   const usages = registry.getExtensionUsages(EXT_USER_DATA);
   const hookEntries: HookEntry[] = usages
     .map((u): HookEntry | null => {
@@ -304,7 +293,7 @@ export async function runForgetCleanup(
   const processedUserIds: string[] = [];
   let hookCallsAttempted = 0;
 
-  // Step 3: Pro User iterieren — eigene Sub-Tx pro User (siehe Header).
+  // Step 3: iterate per user, each in its own sub-transaction (see header).
   for (const user of dueUsers) {
     const userResult = await processUser({
       db,
@@ -325,17 +314,14 @@ export async function runForgetCleanup(
     if (userResult.success) {
       processedUserIds.push(user.id);
 
-      // Atom 5b — Email-Notification nach success-flip. userEmail wurde
-      // VOR der Tx gecacht (user-Hook anonymisiert in der Tx).
+      // userEmail was cached BEFORE the transaction because the user hook
+      // anonymizes it inside the transaction.
       //
-      // Best-effort: ein Email-Throw fuer User A darf nicht den Batch
-      // killen — User A ist bereits geloescht (Sub-Tx committed), und
-      // die Users B, C, ... muessen noch verarbeitet werden. Throw waere
-      // hier ein Bug: r.job-Wrap markiert den Run failed, retry findet
-      // keine User mehr im DeletionRequested+grace-expired-Status (alle
-      // schon Deleted) → silent miss. console.warn ist die einzige
-      // Operator-Sichtbarkeit — runForgetCleanup-args fuehren AppContext.
-      // log aktuell nicht durch (pure-function-Pattern).
+      // The email is best-effort: a send failure must not abort the batch after the
+      // user's sub-transaction has committed. Otherwise the job would be marked
+      // failed, and a retry would find no eligible users, causing a silent miss.
+      // console.warn is the only operator-visible reporting path because the
+      // runForgetCleanup args do not carry AppContext.log (pure-function pattern).
       if (sendDeletionExecutedEmail && userResult.userEmailBeforeDelete) {
         try {
           await sendDeletionExecutedEmail({
@@ -363,13 +349,14 @@ interface ProcessUserResult {
   readonly hookCallsAttempted: number;
   readonly errors: readonly ForgetCleanupError[];
   readonly incomplete: readonly ForgetCleanupIncomplete[];
-  /** Atom 5b: userEmail VOR Tx gecacht (user-Hook anonymisiert in Tx).
-   *  null wenn user-Row beim Pre-Tx-Lookup nicht (mehr) existiert oder
-   *  email leer ist. */
+  /** The email address cached before the transaction because the user hook
+   * anonymizes it in the transaction. Null means the row was absent or the
+   * email was empty during the pre-transaction lookup. */
   readonly userEmailBeforeDelete: string | null;
   /** user.locale VOR Tx gecacht — Default-Mailer rendert in Empfaenger-Sprache. */
   readonly userLocaleBeforeDelete: string | null;
-  /** Tenant-Memberships VOR Tx — Email-Template kann das nutzen. */
+  /** Tenant memberships captured before the transaction deletes them, for use by
+   * the email template. */
   readonly tenantIdsBeforeDelete: readonly TenantId[];
 }
 
@@ -391,11 +378,9 @@ async function processUser(args: {
   const incomplete: Omit<ForgetCleanupIncomplete, "rolledBack">[] = [];
   let hookCallsAttempted = 0;
 
-  // Atom 5b — userEmail VOR der Tx cachen. user-Hook (user-data-rights-
-  // defaults) anonymisiert email/displayName/passwordHash IN der Tx.
-  // Nach der Tx ist email = "deleted-{id}@{tenant}.example" oder NULL.
-  // Memory-cache laesst Atom-5b-Callback nach success-flip den
-  // ORIGINAL-email an App-Author-Callback geben.
+  // Cache the email before the transaction because the user hook anonymizes
+  // email/displayName/passwordHash inside it. The cache lets the callback after
+  // a successful status flip receive the original email address.
   const userPreTx = await fetchOne<{ email: string | null; locale: string | null }>(db, userTable, {
     id: userId,
   });
@@ -405,13 +390,12 @@ async function processUser(args: {
       : null;
   const userLocaleBeforeDelete = userPreTx?.locale ?? null;
 
-  // Memberships fuer diesen User holen — alle Tenants in denen er Mitglied ist.
   const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
     userId,
   });
-  // tenant-Liste fuer Atom 5b Email — Memberships VOR Tx, weil hooks
-  // memberships in der Tx loeschen. Orphan-User (0 memberships) liefert
-  // [] in Email-args; App-Author-Template kann das case-handlen.
+  // Capture memberships before the transaction deletes them so the email
+  // callback receives the original tenant list. Orphan users provide an empty
+  // list.
   const tenantIdsBeforeDelete: readonly TenantId[] = memberships.map((m) => m.tenantId);
 
   // Departed tenants: removeMember deletes only the projection row, so data
@@ -427,19 +411,17 @@ async function processUser(args: {
   const tenantList: TenantId[] =
     hookTenantIds.length > 0 ? hookTenantIds : [SYSTEM_TENANT_ID_FOR_ORPHANS];
 
-  // Per-User-Sub-Tx: hooks + status-flip atomar. Bei Hook-Throw rollt
-  // nur dieser User zurueck, andere User bleiben commit-fest. Die Sub-Tx
-  // nestet korrekt: eine Top-Level-Connection oeffnet sie via `.begin`
-  // (BEGIN), eine TransactionSql — der Fall im Dispatcher, wo jeder
-  // writeHandler bereits IN der Outer-Tx laeuft — via `.savepoint`
-  // (SAVEPOINT). Siehe runInSubTransaction.
+  // Hooks and the status flip run atomically per user. A hook failure rolls back
+  // only that user, while other users remain commit-able. runInSubTransaction
+  // uses `.begin` (BEGIN) for a top-level connection and `.savepoint`
+  // (SAVEPOINT) when the dispatcher is already inside an outer transaction.
   let txSucceeded = false;
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
   try {
     await runInSubTransaction(db, async (tx) => {
       // Discover + purge search docs for this subject BEFORE any delete
-      // hook runs (fw#1611). purgeSearchDocumentsForSubject finds candidate
+      // hook runs. purgeSearchDocumentsForSubject finds candidate
       // rows via a live SELECT on each entity's read-table — a hook that
       // hard-deletes a row (UserDataDeleteStrategy "delete") makes that row
       // invisible to a purge running afterward, permanently stranding its
@@ -548,10 +530,10 @@ async function processUser(args: {
             eraseReason: "user-data-rights:forget",
           },
         );
-        // Blind-Index-Sweep (#818): bidx-Spalten des erased Subjects sofort
-        // nullen — sonst bliebe der deterministische HMAC bis zum nächsten
-        // Rebuild equality-matchbar (Linkage-Fenster). In der Sub-Tx, damit
-        // ein Rollback auch den Sweep zurücknimmt.
+        // Null blind-index columns immediately after erasing the subject key; otherwise
+        // the deterministic HMAC would remain equality-matchable until the next
+        // rebuild. Keeping this in the sub-transaction makes the sweep rollback
+        // with the rest of the user's cleanup.
         await nullBlindIndexesForSubject(
           tx,
           registry.features,
@@ -559,10 +541,9 @@ async function processUser(args: {
         );
       }
 
-      // Status-Flip in derselben Sub-Tx. Falls einer der Hooks oben
-      // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
-      // alles, der User bleibt im DeletionRequested-Status, naechster
-      // Run retried.
+      // Flip the status in the same sub-transaction. If a hook throws, execution
+      // never reaches this point, so the user remains in DeletionRequested for
+      // the next retry.
       await updateUserLifecycle(
         tx,
         userId,
@@ -572,9 +553,8 @@ async function processUser(args: {
       txSucceeded = true;
     });
   } catch (e) {
-    // currentTenantId/currentEntityName tracken den Failing-Hook —
-    // Operator sieht "Hook fileRef in Tenant A failed for user X" statt
-    // generisches "<sub-transaction>".
+    // Track the failing hook so operators see its tenant and entity instead of a
+    // generic sub-transaction error.
     errors.push({
       userId,
       tenantId: currentTenantId ?? ("" as TenantId),
@@ -621,10 +601,9 @@ function resolveForgetFileBytesDeleter(
   };
 }
 
-// Pseudo-Tenant fuer User ohne aktive Memberships. RFC4122-konforme
-// Null-UUID. Tenant-scoped Hooks finden hier nichts (no-op),
-// tenant-agnostische Hooks (z.B. user) operieren auf der globalen
-// User-Row und ignorieren tenantId.
+// Use a pseudo-tenant for users with no active or historical memberships.
+// Tenant-scoped hooks find nothing there, while tenant-agnostic hooks such as
+// the user hook still operate on the global user row and ignore tenantId.
 const SYSTEM_TENANT_ID_FOR_ORPHANS = "00000000-0000-0000-0000-000000000000" as TenantId;
 
 // "single-user" requires BOTH the app config AND a runtime sole-member check —
@@ -653,7 +632,7 @@ async function resolveEffectiveTenantModel(
 // removeMemberWrite only deletes the tenant-membership PROJECTION row — the
 // event history survives forever, and a departed member's own tenant-scoped
 // data rows (contributor-style records with no per-user column) can
-// outlive their membership (ent#346). A live count of 1 is therefore not
+// outlive their membership. A live count of 1 is therefore not
 // enough: a tenant that ever had >1 distinct member must stay multi-user for
 // the forget path even after everyone but one is removed, or the sole
 // remaining member's forget request wipes the departed co-member's leftover
@@ -663,7 +642,7 @@ async function resolveEffectiveTenantModel(
 // tenant SystemAdmin adds land under the actor's tenant_id.
 //
 // Counting created-ROWS against distinct userIds latched a tenant to
-// multi-user as soon as its sole member was removed and re-added (#2608) —
+// multi-user as soon as its sole member was removed and re-added —
 // two created-events, one identity, no co-member ever. The fail-safe only
 // needs to cover payloads whose userId cannot be READ, so the unreadable
 // remainder is measured directly instead of inferred from the row count.
@@ -714,14 +693,13 @@ async function readHistoricalMembershipTenantIds(
   return rows.map((row) => row.tenant_id as TenantId); // @cast-boundary db-row
 }
 
-// Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.
-//   - "anonymize" / "blockDelete" → "anonymize" (Aufbewahrungs-Pflicht
-//     blockDelete: Daten muessen physisch bleiben, nur Personen-Bezug raus)
-//   - "hardDelete" / "softDelete" / null → "delete" (Default)
+// Map retention.strategy to user-data-rights.UserDataDeleteStrategy.
+//   - "anonymize" / "blockDelete" → "anonymize": retention requirements keep
+//     the data physically present while removing its association with the person.
+//   - "hardDelete" / "softDelete" / null → "delete" (default).
 //
-// Eigene Funktion damit Strategie-Drift zwischen retention-strategies
-// und user-data-rights-Hooks an EINER Stelle dokumentiert + getestet
-// werden kann (siehe run-forget-cleanup.test.ts).
+// Keeping this mapping in one function makes drift between retention strategies
+// and user-data-rights hooks explicit and testable.
 export function policyToStrategy(
   retentionStrategy: "hardDelete" | "softDelete" | "anonymize" | "blockDelete" | null,
 ): UserDataDeleteStrategy {

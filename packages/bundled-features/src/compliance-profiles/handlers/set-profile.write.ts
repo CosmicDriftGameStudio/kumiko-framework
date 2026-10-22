@@ -20,10 +20,10 @@ const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantCompli
   entityName: "tenant-compliance-profile",
 });
 
-// Schema engt sich auf die 3 oeffentlich waehlbaren Profile (Sprint 1.7
-// X1) — minimal-no-region ist Default-Fallback fuer "noch keine Wahl",
-// nicht eine waehlbare Production-Option. Symmetrisch zu
-// SELECTABLE_PROFILE_KEYS aus der framework/compliance-Liste.
+// The schema is limited to the three publicly selectable profiles.
+// `minimal-no-region` is the default fallback while no choice has been
+// made yet, not a selectable production option. This mirrors
+// SELECTABLE_PROFILE_KEYS from the framework/compliance list.
 const profileKeySchema = z.enum(SELECTABLE_PROFILE_KEYS);
 
 // Upsert: the first call inserts, later calls update, so repeating the same values
@@ -43,8 +43,8 @@ export const setProfileWrite = defineWriteHandler({
     override: z.string().nullable().optional(),
     tenantIdOverride: z.string().min(1).optional(),
   }),
-  // SystemAdmin kann Profile fuer Customer-Setup setzen (Plattform-
-  // Operator-Pfad). TenantAdmin nur fuer eigenen Tenant.
+  // SystemAdmin can set profiles for customer setup through the platform-
+  // operator path; TenantAdmin can set them only for their own tenant.
   access: { roles: access.admin },
   description:
     "Sets or replaces a tenant's compliance profile key plus an optional JSON override, for onboarding or a later region change; a system admin may target a different tenant through tenantIdOverride.",
@@ -52,15 +52,14 @@ export const setProfileWrite = defineWriteHandler({
     const tenantId = (event.payload.tenantIdOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
     const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
-    // Override-Validation: muss parseables JSON-Object sein UND dem
-    // ComplianceProfileOverride-Schema entsprechen (S1.9 Z3 — strict-Zod
-    // mit Top-Level + Sub-Level-Whitelist via .strict()). Tippfehler
-    // wie `{ userRights: { weeks: 3 } }` werden hier rejected statt vom
-    // deepMerge silent ins Profile gespliced.
+    // The override must be parseable JSON representing an object and must
+    // conform to the ComplianceProfileOverride schema. The strict Zod
+    // top-level and nested allowlists reject typos such as
+    // `{ userRights: { weeks: 3 } }` instead of silently letting
+    // deepMerge splice them into the profile.
     //
-    // Errors via writeFailure + Kumiko-Error-Klassen (S1.10 M3) statt
-    // throw — landen so mit Path-Detail im response-body statt als
-    // generic internal_error.
+    // writeFailure and Kumiko error classes preserve path details in the
+    // response body instead of producing a generic internal_error.
     if (event.payload.override) {
       let parsed: unknown;
       try {

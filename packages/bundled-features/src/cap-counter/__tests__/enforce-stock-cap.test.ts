@@ -6,7 +6,7 @@ describe("enforceStockCap", () => {
     const at = (current: number) => enforceStockCap({ current, limit: 5, profile: "hardSlot" });
     expect(at(0).state).toBe("ok");
     expect(at(4).state).toBe("ok");
-    // Tenant hat 5 → die Anlage der 6. wird geblockt (current=5 >= 5).
+    // A tenant with 5 items is blocked from creating a 6th (`current=5 >= 5`).
     expect(at(5).state).toBe("exceeded");
     expect(at(6).state).toBe("exceeded");
   });

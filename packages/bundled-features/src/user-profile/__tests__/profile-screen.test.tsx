@@ -3,7 +3,7 @@
 // renderer/web/test-utils, duplicated locally because the renderer/web →
 // bundled-features dependency direction is forbidden.
 //
-// fw#2312: the `profile` screen is no longer a React component (ProfileScreen)
+// The `profile` screen is no longer a React component (ProfileScreen)
 // — it's a declarative projectionDetail (feature.ts, boot-tested in
 // profile-screen.boot.test.ts). Only change-email/change-password stay
 // EditExtensionSection components (re-auth flows a declarative action can't
@@ -189,7 +189,7 @@ describe("ChangeEmailSection", () => {
     expect(patchCalls[0]).toEqual({ email: "new@example.com" });
   });
 
-  // #322/3: after a successful email change, the section triggers the
+  // After a successful email change, the section triggers the
   // verification-mail send. A failure there must not reverse the success —
   // but it's no longer silently swallowed (otherwise the user waits for a
   // mail that never arrives) and the success message no longer promises a
@@ -226,7 +226,7 @@ describe("ChangeEmailSection", () => {
     }
   });
 
-  // #472/1: the server answers the verification-mail send with ok:false
+  // The server answers the verification-mail send with ok:false
   // (e.g. 4xx) WITHOUT throwing. That's a different branch than the catch
   // above — it must be logged on its own, and the change still succeeds.
   test("verification-send rejected by server (ok:false) is surfaced", async () => {

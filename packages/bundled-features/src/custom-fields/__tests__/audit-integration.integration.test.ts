@@ -1,4 +1,4 @@
-// T1.5a — Audit cross-feature integration for custom-fields.
+// Audit cross-feature integration for custom-fields.
 //
 // Verifies that all custom-field write-actions (define-tenant-field,
 // set-custom-field, clear-custom-field, delete-tenant-field) emit events

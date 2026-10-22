@@ -67,7 +67,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       if (!verified.ok) return invalidChallengeToken();
       const { userId, tenantId } = verified.payload;
 
-      // Fail closed, matching enable-confirm-preauth.write.ts (#1467):
+      // Fail closed, matching enable-confirm-preauth.write.ts:
       // this route sits behind a challenge token from a successful login,
       // but its own secret is still just a short TOTP/recovery code —
       // silently skipping the brute-force cap and single-use burn when

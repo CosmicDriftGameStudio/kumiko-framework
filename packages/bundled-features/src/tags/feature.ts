@@ -150,9 +150,9 @@ export type TagsFeatureOptions = {
   /** Row-level ownership on the tag-assignment rows themselves — orthogonal to
    *  `access`, which only gates whether a caller may dispatch assign/remove/list
    *  at all. `ownership.read` is no longer what keeps a caller from reading
-   *  assignments on host entities they can't see: that gate is default-on since
-   *  fw#2766 and derives from the entity's `parentRef`. Use `ownership.read` for
-   *  an ADDITIONAL row rule on the assignment row itself; it is AND-ed with the
+   *  assignments on host entities they can't see: that gate is default-on and
+   *  derives from the entity's `parentRef`. Use `ownership.read` for an
+   *  ADDITIONAL row rule on the assignment row itself; it is AND-ed with the
    *  host-visibility gate, never a replacement for it. Applies only to
    *  `tag-assignment`; the `tag` catalog stays tenant-wide by design.
    *

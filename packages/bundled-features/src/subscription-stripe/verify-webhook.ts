@@ -1,35 +1,34 @@
-// verifyAndParseStripeWebhook — Stripe-spezifische sig-verify +
-// event-mapping. Wird vom Plugin-Build (feature.ts) als
-// `verifyAndParseWebhook` registriert.
+// verifyAndParseStripeWebhook — Stripe-specific signature verification +
+// event mapping. Registered by the plugin build (feature.ts) as
+// `verifyAndParseWebhook`.
 //
 // **Steps:**
-//   1. Sig-verify via stripe.webhooks.constructEvent (HMAC-SHA-256
-//      gegen rawBody + Stripe-Signature-Header). Wirft bei mismatch
-//      oder älter als 5min (Replay-Protection).
+//   1. Verify the signature via stripe.webhooks.constructEvent (HMAC-SHA-256
+//      against rawBody + Stripe-Signature header). Throws on mismatch or
+//      timestamps older than 5 minutes (replay protection).
 //   1b. checkout.session.completed / .async_payment_succeeded branch off
 //       here into a PaymentEvent (one-off-payment, own aggregate) — see
-//       "One-off-payment" section below. Everything else falls through.
-//   2. Event-type-Filter: nur die 5 event-types die wir auf
-//      SubscriptionEventTypes mappen kommen weiter; alles andere
-//      returnt null (foundation antwortet 200 ignored).
-//   3. Stripe-payload → SubscriptionEvent normalisieren
-//      (status-mapping, tenant-id aus metadata, price-to-tier-Lookup).
+//       the "One-off-payment" section below. Everything else falls through.
+//   2. Event-type filter: only the 5 event types mapped to
+//      SubscriptionEventTypes continue; everything else returns null
+//      (the foundation responds with 200 ignored).
+//   3. Normalize the Stripe payload into a SubscriptionEvent
+//      (status mapping, tenant ID from metadata, price-to-tier lookup).
 //
-// **Runtime-keys (pre-tenant):** api-key + webhook-secret kommen NICHT
-// mehr aus einem mount-time-Closure, sondern werden zur Webhook-Zeit aus
-// dem `StripeWebhookRuntime` aufgelöst. Der foundation-webhook-handler
-// reicht einen system-scoped SecretsContext als 3. Arg durch; der runtime
-// liest beide Keys daraus (un-audited, system-internal) mit Fallback auf
-// die factory-options. Damit rotiert ein Key ohne Redeploy — und der
-// invoice-lazy-fetch (unten) nutzt denselben rotierten Client wie der
-// sig-verify, kein split-brain.
+// **Runtime keys (pre-tenant):** the API key and webhook secret no longer
+// come from a mount-time closure; they are resolved from `StripeWebhookRuntime`
+// at webhook time. The foundation webhook handler passes a system-scoped
+// SecretsContext as the third argument; the runtime reads both keys from it
+// (unaudited, system-internal), falling back to the factory options. This
+// allows key rotation without a redeploy, and the invoice lazy-fetch below
+// uses the same rotated client as signature verification, avoiding split-brain.
 //
 // **Invoice-event lazy-fetch:**
-// Invoice payloads carry only the subscription id (Stripe does not expand
-// subscription in webhooks), so the plugin lazy-fetches via
+// Invoice payloads carry only the subscription ID (Stripe does not expand
+// subscriptions in webhooks), so the plugin lazy-fetches via
 // `stripe.subscriptions.retrieve(subId)` to get the full subscription for
 // status/tier/period-end mapping. resource_missing (deleted between webhook
-// and retrieve) returns null; any other Stripe error becomes 503 so Stripe
+// and retrieval) returns null; any other Stripe error becomes 503 so Stripe
 // redelivers.
 
 import type {
@@ -77,18 +76,18 @@ function transientProviderRejection(error: unknown): ExtraRouteRejection {
 // =============================================================================
 
 export type StripeWebhookOptions = {
-  /** Price-to-tier-Map. Plugin liest die price-id aus dem event und
-   *  mapped auf tier-name. Fehlt die price-id im Mapping → null. App-
-   *  spezifisch, bleibt eine factory-option (kein Secret). */
+  /** Price-to-tier map. The plugin reads the price ID from the event and
+   *  maps it to a tier name. Returns null when the price ID is not mapped.
+   *  App-specific and remains a factory option, not a secret. */
   readonly priceToTier: Readonly<Record<string, string>>;
 };
 
 /**
- * Stripe-webhook-handler. Implementiert den Plugin-Contract
- * `verifyAndParseWebhook`. **Pre-tenant-resolution** — kein
- * HandlerContext; statt eines mount-time-Clients löst der `runtime` den
- * Stripe-Client + das webhook-secret zur Call-Zeit aus dem optionalen
- * system-SecretsContext (3. Arg) auf.
+ * Stripe webhook handler implementing the plugin contract
+ * `verifyAndParseWebhook`. **Pre-tenant resolution** — there is no
+ * HandlerContext; instead of using a mount-time client, `runtime` resolves
+ * the Stripe client and webhook secret at call time from the optional
+ * system SecretsContext (third argument).
  */
 export function verifyAndParseStripeWebhook(
   runtime: StripeWebhookRuntime,
@@ -104,16 +103,16 @@ export function verifyAndParseStripeWebhook(
       throw new Error("subscription-stripe: stripe-signature header missing");
     }
 
-    // 0. Runtime-resolve: api-key (für client + lazy-fetch) + webhook-
-    //    secret (für sig-verify) aus system-secrets, Fallback factory-
-    //    options. Wirft wenn beide unkonfiguriert.
+    // 0. Resolve at runtime: obtain the API key (for the client and lazy fetch)
+    //    and webhook secret (for signature verification) from system secrets,
+    //    falling back to the factory options. Throws if neither is configured.
     const { stripe, webhookSecret } = await runtime.resolve(systemSecrets);
 
-    // 1. Sig-verify. constructEvent throws bei mismatch (= invalid sig)
-    //    oder timestamp-tolerance-violation (default 5min). Foundation
-    //    mapped throw → HTTP 401. Applies to BOTH branches below — the
-    //    payment-branch only branches off AFTER this check; there's no
-    //    path that bypasses signature verification.
+    // 1. Verify the signature. constructEvent throws on a mismatch (invalid
+    //    signature) or timestamp-tolerance violation (default: 5 minutes).
+    //    The foundation maps the thrown error to HTTP 401. This applies to
+    //    BOTH branches below: the payment branch is selected only AFTER this
+    //    check, so no path bypasses signature verification.
     let event: Stripe.Event;
     try {
       event = await stripe.webhooks.constructEventAsync(rawBody, sigHeader, webhookSecret);
@@ -131,30 +130,29 @@ export function verifyAndParseStripeWebhook(
       return await parsePaymentEvent(event, stripe);
     }
 
-    // 2. Event-type-Filter — wir kennen nur 5.
+    // 2. Event-type filter — only 5 event types are supported.
     const normalizedType = mapStripeEventType(event.type);
     if (!normalizedType) {
       return null; // foundation returnt 200 ignored
     }
 
-    // 3. Payload-extraction. Stripe liefert je nach event.type
-    //    verschiedene data.object-shapes. Wir extrahieren die
-    //    Subscription-Daten — entweder direkt (subscription-events)
-    //    oder via lazy-fetch (invoice-events).
+    // 3. Extract the payload. Stripe uses different data.object shapes
+    //    depending on event.type. Extract subscription data either directly
+    //    (subscription events) or through a lazy fetch (invoice events).
     const sub = await extractSubscriptionFromEvent(event, stripe);
     if (!sub) {
-      // event-type war unter den 5 (oben gefiltert), aber payload-shape
-      // matched nicht — Stripe-SDK-Schema-Drift, defensive null.
+      // The event type passed the 5-item filter, but its payload shape did not
+      // match — treat this as Stripe SDK schema drift and return null defensively.
       return null;
     }
 
-    // 4. Tenant-resolution aus metadata. App-Builder setzt
-    //    `metadata.tenantId` beim createCheckoutSession-call.
+    // 4. Resolve the tenant from metadata. The app builder sets
+    //    `metadata.tenantId` when calling createCheckoutSession.
     const tenantId = sub.metadata?.["tenantId"];
     if (!tenantId || tenantId.length === 0) {
-      // Subscription ohne tenant-metadata → kann kein subscription
-      // erstellen ohne tenant-resolution. Drop the event silent
-      // (foundation 200 ignored). App-Owner-Bug, nicht foundation-Bug.
+      // A subscription without tenant metadata cannot be created without tenant
+      // resolution. Drop the event silently (the foundation responds with 200
+      // ignored). This is an app-owner error, not a foundation error.
       return null;
     }
 
@@ -218,7 +216,7 @@ export function mapStripeSubscriptionState(
   const periodEndUnixSec = sub.items.data[0]?.current_period_end ?? 0;
   // Stripe returns Unix-seconds; Temporal.Instant.fromEpochMilliseconds
   // expects ms. Multiply, then ISO. (No-Date-API-Guard forbids
-  // `new Date()` — static import above, not the ambient global, see #1490.)
+  // `new Date()` — static import above, not the ambient global.)
   const currentPeriodEnd = Temporal.Instant.fromEpochMilliseconds(
     periodEndUnixSec * 1000,
   ).toString();
@@ -264,9 +262,9 @@ export function mapStripeEventType(stripeType: string): SubscriptionEventType | 
   }
 }
 
-/** Stripe-status → normalisiert. Defensive: unbekannte Status →
- *  incomplete (Plugin sollte das nicht erreichen, aber wir wollen
- *  kein ungültiger status-string in der DB). */
+/** Maps Stripe statuses to normalized statuses. Unknown statuses are
+ *  mapped defensively to incomplete; the plugin should not receive them, but
+ *  an invalid status string must not be stored in the database. */
 export function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): SubscriptionStatus {
   switch (stripeStatus) {
     case "active":
@@ -293,9 +291,9 @@ export function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): Subsc
   }
 }
 
-/** Holt die Subscription aus dem Event. Subscription-events haben sie
- *  direkt im data.object; invoice-events haben nur die subscription-id
- *  und brauchen einen lazy-fetch via stripe.subscriptions.retrieve. */
+/** Gets the subscription from the event. Subscription events include it
+ *  directly in data.object; invoice events include only the subscription ID
+ *  and require a lazy fetch via stripe.subscriptions.retrieve. */
 // @wrapper-known semantic-alias
 async function extractSubscriptionFromEvent(
   event: Stripe.Event,
@@ -308,16 +306,16 @@ async function extractSubscriptionFromEvent(
       return event.data.object as Stripe.Subscription; // @cast-boundary engine-bridge
     case StripeEventTypes.invoicePaid:
     case StripeEventTypes.invoicePaymentFailed: {
-      // Lazy-fetch der subscription. invoice.subscription ist eine
-      // string-id (Stripe-Webhooks expanden nicht auto). Wir holen das
-      // full subscription-Object damit der downstream-mapping
-      // (status, tier via priceId, period-end) konsistent funktioniert.
+      // Lazy-fetch the subscription. invoice.subscription is a string ID because
+      // Stripe webhooks do not expand it automatically. Fetch the full
+      // subscription so downstream status, tier via priceId, and period-end
+      // mapping remain consistent.
       const invoice = event.data.object as Stripe.Invoice; // @cast-boundary engine-bridge
       const subRef = (invoice as { subscription?: string | Stripe.Subscription | null }) // @cast-boundary engine-payload
         .subscription;
       if (!subRef) {
-        // Invoice ohne subscription-reference (= one-shot-invoice, nicht
-        // recurring). Nicht unsere Domain — ignorieren.
+        // An invoice without a subscription reference is a one-shot invoice, not a
+        // recurring invoice. It is outside this domain and should be ignored.
         return null;
       }
       const subId = typeof subRef === "string" ? subRef : subRef.id;

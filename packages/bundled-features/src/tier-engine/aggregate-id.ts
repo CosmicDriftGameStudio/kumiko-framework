@@ -1,26 +1,25 @@
 import { v5 as uuidv5 } from "uuid";
 
-// Fixed UUID-namespace für die tier-assignment-aggregate-id-Ableitung.
-// Generiert einmalig (2026-05-02), in Stein gemeißelt: ein Wechsel würde
-// jeden existing aggregate-Stream re-keyen → kaputter event-replay,
-// kaputte projection-rebuilds, verlorener Tier-Wechsel-Audit. Der
-// drift-pin-Test in feature.test.ts pinnt diese Konstante.
+// Fixed UUID namespace for deriving tier-assignment aggregate IDs.
+// Generated once and immutable: changing it would re-key every existing
+// aggregate stream, breaking event replay and projection rebuilds and losing
+// the tier-change audit. The drift-pin test in feature.test.ts pins this constant.
 const TIER_ASSIGNMENT_NAMESPACE = "8e91d2fc-8b7a-4d3e-9f4a-1c5d6e7f8a9b";
 
 /**
- * Deterministic aggregate-id für ein Tier-Assignment aus dem tenantId.
- * Pro Plattform-Tenant existiert genau ein Aggregat — uuidv5 ist
- * namespace-deterministic, identische Eingabe ergibt identischen UUID.
+ * Deterministic aggregate ID for a tier assignment derived from `tenantId`.
+ * Each platform tenant has exactly one aggregate; uuidv5 is namespace-
+ * deterministic, so identical input produces the same UUID.
  *
- * **Wann nutzen:** Sprint 5 (`stripe-sync`-Feature) wrapt einen
- * idempotent-set-tier-Handler darum: zweiter Stripe-Webhook-Retry mit
- * derselben tenantId → derselbe aggregate-Stream → version_conflict
- * vom Event-Store statt pg-23505 von der Read-Model-DB. ES-saubere
- * Path-Uniqueness statt DB-Constraint.
+ * **When to use:** The `stripe-sync` feature wraps an idempotent
+ * set-tier handler with this function: a second Stripe webhook retry for
+ * the same `tenantId` targets the same aggregate stream, causing
+ * `version_conflict` from the event store instead of `pg-23505` from the
+ * read-model database. This enforces path uniqueness rather than a database
+ * constraint.
  *
- * **Sprint 1 nutzt das nicht aktiv** — Standard-CRUD-Handlers vergeben
- * UUID via `gen_random_uuid()`. Die Funktion lebt hier als Utility-
- * Export bereit für Sprint 5.
+ * Standard CRUD handlers instead generate UUIDs via `gen_random_uuid()`.
+ * This utility is exported for use by the `stripe-sync` feature.
  */
 // @wrapper-known uuid-domain
 export function tierAssignmentAggregateId(tenantId: string): string {

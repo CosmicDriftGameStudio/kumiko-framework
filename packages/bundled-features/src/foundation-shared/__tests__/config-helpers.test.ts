@@ -1,10 +1,9 @@
-// config-helpers Unit-Tests (Phase 1, test-luecken-integration).
+// config-helpers unit tests.
 //
-// Pinnt das Verhalten der von ai-/mail-/file-foundation geteilten
-// Narrowing-Helfer — inkl. der non-obvious Grenzfälle: requireDefined
-// narrowt NUR `undefined` (nicht falsy), und requireNonEmpty hat zwei
-// getrennte Fehlerpfade (undefined vs leer), die über die Error-Message
-// unterschieden werden.
+// Pin the behavior of the narrowing helpers shared by the ai-/mail-/file-foundation
+// packages, including the non-obvious edge cases: requireDefined narrows ONLY
+// `undefined` (not falsy values), and requireNonEmpty has two separate error paths
+// (undefined vs empty) that can be distinguished by the error message.
 
 import { describe, expect, test } from "bun:test";
 import { InternalError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
@@ -26,8 +25,8 @@ describe("requireDefined", () => {
   });
 
   test("falsy-aber-defined Werte passieren (Check ist === undefined, nicht falsy)", () => {
-    // Würde hier ein falsy-Check stehen, bräche ein numerischer Key mit Wert 0
-    // oder ein leerer-String-Default. requireNonEmpty ist der strengere Helfer.
+    // A falsy check here would reject a numeric key with value 0
+    // or an empty-string default. requireNonEmpty is the stricter helper.
     expect(requireDefined(0, "f", "n")).toBe(0);
     expect(requireDefined("", "f", "n")).toBe("");
     expect(requireDefined(false, "f", "n")).toBe(false);

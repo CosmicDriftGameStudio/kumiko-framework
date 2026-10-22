@@ -1,5 +1,5 @@
-// Stale job-run sweep (#2246): store_job_runs is a direct-write store
-// (#2243) — status is set to "running" once at onJobStart and only ever
+// Stale job-run sweep: store_job_runs is a direct-write store
+// Status is set to "running" once at onJobStart and only ever
 // flipped to "completed"/"failed" by onJobComplete/onJobFailed. If the
 // process dies mid-run (crash, OOM, kill -9), those callbacks never fire and
 // the row is stuck on "running" forever — nothing else on the read side
@@ -48,7 +48,7 @@ export async function markStaleJobRunsFailed(
   // user subject annotation as job-run-logger.ts's onJobFailed path
   // (personal: { of: "triggeredById" } on job-run-table.ts), so it is encrypted
   // under the triggering user's DEK, or the system tenant key when
-  // triggeredById is null (whenAbsent: "tenant", fw#3654). Runs are grouped by
+  // triggeredById is null (whenAbsent: "tenant"). Runs are grouped by
   // that subject: one encrypt and one updateMany per subject instead of per run.
   const stale = await selectMany<{ id: string; triggeredById: string | null }>(db, jobRunsTable, {
     status: "running",

@@ -42,7 +42,7 @@ export function parseSerializedField(raw: unknown): SerializedFieldShape | null 
   const parsed = typeof raw === "string" ? parseJsonSafe<unknown>(raw, null) : raw;
   if (!isShape(parsed)) return null;
   // Fail loud instead of silently dropping the key: a stored definition with
-  // `sensitive` predates #972 and its PII expectations (event-log exclusion,
+  // `sensitive` predates and its PII expectations (event-log exclusion,
   // forget-strip) no longer hold — the field must be recreated.
   if ("sensitive" in parsed) {
     throw new Error(

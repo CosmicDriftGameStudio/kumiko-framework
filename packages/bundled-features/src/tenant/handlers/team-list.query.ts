@@ -58,7 +58,7 @@ function compareTeamRows(a: TeamRow, b: TeamRow, field: SortField, dir: "asc" | 
   return av.localeCompare(bv) * sign;
 }
 
-// User-selected facet filters (payload.filters, fw#2224) — `status` is the
+// User-selected facet filters (payload.filters) — `status` is the
 // only filterable field here: it's synthesized from which table a row came
 // from, not a stored column, so there is nothing else meaningful to filter
 // on server-side yet. `filter` (singular, screen-level static filter) is

@@ -30,7 +30,7 @@ export type SubscriptionProviderContractOptions = {
   // Providers without portal/cancel support (e.g. Mollie) must say so
   // explicitly — a bare `if (!plugin.x) return` inside the test body makes
   // the skip invisible in test output (a coverage illusion: Stripe's
-  // portal/cancel tests and Mollie's "skip" both show as green) (#1339).
+  // portal/cancel tests and Mollie's "skip" both show as green).
   readonly hasPortal: boolean;
   readonly hasCancel: boolean;
 };

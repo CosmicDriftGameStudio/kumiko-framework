@@ -10,9 +10,9 @@ import { tierAssignmentAggregateId } from "../aggregate-id.ts";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.ts";
 import { type TierAssignmentSource, TierAssignmentSources } from "../web/constants.ts";
 
-// SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
-// Billing. Cross-tenant, daher SystemAdmin-only (kein TenantAdmin: sonst
-// Gratis-Self-Upgrade).
+// A SystemAdmin can set the tier of ANY tenant as a manual grant without
+// billing. This is cross-tenant, so it is restricted to SystemAdmin (not
+// TenantAdmin, which would allow free self-upgrades).
 //
 // Cross-tenant mechanics: ctx.forTenant(tenantId) yields a tenant-mode db bound to the target plus
 // the streamTenantId, so the event lands in the target's stream with the operator as actor.
@@ -39,11 +39,11 @@ export type SetTenantTierOptions = {
    *  and notify the other processes. Without a tierMap there is no resolver
    *  and this is a no-op. */
   readonly onAssigned?: (tenantId: TenantId, tier: string) => void;
-  /** Tier-Namen aus der tierMap-Closure — ohne sie (storage-only-Mode) bleibt
-   *  `tier` unvalidiert außer Length/Non-Empty. Mit ihr rejected der Handler
-   *  einen unbekannten Tier-Namen statt ihn stillschweigend durchzuschreiben
-   *  (featuresForTier gibt für unbekannte Namen defensiv ein leeres Set
-   *  zurück — der Tenant verliert sonst lautlos alle Tier-Gates). */
+  /** Without the tierMap closure (storage-only mode), `tier` is validated only for
+   *  length and non-emptiness. With it, the handler rejects unknown tier names
+   *  instead of silently writing them through. (featuresForTier defensively
+   *  returns an empty set for unknown names; otherwise the tenant would silently
+   *  lose all tier gates.) */
   readonly validTiers?: ReadonlySet<string>;
 };
 

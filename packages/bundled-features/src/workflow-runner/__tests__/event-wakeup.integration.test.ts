@@ -1,5 +1,4 @@
-// event-wakeup — the event-based resume path (framework#2513 Phase 3b)
-// against real Postgres.
+// event-wakeup — the event-based resume path against real Postgres.
 //
 // Fires the AWAITED domain event (not the workflow's own trigger event)
 // through a real event-dispatcher pass so event-subscriber.ts's MSP
@@ -15,7 +14,7 @@
 // workflow-runner write-handler context, which only owns workflow-runner's
 // own event types (see resume-run.write.ts's module doc) — a custom
 // business event appended from a resumed step would need the owning
-// feature's write-handler context instead, unrelated to what Phase 3b
+// feature's write-handler context instead, unrelated to what this test
 // threads through, so throw-on-mismatch is the direct probe: the run
 // reaching workflow.run-completed instead of workflow.run-failed IS the
 // assertion that ctx.steps[awaits.replied] held the expected payload.

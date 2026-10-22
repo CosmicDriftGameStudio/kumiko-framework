@@ -5,24 +5,19 @@ import {
   createSelectField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Tenant-1-zu-1: Pro Tenant genau eine Profile-Wahl.
+// One-to-one relationship: each tenant has exactly one profile selection.
 //
-// Architektur-Entscheidung (2026-05-06): Profile-Selection lebt als
-// separate Entity im compliance-profiles-Feature, NICHT als config-key
-// im tenant-Feature. Begruendung:
-//   (a) override ist strukturiertes JSON, config-key-Pattern (timezone/
-//       locale) ist key-value-flach
-//   (b) Profile-Wechsel ist audit-relevant — Event-Store gibt das
-//       automatisch fuer Entity-Writes
-//   (c) Plan-Files in docs/plans/datenschutz/compliance-profiles.md
-//       nennen sie explizit als tenantComplianceProfile-Entity
+// Profile selection is a separate entity in the compliance-profiles feature,
+// not a config key in the tenant feature, because:
+//   (a) override is structured JSON, while the config-key pattern
+//       (timezone/locale) is flat key-value data
+//   (b) profile changes are audit-relevant, which the event store handles
+//       automatically for entity writes
 //
-// Wer in 6 Monaten zweifelt warum nicht config-key: siehe oben.
-//
-// override als JSON-String in longText: kein dedizierter jsonField-Typ
-// im Framework; embedded hat festes Schema, das hier dynamisch ist.
-// Zod-Validation beim set-profile-Handler stellt Schema-Konformitaet
-// sicher.
+// override is stored as a JSON string in longText because the framework has
+// no dedicated jsonField type; embedded has a fixed schema, while this schema
+// is dynamic. Zod validation in the set-profile handler ensures schema
+// conformity.
 export const tenantComplianceProfileEntity = createEntity({
   table: "read_tenant_compliance_profiles",
   fields: {
@@ -30,19 +25,19 @@ export const tenantComplianceProfileEntity = createEntity({
       required: true,
       options: ["eu-dsgvo", "swiss-dsg", "de-hr-dsgvo-hgb", "minimal-no-region"] as const,
     }),
-    // override: JSON-String mit Partial-ComplianceProfile. NULL/leer
-    // bedeutet "Default-Profile, keine Override". Validiert beim
-    // set-profile-Handler via Zod.
+    // override: JSON string containing a partial ComplianceProfile. NULL/empty
+    // means "default profile, no override". Validated by the
+    // set-profile handler via Zod.
     override: createLongTextField({
       personal: false,
       reason: "is_business_data",
     }),
   },
   indexes: [
-    // Pro Tenant nur EIN Profile-Datensatz. Boot-Validator-Comment in
-    // EntityIndexDef warnt vor single-column-tenantId-Index als redundant
-    // — UNIQUE-Constraint ist hier aber semantisch noetig (1:1-Relation)
-    // und nicht nur Performance-Hint, daher explizit deklariert.
+    // Only one profile record is allowed per tenant. Although the boot validator
+    // warns that a single-column tenantId index is redundant, the UNIQUE
+    // constraint is semantically required here for the one-to-one relationship,
+    // not merely a performance hint, so it is declared explicitly.
     { unique: true, columns: ["tenantId"] },
   ],
 });

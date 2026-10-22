@@ -66,7 +66,7 @@ export function composeTierResolverWithGlobalToggles(
       // Non-toggleable (always-on) names must keep reaching `result` through the
       // globalCascade loop below even if this resolver's SYSTEM_TENANT_ID answer
       // satisfies the emptiness guard above without also merging always-on into
-      // every per-tenant tierSet (framework#1528).
+      // every per-tenant tierSet.
       tierManaged = new Set(
         [...managed].filter((name) => {
           const feature = registry.getFeature(name);

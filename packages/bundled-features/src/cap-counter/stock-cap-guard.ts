@@ -1,5 +1,5 @@
 // Generic stock-cap write-guard factory. Extracted from the near-identical
-// cap-guard.ts app copies in show-pony and publicstatus (infra#446) — the
+// cap-guard.ts app copies in show-pony and publicstatus — the
 // only per-app variable was the Caps shape and how to resolve it for a
 // tenant, so both are now factory parameters.
 

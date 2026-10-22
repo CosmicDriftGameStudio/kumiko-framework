@@ -1,4 +1,4 @@
-// offlot#114 — DB integration for seedAdminGuarded, the boot-seed variant
+// DB integration for seedAdminGuarded, the boot-seed variant
 // of seedAdmin that survives a blind-index miss on an otherwise-existing
 // account. Runs against a KMS + blind-index setup, which is the only
 // configuration where the bug reproduces: `email` holds per-row ciphertext,
@@ -90,7 +90,7 @@ async function membershipUserIds(): Promise<readonly string[]> {
   return rows.map((r) => r.userId);
 }
 
-/** Reproduces the offlot#112 row shape in prod: the email column keeps its
+/** Reproduces the row shape in prod: the email column keeps its
  *  ciphertext, but the blind index is blank — as it is for rows written
  *  before KUMIKO_BLIND_INDEX_KEY existed, or after a subject-key erase. */
 async function blankBlindIndex(): Promise<void> {

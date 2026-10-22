@@ -4,20 +4,20 @@ import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionToken } from "../deletion-token.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
-// TTL des Verify-Links. 60 min — lang genug für einen Mail-Roundtrip,
-// kurz genug dass ein abgefangener Link nicht ewig gültig ist.
+// Verification-link TTL: 60 minutes — long enough for an email round trip,
+// but short enough that an intercepted link does not remain valid indefinitely.
 const DELETION_VERIFY_TTL_MINUTES = 60;
 
-// Apex-Magic-Link-Versand für den anonymen Deletion-Request. Der Handler
-// gibt den Link NICHT zurück (content-Enumeration-Safety) — er ruft den
-// Callback direkt, analog sendDeletionRequestedEmail.
+// Sends the Apex magic link for an anonymous deletion request. The handler
+// does NOT return the link (content-enumeration safety); it invokes the
+// callback directly, analogous to sendDeletionRequestedEmail.
 //
-// WICHTIG (Timing-Oracle): Der Callback MUSS non-blocking sein (enqueue, z.B.
-// delivery.notify / Job), NICHT synchron senden. Er läuft nur im
-// existierenden-aktiven-User-Pfad; ein synchroner Send macht die
-// Response-Latenz für reale Accounts messbar länger als für nicht-existente
-// → Enumeration über Timing. Ein schnelles enqueue gleicht das praktisch aus.
-// Vollständige Timing-Angleichung (immer äquivalente Arbeit) ist v1-Follow-up.
+// IMPORTANT (timing oracle): The callback MUST be non-blocking (enqueue, e.g.
+// delivery.notify / Job), not send synchronously. It runs only for an
+// existing active user; a synchronous send makes response latency measurably
+// longer for real accounts than for nonexistent ones, enabling enumeration by
+// timing. A fast enqueue effectively equalizes this.
+// Complete timing equalization (always performing equivalent work) is deferred.
 export type SendDeletionVerificationEmailFn = (args: {
   readonly email: string;
   readonly verifyUrl: string;
@@ -25,12 +25,12 @@ export type SendDeletionVerificationEmailFn = (args: {
 }) => Promise<void>;
 
 export type RequestDeletionByEmailOptions = {
-  /** HMAC-Secret zum Signieren des Verify-Tokens. Ohne Secret ist der Flow
-   *  deaktiviert (Handler antwortet still mit success, kein Link). */
+  /** HMAC secret used to sign the verification token. Without a secret, the flow
+   *  is disabled (the handler silently responds with success and no link). */
   readonly deletionTokenSecret?: string;
-  /** Basis-URL des Apex-Confirm-Screens, z.B.
-   *  "https://app.example.com/delete-account/confirm". Der Handler hängt das
-   *  Token als URL-Fragment an (`#token=<token>`, fw#1554). Ohne URL kein Link. */
+  /** Base URL of the Apex confirmation screen, e.g.
+   *  "https://app.example.com/delete-account/confirm". The handler appends the
+   *  token as a URL fragment (`#token=<token>`). Without a URL, no link is sent. */
   readonly deletionVerifyUrl?: string;
   readonly sendDeletionVerificationEmail?: SendDeletionVerificationEmailFn;
 };
@@ -38,7 +38,7 @@ export type RequestDeletionByEmailOptions = {
 // Token goes in the URL fragment, not a query param — fragments never leave
 // the browser (not sent to the server, so they never land in proxy/access
 // logs, unlike `?token=`). Same convention as the export-download link
-// (feature.ts, issue #1271). Preserves any existing query params on `base`
+// (feature.ts). Preserves any existing query params on `base`
 // (`?lang=de` stays a query param; only the token is a fragment).
 const APPEND_LIFECYCLE_EVENT_REASON =
   "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream";
@@ -49,14 +49,14 @@ export function buildDeletionVerifyUrl(base: string, token: string): string {
   return url.toString();
 }
 
-// Anonymer Apex-Flow Schritt 1: "Account-Löschung beantragen" per Email.
-// DSGVO-relevant gerade wenn der User sich NICHT mehr einloggen kann
-// (Lockout). Email → Magic-Link → confirm-deletion-by-token.
+// Anonymous Apex flow step 1: request account deletion by email.
+// This is especially relevant for GDPR when the user can no longer log in
+// (lockout). Email → magic link → confirm-deletion-by-token.
 //
-// Enumeration-safe (content): antwortet IMMER mit derselben success-Shape,
-// egal ob die Email existiert, der User aktiv ist oder der Flow konfiguriert
-// ist. Ein Link wird nur für einen existierenden, aktiven User generiert.
-// Timing-Safety hängt am non-blocking Callback (siehe Type-Doc oben).
+// Enumeration-safe (content): always returns the same success shape,
+// regardless of whether the email exists, the user is active, or the flow is
+// configured. A link is generated only for an existing, active user.
+// Timing safety depends on the non-blocking callback (see the type doc above).
 export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmailOptions = {}) {
   return defineWriteHandler({
     name: "request-deletion-by-email",
@@ -66,7 +66,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       "Mails an account-deletion verification link to the given address, for a user who wants to be erased but can no longer log in; it answers identically whether or not the address belongs to an active account and never returns the link.",
     // Mails a deletion link to any address the caller names.
     agent: { risk: "high" },
-    // Defense-in-depth gegen Email-Probing auf dem anonymen Endpoint.
+    // Defense in depth against email probing on the anonymous endpoint.
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     escapeHatch: {
       grants: ["unsafeRaw", "globalWrites"],
@@ -75,7 +75,8 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     handler: async (event, ctx) => {
       const success = { isSuccess: true as const, data: { kind: "requested" as const } };
 
-      // not-configured-safe: ohne Secret/URL kein Link, aber gleiche Antwort.
+      // Safe when not configured: without a secret or URL, no link is sent, but the response is
+      // unchanged.
       if (!opts.deletionTokenSecret || !opts.deletionVerifyUrl) return success;
 
       const userRow = await ctx.db
@@ -88,9 +89,9 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
         return success;
       }
 
-      // Replay-Schutz (#354/1): pro Antrag eine frische requestId, die auf der
-      // user-Row landet und in die Token-HMAC-Purpose gefaltet wird. cancel
-      // nullt sie → ein nach Cancel nachgespieltes Token verifiziert nicht mehr.
+      // Replay protection: each request gets a fresh requestId, which is stored on
+      // the user row and incorporated into the token HMAC purpose. cancel
+      // nulls it, so a token replayed after cancellation no longer verifies.
       const requestId = crypto.randomUUID();
       await updateUserLifecycle(ctx.db.unsafeRaw(), userRow["id"], {
         pendingDeletionRequestId: requestId,

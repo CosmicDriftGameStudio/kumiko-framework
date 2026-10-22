@@ -1,50 +1,49 @@
-// custom-fields — Tenant- + System-scoped Custom-Field-Definitions +
-// generische Custom-Field-VALUE write-handler (host-stream-events).
+// custom-fields — tenant- and system-scoped custom-field definitions plus
+// generic custom-field value write-handlers (host-stream events).
 //
-// **Scope: supplemental business data, NO PII (#972).** Custom fields sind
-// für tenant-spezifische Zusatzinfos (Referenznummern, Flags, Kategorien) —
-// nicht für personenbezogene Daten. Das frühere `sensitive`-Flag wurde
-// entfernt; das Schema rejected es und `parseSerializedField` wirft auf
-// Alt-Definitionen. Werte stehen vollständig im Event-Log (rebuild-safe).
+// **Scope: supplemental business data, NO PII.** Custom fields are for
+// tenant-specific additional data (reference numbers, flags, categories),
+// not personally identifiable information. The former `sensitive` flag was
+// removed; the schema rejects it and `parseSerializedField` throws for legacy
+// definitions. Values are stored entirely in the event log (rebuild-safe).
 // PII belongs in schema-entity fields with a `personal` annotation
 // (crypto-shredding, event ciphertext, forget pipeline).
 //
-// **Was diese Feature liefert (B1 + B2, 2026-05-23):**
-//   1. r.entity({ name: "field-definition" }) — Definition-Storage (event-sourced).
-//   2. define-tenant-field / define-system-field — RBAC write-handlers für
-//      Definition-CRUD.
+// **This feature provides:**
+//   1. r.entity({ name: "field-definition" }) — event-sourced definition storage.
+//   2. define-tenant-field / define-system-field — RBAC write-handlers for
+//      definition CRUD.
 //   3. delete-tenant-field / delete-system-field — RBAC write-handlers.
-//   3b. update-tenant-field — Vollersatz-Edit (Bug-Bash D2); type immutable.
-//   4. set-custom-field / clear-custom-field — write-handlers für VALUES.
-//      Emittieren customField.set/.cleared-Events auf host-aggregate-stream.
-//   5. r.defineEvent für customField.set/.cleared + fieldDefinition.deleted.
-//   6. r.extendsRegistrar("customFields") — registriert die extension-name
-//      damit consumer via r.useExtension("customFields", "<entity>") opt-in.
-//   7. defineEntityListHandler — read fieldDefinitions (B1-limit: nur tenant-
-//      scope; B2-todo: system+tenant UNION als custom query).
+//   3b. update-tenant-field — full-replacement edit; type is immutable.
+//   4. set-custom-field / clear-custom-field — write-handlers for VALUES.
+//      They emit customField.set/.cleared events on the host aggregate stream.
+//   5. r.defineEvent for customField.set/.cleared + fieldDefinition.deleted.
+//   6. r.extendsRegistrar("customFields") — registers the extension name so
+//      consumers can opt in via r.useExtension("customFields", "<entity>").
+//   7. defineEntityListHandler — reads fieldDefinitions (currently tenant-
+//      scoped; a system+tenant UNION requires a custom query).
 //
-// **Consumer-side-Wiring** (siehe wire-for-entity.ts):
-//   Consumer ruft `wireCustomFieldsFor(r, entityName, entityTable)` auf —
-//   das registriert pro host-entity: useExtension + MSP (jsonb-projection)
-//   + postQuery-hook (flatten) + search-payload-extension.
+// **Consumer-side wiring** (see wire-for-entity.ts):
+//   The consumer calls `wireCustomFieldsFor(r, entityName, entityTable)`,
+//   which registers per host entity: useExtension + MSP (JSONB projection)
+//   + postQuery hook (flattening) + search-payload extension.
 //
-// **Host-Entity-Requirement**:
-//   Consumer MUSS in der entity-definition eine `customFields`-Spalte als
-//   `customFieldsField()` (jsonb) deklarieren.
+// **Host-entity requirement**:
+//   The consumer MUST declare a `customFields` column as
+//   `customFieldsField()` (JSONB) in the entity definition.
 //
-// **Exports-Pattern (2026-05-23 refactor)**:
+// **Exports pattern**:
 //   `createCustomFieldsFeature().exports.{setEvent,clearedEvent,fieldDefinitionDeletedEvent}`
-//   liefern typed EventDef-handles. Handler + wire-for-entity nutzen
-//   `<event>.name` als compile-time-literal-typed qualified-string — keine
-//   hand-gebauten Template-Literals mehr (T1 hat den toKebab-collapse-drift
-//   aufgedeckt, siehe Memory feedback_event_def_exports_pattern).
+//   provides typed EventDef handles. Handlers and wire-for-entity use
+//   `<event>.name` as a compile-time literal-typed qualified string instead of
+//   hand-built template literals, which drifted from the real names once
+//   toKebab collapsed them.
 //
-// **Noch offen (future iterations)**:
-//   - Cross-scope-conflict-Detection (Tenant überschreibt system fieldKey)
-//   - Cross-Scope-Read-UNION (system + tenant fieldDefinitions in einem List)
-//   (cap-counter-quota → T1.5e, user-data-rights-anonymization → T1.5c,
-//    Value-Validation gegen serializedField → set-custom-field via fieldToZod —
-//    alle erledigt.)
+// **Still open:**
+//   - Cross-scope conflict detection (a tenant overriding a system fieldKey)
+//   - Cross-scope read UNION (system + tenant fieldDefinitions in one list)
+//   (cap-counter quota, user-data-rights anonymization, and value validation
+//   against serializedField via fieldToZod in set-custom-field are complete.)
 
 import {
   defineEntityListHandler,
@@ -97,10 +96,9 @@ const fieldDefinitionDeletedSchema = z.object({
   tenantId: z.string().optional(),
 });
 
-// Handler-/Access-Varianten die zwischen Singleton und Options-Variante
-// differieren können. Alles andere registriert registerCustomFields für
-// beide identisch, damit ein neues Event/Handler nie still die
-// Options-Variante verfehlt.
+// Handler and access variants can differ between the singleton and options
+// variant. Everything else registers identically through registerCustomFields
+// so a new event or handler cannot silently be omitted from the options variant.
 type RegisterVariant = {
   readonly defineTenantHandler: WriteHandlerDef;
   readonly updateTenantHandler: WriteHandlerDef;
@@ -125,9 +123,9 @@ function registerCustomFields(
   });
   r.entity({ name: "field-definition", ...fieldDefinitionEntity });
 
-  // Event-types — qualified als "custom-fields:event:<short-name>".
-  // Returned EventDefs liefern .name als compile-time literal-typed string,
-  // den Handler + MSP-keys konsumieren statt Template-Literal-Konstruktion.
+  // Event types — qualified as "custom-fields:event:<short-name>".
+  // Returned EventDefs expose .name as a compile-time literal-typed string,
+  // which handlers and MSP keys consume instead of constructing template literals.
   // `value: z.unknown()` has no field-level schema to catalog under piiFields
   // (event PII covers string fields only), so "no PII" is a convention here,
   // not an enforced guarantee.
@@ -143,31 +141,31 @@ function registerCustomFields(
     { piiFields: "none" },
   );
 
-  // Extension-Registrar — registriert dass diese Extension existiert.
-  // Consumer-side: r.useExtension("customFields", "<entity>") MARKIERT
-  // opt-in, aber wired NICHTS automatisch. Consumer MUSS zusätzlich
-  // `wireCustomFieldsFor(r, entity, table)` aufrufen damit MSP +
-  // postQuery-hook + search-extension tatsächlich registriert werden.
-  // Empty-options-Pattern (`{}`) ist absichtlich — boot-time-onRegister-
-  // wiring würde Closure über Drizzle-Table benötigen, die der Consumer
-  // bei extendsRegistrar-Registration nicht kennt. Daher consumer-side
-  // explicit-wiring statt magic-auto-wiring.
+  // Registers that this extension exists.
+  // Consumer-side: r.useExtension("customFields", "<entity>") marks opt-in,
+  // but does not wire anything automatically. The consumer MUST also call
+  // `wireCustomFieldsFor(r, entity, table)` to register the MSP, postQuery hook,
+  // and search extension.
+  // The empty-options pattern (`{}`) is intentional: boot-time onRegister
+  // wiring would require a closure over the Drizzle table, which the consumer
+  // does not provide during extendsRegistrar registration. Explicit consumer-
+  // side wiring therefore avoids implicit magic.
   r.extendsRegistrar(CUSTOM_FIELDS_EXTENSION, {});
 
-  // Definition-CRUD handlers (B1; update kam mit Bug-Bash D2 2026-06-08).
+  // Definition CRUD handlers.
   r.writeHandler(variant.defineTenantHandler);
   r.writeHandler(defineSystemFieldHandler);
   r.writeHandler(variant.updateTenantHandler);
   r.writeHandler(variant.deleteTenantHandler);
   r.writeHandler(deleteSystemFieldHandler);
 
-  // Value-write handlers (B2). Emittieren events auf host-aggregate-stream.
+  // Value write handlers. They emit events on the host aggregate stream.
   r.writeHandler(variant.setHandler);
   r.writeHandler(variant.clearHandler);
 
-  // List-Query — tenant-scoped (B1-limit). Die CustomFieldsFormSection
-  // dispatcht diesen QN hart — Apps mit eigenem Rollen-Vokabular
-  // überschreiben die Rollen via fieldDefinitionListRoles.
+  // The list query is tenant-scoped. CustomFieldsFormSection dispatches this
+  // query name directly, so apps with their own role vocabulary must override
+  // the roles through fieldDefinitionListRoles.
   r.queryHandler(
     defineEntityListHandler("field-definition", fieldDefinitionEntity, {
       access: { roles: variant.fieldDefinitionListRoles },
@@ -193,24 +191,24 @@ const defaultCustomFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r)
 );
 
 export type CustomFieldsFeatureOptions = {
-  /** T1.5e: Quota für define-tenant-field. */
+  /** Quota for define-tenant-field. */
   readonly fieldDefinitionLimitPerTenant?: number;
-  /** Rollen für set-/clear-custom-field — die Save-Pfade der
-   *  CustomFieldsFormSection. Default ["TenantAdmin","TenantMember"];
-   *  Apps mit eigenem Rollen-Vokabular (z.B. ["Admin","Editor"]) MÜSSEN
-   *  das setzen, sonst ist der Value-Save für jeden App-User
-   *  access_denied (Role-Naming-Drift). */
+  /** Roles for set-/clear-custom-field, used by the save paths in
+   * CustomFieldsFormSection. Default ["TenantAdmin","TenantMember"];
+   * apps with their own role vocabulary (for example ["Admin","Editor"])
+   * MUST set this, otherwise value saving is access_denied for every app user
+   * (role-naming drift). */
   readonly valueWriteRoles?: readonly string[];
-  /** Rollen für custom-fields:query:field-definition:list — der Lade-Pfad
-   *  der CustomFieldsFormSection. Default ["TenantAdmin"]. Wird valueWriteRoles
-   *  gesetzt, dies aber NICHT, erben die Value-Rollen hier hinein (Union mit
-   *  dem Default, damit Admins den List-Zugriff behalten) — sonst lädt die
-   *  FormSection für Value-Writer nie (access_denied), während der Save-Pfad
-   *  offen wäre (asymmetrischer Bruch). */
+  /** Roles for custom-fields:query:field-definition:list, used by the loading
+   * path in CustomFieldsFormSection. Default ["TenantAdmin"]. If
+   * valueWriteRoles is set but this is not, the value roles are inherited here
+   * (unioned with the default so admins retain list access); otherwise the
+   * FormSection cannot load for value writers (access_denied) while the save
+   * path remains open (an asymmetric break). */
   readonly fieldDefinitionListRoles?: readonly string[];
   /** Access roles for the definition-CRUD triad (`define-tenant-field`,
-   *  `update-tenant-field`, `delete-tenant-field`) — hard-wired to ["TenantAdmin"]
-   *  before #2296. Apps with their own role vocabulary (e.g. ["Admin","Editor"])
+   *  `update-tenant-field`, `delete-tenant-field`) — hard-wired to ["TenantAdmin"].
+   *  Apps with their own role vocabulary (e.g. ["Admin","Editor"])
    *  MUST set this, else field-definition management is access_denied for every
    *  app-user without a "TenantAdmin" role. Only covers the tenant-scope triad —
    *  define-/delete-system-field stay hard-wired to ["SystemAdmin"], since

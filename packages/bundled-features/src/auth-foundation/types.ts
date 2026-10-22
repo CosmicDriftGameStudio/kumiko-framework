@@ -80,7 +80,7 @@ export function tokenShapeKey(shape: TokenShape): string {
   return shape.kind === "jwt" ? "jwt" : `prefix:${shape.prefix}`;
 }
 
-// Session-store extension point (#1370). Unlike EXT_TOKEN_VERIFIER, this is
+// Session-store extension point. Unlike EXT_TOKEN_VERIFIER, this is
 // single-provider — sessions have no per-provider shape to route on, so
 // exactly one implementation must be registered (boot-fails on 0 or ≥2).
 
@@ -108,7 +108,7 @@ export function isSessionStoreProvider(o: unknown): o is SessionStoreProvider {
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
-// Tenant-resolution extension points (#1373). Both are single-provider and
+// Tenant-resolution extension points. Both are single-provider and
 // optional — zero registered means today's single-tenant / header-cookie
 // path (no subdomain resolver, no existence check). ≥2 fails boot.
 

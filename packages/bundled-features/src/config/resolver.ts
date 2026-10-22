@@ -583,10 +583,10 @@ export function validateAppOverrides(
       );
     }
 
-    // Per keyDef.type narrow value inline — TS narrowt nicht durch
-    // `typeof value !== typeForKey(...)` (typeForKey returnt string,
-    // kein discriminator). Das vermeidet `value as string|number` casts
-    // unten, weil value innerhalb des Branches schon typed ist.
+    // Narrow by keyDef.type inline because TypeScript cannot narrow through
+    // `typeof value !== typeForKey(...)`, whose return type is string rather
+    // than a discriminator. This avoids `value as string|number` casts below;
+    // value is correctly typed within each branch.
     if (keyDef.type === "number") {
       if (typeof value !== "number") {
         throw new Error(`App-Boot-Override for "${key}": expected number, got ${typeof value}`);

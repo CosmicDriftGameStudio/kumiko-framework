@@ -1,11 +1,11 @@
-// Download-Endpoint Integration-Tests (S2.U3 Atom 4b).
+// Download-Endpoint Integration-Tests.
 //
-// Pinst beide Pfade:
+// Covers both paths:
 //   - download-by-token (Magic-Link, anonymous)
-//   - download-by-job (UI-Klick, session-auth)
+//   - download-by-job (UI-click, session-auth)
 //
-// Plus Audit-Updates (useCount, lastUsedAt, IP, UA), TTL-checks,
-// cross-user-isolation, cross-tenant-same-user.
+// Plus audit updates (useCount, lastUsedAt, IP, UA), TTL checks,
+// cross-user isolation, cross-tenant same-user.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -59,7 +59,7 @@ const tenantA = testTenantId(1);
 const tenantB = testTenantId(2);
 const aliceUser = createTestUser({ id: 42, tenantId: tenantA, roles: ["Member"] });
 const bobUser = createTestUser({ id: 43, tenantId: tenantA, roles: ["Member"] });
-// Admin fuer config-set (file-foundation:provider="inmemory")
+// Admin for config-set (file-foundation:provider="inmemory")
 const tenantAdmin = createTestUser({
   id: 99,
   tenantId: tenantA,
@@ -68,16 +68,15 @@ const tenantAdmin = createTestUser({
 
 const testEncryptionKey = randomBytes(32).toString("base64");
 
-// Test-only file-provider OHNE getSignedUrl. Pinst dass der Code-Pfad
-// signedUrlNotSupported einen UnprocessableError (422) wirft, nicht
-// generic 404. Memory `feedback_no_fake_tests`: Code-Fix ohne Test
-// waere theatre.
+// Test-only file provider without getSignedUrl. This exercises the
+// signedUrlNotSupported path, which must throw UnprocessableError (422)
+// rather than a generic 404.
 const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", (r) => {
   r.requires({ features: ["file-foundation"] });
   r.useExtension("fileProvider", "no-signed-url", {
     build: async () => ({
       async write() {
-        // no-op fuer dieses Test-Setup
+        // no-op for this test setup
       },
       async writeStream() {
         // no-op
@@ -101,7 +100,7 @@ const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", 
       async list() {
         return [];
       },
-      // **kein** getSignedUrl — pinst den 422-Pfad
+      // **no** getSignedUrl — exercises the 422 path
     }),
   });
 });
@@ -128,9 +127,9 @@ beforeAll(async () => {
       configEncryption: encryption,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
-    // Anonymous-Access fuer den Magic-Link-Pfad (Atom 4b httpRoute-Wrapper).
-    // tenant-context kommt von job.requestedFromTenantId nach Token-Lookup;
-    // defaultTenantId hier ist nur Fallback wenn kein X-Tenant-Header da ist.
+    // Anonymous access for the Magic-Link path (httpRoute wrapper).
+    // tenant context comes from job.requestedFromTenantId after token lookup;
+    // defaultTenantId is only a fallback when no X-Tenant header is present.
     anonymousAccess: {
       defaultTenantId: tenantA,
     },
@@ -160,8 +159,8 @@ beforeEach(async () => {
   ]);
   providerPerTenant = new Map();
 
-  // Setup file-foundation provider="inmemory" pro Tenant.
-  // Admin auf jeweiligem Tenant (tenant-config-key).
+  // Configure file-foundation provider="inmemory" for each tenant.
+  // An admin is required for each tenant's configuration key.
   await stack.http.writeOk(
     ConfigHandlers.set,
     { key: "file-foundation:config:provider", value: "inmemory" },
@@ -186,8 +185,8 @@ function buildProvider(tenantId: string): Promise<FileStorageProvider> {
 }
 
 /**
- * Helper: completed Job + Token via realen Worker-Pfad.
- * Returns {jobId, plainToken} fuer Test-Use.
+ * Creates a completed job and token through the real worker path.
+ * Returns {jobId, plainToken} for use in tests.
  */
 async function seedDoneJobWithToken(): Promise<{ jobId: string; plainToken: string }> {
   // 1. seed pending Job via real handler
@@ -336,12 +335,11 @@ describe("download-by-token :: error paths", () => {
   });
 
   test("provider ohne getSignedUrl → 422 unprocessable signedUrlNotSupported", async () => {
-    // Pinst Operator-Konfig-Bug-Pfad: provider ohne getSignedUrl-Support
-    // (z.B. local-Filesystem-Provider in Production faelschlich gemountet)
-    // → 422 statt 404. DPO sieht im Log "unprocessable" + spezifischen
-    // i18nKey, kann den Konfig-Bug diagnostizieren.
+    // Exercises the operator misconfiguration path: a provider without
+    // getSignedUrl support (for example, an incorrectly mounted local
+    // filesystem provider) returns 422 rather than 404. The specific
+    // i18nKey lets the DPO diagnose the configuration error from the log.
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    // Switch tenant-config auf den no-signed-url-Provider
     await stack.http.writeOk(
       ConfigHandlers.set,
       { key: "file-foundation:config:provider", value: "no-signed-url" },
@@ -358,7 +356,8 @@ describe("download-by-token :: error paths", () => {
     expect(body.error.code).toBe("unprocessable");
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.signedUrlNotSupported");
 
-    // Sanity: Job-Row ist immer noch done — Operator-Bug aendert nicht den Job-State
+    // The job remains done; an operator configuration error must not change
+    // the job state.
     const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
       status: string;
     }>;
@@ -384,7 +383,7 @@ describe("download-by-job :: happy path", () => {
     const body = (await res.json()) as { data: { url: string } };
     expect(body.data.url).toMatch(/^memory:\/\//);
 
-    // UI-Klick zaehlt auch als Use → audit-row updated
+    // A UI click also counts as a use, so the audit row must be updated.
     const [row] = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
       useCount: number;
       lastUsedFromIp: string | null;
@@ -394,8 +393,8 @@ describe("download-by-job :: happy path", () => {
   });
 
   test("failed Job (status != done) → 404 download.unavailable (job-Pfad)", async () => {
-    // Symmetrisch zum token-Test: gleicher Code-Pfad muss auch im job-
-    // handler 404 + unavailable raus, nicht 500.
+    // The job handler must match the token handler: return 404 + unavailable,
+    // not 500.
     const { jobId } = await seedDoneJobWithToken();
     await updateRows(stack.db, exportJobsTable, { status: "failed" }, { id: jobId });
 
@@ -539,7 +538,8 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string; i18nKey: string } };
     expect(body.error.code).toBe("not_found");
-    // Selber i18nKey wie invalid-token → keine Probing-Differenz
+    // The same i18nKey as an invalid token prevents an existence-probing
+    // distinction.
     expect(body.error.i18nKey).toBe("userDataRights.errors.download.notFound");
   });
 
@@ -566,13 +566,13 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
 
   test("cross-tenant same-user: Alice from Tenant B downloadet Tenant-A-Job → success", async () => {
     const { jobId } = await seedDoneJobWithToken();
-    // Alice loggt sich in Tenant B ein
+    // Sign Alice in to Tenant B.
     const aliceFromTenantB = createTestUser({
       id: 42,
       tenantId: tenantB,
       roles: ["Member"],
     });
-    // Membership in Tenant B persisten damit auth-stack User akzeptiert
+    // Persist Tenant B membership so the auth stack accepts this user.
     await seedRow(stack.db, tenantMembershipsTable, {
       tenantId: tenantB,
       userId: String(aliceUser.id),
@@ -588,7 +588,7 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
   });
 
   test("cross-tenant same-user: provider is resolved for the job's tenant, not the ambient session tenant", async () => {
-    // #1057 regression: createFileProviderForTenant used to read the
+    // Regression: createFileProviderForTenant used to read the
     // provider *selection* from the ambient session's ctx.config — here
     // Tenant B (Alice's session tenant) — instead of the job's own
     // Tenant A. Give Tenant A a provider WITHOUT getSignedUrl while

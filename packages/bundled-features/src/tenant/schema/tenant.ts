@@ -21,9 +21,9 @@ export const tenantEntity = createEntity({
   description:
     "A tenant, the isolated workspace every other record belongs to, holding its key and display name, whether it is enabled, and its destruction-lifecycle state.",
   table: "read_tenants",
-  // tenant.id IS the tenantId-value that every other table references as FK.
-  // Alle tenantId-Spalten sind UUID (Migration 2026-04-16) → tenant.id muss
-  // UUID sein, sonst findet der tenants-Lookup nie. Default gen_random_uuid().
+  // `tenant.id` is the `tenantId` value referenced by every other table as a foreign key.
+  // Every `tenantId` column is UUID, so `tenant.id` must also be UUID; otherwise
+  // the tenant lookup never finds a match. The default is `gen_random_uuid()`.
   fields: {
     key: createTextField({
       required: true,
@@ -59,12 +59,10 @@ export const tenantEntity = createEntity({
     destroyStartedAt: createTimestampField({}),
     destroyedAt: createTimestampField({}),
   },
-  // tenant.key wird in Admin-URLs verwendet (`admin.<host>/<key>/...`) und
-  // muss eindeutig sein. Ohne unique-constraint hätte ein konkurrenter
-  // Self-Signup-Confirm einen TOCTOU-Race zwischen generateUniqueName-
-  // isAvailable-check und insert: zwei Tabs könnten sequentiell denselben
-  // Slug claimen, beide commits durch, der dritte User landet auf einem
-  // shared admin-URL-prefix.
+  // `tenant.key` appears in admin URLs (`admin.<host>/<key>/...`) and must be unique.
+  // Without a unique constraint, concurrent self-signup confirmation could pass
+  // the `generateUniqueName` `isAvailable` check before either insert, allowing
+  // two tabs to claim the same slug and causing users to share an admin URL prefix.
   indexes: [{ unique: true, columns: ["key"] }],
 });
 

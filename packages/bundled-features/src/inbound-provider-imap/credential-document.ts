@@ -1,19 +1,19 @@
-// Connection-Dokument im per-Account-Secret-Slot
-// (inboundCredentialSecretKey(accountId), Plan §4).
+// Connection document stored in the per-account secret slot
+// (inboundCredentialSecretKey(accountId)).
 //
-// **Warum JSON im Secret statt Tenant-Config-Keys:** anders als
-// mail-transport-smtp (EIN SMTP pro Tenant) hat Inbound MEHRERE
-// Accounts pro Tenant mit verschiedenen Hosts — per-Tenant-Config-Keys
-// können das nicht tragen. Host/Port/User sind zusammen mit dem
-// Passwort ein zusammengehöriges Verbindungs-Dokument; der Slot ist
-// ohnehin encrypted-at-rest.
+// **Why JSON in the secret instead of tenant config keys:** unlike
+// mail-transport-smtp (one SMTP configuration per tenant), inbound mail
+// supports multiple accounts per tenant with different hosts, which
+// per-tenant config keys cannot represent. Host, port, and user belong
+// with the password in one connection document; the slot is encrypted
+// at rest.
 //
-// authMethod des Accounts bestimmt die Interpretation:
+// The account's authMethod determines the interpretation:
 //   password → { host, port, secure, user, password }
-//   xoauth2  → { host, port, secure, user, accessToken } — V1-Fallback:
-//              Token-Beschaffung/-Refresh gehört den OAuth-Providern
-//              (M365/Gmail, Phase 4/5); der imap-Provider konsumiert
-//              nur einen gültigen Access-Token aus dem Slot.
+//   xoauth2  → { host, port, secure, user, accessToken } — V1 fallback:
+//              OAuth providers (M365/Gmail) handle token acquisition and
+//              refresh; the imap provider only consumes a valid access
+//              token from the slot.
 
 import * as z from "zod";
 

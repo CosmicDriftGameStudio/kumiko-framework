@@ -8,19 +8,18 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Export-Job-Lifecycle (S2.U3+U4 Atom 1).
+// Export-job lifecycle.
 //
-// Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
-// User triggert `request-export` → ExportJob (status="pending"). Worker
-// pickt auf → "running" → erfolgreich "done" + downloadStorageKey gesetzt
+// User triggers `request-export` → ExportJob (status="pending"). The worker
+// picks it up → "running" → on success, "done" + downloadStorageKey set
 // + expiresAt = completedAt + compliance-profile.userRights.exportDownloadTtl
-// (per-Tenant-konfigurierbar via Override, Default 7 Tage). Bei Throw
-// oder Stale-Timeout → "failed" mit errorMessage. Stale-Timeout +
-// Storage-Cleanup-Grace ebenfalls aus dem compliance-profile.
+// (configurable per tenant via override, default 7 days). On throw or stale
+// timeout → "failed" with errorMessage. Stale timeout and storage-cleanup
+// grace are also read from the compliance profile.
 //
-// Status-Werte als Constants — Single source of truth fuer Worker,
-// Application-Code (request-export-Handler), UI-Banner (Polling) und
-// Drift-Guard im Test.
+// Status values are constants—the single source of truth for the worker,
+// application code (`request-export` handler), UI polling banner, and test
+// drift guard.
 export const EXPORT_JOB_STATUS = {
   Pending: "pending",
   Running: "running",
@@ -31,10 +30,10 @@ export const EXPORT_JOB_STATUS = {
 export type ExportJobStatus = (typeof EXPORT_JOB_STATUS)[keyof typeof EXPORT_JOB_STATUS];
 
 /**
- * DB-Constraint-Name fuer den Partial-UNIQUE-Index (1 aktiver Job pro
- * User). Single source of truth — request-export.write catched 23505
- * mit diesem Namen als Race-Schutz, Tests pinnen ihn als
- * `expectUniqueViolation`-Argument. Rename hier propagiert automatisch.
+ * Database constraint name for the partial UNIQUE index (one active job per
+ * user). This is the single source of truth: request-export.write catches
+ * 23505 with this name as race protection, and tests pin it as the
+ * `expectUniqueViolation` argument. Renaming it propagates automatically.
  */
 export const ACTIVE_JOB_CONSTRAINT = "read_export_jobs_one_active_per_user";
 
@@ -48,17 +47,16 @@ const EXPORT_JOB_STATUS_OPTIONS = [
 // **Tenant-agnostic** like userTable — one job per userId across all
 // memberships; the worker iterates cross-tenant via ctx.db.unsafeRaw (same pattern as runForgetCleanup).
 //
-// **Idempotency:** Partial-UNIQUE-Index auf `(userId)` WHERE
-// `status IN ('pending', 'running')`. User mit pending-Job kann keinen
-// zweiten parallelen Job starten — der Insert faellt mit Constraint-
-// Violation auf, der request-export-Handler (Atom 2) faengt das ab und
-// returnt den existing pending-Job (Insert-or-Return). Race-Window
-// null. Done/Failed-Jobs koennen beliebig viele pro User existieren
-// (Audit-Historie).
+// **Idempotency:** Partial UNIQUE index on `(userId)` WHERE
+// `status IN ('pending', 'running')`. A user with a pending job cannot start
+// a second parallel job—the insert fails with a constraint violation, which
+// the request-export handler catches and uses to return the existing pending
+// job (insert-or-return). This closes the race window. Done/failed jobs can
+// be retained indefinitely per user for audit history.
 //
-// **idType: "uuid"** — Job-IDs reisen ueber Process-Grenzen
-// (BullMQ-Payload, Job-Run-Logger, Audit-Events fuer DPO). Serial-IDs
-// sind nur prozess-lokal verlaesslich, UUIDs cross-process stabil.
+// **idType: "uuid"** — job IDs cross process boundaries (BullMQ payloads,
+// job-run logger, and audit events for the DPO). Serial IDs are only reliable
+// within one process; UUIDs remain stable across processes.
 export const exportJobEntity = createEntity({
   table: "read_export_jobs",
   idType: "uuid",
@@ -66,11 +64,11 @@ export const exportJobEntity = createEntity({
     "One user's GDPR Art. 20 data-export request and its lifecycle: who asked, from which tenant, the pending/running/done/failed status, the timestamps, the download storage key and expiry, and any error the export worker hit.",
 
   fields: {
-    // Tenant-agnostisch: Wert wird beim Schreiben gesetzt (Framework
-    // braucht eine tenant_id-Spalte), domain-mäßig ignoriert.
-    // Kein maxLength — folgt userTable.id + tenantMembershipsTable.userId
-    // (beide ohne maxLength). UserId-Form ist Plattform-Konzern, hier
-    // nur Storage.
+    // Tenant-agnostic: set when writing because the framework requires a
+    // tenant_id column, but ignored at the domain level.
+    // No maxLength — follows userTable.id and tenantMembershipsTable.userId
+    // (both have no maxLength). The userId shape is platform-wide; here it is
+    // only used for storage.
     userId: createTextField({
       required: true,
       searchable: true,
@@ -78,19 +76,19 @@ export const exportJobEntity = createEntity({
       reason: "pseudonymous_fk",
     }),
 
-    // **requestedFromTenantId** — der Tenant aus dem der User den Antrag
-    // gestellt hat. Persistierter Audit-Pfad fuer den Worker (welches
-    // Compliance-Profile gilt fuer Job-TTL/Stale/Cleanup) — DSGVO-
-    // konsistent: 1 User = 1 effektives Profile pro Antrag, nicht "wechselt
-    // mit jedem Cross-Tenant-Klick". Plan-Doc-Decision: Tenant aus 1. Klick
-    // (Option a). Spalte heisst nicht einfach "tenantId" damit kein
-    // Verwechseln mit der Framework-Auto-Spalte tenant_id.
+    // **requestedFromTenantId** — the tenant from which the user submitted the
+    // request. This persisted audit path tells the worker which compliance
+    // profile applies to the job TTL, stale timeout, and cleanup. This keeps
+    // one effective profile per request instead of changing with every
+    // cross-tenant click. The tenant is taken from the first click (option a).
+    // The column is not simply named "tenantId" to avoid confusion with the
+    // framework-generated tenant_id column.
     //
-    // **Atom 3b Worker-Hinweis:** Profile-Resolution muss ueber
-    // `requestedFromTenantId` laufen (`queryAs(systemUserOf(requestedFromTenantId),
-    // "compliance-profiles:query:for-tenant", {})`), NICHT ueber
-    // `executor.tenantId` — sonst kriegt ein Job-Pickup aus einem anderen
-    // Tenant-Context ein falsches Profile.
+    // **Worker note:** Profile resolution must use `requestedFromTenantId`
+    // (`queryAs(systemUserOf(requestedFromTenantId),
+    // "compliance-profiles:query:for-tenant", {})`), not
+    // `executor.tenantId`; otherwise a job picked up from another tenant
+    // context would use the wrong profile.
     requestedFromTenantId: createTextField({
       required: true,
       personal: false,
@@ -103,40 +101,40 @@ export const exportJobEntity = createEntity({
       options: EXPORT_JOB_STATUS_OPTIONS,
     }),
 
-    // Wann hat der User den Job angefordert. Required — kein Job-Row
-    // entsteht ohne Klick.
+    // When the user requested the job. Required because no job row exists
+    // without a request.
     requestedAt: createTimestampField({
       required: true,
       sortable: true,
     }),
 
-    // Wann hat der Worker mit dem Pickup angefangen. NULL solange
-    // `pending`. Stale-Detection nutzt das +
+    // When the worker began processing the job. NULL while `pending`.
+    // Stale detection uses this together with
     // compliance-profile.userRights.exportStaleTimeoutMinutes.
     startedAt: createTimestampField({}),
 
-    // Wann hat der Worker abgeschlossen (success oder fail). NULL
-    // solange running.
+    // When the worker completed the job, successfully or with failure. NULL
+    // while `running`.
     completedAt: createTimestampField({}),
 
-    // Storage-Key des fertigen ZIP-Files. NULL solange nicht `done`.
-    // Worker setzt das + die ZIP-Bytes via storage-provider.write(key).
-    // Dies ist KEIN signed-URL — der Download-Endpoint generiert den
-    // signed-URL on demand vom Storage-Provider (Atom 4).
+    // Storage key of the completed ZIP file. NULL until `done`.
+    // The worker sets this and writes the ZIP bytes via
+    // storage-provider.write(key).
+    // This is not a signed URL—the download endpoint generates the signed URL
+    // on demand through the storage provider.
     downloadStorageKey: createTextField({
       maxLength: 500,
       personal: false,
       reason: "technical_reference",
     }),
 
-    // Ab wann ist der Download nicht mehr abrufbar. Worker setzt
+    // When the download is no longer available. The worker sets
     // `completedAt + compliance-profile.userRights.exportDownloadTtl`
-    // beim Flip auf `done`. NULL fuer pending/running/failed.
+    // when switching to `done`. NULL for pending, running, and failed jobs.
     //
-    // Storage-Cleanup-Pflicht: Worker laesst nach
-    // `expiresAt + compliance-profile.userRights.exportStorageCleanupGraceHours`
-    // einen separaten Pass loeschen damit abgelaufene ZIPs nicht auf S3
-    // verbleiben.
+    // Storage cleanup requirement: after
+    // `expiresAt + compliance-profile.userRights.exportStorageCleanupGraceHours`,
+    // a separate pass deletes expired ZIPs so they do not remain on S3.
     expiresAt: createTimestampField({}),
 
     // Failed-state diagnostics. longText because hook errors with stack
@@ -147,20 +145,20 @@ export const exportJobEntity = createEntity({
       reason: "is_business_data",
     }),
 
-    // Audit-Info fuer Operator: wie gross war der Export. Hilft beim
-    // Capacity-Planning + erkennt pathologische Cases (Streaming-ZIP
-    // mit 5 GB Files schreibt mehrere Mrd Bytes, integer-Overflow waere
-    // silent + Audit-Drift).
+    // Audit information for operators: the export size. This supports capacity
+    // planning and detects pathological cases (a streaming ZIP containing 5 GB
+    // of files writes several billion bytes, so integer overflow would cause
+    // silent audit drift).
     //
-    // bigInt liefert JS-`number` Round-trip via mode:"number" — sicher
-    // bis 2^53 ≈ 9 PB, JSON-tauglich fuer das Status-Polling.
+    // bigInt provides a JS-`number` round trip via mode:"number", safe up to
+    // 2^53 ≈ 9 PB and suitable for JSON-based status polling.
     bytesWritten: createBigIntField({}),
   },
 
-  // Partial-UNIQUE-Index: nur 1 aktiver Job pro User, Done/Failed-
-  // Historie ist unbeschraenkt. request-export.write nutzt App-side-
-  // Pre-Check als primaeren Pfad + 23505-Catch dieser Constraint als
-  // Race-Schutz fuer das <1ms-Window zwischen fetchOne + crud.create.
+  // Partial UNIQUE index: only one active job per user; done/failed history
+  // is unlimited. request-export.write uses an application-side pre-check as
+  // the primary path and catches this constraint's 23505 as race protection
+  // for the <1ms window between fetchOne and crud.create.
   indexes: [
     {
       unique: true,

@@ -1,30 +1,29 @@
-// GET /api/query → user-data-rights:query:download-by-token (S2.U3 Atom 4b).
+// GET /api/query → user-data-rights:query:download-by-token.
 //
-// **Magic-Link-Pfad** (anonymous): User klickt Email-Link mit
-// `#token=<plain>` (URL fragment, issue #1271). Worker hat beim done-flip Token-Hash in DB
-// persistiert (Atom 4a). Verify-Pipeline:
+// **Magic-link path** (anonymous): The user clicks an email link with
+// `#token=<plain>` (URL fragment). The worker persisted the token hash in the database
+// when marking the job done. Verification:
 //
 //   1. hashDownloadToken(plain) → fetchOne in download-tokens
-//   2. expiresAt > now (Multi-use within TTL — Plan-Decision)
+//   2. expiresAt > now (multiple uses within the TTL)
 //   3. job.status === "done"
-//   4. job.downloadStorageKey != null (storage nicht gecleared)
-//   5. provider.getSignedUrl pflicht (501 wenn Provider local-fs ist)
-//   6. Audit-Update: useCount + 1, lastUsedAt, IP, UA (best-effort, race-tolerant)
+//   4. job.downloadStorageKey != null (storage was not cleared)
+//   5. provider.getSignedUrl is required (501 when the provider is local-fs)
+//   6. Audit update: useCount + 1, lastUsedAt, IP, UA (best-effort, race-tolerant)
 //   7. Return {url, expiresAt}
 //
-// **Sicherheit:**
-//   - Token-Hash-Compare via DB-fetchOne (nicht constant-time, aber
-//     timing-attacks auf SHA256-bytes brauchen >>10k requests + stable
-//     latenz — in Web-App-Kontext nicht ausnutzbar). Plan-Decision: harden
-//     wenn Pen-Test es flaggt.
-//   - 404 bei invalidem Token (kein Existenz-Leak) — gleicher Code-Pfad
-//     wie nicht-gefundenes Token.
-//   - tenant-agnostic: Token ist global eindeutig (UUID + SHA256), kein
-//     Tenant-Filter nötig.
+// **Security:**
+//   - Token-hash comparison via DB-fetchOne is not constant-time, but timing attacks
+//     against SHA256 bytes require >>10k requests plus stable latency and are not
+//     exploitable in a web-app context.
+//   - Invalid tokens return 404 without leaking existence, using the same code path
+//     as a token that was not found.
+//   - The token is tenant-agnostic: UUID + SHA256 makes it globally unique, so no
+//     tenant filter is needed.
 //
-// **r.httpRoute-Wrapper** (siehe feature.ts) macht 302-Redirect zu
-// signedUrl — User klickt 1× Email-Link, Browser folgt redirect, Download
-// startet. Dieser query-handler liefert nur das JSON.
+// **r.httpRoute wrapper** (see feature.ts) redirects to signedUrl with a 302. The user
+// clicks the email link once, the browser follows the redirect, and the download
+// starts. This query handler returns only the JSON.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -43,7 +42,7 @@ import { hashDownloadToken } from "../token-helpers.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
-const SIGNED_URL_TTL_SECONDS = 300; // 5 min — kurz genug fuer Replay-Schutz, lang genug fuer slow connections
+const SIGNED_URL_TTL_SECONDS = 300; // 5 min — short enough to limit replay, long enough for slow connections
 
 const DOWNLOAD_BY_TOKEN_REASON =
   "the download token, its job and audit rows are keyed by token hash / job id, not the caller's tenant — the anonymous magic-link path has no tenant context at all";
@@ -82,12 +81,11 @@ export const downloadByTokenQuery = defineQueryHandler({
     personalData: "public-intake",
   },
   agent: { expose: false },
-  // Brute-Force-Schutz fuer Token-Hash-Probing. Anonymous-Endpoint mit
-  // 32-byte-Random-Token = 256 Bit Search-Space, aber rate-limit als
-  // defense-in-depth + Schutz gegen Storm-Patterns die DB-Last erzeugen.
-  // 30 attempts/min/IP reicht fuer legitime User (mehrere Klicks bei
-  // Connection-Abbruch); blockiert automatisierte Probing-Loops.
-  // Memory `feedback_security_default_on`.
+  // Brute-force protection for token-hash probing. This anonymous endpoint uses a
+  // 32-byte random token with a 256-bit search space, but rate limiting provides
+  // defense in depth and protects against storm patterns that generate database load.
+  // 30 attempts/min/IP allows legitimate users several retries after connection
+  // failures while blocking automated probing loops.
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   escapeHatch: {
     grants: ["unsafeRaw"],
@@ -105,9 +103,9 @@ export const downloadByTokenQuery = defineQueryHandler({
     });
 
     if (!tokenRow) {
-      // Invalid token — 404 ohne Existenz-Leak. Generic NotFoundError
-      // damit alle Failure-Pfade die gleiche externe Shape haben (kein
-      // Probing zwischen "Token existiert nicht" vs "Job ist failed").
+      // Invalid token — 404 without leaking existence. Use a generic NotFoundError
+      // so all failure paths have the same external shape, preventing probing that
+      // distinguishes "Token does not exist" from "Job has failed".
       throw new NotFoundError("export-download", undefined, {
         i18nKey: "userDataRights.errors.download.notFound",
       });
@@ -116,17 +114,17 @@ export const downloadByTokenQuery = defineQueryHandler({
     const auditIp = query.payload.auditMeta?.ip ?? null;
     const auditUa = query.payload.auditMeta?.userAgent ?? null;
 
-    // Step 2: TTL-check.
+    // Step 2: TTL check.
     //
-    // **Pragma:** semantisch waere 410 Gone richtig (war mal da, jetzt
-    // nicht mehr). Framework hat keine GoneError-Class; wir nutzen
-    // NotFoundError + i18nKey "expired" als Kompromiss. UI rendert
-    // anhand des i18nKeys, nicht des HTTP-Status — also User sieht
-    // "Dein Download ist abgelaufen", nicht generic "not found".
+    // 410 Gone would be semantically right (the download existed and is now
+    // gone), but the framework has no GoneError class. NotFoundError with
+    // i18nKey "expired" is the compromise: the UI renders by i18nKey, not by
+    // HTTP status, so the user sees "Your download has expired" instead of a
+    // generic "not found".
     if (tokenRow.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
-      // Audit-Skip noch nicht moeglich — jobRow noch nicht geladen,
-      // tenantId unbekannt. Wir laden den Job hier noch fuer Audit-Context
-      // (best-effort — wenn Job auch fehlt, audit-skip ist akzeptabel).
+      // Auditing cannot be skipped yet because jobRow has not been loaded and the
+      // tenantId is unknown. Load the job to obtain audit context; if it is also
+      // missing, skipping the audit is acceptable (best-effort).
       const jobForAudit = await fetchOne<{ requestedFromTenantId: string }>(
         runner,
         exportJobsTable,
@@ -240,9 +238,9 @@ export const downloadByTokenQuery = defineQueryHandler({
       now.epochMilliseconds + SIGNED_URL_TTL_SECONDS * 1000,
     );
 
-    // Step 6: Audit-Update best-effort. auditMeta kommt vom httpRoute-
-    // Wrapper (trusted-source). Direct-API-caller koennen luegen, aber
-    // Audit ist nicht security-relevant.
+    // Step 6: Best-effort audit update. auditMeta comes from the httpRoute wrapper
+    // (trusted source). Direct API callers can falsify it, but the audit data is not
+    // security-sensitive.
     await recordDownloadUse({
       db: runner,
       tokenId: tokenRow.id,

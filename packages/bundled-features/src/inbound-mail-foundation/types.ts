@@ -1,14 +1,14 @@
-// Provider-Contract für inbound-mail-Provider-Plugins (Plan §2).
+// Provider contract for inbound-mail provider plugins.
 //
-// Gespiegelt von mail-foundation's MailTransportContext/-Plugin —
-// gleiche Trennung Foundation ↔ Provider, gleicher Slim-Context.
+// Mirrored from mail-foundation's MailTransportContext/-Plugin —
+// the Foundation/provider separation and slim context are identical.
 //
-// **Warum kein voller HandlerContext?** fetch()/watch() laufen im
-// Worker-Pfad (Poll-Cron, IDLE-Supervisor) — dort gibt es keinen
-// per-request `tx`/`actor`. Ein Plugin das mehr liest würde den
-// Worker-Pfad zur Runtime brechen, und das fiele nur in production
-// auf. Plugin das mehr braucht: InboundMailContext explizit erweitern
-// (sichtbarer breaking change) statt ctx-cast.
+// **Why not a full HandlerContext?** fetch()/watch() run in the worker
+// path (poll cron, IDLE supervisor), where there is no per-request
+// `tx`/`actor`. A plugin that reads more would break the worker path at
+// runtime, and this would only be noticed in production. Plugins that need
+// more must explicitly extend InboundMailContext (a visible breaking change)
+// instead of casting ctx.
 
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
@@ -36,23 +36,23 @@ export type InboundMailContext = {
 };
 
 /**
- * Plaintext-Sicht auf ein verbundenes Postfach, wie Provider sie sehen.
- * Die Foundation decryptet `address` VOR dem Provider-Call — Provider
- * arbeiten nie mit `kumiko-pii:`-Ciphertext (Guard analog
- * withPiiCiphertextGuard im Transport-Pfad).
+ * Plaintext view of a connected mailbox exposed to providers.
+ * The Foundation decrypts `address` BEFORE the provider call; providers
+ * never receive `kumiko-pii:` ciphertext (guard analogous to
+ * withPiiCiphertextGuard in the transport path).
  */
 export type MailAccountRecord = {
-  /** = aggregateId des mail-account-Streams; zugleich Secret-Slot-Key. */
+  /** = aggregateId of the mail-account stream and the secret-slot key. */
   readonly id: string;
   readonly tenantId: string;
-  /** Provider-Key wie bei der Extension registriert ("imap", "m365-graph",
+  /** Provider key registered with the extension ("imap", "m365-graph",
    *  "gmail-rest"). */
   readonly provider: string;
-  /** "password" | "xoauth2" | "oauth" — imap unterscheidet hierüber
-   *  Formular-Connect vs. XOAUTH2-Fallback (Plan §2). */
+  /** "password" | "xoauth2" | "oauth" — imap uses this to distinguish
+   *  form-based connect from the XOAUTH2 fallback. */
   readonly authMethod: string;
-  /** null = tenant-geteiltes Postfach, sonst persönliches Postfach
-   *  dieses Users (Sichtbarkeits-Scope, Plan Entscheidung 2). */
+  /** null = tenant-shared mailbox; otherwise this user's personal mailbox
+   *  (visibility scope). */
   readonly ownerUserId: string | null;
   /** Postfach-Adresse, Plaintext (decrypted). */
   readonly address: string;
@@ -62,36 +62,35 @@ export type MailAccountRecord = {
 };
 
 /**
- * Normalisierte eingehende Mail — Provider-Output, Ingest-Input.
- * Provider-raw-Strukturen (IMAP-Flags, Graph-Objekte) bleiben im
- * Provider; hier nur der domain-clean Schnitt.
+ * Normalized incoming mail — provider output and ingest input.
+ * Provider-specific structures (IMAP flags, Graph objects) remain in the
+ * provider; this type contains only the domain-level boundary.
  */
 export type RawInboundMessage = {
-  /** Provider-native Message-ID (IMAP UID, Graph id, Gmail id) —
-   *  Idempotency-Anchor zusammen mit providerName. */
+  /** Provider-native message ID (IMAP UID, Graph id, Gmail id) — the
+   *  idempotency anchor together with providerName. */
   readonly providerMessageId: string;
-  /** RFC-5322 Message-ID-Header ohne <>; null wenn der Header fehlt
-   *  (Foundation fällt auf deterministischen Ersatz zurück). */
+  /** RFC-5322 Message-ID header without <>; null when the header is missing
+   *  (the Foundation falls back to a deterministic replacement). */
   readonly messageIdHeader: string | null;
-  /** Provider-native Thread-/Conversation-ID falls vorhanden (Graph
-   *  conversationId, Gmail threadId); Foundation bevorzugt sie vor der
-   *  References-Chain beim threadKey-Bau. */
+  /** Provider-native thread/conversation ID when available (Graph
+   *  conversationId, Gmail threadId); the Foundation prefers it over the
+   *  References chain when building threadKey. */
   readonly providerThreadId: string | null;
-  /** References/In-Reply-To-Chain (Message-IDs ohne <>), älteste zuerst. */
+  /** References/In-Reply-To chain (message IDs without <>), oldest first. */
   readonly references: readonly string[];
   readonly from: string;
   readonly to: readonly string[];
   readonly cc: readonly string[];
   readonly subject: string;
-  /** Plaintext-Vorschau, provider-generiert oder aus dem Body geschnitten. */
+  /** Plaintext preview generated by the provider or truncated from the body. */
   readonly snippet: string;
-  /** ISO-Instant — INTERNALDATE bzw. receivedDateTime, nicht Ingest-Zeit. */
+  /** ISO instant — INTERNALDATE or receivedDateTime, not ingest time. */
   readonly receivedAtIso: string;
-  /** Raw MIME; null im snippet-only-Mode. Foundation persisted ihn nach
-   *  file-foundation und schreibt bodyRef — der Event-Store bleibt
-   *  blob-frei. */
+  /** Raw MIME; null in snippet-only mode. The Foundation persists it through
+   *  file-foundation and writes bodyRef, so the event store remains blob-free. */
   readonly rawMime: Uint8Array | null;
-  /** Generischer Scope-Hint ("inbox", Folder-Name) — keine App-Semantik. */
+  /** Generic scope hint ("inbox", folder name), with no application semantics. */
   readonly scope: string;
 };
 
@@ -103,8 +102,8 @@ export type SyncCursorPayload = Readonly<Record<string, unknown>>;
 export type InboundFetchResult = {
   readonly messages: readonly RawInboundMessage[];
   readonly nextCursor: SyncCursorPayload;
-  /** true ⇒ Foundation ruft fetch im selben Poll-Tick erneut auf
-   *  (Pagination), bis false oder maxMessages-Budget erschöpft. */
+  /** true ⇒ the Foundation calls fetch again in the same poll tick
+   *  (pagination) until false or the maxMessages budget is exhausted. */
   readonly hasMore: boolean;
 };
 
@@ -117,13 +116,13 @@ export type OAuthTokenSet = {
 };
 
 /**
- * OAuth-Teil des Contracts — nur OAuth-Provider; imap (Passwort-Modus)
- * lässt `oauth` weg. Die Routen (`/inbound-mail/connect`,
- * `/inbound-mail/oauth/callback`) stellt die Foundation generisch —
- * Provider registrieren KEINE eigenen Routen.
+ * OAuth portion of the contract — OAuth providers only; imap in password
+ * mode omits `oauth`. The Foundation provides the routes
+ * (`/inbound-mail/connect`, `/inbound-mail/oauth/callback`) generically;
+ * providers MUST NOT register their own routes.
  */
 export type InboundOAuthFlow = {
-  /** Scopes: Empfang UND Send in EINEM Consent — Re-Consent ist teuer. */
+  /** Scopes: request receive AND send in a SINGLE consent; re-consent is costly. */
   readonly scopes: {
     readonly receive: readonly string[];
     readonly send?: readonly string[];
@@ -150,17 +149,17 @@ export type InboundOAuthFlow = {
 };
 
 /**
- * Inbound-Mail-Provider-Plugin contract. Jedes Provider-Feature
- * (inbound-provider-imap, -m365-graph, -gmail-rest) registriert eine
- * Implementation via `r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION,
+ * Inbound-mail provider plugin contract. Each provider feature
+ * (inbound-provider-imap, -m365-graph, -gmail-rest) registers an
+ * implementation via `r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION,
  * "<key>", plugin)`.
  */
 export type InboundMailProviderPlugin = {
-  /** Credentials-/Erreichbarkeits-Check beim Connect-Flow — wirft
-   *  typisiert (InboundAuthError etc.), kein Rückgabewert. */
+  /** Credential/reachability check during the connect flow — throws a
+   *  typed error (InboundAuthError, etc.) and returns no value. */
   readonly verify: (ctx: InboundMailContext, account: MailAccountRecord) => Promise<void>;
-  /** Pull seit cursor. `cursor === null` ⇒ Erst-Befüllung, begrenzt
-   *  durch backfillWindowDays. */
+  /** Fetch since cursor. `cursor === null` means initial population,
+   *  limited by backfillWindowDays. */
   readonly fetch: (
     ctx: InboundMailContext,
     account: MailAccountRecord,
@@ -183,11 +182,11 @@ export type InboundMailProviderPlugin = {
   ) => Promise<InboundFetchResult>;
   /** Nur OAuth-Provider. */
   readonly oauth?: InboundOAuthFlow;
-  /** Optional: Live-Push (IMAP IDLE, später Graph/Gmail-Webhooks).
-   *  Liefert stop(). Poll bleibt Reconciliation — watch ist Latenz-
-   *  Optimierung, nie Korrektheits-Anker. `onError` meldet den Tod der
-   *  Live-Verbindung (Drop, Auth-Revoke) an den Supervisor, der mit
-   *  Backoff neu startet — der Provider reconnected NICHT selbst. */
+  /** Optional live push (IMAP IDLE, later Graph/Gmail webhooks).
+   *  Returns stop(). Polling remains reconciliation: watch optimizes
+   *  latency but is never the correctness anchor. `onError` reports a dead
+   *  live connection (drop, auth revocation) to the supervisor, which
+   *  restarts it with backoff; the provider does NOT reconnect itself. */
   readonly watch?: (
     ctx: InboundMailContext,
     account: MailAccountRecord,
@@ -201,8 +200,9 @@ export type InboundMailProviderPlugin = {
   ) => Promise<() => Promise<void>>;
 };
 
-// extension-usage `options` ist engine-payload (unknown) — strukturell
-// validieren statt blind casten (Muster isMailTransportPlugin).
+// `options` in the extension usage is an engine payload (unknown), so
+// validate its structure instead of casting blindly (patterned after
+// isMailTransportPlugin).
 export function isInboundMailProviderPlugin(o: unknown): o is InboundMailProviderPlugin {
   return (
     typeof o === "object" &&
@@ -222,18 +222,17 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
 }
 
 // =============================================================================
-// Typisierte Fehlerklassen — Foundation reagiert einheitlich im Poll
-// (Plan §2, Fehler-Tabelle):
-//   InboundAuthError          → status=auth_error, kein Retry
-//   InboundRateLimitError     → Poll-Abbruch, nächster Cron-Tick
-//   InboundCursorInvalidError → Cursor-Reset + Voll-Resync im Backfill-
-//                               Fenster; Dedup fängt Dubletten
-//   InboundTransientError     → Job-Retry (retries: 3, exponential)
+// Typed errors handled uniformly by the Foundation during polling:
+//   InboundAuthError          → status=auth_error, no retry
+//   InboundRateLimitError     → abort poll, wait for the next cron tick
+//   InboundCursorInvalidError → reset cursor + full resync in the backfill
+//                               window; deduplication handles duplicates
+//   InboundTransientError     → job retry (retries: 3, exponential)
 // =============================================================================
 //
-// `kind`-Discriminant statt instanceof: Plugin und Foundation können in
-// getrennten Bundles leben (dual-package-hazard), instanceof über
-// Realm-/Kopie-Grenzen ist unzuverlässig.
+// Use a `kind` discriminant instead of instanceof: plugins and the Foundation
+// may run in separate bundles (dual-package-hazard), and instanceof is
+// unreliable across realm or package-copy boundaries.
 
 export class InboundAuthError extends Error {
   readonly kind = "inbound-auth-error" as const;

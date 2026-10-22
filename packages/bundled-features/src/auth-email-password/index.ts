@@ -35,11 +35,11 @@ export {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
 } from "./self-registration-toggle.ts";
-// Generic HMAC-signed single-purpose token helpers. Re-exported damit
-// app-spezifische out-of-band-Flows (subscriber-confirm, magic-links,
-// invite-tokens) denselben battle-tested signer/verifier nutzen können
-// statt eigene HMAC-Logik zu duplizieren. Purpose-string diskriminiert
-// Cross-Replay zwischen Flows.
+// Generic HMAC-signed single-purpose token helpers. Re-exported so
+// app-specific out-of-band flows (subscriber-confirm, magic-links,
+// invite-tokens) can use the same battle-tested signer/verifier
+// instead of duplicating HMAC logic. The purpose string prevents
+// cross-replay between flows.
 export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "./signed-token.ts";
 export {
   type IssuedSignupActivation,

@@ -1,9 +1,10 @@
-// Security-Header für server-gerenderte Public-HTML-Pages (legal-pages,
-// managed-pages). `script-src 'none'` ist Defense-in-Depth: selbst wenn
-// HTML-Injection durchrutscht, läuft kein Script. Bewusst KEIN `default-src`
-// → Styles/Images/Fonts bleiben unrestricted (rückwärtskompatibel zu
-// Inline-<style>-Layouts wie publicstatus' renderLegalLayout).
-// nosniff/SAMEORIGIN/Referrer-Policy sind universell sichere Defaults.
+// Security headers for server-rendered public HTML pages (legal-pages,
+// managed-pages). `script-src 'none'` provides defense in depth: even if
+// HTML injection gets through, no script can run. Deliberately omit
+// `default-src` so styles, images, and fonts remain unrestricted for
+// backward compatibility with inline-<style> layouts such as
+// publicstatus' renderLegalLayout.
+// nosniff/SAMEORIGIN/Referrer-Policy are broadly safe defaults.
 const PUBLIC_PAGE_SECURITY_HEADERS = {
   "content-security-policy": "script-src 'none'; object-src 'none'; base-uri 'none'",
   "x-content-type-options": "nosniff",

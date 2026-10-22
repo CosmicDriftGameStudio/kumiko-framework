@@ -6,7 +6,7 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
 });
 
-// Funktion statt const — Temporal ist erst nach beforeAll verfuegbar.
+// A function is used because Temporal is unavailable until after beforeAll.
 function now() {
   return getTemporal().Instant.from("2026-05-07T12:00:00Z");
 }
@@ -34,8 +34,8 @@ describe("computeCutoff", () => {
 
   test("10y → 3650 Tage zurück", () => {
     const cutoff = computeCutoff("10y", now());
-    // Approximation: 10×365=3650 Tage. Differenz zu echtem Datum durch
-    // Schaltjahre: ~2-3 Tage. Akzeptabel für Retention-Cleanup.
+    // Approximation: 10×365=3650 days. Leap years cause a difference of ~2–3 days,
+    // which is acceptable for retention cleanup.
     expect(cutoff.toString()).toBe("2016-05-09T12:00:00Z");
   });
 

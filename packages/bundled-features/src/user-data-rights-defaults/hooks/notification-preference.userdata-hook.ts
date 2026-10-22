@@ -17,7 +17,7 @@ import { featureMounted } from "./feature-mounted.ts";
 // the forget verb.
 //
 // The delivery ATTEMPTS log is covered separately: export via
-// delivery-attempt.userdata-hook.ts, erasure via crypto-shredding (#799).
+// delivery-attempt.userdata-hook.ts, erasure via crypto-shredding.
 
 const crud = createEventStoreExecutor(notificationPreferencesTable, notificationPreferenceEntity, {
   entityName: "notification-preference",

@@ -1,6 +1,4 @@
 // form-draft bundle constants — feature-name + qualified handler/query names.
-//
-// Part of CosmicDriftGameStudio/kumiko-framework#1883 (wizard mode), issue #1889.
 
 import type { AccessRule } from "@cosmicdrift/kumiko-framework/engine";
 

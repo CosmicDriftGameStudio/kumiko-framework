@@ -3,18 +3,18 @@ import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../resolve-for-tenant.ts";
 import type { EffectiveRetentionPolicy } from "../resolver.ts";
 
-// retention:query:policy-for — Cross-Feature-API fuer den Forget-Flow.
+// retention:query:policy-for — Cross-feature API for the forget flow.
 //
-// user-data-rights-Sprint-2.U5 ruft das pro Entity um zu wissen ob ein
-// Forget mit "delete" oder "anonymize" oder "blockDelete-bis-Frist"
-// laufen soll. Plus Cleanup-Job-Sprint-2.D2b fuer das gleiche.
+// The forget flow calls this for each entity to determine whether it should
+// use "delete", "anonymize", or "blockDelete-bis-Frist". The cleanup job uses
+// it for the same purpose.
 //
 // Delegates to resolveRetentionPolicyForTenant so forget, the cleanup cron and
 // this query can never disagree about the tenant preset. Letting the resolver
 // load the preset itself costs one read per call, fine for a single lookup.
 //
-// access: openToAll — andere Features im selben Tenant duerfen das
-// abrufen. Keine PII im Result, nur Policy-Metadata.
+// access: openToAll — other features in the same tenant may retrieve this.
+// The result contains no PII, only policy metadata.
 export const policyForQuery = defineQueryHandler({
   name: "policy-for",
   schema: z.object({

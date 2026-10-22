@@ -3,12 +3,11 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type PageRow, pagesTable } from "../table.ts";
 
-// Public-Read by (tenantId, slug, lang). Anonymous-capable (Landing-/
-// Marketing-Pages). Tenant kommt aus query.user.tenantId — am Render-Pfad
-// via X-Tenant = Host-resolved-tenant gesetzt. Liefert NUR published Pages
-// mit Body: Drafts + leere Pages sind für anonyme Besucher unsichtbar
-// (Route → 404). Admin-Editing nutzt die Entity-List/Edit-Screens, nicht
-// diese Query.
+// Public read by (tenantId, slug, lang), including anonymous access for landing and
+// marketing pages. The tenant comes from query.user.tenantId, set on the render path
+// via X-Tenant = Host-resolved-tenant. Returns ONLY published pages with a body:
+// drafts and empty pages are invisible to anonymous visitors (the route returns 404).
+// Admin editing uses the entity list/edit screens instead of this query.
 export const bySlugQuery = defineQueryHandler({
   name: "by-slug",
   schema: z.object({

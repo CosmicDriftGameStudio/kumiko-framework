@@ -13,7 +13,7 @@ import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./web/con
 // detail via the standard handlers); the framework projects `read_ledger_accounts`
 // from its CRUD events. `parentId` null → root account; otherwise the chart-of-
 // accounts tree. `type` drives how the report layer interprets a balance. No
-// money column — balances are DERIVED from postings (Phase 1), never stored.
+// money column — balances are DERIVED from postings, never stored.
 // tenantId is a base column set by the framework → each tenant has its own books.
 export const accountEntity = createEntity({
   table: "read_ledger_accounts",
@@ -49,13 +49,13 @@ export const accountEntity = createEntity({
 // transaction — a journal entry. The balanced posting lines live embedded as
 // `lines` (embedded list: { accountId, amount }[], Σ amount = 0), so an entry is atomic:
 // the Σ=0 invariant holds within a single command, no cross-row write. The
-// framework projects `read_ledger_transactions`; Phase 1 adds a flat
-// `read_ledger_postings` projection (one row per line) for per-account/period
+// framework projects `read_ledger_transactions`; a flat
+// `read_ledger_postings` projection (one row per line) supports per-account/period
 // report queries.
 //
 // IMMUTABLE: the feature registers NO update/delete handler for transaction. A
-// posted entry is a fact; corrections are reverse-transaction (Storno) entries.
-// `status` carries draft|posted for the later Soll/Ist work — Phase 0 posts only.
+// posted entry is a fact; corrections are reverse-transaction entries.
+// `status` carries draft|posted.
 export const transactionEntity = createEntity({
   table: "read_ledger_transactions",
   description:

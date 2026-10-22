@@ -79,8 +79,8 @@ describe("seedTenant", () => {
     const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant" });
     const createdEvents = events.filter((e) => e.type === "tenant.created");
     expect(createdEvents).toHaveLength(1);
-    // Aggregate-id steht im event-row (aggregateId), nicht im payload —
-    // payload trägt die Aggregat-Felder ohne PK.
+    // The aggregate ID is stored in the event row (`aggregateId`), not the payload;
+    // the payload contains the aggregate fields without the primary key.
     expect(createdEvents[0]?.aggregateId).toBe(TENANT_A);
     const payload = createdEvents[0]?.payload as { key: string; name: string };
     expect(payload.key).toBe("tenant-a");
@@ -91,7 +91,8 @@ describe("seedTenant", () => {
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A" });
     await seedTenant(stack.db, { id: TENANT_A, key: "tenant-a", name: "Tenant A v2" });
 
-    // Projection bleibt bei Original-name (zweiter Call wurde geskippt, kein update).
+    // The projection retains the original name because the second call was skipped;
+    // it does not perform an update.
     const rows = await selectMany(stack.db, tenantTable, { id: TENANT_A });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["name"]).toBe("Tenant A");

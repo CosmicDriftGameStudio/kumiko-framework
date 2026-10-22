@@ -1,12 +1,12 @@
-// Unit-Tests für die Stripe-Plugin-Methoden (createCheckoutSession,
-// createPortalSession, cancelSubscription). Stripe-SDK-calls werden via
-// spyOn gemockt — wir testen unsere Mapping-Logik (Argumente die wir
-// an Stripe schicken + Antwort-Parsing), NICHT Stripe selbst.
+// Unit tests for the Stripe plugin methods (createCheckoutSession,
+// createPortalSession, cancelSubscription). Stripe SDK calls are mocked via
+// spyOn—we test our mapping logic (arguments sent to Stripe and response
+// parsing), NOT Stripe itself.
 //
-// **Runtime-Wrapper:** die methods nehmen jetzt einen StripeCtxRuntime
-// (löst Client + billing-live aus ctx auf), nicht mehr einen rohen
-// Stripe-Client. `ctxRuntime(stripe, billingLive)` baut einen Test-runtime
-// der den gespyten Client zurückgibt — die echte Resolution-Logik testet
+// **Runtime wrapper:** the methods now take a StripeCtxRuntime
+// (resolves the client and billing-live state from ctx), not a raw
+// Stripe client. `ctxRuntime(stripe, billingLive)` builds a test runtime
+// that returns the spied client—the actual resolution logic is tested in
 // runtime.test.ts.
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
@@ -37,8 +37,8 @@ function buildStripe(): Stripe {
   return new Stripe(TEST_API_KEY);
 }
 
-/** Test-runtime: gibt den gespyten Client zurück + ein billing-live-Gate
- *  das (default) durchlässt. */
+/** Test runtime: returns the spied client and a billing-live gate
+ *  that allows the call by default. */
 function ctxRuntime(stripe: Stripe, billingLive = true): StripeCtxRuntime {
   return {
     clientForCtx: async () => stripe,
@@ -80,9 +80,9 @@ describe("createStripeCheckoutSession", () => {
       success_url: "https://example.com/success",
       cancel_url: "https://example.com/cancel",
       submit_type: "pay",
-      // Drift-Pin: metadata.tenantId LANDET auf der subscription, NICHT
-      // auf der checkout-session direkt — sonst kann verifyAndParse-
-      // Webhook den tenant beim subsequent webhook nicht resolven.
+      // Drift-Pin: metadata.tenantId MUST LAND on the subscription, NOT
+      // directly on the checkout session; otherwise verifyAndParse-
+      // Webhook cannot resolve the tenant in the subsequent webhook.
       subscription_data: {
         metadata: { tenantId: "tenant-001" },
       },
@@ -155,7 +155,7 @@ describe("createStripeCheckoutSession", () => {
         cancelUrl: "https://x/c",
       }),
     ).rejects.toBeInstanceOf(FeatureDisabledError);
-    // Kein Stripe-Call — die Schranke greift VOR jeder Session-Erstellung.
+    // No Stripe call—the gate runs BEFORE any session is created.
     expect(createMock).not.toHaveBeenCalled();
   });
 
@@ -375,10 +375,10 @@ describe("createStripeCheckoutSession", () => {
   });
 
   test("Stripe-API-failure (z.B. 500 / network) → propagated zum Caller (Foundation mapped auf 500)", async () => {
-    // Drift-Pin: Plugin schluckt KEINE Stripe-Errors. Foundation
-    // verlässt sich darauf dass create-checkout-session-handler einen
-    // throw kriegt + zur HTTP 500 mapped (transient — Provider/Stripe
-    // soll retried werden statt silent-success-mit-leerer-URL).
+    // Drift-Pin: The plugin does NOT swallow Stripe errors. Foundation
+    // relies on create-checkout-session-handler receiving a thrown error
+    // and mapping it to HTTP 500 (transient—Provider/Stripe should be
+    // retried instead of silently succeeding with an empty URL).
     const stripe = buildStripe();
     spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
       new Error("Stripe API: Internal server error"),

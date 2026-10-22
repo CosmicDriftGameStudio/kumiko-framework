@@ -9,7 +9,7 @@ import { createSignupHandoverProvider } from "./signup-handover-provider.ts";
 
 export type TenantHandoverFeatureOptions = ClaimTenantHandoverOptions;
 
-// tenant-handover — Option A from kumiko-framework#3035: the ONE write a
+// tenant-handover — the ONE write a
 // try-before-signup (or guest-checkout, demo-to-account) flow needs once an
 // anonymous run is done and the visitor has a fresh tenant. No general
 // tenant-merge tool, no copy — this is an ownership change on rows a

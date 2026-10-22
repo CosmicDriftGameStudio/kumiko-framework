@@ -109,7 +109,7 @@ export const listQuery = defineQueryHandler({
     // capped at the page size and would silently undercount the total.
     const total =
       query.payload.totalCount === true ? await countWhere(db, jobRunsTable, where) : undefined;
-    // payload/error are stored encrypted under the triggering user's DEK (#799, #2307).
+    // payload/error are stored encrypted under the triggering user's DEK.
     return {
       rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow),
       nextCursor: hasMore ? encodeCursor(String(offset + limit)) : null,

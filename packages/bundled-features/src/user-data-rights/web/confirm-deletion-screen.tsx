@@ -1,9 +1,10 @@
-// ConfirmAccountDeletionScreen — anonymer Apex-Screen Schritt 2. Liest das
-// Token aus dem URL-Fragment (`#token=…`, nie an den Server gesendet — landet
-// so nicht in Proxy-/Access-Logs, fw#1554) und dispatcht beim Bestätigen
-// user-data-rights:write:confirm-deletion-by-token → startet die Grace-Period.
+// ConfirmAccountDeletionScreen — anonymous Apex screen, step 2. Reads the
+// token from the URL fragment (`#token=…`, never sent to the server, so it does
+// not appear in proxy/access logs) and dispatches
+// user-data-rights:write:confirm-deletion-by-token on confirmation to start the
+// grace period.
 //
-// App mountet den Screen unter der deletionVerifyUrl-Route (z.B.
+// The app mounts this screen at the deletionVerifyUrl route (for example,
 // /delete-account/confirm) via createPublicSurface.
 
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";

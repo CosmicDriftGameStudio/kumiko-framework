@@ -208,7 +208,7 @@ export const logQuery = definePagedQueryHandler({
     const nextCursor =
       rows.length === limit && lastRow ? encodeSortCursor(sortColumn, lastRow) : null;
 
-    // recipientAddress is stored encrypted under the recipient's DEK (#799)
+    // recipientAddress is stored encrypted under the recipient's DEK
     // — decrypt for the admin log view; forgotten subjects show [[erased]].
     // The notificationType/recipientAddress → type/recipient rename happens
     // here, not in the client: a projectionList screen has no entity to

@@ -98,10 +98,10 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
 
     r.config({
       keys: {
-        // Stammdaten-Settings — Tenant-Admin darf ändern, alle dürfen lesen.
+        // Core tenant settings — tenant admins can change them; all users can read them.
         companyName: createTenantConfig("text", { default: "" }),
-        // Pragmatisch kuratierte Liste — IANA hat hunderte, hier die in der
-        // Praxis relevantesten. Erweiterung später wenn echter Bedarf.
+        // Curated subset of IANA time zones covering the most relevant practical cases.
+        // Extend it when a real need arises.
         timezone: createTenantConfig("select", {
           default: "Europe/Berlin",
           options: [
@@ -124,8 +124,8 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
           options: ["de", "en", "fr", "es"],
         }),
 
-        // SMTP — nur SystemAdmin (Plattform-Operator) ändert; smtpPass ist
-        // verschlüsselt + nur für SystemAdmin lesbar.
+        // SMTP settings — only SystemAdmin (platform operator) can change them; smtpPass is
+        // encrypted and readable only by SystemAdmin.
         smtpHost: createTenantConfig("text", { write: access.systemAdmin, read: access.admin }),
         smtpPass: createTenantConfig("text", {
           write: access.systemAdmin,
@@ -133,8 +133,8 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
           encrypted: true,
         }),
 
-        // System-Settings — nur programmatisch (SYSTEM_USER) änderbar,
-        // Tenant-Admin sieht readonly.
+        // System settings — changeable only programmatically by SYSTEM_USER;
+        // tenant admins see them as read-only.
         priceModel: createSystemConfig("select", {
           default: "basic",
           options: ["basic", "pro", "enterprise"],

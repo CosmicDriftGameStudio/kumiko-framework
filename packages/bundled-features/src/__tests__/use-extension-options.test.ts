@@ -34,7 +34,7 @@ test("useExtension accepts a well-typed tenantData destroy hook", () => {
 test("useExtension rejects a tenantData destroy hook with the #3196 wrong ctx shape", () => {
   defineFeature("probe-tenant-data-wrong-ctx", (r) => {
     r.useExtension(EXT_TENANT_DATA, "x", {
-      // @ts-expect-error #3196: destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
+      // @ts-expect-error destroy ctx must be TenantDataHookCtx, not a hand-rolled { db: DbRunner; tenantId } — TenantDb is not a DbRunner.
       destroy: async (_ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => {},
     });
   });
@@ -78,7 +78,7 @@ test("useExtension's object form rejects the #3196 wrong ctx shape", () => {
     r.useExtension({
       name: EXT_TENANT_DATA,
       entity: "x",
-      // @ts-expect-error #3196: same mismatch as the positional form above.
+      // @ts-expect-error same mismatch as the positional form above.
       destroy: async (_ctx: { readonly db: DbRunner; readonly tenantId: TenantId }) => {},
     });
   });

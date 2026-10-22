@@ -76,12 +76,13 @@ export type SeedTenantMembershipOptions = {
 };
 
 export type SeedTenantOptions = {
-  /** Stable UUID — required for fixtures so the FE/BE können dieselbe ID
-   *  hardcoden (Sample-Switcher zeigt den Tenant beim Namen, der Test
-   *  prüft Memberships gegen exakt diese ID). Ohne ID müsste der Caller
-   *  den lookup-by-key extra machen. */
+  /**
+   * Stable UUID required for fixtures so the FE/BE can hardcode the same ID. The sample switcher
+   * displays the tenant by name, while tests verify memberships against this exact ID; without it,
+   * callers would need an extra lookup by key.
+   */
   readonly id: TenantId;
-  /** URL-/Slug-Form (z.B. "dev", "acme"). Indexed unique in der DB. */
+  /** URL/slug form (for example, "dev" or "acme"). Indexed unique in the database. */
   readonly key: string;
   /** Human-readable label (im Switcher angezeigt). */
   readonly name: string;
@@ -89,7 +90,7 @@ export type SeedTenantOptions = {
 };
 
 // seedTenant runs through the raw event-store executor, which fires no
-// postSave hooks (#1463) — feature-registered entity hooks on "tenant"
+// postSave hooks — feature-registered entity hooks on "tenant"
 // (e.g. tier-engine's auto-default-tier, an app's auto-default-compliance)
 // silently never run for tenants created this way. Pass `hooks` to fire
 // them explicitly, same lookup as the dispatcher (registry.getEntityPostSaveHooks
@@ -138,14 +139,14 @@ function buildSeedHookNotify(
 // registered entity/handler hooks fire (search-index/SSE system hooks are
 // wired at server-boot and out of reach here).
 //
-// Tenant re-scope (#1566): when `targetTenantId` is set we rebuild the
+// Tenant re-scope: when `targetTenantId` is set we rebuild the
 // tenant-bound pieces of the context (`_tenantId`, `db`, `notify`,
 // `hasFeature`, `user.tenantId`) — a shallow `{ ...ctx, _tenantId }` left
 // closures over the caller's tenant (self-signup is anonymous/system).
 // `query`/`write` bridges still share the caller's identity; hooks that
 // need a full identity switch use `writeAs`/`queryAs`.
 //
-// afterCommit (#1566): when `hooks.context.scheduleAfterCommit` is present
+// afterCommit: when `hooks.context.scheduleAfterCommit` is present
 // (HandlerContext from a live write), afterCommit hooks are queued onto the
 // dispatcher's sink and flush post-commit. Without a sink (fixture / plain
 // Connection) they still fire immediately — there is no outer TX to wait for.
@@ -255,20 +256,20 @@ export async function seedTenant(
   hooks?: SeedTenantHooks,
 ): Promise<{ id: TenantId }> {
   const by = options.by ?? TestUsers.systemAdmin;
-  // executor.create erwartet eine TenantDb (mit .insert()-API), nicht
-  // die rohe DbConnection. Auch wenn das Tenant-Aggregat selbst NICHT
-  // tenant-scoped ist, braucht der Wrap-Layer für die runtime-API zu
-  // existieren. by.tenantId reicht — keine Override-Semantik wie bei
-  // seedTenantMembership nötig.
+  // executor.create expects a TenantDb with an .insert()-API, not the raw
+  // DbConnection. Although the tenant aggregate is not tenant-scoped, the
+  // wrapper is required by the runtime API. by.tenantId is sufficient; unlike
+  // seedTenantMembership, no override semantics are needed.
   const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
 
   const existing = await fetchOne(db, tenantTable, { id: options.id });
   if (existing) return { id: options.id };
 
-  // Idempotenz: Aggregate kann im Event-Store existieren ohne Projection-Row
-  // (Projection-Drift nach rebuild, manuellem DELETE, oder async-lag). Wenn
-  // Stream-Version > 0 → kein create() — wäre version_conflict. Caller
-  // bekommt die ID, Projection wird beim nächsten Dispatcher-Cycle aufgebaut.
+  // Idempotency: the aggregate may exist in the event store without a
+  // projection row (projection drift after a rebuild, manual DELETE, or async
+  // lag). If the stream version is > 0, skip create() to avoid
+  // version_conflict. Return the ID; the next dispatcher cycle can rebuild the
+  // projection.
   const streamVersion = await getUnscopedAggregateStreamMaxVersion(db, options.id);
   if (streamVersion > 0) return { id: options.id };
 
@@ -311,7 +312,7 @@ export async function seedTenantMembership(
   db: DbRunner,
   options: SeedTenantMembershipOptions,
   // Optional, append-only — same rationale as seedTenant's hooks param
-  // (#1478): fires tenantMembership's postSave hooks (e.g. a Welcome-
+  // fires tenantMembership's postSave hooks (e.g. a Welcome-
   // notification or default-notification-preferences hook keyed off
   // `allOf: "tenantMembership"`) for fixtures/self-signup that opt in.
   // Omit to keep today's hook-less behavior.

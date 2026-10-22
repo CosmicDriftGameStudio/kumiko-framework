@@ -1,7 +1,7 @@
-// computeActiveRoles — client-side merge muss byte-identisch zum server-
-// side merge in auth-routes.ts (switch-tenant) + login.write.ts sein.
-// Sonst sieht client andere roles als server → role-gating divergiert
-// (entweder UI zeigt was nicht erlaubt ist, oder umgekehrt).
+// computeActiveRoles — the client-side merge must be byte-identical to the server-side merge in
+// auth-routes.ts (switch-tenant) + login.write.ts. Otherwise, the client sees different roles than
+// the server, causing role-gating to diverge (the UI may show something that is not allowed, or
+// hide something that is).
 
 import { describe, expect, test } from "bun:test";
 import type { CurrentUserProfile, TenantSummary } from "../auth-client.ts";

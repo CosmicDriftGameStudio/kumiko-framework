@@ -1,4 +1,4 @@
-// Catalog + trigger hardening for #1602 — manual-only surface.
+// Catalog + trigger hardening — manual-only surface.
 // Real HTTP via setupTestStack — no mocks, mirrors jobs-security.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

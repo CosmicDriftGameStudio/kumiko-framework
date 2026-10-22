@@ -20,7 +20,7 @@ describe("renderSafeMarkdown — XSS-Härtung", () => {
     expect(html).toContain('href="#"');
   });
 
-  // kumiko-framework#1522/#1523: CommonMark allows a tab inside a
+  // CommonMark allows a tab inside a
   // <...>-bracketed link destination; `.trim()` only strips leading/
   // trailing whitespace, so "java\tscript:" survived isSafeHref's scheme
   // regex (the tab breaks the character class before ":", the check falls
@@ -32,7 +32,7 @@ describe("renderSafeMarkdown — XSS-Härtung", () => {
     expect(html).toContain('href="#"');
   });
 
-  // kumiko-framework#1545: HTML character references decode client-side
+  // HTML character references decode client-side
   // (the browser parses them before the URL parser ever sees the value),
   // so "javascript&colon;", "java&Tab;script:" and "java&#9;script:" all
   // normalize to an executable javascript: URL on click even though none

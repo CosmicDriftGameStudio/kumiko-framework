@@ -1,4 +1,4 @@
-// resolveSessionStore + the sessionStore multiplicity boot-check (#1370).
+// resolveSessionStore + the sessionStore multiplicity boot-check.
 // Mock providers registered via r.useExtension(EXT_SESSION_STORE, ...) in
 // throwaway test-features — no real sessions provider exists yet.
 

@@ -1,15 +1,15 @@
-// #494 — ein read_users-Projection-Rebuild darf den Lifecycle-State nicht
-// wegwischen. Die user-Entity ist event-sourced bei CREATE (user.created),
-// aber Lifecycle-Mutationen (restrict/grace-period/cancel/...) waren rohe
-// updateMany OHNE Event. Ein Rebuild replayt damit nur user.created und setzt
-// status zurueck auf den Default (Active) — Datenverlust auf einem DSGVO-Pfad.
+// A read_users projection rebuild must not erase lifecycle state. The user entity
+// is event-sourced on CREATE (user.created), but lifecycle mutations
+// (restrict/grace-period/cancel/...) used to be raw updateMany calls WITHOUT an
+// event. A rebuild therefore replayed only user.created and reset status to the
+// default (Active), causing data loss on a GDPR path.
 //
-// Diskriminierend: T_create (Stream des user.created — Signup-Tenant) MUSS
-// ungleich T_active (aktiver Tenant zur Lifecycle-Zeit) sein. Nur so wird der
-// Prod-Zustand reproduziert und das Stream-Rescope eingelockt. Ein
-// same-tenant-Test gaebe falsches GREEN: er liefe sogar mit `event.user`
-// durch (gleicher Tenant -> gleicher Stream) und liesse einen Rueckbau auf
-// `event.user` unentdeckt — genau die Naht, an der prod bricht.
+// Discriminating condition: T_create (the stream receiving user.created — the
+// signup tenant) MUST differ from T_active (the tenant active at lifecycle time).
+// Only this reproduces production and locks in the stream rescope. A same-tenant
+// test would falsely pass: it would also work with `event.user` (same tenant →
+// same stream), leaving a regression to `event.user` undetected—the exact seam
+// where production fails.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -66,9 +66,9 @@ import { backfillUserLifecycleEvents, updateUserLifecycle } from "../lib/update-
 
 const RESTRICT = "user-data-rights:write:restrict-account";
 const USER_PROJECTION = "user:projection:user-entity";
-// T_create: Stream auf den user.created landet (systemAdmin-Signup-Tenant).
+// T_create: the stream receiving user.created (the systemAdmin signup tenant).
 const T_CREATE: TenantId = testTenantId(1);
-// T_active: aktiver Tenant des Users zur Lifecycle-Zeit — bewusst ungleich.
+// T_active: the user's active tenant at lifecycle time—intentionally different.
 const T_ACTIVE: TenantId = testTenantId(2);
 
 const ALICE_EMAIL = "alice.rebuild@example.com";
@@ -108,7 +108,7 @@ beforeAll(async () => {
     },
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
-  // Eigene Registry fuer den Rebuild — enthaelt die implicit read_users-Projektion.
+  // Separate registry for the rebuild; it contains the implicit read_users projection.
   registry = createRegistry(buildFeatures());
 
   await unsafeCreateEntityTable(stack.db, userEntity);
@@ -141,19 +141,18 @@ function mintActor(user: { id: string; tenantId: TenantId; roles: readonly strin
 
 describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
   test("Restricted-Status ueberlebt einen Projection-Rebuild (T_create != T_active)", async () => {
-    // Diskriminierende Praemisse: user.created landet auf systemAdmin.tenantId
-    // (= T_CREATE), Lifecycle laeuft spaeter auf T_ACTIVE. Beide ungleich.
+    // Discriminating premise: user.created lands on systemAdmin.tenantId
+    // (= T_CREATE), while the lifecycle runs later on T_ACTIVE. They must differ.
     expect(TestUsers.systemAdmin.tenantId).toBe(T_CREATE);
     expect(T_ACTIVE).not.toBe(T_CREATE);
 
-    // user.created landet auf T_CREATE (systemAdmin-Signup-Stream).
     const hash = await hashPassword(ALICE_PW);
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: ALICE_EMAIL, passwordHash: hash, displayName: "Alice" },
       await mintActor(TestUsers.systemAdmin),
     );
-    // Mitgliedschaft + Lifecycle auf einem ANDEREN, aktiven Tenant.
+    // Membership and lifecycle are deliberately performed on a DIFFERENT active tenant.
     await seedTenantMembership(stack.db, {
       userId: created.id,
       tenantId: T_ACTIVE,
@@ -164,18 +163,17 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     const restricted = await stack.http.writeOk<{ status: string }>(RESTRICT, {}, aliceActive);
     expect(restricted.status).toBe(USER_STATUS.Restricted);
 
-    // Live-Row ist Restricted (sanity).
     const before = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
       status: string;
     }>;
     expect(before[0]?.status).toBe(USER_STATUS.Restricted);
 
-    // ECHTER Rebuild der read_users-Projektion aus dem Event-Log.
+    // A real rebuild of the read_users projection from the event log.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
 
-    // RED auf aktuellem Code: restrict schrieb roh ohne Event -> der Rebuild
-    // replayt nur user.created -> status faellt auf Active zurueck.
-    // GREEN nach Stream-Rescope der Lifecycle-Handler.
+    // Before the lifecycle handlers were rescoped to the user's stream, restrict
+    // wrote directly without an event, so the rebuild replayed only user.created
+    // and reset the status to Active.
     const after = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
       status: string;
     }>;
@@ -183,8 +181,8 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
   });
 
   test("DeletionRequested + gracePeriodEnd (Date-Spalte) ueberleben den Rebuild", async () => {
-    // Direkt via Helper, ohne compliance-profile-Setup — der Fokus ist die
-    // Serialisierung der Date-Spalte durch das Event + den Reducer.
+    // Use the helper directly, without compliance-profile setup, because the focus
+    // is serializing the Date column through the event and reducer.
     const hash = await hashPassword(ALICE_PW);
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
@@ -206,15 +204,16 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
       gracePeriodEnd: typeof gracePeriodEnd | null;
     }>;
     expect(after[0]?.status).toBe(USER_STATUS.DeletionRequested);
-    // gracePeriodEnd ueberlebt den Replay WERT-genau, nicht nur non-null: ein
-    // Timezone-/Roundtrip-Fehler liefert non-null aber den falschen Instant.
-    // epoch-ms toleriert die DB-Präzision (µs) ohne sub-ms-Drift zu prüfen.
+    // gracePeriodEnd must survive replay with its exact value, not merely remain
+    // non-null: a timezone or round-trip error can produce a non-null but wrong
+    // instant. epoch-ms tolerates database precision (µs) without checking for
+    // sub-ms drift.
     expect(after[0]?.gracePeriodEnd?.epochMilliseconds).toBe(gracePeriodEnd.epochMilliseconds);
   });
 
-  // Ehrlicher Spiegel zum Forward-Test: Bestandsdaten, deren Status der ALTE
-  // raw-Pfad (ohne Event) gesetzt hat, ueberleben einen Rebuild NICHT — bis der
-  // einmalige Backfill ihren Live-State als user.updated ins Event-Log spiegelt.
+  // Honest counterpart to the forward test: existing data whose status was set by
+  // the old raw path (without an event) cannot survive a rebuild until the one-time
+  // backfill records its live state as user.updated in the event log.
   test("Bestandsdaten: alt-roh gesetzter Status wird ohne Backfill weggewischt, mit Backfill bewahrt", async () => {
     const hash = await hashPassword(ALICE_PW);
     const created = await stack.http.writeOk<{ id: string }>(
@@ -226,21 +225,21 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     // Prae-Fix-Zustand simulieren: roher Write OHNE Event.
     await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
 
-    // Ohne Backfill replayt der Rebuild nur user.created -> Status weggewischt.
+    // Without the backfill, the rebuild replays only user.created and erases the status.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
     const wiped = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
       status: string;
     }>;
     expect(wiped[0]?.status).toBe(USER_STATUS.Active);
 
-    // Bestand wieder in den divergenten Live-State bringen (der Rebuild hat ihn
-    // auf Active gesetzt) und den Reconcile laufen lassen.
+    // Restore the divergent live state (the rebuild set it to Active) before running
+    // reconciliation.
     await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
     const { backfilled, failed } = await backfillUserLifecycleEvents(stack.db);
     expect(backfilled).toBeGreaterThanOrEqual(1);
     expect(failed).toEqual([]);
 
-    // Jetzt traegt das Event-Log den State -> Rebuild bewahrt ihn.
+    // The event log now contains the state, so the rebuild preserves it.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
     const survived = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
       status: string;
@@ -284,12 +283,11 @@ describe("#494 :: read_users-Rebuild bewahrt Lifecycle-State", () => {
     expect(failed[0]?.id).toBe(badRow.id);
     expect(backfilled).toBeGreaterThanOrEqual(1);
 
-    // Proof the loop didn't abort at the corrupt row: rebuild the projection —
-    // goodRow got its user.updated event (survives). badRow's Stream ist
-    // archiviert und replayt seit fw#832 gar nicht mehr: die Row ist nach dem
-    // Rebuild WEG (nicht bloss auf Active zurueckgewischt). Genau deshalb ist
-    // der failed-Report oben der Operator-Alarm — Heilung: restoreStream +
-    // Backfill-Re-Run, DANN rebuild.
+    // Prove the loop did not abort at the corrupt row: rebuild the projection—
+    // goodRow received its user.updated event and survives. badRow's stream is
+    // archived and is no longer replayed: the row disappears after the rebuild
+    // rather than merely resetting to Active. That is why the failed report is
+    // the operator alert; recovery is restoreStream + Backfill re-run, THEN rebuild.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
     const rows = (await selectMany(stack.db, userTable, {})) as Array<{
       id: string;

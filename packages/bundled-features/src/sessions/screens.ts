@@ -28,7 +28,7 @@ export const createSessionListScreen = (
   pageSize: MAX_LIST_LIMIT,
   // Mirrors list.query's own fallback (unrecognised/absent sort → createdAt
   // desc) — kept in sync by hand, boot-validator only requires the field
-  // be present once the query accepts `sort` (fw#2230).
+  // be present once the query accepts `sort`.
   defaultSort: { field: "createdAt", dir: "desc" },
   columns: [
     { field: "id", label: i18nKey("sessions.list.col.id") },
@@ -90,7 +90,7 @@ export const createSessionDetailScreen = (
           // The shim (projection-detail-shim.ts) stamps every field as
           // type:"text" — field.renderer is the only way this screen
           // type reaches real per-type formatting instead of a raw ISO
-          // string (fw#2245).
+          // string.
           { field: "createdAt", renderer: { format: "timestamp" } },
           { field: "expiresAt", renderer: { format: "timestamp" } },
           { field: "revokedAt", renderer: { format: "timestamp" } },

@@ -1,4 +1,4 @@
-// The read twin of folders-parent-visibility.integration.test.ts (fw#2766).
+// The read twin of folders-parent-visibility.integration.test.ts.
 // set-folder/clear-folder were gated against the host row's own read path, but
 // `folder-assignment:list` returned every membership row of the tenant — and
 // unlike tags/notes, folders had no `ownership` option at all, so there was no

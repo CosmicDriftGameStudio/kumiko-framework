@@ -31,13 +31,13 @@ const localeClaimSchema = z
   .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$/)
   .optional();
 
-// Shape des verified-JWT-payloads. tenantId kommt als string aus jose und
-// wird NACH erfolgreichem parse() zur Branded TenantId — kein blind-cast.
+// Shape of verified JWT payloads. `tenantId` arrives from jose as a string and
+// becomes a branded `TenantId` only after successful `parse()`—never via a blind cast.
 //
 // `kind` is explicitly typed as "absent or undefined, nothing else" here
 // (not bare `.optional()`, which would also accept any other value on an
-// unrelated key) so an address-token payload — which always carries
-// `kind: "address"` — fails this schema instead of silently parsing with
+// unrelated key) so an address-token payload—which always carries
+// `kind: "address"`—fails this schema instead of silently parsing with
 // `addressHash` mistaken for a userId.
 const unsubscribeJwtPayloadSchema = z.object({
   kind: z.undefined().optional(),

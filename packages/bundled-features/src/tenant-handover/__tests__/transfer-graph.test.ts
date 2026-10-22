@@ -1,4 +1,4 @@
-// Adjacency resolution alone (kumiko-framework#3088, #3131) — the traversal
+// Adjacency resolution alone — the traversal
 // and its depth limit live in the mover now and are covered end-to-end in
 // claim.integration.test.ts. What matters here is that every declared edge is
 // reported against the right parent type, and that the shapes the mover must
@@ -66,7 +66,7 @@ describe("resolveTransferAdjacency", () => {
   // Adjacency is depth-free on purpose: `channelText` hangs off `campaign`
   // whether the mover reaches `campaign` in the first round or the third. That
   // is what lets a type reached by two paths of different length still have its
-  // descendants walked (#3131).
+  // descendants walked.
   test("keys each edge by the type it hangs off, not by its distance from the root", () => {
     const adjacency = resolveTransferAdjacency(
       registryOf({
@@ -96,7 +96,7 @@ describe("resolveTransferAdjacency", () => {
   });
 
   // Collapsing these by entity name would leave one edge's rows behind, which
-  // is the silent partial move #3088 exists to end.
+  // would cause a silent partial move.
   test("keeps both edges when one entity points at two types in the graph", () => {
     const adjacency = resolveTransferAdjacency(
       registryOf({

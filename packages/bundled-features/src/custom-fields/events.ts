@@ -1,17 +1,16 @@
 import * as z from "zod";
 
-// Domain-Events für custom-field-VALUES. customField.set + .cleared leben
-// auf der host-aggregate stream (Plan-Doc v2 ES-Option-B: customField-Events
-// auf demselben Stream wie die host-entity's eigene Events).
+// Domain events for custom-field values. customField.set and .cleared live
+// on the host aggregate stream, alongside the host entity's own events.
 //
-// Aggregate-Type im Event ist der host-entity-name (z.B. "property"),
-// aggregate-id ist die host-entity-row-id (z.B. property-uuid). So konsumieren
-// die customFields-MSPs nur die Events ihrer wired-entities (filtered via
-// aggregate-type-match an der jeweiligen consumer-side-MSP-Registration).
+// The event's aggregate type is the host entity name (for example, "property"),
+// and its aggregate ID is the host entity row ID (for example, property-uuid).
+// This ensures customFields-MSPs consume only events for their wired entities,
+// filtered by aggregate-type match in each consumer-side-MSP registration.
 
 export const customFieldSetSchema = z.object({
   fieldKey: z.string().min(1).max(64),
-  // Every set carries its value (custom fields hold no PII, #972) — replay
+  // Every set carries its value (custom fields hold no PII) — replay
   // reproduces the projection fully. Stays optional at the type layer only
   // because z.unknown() is inherently optional; the apply side treats
   // `value === undefined` as an anomaly and warns.

@@ -33,7 +33,7 @@ let jobRunner: JobRunner;
 
 const systemAdmin = TestUsers.systemAdmin;
 const normalUser = createTestUser({ id: 2, roles: ["User"] });
-// jobs is platform-wide, cross-tenant-by-design monitoring (fw#2077) — this
+// jobs is platform-wide, cross-tenant-by-design monitoring — this
 // SystemAdmin lives under a different tenant than `systemAdmin` above, so
 // scenario 6 can prove list/details/retry see runs across tenant boundaries.
 const otherTenantSystemAdmin = createTestUser({

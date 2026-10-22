@@ -13,7 +13,7 @@ import { type EffectiveRetentionPolicy, resolveRetentionPolicy } from "./resolve
 import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override.ts";
 
 export interface ResolveForTenantArgs {
-  // fw#2914 — a EXT_USER_DATA hook's ctx.db is a TenantDb (method-form);
+  // A EXT_USER_DATA hook's ctx.db is a TenantDb (method-form);
   // the cleanup cron's own db is still a raw DbRunner. Both are valid here —
   // this lookup is a plain tenant-scoped read either way.
   readonly db: DbRunner | TenantDb;

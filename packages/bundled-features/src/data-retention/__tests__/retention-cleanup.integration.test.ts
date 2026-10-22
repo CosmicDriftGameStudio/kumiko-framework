@@ -1,15 +1,16 @@
-// S2.D2b — retention-cleanup gegen echtes Postgres.
+// Retention cleanup against real Postgres.
 //
-// Verifiziert NICHT nur "alte Rows weg", sondern vor allem die Negativ-Faelle,
-// in denen sich Datenverlust-Bugs verstecken:
-//   - Rows INNERHALB der Retention bleiben
-//   - Rows eines ANDEREN Tenants bleiben (perTenant-Scope)
-//   - Entity OHNE Policy bleibt unangetastet
-//   - Policy mit nicht-existenter reference-Spalte → skip statt Mass-Delete
+// Verifies not only that "old rows" are removed, but especially the negative
+// cases where data-loss bugs hide:
+//   - Rows WITHIN the retention period remain
+//   - Rows belonging to ANOTHER tenant remain (perTenant scope)
+//   - An entity WITHOUT a policy remains untouched
+//   - A policy with a nonexistent reference column is skipped instead of causing
+//     a mass delete
 //
-// Deckt zudem den createdAt→insertedAt-Alias (Boot-Validator erlaubt
-// "createdAt", die Spalte heisst aber inserted_at) und beide aktiven
-// Strategien (hardDelete batched, softDelete).
+// Also covers the createdAt→insertedAt alias (the boot validator allows
+// "createdAt", but the column is named inserted_at) and both active strategies
+// (batched hardDelete, softDelete).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -41,7 +42,7 @@ const widgetEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 
-// softDelete-Strategy → setzt is_deleted/deleted_at (Entity ist softDelete).
+// softDelete strategy → sets is_deleted/deleted_at (the entity uses softDelete).
 const gadgetEntity = createEntity({
   table: "read_c7_gadget",
   softDelete: true,
@@ -53,7 +54,7 @@ const gadgetEntity = createEntity({
   retention: { keepFor: "30d", strategy: "softDelete" },
 });
 
-// Keine Policy → darf nie angefasst werden.
+// No policy → must never be touched.
 const plainEntity = createEntity({
   table: "read_c7_plain",
   fields: {
@@ -61,8 +62,8 @@ const plainEntity = createEntity({
   },
 });
 
-// reference="lastSeenAt" ist Boot-valide (Framework-Timestamp-Allowlist), aber
-// die Spalte existiert auf diesem Entity nicht → Guard muss skippen.
+// reference="lastSeenAt" is valid at boot (Framework timestamp allowlist), but
+// the column does not exist on this entity → the guard must skip it.
 const staleEntity = createEntity({
   table: "read_c7_stale",
   fields: {
@@ -71,16 +72,16 @@ const staleEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete", reference: "lastSeenAt" },
 });
 
-// blockDelete = Aufbewahrungspflicht (HGB/DSGVO-Presets: invoice/booking/
-// contract). Während keepFor muss der Cleanup diese Rows IGNORIEREN (löschen
-// wäre eine Aufbewahrungspflicht-Verletzung); NACH Ablauf laufen die
-// anonymize-Feld-Funktionen — Row bleibt, Personen-Bezug raus (fields.ts).
+// blockDelete represents a legal hold (HGB/GDPR presets: invoice/booking/
+// contract). During keepFor, cleanup must IGNORE these rows (deleting them would
+// violate the retention requirement); AFTER expiry, anonymize field functions
+// run while the row remains and its link to a person is removed (fields.ts).
 const retainedEntity = createEntity({
   table: "read_c7_retained",
   fields: {
     // No subject flag on the old fixture either — anonymize alone has no
     // PersonalAnnotations arm, so this stays a spread instead of a direct
-    // createTextField(...) override (kumiko-framework#2250).
+    // createTextField(...) override.
     label: {
       ...createTextField({ personal: false, reason: "test_fixture", required: true }),
       anonymize: () => "[ANONYMIZED]",
@@ -89,8 +90,8 @@ const retainedEntity = createEntity({
   retention: { keepFor: "30d", strategy: "blockDelete" },
 });
 
-// anonymize-Strategie: label wird nach Ablauf ueberschrieben, note traegt
-// keine anonymize-Funktion und muss unangetastet bleiben (Geschaeftsdaten).
+// anonymize strategy: label is overwritten after expiry, while note has no
+// anonymize function and must remain untouched (business data).
 const anonEntity = createEntity({
   table: "read_c7_anon",
   fields: {
@@ -108,8 +109,8 @@ const anonEntity = createEntity({
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
 
-// anonymize-Strategie OHNE anonymize-Felder — der Runner kann nichts tun und
-// muss das als skip melden statt still nichts zu tun.
+// anonymize strategy WITHOUT anonymize fields — the runner cannot act and
+// must report this as skipped rather than silently doing nothing.
 const bareEntity = createEntity({
   table: "read_c7_bare",
   fields: {
@@ -194,7 +195,7 @@ beforeAll(async () => {
     await unsafeCreateEntityTable(stack.db, e);
   }
   now = getTemporal().Now.instant();
-  pastIso = now.subtract({ hours: 60 * 24 }).toString(); // 60d alt → ueber Cutoff
+  pastIso = now.subtract({ hours: 60 * 24 }).toString(); // 60d old → past cutoff
   withinIso = now.subtract({ hours: 10 * 24 }).toString(); // 10d alt → innerhalb
 });
 
@@ -275,7 +276,7 @@ describe("runRetentionCleanup :: real postgres", () => {
 
     expect(result.softDeleted).toBe(1);
     expect(await liveGadgetLabels(T1)).toEqual(["fresh"]);
-    // Row physisch noch da (nur is_deleted=true).
+    // Row still exists physically (only is_deleted=true).
     expect(await labels("read_c7_gadget", T1)).toEqual(["expired", "fresh"]);
   });
 
@@ -448,7 +449,7 @@ describe("runRetentionCleanup :: real postgres", () => {
       });
 
     expect((await run()).anonymized).toBe(1);
-    expect((await run()).anonymized).toBe(1); // Cursor muss ueber die erledigte Row hinweg
+    expect((await run()).anonymized).toBe(1); // Cursor must advance past the already-processed row
     expect((await run()).anonymized).toBe(1);
     expect((await run()).anonymized).toBe(0); // konvergiert
 

@@ -1,9 +1,9 @@
-// fw#2134 — user:create's email-uniqueness check used to be a pure
+// user:create's email-uniqueness check used to be a pure
 // pre-flight fetchOne (TOCTOU: two concurrent creates can both pass the
 // pre-flight and both insert, see handlers/create.write.ts). This proves
 // the DB-level fix directly against the executor (bypassing the handler's
 // pre-flight entirely) — a unique index over email's blind-index column
-// rejects the loser of a genuine race, and the framework's F8 pg-23505
+// rejects the loser of a genuine race, and the framework's pg-23505
 // mapping turns that into a clean 409 unique_violation, not a 500.
 //
 // createTestDb wires no blind-index key by default (see
@@ -111,8 +111,8 @@ describe("fw#2134 — email unique constraint on the blind-index column", () => 
   test("a soft-deleted user's email becomes available for reuse (fw#2464)", async () => {
     // Soft-delete only flips isDeleted/deletedAt (apply-entity-event.ts) —
     // it never touches email/email_bidx, so the old row keeps carrying the
-    // email's bidx hash. Before fw#2464 the partial bidx unique index
-    // covered every row regardless of isDeleted, so that hash permanently
+    // email's bidx hash. Before the partial bidx unique index was changed,
+    // it covered every row regardless of isDeleted, so that hash permanently
     // blocked reuse of the email by a new or restored user. The index's
     // WHERE clause now also excludes soft-deleted rows (isDeleted = false)
     // whenever the entity has softDelete enabled, so a fresh create with

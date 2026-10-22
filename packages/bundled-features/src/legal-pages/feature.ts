@@ -24,13 +24,12 @@ import {
 
 export { type LegalPagesBootCheckCtx, runLegalPagesBootCheck } from "./lib/boot-check.ts";
 
-// QN-Konstante als dokumentierter Public-Contract des template-resolver-
-// Features. Ein magic-string statt eines Code-Imports ist hier explizit
-// gewollt: Cross-Feature-Calls gehen nur über stable Public-API
-// (handler-name + payload-shape), nicht über interne Module-Refs. Wenn
-// template-resolver's Handler-Name sich ändert, ist das ein semver-major
-// und muss in beiden Features synchronisiert werden — gleiches Risiko
-// wie bei jedem API-Endpunkt.
+// QN constant as the documented public contract of the template-resolver
+// feature. A magic string is intentional instead of a code import: cross-feature
+// calls use only the stable public API (handler name + payload shape), not
+// internal module references. If template-resolver's handler name changes, it is
+// a semver-major change and must be synchronized in both features—the same risk
+// as with any API endpoint.
 const TEXT_BLOCK_BY_SLUG_QN = "template-resolver:query:by-slug";
 
 // Return shape of bySlugQuery (template-resolver/handlers/by-slug.query.ts).
@@ -53,25 +52,25 @@ const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 // additional pages (e.g. terms/AGB).
 //
 // Cross-Feature-Decoupling:
-//   • Routes nutzen app.fetch zu "/api/query" mit dem QN-string
-//     `template-resolver:query:by-slug` — kein Code-Import von template-resolver
-//   • Boot-Check nutzt ctx.templateResolver (über extraContext) — symmetrisch
-//     zum config/tenant-Pattern
-//   • Single Type-Import (TemplateResolverApi) bleibt — type-only verstößt
-//     nicht gegen Cross-Feature-Coupling
+//   • Routes use app.fetch to "/api/query" with the QN string
+//     `template-resolver:query:by-slug`—no code import from template-resolver
+//   • The boot check uses ctx.templateResolver (via extraContext), symmetrically
+//     with the config/tenant pattern
+//   • The single type import (TemplateResolverApi) remains; type-only imports do
+//     not violate cross-feature coupling
 //
-// Voraussetzungen für Production:
-//   • App-Bootstrap muss extraContext: { templateResolver: createTemplateResolverApi(db, registry) }
-//     setzen — sonst wirft Boot-Check beim Start
-//   • anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID } — sonst
-//     antworten die Routes mit 503
+// Production requirements:
+//   • App bootstrap must set extraContext: { templateResolver: createTemplateResolverApi(db,
+//     registry) } —otherwise the boot check throws at startup
+//   • anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }—otherwise
+//     the routes respond with 503
 export type LegalPagesWrapLayout = PublicPageWrapLayout;
 
 export type LegalPagesOptions = {
-  /** Custom Layout-Wrapper für die /legal/*-Routes. Default: minimaler
-   *  HTML-Skeleton aus markdown.ts (`wrapInLayout`). Apps die ihr eigenes
-   *  Marketing-Layout (Header/Footer/Theme) auch um Legal-Body legen
-   *  wollen, übergeben hier ihre Render-Function. */
+  /** Custom layout wrapper for the /legal/* routes. Default: minimal
+   *  HTML skeleton from markdown.ts (`wrapInLayout`). Apps that want to place
+   *  their own marketing layout (header/footer/theme) around the legal body
+   *  can provide their render function here. */
   readonly wrapLayout?: LegalPagesWrapLayout;
   /** Public HTML routes to register. Default: LEGAL_ROUTES (DACH: DE+EN
    *  imprint/privacy). Non-DACH apps (other default language, additional
@@ -140,18 +139,18 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
         // Public pages backed by a DB query: bound the per-IP read rate.
         rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
         handler: async (c, { systemQuery }) => {
-          // Architektur: 1 App = X Tenants = 1 Impressum. Egal welche
-          // Subdomain der Visitor besucht (apex, admin.*, tenant-x.*) —
-          // legal-pages serven IMMER die SYSTEM_TENANT-Texte. systemQuery
-          // erzwingt SYSTEM_TENANT_ID in-process (kein X-Tenant-Header-
-          // Trick über app.fetch — der sähe für einen host-basierten
-          // anonymousAccess-Resolver wie ein Client-Override aus und würde
-          // von resolverTrust: "authoritative" zurecht abgelehnt).
+          // Architecture: 1 app = X tenants = 1 imprint. Regardless of which
+          // subdomain the visitor uses (apex, admin.*, tenant-x.*),
+          // legal-pages ALWAYS serves the SYSTEM_TENANT texts. systemQuery
+          // enforces SYSTEM_TENANT_ID in-process (no X-Tenant-Header trick
+          // through app.fetch—the host-based anonymousAccess resolver would
+          // see that as a client override and correctly reject it with
+          // resolverTrust: "authoritative").
           let data: TextBlockQueryResult;
           try {
             // @cast-boundary engine-payload — dispatcher.query returnt
-            // unknown; Shape ist durch bySlugQuery's Handler-Return-Type
-            // (siehe template-resolver/handlers/by-slug.query.ts) vertraut.
+            // unknown; the shape is trusted because of bySlugQuery's handler return type
+            // (see template-resolver/handlers/by-slug.query.ts).
             data = (await systemQuery(
               TEXT_BLOCK_BY_SLUG_QN,
               { slug: route.slug, locale: route.lang },
@@ -178,8 +177,8 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             String(data.modifiedAt ?? ""),
           ]);
           const extra = { "content-type": "text/html; charset=utf-8" };
-          // 304 (Revision unverändert) und HEAD überspringen beide das
-          // Markdown-Rendern — der Body wird ohnehin verworfen.
+          // Both 304 (unchanged revision) and HEAD skip Markdown rendering—the body
+          // would be discarded anyway.
           if (
             etagMatches(c.req.raw.headers.get("if-none-match"), etag) ||
             c.req.method === "HEAD"
@@ -228,21 +227,21 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       });
     }
 
-    // Boot-Check via ctx.templateResolver (extraContext-Pattern, symmetrisch
-    // zu requireConfigResolver in config). App-Bootstrap muss templateResolver
-    // wired haben — der Helper gibt einen klaren Wiring-Hinweis wenn nicht.
+    // Boot check via ctx.templateResolver (extraContext pattern, symmetrical
+    // with requireConfigResolver in config). App bootstrap must wire
+    // templateResolver; the helper gives a clear wiring hint if it is missing.
     //
-    // Body als named function extrahiert (`runLegalPagesBootCheck`) damit
-    // die Logik direkt unit-testbar ist statt nur indirekt über Routes.
-    // Pattern: thin job-shell ruft testable function — keine Test-Coupling
-    // zum JobRunner.
+    // The body is extracted as the named function (`runLegalPagesBootCheck`) so
+    // the logic can be unit-tested directly instead of only indirectly through
+    // routes. Pattern: a thin job shell calls a testable function, avoiding
+    // coupling tests to the JobRunner.
     r.job(
       "legal-pages-boot-check",
       {
         trigger: { manual: true },
         // bootGate, not runOnBoot: only an inline gate can actually abort the
         // boot. runOnBoot merely enqueues, so a missing imprint would fail a
-        // queue job while the pod goes ready anyway (fw#2590).
+        // queue job while the pod goes ready anyway.
         bootGate: true,
         runIn: "api",
       },

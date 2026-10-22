@@ -1,7 +1,7 @@
-// tenant:query:tenant-directory backs every `tenant:tenant` reference label
-// (fw#3142). It replaced the SystemAdmin-only tenant:query:tenant:list as
-// lookup source, so the invariants that matter: a TenantAdmin reaches it and
-// sees only their own tenant, while a SystemAdmin keeps the global reach the
+// tenant:query:tenant-directory backs every `tenant:tenant` reference label.
+// It replaced the SystemAdmin-only tenant:query:tenant:list as the lookup
+// source, so the invariants that matter: a TenantAdmin reaches it and sees
+// only their own tenant, while a SystemAdmin keeps the global reach the
 // entity-convention list gave them.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";

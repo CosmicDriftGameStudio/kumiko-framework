@@ -8,23 +8,21 @@ import type * as z from "zod";
 import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 
 // Builds a Zod schema that validates a custom-field VALUE against its
-// fieldDefinition. Reuses the framework's `fieldToZod` (Builder-Reuse /
-// Stammfeld-Identität, Plan-Doc) — one field-type-schema source, no drift
-// between Stammfeld- and Custom-Field-validation.
+// fieldDefinition. Reuses the framework's `fieldToZod` so built-in and
+// custom-field validation share one field-type schema source.
 //
-// Scope: type-shape only. fieldToZod also folds `required`, `maxLength`,
-// `format`, and `default` into Zod refinements; we strip those before the
-// call so set-custom-field rejects type-mismatches and only type-mismatches.
-// Required-on-set, default-application, and length/format-enforcement remain
-// out-of-scope per the Plan-Doc ("Stammfeld-Identität" lists them as
-// separate concerns).
+// Scope: type-shape only. `fieldToZod` also folds `required`, `maxLength`,
+// `format`, and `default` into Zod refinements; stripping them before the
+// call ensures that setting a custom field rejects only type mismatches.
+// Required-on-set, default application, and length/format enforcement remain
+// separate concerns.
 //
-// Vocabulary bridge: custom-fields expose `enum` (Plan + `r.field.enum([...])`)
-// where the framework's FieldDefinition calls the equivalent type `select`
+// Vocabulary bridge: custom fields expose `enum` through `r.field.enum([...])`,
+// while the framework's FieldDefinition calls the equivalent type `select`
 // with an `options` array.
 //
 // Returns `null` when the serialized field is unparseable or names a type
-// outside the custom-fields-supported set — callers then skip value-validation.
+// outside the custom-fields-supported set, allowing callers to skip validation.
 
 const SUPPORTED_TYPES_SET: ReadonlySet<string> = new Set(SUPPORTED_FIELD_TYPES);
 const SUPPORTED_EMBEDDED_SUB_TYPES: ReadonlySet<string> = new Set([

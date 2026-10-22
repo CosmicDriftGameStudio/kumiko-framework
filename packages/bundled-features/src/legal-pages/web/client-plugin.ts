@@ -1,26 +1,25 @@
-// Client-Feature-Factory für legal-pages Visual-Tree. Liefert statische
-// Tree-Knoten für die DACH-Compliance-Blöcke (imprint, privacy in de/en).
-// Jeder Knoten linkt auf text-content's edit-Action — reines Cross-Feature-
-// Linking, kein eigener State oder Fetch nötig.
+// Client feature factory for the legal-pages visual tree. Provides static
+// tree nodes for the DACH compliance blocks (imprint, privacy in de/en).
+// Each node links to text-content's edit action — pure cross-feature
+// linking, with no own state or fetch required.
 //
-// **Static statt fetch**: legal-pages weiß out-of-the-box welche Blocks
-// existieren (LEGAL_REQUIRED_BLOCKS + LEGAL_OPTIONAL_BLOCKS aus constants).
-// Anders als text-content's Provider (der alle Slugs des Tenants holt)
-// ist diese Liste bekannt zur Build-Zeit — kein /api/query-Round-trip nötig.
+// **Static instead of fetch**: legal-pages knows out of the box which blocks
+// exist (LEGAL_REQUIRED_BLOCKS + LEGAL_OPTIONAL_BLOCKS from constants).
+// Unlike text-content's provider (which fetches all tenant slugs), this list
+// is known at build time — no /api/query round trip is needed.
 //
-// **Content-State unbekannt**: V.1.2 setzt keine state-Markierung; alle
-// Knoten erscheinen "filled" (default). V.1.3+ könnte via by-slug-Query
-// ermitteln ob ein Block tatsächlich body hat und „stub" markieren wenn
-// leer (Provider-Author-Hinweis dass Block existiert aber befüllt werden
-// muss). Aktuell ist legal-pages's Boot-Check der primäre Wächter für
-// fehlende Pflicht-Blocks.
+// **Content state unknown**: no state marker is set; all nodes appear
+// "filled" (default). A by-slug query could determine whether a block
+// actually has a body and mark it as "stub" when empty (a provider-author hint
+// that the block exists but must be filled). Currently, legal-pages's boot
+// check is the primary guard for missing required blocks.
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
 import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "./constants.ts";
 
 const treeProvider: TreeChildrenSubscribe = () => (emit) => {
-  // V.1.5d Slug-first Verschachtelung (Variante C):
+  // Slug-first nesting:
   //   📁 Legal
   //     📁 imprint
   //       de
@@ -29,10 +28,10 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   //       de
   //       en
   //
-  // Slug ist der Übersetzungs-Anker — User pflegt DE+EN-Versionen
-  // desselben Inhalts zusammen statt nach Sprache zu gruppieren.
-  // Sub-Items sind reine Sprach-Leaves; Label = Sprache, target zeigt
-  // auf template-resolver:edit mit slug+locale.
+  // The slug is the translation anchor — users maintain the DE+EN versions
+  // of the same content together instead of grouping them by language.
+  // Sub-items are language-only leaves; label = language, and target points
+  // to template-resolver:edit with slug+locale.
 
   // Group all blocks by slug, collect set of langs per slug.
   const bySlug = new Map<string, string[]>();
@@ -62,15 +61,15 @@ const treeProvider: TreeChildrenSubscribe = () => (emit) => {
     });
   }
 
-  // Der App-seitige r.nav-Knoten IST der "Legal"-Container → der Provider
-  // emittiert die slug-Folder direkt darunter.
+  // The app-side r.nav node IS the "Legal" container → the provider
+  // emits the slug folders directly beneath it.
   emit(slugFolders);
   return () => {};
 };
 
-// `navId` = QN des r.nav({ provider: true })-Knotens den die App registriert.
-// Statisch (kein Fetch, keine Entities) → kein SSE-Refresh nötig. Ohne navId:
-// kein Sidebar-Knoten (server-only-Consumer leaken nichts).
+// `navId` = the QN of the r.nav({ provider: true }) node registered by the app.
+// Static (no fetch, no entities) → no SSE refresh is needed. Without navId:
+// no sidebar node (server-only consumers expose nothing).
 export function legalPagesClient(opts?: { readonly navId?: string }): ClientFeatureDefinition {
   const navId = opts?.navId;
   return {

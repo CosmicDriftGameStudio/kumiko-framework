@@ -6,43 +6,42 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Export-Download-Token (S2.U3 Atom 4a).
+// Export-Download-Token.
 //
-// Sicherheits-Token fuer den Download-Endpoint (Atom 4b). Pattern:
-//   1. Worker generiert plain-Token (32 byte random base64url) +
-//      Hash (SHA256 hex) beim Flip auf done.
-//   2. crud.create(downloadTokenEntity, ...) emittiert
-//      `exportDownloadToken.created`-Event in den event-store. DB-Row
-//      wird via Projection synchron geschrieben (Marten-Pattern, NICHT
-//      direct-INSERT). Memory `feedback_event_store_tenant_consistency`.
-//   3. Plain bleibt im Worker-Memory + wird via RunExportJobsResult an
-//      Atom 5 (Notification) weitergegeben. NIEMALS plain in DB.
-//   4. Atom 4b's Download-Endpoint: hashed incoming-Token + sucht den
-//      Hash-Eintrag. Konstanter-Zeit-Vergleich gegen timing-attacks.
+// Security token for the download endpoint. Pattern:
+//   1. Worker generates a plain token (32 random bytes, base64url) +
+//      hash (SHA256 hex) when flipping to done.
+//   2. crud.create(downloadTokenEntity, ...) emits
+//      `exportDownloadToken.created`-Event in the event store. The DB row
+//      is written synchronously via the projection (Marten pattern, NOT
+//      direct INSERT).
+//   3. Plain token remains in worker memory + is passed via
+//      RunExportJobsResult to the notification flow. NEVER plain in DB.
+//   4. The download endpoint hashes the incoming token + looks up the
+//      hash entry. Constant-time comparison against timing attacks.
 //
-// **Multi-use within TTL** (Plan-Decision 4a): Token wird beim Download
-// nicht "consumed". Mehrfach-Download bis expiresAt erlaubt — UX bei
-// Connection-Abbrueche, kein Re-Export-Zwang. Pattern matched Google-
-// Takeout (7d) + Facebook-Data-Download (4d).
+// **Multi-use within TTL**: Token is not "consumed" on download.
+// Multiple downloads until expiresAt are allowed — better UX for connection
+// interruptions, no forced re-export. Pattern matches Google Takeout (7d)
+// + Facebook Data Download (4d).
 //
-// **TTL = job.expiresAt** (denormalized, gleicher Wert wie Job-Row).
-// Storage-Cleanup-Pass nullt downloadStorageKey nach
-// expiresAt + exportStorageCleanupGraceHours. Token-Row bleibt liegen
-// (Audit-Trail) — Atom 4b's Download-Endpoint check't job.downloadStorageKey
-// != null vor Streaming + returns 410 Gone wenn Storage cleared.
+// **TTL = job.expiresAt** (denormalized, same value as the job row).
+// Storage cleanup nulls downloadStorageKey after
+// expiresAt + exportStorageCleanupGraceHours. The token row remains
+// (audit trail) — the download endpoint checks job.downloadStorageKey
+// != null before streaming + returns 410 Gone when storage is cleared.
 //
-// **idType: "uuid"** matched ExportJob — Token-IDs reisen ueber
-// Process-Grenzen (audit-events fuer DPO, ggf. Re-Issue-Pfade).
+// **idType: "uuid"** matches ExportJob — token IDs cross process
+// boundaries (audit events for the DPO, possible re-issue paths).
 
 export const exportDownloadTokenEntity = createEntity({
   table: "read_export_download_tokens",
   idType: "uuid",
 
   fields: {
-    // FK auf export-jobs. UNIQUE (siehe indexes) — 1 Token pro Job.
-    // Audit-Trail-Argument: separate Token-Row statt Job-Spalten weil
-    // Audit-Felder (lastUsedAt/IP/UA) semantisch zum Token, nicht zum
-    // Job gehoeren.
+    // Foreign key to export jobs. UNIQUE (see indexes) enforces one token per
+    // job. A separate token row keeps token-specific audit fields
+    // (`lastUsedAt`/IP/UA) separate from the job.
     jobId: createTextField({
       required: true,
       personal: false,
@@ -58,25 +57,24 @@ export const exportDownloadTokenEntity = createEntity({
       reason: "technical_reference",
     }),
 
-    // Wann wurde das Token ausgegeben (= Job-Done-Flip-Zeit).
+    // The time the token was issued, when the job was marked done.
     issuedAt: createTimestampField({
       required: true,
     }),
 
-    // Wann laeuft das Token ab. Identisch zu job.expiresAt
-    // (denormalized — Worker setzt beide gleich beim Done-Flip).
+    // The token expires at the same time as `job.expiresAt`; the worker sets both
+    // values when marking the job done.
     expiresAt: createTimestampField({
       required: true,
     }),
 
-    // Audit: wann wurde das Token zuletzt fuer einen Download genutzt.
-    // NULL solange noch nie heruntergeladen. Atom 4b's Download-Endpoint
-    // setzt es bei jedem successful Stream.
+    // Audit timestamp for the most recent download. NULL means the token has
+    // never been downloaded; the endpoint updates it after each successful
+    // stream.
     lastUsedAt: createTimestampField({}),
 
-    // Audit: Anzahl der Downloads. Atom 4b incrementiert bei jedem
-    // Stream. bigInt fuer fall einer pathologischer Re-Download-Schleife
-    // (z.B. broken Sync-Tool).
+    // Audit count of downloads. `bigInt` accommodates pathological re-download
+    // loops, such as those caused by a broken sync tool.
     useCount: createBigIntField({}),
 
     // Audit: source IP of the last download. Helps the DPO investigate
@@ -99,11 +97,9 @@ export const exportDownloadTokenEntity = createEntity({
     }),
   },
 
-  // 1 Token pro Job. UNIQUE auf jobId — Backstop fuer Worker-Idempotency
-  // (Atom 3b's "2× run done-Job → no-op"). Der Worker created NIE ein
-  // zweites Aggregat fuers gleiche jobId: Re-Runs rotieren das Token
-  // in place via update (fw#832) — sonst kollidiert der Projection-
-  // Rebuild an genau diesem Index.
+  // UNIQUE on `jobId` provides an idempotency backstop: rerunning a completed
+  // job must not create a second token aggregate. Re-runs update the existing
+  // token in place; otherwise projection rebuilds would collide on this index.
   indexes: [
     {
       unique: true,

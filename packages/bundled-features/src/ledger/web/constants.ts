@@ -30,7 +30,7 @@ export const LedgerQueries = {
   transactionDetail: "ledger:query:transaction:detail",
   scheduleList: "ledger:query:schedule:list",
   scheduleDetail: "ledger:query:schedule:detail",
-  // Reports — pure aggregations over the posted entries (Phase 1).
+  // Reports — pure aggregations over the posted entries.
   reportBalances: "ledger:query:report:balances",
   reportIncomeStatement: "ledger:query:report:income-statement",
   reportBalanceSheet: "ledger:query:report:balance-sheet",
@@ -38,7 +38,7 @@ export const LedgerQueries = {
 
 // Account types double-entry needs to interpret a balance: asset/expense are
 // debit-normal, liability/equity/income are credit-normal. The report layer
-// (Phase 1) flips signs by type; the primitive only stores them.
+// flips signs by type; the primitive only stores them.
 export const ACCOUNT_TYPES = ["asset", "liability", "equity", "income", "expense"] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 

@@ -22,14 +22,14 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 // Only the Auth features (running as SYSTEM) or a SystemAdmin may create users.
 //
-// Email uniqueness has two layers (fw#2134):
+// Email uniqueness has two layers:
 // 1. A pre-flight fetchOne — fast-fails with a friendly error on the
 // common case, but is race-prone on its own: two concurrent requests
 // can both see "no duplicate" and both proceed to crud.create.
 // 2. The real guard is the unique index over email's blind-index column
 // (schema/user.ts). A losing concurrent create hits that constraint
-// and crud.create returns a UniqueViolationError (framework's F8
-// pg-23505 mapping) instead of throwing — remapped below to the same
+// and crud.create returns a UniqueViolationError (framework's pg-23505
+// mapping) instead of throwing — remapped below to the same
 // emailAlreadyExists shape the pre-flight path returns, so callers see
 // one consistent error regardless of which layer caught the race.
 export const createWrite = defineWriteHandler({
@@ -114,7 +114,7 @@ export const createWrite = defineWriteHandler({
 // schema/user.ts's `read_users_email_unique` (+ its generated `_bidx`
 // pendant) is the actual race-safety net behind the pre-flight check
 // above — a losing concurrent create surfaces here as a generic
-// UniqueViolationError (framework F8 pg-23505 mapping). Only the email
+// UniqueViolationError (framework pg-23505 mapping). Only the email
 // constraint gets remapped; any other unique_violation on this entity
 // passes through unchanged.
 function isRecord(value: unknown): value is Record<string, unknown> {

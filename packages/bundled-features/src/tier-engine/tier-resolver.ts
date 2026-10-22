@@ -1,6 +1,6 @@
 // Generic tier-resolver factory. Extracted from the near-identical
-// tier-resolver.ts app copies in show-pony and publicstatus (infra#446) — the
-// only per-app variables were the TierName union and its caps/defaults, so
+// tier-resolver.ts app copies in show-pony and publicstatus — the only
+// per-app variables were the TierName union and its caps/defaults, so
 // both are now factory parameters.
 
 import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";

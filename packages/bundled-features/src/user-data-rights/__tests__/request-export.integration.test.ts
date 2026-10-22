@@ -1,21 +1,20 @@
-// request-export.write + export-status.query Integration-Test (S2.U3 Atom 2).
+// Integration test for the request-export.write and export-status.query user flows.
 //
-// Pinst die User-Touchpoints des Async-Export-Pipeline. Atom 3b (Worker)
-// + Atom 4b (Download) sind separate Sprints — hier nur der Trigger
-// + das Polling.
+// Covers the async export pipeline's user touchpoints: triggering a request
+// and polling its status. Worker processing and download are tested separately.
 //
-// Test-Pflichten aus Plan-Doc + advisor-Review:
-//   - Happy path: User klickt → Job pending entsteht
-//   - App-side-Idempotency: 2nd Klick sieht existing → isExisting=true,
-//     KEIN neuer Job + KEIN neues Event
-//   - DB-Constraint Race-Schutz: zwischen fetchOne + crud.create
-//     erscheint ein paralleler Job (simuliert durch direct-INSERT) →
-//     2nd Klick catched 23505 + return existing
-//   - Cross-Tenant: Alice in 2 Tenants, Tenant A click → Tenant B click
-//     sieht via App-side-Check den A-Job (DB-Constraint matcht nur auf
-//     userId, App-side-Check nutzt ctx.db.raw fuer Cross-Tenant-Lookup)
-//   - Status-Polling: User sieht eigene Jobs, Cross-User-Isolation,
-//     hasJob=false wenn nichts da
+// Required behaviours:
+//   - Happy path: a user click creates a pending job
+//   - App-side idempotency: a second click finds the existing job and returns
+//     isExisting=true without creating a new job or event
+//   - DB-constraint race protection: if a concurrent job appears between
+//     fetchOne and crud.create (simulated by direct-INSERT), the second click
+//     catches 23505 and returns the existing job
+//   - Cross-tenant access: Alice in two tenants sees the Tenant A job after
+//     clicking from Tenant B (the DB constraint matches only userId, while
+//     the app-side check uses ctx.db.raw for the cross-tenant lookup)
+//   - Status polling: users see their own jobs, with cross-user isolation and
+//     hasJob=false when no job exists
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -124,12 +123,12 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
     `);
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-execute typing
     const evRows = ((events as any).rows ?? events) as Array<{ type: string }>;
-    expect(evRows).toHaveLength(1); // 1 Klick = 1 Event, nicht 2
+    expect(evRows).toHaveLength(1); // 1 click = 1 event, not 2
   });
 
   test("Klick nach done-Job ist NEUER Job (Audit-Historie wird nicht blockiert)", async () => {
     const first = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
-    // Worker-Simulation: status auf done flippen (direct-update OK in Test)
+    // Simulate the worker by setting status to done; a direct update is acceptable in this test.
     await updateRows(
       stack.db,
       exportJobsTable,
@@ -151,16 +150,16 @@ describe("request-export :: Cross-Tenant (Plan-Doc-Pflicht-Test)", () => {
     const fromA = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     expect(fromA.isExisting).toBe(false);
 
-    // Alice klickt aus Tenant B (anderer executorUser.tenantId, gleicher
-    // userId). App-side-Pre-Check via ctx.db.raw findet den A-Job.
+    // Alice clicks from Tenant B (a different executorUser.tenantId with the same
+    // userId). The app-side pre-check via ctx.db.raw finds the Tenant A job.
     const fromB = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceFromB);
     expect(fromB.isExisting).toBe(true);
     expect(fromB.jobId).toBe(fromA.jobId);
 
-    // Genau 1 Job (kein 2. fuer Tenant B)
+    // Ensures that Tenant B does not receive a second job.
     const rows = await selectMany(stack.db, exportJobsTable);
     expect(rows).toHaveLength(1);
-    // requestedFromTenantId = Tenant aus 1. Klick (= A), nicht B
+    // requestedFromTenantId remains the tenant of the first click (= A), not B.
     // biome-ignore lint/suspicious/noExplicitAny: drizzle-row typing
     expect((rows[0] as any).requestedFromTenantId).toBe(tenantA);
   });
@@ -168,22 +167,22 @@ describe("request-export :: Cross-Tenant (Plan-Doc-Pflicht-Test)", () => {
 
 describe("request-export :: Race-Schutz (Promise.all parallel)", () => {
   test("zwei parallele Klicks → 1 Job, beide Caller sehen denselben jobId", async () => {
-    // Promise.all parallelisiert die Handler. PG-Layer macht die
-    // Serialisierung im Tx-Scheduling — einer wird crud.create-Race-
-    // Loser und nimmt den 23505-Catch-Pfad, der andere wins.
-    // Welcher konkret welchen Pfad nimmt haengt vom DB-Scheduling +
-    // App-side-Pre-Check-Timing — beide sind correctness-aequivalent.
-    // Test pinst die Invariante: 2 parallele Klicks → 1 Row, beide
-    // Caller sehen denselben jobId.
+    // Promise.all runs the handlers in parallel. The PG layer serializes them
+    // through transaction scheduling: one loses the crud.create race and
+    // takes the 23505 catch path, while the other wins.
+    // Which handler takes which path depends on DB scheduling and app-side
+    // pre-check timing; both outcomes are equivalent for correctness.
+    // The invariant is that two parallel clicks produce one row and both
+    // callers receive the same jobId.
     const [a, b] = await Promise.all([
       stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser),
       stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser),
     ]);
 
     expect(a.jobId).toBe(b.jobId);
-    // Genau einer ist isExisting=false (winner). Der andere kann via
-    // App-side-Check ODER via 23505-Race-Catch isExisting=true returnen
-    // — beides ist funktional korrekt.
+    // Exactly one response has isExisting=false (the winner). The other may
+    // return isExisting=true through either the app-side check or the 23505
+    // race catch; both outcomes are functionally correct.
     const winners = [a, b].filter((r) => r.isExisting === false);
     expect(winners).toHaveLength(1);
 
@@ -191,13 +190,11 @@ describe("request-export :: Race-Schutz (Promise.all parallel)", () => {
     expect(rows).toHaveLength(1);
   });
 
-  // 10+ parallele Klicks bewusst NICHT getestet: das triggert event-
-  // store-stream-version-conflicts (separate Schicht ueber dem Projection-
-  // Index, Memory feedback_event_store_tenant_consistency). High-
-  // Concurrency-Race ist orthogonal zu unserem App-side+DB-Constraint-
-  // Schutz — sollte in framework/event-store-Tests gepinnt werden,
-  // nicht hier. 2-paralleler-Test reicht fuer die "Race-Schutz greift"-
-  // Invariante.
+  // 10+ parallel clicks are deliberately not tested: they trigger event-store
+  // stream version conflicts, a separate layer above the projection index.
+  // High-concurrency races are orthogonal to this app-side plus DB-constraint
+  // protection and belong in the framework's event-store tests. Two parallel
+  // clicks are enough to pin the race-protection invariant.
 });
 
 describe("export-status :: User-Polling", () => {
@@ -243,7 +240,6 @@ describe("export-status :: User-Polling", () => {
 
   test("liefert NEUESTEN Job zurueck (orderBy desc requestedAt)", async () => {
     const T = getTemporal();
-    // 1. Job done in der Vergangenheit
     const oldJobId = "11111111-1111-4111-8111-111111111111";
     await seedRow(stack.db, exportJobsTable, {
       id: oldJobId,

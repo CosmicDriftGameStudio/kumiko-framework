@@ -29,7 +29,7 @@ describe("AuthCard / AuthShell", () => {
     );
     expect(container.querySelector("[data-testid=apex-chrome]")).not.toBeNull();
     expect(container.querySelector(".min-h-screen")).toBeNull();
-    // Card-Box (max-w-sm) + Inhalt bleiben — Shell wrappt nur, ersetzt nicht.
+    // The card (max-w-sm) and its content remain; the shell only wraps them.
     expect(container.querySelector(".max-w-sm")).not.toBeNull();
     expect(container.querySelector("[data-testid=body]")).not.toBeNull();
   });

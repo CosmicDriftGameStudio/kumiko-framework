@@ -356,12 +356,12 @@ describe("scenario 4: period transition", () => {
   });
 });
 
-// --- Scenario 5: Rolling-Window Counter (Sprint 4) ---
+// --- Scenario 5: Rolling-window counter ---
 //
-// Echte Verdrahtung beweisen: incrementRollingCap appendet ein
-// rolling-incremented-Event in den event-store, enforceRollingCap
-// liest das Event aus dem Window und summiert. Beide gehen über den
-// Dispatcher mit dem realen ctx.
+// Proves the full wiring: incrementRollingCap appends a
+// rolling-incremented event to the event store, while enforceRollingCap
+// reads and sums events from the window. Both go through the dispatcher
+// with the real context.
 
 describe("scenario 5: rolling-window through dispatcher", () => {
   test("incrementRolling appends a rolling-incremented-event without creating a projection-row", async () => {
@@ -374,10 +374,9 @@ describe("scenario 5: rolling-window through dispatcher", () => {
     expect(events.map((e) => e.type)).toEqual([ROLLING_INCREMENTED_EVENT_QN]);
     expect(events[0]?.payload).toMatchObject({ capName: "ai-tokens-7d", amount: 1500 });
 
-    // Drift-Pin: Rolling-Counter MUSS den Calendar-Counter NICHT
-    // berühren. Wenn ein Refactor die Pfade vermischt, taucht hier
-    // plötzlich eine Row auf, die nichts mit dem rolling-stream zu
-    // tun hat.
+    // Drift pin: The rolling counter MUST NOT touch the calendar counter.
+    // If a refactor mixes the paths, a row unrelated to the rolling stream
+    // will unexpectedly appear here.
     const calendarRow = await readCounter(admin, "ai-tokens-7d");
     expect(calendarRow).toBeNull();
   });
@@ -412,7 +411,7 @@ describe("scenario 5: rolling-window through dispatcher", () => {
 
     expect(result["state"]).toBe("soft-hit");
     expect(result["value"]).toBe(11000);
-    // Rolling-Counter hat keine projection-row → crossed ist konstant false.
+    // The rolling counter has no projection row, so `crossed` is always false.
     expect(result["crossed"]).toBe(false);
   });
 
@@ -443,8 +442,8 @@ describe("scenario 5: rolling-window through dispatcher", () => {
       admin,
     )) as Record<string, unknown>;
 
-    // Egress-window sieht NUR die 100 vom egress-cap — die 9999 vom
-    // ai-tokens-cap sind ein anderer Aggregate-Stream.
+    // The egress window sees ONLY the 100 from the egress cap; the 9999 from
+    // the ai-tokens cap belong to a different aggregate stream.
     expect(result["state"]).toBe("ok");
     expect(result["value"]).toBe(100);
   });
@@ -466,13 +465,13 @@ describe("scenario 5: rolling-window through dispatcher", () => {
   });
 });
 
-// --- Scenario 6: Notification-Wiring through dispatcher (Sprint 4) ---
+// --- Scenario 6: Notification wiring through the dispatcher ---
 //
-// Beweist: enforceCapAndMaybeNotify ruft den Notifier UND dispatched
-// tatsächlich `cap-counter:write:mark-soft-warned`, das den
-// `lastSoftWarnedAt`-flag in der DB setzt. Beim zweiten Aufruf in
-// derselben Period feuert der Notifier NICHT erneut (crossed=false,
-// weil flag jetzt nicht mehr null).
+// Proves that enforceCapAndMaybeNotify calls the notifier and dispatches
+// `cap-counter:write:mark-soft-warned`, which sets the
+// `lastSoftWarnedAt` flag in the database. On the second call in
+// the same period, the notifier does not fire again (`crossed=false`)
+// because the flag is no longer null.
 
 describe("scenario 6: notification-wiring (calendar)", () => {
   test("soft-hit-Crossing → notifier feuert UND mark-soft-warned-handler kippt das DB-Flag", async () => {
@@ -480,7 +479,7 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     const admin = adminFor(1001);
     const NOTIFY_PERIOD = "2026-06-01T00:00:00Z";
 
-    // 1100 = soft-threshold bei limit=1000 / burstable.
+    // 1100 is the soft threshold for limit=1000 / burstable.
     await increment(admin, "cap-notify-mails", 1100, NOTIFY_PERIOD);
 
     const first = (await stack.http.writeOk(
@@ -502,10 +501,10 @@ describe("scenario 6: notification-wiring (calendar)", () => {
       limit: 1000,
     });
 
-    // Zweiter Aufruf in derselben Period — counter ist immer noch im
-    // soft-Bereich, aber lastSoftWarnedAt ist jetzt gesetzt (durch
-    // den dispatched mark-soft-warned-Handler). enforceCap returnt
-    // crossed=false, der Notifier feuert NICHT erneut.
+    // Second call in the same period: the counter is still in the soft
+    // range, but `lastSoftWarnedAt` is now set by the dispatched
+    // `mark-soft-warned` handler. enforceCap returns `crossed=false`,
+    // so the notifier does not fire again.
     const second = (await stack.http.writeOk(
       ENFORCE_NOTIFY_PROBE_QN,
       {
@@ -518,7 +517,7 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     )) as Record<string, unknown>;
     expect(second["state"]).toBe("soft-hit");
     expect(second["crossed"]).toBe(false);
-    expect(recordedNotifications).toHaveLength(1); // unverändert
+    expect(recordedNotifications).toHaveLength(1); // unchanged
   });
 
   test("ok-Bereich → notifier feuert NICHT", async () => {
@@ -570,9 +569,9 @@ describe("scenario 7: notification-wiring (rolling, no dedup)", () => {
       admin,
     );
 
-    // Drift-Pin: Rolling-Counter HAT KEINEN lastSoftWarnedAt-Flag
-    // (kein projection-row). Wenn jemand heimlich Dedup einbaut ohne
-    // erst die Speicher-Story zu lösen, fällt das hier auf.
+    // Drift pin: The rolling counter has NO `lastSoftWarnedAt` flag
+    // (no projection row). If deduplication is introduced without first
+    // resolving how it will be stored, this test will catch it.
     expect(recordedNotifications).toHaveLength(2);
   });
 });

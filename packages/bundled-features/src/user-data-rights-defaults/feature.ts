@@ -36,23 +36,23 @@ import {
   userSessionExportHook,
 } from "./hooks/user-session.userdata-hook.ts";
 
-// user-data-rights-defaults — Default-Hooks für die Core-Entities
-// `user` (S2.H1) und `fileRef` (S2.H2).
+// user-data-rights-defaults — Default hooks for the core entities
+// `user` and `fileRef`.
 //
-// Architektur-Entscheidung (S2.H1+H2): user-data-rights selbst kann
-// nicht r.requires({ features: ["user", "files"] }) + r.useExtension(EXT_USER_DATA, ...)
-// machen weil es selbst Provider von EXT_USER_DATA ist (Boot-Validator
-// lehnt self-extension ab). Lösung: drittes optional-mountbares Feature
-// das requires beide Sources + die useExtension-Calls macht.
+// Architectural decision: user-data-rights itself cannot call
+// r.requires({ features: ["user", "files"] }) + r.useExtension(EXT_USER_DATA, ...)
+// because it provides EXT_USER_DATA itself (the boot validator rejects
+// self-extension). The solution is a third, optionally mountable feature
+// that requires both sources and makes the useExtension calls.
 //
-// App-Author kann dieses Feature weglassen wenn er Custom-Hooks
-// stattdessen registrieren will (z.B. "anonymize sollte den User-Row
-// hard-delete" — App-spezifische Compliance-Entscheidung). Default-
-// Implementierung deckt 95% der Apps ab.
+// App authors can omit this feature if they want to register custom hooks
+// instead (for example, "anonymize should hard-delete the user row" — an
+// app-specific compliance decision). The default implementation covers 95%
+// of apps.
 //
-// Pattern matched file-foundation + file-provider-s3 (separate Plugin-
-// Feature), nicht user/files schreiben ihre eigenen Hooks selbst weil
-// das circular-requires waere.
+// This follows the file-foundation + file-provider-s3 pattern (separate
+// plugin features): user/files do not define their own hooks because that
+// would create circular requires.
 // Binary storage for the fileRef delete-hook is resolved at run time from the
 // mounted file-foundation via ctx.buildStorageProvider (injected by the forget
 // orchestrator) — no provider is captured here, so a single app-wide store and
@@ -123,7 +123,7 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
       delete: configValueDeleteHook,
     });
 
-    // Events-only aggregates (#799): export reads the projected rows, the
+    // Events-only aggregates: export reads the projected rows, the
     // delete hooks are deliberate no-ops — erasure happens via crypto-
     // shredding (forget erases the user's DEK; recipientAddress / job
     // payload become unreadable in events AND rows).

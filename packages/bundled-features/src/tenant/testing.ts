@@ -1,8 +1,7 @@
-// /testing re-exportiert /seeding. Ehemalige Heimat der seed-Helpers,
-// jetzt nur noch Aggregation. Die Helpers leben in `/seeding` weil sie
-// genauso vom Dev-Server-Bootstrap (runDevApp) konsumiert werden — nicht
-// nur von Tests. Vertrag der Helpers ist stabil, test-spezifische
-// Knöpfe gehören NICHT hier rein (würde dev-boots brechen wenn jemand
-// einen lockout-test-Knopf einbaut).
+// `/testing` re-exports `/seeding`; it is no longer the home of the seed helpers.
+// The helpers live in `/seeding` because they are also consumed by the
+// development-server bootstrap (`runDevApp`), not only by tests. Keep their
+// stable contract here; test-specific options do not belong in this module,
+// because they could break development boots when a lockout-test option is added.
 
 export * from "./seeding.ts";

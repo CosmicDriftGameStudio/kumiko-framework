@@ -1,9 +1,9 @@
-// Gate path-routing: requestPath → request screen, confirmPath → confirm
-// screen, sonst durch zu children. Bewusst SYNCHRON (kein fireEvent/waitFor) —
-// der #457-CI-Flake trifft nur await-Assertions auf dem geteilten happy-dom-
-// document; ein Render + Sync-Assert im selben Tick ist nicht exponiert.
-// Provider-Wrapper lokal (Dependency-Richtung renderer/web → bundled-features
-// verbietet test-utils-Import).
+// Gate path routing: requestPath → request screen, confirmPath → confirm screen,
+// otherwise pass through to children. Deliberately SYNCHRONOUS (no fireEvent/waitFor) —
+// the CI flake affects only await assertions on the shared happy-dom document; a
+// render + sync assertion in the same tick is not exposed.
+// Provider wrappers stay local because the renderer/web → bundled-features dependency
+// direction forbids importing test-utils.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import {

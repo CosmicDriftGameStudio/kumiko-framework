@@ -28,7 +28,7 @@ describe("makeAuthGate", () => {
     );
     expect(screen.queryByTestId("protected")).toBeNull();
     expect(screen.queryByTestId("custom-login")).toBeNull();
-    // Placeholder div ist gerendert (kein leerer Tree)
+    // The placeholder is rendered as a non-empty tree.
     expect(container.firstChild).not.toBeNull();
   });
 

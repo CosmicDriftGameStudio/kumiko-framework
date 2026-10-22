@@ -1,4 +1,4 @@
-// Job-run retention (#2243): store_job_runs/store_job_run_logs are
+// Job-run retention: store_job_runs/store_job_run_logs are
 // direct-write stores now, not event-sourced projections — nothing else
 // purges them, so without this query they grow forever with the run count
 // instead of the runtime. Not the retention-cleanup executor: that executor
@@ -44,7 +44,7 @@ export async function deleteStaleJobRuns(
     { limit: RETENTION_DELETE_BATCH_SIZE },
   );
 
-  // Same window for the tenant-visible failure records (fw#3079): the run
+  // Same window for the tenant-visible failure records: the run
   // they point at is gone by now, and a job whose subject never ran again
   // would otherwise keep its record forever.
   const tenantFailuresResult = await deleteManyBatched(

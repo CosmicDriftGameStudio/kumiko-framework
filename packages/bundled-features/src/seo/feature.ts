@@ -1,4 +1,4 @@
-// kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
+// kumiko-lint-ignore app-feature-structure feature.ts is over 300 lines and not yet split
 import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
@@ -274,8 +274,8 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
       });
     }
 
-    // Boot-Check body als named function extrahiert — direkt unit-testbar,
-    // gleiches "thin job-shell ruft testable function"-Pattern wie
+    // Boot-check body extracted as a named function—directly unit-testable,
+    // following the same "thin job-shell calls testable function" pattern as
     // legal-pages' runLegalPagesBootCheck.
     r.job(
       "seo-boot-check",

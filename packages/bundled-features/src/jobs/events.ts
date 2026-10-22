@@ -1,4 +1,4 @@
-// Payload schemas for the jobRun direct-write path (#2243). Pre-#2243 these
+// Payload schemas for the jobRun direct-write path. Previously these
 // backed jobRun's event-store payloads (r.defineEvent + inline projections);
 // now job-run-logger.ts parses against them before writing straight into
 // jobRunsTable/jobRunLogsTable, so an out-of-dispatcher write still gets the

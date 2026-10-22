@@ -53,14 +53,15 @@ export const deliveryAttemptsTable = pgTable(
   (t) => [index(DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX).on(t.tenantId, t.createdAt)],
 );
 
-// **Unmanaged table** — bewusst KEIN createEntity. Begründung:
-//   - id kommt aus dem Aggregate-Stream (kein gen_random_uuid()-DEFAULT)
-//   - kein version/inserted_by/modified_by/modified_at — keine in-place-
-//     Edits, keine Audit-Spalten nötig (idempotent-on-replay via PK-Konflikt)
-//   - created_at statt inserted_at — historischer Naming-Drift, kein Bug
-// App trägt Verantwortung für tenant-scoping in Queries + replay-idempotency.
-// pgTable bleibt source-of-truth für Query-API; Phase 4 leitet das pgTable
-// aus dieser Meta ab.
+// **Unmanaged table** — deliberately has no createEntity because:
+//   - id comes from the aggregate stream (no gen_random_uuid()-DEFAULT)
+//   - no version/inserted_by/modified_by/modified_at: no in-place edits or
+//     audit columns are needed (idempotent-on-replay via PK conflict)
+//   - created_at rather than inserted_at reflects historical naming drift, not
+//     a bug
+// The app is responsible for tenant scoping in queries and replay idempotency.
+// pgTable remains the source of truth for the query API; the pgTable is derived
+// from this metadata.
 export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "store_delivery_attempts",
   indexes: [{ name: DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX, columns: ["tenant_id", "created_at"] }],

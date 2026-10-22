@@ -10,8 +10,8 @@
 //   - multi-tenant isolation
 //   - append-only: only add-note and list are registered handlers
 //
-// fw#2627 made add-note's parent-visibility check unconditional: entityType
-// must name a registered entity, and the row must be visible to the caller.
+// add-note's parent-visibility check is unconditional: entityType must name a
+// registered entity, and the row must be visible to the caller.
 // A minimal `contact` fixture entity (PASS_CLAUSE, no `access`) is mounted
 // below and seeded with one row per id this file writes a note to — this
 // file's own assertions are about note-entry behavior, not about parent

@@ -25,7 +25,7 @@ export type UserProfileClientFeature = {
 };
 
 // Supplies the ChangeEmail/ChangePassword extension components for the
-// declarative `profile` projectionDetail screen (fw#2312, ../feature.ts,
+// declarative `profile` projectionDetail screen (../feature.ts,
 // registered there server-side) plus the default translations. Apps add it
 // via createKumikoApp({ clientFeatures: [userProfileClient()] }) and place
 // the screen (id "profile") via r.nav — the screen itself has no r.nav of

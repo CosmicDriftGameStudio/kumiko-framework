@@ -1,6 +1,5 @@
 // event-subscriber — wakes up pending waitForEvent suspensions when their
-// awaited domain event arrives (framework#2513 Phase 3b, D4 in
-// workflow-resume-loop.md).
+// awaited domain event arrives (in workflow-resume-loop.md).
 //
 // registerEventTrigger (event-trigger.ts) calls registerEventWakeup for
 // every workflow it registers, building ONE MultiStreamProjection PER
@@ -17,12 +16,12 @@
 // already in hand, has no such hazard — same reasoning event-trigger.ts
 // already applies to the run-start MSP.
 //
-// This subscriber never resumes a run itself (D3, workflow-resume-loop.md):
+// This subscriber never resumes a run itself (in workflow-resume-loop.md):
 // the MultiStreamApplyContext it runs in has no callFeature/runStepList
 // access, only unsafeAppendEvent/loadAggregate. It writes triggerEventType
 // + triggerEventRef + wakeAt=now() onto the matching pending row(s); the
-// existing resume-due-runs job (Phase 2) picks the row up on its next
-// cron tick — the one resume path stays exactly the one Phase 2 built.
+// existing resume-due-runs job picks the row up on its next
+// cron tick — the resume path remains unchanged.
 
 import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type {

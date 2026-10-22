@@ -1,5 +1,5 @@
-// createInboundMailConnectRoutes — declarative extraRoutes (kumiko-
-// framework#3050) the app owner mounts via `extraRoutes` in buildServer.
+// createInboundMailConnectRoutes — declarative extraRoutes the app owner mounts
+// via `extraRoutes` in buildServer.
 //
 //   GET /api/inbound-mail/connect      (entry:"user" — signed-in caller)
 //   GET /inbound-mail/oauth/callback   (entry:"signature" — anonymous,

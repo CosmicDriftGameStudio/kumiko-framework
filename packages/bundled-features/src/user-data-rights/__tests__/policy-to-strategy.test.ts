@@ -1,8 +1,7 @@
-// Unit-Test fuer policyToStrategy — die Mapping-Tafel zwischen
-// retention-strategy und user-data-rights-Forget-Strategy. Load-bearing
-// weil es entscheidet ob Daten physisch geloescht oder anonymisiert
-// werden. Memory `feedback_no_fake_tests`: das Mapping IST die Logik,
-// nicht ein Detail.
+// Unit test for policyToStrategy — the mapping between
+// retention-strategy and the user-data-rights forget strategy. It determines
+// whether data is physically deleted or anonymized; the mapping is the logic,
+// not an incidental detail.
 
 import { describe, expect, test } from "bun:test";
 import { policyToStrategy } from "../run-forget-cleanup.ts";

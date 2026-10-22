@@ -1,10 +1,10 @@
-// #2296 — role-configurability of the definition-CRUD triad (define-/update-/
-// delete-tenant-field), which was hard-wired to ["TenantAdmin"] with no override.
-// Verifies createCustomFieldsFeature({ fieldDefinitionWriteRoles }) actually
-// gates all three handlers with the configured roles (not just define), that the
-// default-role user loses access once the override is set (Role-Naming-Drift is
-// real, not just documented), and that a definer without an explicit
-// fieldDefinitionListRoles override can still list what they defined.
+// Role-configurability of the definition-CRUD triad (define-/update-/delete-tenant-field),
+// which was hard-wired to ["TenantAdmin"] with no override. Verifies
+// createCustomFieldsFeature({ fieldDefinitionWriteRoles }) actually gates all three
+// handlers with the configured roles (not just define), that the default-role user
+// loses access once the override is set (Role-Naming-Drift is real, not just
+// documented), and that a definer without an explicit fieldDefinitionListRoles
+// override can still list what they defined.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";

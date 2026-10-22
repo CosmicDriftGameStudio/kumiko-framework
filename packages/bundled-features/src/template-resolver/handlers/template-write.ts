@@ -258,9 +258,9 @@ export async function writeTemplateRow(
     { streamTenantId },
   );
   if (!result.isSuccess) return result;
-  // @cast-boundary db-row — executor.create returnt Record-row aus
-  // INSERT RETURNING; shape { id } ist garantiert weil PK in der
-  // Returning-Klausel ist.
+  // @cast-boundary db-row — executor.create returns a row from
+  // INSERT RETURNING; the { id } shape is guaranteed because the primary key is in the
+  // RETURNING clause.
   const createdRow = result.data as { id: string | number };
   return {
     isSuccess: true,

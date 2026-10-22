@@ -3,17 +3,17 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 /**
  * Tier definition — a named bundle of features + caps.
  *
- * **Generic über `TCaps`:** die App definiert ihren Cap-Shape als konkreten
- * Type (z.B. `{ apps: number, mailsPerMonth: number, aiTokens: number }`)
- * und der composeApp-Aufruf liefert exakt diesen Shape zurück. Keine
- * `as Record<string, unknown>`-Casts in App-Code, alle Cap-Reads sind
- * compile-time-checked.
+ * **Generic over `TCaps`:** the app defines its cap shape as a concrete
+ * type (e.g. `{ apps: number, mailsPerMonth: number, aiTokens: number }`)
+ * and the composeApp call returns exactly that shape. No
+ * `as Record<string, unknown>` casts are needed in app code; all cap reads
+ * are compile-time checked.
  *
- * Die Tier-Engine selbst ist **agnostisch** zu konkreten Tier-Werten und
- * Cap-Dimensionen. Jede App definiert ihre TierMap: kumiko.rocks hat
- * free/pro/business/enterprise/self-host, PublicStatus hat
- * free/starter/team/agency. Die Engine speichert nur den Tier-Namen als
- * String und vertraut der App's TierMap, was das beim Boot bedeutet.
+ * The tier engine itself is **agnostic** to concrete tier values and cap
+ * dimensions. Each app defines its TierMap: kumiko.rocks has
+ * free/pro/business/enterprise/self-host, while PublicStatus has
+ * free/starter/team/agency. The engine stores only the tier name as a
+ * string and trusts the app's TierMap to define what it means at boot.
  */
 export type TierDefinition<TCaps extends Readonly<Record<string, unknown>>> = {
   /** Feature names to mount on top of the base set (no add-ons applied). */
@@ -26,9 +26,9 @@ export type TierDefinition<TCaps extends Readonly<Record<string, unknown>>> = {
  * Add-On definition — a tier-orthogonal feature bundle that can be added
  * to any tier (BYOK-Encryption, Dedicated-Stack, Custom-SLA, ...).
  *
- * `capOverrides` ist `Partial<TCaps>` weil ein Add-On nur einzelne Cap-
- * Werte überschreibt (z.B. „Dedicated-Stack erhöht mailsPerMonth auf
- * 100k"), nicht den ganzen Shape neu definiert.
+ * `capOverrides` is `Partial<TCaps>` because an add-on overrides only
+ * individual cap values (e.g. “Dedicated-Stack increases mailsPerMonth to
+ * 100k”), rather than redefining the entire shape.
  */
 export type AddOnDefinition<TCaps extends Readonly<Record<string, unknown>>> = {
   /** Feature names to mount additionally when this add-on is active. */
@@ -70,7 +70,7 @@ export type ComposedApp<TCaps extends Readonly<Record<string, unknown>>> = {
  * composeApp — compute the feature-set + caps for a platform-tenant.
  *
  * **Contract:**
- *   1. base features always mount (Tier-Engine itself ist Teil davon)
+ *   1. base features always mount (the Tier-Engine itself is part of them)
  *   2. plus tier-specific features (from tierMap[tier].features)
  *   3. plus add-on features (from addOnMap[addOn].features for each active add-on)
  *   4. caps = tier.caps ⊕ add-on.capOverrides (later add-ons override earlier)

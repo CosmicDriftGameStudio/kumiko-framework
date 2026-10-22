@@ -55,7 +55,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       );
       // Same generic "sign in again" error as an expired/invalid MFA
       // challenge token — both mean the login-flow token expired, no
-      // distinct i18n needed (see #1465's scoping comment).
+      // distinct i18n needed.
       if (!verified.ok) return invalidChallengeToken();
       const { userId, tenantId } = verified.payload;
 

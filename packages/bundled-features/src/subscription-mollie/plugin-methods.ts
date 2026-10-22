@@ -1,17 +1,18 @@
-// Mollie-Plugin-Methoden für die POST-tenant-resolution-Phase:
-// createCheckoutSession (only). createPortalSession + cancelSubscription
-// nicht implementiert weil Mollie's API die Patterns nicht 1:1 bietet:
+// Mollie plugin methods for the POST-tenant-resolution phase:
+// createCheckoutSession only. createPortalSession and cancelSubscription
+// are not implemented because Mollie's API does not provide these patterns
+// 1:1:
 //
-// - **Portal:** Mollie hat keinen Customer-Portal — App-Builder UI muss
-//   das selbst rendern.
-// - **Cancel:** Mollie braucht (customerId, subId), Plugin-Contract
-//   reicht aber nur subId durch — App-Builder cancelt via Mollie-
-//   Dashboard oder eigener Route bis Foundation-Contract erweitert ist.
+// - **Portal:** Mollie has no customer portal, so the App Builder UI must
+//   render it itself.
+// - **Cancel:** Mollie requires (customerId, subId), but the plugin contract
+//   passes through only subId. The App Builder cancels through the Mollie
+//   dashboard or a custom route until the Foundation contract is extended.
 //
-// **Mollie-Checkout-Flow ist mehrstufig:** Customer anlegen → first-
-// payment mit sequenceType="first" (= Mandate-setup) → User bezahlt →
-// Mollie-webhook → verify-webhook erstellt die Mollie-Subscription
-// idempotent (siehe verify-webhook.ts ensureSubscriptionForMandate).
+// **The Mollie checkout flow has multiple steps:** create customer → first
+// payment with sequenceType="first" (= mandate setup) → user pays →
+// Mollie webhook → verify-webhook creates the Mollie subscription
+// idempotently (see verify-webhook.ts ensureSubscriptionForMandate).
 
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,8 +23,8 @@ export type MollieCheckoutOptions = Parameters<
   NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
 >[1];
 
-/** Mollie hat keinen nativen price-id-Konzept — App-Builder pflegt
- *  pro virtuellem priceId einen amount/interval/description. */
+/** Mollie has no native price ID concept; the App Builder maintains
+ *  an amount/interval/description for each virtual priceId. */
 export type MolliePriceConfig = {
   /** Mollie-format: 2-decimal string, z.B. `"9.99"`. */
   readonly amountValue: string;
@@ -67,8 +68,8 @@ export function createMollieCheckoutSession(
     // any mandate/subscription handling.
     const sequenceType = options.mode === "payment" ? SequenceType.oneoff : SequenceType.first;
 
-    // payments.create ist overloaded (Promise OR void mit callback);
-    // explicit cast auf Promise<Payment>-overload.
+    // payments.create is overloaded (Promise or void with a callback);
+    // explicitly cast to the Promise<Payment> overload.
     const payment = (await (client.payments.create({
       amount: { currency: priceCfg.amountCurrency, value: priceCfg.amountValue },
       description: priceCfg.description,

@@ -1,8 +1,5 @@
-// Client-Feature-Factory für custom-fields. Wird vom App-Code in
-// createKumikoApp({ clientFeatures: [customFieldsClient()] }) eingehängt
-// und registriert die CustomFieldsFormSection unter dem Namen
-// CUSTOM_FIELDS_FORM_EXTENSION_NAME im ExtensionSectionsProvider. Apps
-// referenzieren den Namen im Screen-Schema:
+// Registers the custom-fields form section under
+// CUSTOM_FIELDS_FORM_EXTENSION_NAME so apps can reference it in their screen schema:
 //
 //   layout: { sections: [
 //     { kind: "extension", title: "...", contributesToFormSubmit: true, component: {

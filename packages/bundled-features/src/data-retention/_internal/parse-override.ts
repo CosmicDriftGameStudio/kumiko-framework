@@ -1,6 +1,5 @@
-// Geteilter Override-Parser fuer policy-for-Query und resolve-for-tenant-
-// Helper. War vorher 1:1 in beiden Files dupliziert (Memory
-// `feedback_bulk_patterns` — Drift-Risiko bei Schema-Aenderungen).
+// Shared override parser for policy-for-Query and the resolve-for-tenant helper. It was
+// duplicated 1:1 in both files, so schema changes could make the copies drift.
 
 import { retentionOverrideSchema } from "../override-schema.ts";
 import type { RetentionOverride } from "../resolver.ts";

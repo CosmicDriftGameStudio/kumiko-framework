@@ -1,11 +1,11 @@
-// Retention-preset-driven forget + policy-for (kumiko-framework#3283, Option B).
+// Retention-preset-driven forget + policy-for.
 //
 // Before this fix, forget (run-forget-cleanup.ts) and policy-for
 // (policy-for.query.ts) resolved retention WITHOUT the tenant's
 // compliance-profile-derived preset (Layer 2 of the 3-layer resolver): an
 // entity with no own `retention` default (like `invoice`) fell straight to
 // `source: "none"` -> policyToStrategy(null) -> "delete", hard-deleting data
-// a mapped compliance profile (e.g. `de-hr-dsgvo-hgb`) requires to survive as
+// that a mapped compliance profile (e.g. `de-hr-dsgvo-hgb`) requires to survive as
 // blockDelete/anonymize. This proves the real end-to-end chain:
 //   compliance-profiles:write:set-profile -> resolveProfileForTenant ->
 //   resolveTenantRetentionPreset -> resolveRetentionPolicyForTenant ->

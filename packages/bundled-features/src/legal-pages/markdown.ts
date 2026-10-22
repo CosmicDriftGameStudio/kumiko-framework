@@ -1,6 +1,6 @@
-// Re-export aus dem geteilten page-render-Kern (managed-pages nutzt
-// denselben gehärteten Renderer + Default-Layout). Namen bleiben stabil
-// für legal-pages' Public-API (index.ts exportiert renderMarkdownToHtml +
+// Re-export from the shared page-rendering core (managed pages use
+// the same hardened renderer and default layout). Keep these names stable
+// for legal-pages' public API (index.ts exports renderMarkdownToHtml and
 // wrapInLayout).
 
 export { wrapInLayout } from "../page-render/layout.ts";

@@ -1,4 +1,4 @@
-// byNewestFirst — the sort issue #1960 traced the flake to: form-draft.integration.test.ts
+// byNewestFirst — the sort issue traced the flake to: form-draft.integration.test.ts
 // creates two drafts fast enough to land on the same millisecond savedAt, and the query had
 // no ORDER BY at all, so ties fell back to Postgres' undefined row order. These cases can't be
 // forced through the integration stack (no clock control on the real save path, and seeding a

@@ -1,10 +1,10 @@
-// Token-Helper Unit-Tests (S2.U3 Atom 4a).
+// Token helper unit tests.
 //
-// Pinst:
+// Notes:
 //   - generateDownloadToken: 32-byte random → base64url plain + SHA256 hash
-//   - hashDownloadToken: deterministisch (verify-Pfad fuer Atom 4b)
-//   - Web-Crypto-Universal: laeuft in vitest (= bun-runtime via vitest)
-//     ohne node:crypto-Import. Memory `feedback_universal_deps`.
+//   - hashDownloadToken: deterministic for the verification path
+//   - Web Crypto is universal: runs in vitest (= Bun runtime via vitest)
+//     without a node:crypto import.
 
 import { describe, expect, test } from "bun:test";
 import { generateDownloadToken, hashDownloadToken } from "../token-helpers.ts";
@@ -33,8 +33,8 @@ describe("generateDownloadToken", () => {
   });
 
   test("Token URL-safe (kein +/= im base64url)", async () => {
-    // Probabilistisch: 20× generieren + verifizieren dass keiner unsafe-chars hat.
-    // Pin gegen reine btoa-Verwendung (die liefert + / =).
+    // Probabilistic: generate 20 times and verify that none contain unsafe characters.
+    // Guards against using btoa alone (which produces + / =).
     for (let i = 0; i < 20; i++) {
       const { plain } = await generateDownloadToken();
       expect(plain).not.toMatch(/[+/=]/);

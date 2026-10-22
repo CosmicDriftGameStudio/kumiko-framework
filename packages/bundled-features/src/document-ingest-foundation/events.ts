@@ -4,8 +4,8 @@ import * as z from "zod";
 // stream per fileRef with aggregateId derived from the fileRefId
 // (documentIngestAggregateId), never the fileRefId itself: foreign events on
 // the fileRef stream would break the fileRef's optimistic lock. Not backed by an r.entity;
-// this is a pure saga-anchor event (kumiko-framework#1497) that the Phase-2
-// worker job (kumiko-enterprise LiteParse provider) subscribes to.
+// this is a pure saga-anchor event that the worker job (kumiko-enterprise LiteParse provider)
+// subscribes to.
 export const DOCUMENT_INGEST_AGGREGATE_TYPE = "document-ingest";
 
 // Stream name of stored extract events; differs from the camelCase r.entity name

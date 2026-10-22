@@ -165,7 +165,7 @@ describe("auth-self-registration toggle", () => {
   });
 });
 
-// Regression for Finding 1 (#1468): the suite above always composes the
+// Regression: the suite above always composes the
 // companion toggle feature alongside feature-toggles. An app that mounts
 // createFeatureTogglesFeature + a real effectiveFeatures resolver but
 // forgets (or never knew to) compose createAuthSelfRegistrationToggleFeature
@@ -233,7 +233,7 @@ describe("auth-self-registration toggle — companion feature NOT composed", () 
     await bareStack.cleanup();
   });
 
-  // Fixed (#1468): ctx.hasFeature() is fail-closed for a name nothing ever
+  // Fixed: ctx.hasFeature() is fail-closed for a name nothing ever
   // registered — signup-request and the status query now only gate on the
   // toggle when registry.getFeature(AUTH_SELF_REGISTRATION_FEATURE) proves
   // the companion feature is actually composed, so an app that mounts

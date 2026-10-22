@@ -1,4 +1,4 @@
-// kumiko-framework#3089 — hardDelete deletes a row's file/image/files/images
+// hardDelete deletes a row's file/image/files/images
 // bytes (+ derivatives) and fileRef rows, not just the row itself.
 //
 // Verifies the negative cases where a data-loss/leak bug hides:

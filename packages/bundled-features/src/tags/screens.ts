@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_TAG_ACCESS, TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "./web/constants.ts";
 
-// Declarative catalog screens (Phase-3 / #2312). Access matches create/update/
+// Declarative catalog screens. Access matches create/update/
 // delete so createTagsFeature({ access|roles }) stays consistent. TagManager
 // remains for TagPicker/TagSection — only the standalone admin screen moved.
 

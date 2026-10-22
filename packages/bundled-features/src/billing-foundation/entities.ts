@@ -4,39 +4,39 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-// `subscription` — current state pro Plattform-Tenant (= Read-Model)
+// `subscription` — current state per platform tenant (= read model)
 // =============================================================================
 //
-// Inline-Projection-Target. Geschrieben vom `subscription`-projection-
-// apply (siehe feature.ts), NIE direkt vom handler. Source-of-truth ist
-// der event-store stream `subscription` mit aggregate-id =
+// Inline projection target. Written by the `subscription` projection-
+// apply (see feature.ts), NEVER directly by the handler. Source of truth is
+// the event-store stream `subscription` with aggregate-id =
 // uuidv5(SUBSCRIPTION_NAMESPACE, tenantId).
 //
-// EINE Row pro Plattform-Tenant. Aggregate-ID ist deterministic, damit
-// Webhook-Replays (Stripe sendet bei Hängern bis zu 5x in 4h) auf
-// denselben Stream schreiben statt zwei Rows zu erzeugen.
+// ONE row per platform tenant. The aggregate ID is deterministic so that
+// webhook replays (Stripe sends up to 5 times in 4 hours when delivery is
+// stalled) write to the same stream instead of creating two rows.
 //
-// **Felder:**
-//   - providerName: "stripe" / "mollie" — welcher Provider die
-//     Subscription hält. Provider-Wechsel = neuer event auf demselben
-//     Stream, projection überschreibt.
-//   - providerCustomerId / providerSubscriptionId: provider-eigene
-//     IDs.
+// **Fields:**
+//   - providerName: "stripe" / "mollie" — the provider holding the
+//     subscription. A provider change is a new event on the same stream;
+//     the projection overwrites the value.
+//   - providerCustomerId / providerSubscriptionId: provider-specific IDs.
 //   - status: active / past_due / canceled / trialing / incomplete —
-//     normalisiert über provider-grenzen hinweg.
-//   - tier: "free" / "pro" / ... — vom tier-engine konsumiert. Aus
-//     price-to-tier-Map resolved im Plugin.
-//   - currentPeriodEnd: wann läuft die aktuelle Billing-Period aus.
+//     normalized across providers.
+//   - tier: "free" / "pro" / ... — consumed by the tier engine. Resolved
+//     from the price-to-tier map in the plugin.
+//   - currentPeriodEnd: when the current billing period ends.
 //   - cancelAt: when a scheduled cancellation ends the subscription;
 //     nullable because a renewing subscription has none.
 //
-// **Was hier NICHT ist:**
-//   - invoice-history, payment-method, line-items, tax-info → all das
-//     fetcht der Tenant via customer-portal-session direkt vom Provider.
+// **Not included here:**
+//   - invoice-history, payment-method, line-items, tax-info — the tenant
+//     fetches all of these directly from the provider via a
+//     customer-portal-session.
 //
-// **Audit/event-history:** lebt im event-store unter dem `subscription`-
-// stream — KEIN eigene `subscription-event`-Tabelle mehr (= ES ist die
-// audit-truth, replay-fähig durch upcasters).
+// **Audit/event history:** lives in the event store under the `subscription`
+// stream — there is NO separate `subscription-event` table (= ES is the
+// audit source of truth and can be replayed through upcasters).
 export const subscriptionEntity = createEntity({
   table: "read_subscriptions",
   fields: {
@@ -47,10 +47,10 @@ export const subscriptionEntity = createEntity({
       reason: "technical_reference",
     }),
     // `personal: "tenant"` (not `encrypted`): the field must crypto-shred when
-    // eraseSubjectKeys erases the tenant's subject key on tenant-destroy
-    // (#800). `encrypted: true` uses the app-wide master key instead — that
+    // eraseSubjectKeys erases the tenant's subject key on tenant-destroy.
+    // `encrypted: true` uses the app-wide master key instead — that
     // key is never erased per-tenant, so it would only add encryption-at-
-    // rest, not the erasure guarantee #800 actually asks for.
+    // rest, not the erasure guarantee.
     // maxLength 1000, not 200: the stored value is PII-ciphertext
     // (`kumiko-pii:v1:<subject>:<blob>`), not the raw provider id — a
     // 200-char plaintext id becomes ~300+ chars of ciphertext. Matches
@@ -112,7 +112,7 @@ export const paymentEntity = createEntity({
       reason: "technical_reference",
     }),
     // Same `personal: "tenant"` rationale as subscriptionEntity above —
-    // crypto-shreds on tenant-destroy (#800) via eraseSubjectKeys.
+    // crypto-shreds on tenant-destroy via eraseSubjectKeys.
     providerCustomerId: createTextField({
       required: true,
       maxLength: 1000,

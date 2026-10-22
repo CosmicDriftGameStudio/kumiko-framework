@@ -123,12 +123,12 @@ export function createPersonalAccessTokensFeature(
     } satisfies AuthProviderPlugin);
     // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
-    // whose replay (no token events) would wipe every live token (#498/#494).
+    // whose replay (no token events) would wipe every live token.
     r.storeTable(
       deriveEntityTableMeta(API_TOKEN_ENTITY_NAME, apiTokenEntity, { source: "unmanaged" }),
       {
         reason: "read_side.api_tokens_direct_write",
-        // create.write encrypts `name` via encryptForDirectWrite (#820).
+        // create.write encrypts `name` via encryptForDirectWrite.
         piiEncryptedOnWrite: true,
       },
     );
@@ -145,9 +145,9 @@ export function createPersonalAccessTokensFeature(
     // Password-change auto-revoke — mirrors sessions' own
     // autoRevokeOnPasswordChange postSave hook, including WHY it's a
     // late-bind callback rather than direct ctx.db use: user:write:user:update
-    // is r.systemScope()'d (the user aggregate is a systemStream, framework
-    // #497), so a postSave hook on "user" gets a poisoned ctx.db here. The
-    // concrete revoker is bound once run{Prod,Dev}App has a real db handle.
+    // is r.systemScope()'d (the user aggregate is a systemStream), so a postSave hook
+    // on "user" gets a poisoned ctx.db here. The concrete revoker is bound once
+    // run{Prod,Dev}App has a real db handle.
     // Explicit option wins; the runtime binding is replaceable so a second boot of the same
     // feature instance binds its own database.
     let boundAutoRevoke: ((userId: string) => Promise<number>) | undefined;

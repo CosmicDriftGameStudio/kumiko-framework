@@ -5,7 +5,7 @@
 // JWT + cookies (auto-login!) and returns the tenantKey.
 //
 // Token source is read-once via useUrlToken: reads `?token=...` on mount
-// and scrubs the param from the URL afterwards (#774). Apps that inject a
+// and scrubs the param from the URL afterwards. Apps that inject a
 // server-side token pass `token` as a prop instead.
 //
 // On success: shows a confirmation (account active, signed in) with a
@@ -117,8 +117,8 @@ export function SignupCompleteScreen({
       ? t("auth.signupComplete.activatedTitle")
       : t("auth.signupComplete.title"));
 
-  // Kein Token in der URL → klare Message statt Form ohne Token
-  // (würde nur invalidSignupToken zeigen, verwirrend).
+  // No token in the URL → show a clear message instead of a form without a token
+  // (which would only show invalidSignupToken and confuse the user).
   if (token === "") {
     return (
       <AuthCard title={effectiveTitle}>

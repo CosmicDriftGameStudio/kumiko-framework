@@ -1,17 +1,16 @@
-// Drift-Guard fuer ExportJob-Schema (S2.U3+U4 Atom 1).
+// Drift guard for the ExportJob schema.
 //
-// Pinst dass:
-//   - EXPORT_JOB_STATUS Constants stabil bleiben (Worker-State-Machine
-//     + UI-Polling lesen die Werte als Magic-Strings, jede Aenderung
-//     ist ein Breaking-Change).
-//   - Export-Konstanten haben sinnvolle Werte (TTL > 0, Stale-Timeout
-//     > 0, Cleanup-Grace > 0).
-//   - exportJobEntity hat alle Felder die Worker + Handler erwarten —
-//     wenn jemand `expiresAt` umbenennt, faellt dieser Test um statt
-//     der Worker erst in Production.
+// Ensures that:
+//   - EXPORT_JOB_STATUS constants remain stable (the worker state machine
+//     and UI polling read these values as magic strings, so any change
+//     is a breaking change).
+//   - Export constants have sensible values (TTL > 0, stale timeout
+//     > 0, cleanup grace > 0).
+//   - exportJobEntity has every field expected by the worker and handler —
+//     if someone renames `expiresAt`, this test fails instead of the
+//     worker failing first in production.
 //
-// Schema-Snapshot, kein Behavior-Test. Behavior-Tests kommen mit Atom 2
-// (request-export.write.ts) + Atom 3 (Worker).
+// Schema snapshot, not a behavior test. Behavior tests are covered separately.
 
 import { describe, expect, test } from "bun:test";
 import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
@@ -28,9 +27,9 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
   });
 
   test("Status-Strings sind lowercase + nur a-z (Convention-Check, keine Sortier-Aussage)", () => {
-    // Test-Name ist bewusst praezise: wir checken Format, NICHT
-    // alphabetische Sortierung — die State-Machine kuemmert sich nicht
-    // um Sort-Order, ein Re-Order der Konstanten waere kein Bug.
+    // The test name is intentionally precise: we check the format, NOT
+    // alphabetical sorting — the state machine does not care about sort
+    // order, so reordering the constants would not be a bug.
     for (const value of Object.values(EXPORT_JOB_STATUS)) {
       expect(value as string).toBe(value.toLowerCase());
       expect(value).toMatch(/^[a-z]+$/);
@@ -39,10 +38,9 @@ describe("EXPORT_JOB_STATUS Drift-Guard", () => {
 });
 
 describe("Export-Konfig in compliance-profiles", () => {
-  // Atom 1c: TTL-Konstanten wandern aus user-data-rights/constants.ts
-  // ins compliance-profile.userRights — pro Profile konfigurierbar +
-  // per-Tenant-Override. Tests pinnen dass die Defaults pro Profile
-  // sinnvoll sind.
+  // TTL constants are configured in compliance-profile.userRights —
+  // configurable per profile and overridable per tenant. Tests pin that
+  // the defaults are sensible for each profile.
 
   for (const profileKey of [
     "eu-dsgvo",
@@ -54,7 +52,7 @@ describe("Export-Konfig in compliance-profiles", () => {
       const profile = COMPLIANCE_PROFILES[profileKey];
       const ttl = profile.userRights.exportDownloadTtl;
       expect(ttl).toBeDefined();
-      // DurationSpec hat entweder days oder hours.
+      // DurationSpec has either days or hours.
       const hasDuration = ("days" in ttl && ttl.days > 0) || ("hours" in ttl && ttl.hours > 0);
       expect(hasDuration).toBe(true);
     });
@@ -79,8 +77,8 @@ describe("Export-Konfig in compliance-profiles", () => {
   });
 
   test("Download-TTL <= 30d in jedem Profile (DSGVO-Auskunftsfrist als sanity-cap)", () => {
-    // Auskunftsfrist ist 30d — Download laenger zu halten als die
-    // Antwort-Pflicht macht keinen Sinn.
+    // The access-request deadline is 30d — keeping the download longer
+    // than the response obligation has no purpose.
     for (const profileKey of [
       "eu-dsgvo",
       "swiss-dsg",
@@ -134,25 +132,26 @@ describe("exportJobEntity Schema-Shape", () => {
   });
 
   test("bytesWritten ist bigInt-Field (NICHT number) — pinst Atom-1b-Migration", () => {
-    // Drift-Guard: wenn jemand zurueck auf createNumberField refactored,
-    // faellt der DB-Roundtrip-Test um (gut), aber das dauert >1s. Hier
-    // <1s + klare Fehlermeldung was das Problem ist.
+    // Drift guard: if someone refactors this back to createNumberField,
+    // the database round-trip test will fail (which is useful), but it
+    // takes >1s. This check takes <1s and gives a clear error message.
     expect(exportJobEntity.fields.bytesWritten.type).toBe("bigInt");
   });
 
   test("userId + requestedFromTenantId + status + requestedAt sind required", () => {
     expect(exportJobEntity.fields["userId"]?.required).toBe(true);
-    // requestedFromTenantId ist load-bearing: Atom 3b's Worker liest es
-    // fuer Profile-Resolution. Ohne required wuerde ein Insert ohne
-    // Wert silent NULL setzen + der Worker crashed bei queryAs(systemUserOf(null), ...).
+    // requestedFromTenantId is load-bearing: the worker reads it for
+    // profile resolution. Without required, an insert without a value
+    // would silently set NULL, and the worker would crash at
+    // queryAs(systemUserOf(null), ...).
     expect(exportJobEntity.fields["requestedFromTenantId"]?.required).toBe(true);
     expect(exportJobEntity.fields["status"]?.required).toBe(true);
     expect(exportJobEntity.fields["requestedAt"]?.required).toBe(true);
   });
 
   test("Lifecycle-Felder sind nullable (startedAt/completedAt/expiresAt/errorMessage/bytesWritten/downloadStorageKey)", () => {
-    // Diese Felder werden vom Worker gesetzt, sind beim Insert null.
-    // required ist undefined oder false — beides bedeutet nullable.
+    // The worker sets these fields, so they are null on insert.
+    // required being undefined or false means the field is nullable.
     expect(exportJobEntity.fields.startedAt.required).not.toBe(true);
     expect(exportJobEntity.fields.completedAt.required).not.toBe(true);
     expect(exportJobEntity.fields.expiresAt.required).not.toBe(true);

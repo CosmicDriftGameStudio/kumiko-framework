@@ -44,11 +44,9 @@ import { chainReservations } from "./reservation-chain.ts";
 // =============================================================================
 
 /**
- * Pro-call dynamische Cap-Definition. Wird vor jedem Handler-Aufruf
- * neu evaluiert — typischer Caller liest hier den Tenant-Tier aus
- * dem ctx, mappt ihn auf einen Limit-Wert. `amount` default 1 (count-
- * events); für byte/token-cap übergibt der Caller die Größe aus
- * `event.payload`.
+ * Dynamic cap definition resolved for each handler invocation. A typical caller reads the tenant
+ * tier from `ctx` and maps it to a limit. `amount` defaults to 1 (counting events); for byte or
+ * token caps, the caller supplies the size from `event.payload`.
  */
 export type CalendarCapDef = {
   readonly capName: string;

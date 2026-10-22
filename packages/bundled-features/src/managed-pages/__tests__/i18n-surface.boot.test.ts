@@ -3,11 +3,11 @@ import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createManagedPagesFeature } from "../feature.ts";
 
-// Completeness-Gate: managed-pages ruft jetzt r.translations → der Boot-Validator
-// erzwingt den KOMPLETTEN Required-Surface-Key-Satz (screen:*.title,
-// entity:*:field:*, Section-Header, rowAction-Labels/Confirms) in de+en. Fehlt
-// EIN Key, wirft validateBoot. Beide allowCustomCss-Varianten müssen booten —
-// bei true kommen die zwei customCss-Keys als required dazu.
+// Completeness gate: managed-pages now calls r.translations, so the boot validator
+// enforces the complete required surface-key set (screen:*.title,
+// entity:*:field:*, section headers, and rowAction labels/confirms) in de+en. If a
+// single key is missing, validateBoot throws. Both allowCustomCss variants must boot;
+// when true, the two customCss keys are also required.
 
 const resolveApexTenant = () => null;
 

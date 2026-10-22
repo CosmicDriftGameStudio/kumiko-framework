@@ -1,7 +1,6 @@
-// Scope-Sichtbarkeit (Plan Entscheidung 2): shared-Rows
-// (ownerUserId=null) sieht jeder Berechtigte; persönliche nur der Owner
-// selbst + TenantAdmin/SystemAdmin (Compliance-Sicht). Gilt identisch
-// für read_mail_accounts und read_inbound_messages (Scope-Vererbung).
+// Scope visibility: shared rows (`ownerUserId=null`) are visible to any authorized caller;
+// personal rows are visible only to the owner, `TenantAdmin`, or `SystemAdmin` for compliance.
+// The same rule applies to `read_mail_accounts` and `read_inbound_messages`.
 
 export function isVisibleToCaller(
   row: Readonly<Record<string, unknown>>,

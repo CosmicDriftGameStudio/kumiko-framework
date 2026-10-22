@@ -1,4 +1,4 @@
-// fw-i18n-funde: tenant-settings has admin-write keys at tenant-home scope
+// tenant-settings has admin-write keys at tenant-home scope
 // (see config.ts) — access.admin includes SystemAdmin, which cascades a
 // "set the platform default" screen up to the system audience alongside
 // the tenant-home screen (buildConfigFeatureSchema's ELEVATED_ROLES). Both
@@ -8,7 +8,7 @@
 // actual text (not the raw key) AND that the two nav entries read
 // differently — a regression guard, not an existence check.
 //
-// de/es copy lives in the lockstep locale packages (fw#2350); the feature
+// de/es copy lives in the lockstep locale packages; the feature
 // itself is English-only like the rest of bundled-features after 0.208.0.
 
 import { describe, expect, test } from "bun:test";

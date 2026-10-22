@@ -1,4 +1,4 @@
-// step-dispatcher crypto-shredding (fw#2057): the dispatch-requested payload
+// step-dispatcher crypto-shredding: the dispatch-requested payload
 // carries recipient/subject/body/url/headers as ciphertext under a
 // per-dispatch record key; the dispatcher decrypts to send, then erases the
 // key once the outcome is recorded — redelivery after that must be a no-op.

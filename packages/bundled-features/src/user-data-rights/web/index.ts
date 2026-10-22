@@ -1,8 +1,8 @@
-// Public exports für die Browser-Seite des user-data-rights Features —
-// die anonymen Apex-Deletion-Screens. Konsumiert via Sub-Path-Export
-// `@cosmicdrift/kumiko-bundled-features/user-data-rights/web`. Die Server-
-// Seite (defineFeature, Handler) lebt unter `.../user-data-rights` und hat
-// keine React-/DOM-Deps.
+// Public exports for the browser side of the user-data-rights feature —
+// the anonymous Apex deletion screens. Consumed via the subpath export
+// `@cosmicdrift/kumiko-bundled-features/user-data-rights/web`. The server
+// side (defineFeature, Handler) lives under `.../user-data-rights` and has
+// no React/DOM dependencies.
 
 export { type UserDataRightsClientOptions, userDataRightsClient } from "./client-plugin.tsx";
 export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-screen.tsx";

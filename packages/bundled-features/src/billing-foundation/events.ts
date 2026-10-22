@@ -1,25 +1,25 @@
-// Domain-events für subscription-foundation.
+// Domain events for subscription-foundation.
 //
-// **Pattern:** event-sourced — jeder Provider-Webhook (nach Plugin-
-// verify) wird zu einem domain-event auf dem subscription-stream
-// (= ein stream pro Tenant via subscriptionAggregateId(tenantId)).
-// Read-model = inline projection in `subscriptions`-Tabelle.
+// **Pattern:** event-sourced — each provider webhook (after plugin
+// verification) becomes a domain event on the subscription stream
+// (= one stream per tenant via subscriptionAggregateId(tenantId)).
+// The read model is an inline projection in the `subscriptions` table.
 //
-// 5 fine-grained event-typen statt einem generic "webhook-received"-
-// bucket — events sind business-facts: future-consumer (billing-history,
-// accounting-export, churn-analytics) listenen direkt auf den event-
-// type ohne payload-discriminator.
+// Five fine-grained event types instead of a generic "webhook-received"
+// bucket — events are business facts: future consumers (billing-history,
+// accounting-export, churn-analytics) listen directly for the event type
+// without a payload discriminator.
 
 import * as z from "zod";
 import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./web/constants.ts";
 import { CONSENT_LOCALES } from "./web/consumer-protection/consent-locale.ts";
 
-// Aggregate-type für den event-store. Eine subscription pro Tenant ist
-// ein stream; der subscriptionAggregateId-helper liefert die stream-id.
+// Aggregate type for the event store. One subscription per tenant is
+// one stream; the subscriptionAggregateId helper provides the stream ID.
 export const SUBSCRIPTION_AGGREGATE_TYPE = "subscription" as const;
 
-// Event-name-Konstanten — short-form (für r.defineEvent) + qualifizierte
-// FQN (für ctx.unsafeAppendEvent + projection-apply-keys).
+// Event-name constants — short form (for r.defineEvent) and qualified
+// FQN (for ctx.unsafeAppendEvent and projection-apply keys).
 export const SUBSCRIPTION_CREATED_EVENT_SHORT = "subscription-created" as const;
 export const SUBSCRIPTION_UPDATED_EVENT_SHORT = "subscription-updated" as const;
 export const SUBSCRIPTION_CANCELED_EVENT_SHORT = "subscription-canceled" as const;
@@ -37,7 +37,7 @@ export const INVOICE_PAID_EVENT_QN =
 export const INVOICE_PAYMENT_FAILED_EVENT_QN =
   `${BILLING_FOUNDATION_FEATURE}:event:${INVOICE_PAYMENT_FAILED_EVENT_SHORT}` as const;
 
-// Status-enum für event-payloads (= subscription-state-snapshot vom Provider).
+// Status enum for event payloads (= the provider's subscription-state snapshot).
 const statusEnum = z.enum([
   SubscriptionStatuses.active,
   SubscriptionStatuses.trialing,
@@ -46,10 +46,11 @@ const statusEnum = z.enum([
   SubscriptionStatuses.incomplete,
 ]);
 
-// Common payload — alle 5 events tragen denselben subscription-state-
-// snapshot. Event-type tagged was passiert ist, payload den state-after.
+// Common payload — all five events carry the same subscription-state
+// snapshot. The event type identifies what happened; the payload contains
+// the resulting state.
 // The raw provider event is deliberately not stored: it carries plaintext
-// PII and event headers are not crypto-shreddable.
+// PII, and event headers cannot be crypto-shredded.
 export const subscriptionEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
   // 1000, not 200: these two are `tenantOwned: true` on the entity (see
@@ -72,10 +73,10 @@ export const subscriptionEventPayloadSchema = z.object({
 });
 export type SubscriptionEventPayload = z.infer<typeof subscriptionEventPayloadSchema>;
 
-// Headers-shape — wird im event-store als event.metadata.headers
-// persistiert (open-shape jsonb-column, primitives only).
-// Idempotency-anchor: providerEventId pro provider, foundation checked
-// vor append ob bereits gesehen.
+// Header shape — persisted in the event store as event.metadata.headers
+// (an open-shape JSONB column containing primitives only).
+// Idempotency anchor: providerEventId is checked per provider before append
+// to determine whether it has already been seen.
 export type SubscriptionEventHeaders = {
   readonly providerEventId: string;
   readonly providerName: string;

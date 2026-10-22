@@ -11,7 +11,7 @@ import { subjectErasedConflict } from "@cosmicdrift/kumiko-framework/errors";
 // Unmanaged direct-write stores (r.unmanagedTable) skip the executor, so its
 // PII encryption never runs — every insert of subject-annotated fields must
 // go through this instead, and the feature declares { piiEncryptedOnWrite:
-// true } at the registration site (enforced by the registry, #820).
+// true } at the registration site (enforced by the registry).
 export async function encryptForDirectWrite(
   entity: EntityDefinition,
   entityName: string,

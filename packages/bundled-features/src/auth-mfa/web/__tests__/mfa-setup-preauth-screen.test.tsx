@@ -249,7 +249,7 @@ describe("MfaSetupPreauthScreen", () => {
     expect(confirm.disabled).toBe(false);
   });
 
-  // #1470: the banner told the user to "start over", but setup stayed
+  // The banner told the user to "start over", but setup stayed
   // non-null — the intro block (with the only "start setup" button) never
   // came back, leaving the user stuck without a reload (which loses the
   // preauthSetupToken entirely).
@@ -317,7 +317,7 @@ describe("MfaSetupPreauthScreen", () => {
     });
   });
 
-  // kumiko-framework#1470: confirmMfaSetupPreauth already extracts
+  // confirmMfaSetupPreauth already extracts
   // retryAfterSeconds from error.details (see mfa-client.test.ts), but the
   // screen used to drop it and show a generic "too many attempts" banner
   // with no wait-time. Pins that the seconds actually reach the UI.
@@ -356,7 +356,7 @@ describe("MfaSetupPreauthScreen", () => {
     });
   });
 
-  // kumiko-framework#1470: server validates z.string().length(6) — a 7th
+  // Server validates z.string().length(6) — a 7th
   // pasted digit must not make the button look submittable, it would only
   // 400 as invalid_body.
   test("7-stelliger Code hält den Bestätigen-Button disabled", async () => {

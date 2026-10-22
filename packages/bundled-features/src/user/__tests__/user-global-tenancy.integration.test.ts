@@ -1,4 +1,4 @@
-// fw#2858 — userEntity carries `tenancy: "global"` (a person's platform-wide
+// userEntity carries `tenancy: "global"` (a person's platform-wide
 // identity, shared across tenants). Reads through ctx.db.global(userTable)
 // work cross-tenant with no escapeHatch; a write attempt through the same
 // accessor is denied without one — userTable stays managed (executor-only),

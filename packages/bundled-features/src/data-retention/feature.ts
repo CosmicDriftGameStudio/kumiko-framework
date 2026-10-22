@@ -36,25 +36,18 @@ export {
   tenantRetentionOverrideTable,
 } from "./schema/tenant-retention-override.ts";
 
-// data-retention — automatisierte Aufbewahrung + Löschung pro Entity.
+// data-retention — automated retention and deletion per entity.
 //
-// Sprint 2.D1 (this commit):
-//   - 3-Schicht-Resolver (Entity-Default → Tenant-Preset → Tenant-Override)
-//   - Retention-Presets (dsgvo-basic, dsgvo-hgb, swiss-dsg, default)
-//   - tenantRetentionOverride-Entity für per-Tenant Edge-Cases
+// Retention is resolved through three layers: entity default → tenant preset →
+// tenant override stored in `tenantRetentionOverride`.
 //
-// Sprint 2.D2b (this commit):
-//   - retention-cleanup-Cron (perTenant) — hardDelete (batched) + softDelete
-//   - Layer-2-Preset aus dem Compliance-Profile abgeleitet (soft-dep)
-//   - anonymize deferred (Idempotenz-Marker, siehe run-retention-cleanup.ts)
+// The retention-cleanup cron performs batched hard deletes and soft deletes per
+// tenant. The tenant preset can be derived from the compliance profile, while
+// anonymization is deferred and uses an idempotency marker; see
+// `run-retention-cleanup.ts`.
 //
-// Sprint 2.D3 (done):
-//   - r.exposesApi("retention.policyFor") für user-data-rights
-//
-// Cross-Feature-Hinweis: Plan-Roadmap docs/plans/datenschutz/
-// core-data-retention.md — Forget-Flow konsultiert blockDelete via
-// retention.policyFor → anonymize statt hardDelete bei Aufbewahrungs-
-// pflicht. Das Wiring kommt in Sprint 2.U5.
+// The forget flow consults `retention.policyFor` and anonymizes records instead
+// of hard-deleting them while a mandatory retention period applies.
 export function createDataRetentionFeature(): FeatureDefinition {
   return defineFeature("data-retention", (r) => {
     r.describe(
@@ -67,11 +60,11 @@ export function createDataRetentionFeature(): FeatureDefinition {
     });
     r.entity({ name: "tenant-retention-override", ...tenantRetentionOverrideEntity });
 
-    // S2.D3: Cross-Feature-API fuer Forget-Flow + Cleanup-Job
+    // Cross-feature API for the forget flow and cleanup job
     r.exposesApi("retention.policyFor");
     r.queryHandler(policyForQuery);
 
-    // S2.D2b — autonomous retention cleanup. perTenant fan-out (one run per
+    // Autonomous retention cleanup. perTenant fan-out (one run per
     // active tenant, like soft-delete-cleanup): runRetentionCleanup's raw
     // query helpers need the unfiltered runner, so the handler declares
     // escapeHatch and reaches for ctx.db.unsafeRaw(). Without this cron,

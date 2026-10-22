@@ -1,8 +1,8 @@
 // compliance-profiles-ops — platform-wide SystemAdmin visibility into
-// tenants missing a compliance-profile selection (#2089).
+// tenants missing a compliance-profile selection.
 //
 // needs-profile (compliance-profiles) tells a TenantAdmin they must pick a
-// profile, but stays TenantAdmin-only by design (#2084) — a SystemAdmin who
+// profile, but stays TenantAdmin-only by design — a SystemAdmin who
 // owns a picker narrowed to access.systemAdmin has no query at all. Kept as
 // a separate feature (mirrors folders-user-data/notes-history-user-data)
 // rather than folded into compliance-profiles: this is the one genuinely

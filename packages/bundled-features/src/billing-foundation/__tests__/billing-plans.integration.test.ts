@@ -272,7 +272,7 @@ describe("billing-plans query — no subscription", () => {
 
     expect(result.enabled).toBe(true);
     expect(result.currentTier.tier).toBe("free");
-    // #3316 P2: "free" is outside catalog.plans (["starter", "pro"]) — the
+    // "free" is outside catalog.plans (["starter", "pro"]) — the
     // benefits lookup must not be gated on membership in catalog.plans.
     expect(result.currentTier.benefits).toEqual([{ labelKey: "plan.free.benefit.core" }]);
     expect(result.subscription).toBeNull();
@@ -430,7 +430,7 @@ describe("active subscription — checkout blocked, switch offered", () => {
       admin,
     )) as { url: string };
     expect(result.url).toBe("https://mock.example/checkout/price_topup_credits");
-    // #3316 P8: the plugin receives mode:"payment", not silently defaulted
+    // The plugin receives mode:"payment", not silently defaulted
     // to "subscription" or dropped.
     expect(checkoutCalls[0]?.mode).toBe("payment");
   });
@@ -922,7 +922,7 @@ describe("stale-incomplete subscription — injected clock", () => {
 });
 
 // =============================================================================
-// 12. create-portal-session — returnUrl computation + strict payload (#3316 P4)
+// 12. create-portal-session — returnUrl computation + strict payload
 // =============================================================================
 
 describe("create-portal-session — returnUrl computation", () => {
@@ -992,7 +992,7 @@ describe("create-portal-session — returnUrl computation", () => {
 
 // =============================================================================
 // 13. create-portal-session — catalog.purchaseRoles gates who may open the
-//     portal (#3316 P3): only that role gets in, everyone else is 403.
+//     portal: only that role gets in, everyone else is 403.
 // =============================================================================
 
 describe("create-portal-session — catalog.purchaseRoles", () => {
@@ -1049,8 +1049,7 @@ describe("create-portal-session — catalog.purchaseRoles", () => {
 
 // =============================================================================
 // 14. No provider registered at all — billing-plans stays enabled:false,
-//     every plan unavailable, start-plan-checkout fails feature_disabled
-//     (#3316 P5).
+//     every plan unavailable, start-plan-checkout fails feature_disabled.
 // =============================================================================
 
 describe("no subscription-provider mounted at all", () => {

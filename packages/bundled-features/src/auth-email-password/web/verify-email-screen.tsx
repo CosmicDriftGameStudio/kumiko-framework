@@ -1,13 +1,12 @@
-// VerifyEmailScreen — liest `?token=...` aus URL, schickt ihn auto an
-// /api/auth/verify-email beim Mount, zeigt success/error. Idempotent
-// auf Server-Seite (mehrfaches Klicken setzt emailVerified=true erneut),
-// also kein Re-Submit-Risiko.
+// VerifyEmailScreen — reads `?token=...` from the URL and automatically sends it to
+// /api/auth/verify-email on mount, then shows success/error. The server-side
+// operation is idempotent (repeating it sets emailVerified=true again), so
+// retries are safe.
 //
-// useEffect mit empty-deps + once-Guard damit React Strict-Mode den
-// Verify-Call nur einmal feuert (Strict-Mode dispatched useEffect 2x in
-// dev). Token-roundtrip ist server-side single-use, aber wir wollen
-// nicht den ersten valid-call beim Mount und den zweiten als invalid-
-// Banner sehen.
+// The empty-deps effect and once guard prevent React Strict Mode from firing
+// the verification call twice (Strict Mode dispatches useEffect twice in dev).
+// The token roundtrip is single-use server-side, but this avoids showing an
+// invalid-token banner after the first valid mount call.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -16,9 +15,9 @@ import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
 
 export type VerifyEmailScreenProps = {
   readonly title?: string;
-  /** Override für Token aus URL. Default: parsed aus `?token=...`. */
+  /** Override the token from the URL. Default: parsed from `?token=...`. */
   readonly token?: string;
-  /** href für "Zum Login"-Link. Default "/login". */
+  /** href for the "Zum Login" link. Default "/login". */
   readonly loginHref?: string;
 };
 
@@ -35,7 +34,7 @@ export function VerifyEmailScreen({
   const [status, setStatus] = useState<Status>(token === "" ? "missing-token" : "verifying");
   const startedRef = useRef(false);
 
-  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
   useEffect(() => {
     if (status !== "verifying") return;
     if (startedRef.current) return;

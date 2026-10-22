@@ -329,7 +329,7 @@ describe("scenario 4: s3-env provider (app-wide env, no secrets)", () => {
 //
 // The stack's resolver is the plain framework one — its only app-override
 // comes from buildEnvConfigOverrides reading the key's `env` declaration.
-// Before #3112 every app rebuilt createConfigResolver just to pin this key.
+// Previously, every app rebuilt createConfigResolver just to pin this key.
 
 describe("scenario 5: ENV-bridged provider selection", () => {
   function withS3Env<T>(run: () => Promise<T>): Promise<T> {

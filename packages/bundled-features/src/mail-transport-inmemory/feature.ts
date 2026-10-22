@@ -1,25 +1,25 @@
 // kumiko-feature-version: 1
 //
-// mail-transport-inmemory — In-Memory-EmailTransport für die mail-
-// foundation Plugin-API. Sammelt Mails in einem per-Tenant-Buffer
-// statt sie über einen echten SMTP-Server zu senden. Designed für
-// Demos, Sample-Apps und Tests die ohne Mailpit/Mailcrab/echten SMTP
-// laufen sollen.
+// mail-transport-inmemory — In-memory email transport for the mail-
+// foundation plugin API. Collects emails in a per-tenant buffer
+// instead of sending them through a real SMTP server. Designed for
+// demos, sample apps, and tests that should run without Mailpit,
+// Mailcrab, or real SMTP.
 //
-// **Was diese Feature liefert:**
-//   1. Plugin-Registration via `r.useExtension("mailTransport",
-//      "inmemory", { build })`. Tenants setzen
-//      "mail-foundation:config:provider" auf "inmemory" und kriegen
-//      die buffered-Variante.
-//   2. **Pro-Tenant Inbox.** Jeder Tenant hat einen eigenen
-//      Mail-Buffer (Map<tenantId, EmailMessage[]>). Demo-Apps können
-//      die Inbox via `getInbox(tenantId)` lesen + UI rendern.
+// **What this feature provides:**
+//   1. Plugin registration via `r.useExtension("mailTransport",
+//      "inmemory", { build })`. Tenants set
+//      "mail-foundation:config:provider" to "inmemory" and receive
+//      the buffered variant.
+//   2. **Per-tenant inbox.** Each tenant has its own mail buffer
+//      (Map<tenantId, EmailMessage[]>). Demo apps can read the inbox
+//      via `getInbox(tenantId)` and render a UI.
 //
-// **Pattern-Vorbild:** mirrors mail-transport-smtp.
+// **Pattern reference:** mirrors mail-transport-smtp.
 //
-// **NICHT für Production.** Buffer ist im Process-Memory, geht beim
-// Restart verloren. Cap-Counter / Audit-Trail bleiben trotzdem korrekt
-// — die hängen am event-store, nicht am Transport.
+// **NOT for production.** The buffer is in process memory and is lost
+// on restart. Cap counters and the audit trail remain correct because
+// they are tied to the event store, not the transport.
 
 import type {
   EmailMessage,
@@ -39,9 +39,9 @@ const FEATURE_NAME = "mail-transport-inmemory";
 // Per-tenant in-memory buffer
 // =============================================================================
 //
-// Module-level Map weil der Plugin-build-call pro Send einen neuen
-// Transport-Wrapper baut, aber wir wollen dass alle Wrapper für
-// denselben Tenant auf denselben Buffer zeigen. Map<tenantId,
+// The module-level Map is needed because the plugin build call creates
+// a new transport wrapper for each send, while all wrappers for the
+// same tenant must point to the same buffer. Map<tenantId,
 // InMemoryTransport>.
 
 const transportsByTenant = new Map<string, ReturnType<typeof createInMemoryTransport>>();
@@ -56,16 +56,16 @@ function getOrCreateTransportForTenant(tenantId: string) {
 }
 
 /**
- * Demo/Test-Helper: lies die "versendeten" Mails eines Tenants. Im
- * Sample-App rendert ein query-Handler darauf die Inbox-UI.
+ * Demo/test helper: reads the emails "sent" for a tenant. A query
+ * handler in the sample app uses this to render the inbox UI.
  */
 export function getInbox(tenantId: string): readonly EmailMessage[] {
   return transportsByTenant.get(tenantId)?.sent ?? [];
 }
 
 /**
- * Demo/Test-Helper: clear einen Tenant-Buffer (z.B. zwischen Test-
- * Szenarien).
+ * Demo/test helper: clears a tenant's buffer, for example between
+ * test scenarios.
  */
 export function clearInbox(tenantId: string): void {
   const t = transportsByTenant.get(tenantId);
@@ -82,10 +82,9 @@ export function createMailTransportInMemoryFeature() {
       r.describe(
         'Registers an in-process `"inmemory"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).',
       );
-      // Kein requires auf "config" oder "secrets" — der
-      // In-Memory-Transport hat keine Config (nichts zu konfigurieren) und
-      // kein Secret. Der einzige hard-require ist mail-foundation, das den
-      // extension-point "mailTransport" definiert.
+      // No `config` or `secrets` requirement: the in-memory transport has
+      // no configuration and no secret. The only hard requirement is
+      // mail-foundation, which defines the "mailTransport" extension point.
       r.requires({ features: ["mail-foundation"] });
 
       const plugin: MailTransportPlugin = {

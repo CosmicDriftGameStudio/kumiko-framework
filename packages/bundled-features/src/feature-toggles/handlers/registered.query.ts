@@ -38,11 +38,11 @@ export const registeredQuery = defineQueryHandler({
     const overrideRows = await db.global(globalFeatureStateTable).selectMany<OverrideRow>();
     const overrides = new Map(overrideRows.map((r) => [r.featureName, r.enabled]));
 
-    // SystemAdmin operator-tooling: das listing soll die PLATTFORM-truth
-    // zeigen (alle features im Registry), nicht den eigenen tier-cut.
-    // Sprint-8a per-tenant signature → wir rufen mit SYSTEM_TENANT_ID,
-    // App-resolver returnt union-of-all-tier-features. Sentinel-Convention
-    // dokumentiert in DispatcherOptions.effectiveFeatures.
+    // SystemAdmin operator tooling: the listing must show platform truth
+    // (all features in the registry), not its own tier cut.
+    // The per-tenant signature requires SYSTEM_TENANT_ID; the app resolver
+    // returns the union of all tier features. The sentinel convention is
+    // documented in DispatcherOptions.effectiveFeatures.
     const effective = ctx.effectiveFeatures?.(SYSTEM_TENANT_ID);
 
     const rows: Array<{

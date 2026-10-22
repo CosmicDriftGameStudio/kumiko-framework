@@ -1,49 +1,24 @@
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
-// Async Export-Job Worker (S2.U3 Atom 3b) — pure Pipeline-Function.
+// Async export-job worker — a pure pipeline function.
 //
-// Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
-// Cron-getriggert (siehe r.job-Wrap im feature.ts), iteriert ueber alle
-// pending-Jobs in einem Pass, fuehrt pro Job aus:
+// A cron-triggered pass (see the r.job wrap in feature.ts) processes all
+// pending jobs. Each job is claimed with optimistic locking through the version
+// column: when two worker replicas pick the same job, the second one gets a
+// VersionConflictError and skips it. The export bundle is built by
+// run-user-export.ts, which also owns the cross-tenant iteration over the
+// user's memberships. The requesting tenant's compliance profile supplies
+// exportDownloadTtl for expiresAt, and the storage provider is resolved per
+// tenant (S3 or local). The ZIP is streamed into storage atomically (tmp+rename
+// locally, multipart upload on S3), so a throw anywhere in the pipeline marks
+// the job failed without leaving a half-written ZIP at the final path.
 //
-//   1. Claim: `crud.update({status: running, startedAt})` mit
-//      optimistic-locking via version-Spalte. Wenn 2 Worker-Replicas
-//      denselben Job picken wollen, gewinnt der erste, der zweite
-//      kriegt VersionConflictError + skippt.
+// Before pickup, a stale pass fails running jobs whose
+// startedAt + exportStaleTimeoutMinutes lies in the past, so worker crashes,
+// OOM kills and replica restarts do not leave jobs stuck in running.
 //
-//   2. Bundle bauen: runUserExport({db, registry, userId, now}) →
-//      UserExportBundle (siehe run-user-export.ts). Cross-Tenant-
-//      Iteration ueber Memberships ist dort implementiert.
-//
-//   3. Profile-Resolution: `resolveProfileForTenant(requestedFromTenantId)`
-//      liefert effective compliance-profile. exportDownloadTtl wird
-//      fuer expiresAt-Berechnung gebraucht.
-//
-//   4. Storage-Provider builden: `buildStorageProvider(ctx, requestedFromTenantId)`
-//      — file-foundation's createFileProviderForTenant-Pattern.
-//      Pro Tenant unterschiedlicher Provider moeglich (S3 vs lokal).
-//
-//   5. ZIP-Stream: `createZipStream(bundleAsZipEntries(bundle))` →
-//      AsyncIterable<Uint8Array>. Wir wrappen das in einen tracking-
-//      Iterator der bytesWritten zaehlt.
-//
-//   6. Storage-Write: provider.writeStream(storageKey, zipStream).
-//      Atomar via tmp+rename (lokal) bzw. multipart-upload (S3).
-//
-//   7. Job=done: `crud.update({status: "done", completedAt, expiresAt,
-//      downloadStorageKey, bytesWritten})`.
-//
-// Bei Throw zwischen 2-7: Job=failed mit errorMessage. Storage-Write
-// ist atomar (writeStream rollback bei Error im Source-Stream), keine
-// halb-fertigen ZIPs am final-Pfad.
-//
-// **Stale-Detection:** vor dem Pickup-Pass laeuft ein separater
-// Stale-Pass: Jobs in `running` mit `startedAt + exportStaleTimeoutMinutes
-// < now` werden auf `failed` geflippt. Worker-Crashes / OOM-Kills /
-// Replica-Restarts hinterlassen sonst stuck-running-Jobs.
-//
-// **Storage-Cleanup:** dritter Pass loescht abgelaufene downloadStorageKeys
-// (`expiresAt + exportStorageCleanupGraceHours < now`) — abgelaufene ZIPs
-// auf S3 sollen nicht ewig liegen.
+// A final cleanup pass deletes downloadStorageKeys past
+// expiresAt + exportStorageCleanupGraceHours, so expired ZIPs do not stay in
+// storage indefinitely.
 
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
@@ -94,13 +69,12 @@ const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
 
-// Atom 4a — separater ES-Executor fuer Download-Tokens. crud.create
-// emittiert `exportDownloadToken.created`-Event in den event-store +
-// projected synchron auf read_export_download_tokens. KEIN direct-INSERT
-// (Memory `feedback_no_fake_dispatcher`).
+// Separate event-store executor for download tokens. `crud.create` emits
+// `exportDownloadToken.created` and synchronously updates
+// `read_export_download_tokens`; direct inserts would bypass that projection.
 //
-// Exportiert weil Atom 4b's download-handler tokenCrud.update fuer
-// Audit-Felder (useCount, lastUsedAt, IP, UA) nutzt — ES-konsistent.
+// Exported because the download handler uses tokenCrud.update for audit fields
+// while preserving event-store consistency.
 export const tokenCrud = createEventStoreExecutor(
   exportDownloadTokensTable,
   exportDownloadTokenEntity,
@@ -108,29 +82,23 @@ export const tokenCrud = createEventStoreExecutor(
 );
 
 /**
- * Notification-Callback fuer den done-Pfad. Pattern matched
- * auth-routes.PasswordResetConfig.sendResetEmail. Plain-Token bleibt
- * ephemeral (nicht in DB/event-store/jobRunsTable). App-Author wired
- * den Callback an seinen Email-Provider:
- *   - existing `delivery.notify` (multi-channel + delivery_attempts-Log)
- *   - `mailFoundation.send` direkt
- *   - Custom Resend/SES/etc.
+ * Notification callback for the done path. The plain token remains ephemeral
+ * and is never stored in the database or event store. The application wires
+ * this callback to its email provider, such as `delivery.notify`,
+ * `mailFoundation.send`, or a custom Resend/SES integration.
  *
- * **Best-effort:** Throw vom Callback bubbelt zum r.job-Wrap; jobs-
- * Feature persistiert den Worker-Run als failed in jobRunsTable. Der
- * Failed-Pfad wird in `jobs/__tests__/jobs-feature.integration.ts`
- * Scenario 2 gepinnt — wir verweisen darauf statt end-zu-end zu
- * duplizieren. Operator sieht's im /jobs-Dashboard, kann via
- * jobs:write:retry den Worker-Run erneut anstossen (Job selbst bleibt
- * done; retry findet keinen pending mehr, aber Audit-Log zeigt den
- * Failure).
+ * **Best-effort:** a throw from the callback bubbles to the r.job wrap, and the
+ * jobs feature records the worker run as failed in jobRunsTable while the export
+ * job stays done. That failed path is covered by Scenario 2 in
+ * `jobs/__tests__/jobs-feature.integration.test.ts` instead of being duplicated
+ * end to end here. Operators see the failure in the /jobs dashboard and can
+ * re-run the worker via jobs:write:retry.
  *
- * **Plain-Token-Recovery bei Email-Fail:** plain ist ephemeral. Wenn
- * der Callback throwt, ist der plain verloren. Operator-Eingriff
- * noetig: Job auf pending flippen — NUR das. Die Token-Row NICHT
- * loeschen (eventloser Read-Side-Delete → Rebuild-Kollision, fw#832);
- * der naechste Worker-Run rotiert das Token in place auf demselben
- * Aggregat. Atom 5b (Re-issue-handler) wird das automatisieren.
+ * **Recovering the plain token after an email failure:** the plain token is
+ * ephemeral, so it is lost when the callback throws. Flip the job back to
+ * pending and nothing else: do not delete the token row, because an eventless
+ * read-side delete collides with projection rebuilds. The next worker run
+ * rotates the token in place on the same aggregate.
  */
 export type SendExportReadyEmailFn = (args: {
   readonly userId: string;
@@ -158,27 +126,30 @@ export interface RunExportJobsArgs {
   readonly db: DbConnection;
   readonly registry: Registry;
   /**
-   * Per-Tenant Storage-Provider-Builder. App-Bootstrap liefert den
-   * file-foundation-Resolver via `createFileProviderForTenant` —
-   * Worker bekommt eine kleinere Surface ohne HandlerContext-Dep.
+   * Builds a storage provider for a tenant. The application supplies the
+   * `createFileProviderForTenant` resolver so the worker does not depend on
+   * HandlerContext.
    */
   readonly buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
-  /** Now-Injection — Tests pinnen den Wert ohne Date-Mock. */
+  /** Injected time lets tests avoid mocking the system clock. */
   readonly now: Instant;
 
-  /** S2.U3 Atom 5 — Email-Notification beim done-flip. Optional;
-   *  wenn nicht gesetzt, sendet der Worker keine notification (User
-   *  kann aber via export-status.query polln + UI-Klick). */
+  /**
+   * Optional notification on the done transition. When absent, callers can
+   * poll `export-status.query` and let the user trigger the download.
+   */
   readonly sendExportReadyEmail?: SendExportReadyEmailFn;
-  /** Optional Email beim failed-flip. */
+  /** Optional notification on the failed transition. */
   readonly sendExportFailedEmail?: SendExportFailedEmailFn;
-  /** Base-URL fuer den Magic-Link. App-Author setzt das (z.B.
-   *  "https://app.example.com/user-export/by-token"). Worker baut
-   *  a URL fragment (not a query param — see issue #1271) and passes that
-   *  Callback durch. Required wenn sendExportReadyEmail gesetzt. */
+  /**
+   * Base URL for the magic link, for example
+   * "https://app.example.com/user-export/by-token". The worker appends the
+   * token as a URL fragment rather than a query parameter. Required when
+   * `sendExportReadyEmail` is provided.
+   */
   readonly appExportDownloadUrl?: string;
 
-  // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
+  // Sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); threaded into runUserExport's per-hook TenantDb.
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly escapeHatchAuditLog?: Logger;
@@ -199,21 +170,20 @@ export interface ExportJobError {
 }
 
 export interface RunExportJobsResult {
-  /** Job-IDs die in diesem Pass von pending → done geflippt wurden. */
+  /** IDs of jobs transitioned from pending to done in this pass. */
   readonly completedJobIds: readonly string[];
-  /** Job-IDs die in diesem Pass von pending → failed geflippt wurden. */
+  /** IDs of jobs transitioned from pending to failed in this pass. */
   readonly failedJobIds: readonly string[];
-  /** Job-IDs die als stuck-running auf failed geflippt wurden (Stale-Pass). */
+  /** IDs of stuck running jobs transitioned to failed by stale detection. */
   readonly staleFailedJobIds: readonly string[];
-  /** Job-IDs deren downloadStorageKey im Cleanup-Pass geloescht wurde. */
+  /** IDs of jobs whose downloadStorageKey was deleted during cleanup. */
   readonly cleanedJobIds: readonly string[];
   readonly errors: readonly ExportJobError[];
   /**
-   * Plain-Tokens fuer in diesem Pass completed-Jobs. Map<jobId, plain>.
-   * Atom 5 (Notification) liest das + versendet plain per Email.
-   * NIEMALS persistiert — nur in-memory zwischen Worker-Run und
-   * Notification-Hook. NACH dem Run ist plain nur via DB-Hash
-   * verifizierbar (Atom 4b's Download-Endpoint).
+   * Plain tokens for jobs completed in this pass, keyed by job ID. These
+   * values are passed to the notification hook only in memory and are never
+   * persisted; after the run, the download endpoint can verify only the
+   * corresponding database hash.
    */
   readonly tokenByJobId: ReadonlyMap<string, string>;
 }
@@ -222,21 +192,17 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   const { db, registry, buildStorageProvider, now, sendExportReadyEmail, sendExportFailedEmail } =
     args;
 
-  // Boot-Misconfig-Check: wer sendExportReadyEmail setzt aber URL
-  // vergisst, soll einen klaren Error sehen — VOR dem Pass-Loop, damit
-  // der Throw nicht vom per-Job-try/catch (Atom 5.fix3) geschluckt wird.
-  // Runtime-Callback-Failures sind best-effort, Boot-Misconfig ist hard-
-  // fail (App-Author-Bug, kein Network-Hiccup).
+  // Validate this configuration before the pass loop so a missing URL is not
+  // swallowed by the per-job try/catch. Callback failures are best-effort, but
+  // this is a hard application configuration error.
   if (sendExportReadyEmail && args.appExportDownloadUrl === undefined) {
     throw new Error(
       "user-data-rights: sendExportReadyEmail gesetzt aber appExportDownloadUrl fehlt — beide muessen zusammen konfiguriert sein",
     );
   }
 
-  // Pass 1: Stale-Detection — running jobs die laenger als das tenant-
-  // spezifische exportStaleTimeoutMinutes haengen werden gefailed.
-  // Wird VOR dem pickup-pass ausgefuehrt damit ein neuer Worker-Run
-  // den vorhergehenden Crash erstmal als failed markiert.
+  // Fail running jobs whose tenant-specific stale timeout has elapsed before
+  // pickup, so a new run recovers jobs left behind by an earlier crash.
   const staleFailedJobIds = await staleDetectionPass({ db, now });
 
   // Pass 2: Pickup pending jobs + Process them.
@@ -259,21 +225,14 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
     });
     if (outcome.kind === "done") {
       completedJobIds.push(job.id);
-      // Worker hat plain im Memory; weitergeben fuer downstream-callbacks
-      // + Atom-5-Tests (RunExportJobsResult.tokenByJobId). Plain landet
-      // NICHT in Logs/Telemetry/jobRunsTable.
+      // Keep the plain token only in memory for downstream callbacks; never put it
+      // in logs, telemetry, or jobRunsTable.
       tokenByJobId.set(job.id, outcome.tokenPlain);
 
-      // Atom 5: Email-Notification beim done-flip.
-      //
-      // Best-effort (Atom 5.fix3): Throw fuer Job A darf den Batch nicht
-      // abwuergen — Job-Status ist bereits done committed, restliche
-      // pending-Jobs muessen noch verarbeitet werden. Throw waere ein
-      // Bug: r.job-Wrap markiert den Run failed, retry findet keinen
-      // pending-Job mehr (Status=done) → silent miss + ZIP laeuft nach
-      // TTL ab ohne dass der User die Email je bekommt. console.warn ist
-      // die einzige Operator-Sichtbarkeit (runExportJobs-args fuehren
-      // AppContext.log nicht durch — pure-function-Pattern).
+      // A notification failure must not abort the batch: the job is already done,
+      // and retrying the worker would find no pending job and silently miss the
+      // notification. `console.warn` is the only available operator visibility
+      // because these arguments do not carry AppContext.log.
       if (sendExportReadyEmail) {
         try {
           await fireExportReadyCallback({
@@ -296,10 +255,8 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
       failedJobIds.push(job.id);
       errors.push(outcome.error);
 
-      // Atom 5: Email-Notification beim failed-flip — User soll wissen
-      // dass er neuen Export anfordern muss. Best-effort analog
-      // sendExportReadyEmail (Atom 5.fix3) — Email-Send-Throw darf den
-      // Batch nicht killen.
+      // A failed-job notification is best-effort so an email-send failure cannot
+      // abort processing of the remaining pending jobs.
       if (sendExportFailedEmail) {
         try {
           await fireExportFailedCallback({
@@ -316,13 +273,12 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
         }
       }
     }
-    // "skipped" (claim race lost) wird still passiert — kein error,
-    // anderer Worker hat den Job bereits.
+    // A claim race means another worker already owns the job; skip it without
+    // reporting an error.
   }
 
-  // Pass 3: Storage-Cleanup — abgelaufene done-Jobs (expiresAt+grace < now)
-  // bekommen ihren downloadStorageKey aus dem Storage-Provider geloescht
-  // + im DB-Row genullt.
+  // Storage cleanup: expired done jobs (expiresAt + grace < now) get their
+  // storage object deleted and downloadStorageKey cleared in the database.
   const cleanedJobIds = await storageCleanupPass({
     db,
     buildStorageProvider,
@@ -381,20 +337,15 @@ async function processJob(args: {
 }): Promise<ProcessOutcome> {
   const { db, registry, buildStorageProvider, now, job } = args;
   const executor = createSystemUser(job.requestedFromTenantId);
-  // crud.update braucht TenantDb fuer Stream-Identity (Memory
-  // feedback_event_store_tenant_consistency). system-mode bypassed
-  // den auto-tenant-filter; Stream wird ueber requestedFromTenantId
-  // konsistent gehalten.
+  // The event-store stream lookup requires a TenantDb even though an export job
+  // is tenant-agnostic. System mode bypasses the automatic tenant filter while
+  // `requestedFromTenantId` preserves the stream identity.
   const tdb = systemTenantDb(db, job.requestedFromTenantId);
 
-  // Phase 1: Claim — version-bumped update, scheitert via VersionConflict
-  // wenn paralleler Worker schon claimed hat.
-  //
-  // **Path-pre-claim** (Atom 4a.fix): downloadStorageKey wird HIER schon
-  // persistiert (deterministischer Pfad aus job.id). Begründung: wenn
-  // Worker zwischen ZIP-write und done-flip crashed, hat der Job-Row
-  // bereits den Pfad → storageCleanupPass kann den orphan-ZIP via
-  // failed-Job-Cleanup-Pass loeschen (sonst forever-leak im S3).
+  // Claim with a version check so a concurrent worker causes a conflict.
+  // Persist downloadStorageKey during the claim: if the worker crashes after
+  // writing the ZIP but before marking the job done, cleanup can find the
+  // orphaned object instead of leaving it in storage indefinitely.
   const storageKey = buildExportStorageKey(job);
   const claimResult = await crud.update(
     {
@@ -410,12 +361,12 @@ async function processJob(args: {
     tdb,
   );
   if (!claimResult.isSuccess) {
-    // Race-Loss: anderer Worker hat den Job claimed. Skip silently.
+    // Another worker won the claim race, so skip this job without logging an error.
     return { kind: "skipped" };
   }
 
-  // Phase 2-6: Bundle bauen + ZIP-streamen + Storage-Write.
-  // Errors bis zur completion werden als job=failed materialisiert.
+  // Build the bundle, stream the ZIP, and write it to storage. Errors before
+  // completion are materialized as a failed job.
   try {
     const bundle = await runUserExport({
       db,
@@ -433,11 +384,10 @@ async function processJob(args: {
     });
     const ttl = profile.profile.userRights.exportDownloadTtl;
 
-    // Per-Tenant-Provider-Cache: Cross-Tenant-fileRefs (Alice Member von
-    // Tenant A + B → File-Refs aus beiden) brauchen pro Tenant separat
-    // einen Provider-Build (S3-Bucket pro Tenant, andere config). Job-
-    // Tenant ist die Identitaet fuer den write-Pfad; read-Pfade gehen
-    // ueber den fileRef.tenantId.
+    // Cross-tenant file references require a provider per tenant because storage
+    // configuration may differ. Cache each provider so a tenant is initialized
+    // only once; the requested tenant owns the write path, while reads use each
+    // file reference's tenantId.
     const providerCache = new Map<TenantId, FileStorageProvider>();
     const cachedProvider = async (tenantId: TenantId): Promise<FileStorageProvider> => {
       let p = providerCache.get(tenantId);
@@ -449,8 +399,8 @@ async function processJob(args: {
     };
 
     const writeProvider = await cachedProvider(job.requestedFromTenantId);
-    // writeStream + readStream sind im FileStorageProvider-Type required
-    // (Atom 3c.fix Type-Honesty) — keine Runtime-Optional-Checks mehr noetig.
+    // The provider type requires both methods, so runtime optional checks are
+    // unnecessary.
 
     const tracker = countingStream(
       createZipStream(bundleToZipEntries(bundle, now, cachedProvider)),
@@ -460,26 +410,20 @@ async function processJob(args: {
       mimeType: "application/zip",
     });
 
-    // Phase 7: Token VOR done-flip (Atom 4a.fix Sequencing).
+    // Create the token before the done transition: if token creation fails, the
+    // job is still running and the catch path marks it failed (monotonic status).
+    // A crash between the two calls can orphan a token and a ZIP; the next
+    // stale-detection pass fails the job and the cleanup pass removes the ZIP.
     //
-    // Wenn Token-Create failt, bleibt Job in `running` → catch-Pfad
-    // flippt auf failed (monotone Status-Transition). Wenn Token-Create
-    // VOR und done-flip NACH: tightes Race-Window in dem ein Worker-
-    // Crash zwischen den zwei calls einen Token + ZIP orphans. Beides
-    // catched die Stale-Detection im naechsten Pass — Job=failed,
-    // Storage-Cleanup-Pass clearted den ZIP (path-pre-claim oben).
+    // The plain token stays in worker memory and reaches the notification
+    // through RunExportJobsResult; only its hash is stored.
     //
-    // Plain-Token bleibt im Worker-Memory + wird via RunExportJobsResult
-    // an Atom 5 (Notification) weitergegeben. NUR der hash landet in DB.
-    // ES via tokenCrud.create — kein direct-INSERT.
-    //
-    // **Re-Run (fw#832):** Flippt ein Operator einen done/failed-Job
-    // zurueck auf pending (Plain-Token verloren, Email-Fail), existiert
-    // fuers jobId schon eine Token-Row. Ein zweites create wuerde ein
-    // zweites `created`-Event auf frischem Aggregat emittieren — der
-    // Projection-Rebuild kollidiert dann dauerhaft am one_per_job-Index.
-    // Stattdessen: Token-Rotation in place auf demselben Aggregat
-    // (update mit frischem Hash + Reset der Audit-Felder).
+    // **Reruns:** when an operator flips a done or failed job back to pending
+    // (lost plain token, email failure), a token row already exists for the
+    // jobId. A second create would emit another created event on a fresh
+    // aggregate, and projection rebuilds would keep colliding on the
+    // one_per_job index. Rotate the token in place on the existing aggregate
+    // instead (fresh hash, audit fields reset).
     const expiresAt = addDurationSpec(now, ttl);
     const { plain: tokenPlain, hash: tokenHash } = await generateDownloadToken();
     const existingToken = await fetchOne<{ id: string; version: number }>(
@@ -511,36 +455,33 @@ async function processJob(args: {
             tokenHash,
             issuedAt: now,
             expiresAt,
-            // Atom 4a.fix: useCount explizit 0 statt default null. 4b's
-            // Verify-Pfad incrementiert via `useCount + 1` ohne COALESCE-
-            // Defensiv-Code.
+            // Set useCount explicitly to 0 so verification can increment it with
+            // `useCount + 1` without defensive COALESCE logic.
             useCount: 0,
           },
           executor,
           tdb,
         );
     if (!tokenCreateResult.isSuccess) {
-      // Token-Creation failed VOR done-flip → Job bleibt running.
-      // Catch-Pfad flippt auf failed mit klarer Diagnose. Storage-
-      // Cleanup-Pass clearted den orphan-ZIP (path bereits via claim
-      // persistiert).
+      // Token creation failed before the done transition. The catch path marks the
+      // job failed, and cleanup can remove the ZIP whose path was persisted at
+      // claim time.
       throw new Error(
         `Job ${job.id}: Token-Creation failed before done-flip. ` +
           `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`, // @cast-boundary engine-payload
       );
     }
 
-    // Phase 8: Job=done. expiresAt wurde oben fuer Token gesetzt; identisch
-    // hier persistiert (denormalisiert in beiden Tabellen).
+    // Persist the same expiresAt used for the token on the job row as well.
     const doneResult = await crud.update(
       {
         id: job.id,
-        version: job.version + 1, // +1 weil wir bereits via claim einen update gemacht haben
+        version: job.version + 1, // +1 because the claim already performed one update
         changes: {
           status: EXPORT_JOB_STATUS.Done,
           completedAt: now,
-          // downloadStorageKey ist beim claim bereits gesetzt — kein
-          // Re-Set hier noetig (waere identisch).
+          // downloadStorageKey was set during the claim, so it does not need to be
+          // written again.
           expiresAt,
           bytesWritten: tracker.bytes,
         },
@@ -549,11 +490,8 @@ async function processJob(args: {
       tdb,
     );
     if (!doneResult.isSuccess) {
-      // Sehr unerwartet — wir haben gerade claimed (version+1), niemand
-      // sollte den Job zwischenzeitlich aendern. Materialisieren als
-      // failed damit der Operator das sieht. Token-Row bleibt orphan
-      // bis Atom-spaeter-Cleanup; Storage-ZIP wird via failed-Cleanup
-      // gecleared.
+      // The done transition failed after claiming. Mark the job failed so the
+      // operator can see the error; the token and ZIP remain for later cleanup.
       throw new Error(
         `Job ${job.id}: failed to flip status=done after successful Token-Create. ` +
           `${(doneResult as { error?: { code?: string } }).error?.code ?? "unknown"}`, // @cast-boundary engine-payload
@@ -563,9 +501,8 @@ async function processJob(args: {
     return { kind: "done", tokenPlain, expiresAt, bytesWritten: tracker.bytes };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    // Best-effort failure-flip. Wenn auch das failed (DB down etc.),
-    // bleibt der Job in running stehen — Stale-Detection im naechsten
-    // Worker-Run faengt ihn dann auf.
+    // Failure handling is best-effort. If the failure transition also fails, the
+    // job remains running and stale detection will recover it on a later run.
     await crud
       .update(
         {
@@ -601,12 +538,10 @@ async function staleDetectionPass(args: {
 }): Promise<readonly string[]> {
   const { db, now } = args;
 
-  // **Kein Coarse-Filter** — der vorherige `startedAt <= now-1h` Filter
-  // war fragile: profile.exportStaleTimeoutMinutes hat Default 30min und
-  // erlaubt per-Tenant-Override auf z.B. 5min. Ein 60min-Coarse-Filter
-  // wuerde 30-60min-alte stale-Jobs UNERKANNT lassen. Cron laeuft alle
-  // 60s, zu jedem Zeitpunkt sind nur wenige Jobs in `running` —
-  // alle fetchen + profile-resolve im Loop ist bezahlbar + korrekt.
+  // Fetch all running jobs instead of applying a coarse one-hour filter:
+  // exportStaleTimeoutMinutes is tenant-specific and may be as low as five
+  // minutes, so a coarse filter could miss stale jobs. The expected number of
+  // running jobs makes resolving each tenant's profile practical.
   const candidates = await selectMany<{
     id: string;
     version: number;
@@ -639,7 +574,7 @@ async function staleDetectionPass(args: {
         systemTenantDb(db, c.requestedFromTenantId),
       );
       if (result.isSuccess) failed.push(c.id);
-      // Race-loss (Worker hat das Job parallel completed) → skip
+      // Another worker completed the job, so skip it.
     }
   }
   return failed;
@@ -653,34 +588,14 @@ async function storageCleanupPass(args: {
 }): Promise<readonly string[]> {
   const { db, buildStorageProvider, now, metrics } = args;
 
-  // Zwei Cleanup-Pfade:
-  //
-  //   1. **Done-Jobs** (TTL-expired): expiresAt + grace < now → cleanup.
-  //      Per-Tenant-Grace aus Profile (default 24h post-expiry damit
-  //      gleichzeitige Re-Downloads bei Connection-Abbrueche moeglich).
-  //
-  //   2. **Failed-Jobs mit downloadStorageKey** (Atom 4a.fix orphan-cleanup):
-  //      Worker hat ZIP geschrieben, dann ist VOR done-flip etwas
-  //      schiefgegangen (Token-Create-Fail, done-flip-Fail, Stale-
-  //      Detection mid-write). Job=failed mit gesetztem downloadStorageKey =
-  //      ZIP-Orphan in Storage, kein User-Pfad zum download.
-  //
-  // **Strategie failed-Jobs: SOFORTIGE Cleanup ohne Grace.**
-  //
-  // Trade-off (DSGVO vs Audit-Forensik):
-  //   - DSGVO: User-Daten-ZIP einer failed-export-Anfrage hat keinen
-  //     legitimen Aufbewahrungs-Grund — hier ueberwiegt das Recht auf
-  //     Loeschung
-  //   - Audit-Forensik: forensische Untersuchung ("was ist im ZIP gelandet,
-  //     warum failed der Job") wuerde von einer Grace-Periode profitieren —
-  //     ABER: Token wurde nie ausgegeben (kein User hat das ZIP gesehen),
-  //     also keine User-Schaden-Forensik. Operator-Audit hat job.errorMessage
-  //     + Stack-Trace, das reicht
-  // → Trade-off zugunsten DSGVO entschieden. Wenn ein Operator forensik
-  // braucht, muss er das vor dem Cleanup-Pass capturen (out-of-band).
-  //
-  // **SQL-Filter:** status IN (done, failed) + downloadStorageKey IS NOT NULL
-  // via selectMany (db/queries/export-jobs.ts).
+  // Done jobs are cleaned after expiresAt plus the tenant's grace period
+  // (default 24h after expiry, so re-downloads after a dropped connection still
+  // work). Failed jobs with a persisted downloadStorageKey are orphaned ZIPs:
+  // the worker wrote the ZIP but failed before the done flip, so no token was
+  // ever issued and no user has seen it. They are removed immediately, without
+  // grace: the right to erasure outweighs forensics here, and the job's
+  // errorMessage and stack trace are the operator's audit record. An operator
+  // who needs the ZIP itself must capture it out of band before this pass.
   const candidates = await selectExportJobsForStorageCleanup(
     db,
     EXPORT_JOB_STATUS.Done,
@@ -808,11 +723,9 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
   }
 }
 
-// Wrapper: crud.update braucht TenantDb. ExportJob ist tenant-agnostisch
-// (1 Job pro userId), aber der event-store-Stream-Lookup erwartet einen
-// Tenant-Context. system-mode TenantDb bypassed den auto-tenant-filter
-// — wir nutzen `requestedFromTenantId` als Stream-Identity damit der
-// Stream-Counter konsistent bleibt (Memory feedback_event_store_tenant_consistency).
+// `crud.update` requires a TenantDb for event-store stream lookup. Export jobs are tenant-agnostic
+// (one job per userId), so system mode bypasses the automatic tenant filter while
+// `requestedFromTenantId` preserves stream identity and keeps the stream counter consistent.
 // @wrapper-known semantic-alias
 function systemTenantDb(db: DbConnection, tenantId: TenantId) {
   return createTenantDb({ db, tenantId, mode: "system" });
@@ -823,31 +736,21 @@ function buildExportStorageKey(job: JobRow): string {
 }
 
 /**
- * Konvertiert das UserExportBundle in eine `AsyncIterable<ZipEntry>`
- * fuer createZipStream.
+ * Converts a UserExportBundle to an `AsyncIterable<ZipEntry>` for
+ * createZipStream. `bundle.json` contains the bundle metadata and file
+ * references; each file is streamed from the provider at its `zipPath`, so
+ * large files do not require an in-memory copy.
  *
- * Bundle-Layout (Atom 3c):
- *   bundle.json                              — Top-Level-Bundle-Metadata
- *                                              + tenant-sections + flat
- *                                              fileRefs[] mit zipPath
- *                                              pro Datei
- *   files/<tenantId>/<fileRefId>-<name>      — File-Binaries, Pfad
- *                                              identisch zu fileRef.zipPath
- *                                              im JSON. Bytes via
- *                                              provider.readStream — kein
- *                                              Memory-Spike, auch grosse
- *                                              PDFs streamen durch.
- *
- * `getProvider` ist ein async-cached Resolver pro tenantId. Caller
- * (processJob) baut die Caching-Map damit jeder Tenant nur EINMAL
- * via `buildStorageProvider` materialisiert wird.
+ * `getProvider` caches providers by tenantId, ensuring each tenant is built
+ * only once while processing cross-tenant file references.
  */
 async function* bundleToZipEntries(
   bundle: UserExportBundle,
   mtime: Instant,
   getProvider: (tenantId: TenantId) => Promise<FileStorageProvider>,
 ): AsyncIterable<ZipEntry> {
-  // bundle.json zuerst — Reader-Tools koennen das frueh parsen.
+  // Emit bundle.json first so readers can parse the metadata before the file
+  // entries arrive.
   const bundleJson = JSON.stringify(bundle, null, 2);
   yield {
     path: "bundle.json",
@@ -855,14 +758,14 @@ async function* bundleToZipEntries(
     mtime,
   };
 
-  // File-Binaries: pro fileRef einen ZIP-Entry. data ist der readStream
-  // direkt — der ZIP-Builder konsumiert chunk-fuer-chunk, kein Upfront-
-  // Memory-Spike pro File. Bei 50 PDFs à 10MB werden trotzdem max. ~64KB
-  // (default highWaterMark) gleichzeitig im Heap gehalten.
+  // File binaries: one ZIP entry per fileRef. `data` is the readStream directly,
+  // so the ZIP builder consumes chunks without an upfront memory spike. Even
+  // with 50 PDFs at 10MB each, at most about 64KB (default highWaterMark) is
+  // held in the heap at once.
   for (const ref of bundle.fileRefs) {
     const provider = await getProvider(ref.tenantId);
-    // readStream ist required im FileStorageProvider-Type (Atom 3c.fix
-    // Type-Honesty) — kein Runtime-Optional-Check noetig.
+    // `readStream` is required by the FileStorageProvider type, so no runtime
+    // optional check is needed.
     yield {
       path: ref.zipPath,
       data: provider.readStream(ref.storageKey),
@@ -876,9 +779,9 @@ async function* oneShot(bytes: Uint8Array): AsyncIterable<Uint8Array> {
 }
 
 /**
- * Wraps an `AsyncIterable<Uint8Array>` und zaehlt total-bytes. Nach
- * `for await` ist `tracker.bytes` der finale Wert. Verwendet fuer
- * bytesWritten im Job-Row.
+ * Wraps an `AsyncIterable<Uint8Array>` and counts the total bytes. After
+ * `for await`, `tracker.bytes` contains the final value used for
+ * `bytesWritten` in the job row.
  */
 function countingStream(source: AsyncIterable<Uint8Array>): {
   stream: AsyncIterable<Uint8Array>;
@@ -901,19 +804,14 @@ function countingStream(source: AsyncIterable<Uint8Array>): {
   };
 }
 
-// Atom 5 — userEmail-Lookup fuer notification-callback.
+// Reads directly from the database because the worker's AppContext has no
+// queryAs, unlike HandlerContext in the request path. The cross-tenant
+// export iteration uses the same approach; a dispatcher-based cross-feature
+// API would require a JobContext wrapper that the framework does not provide.
 //
-// **Direct-DB statt queryAs:** Worker-AppContext hat kein queryAs
-// (anders als HandlerContext im request-Pfad). Pattern matched
-// runUserExport's Cross-Tenant-Iteration die ebenso direkt
-// tenantMembershipsTable liest. Cross-feature-API via dispatcher
-// haette einen JobContext-Wrapper gebraucht den der framework noch
-// nicht hat — wenn das mal kommt, ist der hier Refactor-Kandidat.
-//
-// **tenant-agnostic:** userTable.id ist UNIQUE (PK). Cross-Tenant
-// (Alice in Tenant A+B) hat trotzdem nur 1 user-Row mit ihrer
-// Heim-Tenant als tenantId. Lookup ohne tenantId-filter findet sie
-// aus jedem Worker-Tenant-Context.
+// userTable.id is globally unique. Even when a user belongs to multiple
+// tenants, there is only one user row with its home tenant as tenantId, so a
+// lookup without a tenantId filter works from any worker tenant context.
 async function lookupUserContact(
   db: DbConnection,
   userId: string,
@@ -929,12 +827,9 @@ async function lookupUserContact(
   return { email, locale: row.locale ?? null };
 }
 
-// Atom 5 — Email-Notification beim done-flip. Best-effort:
-// Throw vom Callback bubbelt zum r.job-handler hoch + Worker-Run wird
-// als failed in jobRunsTable gemerkt. Operator kann via jobs:write:retry
-// den Worker-Run erneut anstossen — der Job selbst bleibt done, das
-// retry findet keinen pending-Job mehr aber die Audit-Log zeigt den
-// Failure.
+// The callback is best-effort: its failure must not abort the batch because
+// the job is already done, and retrying the worker will not find it pending.
+// The failure remains visible in the worker-run audit log.
 async function fireExportReadyCallback(args: {
   readonly db: DbConnection;
   readonly job: JobRow;
@@ -946,14 +841,10 @@ async function fireExportReadyCallback(args: {
 }): Promise<void> {
   const contact = await lookupUserContact(args.db, args.job.userId);
   if (!contact) {
-    // User-Row fehlt (z.B. forget-Pfad mid-export). Skip-Notification mit
-    // Operator-Alert via job-run-Log statt Throw — Job bleibt done, User
-    // hat ja seinen Token via export-status.query erreichbar (UI-Pfad).
-    // **console.warn statt ctx.log:** runExportJobs-args fuehren AppContext.log
-    // aktuell nicht durch (Worker-pure-function-Pattern). console.warn ist
-    // die einzige Operator-Sichtbarkeit fuer den missing-user-edge-case.
-    // Wenn jobs-Feature spaeter ctx.log threadet oder Worker-args erweitert
-    // werden, hier Refactor-Kandidat.
+    // If the user row is missing, skip the notification instead of throwing:
+    // the job remains done, and the token remains available through
+    // export-status.query. console.warn is used because the worker arguments
+    // do not currently carry AppContext.log.
     // biome-ignore lint/suspicious/noConsole: operator-visibility for missing-user edge-case
     console.warn(
       `[user-data-rights:run-export-jobs] userId=${args.job.userId} hat kein userEmail — sendExportReadyEmail skipped`,
@@ -980,7 +871,6 @@ async function fireExportReadyCallback(args: {
   });
 }
 
-// Atom 5 — Email-Notification beim failed-flip.
 async function fireExportFailedCallback(args: {
   readonly db: DbConnection;
   readonly job: JobRow;

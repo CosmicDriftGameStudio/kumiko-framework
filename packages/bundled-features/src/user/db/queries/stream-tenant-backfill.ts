@@ -1,11 +1,11 @@
-// #762 — one-time migration tooling for pre-#497 user event streams.
+// One-time migration tooling for older user event streams.
 //
-// #497 made `user` a systemStream entity: every executor op addresses the
+// Making `user` a systemStream entity means every executor op addresses the
 // stream on SYSTEM_TENANT_ID. Streams created before that live on whichever
-// tenant created them ("scattered"), so post-#497 writes version-conflict
-// against the empty SYSTEM stream. The raw UPDATE documented in the #497
-// changeset breaks as soon as an aggregate has BOTH a legacy stream and
-// post-#497 SYSTEM events (split stream — e.g. a skipOptimisticLock
+// tenant created them ("scattered"), so newer writes version-conflict
+// against the empty SYSTEM stream. The raw UPDATE breaks as soon as an
+// aggregate has BOTH a legacy stream and newer SYSTEM events
+// (split stream — e.g. a skipOptimisticLock
 // lifecycle write appended v1 on SYSTEM while v1..n live on the old
 // tenant): retenanting then trips events_aggregate_version_uq.
 //
@@ -75,7 +75,7 @@ async function migrateAggregate(db: DbConnection, aggregateId: string): Promise<
       [aggregateId],
     );
 
-    // Phase 1: negative interim versions — real versions are always >= 1, so
+    // Negative interim versions — real versions are always >= 1, so
     // nothing can collide with events_aggregate_version_uq mid-migration.
     for (const [i, ev] of events.entries()) {
       await raw.unsafe(
@@ -83,7 +83,7 @@ async function migrateAggregate(db: DbConnection, aggregateId: string): Promise<
         [SYSTEM_TENANT_ID, -(i + 1), ev.id],
       );
     }
-    // Phase 2: final contiguous 1..n.
+    // Final contiguous 1..n.
     for (const [i, ev] of events.entries()) {
       await raw.unsafe(`UPDATE "kumiko_events" SET "version" = $1 WHERE "id" = $2`, [i + 1, ev.id]);
     }

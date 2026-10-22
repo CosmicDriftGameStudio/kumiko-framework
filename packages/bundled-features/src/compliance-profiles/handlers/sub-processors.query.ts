@@ -8,19 +8,17 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
 
-// Public Sub-Processor-Liste — anonymous accessible (Memory:
-// project_anonymous_access). Matched die DSGVO Art. 28(2) Pflicht
-// dass die Liste der Auftragsverarbeiter oeffentlich einsehbar ist
-// (typisch verlinkt aus Datenschutzerklaerung + AVV).
+// Public sub-processor list, accessible anonymously. This satisfies the GDPR Art. 28(2) requirement
+// that the list of processors be publicly accessible, typically linked from
+// the privacy policy and data-processing agreement.
 //
-// Format: JSON mit getrennten active/planned-Sektionen. Tenant-Admins
-// kriegen Notification ueber Aenderungen via Cron-Job (Sprint 1.5+
-// oder S9 compliance-as-product). RSS-Feed kommt in S9.
+// Format: JSON with separate active/planned sections. Tenant admins receive
+// change notifications via a cron job.
 //
-// Zwei Auflistungen statt einer flachen Liste:
-//   - `active`: aktuell eingesetzte Sub-Processors
-//   - `planned`: bekannte zukünftige Sub-Processors (Tenant-Admin-
-//     Lead-Time bevor sie aktiv werden — typisch bei AI/Stripe)
+// Two lists are used instead of one flat list:
+//   - `active`: sub-processors currently in use
+//   - `planned`: known future sub-processors, giving tenant admins lead time
+//     before activation, as is typical for AI and Stripe providers.
 export const subProcessorsQuery = defineQueryHandler({
   name: "sub-processors",
   schema: z.object({}),

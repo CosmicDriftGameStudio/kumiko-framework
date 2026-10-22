@@ -5,12 +5,13 @@ import {
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-// Page — vom Tenant editierbare, server-gerenderte Public-Page (Landing,
-// About, custom). Pro (tenantId, slug, lang) genau eine Row. Body ist
-// Markdown (gehärtet server-gerendert über page-render). `published` gated
-// die Auslieferung an anonyme Besucher: Drafts → 404. description/ogImage
-// für SEO + Social-Preview. SYSTEM_TENANT_ID für app-weite Pages, sonst
-// Tenant-eigene Pages (Host → tenantId via resolveApexTenant am Render-Pfad).
+// Page — a tenant-editable, server-rendered public page (landing,
+// about, custom). Exactly one row per (tenantId, slug, lang). The body is
+// Markdown, rendered securely on the server via page-render. `published`
+// gates delivery to anonymous visitors: drafts return 404. description and
+// ogImage support SEO and social previews. SYSTEM_TENANT_ID is used for
+// app-wide pages; otherwise the page belongs to the tenant resolved from the
+// host via resolveApexTenant during rendering.
 export const pageEntity = createEntity({
   table: "read_pages",
   description:
@@ -38,12 +39,12 @@ export const pageEntity = createEntity({
       personal: false,
       reason: "is_business_data",
     }),
-    // Body + description sind vom Tenant-Admin authored Business-Content
-    // (Markdown), keine User-Generated-PII. `multiline` → der entityEdit-
-    // Renderer gibt ein <textarea> aus (createLongTextField hat aktuell
-    // einen Render-Gap: edit.ts/render-field.tsx gaten nur type==="text").
-    // maxLengths spiegeln die Handler-Schemas (set.write + Convention-CRUD
-    // leiten ihre zod-Caps aus diesen Field-maxLengths ab).
+    // Body and description are tenant-admin-authored business content
+    // (Markdown), not user-generated PII. `multiline` makes the entityEdit
+    // renderer output a <textarea> (createLongTextField currently has a
+    // rendering gap: edit.ts/render-field.tsx only gates on type==="text").
+    // maxLengths mirror the handler schemas (set.write and convention CRUD
+    // derive their zod caps from these field maxLengths).
     body: createTextField({
       multiline: { rows: 16 },
       maxLength: 100_000,
@@ -59,9 +60,9 @@ export const pageEntity = createEntity({
 
 export const pagesTable = buildEntityTable("page", pageEntity);
 
-// Concrete Row-Type — single-source für die benannten Werte (statt
-// `row["x"] as Y`-Casts in Handlern). entity.fields + Standard-Spalten
-// (id, version, tenantId, createdAt, updatedAt, createdBy, updatedBy).
+// Concrete row type — the single source of truth for named values instead
+// of `row["x"] as Y` casts in handlers. Includes entity.fields and standard
+// columns (id, version, tenantId, createdAt, updatedAt, createdBy, updatedBy).
 export type PageRow = {
   readonly id: string;
   readonly version: number;

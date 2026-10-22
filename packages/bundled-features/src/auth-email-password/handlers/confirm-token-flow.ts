@@ -15,11 +15,11 @@
 // else — including future branches a maintainer adds — releases
 // automatically.
 //
-// The user aggregate is systemStream (#497): its event stream lives on
+// The user aggregate uses systemStream: its event stream lives on
 // SYSTEM_TENANT_ID deterministically, so the write targets exactly one
 // stream. The former membership-probing (`tryWriteAcrossTenants`) existed
-// for pre-#497 scattered streams; those need the one-time
-// backfillUserStreamTenants migration (#762) — probing them stopped working
+// for scattered streams; those need the one-time
+// backfillUserStreamTenants migration — probing them stopped working
 // the moment the executor's stream choke-point landed anyway.
 
 import {
@@ -108,8 +108,8 @@ export async function runConfirmTokenFlow<TSuccessData>(
       committed = true;
       return { isSuccess: true, data: spec.successData };
     }
-    // version_conflict = concurrent modification (or an un-migrated pre-#497
-    // stream, see header) → token-level failure. Anything else (DB down,
+    // version_conflict = concurrent modification (or an un-migrated
+    // stream) → token-level failure. Anything else (DB down,
     // access denied) bubbles unchanged so ops sees the real failure class.
     if (writeRes.error.code === "version_conflict") return spec.invalidToken();
     return writeRes;

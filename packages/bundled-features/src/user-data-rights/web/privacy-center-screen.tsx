@@ -1,6 +1,6 @@
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 // Export section (Art. 20) — the one part of user-data-rights' privacy-center
-// screen that stays custom (fw#2312). Registered as an EditExtensionSection
+// screen that stays custom. Registered as an EditExtensionSection
 // component (see web/client-plugin.tsx); the projectionDetail screen
 // (feature.ts) supplies the surrounding Section chrome (title, testId), so
 // this component renders only its own body content.
@@ -26,9 +26,9 @@ import {
   UserDataRightsQueries,
 } from "./constants.ts";
 
-// Export-Job läuft async (worker-Lane-Cron, ~1 Min). Solange er pending/running
-// ist, pollt der Screen den Status, damit der Download ohne manuellen Reload
-// erscheint.
+// The export job runs asynchronously (worker-Lane-Cron, ~1 Min). While it is
+// pending/running, the screen polls its status so the download appears without
+// a manual reload.
 const EXPORT_POLL_MS = 4000;
 
 type ExportJob = {
@@ -47,15 +47,16 @@ type SectionStatus =
   | { kind: "success"; messageKey: string }
   | { kind: "error"; messageKey: string };
 
-// Dispatcher-Failures tragen i18nKey nur wenn der Handler einen setzt —
-// Boundary-Read mit generischem Fallback.
+// Dispatcher failures include i18nKey only when the handler sets one; read it
+// at the boundary with a generic fallback.
 function failureKey(error: unknown): string {
   const key = propertyOf(error, "i18nKey");
   return typeof key === "string" ? key : "userDataRights.privacyCenter.errors.generic";
 }
 
-// Roher ISO-Instant → nur der Datums-Teil ist relevant; reiner String-Slice,
-// kein Date-API (no-date-api-Guard) und universell. Leer/null → "—".
+// Only the date portion of the raw ISO instant is relevant; use a string slice
+// instead of the Date API (no-date-api-Guard) for universal support. Empty/null
+// values become "—".
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return EMPTY_VALUE_PLACEHOLDER;
   const tIndex = iso.indexOf("T");
@@ -97,10 +98,10 @@ export function ExportSection(): ReactNode {
     void statusQuery.refetch?.();
   };
 
-  // Download laeuft ueber den Dispatcher (traegt X-CSRF-Token) statt ueber
-  // eine <a>-Navigation: download-by-job liefert eine signed URL zurueck, auf
-  // die postWithDownload den Browser navigiert (content-disposition:
-  // attachment → laedt herunter).
+  // Download runs through the dispatcher (which supplies X-CSRF-Token) instead of
+  // an <a>-navigation: download-by-job returns a signed URL, which
+  // postWithDownload navigates the browser to (content-disposition:
+  // attachment → triggers a download).
   const downloadExport = async (jobId: string): Promise<void> => {
     const err = await postWithDownload(dispatcher, UserDataRightsQueries.downloadByJob, { jobId });
     if (err) setStatus({ kind: "error", messageKey: failureKey(err) });
@@ -116,7 +117,7 @@ export function ExportSection(): ReactNode {
 
   // While the job is running: poll until Done/Failed, then auto-stop.
   const refetch = statusQuery.refetch;
-  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
   useEffect(() => {
     if (!inProgress || !refetch) return;
     const id = setInterval(() => void refetch(), EXPORT_POLL_MS);

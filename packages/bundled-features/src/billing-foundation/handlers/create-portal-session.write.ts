@@ -1,17 +1,16 @@
-// create-portal-session — Tenant-Admin klickt "Manage Subscription".
-// Handler findet die current subscription des Tenants, lookuppt den
-// passenden Plugin (= subscription.providerName-Spalte), ruft
-// `plugin.createPortalSession(ctx, ...)`, returnt hosted-portal-URL.
+// create-portal-session — Tenant admin clicks "Manage Subscription".
+// The handler finds the tenant's current subscription, looks up the matching
+// plugin (= the `subscription.providerName` column), calls
+// `plugin.createPortalSession(ctx, ...)`, and returns the hosted portal URL.
 //
-// **Provider-resolution:** anders als create-checkout-session (= der
-// Tenant wählt einen NEUEN Provider beim Subscribe) ist hier der
-// Provider durch die existing subscription-row festgelegt — Tenant
-// kann nicht zum Portal eines OTHER Providers, weil der ihn nicht
-// kennt.
+// **Provider resolution:** unlike create-checkout-session (where the tenant
+// chooses a NEW provider when subscribing), the provider here is fixed by the
+// existing subscription row. The tenant cannot access another provider's
+// portal because the subscription does not belong to that provider.
 //
-// **returnUrl:** computed server-side via `portalReturnUrl` (catalog's
-// returnPath, or baseUrl itself) — the client no longer supplies one, so
-// there is no client-controlled redirect to harden against.
+// **returnUrl:** computed server-side via `portalReturnUrl` (the catalog's
+// returnPath, or baseUrl itself). The client no longer supplies one, so there
+// is no client-controlled redirect to harden against.
 
 import {
   configuredPiiSubjectKms,

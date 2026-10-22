@@ -24,7 +24,7 @@ export const createTransactionPayloadSchema = z
     description: z.string().min(1).max(200),
     reference: z.string().max(120).optional(),
     // Defaults to "posted" in the handler. draft lifecycle (editable) lands with
-    // the Soll/recurring work — Phase 0 only ever creates posted entries.
+    // the debit/recurring work — only ever creates posted entries.
     status: z.enum(TRANSACTION_STATUS).optional(),
     lines: z.array(postingSchema).min(2),
     // Business-object reference (e.g. a lease contract) this entry is about.

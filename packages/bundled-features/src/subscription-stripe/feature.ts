@@ -1,35 +1,36 @@
 // kumiko-feature-version: 3
 //
-// subscription-stripe — Stripe-Plugin für die billing-foundation
-// Plugin-API.
+// subscription-stripe — Stripe plugin for the billing-foundation
+// plugin API.
 //
-// **Runtime-config (v3):** Stripe-credentials + der billing-live-Master-
-// Switch kommen ZUR LAUFZEIT aus dem config-Feature, nicht mehr aus einem
-// mount-time-Closure. Damit lassen sich Keys rotieren und prod live-
-// schalten ohne Redeploy — und die Eingabe-Maske entsteht von selbst.
+// **Runtime config (v3):** Stripe credentials and the billing-live master
+// switch come from the config feature AT RUNTIME, no longer from a
+// mount-time closure. This allows keys to rotate and production to go live
+// without a redeploy — and the input form is generated automatically.
 //   - `subscription-stripe:config:api-key` + `:webhook-secret` → system
-//     config keys mit **backing:"secrets"**: der Wert lebt envelope-
-//     verschlüsselt im secrets-Store unter SYSTEM_TENANT_ID, adressiert
-//     wird er als config-Key. `mask` leitet den Sysadmin-configEdit-Screen
-//     + Settings-Hub-Nav ab — kein handgeschriebenes r.screen/r.nav in der
-//     App mehr (v2 hatte die Keys als `r.secret` + App-eigene Maske).
+//     config keys with **backing:"secrets"**: the value is envelope-encrypted
+//     in the secrets store under SYSTEM_TENANT_ID and addressed as a
+//     config key. `mask` derives the sysadmin configEdit screen +
+//     Settings-Hub navigation — the app no longer needs handwritten
+//     r.screen/r.nav entries (v2 used `r.secret` keys + an app-owned form).
 //   - `subscription-stripe:config:billing-live` (shortKey `billingLive`,
-//     kebab-qualifiziert von r.config) → **system config**
-//     (boolean, default false). Der Master-Switch: ohne ihn darf kein
-//     checkout eine Stripe-Session erzeugen (#104-Invariante, write-side
-//     im createCheckoutSession-Gate durchgesetzt).
+//     kebab-qualified by r.config) → **system config**
+//     (boolean, default false). The master switch: without it, checkout may
+//     not create a Stripe session; this is enforced in the
+//     createCheckoutSession gate.
 //
-// **Factory-options als Fallback:** `createSubscriptionStripeFeature({
-// apiKey, webhookSecret, priceToTier })` bleibt — apiKey/webhookSecret
-// sind jetzt OPTIONAL und dienen nur als Fallback während der env→secrets-
-// Bridge-Phase und in Tests, die keinen secrets-context wiren. `priceToTier`
-// (Stripe-price-id → app-tier-name) bleibt eine factory-option: app-
-// spezifisch, kein Secret, ändert sich selten.
+// **Factory options as fallback:** `createSubscriptionStripeFeature({
+// apiKey, webhookSecret, priceToTier })` remains — apiKey/webhookSecret
+// are now OPTIONAL and serve only as fallbacks during the env→secrets
+// bridge phase and in tests that do not wire a secrets context. `priceToTier`
+// (Stripe price ID → app tier name) remains a factory option: it is
+// app-specific, is not a secret, and changes infrequently.
 //
-// **Webhook + system-secrets:** verifyAndParseWebhook ist pre-tenant
-// (kein ctx). Der billing-foundation-webhook-handler reicht einen system-
-// scoped SecretsContext als 3. Arg durch, aus dem der Plugin api-key +
-// webhook-secret un-audited liest (sanctioned framework-internal read).
+// **Webhook + system secrets:** verifyAndParseWebhook is pre-tenant
+// (no ctx). The billing-foundation webhook handler passes a system-scoped
+// SecretsContext as the third argument, from which the plugin reads the
+// api key + webhook secret without auditing (a sanctioned framework-internal
+// read).
 
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
@@ -115,17 +116,17 @@ export function stripeEnvSchema<const TPrice extends string>(options: {
 }
 
 export type SubscriptionStripeOptions = {
-  /** Bridge-fallback webhook-secret. Optional: v2 liest aus dem
-   *  `subscription-stripe:config:webhook-secret`-Key (backing:"secrets").
-   *  Gesetzt nur während der env→secrets-Übergangsphase / in Tests. */
+  /** Bridge-fallback webhook secret. Optional: v2 reads from the
+   *  `subscription-stripe:config:webhook-secret` key (backing:"secrets").
+   *  Set only during the env→secrets transition phase / in tests. */
   readonly webhookSecret?: string;
-  /** Bridge-fallback api-key. Optional: v2 liest aus dem
-   *  `subscription-stripe:config:api-key`-Key (backing:"secrets"). */
+  /** Bridge-fallback API key. Optional: v2 reads from the
+   *  `subscription-stripe:config:api-key` key (backing:"secrets"). */
   readonly apiKey?: string;
-  /** Price-to-tier-Mapping. Plugin liest die price-id aus dem Stripe-event
-   *  (subscription.items.data[0].price.id) und mappt auf einen tier-name.
-   *  App-spezifisch → bleibt factory-option. Fehlt die price-id im Mapping
-   *  → null (event ignored). */
+  /** Price-to-tier mapping. The plugin reads the price ID from the Stripe
+   *  event (subscription.items.data[0].price.id) and maps it to a tier name.
+   *  App-specific, so it remains a factory option. If the price ID is absent
+   *  from the mapping → null (event ignored). */
   readonly priceToTier?: Readonly<Record<string, string>>;
   /** Whether a mode:"payment" checkout (one-off top-ups etc.) gets a Stripe
    *  invoice — a receipt/invoice document Stripe generates and sends to the
@@ -161,11 +162,11 @@ function validateOneOffPriceIds(priceIds: readonly string[]): void {
 }
 
 /**
- * Factory für das subscription-stripe-feature. Mountet IMMER (kein
- * key-presence-Guard mehr) — die Aktivität wird runtime über config/secrets
- * gegatet (Muster wie feature-toggles). Der returnte FeatureDefinition
- * registriert den Plugin gegen billing-foundation's "subscriptionProvider"-
- * extension unter entityName "stripe".
+ * Factory for the subscription-stripe feature. Always mounts (no
+ * key-presence guard) — activity is gated at runtime through config/secrets
+ * (following the feature-toggles pattern). The returned FeatureDefinition
+ * registers the plugin under billing-foundation's "subscriptionProvider"
+ * extension with entityName "stripe".
  */
 export function createSubscriptionStripeFeature(
   options: SubscriptionStripeOptions = {},
@@ -192,15 +193,15 @@ export function createSubscriptionStripeFeature(
     // the value lives envelope-encrypted in the secrets store under
     // SYSTEM_TENANT_ID, while `mask` derives the sysadmin settings screen +
     // Settings-Hub nav (no hand-written r.screen/r.nav in the consuming app).
-    // billingLive is the #104 master switch. The factory-fallback
+    // billingLive is the master switch. The factory-fallback
     // (options.apiKey/.webhookSecret) covers the env→secrets bridge + tests.
     const configKeys = r.config({
       keys: {
         [STRIPE_API_KEY_CONFIG]: createSystemConfig("text", {
           backing: "secrets",
-          // Prefix-Guard, deckungsgleich mit subscriptionStripeEnvSchema:
-          // fängt den Paste-the-wrong-field-Fehler (pk_/price_), ohne den
-          // base62-Body zu constrainen. Anchored, kein Backtracking → kein ReDoS.
+          // Prefix guard, matching subscriptionStripeEnvSchema:
+          // catches the wrong-field paste error (pk_/price_) without
+          // constraining the base62 body. Anchored, with no backtracking → no ReDoS.
           pattern: { regex: "^(sk|rk)_(test|live)_" },
           write: access.systemAdmin,
           read: access.admin,

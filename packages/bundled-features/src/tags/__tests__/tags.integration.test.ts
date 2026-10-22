@@ -379,9 +379,8 @@ describe("tags integration — idempotency", () => {
 
   // 20 iterations, fresh (tag, entity) per run: this race has two distinct
   // windows (create()-vs-create() unique-violation, and the narrower
-  // detail()-miss/restore()-hits window fixed alongside kumiko-framework#1778)
-  // that each fire in only a fraction of attempts — a single run isn't a
-  // reliable regression guard for either.
+  // detail()-miss/restore()-hits window) that each fire in only a fraction of
+  // attempts — a single run isn't a reliable regression guard for either.
   test("two concurrent first-time assigns of the same (tag, entity) both succeed — one row", async () => {
     for (let i = 0; i < 20; i++) {
       // Both requests read `existing === null` before either write lands, so

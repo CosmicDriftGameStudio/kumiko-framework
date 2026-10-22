@@ -1,4 +1,4 @@
-// Integration test for the job-run retention-cleanup job (#2243). Dispatches
+// Integration test for the job-run retention-cleanup job. Dispatches
 // jobs:job:retention-cleanup through the real jobRunner (setupTestStack +
 // BullMQ worker) — the same enqueue path production's cron trigger uses —
 // instead of hand-building a JobContext and casting into the handler. Each

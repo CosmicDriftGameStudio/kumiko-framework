@@ -620,9 +620,9 @@ describe("feature-toggles queries + audit automation", () => {
 // to the same Redis channel, applies the flip without ever running the
 // MSP itself — delivery is "shared", so only ONE process's dispatcher
 // processes a given toggle-set event; the signal is what makes every
-// OTHER already-running process learn about it. This is "der Kern" this
-// PR adds: without a real transport under broadcastToggle, only the
-// cursor-winning process would ever converge.
+// OTHER already-running process learn about it. This is the core behavior:
+// without a real transport under broadcastToggle, only the cursor-winning
+// process would ever converge.
 describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
   let testRedis: TestRedis;
   let signalA: RedisToggleSyncSignal | undefined;

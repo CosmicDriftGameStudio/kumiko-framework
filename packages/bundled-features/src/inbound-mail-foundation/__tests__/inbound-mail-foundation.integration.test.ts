@@ -1,15 +1,15 @@
-// Integration-test für inbound-mail-foundation. Treibt connect/ingest/
-// list/disconnect durch den full Dispatcher + DB (setupTestStack, echte
-// HTTP — kein Fake-Dispatcher).
+// Integration test for inbound-mail-foundation. Exercises connect/ingest/
+// list/disconnect through the full Dispatcher + DB (setupTestStack, real
+// HTTP — no fake dispatcher).
 //
-// Plan-Pflicht-Szenarien (§6 Phase 1):
-//   - Dedup: 2× dieselbe providerMessageId → 1 Event/Row, duplicate=true
-//   - Raw-Event-Row: PII als Ciphertext im Event-Store, Klartext nur
-//     über die decrypt-on-read-Queries
-//   - Projection-Rebuild: Event-Log-Replay reproduziert die Read-Models
-//   - Scope-Sichtbarkeit (ownerUserId): persönliches Postfach nur für
-//     Owner + TenantAdmin
-//   - Crypto-Shredding: Subject-Key-Erase macht Payload unlesbar (#800)
+// Scenarios:
+//   - Dedup: 2× identical providerMessageId → 1 Event/Row, duplicate=true
+//   - Raw event row: PII is ciphertext in the event store; plaintext is
+//     available only through decrypt-on-read queries
+//   - Projection rebuild: replaying the event log reproduces the read models
+//   - Scope visibility (ownerUserId): personal mailbox is visible only to
+//     the owner + TenantAdmin
+//   - Crypto shredding: erasing the subject key makes the payload unreadable
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -89,12 +89,12 @@ beforeAll(async () => {
   db = stack.db;
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
-  // Unmanaged direct-write stores — kein r.entity, kein Auto-Push.
+  // Direct-write stores are unmanaged: no r.entity and no automatic push.
   await unsafeCreateEntityTable(db, syncCursorEntity);
   await unsafeCreateEntityTable(db, seenMessageEntity);
-  // PII-Felder sind tenantOwned — Handler rufen configuredPiiSubjectKms()
-  // direkt (raw r.projection, kein Executor-Wiring), wie run{Prod,Dev}App
-  // at boot.
+  // PII fields are tenantOwned; handlers call configuredPiiSubjectKms()
+  // directly (raw r.projection, without executor wiring), as run{Prod,Dev}App
+  // does at boot.
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 
@@ -205,7 +205,7 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
     expect(first["duplicate"]).toBe(false);
     expect(first["inboundMessageAggregateId"]).toBe(inboundMessageAggregateId(accountId, "uid-1"));
 
-    // Replay (IDLE-Doppel-Notify / Cursor-Overlap) → duplicate, kein 2. Row.
+    // Replay (IDLE duplicate notification / cursor overlap) → duplicate, no second row.
     const replay = (await stack.http.writeOk(
       InboundMailFoundationHandlers.ingestMessage,
       ingestPayload(accountId, { providerMessageId: "uid-1", messageIdHeader: "root@example.com" }),
@@ -243,7 +243,7 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
     expect(threadRows[0]?.["messageCount"]).toBe(2);
     expect(String(threadRows[0]?.["lastMessageAt"])).toContain("2026-07-01T11:00:00");
 
-    // Raw message row: PII-Ciphertext; message:list liefert Klartext.
+    // Raw message row contains PII ciphertext; message:list returns plaintext.
     expect(isPiiCiphertext(msgRows[0]?.["from"])).toBe(true);
     expect(isPiiCiphertext(msgRows[0]?.["subject"])).toBe(true);
     const list = (await stack.http.queryOk(
@@ -282,13 +282,11 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
     );
     const threadAggId = mailThreadAggregateId(admin.tenantId, "mid:self-heal-root@example.com");
 
-    // Simuliert den Snapshot-Drift, den ein verlorener Version-Conflict-
-    // Retry (siehe Handler-Kommentar Schritt 5) theoretisch trotz der
-    // Retry-Schleife hinterlassen könnte: 2 Message-Rows liegen vor, aber
-    // der ZULETZT geschriebene Thread-Event trägt einen zu niedrigen
-    // Snapshot. Der neue ingest liest den Live-COUNT gegen
-    // read_inbound_messages neu statt dem Event-Snapshot zu vertrauen —
-    // der Fehler ist selbstkorrigierend, nicht kumulativ.
+    // Simulates snapshot drift that a lost version-conflict retry could theoretically
+    // leave despite the retry loop: two message rows exist, but the most recently
+    // written thread event has a count that is too low. The new ingest rereads
+    // the live count from read_inbound_messages instead of trusting the event
+    // snapshot, making the correction self-healing rather than cumulative.
     const expectedVersion = await getStreamVersion(db, threadAggId, admin.tenantId);
     const corruptedPayload: MailThreadEventPayload = {
       threadKey: "mid:self-heal-root@example.com",
@@ -305,9 +303,9 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
       payload: corruptedPayload,
       metadata: { userId: admin.id },
     });
-    // mailThreadsProjectionTable ist nicht Writable (der Typecheck
-    // lehnt raw updateMany ab) — die Test-Korruption geht bewusst am
-    // Type-Guard vorbei, genau wie die Race-Situation die sie simuliert.
+    // mailThreadsProjectionTable is not writable (the type check rejects raw
+    // updateMany), so the test corruption intentionally bypasses the type guard,
+    // just as the simulated race does.
     await asRawClient(db).unsafe(`UPDATE "read_mail_threads" SET message_count = 1 WHERE id = $1`, [
       threadAggId,
     ]);
@@ -329,10 +327,9 @@ describe("scenario 2b: ingest-message — Thread-Rollup selbstkorrigierend statt
 });
 
 describe("scenario 2c: ingest-message — concurrent thread-rollup race (issue #1229, closed by #2155)", () => {
-  // Probabilistic — looped per house convention (mehrere Durchläufe, z.B.
-  // 20x): whether a concurrent thread-rollup commit lands inside the
-  // step-5 critical section depends on real transaction-timing
-  // interleaving, which a single run can't force deterministically.
+  // Probabilistic — repeated because whether a concurrent thread-rollup commit
+  // lands inside the step-5 critical section depends on real transaction-timing
+  // interleaving, which a single run cannot force deterministically.
   const ITERATIONS = 20;
   const CONCURRENCY = 3;
 
@@ -535,8 +532,8 @@ describe("scenario 4: Account-Lifecycle", () => {
     );
     let rows = await selectMany(db, mailAccountsProjectionTable, { id: accountId });
     expect(rows[0]?.["status"]).toBe("degraded");
-    // connected_at bleibt der Erst-Connect-Zeitpunkt (SET-Klausel lässt
-    // die Spalte aus).
+    // connected_at remains the time of the initial connection because the SET
+    // clause omits the column.
     const connectedAt = String(rows[0]?.["connectedAt"]);
 
     const disconnect = (await stack.http.writeOk(
@@ -549,7 +546,7 @@ describe("scenario 4: Account-Lifecycle", () => {
     expect(rows[0]?.["status"]).toBe("disconnected");
     expect(String(rows[0]?.["connectedAt"])).toBe(connectedAt);
 
-    // Idempotent: zweiter disconnect ist success-no-op.
+    // Idempotent: the second disconnect is a successful no-op.
     const again = (await stack.http.writeOk(
       InboundMailFoundationHandlers.disconnectAccount,
       { accountId, reason: "test" },
@@ -557,8 +554,8 @@ describe("scenario 4: Account-Lifecycle", () => {
     )) as Record<string, unknown>;
     expect(again["alreadyDisconnected"]).toBe(true);
 
-    // update auf disconnected Account → 422 (kein Supervisor-Race darf
-    // einen getrennten Account wiederbeleben).
+    // Updating a disconnected account returns 422; a supervisor race must not
+    // revive a disconnected account.
     const err = await stack.http.writeErr(
       InboundMailFoundationHandlers.updateAccount,
       { accountId, status: "active", reason: "test" },
@@ -605,7 +602,7 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
       key(before as Array<Record<string, unknown>>),
     );
 
-    // Thread-Rollup ebenso rebuild-fähig.
+    // The thread rollup can be rebuilt as well.
     const threadResult = await rebuildProjection("inbound-mail-foundation:projection:mail-thread", {
       db,
       registry: stack.registry,

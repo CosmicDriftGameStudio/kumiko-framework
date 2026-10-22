@@ -20,11 +20,11 @@ import { TierEngineHandlers, TierEngineQueries } from "../web/constants.ts";
 
 // --- Setup ---
 //
-// Test-Isolation-Pattern: jeder Test nutzt einen eigenen Tenant über
-// `createTestUser({ id: N, tenantId: testTenantId(N) })`. Dadurch teilen
-// die Tests keinen Zustand — wenn ein Test fehlschlägt, bleiben die anderen
-// aussagekräftig. Zusätzlicher Vorteil: list-Test sieht garantiert genau
-// 1 Row, weil sonst keine andere Test-Aktivität in seinem Tenant läuft.
+// Test isolation: each test uses its own tenant via
+// `createTestUser({ id: N, tenantId: testTenantId(N) })`. This prevents the
+// tests from sharing state, so one failure does not affect the others.
+// It also guarantees that the list test sees exactly 1 row because no other
+// test activity runs in its tenant.
 
 let stack: TestStack;
 let db: DbConnection;
@@ -220,8 +220,8 @@ describe("scenario 6: access control", () => {
   });
 
   test("TenantAdmin (ohne SystemAdmin) cannot create a tier-assignment — Self-Upgrade-Schutz", async () => {
-    // Tier-Wechsel ist Plattform-/Billing-Hoheit: ein Tenant-Admin darf
-    // seinen eigenen Tier NICHT setzen (sonst Gratis-Self-Upgrade).
+    // Changing the tier is controlled by platform billing: a TenantAdmin must
+    // not set its own tier, or it could grant itself a free upgrade.
     const tenantAdmin = createTestUser({
       id: 310,
       tenantId: testTenantId(310),
@@ -246,7 +246,7 @@ describe("scenario 6: access control", () => {
     const created = await stack.http.writeOk(TierEngineHandlers.create, { tier: "free" }, sysadmin);
     const id = (created!["data"] as Record<string, unknown>)["id"] as string;
 
-    // Selber Tenant, aber reiner TenantAdmin → darf den Tier nicht ändern.
+    // Same tenant, but only a TenantAdmin, so the user must not change the tier.
     const tenantAdmin = createTestUser({
       id: 312,
       tenantId: testTenantId(311),
@@ -275,7 +275,7 @@ describe("scenario 6: access control", () => {
   });
 
   test("query handlers carry the admin-only access rule (config-level check)", () => {
-    // (siehe Scenario 7 für die set-tenant-tier/get-tenant-tier Reads)
+    // (see Scenario 7 for the set-tenant-tier/get-tenant-tier reads)
     // Read-access is enforced by the same role-rule set on the query handler.
     // We assert the rule is registered correctly — covers regression when
     // someone changes adminAccess to openToAll without noticing.
@@ -292,12 +292,12 @@ describe("scenario 6: access control", () => {
   });
 });
 
-// --- Scenario 7: manueller cross-tenant Tier-Grant (set-tenant-tier) ---
+// --- Scenario 7: manual cross-tenant tier grant (set-tenant-tier) ---
 //
-// Kern-Sicherheitsgrenze von #434: ein SystemAdmin sitzt in seinem eigenen
-// Tenant, setzt aber das Tier eines FREMDEN Tenants — ohne Billing-Kauf.
-// Der Event muss im Stream des Ziel-Tenants landen (nicht im Admin-Tenant),
-// `source: "manual"` tragen und nur für SystemAdmin erreichbar sein.
+// A key security boundary: a SystemAdmin in their own tenant can set the
+// tier of a FOREIGN tenant without a billing purchase.
+// The event must be written to the target tenant's stream, not the admin's,
+// carry `source: "manual"`, and be accessible only to SystemAdmin.
 
 type SetTenantTierResult = { tenantId: string; tier: string; isNew: boolean };
 
@@ -316,8 +316,8 @@ describe("scenario 7: cross-tenant manual grant", () => {
     expect(result.tier).toBe("pro");
     expect(result.isNew).toBe(true);
 
-    // Beweis, dass der Event im Ziel-Stream liegt: ein Admin IM Ziel-Tenant
-    // liest sein eigenes get-active-tier (own-tenant-scoped) und sieht "pro".
+    // This proves that the event is in the target stream: an admin IN the target
+    // tenant reads its own get-active-tier (own-tenant-scoped) and sees "pro".
     const targetAdmin = createTestUser({ id: 402, tenantId: targetTenant, roles: ["TenantAdmin"] });
     const seenByTarget = await stack.http.queryOk<Record<string, unknown> | null>(
       TierEngineQueries.getActiveTier,
@@ -326,7 +326,7 @@ describe("scenario 7: cross-tenant manual grant", () => {
     );
     expect(seenByTarget!["tier"]).toBe("pro");
 
-    // get-tenant-tier (cross-tenant Read, SystemAdmin) liefert source=manual.
+    // get-tenant-tier (cross-tenant Read, SystemAdmin) returns source=manual.
     const grant = await stack.http.queryOk<Record<string, unknown> | null>(
       TierEngineQueries.getTenantTier,
       { tenantId: targetTenant },
@@ -335,7 +335,7 @@ describe("scenario 7: cross-tenant manual grant", () => {
     expect(grant!["tier"]).toBe("pro");
     expect(grant!["source"]).toBe("manual");
 
-    // Der Admin-eigene Tenant bleibt unberührt — kein Tier dort geleakt.
+    // The admin's own tenant remains unchanged; no tier is leaked there.
     const seenByAdmin = await stack.http.queryOk<Record<string, unknown> | null>(
       TierEngineQueries.getActiveTier,
       {},

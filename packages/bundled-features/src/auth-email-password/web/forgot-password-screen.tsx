@@ -1,12 +1,12 @@
-// ForgotPasswordScreen — Form mit email-input. Submit triggert
-// /api/auth/request-password-reset (silent-success, kein account-
-// enumeration). UI zeigt unconditional ein "Wenn Account existiert,
-// Mail unterwegs"-Confirm — auch wenn der Server intern erkannt hat
-// dass die Email nicht existiert.
+// ForgotPasswordScreen — form with an email input. Submission triggers
+// /api/auth/request-password-reset (silent success, no account enumeration).
+// The UI always shows a "If an account exists, the email is on its way"
+// confirmation, even when the server determines internally that the email
+// does not exist.
 //
-// App ist verantwortlich, den Screen unter einer URL zu mounten (z.B.
-// /forgot-password) und ihn zu erreichen — der LoginScreen kann einen
-// "Passwort vergessen?"-Link auf die App-Route setzen.
+// The app is responsible for mounting and exposing the screen at a URL
+// (for example, /forgot-password); the LoginScreen can link to that app
+// route with a "Forgot password?" link.
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -16,8 +16,8 @@ import { AuthCard } from "./auth-form-primitives.tsx";
 export type ForgotPasswordScreenProps = {
   readonly title?: string;
   readonly subtitle?: ReactNode;
-  /** href für den "Zurück zum Login"-Link in success + form. App-
-   *  spezifisch — Default "/login". */
+  /** href for the "Back to login" link in the success and form states. App-
+   * specific — defaults to "/login". */
   readonly loginHref?: string;
 };
 
@@ -33,7 +33,7 @@ export function ForgotPasswordScreen({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // guard:dup-ok — gleiches Submit-Muster wie signup-screen, aber verschiedene API-Endpoints und State
+  // guard:dup-ok — same submission pattern as signup-screen, but with different API endpoints and state
   const doSubmit = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);

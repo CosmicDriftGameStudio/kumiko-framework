@@ -5,7 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 
 // =============================================================================
-// Operator-Pflicht-Setup (Multipart-Upload-Cleanup)
+// Required operator setup (multipart-upload cleanup)
 // =============================================================================
 //
 // `writeStream` uses Bun's S3 writer for real multipart streaming. S3
@@ -15,7 +15,7 @@ import {
 // OPEN in S3 and bills storage for the parts already uploaded — until a
 // lifecycle rule aborts it.
 //
-// **Pflicht-Operator-Setup auf jedem Bucket:**
+// **Required operator setup on every bucket:**
 //
 //   {
 //     "Rules": [{
@@ -31,7 +31,7 @@ import {
 // R2 and Minio support the same syntax.
 //
 // =============================================================================
-// Operator-Pflicht-Setup (IAM: list permission)
+// Required operator setup (IAM: list permission)
 // =============================================================================
 //
 // GDPR-forget/tenant-destroy erasure (user-data-rights-defaults) calls
@@ -181,9 +181,9 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
       options?: SignedUrlOptions,
     ): Promise<string> {
       assertSafeStorageKey(key);
-      // contentDisposition wird von Bun als response-content-disposition
-      // Query-Param signiert (Response-Override fuer den GET-Download) —
-      // der Browser sieht den Original-Dateinamen statt des UUID-Keys.
+      // Bun signs contentDisposition as the response-content-disposition
+      // query parameter (a response override for the GET download) —
+      // the browser sees the original filename instead of the UUID key.
       return client.presign(key, {
         expiresIn: expiresInSeconds,
         method: "GET",

@@ -20,25 +20,25 @@ import {
 // A direct write would be wiped on rebuild — the Art.17 hole this fixes.
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 
-// userData-Hook fuer user-entity (S2.H1).
+// The user-data hook for the user entity.
 //
-// Export-Hook liefert Profil-Daten ohne security-sensitive Felder
-// (passwordHash, roles, status — DSGVO Art. 20 ist Datenportabilitaet
-// fuer das was der User selbst zur Verfuegung gestellt hat, nicht
-// Lifecycle-Metadata oder Authorization-State).
+// The export hook returns profile data without security-sensitive fields
+// (passwordHash, roles, status — GDPR Art. 20 covers portability of data
+// the user provided themselves, not lifecycle metadata or authorization
+// state).
 //
-// Delete-Hook anonymisiert PII + setzt status=deleted. Der eigentliche
-// softDelete-Flag wird ueber drizzle's deletedAt-Column gesetzt; die
-// Row bleibt fuer Audit-Trail erhalten (alle FK-Refs auf user.id
-// bleiben gueltig). DSGVO-konform via PII-Anonymisierung.
+// The delete hook anonymizes PII and sets status=deleted. The actual
+// softDelete flag is set through Drizzle's deletedAt column; the row remains
+// for the audit trail (all foreign-key references to user.id remain valid).
+// This complies with GDPR through PII anonymization.
 //
 // Strategy:
-//   "delete":    softDelete + email/displayName/passwordHash leeren,
-//                status=deleted (Login geblockt)
-//   "anonymize": email/displayName auf Pseudonym, Row bleibt active
-//                — fuer Cases wo User-Row als FK noch relevant ist
-//                aber PII raus muss (z.B. anonymize mit blockDelete-
-//                Frist auf einer FK-target-Entity)
+//   "delete":    softDelete + clear email/displayName/passwordHash,
+//                status=deleted (login blocked)
+//   "anonymize": replace email/displayName with pseudonyms; the row remains
+//                active when the user row is still needed as a foreign-key
+//                target but PII must be removed (for example, anonymization
+//                with a blockDelete deadline on a foreign-key target entity)
 
 export const userExportHook: UserDataExportHook = async (ctx) => {
   const row = await ctx.db.fetchOne<{
@@ -66,11 +66,11 @@ export const userExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
-  // Idempotent: zweiter Call findet die Row schon anonymized + skipt
-  // implicit (UPDATE mit gleichen Werten). Memory feedback_event_store_
-  // tenant_consistency: ctx.tenantId muss in der user-table-Zeile
-  // korrelieren — user.id ist tenant-agnostic (User kann in mehreren
-  // Tenants Member sein), kein tenantId-Filter noetig.
+  // Idempotent: a second call finds the row already anonymized and skips
+  // implicitly (UPDATE with the same values). Event-store tenant
+  // consistency requires ctx.tenantId to correlate with the row in
+  // the user table — user.id is tenant-agnostic (a user can be a member in
+  // multiple tenants), so no tenantId filter is needed.
 
   // System actor + skipOptimisticLock: the forget pipeline has no read
   // version and writes privileged identity columns ("system" is privileged).
@@ -81,12 +81,13 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   const systemUser = createSystemUser(ctx.tenantId);
 
   if (strategy === "delete") {
-    // PII raus + status=deleted (Login geblockt) via Event → Rebuild spielt den
-    // Forget mit. KEIN softDelete: user ist systemStream (eine tenant-agnostische
-    // Row), der Forget laeuft pro Tenant — wuerde isDeleted gesetzt, faende der
-    // loadById (isDeleted:false) die Row beim zweiten Tenant nicht mehr
-    // (not_found). status=Deleted blockt Login; die Row bleibt findbar +
-    // idempotent ueber mehrere Tenant-Durchlaeufe (wie der alte raw UPDATE).
+    // Remove PII and set status=deleted via an event, so a rebuild replays
+    // the forget operation. Do NOT use softDelete: user is systemStream (a
+    // tenant-agnostic row), and forgetting runs once per tenant. Setting
+    // isDeleted would cause loadById (isDeleted:false) to miss the row for
+    // the second tenant (not_found). status=Deleted blocks login; the row
+    // remains findable and idempotent across tenant passes, as with the old
+    // raw UPDATE.
     await crud.update(
       {
         id: ctx.userId,
@@ -105,11 +106,11 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
       { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
     );
   } else {
-    // anonymize: PII raus, aber Row bleibt active (damit FK-References
-    // weiter aufloesbar sind). Account ist effektiv weiter nutzbar
-    // wenn der User sich neu authentifiziert — pragmatisch akzeptabel
-    // weil "anonymize" auf user-entity ein seltener Edge-Case ist
-    // (typisch hard-delete fuer User).
+    // Anonymize PII, but keep the row active so foreign-key references
+    // remain resolvable. The account can still be used if the user
+    // authenticates again — pragmatically acceptable because "anonymize"
+    // on the user entity is a rare edge case (hard deletion is typical for
+    // users).
     await crud.update(
       {
         id: ctx.userId,

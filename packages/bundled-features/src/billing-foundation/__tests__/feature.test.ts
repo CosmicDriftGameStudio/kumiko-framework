@@ -29,8 +29,8 @@ function catalog(overrides: Partial<BillingPlanCatalog> = {}): BillingPlanCatalo
 describe("billingFoundationFeature — shape", () => {
   test("has the expected name", () => {
     expect(createBillingFoundationFeature().name).toBe(BILLING_FOUNDATION_FEATURE);
-    // Naming-Disziplin pin: NICHT "billing-foundation" — damit
-    // marketplace-foundation später ohne Rename dazukommt (siehe
+    // Naming constraint: not "billing-foundation" so that
+    // marketplace-foundation can be added later without a rename (see
     // docs/plans/architecture/subscription-foundation.md).
     expect(createBillingFoundationFeature().name).toBe("billing-foundation");
   });
@@ -48,10 +48,10 @@ describe("billingFoundationFeature — shape", () => {
   });
 
   test("foundation has NO config-keys (alle config-keys liegen in den Plugins)", () => {
-    // Multi-Provider-Drift-Pin: foundation darf keine config-keys
-    // exportieren weil sonst sowas wie "globaler price-to-tier-Map"
-    // erzwungen wäre — der existiert NUR pro Plugin (Stripe-priceIds
-    // vs PayPal-plan-ids vs Apple-product-ids sind verschieden).
+    // Multi-provider constraint: the foundation must not export config keys,
+    // because that would force a global price-to-tier map. The map exists only
+    // per plugin because Stripe price IDs, PayPal plan IDs, and Apple product IDs
+    // differ.
     expect(Object.keys(createBillingFoundationFeature().configKeys)).toHaveLength(0);
   });
 });

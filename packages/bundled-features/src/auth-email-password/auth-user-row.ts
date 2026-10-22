@@ -17,19 +17,19 @@ export type AuthUserRow = {
   readonly isDeleted?: boolean | null;
   readonly emailVerified?: boolean | null;
   readonly lastActiveTenantId?: TenantId | string | null;
-  // IANA zone — threaded into SessionUser.timezone at login (fw#1636).
+  // IANA zone — threaded into SessionUser.timezone at login.
   readonly timezone?: string | null;
-  // BCP-47 tag — threaded into SessionUser.locale at login (fw#2333).
+  // BCP-47 tag — threaded into SessionUser.locale at login.
   readonly locale?: string | null;
-  // JSON-encoded string[] — globale Rollen die parallel zu tenant-membership-
-  // roles gelten (z.B. SystemAdmin, BillingAdmin). Caller deserialisiert via
-  // parseRoles() vor dem Merge in die Session.
+  // JSON-encoded string[] — global roles that apply alongside tenant-membership-
+  // roles (for example, SystemAdmin and BillingAdmin). The caller deserializes
+  // them with parseRoles() before merging them into the session.
   readonly roles?: string | null;
-  // user.status (S2.U1) — "active" | "restricted" | "deletion_requested" |
-  // "deleted". Login.write.ts blockt Restricted (DSGVO Art. 18) sowie
-  // DeletionRequested + Deleted. Untyped string hier weil die Quelle
-  // user-feature-internes Enum ist; auth importiert den Constants-Wert
-  // an der Verwendungsstelle.
+  // user.status — "active" | "restricted" | "deletion_requested" |
+  // "deleted". Login.write.ts blocks Restricted (DSGVO Art. 18),
+  // DeletionRequested, and Deleted. It remains an untyped string because the
+  // source enum is internal to the user feature; auth imports the constants at
+  // the point of use.
   readonly status?: string | null;
 };
 

@@ -1,14 +1,14 @@
-// Test-Helper für compliance-profiles. Legt einen Profile-Eintrag direkt
-// über den Event-Store-Executor an — gleicher Pfad wie der echte
-// set-profile-Handler, aber ohne Zod-Schema-Engung (akzeptiert
-// minimal-no-region für Migration-Edge-Case-Tests) und ohne Access-
-// Check. Default ifExists="skip": nur fehlende Profile anlegen.
+// Test helper for compliance-profiles. Creates a profile entry directly
+// through the Event Store executor—the same path as the real
+// set-profile handler, but without Zod schema restrictions (accepts
+// minimal-no-region for migration edge-case tests) and without an access
+// check. Default ifExists="skip": creates only missing profiles.
 //
-// Sprint 2 user-data-rights nutzt das fuer Test-Setup ("user kann
-// Daten exportieren mit profile X" — pro Test ein frischer Tenant +
-// Profile-Wahl in einem Helper-Call).
+// user-data-rights uses this for test setup ("user can export data with
+// profile X": a fresh tenant and profile selection per test in one helper
+// call).
 //
-// Pattern matched seedTextBlock aus text-content.
+// The pattern matches seedTextBlock in template-resolver/seeding.ts.
 
 import type {
   ComplianceProfileKey,
@@ -50,9 +50,8 @@ export async function seedComplianceProfile(
   db: DbConnection,
   opts: SeedComplianceProfileOptions,
 ): Promise<{ id: string }> {
-  // user.tenantId muss === opts.tenantId sein damit Event-Store-Stream
-  // + Projection im selben Tenant-Bucket landen (Memory:
-  // feedback_event_store_tenant_consistency).
+  // user.tenantId must equal opts.tenantId so the Event Store stream
+  // and projection remain in the same tenant bucket.
   const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
   const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
   const overrideJson = opts.override !== undefined ? JSON.stringify(opts.override) : null;
@@ -77,9 +76,9 @@ export async function seedComplianceProfile(
       if (!result.isSuccess) {
         throw new Error(`seedComplianceProfile create failed: ${JSON.stringify(result)}`);
       }
-      // @cast-boundary db-row: executor.create result.data ist die
-      // inserted Projection-Row (Record<string, unknown>); id ist nach
-      // INSERT garantiert (Runtime-Check direkt darunter).
+      // @cast-boundary db-row: executor.create result.data is the
+      // inserted projection row (Record<string, unknown>); id is guaranteed
+      // after INSERT (runtime check directly below).
       const data = result.data as { id?: string };
       if (data.id === undefined) {
         throw new Error("seedComplianceProfile: executor.create did not return an id");

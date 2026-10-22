@@ -1,8 +1,8 @@
-// Public exports für die Browser-Seite des auth-email-password Features.
-// Wird über den Sub-Path-Export `@cosmicdrift/kumiko-bundled-features/auth-email-
-// password/web` konsumiert — die Server-Seite (defineFeature) lebt in
-// `@cosmicdrift/kumiko-bundled-features/auth-email-password` und hat keine
-// React-/DOM-Deps. Trennung bleibt sauber so wie renderer vs renderer/web.
+// Public exports for the browser side of the auth-email-password feature.
+// Consumed through the subpath export `@cosmicdrift/kumiko-bundled-features/auth-email-
+// password/web`; the server side (defineFeature) lives in
+// `@cosmicdrift/kumiko-bundled-features/auth-email-password` and has no
+// React-/DOM dependencies. This keeps the separation clean, like renderer vs renderer/web.
 
 export type {
   AuthTokenFailure,

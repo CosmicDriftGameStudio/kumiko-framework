@@ -191,7 +191,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
         // Password check against userTable, through the same gates
         // login.write.ts runs (see login-gates.test.ts for the gate contracts).
-        // Email uniqueness is partial on live rows (framework#2593) — without
+        // Email uniqueness is partial on live rows — without
         // this filter the lookup can resolve a soft-deleted row.
         const userRow = await ctx.db.global(userTable).fetchOne<UserAuthRow>({
           email: invitationEmail,

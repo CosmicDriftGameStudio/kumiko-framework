@@ -1,24 +1,24 @@
-// ingest-message — programmatic entry-point für Provider-Plugins
-// (watch-callback + fetchSince-Sync). Nimmt eine normalisierte
-// RawInboundMessage und macht atomic in EINER TX:
+// ingest-message — programmatic entry point for provider plugins
+// (watch callback + fetchSince sync). Accepts a normalized
+// RawInboundMessage and performs atomically in ONE TX:
 //
-//   1. Idempotency-Check (cheap: store_mail_seen_messages; Defense-in-
-//      depth: Stream-Existenz auf der deterministic aggregateId).
-//   2. threadKey-Normalisierung (Provider-Thread-ID bevorzugt, sonst
-//      References-Chain-Root, sonst Message-ID = Single-Message-Thread).
-//   3. PII-Encrypt (from/to/cc/subject/snippet) VOR dem append —
-//      Event-Log UND Projection tragen Ciphertext (#800-Muster).
-//   4. inbound-message-received-append (Inline-Projection schreibt
-//      read_inbound_messages in derselben TX). Savepoint-scoped
+//   1. Idempotency check (cheap: store_mail_seen_messages; defense in
+//      depth: stream existence check on the deterministic aggregateId).
+//   2. threadKey normalization (provider thread ID preferred, otherwise
+//      References chain root, otherwise Message-ID = single-message thread).
+//   3. PII encryption (from/to/cc/subject/snippet) BEFORE the append —
+//      both the event log AND projection contain ciphertext.
+//   4. inbound-message-received append (inline projection writes
+//      read_inbound_messages in the same TX). Savepoint-scoped
 //      (ctx.tryAppendEvent) — a losing concurrent ingest for the same
 //      messageAggId returns { duplicate: true } instead of failing the TX.
-//   5. Thread-Rollup: mail-thread-updated-append mit neu berechnetem
-//      Snapshot (count+1, max(lastMessageAt)) — die apply ist ein
-//      dummer UPSERT.
-//   6. seen-message-Dedup-Anchor einfügen.
+//   5. Thread rollup: mail-thread-updated append with a recalculated
+//      snapshot (count+1, max(lastMessageAt)) — the apply is a
+//      dumb UPSERT.
+//   6. Insert the seen-message deduplication anchor.
 //
-// SystemAdmin-only: Aufrufer ist der Watch/Sync-Supervisor bzw. der
-// Poll-Cron mit programmatic SystemUser — nie ein Tenant-Request.
+// SystemAdmin-only: the caller is the watch/sync supervisor or
+// the poll cron with a programmatic SystemUser — never a tenant request.
 
 import {
   configuredPiiSubjectKms,
@@ -49,25 +49,25 @@ import {
 import { inboundMessagesProjectionTable } from "../projection.ts";
 
 // =============================================================================
-// Input-Schema — der normalisierte Provider-Output (RawInboundMessage,
-// types.ts) + Envelope (accountId/providerName/providerCursor). rawMime
-// ist hier bewusst NICHT dabei: der Aufrufer persisted den Body VOR dem
-// ingest-Call nach file-foundation und übergibt nur bodyRef — der
-// Handler-Payload bleibt blob-frei (Event-Store-Disziplin).
+// Input schema — the normalized provider output (RawInboundMessage,
+// types.ts) plus the envelope (accountId/providerName/providerCursor). rawMime
+// is intentionally excluded: the caller persists the body to
+// file-foundation BEFORE the ingest call and passes only bodyRef — the
+// handler payload remains blob-free (event-store discipline).
 // =============================================================================
 
 export const ingestMessageSchema = z.object({
   accountId: z.uuid(),
-  /** Scope-Vererbung vom Account — der Supervisor kennt den
-   *  MailAccountRecord und reicht ownerUserId durch. */
+  /** Scope inherited from the account — the supervisor knows the
+   *  MailAccountRecord and passes ownerUserId through. */
   ownerUserId: z.string().max(36).nullable(),
   providerName: z.string().min(1).max(50),
-  /** Provider-native Message-ID — Idempotency-Anchor mit accountId. */
+  /** Provider-native Message-ID — idempotency anchor with accountId. */
   providerMessageId: z.string().min(1).max(500),
-  /** RFC-5322 Message-ID ohne <>; null → deterministischer Ersatz. */
+  /** RFC-5322 Message-ID without <>; null → deterministic fallback. */
   messageIdHeader: z.string().min(1).max(500).nullable(),
   providerThreadId: z.string().min(1).max(500).nullable(),
-  /** References/In-Reply-To-Chain, älteste zuerst. */
+  /** References/In-Reply-To chain, oldest first. */
   references: z.array(z.string().min(1).max(500)).max(200),
   from: z.string().min(1).max(2000),
   to: z.array(z.string().max(2000)).max(200),
@@ -78,20 +78,20 @@ export const ingestMessageSchema = z.object({
   /** file-foundation-Ref; leer im snippet-only-Mode. */
   bodyRef: z.string().max(500),
   scope: z.string().min(1).max(200),
-  /** Cursor-Snapshot zum Ingest-Zeitpunkt — Debug/Replay, landet in
-   *  metadata.headers, nie im payload. */
+  /** Cursor snapshot at ingest time — used for debugging/replay and stored in
+   *  metadata.headers, never in the payload. */
   providerCursor: z.string().max(2000),
 });
 type IngestMessagePayload = z.infer<typeof ingestMessageSchema>;
 
 /**
- * threadKey-Normalisierung (Plan §3.2):
- *   1. Provider-Thread-ID falls vorhanden — provider-präfixed, damit
- *      IMAP-References-Keys und Graph-conversationIds nie kollidieren.
- *   2. Sonst Root der References-Chain (älteste Message-ID = der
- *      Thread-Anker, den alle Replies teilen).
- *   3. Sonst die eigene Message-ID → Single-Message-Thread; ein späteres
- *      Reply trägt sie als References-Root und landet im selben Thread.
+ * Normalizes threadKey:
+ *   1. Use the provider thread ID when present — prefix it with the provider
+ *      so IMAP References keys and Graph conversationIds never collide.
+ *   2. Otherwise use the root of the References chain (the oldest Message-ID,
+ *      which is the thread anchor shared by all replies).
+ *   3. Otherwise use the own Message-ID → single-message thread; a later
+ *      reply carries it as the References root and joins the same thread.
  */
 function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: string): string {
   if (p.providerThreadId) return `${p.providerName}:${p.providerThreadId}`.slice(0, 500);
@@ -123,12 +123,12 @@ export const ingestMessageHandler: WriteHandlerDef = {
     const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
 
     // ---------------------------------------------------------------
-    // 1. Idempotency. Cheap path zuerst: Dedup-Anchor-Row. Der
-    //    Stream-Check dahinter ist Defense-in-depth für den Fall dass
-    //    ein früherer ingest NACH dem append aber VOR dem seen-insert
-    //    gestorben ist (kann in einer TX nicht passieren — aber der
-    //    Check ist billig und macht den Handler rebuild-robust falls
-    //    store_mail_seen_messages je getruncated wird).
+    // 1. Idempotency. Use the deduplication anchor row first because it is
+    //    cheap. The stream check afterward provides defense in depth if
+    //    an earlier ingest died AFTER the append but BEFORE the seen insert
+    //    (this cannot happen within one TX, but the check is cheap and makes
+    //    the handler robust to rebuilding if store_mail_seen_messages is
+    //    ever truncated).
     // ---------------------------------------------------------------
     const seenRows = await ctx.db.selectMany(seenMessageTable, {
       accountId: payload.accountId,
@@ -163,11 +163,10 @@ export const ingestMessageHandler: WriteHandlerDef = {
     const threadAggId = mailThreadAggregateId(tenantId, threadKey);
 
     // ---------------------------------------------------------------
-    // 3. PII-Encrypt. to/cc werden VOR encryption JSON-stringified —
-    //    im Payload steht der Ciphertext-String, nicht das Array
-    //    (primitives only, upcaster-safe). Kein KMS konfiguriert =
-    //    plaintext-passthrough (Engine-off-Verhalten, Muster
-    //    billing-foundation process-event #724/#800).
+    // 3. PII encryption. Serialize to/cc as JSON BEFORE encryption so the
+    //    payload contains a ciphertext string rather than an array
+    //    (primitives only, upcaster-safe). If no KMS is configured, pass
+    //    through plaintext (engine-off behavior).
     // ---------------------------------------------------------------
     const piiKms = configuredPiiSubjectKms();
     const messagePlainPii = {
@@ -243,14 +242,14 @@ export const ingestMessageHandler: WriteHandlerDef = {
     //    concurrent ingests on the same thread (Watch-Push vs.
     //    Poll-Reconciliation overlap, or two different messages of the
     //    same thread arriving at once) converge on the true count.
-    //    acquireNamespacedAdvisoryLock below (issue #2155) serializes this whole
+    //    acquireNamespacedAdvisoryLock below serializes this whole
     //    countWhere+append section per threadAggId — transaction-scoped,
     //    so it survives tryAppendEvent's inner SAVEPOINT and releases at
     //    the enclosing TX's commit/rollback. Without it, a concurrent
     //    commit landing between countWhere and tryAppendEvent's own fresh
     //    version-read makes the append succeed with a stale count instead
     //    of a VersionConflictError, so the retry loop below never sees it
-    //    as a conflict to retry (#1229's original gap). Unlike step 4, a
+    //    as a conflict to retry (the original gap). Unlike step 4, a
     //    lost version-conflict race here must NOT be treated as a no-op
     //    duplicate — skipping would leave this message's contribution to
     //    messageCount/lastMessageAt out of the thread forever. Exhausting
@@ -315,8 +314,8 @@ export const ingestMessageHandler: WriteHandlerDef = {
     }
 
     // ---------------------------------------------------------------
-    // 6. Dedup-Anchor. Läuft in derselben TX wie die appends — stirbt
-    //    der Handler, rollt alles zusammen zurück.
+    // 6. Deduplication anchor. It runs in the same TX as the appends, so
+    //    if the handler fails, everything is rolled back together.
     // ---------------------------------------------------------------
     await ctx.db.insertOne(seenMessageTable, {
       tenantId,

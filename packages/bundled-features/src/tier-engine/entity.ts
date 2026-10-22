@@ -5,28 +5,27 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type TierAssignmentSource, TierAssignmentSources } from "./web/constants.ts";
 
-// tier-assignment — pro Plattform-Tenant genau ein Aggregat. Aggregate-ID
-// wird deterministisch aus tenantId abgeleitet (uuidv5, siehe aggregate-id.ts).
+// tier-assignment — exactly one aggregate per platform tenant. The aggregate ID
+// is derived deterministically from tenantId (uuidv5; see aggregate-id.ts).
 //
-// **Tenant-Scope:** automatisch via Kumiko's tenant-scoped projection — die
-// `tenantId`-Spalte wird vom Framework als Base-Column hinzugefügt, der
-// CrudExecutor befüllt sie aus `event.user.tenantId`. Pro Plattform-Tenant
-// gibt es genau eine Tier-Assignment-Row.
+// **Tenant scope:** applied automatically by Kumiko's tenant-scoped projection —
+// the framework adds `tenantId` as a base column, and the CrudExecutor populates
+// it from `event.user.tenantId`. Each platform tenant has exactly one
+// Tier-Assignment row.
 //
-// **Felder**
-//   - tier: TierName-String (z.B. "free", "pro", "business", "enterprise",
-//     "self-host"). Welche Tier-Werte gültig sind, definiert die App in
-//     ihrer TierMap (siehe compose-app.ts) — die Engine selbst hat keine
-//     enumerierte Tier-Liste.
+// **Fields**
+//   - tier: a TierName string (for example, "free", "pro", "business",
+//     "enterprise", or "self-host"). The app defines valid tier values in its
+//     TierMap (see compose-app.ts); the engine has no enumerated tier list.
 //
-// **Was bewusst NICHT in der Entity steht**
-//   - tenantId: kommt automatisch als Base-Column.
-//   - validFrom/validTo: ES-redundant (Events tragen Timestamps nativ,
-//     time-travel über `ctx.loadAggregate({ asOf })`).
-//   - addOns: Sprint 1 hat keine Add-Ons. Sprint 4 fügt sie als separate
-//     `tier-add-on`-Entity hinzu (1:n Relation, ES-saubere Add/Remove-Events
-//     mit klarer Audit-Granularität statt JSON-Array-Replace).
-//   - Caps-Werte: pro-Tier-Cap-Definitionen leben in der TierMap der App.
+// **Intentionally omitted from the entity**
+//   - tenantId: added automatically as a base column.
+//   - validFrom/validTo: redundant for event sourcing (events carry timestamps
+//     natively; time travel uses `ctx.loadAggregate({ asOf })`).
+//   - addOns: represented by a separate `tier-add-on` entity (1:n relation),
+//     allowing event-sourced Add/Remove events with clear audit granularity
+//     instead of replacing a JSON array.
+//   - Cap values: per-tier cap definitions belong in the app's TierMap.
 export const tierAssignmentEntity = createEntity({
   table: "read_tier_assignments",
   description:

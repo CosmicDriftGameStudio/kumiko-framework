@@ -1,22 +1,21 @@
-// increment-rolling — Rolling-Window-Counter-Increment via Custom-
-// Event statt CRUD/projection. Designed für Caps deren Wert sich
-// kontinuierlich erneuern soll (KI-Tokens-7-Tage, Egress pro 24h).
+// increment-rolling — Rolling-window counter increment via a custom
+// event instead of CRUD/projection. Designed for caps whose values
+// continuously renew (AI tokens over 7 days, egress over 24 hours).
 //
-// **Warum kein r.entity / CRUD wie der Calendar-Counter:** Der
-// Calendar-Counter speichert den kumulierten value in seiner
-// projection-row. Beim Period-Rollover wechselt die aggregate-id auf
-// den neuen Period-Start, das ist der "Reset". Bei Rolling-Window
-// gibt es keinen Rollover-Punkt — der Counter "rollt" kontinuierlich
-// raus. Ein einzelner kumulativer value wäre falsch (würde monoton
-// wachsen ohne Expiration). Die korrekte Read-Semantik ist: SUM aller
-// Increment-Amounts der letzten N Tage. Dafür brauchen wir die
-// einzelnen Increments als separate Events mit ihrem eigenen
-// `amount`-Feld; CRUD-Events tragen nur den kumulativen value.
+// **Why not r.entity / CRUD like the calendar counter:** The calendar
+// counter stores the cumulative value in its projection row. At the
+// period rollover, the aggregate ID changes to the new period start;
+// that is the "reset". A rolling window has no rollover point—the
+// counter continuously rolls out. A single cumulative value would be
+// incorrect because it would grow monotonically without expiration.
+// The correct read semantics are SUM of all increment amounts from the
+// last N days. Therefore, each increment must be a separate event with
+// its own `amount` field; CRUD events carry only the cumulative value.
 //
-// **Aggregate-Stream:** ein Stream pro (tenant, capName) — siehe
-// `rollingCapAggregateId`. Alle Increments hängen am selben Stream
-// in monoton-steigender version. enforceRollingCap liest die letzten
-// N Tage aus diesem Stream.
+// **Aggregate stream:** one stream per (tenant, capName)—see
+// `rollingCapAggregateId`. All increments use the same stream in
+// monotonically increasing version order. enforceRollingCap reads the
+// last N days from this stream.
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
@@ -33,8 +32,8 @@ const incrementRollingSchema = z.object({
 });
 type IncrementRollingPayload = z.infer<typeof incrementRollingSchema>;
 
-/** Schema des emittierten Custom-Events. Identisch zum Input-Schema:
- *  der Caller zahlt amount, wir hängen es 1:1 an den Stream. */
+/** Schema of the emitted custom event. Identical to the input schema:
+ *  the caller supplies amount, which we append unchanged to the stream. */
 export const rollingIncrementedSchema = incrementRollingSchema;
 
 /** Payload of the event that gives a reserved rolling amount back. */
@@ -44,27 +43,28 @@ export const rollingReleasedSchema = incrementRollingSchema.extend({
   incrementedAt: z.string().optional(),
 });
 
-// Rolling-Increment-Handler — append-only. Race-frei: zwei parallele
-// Increments für (tenant, cap) hängen sich am selben aggregate-stream
-// in unterschiedlichen versions auf, das event-store ordert.
+// Rolling-increment handler — append-only. Race-free: two parallel
+// increments for (tenant, cap) attach to the same aggregate stream at
+// different versions, and the event store orders them.
 //
-// **Kein version_conflict-Pfad** wie beim Calendar-Counter: hier
-// liest niemand den projection-state vor dem Schreiben. Der
-// expectedVersion ist implizit "next-after-current", was der event-
-// store atomar ermittelt.
+// **No version_conflict path** as with the calendar counter: nothing
+// reads projection state before writing. The expectedVersion is
+// implicitly "next-after-current", which the event store determines
+// atomically.
 export const incrementRollingCapHandler: WriteHandlerDef = {
   name: "increment-rolling",
   agent: { expose: false },
   schema: incrementRollingSchema,
-  // Internal handler — System-Caller (Plattform-foundations nach
-  // erfolgreichem Side-Effect) ruft das auf. Tenant-end-users niemals
-  // direkt. Audit-row zeigt welche subsystem-call-site zugehängt hat.
+  // Internal handler — a system caller (platform foundations after a
+  // successful side effect) invokes it. Tenant end users must never
+  // call it directly. The audit row shows which subsystem call site
+  // attached the operation.
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher hands handler the
     // already-Zod-validated payload as `unknown`; cast to the typed
-    // shape we declared via incrementRollingSchema. Mirror der
-    // existing increment.write.ts-Cast — gleiche dispatcher-boundary.
+    // shape declared via incrementRollingSchema. Mirror the cast in
+    // existing increment.write.ts—the same dispatcher boundary.
     const payload = event.payload as IncrementRollingPayload;
     const aggregateId = rollingCapAggregateId(event.user.tenantId, payload.capName);
 

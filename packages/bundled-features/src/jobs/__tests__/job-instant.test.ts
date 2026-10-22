@@ -1,4 +1,4 @@
-// kumiko-framework#1525: parseJobInstant is the extracted seam for the five
+// parseJobInstant is the extracted seam for the five
 // value-position Temporal.Instant.from call sites inside feature.ts's
 // defineApply callbacks (no exported seam there) — must not rely on
 // globalThis.Temporal.

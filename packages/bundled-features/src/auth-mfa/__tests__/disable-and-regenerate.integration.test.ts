@@ -214,7 +214,7 @@ describe("regenerate-recovery", () => {
   });
 });
 
-// pr-review kumiko-framework #1062/4 — the only prior coverage of
+// The only prior coverage of
 // user-mfa:status was the false → true transition (implicit in
 // enableMfaFor's own setup); the more interesting true → false after
 // disable, and tenant isolation, had no assertion anywhere.

@@ -1,28 +1,30 @@
-// Inbound-mail data-retention (#957). DSGVO Art. 5 (Datenminimierung):
-// ohne Retention wachsen read_inbound_messages + die File-Storage-Bodies
-// unbegrenzt. Zwei Targets, zwei Mechanismen — der Unterschied ist
-// event-sourced vs. unmanaged:
+// Inbound-mail data retention. DSGVO Art. 5 (data minimization):
+// without retention, read_inbound_messages and the file-storage bodies grow
+// without bound. Two targets, two mechanisms—the difference is
+// event-sourced versus unmanaged:
 //
-//   read_inbound_messages (event-sourced, EXPLIZITE r.projection):
-//     pro Row aelter als messageRetentionDays → archiveStream + Row-Delete
-//     (+ bodyRef-Objekt loeschen). archiveStream statt executor.forget, weil
-//     die Projection nur das received-Domain-Event mappt, nicht den
-//     forgotten-Auto-Verb (den registriert nur ImplicitProjection). Ein
-//     forget-Event wuerde beim Rebuild ignoriert und die Row aus dem
-//     received-Event resurrecten (#648-Klasse). Der archivierte Stream macht
-//     loadAggregate leer → received wird gar nicht erst repliziert. Gleiches
-//     Muster wie tenant-destroy-hook, nur per-Row-cutoff statt ganzer Tenant.
+//   read_inbound_messages (event-sourced, EXPLICIT r.projection):
+//     each Row older than messageRetentionDays → archiveStream + Row delete
+//     (+ delete the bodyRef object). archiveStream instead of executor.forget
+//     because the projection maps only the received domain event, not the
+//     forgotten auto-verb (which only ImplicitProjection registers). A
+//     forget event would be ignored during a rebuild, causing the Row to be
+//     resurrected from the received event. The archived stream makes
+//     loadAggregate empty, so received is not replicated in the first place.
+//     Same pattern as tenant-destroy-hook, but with a per-Row cutoff instead
+//     of an entire Tenant.
 //
-//   store_mail_seen_messages (unmanaged, direct-write, nicht event-sourced):
-//     Dedup-Anker braucht nur das Backfill-/Replay-Fenster → seenAt-cutoff
-//     via plain deleteMany, kein Stream/Archiv. Gescoped direkt über die
-//     tenant_id-Spalte der Tabelle (table-builder-Konvention), kein Account-Join.
+//   store_mail_seen_messages (unmanaged, direct-write, not event-sourced):
+//     The deduplication anchor is needed only for the backfill/replay window →
+//     seenAt cutoff via plain deleteMany, with no stream/archive. Scoped
+//     directly through the table's tenant_id column (table-builder convention),
+//     without an Account join.
 //
-// GRENZE (#957 Teil 2, Plan §3.4): die PII in den Message-Events bleibt
-// unter dem TENANT-Subject-Key entschluesselbar — per-Row-Retention
-// shreddet keinen Key. Echte Art.-17-Erasure der Event-Payloads passiert
-// erst bei tenant-destroy (Key-Erase). Read-Row + Body-File sind nach dem
-// Sweep weg; das Event-Log ist append-only by design.
+// LIMITATION: the PII in the message events remains decryptable under the
+// TENANT subject key—per-Row retention does not shred a key. Actual Art.-17
+// erasure of event payloads happens only during tenant-destroy (key erasure).
+// The read Row and body file are gone after the sweep; the event log is
+// append-only by design.
 
 import { type DbRunner, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -35,8 +37,8 @@ import { seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
 import { inboundMessagesProjectionTable } from "./projection.ts";
 
-// Temporal.Instant ohne den Caller zwingen es aus globalThis zu ziehen
-// (Muster data-retention/keep-for.ts).
+// Provides Temporal.Instant without forcing the caller to obtain it from
+// globalThis (same pattern as data-retention/keep-for.ts).
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
 export const MESSAGE_RETENTION_DAYS = 365;
@@ -48,12 +50,14 @@ const REASON = "retention_expired";
 export interface InboundRetentionArgs {
   readonly db: DbRunner;
   readonly tenantId: TenantId;
-  /** Now-Injection — Tests pinnen den Wert ohne Date-Mock (Pattern keep-for.ts). */
+  /**
+   * Injects the current time so tests can pin it without a date mock (pattern from keep-for.ts).
+   */
   readonly now: Instant;
   readonly messageRetentionDays?: number;
   readonly seenRetentionDays?: number;
-  /** Loescht ein file-storage-Body-Objekt per bodyRef-key. Vom Job lazy
-   *  verdrahtet (createFileProviderForTenant). Fehlt = kein Body-Delete. */
+  /** Deletes a file-storage body object by bodyRef key. Wired lazily by the job
+   * (createFileProviderForTenant); if absent, no body is deleted. */
   readonly deleteBodyObject?: (bodyRef: string) => Promise<void>;
 }
 
@@ -88,18 +92,18 @@ async function purgeExpiredMessages(
   let bodyObjectsDeleted = 0;
   let bodyObjectErrors = 0;
 
-  // Drain-Loop: jede Page loescht die Rows die sie liest, die naechste ist
-  // damit frisch. archiveStream VOR dem Delete (crash dazwischen → naechster
-  // Lauf re-archiviert idempotent + loescht). Delete strikt nach den
-  // archivierten ids, nie per cutoff-WHERE — sonst koennte eine zwischen
-  // select und delete eingegangene Alt-Mail unarchiviert geloescht werden
-  // und beim Rebuild resurrecten.
+  // Drain loop: each page deletes the Rows it reads, so the next page is fresh.
+  // Run archiveStream BEFORE deletion: if a crash occurs in between, the next
+  // run re-archives idempotently and deletes the Row. Delete strictly by the
+  // archived IDs, never with a cutoff WHERE; otherwise an old mail arriving
+  // between select and delete could be deleted without being archived and
+  // resurrected during a rebuild.
   //
-  // Ein Row deren deleteBodyObject fehlschlaegt wird NICHT geloescht — sonst
-  // ginge die einzige Referenz auf das (dann verwaiste) File-Objekt verloren
-  // (kein Retry, kein Dead-Letter). Die Row bleibt fuer den naechsten Sweep
-  // stehen (archiveStream ist idempotent). failedIds verhindert, dass so ein
-  // Row innerhalb DIESES Laufs endlos re-selektiert wird.
+  // A Row whose deleteBodyObject fails is NOT deleted; otherwise the only
+  // reference to the now-orphaned file object would be lost (no retry or
+  // dead-letter). The Row remains for the next sweep (archiveStream is
+  // idempotent). failedIds prevents such a Row from being selected endlessly
+  // during THIS run.
   const failedIds = new Set<string>();
   for (;;) {
     const rows = (
@@ -153,9 +157,9 @@ async function purgeExpiredSeenAnchors(
   tenantId: TenantId,
   cutoff: Instant,
 ): Promise<number> {
-  // Seen-Anker erben tenantId (table-builder: jede Entity hat tenant_id) →
-  // direkt tenant-scoped, kein Account-Join. Trifft auch Anker, deren Account
-  // schon disconnected/geloescht ist.
+  // Seen anchors inherit tenantId (table-builder: every Entity has tenant_id) →
+  // scoped directly to the tenant, without an Account join. This also includes
+  // anchors whose Account has already been disconnected or deleted.
   const where = { tenantId, seenAt: { lt: cutoff } };
   const expired = await selectMany<{ accountId: string }>(db, seenMessageTable, where);
   if (expired.length === 0) return 0;

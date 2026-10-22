@@ -7,38 +7,40 @@ import { countTenantFieldDefinitions } from "../lib/quota.ts";
 import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.ts";
 import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../web/constants.ts";
 
-// define-tenant-field — TenantAdmin definiert eine Custom-Field-Definition
-// für seinen eigenen Tenant. tenantId wird automatisch aus event.user.tenantId
-// abgeleitet (NICHT vom Caller setzbar — verhindert Cross-Tenant-Mutation).
+// define-tenant-field — TenantAdmin defines a custom-field definition
+// for its own tenant. tenantId is derived automatically from
+// event.user.tenantId (NOT settable by the caller — prevents cross-tenant
+// mutation).
 //
-// **Same-scope-conflict** wird natürlich durch aggregate-version-conflict
-// enforced: deterministische aggregate-id aus uuidv5(tenant, entity, fieldKey)
-// macht einen zweiten Create auf dieselbe Definition ein version_conflict.
-// Dispatcher returnt 409. Saubere Idempotency-Garantie ohne extra DB-roundtrip.
+// **Same-scope-conflict** is naturally enforced by the
+// aggregate-version-conflict: the deterministic aggregate-id from
+// uuidv5(tenant, entity, fieldKey) makes a second Create for the same
+// definition a version_conflict. The dispatcher returns 409, providing a
+// clean idempotency guarantee without an extra DB round trip.
 //
-// **Cross-scope-conflict** (tenant versucht fieldKey zu definieren der bereits
-// system-scope existiert) wird in B1 NICHT enforced — aggregate-ids
-// unterscheiden sich (verschiedene tenantIds in uuidv5), beide writes gehen
-// durch. Resolution beim Read (B2) zeigt dann den system-scope-Wert. v2
-// kann r.systemScope-Sub-Handler einführen um cross-scope-conflict am Write
-// abzulehnen.
+// **Cross-scope-conflict** (a tenant attempts to define a fieldKey that
+// already exists in the system scope) is NOT enforced here — the aggregate
+// IDs differ (different tenantIds in uuidv5), so both writes proceed.
+// Resolution at read time shows the system-scope value. A future version
+// could introduce an r.systemScope sub-handler to reject cross-scope-conflict
+// at write time.
 //
-// **Quota (T1.5e)**: optional `fieldDefinitionLimitPerTenant` gate. When the
-// tenant already has ≥ limit definitions, the handler rejects with
-// `unprocessable` + reason `cap_exceeded` BEFORE attempting the insert.
-// The factory below closes over the limit; the legacy const-export keeps
-// behavior unchanged for callers who didn't opt into a limit.
+// **Quota**: optional `fieldDefinitionLimitPerTenant` gate. When the tenant
+// already has ≥ limit definitions, the handler rejects with `unprocessable`
+// and reason `cap_exceeded` BEFORE attempting the insert. The factory below
+// closes over the limit; the legacy const-export preserves behavior for
+// callers that did not opt into a limit.
 //
-// Soft cap, not a hard guarantee: the count-then-insert is not serialized, so
+// Soft cap, not a hard guarantee: count-then-insert is not serialized, so
 // N concurrent defines with distinct fieldKeys can each read `current < limit`
-// and overshoot by up to N. Acceptable here — defining fields is an admin-only,
-// low-frequency action and the limit is not wired to billing/tier enforcement.
-// If an exact cap is ever needed, serialize via advisory lock or a count
-// constraint at the insert.
+// and overshoot by up to N. This is acceptable because defining fields is an
+// admin-only, low-frequency action and the limit is not wired to
+// billing/tier enforcement. If an exact cap is ever needed, serialize via
+// advisory lock or add a count constraint at the insert.
 export interface DefineTenantFieldOptions {
   /** Soft cap — `>= limit` definitions per tenant rejects further defines (see header: concurrent defines may overshoot). */
   readonly fieldDefinitionLimitPerTenant?: number;
-  /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — apps with
+  /** Access roles for this handler. Default ["TenantAdmin"] — apps with
    *  their own role vocabulary pass this via createCustomFieldsFeature({
    *  fieldDefinitionWriteRoles }), which threads the same roles into
    *  update-/delete-tenant-field too (the definition-CRUD triad shares one gate). */
@@ -66,7 +68,7 @@ export function createDefineTenantFieldHandler(
       const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;
 
-      // TenantAdmin darf NICHT system-scope schreiben — strict-guard.
+      // TenantAdmin MUST NOT write to the system scope — strict guard.
       if (isSystemTenant(tenantId)) {
         throw new Error(
           "define-tenant-field: tenantId is SYSTEM_TENANT_ID — use define-system-field for system-scope definitions",
@@ -101,5 +103,5 @@ export function createDefineTenantFieldHandler(
 }
 
 // Backwards-compat: existing imports of `defineTenantFieldHandler` keep
-// working — the handler has no quota, identical to pre-T1.5e behavior.
+// working — the handler has no quota, identical to behavior before the quota.
 export const defineTenantFieldHandler: WriteHandlerDef = createDefineTenantFieldHandler();

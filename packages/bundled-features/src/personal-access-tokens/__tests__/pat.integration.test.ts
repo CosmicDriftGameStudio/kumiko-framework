@@ -72,7 +72,7 @@ let stack: TestStack;
 let h: ReturnType<typeof makeSessionHelpers>;
 
 // `personal-access-tokens:query:mine` is now a paged handler — every caller
-// reads `response.rows` instead of a blank array (fw#2548 Teil B).
+// reads `response.rows` instead of a blank array.
 type PatRowsEnvelope<T> = { readonly rows: readonly T[]; readonly nextCursor: string | null };
 
 const encryptionKey = randomBytes(32).toString("base64");
@@ -307,7 +307,7 @@ describe("PAT with active KMS (#820): token name is userOwned PII", () => {
       });
       expect(isPiiCiphertext(stored[0]?.name)).toBe(true);
 
-      // Der Token selbst funktioniert weiter (resolver liest tokenHash, nie name).
+      // The token still works (the resolver reads tokenHash, never name).
       const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
       expect(res.status).toBe(200);
     } finally {

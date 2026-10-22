@@ -8,18 +8,17 @@ import {
   FIELD_DEFINITION_AGGREGATE_TYPE,
 } from "../web/constants.ts";
 
-// delete-tenant-field — TenantAdmin löscht eigene Field-Definition.
-// Spec-Promise (Plan-Doc v2 "wie Entity-Delete"): Events bleiben im event-
-// store für Audit-Trail. Read-Projection-Row wird entfernt. B2 wird die
-// Cleanup-Pipeline (`customFieldDefinition.deleted`-Event → MSP entfernt
-// values aus read_<entity>.customFields jsonb) wirklich wiren — in B1
-// kümmern wir uns nur um die Definition selbst.
+// delete-tenant-field — TenantAdmin deletes their own field definition.
+// Events remain in the event store for the audit trail, while the read-projection
+// row is removed. The cleanup pipeline (`customFieldDefinition.deleted`-Event → MSP
+// removes values from read_<entity>.customFields jsonb) is wired separately; this
+// handler only manages the definition itself.
 //
-// **Idempotency:** Delete auf nicht-existente Definition → version_conflict
-// (executor.delete returns failure, dispatcher 404/422). Caller sieht "not
-// found" — kein Crash.
+// **Idempotency:** Deleting a non-existent definition results in version_conflict
+// (executor.delete returns failure, dispatcher 404/422). The caller sees "not
+// found" rather than an exception.
 export interface DeleteTenantFieldOptions {
-  /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — see
+  /** Access roles for this handler. Default ["TenantAdmin"] — see
    *  DefineTenantFieldOptions.roles, the definition-CRUD triad shares one gate. */
   readonly roles?: readonly string[];
 }
@@ -52,9 +51,9 @@ export function createDeleteTenantFieldHandler(
 
       const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, ctx.db);
 
-      // Emit cascade-cleanup-Event NACH erfolgreichem Delete. host-entity-MSPs
-      // (registriert via wireCustomFieldsFor) konsumieren das + entfernen orphan
-      // values aus ihrer customFields jsonb. Im selben TX = atomic cleanup.
+      // Emit the cascade-cleanup event after a successful delete. Host-entity MSPs
+      // registered via wireCustomFieldsFor consume it and remove orphaned values
+      // from their customFields jsonb. The same transaction makes cleanup atomic.
       if (result.isSuccess) {
         await ctx.unsafeAppendEvent({
           aggregateId,

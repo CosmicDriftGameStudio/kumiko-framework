@@ -1,5 +1,5 @@
 // files-tenant-data — EXT_TENANT_DATA (fileRef row purge) + EXT_STORAGE_PROVIDER
-// (full tenant storage-prefix wipe) coverage for tenant-destroy (#2474).
+// (full tenant storage-prefix wipe) coverage for tenant-destroy.
 //
 // Seeds the "destroying" tenant state directly (status update + a
 // TENANT_DESTRUCTION_STARTED_EVENT_QN append) instead of going through the
@@ -140,7 +140,7 @@ async function seedFileRef(tenantId: TenantId, storageKey: string) {
   return { id: result.data.id };
 }
 
-// Stands in for a tenant-handover claim (kumiko-framework#3035): the row's
+// Stands in for a tenant-handover claim: the row's
 // tenantId moves, the storageKey — and the bytes behind it — do not.
 async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promise<void> {
   await updateRows(db, fileRefsTable, { tenantId: toTenantId }, { id: String(fileRefId) });
@@ -260,7 +260,7 @@ describe("files-tenant-data :: tenant destroy", () => {
     const unrelatedKeyA = `${tenantA.tenantId}/some-other-file.bin`;
     // Export ZIPs live under exports/{tenantId}/, not {tenantId}/ — a
     // regression here would leave a tenant's decrypted GDPR export bundle
-    // behind after destroy (#3003 review finding).
+    // behind after destroy.
     const exportKeyA = `${tenantExportPrefix(tenantA.tenantId)}job-1.zip`;
     const { id: fileRefIdA } = await seedFileRef(tenantA.tenantId, originalKeyA);
     await provider.write(originalKeyA, new Uint8Array([1]));
@@ -334,7 +334,7 @@ describe("files-tenant-data :: tenant destroy", () => {
     expect(await provider.exists(originalKeyA)).toBe(true);
   });
 
-  // kumiko-framework#3035 — tenant-handover leaves a fileRef row's tenantId
+  // Tenant-handover leaves a fileRef row's tenantId
   // pointing at a NEW tenant while its storageKey (and the bytes behind it)
   // stay under the tenant that originally uploaded it.
   describe("after a tenant-handover", () => {

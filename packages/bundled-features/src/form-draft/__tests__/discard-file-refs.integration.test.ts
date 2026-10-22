@@ -1,4 +1,4 @@
-// Discard releases FileRefs held in the draft blob (issue #1915), but ONLY
+// Discard releases FileRefs held in the draft blob, but ONLY
 // when the caller explicitly opts in via releaseFiles: true, AND only for
 // storageKeys backed by a real file_refs row owned by the caller. A photo
 // upload during a wizard-mode form is written to storage immediately — the
@@ -15,7 +15,7 @@
 // reach the storage provider's delete() unchecked (see
 // db/queries/owned-file-refs.ts).
 //
-// Ordering matters for release-eligibility (fw-review #5): a storageKey is
+// Ordering matters for release-eligibility: a storageKey is
 // only releasable if its file_refs row was inserted AFTER the draft row —
 // i.e. uploaded during THIS draft's own lifetime. Every "should release"
 // fixture below therefore creates the draft FIRST (an empty first save,
@@ -205,7 +205,7 @@ describe("form-draft discard — FileRef release", () => {
     expect(provider.keys()).toContain(key);
   });
 
-  // fw#1922: a released FileRef must go through the fileRef executor
+  // A released FileRef must go through the fileRef executor
   // (fileRef.forgotten event), not a raw provider.delete() that bypasses
   // the event store; the file_refs row itself must be purged, not just
   // the storage binary.

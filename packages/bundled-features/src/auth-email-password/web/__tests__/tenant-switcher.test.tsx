@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { TenantSwitcher } from "../tenant-switcher.tsx";
 import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 
-// Radix-DropdownMenu reagiert auf pointerdown, nicht auf click — daher
-// userEvent statt fireEvent.
+// Radix-DropdownMenu responds to pointerdown rather than click, so
+// use userEvent instead of fireEvent.
 describe("TenantSwitcher", () => {
   test("renders nothing when user is null", () => {
     const session = makeSessionApi({ status: "unauthenticated", user: null });
@@ -28,12 +28,12 @@ describe("TenantSwitcher", () => {
       ],
     });
     renderWithProviders(<TenantSwitcher tenantName={(id) => `Tenant ${id}`} />, { session });
-    // tenantName-Resolver liefert "Tenant tenant-a" als Trigger-Label
+    // The tenantName resolver provides "Tenant tenant-a" as the trigger label.
     expect(screen.getByText("Tenant tenant-a")).toBeTruthy();
   });
   test("renders server-provided membership name without tenantName prop", () => {
-    // /auth/tenants liefert name/key mit — der Switcher braucht keinen
-    // App-Resolver mehr. Fallback-Kette: name > key > UUID-Präfix.
+    // /auth/tenants provides name/key, so the switcher no longer needs an
+    // app resolver. Fallback order: name > key > UUID prefix.
     const session = makeSessionApi({
       activeTenantId: "00000000-0000-4000-8000-000000000001",
       tenants: [
@@ -47,7 +47,8 @@ describe("TenantSwitcher", () => {
       ],
     });
     renderWithProviders(<TenantSwitcher />, { session });
-    // Ohne den Fix wären beide Labels das identische UUID-Präfix "00000000".
+    // Without the fix, both labels would be the identical UUID prefix
+    // "00000000".
     expect(screen.getByText("Status")).toBeTruthy();
   });
 
@@ -64,9 +65,9 @@ describe("TenantSwitcher", () => {
       session,
     });
     await user.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
-    // Trigger zeigt aktiven Tenant ("Tenant tenant-a") + Dropdown-Items
-    // listen ALLE Tenants — nutze getAllByText um Mehrdeutigkeit
-    // explizit zu erlauben, dann Roles-Strings als eindeutigen Anker.
+    // The trigger shows the active tenant ("Tenant tenant-a"), and the dropdown lists all tenants.
+    // Use getAllByText to allow the duplicate active-tenant label, then use role strings as
+    // unambiguous anchors.
     expect(screen.getAllByText("Tenant tenant-a").length).toBeGreaterThan(0);
     expect(screen.getByText("Tenant tenant-b")).toBeTruthy();
     expect(screen.getByText("Admin")).toBeTruthy();
@@ -101,9 +102,8 @@ describe("TenantSwitcher", () => {
       session,
     });
     await user.click(screen.getByRole("button", { name: /Tenant tenant-a/ }));
-    // Im Dropdown gibt's einen menuitemcheckbox für tenant-a (Radix-Role
-    // bei CheckboxItem) — nicht den Trigger erwischen, sondern den im
-    // role="menu".
+    // The dropdown contains a menuitemcheckbox for tenant-a (the Radix role
+    // for CheckboxItem); select it rather than the trigger in role="menu".
     const items = screen.getAllByRole("menuitemcheckbox");
     const activeItem = items.find((el) => el.textContent?.includes("Tenant tenant-a"));
     expect(activeItem).toBeDefined();
@@ -129,8 +129,8 @@ describe("TenantSwitcher — key-only-Fallback im geöffneten Dropdown", () => {
     });
     renderWithProviders(<TenantSwitcher />, { session });
     await user.click(screen.getByRole("button", { name: /Status/ }));
-    // Der key-only-Pfad (kein name) muss im Dropdown sichtbar werden —
-    // nicht das UUID-Präfix "00000000".
+    // The key-only path (without name) must appear in the dropdown rather
+    // than the UUID prefix "00000000".
     expect(screen.getByText("demo")).toBeTruthy();
     expect(screen.queryByText("00000000")).toBeNull();
   });

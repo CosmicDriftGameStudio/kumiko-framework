@@ -32,9 +32,9 @@ describe("createSubscriptionStripeFeature — shape", () => {
   test("requires billing-foundation + config + secrets (runtime-keys via config/secrets)", () => {
     const feature = createSubscriptionStripeFeature(OPTIONS);
     expect(feature.requires).toContain("billing-foundation");
-    // Drift-Pin (v3): api-key/webhook-secret sind config-Keys mit
-    // backing:"secrets" (Wert im secrets-Store), billing-live plain config —
-    // daher harte deps auf config UND secrets (Store + tenant_secrets-Tabelle).
+    // `api-key`/`webhook-secret` are config keys backed by `secrets` (values in
+    // the secrets store), while `billing-live` is plain config. Both `config` and
+    // `secrets` are therefore required for the store and `tenant_secrets` table.
     expect(feature.requires).toContain("config");
     expect(feature.requires).toContain("secrets");
   });
@@ -42,9 +42,9 @@ describe("createSubscriptionStripeFeature — shape", () => {
 
 describe("createSubscriptionStripeFeature — mounts without mount-time credentials", () => {
   test("mounts with no options at all (keys resolved at runtime from secrets)", () => {
-    // v1 warf hier bei leerem webhookSecret/apiKey. v2 mountet immer —
-    // die Credentials kommen erst zur Laufzeit aus config/secrets, der
-    // billing-live-Gate hält den Checkout solange inert.
+    // Mounting used to throw when `webhookSecret` or `apiKey` was empty. It now
+    // always mounts; credentials are resolved at runtime from config/secrets, and
+    // the `billing-live` gate keeps checkout inert until they are available.
     expect(() => createSubscriptionStripeFeature()).not.toThrow();
   });
 
@@ -97,12 +97,11 @@ describe("subscription-stripe — plugin-registration", () => {
   });
 
   test("plugin-options have a valid SubscriptionProviderPlugin shape (drift-pin alle 4 methods)", () => {
-    // Stärker als nur "extension-usage existiert": wenn jemand eine der
-    // plugin-methods aus dem plugin-build entfernt, würde der
-    // entsprechende Foundation-write-handler zur Laufzeit als
-    // "method not supported"-error brechen — type-check würde es nicht
-    // fangen weil die useExtension-options als `unknown` durchgereicht
-    // werden.
+    // More than checking that an extension usage exists: removing one of the
+    // plugin methods from the plugin build would make the corresponding
+    // Foundation write handler fail at runtime with a "method not supported"
+    // error. Type-checking would not catch this because useExtension options are
+    // passed through as `unknown`.
     // Checks the mounted feature — the contract below builds its plugin
     // by hand-wiring, so it would not catch a wiring gap here.
     const feature = createSubscriptionStripeFeature(OPTIONS);
@@ -123,10 +122,9 @@ describe("subscription-stripe — plugin-registration", () => {
 
 describe("constants — Stripe-event-types die wir mappen", () => {
   test("StripeEventTypes whitelist — was die Foundation verarbeitet", () => {
-    // Drift-Pin: ein Refactor das einen event-type rauswirft (z.B.
-    // invoice.paid weil "wir nutzen das nicht") würde tier-grace-period-
-    // tracking brechen. Plus: ein Refactor der einen NICHT-existing
-    // Stripe-event-type reinschreibt (typo) würde silent ignored werden.
+    // Removing an event type (for example, `invoice.paid` because "we do not use
+    // it") would break tier-grace-period tracking. Adding a nonexistent Stripe
+    // event type by mistake would instead be silently ignored.
     expect(Object.values(StripeEventTypes)).toEqual([
       "customer.subscription.created",
       "customer.subscription.updated",

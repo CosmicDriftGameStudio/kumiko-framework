@@ -1,19 +1,19 @@
-// Tenant-Invite Step 2 — Branch 1 (logged-in user accepts).
+// Tenant invitation — logged-in user accepts.
 //
-// User ist eingeloggt (in irgendeinem Tenant), klickt Accept-Link.
+// The user is signed in to some tenant and clicks the Accept link.
 // Server:
 //   1. Token → invitationId (Redis)
 //   2. Burn (single-use)
-//   3. Invitation-Row aus DB
-//   4. Email-Match: invitation.email === user.email (sonst inviteEmailMismatch)
+//   3. Load the invitation row from the database
+//   4. Email match: invitation.email === user.email (otherwise inviteEmailMismatch)
 //   5+6. grantInvitedMembershipRole: create the membership, or add the
 //      invited role to an existing one (add-only)
-//   7. Invitation-Row → status=accepted
-//   8. Redis-Keys löschen (Burn-Key bleibt für Replay-Schutz)
+//   7. Invitation row → status=accepted
+//   8. Delete Redis keys (the burn key remains for replay protection)
 //
-// Branch 1 ist der klassische "shared workspace bei eingeloggter
-// Session"-Flow. Branch 2 (anon + existing email) und Branch 3 (anon +
-// new email) kommen als separate Handler.
+// This is the classic "shared workspace with a logged-in session" flow.
+// Branch 2 (anonymous + existing email) and Branch 3 (anonymous + new
+// email) are handled separately.
 
 import {
   createEventStoreExecutor,
@@ -29,7 +29,7 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
-// kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
+// kumiko-lint-ignore cross-feature-import the invite flow lives in auth-email-password (Magic-Link), while the DB-row owner is a tenant feature
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -42,7 +42,7 @@ import {
   grantInvitedGlobalRoles,
   parseInvitedGlobalRoles,
 } from "../../user/invited-global-roles.ts";
-// kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
+// kumiko-lint-ignore cross-feature-import the auth handler reads the user row for the email match
 import { userTable } from "../../user/schema/user.ts";
 import { invalidInviteToken, inviteEmailMismatch } from "../errors.ts";
 import {
@@ -138,9 +138,9 @@ export function createInviteAcceptHandler() {
         const invitationRole = invitation.role;
         const invitationVersion = invitation.version;
 
-        // Email-Match: User muss mit der eingeladenen Email matchen.
-        // Sonst kann ein Angreifer mit Zugriff zur invitee-Mail seinen
-        // eigenen Account dem Tenant zuschlagen.
+        // Email match: the user must match the invited email.
+        // Otherwise, anyone with access to the invitee's email could add
+        // their own account to the tenant.
         const userRow = await ctx.db.global(userTable).fetchOne<UserEmailRow>({
           id: event.user.id,
         });
@@ -169,10 +169,10 @@ export function createInviteAcceptHandler() {
         });
         if (!globalGrant.isSuccess) return globalGrant;
 
-        // Invitation-Status → accepted via event-store-executor.
-        // Tenant-scoping: ctx.db ist auf event.user.tenantId gescopt
-        // (= NICHT der invitation-tenant). Eigene TenantDb für den
-        // invitation-tenant bauen damit der executor die row findet.
+        // Invitation status → accepted via event-store-executor.
+        // Tenant scoping: ctx.db is scoped to event.user.tenantId
+        // (not the invitation tenant). Build a TenantDb for the
+        // invitation tenant so the executor can find the row.
         const invitationTdb = createTenantDb({
           db: dbConn,
           tenantId: invitationTenantId,

@@ -8,13 +8,13 @@
 // erasure hit the same store by construction. This feature re-exports the moved
 // symbols unchanged so existing imports keep working.
 //
-// **Pattern-Vorbild:** identisch zu `mail-foundation`. Foundation deklariert
-// extension-point `fileProvider`, Provider-Features (file-provider-s3, -inmemory,
-// -s3-env, später -gcs/-azure-blob) registrieren sich namentlich. Tenant wählt
-// zur Runtime via config-key `provider`.
+// **Pattern reference:** identical to `mail-foundation`. The foundation declares
+// the `fileProvider` extension point; provider features (file-provider-s3,
+// -inmemory, -s3-env, later -gcs/-azure-blob) register themselves by name. The
+// tenant selects one at runtime via the `provider` config key.
 //
-// **Boot-Dependencies:** config (für provider-selector). Kein secrets, weil
-// Foundation selbst keine Secrets hält.
+// **Boot dependencies:** config (for the provider selector). No secrets, because
+// the foundation itself does not hold any secrets.
 
 import {
   access,

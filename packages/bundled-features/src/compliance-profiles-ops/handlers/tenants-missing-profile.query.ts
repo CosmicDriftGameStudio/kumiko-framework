@@ -5,12 +5,12 @@ import * as z from "zod";
 import { tenantComplianceProfileTable } from "../../compliance-profiles/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
-// SystemAdmin platform-wide counterpart to needs-profile (#2089).
+// SystemAdmin platform-wide counterpart to needs-profile.
 //
-// #2084 stopped needs-profile from nagging a TenantAdmin who can no longer
+// The change stopped needs-profile from nagging a TenantAdmin who can no longer
 // reach a picker narrowed to access.systemAdmin — correct, but it left no
 // one else able to notice: needs-profile stays TenantAdmin-only on purpose
-// (widening its call-access was explicitly rejected in #2084), so a
+// (widening its call-access was explicitly rejected), so a
 // SystemAdmin who owns the platform-only picker has no way to see which
 // tenants still run on minimal-no-region. This query fills that gap
 // instead of touching needs-profile: every enabled tenant that has no row

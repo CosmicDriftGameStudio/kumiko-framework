@@ -1,11 +1,11 @@
-// Atom 5b — sendDeletionRequestedEmail Callback (DSGVO Art. 17
-// "Geheimes Versprechen"-Email).
+// sendDeletionRequestedEmail callback (GDPR Art. 17
+// "Secret Promise" email).
 //
-// Pinst dass createUserDataRightsFeature({ sendDeletionRequestedEmail })
-// die App-Author-Callback bei erfolgreichem deletion-requested-Flip
-// feuert UND best-effort ist (send-failure killt den Status-Flip nicht).
-// Der Code-Comment in handlers/request-deletion.write.ts behauptet beide
-// Properties — dieser Test verifiziert sie end-to-end.
+// Verifies that createUserDataRightsFeature({ sendDeletionRequestedEmail })
+// invokes the application callback after a successful deletion-requested flip
+// and is best-effort (a send failure does not undo the status flip).
+// The comment in handlers/request-deletion.write.ts makes both claims;
+// this test verifies them end to end.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -41,9 +41,9 @@ const aliceUser = createTestUser({
   roles: ["Member"],
 });
 
-// Mutable callback-State pro Test: ein Closure-Hook der pro beforeEach
-// reset wird. Stack-Setup laesst sich nicht pro-Test variieren, deshalb
-// ist die Indirection ueber `state` noetig.
+// Mutable callback state for each test: a closure hook reset before each test.
+// The stack setup cannot vary per test, so the indirection through `state` is
+// necessary.
 type CallbackArgs = Parameters<SendDeletionRequestedEmailFn>[0];
 type CallbackState = {
   calls: CallbackArgs[];
@@ -117,8 +117,8 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     expect(call?.userId).toBe(aliceUser.id);
     expect(call?.userEmail).toBe(ORIGINAL_EMAIL);
     expect(call?.tenantId).toBe(tenantA);
-    // gracePeriodEnd-Mapping: Response-Wert == Callback-Wert. Beide
-    // beziehen sich auf denselben Cleanup-Trigger-Timestamp.
+    // gracePeriodEnd mapping: the response value equals the callback value. Both
+    // refer to the same cleanup-trigger timestamp.
     expect(call?.gracePeriodEnd).toBe(result.gracePeriodEnd);
   });
 
@@ -126,7 +126,7 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     state.shouldThrow = true;
     await seedAlice();
 
-    // Trotz callback-Throw bleibt der Write erfolgreich.
+    // Despite the callback throwing, the write remains successful.
     const result = await stack.http.writeOk<{
       userId: string;
       status: string;
@@ -134,12 +134,11 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     }>(REQUEST_DELETION, {}, aliceUser);
     expect(result.status).toBe(USER_STATUS.DeletionRequested);
 
-    // Callback wurde aufgerufen (vor dem Throw).
+    // The callback ran before the throw.
     expect(state.calls).toHaveLength(1);
 
-    // DB-State ist tatsaechlich geflipt — der zentrale "best-effort"-
-    // Beweis. Wenn das Write die Email-Failure-Exception bubbelt, waere
-    // der Status hier noch Active.
+    // The database state was actually flipped—the key best-effort proof. If the
+    // write bubbled the email-failure exception, the status would still be Active.
     const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
       status: string;
     }>;
@@ -147,7 +146,7 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
   });
 
   test("422 user_not_found → callback NICHT gefeuert", async () => {
-    // Alice nicht gesseedet — der Pre-Check failt.
+    // Alice was not seeded, so the pre-check fails.
     await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(state.calls).toHaveLength(0);
   });
@@ -169,8 +168,9 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
   });
 
   test("user mit leerem email-Feld → callback NICHT gefeuert (skip ohne crash)", async () => {
-    // Edge-Case: User-Row hat email="" (z.B. nach voriger Anonymisierung
-    // die status haengen liess). Skip schuetzt vor invalid-callback-Args.
+    // Edge case: the user row has email="" (for example, after prior
+    // anonymization left the status hanging). Skipping the callback prevents
+    // invalid callback arguments.
     await seedAlice("");
 
     const result = await stack.http.writeOk<{ status: string }>(REQUEST_DELETION, {}, aliceUser);

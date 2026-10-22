@@ -1,14 +1,14 @@
-// T1 — full-stack integration tests for the custom-fields bundle.
+// Full-stack integration tests for the custom-fields bundle.
 //
 // Drives define→set→query→clear→delete-cascade through the real dispatcher +
-// MSP-pipeline + DB. Verifies that the architecture actually works end-to-end:
-//   - r.defineEvent fires + MSP consumes + jsonb-projection lands
-//   - postQuery-entity-hook flattens customFields auf API-root
-//   - fieldDefinition-delete cascade-cleans orphan jsonb-keys
+// MSP pipeline + DB to verify the architecture end to end:
+//   - r.defineEvent fires + MSP consumes + jsonb projection lands
+//   - postQuery entity hook flattens customFields onto the API root
+//   - fieldDefinition delete cascade-cleans orphan JSONB keys
 //   - Multi-tenant isolation
 //
-// Pattern follows cap-counter.integration.ts: probe-feature mit own entity,
-// wired via wireCustomFieldsFor.
+// The pattern follows cap-counter.integration.ts: a probe feature with its own
+// entity, wired via wireCustomFieldsFor.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -104,9 +104,9 @@ beforeEach(async () => {
 
 // --- Helpers ---
 
-// TestUsers.admin hat role="Admin"; unsere handlers verlangen "TenantAdmin"
-// (Memory: feedback_role_naming_drift — bundled-features-Convention vs.
-// platform-Convention). Wir bauen einen tenant-admin für die Tests.
+// TestUsers.admin has role="Admin", but these handlers require "TenantAdmin"
+// (role-naming drift between the bundled-features and platform conventions).
+// Create a tenant admin specifically for these tests.
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 const systemAdmin = createTestUser({ roles: ["SystemAdmin"] });
 
@@ -272,7 +272,8 @@ describe("custom-fields integration — fieldDefinition-delete cascade", () => {
     );
     expect(p5?.["ephemeral"]).toBe("doomed");
 
-    // Delete fieldDef — cascade-MSP entfernt jsonb-key aus allen rows
+    // Deleting the field definition triggers an MSP cascade that removes the JSONB
+    // key from every row.
     await stack.http.writeOk(
       "custom-fields:write:delete-tenant-field",
       { entityName: "property", fieldKey: "ephemeral" },
@@ -284,7 +285,7 @@ describe("custom-fields integration — fieldDefinition-delete cascade", () => {
       (r) => r["id"] === "55555555-5555-4000-8000-000000000005",
     );
     expect(p5?.["ephemeral"]).toBeUndefined();
-    expect(p5?.["name"]).toBe("WillLoseField"); // Stammfeld unverändert
+    expect(p5?.["name"]).toBe("WillLoseField"); // Stammfeld remains unchanged
   });
 });
 
@@ -522,7 +523,7 @@ describe("custom-fields integration — no PII: `sensitive` rejected, every valu
 
     const row = (await listProperties()).rows.find((r) => r["id"] === propId);
     // Every value restores from its value-bearing event — custom fields are
-    // fully rebuild-safe since #972 (no PII, no value-less events).
+    // fully rebuild-safe (no PII, no value-less events).
     expect(row?.["publicTag"]).toBe("keepme");
     expect(row?.["vendorRef"]).toBe("VR-777");
   });
@@ -580,7 +581,7 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     expect(err.code).toBe("unprocessable");
     expect(err.details).toMatchObject({ reason: "custom_field_value_invalid" });
 
-    // Plan-Promise: kein Event entsteht — Projection bleibt typed.
+    // Plan-Promise: no event is created, so the projection remains type-safe.
     expect(await countSetEvents(id)).toBe(0);
 
     await stack.eventDispatcher?.runOnce();
@@ -619,10 +620,10 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
 
   test("required-text accepts empty + over-maxLength strings (constraint-keys stripped)", async () => {
     const id = "bbbbbbbb-bbbb-4000-8000-00000000000b";
-    // serializedField carries required + maxLength + format — value-schema
-    // strips these before fieldToZod, so the runtime schema collapses to a
-    // bare z.string(). Required-on-set + length/format-enforcement remain
-    // out-of-scope (Plan-Doc "Stammfeld-Identität").
+    // serializedField carries required + maxLength + format; value-schema strips
+    // these before fieldToZod, so the runtime schema collapses to a bare
+    // z.string(). Required-on-set and length/format enforcement remain outside
+    // this schema's scope.
     await stack.http.writeOk(
       "custom-fields:write:define-tenant-field",
       {
@@ -789,8 +790,8 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(row?.["required"]).toBe(true);
     expect(row?.["searchable"]).toBe(true);
     expect(Number(row?.["display_order"])).toBe(7);
-    // serializedField über den update-Pfad (flattenCompoundTypes ≠ create-Pfad)
-    // zurückparsen — Inhalt beweisen, nicht nur write-success.
+    // Parse serializedField through the update path (flattenCompoundTypes differs
+    // from the create path) to verify its contents, not only write success.
     const sf = JSON.parse(String(row?.["serialized_field"])) as Record<string, unknown>;
     expect(sf["min"]).toBe(0);
     expect(sf["max"]).toBe(10);
@@ -909,8 +910,8 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
 
   test("Cross-Tenant: fremde (entityName,fieldKey) → 404, Owner-Definition unverändert", async () => {
     await defineField("property", "secret", "text");
-    // Expliziter Fremd-Tenant — createTestUser ohne tenantId landet im
-    // selben Default-Test-Tenant wie `admin`.
+    // Use an explicit foreign tenant; createTestUser without tenantId would use
+    // the same default test tenant as `admin`.
     const otherAdmin = createTestUser({
       roles: ["TenantAdmin"],
       tenantId: "00000000-0000-4000-8000-000000000099",
@@ -927,7 +928,7 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
       },
       otherAdmin,
     );
-    // aggregate-id deriviert aus otherAdmin.tenantId → trifft nichts.
+    // The aggregate ID is derived from otherAdmin.tenantId, so it matches nothing.
     expect(err.httpStatus).toBe(404);
     const row = await fetchDefinitionRow(admin.tenantId, "secret");
     expect(row?.["required"]).toBe(false);
@@ -950,7 +951,8 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
       },
       systemScopedAdmin,
     );
-    // Guard wirft plain Error → 500; Message pinnen (wie der define-Guard-Test).
+    // The guard throws a plain Error and returns 500; pin its message as in the
+    // define-guard test.
     expect(err.httpStatus).toBe(500);
     const causeMessage = (err.details as { causeMessage?: string } | undefined)?.causeMessage ?? "";
     expect(causeMessage).toContain("update-tenant-field");
@@ -979,7 +981,7 @@ describe("custom-fields integration — official host-entity rebuild (#759)", ()
     expect(row?.["doomed"]).toBeUndefined();
 
     // The routine schema-migration path: full official rebuild of the host
-    // entity's implicit projection. Pre-#759 this reset every custom_fields
+    // entity's implicit projection. Previously, this reset every custom_fields
     // jsonb to its default '{}' with no recovery path.
     const result = await rebuildProjection("property-test:projection:property-entity", {
       db: stack.db,
@@ -1009,8 +1011,8 @@ describe("custom-fields integration — official host-entity rebuild (#759)", ()
     });
 
     const row = (await listProperties()).rows.find((r) => r["id"] === propId);
-    // Kontrollfeld beweist dass der Rebuild die set-Events real replayt hat —
-    // ein leeres {} wuerde "flag undefined" trivial erfuellen.
+    // The control field proves that the rebuild really replayed the set events;
+    // an empty {} would make "flag undefined" pass trivially.
     expect(row?.["keep"]).toBe("yes");
     expect(row?.["flag"]).toBeUndefined();
     expect(row?.["name"]).toBe("ClearSurvives");

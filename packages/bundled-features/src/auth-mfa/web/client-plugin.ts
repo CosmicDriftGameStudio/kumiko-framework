@@ -1,4 +1,4 @@
-// Client-Feature-Factory für auth-mfa — mirrors emailPasswordClient()'s
+// Client feature factory for auth-mfa — mirrors emailPasswordClient()'s
 // shape so apps register both the same way:
 // createKumikoApp({ clientFeatures: [emailPasswordClient(), authMfaClient()] }).
 // No gates: MfaVerifyScreen isn't a route gate, it's a state swap wired
@@ -12,7 +12,7 @@ import type { ComponentType, ReactNode } from "react";
 import { defaultTranslations, mergeTranslations } from "./i18n.ts";
 
 export type AuthMfaClientOptions = {
-  /** Key-Overrides pro Locale, gemerged mit den Default-Bundles (de/en). */
+  /** Key overrides per locale, merged with the default bundles (de/en). */
   readonly translations?: TranslationsByLocale;
 };
 

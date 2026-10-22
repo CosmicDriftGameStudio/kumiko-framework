@@ -1,6 +1,6 @@
 // A tenant whose receiver holds requests open must not delay other tenants'
 // webhooks: deliveries are jobs with a per-tenant concurrency cap, so the
-// held requests cannot occupy every worker slot (fw#3787).
+// held requests cannot occupy every worker slot.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";

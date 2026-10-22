@@ -279,7 +279,7 @@ describe("FolderManager filing mode", () => {
       fireEvent(row, evt);
     };
 
-    // Regression #671/3: bubbling from a child (chevron/icon/label) must NOT
+    // Bubbling from a child (chevron/icon/label) must NOT
     // clear the highlight — onDragOver re-sets it a micro-task later anyway,
     // so an unconditional clear here just flickers.
     leaveTo(childButton);
@@ -327,7 +327,7 @@ describe("FolderManager filing mode", () => {
         <FolderManager filing={allFiled} />
       </Wrapper>,
     );
-    // Regression #671/5: an empty `unfiled` array must not remove the bucket —
+    // An empty `unfiled` array must not remove the bucket —
     // it's the only drop target to un-file a leaf back out of its folder.
     expect(screen.getByTestId("folder-node-unfiled")).toBeTruthy();
   });

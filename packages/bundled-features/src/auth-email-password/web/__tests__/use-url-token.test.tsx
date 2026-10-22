@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderHook } from "@testing-library/react";
 import { useUrlToken } from "../auth-form-primitives.tsx";
 
-// #774: magic-link tokens must not linger in browser history / Referer.
+// Magic-link tokens must not linger in browser history / Referer.
 // useUrlToken reads the token once, then scrubs the param via replaceState.
 // (preload/dom resets window.location to http://localhost/ after each test.)
 describe("useUrlToken (magic-link history hygiene)", () => {

@@ -1,5 +1,5 @@
 // Connect-routes integration — mounts createInboundMailConnectRoutes as
-// real extraRoutes on a setupTestStack (kumiko-framework#3050), driven with
+// real extraRoutes on a setupTestStack, driven with
 // real HTTP through the framework's own auth/signature wiring, never a
 // hand-rolled Hono app or createTestDispatcher.
 

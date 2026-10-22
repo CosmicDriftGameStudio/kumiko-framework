@@ -1,14 +1,14 @@
-// userData-Hook Integration-Tests für die Bundled-Entity-Hooks (GDPR-Audit
-// 2026-07): user-session, api-token, in-app-message, tenant-invitation,
+// userData hook integration tests for the bundled entity hooks (GDPR audit):
+// user-session, api-token, in-app-message, tenant-invitation,
 // notification-preference, config-value.
 //
-// Zwei Stacks:
-//   FULL    — alle Source-Features gemountet; testet Export-Inhalt, Forget-
-//             Semantik (hard-delete vs. executor-forget vs. anonymize) und
-//             Tenant-Isolation.
-//   MINIMAL — nur user/files/udr/defaults; testet das Presence-Gating: jeder
-//             Hook muss null/no-op liefern statt gegen fehlende Tabellen zu
-//             crashen (der Export-Runner hat kein per-Hook try/catch).
+// Two stacks:
+//   FULL    — all source features mounted; tests export contents, forget
+//             semantics (hard-delete vs. executor-forget vs. anonymize), and
+//             tenant isolation.
+//   MINIMAL — only user/files/udr/defaults; tests presence gating: every hook
+//             must return null/no-op instead of querying missing tables and
+//             crashing (the export runner has no per-hook try/catch).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -310,7 +310,7 @@ describe("tenant-invitation userData-hooks", () => {
   });
 
   test("Inviter-Forget severs invitedBy, Row bleibt (gehört dem Invitee)", async () => {
-    // userId als echte UUID — der Email-Lookup geht gegen read_users.id (uuid).
+    // userId must be a real UUID because the email lookup queries read_users.id (uuid).
     const inviter = uuid(28);
     await seedInvitation(uuid(27), "someone-else@example.com", inviter);
 
@@ -507,10 +507,9 @@ describe("Presence-Gating: Source-Feature nicht gemountet → null/no-op statt C
       userId: "any-user",
     };
 
-    // sessions ist im Minimal-Stack GEMOUNTET aber die Tabelle existiert
-    // nicht — der Gate-Check greift auf Feature-Ebene, deshalb hier nur die
-    // fünf wirklich ungemounteten Features. (user-session wird im FULL-Stack
-    // getestet.)
+    // sessions is mounted in the Minimal stack, but its table is absent. The
+    // feature-level gate therefore protects only the five genuinely unmounted
+    // features here; user-session is tested in the FULL stack.
     expect(await apiTokenExportHook(minCtx)).toBeNull();
     expect(await inAppMessageExportHook(minCtx)).toBeNull();
     expect(await tenantInvitationExportHook(minCtx)).toBeNull();

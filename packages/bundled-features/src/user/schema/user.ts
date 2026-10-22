@@ -13,10 +13,9 @@ import {
 import { GLOBAL_ROLE_OPTIONS } from "../web/constants.ts";
 
 /**
- * User-Lifecycle-Status (S2.U1). Single source of truth — Auth-Middleware
- * (S2.U6), Forget-Job (S2.U5) und Restriction-Handler nutzen diese
- * Constants statt Magic-Strings (Memory feedback_role_naming_drift —
- * gleiches Pattern wie ROLES.SystemAdmin).
+ * User lifecycle status. This is the single source of truth used by the
+ * auth middleware, forget job, and restriction handler instead of duplicated
+ * magic strings, following the same pattern as ROLES.SystemAdmin.
  */
 export const USER_STATUS = {
   Active: "active",
@@ -28,26 +27,27 @@ export const USER_STATUS = {
 export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
 
 /**
- * Anonymize-Display-Strings fuer userDeleteHook (S2.H1). Constants statt
- * Magic-Strings damit i18n-Mapping moeglich + drift-fest. Default-DE,
- * App-Author kann via i18n-System uebersetzen wenn gewuenscht.
+ * Display strings anonymized by userDeleteHook. Constants keep i18n mapping
+ * possible and prevent drift. The default is German; app authors can
+ * translate it through the i18n system if desired.
  */
 export const USER_DELETED_DISPLAY_NAME = "[Geloescht]";
 export const USER_ANONYMIZED_DISPLAY_NAME = "[Anonymisiert]";
 
 /**
- * Email-Pseudonyme nach Forget. `<prefix>-<userId>@anonymized.invalid`
- * — der userId-Suffix ist als Pseudo-Audit-Marker fuer Operator
- * (Tracing-fall) erlaubt; user-id selbst ist UUID, kein PII.
- * `.invalid`-TLD ist RFC2606-reserviert — niemals deliverbare Email.
+ * Email pseudonyms used after forgetting. `<prefix>-<userId>@anonymized.invalid`
+ * — the userId suffix is permitted as a pseudo-audit marker for operator
+ * tracing; the user ID itself is a UUID, not PII.
+ * The `.invalid` TLD is reserved by RFC2606, so the address can never be
+ * delivered.
  */
 export const USER_DELETED_EMAIL_PREFIX = "deleted";
 export const USER_ANONYMIZED_EMAIL_PREFIX = "anonymized";
 export const USER_ANONYMIZED_EMAIL_DOMAIN = "anonymized.invalid";
 
-// Tuple form fuer createSelectField (erfordert non-empty readonly tuple).
-// Object.values(USER_STATUS) waere string[] — statisches Tuple ist
-// type-sicher.
+// Tuple form for createSelectField (requires a non-empty readonly tuple).
+// Object.values(USER_STATUS) would be string[]; the static tuple preserves
+// type safety.
 const USER_STATUS_OPTIONS = [
   USER_STATUS.Active,
   USER_STATUS.Restricted,
@@ -63,10 +63,10 @@ export const userEntity = createEntity({
   table: "read_users",
   softDelete: true,
   // Tenant-independent identity aggregate — its event stream lives on
-  // SYSTEM_TENANT_ID instead of whichever tenant happened to create it (#497).
+  // SYSTEM_TENANT_ID instead of whichever tenant happened to create it.
   systemStream: true,
   // Every row lives on SYSTEM_TENANT_ID; writes with another tenantId are
-  // rejected (fw#2858).
+  // rejected.
   tenancy: "global",
   fields: {
     // Identity — anyone who can see the user can read the email, but only
@@ -101,17 +101,17 @@ export const userEntity = createEntity({
     }),
 
     // Profile — user-editable. Real name in most apps → PII. Searchable via
-    // the derived Meili index; events/projection stay ciphertext (#1610).
+    // the derived Meili index; events/projection stay ciphertext.
     displayName: createTextField({
       required: true,
       maxLength: 100,
       personal: "self",
       find: "fuzzy",
     }),
-    // No default here — tenant-settings owns the app-wide locale default; see #1637.
+    // No default here — tenant-settings owns the app-wide locale default.
     locale: createTextField({ maxLength: 10, personal: false, reason: "technical_reference" }),
     // No default here — mirrors locale: ctx.tz falls back to tenant.timezone
-    // (then "UTC") when unset, see buildHandlerContext (fw#1636).
+    // (then "UTC") when unset, see buildHandlerContext.
     timezone: createTzField(),
 
     // Which tenant should this user land in on next login. Set by the login
@@ -145,21 +145,22 @@ export const userEntity = createEntity({
       access: { write: access.privileged },
     }),
 
-    // S2.U1: User-Lifecycle-Status für user-data-rights (Sprint 2).
-    //   - "active":            Normaler State, alle Operationen erlaubt
-    //   - "restricted":        Art. 18 Restriction — Login blockiert + jede
-    //                          Live-Session wird vom sessionChecker abgewiesen
+    // User lifecycle status for user-data-rights.
+    //   - "active":            Normal state; all operations are allowed.
+    //   - "restricted":        Art. 18 restriction — login is blocked and every
+    //                          live session is rejected by sessionChecker
     //                          ("blocked"). Recovery via lift-restriction
-    //                          (openToAll, session-unabhängig).
-    //   - "deletionRequested": delete-account aufgerufen, gracePeriodEnd gesetzt,
-    //                          Login blockiert. Bestehende Session bleibt LIVE
-    //                          (reversibel) — User kann via cancel-deletion
-    //                          zurück auf "active".
-    //   - "deleted":           Forget executed nach Grace, Row anonymisiert via
-    //                          softDelete. Login blockiert + Session "blocked".
+    //                          (openToAll, independent of the session).
+    //   - "deletionRequested": delete-account was called and gracePeriodEnd set;
+    //                          login is blocked. Existing sessions remain LIVE
+    //                          (reversible), so the user can return to "active"
+    //                          via cancel-deletion.
+    //   - "deleted":           Forget was executed after the grace period; the row
+    //                          was anonymized via softDelete. Login is blocked and
+    //                          the session is "blocked".
     //
-    // Schreibrecht privileged: nur die request-deletion / restrict / lift /
-    // execute-forget-Handler (alle SYSTEM-context) duerfen status flippen.
+    // Write access is privileged: only the request-deletion / restrict / lift /
+    // execute-forget handlers (all in SYSTEM context) may change the status.
     status: createSelectField({
       required: true,
       default: USER_STATUS.Active,
@@ -168,22 +169,22 @@ export const userEntity = createEntity({
       access: { write: access.privileged },
     }),
 
-    // Wann darf der pending-Forget tatsaechlich ausgefuehrt werden?
-    // Cron-Job in user-data-rights checkt taeglich gracePeriodEnd < now()
-    // und triggert dann die EXT_USER_DATA-Hooks. NULL solange kein
-    // Forget pending — wird beim delete-account-Call gesetzt
-    // (= now() + Compliance-Profile.userRights.gracePeriod), beim
-    // cancel-deletion zurueckgesetzt.
+    // When a pending forget may actually be executed.
+    // The user-data-rights cron job checks daily whether gracePeriodEnd < now()
+    // and then triggers the EXT_USER_DATA hooks. NULL means no forget is pending;
+    // delete-account sets it to
+    // (= now() + Compliance-Profile.userRights.gracePeriod), and
+    // cancel-deletion resets it.
     gracePeriodEnd: createTimestampField({
       access: { write: access.privileged },
     }),
 
-    // Replay-Schutz für den anonymen email-Token-Deletion-Flow (#354/1).
-    // Gesetzt von request-deletion-by-email (eine UUID pro Mail-Antrag),
-    // genullt von cancel-deletion. confirm-deletion-by-token faltet diese ID
-    // in die HMAC-Purpose des Tokens — ein nach einem Cancel nachgespieltes
-    // (noch TTL-gültiges) Token verifiziert gegen die genullte/erneuerte ID
-    // nicht mehr. NULL solange kein email-Antrag offen ist.
+    // Replay protection for the anonymous email-token deletion flow.
+    // request-deletion-by-email sets one UUID per email request, and
+    // cancel-deletion clears it. confirm-deletion-by-token incorporates this ID
+    // into the token's HMAC purpose, so a token replayed after cancellation
+    // (while still within its TTL) no longer verifies against the cleared or
+    // renewed ID. NULL means no email request is pending.
     pendingDeletionRequestId: createTextField({
       maxLength: 36,
       access: { write: access.privileged },

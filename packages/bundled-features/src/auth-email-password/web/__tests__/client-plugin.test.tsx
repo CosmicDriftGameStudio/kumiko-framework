@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, mock, test } from "bun:test";
 
-// #1472: emailPasswordClient() built the session gate without threading
+// emailPasswordClient() built the session gate without threading
 // options.mfaSetupScreen through to makeSessionAuthGate — the option was
 // typed and documented but silently dropped on the standard mount path.
 // makeSessionAuthGate wraps its own real SessionProvider (unlike

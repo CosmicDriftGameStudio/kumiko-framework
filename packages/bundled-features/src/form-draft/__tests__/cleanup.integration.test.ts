@@ -1,11 +1,11 @@
 // form-draft cleanup job — real Postgres + real BullMQ dispatch (via
-// stack.jobRunner), no hand-fed context. Covers the #1891 acceptance
-// criteria: an old draft is deleted, a fresh one survives, and the
-// retention window actually comes from the config key (not a hardcoded
-// constant). Also covers #1915: FileRefs in a stale draft's blob are
-// released through the storage provider before the row is deleted, resolved
-// per-row's OWN tenant (not the job's SYSTEM_TENANT_ID run-tenant) — a
-// two-tenant, two-provider setup below proves rows never cross providers.
+// stack.jobRunner), no hand-fed context. Covers the acceptance criteria:
+// an old draft is deleted, a fresh one survives, and the retention window
+// actually comes from the config key (not a hardcoded constant). Also covers
+// releasing FileRefs in a stale draft's blob through the storage provider
+// before the row is deleted, resolved per-row's OWN tenant (not the job's
+// SYSTEM_TENANT_ID run-tenant) — a two-tenant, two-provider setup below
+// proves rows never cross providers.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";

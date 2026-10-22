@@ -238,7 +238,7 @@ describe("audit: list query", () => {
 
   test("filter by from/to date range (inclusive bounds, outside-range rows excluded)", async () => {
     // Back-dated at write time on a fixed Instant grid — wall-clock setTimeout
-    // anchors race with ms-precision DB timestamps under load (#1548).
+    // anchors race with ms-precision DB timestamps under load.
     for (const [name, createdAt] of [
       ["before-window", "2020-06-01T12:00:00Z"],
       ["in-window-1", "2020-06-01T12:00:10Z"],
@@ -278,7 +278,7 @@ describe("audit: list query", () => {
     expect((untilRow.payload as { name?: string }).name).toBe("before-window");
   });
 
-  // fw#3104: the audit screen's dateRange facet is the only UI that produces
+  // The audit screen's dateRange facet is the only UI that produces
   // these bounds. The risk is not the handler (covered above) but the
   // conversion of a calendar date into an instant: pick "the 14th" as the
   // upper bound and an event at 23:59 local that day has to stay in the

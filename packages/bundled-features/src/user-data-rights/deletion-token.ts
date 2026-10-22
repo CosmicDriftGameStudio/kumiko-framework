@@ -2,7 +2,7 @@
 // subject is the user, the anchor is the pending request id stored on the
 // user row. Minting and verification both run through
 // shared/row-bound-grant, so a token from a cancelled cycle (id nulled) or a
-// superseded one (row holds a newer id) fails verification — see #354/1.
+// superseded one (row holds a newer id) fails verification.
 //
 // The purpose string and the anchoring are unchanged from the hand-rolled
 // version this replaced, so tokens stay byte-compatible.

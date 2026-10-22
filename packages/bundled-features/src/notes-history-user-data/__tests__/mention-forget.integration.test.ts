@@ -1,4 +1,4 @@
-// notes-history mention-forget cascade (fw#2787):
+// notes-history mention-forget cascade:
 //
 //   - a note carrying a structured @-mention on a forgotten user S has its
 //     `body` (Row-Subject, personal: { of: "id" }) crypto-shredded when S's

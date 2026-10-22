@@ -18,12 +18,10 @@ const langSchema = z
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
 
-// Upsert einer Page — eine Operation pro (tenantId, slug, lang). Tenant-
-// Scope default aus event.user; SystemAdmin kann via `tenantIdOverride`
-// für einen anderen Tenant schreiben (typisch SYSTEM_TENANT_ID für app-
-// weite Pages). published/description/ogImage werden bei Update preserved
-// wenn im Payload weggelassen (undefined) — damit ein Publish-Toggle nicht
-// den Body überschreiben muss und umgekehrt.
+// Upserts one page per (tenantId, slug, lang). The tenant scope defaults to event.user;
+// SystemAdmin can write to another tenant via `tenantIdOverride` (typically SYSTEM_TENANT_ID
+// for app-wide pages). On update, omitted published/description/ogImage values are preserved
+// so a publish toggle does not overwrite the body, and vice versa.
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({
@@ -34,7 +32,7 @@ export const setWrite = defineWriteHandler({
     description: z.string().max(500).nullable().optional(),
     ogImage: z.string().max(2000).nullable().optional(),
     published: z.boolean().optional(),
-    /** Cross-tenant write — nur SystemAdmin (z.B. SYSTEM_TENANT_ID-Pages). */
+    /** Cross-tenant write — only SystemAdmin (for example, SYSTEM_TENANT_ID pages). */
     tenantIdOverride: z.string().min(1).optional(),
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },

@@ -6,10 +6,10 @@
 // no-op-encrypt test env — a later refactor that silently reintroduces the
 // raw UUID or gets stuck on the placeholder would fail this.
 //
-// fw#2627 made add-note's parent-visibility check unconditional, so a
-// minimal `contact` fixture entity (PASS_CLAUSE) is mounted below and seeded
-// with the one row this file writes a note to — orthogonal to what this file
-// actually tests (authorName stamping).
+// add-note's parent-visibility check is unconditional, so a minimal `contact`
+// fixture entity (PASS_CLAUSE) is mounted below and seeded with the one row
+// this file writes a note to — orthogonal to what this file actually tests
+// (authorName stamping).
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {

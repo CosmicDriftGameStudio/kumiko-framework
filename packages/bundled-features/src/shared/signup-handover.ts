@@ -1,5 +1,4 @@
-// Cross-device try-first handover (kumiko-framework#3035 follow-up,
-// offlot-app#454): signup-request runs in whichever browser the activation
+// Cross-device try-first handover: signup-request runs in whichever browser the activation
 // link ends up opened in, which may not be the one holding the anonymous
 // visitor's tenant-handover grant. This extension point lets
 // auth-email-password bind a verified grant to the signup token server-side

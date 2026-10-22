@@ -47,11 +47,11 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
       // count, since either way the presented code is consumed/irrelevant
       // afterward.
       //
-      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts
-      // (#1467): without ctx.redis, verifyMfaFactor's TOTP-replay burn is
-      // skipped, letting an observed code be replayed within the ±1-step
-      // window to regenerate (and thus invalidate) recovery codes — a
-      // session-authed route, so pre-unwiring JWTs stay a valid attack path.
+      // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts:
+      // without ctx.redis, verifyMfaFactor's TOTP-replay burn is skipped,
+      // letting an observed code be replayed within the ±1-step window to
+      // regenerate (and thus invalidate) recovery codes — a session-authed
+      // route, so pre-unwiring JWTs stay a valid attack path.
       if (!ctx.redis) {
         return writeFailure(
           new InternalError({

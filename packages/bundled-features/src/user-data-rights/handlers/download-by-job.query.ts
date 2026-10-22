@@ -1,26 +1,26 @@
-// GET /api/query → user-data-rights:query:download-by-job (S2.U3 Atom 4b).
+// GET /api/query → user-data-rights:query:download-by-job
 //
-// **UI-Klick-Pfad** (session-auth): User pollt status, sieht "done",
-// klickt "Download" im UI mit jobId. Server checkt session.userId ==
-// job.userId — kein Token noetig (Session IS the auth).
+// **UI download flow** (session-auth): The user polls the status, sees
+// "done", and clicks "Download" with the jobId. The server checks
+// `session.userId == job.userId`; no token is needed because the session
+// provides authentication.
 //
-// **Cross-Tenant-Same-User:** Job ist tenant-agnostisch (1 Job pro
-// userId ueber alle Memberships). Alice triggert Export aus Tenant A,
-// loggt sich spaeter in Tenant B ein, klickt Download. Server akzeptiert
-// — `session.userId == job.userId` reicht, kein Tenant-Match-Check.
-// Plan-Decision (Atom 4b Plan, User-Choice).
+// **Cross-tenant same user:** Jobs are tenant-agnostic (one job per userId
+// across all memberships). If Alice starts an export in Tenant A, later
+// signs in to Tenant B, and clicks Download, the server accepts it:
+// `session.userId == job.userId` is sufficient; no tenant-match check applies.
 //
-// **Cross-User-Isolation:** Wenn session.userId != job.userId → 404
-// (NICHT 403, kein Existenz-Leak). Selber error wie "Job-ID nicht
-// gefunden".
+// **Cross-user isolation:** If session.userId != job.userId, return 404
+// (not 403) to avoid leaking whether the job exists. Use the same error as
+// for an unknown job ID.
 //
-// Verify-Pipeline:
-//   1. fetchOne job by jobId
-//   2. job.userId === session.userId (cross-user-isolation)
-//   3. job.status === "done"
-//   4. job.downloadStorageKey != null
-//   5. tokenRow lookup (audit-row update only)
-//   6. Audit-Update: useCount + 1, IP, UA, lastUsedAt (best-effort)
+// Verification pipeline:
+//   1. Fetch the job by jobId
+//   2. Check job.userId === session.userId (cross-user isolation)
+//   3. Check job.status === "done"
+//   4. Check job.downloadStorageKey != null
+//   5. Look up tokenRow (audit-row update only)
+//   6. Best-effort audit update: useCount + 1, IP, UA, lastUsedAt
 //   7. Return {url, expiresAt}
 
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
@@ -69,7 +69,7 @@ export const downloadByJobQuery = defineQueryHandler({
         "each signed-in user downloads only their own finished export job; the job " +
         "lookup checks jobRow.userId against the caller's own id and 404s otherwise",
     },
-  }, // openToAll = auth-required, kein anonymous
+  }, // openToAll requires authentication; anonymous access is not allowed
   description:
     "Returns a short-lived signed download URL for the calling user's own finished data-export job named by job id, backing the download button in the privacy center once export-status reports the job done.",
   escapeHatch: {
@@ -82,9 +82,8 @@ export const downloadByJobQuery = defineQueryHandler({
     const userId = query.user.id;
     const jobId = query.payload.jobId;
     const tenantId = query.user.tenantId;
-    // IP + UA aus dem request-scoped Kontext (von requestIdMiddleware
-    // befuellt) — server-trusted, anders als ein vom Client mitgeschickter
-    // Wert (603/2).
+    // IP and UA from the request-scoped context populated by
+    // requestIdMiddleware; these are server-trusted rather than client-supplied.
     const auditIp = requestContext.get()?.ip ?? null;
     const auditUa = requestContext.get()?.userAgent ?? null;
     const runner = ctx.db.unsafeRaw();
@@ -187,10 +186,10 @@ export const downloadByJobQuery = defineQueryHandler({
       now.epochMilliseconds + SIGNED_URL_TTL_SECONDS * 1000,
     );
 
-    // Step 6: Audit-Update via tokenRow-lookup. UI-Pfad benutzt nicht
-    // den plain-Token, aber wir wollen den useCount inkrementieren
-    // damit die Audit-Felder konsistent sind (UI-clicks zaehlen auch
-    // als Use). Lookup via jobId — UNIQUE-Index garantiert max 1 Row.
+    // Step 6: Look up tokenRow for the audit update. The UI flow has no plain
+    // token, but its useCount must still be incremented so audit fields remain
+    // consistent and UI clicks count as uses. The jobId lookup is safe because
+    // the UNIQUE index guarantees at most one row.
     const tokenRow = await fetchOne<TokenRow>(runner, exportDownloadTokensTable, {
       jobId,
     });
@@ -207,9 +206,9 @@ export const downloadByJobQuery = defineQueryHandler({
         userAgent: auditUa,
       });
     }
-    // Wenn tokenRow fehlt (sollte nicht passieren wenn Atom 4a sauber
-    // lief): Audit-Update skipped, Download laeuft weiter. Niemand wird
-    // hier durch Audit-Failure blockiert.
+    // If tokenRow is missing (which should not happen when the preceding token
+    // creation flow completed), skip the audit update and continue the download;
+    // an audit failure must not block the user.
 
     return {
       url: signedUrl,

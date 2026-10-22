@@ -78,7 +78,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.extendsRegistrar(EXT_TENANT_LIFECYCLE_STATUS, {});
     r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "tenant-lifecycle", tenantLifecycleStatusPlugin);
 
-    // GDPR-storage guard V4 (#1314) — moved off the framework-internal
+    // GDPR-storage guard V4 — moved off the framework-internal
     // boot-validator onto this feature's own r.bootCheck(), since it owns
     // EXT_TENANT_DATA: its own mount is the trigger, matching the original
     // guard's "tenant-lifecycle mounted" gate exactly.

@@ -1,24 +1,25 @@
-// POST /api/user/request-export (S2.U3 Atom 2) — DSGVO Art. 15 + 20 Trigger.
+// POST /api/user/request-export — GDPR Art. 15 and 20 trigger.
 //
-// User triggert Export-Job. Persistenz via createEventStoreExecutor
-// (ES-Pattern, Memory: ES kein CRUD). Idempotency-Strategie zweistufig:
+// The user triggers an export job, persisted through
+// createEventStoreExecutor (event-sourced pattern; ES has no CRUD).
+// Idempotency uses two stages:
 //
-//   1) **App-side-Pre-Check (primaerer Pfad):** fetchOne aktive Jobs
-//      (status pending|running) fuer den userId. Wenn existing,
-//      return `{jobId, isExisting: true}` — KEIN neues Event,
-//      sauberer Audit-Trail (1 Klick-Storm = 1 Event, nicht N).
+//   1) **App-side pre-check (primary path):** fetch active jobs with
+//      (status pending|running) for the userId. If one exists, return
+//      `{jobId, isExisting: true}` without creating an event, so a click
+//      storm produces one audit event rather than N.
 //
-//   2) **DB-Constraint als Race-Schutz (Sekundaerpfad):** Bei parallelem
-//      Klick zwischen fetchOne + crud.create wirft die Tx 23505 mit
-//      constraint_name === "read_export_jobs_one_active_per_user".
-//      Catch + re-fetch + return existing als isExisting=true. Race-
-//      Window <1ms, in Production extrem selten.
+//   2) **DB constraint as race protection (secondary path):** if a parallel
+//      click occurs between fetchOne and crud.create, the transaction raises
+//      23505 with constraint_name === "read_export_jobs_one_active_per_user".
+//      Catch, re-fetch, and return the existing job with isExisting=true.
 //
-// **Cross-Tenant-Semantik:** ExportJob is tenant-agnostic (1 job per userId
-// across all memberships) — the pre-check uses ctx.db.unsafeRaw (no TenantDb filter) so a click from tenant B still finds the job from tenant A.
-// `requestedFromTenantId` persistiert den Initial-Tenant aus dem
-// 1. Klick — Worker liest sein Compliance-Profile aus DIESEM Tenant
-// fuer Job-TTL/Stale/Cleanup.
+// **Cross-tenant semantics:** ExportJob is tenant-agnostic (one job per
+// userId across all memberships), so the pre-check uses ctx.db.unsafeRaw
+// (no TenantDb filter) and a click from tenant B can find the job from tenant
+// A. `requestedFromTenantId` persists the tenant from the first click; the
+// worker reads its compliance profile from this tenant for job TTL, stale
+// handling, and cleanup.
 
 import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SaveContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -40,11 +41,11 @@ const REQUEST_EXPORT_REASON =
   "export jobs are keyed by userId across all of the user's tenant memberships, not the caller's current tenant";
 
 /**
- * Race-Loss-Detection: createEventStoreExecutor.create catched 23505
- * intern + returnt `WriteFailure(UniqueViolationError)`, **kein throw**.
- * Wir checken den Failure-Code + constraintName um den App-side-vs-Race-
- * Pfad zu unterscheiden. Andere Failures (validation, version-conflict,
- * ...) propagieren unveraendert.
+ * `createEventStoreExecutor.create` catches 23505 internally and returns
+ * `WriteFailure(UniqueViolationError)` rather than throwing. Check the
+ * failure code and constraintName to distinguish the app-side and race
+ * paths; propagate other failures (validation, version conflicts, ...)
+ * unchanged.
  */
 function isActiveJobConflict(failure: WriteFailure): boolean {
   const error = failure.error as {
@@ -82,9 +83,9 @@ export const requestExportWrite = defineWriteHandler({
     // TenantDb-Wrapper would hide cross-tenant jobs.
     const existing = await findActiveJob(exportJobRunner, userId);
     if (existing) {
-      // Snapshot-Status (kann zwischen fetchOne + Response stale werden
-      // wenn Worker parallel den State flippt; window minimal). User
-      // pollt fuer Live-Wahrheit ueber export-status.query.
+      // The returned status is a snapshot and can become stale between fetchOne
+      // and the response if the worker changes the state concurrently. The
+      // window is minimal; clients poll export-status.query for live status.
       return {
         isSuccess: true as const,
         data: {
@@ -95,9 +96,9 @@ export const requestExportWrite = defineWriteHandler({
       };
     }
 
-    // Kein active Job — neuen anlegen via crud.create. requestedFromTenantId
-    // = aktueller Tenant des Users; Worker liest sein Compliance-Profile
-    // aus diesem Tenant.
+    // No active job exists, so create one through crud.create. Persist the
+    // user's current tenant in requestedFromTenantId so the worker reads the
+    // compliance profile from that tenant.
     const result = await crud.create(
       {
         userId,
@@ -110,16 +111,16 @@ export const requestExportWrite = defineWriteHandler({
     );
 
     if (!result.isSuccess) {
-      // Race-Pfad: paralleler Klick hat zwischen findActiveJob + crud.create
-      // einen aktiven Job angelegt → UniqueViolationError mit unserem
-      // Constraint. Re-fetch + return existing als isExisting=true.
-      // Andere Failures (validation, version-conflict, ...) propagieren.
+      // A parallel click may create an active job between findActiveJob and
+      // crud.create, causing UniqueViolationError for our constraint. Re-fetch
+      // and return the existing job with isExisting=true. Propagate other
+      // failures (validation, version conflicts, ...) unchanged.
       if (isActiveJobConflict(result)) {
         const winner = await findActiveJob(exportJobRunner, userId);
         if (!winner) {
-          // Sollte nie passieren — Constraint-Violation ohne existing
-          // active Job hiesse der Constraint matcht etwas anderes.
-          // Original-Failure zurueckgeben damit das auffaellt.
+          // This should be impossible: a constraint violation without an existing
+          // active job would mean the constraint matched something else.
+          // Return the original failure so the inconsistency is visible.
           return result;
         }
         return {
@@ -134,17 +135,17 @@ export const requestExportWrite = defineWriteHandler({
       return result;
     }
 
-    // Happy path: neuer Job. SaveContext.id ist EntityId (number | string);
-    // exportJobEntity hat idType:"uuid" → garantiert string, String()
-    // schuetzt vor Drift falls jemand die Entity auf serial migriert.
+    // SaveContext.id is EntityId (number | string), while exportJobEntity has
+    // idType:"uuid" and therefore guarantees a string. String() protects
+    // against drift if the entity is migrated to serial.
     const created = result.data as SaveContext; // @cast-boundary engine-payload
     return {
       isSuccess: true as const,
       data: {
         jobId: String(created.id),
-        // Snapshot: just-created → pending. Live-Wahrheit kommt ueber
-        // export-status.query, status hier ist nice-to-have fuer das
-        // initial UI-Render ("Anfrage angenommen, currently pending").
+        // This is a snapshot: a just-created job is pending. Live status comes
+        // from export-status.query; this value is only a convenience for the
+        // initial UI render ("Anfrage angenommen, currently pending").
         status: EXPORT_JOB_STATUS.Pending,
         isExisting: false,
       },

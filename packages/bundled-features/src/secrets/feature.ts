@@ -71,15 +71,15 @@ export const JOIN_REQUEST_TRANSACTION_REASON =
   "the secret write runs on the request transaction so a failing batch rolls it back together with the config writes";
 
 // AppContext carries ctx.secrets via extraContext. requireSecretsContext
-// wraps that raw context so every `.get(...)` call auto-includes the
-// current user + handler as audit metadata — feature code can't forget
-// to log the read (silent bypass of audit was the v1 gap).
+// wraps that raw context so every `.get(...)` call automatically includes
+// the current user and handler as audit metadata, preventing feature code
+// from silently bypassing read auditing.
 //
-// Surface bewusst minimal: HandlerContext-Pfade (Set/Delete-Handler) +
-// FileProviderContext-Pfade (S3-Plugin im Worker) liefern dieselben
-// zwei Felder, also reicht die schmale ctx-shape — kein voller
-// HandlerContext-Import noetig.
-// Handler contexts carry the caller as ctx.user, provider contexts set auditUserId (takes precedence).
+// The context shape stays minimal: HandlerContext paths (Set/Delete handlers)
+// and FileProviderContext paths (the S3 plugin in the worker) provide the same
+// two fields, so importing the full HandlerContext is unnecessary.
+// Handler contexts carry the caller as ctx.user; provider contexts set
+// auditUserId, which takes precedence.
 export function requireSecretsContext(
   ctx: {
     readonly secrets?: SecretsContext;
@@ -181,7 +181,7 @@ export function createSecretsFeature(
     // Backing table: envelope/metadata/last_rotated_at + the (tenant,key)
     // uniqueIndex are not expressible via the field-DSL (jsonb-without-default,
     // now()-default), so the physical table is the DDL truth. Without this the
-    // generated migration omitted those columns → prod-500 (publicstatus#116).
+    // generated migration omitted those columns → prod-500.
     r.entity({ name: "tenant-secret", ...tenantSecretEntity, backingTable: tenantSecretsTable });
 
     // Read-audit domain-event. Registered here so ops tools + MSPs can

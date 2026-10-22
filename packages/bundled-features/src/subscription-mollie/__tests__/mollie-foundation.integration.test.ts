@@ -1,22 +1,22 @@
-// Integration-test: Mollie-Plugin → subscription-foundation → DB.
+// Integration test: Mollie plugin → subscription foundation → DB.
 //
-// Beweist die echte Verdrahtung — analog stripe-foundation.integration:
-//   1. Mollie-webhook (form-urlencoded `id=tr_xxx`) kommt am
-//      webhook-handler an
-//   2. createSubscriptionMollieFeature (echter factory) verifiziert +
-//      parsed via gemocktem MollieClientShape (= injection-port
-//      `_clientShapeForTests` damit Mollie-SDK 4.5.0 keine HTTP-calls
-//      macht; vi.mock ist im integration-guard-blocked)
-//   3. Plugin returnt SubscriptionEvent → webhook-handler dispatched
-//      zu process-event-handler
-//   4. process-event-handler schreibt subscription + subscription-event
-//      in die DB
+// Proves the real wiring, analogous to stripe-foundation.integration:
+//   1. A Mollie webhook (form-urlencoded `id=tr_xxx`) reaches the
+//      webhook handler.
+//   2. createSubscriptionMollieFeature (the real factory) verifies and
+//      parses it through a mocked MollieClientShape (= injection port
+//      `_clientShapeForTests`, so Mollie SDK 4.5.0 makes no HTTP calls;
+//      vi.mock is blocked by the integration guard).
+//   3. The plugin returns a SubscriptionEvent, which the webhook handler
+//      dispatches to the process-event handler.
+//   4. The process-event handler writes the subscription and
+//      subscription event to the DB.
 //
-// Drift-vector der ohne diesen Test fehlen würde: factory-Logik in
-// createSubscriptionMollieFeature (drift-validation, plugin-registration,
-// fetchAdapter-binding). Die plugin-methods sind separat in den
-// Unit-Tests (verify-webhook.test.ts) abgedeckt, aber die Verdrahtung
-// von factory bis foundation-DB-row beweist nur dieser Test.
+// Without this test, factory logic in createSubscriptionMollieFeature
+// could drift unnoticed (drift validation, plugin registration,
+// fetchAdapter binding). The plugin methods are covered separately by
+// unit tests (verify-webhook.test.ts), but only this test proves the
+// wiring from the factory to the foundation DB row.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -45,18 +45,18 @@ import { createSubscriptionMollieFeature } from "../feature.ts";
 import type { MollieClientShape } from "../verify-webhook.ts";
 
 // =============================================================================
-// Mock-MollieClient — replay-fähige in-memory state
+// Mock Mollie client — replayable in-memory state
 //
-// Der test-state ist module-level, wird aber per `beforeEach` reset —
-// jeder Test sieht eine clean state. Der mock-client closured den state
-// einmal beim factory-mount; reset() mutiert die Maps in-place damit
-// die Closure-Referenzen aktuell bleiben.
+// The test state is module-level but reset by `beforeEach`, so each test
+// starts with clean state. The mock client captures the state once when
+// the factory is mounted; reset() mutates the Maps in place so the closure
+// references remain current.
 // =============================================================================
 
 type MollieMockState = {
   payments: Map<string, MolliePayment>;
   subscriptionsByCustomer: Map<string, MollieSubscription[]>;
-  /** Tracked-create-calls für drift-pins. */
+  /** Tracked create calls used to detect drift. */
   createCallCount: number;
 };
 
@@ -123,8 +123,8 @@ let stack: TestStack;
 let db: DbConnection;
 
 beforeAll(async () => {
-  // Echte factory mit injection-port. Das beweist factory-Logik
-  // (drift-validation, plugin-registration) im Test-pfad.
+  // Real factory with an injection port. This exercises factory logic
+  // (drift validation, plugin registration) through the test path.
   const mollieFeature = createSubscriptionMollieFeature({
     apiKey: "test_dummy_apikey",
     webhookUrl: "https://test.example.com/api/subscription/webhook/mollie",
@@ -145,8 +145,8 @@ beforeAll(async () => {
     extraRoutes: [createSubscriptionWebhookRoute()],
   });
   db = stack.db;
-  // subscriptionsProjectionTable wird von setupTestStack automatisch
-  // gepusht (r.projection mit `table`-Property → auto-push).
+  // subscriptionsProjectionTable is pushed automatically by setupTestStack
+  // (an r.projection with a `table` property is auto-pushed).
   await unsafeCreateEntityTable(db, tenantEntity);
 });
 
@@ -165,7 +165,7 @@ beforeEach(() => {
 // =============================================================================
 
 function buildMockPayment(overrides: Partial<Record<string, unknown>> = {}): MolliePayment {
-  // @cast-boundary mollie-sdk — minimal mock-shape, nur Felder die der Plugin liest
+  // @cast-boundary mollie-sdk — minimal mock shape containing only the fields read by the plugin
   return {
     id: "tr_test_001",
     customerId: "cst_test_001",
@@ -180,7 +180,7 @@ function buildMockPayment(overrides: Partial<Record<string, unknown>> = {}): Mol
 function buildMockSubscription(
   overrides: Partial<Record<string, unknown>> = {},
 ): MollieSubscription {
-  // @cast-boundary mollie-sdk — minimal mock-shape, nur Felder die der Plugin liest
+  // @cast-boundary mollie-sdk — minimal mock shape containing only the fields read by the plugin
   return {
     id: "sub_test_001",
     customerId: "cst_test_001",
@@ -224,7 +224,7 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
     );
     await postMollieWebhook("tr_5001_first");
 
-    // 2. Existing sub jetzt im mock-state. Recurring-charge kommt:
+    // 2. The existing subscription is now in the mock state. A recurring charge arrives:
     mockState.payments.set(
       "tr_5001_renewal",
       buildMockPayment({
@@ -251,8 +251,9 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["providerName"]).toBe("mollie");
-    // Looser assertion: dependet nicht auf mock-impl-detail (= "sub_created_${count}").
-    // Wichtig: subscriptionId ist VOM PLUGIN gesetzt (kein payment-id), nicht null.
+    // Looser assertion: does not depend on the mock implementation detail (=
+    // "sub_created_${count}"). Important: subscriptionId is set BY THE PLUGIN (not the payment ID),
+    // not null.
     expect(subs.rows[0]?.["providerSubscriptionId"]).toMatch(/^sub_/);
     expect(subs.rows[0]?.["tier"]).toBe("pro");
     expect(subs.rows[0]?.["status"]).toBe("active");
@@ -305,10 +306,10 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["tier"]).toBe("business");
     expect(subs.rows[0]?.["status"]).toBe("active");
-    // Drift-pin: providerSubscriptionId ist die VOM PLUGIN ERSTELLTE sub-id,
-    // nicht der payment-id.
-    // Looser assertion: dependet nicht auf mock-impl-detail (= "sub_created_${count}").
-    // Wichtig: subscriptionId ist VOM PLUGIN gesetzt (kein payment-id), nicht null.
+    // Drift pin: providerSubscriptionId is the subscription ID CREATED BY THE PLUGIN, not the
+    // payment ID. Looser assertion: does not depend on the mock implementation detail (=
+    // "sub_created_${count}"). Important: subscriptionId is set BY THE PLUGIN (not the payment ID),
+    // not null.
     expect(subs.rows[0]?.["providerSubscriptionId"]).toMatch(/^sub_/);
   });
 });
@@ -384,10 +385,9 @@ describe("scenario 4: error + ignored paths", () => {
   });
 
   test("provider not mounted → 404 (multi-provider-routing drift-pin)", async () => {
-    // Drift-pin: nur "mollie" ist gemountet. Wenn jemand den webhook-
-    // handler refactored sodass er ALLE requests an das erste plugin
-    // routet, wäre dieser Test grün — bricht aber wenn der Test einen
-    // unbekannten provider-name fordert.
+    // Drift pin: only "mollie" is mounted. If the webhook handler were
+    // refactored to route ALL requests to the first plugin, this test would
+    // pass; it must fail when the request names an unknown provider.
     const res = await stack.app.request("/api/subscription/webhook/paypal", {
       method: "POST",
       body: "id=tr_dummy",

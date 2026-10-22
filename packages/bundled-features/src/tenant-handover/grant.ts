@@ -1,4 +1,4 @@
-// Try-before-signup ownership handover (kumiko-framework#3035), expressed as a
+// Try-before-signup ownership handover, expressed as a
 // row-bound grant: the subject is the transferred run's own row id, the
 // anchor is the SOURCE tenant id it currently lives under. Redeeming the
 // grant is the ownership change itself — the claim handler's commitAnchor

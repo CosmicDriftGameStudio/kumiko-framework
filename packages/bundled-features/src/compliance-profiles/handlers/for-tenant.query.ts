@@ -9,13 +9,10 @@ import * as z from "zod";
 import { parseComplianceProfileOverride } from "../_internal/parse-override.ts";
 import { tenantComplianceProfileTable } from "../schema/profile-selection.ts";
 
-// Liefert das effektive Compliance-Profile fuer den aktuellen Tenant.
-// Macht den exposesApi-Marker aus feature.ts mit echtem Inhalt.
+// Returns the effective compliance profile for the current tenant.
 //
-// Default-Verhalten (Edge-Case-Decision aus S1.1): kein Profile-
-// Eintrag → minimal-no-region + warning="no-profile-selected".
-// Caller (z.B. user-data-rights in Sprint 2) sieht das warning und
-// kann Onboarding-Banner triggern.
+// If no profile is selected, returns minimal-no-region with
+// warning="no-profile-selected" so callers can trigger an onboarding banner.
 export const forTenantQuery = defineQueryHandler({
   name: "for-tenant",
   schema: z.object({}),

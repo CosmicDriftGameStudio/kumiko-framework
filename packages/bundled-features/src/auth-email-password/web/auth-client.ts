@@ -1,12 +1,11 @@
-// Browser-Seite der Auth-Routes. Dünne fetch-Wrapper um /api/auth/*
-// mit Cookie-Transport: JWT lebt im HttpOnly kumiko_auth-Cookie,
-// Double-Submit-CSRF-Token im JS-lesbaren kumiko_csrf-Cookie. Alle
-// state-changing Requests echo'n den CSRF-Token via X-CSRF-Token —
-// der Server rejected sonst mit csrf_token_missing.
+// Browser-side wrappers around /api/auth/* using cookie transport: the JWT
+// lives in the HttpOnly kumiko_auth cookie, while the Double-Submit CSRF
+// token lives in the JS-readable kumiko_csrf cookie. Every state-changing
+// request echoes the CSRF token via X-CSRF-Token; otherwise the server
+// rejects it with csrf_token_missing.
 //
-// Die dispatcher-live nutzt denselben readCsrfToken-Helper; wir
-// reuse'n ihn hier, damit die Konstanten (Cookie-Name, Header-Name)
-// nicht divergieren.
+// dispatcher-live uses the same readCsrfToken helper; reusing it here keeps
+// the cookie and header constants from diverging.
 
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
@@ -14,8 +13,8 @@ import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-renderer/li
 export type TenantSummary = {
   readonly tenantId: string;
   readonly roles: readonly string[];
-  /** Display-Name aus /auth/tenants — fehlt nur bei App-eigenen
-   *  membership-Queries ohne tenantName-Anreicherung. */
+  /** Display name from /auth/tenants; absent only for app-owned membership
+   * queries without tenantName enrichment. */
   readonly name?: string;
   readonly key?: string;
 };
@@ -154,8 +153,8 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
       return { kind: "success", data: toLoginResponse(body.token, body.user, body.landingPath) };
     }
   }
-  // Der Server schickt error entweder als string ("invalid_body") oder als
-  // strukturiertes Objekt. Wir ziehen uns den sprechendsten Reason raus.
+  // The server sends error either as a string ("invalid_body") or as a
+  // structured object. Extract the most descriptive reason.
   const err = body.error;
   if (typeof err === "string") {
     return { kind: "failure", error: { reason: err } };
@@ -172,10 +171,10 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
   };
 }
 
-// POST /api/auth/logout. Server revoked die Session (wenn sessionRevoker
-// gewired ist) und clear't die Cookies. Wir triggern hinterher einen
-// Navigation-Refresh, damit alle caches (React-State, query-cache) auf
-// Null gehen — billigster Weg zu sauberer Ausgangslage.
+// POST /api/auth/logout. The server revokes the session when
+// sessionRevoker is wired and clears the cookies. A navigation refresh
+// afterward ensures that all caches (React state, query cache) return to
+// an unauthenticated state—the simplest way to restore a clean baseline.
 export async function logout(): Promise<void> {
   await fetch("/api/auth/logout", {
     method: "POST",
@@ -184,29 +183,29 @@ export async function logout(): Promise<void> {
   });
 }
 
-// Gemeinsamer Failure-Type für die vier Token-Flow-Endpoints (request-
+// Shared failure type for the four token-flow endpoints (request-
 // password-reset, reset-password, request-email-verification, verify-
-// email). Server collapses alle Token-Verify-Fehler (malformed / bad-
-// signature / expired) auf einen einzigen Code pro Flow (anti-
-// enumeration); UI mappt reason → i18n-Key. Plus rate-limit (429) wird
-// als reason "rate_limited" + retryAfterSeconds durchgereicht — gleiche
-// Shape wie LoginFailure damit Apps die Errors uniform mappen können.
+// email). The server collapses all token-verification errors (malformed,
+// bad signature, expired) into one code per flow to prevent enumeration;
+// the UI maps reason to an i18n key. Rate limits (429) pass through as
+// reason "rate_limited" with retryAfterSeconds, using the same shape as
+// LoginFailure so apps can map errors uniformly.
 export type AuthTokenFailure = {
   readonly reason: string;
   readonly retryAfterSeconds?: number;
 };
 
-// Backward-compat-Aliase für die alten Type-Namen — damit Code, der
-// `ResetPasswordFailure` / `VerifyEmailFailure` importiert hat, ohne
-// Änderung weiterläuft. Für neuen Code direkt `AuthTokenFailure` nutzen.
+// Backward-compatible aliases for the old type names, so code importing
+// `ResetPasswordFailure` or `VerifyEmailFailure` continues to work without
+// changes. New code should use `AuthTokenFailure` directly.
 export type ResetPasswordFailure = AuthTokenFailure;
 export type VerifyEmailFailure = AuthTokenFailure;
 
-// 4xx/5xx → typed AuthTokenFailure parsen. 429 (Rate-Limit) hat einen
-// dedizierten reason damit das UI einen Retry-Hinweis zeigen kann.
+// Parse 4xx/5xx responses into AuthTokenFailure. 429 uses a dedicated
+// reason so the UI can display a retry hint.
 async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
   if (res.status === 429) {
-    // @cast-boundary engine-payload — server schickt details.retryAfterSeconds bei 429
+    // @cast-boundary engine-payload — the server sends details.retryAfterSeconds for 429
     const body = (await res.json().catch(() => ({}))) as {
       error?: { details?: { retryAfterSeconds?: number } };
     };
@@ -238,11 +237,12 @@ export async function requestPasswordReset(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
-// POST /api/auth/reset-password. Token aus URL + neues Passwort. Auf
-// 422 collapses der Server alle Token-Verify-Fehler (malformed / bad-
-// signature / expired) auf den einzigen Code `invalid_reset_token` —
-// anti-enumeration. Plus zod-validation-failures (newPassword < 8) als
-// eigene 4xx mit code "validation_failed". UI mappt reason → i18n-Key.
+// POST /api/auth/reset-password. The token comes from the URL and the
+// request includes the new password. On 422, the server collapses all
+// token-verification errors (malformed, bad signature, expired) into the
+// single code `invalid_reset_token` to prevent enumeration. Zod validation
+// failures (newPassword < 8) use a separate 4xx code, "validation_failed".
+// The UI maps reason to an i18n key.
 export async function resetPassword(
   token: string,
   newPassword: string,
@@ -272,9 +272,9 @@ export async function requestEmailVerification(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
-// POST /api/auth/verify-email. Auto-submitted vom VerifyEmailScreen
-// nach `?token=...`-parse. Server collapses alle Verify-Failures auf
-// `invalid_verification_token` (anti-enumeration, parallel zu reset).
+// POST /api/auth/verify-email. VerifyEmailScreen submits this automatically
+// after parsing `?token=...`. The server collapses all verification failures
+// into `invalid_verification_token` to prevent enumeration, as with reset.
 export async function verifyEmail(
   token: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
@@ -321,15 +321,14 @@ export async function confirmAccountUnlock(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
-// POST /api/auth/signup-request. Always-200 (anti-enumeration; wir
-// sagen nicht ob die Email schon registriert ist). Server schickt
-// Activation-Mail an die Adresse — beim Klick auf den Link landet der
-// User auf /signup/complete?token=… wo er sein Password setzt.
+// POST /api/auth/signup-request. Always returns 200 to prevent enumeration;
+// the response does not reveal whether the email is already registered. The
+// server sends an activation email to the address; following its link takes
+// the user to /signup/complete?token=… to set a password.
 export async function requestSignup(
   email: string,
-  // Cross-device try-first handover (kumiko-framework#3035 follow-up,
-  // offlot-app#454): forwards a row-bound tenant-handover grant so the
-  // server can verify + rebind it to the signup token. The grant never
+  // Cross-device try-first handover: forwards a row-bound tenant-handover
+  // grant so the server can verify + rebind it to the signup token. The grant never
   // travels any further than this request — never in the URL, the mail,
   // or the confirm response.
   handover?: { readonly entityType: string; readonly token: string },
@@ -397,8 +396,8 @@ export async function confirmSignup(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
-// GET /api/auth/tenants. Liefert die Memberships des aktuellen Users;
-// der Server liefert 401 wenn das Cookie fehlt oder abgelaufen ist.
+// GET /api/auth/tenants. Returns the current user's memberships; the server
+// returns 401 when the cookie is missing or expired.
 export async function fetchTenants(): Promise<{
   readonly tenants: readonly TenantSummary[];
   readonly activeTenantId: string;
@@ -422,9 +421,9 @@ export async function fetchTenants(): Promise<{
   };
 }
 
-// POST /api/auth/switch-tenant. Mintet ein neues JWT für den Ziel-Tenant
-// und rotated beide Cookies. 400 wenn already_in_tenant oder tenant_
-// switch_not_available, 403 wenn not_a_member.
+// POST /api/auth/switch-tenant. Mints a new JWT for the target tenant and
+// rotates both cookies. Returns 400 for already_in_tenant or
+// tenant_switch_not_available, and 403 for not_a_member.
 export async function switchTenant(tenantId: string): Promise<void> {
   const res = await fetch("/api/auth/switch-tenant", {
     method: "POST",
@@ -438,14 +437,15 @@ export async function switchTenant(tenantId: string): Promise<void> {
   }
 }
 
-// POST /api/query → user:query:user:me. Profil-Daten (email, displayName)
-// für das UserMenu im Topbar. 401 → kein Cookie / abgelaufen, wird
-// vom SessionProvider als "ausgeloggt" interpretiert.
+// POST /api/query → user:query:user:me. Returns profile data (email,
+// displayName) for the UserMenu in the top bar. A 401 for a missing or
+// expired cookie is interpreted by SessionProvider as signed out.
 //
-// globalRoles: tenant-unabhängige user-rollen (z.B. SystemAdmin) aus
-// users.roles. Im JWT schon mit tenant-membership-roles gemerged, aber
-// das JWT ist HttpOnly + nicht JS-lesbar — der Client muss die globalen
-// Rollen separat aus dem user-row holen damit nav-filtering greift.
+// globalRoles are tenant-independent user roles (for example, SystemAdmin)
+// from users.roles. They are merged into the JWT with tenant-membership
+// roles, but the JWT is HttpOnly and unreadable by JavaScript, so the client
+// must fetch the global roles separately from the user row for navigation
+// filtering.
 export type CurrentUserProfile = {
   readonly id: string;
   readonly email: string;
@@ -479,8 +479,8 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
       displayName: string;
       locale?: string;
       effectiveTimeZone?: string;
-      // JSON-encoded string[] — siehe userEntity.roles. Default "[]" wenn
-      // keine globalen Rollen.
+      // JSON-encoded string[]; see userEntity.roles. Defaults to "[]" when
+      // there are no global roles.
       roles?: string;
     };
   };

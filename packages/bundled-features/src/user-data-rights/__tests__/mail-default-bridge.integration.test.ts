@@ -1,13 +1,12 @@
-// C6 Autonomie-Beweis: mountet user-data-rights OHNE send*Email-Opts +
-// mail-foundation + mail-transport-inmemory, und treibt den ECHTEN
-// registrierten Forget-Cron durch einen echten Job-Kontext — `configResolver`
-// gesetzt (App-Override provider=inmemory), KEIN per-request `config`.
+// Autonomy proof: mounts user-data-rights WITHOUT send*Email options +
+// mail-foundation + mail-transport-inmemory, and drives the REAL registered
+// Forget cron through a real job context — `configResolver` is set (app override
+// provider=inmemory), with NO per-request `config`.
 //
-// Das beweist die kritische Naht: der Cron baut den per-Tenant-Mail-Transport
-// aus `ctx.configResolver` (makeTenantMailTransportResolver). Ein hand-
-// gefuetterter Callback oder Fake-Resolver wuerde genau diese Bruecke
-// ueberspringen (vgl. project_export_cron_config_accessor_fix). Akzeptanz von
-// #624: "App mountet mail-foundation+transport → GDPR-Mails ohne Callback-Code".
+// This proves the critical seam: the cron builds the per-tenant mail transport
+// from `ctx.configResolver` (makeTenantMailTransportResolver). A hand-wired
+// callback or fake resolver would bypass exactly this bridge. The app mounts
+// mail-foundation+transport, so GDPR emails work without callback code.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -64,8 +63,8 @@ const USER_ID = "00000000-0000-4000-8000-0000000006b1";
 const ORIGINAL_EMAIL = "bridge-delete@example.test";
 const FORGET_JOB = "user-data-rights:job:run-forget-cleanup";
 
-// App-weiter Override (wie money-horse's Config-Resolver): provider=inmemory
-// ohne per-Tenant-config-Row. Der Job-Kontext traegt DIESEN resolver, kein config.
+// App-wide override (like money-horse's config resolver): provider=inmemory
+// without a per-tenant config row. The job context carries THIS resolver, not config.
 const configResolver = createConfigResolver({
   appOverrides: new Map([["mail-foundation:config:provider", "inmemory"]]),
 });
@@ -142,8 +141,8 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     const job = stack.registry.getJob(FORGET_JOB);
     expect(job).toBeDefined();
 
-    // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
-    // log required since #1572 persists incomplete[] via ctx.log.warn.
+    // EXACT production job context: configResolver set, config undefined.
+    // Logging is required because incomplete[] is persisted via ctx.log.warn.
     const jobCtx = {
       db: createTenantDb({
         db: stack.db,
@@ -176,14 +175,14 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     const userRow = (rows.rows ?? (rows as unknown as Array<{ status: string; email: string }>))[0];
     expect(userRow?.status).toBe(USER_STATUS.Deleted);
 
-    // Die Default-Mail wurde ueber den aus configResolver gebauten inmemory-
-    // Transport versendet — keine App-seitige Callback-Verdrahtung.
+    // The default email was sent through the inmemory transport built from
+    // configResolver — without app-side callback wiring.
     const inbox = getInbox(TENANT_A);
     expect(inbox).toHaveLength(1);
     expect(inbox[0]?.to).toBe(ORIGINAL_EMAIL);
-    // Der User ist mit locale="de" geseedet → die Default-Mail rendert DEUTSCH
-    // (per-recipient locale, KEIN App-Callback). Vorher rendete sie still en —
-    // der Advisor-Befund, den dieser Assert jetzt einfaengt.
+    // The user was seeded with locale="de" → the default email renders in GERMAN
+    // (per-recipient locale, NO app callback). Previously it silently rendered in
+    // English — the advisor finding captured by this assertion.
     expect(inbox[0]?.subject).toContain("Dein Konto wurde gelöscht");
     expect(inbox[0]?.html).toContain("endgültig");
 
@@ -214,9 +213,8 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
   });
 
   test("no mail transport mounted is NOT this stack — sanity: provider really is inmemory", () => {
-    // Pinnt dass der Stack den inmemory-Transport registriert hat (sonst waere
-    // der obige Beweis vacuously true: ohne mailTransport-Usage greift die
-    // Default gar nicht).
+    // Pins that the stack registered the inmemory transport; otherwise the proof
+    // above would be vacuously true because the default has no mailTransport usage.
     expect(stack.registry.getExtensionUsages("mailTransport").map((u) => u.entityName)).toContain(
       "inmemory",
     );

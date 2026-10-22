@@ -1,29 +1,29 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-// Plugin-Contract + Domain-Types der subscription-foundation. Provider-
-// Plugins (subscription-stripe, subscription-mollie, ...) implementieren
-// `SubscriptionProviderPlugin` und registrieren via
+// Plugin contract and domain types for subscription-foundation. Provider
+// plugins (subscription-stripe, subscription-mollie, ...) implement
+// `SubscriptionProviderPlugin` and register via
 // `r.useExtension("subscriptionProvider", "<name>", { build })`.
 //
 // **Two-phase plugin contract:**
-//   1. **Pre-tenant-resolution:** `verifyAndParseWebhook` läuft BEVOR
-//      ein Tenant aus dem Event aufgelöst ist — kein HandlerContext
-//      verfügbar. Das **Webhook-secret ist app-wide** (App-Owner's
-//      Stripe-/PayPal-Account, nicht Tenant-Sache). Damit ein Plugin den
-//      secret ZUR LAUFFZEIT aus dem secrets-Feature lesen kann (statt aus
-//      einem mount-time-Closure), reicht der webhook-handler einen
-//      optionalen system-scoped `SecretsContext` als 3. Arg durch — der
-//      Plugin liest seine app-wide-Secrets daraus un-audited unter
-//      SYSTEM_TENANT_ID. Plugins, die ihre Keys weiter aus einem Closure
-//      halten (z.B. mollie), ignorieren den Param → backward-compatible.
+//   1. **Pre-tenant-resolution:** `verifyAndParseWebhook` runs BEFORE
+//      a tenant is resolved from the event, so no HandlerContext is
+//      available. The **webhook secret is app-wide** (the App Owner's
+//      Stripe-/PayPal-account, not tenant-specific). To let a plugin read
+//      the secret from the secrets feature AT RUNTIME (instead of a
+//      mount-time closure), the webhook handler passes an optional
+//      system-scoped `SecretsContext` as the third argument. The plugin
+//      reads its app-wide secrets from it without auditing under
+//      SYSTEM_TENANT_ID. Plugins that keep their keys in a closure
+//      (e.g. mollie) ignore the parameter → backward-compatible.
 //   2. **Post-tenant-resolution:** `createPortalSession` +
-//      `cancelSubscription` werden aus regulären write-handlern
-//      gerufen mit voll-aufgelöstem HandlerContext. Plugin kann
-//      hier ctx.config + ctx.secrets nutzen für tenant-spezifische
-//      Konfiguration (z.B. tenant-eigene customer-id-mapping).
+//      `cancelSubscription` are called from regular write handlers with
+//      a fully resolved HandlerContext. The plugin can use ctx.config +
+//      ctx.secrets for tenant-specific configuration (e.g. tenant-owned
+//      customer-id mappings).
 //
-// Foundation nutzt nur den common-subset der Provider-Funktionalität —
-// proration, multi-currency, coupons etc. bleiben provider-spezifisch
-// und sind über den Customer-Portal-Link erreichbar.
+// Foundation uses only the common subset of provider functionality;
+// proration, multi-currency, coupons, etc. remain provider-specific and
+// are available through the Customer Portal link.
 
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -41,12 +41,12 @@ import {
 import type { ConsentLocale } from "./web/consumer-protection/consent-locale.ts";
 
 // =============================================================================
-// Normalisierter Webhook-Event
+// Normalized Webhook Event
 // =============================================================================
 //
-// Der Plugin parsed den raw provider-payload und liefert diese Form
-// zurück. Foundation kennt KEINE Stripe-/Mollie-types direkt — der
-// Plugin abstrahiert.
+// The plugin parses the raw provider payload and returns this shape.
+// Foundation has no direct knowledge of Stripe-/Mollie-types; the plugin
+// provides the abstraction.
 
 export type SubscriptionEvent = {
   /** Discriminator against PaymentEvent. Optional (instead of required) so
@@ -55,32 +55,31 @@ export type SubscriptionEvent = {
    *  `parsed.kind === BillingEventKinds.payment` correctly, because only
    *  PaymentEvent["kind"] can take that value. */
   readonly kind?: typeof BillingEventKinds.subscription;
-  /** Provider-eigene Event-ID — UNIQUE-key für Idempotency.
-   *  Stripe: "evt_..."; Mollie: payment-id oder subscription-id. */
+  /** Provider-owned event ID — UNIQUE key for idempotency.
+   *  Stripe: "evt_..."; Mollie: payment-id or subscription-id. */
   readonly providerEventId: string;
   /** Discriminator — welcher Plugin diesen Event geliefert hat. */
   readonly providerName: string;
   /** Normalisierter Event-Type. Plugin filtert provider-spezifische
    *  Sub-Types raus (Stripe hat ~80 Event-types, wir kennen 5). */
   readonly type: SubscriptionEventType;
-  /** Plattform-Tenant-ID (provider-customer-metadata oder lookup
-   *  via providerCustomerId). Plugin macht die resolution. */
+  /** Platform tenant ID (provider-customer metadata or lookup via
+   *  providerCustomerId). The plugin performs the resolution. */
   readonly tenantId: string;
   /** Consent id echoed back from checkout metadata; omitted when absent or
    *  malformed. */
   readonly consentId?: string;
-  /** Provider-eigene customer-id für späteren Lookup bei events
-   *  ohne metadata. */
+  /** Provider-owned customer ID for later lookup when events lack
+   *  metadata. */
   readonly providerCustomerId: string;
   /** Provider-eigene subscription-id. */
   readonly providerSubscriptionId: string;
   /** Normalisierter status. */
   readonly status: SubscriptionStatus;
-  /** Resolved tier — Plugin liest die price-id aus dem event und
-   *  mapped via plugin-eigenem `<plugin>:config:price-to-tier` auf
-   *  einen tier-name. Wenn der price-id im Mapping fehlt, returnt
-   *  der Plugin null aus verifyAndParseWebhook (= "unknown event,
-   *  ignore"). */
+  /** Resolved tier — the plugin reads the price ID from the event and
+   *  maps it through the plugin's `<plugin>:config:price-to-tier` to a
+   *  tier name. If the price ID is absent from the mapping, the plugin
+   *  returns null from verifyAndParseWebhook (= "unknown event, ignore"). */
   readonly tier: string;
   /** ISO-timestamp wann die aktuelle Billing-Period endet. */
   readonly currentPeriodEnd: string;
@@ -172,32 +171,32 @@ export type SubscriptionProviderPlugin = {
   ) => Promise<SubscriptionEvent | PaymentEvent | null>;
 
   /**
-   * **Post-tenant-resolution** — wird aus dem
-   * `create-checkout-session`-write-handler gerufen. Plugin baut
-   * eine provider-eigene checkout-session und returnt die hosted-
-   * page-URL — Tenant-Admin wird dorthin redirected, schließt den
-   * Bezahl-Flow ab, Provider sendet `subscription.created`-webhook
-   * mit `metadata.tenantId` zurück.
+   * **Post-tenant-resolution** — called from the
+   * `create-checkout-session` write handler. The plugin builds a
+   * provider-specific checkout session and returns its hosted-page URL;
+   * the tenant admin is redirected there to complete payment, and the
+   * provider sends a `subscription.created` webhook with
+   * `metadata.tenantId`.
    *
-   * Optional: Apple-IAP hat keinen Web-Checkout (alles in der App).
-   * Apps die ausschließlich Apple-IAP nutzen lassen das weg.
+   * Optional: Apple-IAP has no web checkout (everything happens in the app).
+   * Apps that use only Apple-IAP omit this field.
    */
   readonly createCheckoutSession?: (
     ctx: HandlerContext,
     options: {
-      /** Provider-eigene price/plan-ID die der Endkunde abonniert. */
+      /** Provider-owned price/plan ID that the customer subscribes to. */
       readonly priceId: string;
-      /** Plattform-Tenant-ID — landet als metadata im checkout-session
-       *  damit der subsequent webhook den tenant resolved (siehe
-       *  `verifyAndParseWebhook`'s metadata.tenantId-lookup). */
+      /** Platform tenant ID — stored as metadata in the checkout session
+       *  so the subsequent webhook can resolve the tenant (see the
+       *  `verifyAndParseWebhook` metadata.tenantId lookup). */
       readonly tenantId: string;
-      /** Wo der Endkunde nach erfolgreichem checkout landed. */
+      /** Where the customer lands after a successful checkout. */
       readonly successUrl: string;
-      /** Wo der Endkunde landed wenn er abbricht. */
+      /** Where the customer lands if they cancel. */
       readonly cancelUrl: string;
-      /** Optional: existierende provider-customer-id wenn der Tenant
-       *  schon einen Account beim Provider hat. Sonst legt der Provider
-       *  beim checkout einen neuen customer an. */
+      /** Optional: existing provider customer ID when the tenant already
+       *  has an account with the provider. Otherwise, the provider
+       *  creates a new customer during checkout. */
       readonly providerCustomerId?: string;
       /** Checkout mode. `"subscription"` (default) starts a recurring
        *  billing flow; `"payment"` a one-off checkout (e.g. pay-per-use
@@ -215,17 +214,17 @@ export type SubscriptionProviderPlugin = {
   ) => Promise<{ readonly url: string }>;
 
   /**
-   * **Post-tenant-resolution** — wird aus einem write-handler gerufen
-   * mit voll-aufgelöstem ctx. Erstellt einen self-service Portal-Link.
+   * **Post-tenant-resolution** — called from a write handler with a
+   * fully resolved ctx. Creates a self-service Portal link.
    * Stripe: customer-portal-session, Mollie: hosted-management-page.
-   * Tenant-Admin klickt darauf um Subscription selbst zu verwalten
-   * (cancel, payment-method, ...).
+   * The tenant admin uses it to manage the subscription themselves
+   * (cancel, payment method, ...).
    *
-   * Optional weil nicht jeder Provider einen Portal-Pattern hat
-   * (Apple-IAP managed Subs in der Apple-App, kein Web-Portal).
-   * Plugin der das nicht supported kann das Field weglassen — foundation
-   * returnt dann "portal_not_supported"-error wenn ein Tenant-Admin
-   * den Portal-Link anfordert.
+   * Optional because not every provider has a Portal pattern
+   * (Apple-IAP subscriptions are managed in the Apple app, with no web
+   * Portal). A plugin that does not support this can omit the field;
+   * the foundation then returns a "portal_not_supported" error when a
+   * tenant admin requests the Portal link.
    */
   readonly createPortalSession?: (
     ctx: HandlerContext,
@@ -236,10 +235,10 @@ export type SubscriptionProviderPlugin = {
   ) => Promise<{ readonly url: string }>;
 
   /**
-   * Optional: Cancel-aus-der-App-API. Wenn nicht implementiert, kann
-   * der Tenant nur über den Customer-Portal-Link cancellen (oder gar
-   * nicht, wenn auch createPortalSession fehlt — dann ist
-   * Cancel-Flow Provider-Dashboard-only).
+   * Optional: in-app cancellation API. If not implemented, the tenant
+   * can cancel only through the Customer Portal link (or not at all if
+   * createPortalSession is also missing — the cancellation flow is then
+   * provider-dashboard-only).
    */
   readonly cancelSubscription?: (
     ctx: HandlerContext,

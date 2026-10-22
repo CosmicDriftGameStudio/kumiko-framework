@@ -1,4 +1,4 @@
-// fw#2914 — JobContext.db is tenant-filtered; these bundled jobs reach every tenant
+// JobContext.db is tenant-filtered; these bundled jobs reach every tenant
 // and only work because their registration declares escapeHatch.
 import { describe, expect, test } from "bun:test";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";

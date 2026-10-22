@@ -149,7 +149,7 @@ describe("scenario 1: create + me", () => {
     expectErrorIncludes(error, UserErrors.emailAlreadyExists);
   });
 
-  // fw#2134 — the pre-flight fetchOne alone can't decide a genuine race
+  // The pre-flight fetchOne alone can't decide a genuine race
   // (both requests can see "no duplicate" before either commits); this
   // fires two real concurrent HTTP creates and checks the loser still
   // gets a clean 4xx, never an unhandled 500. The DB-constraint-level

@@ -1,4 +1,4 @@
-// crypto-shredding forget-subject over a "record" subject (kumiko-framework#2786):
+// crypto-shredding forget-subject over a "record" subject:
 //
 //   - a row-scoped field (personal: { of: "id" } → recordOwned) shreds via
 //     forget-subject with { subject: { kind: "record", entity, id } }
@@ -178,7 +178,7 @@ describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
     });
     expect(decrypted["body"]).toBe(PII_ERASED_SENTINEL);
 
-    // fw#2789: the operator path's audit trail — who erased which subject,
+    // The operator path's audit trail — who erased which subject,
     // and why — must be provable, not just the erase itself. The bystander
     // user-forget above appended its own subject-forgotten event under the
     // same rowId (record:<entity>:<id> and user:<id> share aggregate ids
@@ -236,7 +236,7 @@ describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
   });
 });
 
-// mh#349 / #2786: resolveTenantScopeDenial's record branch has its own
+// resolveTenantScopeDenial's record branch has its own
 // `!features.has("tenant")` fail-open — a denial test against the top-of-file
 // stack (crypto-shredding only) would pass without proving anything, since
 // the tenant gate never even runs there. This describe mounts a separate
@@ -425,7 +425,7 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
   });
 });
 
-// fw#2789: retention.strategy="blockDelete" on the host entity must win over
+// retention.strategy="blockDelete" on the host entity must win over
 // a targeted row-shred — a separate stack (no tenant feature mounted) so the
 // denial is proven independent of the tenant gate above, not a side effect
 // of it.
@@ -586,7 +586,7 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate, #2
   });
 });
 
-// #2805: the entity declares no retention, but the owning tenant's effective
+// the entity declares no retention, but the owning tenant's effective
 // data-retention policy (override here) is blockDelete.
 const OVERRIDE_PROBE_ENTITY_NAME = "overrideProbe";
 const overrideProbeEntity = createEntity({

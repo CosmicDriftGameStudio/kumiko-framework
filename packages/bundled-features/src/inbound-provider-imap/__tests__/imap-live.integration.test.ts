@@ -1,19 +1,17 @@
-// Live-IMAP-Test gegen greenmail (Plan §6 Phase 2, opt-in):
+// Opt-in live IMAP test against greenmail:
 //   docker run -d --name cdgs-greenmail -p 3025:3025 -p 3143:3143 \
 //     -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.users=testuser:testpass@example.com" \
 //     greenmail/standalone:2.1.0
 //
-// Läuft NUR wenn der Server erreichbar ist (top-level Probe) — sonst
-// skippen alle Tests sichtbar statt rot zu sein. Verifiziert die
-// Plan-Pflichten: fetch-Backfill + inkrementeller Cursor, IDLE-Push
-// < 5 s, Auth-Fehler → InboundAuthError.
+// Runs ONLY when the server is reachable (top-level probe); otherwise all
+// tests are visibly skipped instead of failing. Verifies fetch backfill and
+// the incremental cursor, IDLE push < 5 s, and auth errors → InboundAuthError.
 //
-// **Provider-Level-Test:** getestet wird das imapflow-Wiring des
-// Plugins gegen einen echten IMAP-Server. Der ctx ist der schmale
-// InboundMailContext des Provider-Contracts (kein HandlerContext);
-// das Secret-Slot-Read wird mit einem minimalen SecretsContext bedient
-// — der volle Dispatcher-Pfad ist in
-// inbound-mail-foundation.integration.test.ts abgedeckt.
+// **Provider-level test:** tests the plugin's imapflow wiring against a real
+// IMAP server. The ctx is the narrow InboundMailContext of the provider
+// contract (not a HandlerContext); the secret-slot read uses a minimal
+// SecretsContext. The full dispatcher path is covered in
+// inbound-mail-foundation.integration.test.ts.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { connect } from "node:net";
@@ -81,18 +79,18 @@ function credentialDoc(password: string): string {
   });
 }
 
-/** Minimaler SecretsContext für den Provider-Contract-ctx — liefert das
- *  Credential-Dokument aus einer Map statt aus der DB. */
+/** Minimal SecretsContext for the provider contract ctx; it supplies the
+ *  credential document from a Map instead of the database. */
 function ctxWithCredentials(doc: string): InboundMailContext {
   return {
-    // Worker-Identity fürs Secret-Read-Audit (requireSecretsContext).
+    // Worker identity used for secret-read auditing (requireSecretsContext).
     auditUserId: "imap-live-test",
     secrets: {
       get: async () => createSecret(doc),
       has: async () => true,
       set: async () => {},
       delete: async () => {},
-    } as unknown as import("@cosmicdrift/kumiko-framework/secrets").SecretsContext, // @cast-boundary test-double, nur get()/has() werden gelesen
+    } as unknown as import("@cosmicdrift/kumiko-framework/secrets").SecretsContext, // @cast-boundary test-double; only get()/has() are read
   };
 }
 
@@ -193,9 +191,9 @@ describe("imap-live — echter Server (greenmail)", () => {
             },
           })
           .then((stop) => {
-            // Nach Aufbau der IDLE-Verbindung die Mail schicken.
+            // Send the message only after the IDLE connection has been established.
             void sendTestMail(subject, "IDLE push").catch(reject);
-            // stop() nach Auflösung — pushed-Promise cleanup.
+            // Stop the watcher when the pushed promise settles to clean it up.
             void pushed.finally(() => void stop().catch(() => {}));
           }, reject);
       });

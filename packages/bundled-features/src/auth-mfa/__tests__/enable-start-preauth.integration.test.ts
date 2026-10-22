@@ -1,8 +1,8 @@
-// #1465: a user blocked at login by MFA enforcement (mfa-setup-required,
-// see #1455) can generate a TOTP secret + QR without a session, using the
+// A user blocked at login by MFA enforcement (mfa-setup-required)
+// can generate a TOTP secret + QR without a session, using the
 // preauthSetupToken login.write.ts issued. Real HTTP through
 // setupTestStack, exercising the full chain: login → preauthSetupToken →
-// POST /auth/mfa/preauth-enable-start → a setupToken that #1456's
+// POST /auth/mfa/preauth-enable-start → a setupToken that the
 // (not-yet-built) confirm step will consume via verifyMfaSetupToken.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -149,8 +149,8 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
     expect(body.recoveryCodes).toHaveLength(8);
 
     // The returned setupToken must compose with the EXISTING enable-confirm
-    // verification path (verifyMfaSetupToken) — proves #1465 and #1456
-    // actually chain together, not just that each returns *a* string.
+    // verification path (verifyMfaSetupToken) — proves they actually chain
+    // together, not just that each returns *a* string.
     const verified = verifyMfaSetupToken(body.setupToken, SETUP_TOKEN_SECRET);
     expect(verified.ok).toBe(true);
     if (verified.ok) {

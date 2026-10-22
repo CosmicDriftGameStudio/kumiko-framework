@@ -16,16 +16,14 @@ const { table } = createEntityExecutor("cap-counter", capCounterEntity);
 // =============================================================================
 
 /**
- * Cap-Toleranz-Profile — pro Cap-Typ asymmetrisch. Quelle: Memory
- * `project_pricing_byok_caps` §3 + `docs/plans/marketing/produkt/
- * pricing.md` Cap-Verhalten-Block.
+ * Cap-tolerance profiles, asymmetric by cap type.
  *
- * **Soft** = Notification-Schwelle (Multiplier × Limit). Bei
- * Erreichen wird einmalig gewarnt (lastSoftWarnedAt setzt das Flag).
- * Caller-Code emittiert die echte Notification.
+ * **Soft** = notification threshold (multiplier × limit). Once reached,
+ * a warning is issued (`lastSoftWarnedAt` sets the flag); caller code emits
+ * the actual notification.
  *
- * **Hard** = Schreibe-Block (Multiplier × Limit). enforceCap throwt
- * mit `cap_exceeded`-Error → Dispatcher mapped 429 + Upgrade-Hint.
+ * **Hard** = write-block threshold (multiplier × limit). `enforceCap` throws
+ * a `cap_exceeded` error, which the dispatcher maps to 429 with an upgrade hint.
  */
 export type CapToleranceProfile = {
   readonly soft: number;
@@ -33,13 +31,13 @@ export type CapToleranceProfile = {
 };
 
 export const CAP_TOLERANCES = {
-  /** Mails / Tokens — billig, BYOK ab Pro. Burst-Buffer großzügig. */
+  /** Mails / tokens — inexpensive, with BYOK available from Pro. Generous burst buffer. */
   burstable: { soft: 1.1, hard: 1.2 },
   /** DB-Storage / File-Storage — teuer + persistent. Strikter Cut. */
   storage: { soft: 1.0, hard: 1.05 },
-  /** Apps-Count, Plattform-Slots — gebuchte Kapazität, kein Buffer. */
+  /** App count and platform slots — purchased capacity, with no buffer. */
   hardSlot: { soft: 1.0, hard: 1.0 },
-  /** Egress — Bursty-Traffic legitim, nur extreme Spikes blockieren. */
+  /** Egress — bursty traffic is legitimate; only extreme spikes are blocked. */
   egress: { soft: 1.1, hard: 1.3 },
 } as const satisfies Readonly<Record<string, CapToleranceProfile>>;
 
@@ -176,28 +174,26 @@ export async function enforceCap(
 // =============================================================================
 
 /**
- * Synchronous read-and-check of the calling tenant's Rolling-Window-
- * Counter for `capName`. Reads the increment-events of the last
- * `windowDays` from the event-store and sums their `amount`. Returns:
+ * Synchronous read-and-check of the calling tenant's rolling-window
+ * counter for `capName`. Reads increment events from the last
+ * `windowDays` in the event store and sums their `amount`. Returns:
  *   - "ok" when sum < soft-threshold
  *   - "soft-hit" when soft ≤ sum < hard.
  *
  * **Throws** `CapExceededError` when sum ≥ hard-threshold.
  *
- * **`crossed`-flag fehlt absichtlich:** Anders als der Calendar-
- * Counter hat das Rolling-Aggregate keine projection-row mit
- * `lastSoftWarnedAt`-Flag. Dedup gegen Notification-Storm passiert
- * im Caller (eigener key in einer Cache-Tabelle, oder einfache
- * memoization für die Lebensdauer des Request). Der Result-Shape
- * matcht trotzdem `EnforceCapResult` damit der gleiche Caller-Code
- * gegen beide Funktionen funktioniert; `crossed` ist hier immer
- * `false` (= "wir tracken's nicht").
+ * **The `crossed` flag is intentionally absent:** Unlike the calendar
+ * counter, the rolling aggregate has no projection row with a
+ * `lastSoftWarnedAt` flag. The caller must deduplicate notification storms
+ * using its own mechanism, such as a cache-table key or request-lifetime
+ * memoization. The result shape still matches `EnforceCapResult` so the same
+ * caller code works with both functions; `crossed` is always `false` here
+ * (= "not tracked").
  *
- * **Performance-Note:** der Read summiert ALLE Events im Window für
- * (tenant, capName). Bei 10k+ Events/Tenant in der Window könnte
- * das langsam werden — dann Migration auf eine Multi-Stream-
- * Projection mit pre-aggregierten daily-buckets. Heute nicht
- * vorgezogen.
+ * **Performance note:** The read sums ALL events in the window for
+ * (tenant, capName). With 10k+ events per tenant in the window, this could
+ * become slow; migrate to a multi-stream projection with pre-aggregated
+ * daily buckets if needed.
  */
 export async function enforceRollingCap(
   ctx: CapCounterContext,
@@ -324,20 +320,20 @@ export function calendarMonthPeriodEndIso(periodStartIso: string): string {
 }
 
 // =============================================================================
-// Notification-Wiring helpers — convenience-wrapper für enforceCap +
-// enforceRollingCap, die einen Caller-supplied delivery-emit beim
-// soft-hit-crossing ausführen. Cap-counter kennt delivery-feature
-// nicht direkt — der Caller injiziert den emitter.
+// Notification-wiring helpers — convenience wrappers for `enforceCap` and
+// `enforceRollingCap` that execute a caller-supplied delivery emitter when
+// a soft-hit threshold is crossed. The cap counter does not know about the
+// delivery feature directly; the caller injects the emitter.
 // =============================================================================
 
 /**
- * Soft-hit-notifier callback. Caller liefert die Funktion die ein
- * delivery-event emittet (z.B. `delivery.send({to, template, payload})`).
- * Wird genau einmal pro Period beim Calendar-Counter aufgerufen
- * (`crossed === true` deduplicated via `markSoftWarnedHandler`).
+ * Soft-hit notifier callback. The caller supplies the function that emits
+ * a delivery event (for example, `delivery.send({to, template, payload})`).
+ * It is called exactly once per period for the calendar counter
+ * (`crossed === true`, deduplicated via `markSoftWarnedHandler`).
  *
- * Beim Rolling-Counter ist `crossed` immer `false` — der Caller muss
- * dort selbst dedup'en (oder bewusst pro request feuern lassen).
+ * For the rolling counter, `crossed` is always `false`; the caller must
+ * deduplicate notifications itself or intentionally send one per request.
  */
 export type SoftHitNotifier = (info: {
   readonly capName: string;
@@ -347,14 +343,14 @@ export type SoftHitNotifier = (info: {
 }) => Promise<void> | void;
 
 /**
- * Calendar-Period-enforcement + automatische soft-hit-Notification.
- * Ruft `enforceCap`, bei `crossed: true` den Notifier UND
- * `mark-soft-warned`-Handler (flippt `lastSoftWarnedAt` damit der
- * nächste Aufruf in derselben Period nicht erneut feuert).
+ * Calendar-period enforcement with automatic soft-hit notification.
+ * Calls `enforceCap`; when `crossed: true`, it calls the notifier and the
+ * `mark-soft-warned` handler, which flips `lastSoftWarnedAt` so that the
+ * same period does not trigger another notification.
  *
- * Returnt das `EnforceCapResult` weiter — Caller kann die Logik
- * verzweigen (z.B. UI-Toast bei soft-hit zusätzlich zur
- * Email-Notification).
+ * Returns the `EnforceCapResult` unchanged, allowing the caller to branch
+ * on the result, such as showing a UI toast in addition to the email
+ * notification.
  */
 export async function enforceCapAndMaybeNotify(
   ctx: CapCounterContext,
@@ -400,14 +396,14 @@ export async function enforceCapAndMaybeNotify(
 }
 
 /**
- * Rolling-Window-enforcement + immer-feuert-Notification beim soft-hit.
+ * Rolling-window enforcement that always sends a notification on a soft hit.
  *
- * **Achtung Storm-Risk:** Rolling-Counter trackt `lastSoftWarnedAt`
- * NICHT (kein projection-row). Bei jedem Aufruf während der Counter
- * im soft-Bereich ist, feuert der notifier. Der Caller muss
- * dedup'en — z.B. via Cache-Eintrag `lastNotified[capName]` mit TTL,
- * oder er ruft `enforceRollingCapAndMaybeNotify` nur einmal pro
- * Tag/Stunde auf (Hourly-Cron statt pro Request).
+ * **Storm risk:** The rolling counter does NOT track `lastSoftWarnedAt`
+ * (there is no projection row). On every call while the counter is in the
+ * soft range, the notifier fires. The caller must deduplicate, for example
+ * with a cache entry `lastNotified[capName]` and a TTL, or call
+ * `enforceRollingCapAndMaybeNotify` only once per day or hour
+ * (an hourly cron instead of per request).
  */
 export async function enforceRollingCapAndMaybeNotify(
   ctx: CapCounterContext,
@@ -439,7 +435,7 @@ export async function enforceRollingCapAndMaybeNotify(
 }
 
 // =============================================================================
-// Stock-Cap (Bestand) — live-gezählte Kardinalität gegen Tier-Limit
+// Stock cap — live-counted cardinality checked against the tier limit
 // =============================================================================
 
 export type StockCapResult =
@@ -447,24 +443,25 @@ export type StockCapResult =
   | { readonly state: "exceeded"; readonly current: number; readonly limit: number };
 
 /**
- * Stock-Cap: prüft eine vom Caller LIVE gezählte Kardinalität (z.B. Anzahl
- * existierender Components eines Tenants) gegen ein Tier-Limit.
+ * Stock cap: checks a cardinality counted LIVE by the caller (for example,
+ * the number of existing components for a tenant) against a tier limit.
  *
- * Anders als {@link enforceCap}/{@link enforceRollingCap} gibt es KEINEN
- * gespeicherten Counter: der Caller zählt die Projektion selbst
- * (`count(*) WHERE tenant_id = …`) und übergibt `current`. Das ist drift-frei
- * (ein Delete gibt den Slot sofort frei), braucht keine Counter-Tabelle und
- * kein Increment/Decrement-Bookkeeping. Misst einen Bestand, keinen Fluss.
+ * Unlike {@link enforceCap}/{@link enforceRollingCap}, there is NO stored
+ * counter: the caller counts the projection itself
+ * (`count(*) WHERE tenant_id = …`) and passes `current`. This avoids drift
+ * (a delete immediately frees the slot), requires no counter table or
+ * increment/decrement bookkeeping, and measures a stock rather than a flow.
  *
- * **TOCTOU-Caveat:** Zählen und Schreiben sind nicht atomar — zwei parallele
- * Creates können beide `ok` sehen und das Limit um eins überschreiten (gleiche
- * Race wie bei {@link enforceCap}). Exakt harte Slots brauchen zusätzliche
- * Serialisierung im Create-Pfad (z.B. Unique-Index auf tenantId+slot).
+ * **TOCTOU caveat:** Counting and writing are not atomic—two concurrent
+ * creates can both see `ok` and exceed the limit by one (the same race as
+ * with {@link enforceCap}). Strictly hard slots need additional
+ * serialization in the create path, such as a unique index on
+ * tenantId+slot.
  *
- * Reine Funktion — wirft NICHT und mappt KEINEN HTTP-Status. Ein erreichtes
- * Stock-Limit heißt „Upgrade nötig", nicht „retry later" (429): der Caller
- * entscheidet die Reaktion, typisch ein app-eigener 422/`upgrade_required`
- * mit i18n. Mit `hardSlot` (soft=hard=1.0) ist die Grenze exakt `limit`.
+ * Pure function—it does NOT throw or map an HTTP status. Reaching a stock
+ * limit means "upgrade required", not "retry later" (429); the caller
+ * chooses the response, typically an app-specific 422/`upgrade_required`
+ * with i18n. With `hardSlot` (soft=hard=1.0), the boundary is exactly `limit`.
  */
 export function enforceStockCap(options: {
   readonly current: number;

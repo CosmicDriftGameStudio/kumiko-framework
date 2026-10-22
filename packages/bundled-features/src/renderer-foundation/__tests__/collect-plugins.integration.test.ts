@@ -11,8 +11,8 @@ const TEST_TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 
 let stack: TestStack;
 
-// Mini-Plugin via defineFeature + r.useExtension — wie ein echter
-// renderer-plugin (renderer-mail-html, renderer-puppeteer-client) sich registriert.
+// Mini-plugin registered through defineFeature + r.useExtension, mirroring how
+// renderer plugins such as renderer-mail-html and renderer-puppeteer-client register.
 function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>) {
   return defineFeature(`renderer-${name}`, (r) => {
     r.requires({ features: ["renderer-foundation"] });

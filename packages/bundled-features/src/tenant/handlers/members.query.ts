@@ -20,7 +20,7 @@ export const membersQuery = defineQueryHandler({
   name: "members",
   schema: z.object({
     // Optional single-user filter — audit detail (and similar) only need one
-    // member's display name, not the full decrypted roster (fw#2291).
+    // member's display name, not the full decrypted roster.
     userId: z.string().min(1).optional(),
   }),
   access: { roles: access.admin },

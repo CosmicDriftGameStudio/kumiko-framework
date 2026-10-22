@@ -31,7 +31,7 @@ export const membershipsQuery = defineQueryHandler({
     // tenantName/tenantKey make memberships distinguishable in the UI
     // (otherwise just the UUID prefix — seed tenants with a 00000000-…
     // prefix would be indistinguishable). A single IN-batch over all
-    // tenantIds instead of fetchOne per membership (#324).
+    // tenantIds instead of fetchOne per membership.
     type TenantRow = { id: unknown; name?: unknown; key?: unknown; isEnabled?: unknown };
     const tenants = await decryptTenantNames(
       await selectMany<TenantRow>(db, tenantTable, {

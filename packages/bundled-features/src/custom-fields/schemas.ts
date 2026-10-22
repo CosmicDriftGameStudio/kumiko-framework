@@ -1,7 +1,6 @@
 import * as z from "zod";
 import { SUPPORTED_FIELD_TYPES } from "./web/constants.ts";
 
-// Field-Type-Validator — pinnt valid type-Werte für fieldDefinition.
 export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 
 // Per-field access-control. When set, `set/clear-custom-field` handlers
@@ -9,8 +8,8 @@ export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 // in addition to the handler-level RBAC. Absent or empty `write` means
 // the handler-level RBAC is the only gate.
 //
-// `read` is reserved for the postQuery-flatten pipeline (T1.5c+); not
-// enforced in T1.5b.
+// `read` is reserved for the postQuery-flatten pipeline and is not
+// currently enforced.
 export const customFieldAccessSchema = z
   .object({
     read: z.array(z.string()).optional(),
@@ -19,11 +18,12 @@ export const customFieldAccessSchema = z
   .optional();
 export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 
-// Serialized-field-jsonb — was als `serializedField`-Spalte gespeichert wird.
-// In v1 noch nicht strict-typed pro field-type (das kommt in B2 wenn die
-// Stammfeld-Builder-Schemas exposed sind). Hier nur die Struktur-Garantie.
+// Serialized-field JSONB: the value stored in the `serializedField` column.
+// In v1, it is not strictly typed per field type because the base-field
+// builder schemas are not yet exposed. This schema only guarantees the
+// overall structure.
 //
-// Schema-shape (Beispiel-Inputs für die unterschiedlichen Field-Types):
+// Schema shape (example inputs for the different field types):
 //
 //   text:     { type: "text", required: true, maxLength: 50 }
 //   number:   { type: "number", required: false, min: 0, max: 100 }
@@ -33,13 +33,13 @@ export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 //   money:    { type: "money", required: false, currency: "EUR" }
 //   embedded: { type: "embedded", required: false, schema: { ... } }
 //
-// `fieldAccess` (T1.5b) is the structured key recognised by the handlers.
-// Everything else stays loose pending B2's per-type discriminated-union —
+// `fieldAccess` is the structured key recognised by the handlers.
+// Everything else remains loose pending per-type discriminated unions —
 // EXCEPT `sensitive`, which is explicitly rejected below: custom fields
-// carry supplemental business data only, PII support was removed (#972).
+// carry supplemental business data only, and PII support was removed.
 const serializedFieldBaseShape = {
   fieldAccess: customFieldAccessSchema,
-  // `retention` (T1.5d): per-field expiry. The retention-cron strips
+  // `retention`: per-field expiry. The retention-cron strips
   // values whose host-row `modified_at` is older than `keepFor`. Strategy
   // `delete` removes the key from the customFields jsonb; `anonymize`
   // sets it to `null` (key stays, value gone — preserves the schema
@@ -69,10 +69,10 @@ const updateSerializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema.optional(), ...serializedFieldBaseShape })
   .refine(...rejectSensitive);
 
-// i18n-labels — `{ de: "...", en: "...", ... }`. Mindestens ein Eintrag.
+// i18n labels — `{ de: "...", en: "...", ... }`. At least one entry.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));
 
-// Payload für `define-tenant-field` und `define-system-field` write-handler.
+// Payload for the `define-tenant-field` and `define-system-field` write handlers.
 export const defineFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),
   fieldKey: z
@@ -100,7 +100,7 @@ export const updateFieldPayloadSchema = defineFieldPayloadSchema.extend({
 });
 export type UpdateFieldPayload = z.infer<typeof updateFieldPayloadSchema>;
 
-// Payload für `delete-tenant-field` / `delete-system-field`.
+// Payload for `delete-tenant-field` / `delete-system-field`.
 export const deleteFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),
   fieldKey: z.string().min(1).max(64),

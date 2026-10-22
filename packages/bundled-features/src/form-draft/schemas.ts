@@ -17,9 +17,9 @@ const draftValuesSchema = z
     `values exceeds the ${FORM_DRAFT_VALUES_MAX_BYTES}-byte limit`,
   );
 
-// The draft blob shape — fixed by issue #1889 here, not left for consumers
+// The draft blob shape — fixed here, not left for consumers
 // to invent per-app. `stepIndex` is in from the start so wizard-mode resume
-// (kumiko-framework#1884) doesn't need a later migration.
+// doesn't need a later migration.
 export const formDraftBlobSchema = z.object({
   values: z.record(z.string(), z.unknown()),
   stepIndex: z.number().int().min(0),
@@ -41,7 +41,7 @@ export type SaveDraftPayload = z.infer<typeof saveDraftPayloadSchema>;
 // row right after the domain entity write already carries the same
 // storageKeys forward — releasing them here would destroy files the entity
 // now depends on. Only an actual abandon/abort flow should pass
-// releaseFiles: true (issue #1915's "explicit abort" case).
+// releaseFiles: true (the "explicit abort" case).
 export const discardDraftPayloadSchema = z.object({
   draftKey: draftKeySchema,
   releaseFiles: z.boolean().optional(),

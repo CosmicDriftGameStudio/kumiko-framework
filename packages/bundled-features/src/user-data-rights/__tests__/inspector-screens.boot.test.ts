@@ -79,14 +79,14 @@ describe("user-data-rights read-only inspector screens", () => {
   });
 });
 
-// fw#2312 — privacy-center converted from a custom screen to a declarative
+// privacy-center converted from a custom screen to a declarative
 // projectionDetail (Restriction/Deletion fields+actions, Export stays a
 // custom extension section). `validateBoot` above already proves the
 // screen clears every boot-validator rule for projectionDetail extension
 // sections (entityName set, contributesToFormSubmit not true) — these
 // tests pin the GDPR-relevant shape the type system can't check itself:
 // which handler each action dispatches, the confirm-dialog description,
-// and the visibility conditions carried over from the pre-#2312 custom
+// and the visibility conditions carried over from the custom
 // screen (restrict.tsx/deletion.tsx RestrictionSection/DeletionSection).
 function sectionActionsOf(screen: {
   readonly layout: { readonly sections: readonly { readonly actions?: readonly RowAction[] }[] };
@@ -170,7 +170,7 @@ describe("privacy-center screen (fw#2312 projectionDetail conversion)", () => {
       handler: "user-data-rights:write:request-deletion",
       visible: { field: "status", ne: "deletionRequested" },
     });
-    // Cancel has no confirm — the pre-#2312 custom screen executed it directly.
+    // Cancel has no confirm — the custom screen executed it directly.
     expect(byId["cancel-deletion"]).toMatchObject({
       handler: "user-data-rights:write:cancel-deletion",
       visible: { field: "status", eq: "deletionRequested" },

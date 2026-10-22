@@ -1,6 +1,6 @@
-// imapflow-Wiring + pure Helpers des IMAP-Providers.
-// Referenz-Impl: /Users/marc/code/doc-o-mat (HEINZ) — aber inkrementeller
-// UIDVALIDITY:lastUid-Cursor statt '1:*'-Vollscan.
+// imapflow wiring and pure helpers for IMAP providers.
+// Reference implementation: /Users/marc/code/doc-o-mat (HEINZ), but uses an
+// incremental UIDVALIDITY:lastUid cursor instead of a '1:*' full scan.
 
 import {
   BlockedHostError,
@@ -95,9 +95,9 @@ export async function createImapClient(
 
 /** Server-Fehler → typisierte Foundation-Fehlerklassen (Plan §2). */
 export function mapImapError(err: unknown, host: string): Error {
-  // imapflow-Fehler tragen die Server-Antwort in responseText, die
-  // message ist nur "Command failed" — beides in den Match einbeziehen;
-  // authenticationFailed ist das verlässliche Flag.
+  // imapflow errors carry the server response in responseText; the
+  // message is only "Command failed", so both are included in the match;
+  // authenticationFailed is the reliable flag.
   const carrier = isPlainObject(err) ? err : undefined;
   const responseText = typeof carrier?.["responseText"] === "string" ? carrier["responseText"] : "";
   const msg = `${err instanceof Error ? err.message : String(err)} ${responseText}`.trim();
@@ -129,9 +129,9 @@ export function parseImapCursor(cursor: SyncCursorPayload | null): ImapCursor | 
   return { uidValidity, lastUid };
 }
 
-/** Wirft InboundCursorInvalidError bei UIDVALIDITY-Wechsel — die
- *  Foundation resettet den Cursor und macht einen Voll-Resync im
- *  Backfill-Fenster (Dedup fängt Dubletten). */
+/** Throws InboundCursorInvalidError when UIDVALIDITY changes; the
+ *  foundation resets the cursor and performs a full resync within the
+ *  backfill window (deduplication catches duplicates). */
 export function assertUidValidity(cursor: ImapCursor | null, serverUidValidity: string): void {
   if (cursor && cursor.uidValidity !== serverUidValidity) {
     throw new InboundCursorInvalidError(
@@ -148,8 +148,9 @@ function stripAngles(id: string): string {
   return id.replace(/^<|>$/g, "").trim();
 }
 
-/** References-Chain normalisieren: mailparser liefert string | string[]
- *  | undefined; fehlt References, trägt In-Reply-To den Thread-Anker. */
+/** Normalizes the References chain: mailparser returns string | string[]
+ *  | undefined; when References is missing, In-Reply-To provides the thread
+ *  anchor. */
 export function normalizeReferences(parsed: {
   references?: string | string[];
   inReplyTo?: string;
@@ -170,16 +171,16 @@ function addressList(a: AddressObject | AddressObject[] | undefined): string[] {
   return arr.map((x) => x.text).filter((t): t is string => Boolean(t));
 }
 
-/** imapflow liefert internalDate je nach Codepfad als Date ODER string.
- *  String-Form verwerfen wir bewusst (kein Date-Parsing im Feature-Code,
- *  no-date-api) — toRawInboundMessage fällt dann auf mailparsers
- *  Date-Header zurück, der immer als echtes Date kommt. */
+/** imapflow provides internalDate as either a Date or string depending on
+ *  the code path. The string form is deliberately discarded (no date parsing
+ *  in feature code, no-date-api); toRawInboundMessage then falls back to the
+ *  mailparser Date header, which is always a real Date. */
 export function coerceDate(d: Date | string | undefined): Date | undefined {
   return d instanceof Date ? d : undefined;
 }
 
-/** providerMessageId: UID ist nur innerhalb einer UIDVALIDITY eindeutig
- *  — beides zusammen ist der stabile Idempotency-Anchor. */
+/** providerMessageId: a UID is unique only within a UIDVALIDITY; together,
+ *  they form the stable idempotency anchor. */
 export function buildProviderMessageId(uidValidity: string, uid: number): string {
   return `${uidValidity}:${uid}`;
 }
@@ -204,8 +205,8 @@ export async function toRawInboundMessage(args: {
     cc: addressList(parsed.cc),
     subject: parsed.subject ?? "",
     snippet: text.slice(0, SNIPPET_MAX),
-    // Lib-Boundary-Bridge (Date von imapflow/mailparser) → Temporal;
-    // fehlt jedes Datum, ist Epoch der ehrliche Marker.
+    // Lib-boundary bridge (Date from imapflow/mailparser) → Temporal;
+    // when no date exists, Epoch is the honest marker.
     receivedAtIso: (receivedAt
       ? legacyDateToInstant(receivedAt)
       : Temporal.Instant.fromEpochMilliseconds(0)

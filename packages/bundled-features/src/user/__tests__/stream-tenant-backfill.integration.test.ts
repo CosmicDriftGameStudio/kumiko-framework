@@ -1,10 +1,10 @@
-// #762 — backfillUserStreamTenants: pre-#497 user streams live on the
-// creating tenant; post-#497 the executor addresses SYSTEM_TENANT_ID, so
-// legacy users version-conflict on every write (password-reset collapses to
-// invalid_token). The backfill retenants + renumbers per aggregate in global
-// id order — including the split-stream case the raw #497-changeset SQL
-// crashes on (legacy tenant v1..n AND post-#497 SYSTEM events for the same
-// aggregate → events_aggregate_version_uq violation).
+// backfillUserStreamTenants: older user streams live on the
+// creating tenant; newer streams use SYSTEM_TENANT_ID, so legacy users
+// version-conflict on every write (password-reset collapses to invalid_token).
+// The backfill retenants + renumbers per aggregate in global id order —
+// including the split-stream case the raw changeset SQL crashes on (legacy
+// tenant v1..n AND newer SYSTEM events for the same aggregate →
+// events_aggregate_version_uq violation).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -102,7 +102,7 @@ describe("backfillUserStreamTenants (#762)", () => {
     expect(rows.map((r) => r.tenant_id)).toEqual([SYSTEM_TENANT_ID, SYSTEM_TENANT_ID]);
     expect(rows.map((r) => r.version)).toEqual([1, 2]);
 
-    // The actual #762 symptom: an optimistic-locked executor update with the
+    // The actual symptom: an optimistic-locked executor update with the
     // row version now targets a stream that HAS that version — no conflict.
     const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
     const writeRes = await executor.update(
@@ -114,8 +114,8 @@ describe("backfillUserStreamTenants (#762)", () => {
   });
 
   test("split stream (legacy + post-#497 SYSTEM events) merges in global id order", async () => {
-    // Legacy: created + updated on T1 (v1, v2). Then a post-#497 lifecycle
-    // write appended v1 on SYSTEM — the split the raw changeset-SQL trips on.
+    // Legacy: created + updated on T1 (v1, v2). Then a later lifecycle
+    // write appended v1 on SYSTEM — the split the raw changeset SQL trips on.
     await appendUserEvent(SPLIT_USER, T1, 0, "user.created", { email: "s@example.com" });
     await appendUserEvent(SPLIT_USER, T1, 1, "user.updated", { changes: { a: 1 } });
     await appendUserEvent(SPLIT_USER, SYSTEM_TENANT_ID, 0, "user.updated", {

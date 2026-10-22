@@ -100,7 +100,7 @@ function isDetailHandlerQn(qn: string, entityName: string): boolean {
   return qn.endsWith(`:${entityName}:detail`);
 }
 
-/** #2700: the entity CRUD tools are enumerated off the registry, not off the manifest, so
+/** The entity CRUD tools are enumerated off the registry, not off the manifest, so
  *  `resolveAgentExposure` never runs for them. Only an EXPLICIT opt-out may hide one here —
  *  the resolver's own default is fail-closed on a missing `description`, and CRUD-generated
  *  handlers never carry one, so reusing it would delete every entity tool in every app. */

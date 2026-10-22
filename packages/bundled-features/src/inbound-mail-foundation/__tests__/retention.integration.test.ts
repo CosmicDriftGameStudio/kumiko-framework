@@ -1,9 +1,10 @@
-// Integration-test für inbound-mail data-retention (#957). Treibt echte
-// ingests durch den Dispatcher + DB (setupTestStack), dann runInboundMailRetention
-// mit injiziertem `now`. Verifiziert die Plan-Pflicht-Szenarien:
-//   - Message älter als Frist → Row weg, Stream archiviert, jüngere bleibt
-//   - Rebuild resurrectet die gepurgte Row NICHT (archiveStream-Rationale)
-//   - Seen-Anchor-Cleanup: past-cutoff weg, in-window bleibt (Dedup intakt)
+// Integration test for inbound-mail data retention. Drives real
+// ingests through the dispatcher and DB (`setupTestStack`), then runs
+// `runInboundMailRetention` with an injected `now`. Verifies the required scenarios:
+//   - Message older than the retention period → row removed, stream archived, younger one stays
+//   - Rebuild does not resurrect the purged row (the reason for `archiveStream`)
+//   - Seen-anchor cleanup: past-cutoff entries removed, in-window entries stay (deduplication
+//     intact)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
@@ -128,7 +129,7 @@ describe("retention: inbound messages", () => {
     expect(await selectMany(db, inboundMessagesProjectionTable, { accountId })).toHaveLength(2);
 
     // now=2026-07-13, default 365d → cutoff 2025-07-13: old(2024) expired, young(2026-07) stays.
-    // seen weit hochgesetzt, damit dieser Fall nur die Messages misst.
+    // Seen retention is set high so this case measures messages only.
     const now = getTemporal().Instant.from("2026-07-13T00:00:00Z");
     const report = await runInboundMailRetention({
       db,
@@ -147,7 +148,7 @@ describe("retention: inbound messages", () => {
     expect(await loadAggregate(db, oldId, admin.tenantId)).toHaveLength(0);
     expect((await loadAggregate(db, youngId, admin.tenantId)).length).toBeGreaterThanOrEqual(1);
 
-    // Rebuild replayt received NICHT für den archivierten Stream → keine Resurrection.
+    // Rebuild does not replay `received` for the archived stream → no resurrection.
     await rebuildProjection("inbound-mail-foundation:projection:inbound-message", {
       db,
       registry: stack.registry,
@@ -181,7 +182,7 @@ describe("retention: body-delete failure keeps the row (no orphaned storage obje
     const rows = await selectMany(db, inboundMessagesProjectionTable, { accountId });
     expect(rows.map((r) => r["id"])).toContain(failId);
 
-    // Naechster Lauf (deleteBodyObject funktioniert jetzt) holt die Row nach.
+    // The next run retries the row (now that `deleteBodyObject` works).
     const retry = await runInboundMailRetention({
       db,
       tenantId: admin.tenantId,
@@ -205,7 +206,7 @@ describe("retention: seen anchors", () => {
     expect(seenRows.length).toBeGreaterThanOrEqual(1);
     const seenAt = getTemporal().Instant.from(String(seenRows[0]?.["seenAt"]));
 
-    // now = seenAt + 1 Tag → cutoff (now-90d) liegt vor seenAt → nichts fällig.
+    // now = seenAt + 1 day → cutoff (now-90d) is before seenAt → nothing is due.
     const nowInWindow = seenAt.add({ hours: 24 });
     const inWindow = await runInboundMailRetention({
       db,
@@ -219,7 +220,7 @@ describe("retention: seen anchors", () => {
       seenRows.length,
     );
 
-    // now = seenAt + 91 Tage → cutoff (now-90d) liegt nach seenAt → fällig.
+    // now = seenAt + 91 days → cutoff (now-90d) is after seenAt → due for cleanup.
     const nowExpired = seenAt.add({ hours: 91 * 24 });
     const expired = await runInboundMailRetention({
       db,
