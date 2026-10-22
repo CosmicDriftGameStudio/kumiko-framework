@@ -90,6 +90,10 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.patch.textNotFound": "The text {find} was not found in the block.",
     "templateResolver.errors.patch.textAmbiguous":
       "The text {find} occurs {count} times in the block; use a longer text.",
+    "templateResolver.errors.patch.textSpansFormatting":
+      "The text {find} crosses a formatting change in the block; replace each formatted part on its own.",
+    "templateResolver.errors.patch.placeholderNotReplaceable":
+      "The placeholder {find} cannot be replaced as text; set the text around it with another operation or remove the block.",
     "templateResolver.errors.patch.blockNotAllowed":
       "The block type {type} is not available in {kind} templates.",
     "templateResolver.errors.patch.blockTypeMismatch":
@@ -113,6 +117,8 @@ export const defaultTranslations: TranslationsByLocale = {
       "Your account has no email address to send the test mail to.",
     "templateResolver.errors.testMail.failed": "The test mail could not be sent.",
     "templateResolver.errors.resource.tooLarge": "The image is too large.",
+    "templateResolver.errors.resource.sourceUnreadable":
+      "A file of the source template could not be read, so nothing was copied.",
     "templateResolver.errors.resource.unsupportedImage":
       "This file is not a supported image. Use PNG, JPEG, WebP or GIF.",
     "templateResolver.errors.template.systemResourcesNeedSystemTenant":

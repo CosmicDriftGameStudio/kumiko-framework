@@ -1327,6 +1327,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.patch.textNotFound": "Le texte {find} est introuvable dans le bloc.",
   "templateResolver.errors.patch.textAmbiguous":
     "Le texte {find} apparaît {count} fois dans le bloc ; utilisez un texte plus long.",
+  "templateResolver.errors.patch.textSpansFormatting":
+    "Le texte {find} traverse un changement de mise en forme dans le bloc ; remplacez chaque partie mise en forme séparément.",
+  "templateResolver.errors.patch.placeholderNotReplaceable":
+    "L’espace réservé {find} ne peut pas être remplacé comme du texte ; modifiez le texte autour avec une autre opération ou supprimez le bloc.",
   "templateResolver.errors.patch.blockNotAllowed":
     "Le type de bloc {type} n'est pas disponible dans les modèles {kind}.",
   "templateResolver.errors.patch.blockTypeMismatch":
@@ -1352,6 +1356,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Votre compte n'a pas d'adresse e-mail à laquelle envoyer l'e-mail de test.",
   "templateResolver.errors.testMail.failed": "L'e-mail de test n'a pas pu être envoyé.",
   "templateResolver.errors.resource.tooLarge": "L'image est trop volumineuse.",
+  "templateResolver.errors.resource.sourceUnreadable":
+    "Un fichier du modèle source n’a pas pu être lu, rien n’a donc été copié.",
   "templateResolver.errors.resource.unsupportedImage":
     "Ce fichier n'est pas une image prise en charge. Utilisez PNG, JPEG, WebP ou GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
@@ -1966,8 +1972,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Envoi par la plateforme (par défaut)",
   "mail-transport-inmemory.settings": "Boîte de test (en mémoire)",
   "mail-transport-smtp.settings": "Serveur SMTP propre",
-  "config:entity:__config-edit__:field:provider:option:": "Envoi par la plateforme (par défaut)",
-  "config:entity:__config-edit__:field:provider:option:smtp": "Serveur SMTP propre",
+  "config:entity:__config-edit__:field:mail-foundation-provider:option:":
+    "Envoi par la plateforme (par défaut)",
+  "config:entity:__config-edit__:field:mail-foundation-provider:option:smtp": "Serveur SMTP propre",
   "mail-transport-smtp.settings.secrets": "Connexion SMTP",
   "mail-transport-smtp.settings.description":
     "Les informations de connexion proviennent de votre fournisseur de messagerie, par exemple Brevo, Postmark, Amazon SES ou votre propre serveur.",

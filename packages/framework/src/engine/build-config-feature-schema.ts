@@ -926,9 +926,15 @@ function buildScreen(
   // feature's group (100% of today's apps — byte-identical output). Only a
   // cross-feature `group` (feature !== ownerFeature) needs the owner prefix,
   // to keep two features sharing a group from clobbering the same shortKey.
+  // A selector's option labels hang on its field id in one global key space
+  // (`config:entity:__config-edit__:field:<id>:option:<value>`), so two owners
+  // whose selector is both named `provider` need distinct ids.
   const fieldId =
     options.fieldIdOf ??
-    ((k: MaskedKey): string => (k.feature === k.ownerFeature ? k.shortKey : qualifiedFieldId(k)));
+    ((k: MaskedKey): string =>
+      k.feature === k.ownerFeature && !hub.selectorOptions.has(k.qn)
+        ? k.shortKey
+        : qualifiedFieldId(k));
   const seenFieldIds = new Map<string, string>();
   for (const k of keys) {
     const id = fieldId(k);

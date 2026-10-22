@@ -107,7 +107,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   test("selector key renders as select of plugin ids, at every scope it shows up", () => {
     const schema = build(gatedFeatures());
     const selection = screenOf(schema, "mail-foundation-tenant", "configEdit");
-    expect(selection.fields["provider"]).toMatchObject({
+    expect(selection.fields["mail-foundation-provider"]).toMatchObject({
       type: "select",
       options: ["", "inmemory", "smtp"],
       display: "radio",
@@ -136,7 +136,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
     expect(form.submitLabel).toBeUndefined();
     expect(form.configKeys).toEqual({
-      provider: "mail-foundation:config:provider",
+      "mail-foundation-provider": "mail-foundation:config:provider",
       "mail-inmemory-capture": "mail-inmemory:config:capture",
       "mail-smtp-host": "mail-smtp:config:host",
     });
@@ -148,19 +148,25 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       {
         title: "mail-foundation.settings",
         description: "config.settings.extensionSelectorHint",
-        fields: ["provider"],
+        fields: ["mail-foundation-provider"],
       },
       {
         title: "mail-inmemory.settings",
         fields: [
-          { field: "mail-inmemory-capture", visible: { field: "provider", eq: "inmemory" } },
+          {
+            field: "mail-inmemory-capture",
+            visible: { field: "mail-foundation-provider", eq: "inmemory" },
+          },
         ],
       },
       {
         title: "mail-smtp.settings",
         fields: [
-          { field: "mail-smtp-host", visible: { field: "provider", eq: "smtp" } },
-          { field: "mail-smtp-password", visible: { field: "provider", eq: "smtp" } },
+          { field: "mail-smtp-host", visible: { field: "mail-foundation-provider", eq: "smtp" } },
+          {
+            field: "mail-smtp-password",
+            visible: { field: "mail-foundation-provider", eq: "smtp" },
+          },
         ],
       },
     ]);
@@ -178,7 +184,9 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(form.layout.sections[1]).toEqual({
       title: "mail-smtp.settings.secrets",
       description: "config.secrets.description",
-      fields: [{ field: "mail-smtp-password", visible: { field: "provider", eq: "smtp" } }],
+      fields: [
+        { field: "mail-smtp-password", visible: { field: "mail-foundation-provider", eq: "smtp" } },
+      ],
     });
   });
 
@@ -203,7 +211,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     });
     const schema = build([secretsFeature(), mailFoundation(), gatedSecret]);
     const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
-    expect(Object.keys(form.configKeys)).toEqual(["provider", "mail-smtp-host"]);
+    expect(Object.keys(form.configKeys)).toEqual(["mail-foundation-provider", "mail-smtp-host"]);
     expect(form.secretKeys).toBeUndefined();
     expect(Object.keys(screenOf(schema, "secrets", "secretsEdit").secretKeys)).toEqual([
       "mail-smtp-password",
@@ -221,7 +229,10 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       "mail-foundation-tenant",
       "configEdit",
     );
-    expect(form.fields["provider"]).toMatchObject({ type: "select", options: ["", "smtp"] });
+    expect(form.fields["mail-foundation-provider"]).toMatchObject({
+      type: "select",
+      options: ["", "smtp"],
+    });
     expect(selectablePluginIds(registry, "mailTransport")).toEqual(["smtp", "test-inbox"]);
   });
 
@@ -271,7 +282,7 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   });
 
   test("the empty provider option is labelled by the selector's own text, else the generic one", () => {
-    const optionKey = "config:entity:__config-edit__:field:provider:option:";
+    const optionKey = "config:entity:__config-edit__:field:mail-foundation-provider:option:";
     const generic = { en: "Platform default" };
     const hub = defineFeature("config", (r) => {
       r.translations({ keys: { "config.settings.provider.platformDefault": generic } });
@@ -284,6 +295,53 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     );
     const schema = build([hub, secretsFeature(), ownerLabelled, smtp, inmemory, stripe]);
     expect(schema.translations?.[optionKey]).toEqual(own);
+  });
+
+  test("two selector owners with a `provider` key each keep their own empty-option label", () => {
+    const mailLabel = { en: "Platform mail" };
+    const fileLabel = { en: "Platform storage" };
+    const fileFoundation = defineFeature("file-foundation", (r) => {
+      r.translations({
+        keys: {
+          "file-foundation.settings": { en: "Files" },
+          "file.provider.platformDefault": fileLabel,
+        },
+      });
+      r.extendsRegistrar("storageProbe", { onRegister: () => undefined });
+      const keys = r.config({
+        keys: {
+          provider: createTenantConfig("text", {
+            default: "",
+            write: TENANT_ADMIN_WRITE,
+            mask: { title: "file.provider", order: 1 },
+          }),
+        },
+      });
+      r.extensionSelector("storageProbe", keys.provider);
+    });
+    const s3 = defineFeature("file-s3", (r) => {
+      r.requires({ features: ["file-foundation"] });
+      r.useExtension("storageProbe", "s3");
+      r.config({
+        keys: {
+          bucket: createTenantConfig("text", {
+            default: "",
+            write: TENANT_ADMIN_WRITE,
+            mask: { title: "s3.bucket" },
+          }),
+        },
+      });
+    });
+    const mail = mailFoundation((r) =>
+      r.translations({ keys: { "mail.provider.platformDefault": mailLabel } }),
+    );
+    const schema = build([secretsFeature(), mail, smtp, inmemory, fileFoundation, s3]);
+    const prefix = "config:entity:__config-edit__:field:";
+    expect(schema.translations?.[`${prefix}mail-foundation-provider:option:`]).toEqual(mailLabel);
+    expect(schema.translations?.[`${prefix}file-foundation-provider:option:`]).toEqual(fileLabel);
+    expect(
+      screenOf(schema, "file-foundation-tenant", "configEdit").fields["file-foundation-provider"],
+    ).toMatchObject({ type: "select", options: ["", "s3"] });
   });
 
   test("plugin system-scope screen and nav stay ungated", () => {
@@ -317,7 +375,10 @@ describe("buildConfigFeatureSchema — extension selector", () => {
       "mail-smtp-password",
     ]);
     const form = screenOf(schema, "mail-foundation-tenant", "configEdit");
-    expect(Object.keys(form.configKeys)).toEqual(["provider", "mail-inmemory-capture"]);
+    expect(Object.keys(form.configKeys)).toEqual([
+      "mail-foundation-provider",
+      "mail-inmemory-capture",
+    ]);
   });
 
   test("plugin feature shared by two selectors keeps today's behaviour", () => {
@@ -369,9 +430,10 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     const schema = build([systemOnlyOwner, smtp, inmemory]);
     expect(schema.screens.some((s) => s.type === "dashboard")).toBe(false);
     expect(schema.navs.map((n) => n.id)).toContain("mail-smtp-tenant");
-    expect(screenOf(schema, "mail-foundation-system", "configEdit").fields["provider"]?.type).toBe(
-      "select",
-    );
+    expect(
+      screenOf(schema, "mail-foundation-system", "configEdit").fields["mail-foundation-provider"]
+        ?.type,
+    ).toBe("select");
   });
 
   test("app without a masked selector is unchanged", () => {
