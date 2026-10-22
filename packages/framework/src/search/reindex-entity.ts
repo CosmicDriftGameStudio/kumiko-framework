@@ -8,7 +8,7 @@
 import type { DbRunner } from "../db/connection.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
-import { asRawClient, runInNewTransaction, runnerCanBeginTransaction } from "../db/query.ts";
+import { runInNewTransaction, runnerCanBeginTransaction } from "../db/query.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import {
   buildSearchDocument,
@@ -61,7 +61,7 @@ function rowToState(
 
 // Server pools cap statement_timeout, and a batch scan over a large table can outlast it. The caller's
 // runner (often a gated proxy around the pool) is used as is, so the cap is lifted per batch
-// with SET LOCAL instead of moving the scan to an ungated sibling pool. A runner already inside a
+// with a transaction-local set_config instead of moving the scan to an ungated sibling pool. A runner already inside a
 // transaction keeps the caller's setting rather than leaking ours into its remaining statements.
 async function readBatchWithoutStatementTimeout(
   db: DbRunner,
@@ -72,7 +72,7 @@ async function readBatchWithoutStatementTimeout(
     return executeRawQueryRead<Record<string, unknown>>(db, sqlText, params);
   }
   return runInNewTransaction(db, async (tx) => {
-    await asRawClient(tx).unsafe("SET LOCAL statement_timeout = 0");
+    await executeRawQueryRead(tx, "SELECT set_config('statement_timeout', '0', true)", []);
     return executeRawQueryRead<Record<string, unknown>>(tx, sqlText, params);
   });
 }
