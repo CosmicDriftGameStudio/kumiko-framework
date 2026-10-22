@@ -88,6 +88,8 @@ const DEFAULT_WATCH_LEASE_TTL_SECONDS = 90;
  *  can add further scopes later without a schema change. */
 const CURSOR_SCOPE = "default";
 
+const SEEN_LOOKUP_CHUNK_SIZE = 1000;
+
 export type InboundMailSupervisorDeps = {
   /** Slim context for provider calls (`registry` is required; `secrets` is
    *  used for provider credential reads). */
@@ -408,17 +410,23 @@ export function createInboundMailSupervisor(
   function unknownMessageIdsFilterFor(account: MailAccountRecord) {
     return async (providerMessageIds: readonly string[]): Promise<ReadonlySet<string>> => {
       if (providerMessageIds.length === 0) return new Set();
-      const seen = await selectMany<{ providerMessageId: string }>(
-        deps.db,
-        seenMessageTable,
-        {
-          tenantId: account.tenantId,
-          accountId: account.id,
-          providerMessageId: { in: providerMessageIds },
-        },
-        { fields: ["providerMessageId"] },
-      );
-      const seenIds = new Set(seen.map((row) => row.providerMessageId));
+      // One bind parameter per id: a full-mailbox listing would exceed Postgres' 65535 limit.
+      const seenIds = new Set<string>();
+      for (let start = 0; start < providerMessageIds.length; start += SEEN_LOOKUP_CHUNK_SIZE) {
+        const seen = await selectMany<{ providerMessageId: string }>(
+          deps.db,
+          seenMessageTable,
+          {
+            tenantId: account.tenantId,
+            accountId: account.id,
+            providerMessageId: {
+              in: providerMessageIds.slice(start, start + SEEN_LOOKUP_CHUNK_SIZE),
+            },
+          },
+          { fields: ["providerMessageId"] },
+        );
+        for (const row of seen) seenIds.add(row.providerMessageId);
+      }
       return new Set(providerMessageIds.filter((id) => !seenIds.has(id)));
     };
   }

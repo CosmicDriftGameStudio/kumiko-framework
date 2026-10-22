@@ -81,6 +81,7 @@ export type HostRoutingOptions = HostRoutingTenantMode & {
   // Not allowed with tenantBy "path" (boot error): there the client's X-Tenant
   // wins over the resolver, so the allowlist would be ineffective.
   readonly apexAnonymousQueryAllowlist?: Readonly<Record<string, readonly string[]>>;
-  // Checked first, before any host classification.
+  // Checked first within hostDispatch, i.e. only for requests that reach the HTML
+  // fallback (no static file, no API route): a `from` matching either never fires.
   readonly redirects?: readonly HostRoutingRedirect[];
 };

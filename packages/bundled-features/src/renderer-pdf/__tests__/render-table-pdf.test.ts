@@ -197,6 +197,28 @@ describe("renderTablePdf", () => {
     }
   });
 
+  test("renderTablePdf called directly enforces the same limits", async () => {
+    const oneColumn = [{ header: "H" }];
+    const overLimit = [
+      { title: "Rows", columns: oneColumn, rows: Array.from({ length: 10_001 }, () => ["x"]) },
+      { title: "x".repeat(20_001), columns: oneColumn, rows: [] },
+      {
+        title: "Meta",
+        columns: oneColumn,
+        rows: [],
+        meta: Array.from({ length: 501 }, () => ({ label: "a", value: "b" })),
+      },
+      { title: "No columns", columns: [], rows: [] },
+    ];
+
+    for (const doc of overLimit) {
+      await expect(renderTablePdf(doc)).rejects.toMatchObject({
+        name: RendererError.name,
+        code: "invalid_payload",
+      });
+    }
+  });
+
   test("a very long title continues on the next pages without losing text", async () => {
     const title = Array.from({ length: 1500 }, (_, index) => `T${index}x`).join(" ");
     const { pdfBytes, pageCount } = await renderTablePdf({

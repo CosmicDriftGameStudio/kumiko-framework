@@ -1,6 +1,6 @@
 // The rename form as the browser runs it: the row action's prefill reaches the
-// form, and the submit sends the audit reason the handler requires although it
-// is not in the layout. The provider wrapper is local because the
+// form, and the submit sends only id and name; the audit reason is
+// derived server-side. The provider wrapper is local because the
 // renderer/web to bundled-features dependency direction forbids test-utils.
 
 import { describe, expect, test } from "bun:test";
@@ -84,7 +84,7 @@ function makeDispatcher(writes: Array<{ type: string; payload: unknown }>): Disp
 }
 
 describe("mail-account-edit screen", () => {
-  test("prefills id and name from the row action and submits them with the audit reason", async () => {
+  test("prefills id and name from the row action and submits them without a client-side audit reason", async () => {
     const writes: Array<{ type: string; payload: unknown }> = [];
     render(
       <TokensProvider value={stubTokens}>
@@ -128,7 +128,7 @@ describe("mail-account-edit screen", () => {
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]).toEqual({
       type: "inbound-mail-foundation:write:update-account",
-      payload: { accountId: ACCOUNT_ID, displayName: "Team inbox", reason: "tenant_admin" },
+      payload: { accountId: ACCOUNT_ID, displayName: "Team inbox" },
     });
   });
 });

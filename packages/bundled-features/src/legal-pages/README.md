@@ -35,7 +35,7 @@ runProdApp({
   //      decoupling — legal-pages imports no code from template-resolver,
   //      only uses the API via ctx)
   anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
-  extraContext: ({ db }) => ({
+  extraContext: ({ db, registry }) => ({
     templateResolver: createTemplateResolverApi(db, registry),
   }),
 });

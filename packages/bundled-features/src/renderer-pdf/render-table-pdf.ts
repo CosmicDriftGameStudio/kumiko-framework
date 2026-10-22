@@ -7,10 +7,13 @@ import type { PdfPageFormat } from "../template-resolver/index.ts";
 const PDF_TABLE_MAX_ROWS = 10_000;
 const PDF_TABLE_MAX_COLUMNS = 30;
 const PDF_TABLE_MAX_CELL_LENGTH = 5_000;
+const PDF_TABLE_MAX_META_ENTRIES = 500;
+const PDF_TABLE_MAX_TEXT_LENGTH = 20_000;
+const PDF_TABLE_MAX_PAGE_LABEL_LENGTH = 100;
 
 const pdfTableColumnSchema = z
   .object({
-    header: z.string(),
+    header: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH),
     weight: z.number().positive().optional(),
     align: z.enum(["left", "right"]).optional(),
   })
@@ -18,10 +21,18 @@ const pdfTableColumnSchema = z
 
 export const pdfTableDocumentSchema = z
   .object({
-    title: z.string(),
-    subtitle: z.string().optional(),
+    title: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH),
+    subtitle: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH).optional(),
     meta: z
-      .array(z.object({ label: z.string(), value: z.string() }).readonly())
+      .array(
+        z
+          .object({
+            label: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH),
+            value: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH),
+          })
+          .readonly(),
+      )
+      .max(PDF_TABLE_MAX_META_ENTRIES)
       .readonly()
       .optional(),
     columns: z.array(pdfTableColumnSchema).min(1).max(PDF_TABLE_MAX_COLUMNS).readonly(),
@@ -29,10 +40,10 @@ export const pdfTableDocumentSchema = z
       .array(z.array(z.string().max(PDF_TABLE_MAX_CELL_LENGTH)).readonly())
       .max(PDF_TABLE_MAX_ROWS)
       .readonly(),
-    emptyText: z.string().optional(),
-    footerText: z.string().optional(),
+    emptyText: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH).optional(),
+    footerText: z.string().max(PDF_TABLE_MAX_TEXT_LENGTH).optional(),
     // Template with `{page}` and `{pages}`; default `"{page} / {pages}"`.
-    pageLabel: z.string().optional(),
+    pageLabel: z.string().max(PDF_TABLE_MAX_PAGE_LABEL_LENGTH).optional(),
   })
   .readonly();
 
@@ -235,12 +246,18 @@ function resolveTableLayout(
 }
 
 export async function renderTablePdf(
-  doc: PdfTableDocument,
+  untrustedDoc: PdfTableDocument,
   options?: PdfTableOptions,
 ): Promise<PdfTableResult> {
-  if (doc.columns.length === 0) {
-    throw new RendererError("table needs at least one column", "invalid_payload");
+  // Direct callers bypass renderTablePdfRequest, so the size caps are enforced here too.
+  const parsed = pdfTableDocumentSchema.safeParse(untrustedDoc);
+  if (!parsed.success) {
+    throw new RendererError(
+      `table document is invalid: ${parsed.error.message}`,
+      "invalid_payload",
+    );
   }
+  const doc = parsed.data;
   assertRowShape(doc);
 
   const pdf = await PDFDocument.create({ updateMetadata: false });

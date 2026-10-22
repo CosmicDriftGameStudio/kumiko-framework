@@ -5,6 +5,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -23,6 +25,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
 import { seenMessageEntity, syncCursorEntity } from "../entities.ts";
+import { MAIL_ACCOUNT_UPDATED_EVENT_QN } from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { mailAccountEditScreen, mailAccountListScreen } from "../screens.ts";
 
@@ -80,6 +83,55 @@ function disconnectPayloadFor(row: ListedAccount): Record<string, unknown> {
   );
 }
 
+async function renameReasonsOf(accountId: string, tenantId: TenantId): Promise<unknown[]> {
+  const events = await loadAggregate(stack.db, accountId, tenantId);
+  return events
+    .filter((event) => event.type === MAIL_ACCOUNT_UPDATED_EVENT_QN)
+    .map((event) => (event.metadata.headers as { reason?: unknown } | undefined)?.reason);
+}
+
+describe("mailbox rename audit reason", () => {
+  test("is derived from the caller role and ignores a client-supplied reason", async () => {
+    const owner = createTestUser({
+      id: 4711,
+      tenantId: testTenantId(4711),
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const tenantAdmin = createTestUser({
+      id: 4712,
+      tenantId: owner.tenantId,
+      roles: ["TenantAdmin"],
+    });
+    const { accountId } = (await stack.http.writeOk(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "inmemory",
+        authMethod: "password",
+        displayName: "Team",
+        address: "t@tenant.example",
+        scope: "shared",
+      },
+      owner,
+    )) as { accountId: string };
+
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, displayName: "By tenant admin", reason: "watch_supervisor" },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(
+      InboundMailFoundationHandlers.updateAccount,
+      { accountId, displayName: "By system admin" },
+      owner,
+    );
+
+    expect(await renameReasonsOf(accountId, owner.tenantId)).toEqual([
+      "tenant_admin",
+      "system_admin",
+    ]);
+  });
+});
+
 describe("mailbox screens over the real handlers", () => {
   test("several mailboxes list, rename and disconnect via the screen payloads", async () => {
     const admin = createTestUser({
@@ -109,14 +161,14 @@ describe("mailbox screens over the real handlers", () => {
     }
 
     // Screen wiring: the row action maps the row id to the handler's accountId,
-    // the form writes the audit reason by default.
+    // the audit reason is derived server-side, not part of the form.
     expect(mailAccountListScreen.query).toBe(InboundMailFoundationQueries.listAccounts);
     expect(mailAccountEditScreen.handler).toBe(InboundMailFoundationHandlers.updateAccount);
-    expect(mailAccountEditScreen.fields["reason"]).toMatchObject({ default: "tenant_admin" });
+    expect(mailAccountEditScreen.fields["reason"]).toBeUndefined();
 
     await stack.http.writeOk(
       InboundMailFoundationHandlers.updateAccount,
-      { accountId: firstId, displayName: "Team inbox", reason: "tenant_admin" },
+      { accountId: firstId, displayName: "Team inbox" },
       admin,
     );
     const secondRow = listed.rows.find((row) => row.id === secondId);
@@ -176,7 +228,7 @@ describe("mailbox screens over the real handlers", () => {
     );
     const updateErr = await stack.http.writeErr(
       InboundMailFoundationHandlers.updateAccount,
-      { accountId: connected.accountId, displayName: "x", reason: "tenant_admin" },
+      { accountId: connected.accountId, displayName: "x" },
       user,
     );
     expect([disconnectErr.httpStatus, updateErr.httpStatus]).toEqual([403, 403]);

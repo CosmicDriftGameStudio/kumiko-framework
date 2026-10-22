@@ -75,9 +75,9 @@ export const MAIL_TRANSPORT_EXTENSION = "mailTransport" as const;
  *   config      — tenant config reads (the plugin's host/port/from/...)
  *   registry    — extension lookup in the factory (not plugin-internal)
  *   secrets     — tenant secret reads (smtp.password)
- *   auditUserId — audit identity for secret reads. Handler path: the
- *                 dispatcher sets the caller's user id; worker path: the
- *                 r.job wrap sets a system identity.
+ *   auditUserId — audit identity for secret reads. Handler path: unset,
+ *                 requireSecretsContext falls back to ctx.user.id; worker path:
+ *                 the r.job wrap sets a system identity.
  */
 export type MailTransportContext = {
   readonly config?: ConfigAccessor;
@@ -276,6 +276,8 @@ export type TenantMailTransportScope = {
 export function tenantMailTransport(
   scope: TenantMailTransportScope,
 ): Promise<EmailTransport | null> {
+  // Without a tenant config the provider cannot be read: use the app transport.
+  if (scope.config === undefined) return Promise.resolve(null);
   return createTransportForTenantIfConfigured(
     {
       config: scope.config,

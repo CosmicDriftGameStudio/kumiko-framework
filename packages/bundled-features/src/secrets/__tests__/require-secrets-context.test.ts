@@ -2,8 +2,8 @@
 // surface, not only with the full HandlerContext.
 // Regression guard for the latent worker-path bug:
 //   - Before the fix, `ctx as unknown as HandlerContext` was passed through
-//   - In the worker path, `ctx.auditUserId` is undefined (the dispatcher sets it
-//     only in the request path), causing `auditUserId missing` to be thrown
+//   - In the worker path, `ctx.auditUserId` is undefined (handler contexts leave it unset;
+//     requireSecretsContext falls back to ctx.user.id), causing `auditUserId missing` to be thrown
 //   - The worker wrapper now explicitly sets `auditUserId: SYSTEM_USER_ID`
 //
 // The test exercises both surfaces (HandlerContext shape via a type assertion

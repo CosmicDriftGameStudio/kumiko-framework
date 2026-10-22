@@ -3,7 +3,12 @@
 // the account after fixing its credentials. Full-snapshot event: loads the
 // latest state, merges the delta fields, and appends the new snapshot.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
+import {
+  type SessionUser,
+  SYSTEM_USER_ID,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { InboundMailAccountStatuses } from "../constants.ts";
@@ -27,11 +32,18 @@ export const updateAccountSchema = z.object({
   /** Ops-Signal ("idle", "watching", "backoff:3", ...). */
   watchState: z.string().max(100).optional(),
   displayName: z.string().max(200).optional(),
-  /** Audit reason for metadata.headers ("watch_supervisor",
-   *  "oauth_refresh", "tenant_admin"). */
-  reason: z.string().min(1).max(100),
+  /** Audit reason for metadata.headers, honored for the system identity only
+   *  ("watch_supervisor", "oauth_refresh"); user callers get a role-derived reason. */
+  reason: z.string().min(1).max(100).optional(),
 });
 type UpdateAccountPayload = z.infer<typeof updateAccountSchema>;
+
+const SYSTEM_FALLBACK_REASON = "system";
+
+function auditReasonFor(user: SessionUser, requestedReason: string | undefined): string {
+  if (user.id === SYSTEM_USER_ID) return requestedReason ?? SYSTEM_FALLBACK_REASON;
+  return user.roles.includes(ROLES.SystemAdmin) ? "system_admin" : "tenant_admin";
+}
 
 export const updateAccountHandler: WriteHandlerDef = {
   name: "update-account",
@@ -65,7 +77,7 @@ export const updateAccountHandler: WriteHandlerDef = {
     };
     const headers: MailAccountEventHeaders = {
       providerName: current.provider,
-      reason: payload.reason,
+      reason: auditReasonFor(event.user, payload.reason),
     };
     await ctx.unsafeAppendEvent({
       aggregateId: payload.accountId,
