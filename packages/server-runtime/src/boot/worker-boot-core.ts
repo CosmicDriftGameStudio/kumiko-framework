@@ -186,9 +186,10 @@ export async function bootWorkerProcess(
   }
 
   // Before the connections, so an abort leaks nothing.
-  const databaseWaitDeadline = Date.now() + WAIT_FOR_DATABASE_DEADLINE_MS;
+  const databaseWaitDeadline =
+    (options.databaseWait?.now ?? Date.now)() + WAIT_FOR_DATABASE_DEADLINE_MS;
   if (options.kms) {
-    await waitForKmsHealthy(options.kms, processName, databaseWaitDeadline);
+    await waitForKmsHealthy(options.kms, processName, databaseWaitDeadline, options.databaseWait);
   }
 
   const { db, closeDb, outsideTransactionDb, closeOutsideTransactionDb } = openDatabasePools(
@@ -202,7 +203,11 @@ export async function bootWorkerProcess(
     clientOptions: redisClientOptionsFromEnv(envSource),
   });
   try {
-    await waitForDatabase(db, { processName, deadline: databaseWaitDeadline });
+    await waitForDatabase(db, {
+      ...options.databaseWait,
+      processName,
+      deadline: databaseWaitDeadline,
+    });
   } catch (err) {
     await closeDb();
     await closeOutsideTransactionDb();
@@ -254,6 +259,7 @@ export async function bootWorkerProcess(
     registry,
     hasAuth: includeBundled,
     redis,
+    ...(options.appOverrides && { appOverrides: options.appOverrides }),
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
     ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),

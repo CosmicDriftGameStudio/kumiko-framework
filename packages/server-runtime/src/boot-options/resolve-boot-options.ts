@@ -39,6 +39,7 @@ export type BootOptionFields = {
   /** With `runSingleInstance: false`: the worker process mounts the same mail / fileStorage
    *  features (its own boot options or by hand), which silences the boot warning. */
   readonly workerMountsFeatures?: boolean;
+  readonly appOverrides?: object;
   readonly auth?: {
     readonly admin?: unknown;
     readonly mail?: { readonly from?: string };
@@ -122,11 +123,11 @@ function warnAboutBootOptions(options: BootOptionFields): void {
   );
   if (
     options.runSingleInstance === false &&
-    (options.mail || options.fileStorage || options.featureToggles) &&
+    (options.mail || options.fileStorage || options.featureToggles || options.appOverrides) &&
     options.workerMountsFeatures !== true
   ) {
     bootWarnings.push(
-      "runSingleInstance:false — delivery and file jobs run in runWorkerApp. Pass the same mail / fileStorage / featureToggles options there, or set workerMountsFeatures: true if it mounts those features itself.",
+      "runSingleInstance:false — delivery and file jobs run in runWorkerApp. Pass the same mail / fileStorage / featureToggles / appOverrides options there, or set workerMountsFeatures: true if it mounts those features itself.",
     );
   }
   if (bootWarnings.length > 0) {

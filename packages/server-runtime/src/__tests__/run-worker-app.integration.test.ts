@@ -397,6 +397,16 @@ describe("runWorkerApp", () => {
     }
   });
 
+  test("appOverrides reach the worker's config resolver: an unknown key aborts the boot", async () => {
+    await expect(
+      boot({
+        includeBundled: true,
+        allowPlaintextPii: "test: boot wiring focus, not PII crypto",
+        appOverrides: { "worker-probe:config:nope": 1 },
+      }),
+    ).rejects.toThrow(/unknown config key/i);
+  });
+
   test("Schema-Drift-Gate: pending migration aborts the boot before anything else initializes", async () => {
     const driftDir = await mkdtemp(join(tmpdir(), "kumiko-worker-drift-boot-"));
     tempDirs.push(driftDir);
