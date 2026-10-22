@@ -65,7 +65,10 @@ const PROCESS_REAUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Declared escape hatches of system crons are audited once per day and process for each
 // (handler, kind, tenant, target): the declaration, the system actor and the reason are
 // identical on every run, so repeats carry no information. The target is part of the
-// key because one run can write several global tables.
+// key only where it names a table (one run can write several global tables); a row target
+// would add a key and an audit event per touched foreign row.
+const TABLE_TARGET_KINDS: ReadonlySet<EscapeHatchKind> = new Set(["global-write"]);
+
 export type EscapeHatchProcessDedup = {
   readonly kinds: ReadonlySet<EscapeHatchKind>;
   readonly lastAuditedAt: Map<string, number>;
@@ -221,12 +224,13 @@ export function createEscapeHatchReporter(opts: {
     if (opts.meter) emitEscapeHatchUse(opts.meter, opts.handler, kind);
     const { processDedup } = opts;
     if (processDedup?.kinds.has(kind)) {
+      const keyTarget = TABLE_TARGET_KINDS.has(kind) ? target : undefined;
       const processKey = JSON.stringify([
         opts.handler,
         kind,
         opts.tenantId,
-        target?.id ?? null,
-        target?.tenantId ?? null,
+        keyTarget?.id ?? null,
+        keyTarget?.tenantId ?? null,
       ]);
       const nowMs = now();
       const lastAuditedAt = processDedup.lastAuditedAt.get(processKey);
