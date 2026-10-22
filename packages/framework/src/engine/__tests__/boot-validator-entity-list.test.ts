@@ -165,6 +165,32 @@ describe("validateBoot — entityList screens", () => {
   });
 });
 
+describe("validateBoot — entityList clientAction rowActions", () => {
+  test("a malformed clientAction name fails boot", () => {
+    const feature = defineFeature("demo", (r) => {
+      r.entity({
+        name: "item",
+        ...createEntity({
+          table: "Items",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      });
+      r.screen({
+        id: "item-list",
+        type: "entityList",
+        entity: "item",
+        columns: ["name"],
+        rowActions: [
+          { kind: "clientAction", id: "send", label: "actions.send", action: "Not Valid" },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /\(entityList\) rowAction "send" action "Not Valid" is not a client action name/,
+    );
+  });
+});
+
 describe("validateBoot — entityEdit recordTitleField", () => {
   function featureWithRecordTitleField(recordTitleField: string) {
     return defineFeature("demo", (r) => {

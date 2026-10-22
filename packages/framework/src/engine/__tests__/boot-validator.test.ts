@@ -3611,6 +3611,14 @@ describe("boot-validator", () => {
       );
     });
 
+    test("reveal.fields entry mit leerem field → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({ reveal: { fields: [{ field: "", label: "shop:reveal:token" }] } }),
+        ]),
+      ).toThrow(/has a reveal\.fields entry with an empty or non-string "field"/);
+    });
+
     test("reveal.fields mit doppeltem field → Throw", () => {
       expect(() =>
         validateBoot([
@@ -3757,6 +3765,13 @@ describe("boot-validator", () => {
       });
     }
 
+    test("unbekannter Screen-type → eigene Meldung statt Entity-Fehler", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({ id: "mystery", type: "bogus" } as never);
+      });
+      expect(() => validateBoot([feature])).toThrow(/Screen "mystery" has unknown type "bogus"\./);
+    });
+
     test("happy path: alle 4 Checks bestanden → kein Throw", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });
@@ -3844,6 +3859,24 @@ describe("boot-validator", () => {
       const section = { kind: "extension", title: "Custom", component: { react: "Panel" } };
       expect(() => validateBoot([makeFeature({ sections: [section] as never })])).not.toThrow();
     });
+    test("secretKeys nennt ein Feld ausserhalb von fields → Throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.config({ keys: { "site-name": createTenantConfig("text", { default: "" }) } });
+        r.screen({
+          id: "settings",
+          type: "configEdit",
+          scope: "tenant",
+          configKeys: { siteName: "shop:config:site-name" },
+          secretKeys: { smtpPassword: "shop:config:site-name" },
+          fields: { siteName: { type: "text" } } as never,
+          layout: { sections: [{ title: "Basics", fields: ["siteName"] }] } as never,
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /\(configEdit\) secretKeys names unknown field "smtpPassword"\./,
+      );
+    });
+
     test("mode: wizard mit nur 1 Section → Throw", () => {
       expect(() =>
         validateBoot([
@@ -5328,6 +5361,29 @@ describe("boot-validator", () => {
       });
       expect(() => validateBoot([feature])).toThrow(
         /action "add-note" drawer-target "ghost-form" does not resolve to a registered screen/,
+      );
+    });
+
+    test("entityEdit header action with a malformed clientAction name → throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity({
+          name: "product",
+          ...createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        });
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: { sections: [{ title: "Basics", fields: ["name"] }] },
+          actions: [
+            { kind: "clientAction", id: "send", label: "actions.send", action: "Not Valid" },
+          ],
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /\(entityEdit\) action "send" action "Not Valid" is not a client action name/,
       );
     });
 

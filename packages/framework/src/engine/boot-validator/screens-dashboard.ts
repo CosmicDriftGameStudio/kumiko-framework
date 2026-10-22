@@ -22,6 +22,7 @@ import type {
   ScreenDefinition,
 } from "../types/screen.ts";
 import {
+  assertWriteHandlerRegistered,
   isRowClickAction,
   resolveRowActionNavigateTarget,
   resolveScreenTargetQn,
@@ -139,12 +140,12 @@ export function validateDashboardActions(
             `after success. Remove redirect.`,
         );
       }
-      if (!allWriteHandlerQns.has(action.handler)) {
-        throw new Error(
-          `${where} handler "${action.handler}" is not a registered write-handler. Check the QN ` +
-            `spelling (expected "<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-        );
-      }
+      assertWriteHandlerRegistered(
+        featureName,
+        `Screen "${screenId}" (dashboard) action "${action.id}"`,
+        action.handler,
+        allWriteHandlerQns,
+      );
     }
   }
 }

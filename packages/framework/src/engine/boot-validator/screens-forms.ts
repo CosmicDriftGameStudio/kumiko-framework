@@ -19,6 +19,7 @@ import type {
 import { validateFormDerivations, validateFormDerivationsEnforced } from "./form-derivations.ts";
 import type { NavigateTargetLookups } from "./screens-actions.ts";
 import {
+  assertWriteHandlerRegistered,
   isSensitiveOrPasswordField,
   validateIdlessSuccessLink,
   validateRedirectTarget,
@@ -304,13 +305,12 @@ function validateWriteHandlerRegistered(
       `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty or non-string handler. Set handler to a non-empty handler name.`,
     );
   }
-  if (!allWriteHandlerQns.has(handler)) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${context}) handler "${handler}" ` +
-        `is not a registered write-handler. Check the QN spelling (expected ` +
-        `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-    );
-  }
+  assertWriteHandlerRegistered(
+    featureName,
+    `Screen "${screenId}" (${context})`,
+    handler,
+    allWriteHandlerQns,
+  );
 }
 
 // Every field entry must carry a `type` discriminator. An author typo
