@@ -15,7 +15,7 @@ bewirtschaftet. Das öffnet die Tür für Cross-Feature-Hooks:
 ## Was es NICHT macht
 
 - **Keine Upload-/Download-Routes** — die bleiben in
-  `framework/src/api/server.ts` via `options.files`-Bootstrap.
+  `framework/src/api/server-routes.ts` (`mountFileRoutes`).
   Multipart-Form-Body und Binary-Streaming passen nicht ins Write/Query-
   Handler-Pattern; ein Refactor zu `r.httpRoute` wäre orthogonal zu
   diesem Sprint.
