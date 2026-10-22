@@ -134,6 +134,9 @@ function targetCurrency(
   current: unknown,
   sourceCurrency: string | undefined,
 ): string | undefined {
+  // The client value is last: it must never override what the field or its sources dictate.
+  if (field.type === "money" && field.currency.kind === "literal") return field.currency.code;
+  if (sourceCurrency !== undefined) return sourceCurrency;
   if (
     isPlainObject(current) &&
     typeof current["currency"] === "string" &&
@@ -141,8 +144,6 @@ function targetCurrency(
   ) {
     return current["currency"];
   }
-  if (sourceCurrency !== undefined) return sourceCurrency;
-  if (field.type === "money" && field.currency.kind === "literal") return field.currency.code;
   return undefined;
 }
 
@@ -181,11 +182,16 @@ export function applyFormDerivations(values: unknown, screen: FormDerivationScre
 
     if (ordinary !== undefined) {
       const operands = ordinary.from.map((name) => readOperand(result, screen.fields, name));
-      sourceCurrency = operands.find((operand) => operand.currency !== undefined)?.currency;
-      computed = computeDerivedCellValue(
-        ordinary.op,
-        operands.map((operand) => operand.value),
-      );
+      const currencies = new Set(operands.flatMap((operand) => operand.currency ?? []));
+      sourceCurrency = currencies.values().next().value;
+      // Operands in different currencies have no meaningful sum.
+      computed =
+        currencies.size > 1
+          ? undefined
+          : computeDerivedCellValue(
+              ordinary.op,
+              operands.map((operand) => operand.value),
+            );
     }
 
     if (computed === undefined) {

@@ -286,15 +286,19 @@ function isNavDeniedOrDead(
   return !isUiAccessGranted(effectiveAccess, roles);
 }
 
+export function isPureGroupingNav(
+  nav: Pick<NavDefinition, "screen" | "target" | "provider">,
+): boolean {
+  return nav.screen === undefined && nav.target === undefined && nav.provider !== true;
+}
+
 function isDroppedByPropagation(
   ctx: NavContext,
   dropped: ReadonlySet<string>,
   childrenByParent: ReadonlyMap<string, readonly NavContext[]>,
 ): boolean {
   if (ctx.resolvedParentQn !== undefined && dropped.has(ctx.resolvedParentQn)) return true;
-  const isPureGroupingNode =
-    ctx.nav.screen === undefined && ctx.nav.target === undefined && ctx.nav.provider !== true;
-  if (!isPureGroupingNode) return false;
+  if (!isPureGroupingNav(ctx.nav)) return false;
   const children = childrenByParent.get(ctx.qn) ?? [];
   return children.length > 0 && children.every((child) => dropped.has(child.qn));
 }

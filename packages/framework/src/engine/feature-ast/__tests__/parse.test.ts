@@ -427,7 +427,7 @@ defineFeature("f", (r) => {
     });
   });
 
-  test("reads `{ name, ...ref, backingTable }` as a raw-ref definition and ignores the table wiring", () => {
+  test("reads `{ name, ...ref, backingTable }` as a raw-ref definition and keeps the table wiring", () => {
     const result = parseInline(`
 const eventEntity = { fields: { name: { type: "text" } } };
 defineFeature("f", (r) => {
@@ -440,6 +440,7 @@ defineFeature("f", (r) => {
       kind: "entity",
       entityName: "event",
       definition: { __raw: "eventEntity" },
+      backingTable: { __raw: "eventsTable" },
     });
   });
 

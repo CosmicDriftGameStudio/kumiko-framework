@@ -709,6 +709,15 @@ function buildTenantDb(
     return grants?.globalWrites?.reason ?? "";
   }
 
+  // The table is the audit target: process-level dedup would otherwise collapse a cron's
+  // writes to several global tables into one audit entry.
+  function reportGlobalWrite(table: Table | EntityTableMeta): void {
+    report("global-write", globalWriteReason(), {
+      id: tableNameOf(table),
+      tenantId: tenantId ?? SYSTEM_TENANT_ID,
+    });
+  }
+
   function personalDataDenied(
     table: Table | EntityTableMeta,
     keys: readonly string[],
@@ -802,7 +811,7 @@ function buildTenantDb(
           foreignTenantOnGlobalWrite(table, values["tenantId"]) ??
           personalDataDenied(table, Object.keys(values));
         if (denied) return Promise.reject(denied);
-        report("global-write", globalWriteReason());
+        reportGlobalWrite(table);
         return withDbSpan("insert", table, async () => insertRow<T>(table, values));
       },
       updateMany<T = Record<string, unknown>>(
@@ -823,7 +832,7 @@ function buildTenantDb(
             ),
           );
         }
-        report("global-write", globalWriteReason());
+        reportGlobalWrite(table);
         return withDbSpan("update", table, async () => updateRows<T>(table, set, where));
       },
       deleteMany(where: WhereObject): Promise<void> {
@@ -839,7 +848,7 @@ function buildTenantDb(
             ),
           );
         }
-        report("global-write", globalWriteReason());
+        reportGlobalWrite(table);
         return withDbSpan("delete", table, async () => {
           await deleteRows(table, where);
         });

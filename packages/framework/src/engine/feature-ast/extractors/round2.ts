@@ -1,4 +1,9 @@
-import type { CallExpression, ObjectLiteralExpression, SourceFile } from "ts-morph";
+import type {
+  CallExpression,
+  ObjectLiteralElementLike,
+  ObjectLiteralExpression,
+  SourceFile,
+} from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { EntityDefinition } from "../../types/fields.ts";
 import type { NavDefinition } from "../../types/nav.ts";
@@ -19,21 +24,42 @@ import {
   readNameOrRef,
 } from "./shared.ts";
 
+type SpreadOnlyEntity = {
+  readonly definition: RawRefSentinel;
+  readonly backingTable: RawRefSentinel | undefined;
+};
+
+function readBackingTableRef(property: ObjectLiteralElementLike): RawRefSentinel | undefined {
+  const initializer =
+    property.asKind(SyntaxKind.PropertyAssignment)?.getInitializer() ??
+    property.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getNameNode();
+  const reference = initializer ? readDataLiteralNode(initializer) : undefined;
+  return isRawRefSentinel(reference) ? reference : undefined;
+}
+
 // `{ name: "x", ...xEntity }` — the definition is a reference the parser cannot
 // inline, so it is kept as a raw-ref sentinel and re-rendered as the same spread.
 // `backingTable` is runtime wiring (a table identifier), not part of the
-// definition data, so it does not take part in the shape check.
-function readSpreadOnlyDefinition(obj: ObjectLiteralExpression): RawRefSentinel | undefined {
-  const properties = obj
-    .getProperties()
-    .filter(
-      (property) => property.asKind(SyntaxKind.PropertyAssignment)?.getName() !== "backingTable",
-    );
+// definition data, so it is carried next to the definition and skipped by the shape check.
+function readSpreadOnlyDefinition(obj: ObjectLiteralExpression): SpreadOnlyEntity | undefined {
+  const isBackingTable = (property: ObjectLiteralElementLike): boolean => {
+    const name =
+      property.asKind(SyntaxKind.PropertyAssignment)?.getName() ??
+      property.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getName();
+    return name === "backingTable";
+  };
+  const allProperties = obj.getProperties();
+  const properties = allProperties.filter((property) => !isBackingTable(property));
   const spread =
     properties.length === 2 ? properties[1]?.asKind(SyntaxKind.SpreadAssignment) : undefined;
   if (!spread) return undefined;
   const reference = readDataLiteralNode(spread.getExpression());
-  return isRawRefSentinel(reference) ? reference : undefined;
+  if (!isRawRefSentinel(reference)) return undefined;
+  const backingTableProperty = allProperties.find(isBackingTable);
+  const backingTable = backingTableProperty ? readBackingTableRef(backingTableProperty) : undefined;
+  // A backingTable that is not a plain reference cannot be re-rendered; fall back to the data reader.
+  if (backingTableProperty && !backingTable) return undefined;
+  return { definition: reference, backingTable };
 }
 
 export function extractEntity(
@@ -64,7 +90,8 @@ export function extractEntity(
         "object form requires a string-literal `name` property",
       );
     }
-    const definition = readSpreadOnlyDefinition(obj) ?? readDataLiteralNode(obj);
+    const spreadOnly = readSpreadOnlyDefinition(obj);
+    const definition = spreadOnly?.definition ?? readDataLiteralNode(obj);
     if (!isPlainObject(definition)) {
       return fail(
         "entity",
@@ -89,6 +116,7 @@ export function extractEntity(
       // Field-type membership is checked above; the cast is the extractor's
       // existing narrowing contract (readDataLiteralNode returns unknown).
       definition: defWithoutName as EntityDefinition,
+      ...(spreadOnly?.backingTable && { backingTable: spreadOnly.backingTable }),
     });
   }
 

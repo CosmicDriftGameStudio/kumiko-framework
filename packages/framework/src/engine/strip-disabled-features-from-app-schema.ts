@@ -15,6 +15,7 @@
 import type { AppSchema, FeatureSchema } from "../ui-types/app-schema.ts";
 import { resolveScreenTargetQn } from "./boot-validator/screens.ts";
 import { isToggleableFeature } from "./effective-features.ts";
+import { isPureGroupingNav } from "./project-app-schema-for-roles.ts";
 import { isValidQn, qualifyEntityName } from "./qualified-name.ts";
 import type { EffectiveFeaturesResolver } from "./tier-resolver-extension.ts";
 import type { Registry } from "./types/feature.ts";
@@ -48,20 +49,45 @@ function navParentQn(featureName: string, parent: string): string {
   return isValidQn(parent) ? parent : qualifyEntityName(featureName, "nav", parent);
 }
 
-// Navs of enabled features whose parent chain ends in a removed nav.
+function navQnsByParent(features: readonly FeatureSchema[]): ReadonlyMap<string, string[]> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const feature of features) {
+    for (const nav of feature.navs ?? []) {
+      if (nav.parent === undefined) continue;
+      const parentQn = navParentQn(feature.featureName, nav.parent);
+      const children = childrenByParent.get(parentQn) ?? [];
+      children.push(qualifyEntityName(feature.featureName, "nav", nav.id));
+      childrenByParent.set(parentQn, children);
+    }
+  }
+  return childrenByParent;
+}
+
+// Navs of enabled features whose parent chain ends in a removed nav, plus pure grouping
+// navs whose children are all removed (an empty section the role projection cannot drop,
+// because it only drops groups that still have children).
 function collectOrphanedNavQns(
   features: readonly FeatureSchema[],
   removedNavQns: Set<string>,
 ): ReadonlySet<string> {
   const orphaned = new Set<string>();
+  const childrenByParent = navQnsByParent(features);
   let changed = true;
   while (changed) {
     changed = false;
     for (const feature of features) {
       for (const nav of feature.navs ?? []) {
         const qn = qualifyEntityName(feature.featureName, "nav", nav.id);
-        if (removedNavQns.has(qn) || nav.parent === undefined) continue;
-        if (removedNavQns.has(navParentQn(feature.featureName, nav.parent))) {
+        if (removedNavQns.has(qn)) continue;
+        const parentRemoved =
+          nav.parent !== undefined &&
+          removedNavQns.has(navParentQn(feature.featureName, nav.parent));
+        const children = childrenByParent.get(qn) ?? [];
+        const emptiedGroup =
+          isPureGroupingNav(nav) &&
+          children.length > 0 &&
+          children.every((childQn) => removedNavQns.has(childQn));
+        if (parentRemoved || emptiedGroup) {
           removedNavQns.add(qn);
           orphaned.add(qn);
           changed = true;

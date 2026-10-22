@@ -31,13 +31,24 @@ const crossGated = defineFeature("cross-gated", (r) => {
   });
 });
 
+const addon = defineFeature("addon", (r) => {
+  r.toggleable({ default: false });
+  r.screen({ id: "tool", type: "dashboard", panels: [] });
+  r.nav({ id: "tool", label: "Tool", screen: "tool", parent: "core:nav:addons" });
+});
+
+const core = defineFeature("core", (r) => {
+  r.nav({ id: "addons", label: "Add-ons" });
+  r.nav({ id: "home", label: "Home" });
+});
+
 const host = defineFeature("host", (r) => {
   r.screen({ id: "upgrade", type: "dashboard", panels: [] });
   r.nav({ id: "to-locked", label: "Locked", screen: "gated:screen:locked" });
   r.nav({ id: "to-internal", label: "Internal", screen: "gated:screen:internal" });
 });
 
-const registry = createRegistry([gated, crossGated, host]);
+const registry = createRegistry([gated, crossGated, host, addon, core]);
 
 function screenIds(featureName: string, schema: ReturnType<typeof buildAppSchema>): string[] {
   return schema.features.find((f) => f.featureName === featureName)?.screens.map((s) => s.id) ?? [];
@@ -70,5 +81,12 @@ describe("stripDisabledFeaturesFromAppSchema", () => {
     expect(result.features.find((f) => f.featureName === "host")).toEqual(
       schema.features.find((f) => f.featureName === "host"),
     );
+  });
+
+  test("a grouping nav whose only children belong to the disabled feature is removed", () => {
+    const schema = buildAppSchema(registry);
+    const result = stripDisabledFeaturesFromAppSchema(schema, registry, ["addon"]);
+    const navIds = result.features.find((f) => f.featureName === "core")?.navs?.map((n) => n.id);
+    expect(navIds).toEqual(["home"]);
   });
 });

@@ -104,6 +104,9 @@ export type EntityPattern = {
   readonly source: SourceLocation;
   readonly entityName: string;
   readonly definition: EntityDefinition;
+  // Table identifier from `{ name, ...ref, backingTable }`; only kept for the spread form, where
+  // the definition is an opaque reference and the table would otherwise be lost on re-render.
+  readonly backingTable?: RawRefSentinel;
 };
 
 // `r.relation(entity, relationName, definition)` — attaches a named

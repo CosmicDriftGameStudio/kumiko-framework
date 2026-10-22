@@ -19,6 +19,9 @@ const fields = {
   net: { type: "money", currency },
   vat: { type: "money", currency },
   gross: { type: "money", currency },
+  rate: { type: "decimal", precision: 5, scale: 2 },
+  count: { type: "number" },
+  plain: { type: "number" },
 } as const;
 
 type Wrap = "own" | "foreign" | "none";
@@ -58,7 +61,7 @@ describe("validateBoot — actionForm derive", () => {
           op: "listSum",
           list: "lines",
           cell: "amount",
-          whenEmpty: { op: "percent", from: ["net", "net"] },
+          whenEmpty: { op: "percent", from: ["net", "rate"] },
         },
         gross: { op: "sum", from: ["net", "vat"] },
       }),
@@ -104,6 +107,46 @@ describe("validateBoot — actionForm derive", () => {
       "cell is not numeric",
       { net: { op: "listSum", list: "lines", cell: "label" } },
       /money, number or decimal sub-field/,
+    ],
+    [
+      "text source",
+      { net: { op: "sum", from: ["note"] } },
+      /source "note" must be money, number or decimal/,
+    ],
+    [
+      "sum over money and number",
+      { net: { op: "sum", from: ["vat", "plain"] } },
+      /all money or all number\/decimal/,
+    ],
+    [
+      "money sum into a number target",
+      { count: { op: "sum", from: ["vat", "gross"] } },
+      /needs a money target/,
+    ],
+    [
+      "number sum into a money target",
+      { net: { op: "sum", from: ["plain", "count"] } },
+      /needs a number\/decimal target/,
+    ],
+    [
+      "multiply of two money sources",
+      { net: { op: "multiply", from: ["vat", "gross"] } },
+      /at most one money source/,
+    ],
+    [
+      "percent with a money rate",
+      { net: { op: "percent", from: ["rate", "vat"] } },
+      /not the rate/,
+    ],
+    [
+      "money multiply into a number target",
+      { count: { op: "multiply", from: ["vat", "plain"] } },
+      /money exactly when/,
+    ],
+    [
+      "listSum of a money cell into a number target",
+      { count: { op: "listSum", list: "lines", cell: "amount" } },
+      /needs a money target/,
     ],
     ["cycle", { net: { op: "sum", from: ["vat"] }, vat: { op: "sum", from: ["net"] } }, /cycle/],
   ];
