@@ -663,9 +663,44 @@ function readPatRevokedScope(payload: Record<string, unknown>): AccessInvalidati
   return tokenIds ? { kind: "pat-tokens", tokenIds } : { kind: "user" };
 }
 
-export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): EventConsumer {
+const ACCESS_INVALIDATION_BACKOFF_INITIAL_MS = 250;
+const ACCESS_INVALIDATION_BACKOFF_MAX_MS = 10_000;
+
+// A rejected publish means Redis is unreachable: the consumer must keep retrying until it is
+// back, because parking it dead would silently stop every later revocation reaching open
+// streams. The gate rethrows without touching Redis until the backoff elapsed.
+function withTransportBackoff(
+  publish: (event: StoredEvent) => Promise<void>,
+  now: () => number,
+): (event: StoredEvent) => Promise<void> {
+  let delayMs = ACCESS_INVALIDATION_BACKOFF_INITIAL_MS;
+  let retryNotBefore = 0;
+  let lastError: unknown = null;
+  return async (event) => {
+    if (lastError !== null && now() < retryNotBefore) throw lastError;
+    try {
+      await publish(event);
+      delayMs = ACCESS_INVALIDATION_BACKOFF_INITIAL_MS;
+      lastError = null;
+    } catch (err) {
+      lastError = err;
+      retryNotBefore = now() + delayMs;
+      delayMs = Math.min(delayMs * 2, ACCESS_INVALIDATION_BACKOFF_MAX_MS);
+      throw err;
+    }
+  };
+}
+
+export function createAccessInvalidationEventConsumer(
+  sseBroker: SseBroker,
+  opts: { readonly now?: () => number } = {},
+): EventConsumer {
+  const now = opts.now ?? Date.now;
   return {
     name: ACCESS_INVALIDATION_CONSUMER_NAME,
+    // Count-based dead-lettering would end after a few seconds of Redis downtime; the
+    // attempts counter just keeps climbing until the publish goes through.
+    errorPolicy: { maxAttempts: Number.POSITIVE_INFINITY },
     // Shared delivery, same reasoning as SSE broadcast: one
     // cursor reads every event once and calls sseBroker.publishAccessInvalidation
     // below, which a Redis-backed broker republishes to every replica's
@@ -676,7 +711,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
     // existed has nothing to invalidate — replaying it would be a no-op at
     // best and a spurious stream-close at worst.
     startFrom: "now",
-    handler: async (event) => {
+    handler: withTransportBackoff(async (event) => {
       if (event.type === SESSION_REVOKED_EVENT_TYPE) {
         const userId = event.payload["userId"];
         // skip: malformed session-revoked payload — fail open on this one
@@ -705,6 +740,6 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         if (userId === undefined) return;
         await sseBroker.publishAccessInvalidation(userId);
       }
-    },
+    }, now),
   };
 }
