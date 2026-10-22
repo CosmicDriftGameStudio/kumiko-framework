@@ -162,7 +162,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.mail.verify.intro": "please verify your email address for {app} to activate your account:",
   "auth.mail.verify.subject": "{app} — Verify your email",
   "auth.mfa.disable.cancel": "Cancel",
-  "auth.mfa.disable.code": "Code from your authenticator app or a recovery code",
+  "auth.mfa.disable.code": "Code from your authenticator app",
   "auth.mfa.disable.confirm": "Disable",
   "auth.mfa.disable.description":
     "Confirm with a code from your authenticator app or a recovery code. Your account will then be protected by your password alone.",
@@ -209,10 +209,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.mfa.setup.title": "Two-factor authentication required",
   "auth.mfa.verify.backToLogin": "Back to login",
   "auth.mfa.verify.code": "Code",
+  "auth.mfa.verify.recoveryCode": "Recovery code",
+  "auth.mfa.verify.recoverySubtitle":
+    "Enter one of the recovery codes you saved when you set up two-factor authentication.",
   "auth.mfa.verify.submit": "Verify",
   "auth.mfa.verify.submitting": "…",
   "auth.mfa.verify.subtitle": "Enter the 6-digit code from your authenticator app.",
   "auth.mfa.verify.title": "Two-factor verification",
+  "auth.mfa.verify.useAuthenticatorCode": "Use the code from your app",
+  "auth.mfa.verify.useRecoveryCode": "Use a recovery code instead",
   "auth.requestUnlock.backToLogin": "Back to sign in",
   "auth.requestUnlock.email": "Email",
   "auth.requestUnlock.intro":

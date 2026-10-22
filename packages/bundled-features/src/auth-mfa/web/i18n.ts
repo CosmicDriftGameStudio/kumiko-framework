@@ -13,6 +13,11 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.verify.submit": "Verify",
     "auth.mfa.verify.submitting": "…",
     "auth.mfa.verify.backToLogin": "Back to login",
+    "auth.mfa.verify.recoveryCode": "Recovery code",
+    "auth.mfa.verify.recoverySubtitle":
+      "Enter one of the recovery codes you saved when you set up two-factor authentication.",
+    "auth.mfa.verify.useAuthenticatorCode": "Use the code from your app",
+    "auth.mfa.verify.useRecoveryCode": "Use a recovery code instead",
     "auth.mfa.errors.invalidCode": "Invalid code. Please try again.",
     "auth.mfa.errors.invalidTotpCode": "Invalid code. Please try again.",
     "auth.mfa.errors.invalidChallengeToken": "Your sign-in has expired. Please sign in again.",
@@ -43,7 +48,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.mfa.disable.title": "Disable two-factor authentication",
     "auth.mfa.disable.description":
       "Confirm with a code from your authenticator app or a recovery code. Your account will then be protected by your password alone.",
-    "auth.mfa.disable.code": "Code from your authenticator app or a recovery code",
+    "auth.mfa.disable.code": "Code from your authenticator app",
     "auth.mfa.disable.confirm": "Disable",
     "auth.mfa.disable.cancel": "Cancel",
     "auth.mfa.disable.trigger": "Disable two-factor authentication",

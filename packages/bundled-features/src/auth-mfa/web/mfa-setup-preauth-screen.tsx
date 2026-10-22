@@ -79,6 +79,7 @@ export function MfaSetupPreauthScreen({
   const [setup, setSetup] = useState<SetupState | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [code, setCode] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
@@ -109,13 +110,13 @@ export function MfaSetupPreauthScreen({
     }
   };
 
-  const confirmSetup = async (): Promise<void> => {
-    if (!setup) return;
+  const confirmSetup = async (submittedCode: string): Promise<void> => {
+    if (!setup || busy) return;
     setBusy(true);
     setError(null);
     setRetryAfterSeconds(null);
     try {
-      const res = await confirmMfaSetupPreauth(setup.setupToken, code);
+      const res = await confirmMfaSetupPreauth(setup.setupToken, submittedCode);
       if (res.kind !== "success") {
         setError(res.error.reason);
         setRetryAfterSeconds(res.error.retryAfterSeconds ?? null);
@@ -130,7 +131,11 @@ export function MfaSetupPreauthScreen({
           setSetup(null);
           setAcknowledged(false);
           setCode("");
+          return;
         }
+        // Remount: the field was disabled during confirm and lost focus.
+        setCode("");
+        setAttempt((n) => n + 1);
         return;
       }
       onSuccess?.(res.data.landingPath);
@@ -143,7 +148,7 @@ export function MfaSetupPreauthScreen({
 
   const onSubmit = (e?: FormEvent): void => {
     e?.preventDefault();
-    void confirmSetup();
+    void confirmSetup(code);
   };
 
   return (
@@ -226,13 +231,17 @@ export function MfaSetupPreauthScreen({
 
             <Field id="mfa-setup-preauth-code" label={t("auth.mfa.enable.code")} required>
               <Input
-                kind="text"
+                key={attempt}
+                kind="code"
+                length={6}
                 id="mfa-setup-preauth-code"
                 name="mfa-setup-preauth-code"
                 value={code}
                 onChange={setCode}
+                onComplete={(next) => void confirmSetup(next)}
                 disabled={busy || !acknowledged}
-                autoComplete="one-time-code"
+                hasError={error !== null}
+                autoFocus={attempt > 0}
               />
             </Field>
 

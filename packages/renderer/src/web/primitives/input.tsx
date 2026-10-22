@@ -5,6 +5,7 @@ import { Checkbox } from "../ui/checkbox.tsx";
 import { Input as UiInput } from "../ui/input.tsx";
 import { Switch } from "../ui/switch.tsx";
 import { Textarea } from "../ui/textarea.tsx";
+import { CodeInput } from "./code-input.tsx";
 import { ComboboxInput } from "./combobox.tsx";
 import { DateInput } from "./date-input.tsx";
 import { FileUploadInput } from "./file-upload.tsx";
@@ -15,6 +16,7 @@ import { NumberInput } from "./number-input.tsx";
 import { hasDescriptionOrGroup } from "./option-groups.ts";
 import { TimestampInput } from "./timestamp-input.tsx";
 import { TzInput } from "./tz-input.tsx";
+import { useFocusOnMount } from "./use-focus-on-mount.ts";
 import "../react-css-custom-properties.ts";
 import { FieldDescriptionContext, FieldLayoutContext } from "./contexts.tsx";
 import {
@@ -37,6 +39,7 @@ export function DefaultInput(props: InputProps): ReactNode {
   // themselves, no manual border-destructive needed anymore.
   const booleanLayout = useContext(FieldLayoutContext);
   const describedBy = useContext(FieldDescriptionContext);
+  const textInputRef = useFocusOnMount(props.kind === "text" ? props.autoFocus : undefined);
   const common = {
     id: props.id,
     name: props.name,
@@ -53,6 +56,7 @@ export function DefaultInput(props: InputProps): ReactNode {
           props.icon,
           <UiInput
             type="text"
+            ref={textInputRef}
             {...common}
             {...props.dataAttributes}
             data-testid={props.testId}
@@ -66,6 +70,8 @@ export function DefaultInput(props: InputProps): ReactNode {
           />,
         ),
       );
+    case "code":
+      return <CodeInput {...props} />;
     case "email":
       return (
         <UiInput

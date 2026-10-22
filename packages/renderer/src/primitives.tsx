@@ -278,6 +278,7 @@ export type InputProps =
       readonly name: string;
       readonly value: string;
       readonly onChange: (v: string) => void;
+      readonly autoFocus?: boolean;
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
@@ -303,6 +304,25 @@ export type InputProps =
       /** Raw keydown access (e.g. Enter-to-submit at the field instead of
        *  the surrounding Form). Forwarded to the element. */
       readonly onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+    }
+  | {
+      /** Fixed-length numeric one-time code. `onComplete` fires once when input,
+       *  paste or autofill brings the value to full length; the value holds
+       *  digits only. */
+      readonly kind: "code";
+      readonly id: string;
+      readonly name: string;
+      readonly value: string;
+      readonly onChange: (v: string) => void;
+      readonly length: number;
+      readonly onComplete?: (code: string) => void;
+      readonly autoFocus?: boolean;
+      readonly disabled?: boolean;
+      readonly required?: boolean;
+      readonly hasError?: boolean;
+      readonly testId?: string;
+      /** Default "one-time-code". */
+      readonly autoComplete?: string;
     }
   | {
       readonly kind: "email";

@@ -9,6 +9,7 @@
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { AuthMfaHandlers } from "./constants.ts";
+import { MfaCodeOrRecoveryField } from "./mfa-code-or-recovery-field.tsx";
 
 export type MfaRegenerateRecoveryDialogProps = {
   readonly open: boolean;
@@ -25,16 +26,27 @@ export function MfaRegenerateRecoveryDialog({
   onError,
 }: MfaRegenerateRecoveryDialogProps): ReactNode {
   const t = useTranslation();
-  const { Dialog, Field, Input } = usePrimitives();
+  const { Dialog } = usePrimitives();
   const dispatcher = useDispatcher();
   const [code, setCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
+
+  const reset = (): void => {
+    setCode("");
+    setUseRecovery(false);
+  };
+
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (!nextOpen) reset();
+    onOpenChange(nextOpen);
+  };
 
   const confirm = async (): Promise<void> => {
     const res = await dispatcher.write<{ recoveryCodes: readonly string[] }>(
       AuthMfaHandlers.regenerateRecovery,
       { code },
     );
-    setCode("");
+    reset();
     if (!res.isSuccess) {
       onError(res.error.i18nKey);
       return;
@@ -45,7 +57,7 @@ export function MfaRegenerateRecoveryDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title={t("auth.mfa.regenerate.title")}
       description={t("auth.mfa.regenerate.description")}
       confirmLabel={t("auth.mfa.regenerate.confirm")}
@@ -53,16 +65,14 @@ export function MfaRegenerateRecoveryDialog({
       onConfirm={confirm}
       testId="mfa-regenerate-recovery-dialog"
     >
-      <Field id="mfa-regenerate-code" label={t("auth.mfa.regenerate.code")} required>
-        <Input
-          kind="text"
-          id="mfa-regenerate-code"
-          name="mfa-regenerate-code"
-          value={code}
-          onChange={setCode}
-          autoComplete="one-time-code"
-        />
-      </Field>
+      <MfaCodeOrRecoveryField
+        id="mfa-regenerate-code"
+        codeLabel={t("auth.mfa.regenerate.code")}
+        code={code}
+        onCodeChange={setCode}
+        useRecovery={useRecovery}
+        onUseRecoveryChange={setUseRecovery}
+      />
     </Dialog>
   );
 }

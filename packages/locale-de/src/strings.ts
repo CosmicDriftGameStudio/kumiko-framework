@@ -172,7 +172,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "bitte bestätige deine E-Mail-Adresse für {app}, um dein Konto zu aktivieren:",
   "auth.mail.verify.subject": "{app} — E-Mail bestätigen",
   "auth.mfa.disable.cancel": "Abbrechen",
-  "auth.mfa.disable.code": "Code aus der Authenticator-App oder Recovery-Code",
+  "auth.mfa.disable.code": "Code aus der Authenticator-App",
   "auth.mfa.disable.confirm": "Deaktivieren",
   "auth.mfa.disable.description":
     "Bestätige mit einem Code aus deiner Authenticator-App oder einem Recovery-Code. Dein Konto ist danach nur noch durch dein Passwort geschützt.",
@@ -219,10 +219,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.mfa.setup.title": "Zwei-Faktor-Authentifizierung erforderlich",
   "auth.mfa.verify.backToLogin": "Zurück zum Login",
   "auth.mfa.verify.code": "Code",
+  "auth.mfa.verify.recoveryCode": "Recovery-Code",
+  "auth.mfa.verify.recoverySubtitle":
+    "Gib einen der Recovery-Codes ein, die du beim Einrichten gespeichert hast.",
   "auth.mfa.verify.submit": "Bestätigen",
   "auth.mfa.verify.submitting": "…",
   "auth.mfa.verify.subtitle": "Gib den 6-stelligen Code aus deiner Authenticator-App ein.",
   "auth.mfa.verify.title": "Zwei-Faktor-Bestätigung",
+  "auth.mfa.verify.useAuthenticatorCode": "Code aus der App verwenden",
+  "auth.mfa.verify.useRecoveryCode": "Recovery-Code verwenden",
   "auth.requestUnlock.backToLogin": "Zurück zum Login",
   "auth.requestUnlock.email": "E-Mail",
   "auth.requestUnlock.intro":
