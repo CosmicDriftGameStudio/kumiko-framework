@@ -28,6 +28,11 @@ function unknownKeyFailure(key: string): SecretKeyWriteCheck {
   };
 }
 
+function isUnderMountedFeaturePrefix(registry: Registry, key: string): boolean {
+  const separator = key.indexOf(":");
+  return separator > 0 && registry.getFeature(key.slice(0, separator)) !== undefined;
+}
+
 function namespaceAcceptsKey(namespace: SecretNamespaceDefinition, key: string): boolean {
   const suffix = key.slice(namespace.qualifiedPrefix.length);
   if (suffix.length === 0) return false;
@@ -38,7 +43,9 @@ function namespaceAcceptsKey(namespace: SecretNamespaceDefinition, key: string):
 // are writable through the API, so a tenant admin cannot plant arbitrary rows
 // next to the feature-owned ones. writeRoles narrows the handler access
 // further for a key or a whole namespace. Delete passes allowUndeclared: it
-// creates nothing, and legacy rows under since-undeclared keys must stay removable.
+// creates nothing, and legacy rows under since-undeclared keys must stay removable,
+// unless the key sits under a mounted feature's prefix: those rows belong to the
+// feature and must not be removable by a tenant admin outside its writeRoles.
 export function checkSecretKeyWrite(
   registry: Registry,
   userRoles: readonly string[],
@@ -50,7 +57,7 @@ export function checkSecretKeyWrite(
   if (
     !keyDef &&
     !(namespace && namespaceAcceptsKey(namespace, key)) &&
-    options.allowUndeclared !== true
+    (options.allowUndeclared !== true || isUnderMountedFeaturePrefix(registry, key))
   ) {
     return unknownKeyFailure(key);
   }

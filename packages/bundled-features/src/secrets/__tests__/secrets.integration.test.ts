@@ -173,6 +173,21 @@ describe("secrets feature — only declared keys are writable", () => {
     expect(rows).toHaveLength(0);
   });
 
+  test("delete of an undeclared key under a mounted feature prefix is rejected as unknown", async () => {
+    const featureOwnedKey = "secrets-test:internal.credential.abc";
+    await secretsContext.set(admin.tenantId, featureOwnedKey, "feature-token");
+
+    const err = await stack.http.writeErr(SecretsHandlers.delete, { key: featureOwnedKey }, admin);
+    expect(err.code).toBe("not_found");
+    expect(err.i18nKey).toBe("secrets.errors.unknownKey");
+
+    const rows = await selectMany(stack.db, tenantSecretsTable, {
+      tenantId: admin.tenantId,
+      key: featureOwnedKey,
+    });
+    expect(rows).toHaveLength(1);
+  });
+
   test("a declared key without writeRoles stays writable for TenantAdmin", async () => {
     await stack.http.writeOk(SecretsHandlers.set, { key: PLAIN_KEY, value: "plain-value" }, admin);
     await stack.http.writeOk(SecretsHandlers.delete, { key: PLAIN_KEY }, admin);
