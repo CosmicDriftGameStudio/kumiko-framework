@@ -6,6 +6,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "screen:templates.title": { en: "Templates", de: "Vorlagen" },
   "screen:platform-templates.title": { en: "System templates", de: "System-Vorlagen" },
   "screen:layout-editor.title": { en: "Layout", de: "Layout" },
+  "screen:platform-layout-editor.title": { en: "System layout", de: "System-Layout" },
   "screen:pdf-template-editor.title": { en: "PDF template", de: "PDF-Vorlage" },
   "document-designer:nav.templates": { en: "Templates", de: "Vorlagen" },
   "document-designer:nav.platformTemplates": { en: "System templates", de: "System-Vorlagen" },

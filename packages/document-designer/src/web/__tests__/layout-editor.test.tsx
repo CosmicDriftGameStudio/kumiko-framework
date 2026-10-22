@@ -115,6 +115,7 @@ function renderEditor(
   source: LayoutSourceView | null,
   calls: Call[],
   searchParams: Readonly<Record<string, string>> = nav.searchParams,
+  scope: "tenant" | "system" = "tenant",
 ): void {
   render(
     <LocaleProvider
@@ -125,13 +126,17 @@ function renderEditor(
         <UserRolesProvider roles={roles}>
           <PrimitivesProvider value={defaultPrimitives}>
             <NavProvider value={{ ...nav, searchParams }}>
-              <LayoutEditor />
+              <LayoutEditor scope={scope} />
             </NavProvider>
           </PrimitivesProvider>
         </UserRolesProvider>
       </DispatcherProvider>
     </LocaleProvider>,
   );
+}
+
+function renderSystemEditor(calls: Call[]): void {
+  renderEditor(["SystemAdmin"], systemSource, calls, nav.searchParams, "system");
 }
 
 describe("LayoutEditor", () => {
@@ -194,7 +199,7 @@ describe("LayoutEditor", () => {
 
   test("a platform admin sees the MJML tab and saves the edited source as system mjml", async () => {
     const calls: Call[] = [];
-    renderEditor(["SystemAdmin"], systemSource, calls);
+    renderSystemEditor(calls);
     await screen.findByTestId("layout-mjml-tab");
 
     const field = await screen.findByTestId("document-designer-mjml-source");
@@ -221,7 +226,7 @@ describe("LayoutEditor", () => {
   });
 
   test("the MJML preview rail is hidden in the MJML tab and shown in the draft tab", async () => {
-    renderEditor(["SystemAdmin"], systemSource, []);
+    renderSystemEditor([]);
     await screen.findByTestId("document-designer-mjml-source");
     expect(screen.queryByTestId("document-designer-mjml-preview")).toBeNull();
 
@@ -234,7 +239,7 @@ describe("LayoutEditor", () => {
 
   test("publishing as platform admin saves and then publishes the saved version", async () => {
     const calls: Call[] = [];
-    renderEditor(["SystemAdmin"], systemSource, calls);
+    renderSystemEditor(calls);
     const field = await screen.findByTestId("document-designer-mjml-source");
     fireEvent.change(field.querySelector("textarea") ?? field, {
       target: { value: `${MJML}<!-- v2 -->` },
@@ -255,26 +260,22 @@ describe("LayoutEditor", () => {
     });
   });
 
-  test("a platform admin asks for the system layout by default", async () => {
+  test("the platform screen asks for the system layout", async () => {
     const calls: Call[] = [];
-    renderEditor(["SystemAdmin"], systemSource, calls);
+    renderSystemEditor(calls);
     await screen.findByTestId("layout-mjml-tab");
     expect(
       calls.find((call) => call.type === "template-resolver:query:layout-source")?.payload,
     ).toEqual({ kind: "mail-layout", slug: "default", scope: "system" });
   });
 
-  test("a platform admin opening a tenant row edits the tenant layout, not the system one", async () => {
+  test("a platform admin on the tenant screen edits the tenant layout, also for a system-origin row", async () => {
     const calls: Call[] = [];
     renderEditor(
       ["SystemAdmin"],
       { ...tenantSource, tenant: { id: "t-1", version: 4, status: "draft", locale: "de" } },
       calls,
-      {
-        kind: "mail-layout",
-        slug: "default",
-        origin: "tenant",
-      },
+      { kind: "mail-layout", slug: "default", origin: "system" },
     );
     const publish = await screen.findByTestId("document-designer-publish");
     expect(
@@ -401,7 +402,7 @@ describe("LayoutEditor", () => {
   });
 
   test("an mjml layout shows where its look comes from instead of appearance controls", async () => {
-    renderEditor(["SystemAdmin"], systemSource, []);
+    renderSystemEditor([]);
     const rail = await screen.findByTestId("document-designer-appearance");
     expect(rail.textContent).toContain("layout's MJML source");
     expect(screen.queryByLabelText("Width")).toBeNull();

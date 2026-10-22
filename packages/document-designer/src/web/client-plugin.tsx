@@ -23,6 +23,7 @@ import {
   LAYOUT_EDITOR_SCREEN_ID,
   MAIL_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
+  PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
 } from "./constants.ts";
 import { documentDesignerTranslations } from "./default-translations.ts";
 import { DOCUMENT_DESIGNER_I18N } from "./i18n.ts";
@@ -38,7 +39,15 @@ const LazyPdfTemplateEditor = lazy(() =>
 function LayoutEditorScreen(): ReactNode {
   return (
     <Suspense fallback={<LoadingState />}>
-      <LazyLayoutEditor />
+      <LazyLayoutEditor scope="tenant" />
+    </Suspense>
+  );
+}
+
+function PlatformLayoutEditorScreen(): ReactNode {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <LazyLayoutEditor scope="system" />
     </Suspense>
   );
 }
@@ -101,6 +110,7 @@ export function documentDesignerClient(
     },
     components: {
       [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditorScreen,
+      [PLATFORM_LAYOUT_EDITOR_SCREEN_ID]: PlatformLayoutEditorScreen,
       [PDF_TEMPLATE_EDITOR_SCREEN_ID]: PdfTemplateEditorScreen,
       [MAIL_EDITOR_SCREEN_ID]: createLazyMailEditor(options.appLocales ?? DEFAULT_TEMPLATE_LOCALES),
     },

@@ -1611,6 +1611,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:templates.title": "Vorlagen",
   "screen:platform-templates.title": "System-Vorlagen",
   "screen:layout-editor.title": "Layout",
+  "screen:platform-layout-editor.title": "System-Layout",
   "screen:pdf-template-editor.title": "PDF-Vorlage",
   "document-designer:nav.templates": "Vorlagen",
   "document-designer:nav.platformTemplates": "System-Vorlagen",

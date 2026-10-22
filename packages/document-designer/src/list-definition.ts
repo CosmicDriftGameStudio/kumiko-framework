@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   DocumentDesignerCells,
+  PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
   TEMPLATE_EDITOR_SCREENS,
   type TemplateEditorKind,
 } from "./web/constants.ts";
@@ -100,6 +101,10 @@ export const TEMPLATE_FACETS: readonly ListFacetSpec[] = [
   },
 ];
 
+function isLayoutKind(kind: TemplateEditorKind): boolean {
+  return kind === "mail-layout" || kind === "pdf-layout";
+}
+
 const EDITABLE_KINDS: readonly TemplateEditorKind[] = [
   "mail",
   "document-pdf",
@@ -118,15 +123,14 @@ const RESET_LOCKED_OVERRIDE_ACTION: RowAction = {
   visible: { field: "canResetLockedOverride", eq: true },
 };
 
-// A layout opens in the scope of the row's origin, so a SystemAdmin editing a tenant row on the
-// tenant screen does not end up changing the system layout.
-function isLayoutKind(kind: TemplateEditorKind): boolean {
-  return kind === "mail-layout" || kind === "pdf-layout";
-}
-
-export function templateRowActions(): RowAction[] {
+// The screen the row is opened from fixes the layout scope: the platform overview edits the system
+// layout, the tenant overview always the tenant's own, even for a SystemAdmin on a system-origin row.
+export function templateRowActions(options: { readonly platform: boolean }): RowAction[] {
   const editActions = EDITABLE_KINDS.flatMap((kind): RowAction[] => {
-    const screen = TEMPLATE_EDITOR_SCREENS[kind];
+    const screen =
+      options.platform && isLayoutKind(kind)
+        ? PLATFORM_LAYOUT_EDITOR_SCREEN_ID
+        : TEMPLATE_EDITOR_SCREENS[kind];
     if (screen === undefined) return [];
     return [
       {
@@ -134,7 +138,7 @@ export function templateRowActions(): RowAction[] {
         id: `edit-${kind}`,
         label: i18nKey("documentDesigner.action.edit"),
         screen,
-        params: { pick: isLayoutKind(kind) ? ["slug", "kind", "origin"] : ["slug", "kind"] },
+        params: { pick: ["slug", "kind"] },
         visible: { field: "kind", eq: kind },
       },
     ];
