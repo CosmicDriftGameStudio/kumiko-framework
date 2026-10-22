@@ -2,7 +2,8 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { escapeLikePattern } from "../crypto/ciphertext-pattern.ts";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
-import { coerceRow, extractTableInfo } from "../db/query.ts";
+import { coerceRow } from "../db/query.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import {
   buildOwnershipClause,
   combineClauses,
@@ -196,7 +197,7 @@ function applyScreenFilter(
     return;
   }
   for (const [field, value] of Object.entries(screen)) {
-    // `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in db/query.ts.
+    // `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in db/where-clause.ts.
     if (value === null) {
       whereSql.push(`${colSql(field)} IS NULL`);
     } else if (Array.isArray(value)) {
@@ -224,7 +225,7 @@ function applyScreenFilter(
       }
     } else {
       // Blind-index OR rewrite, lock-step with buildWhereClause
-      // in db/query.ts — equality on lookupable fields matches the
+      // in db/where-clause.ts — equality on lookupable fields matches the
       // plaintext arm OR the HMAC arm.
       const bidxKey = configuredBlindIndexKey();
       if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {

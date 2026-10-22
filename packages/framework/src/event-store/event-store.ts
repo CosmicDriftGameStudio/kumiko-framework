@@ -9,6 +9,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { requestContext } from "../api/request-context.ts";
 
 import { encryptEventPayloadPii } from "../crypto/event-pii.ts";
+import { instantToTimestamptzParam } from "../db/driver-value-preparation.ts";
 import type { DbRunner } from "../db/index.ts";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.ts";
 import {
@@ -23,7 +24,7 @@ import {
   selectStreamMaxVersion,
   selectStreamMaxVersions,
 } from "../db/queries/event-store.ts";
-import { instantToTimestamptzParam, selectMany } from "../db/query.ts";
+import { selectMany } from "../db/query.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import { isStreamArchived } from "./archive.ts";
 import {

@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { createDecimalField, createEntity } from "../../engine/factories.ts";
 import { fieldToZod } from "../../engine/schema-builder.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
-import { coerceRow, extractTableInfo } from "../query.ts";
+import { coerceRow } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
 import { buildEntityTable } from "../table-builder.ts";
+import { extractTableInfo } from "../table-info.ts";
 
 // decimal field — Postgres numeric(precision, scale). A new framework
 // primitive (not a port), so these are correctness-of-the-primitive checks:

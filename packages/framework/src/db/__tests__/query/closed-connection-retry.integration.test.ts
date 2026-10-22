@@ -4,9 +4,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { testDatabaseUrl, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import postgres from "postgres";
+import { describeClosedConnectionFailure } from "../../closed-connection.ts";
 import { constraintOf, extractPgError, isUniqueViolation } from "../../pg-error.ts";
-
-import { describeClosedConnectionFailure, unsafeReadRetrying } from "../../query.ts";
+import { unsafeReadRetrying } from "../../query.ts";
 
 const DATABASE_URL = testDatabaseUrl();
 

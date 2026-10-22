@@ -1,3 +1,4 @@
+export { isTimestamptzType } from "./aggregate-sql.ts";
 export { applyEntityEvent } from "./apply-entity-event.ts";
 export { assertExistsIn } from "./assert-exists-in.ts";
 export {
@@ -50,6 +51,7 @@ export {
   uniqueIndex,
   uuid,
 } from "./dialect.ts";
+export { instantToTimestamptzParam } from "./driver-value-preparation.ts";
 export type { EagerLoadEntityResolver, EagerLoadViewer, EagerloadedRow } from "./eagerload.ts";
 export {
   collectReferenceFields,
@@ -148,7 +150,6 @@ export type {
   JoinColumnPair,
   JsonTextMatch,
   SelectOptions,
-  TableInfo,
   UpsertOnConflictOptions,
   WhereObject,
   WhereOperator,
@@ -161,14 +162,11 @@ export {
   countWhere,
   deleteMany,
   deleteManyBatched,
-  extractTableInfo,
   fetchOne,
   incrementCounter,
   insertMany,
   insertOnConflictDoNothing,
   insertOne,
-  instantToTimestamptzParam,
-  isTimestamptzType,
   requireEntityTableMeta,
   runInSavepoint,
   runInSavepointIfSupported,
@@ -218,6 +216,7 @@ export {
   type WritableSchemaTable,
   type WritableTable,
 } from "./table-builder.ts";
+export { extractTableInfo, type TableInfo } from "./table-info.ts";
 export type {
   CreateTenantDbOptions,
   ExecutorManagedTenantDb,

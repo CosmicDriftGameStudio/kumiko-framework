@@ -373,7 +373,7 @@ export function primaryKey(opts: {
 // `sql\`${other}\``) — schema-files use single-level expressions only.
 
 // Unforgeable via JSON — a client-supplied jsonb value can fake `kind:
-// "sql-expr"` but can never carry a Symbol, so isSqlExpression() (db/query.ts)
+// "sql-expr"` but can never carry a Symbol, so isSqlExpression() (db/driver-value-preparation.ts)
 // can't be tricked into treating request data as a raw SQL literal. The same
 // brand gate is enforced here in the schema DSL (sql`...` interpolation +
 // literalDefault) and in entity-table-meta's sqlExpressionText — a duck-typed
@@ -426,7 +426,7 @@ sql.raw = (text: string): SqlExpression => ({
 //
 // Produces a SchemaTable with:
 //   - EntityTableMeta shape (source/tableName/columns/indexes)
-//   - Drizzle Symbol metadata for compat with the introspection in db/query.ts
+//   - Drizzle Symbol metadata for compat with the introspection in db/table-info.ts
 //   - Top-level column-handle properties (table.fieldName → ColumnHandle)
 //
 // Second arg is an object whose keys are JS field-names; values are

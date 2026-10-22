@@ -7,6 +7,7 @@
 // `scripts/guard-admin-api.ts` blocks calls from application code. Allowlist: samples/*/migration/,
 // scripts/migrations/, this definition, and the guard script itself.
 
+import { instantToTimestamptzParam } from "../db/driver-value-preparation.ts";
 import type { DbRunner } from "../db/index.ts";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.ts";
 import { claimXactId, runAtomicEventWrite } from "../db/queries/event-store.ts";
@@ -17,7 +18,6 @@ import {
   insertRawFirstEvent,
   insertRawSubsequentEvent,
 } from "../db/queries/event-store-admin.ts";
-import { instantToTimestamptzParam } from "../db/query.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import { IdempotentAppendConflictError, VersionConflictError } from "./errors.ts";
 import type { EventMetadata } from "./event-store.ts";

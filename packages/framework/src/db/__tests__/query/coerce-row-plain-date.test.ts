@@ -8,7 +8,8 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { coerceRow, type TableInfo } from "../../query.ts";
+import { coerceRow } from "../../query.ts";
+import type { TableInfo } from "../../table-info.ts";
 
 function dateTableInfo(): TableInfo {
   return {

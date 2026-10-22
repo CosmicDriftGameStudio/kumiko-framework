@@ -1,4 +1,6 @@
 // @runtime dev
+
+export { isClosedConnectionError } from "../db/closed-connection.ts";
 export { createDbConnection } from "../db/connection.ts";
 export {
   acquireSessionAdvisoryLock,
@@ -9,7 +11,7 @@ export {
   renameDatabase,
   truncateTablesRestartIdentity,
 } from "../db/queries/test-stack.ts";
-export { type AnyDb, isClosedConnectionError } from "../db/query.ts";
+export type { AnyDb } from "../db/query.ts";
 export { columnNamesOf } from "../db/schema-inspection.ts";
 export { schemaTableName } from "../db/table-introspection.ts";
 export {

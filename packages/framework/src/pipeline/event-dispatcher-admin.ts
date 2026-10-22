@@ -13,12 +13,12 @@ import {
 } from "../db/queries/event-store.ts";
 import {
   coerceRow,
-  extractTableInfo,
   runInNewTransaction,
   runInSavepointIfSupported,
   runnerCanBeginTransaction,
   selectMany,
 } from "../db/query.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import { getEventsHighWaterMark } from "../event-store/index.ts";
 import {
   eventConsumerStateTable,
