@@ -742,7 +742,7 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
     keyedUnder?.kind === "tenant" && keyedUnder.tenantId === target.tenantId
       ? rekeyTargetOfTenantKeyedValue(target)
       : keyedUnder?.kind === "user"
-        ? currentProjectionOwnerIfOther(target, keyedUnder.userId)
+        ? currentProjectionOwnerIfOther(target, fieldDef.userOwned.ownerField, keyedUnder.userId)
         : null;
   if (userSubject === null) return { kind: "unchanged" };
 
@@ -795,10 +795,12 @@ function rekeyTargetOfTenantKeyedValue(target: RekeyTarget): SubjectId | null {
 // A value keyed under a previous owner moves to the owner the row has now. The
 // projection of the event's own tenant is authoritative here: the payload of
 // an old created event still names the owner the row had back then.
-function currentProjectionOwnerIfOther(target: RekeyTarget, keyedUserId: string): SubjectId | null {
-  const fieldDef = target.entity.fields[target.field];
-  if (fieldDef === undefined || !("userOwned" in fieldDef) || !fieldDef.userOwned) return null;
-  const owner = nonEmptyString(target.projectionOwnerRow?.[fieldDef.userOwned.ownerField]);
+function currentProjectionOwnerIfOther(
+  target: RekeyTarget,
+  ownerField: string,
+  keyedUserId: string,
+): SubjectId | null {
+  const owner = nonEmptyString(target.projectionOwnerRow?.[ownerField]);
   return owner === null || owner === keyedUserId ? null : { kind: "user", userId: owner };
 }
 
