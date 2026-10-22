@@ -27,12 +27,16 @@ import {
 const GATE_QUERY = "billing:query:tier:status";
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
+const SECOND_GATE_QUERY = "billing:query:plans:status";
+
 type GateOptions = {
   readonly fallback?: string;
   readonly fallbackAccess?: ScreenDefinition["access"];
+  // The fallback is itself locked (second gate never met) and falls back to a "plans" screen.
+  readonly lockedFallback?: boolean;
 };
 
-function buildSchema({ fallback, fallbackAccess }: GateOptions): FeatureSchema {
+function buildSchema({ fallback, fallbackAccess, lockedFallback }: GateOptions): FeatureSchema {
   const gated: ScreenDefinition = {
     id: "channels",
     type: "projectionList",
@@ -48,8 +52,23 @@ function buildSchema({ fallback, fallbackAccess }: GateOptions): FeatureSchema {
     query: "billing:query:upgrade:list",
     columns: [{ field: "name", label: "billing.col.name" }],
     access: fallbackAccess ?? OPEN,
+    ...(lockedFallback === true && {
+      visibleWhen: { query: SECOND_GATE_QUERY, field: "open", eq: true },
+      fallback: "plans",
+    }),
   };
-  return { featureName: "billing", entities: {}, screens: [gated, upgrade] };
+  const plans: ScreenDefinition = {
+    id: "plans",
+    type: "projectionList",
+    query: "billing:query:plans:list",
+    columns: [{ field: "name", label: "billing.col.name" }],
+    access: OPEN,
+  };
+  return {
+    featureName: "billing",
+    entities: {},
+    screens: lockedFallback === true ? [gated, upgrade, plans] : [gated, upgrade],
+  };
 }
 
 type GateResult =
@@ -219,16 +238,21 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
         ...(fallbackNavLabel !== undefined
           ? [{ id: "upgrade", label: fallbackNavLabel, screen: "upgrade", order: 20 }]
           : []),
+        ...(options.lockedFallback === true
+          ? [{ id: "plans", label: "Plans", screen: "plans", order: 30 }]
+          : []),
       ],
     };
     const dispatcher = createMockDispatcher({
       query: (async (type: string) =>
         type === GATE_QUERY
           ? { isSuccess: true, data: { chatAlertsAvailable: currentAvailable } }
-          : {
-              isSuccess: true,
-              data: { rows: [{ id: "r1", name: "UPGRADE ROW" }], nextCursor: null },
-            }) as unknown as Dispatcher["query"],
+          : type === SECOND_GATE_QUERY
+            ? { isSuccess: true, data: { open: false } }
+            : {
+                isSuccess: true,
+                data: { rows: [{ id: "r1", name: "UPGRADE ROW" }], nextCursor: null },
+              }) as unknown as Dispatcher["query"],
     });
     renderWithSidebar(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -310,6 +334,13 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     });
     await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
     expect(document.querySelector("h1")?.textContent).toBe("Upgrade your plan");
+  });
+
+  test("a locked fallback chain heads the page with the screen that finally renders", async () => {
+    renderInShell(false, { fallback: "upgrade", lockedFallback: true }, "Upgrade plan");
+    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    expect(document.querySelector("h1")?.textContent).toBe("Plans");
+    expect(crumbCount()).toBe(1);
   });
 
   test("the standard notice leaves no breadcrumb for the locked screen", async () => {
