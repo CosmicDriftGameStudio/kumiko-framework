@@ -1,5 +1,9 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { ZodType } from "zod";
+import {
+  type ErasedSubjectHandling,
+  ErasedSubjectHandlings,
+} from "../crypto/pii-field-encryption.ts";
 import { checkWriteFieldOwnership } from "../engine/field-access.ts";
 import { instructionFieldNames } from "../engine/instruction-fields.ts";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.ts";
@@ -115,8 +119,10 @@ export function createWriteVerbs(
   // sentinel for that subject's fields instead of failing on re-encrypt.
   function erasureSentinelOption(
     options: LockGuardOption | undefined,
-  ): { readonly onErasedSubject: "sentinel" } | Record<string, never> {
-    return options?.writePurpose === WritePurposes.erasure ? { onErasedSubject: "sentinel" } : {};
+  ): { readonly onErasedSubject: ErasedSubjectHandling } | Record<string, never> {
+    return options?.writePurpose === WritePurposes.erasure
+      ? { onErasedSubject: ErasedSubjectHandlings.sentinel }
+      : {};
   }
   const eventVersion = entity.eventVersion ?? 1;
   let insertSchema: ZodType | undefined;
@@ -840,7 +846,7 @@ export function createWriteVerbs(
         // version) serializes them, one wins, the other lands here.
         return await appendConflictFailure(e, runner, {
           entityId: payload.id,
-          expectedVersion: payload.version ?? 0,
+          expectedVersion: currentVersion,
           streamTenant,
         });
       }
@@ -1006,7 +1012,7 @@ export function createWriteVerbs(
             payload: {
               previous: await encryptForStorage(existing, user, {
                 keyTenantId: streamTenantId,
-                onErasedSubject: "sentinel",
+                onErasedSubject: ErasedSubjectHandlings.sentinel,
               }),
             },
             metadata: buildEventMetadata(user),

@@ -71,8 +71,9 @@ describe("unsafeRawForDeclaredStep", () => {
       },
     });
 
-    expect(() => unsafeRawForDeclaredStep(tdb, "")).toThrow(/non-empty reason/);
-    expect(() => unsafeRawForDeclaredStep(tdb, "   ")).toThrow(/non-empty reason/);
+    expect(() => unsafeRawForDeclaredStep(tdb, "")).toThrow(/non-empty explanation/);
+    expect(() => unsafeRawForDeclaredStep(tdb, "   ")).toThrow(/non-empty explanation/);
+    expect(() => unsafeRawForDeclaredStep(tdb, "todo")).toThrow(/placeholder/);
   });
 
   test("throws InternalError for a TenantDb not built by createTenantDb", () => {

@@ -16,7 +16,7 @@ import type {
   FileProviderResolver,
   FileUploadLedger,
 } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import { isDerivativeSuffix } from "../derivatives/variant-key.ts";
+import { derivativeListPrefix, isDerivativeSuffix } from "../derivatives/variant-key.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
@@ -158,6 +158,5 @@ export function deriveKey(key: string, suffix: string): string {
 // fileRef's original plus every already-rendered derivative, none of which have their own
 // `file_refs` row.
 export function storageKeyStemPrefix(key: string): string {
-  const { stem, ext } = splitKeyExtension(key);
-  return ext === "" ? `${key}.` : `${stem}.`;
+  return derivativeListPrefix(key);
 }

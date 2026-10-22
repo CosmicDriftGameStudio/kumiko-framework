@@ -7,6 +7,7 @@ import {
   acknowledgeConventionCrossTenant,
   createTenantDb,
   createUncheckedSystemDb,
+  scopeTenantDbToTenant,
   withUnsafeRawGrant,
 } from "../tenant-db.ts";
 import { tenantDbRunner, tenantDbWriteRunner } from "../tenant-db-runner.ts";
@@ -89,6 +90,17 @@ describe("TenantDb with writesDeniedReason", () => {
     for (const rebound of [regranted, acknowledged, systemAcknowledged, systemMatched]) {
       expect(() => tenantDbWriteRunner(rebound, "write")).toThrow(/writes are not available/);
     }
+  });
+
+  test("scopeTenantDbToTenant carries the write denial and issues no query", async () => {
+    queries.length = 0;
+    const scoped = scopeTenantDbToTenant(deniedDb(), tenantId);
+
+    await expect(scoped.insertOne(noteTable, { title: "a" })).rejects.toThrow(
+      /writes are not available/,
+    );
+    expect(() => tenantDbWriteRunner(scoped, "write")).toThrow(/writes are not available/);
+    expect(queries).toEqual([]);
   });
 
   test("a TenantDb without the grant keeps its write runner", () => {

@@ -10,6 +10,7 @@ import {
   type LocalKeyKmsAdapter,
 } from "../crypto/index.ts";
 import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transition-rekey.ts";
+import type { ErasedSubjectHandling } from "../crypto/pii-field-encryption.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import type { WhereObject } from "../db/query.ts";
 import { shiftParams } from "../engine/ownership.ts";
@@ -239,7 +240,7 @@ export type ExecutorContext = {
       subjectSource?: Record<string, unknown>;
       keyTenantId?: TenantId | undefined;
       ownerFallback?: Record<string, unknown>;
-      onErasedSubject?: "sentinel";
+      onErasedSubject?: ErasedSubjectHandling;
     },
   ) => Promise<Record<string, unknown>>;
   readonly decryptForRead: (
@@ -395,7 +396,7 @@ export function buildExecutorContext(
       subjectSource?: Record<string, unknown>;
       keyTenantId?: TenantId | undefined;
       ownerFallback?: Record<string, unknown>;
-      onErasedSubject?: "sentinel";
+      onErasedSubject?: ErasedSubjectHandling;
     },
   ): Promise<Record<string, unknown>> {
     let out = row;

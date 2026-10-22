@@ -72,13 +72,14 @@ export async function deleteStoredFileAndDerivatives(
     ...(await listDerivativeKeys(originalKey, store, errorContext)),
   ];
   const failedKeys: string[] = [];
+  const log = createFallbackLogger(errorContext);
   for (const key of keysToDelete) {
     try {
       assertSafeStorageKey(key);
       await store.delete(key);
     } catch (err) {
       failedKeys.push(key);
-      createFallbackLogger(errorContext).warn("storage delete failed", {
+      log.warn("storage delete failed", {
         key,
         error: err instanceof Error ? err.message : String(err),
       });
