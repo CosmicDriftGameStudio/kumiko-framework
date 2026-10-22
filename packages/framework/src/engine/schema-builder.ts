@@ -291,7 +291,6 @@ function fileListFieldToZod(field: FieldOf<"files" | "images">): z.ZodTypeAny {
   return field.maxCount === undefined ? ids : ids.max(field.maxCount);
 }
 
-// kumiko-lint-ignore complexity-budget field→zod switch is the single schema source of truth
 export function fieldToZod(
   field: FieldDefinition,
   currencies: readonly string[],

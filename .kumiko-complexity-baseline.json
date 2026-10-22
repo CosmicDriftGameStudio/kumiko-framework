@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-10-22",
-  "total": 93,
+  "total": 94,
   "perFile": {
     "packages/bundled-features/src/auth-mfa/handlers/enable-confirm-preauth.write.ts": 1,
     "packages/bundled-features/src/auth-mfa/handlers/verify.write.ts": 1,
@@ -53,7 +53,7 @@
     "packages/framework/src/engine/registry-ingest.ts": 2,
     "packages/framework/src/engine/registry-validate.ts": 1,
     "packages/framework/src/engine/resolve-config-or-param.ts": 1,
-    "packages/framework/src/engine/schema-builder.ts": 1,
+    "packages/framework/src/engine/schema-builder.ts": 2,
     "packages/framework/src/engine/validate-projection-allowlist.ts": 1,
     "packages/framework/src/event-store/snapshot.ts": 1,
     "packages/framework/src/files/file-routes.ts": 1,
