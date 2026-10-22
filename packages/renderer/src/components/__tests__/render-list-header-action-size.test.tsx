@@ -32,7 +32,7 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, siz
 
 const TestPageHeader: ComponentType<PageHeaderProps> = ({ actions }) => <header>{actions}</header>;
 const toolbarOnlyDataTable: ComponentType<DataTableProps> = ({ toolbarEnd }) => (
-  <div>{toolbarEnd}</div>
+  <div data-testid="toolbar-end">{toolbarEnd}</div>
 );
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -125,5 +125,22 @@ describe("RenderList page-header action size", () => {
     });
 
     expect(promotedSize).toBe(createSize);
+  });
+
+  test("create plus two promotable toolbar actions give three header buttons, none in the toolbar", () => {
+    renderList({
+      onCreate: () => {},
+      toolbarActions: [primaryAction, { ...primaryAction, id: "upload", label: "Upload" }],
+    });
+    const header = rtlScreen.getByRole("banner");
+    const toolbar = rtlScreen.getByTestId("toolbar-end");
+    const ids = (root: HTMLElement): (string | null)[] =>
+      Array.from(root.querySelectorAll("button")).map((b) => b.getAttribute("data-testid"));
+    expect(ids(header)).toEqual([
+      "render-list-toolbar-action-capture",
+      "render-list-toolbar-action-upload",
+      "render-list-create",
+    ]);
+    expect(ids(toolbar)).toEqual([]);
   });
 });

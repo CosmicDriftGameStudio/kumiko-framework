@@ -9,14 +9,16 @@ const PDF_MIME_TYPE = "application/pdf";
 
 function FileValueRow({
   fileId,
+  previewOpenInitially,
   testId,
 }: {
   readonly fileId: string;
+  readonly previewOpenInitially: boolean;
   readonly testId?: string;
 }): ReactNode {
   const t = useTranslation();
   const meta = useFileMeta(fileId);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(previewOpenInitially);
   if (!isUuid(fileId)) return <span className="text-sm">{fileId}</span>;
   const downloadUrl = fileOriginalUrl(fileId);
   return (
@@ -46,21 +48,26 @@ function FileValueRow({
           </Button>
         )}
       </div>
-      {previewOpen && (
+      {previewOpen && meta?.mimeType === PDF_MIME_TYPE && (
         <PdfPreview source={{ url: downloadUrl }} testId={`file-preview-${fileId}`} />
       )}
     </li>
   );
 }
 
-export function FileValueList({ fileIds, testId }: FileValueListProps): ReactNode {
+export function FileValueList({
+  fileIds,
+  previewOpenByDefault = false,
+  testId,
+}: FileValueListProps): ReactNode {
   if (fileIds.length === 0) return null;
   return (
     <ul className="m-0 flex list-none flex-col gap-3 p-0" data-testid={testId}>
-      {fileIds.map((fileId) => (
+      {fileIds.map((fileId, index) => (
         <FileValueRow
           key={fileId}
           fileId={fileId}
+          previewOpenInitially={previewOpenByDefault && index === 0}
           {...(testId !== undefined && { testId: `${testId}-${fileId}` })}
         />
       ))}

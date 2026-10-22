@@ -23,6 +23,7 @@ import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-refere
 import { useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import {
+  type ActionMenuItemSpec,
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableProps,
@@ -227,6 +228,10 @@ export function RenderList(props: RenderListProps): ReactNode {
   const pageHeaderCompact = usePageHeaderCompact();
   const createInPageHeader =
     onCreate !== undefined && PageHeader !== undefined && pageHeaderSlotAvailable;
+  // Promoted actions that moved into the phone header's overflow menu have no button of
+  // their own, so their busy and error state lives here.
+  const [menuActionBusyId, setMenuActionBusyId] = useState<string | null>(null);
+  const [menuActionError, setMenuActionError] = useState<string | null>(null);
 
   // Local search buffer + debounce. External changes (browser back,
   // cross-component reset) are mirrored back; typing only fires
@@ -466,28 +471,59 @@ export function RenderList(props: RenderListProps): ReactNode {
         {effectiveCreateLabel}
       </Button>
     ) : undefined;
-  // Without onCreate (e.g. a navigate action as the list's only CTA) the primary
-  // toolbar action takes the page-header slot like a "+ Neu" button would: an icon
-  // on phones, labelled on desktop, so projection lists look like entity lists.
-  const promotedToolbarAction =
-    onCreate === undefined && PageHeader !== undefined && pageHeaderSlotAvailable
-      ? toolbarActions?.find(isHeaderPromotableToolbarAction)
-      : undefined;
-  const promotedActionButton =
-    promotedToolbarAction !== undefined ? (
-      <ToolbarActionView
-        action={
-          pageHeaderCompact
-            ? { ...promotedToolbarAction, icon: promotedToolbarAction.icon ?? "plus" }
-            : promotedToolbarAction
-        }
-        iconOnly={pageHeaderCompact}
-        Button={Button}
-        Dialog={Dialog}
-        Banner={Banner}
-      />
+  // Every primary toolbar action takes the page-header slot, left of the create
+  // button (which stays the rightmost primary action): labelled on desktop, so
+  // projection lists look like entity lists. On phones an icon button, or, next to
+  // the create button, an entry in the header's overflow menu: the header has no
+  // room for a labelled action beside it.
+  const promotedToolbarActions =
+    PageHeader !== undefined && pageHeaderSlotAvailable
+      ? (toolbarActions?.filter(isHeaderPromotableToolbarAction) ?? [])
+      : [];
+  const promotedInOverflowMenu =
+    pageHeaderCompact && createInPageHeader && promotedToolbarActions.length > 0;
+  const promotedMenuItems: readonly ActionMenuItemSpec[] = promotedInOverflowMenu
+    ? promotedToolbarActions.map((a) => ({
+        id: a.id,
+        label: a.label,
+        ...(a.icon !== undefined && { icon: a.icon }),
+        ...(menuActionBusyId !== null && { disabled: true }),
+        testId: `render-list-toolbar-action-${a.id}`,
+        onSelect: () => {
+          setMenuActionBusyId(a.id);
+          setMenuActionError(null);
+          void (async () => {
+            try {
+              await a.onTrigger();
+            } catch (e) {
+              setMenuActionError(e instanceof Error ? e.message : String(e));
+            } finally {
+              setMenuActionBusyId(null);
+            }
+          })();
+        },
+      }))
+    : [];
+  const headerActions =
+    promotedToolbarActions.length > 0 && !promotedInOverflowMenu ? (
+      <>
+        {promotedToolbarActions.map((a) => (
+          <ToolbarActionView
+            key={a.id}
+            action={pageHeaderCompact ? { ...a, icon: a.icon ?? "plus" } : a}
+            iconOnly={pageHeaderCompact}
+            Button={Button}
+            Dialog={Dialog}
+            Banner={Banner}
+          />
+        ))}
+        {createInPageHeader && createButton}
+      </>
+    ) : createInPageHeader ? (
+      createButton
     ) : undefined;
-  const toolbarActionsInToolbar = toolbarActions?.filter((a) => a !== promotedToolbarAction) ?? [];
+  const toolbarActionsInToolbar =
+    toolbarActions?.filter((a) => !promotedToolbarActions.includes(a)) ?? [];
   const hasToolbarActionsInToolbar = toolbarActionsInToolbar.length > 0;
   const toolbarEnd =
     hasHeaderSlot ||
@@ -549,9 +585,16 @@ export function RenderList(props: RenderListProps): ReactNode {
   // ListSort = DataTableSort (aliased in use-list-url-state), so no cast is needed.
   return (
     <>
-      {createInPageHeader && PageHeader !== undefined && <PageHeader actions={createButton} />}
-      {promotedActionButton !== undefined && PageHeader !== undefined && (
-        <PageHeader actions={promotedActionButton} />
+      {headerActions !== undefined && PageHeader !== undefined && (
+        <PageHeader
+          actions={headerActions}
+          {...(promotedInOverflowMenu && { overflowItems: promotedMenuItems })}
+        />
+      )}
+      {menuActionError !== null && (
+        <Banner variant="error" testId="render-list-toolbar-action-error">
+          {menuActionError}
+        </Banner>
       )}
       {referenceColumns.map(
         (rc: { field: string; refEntity: string; refFeature: string; labelField: string }) => (

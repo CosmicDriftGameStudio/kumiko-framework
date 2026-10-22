@@ -632,6 +632,7 @@ function FieldRendererOutput({
 }): ReactNode {
   const { Text, JsonView, FileValueList } = usePrimitives();
   const t = useTranslation();
+  const valueTestId = `field-value-${field.field}`;
   const componentName =
     !isFormatSpec(renderer) && typeof renderer === "object" && renderer !== null
       ? extensionSectionName(renderer)
@@ -642,19 +643,18 @@ function FieldRendererOutput({
     // itself) — applyFormatSpec's already-indented string is only the
     // fallback for primitives-providers without JsonView.
     if (renderer.format === "json" && JsonView !== undefined) {
-      return (
-        <JsonView
-          value={field.value}
-          indent={renderer.indent}
-          testId={`field-value-${field.field}`}
-        />
-      );
+      return <JsonView value={field.value} indent={renderer.indent} testId={valueTestId} />;
     }
     if (renderer.format === "file" && FileValueList !== undefined) {
       const fileIds = fileIdsOf(field.value);
-      if (fileIds.length === 0)
-        return <Text testId={`field-value-${field.field}`}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
-      return <FileValueList fileIds={fileIds} testId={`field-value-${field.field}`} />;
+      if (fileIds.length === 0) return <Text testId={valueTestId}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
+      return (
+        <FileValueList
+          fileIds={fileIds}
+          previewOpenByDefault={renderer.previewOpenByDefault === true}
+          testId={valueTestId}
+        />
+      );
     }
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/
@@ -662,7 +662,7 @@ function FieldRendererOutput({
     // language chosen via LocaleProvider. Prefer renderer.locale
     // when set; coalesce undefined (spread override) back to appLocale.
     return (
-      <Text testId={`field-value-${field.field}`}>
+      <Text testId={valueTestId}>
         {applyFormatSpec(
           {
             ...renderer,
@@ -686,7 +686,7 @@ function FieldRendererOutput({
     }
     rendererWarn(`[kumiko] fieldRenderer "${componentName}" not registered`);
   }
-  return <Text testId={`field-value-${field.field}`}>{stringValue(field.value)}</Text>;
+  return <Text testId={valueTestId}>{stringValue(field.value)}</Text>;
 }
 
 // Read-only text for `type: "reference"` — resolves the referenced row's

@@ -50,6 +50,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.party.role.main": "Hauptmieter",
     "rental.party.role.co": "Mitmieterin",
     "rental.action.addParty": "Partei hinzufügen",
+    "rental.action.showTerminated": "Beendete Verträge",
 
     "rental.tab.parties": "Vertragsparteien",
     "rental.tab.positions": "Positionen",
@@ -214,6 +215,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.party.role.main": "Main tenant",
     "rental.party.role.co": "Co-tenant",
     "rental.action.addParty": "Add party",
+    "rental.action.showTerminated": "Terminated leases",
 
     "rental.tab.parties": "Parties",
     "rental.tab.positions": "Positions",
