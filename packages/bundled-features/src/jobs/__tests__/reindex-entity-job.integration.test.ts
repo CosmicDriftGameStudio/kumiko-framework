@@ -8,7 +8,9 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  asRawClient,
   buildEntityTable,
+  createDbConnection,
   createEventStoreExecutor,
   createSystemDbView,
   createTenantDb,
@@ -21,6 +23,7 @@ import {
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -48,7 +51,22 @@ const widgetEntity = createEntity({
 
 const widgetTable = buildEntityTable("widget", widgetEntity);
 
+const slowWidgetEntity = createEntity({
+  table: "read_reindex_job_slow_widgets",
+  fields: {
+    name: createTextField({
+      required: true,
+      searchable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
+const slowWidgetTable = buildEntityTable("slow-widget", slowWidgetEntity);
+
 const widgetFeature = defineFeature("reindex-job-test", (r) => {
+  r.entity({ name: "slow-widget", ...slowWidgetEntity });
   r.entity({ name: "widget", ...widgetEntity });
 });
 
@@ -244,5 +262,75 @@ describe("reindexEntityJob", () => {
     await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(
       /tenant self-check failed/,
     );
+  });
+});
+
+describe("reindexEntityJob under a server statement_timeout", () => {
+  const STATEMENT_TIMEOUT_MS = 150;
+  const SCAN_SLEEP_SECONDS = 0.5;
+
+  test("the batch scan runs without the pool's statement_timeout, also through the gated unsafeRaw runner", async () => {
+    await unsafeCreateEntityTable(stack.db, slowWidgetEntity, "slow-widget");
+    const executor = createEventStoreExecutor(slowWidgetTable, slowWidgetEntity, {
+      entityName: "slow-widget",
+    });
+    const systemTenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: admin.tenantId,
+      mode: "system",
+    });
+    const created = await executor.create({ name: "Slow Scan Widget" }, admin, systemTenantDb);
+    if (!created.isSuccess) throw new Error("seed failed");
+    // The scan reads this view, so each row takes longer than the pool's statement_timeout.
+    await asRawClient(stack.db).unsafe(
+      `ALTER TABLE "read_reindex_job_slow_widgets" RENAME TO "read_reindex_job_slow_widgets_base"`,
+    );
+    await asRawClient(stack.db).unsafe(
+      `CREATE VIEW "read_reindex_job_slow_widgets" AS
+         SELECT *, pg_sleep(${SCAN_SLEEP_SECONDS})::text AS scan_delay FROM "read_reindex_job_slow_widgets_base"`,
+    );
+
+    const dbNameRows = await asRawClient(stack.db).unsafe<{ db_name: string }>(
+      "SELECT current_database() AS db_name",
+    );
+    const dbName = String(dbNameRows[0]?.db_name);
+    const capped = createDbConnection({
+      url: testDatabaseUrl().replace(/\/[^/]+$/, `/${dbName}`),
+      maxConnections: 2,
+      statementTimeoutMs: STATEMENT_TIMEOUT_MS,
+    });
+    try {
+      const ctx: JobContext = {
+        db: createTenantDb({ db: capped.db, tenantId: admin.tenantId }),
+        registry: stack.registry,
+        searchAdapter: stack.search,
+        systemUser: admin,
+        systemDb: createSystemDbView(
+          createTenantDb({
+            db: capped.db,
+            tenantId: admin.tenantId,
+            mode: "system",
+            grants: {
+              unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+              projectionRegistry: stack.registry,
+            },
+          }),
+        ),
+        log: noopLogger,
+        triggeredBy: null,
+        attempt: 1,
+        finalAttempt: true,
+        defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+        ...bridgeStub(),
+      };
+      await reindexEntityJob({ entity: "slow-widget" }, ctx);
+    } finally {
+      await capped.close();
+    }
+
+    const results = await stack.search.search(admin.tenantId, "slow scan", {
+      filterType: "slow-widget",
+    });
+    expect(results.some((r) => r.entityId === created.data.id)).toBe(true);
   });
 });
