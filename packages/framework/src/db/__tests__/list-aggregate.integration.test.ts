@@ -296,6 +296,30 @@ describe("list aggregate", () => {
     ]);
   });
 
+  test("a money range filter in minor units narrows the rows and the sum alike", async () => {
+    await order({ title: "low", status: "open", amount: { amount: 50, currency: "EUR" } });
+    await order({ title: "mid", status: "open", amount: { amount: 100, currency: "EUR" } });
+    await order({ title: "high", status: "open", amount: { amount: 150, currency: "EUR" } });
+    await order({ title: "top", status: "open", amount: { amount: 200, currency: "EUR" } });
+    const filters = [
+      { field: "amount", op: "gte", value: 10000 },
+      { field: "amount", op: "lte", value: 15000 },
+    ];
+    const list = await stack.http.queryOk<ListResult & { rows: { title: string }[] }>(
+      LIST_ORDERS,
+      { filters, sort: "title", totalCount: true },
+      admin,
+    );
+    expect(list.rows.map((row) => row.title)).toEqual(["high", "mid"]);
+    expect(list.total).toBe(2);
+    const agg = await stack.http.queryOk<AggResult>(
+      LIST_ORDERS,
+      { filters, aggregate: { measures: [{ field: "amount", kind: "sum" }] } },
+      admin,
+    );
+    expect(agg.groups).toEqual([{ key: null, count: 2, measures: [[eur(25000)]] }]);
+  });
+
   test("each group key filters the list back to exactly that group's rows", async () => {
     const acme = await stack.http.writeOk<{ id: string }>(CREATE_CUSTOMER, { name: "Acme" }, admin);
     await order({ title: "a", rush: true, dueOn: "2026-04-02", customerId: acme.id, qty: 1 });

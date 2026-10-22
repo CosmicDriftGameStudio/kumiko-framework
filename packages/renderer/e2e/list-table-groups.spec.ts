@@ -24,11 +24,15 @@ async function boot(page: Page): Promise<void> {
   );
 }
 
-async function queriesFor(page: Page, groupValue: string): Promise<number> {
-  const log: readonly MockQueryLogEntry[] = await page.evaluate(() => {
+async function queryLog(page: Page): Promise<readonly MockQueryLogEntry[]> {
+  return page.evaluate(() => {
     const entries: unknown = Reflect.get(globalThis, "__E2E_QUERIES__");
     return Array.isArray(entries) ? entries : [];
   });
+}
+
+async function queriesFor(page: Page, groupValue: string): Promise<number> {
+  const log = await queryLog(page);
   const needle = `"value":"${groupValue}"`;
   return log.filter((entry) => !entry.aggregate && entry.filters.includes(needle)).length;
 }
@@ -59,6 +63,7 @@ for (const mode of MODES) {
         );
       }
       await expect(page.locator('[data-testid$="-pager"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid$="-sentinel"]')).toHaveCount(0);
       await expect(page.getByTestId("list-totals-amount")).toContainText(
         euro(expenseSum(() => true)),
       );
@@ -78,13 +83,14 @@ for (const mode of MODES) {
       await page.getByTestId("row-group-paid-toggle").click();
       await expect.poll(() => queriesFor(page, "paid")).toBe(1);
 
-      const approvedBefore = await queriesFor(page, "approved");
+      await expect(page.getByTestId("row-group-paid-load-more")).toBeVisible();
+      const before = (await queryLog(page)).length;
       await page.getByTestId("row-group-approved-toggle").click();
       await expect(page.getByTestId("row-group-approved-toggle")).toHaveAttribute(
         "aria-expanded",
         "false",
       );
-      expect(await queriesFor(page, "approved")).toBe(approvedBefore);
+      expect((await queryLog(page)).length).toBe(before);
     });
 
     test("loading more inside a group keeps its sum", async ({ page }) => {
