@@ -10,7 +10,7 @@ import {
   useTranslation,
   useUnsavedInputSource,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   EditorHeader,
   EditorLocaleSwitch,
@@ -138,6 +138,23 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   }).data;
 
   const pickedVariables = pickDeclaredVariables(picked, validation?.variables);
+
+  // A pick belongs to the variables it was made for: after the declared set changes it is dropped,
+  // so a re-added variable does not revive an old record value.
+  const declaredVariables = validation?.variables;
+  const declaredVariableNames =
+    declaredVariables === undefined ? null : Object.keys(declaredVariables).sort().join("|");
+  const previousDeclaredNames = useRef(declaredVariableNames);
+  useEffect(() => {
+    if (declaredVariableNames === null) return;
+    if (
+      previousDeclaredNames.current !== null &&
+      previousDeclaredNames.current !== declaredVariableNames
+    ) {
+      setPicked(null);
+    }
+    previousDeclaredNames.current = declaredVariableNames;
+  }, [declaredVariableNames]);
 
   const update = (patch: Partial<MailDraft>): void => {
     const next = { ...draft, ...patch };

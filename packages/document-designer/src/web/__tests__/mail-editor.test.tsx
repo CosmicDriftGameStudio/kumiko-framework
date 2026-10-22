@@ -266,13 +266,17 @@ function renderEditor(
   );
 }
 
-async function openPreview(): Promise<void> {
+async function switchMode(label: "Preview" | "Edit"): Promise<void> {
   const switcher = await screen.findByTestId("mail-mode-switch");
   const option = Array.from(switcher.querySelectorAll("button,input,label")).find(
-    (node) => node.textContent === "Preview",
+    (node) => node.textContent === label,
   );
-  if (option === undefined) throw new Error("preview option not found");
+  if (option === undefined) throw new Error(`${label} option not found`);
   fireEvent.click(option);
+}
+
+async function openPreview(): Promise<void> {
+  await switchMode("Preview");
   await screen.findByTestId("mail-preview-iframe");
 }
 
@@ -783,6 +787,68 @@ describe("MailEditor", () => {
         calls.find((call) => call.type === "template-resolver:write:send-test")?.payload,
       ).toEqual(expect.objectContaining({ variables: { invoiceNumber: "RE-PICKED-2" } })),
     );
+  });
+
+  test("a pick is dropped when the declared variables change and is not revived by a re-added one", async () => {
+    const calls: Call[] = [];
+    const previewCalls = (): Call[] =>
+      calls.filter((call) => call.type === "template-resolver:query:preview");
+    const { invoiceNumber: _removed, ...withoutInvoiceNumber } = validation.variables;
+    const answer = { ...validation, variables: { ...validation.variables } };
+    renderEditor(fakeDispatcher("draft", calls, answer), (children) => (
+      <PreviewRecordPickerProvider
+        value={{
+          label: "Pick invoice",
+          renderPicker: ({ onPick }) => (
+            <button
+              type="button"
+              data-testid="fake-pick"
+              onClick={() => onPick({ invoiceNumber: "RE-STALE" })}
+            >
+              pick
+            </button>
+          ),
+        }}
+      >
+        {children}
+      </PreviewRecordPickerProvider>
+    ));
+    await openPreview();
+    fireEvent.click(await screen.findByTestId("mail-record-picker-open"));
+    fireEvent.click(await screen.findByTestId("fake-pick"));
+    await waitFor(() =>
+      expect(previewCalls().at(-1)?.payload).toMatchObject({
+        variables: { invoiceNumber: "RE-STALE" },
+      }),
+    );
+
+    const validateCalls = (): number =>
+      calls.filter((call) => call.type === "template-resolver:query:validate").length;
+    const changeSenderInEditMode = async (sender: string): Promise<void> => {
+      await switchMode("Edit");
+      const before = validateCalls();
+      fireEvent.change(await screen.findByTestId("mail-sender"), { target: { value: sender } });
+      await waitFor(() => expect(validateCalls()).toBeGreaterThan(before));
+      await openPreview();
+    };
+
+    answer.variables = withoutInvoiceNumber;
+    await changeSenderInEditMode("Neue Absenderin");
+    await waitFor(() =>
+      expect(previewCalls().at(-1)?.payload).toMatchObject({
+        meta: { senderName: "Neue Absenderin" },
+      }),
+    );
+    expect(previewCalls().at(-1)?.payload).not.toHaveProperty("variables");
+
+    answer.variables = validation.variables;
+    await changeSenderInEditMode("Noch eine Absenderin");
+    await waitFor(() =>
+      expect(previewCalls().at(-1)?.payload).toMatchObject({
+        meta: { senderName: "Noch eine Absenderin" },
+      }),
+    );
+    expect(previewCalls().at(-1)?.payload).not.toHaveProperty("variables");
   });
 
   test("the test mail button stays off with a hint when the server has no address for the user", async () => {
