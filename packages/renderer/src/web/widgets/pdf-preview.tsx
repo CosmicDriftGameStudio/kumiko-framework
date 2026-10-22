@@ -1,7 +1,7 @@
 // @runtime client
 /// <reference path="./pdfjs-worker.d.ts" />
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
-import { type ReactNode, Suspense, use, useCallback, useMemo, useState } from "react";
+import { type ReactNode, Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "../../i18n.tsx";
 import { createBoundedLoadCache } from "./bounded-load-cache.ts";
 
@@ -24,7 +24,7 @@ const MAX_CACHED_DOCUMENTS = 4;
 
 export type PdfPreviewSource = { readonly base64: string } | { readonly url: string };
 
-const cachedDocument = createBoundedLoadCache<LoadedDocument>(
+const documentCache = createBoundedLoadCache<LoadedDocument>(
   MAX_CACHED_DOCUMENTS,
   (loaded) => {
     if (loaded.ok) void loaded.loadingTask.destroy();
@@ -62,9 +62,12 @@ async function loadDocument(source: PdfPreviewSource): Promise<LoadedDocument> {
 }
 
 // The promise must be stable across renders for use().
+function documentKey(source: PdfPreviewSource): string {
+  return "base64" in source ? `base64:${source.base64}` : `url:${source.url}`;
+}
+
 function documentFor(source: PdfPreviewSource): Promise<LoadedDocument> {
-  const key = "base64" in source ? `base64:${source.base64}` : `url:${source.url}`;
-  return cachedDocument(key, () => loadDocument(source));
+  return documentCache.load(documentKey(source), () => loadDocument(source));
 }
 
 function PageView({
@@ -195,6 +198,9 @@ function pageFor(document: PDFDocumentProxy, pageNumber: number): Promise<PDFPag
 function Pages({ source }: { source: PdfPreviewSource }): ReactNode {
   const t = useTranslation();
   const loaded = use(documentFor(source));
+  // A mounted preview keeps its document out of the eviction: destroying it blanks its pages.
+  const key = documentKey(source);
+  useEffect(() => documentCache.retain(key), [key]);
   if (!loaded.ok) {
     return <p className="text-sm text-status-bad">{t("kumiko.widget.pdf-preview.renderFailed")}</p>;
   }
