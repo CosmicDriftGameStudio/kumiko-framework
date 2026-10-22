@@ -3,6 +3,7 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
+  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -12,6 +13,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
+  seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -19,10 +21,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.ts";
-import { apiTokenEntity } from "../../personal-access-tokens/schema/api-token.ts";
+import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
@@ -135,5 +139,38 @@ describe("forget-subject for users stored before the KMS or without an event str
     const second = await seedUser(stack.db, { email: "legacy-f2@example.com", displayName: "F2" });
     await expectForgotten(first.id, kms);
     await expectForgotten(second.id, kms);
+  });
+});
+
+describe("forget-subject closes the login door of a pre-KMS user after the key is erased", () => {
+  test("user is Deleted, PATs are revoked and the update event carries the erased sentinel", async () => {
+    const { id } = await seedUser(stack.db, { email: "legacy-pat@example.com", displayName: "P" });
+    await seedRow(stack.db, apiTokenTable, {
+      id: crypto.randomUUID(),
+      userId: id,
+      tenantId: TENANT,
+      name: "ci token",
+      tokenHash: crypto.randomUUID().replaceAll("-", ""),
+      prefix: "kpat_abcd",
+      scopes: "[]",
+      createdAt: Temporal.Now.instant(),
+    });
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    await expectForgotten(id, kms);
+
+    const tokens = await selectMany(stack.db, apiTokenTable, { userId: id });
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.["revokedAt"]).not.toBeNull();
+
+    const updates = await selectMany<{ payload: Record<string, unknown> }>(stack.db, eventsTable, {
+      aggregateId: id,
+      type: "user.updated",
+    });
+    const previousEmails = updates.map((event) => {
+      const previous = event.payload["previous"];
+      return isPlainObject(previous) ? previous["email"] : undefined;
+    });
+    expect(previousEmails).toContain(PII_ERASED_SENTINEL);
   });
 });

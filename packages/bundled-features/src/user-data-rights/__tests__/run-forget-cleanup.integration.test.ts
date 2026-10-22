@@ -21,6 +21,7 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
+  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -1204,5 +1205,46 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
     // Email change `previous`, lifecycle update `previous` and anonymization `changes` are ciphertexts.
     expect(emails.filter((email) => isPiiCiphertext(email)).length).toBeGreaterThanOrEqual(3);
     await expectEmailsShredded(emails, getKms(), userId);
+  });
+});
+
+describe("runForgetCleanup :: user stored before the KMS existed", () => {
+  const getKms = setupSubjectKmsForTest();
+
+  beforeEach(async () => {
+    await resetTestTables(stack.db, [eventsTable]);
+  });
+
+  test("the follow-up writes after eraseKey finish and the update event carries the erased sentinel", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: "legacy-alice@example.com",
+      displayName: "Legacy Alice",
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+    await getKms().eraseKey({ kind: "user", userId: ALICE_ID });
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: NOW(),
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.processedUserIds).toContain(ALICE_ID);
+    expect((await fetchUser(ALICE_ID))?.status).toBe(USER_STATUS.Deleted);
+    const events = await selectMany<{ type: string; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: ALICE_ID },
+    );
+    const payloads = events.filter((e) => e.type === "user.updated").map((e) => e.payload);
+    expect(emailsIn(payloads, "previous")).toContain(PII_ERASED_SENTINEL);
+    await expectEmailsShredded(
+      [...emailsIn(payloads, "changes"), ...emailsIn(payloads, "previous")],
+      getKms(),
+      ALICE_ID,
+    );
   });
 });
