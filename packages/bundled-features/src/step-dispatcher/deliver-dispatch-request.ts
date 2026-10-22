@@ -54,9 +54,17 @@ type DeliveryResult =
   | { readonly ok: true; readonly status: number }
   | { readonly ok: false; readonly error: string; readonly retryable: boolean };
 
-// Mail adapter failures carry no status to classify, so every one is retried.
+const SMTP_PERMANENT_REJECTION_MIN = 500;
+const SMTP_PERMANENT_REJECTION_MAX = 599;
+
+// Without an SMTP code the adapter gave nothing to classify, so the failure counts as transient.
 function mailResultAsDelivery(result: MailDispatchResult): DeliveryResult {
-  return result.ok ? result : { ...result, retryable: true };
+  if (result.ok) return result;
+  const isPermanent =
+    result.smtpCode !== undefined &&
+    result.smtpCode >= SMTP_PERMANENT_REJECTION_MIN &&
+    result.smtpCode <= SMTP_PERMANENT_REJECTION_MAX;
+  return { ok: false, error: result.error, retryable: !isPermanent };
 }
 
 export type DeliverDispatchRequestArgs = {
@@ -205,7 +213,13 @@ async function sendDispatch(
       aggregateId: target.aggregateId,
       errorName: err instanceof Error ? err.name : "unknown",
     });
-    return { ok: false, error: DISPATCH_THREW_ERROR, retryable: true };
+    // A mail adapter has no idempotency key: a throw after the provider accepted the message
+    // would send it again, so only the webhook (which carries one) is retried.
+    return {
+      ok: false,
+      error: DISPATCH_THREW_ERROR,
+      retryable: dispatchSpec.stepKind === "webhook.send",
+    };
   }
 }
 

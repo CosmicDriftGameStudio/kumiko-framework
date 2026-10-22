@@ -15,7 +15,8 @@ export type MailSpec = z.infer<typeof mailSpecSchema>;
 
 export type MailDispatchResult =
   | { readonly ok: true; readonly status: number }
-  | { readonly ok: false; readonly error: string };
+  // smtpCode is the adapter's SMTP reply code; a 5xx is a permanent rejection and is not retried.
+  | { readonly ok: false; readonly error: string; readonly smtpCode?: number };
 
 let mailRunner: (spec: MailSpec) => Promise<MailDispatchResult> = async () => ({
   ok: false,

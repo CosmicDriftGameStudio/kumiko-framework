@@ -388,6 +388,48 @@ describe("step-dispatcher job delivery", () => {
     await expectKeyErased(aggregateId);
   });
 
+  describe("mail failures", () => {
+    const mailPayload = { to: "ops@example.com", subject: "Server down", body: "Disk is full" };
+
+    test("a permanent SMTP 5xx rejection is recorded after the first attempt without a retry", async () => {
+      mailMock.mockResolvedValue({ ok: false, error: "550 mailbox unavailable", smtpCode: 550 });
+      await stack.http.writeOk("step-delivery-probe:write:notify-mail", mailPayload, admin);
+      const aggregateId = await requestedAggregateId();
+
+      await drain();
+
+      expect(mailMock).toHaveBeenCalledTimes(1);
+      const failed = await eventsOfType(DISPATCH_FAILED);
+      expect(failed).toHaveLength(1);
+      expect(failed[0]?.payload).toMatchObject({ stepKind: "mail.send", attempt: 1 });
+      await expectKeyErased(aggregateId);
+    });
+
+    test("an adapter that throws is not retried, so a mail the provider may have accepted is not sent twice", async () => {
+      mailMock.mockRejectedValue(new Error("connection reset after DATA"));
+      await stack.http.writeOk("step-delivery-probe:write:notify-mail", mailPayload, admin);
+      const aggregateId = await requestedAggregateId();
+
+      await drain();
+
+      expect(mailMock).toHaveBeenCalledTimes(1);
+      expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(1);
+      await expectKeyErased(aggregateId);
+    });
+
+    test("a failure without an SMTP code or with a 4xx code is still retried", async () => {
+      mailMock.mockResolvedValueOnce({ ok: false, error: "421 try later", smtpCode: 421 });
+      mailMock.mockResolvedValueOnce({ ok: false, error: "transport busy" });
+      await stack.http.writeOk("step-delivery-probe:write:notify-mail", mailPayload, admin);
+
+      await drain();
+
+      expect(mailMock).toHaveBeenCalledTimes(3);
+      expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
+      expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(0);
+    });
+  });
+
   test("without a job runner the projection fails loudly instead of dropping the dispatch", async () => {
     const noJobsStack = await setupTestStack({
       features: [createStepDispatcherFeature(), createSecretsFeature(), probeFeature],
