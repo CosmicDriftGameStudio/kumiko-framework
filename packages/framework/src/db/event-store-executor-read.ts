@@ -1,23 +1,10 @@
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { extractTableInfo } from "../db/table-info.ts";
-import {
-  buildOwnershipClause,
-  combineClauses,
-  normalizeAccessEntry,
-  type OwnershipClause,
-} from "../engine/ownership.ts";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
-import type { EntityId, SessionUser } from "../engine/types/index.ts";
+import type { EntityId } from "../engine/types/index.ts";
 import { getStreamVersion } from "../event-store/index.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
-import {
-  appendShiftedClause,
-  applyListFilter,
-  collectListFilters,
-  deriveParentNarrowTypes,
-  type ListWhere,
-} from "./event-store-executor-read-filter.ts";
+import { aggregateList } from "./event-store-executor-read-aggregate.ts";
 import {
   appendCursorBoundary,
   countListRows,
@@ -30,79 +17,33 @@ import {
   takeStreamVersions,
   withStreamVersion,
 } from "./event-store-executor-read-rows.ts";
-import { applyListSearch } from "./event-store-executor-read-search.ts";
 import {
   renderListOrderBy,
   resolveListSort,
   takeLastSortLabel,
 } from "./event-store-executor-read-sort.ts";
-import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.ts";
-import { physicalColumnName } from "./table-builder.ts";
+import { buildListWhere, resolveReadOwnership } from "./event-store-executor-read-where.ts";
 import { schemaTableName } from "./table-introspection.ts";
-import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";
 
-// The two read verbs (list/detail) of the event-store-executor. Split out
+// The read verbs (list/aggregate/detail) of the event-store-executor. Split out
 // of event-store-executor.ts — behavior-preserving relocation, not a redesign:
 // unchanged from the original, now behind an explicit ExecutorContext instead
 // of the factory's local scope. The list steps (filter, search, sort, paging,
 // row post-processing) live in the event-store-executor-read-*.ts neighbours.
 
-// H.2 — entity-level read ownership, AND-ed with the parent-ref read-gate
-// (join-row entities derive their visibility from a host row's own read path —
-// see db/parent-ref-clause.ts). `empty` means there's no row the user could ever see.
-function resolveReadOwnership(
-  ctx: Pick<ExecutorContext, "entity" | "table">,
-  tableName: string,
-  user: SessionUser,
-  db: TenantDb,
-  parentVisibility: ParentVisibilityOption | undefined,
-  gate: { readonly includeDeleted: boolean; readonly narrowTypes: ReadonlySet<string> | undefined },
-): OwnershipClause {
-  const parentClause = buildParentRefClause(
-    ctx.entity,
-    ctx.table,
-    tableName,
-    user,
-    db,
-    parentVisibility,
-    gate,
-  );
-  return combineClauses(
-    buildOwnershipClause(user, ctx.entity.access?.read, ctx.table),
-    parentClause,
-  );
-}
-
-// Replicates TenantDb's readWhere semantics for the raw list SQL.
-function appendTenantAndSoftDeleteScope(
-  where: ListWhere,
-  ctx: Pick<ExecutorContext, "table" | "softDelete">,
-  db: TenantDb,
-  includeDeleted: boolean,
-): void {
-  if (ctx.table["tenantId"] !== undefined && db.mode === "tenant") {
-    where.params.push(db.tenantId, SYSTEM_TENANT_ID);
-    where.whereSql.push(
-      `${where.colSql("tenantId")} IN ($${where.params.length - 1}, $${where.params.length})`,
-    );
-  }
-  if (ctx.softDelete && ctx.table["isDeleted"] && !includeDeleted) {
-    where.whereSql.push(`${where.colSql("isDeleted")} = FALSE`);
-  }
-}
-
 function emptyListPage(totalCount: boolean) {
   return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
 }
 
-export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
+export function createReadVerbs(
+  ctx: ExecutorContext,
+): Pick<EventStoreExecutor, "list" | "detail" | "aggregate"> {
   const {
     table,
     entity,
     entityName,
     entityCache,
-    searchAdapter,
     streamTenantFor,
     idFilter,
     probeOwnershipWithStreamVersion,
@@ -119,59 +60,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
       const tableName = String(schemaTableName(table));
-      const includeDeleted = runtimeOptions?.includeDeleted === true;
 
-      // Decide before touching search or the DB: an `empty` ownership skips both paths.
-      const ownership = resolveReadOwnership(
-        ctx,
-        tableName,
-        user,
-        db,
-        runtimeOptions?.parentVisibility,
-        { includeDeleted, narrowTypes: deriveParentNarrowTypes(entity, payload) },
-      );
-      if (ownership.kind === "empty") return emptyListPage(totalCount);
-
-      // Build the WHERE clause as raw SQL — ownership produces a
-      // parameterised fragment that we splice in alongside simple WhereObject
-      // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
-      const where: ListWhere = {
-        whereSql: [],
-        params: [],
-        colSql: (field) => `"${physicalColumnName(table, field)}"`,
-      };
-
-      // Field-level read access gates filtering and sorting the same way it
-      // gates the projected row: a caller who cannot read a field must not be
-      // able to probe its values through result counts or ordering.
-      // Built before the search step — a searchable-reference clause is the
-      // same probe surface as a filter/sort and must be gated the same way,
-      // before the reference-match query even runs.
-      const fieldReadClause = (field: string): OwnershipClause =>
-        buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
-
-      let searchTruncated = false;
-      if (payload.search) {
-        // The build-time options.searchAdapter takes precedence; use the runtime override
-        // as a fallback because defaultEntityQueryHandler receives the search adapter only
-        // at runtime, when createEventStoreExecutor has no server context yet.
-        const search = await applyListSearch(
-          {
-            searchTerm: payload.search,
-            searchAdapter: searchAdapter ?? runtimeOptions?.searchAdapter,
-            entityName,
-            table,
-            referenceSearch: runtimeOptions?.referenceSearch,
-            fieldReadClause,
-            streamTenantFor,
-            user,
-            db,
-          },
-          where,
-        );
-        if (search.kind === "noMatches") return emptyListPage(totalCount);
-        searchTruncated = search.searchTruncated;
-      }
+      const built = await buildListWhere(ctx, payload, user, db, runtimeOptions);
+      if (built.kind === "empty") return emptyListPage(totalCount);
+      const { where, fieldReadClause, searchTruncated } = built;
 
       const sort = resolveListSort({
         payload,
@@ -184,12 +76,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         db,
         user,
       });
-      appendTenantAndSoftDeleteScope(where, ctx, db, includeDeleted);
       if (payload.cursor) appendCursorBoundary(where, payload.cursor, sort);
-      if (ownership.kind === "sql") appendShiftedClause(where, ownership);
-      for (const f of collectListFilters(payload)) {
-        applyListFilter(where, f, table, entity, fieldReadClause);
-      }
 
       // The COUNT below reuses the WHERE text only, so it must bind exactly the
       // params that text references — Postgres rejects a statement supplied
@@ -255,6 +142,9 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         ...(searchTruncated && { searchTruncated: true as const }),
       };
     },
+
+    aggregate: (payload, user, db, runtimeOptions) =>
+      aggregateList(ctx, payload, user, db, runtimeOptions),
 
     async detail(payload, user, db, options) {
       const tableName = String(schemaTableName(table));

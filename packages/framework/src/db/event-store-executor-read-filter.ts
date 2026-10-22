@@ -14,16 +14,21 @@ export type ListWhere = {
   readonly colSql: (field: string) => string;
 };
 
+// Rebases a clause's local $1..$n onto `params` and returns the shifted text.
+export function bindShiftedClause(
+  params: unknown[],
+  clause: { readonly sqlText: string; readonly params: readonly unknown[] },
+): string {
+  const shifted = shiftParams({ sqlText: clause.sqlText, params: clause.params }, params.length);
+  for (const p of shifted.params) params.push(p);
+  return shifted.sqlText;
+}
+
 export function appendShiftedClause(
   where: ListWhere,
   clause: { readonly sqlText: string; readonly params: readonly unknown[] },
 ): void {
-  const shifted = shiftParams(
-    { sqlText: clause.sqlText, params: clause.params },
-    where.params.length,
-  );
-  where.whereSql.push(shifted.sqlText);
-  for (const p of shifted.params) where.params.push(p);
+  where.whereSql.push(bindShiftedClause(where.params, clause));
 }
 
 export function bindPlaceholders(params: unknown[], values: readonly unknown[]): string {
@@ -209,7 +214,7 @@ export function applyListFilter(
   entity: EntityDefinition,
   fieldReadClause: (field: string) => OwnershipClause,
 ): void {
-  if (table[f.field] === undefined) {
+  if (!Object.hasOwn(table, f.field)) {
     // skip: unknown field — not a real column, drop the filter (injection guard)
     return;
   }

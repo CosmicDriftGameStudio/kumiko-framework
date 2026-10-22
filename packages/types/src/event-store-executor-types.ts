@@ -3,6 +3,7 @@ import type { EntityDefinition } from "./fields.ts";
 import type { SessionUser, WriteResult } from "./handlers.ts";
 import type { DeleteContext, SaveContext } from "./hooks.ts";
 import type { EntityId, TenantId } from "./identifiers.ts";
+import type { ListAggregatePayload, ListAggregateResult } from "./list-aggregate-types.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
 import type { TenantDb } from "./tenant-db-types.ts";
 
@@ -42,6 +43,57 @@ export type WritePurpose = (typeof WritePurposes)[keyof typeof WritePurposes];
 export type LockGuardOption = {
   readonly unsafeSkipLockGuard?: boolean;
   readonly writePurpose?: WritePurpose;
+};
+
+export type ListRuntimeOptions = {
+  readonly searchAdapter?: SearchAdapter;
+  // Trash query: skip the implicit `isDeleted = FALSE` filter so soft-
+  // deleted rows are returned too. Tenant + ownership clauses still apply
+  // — includeDeleted only relaxes the soft-delete predicate, never the
+  // visibility ones, so it can ride untrusted query input safely.
+  readonly includeDeleted?: boolean;
+  // A text search also matches `searchable: true` reference
+  // fields (and the implicit tenantId→tenant.name row-meta reference) by
+  // their target row's labelField, not just the raw FK column. Only
+  // available at request time (registry access), so it rides the same
+  // runtime-override extension point as searchAdapter. `fields` and
+  // `resolveEntity` travel together — one without the other silently
+  // no-ops, so they're grouped instead of two independent optionals.
+  readonly referenceSearch?: {
+    readonly fields: ReadonlyArray<{
+      readonly fieldName: string;
+      readonly targetEntityName: string;
+      readonly labelField: string;
+    }>;
+    readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+  };
+  // `sortable: true` reference fields order by the target row's
+  // labelField instead of the raw FK column. Same request-time registry
+  // dependency (and the same fields/resolveEntity pairing) as referenceSearch.
+  readonly referenceSort?: {
+    readonly fields: ReadonlyArray<{
+      readonly fieldName: string;
+      readonly targetEntityName: string;
+      readonly labelField: string;
+    }>;
+    readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
+  };
+  // Join-row read-gate (EntityDefinition.parentRef) — same request-time
+  // registry dependency as referenceSearch/referenceSort above.
+  readonly parentVisibility?: ParentVisibilityOption;
+};
+
+type ListFilterOption = {
+  readonly field: string;
+  readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
+  readonly value: unknown;
+};
+
+export type ListAggregateRequest = {
+  readonly search?: string | undefined;
+  readonly filter?: ListFilterOption | undefined;
+  readonly filters?: readonly ListFilterOption[] | undefined;
+  readonly aggregate: ListAggregatePayload;
 };
 
 // `Row` is the shape list()/detail() hand back; create/update payloads stay untyped. The default
@@ -145,44 +197,16 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
      *  one from ctx.searchAdapter here at runtime.
      *  options.searchAdapter (build-time) wins — the runtime override
      *  is the fallback for the default wrapper. */
-    runtimeOptions?: {
-      readonly searchAdapter?: SearchAdapter;
-      // Trash query: skip the implicit `isDeleted = FALSE` filter so soft-
-      // deleted rows are returned too. Tenant + ownership clauses still apply
-      // — includeDeleted only relaxes the soft-delete predicate, never the
-      // visibility ones, so it can ride untrusted query input safely.
-      readonly includeDeleted?: boolean;
-      // A text search also matches `searchable: true` reference
-      // fields (and the implicit tenantId→tenant.name row-meta reference) by
-      // their target row's labelField, not just the raw FK column. Only
-      // available at request time (registry access), so it rides the same
-      // runtime-override extension point as searchAdapter. `fields` and
-      // `resolveEntity` travel together — one without the other silently
-      // no-ops, so they're grouped instead of two independent optionals.
-      readonly referenceSearch?: {
-        readonly fields: ReadonlyArray<{
-          readonly fieldName: string;
-          readonly targetEntityName: string;
-          readonly labelField: string;
-        }>;
-        readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
-      };
-      // `sortable: true` reference fields order by the target row's
-      // labelField instead of the raw FK column. Same request-time registry
-      // dependency (and the same fields/resolveEntity pairing) as referenceSearch.
-      readonly referenceSort?: {
-        readonly fields: ReadonlyArray<{
-          readonly fieldName: string;
-          readonly targetEntityName: string;
-          readonly labelField: string;
-        }>;
-        readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
-      };
-      // Join-row read-gate (EntityDefinition.parentRef) — same request-time
-      // registry dependency as referenceSearch/referenceSort above.
-      readonly parentVisibility?: ParentVisibilityOption;
-    },
+    runtimeOptions?: ListRuntimeOptions,
   ) => Promise<CursorResult<Row>>;
+
+  /** Groups and measures over the same WHERE as `list` (filters, search, ownership, field-read gates); paging and sort are ignored. */
+  aggregate: (
+    payload: ListAggregateRequest,
+    user: SessionUser,
+    db: TenantDb,
+    runtimeOptions?: ListRuntimeOptions,
+  ) => Promise<ListAggregateResult>;
 
   detail: (
     payload: { id: EntityId },

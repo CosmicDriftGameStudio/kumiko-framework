@@ -1,3 +1,4 @@
+import { isListAggregateResult } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbRow, DbTx } from "../db/connection.ts";
 import { hasAccess } from "../engine/access.ts";
@@ -143,7 +144,9 @@ async function runQueryHandler(
   const handlerHooks = registry.getPostQueryHooks(type);
   const entityHooks = entityName ? registry.getEntityPostQueryHooks(entityName) : [];
   const postQueryHooks = [...handlerHooks, ...entityHooks];
-  if (postQueryHooks.length > 0 && result && typeof result === "object") {
+  // Aggregate groups are not rows: their values are already read-gated and the hooks are row-shaped.
+  const isAggregate = isListAggregateResult(result);
+  if (!isAggregate && postQueryHooks.length > 0 && result && typeof result === "object") {
     if (Array.isArray(result)) {
       let rows = result as Record<string, unknown>[]; // @cast-boundary engine-payload
       for (const hook of postQueryHooks) {
@@ -181,7 +184,7 @@ async function runQueryHandler(
 
   // Field-level read filter — only applies to entity-bound results.
   const entity = entityName ? registry.getEntity(entityName) : undefined;
-  if (entity && result && typeof result === "object") {
+  if (entity && !isAggregate && result && typeof result === "object") {
     if (Array.isArray(result)) {
       result = result.map((row: Record<string, unknown>) => filterReadFields(entity, row, user));
     } else {

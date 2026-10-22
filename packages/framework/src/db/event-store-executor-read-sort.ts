@@ -126,7 +126,7 @@ export function resolveListSort(request: {
   // ciphertext carries no meaning for the user while leaking the order of the plaintext.
   const field =
     payload.sort &&
-    table[payload.sort] &&
+    Object.hasOwn(table, payload.sort) &&
     request.fieldReadClause(payload.sort).kind === "pass" &&
     isListSortAllowed(entity, payload.sort)
       ? payload.sort

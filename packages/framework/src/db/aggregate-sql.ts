@@ -4,6 +4,11 @@ import type {
   AggregateSpec,
   AggregateTimeBucket,
 } from "@cosmicdrift/kumiko-types/aggregate-types";
+import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type {
+  ListAggregateMeasureKind,
+  ListAggregateValue,
+} from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
 import type { TableInfo } from "./table-info.ts";
 
@@ -29,19 +34,121 @@ export function aggregateKeyOf(raw: unknown): AggregateKey {
   return String(raw);
 }
 
-export function aggregateMeasureSql(info: TableInfo, measure: AggregateSpec["measure"]): string {
-  switch (measure.fn) {
+export type AggregateFunction = "count" | "countDistinct" | "sum" | "avg" | "min" | "max";
+
+// FILTER sits inside the aggregate so a row-dependent read clause restricts only
+// this measure; COALESCE stays outside to keep an all-filtered SUM at 0.
+export function aggregateFunctionSql(
+  fn: AggregateFunction,
+  columnSql: string | undefined,
+  filterSql?: string,
+): string {
+  const filter = filterSql === undefined ? "" : ` FILTER (WHERE ${filterSql})`;
+  const column = columnSql ?? "*";
+  switch (fn) {
     case "count":
-      return "COUNT(*)";
+      return `COUNT(${column})${filter}`;
     case "countDistinct":
-      return `COUNT(DISTINCT ${requireAggregateColumn(info, measure.field, "measure field")})`;
+      return `COUNT(DISTINCT ${column})${filter}`;
     case "sum":
-      return `COALESCE(SUM(${requireAggregateColumn(info, measure.field, "measure field")}), 0)`;
+      return `COALESCE(SUM(${column})${filter}, 0)`;
     case "avg":
-      return `AVG(${requireAggregateColumn(info, measure.field, "measure field")})`;
+      return `AVG(${column})${filter}`;
+    case "min":
+      return `MIN(${column})${filter}`;
+    case "max":
+      return `MAX(${column})${filter}`;
     default:
-      throw new Error(`aggregateWhere: unknown measure fn "${String(Reflect.get(measure, "fn"))}"`);
+      throw new Error(`aggregateWhere: unknown aggregate fn "${String(fn)}"`);
   }
+}
+
+export function aggregateMeasureSql(info: TableInfo, measure: AggregateSpec["measure"]): string {
+  if (measure.fn === "count") return aggregateFunctionSql("count", undefined);
+  return aggregateFunctionSql(
+    measure.fn,
+    requireAggregateColumn(info, measure.field, "measure field"),
+  );
+}
+
+type FieldType = FieldDefinition["type"];
+
+const NUMERIC_MEASURE_TYPES: readonly FieldType[] = ["number", "bigInt", "decimal", "money"];
+const ORDERED_MEASURE_TYPES: readonly FieldType[] = [...NUMERIC_MEASURE_TYPES, "date", "timestamp"];
+// Group keys must round-trip as a plain `field eq key` filter, which rules out
+// composite, multi-valued, currency-paired and zone-paired types.
+const GROUPABLE_TYPES: readonly FieldType[] = [
+  "text",
+  "longText",
+  "select",
+  "boolean",
+  "number",
+  "bigInt",
+  "decimal",
+  "date",
+  "timestamp",
+];
+
+export function isListAggregateMeasureSupported(
+  kind: ListAggregateMeasureKind,
+  fieldType: FieldType,
+): boolean {
+  if (kind === "count") return true;
+  const allowed = kind === "sum" || kind === "avg" ? NUMERIC_MEASURE_TYPES : ORDERED_MEASURE_TYPES;
+  return allowed.includes(fieldType);
+}
+
+export function isListAggregateGroupable(fieldType: FieldType, multiple: boolean): boolean {
+  return fieldType === "reference" ? !multiple : GROUPABLE_TYPES.includes(fieldType);
+}
+
+export function listAggregateKeySql(
+  fieldType: FieldType,
+  columnSql: string,
+  alias: string,
+): string {
+  // A date column must not pass through a JS Date, so it travels as text.
+  return fieldType === "date" ? `${columnSql}::text AS ${alias}` : `${columnSql} AS ${alias}`;
+}
+
+const ISO_UTC_TIMESTAMP_FORMAT = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
+
+// Numbers leave PG as float8 and dates/timestamps as text, so the driver never
+// hands back a bigint or numeric string that JSON could not carry.
+export function listAggregateMeasureSql(
+  kind: ListAggregateMeasureKind,
+  fieldType: FieldType,
+  columnSql: string,
+  filterSql?: string,
+): string {
+  const fn = aggregateFunctionSql(kind, columnSql, filterSql);
+  if (kind === "count") return `(${fn})::float8`;
+  if (kind === "min" || kind === "max") {
+    if (fieldType === "date") return `(${fn})::text`;
+    if (fieldType === "timestamp") {
+      return `to_char((${fn}) AT TIME ZONE 'UTC', ${ISO_UTC_TIMESTAMP_FORMAT})`;
+    }
+  }
+  // Money is integer minor units, so an average rounds to one.
+  if (kind === "avg" && fieldType === "money") return `ROUND(${fn})::float8`;
+  return `(${fn})::float8`;
+}
+
+export function groupedKeyOrderLimitSql(limit: number): string {
+  return ` GROUP BY 1 ORDER BY 1 ASC NULLS LAST LIMIT ${limit}`;
+}
+
+export function decodeListAggregateValue(raw: unknown): ListAggregateValue {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "number" || typeof raw === "string") return raw;
+  if (typeof raw === "bigint") return Number(raw);
+  if (raw instanceof Date) return raw.toISOString();
+  return String(raw);
+}
+
+// What the measure reports over zero rows, mirroring the SQL (SUM coalesces, COUNT is 0).
+export function emptyListAggregateValue(kind: ListAggregateMeasureKind): ListAggregateValue {
+  return kind === "sum" || kind === "count" ? 0 : null;
 }
 
 export function aggregateDimensionSql(
