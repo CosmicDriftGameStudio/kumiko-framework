@@ -59,7 +59,10 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         .min(1)
         .max(50)
         .refine((t) => !opts.validTiers || opts.validTiers.has(t), { message: "unknown tier" }),
-      source: z.enum(TierAssignmentSources).default(TierAssignmentSources.manual),
+      // `default` is reserved for the signup default tier; the billing sync treats it like `billing`.
+      source: z
+        .enum([TierAssignmentSources.manual, TierAssignmentSources.billing])
+        .default(TierAssignmentSources.manual),
     }),
     access: { roles: ["SystemAdmin"] },
     agent: { risk: "high" },

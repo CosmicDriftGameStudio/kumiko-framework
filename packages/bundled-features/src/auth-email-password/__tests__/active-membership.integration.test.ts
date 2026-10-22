@@ -3,7 +3,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -166,6 +171,32 @@ describe("switch-tenant :: active-membership building block", () => {
     await addMembership(userId, TENANT_A);
     await addMembership(userId, TENANT_B);
     await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+
+    const token = await tokenFor(userId, TENANT_A);
+    const res = await switchTenant(token, TENANT_B);
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("principal_blocked");
+  });
+
+  test("switching as a soft-deleted principal whose status is still active → 403 principal_blocked", async () => {
+    await createTenant(TENANT_A);
+    await createTenant(TENANT_B);
+    const userId = await createUser("soft-deleted@example.com", "pw-long-enough-3");
+    await addMembership(userId, TENANT_A);
+    await addMembership(userId, TENANT_B);
+
+    // executor.delete keeps the last status, so only isDeleted can block this principal.
+    const systemTenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+    });
+    const deleted = await createEventStoreExecutor(userTable, userEntity, {
+      entityName: "user",
+    }).delete({ id: userId }, createSystemUser(SYSTEM_TENANT_ID), systemTenantDb);
+    if (!deleted.isSuccess) throw new Error("expected soft-delete to succeed");
 
     const token = await tokenFor(userId, TENANT_A);
     const res = await switchTenant(token, TENANT_B);

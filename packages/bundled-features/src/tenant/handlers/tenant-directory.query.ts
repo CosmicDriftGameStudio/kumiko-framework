@@ -32,7 +32,7 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
   }),
   access: { roles: access.admin },
   description:
-    "Lists tenants as id/label pairs for resolving tenant references to display names: the caller's own tenant for an admin, every tenant for a SystemAdmin.",
+    "Lists tenants as id/label pairs for resolving tenant references to display names: the caller's own tenant for an admin, every tenant for a SystemAdmin. A search returns the first `limit` matches in tenant-key order (sorted by label afterwards), not the alphabetically best matches.",
   agent: { expose: false },
   handler: async (query, ctx) => {
     if (!ctx.systemDb) {

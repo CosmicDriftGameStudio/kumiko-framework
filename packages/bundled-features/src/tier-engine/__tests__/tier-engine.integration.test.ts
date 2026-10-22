@@ -375,6 +375,29 @@ describe("scenario 7: cross-tenant manual grant", () => {
     expect(grant!["tier"]).toBe("business");
   });
 
+  test("source default is rejected — a manual grant can only be manual or billing", async () => {
+    const sysadmin = createTestUser({
+      id: 415,
+      tenantId: testTenantId(415),
+      roles: ["SystemAdmin"],
+    });
+    const target = testTenantId(416);
+
+    const error = await stack.http.writeErr(
+      TierEngineHandlers.setTenantTier,
+      { tenantId: target, tier: "pro", source: "default" },
+      sysadmin,
+    );
+    expectErrorIncludes(error, "validation");
+
+    const grant = await stack.http.queryOk<Record<string, unknown> | null>(
+      TierEngineQueries.getTenantTier,
+      { tenantId: target },
+      sysadmin,
+    );
+    expect(grant).toBeNull();
+  });
+
   test("TenantAdmin cannot set a foreign tenant's tier — fail-closed", async () => {
     const tenantAdmin = createTestUser({
       id: 420,
