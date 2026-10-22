@@ -15,7 +15,7 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { burst, createBarrier, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -172,6 +172,9 @@ const lifecyclePayload = z.object({
   ]),
 });
 
+// Lets a test line concurrent requests up right before their settle, so they race on one counter.
+let beforeLifecycleSettle: (() => Promise<void>) | undefined;
+
 // Drives the low-level settle/release directly: the handle's in-memory state would reject a second
 // settle before it reaches the row logic under test.
 const settleLifecycleHandler: WriteHandlerDef = {
@@ -197,6 +200,7 @@ const settleLifecycleHandler: WriteHandlerDef = {
     ) {
       await releaseCapReservation(ctx, reservation.reservationId);
     }
+    await beforeLifecycleSettle?.();
     if (
       payload.scenario === "settle-parallel" ||
       payload.scenario === "release-then-settle-parallel"
@@ -496,6 +500,30 @@ describe("settle tombstone", () => {
 
     expect(await readCounterValue(user, "parallel-released-cap")).toBe(2);
     expect(await settledTombstones(3135)).toHaveLength(1);
+  });
+
+  test("settles of released reservations that lose the counter race still book their amount", async () => {
+    const user = adminFor(3136);
+    const capName = "released-race-cap";
+    const requests = 4;
+    const barrier = createBarrier({ expected: requests });
+    beforeLifecycleSettle = () => barrier.arrive();
+
+    try {
+      const { statuses } = await burst(stack, requests, () =>
+        stack.http.write(
+          SETTLE_LIFECYCLE_QN,
+          { capName, amount: 1, actual: 1, scenario: "release-then-settle-twice" },
+          user,
+        ),
+      );
+      expect(statuses).toEqual({ 200: requests });
+    } finally {
+      beforeLifecycleSettle = undefined;
+    }
+
+    expect(await readCounterValue(user, capName)).toBe(requests);
+    expect(await settledTombstones(3136)).toHaveLength(requests);
   });
 
   test("a release after a settle gives nothing back", async () => {
