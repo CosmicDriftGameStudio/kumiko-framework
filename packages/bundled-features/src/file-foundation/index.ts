@@ -10,6 +10,7 @@ export {
 export {
   type FileRefContent,
   FileRefTooLargeError,
+  FileStorageUnavailableError,
   fileContextForTenant,
   fileContextFromResolver,
   readFileRefContent,

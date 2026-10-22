@@ -965,6 +965,33 @@ describe("flow 7: unsubscribe endpoint", () => {
     expect(pref?.["enabled"]).toBe(false);
   });
 
+  test("RFC 8058 one-click POST with an expired token answers JSON 400, not a page", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:one-click-expired",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+    const issuedLongAgo = Math.floor(Date.now() / 1000) - 10 * 365 * 24 * 3600;
+    const expiredToken = await new jose.SignJWT({ ...jose.decodeJwt(token) })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt(issuedLongAgo)
+      .setExpirationTime(issuedLongAgo + 3600)
+      .sign(new TextEncoder().encode(UNSUBSCRIBE_SECRET));
+
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${expiredToken}`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "List-Unsubscribe=One-Click",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).toContain("application/json");
+  });
+
   test("preference row belongs to the token's userId, not the dispatching system user", async () => {
     const token = await signUnsubscribeToken(
       {

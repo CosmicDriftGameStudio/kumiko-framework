@@ -5,7 +5,11 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { type FileRefContent, readFileRefContent } from "../file-foundation/index.ts";
+import {
+  type FileRefContent,
+  FileStorageUnavailableError,
+  readFileRefContent,
+} from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
@@ -86,7 +90,8 @@ function createPdfRenderer(
   };
 }
 
-// A decorative inline image (logo) that cannot be read must not fail the whole mail.
+// A decorative inline image (logo) of a tenant without file storage must not fail the whole mail;
+// transient read errors rethrow so the send job retries.
 async function readInlineImageOrNull(
   fileRefId: string,
   read: () => Promise<FileRefContent | null>,
@@ -94,9 +99,10 @@ async function readInlineImageOrNull(
   try {
     return await read();
   } catch (err) {
+    if (!(err instanceof FileStorageUnavailableError)) throw err;
     createFallbackLogger("delivery").warn("inline image could not be read, sending without it", {
       fileRefId,
-      errorName: err instanceof Error ? err.name : typeof err,
+      errorName: err.name,
     });
     return null;
   }

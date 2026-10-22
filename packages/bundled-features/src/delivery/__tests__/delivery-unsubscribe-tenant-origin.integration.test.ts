@@ -60,7 +60,17 @@ const tenantWithoutOrigin: TenantId = testTenantId(802);
 const tenantOriginThrows: TenantId = testTenantId(803);
 const tenantOriginInsecure: TenantId = testTenantId(804);
 
+const tenantOriginCounted: TenantId = testTenantId(805);
+let countedOriginLookups = 0;
+
 const tenantOrigins = new Map<TenantId, () => Promise<string | null>>([
+  [
+    tenantOriginCounted,
+    async () => {
+      countedOriginLookups += 1;
+      return "https://counted.status.example";
+    },
+  ],
   [tenantWithOrigin, async () => "https://acme.status.example/ignored/path"],
   [tenantWithoutOrigin, async () => null],
   [
@@ -187,6 +197,20 @@ describe("unsubscribe link origin", () => {
     expect(link.pathname).toBe(DELIVERY_UNSUBSCRIBE_PATH);
   });
 
+  test("resolves the tenant origin once for a notify call with several recipients", async () => {
+    countedOriginLookups = 0;
+    await deliveryService.notify(
+      NEWS,
+      { to: ["counted-user-1", "counted-user-2"], data: { title: "News", body: "Hello" } },
+      createSystemUser(tenantOriginCounted),
+      tenantOriginCounted,
+    );
+
+    const mails = transport.sent.filter((sent) => sent.to.startsWith("counted-user-"));
+    expect(mails).toHaveLength(2);
+    expect(countedOriginLookups).toBe(1);
+  });
+
   test("falls back to the app origin on null, a throw or a non-https origin", async () => {
     for (const [tenantId, address] of [
       [tenantWithoutOrigin, "no-origin@external.test"],
@@ -284,7 +308,10 @@ describe("resubscribe at the generation limit", () => {
 
     expect(res.status).toBe(409);
     expect(res.headers.get("content-type")).toContain("text/html");
-    expect(await res.text()).toContain('<html lang="de">');
+    const html = await res.text();
+    expect(html).toContain('<html lang="de">');
+    expect(html).toContain("Diese Adresse kann hier nicht erneut angemeldet werden.");
+    expect(html).not.toContain("Bitte später noch einmal versuchen.");
   });
 
   test("a JSON caller still gets the JSON error body with 409", async () => {

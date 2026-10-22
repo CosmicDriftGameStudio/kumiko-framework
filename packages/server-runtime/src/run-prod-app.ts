@@ -581,7 +581,9 @@ export type RunProdAppOptions = {
    *  then the `APP_BASE_URL` env; with none of them no link is added (boot warning). Address
    *  recipients need a blind-index key, otherwise they get no link. Do not also mount
    *  `createUnsubscribeRoutes` via `extraRoutes`. `tenantOrigin` points a tenant's links at
-   *  its own subdomain or custom domain (the host must serve this app's `/api` routes); null,
+   *  its own subdomain or custom domain (the host must serve this app's `/api` routes, and
+   *  the callback must only return a verified, active domain, else null: the link carries a bearer
+   *  token a stale domain's new owner would receive); null,
    *  a throw or a non-https value fall back to the app origin. The link carries the mail's
    *  locale, so the confirmation pages speak the mail's language. An app reacts to an address
    *  opt-out with an `r.job` triggered on `DeliveryHandlers.unsubscribeAddress`. */

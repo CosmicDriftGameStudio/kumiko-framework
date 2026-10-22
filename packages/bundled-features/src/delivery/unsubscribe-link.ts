@@ -10,7 +10,9 @@ export type UnsubscribeLinkConfig = {
   readonly secret: string;
   readonly baseUrl: string;
   /** The sending tenant's own public origin (subdomain or custom domain), null when it has
-   *  none. The host must serve this app's `/api` routes. Null, a throw or an unusable value
+   *  none. The host must serve this app's `/api` routes, and the callback must only return a
+   *  verified, active domain of the tenant (the check that lets the app serve under it), else null:
+   *  the link carries a bearer token that unsubscribes and yields a resubscribe token. Null, a throw or an unusable value
    *  fall back to `baseUrl`, so a missing tenant origin never fails a send. */
   readonly tenantOrigin?: (ctx: ChannelContext) => Promise<string | null | undefined>;
 };

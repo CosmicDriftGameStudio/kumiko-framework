@@ -106,6 +106,27 @@ describe("inline attachments without a provider resolver", () => {
   });
 });
 
+describe("inline attachment read failures", () => {
+  test("a storage read error propagates so the send job retries", async () => {
+    const fileRefId = await uploadLogo();
+    const failingProvider = {
+      ...provider,
+      read: () => Promise.reject(new Error("storage timeout")),
+    };
+    const read = createEmailAttachmentReader(
+      stack.db,
+      stack.registry,
+      jobTenantId,
+      undefined,
+      (tenantId) => createFileContext(() => Promise.resolve(failingProvider), tenantId as TenantId),
+    );
+
+    await expect(read({ kind: "inline", cid: "logo", fileRefId }, "template")).rejects.toThrow(
+      "storage timeout",
+    );
+  });
+});
+
 // A caller of notify() picks the fileRefId, so its files must stay inside the sending tenant;
 // only refs the renderer took from a template may reach the system tenant.
 function readerReachingEveryTenant() {

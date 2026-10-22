@@ -33,7 +33,7 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
   // or createUnsubscribePageChromeReader for a tenant the app resolved server-side.
   agent: { expose: false },
   description:
-    "Returns the tenant's mail brand row and footer resolved for one locale, or null without a mail renderer; dispatched by the signed unsubscribe route to dress its pages like the mail, not meant for UI callers.",
+    "Returns the tenant's mail brand row and footer resolved for one locale, or null without a mail renderer; dispatched by the signed unsubscribe route or by createUnsubscribePageChromeReader for a tenant the app resolved server-side, to dress its pages like the mail; not meant for UI callers.",
   handler: async (query, ctx): Promise<MailChrome | null> => {
     const { tenantId } = query.user;
     if (!ctx.systemDb) {

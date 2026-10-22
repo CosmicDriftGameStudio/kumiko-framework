@@ -569,9 +569,18 @@ async function verifyPost(
   encodedSecret: Uint8Array,
   purpose: TokenPurpose,
 ): Promise<VerifiedUnsubscribe | RejectedForPage> {
-  return isFormRequest(request.headers["content-type"])
+  return isFormRequest(request.headers["content-type"]) && !isOneClickPost(request)
     ? verifyForPage(token, encodedSecret, purpose, request.headers)
     : verifyUnsubscribeToken(token, encodedSecret, purpose);
+}
+
+// RFC 8058 mail-provider POSTs are form-encoded too, but nobody looks at the answer: they keep
+// the JSON rejection and get no branded page.
+function isOneClickPost(request: SignatureExtraRouteVerifyRequest): boolean {
+  return (
+    isFormRequest(request.headers["content-type"]) &&
+    request.rawBody.trim() === DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE
+  );
 }
 
 function isFormRequest(contentType: string | undefined): boolean {
@@ -635,22 +644,37 @@ export function createUnsubscribeRoutes(
         : pageResponse(c, deps, { kind: "confirm", token: verified.token }, verified, 200),
   });
 
-  const writeRoute = signatureRoute<VerifiedUnsubscribe | RejectedForPage>({
+  const writeRoute = signatureRoute<
+    (VerifiedUnsubscribe & { readonly oneClick: boolean }) | RejectedForPage
+  >({
     method: "POST",
     path: DELIVERY_UNSUBSCRIBE_PATH,
     entry: "signature",
-    verify: async (request) =>
-      verifyPost(request, tokenFromPostRequest(request), encodedSecret, "unsubscribe"),
+    verify: async (request) => {
+      const verified = await verifyPost(
+        request,
+        tokenFromPostRequest(request),
+        encodedSecret,
+        "unsubscribe",
+      );
+      return verified.kind === "rejected"
+        ? verified
+        : { ...verified, oneClick: isOneClickPost(request) };
+    },
     handler: async (c, verified, deps) => {
       if (verified.kind === "rejected") {
         return pageResponse(c, deps, { kind: "invalid" }, verified, 400);
       }
+      // No chrome lookup for a one-click client: it never renders the page.
+      const pageScope: PageScope = verified.oneClick
+        ? { tenantId: undefined, locale: verified.locale }
+        : verified;
       // Token-verify passed — everything below is a legitimate write. Don't
       // swallow write-errors as "invalid token", that would mask real bugs
       // (e.g. events-table missing, DB down) behind a misleading 400.
       const succeeded = await dispatchUnsubscribeWrite(verified, deps);
       if (!succeeded) {
-        return pageResponse(c, deps, { kind: "failed" }, verified, 500);
+        return pageResponse(c, deps, { kind: "failed" }, pageScope, 500);
       }
       return pageResponse(
         c,
@@ -659,7 +683,7 @@ export function createUnsubscribeRoutes(
           kind: "unsubscribed",
           resubscribeToken: await signResubscribeToken(verified, encodedSecret),
         },
-        verified,
+        pageScope,
         200,
       );
     },
@@ -681,15 +705,12 @@ export function createUnsubscribeRoutes(
       const outcome = await dispatchResubscribeWrite(verified, deps);
       // The undo button on the unsubscribed page posts a form; a browser should land on a page.
       if (isFormRequest(c.req.header("content-type"))) {
-        return outcome === "success"
-          ? pageResponse(c, deps, { kind: "resubscribed" }, verified, 200)
-          : pageResponse(
-              c,
-              deps,
-              { kind: "failed" },
-              verified,
-              outcome === "limit_reached" ? 409 : 500,
-            );
+        if (outcome === "success") {
+          return pageResponse(c, deps, { kind: "resubscribed" }, verified, 200);
+        }
+        return outcome === "limit_reached"
+          ? pageResponse(c, deps, { kind: "resubscribeLimitReached" }, verified, 409)
+          : pageResponse(c, deps, { kind: "failed" }, verified, 500);
       }
       if (outcome === "limit_reached") {
         return c.json(
