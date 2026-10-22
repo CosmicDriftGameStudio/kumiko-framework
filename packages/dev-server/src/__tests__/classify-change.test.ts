@@ -5,7 +5,7 @@
 // changes fail to propagate (UX is broken). Both are costly, so we pin this behavior.
 
 import { describe, expect, test } from "bun:test";
-import { classifyChange, classifyWatchedChange } from "../create-kumiko-server.ts";
+import { classifyChange, classifyWatchedChange } from "../create-kumiko-server-watcher.ts";
 
 describe("classifyChange", () => {
   test("server-side feature.ts → restart", () => {

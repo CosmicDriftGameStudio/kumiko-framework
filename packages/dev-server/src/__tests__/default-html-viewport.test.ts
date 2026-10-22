@@ -1,7 +1,7 @@
 // Without interactive-widget=resizes-content a mobile keyboard overlays
 // position:fixed bottom bars (wizard Next button) instead of lifting them.
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_HTML } from "../create-kumiko-server.ts";
+import { DEFAULT_HTML } from "../create-kumiko-server-html.ts";
 
 describe("dev-server DEFAULT_HTML", () => {
   test("viewport meta keeps fixed bars above the mobile keyboard", () => {

@@ -35,7 +35,7 @@ import {
   resolveUnsubscribeWiring,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 import { assertSessionBootInvariants } from "@cosmicdrift/kumiko-server-runtime/session-boot-gate";
-import { logInfo } from "./create-kumiko-server.ts";
+import { logInfo } from "./dev-server-runtime.ts";
 import {
   captureEphemeralDevPiiKms,
   type DevPiiKmsResolution,
