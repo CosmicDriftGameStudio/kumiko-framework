@@ -152,3 +152,21 @@ describe("L2 — auth-endpoints middleware (tighter cap on /api/auth/*)", () => 
     expect(body.error.details.bucket).toBe("l2");
   });
 });
+
+describe("L3 — cost per payload element (bulk-upload)", () => {
+  const bulkUpload = "rl-showcase:write:bulk-upload";
+  const files = (count: number): { files: string[] } => ({
+    files: Array.from({ length: count }, (_, index) => `file-${index}.pdf`),
+  });
+
+  test("a request books one token per file; a request over the remaining budget is rejected", async () => {
+    expect((await stack.http.write(bulkUpload, files(10), admin)).status).toBe(200);
+    expect((await stack.http.write(bulkUpload, files(15), admin)).status).toBe(429);
+    // The rejected request consumed nothing: 10 more still fit.
+    expect((await stack.http.write(bulkUpload, files(10), admin)).status).toBe(200);
+    const blocked = await stack.http.write(bulkUpload, files(1), admin);
+    expect(blocked.status).toBe(429);
+    const body = (await blocked.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("rate_limited");
+  });
+});

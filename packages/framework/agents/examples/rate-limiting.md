@@ -36,6 +36,24 @@ exhausted) and no bucket is charged. Each `per` may appear once; an empty list f
 An anonymous handler needs every bucket to be ip-keyed, and `{ disabled: true, reason }`
 stays a single declaration.
 
+## Cost per payload element
+
+A bulk handler books one token per item instead of one per request. Declare `rateLimitCost`
+next to `rateLimit`:
+
+```ts illustration
+r.writeHandler({
+  // ...
+  rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
+  rateLimitCost: (payload) => payload.files.length,
+});
+```
+
+The cost is computed from the validated payload and booked on every declared bucket, so an
+invalid payload costs nothing and a rejected request consumes nothing. Results below 1 count
+as 1. Because it books after the parse, boot rejects `rateLimitCost` on anonymous or ip-limited
+handlers.
+
 ## Per-payload limits
 
 A public write handler that mails an address typed by the caller is also limited per
@@ -229,6 +247,24 @@ describe("L2 — auth-endpoints middleware (tighter cap on /api/auth/*)", () => 
     expect(body.error.details.bucket).toBe("l2");
   });
 });
+
+describe("L3 — cost per payload element (bulk-upload)", () => {
+  const bulkUpload = "rl-showcase:write:bulk-upload";
+  const files = (count: number): { files: string[] } => ({
+    files: Array.from({ length: count }, (_, index) => `file-${index}.pdf`),
+  });
+
+  test("a request books one token per file; a request over the remaining budget is rejected", async () => {
+    expect((await stack.http.write(bulkUpload, files(10), admin)).status).toBe(200);
+    expect((await stack.http.write(bulkUpload, files(15), admin)).status).toBe(429);
+    // The rejected request consumed nothing: 10 more still fit.
+    expect((await stack.http.write(bulkUpload, files(10), admin)).status).toBe(200);
+    const blocked = await stack.http.write(bulkUpload, files(1), admin);
+    expect(blocked.status).toBe(429);
+    const body = (await blocked.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("rate_limited");
+  });
+});
 ```
 
 ### src/feature.ts
@@ -268,6 +304,18 @@ export function createRateLimitShowcaseFeature(): FeatureDefinition {
         { per: "user", limit: 2, windowSeconds: 3600 },
         { per: "tenant+handler", limit: 3, windowSeconds: 3600 },
       ],
+    });
+
+    // Bulk upload: a request books one token per item instead of one per request. The cost
+    // comes from the validated payload, so a schema-invalid request costs nothing; a request
+    // that would exceed the remaining budget is rejected and consumes nothing.
+    r.writeHandler({
+      name: "bulk-upload",
+      schema: z.object({ files: z.array(z.string()).min(1).max(20) }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin", "User"] },
+      rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
+      rateLimitCost: (payload) => payload.files.length,
     });
   });
 }
