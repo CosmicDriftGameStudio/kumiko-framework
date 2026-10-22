@@ -8,10 +8,7 @@ import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { useTranslation } from "../i18n.tsx";
-import {
-  PageHeaderSlotAvailableProvider,
-  usePageHeaderSlotAvailable,
-} from "../page-header-slot.ts";
+import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { ActionFormBody } from "./action-form-body.tsx";
 import { ConfigEditBody } from "./config-edit-body.tsx";
@@ -20,6 +17,7 @@ import { useDashboardBody } from "./dashboard-body.tsx";
 import { EntityEditScreen } from "./entity-edit-screen.tsx";
 import { EntityListScreen } from "./entity-list-screen.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
+import { LockedHeaderScope, StandInChainBoundary } from "./locked-screen-header.tsx";
 import { ProjectionDetailBody } from "./projection-detail-body.tsx";
 import { ProjectionListBody } from "./projection-list-body.tsx";
 import { lastSegment } from "./qn.ts";
@@ -127,10 +125,10 @@ export function KumikoScreen({
         fallback={screen.fallback}
         translate={translate}
       >
-        {screenBody}
+        <StandInChainBoundary>{screenBody}</StandInChainBoundary>
       </ScreenVisibilityGate>
     ) : (
-      screenBody
+      <StandInChainBoundary>{screenBody}</StandInChainBoundary>
     );
   // An embedded screen (e.g. a dashboard panel) keeps its parent's host and
   // must not portal its page header into the shell that hosts the outer screen.
@@ -168,22 +166,9 @@ function ScreenVisibilityGate({
   }
   return (
     <>
-      <LockedScreenHeader />
+      <LockedHeaderScope />
       <ScreenUnavailableBanner />
     </>
-  );
-}
-
-// The route still names the locked screen; its breadcrumb must not label what stands in for it.
-// With a stand-in the header is labelled with that screen instead, none if it has no title.
-function LockedScreenHeader({ standInScreenId }: { readonly standInScreenId?: string }): ReactNode {
-  const { PageHeader } = usePrimitives();
-  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
-  if (PageHeader === undefined || !pageHeaderSlotAvailable) return null;
-  return standInScreenId !== undefined ? (
-    <PageHeader hideBreadcrumb breadcrumbScreenId={standInScreenId} />
-  ) : (
-    <PageHeader hideBreadcrumb />
   );
 }
 
@@ -212,16 +197,15 @@ function FallbackScreen({
   if (target === undefined) {
     return (
       <>
-        <LockedScreenHeader />
+        <LockedHeaderScope />
         <ScreenUnavailableBanner />
       </>
     );
   }
   return (
-    <>
-      <LockedScreenHeader standInScreenId={lastSegment(target.qn)} />
+    <LockedHeaderScope standInScreenId={lastSegment(target.qn)}>
       <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />
-    </>
+    </LockedHeaderScope>
   );
 }
 
