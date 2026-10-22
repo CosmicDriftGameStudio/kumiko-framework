@@ -127,7 +127,7 @@ export type DevAuthWiring = {
 };
 
 export function wireDevAuth(
-  config: DevBootConfig,
+  config: Pick<DevBootConfig, "features" | "effectiveAuth" | "envSource">,
   registry: Registry | undefined,
   sessionStoreProviderMounted: boolean,
   lateBindings: DevLateBindings,

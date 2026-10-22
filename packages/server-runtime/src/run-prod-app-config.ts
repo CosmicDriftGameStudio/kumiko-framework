@@ -31,6 +31,23 @@ import { resolveTrustedProxyHops } from "./trusted-proxy-hops.ts";
 export type BootAbortCleanup = () => void | Promise<void>;
 export type RegisterBootAbortCleanup = (cleanup: BootAbortCleanup) => void;
 
+export async function runWithBootAbortCleanups<T>(
+  boot: (register: RegisterBootAbortCleanup) => Promise<T>,
+): Promise<T> {
+  const abortCleanups: BootAbortCleanup[] = [];
+  try {
+    return await boot((cleanup) => abortCleanups.push(cleanup));
+  } catch (error) {
+    // Pools and clients opened before the failing step would otherwise keep the process alive.
+    for (const cleanup of abortCleanups.reverse()) {
+      await Promise.resolve()
+        .then(cleanup)
+        .catch(() => undefined);
+    }
+    throw error;
+  }
+}
+
 export type ProdBootConfig = {
   readonly bootOptionWiring: BootOptionWiring;
   readonly envSource: Record<string, string | undefined>;

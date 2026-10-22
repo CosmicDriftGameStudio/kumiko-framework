@@ -88,10 +88,10 @@ import type { UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
 import { wireProdAuth } from "./run-prod-app-auth.ts";
 import type { ConfigOverridesInput } from "./run-prod-app-boot-context.ts";
 import {
-  type BootAbortCleanup,
   composeProdFeatures,
   type RegisterBootAbortCleanup,
   resolveProdBootConfig,
+  runWithBootAbortCleanups,
 } from "./run-prod-app-config.ts";
 import { assertProdSchemaCurrent, connectProdDependencies } from "./run-prod-app-connections.ts";
 import {
@@ -687,16 +687,7 @@ export type ProdAppHandle = {
 };
 
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
-  const abortCleanups: BootAbortCleanup[] = [];
-  try {
-    return await bootProdApp(options, (cleanup) => abortCleanups.push(cleanup));
-  } catch (error) {
-    // Pools and clients opened before the failing step would otherwise keep the process alive.
-    for (const cleanup of abortCleanups.reverse()) {
-      await Promise.resolve(cleanup()).catch(() => undefined);
-    }
-    throw error;
-  }
+  return runWithBootAbortCleanups((register) => bootProdApp(options, register));
 }
 
 async function bootProdApp(
