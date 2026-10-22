@@ -10,6 +10,8 @@ import {
   createTenantDb,
   fetchOne,
   selectMany,
+  table,
+  uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -31,6 +33,7 @@ import { seedUser } from "../../user/seeding.ts";
 import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.ts";
 import { runUserExport } from "../../user-data-rights/run-user-export.ts";
 import { waitlistEntryTable } from "../entity.ts";
+import { waitlistDb } from "../lib.ts";
 import { WAITLIST_FIELD_LIMITS, WaitlistHandlers, WaitlistQueries } from "../web/constants.ts";
 import {
   acceptInviteAsNewUser,
@@ -412,6 +415,27 @@ describe("waitlist submit options", () => {
       expect(statuses).toEqual([200, 200, 200, 200]);
     } finally {
       await openStack.cleanup();
+    }
+  });
+
+  test("a notifyRecipient whose SQL fails still stores the entry and answers success", async () => {
+    const missingTable = table("read_waitlist_missing_config", { id: uuid("id").primaryKey() });
+    const failingStack = await createWaitlistTestStack({
+      appName: "Acme",
+      notifyRecipient: async (ctx) => {
+        await selectMany(waitlistDb(ctx), missingTable, {});
+        return "admin@example.com";
+      },
+    });
+    try {
+      const res = await submitOn(failingStack, "sql-fail@example.com", "198.51.100.51");
+      expect(res.status).toBe(200);
+      const rows = await selectMany(failingStack.db, waitlistEntryTable, {});
+      expect(rows.map((row) => row["email"])).toEqual(["sql-fail@example.com"]);
+      expect(mailsTo("sql-fail@example.com")).toHaveLength(1);
+      expect(mailsTo("admin@example.com")).toHaveLength(0);
+    } finally {
+      await failingStack.cleanup();
     }
   });
 
