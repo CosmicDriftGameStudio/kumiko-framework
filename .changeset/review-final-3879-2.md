@@ -1,9 +1,9 @@
 ---
-"@cosmicdrift/kumiko-framework": patch
-"@cosmicdrift/kumiko-locale-de": patch
-"@cosmicdrift/kumiko-locale-es": patch
-"@cosmicdrift/kumiko-locale-fr": patch
-"@cosmicdrift/kumiko-locale-it": patch
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-locale-de": minor
+"@cosmicdrift/kumiko-locale-es": minor
+"@cosmicdrift/kumiko-locale-fr": minor
+"@cosmicdrift/kumiko-locale-it": minor
 ---
 
 Selector fields in the generated provider forms now carry the owner feature in their field id, so two selector owners that both name their key `provider` no longer overwrite each other's empty-option label. The mail selector field is now `mail-foundation-provider` and its option labels live under `config:entity:__config-edit__:field:mail-foundation-provider:option:<value>`; the locale catalogs follow.

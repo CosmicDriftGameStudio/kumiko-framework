@@ -6,7 +6,7 @@ Added `consoleCallsFromNamespace` to the testing helpers so "stays silent" tests
 
 <!-- kumiko-changes
 feature: testing
-type: feature
+type: improvement
 title: consoleCallsFromNamespace test helper for silent-log assertions
 detail: Filters a console spy by logger namespace prefix, so a new or reworded warning from the module under test fails a silent test. The boot-validator, client-ip and settings-hub silent tests use it.
 -->
