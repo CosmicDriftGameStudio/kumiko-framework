@@ -1953,7 +1953,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieses Postfach trennen? Es werden keine neuen Mails abgerufen, gespeicherte Mails bleiben erhalten.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Postfach",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
-  "inbound-mail-foundation:entity:__action-form__:field:reason": "Grund",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "angelegt",
   "audit.log.action.updated": "geändert",

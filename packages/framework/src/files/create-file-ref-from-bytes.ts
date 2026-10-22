@@ -76,7 +76,10 @@ export async function createFileRefFromBytes(
       defaultMaxUploadSize:
         readFilesRouteOptions(ctx.registry).maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
       writeBytes: (key, data, mimeType) => files.writeUploadBytes(key, data, mimeType),
-      deleteBytes: (key) => files.ref(key).delete(),
+      deleteBytes: async (key) => {
+        await files.ref(key).delete();
+        await files.forgetUploadBytes(key);
+      },
     },
     {
       fileName: input.fileName,

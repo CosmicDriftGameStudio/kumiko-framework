@@ -31,6 +31,8 @@ function isPendingUploadFor(
   fieldName: string,
   user: SessionUser,
 ): boolean {
+  // Every anonymous visitor shares one user id, so insertedById cannot tell their uploads apart.
+  if (isAnonymousSessionUser(user)) return false;
   return (
     row["entityId"] === null &&
     row["entityType"] === entityName &&
@@ -140,8 +142,6 @@ type PendingFileRefLookup = {
 
 async function loadPendingRow(lookup: PendingFileRefLookup): Promise<FileRefRow | undefined> {
   const { fileRefId, entityName, fieldName, user, db } = lookup;
-  // Every anonymous visitor shares one user id, so insertedById cannot tell their uploads apart.
-  if (isAnonymousSessionUser(user)) return undefined;
   if (!isUuid(fileRefId)) return undefined;
   const row = (await loadFileRefRows(db, [fileRefId], user.tenantId)).get(fileRefId);
   return row !== undefined && isPendingUploadFor(row, entityName, fieldName, user)

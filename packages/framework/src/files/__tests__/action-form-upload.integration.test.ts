@@ -20,7 +20,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
-import { createTestUser } from "../../seeding/seed-users.ts";
+import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import { bindPendingFileRef } from "../bind-pending-file-refs.ts";
 import { createFilesFeature } from "../feature.ts";
 import { fileRefsTable } from "../file-ref-table.ts";
@@ -317,5 +317,53 @@ describe("bindPendingFileRef bindTo", () => {
     expect(error.code).toBe("unprocessable");
     const [row] = await selectMany(stack.db, fileRefsTable, { id });
     expect(row).toMatchObject({ entityType: FORM, fieldName: "docs", entityId: null });
+  });
+});
+
+describe("upload with an actionForm that is open to anonymous callers", () => {
+  const OPEN_FORM = "openform:screen:contact-form";
+  const openFeature = defineFeature("openform", (r) => {
+    r.writeHandler({
+      name: "contact",
+      schema: z.object({}),
+      access: { roles: ["anonymous"] },
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+    });
+    r.screen({
+      id: "contact-form",
+      type: "actionForm",
+      dormant: true,
+      handler: "openform:write:contact",
+      fields: { docs: createFilesField({ accept: ["pdf"] }) },
+      layout: { sections: [{ fields: ["docs"] }] },
+    });
+  });
+
+  test("an anonymous visitor gets 403 and nothing is stored", async () => {
+    const openProvider = createInMemoryFileProvider();
+    const openStack = await setupTestStack({
+      features: [createFilesFeature(), openFeature],
+      files: { storageProvider: openProvider },
+      anonymousAccess: { defaultTenantId: testTenantId(1) },
+    });
+    try {
+      const fd = new FormData();
+      fd.append("actionForm", OPEN_FORM);
+      fd.append("fieldName", "docs");
+      fd.append("file", new File([Buffer.from(PDF_BYTES)], "doc.pdf", { type: "application/pdf" }));
+      const { body, contentType } = await buildMultipartBody(fd);
+
+      const res = await openStack.app.request("/api/files", {
+        method: "POST",
+        headers: { "Content-Type": contentType },
+        body,
+      });
+
+      expect(res.status).toBe(403);
+      expect(await selectMany(openStack.db, fileRefsTable, {})).toEqual([]);
+      expect(openProvider.keys()).toEqual([]);
+    } finally {
+      await openStack.cleanup();
+    }
   });
 });

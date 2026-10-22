@@ -11,6 +11,7 @@ import { Routes } from "../api-constants.ts";
 
 const SCHEMA_PATH = `/api${Routes.schema}`;
 const TENANT_WITHOUT_ADDON = "00000000-0000-4000-8000-0000000000a1" as TenantId;
+const TENANT_WITH_FAILING_GATE = "00000000-0000-4000-8000-0000000000a5" as TenantId;
 const TENANT_IN_TRIAL = "00000000-0000-4000-8000-0000000000a4" as TenantId;
 const TENANT_WITH_ADDON = "00000000-0000-4000-8000-0000000000a2" as TenantId;
 const ADDON_FEATURE = "toggle-addon";
@@ -82,7 +83,9 @@ beforeAll(async () => {
       },
       {
         trialGate: (tenantId: TenantId, featureName: string): Promise<boolean> =>
-          Promise.resolve(tenantId === TENANT_IN_TRIAL && featureName === ADDON_FEATURE),
+          tenantId === TENANT_WITH_FAILING_GATE
+            ? Promise.reject(new Error("trial store unavailable"))
+            : Promise.resolve(tenantId === TENANT_IN_TRIAL && featureName === ADDON_FEATURE),
       },
     ),
   });
@@ -164,6 +167,12 @@ describe("GET /api/schema with r.toggleable features", () => {
     const addon = addonSchemaOf(body);
     expect(addon?.screens.map((s) => s.id)).toEqual(["gadget-list"]);
     expect(addon?.navs?.map((n) => n.id)).toEqual(["gadget-list", "gadget-templates"]);
+  });
+
+  test("a failing trial gate hides the add-on instead of failing the schema request", async () => {
+    const { body } = await fetchSchema(TENANT_WITH_FAILING_GATE);
+    expect(addonSchemaOf(body)?.screens ?? []).toEqual([]);
+    expect(body.features.find((f) => f.featureName === "toggle-core")?.screens).toHaveLength(1);
   });
 
   test("tenant with the add-on gets its screens and navs, under a different ETag", async () => {

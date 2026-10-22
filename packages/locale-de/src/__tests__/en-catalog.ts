@@ -1901,7 +1901,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",
   "inbound-mail-foundation:entity:__action-form__:field:accountId": "Mailbox",
   "inbound-mail-foundation:entity:__action-form__:field:displayName": "Name",
-  "inbound-mail-foundation:entity:__action-form__:field:reason": "Reason",
   "audit.log.event": "{entity} {action}",
   "audit.log.action.created": "created",
   "audit.log.action.updated": "updated",

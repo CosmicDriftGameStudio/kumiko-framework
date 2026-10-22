@@ -13,7 +13,7 @@ It is resolved during serialization by `resolveErrorDocsUrl(err, errorDocs?)`.
 | --- | --- |
 | No `details.reason`, reason equals code, or framework reason (`FrameworkReasons`, `AgentReasons`) | `<KUMIKO_DOCS_URL>/errors/<reason or code>` |
 | App-specific reason covered by `errorDocs` | `<errorDocs.baseUrl>/errors/<reason>` |
-| App-specific reason not covered | `<KUMIKO_DOCS_URL>/errors/<code>` (page of the error code) |
+| App-specific reason not covered | `<KUMIKO_DOCS_URL>/errors/<code>` (page of the error code), only when `code` is a built-in framework code; an app subclass with its own `code` gets no `docsUrl` |
 
 `KUMIKO_DOCS_URL` (default `https://docs.kumiko.rocks`) only overrides the base for
 framework reasons, for example for self-hosting.

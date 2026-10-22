@@ -67,8 +67,11 @@ type SelectedEvent = {
 // Append one event atomically. Two guarantees combined:
 //
 //   1. UNIQUE (tenant_id, aggregate_id, version) serializes concurrent writers
-//      within a tenant — a second writer racing the same expectedVersion
-//      receives a PG unique violation (SQLSTATE 23505) → VersionConflictError.
+//      within a tenant. A second writer racing the same expectedVersion hits
+//      ON CONFLICT DO NOTHING (no row), then the stream version is read inside
+//      the still-intact transaction → VersionConflictError. That relies on
+//      READ COMMITTED; REPEATABLE READ/SERIALIZABLE raise 40001 instead. Only
+//      the idempotency index still raises 23505.
 //      Cross-tenant aggregate_id collisions are not conflicts by definition:
 //      two tenants owning a row with the same UUID is just isolation, not a
 //      race.
@@ -81,7 +84,7 @@ type SelectedEvent = {
 //      stays semantically obvious when read in isolation.
 //
 // Creates (expectedVersion === 0) skip the predecessor check — no predecessor
-// exists yet. Colliding creates fall out via UNIQUE (tenant_id, aggregate_id, version=1).
+// exists yet. Colliding creates fall out via the same index (tenant_id, aggregate_id, version=1).
 // Channel name used by append() → NOTIFY and the event-dispatcher → LISTEN
 // (Sprint E.4). The event-dispatcher subscribes to this channel on start and
 // fires a runOnce immediately on each commit, so delivery latency is bounded
@@ -122,6 +125,8 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
     if (isUniqueViolation(e)) {
+      // The version index normally never throws (ON CONFLICT DO NOTHING); it
+      // only lands here for an unknown or renamed constraint.
       // Two unique constraints on this table: events_aggregate_version_uq
       // (tenant_id, aggregate_id, version) — a concurrent writer won the
       // race to the next version — and events_idempotency_uq (tenant_id,
