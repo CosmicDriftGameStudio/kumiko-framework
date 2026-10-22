@@ -370,6 +370,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // a hanging process instead of a non-zero exit.
         await worker?.close();
         worker = null;
+        // A failed start() may never be followed by stop(); the abandoned gate must not keep
+        // writing to DB/Redis while the process shuts down.
+        await settleAbandonedBootGates(Math.min(bootRedisTimeoutMs, STOP_QUEUE_READY_TIMEOUT_MS));
         throw err;
       } finally {
         gateTimeout?.cancel();
