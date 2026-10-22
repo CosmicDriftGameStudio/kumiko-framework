@@ -284,7 +284,7 @@ export function ProjectionListBody({
     rowActions: screen.rowActions,
     translate: effectiveTranslate,
     dispatcher,
-    reload: rowsQuery.refetch,
+    reload: refreshRows,
   });
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
     nav,

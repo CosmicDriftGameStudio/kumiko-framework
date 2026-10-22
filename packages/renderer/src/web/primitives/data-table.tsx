@@ -169,7 +169,6 @@ export function DefaultDataTable({
     fillsHeight,
   });
   const columns = pins.columns;
-  const fullColSpan = columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0);
   const sizing = useColumnSizing({
     columns,
     view,
@@ -470,7 +469,7 @@ export function DefaultDataTable({
               totals={totals}
               columns={columns}
               cellPin={pins.bodyCell}
-              leadingCells={isRowExpandable ? 1 : 0}
+              leadingCells={[isRowExpandable, selection.active].filter(Boolean).length}
               trailingCells={hasTableActions ? 1 : 0}
               cellClassName={density.cell}
             />

@@ -305,11 +305,10 @@ describe("list aggregate", () => {
       { field: "amount", op: "gte", value: 10000 },
       { field: "amount", op: "lte", value: 15000 },
     ];
-    const list = await stack.http.queryOk<ListResult & { rows: { title: string }[] }>(
-      LIST_ORDERS,
-      { filters, sort: "title", totalCount: true },
-      admin,
-    );
+    const list = await stack.http.queryOk<{
+      readonly rows: readonly { readonly title: string }[];
+      readonly total?: number;
+    }>(LIST_ORDERS, { filters, sort: "title", totalCount: true }, admin);
     expect(list.rows.map((row) => row.title)).toEqual(["high", "mid"]);
     expect(list.total).toBe(2);
     const agg = await stack.http.queryOk<AggResult>(
