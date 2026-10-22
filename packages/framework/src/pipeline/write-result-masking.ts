@@ -5,18 +5,23 @@ import { isLifecycleResult } from "./dispatcher-utils.ts";
 
 type EntityLookup = Pick<DispatchContext["registry"], "getHandlerEntity" | "getEntity">;
 
-function maskLifecycleOrRow(entity: EntityDefinition, data: unknown): unknown {
+// The echoed event carries plaintext entity data; only hooks and projections may read it.
+function maskLifecycleOrRow(entity: EntityDefinition | undefined, data: unknown): unknown {
   if (typeof data !== "object" || data === null || Array.isArray(data)) return data;
-  if (!isLifecycleResult(data)) return maskWriteOnlyFields(entity, data as Record<string, unknown>); // @cast-boundary engine-payload
-  if (data.kind === "save") {
+  if (!isLifecycleResult(data)) {
+    return entity ? maskWriteOnlyFields(entity, data as Record<string, unknown>) : data; // @cast-boundary engine-payload
+  }
+  const { event: _event, ...lifecycle } = data;
+  if (!entity) return lifecycle;
+  if (lifecycle.kind === "save") {
     return {
-      ...data,
-      data: maskWriteOnlyFields(entity, data.data),
-      changes: maskWriteOnlyFields(entity, data.changes),
-      previous: maskWriteOnlyFields(entity, data.previous),
+      ...lifecycle,
+      data: maskWriteOnlyFields(entity, lifecycle.data),
+      changes: maskWriteOnlyFields(entity, lifecycle.changes),
+      previous: maskWriteOnlyFields(entity, lifecycle.previous),
     };
   }
-  return { ...data, data: maskWriteOnlyFields(entity, data.data) };
+  return { ...lifecycle, data: maskWriteOnlyFields(entity, lifecycle.data) };
 }
 
 // Copy-on-mask: the original results still feed postSaveBatch hooks, which
@@ -29,7 +34,6 @@ export function maskWriteResultForClient(
   if (!result.isSuccess) return result;
   const entityName = registry.getHandlerEntity(handlerType);
   const entity = entityName ? registry.getEntity(entityName) : undefined;
-  if (!entity) return result;
   const data = maskLifecycleOrRow(entity, result.data);
   return data === result.data ? result : { ...result, data };
 }

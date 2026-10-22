@@ -18,12 +18,6 @@ import type { DbRow, DbRunner } from "./connection.ts";
 import { projectionRegistryOf } from "./projection-registry-binding.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 
-// The echoed event carries entity PII and must never reach a handler's JSON response, while
-// hooks and projections still read it by property. Non-enumerable keeps it out of spread/stringify.
-export function withoutEventInJson<T extends { readonly event: unknown }>(result: T): T {
-  return Object.defineProperty(result, "event", { value: result.event, enumerable: false });
-}
-
 // Custom projections for a write that did not go through the dispatcher (hook or
 // job writing a second aggregate). Savepoint like applyEntityEvent: a throwing
 // projection fails the write and the caller's transaction rolls it back.
