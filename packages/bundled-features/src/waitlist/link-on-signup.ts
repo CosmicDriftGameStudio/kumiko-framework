@@ -75,22 +75,25 @@ export const linkWaitlistOnSignup: MultiStreamApplyFn = async (event, tx) => {
   if (typeof user?.email !== "string") return;
   const email = normalizeEmail(await decryptStoredPii(user.email, "email", PII_DECRYPT_REASON));
 
-  const found = await waitlistExecutor.list(
-    {
-      filter: { field: "email", op: "eq", value: email },
-      filters: [{ field: "status", op: "in", value: [WAITLIST_STATUS.Invited] }],
-    },
-    platformActor(),
-    db,
-  );
-  const invited = [...found.rows].sort(newestSubmittedFirst)[0];
+  const findInvited = async () => {
+    const found = await waitlistExecutor.list(
+      {
+        filter: { field: "email", op: "eq", value: email },
+        filters: [{ field: "status", op: "in", value: [WAITLIST_STATUS.Invited] }],
+      },
+      platformActor(),
+      db,
+    );
+    return [...found.rows].sort(newestSubmittedFirst)[0];
+  };
+  const invited = await findInvited();
   // skip: the signup email has no invited waitlist entry (open signup or stale invite).
   if (!invited) return;
   const { id, version } = invited;
   // skip: defensive guard on the row shape.
   if (typeof id !== "string" || typeof version !== "number") return;
 
-  await waitlistExecutor.update(
+  const updated = await waitlistExecutor.update(
     {
       id,
       version,
@@ -103,4 +106,9 @@ export const linkWaitlistOnSignup: MultiStreamApplyFn = async (event, tx) => {
     platformActor(),
     db,
   );
+  if (updated.isSuccess) return;
+  // A concurrent admin change that already moved the entry out of `invited` makes the link
+  // moot; otherwise throw so the at-least-once consumer redelivers.
+  if ((await findInvited())?.id !== id) return;
+  throw new Error(`waitlist:link-on-signup: could not link waitlist entry ${id}`);
 };

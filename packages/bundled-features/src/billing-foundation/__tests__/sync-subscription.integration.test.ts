@@ -218,6 +218,52 @@ describe("sync-subscription", () => {
     expect(esEventsAfterSecondSync).toHaveLength(2);
   });
 
+  test("a webhook emitted before a synced cancellation does not reactivate the subscription", async () => {
+    const admin = adminFor(6030);
+    await createSubscription(admin.tenantId, {
+      providerSubscriptionId: "sub_6030",
+      providerCustomerId: "cus_6030",
+    });
+    retrieveSnapshot = {
+      providerCustomerId: "cus_6030",
+      providerSubscriptionId: "sub_6030",
+      status: SubscriptionStatuses.canceled,
+      tier: "pro",
+      currentPeriodEnd: "2026-06-01T00:00:00Z",
+      cancelAt: null,
+    };
+    const synced = await stack.http.writeOk<{ synced: boolean }>(
+      SubscriptionFoundationHandlers.syncSubscription,
+      {},
+      admin,
+    );
+    expect(synced).toEqual({ synced: true });
+
+    // The provider emitted this update before the dashboard cancellation the sync picked up.
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        providerEventId: "evt_6030_late_updated",
+        providerName: "mock-sync-provider",
+        type: "subscription.updated",
+        providerCustomerId: "cus_6030",
+        providerSubscriptionId: "sub_6030",
+        status: SubscriptionStatuses.active,
+        tier: "pro",
+        currentPeriodEndIso: "2026-06-01T00:00:00Z",
+        providerEventAtIso: "2026-01-01T00:00:00Z",
+      },
+      admin,
+    );
+
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows[0]?.["status"]).toBe(SubscriptionStatuses.canceled);
+  });
+
   test("cancel → sync → reactivate → sync → cancel-again → sync appends a third update, not a duplicate-hash skip", async () => {
     const admin = adminFor(6007);
     await createSubscription(admin.tenantId, {

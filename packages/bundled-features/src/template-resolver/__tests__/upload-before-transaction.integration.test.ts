@@ -53,6 +53,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "bundle-bad-locale",
     "bundle-bad-meta",
     "bundle-attachment-on-document",
+    "bundle-second-resource-invalid",
     "release-upload",
     "release-bundle",
     "copy-release",
@@ -637,6 +638,37 @@ describe("a failure before the transaction stores nothing", () => {
     );
 
     expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    await expectUnchanged(before);
+  });
+});
+
+describe("a failure in the before-transaction phase after an upload releases it", () => {
+  test("a bundle whose second resource is invalid removes the already uploaded first one", async () => {
+    const before = await snapshot();
+    const bundle = mailBundle("bundle-second-resource-invalid");
+    const invalid = {
+      ...bundle,
+      resources: {
+        logo: bundle.resources.logo,
+        offer: {
+          fileName: "offer.html",
+          contentType: "text/html",
+          base64: Buffer.from("<html>").toString("base64"),
+          purpose: "attachment" as const,
+        },
+      },
+    };
+
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundle,
+      { bundle: invalid },
+      tenantAAdmin,
+    );
+
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBeLessThan(500);
+    // Exactly one storage write proves the logo was uploaded before the offer failed.
+    expect(idleInTransactionAtStorageCall.length).toBe(1);
     await expectUnchanged(before);
   });
 });

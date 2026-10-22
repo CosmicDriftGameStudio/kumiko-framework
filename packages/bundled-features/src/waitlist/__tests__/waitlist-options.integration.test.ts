@@ -404,6 +404,37 @@ describe("legacy waitlist migration", () => {
     expect(second).toEqual({ read: 1, created: 0, skipped: 1, unreadable: 0, archivedStreams: 0 });
   });
 
+  test("migrating from the entity table itself skips entries a previous run imported", async () => {
+    const legacyStream = await waitlistExecutor.create(
+      {
+        id: offlotId,
+        name: "Dealer Dan",
+        email: "dan@dealer.example",
+        locale: "es",
+        status: WAITLIST_STATUS.Invited,
+        submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      },
+      platformActor(),
+      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    );
+    expect(legacyStream.isSuccess).toBe(true);
+    await migrateLegacyWaitlist(stack.db, offlotOptions);
+    const importedId = waitlistImportId(`offlot:${offlotId}`);
+
+    const fromEntityTable = await migrateLegacyWaitlist(stack.db, {
+      ...offlotOptions,
+      sourceTable: waitlistEntryTable.tableName,
+    });
+    expect(fromEntityTable.created).toBe(0);
+    expect(fromEntityTable.archivedStreams).toBe(0);
+
+    await rebuildProjection("waitlist:projection:waitlist-entry-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    expect((await rowsOf(stack)).map((row) => row["id"])).toContain(importedId);
+  });
+
   test("importWaitlistEntry keeps the same source key on one id", async () => {
     const db = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
     const entry = {

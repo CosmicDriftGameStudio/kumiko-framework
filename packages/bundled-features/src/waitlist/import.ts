@@ -38,6 +38,11 @@ export function waitlistImportId(sourceKey: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
+// The version nibble marks ids minted by waitlistImportId; legacy row ids are random UUIDs.
+export function isWaitlistImportId(id: string): boolean {
+  return id[14] === "5";
+}
+
 function presentOnly(fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
 }

@@ -946,6 +946,46 @@ async function expectBothPagesServed(target: TestStack, headers: Record<string, 
   }
 }
 
+describe("record-contract-termination with a concurrent run of the same requestId", () => {
+  test("a run that passed the early check while another recorded appends nothing", async () => {
+    await seedSubscription(8120, "sub_concurrent_record");
+    const requestId = generateId();
+    const record = () =>
+      stack.dispatcher.write(
+        SubscriptionFoundationHandlers.recordContractTermination,
+        {
+          requestId,
+          declarationType: "termination",
+          terminationKind: "ordinary",
+          channel: "public",
+          when: "period-end",
+        },
+        createSystemUser(testTenantId(8120)),
+      );
+
+    // The first run stands at the provider, past its early idempotency check.
+    const release = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    providerCancelHold = { released: release.promise, entered: () => entered.resolve() };
+    const held = record();
+    await entered.promise;
+
+    // The second run records the termination while the first one is held.
+    providerCancelHold = undefined;
+    expectSuccess(await record());
+    release.resolve();
+    expectSuccess(await held);
+    await stack.drainJobs();
+
+    const events = await eventsOf(
+      subscriptionAggregateId(testTenantId(8120)),
+      testTenantId(8120),
+      CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
+    );
+    expect(events).toHaveLength(1);
+  });
+});
+
 describe("public declaration with custom purchase roles", () => {
   let roleStack: TestStack;
 

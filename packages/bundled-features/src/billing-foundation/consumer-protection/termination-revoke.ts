@@ -14,11 +14,9 @@ import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
 import {
   CONTRACT_TERMINATION_DECLARED_EVENT_QN,
-  CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
   CONTRACT_TERMINATION_REVOKED_EVENT_QN,
   type ContractTerminationRevokedPayload,
   contractTerminationDeclaredPayloadSchema,
-  contractTerminationRequestedPayloadSchema,
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "../events.ts";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
@@ -26,7 +24,7 @@ import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from
 import { SubscriptionFoundationHandlers } from "../web/constants.ts";
 import type { ConsentLocale } from "./consent-text.ts";
 import { notifyOperator } from "./termination-notify.ts";
-import { hasRevocation, resumeAtProvider } from "./termination-record.ts";
+import { findRecordedTermination, hasRevocation, resumeAtProvider } from "./termination-record.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
 
 export const REVOCATION_PATHS: Readonly<Record<ConsentLocale, string>> = {
@@ -152,10 +150,7 @@ export function createRecordContractTerminationRevocationHandler(
       }
       if (hasRevocation(stream.events, payload.requestId)) return outcome("already-revoked");
 
-      const requested = stream.events
-        .filter((e) => e.type === CONTRACT_TERMINATION_REQUESTED_EVENT_QN)
-        .map((e) => contractTerminationRequestedPayloadSchema.safeParse(e.payload).data)
-        .find((candidate) => candidate?.requestId === payload.requestId);
+      const requested = findRecordedTermination(stream.events, payload.requestId);
       const subscription = await getSubscriptionForTenant(ctx, tenantId);
       const effectiveAtIso = requested?.effectiveAtIso ?? subscription?.currentPeriodEnd.toString();
       const now = options.now();
@@ -175,6 +170,17 @@ export function createRecordContractTerminationRevocationHandler(
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
+      // A cancel recorded between the first fetch and now was never resumed above.
+      const requestedMeanwhile =
+        requested === undefined
+          ? findRecordedTermination(streamAfterProviderCall.events, payload.requestId)
+          : undefined;
+      if (requestedMeanwhile?.providerCancel === "period-end") {
+        reasons.push(
+          ...(await resumeAtProvider(ctx, await getSubscriptionForTenant(ctx, tenantId))),
+        );
+      }
+      const providerCancel = (requested ?? requestedMeanwhile)?.providerCancel;
       const revoked: ContractTerminationRevokedPayload = {
         requestId: payload.requestId,
         revokedAtIso: now.toString(),
@@ -194,7 +200,7 @@ export function createRecordContractTerminationRevocationHandler(
         },
         reasons,
         tenantId,
-        ...(requested !== undefined && { providerCancel: requested.providerCancel }),
+        ...(providerCancel !== undefined && { providerCancel }),
       });
       return outcome("revoked");
     },

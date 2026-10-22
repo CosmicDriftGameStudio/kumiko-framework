@@ -143,11 +143,14 @@ export const syncSubscriptionHandler: WriteHandlerDef = {
       tier: snapshot.tier,
       currentPeriodEndIso: snapshot.currentPeriodEnd,
       cancelAtIso: snapshot.cancelAt,
+      // The retrieval time stands in for the provider's event time, so a webhook
+      // emitted before this snapshot cannot roll the synced state back later.
+      providerEventAtIso: Temporal.Now.instant().toString(),
     });
 
     return {
       isSuccess: true as const,
-      data: (appendResult.duplicate
+      data: (appendResult.duplicate || appendResult.stale
         ? { synced: false, reason: "unchanged" }
         : { synced: true }) satisfies SyncSubscriptionResult,
     };
