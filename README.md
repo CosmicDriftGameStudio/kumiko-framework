@@ -125,7 +125,7 @@ bun test
 
 Kumiko is built for B2B SaaS and internal tools, so multi-tenancy and the audit trail are part of the core.
 
-It talks to Postgres directly through postgres-js and EntityTableMeta, without an ORM, and keeps one database as the single source of truth.
+It talks to Postgres directly through Bun.SQL and EntityTableMeta, without an ORM, and keeps one database as the single source of truth.
 
 Features are config-driven, which means AI tools can patch every `r.*` call.
 
@@ -137,7 +137,7 @@ For DACH/EU setups you can self-host on Hetzner, Kubernetes or bare metal and br
 |-------|------|
 | Runtime | Bun |
 | API | Hono |
-| DB | Postgres via postgres-js (EntityTableMeta + SQL migrations) |
+| DB | Postgres via Bun.SQL (EntityTableMeta + SQL migrations) |
 | Auth | jose (JWT) |
 | Search | Meilisearch |
 | UI | React + Expo (Web + Mobile) |
