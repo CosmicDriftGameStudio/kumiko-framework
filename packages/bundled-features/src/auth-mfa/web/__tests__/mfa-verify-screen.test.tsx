@@ -62,7 +62,6 @@ describe("MfaVerifyScreen", () => {
     );
 
     fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "123456" } });
-    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
 
     await waitFor(() => {
       expect(session.refresh).toHaveBeenCalled();
@@ -80,10 +79,60 @@ describe("MfaVerifyScreen", () => {
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
 
     fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "000000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
 
     await waitFor(() => {
       expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
+    });
+    const input = screen.getByLabelText(/^Code/);
+    expect(input).toHaveProperty("value", "");
+    expect(document.activeElement).toBe(input);
+  });
+
+  test("sechste Ziffer löst genau einen Submit aus, Nicht-Ziffern werden verworfen", async () => {
+    const fetchMock = mock(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ isSuccess: false, error: "invalid_totp_code" }), {
+          status: 200,
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
+
+    fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "12345" } });
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText(/^Code/), { target: { value: "123 456" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      code: "123456",
+    });
+  });
+
+  test("Recovery-Modus: Textfeld, kein Auto-Submit, Submit-Button sendet den Code", async () => {
+    const fetchMock = mock(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ isSuccess: false, error: "invalid_recovery_code" }), {
+          status: 200,
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use a recovery code instead" }));
+    const input = screen.getByLabelText(/^Recovery code/);
+    expect(document.activeElement).toBe(input);
+    fireEvent.change(input, { target: { value: "abcd-efgh" } });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      code: "abcd-efgh",
     });
   });
 

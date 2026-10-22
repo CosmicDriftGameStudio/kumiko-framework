@@ -170,7 +170,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "veuillez confirmer votre adresse e-mail pour {app} afin d'activer votre compte :",
   "auth.mail.verify.subject": "{app} — Confirmez votre adresse e-mail",
   "auth.mfa.disable.cancel": "Annuler",
-  "auth.mfa.disable.code": "Code de votre application d'authentification ou code de récupération",
+  "auth.mfa.disable.code": "Code de votre application d'authentification",
   "auth.mfa.disable.confirm": "Désactiver",
   "auth.mfa.disable.description":
     "Confirmez avec un code de votre application d'authentification ou un code de récupération. Votre compte ne sera alors protégé que par votre mot de passe.",
@@ -217,11 +217,16 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "auth.mfa.setup.title": "Authentification à deux facteurs requise",
   "auth.mfa.verify.backToLogin": "Retour à la connexion",
   "auth.mfa.verify.code": "Code",
+  "auth.mfa.verify.recoveryCode": "Code de récupération",
+  "auth.mfa.verify.recoverySubtitle":
+    "Saisissez l'un des codes de récupération enregistrés lors de la configuration.",
   "auth.mfa.verify.submit": "Vérifier",
   "auth.mfa.verify.submitting": "…",
   "auth.mfa.verify.subtitle":
     "Saisissez le code à 6 chiffres de votre application d'authentification.",
   "auth.mfa.verify.title": "Vérification en deux étapes",
+  "auth.mfa.verify.useAuthenticatorCode": "Utiliser le code de l'application",
+  "auth.mfa.verify.useRecoveryCode": "Utiliser un code de récupération",
   "auth.requestUnlock.backToLogin": "Retour à la connexion",
   "auth.requestUnlock.email": "E-mail",
   "auth.requestUnlock.intro":

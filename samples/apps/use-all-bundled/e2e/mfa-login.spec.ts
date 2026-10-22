@@ -78,12 +78,12 @@ async function ensureSessionForDisable(
   await page.getByRole("button", { name: "Sign in" }).click();
   const codeField = page.getByLabel("Code");
   if (await codeField.isVisible().catch(() => false)) {
-    await codeField.fill(currentTotpCode(secret));
+    // The sixth digit submits on its own; a Verify click would race the disabled button.
     await Promise.all([
       page.waitForResponse((r) => r.url().includes("/api/auth/mfa/verify") && r.ok(), {
         timeout: 10_000,
       }),
-      page.getByRole("button", { name: /Verify|Bestätigen/i }).click(),
+      codeField.fill(currentTotpCode(secret)),
     ]);
   }
   await expectShell(page);
@@ -138,12 +138,11 @@ test("MFA enable → logout → login challenges → TOTP → shell", async ({ p
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page.getByLabel("Code")).toBeVisible({ timeout: 10_000 });
-    await page.getByLabel("Code").fill(currentTotpCode(secret));
     await Promise.all([
       page.waitForResponse((r) => r.url().includes("/api/auth/mfa/verify") && r.ok(), {
         timeout: 10_000,
       }),
-      page.getByRole("button", { name: /Verify|Bestätigen/i }).click(),
+      page.getByLabel("Code").fill(currentTotpCode(secret)),
     ]);
 
     await expectShell(page);

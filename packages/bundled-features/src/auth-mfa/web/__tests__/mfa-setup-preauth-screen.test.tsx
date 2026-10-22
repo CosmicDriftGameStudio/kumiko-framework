@@ -113,21 +113,26 @@ describe("MfaSetupPreauthScreen", () => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
 
-    const confirm = screen.getByRole("button", {
-      name: "Complete setup",
-    }) as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
+    const confirm = screen.getByRole("button", { name: "Complete setup" });
+    expect(confirm).toHaveProperty("disabled", true);
+    expect(screen.getByLabelText(/^Code from your authenticator app/)).toHaveProperty(
+      "disabled",
+      true,
+    );
 
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
-    expect(confirm.disabled).toBe(true);
+    expect(confirm).toHaveProperty("disabled", true);
 
+    const fetchMock = mock(async () => jsonResponse(confirmBody));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
-      target: { value: "123456" },
+      target: { value: "12345" },
     });
-    expect(confirm.disabled).toBe(false);
+    expect(confirm).toHaveProperty("disabled", true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test("Bestätigen → postet setupToken+code, danach onSuccess", async () => {
+  test("sechste Ziffer bestätigt automatisch → postet setupToken+code, danach onSuccess", async () => {
     const onSuccess = mock(() => {});
     render(
       <Wrapper>
@@ -148,7 +153,6 @@ describe("MfaSetupPreauthScreen", () => {
     });
 
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
-    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -235,7 +239,6 @@ describe("MfaSetupPreauthScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "000000" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
@@ -243,10 +246,10 @@ describe("MfaSetupPreauthScreen", () => {
     expect(onSuccess).not.toHaveBeenCalled();
     // Form stays usable — QR/recovery section is still there, a retry is possible.
     expect(screen.getByText("ABCD1234")).toBeTruthy();
-    const confirm = screen.getByRole("button", {
-      name: "Complete setup",
-    }) as HTMLButtonElement;
-    expect(confirm.disabled).toBe(false);
+    const input = screen.getByLabelText(/^Code from your authenticator app/);
+    expect(input).toHaveProperty("value", "");
+    expect(input).toHaveProperty("disabled", false);
+    expect(document.activeElement).toBe(input);
   });
 
   // The banner told the user to "start over", but setup stayed
@@ -276,7 +279,6 @@ describe("MfaSetupPreauthScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(screen.getByText("Setup expired. Please start again.")).toBeTruthy();
@@ -310,7 +312,6 @@ describe("MfaSetupPreauthScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
@@ -347,7 +348,6 @@ describe("MfaSetupPreauthScreen", () => {
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Complete setup" }));
 
     await waitFor(() => {
       expect(
@@ -356,10 +356,9 @@ describe("MfaSetupPreauthScreen", () => {
     });
   });
 
-  // Server validates z.string().length(6) — a 7th
-  // pasted digit must not make the button look submittable, it would only
-  // 400 as invalid_body.
-  test("7-stelliger Code hält den Bestätigen-Button disabled", async () => {
+  // Server validates z.string().length(6): a 7th pasted digit is cut off
+  // instead of reaching the server as invalid_body.
+  test("7-stelliger Paste wird auf 6 Ziffern gekürzt und so gesendet", async () => {
     render(
       <Wrapper>
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
@@ -370,14 +369,19 @@ describe("MfaSetupPreauthScreen", () => {
       expect(screen.getByText("ABCD1234")).toBeTruthy();
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
       target: { value: "1234567" },
     });
 
-    const confirm = screen.getByRole("button", {
-      name: "Complete setup",
-    }) as HTMLButtonElement;
-    expect(confirm.disabled).toBe(true);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/mfa/preauth-confirm",
+        expect.objectContaining({
+          body: JSON.stringify({ setupToken: "setup-token-1", code: "123456" }),
+        }),
+      );
+    });
   });
 });
 

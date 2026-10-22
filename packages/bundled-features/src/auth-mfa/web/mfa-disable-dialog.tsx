@@ -12,6 +12,7 @@
 import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { AuthMfaHandlers } from "./constants.ts";
+import { MfaCodeOrRecoveryField } from "./mfa-code-or-recovery-field.tsx";
 
 export type MfaDisableDialogProps = {
   readonly open: boolean;
@@ -28,13 +29,24 @@ export function MfaDisableDialog({
   onError,
 }: MfaDisableDialogProps): ReactNode {
   const t = useTranslation();
-  const { Dialog, Field, Input } = usePrimitives();
+  const { Dialog } = usePrimitives();
   const dispatcher = useDispatcher();
   const [code, setCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
+
+  const reset = (): void => {
+    setCode("");
+    setUseRecovery(false);
+  };
+
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (!nextOpen) reset();
+    onOpenChange(nextOpen);
+  };
 
   const confirm = async (): Promise<void> => {
     const res = await dispatcher.write<{ disabled: boolean }>(AuthMfaHandlers.disable, { code });
-    setCode("");
+    reset();
     if (!res.isSuccess) {
       onError(res.error.i18nKey);
       return;
@@ -45,7 +57,7 @@ export function MfaDisableDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       variant="danger"
       title={t("auth.mfa.disable.title")}
       description={t("auth.mfa.disable.description")}
@@ -54,16 +66,14 @@ export function MfaDisableDialog({
       onConfirm={confirm}
       testId="mfa-disable-dialog"
     >
-      <Field id="mfa-disable-code" label={t("auth.mfa.disable.code")} required>
-        <Input
-          kind="text"
-          id="mfa-disable-code"
-          name="mfa-disable-code"
-          value={code}
-          onChange={setCode}
-          autoComplete="one-time-code"
-        />
-      </Field>
+      <MfaCodeOrRecoveryField
+        id="mfa-disable-code"
+        codeLabel={t("auth.mfa.disable.code")}
+        code={code}
+        onCodeChange={setCode}
+        useRecovery={useRecovery}
+        onUseRecoveryChange={setUseRecovery}
+      />
     </Dialog>
   );
 }

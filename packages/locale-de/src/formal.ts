@@ -87,6 +87,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "auth.mfa.regenerate.newCodesTitle": "Ihre neuen Recovery-Codes",
   "auth.mfa.setup.subtitle":
     "Ihr Konto verlangt Zwei-Faktor-Authentifizierung. Richten Sie sie jetzt ein, um sich anzumelden.",
+  "auth.mfa.verify.recoverySubtitle":
+    "Geben Sie einen der Recovery-Codes ein, die Sie beim Einrichten gespeichert haben.",
   "auth.mfa.verify.subtitle": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
   "auth.requestUnlock.intro":
     "Geben Sie Ihre E-Mail-Adresse ein. Falls Ihr Konto gesperrt ist, schicken wir Ihnen einen Entsperren-Link.",

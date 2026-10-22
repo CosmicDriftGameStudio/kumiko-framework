@@ -4,6 +4,7 @@
 //   /date      → DateInput
 //   /money     → MoneyInput
 //   /signup    → SignupScreen via createPublicSurface (auth e2e)
+//   /mfa-verify → MfaVerifyScreen via createPublicSurface (auth e2e)
 //   sonst      → createKumikoApp mit MockDispatcher (Standard-Smoke-Suite)
 
 import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer/web";
@@ -50,6 +51,11 @@ async function boot(): Promise<void> {
     // Dynamic import keeps the auth graph out of the default smoke bundle
     // and avoids Bun DCE when folding pathname at build time.
     await import("./signup-page");
+    return;
+  }
+
+  if (path.startsWith("/mfa-verify")) {
+    await import("./mfa-verify-page");
     return;
   }
 
