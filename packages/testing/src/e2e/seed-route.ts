@@ -107,6 +107,12 @@ function assertSeededTenant(tenantId: string, seededTenantIds: ReadonlySet<strin
 export type E2eSeederContext = {
   readonly write: (handlerQn: string, payload: unknown) => Promise<unknown>;
   readonly query: (handlerQn: string, payload: unknown) => Promise<unknown>;
+  // System user with "system" plus exactly these roles, no SystemAdmin.
+  readonly writeAs: (
+    roles: readonly string[],
+    handlerQn: string,
+    payload: unknown,
+  ) => Promise<unknown>;
 };
 
 // `body` is whatever the client sent; validate it with a zod schema's parse(),
@@ -310,6 +316,11 @@ export function createE2eSeedRoutesWith(
           unwrapWriteData(
             handlerQn,
             await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }),
+          ),
+        writeAs: async (roles, handlerQn, payload) =>
+          unwrapWriteData(
+            handlerQn,
+            await deps.dispatchWriteAs({ handlerQn, payload, tenantId, roles }),
           ),
         query: (handlerQn, payload) => deps.dispatchSystemQuery({ handlerQn, payload, tenantId }),
       };

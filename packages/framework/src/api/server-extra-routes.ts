@@ -60,6 +60,7 @@ export function mountExtraRoutes(
     }
     const dispatchSystemWrite = makeDispatchSystemWrite(dispatcher);
     const dispatchSystemQuery = makeDispatchSystemQuery(dispatcher);
+    const dispatchWriteAs = makeDispatchWriteAs(dispatcher);
     for (const route of options.extraRoutes) {
       const honoHandler = buildExtraRouteHonoHandler(route, {
         app,
@@ -68,6 +69,7 @@ export function mountExtraRoutes(
         secrets: context.secrets,
         dispatchSystemWrite,
         dispatchSystemQuery,
+        dispatchWriteAs,
         clientIpResolver,
       });
       mountHonoRoute(
@@ -207,6 +209,7 @@ type ExtraRouteHonoHandlerDeps = {
   readonly secrets: import("../secrets/index.ts").SecretsContext | undefined;
   readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
+  readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
   readonly clientIpResolver: ClientIpResolver;
 };
 
@@ -281,6 +284,7 @@ function buildExtraRouteHonoHandler(
           systemQuery: makeSystemQuery(c, shared.dispatcher, shared.clientIpResolver),
           dispatchSystemWrite: shared.dispatchSystemWrite,
           dispatchSystemQuery: shared.dispatchSystemQuery,
+          dispatchWriteAs: shared.dispatchWriteAs,
         });
       };
     default:

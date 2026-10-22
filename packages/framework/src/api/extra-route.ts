@@ -103,6 +103,10 @@ export type SignatureExtraRouteDeps = {
    *  caller's authenticity (signature, HMAC state, etc.). */
   readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
+  /** Same trust as dispatchSystemWrite, but runs as the tenant's system user
+   *  with the "system" role plus exactly `roles` (no SystemAdmin), so the write
+   *  passes app-role access checks. */
+  readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
 };
 
 export type SignatureExtraRoute<TVerified> = {
