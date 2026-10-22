@@ -52,6 +52,12 @@ export {
 export { pinEnglishLocale } from "./pin-english-locale";
 export { pollForRow, waitForProjection } from "./poll";
 export {
+  type PresentIdentity,
+  presentIdentitiesOnPage,
+  restoreIdentitiesOnPage,
+  withPresentedIdentities,
+} from "./present-identities";
+export {
   requireScreenshotDir,
   SCREENSHOT_DIR_ENV,
   screenshotSpecsIgnore,
@@ -66,7 +72,6 @@ export {
   type FlatOptions,
   findIdenticalThemeScreenshots,
   type MatrixOptions,
-  type PresentIdentity,
   runMatrix,
   runScreenshots,
   type Scenario,
