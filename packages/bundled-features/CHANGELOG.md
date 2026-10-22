@@ -1,5 +1,46 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.387.0
+
+### Patch Changes
+
+- 10d7581: Source comments in bundled-features are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in bundled-features
+  detail: Comments in bundled-features are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes.
+  -->
+- c25b54f: Suspect `as` casts in framework, types, bundled-features and renderer replaced by type guards, Zod checks at input boundaries and typing at the source.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fewer unchecked casts, runtime checks at boundaries
+  detail: bridgeStub needs no casts, the db dialect types drop any (TableColumns is SchemaTable, SelectQuery is unknown). Malformed input now fails at the boundary instead of later, for example a step that returns a non-WriteResult as the pipeline result, a non-numeric Redis counter in the login rate limiter, or r.useExtension, r.referenceData, r.job, r.notification, r.metric, r.secret, r.secretNamespace, r.claimKey and r.relation called without their required argument. Snapshot.generatedAt is optional, so snapshots written without it still load. The cast baseline is rewritten so new suspect casts in a file fail the As-Casts Audit.
+  -->
+- de7a63d: Follow-ups from the review of the logger and cast changes: console fallbacks without a stray `undefined`, a fail-closed projection allowlist walker, typed savepoint handles.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fail-closed projection allowlist walk, cleaner fallback log lines
+  detail: createFallbackLogger no longer prints a trailing `undefined` when a log call carries no data. The step walker shared by the projection allowlist check and the workflow event-trigger registration now aborts with path and index when a sub-step list holds an entry that is not a step, instead of skipping it. The `unknown` overload of `runInSavepoint` hands its callback a `DbRunner`. Log lines drop doubled namespace prefixes, and the remaining errors in eager-load, the event store and the token request route travel as structured fields.
+  -->
+- Updated dependencies [10d7581]
+- Updated dependencies [935306d]
+- Updated dependencies [39afc25]
+- Updated dependencies [e4ea6e1]
+- Updated dependencies [5a25c89]
+- Updated dependencies [2b4c84a]
+- Updated dependencies [c25b54f]
+- Updated dependencies [de7a63d]
+  - @cosmicdrift/kumiko-framework@0.387.0
+  - @cosmicdrift/kumiko-renderer@0.387.0
+  - @cosmicdrift/kumiko-testing@0.387.0
+  - @cosmicdrift/kumiko-types@0.387.0
+
 ## 0.386.0
 
 ### Patch Changes

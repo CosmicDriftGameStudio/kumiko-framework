@@ -1,5 +1,77 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.387.0
+
+### Patch Changes
+
+- 10d7581: Source comments in bundled-features are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in bundled-features
+  detail: Comments in bundled-features are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes.
+  -->
+- 935306d: Source comments in the framework package are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in the framework package
+  detail: Comments in packages/framework are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. The ZIP entry path doc now states the UTF-8 flag the writer actually sets. No code changes.
+  -->
+- 39afc25: Source comments in the renderer are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in the renderer
+  detail: Comments in the renderer are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes; the generated widget reference (agents/widgets.md) follows the translated JSDoc.
+  -->
+- e4ea6e1: Source comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in the smaller packages
+  detail: Comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes; the comment-language baseline is lowered accordingly.
+  -->
+- 5a25c89: Framework runtime warnings and errors from api, pipeline, db, boot validation, lifecycle and related modules go through the process logger instead of raw `console.*`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Runtime log lines go through the process logger
+  detail: Modules that wrote to console now use createFallbackLogger, so once setProcessLogger is wired their lines reach the configured logger with namespace and structured fields; before that they still fall back to console. createFallbackLogger gained an info method. The `[kumiko]` prefix now comes from the logger namespace, errors travel as structured fields, and the non-JSON-safe schema assertion in buildAppSchema logs the offending path instead of the whole schema. In production the boot warnings arrive as pino JSON with a `component` field (set by the process-logger child or by `context.log.child({ component })`) instead of `[kumiko:boot]` plain text. The KEK source, the seed migration and "idle pre-check recovered" lines are logged at `info`. An app that sets its own `extraContext.log` receives the boot and event-dispatcher warnings in that logger.
+  -->
+- 2b4c84a: Kumiko is now released under the MIT License. All public packages, the root LICENSE and the READMEs switch from BUSL-1.1 to MIT; releases published before this change stay under BUSL-1.1. Contributions are accepted under MIT with a DCO sign-off.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: MIT License for all public packages
+  detail: Every @cosmicdrift package and create-kumiko-app are published under MIT instead of BUSL-1.1, so hosting and platform use no longer need a commercial agreement. Earlier releases keep their BUSL-1.1 terms.
+  -->
+- c25b54f: Suspect `as` casts in framework, types, bundled-features and renderer replaced by type guards, Zod checks at input boundaries and typing at the source.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fewer unchecked casts, runtime checks at boundaries
+  detail: bridgeStub needs no casts, the db dialect types drop any (TableColumns is SchemaTable, SelectQuery is unknown). Malformed input now fails at the boundary instead of later, for example a step that returns a non-WriteResult as the pipeline result, a non-numeric Redis counter in the login rate limiter, or r.useExtension, r.referenceData, r.job, r.notification, r.metric, r.secret, r.secretNamespace, r.claimKey and r.relation called without their required argument. Snapshot.generatedAt is optional, so snapshots written without it still load. The cast baseline is rewritten so new suspect casts in a file fail the As-Casts Audit.
+  -->
+- de7a63d: Follow-ups from the review of the logger and cast changes: console fallbacks without a stray `undefined`, a fail-closed projection allowlist walker, typed savepoint handles.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fail-closed projection allowlist walk, cleaner fallback log lines
+  detail: createFallbackLogger no longer prints a trailing `undefined` when a log call carries no data. The step walker shared by the projection allowlist check and the workflow event-trigger registration now aborts with path and index when a sub-step list holds an entry that is not a step, instead of skipping it. The `unknown` overload of `runInSavepoint` hands its callback a `DbRunner`. Log lines drop doubled namespace prefixes, and the remaining errors in eager-load, the event store and the token request route travel as structured fields.
+  -->
+- Updated dependencies [e4ea6e1]
+- Updated dependencies [c25b54f]
+  - @cosmicdrift/kumiko-types@0.387.0
+
 ## 0.386.0
 
 ### Minor Changes

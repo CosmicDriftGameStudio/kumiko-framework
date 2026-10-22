@@ -1,5 +1,31 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.387.0
+
+### Patch Changes
+
+- e4ea6e1: Source comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in the smaller packages
+  detail: Comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes; the comment-language baseline is lowered accordingly.
+  -->
+- Updated dependencies [10d7581]
+- Updated dependencies [935306d]
+- Updated dependencies [39afc25]
+- Updated dependencies [e4ea6e1]
+- Updated dependencies [5a25c89]
+- Updated dependencies [2b4c84a]
+- Updated dependencies [c25b54f]
+- Updated dependencies [de7a63d]
+  - @cosmicdrift/kumiko-framework@0.387.0
+  - @cosmicdrift/kumiko-bundled-features@0.387.0
+  - @cosmicdrift/kumiko-renderer@0.387.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.387.0
+  - @cosmicdrift/kumiko-types@0.387.0
+
 ## 0.386.0
 
 ### Patch Changes
