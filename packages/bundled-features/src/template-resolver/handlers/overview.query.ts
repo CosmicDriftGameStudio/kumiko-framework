@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
@@ -16,7 +17,11 @@ import {
   parseTemplateDraft,
   servedVersionOf,
 } from "../template-draft.ts";
-import { mayEditTemplate, type TemplateEditPolicy } from "../template-edit-policy.ts";
+import {
+  mayEditTemplate,
+  type TemplateEditPolicy,
+  templateEditAccess,
+} from "../template-edit-policy.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.ts";
 import {
@@ -204,7 +209,15 @@ function splitDocumentSlug(slug: string): { feature: string; notification: strin
     : { feature: slug.slice(0, separator), notification: slug.slice(separator + 1) };
 }
 
-function compareBy(field: SortField, a: OverviewRow, b: OverviewRow): number {
+type ShownTitle = (row: OverviewRow) => string;
+
+function compareBy(
+  field: SortField,
+  a: OverviewRow,
+  b: OverviewRow,
+  shownTitle: ShownTitle,
+): number {
+  if (field === "title") return shownTitle(a).localeCompare(shownTitle(b));
   return String(a[field]).localeCompare(String(b[field]));
 }
 
@@ -351,11 +364,17 @@ function filterRows(
   search: string | undefined,
   filters: readonly OverviewFilter[],
   layoutSlug: string | undefined,
+  shownTitle: ShownTitle,
 ): OverviewRow[] {
   const needle = search?.trim().toLowerCase() ?? "";
   return rows.filter((row) => {
     if (layoutSlug !== undefined && row.layoutSlug !== layoutSlug) return false;
-    if (needle !== "" && !`${row.title} ${row.slug}`.toLowerCase().includes(needle)) return false;
+    if (
+      needle !== "" &&
+      !`${shownTitle(row)} ${row.title} ${row.slug}`.toLowerCase().includes(needle)
+    ) {
+      return false;
+    }
     return filters.every((filter) => filter.value.includes(String(row[filter.field])));
   });
 }
@@ -379,7 +398,7 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
       offset: z.number().int().min(0).optional(),
       totalCount: z.boolean().optional(),
     }),
-    access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    access: templateEditAccess(policy.tenantEditable),
     description:
       "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only, and a TenantAdmin sees only the templates the app lists in tenantEditable; a tenant override of a template that is not listed is not delivered, so the row shows the system version with `lockedOverride` true (SystemAdmin only); use it to browse and filter all templates at a glance.",
     handler: async (query, ctx) => {
@@ -419,17 +438,23 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
             ),
           )
         : rowsWithUsage;
+      // A seeded title can be an i18n key; search and sort must see what the admin sees.
+      const i18n = createI18n(ctx.registry, { defaultLocale: "en" });
+      const shownTitle: ShownTitle = (row) => i18n.t(row.title, ctx.locale);
       const filtered = filterRows(
         overviewRows,
         payload.search,
         payload.filters ?? [],
         payload.layoutSlug,
+        shownTitle,
       );
 
       const sortField: SortField =
         payload.sort !== undefined && isSortField(payload.sort) ? payload.sort : "modifiedAt";
       const direction = (payload.sortDirection ?? "desc") === "desc" ? -1 : 1;
-      filtered.sort((a, b) => direction * compareBy(sortField, a, b) || a.id.localeCompare(b.id));
+      filtered.sort(
+        (a, b) => direction * compareBy(sortField, a, b, shownTitle) || a.id.localeCompare(b.id),
+      );
 
       const offset = payload.offset ?? 0;
       return {
