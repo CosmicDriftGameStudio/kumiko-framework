@@ -109,6 +109,7 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/imports.ts`,
     code: 'import { helper } from "./helper.js";\nexport const run = helper;',
     expectedMessage: /relative import "\.\/helper\.js"/,
+    extraFiles: { [`${PKG}/features/x/helper.ts`]: "export const helper = 1;" },
   },
   "Unsafe-JSON-Parse Guard": {
     path: `${PKG}/x/parse.ts`,

@@ -107,14 +107,30 @@ export function loadLicenseExceptions(
   });
 }
 
+function normalizeLicenseId(license: string): string {
+  return license.replace(/[()]/g, "").trim().toUpperCase();
+}
+
+function exceptionMatchesPackage(e: LicenseException, pkg: InstalledPackage): boolean {
+  if (!matchesPackageName(e.package, pkg.name)) return false;
+  // A package without a license field has nothing to contradict the recorded license.
+  if (pkg.license !== null && normalizeLicenseId(e.license) !== normalizeLicenseId(pkg.license)) {
+    return false;
+  }
+  return (
+    e.version === "*" || e.version === pkg.version || Bun.semver.satisfies(pkg.version, e.version)
+  );
+}
+
+// A renewed repo exception must win over an expired bundled one for the same package, so prefer a
+// still-valid match and only fall back to an expired one for the "expired" hint.
 function findException(
   pkg: InstalledPackage,
   exceptions: readonly LicenseException[],
+  nowMs: number,
 ): LicenseException | undefined {
-  return exceptions.find((e) => {
-    if (!matchesPackageName(e.package, pkg.name)) return false;
-    return e.version === "*" || e.version === pkg.version || /^[\^~]/.test(e.version);
-  });
+  const matching = exceptions.filter((e) => exceptionMatchesPackage(e, pkg));
+  return matching.find((e) => isExceptionValid(e.expires, nowMs).valid) ?? matching[0];
 }
 
 function splitExpression(expr: string, operator: "OR" | "AND"): string[] {
@@ -132,9 +148,10 @@ function matchesDenylist(license: string): boolean {
 export function judgeLicense(
   pkg: InstalledPackage,
   exceptions: readonly LicenseException[],
+  nowMs: number = Date.now(),
 ): Verdict {
   const license = pkg.license;
-  const exception = findException(pkg, exceptions);
+  const exception = findException(pkg, exceptions, nowMs);
   if (!license) return { kind: "unknown", raw: null, exception };
 
   const andParts = splitExpression(license, "AND");
@@ -181,7 +198,7 @@ export function evaluateLicenses(
   exceptions: readonly LicenseException[],
   nowMs: number = Date.now(),
 ): LicenseEvaluation {
-  const judged = packages.map((pkg) => ({ pkg, verdict: judgeLicense(pkg, exceptions) }));
+  const judged = packages.map((pkg) => ({ pkg, verdict: judgeLicense(pkg, exceptions, nowMs) }));
   const blocked = judged.filter(
     ({ verdict }) => verdict.kind !== "ok" && !hasValidException(verdict, nowMs),
   );

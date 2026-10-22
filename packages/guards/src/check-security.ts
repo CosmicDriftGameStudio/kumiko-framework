@@ -157,7 +157,8 @@ export async function runSecurityCheck(options: {
   const advisories: AuditAdvisory[] = parseAuditReport(raw);
 
   const evaluation = evaluateSecurity(advisories, exceptions, nowMs);
-  const expiringUrgent = findExpiringSoon(exceptions, EXPIRY_BLOCK_DAYS, nowMs);
+  // Only exceptions that suppressed an advisory in this run block; unused bundled ones must not break consumer CI.
+  const expiringUrgent = findExpiringSoon(evaluation.usedExceptions, EXPIRY_BLOCK_DAYS, nowMs);
   printReport(evaluation, exceptions, expiringUrgent, nowMs);
 
   if (options.reportOnly) return 0;

@@ -771,18 +771,7 @@ jobs:
       # changeset merged to main since then is still in HEAD's parent but was
       # not consumed by the version commit. Abort before anything is published.
       - name: Refuse a stale Version PR merge
-        run: |
-          case "$(git log -1 --format=%s)" in
-            "chore: version packages"*) ;;
-            *) echo "HEAD is not a version commit, nothing to check"; exit 0 ;;
-          esac
-          if ! reason="$(bash scripts/verify-version-pr-fresh.sh HEAD HEAD^1)"; then
-            echo "::error::Stale Version PR merged: ${reason}"
-            # Exiting here also skips changesets/action, so no fresh Version PR is opened
-            # until the next push to main runs this job again.
-            echo "::error::Nothing was published. Merge any commit to main; its release run opens a fresh Version PR that consumes the leftover changesets."
-            exit 1
-          fi
+        run: bash scripts/refuse-stale-version-merge.sh
 
       # OIDC Trusted Publishing + Provenance via npm-CLI (bun pm publish kann
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable

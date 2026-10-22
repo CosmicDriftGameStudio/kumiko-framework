@@ -21,6 +21,11 @@ describe("Import-Extensions Guard", () => {
           `export * from "./d.jsx";`,
           `const e = await import("./e.js");`,
         ].join("\n"),
+        "packages/demo/src/a.ts": "export const a = 1;",
+        "packages/demo/b.ts": "export type B = 1;",
+        "packages/demo/src/c.tsx": "export const c = 1;",
+        "packages/demo/src/d.tsx": "export const d = 1;",
+        "packages/demo/src/e.ts": "export const e = 1;",
       }),
     );
     expect(violations.map((v) => v.line)).toEqual([1, 2, 3, 4, 5]);
@@ -50,6 +55,19 @@ describe("Import-Extensions Guard", () => {
       files({
         "packages/demo/src/types.d.ts": `export * from "./a.js";`,
         "packages/demo/src/__tests__/fixtures/old.input.ts": `import { a } from "./a.js";`,
+      }),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  test("ignores a .js specifier whose target is a real JS file without a source sibling", () => {
+    const { violations } = guard.run(
+      files({
+        [PATH]: [`import { routes } from "./generated/routes.js";`, `import "./view.jsx";`].join(
+          "\n",
+        ),
+        "packages/demo/src/generated/routes.js": "export const routes = [];",
+        "packages/demo/src/view.js": "",
       }),
     );
     expect(violations).toEqual([]);

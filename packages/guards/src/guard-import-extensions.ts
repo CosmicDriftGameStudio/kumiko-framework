@@ -14,6 +14,7 @@
  * Exit 1 on violations, 0 when clean.
  */
 
+import { dirname, resolve } from "node:path";
 import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
@@ -23,7 +24,7 @@ const SCAN: ScanSpec = {
 };
 
 const EXCLUDE = /(\.d\.ts$|\/fixtures\/)/;
-const RELATIVE_JS_SPECIFIER = /^\.{1,2}\/.*\.jsx?$/;
+const RELATIVE_JS_SPECIFIER = /^(\.{1,2}\/.*)\.(jsx?)$/;
 // A published bin that imports its own build output (`../dist/cli.js`) has no
 // `.ts` sibling to name; the `.js` there is the only file that exists.
 const BUILD_OUTPUT_SEGMENT = /(^|\/)dist\//;
@@ -33,17 +34,32 @@ interface Finding {
   readonly specifier: string;
 }
 
-function relativeJsSpecifier(node: Node | undefined): string | undefined {
+// Mirrors the import-extensions codemod: only a specifier with a `.ts`/`.tsx` sibling is fixable.
+// A genuine `.js` file (generated or vendored) has nothing to rename to and must not fail the guard.
+function hasSourceSibling(sf: SourceFile, base: string, extension: string): boolean {
+  const candidates = extension === "jsx" ? ["tsx"] : ["ts", "tsx"];
+  const project = sf.getProject();
+  return candidates.some((candidate) => {
+    const path = resolve(dirname(sf.getFilePath()), `${base}.${candidate}`);
+    return (
+      project.getSourceFile(path) !== undefined || project.getFileSystem().fileExistsSync(path)
+    );
+  });
+}
+
+function relativeJsSpecifier(sf: SourceFile, node: Node | undefined): string | undefined {
   const literal = node?.asKind(SyntaxKind.StringLiteral);
   const value = literal?.getLiteralValue();
-  if (value === undefined || !RELATIVE_JS_SPECIFIER.test(value)) return undefined;
-  return BUILD_OUTPUT_SEGMENT.test(value) ? undefined : value;
+  if (value === undefined || BUILD_OUTPUT_SEGMENT.test(value)) return undefined;
+  const [, base = "", extension = ""] = RELATIVE_JS_SPECIFIER.exec(value) ?? [];
+  if (base === "" || !hasSourceSibling(sf, base, extension)) return undefined;
+  return value;
 }
 
 function findJsSpecifiers(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
   const add = (node: Node | undefined): void => {
-    const specifier = relativeJsSpecifier(node);
+    const specifier = relativeJsSpecifier(sf, node);
     if (node !== undefined && specifier !== undefined) {
       findings.push({ line: node.getStartLineNumber(), specifier });
     }

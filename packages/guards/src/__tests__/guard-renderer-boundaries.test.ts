@@ -172,3 +172,64 @@ describe("check.run — RepoCheck seam", () => {
     }
   });
 });
+
+describe("check.run — subtree import rules", () => {
+  async function violationsFor(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      for (const [rel, content] of Object.entries(files)) {
+        const full = join(dir, "packages/renderer/src", rel);
+        mkdirSync(join(full, ".."), { recursive: true });
+        writeFileSync(full, content);
+      }
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      return (await check.run([root])).violations.map((v) => v.file).sort();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test("headless may not leave its folder or import react or the renderer root", async () => {
+    expect(
+      await violationsFor({
+        "headless/a.ts": 'import { x } from "../index.ts";\n',
+        "headless/b.ts": 'import { y } from "../app/y.ts";\n',
+        "headless/c.ts": 'import { useState } from "react";\n',
+        "headless/d.ts": 'import { z } from "@cosmicdrift/kumiko-renderer";\n',
+        "headless/e.ts": 'import { z } from "@cosmicdrift/kumiko-renderer/live";\n',
+      }),
+    ).toEqual([
+      "packages/renderer/src/headless/a.ts",
+      "packages/renderer/src/headless/b.ts",
+      "packages/renderer/src/headless/c.ts",
+      "packages/renderer/src/headless/d.ts",
+      "packages/renderer/src/headless/e.ts",
+    ]);
+  });
+
+  test("headless may import itself, third-party packages and its own subpath", async () => {
+    expect(
+      await violationsFor({
+        "headless/a.ts":
+          'import { x } from "./sub/x.ts";\nimport { z } from "zod";\nimport { w } from "../dev-console.ts";\n',
+        "headless/sub/x.ts":
+          'import { y } from "../a.ts";\nimport { h } from "@cosmicdrift/kumiko-renderer/headless";\n',
+      }),
+    ).toEqual([]);
+  });
+
+  test("the shared layer may not import live, but live may import itself", async () => {
+    expect(
+      await violationsFor({
+        "app/x.ts": 'import { c } from "../live/index.ts";\n',
+        "hooks/y.ts": 'import { c } from "@cosmicdrift/kumiko-renderer/live";\n',
+        "live/a.ts": 'import { b } from "./b.ts";\n',
+        "app/ok.ts": 'import { b } from "../hooks/y.ts";\n',
+      }),
+    ).toEqual(["packages/renderer/src/app/x.ts", "packages/renderer/src/hooks/y.ts"]);
+  });
+});

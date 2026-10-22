@@ -73,7 +73,7 @@ do not fail it, so review the list after every upgrade.
 
 ## Release window
 
-- The Version PR is merged by the framework owner session once the work package is green; there is no fixed release day.
+- The Version PR is merged only by the framework owner (a person, never an agent session) once the work package is green; there is no fixed release day.
 - A `breaking` entry needs a non-empty `migration` text, and `codemod` where one
   can be automated. Without a codemod it lands in the consumer's `pendingManual`
   list, see above. `scripts/guard-changes-json.ts` enforces `migration`;

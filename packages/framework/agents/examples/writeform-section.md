@@ -39,6 +39,554 @@ bun run e2e         # layout-parity spec + regenerates the committed screenshot
 
 ## Source files
 
+### e2e/build-server.ts
+
+```ts
+// Tiny Bun server that builds and serves the e2e bundle — same shape as
+// wizard-form/e2e/build-server.ts, radically stripped down (no Postgres, no
+// auth). The MockDispatcher (fixtures/mock-dispatcher.ts) replaces the
+// whole stack.
+//
+// Difference from the renderer/web blueprint: the AppSchema is NOT
+// duplicated in the client bundle (drift risk against the real feature
+// code). Instead this server process builds the schema from the real
+// src/feature.ts via createRegistry + buildAppSchema (both pure, no
+// DB/HTTP) and serves it as JSON over /schema.json — client.tsx fetches
+// it on boot. That keeps server-side framework code (defineFeature,
+// r.crud, r.screen) out of the browser bundle.
+//
+// Port 4189: 4172-4188 are taken by other samples/apps (see their
+// playwright.config.ts/package.json), 4189 is free.
+//
+// /styles.css is REALLY compiled from Tailwind (not stubbed) — the layout
+// parity spec checks real box-model properties (button width, footer
+// alignment). Without real CSS those would be fake assertions against
+// unstyled browser default flow. Entry stylesheet = fixtures/styles.css, a
+// local wrapper that re-exports renderer/web's styles.css and adds an
+// @source covering this e2e dir — renderer/web's own @source globs only
+// scan samples/**/src/**, which misses e2e/fixtures/client.tsx.
+//
+// One-shot build, no watcher (the server only runs for the test duration)
+// — same CLI-resolve mechanism as create-kumiko-server.ts, but without its
+// non-fatal degradation: if the CLI is missing or the build fails, the
+// server must die hard instead of serving an empty stylesheet stub and
+// letting the layout assertions pass vacuously.
+
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  canResolveTailwindStylesheet,
+  resolveTailwindCli,
+} from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
+import { noteDeskFeature } from "../src/feature";
+
+const HERE = resolve(import.meta.dir);
+const ENTRY = resolve(HERE, "fixtures/client.tsx");
+const HTML_PATH = resolve(HERE, "fixtures/index.html");
+
+async function buildStylesheet(): Promise<string> {
+  const cliPath = resolveTailwindCli({ bun: Bun, cwd: HERE });
+  if (cliPath === undefined) {
+    throw new Error(
+      "writeform-section/e2e: @tailwindcss/cli not resolvable — run `bun install` at the repo root.",
+    );
+  }
+  const entryCss = resolve(HERE, "fixtures/styles.css");
+  if (!canResolveTailwindStylesheet(entryCss, { bun: Bun, cwd: HERE })) {
+    throw new Error(
+      `writeform-section/e2e: tailwindcss not resolvable for ${entryCss} — peer dependency missing at the stylesheet's location.`,
+    );
+  }
+  const outDir = mkdtempSync(join(tmpdir(), "writeform-section-e2e-tw-"));
+  try {
+    const outPath = join(outDir, "styles.css");
+    const bunBin = process.argv[0] ?? "bun";
+    const build = Bun.spawnSync([bunBin, "run", cliPath, "-i", entryCss, "-o", outPath], {
+      cwd: HERE,
+    });
+    if (!build.success) {
+      throw new Error(
+        `writeform-section/e2e: tailwind build failed (exit ${build.exitCode})\n${build.stderr.toString()}`,
+      );
+    }
+    return await Bun.file(outPath).text();
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
+}
+
+const css = await buildStylesheet();
+
+const port = Number(process.env["PORT"] ?? 4189);
+
+const registry = createRegistry([noteDeskFeature]);
+const schema = buildAppSchema(registry);
+const schemaJson = JSON.stringify(schema);
+
+const built = await Bun.build({
+  entrypoints: [ENTRY],
+  target: "browser",
+  sourcemap: "linked",
+});
+
+if (!built.success) {
+  // biome-ignore lint/suspicious/noConsole: e2e build script — no logger wired
+  for (const log of built.logs) console.error(log);
+  throw new Error("writeform-section/e2e: client bundle failed");
+}
+
+const jsOutput = built.outputs.find((o) => o.path.endsWith(".js"));
+const mapOutput = built.outputs.find((o) => o.path.endsWith(".js.map"));
+if (!jsOutput) throw new Error("writeform-section/e2e: bundle has no .js output");
+
+const js = await jsOutput.text();
+const map = mapOutput ? await mapOutput.text() : "";
+const html = await Bun.file(HTML_PATH).text();
+
+Bun.serve({
+  port,
+  fetch(req: Request): Response {
+    const url = new URL(req.url);
+    if (url.pathname === "/client.js") {
+      return new Response(js, {
+        headers: { "Content-Type": "application/javascript; charset=utf-8" },
+      });
+    }
+    if (url.pathname === "/client.js.map") {
+      return new Response(map, { headers: { "Content-Type": "application/json; charset=utf-8" } });
+    }
+    if (url.pathname === "/schema.json") {
+      return new Response(schemaJson, {
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+    if (url.pathname === "/styles.css") {
+      return new Response(css, { headers: { "Content-Type": "text/css; charset=utf-8" } });
+    }
+    if (url.pathname === "/api/sse" || url.pathname.startsWith("/sse")) {
+      // Long-lived empty stream in case some primitive/hook opens an
+      // EventSource after all — without a correct SSE response this
+      // would produce a "MIME type text/html" console error instead of a
+      // clean no-op.
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(": connected\n\n"));
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+    return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  },
+});
+
+// biome-ignore lint/suspicious/noConsole: e2e build script — no logger wired
+console.log(`writeform-section/e2e build-server listening on http://localhost:${port}`);
+```
+
+### e2e/fixtures/client.tsx
+
+```tsx
+// Browser entry for writeform-section/e2e. Fetches the server-built
+// AppSchema (see build-server.ts — built from the real src/feature.ts, not
+// duplicated here) and mounts createKumikoApp with the MockDispatcher.
+//
+// screenQn points at note-edit, the established entityEdit screen — it's
+// openToAll, so no explicit user/role is needed.
+//
+// The `shell` renders the entityEdit screen (passed in as `children`) next
+// to a second, independently mounted `note-detail` projectionDetail screen
+// (its writeForm section) — that's what makes the layout-parity comparison
+// between the two form kinds possible in one page load. Per
+// packages/renderer/src/web/app/create-app.tsx, shell renders inside every
+// provider createKumikoApp sets up (dispatcher, primitives, locale, nav,
+// tokens), so the second KumikoScreen works without any provider of its own.
+
+import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
+import { createKumikoApp, KumikoScreen } from "@cosmicdrift/kumiko-renderer/web";
+import type { ReactNode } from "react";
+import { createMockDispatcher } from "./mock-dispatcher";
+
+const NOTE_EDIT_SCREEN_QN = "note-desk:screen:note-edit";
+const NOTE_DETAIL_SCREEN_QN = "note-desk:screen:note-detail";
+
+function SideBySideShell({
+  children,
+  schema,
+}: {
+  readonly children: ReactNode;
+  readonly schema: AppSchema;
+}): ReactNode {
+  const feature = schema.features[0];
+  return (
+    <div data-testid="side-by-side" className="grid grid-cols-2 gap-6 p-6 items-start">
+      <div data-testid="established-form">{children}</div>
+      <div data-testid="write-form-screen">
+        {feature !== undefined && (
+          <KumikoScreen schema={feature} qn={NOTE_DETAIL_SCREEN_QN} entityId="note-1" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+async function boot(): Promise<void> {
+  const root = document.getElementById("root");
+  if (root === null) throw new Error("writeform-section/e2e: #root not found");
+
+  const response = await fetch("/schema.json");
+  if (!response.ok) {
+    throw new Error(`writeform-section/e2e: /schema.json fetch failed with ${response.status}`);
+  }
+  const schema = (await response.json()) as AppSchema;
+
+  createKumikoApp({
+    schema,
+    dispatcher: createMockDispatcher(),
+    shell: SideBySideShell,
+    screenQn: NOTE_EDIT_SCREEN_QN,
+  });
+}
+
+boot().catch((error: unknown) => {
+  // A rejected boot() would otherwise become a silent unhandled rejection —
+  // surface it in the DOM so a failing e2e run shows the real cause instead
+  // of a blank #root.
+  const root = document.getElementById("root");
+  if (root !== null) {
+    root.textContent = `writeform-section/e2e: boot failed — ${String(error)}`;
+  }
+  throw error;
+});
+```
+
+### e2e/fixtures/mock-dispatcher.ts
+
+```ts
+// In-memory dispatcher for writeform-section/e2e. Implements the dispatcher
+// interface from @cosmicdrift/kumiko-renderer/headless without the HTTP layer — no
+// form-draft, no batch state, just the QNs this recipe's two screens need:
+//
+//   - "note-desk:query:note:summary" — the projectionDetail screen's own
+//     query, returns the same fixed row the real server handler returns.
+//   - "note-desk:write:note:comment" — the writeForm section's handler.
+//   - "note-desk:write:note:create" — the entityEdit screen's create submit
+//     (r.crud's generated create handler).
+//
+// Both writes mirror their payload into localStorage under an exported key
+// so the spec can read what actually reached the "server" via
+// page.evaluate(), without reaching into this module's closure.
+
+import type {
+  BatchResult,
+  Command,
+  Dispatcher,
+  DispatcherStatus,
+  PendingFile,
+  PendingWrite,
+  QueryOpts,
+  QueryResult,
+  Store,
+  WriteOpts,
+  WriteResult,
+} from "@cosmicdrift/kumiko-renderer/headless";
+import { NOTE_DETAIL_FIELDS } from "../../src/note-fixture";
+
+const QUERY_NOTE_DETAIL = "note-desk:query:note:summary";
+const WRITE_NOTE_COMMENT = "note-desk:write:note:comment";
+const WRITE_NOTE_CREATE = "note-desk:write:note:create";
+
+export const CREATED_COMMENTS_KEY = "mock-created-comments";
+export const CREATED_NOTES_KEY = "mock-created-notes";
+
+const ONLINE_STORE: Store<DispatcherStatus> = {
+  getSnapshot: () => "online",
+  subscribe: () => () => {},
+};
+
+function mirrorToStorage(key: string, payload: unknown): void {
+  const list = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown[];
+  list.push(payload);
+  localStorage.setItem(key, JSON.stringify(list));
+}
+
+export function createMockDispatcher(): Dispatcher {
+  async function write<TData = unknown>(
+    type: string,
+    payload: unknown,
+    _opts?: WriteOpts,
+  ): Promise<WriteResult<TData>> {
+    if (type === WRITE_NOTE_COMMENT) {
+      mirrorToStorage(CREATED_COMMENTS_KEY, payload);
+      return { isSuccess: true, data: null as unknown as TData };
+    }
+    if (type === WRITE_NOTE_CREATE) {
+      mirrorToStorage(CREATED_NOTES_KEY, payload);
+      return { isSuccess: true, data: { id: "note-new", ...(payload as object) } as TData };
+    }
+    throw new Error(`mock-dispatcher: unsupported write qn "${type}"`);
+  }
+
+  async function query<TData = unknown>(
+    type: string,
+    payload: unknown,
+    _opts?: QueryOpts,
+  ): Promise<QueryResult<TData>> {
+    if (type === QUERY_NOTE_DETAIL) {
+      const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
+      const id = (data["id"] as string | undefined) ?? "note-1";
+      return { isSuccess: true, data: { id, ...NOTE_DETAIL_FIELDS } as unknown as TData };
+    }
+    throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
+  }
+
+  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+    const results: WriteResult[] = [];
+    for (const cmd of commands) results.push(await write(cmd.type, cmd.payload, opts));
+    return { isSuccess: true, results };
+  }
+
+  return {
+    write,
+    query,
+    batch,
+    statusStore: ONLINE_STORE,
+    async *stream() {},
+    pendingWrites: (): readonly PendingWrite[] => [],
+    pendingFiles: (): readonly PendingFile[] => [],
+  };
+}
+```
+
+### e2e/playwright.config.ts
+
+```ts
+// Playwright config for writeform-section/e2e. Boots the minimal
+// build-server (see e2e/build-server.ts) — a real browser + real React
+// bundle against a MockDispatcher, no full Kumiko stack. Pattern copied
+// from samples/recipes/wizard-form/e2e/playwright.config.ts.
+//
+// Port 4189: see the build-server.ts comment for the port allocation
+// overview of the other samples/apps ports.
+//
+// Config lives IN e2e/ itself — Playwright's webServer.command runs by
+// default with cwd = the config's directory, i.e. relative to e2e/ itself
+// (not to the package root). testDir therefore stays "." instead of
+// "./e2e", and webServer.command calls build-server.ts without an "e2e/"
+// prefix.
+
+import { defineConfig, devices } from "@playwright/test";
+
+const PORT = 4189;
+const BASE_URL = `http://localhost:${PORT}`;
+
+export default defineConfig({
+  testDir: ".",
+  // build-server.ts + fixtures/* are not a test — Playwright must ignore the build path.
+  testIgnore: ["**/fixtures/**", "build-server.ts"],
+  fullyParallel: false,
+  forbidOnly: !!process.env["CI"],
+  retries: 0,
+  workers: 1,
+  reporter: [["list"]],
+  timeout: 15_000,
+  expect: { timeout: 3_000 },
+
+  use: {
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    actionTimeout: 5_000,
+    navigationTimeout: 10_000,
+  },
+
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
+    },
+  ],
+
+  webServer: {
+    command: "bun build-server.ts",
+    url: BASE_URL,
+    env: { PORT: String(PORT) },
+    reuseExistingServer: !process.env["CI"],
+    timeout: 30_000,
+    stdout: "pipe",
+    stderr: "pipe",
+  },
+});
+```
+
+### e2e/writeform-parity.spec.ts
+
+```ts
+// Layout-parity spec (fw#2680): renders the projectionDetail `writeForm`
+// section next to the established `entityEdit` form for the same fields
+// (see fixtures/client.tsx's SideBySideShell) and measures both submit
+// buttons + footers from the SAME page load. No hardcoded pixel positions
+// — every assertion is a comparison between the two live box models, so it
+// catches a layout regression (fw#2681: inline, full-width writeForm
+// button instead of the established right-aligned footer treatment)
+// without depending on a screenshot baseline.
+
+import { mkdirSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
+import { CREATED_COMMENTS_KEY } from "./fixtures/mock-dispatcher";
+
+const SCREENSHOT_DIR =
+  process.env["SCREENSHOT_DIR"] ?? resolve(import.meta.dirname, "../screenshots");
+
+async function gotoBothForms(page: Page): Promise<void> {
+  await page.goto("/");
+  await expect(page.getByTestId("established-form")).toBeVisible();
+  await expect(page.getByTestId("write-form-screen")).toBeVisible();
+  // The established entityEdit form's submit is disabled until
+  // snapshot.isUnchanged flips to false. Typing into the empty create-mode
+  // field makes the form dirty so both submits are measured and screenshot
+  // in the same enabled state.
+  await page
+    .getByTestId("established-form")
+    .getByTestId("field-title")
+    .locator("input")
+    .fill("Sample note");
+}
+
+function establishedSubmit(page: Page): Locator {
+  return page.getByTestId("established-form").getByTestId("render-edit-submit");
+}
+
+function writeFormSubmit(page: Page): Locator {
+  return page.getByTestId("write-form-screen").getByTestId("write-form-section-submit");
+}
+
+async function closestFormRect(
+  locator: Locator,
+): Promise<{ readonly left: number; readonly right: number; readonly width: number }> {
+  const rect = await locator.evaluate((el) => {
+    const form = el.closest("form");
+    if (form === null) return null;
+    const r = form.getBoundingClientRect();
+    return { left: r.left, right: r.right, width: r.width };
+  });
+  if (rect === null) throw new Error("writeform-parity: button has no ancestor <form>");
+  return rect;
+}
+
+test.describe("writeform-section — layout parity with the established entityEdit form", () => {
+  test("both submit buttons are visible", async ({ page }) => {
+    await gotoBothForms(page);
+    await expect(establishedSubmit(page)).toBeVisible();
+    await expect(writeFormSubmit(page)).toBeVisible();
+  });
+
+  test("both submit buttons render the same width — same label, same icon, same Button primitive", async ({
+    page,
+  }) => {
+    await gotoBothForms(page);
+    const established = await establishedSubmit(page).boundingBox();
+    const writeForm = await writeFormSubmit(page).boundingBox();
+    if (established === null || writeForm === null) {
+      throw new Error("writeform-parity: submit button has no bounding box");
+    }
+    expect(Math.abs(established.width - writeForm.width)).toBeLessThanOrEqual(2);
+  });
+
+  test("neither submit button stretches full-width inside its form", async ({ page }) => {
+    await gotoBothForms(page);
+    for (const submit of [establishedSubmit(page), writeFormSubmit(page)]) {
+      const box = await submit.boundingBox();
+      const formRect = await closestFormRect(submit);
+      if (box === null) throw new Error("writeform-parity: submit button has no bounding box");
+      expect(box.width / formRect.width).toBeLessThan(0.5);
+    }
+  });
+
+  // The entityEdit form's footer is a bar spanning the whole screen,
+  // while the writeForm section's Save stays in the section header above its
+  // fields column. Both must sit at the right edge of their own frame: the
+  // footer bar for entityEdit, the fields column for the section.
+  test("entityEdit submit sits right-aligned in its footer, the writeForm submit at the right edge of its fields column", async ({
+    page,
+  }) => {
+    await gotoBothForms(page);
+
+    const establishedBox = await establishedSubmit(page).boundingBox();
+    const establishedForm = await closestFormRect(establishedSubmit(page));
+    if (establishedBox === null) {
+      throw new Error("writeform-parity: submit button has no bounding box");
+    }
+    const establishedGap = establishedForm.right - (establishedBox.x + establishedBox.width);
+    expect(establishedGap).toBeLessThan(establishedForm.width * 0.2);
+
+    const writeFormBox = await writeFormSubmit(page).boundingBox();
+    const fieldsBox = await page
+      .getByTestId("write-form-screen")
+      .getByTestId("field-title")
+      .boundingBox();
+    if (writeFormBox === null || fieldsBox === null) {
+      throw new Error("writeform-parity: submit button or fields column has no bounding box");
+    }
+    const writeFormGap = fieldsBox.x + fieldsBox.width - (writeFormBox.x + writeFormBox.width);
+    expect(Math.abs(writeFormGap)).toBeLessThanOrEqual(4);
+  });
+
+  test("both submit buttons are text-only, no icon on either", async ({ page }) => {
+    await gotoBothForms(page);
+    await expect(establishedSubmit(page)).toBeVisible();
+    await expect(writeFormSubmit(page)).toBeVisible();
+    expect(await establishedSubmit(page).locator("svg").count()).toBe(0);
+    expect(await writeFormSubmit(page).locator("svg").count()).toBe(0);
+  });
+
+  test("submitting the writeForm section dispatches the entered values to its own handler", async ({
+    page,
+  }) => {
+    await gotoBothForms(page);
+    const writeFormScreen = page.getByTestId("write-form-screen");
+    await writeFormScreen.getByTestId("field-title").locator("input").fill("Layout looks off");
+    await writeFormScreen
+      .getByTestId("field-body")
+      .locator("input")
+      .fill("Save button is full-width.");
+    await writeFormSubmit(page).click();
+
+    await expect
+      .poll(() => page.evaluate((key) => localStorage.getItem(key), CREATED_COMMENTS_KEY))
+      .not.toBeNull();
+
+    const comments = await page.evaluate((key) => {
+      const raw = localStorage.getItem(key);
+      return raw === null ? [] : (JSON.parse(raw) as Record<string, unknown>[]);
+    }, CREATED_COMMENTS_KEY);
+    expect(comments).toHaveLength(1);
+    expect(comments[0]).toMatchObject({
+      title: "Layout looks off",
+      body: "Save button is full-width.",
+    });
+  });
+
+  test("writeForm section beside the established entityEdit form", async ({ page }) => {
+    await gotoBothForms(page);
+    mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    const path = resolve(SCREENSHOT_DIR, "writeform-vs-entityedit.png");
+    // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection
+    await page.screenshot({ path, fullPage: true, animations: "disabled" });
+    expect(statSync(path).size).toBeGreaterThan(5 * 1024);
+  });
+});
+```
+
 ### src/__tests__/feature.test.ts
 
 ```ts

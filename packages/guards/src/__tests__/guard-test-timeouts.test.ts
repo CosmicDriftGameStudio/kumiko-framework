@@ -118,6 +118,10 @@ describe("test-timeouts guard — timeout argument on declarations", () => {
     ['describe("a", () => {}, { timeout: 5000 });'],
     ['describe.each([1])("a", () => {}, 5000);'],
     ['test("a", handler, 5000);'],
+    ['test("a", () => {}, process.env.CI ? 30_000 : undefined);'],
+    ["declare const cfg: { timeout: number | undefined };\ntest('a', () => {}, cfg.timeout);"],
+    ["declare const maybe: number | undefined;\ntest('a', () => {}, maybe);"],
+    ["test('a', () => {}, importedUnresolved);"],
   ])("flags %s", (code) => {
     expect(found(code)).toEqual([expect.stringContaining("raises the timeout")]);
   });
