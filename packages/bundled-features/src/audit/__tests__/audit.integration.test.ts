@@ -15,7 +15,7 @@ import { runSeedWritesAt, SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/ev
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { buildDateRangePayload, resolveDateRangeFacets } from "@cosmicdrift/kumiko-renderer";
-import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
+import { withEnv, withoutAmbientTemporal } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -96,16 +96,9 @@ async function createWidget(user: SessionUser, name: string, color?: string): Pr
 
 // Seed mode is scoped to the back-dated write so the other tests run without it.
 async function createWidgetAt(createdAt: string, name: string): Promise<string> {
-  const previousSeedMode = process.env[SEED_MODE_ENV];
-  process.env[SEED_MODE_ENV] = "1";
-  try {
-    return await runSeedWritesAt(getTemporal().Instant.from(createdAt), () =>
-      createWidget(admin, name),
-    );
-  } finally {
-    if (previousSeedMode === undefined) delete process.env[SEED_MODE_ENV];
-    else process.env[SEED_MODE_ENV] = previousSeedMode;
-  }
+  return withEnv({ [SEED_MODE_ENV]: "1" }, () =>
+    runSeedWritesAt(getTemporal().Instant.from(createdAt), () => createWidget(admin, name)),
+  );
 }
 
 type AuditRow = {

@@ -20,7 +20,7 @@ import {
 
 const MAX_LIMIT = 100;
 
-// At most 18 digits keeps the id inside bigint, so an oversized cursor or id is a 422, not a 500.
+// At most 18 digits keeps the id inside bigint, so an oversized cursor or id is a validation error (400), not a 500.
 const CURSOR_PATTERN = /^\d{1,18}$/;
 
 export const auditListPayloadShape = {

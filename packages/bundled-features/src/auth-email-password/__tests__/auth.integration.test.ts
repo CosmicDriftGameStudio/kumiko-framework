@@ -391,14 +391,27 @@ describe("scenario 6: logout", () => {
   });
 
   test("unauthenticated call to logout is rejected as unauthenticated", async () => {
-    // roles: ["anonymous"] — no authenticated role. Handler's access is
-    // access.authenticated which requires User/Admin/SystemAdmin.
+    // Handler is openToAll, which still rejects callers without a signed-in identity.
     const guest = createTestUser({
       id: 0,
       tenantId: "00000000-0000-4000-8000-000000000000",
       roles: ["anonymous"],
     });
     const error = await stack.http.writeErr(AuthHandlers.logout, {}, guest);
+    expectErrorIncludes(error, "unauthenticated");
+  });
+
+  test("unauthenticated call to change-password is rejected as unauthenticated", async () => {
+    const guest = createTestUser({
+      id: 0,
+      tenantId: "00000000-0000-4000-8000-000000000000",
+      roles: ["anonymous"],
+    });
+    const error = await stack.http.writeErr(
+      AuthHandlers.changePassword,
+      { oldPassword: "any-old-password", newPassword: "any-new-password" },
+      guest,
+    );
     expectErrorIncludes(error, "unauthenticated");
   });
 });
@@ -432,20 +445,6 @@ describe.each([
 
     const data = await stack.http.writeOk<{ kind: string }>(AuthHandlers.logout, {}, member);
     expect(data.kind).toBe("logged-out");
-  });
-
-  test("anonymous caller is rejected as unauthenticated", async () => {
-    const guest = createTestUser({
-      id: 0,
-      tenantId: "00000000-0000-4000-8000-000000000000",
-      roles: ["anonymous"],
-    });
-    const error = await stack.http.writeErr(
-      AuthHandlers.changePassword,
-      { oldPassword, newPassword },
-      guest,
-    );
-    expectErrorIncludes(error, "unauthenticated");
   });
 });
 
