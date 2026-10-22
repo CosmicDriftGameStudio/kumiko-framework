@@ -1042,7 +1042,7 @@ export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | Ima
 
 // Field types with no bound, editable widget on the auto-wired entityEdit
 // path (render-field.tsx renders a read-only banner instead) — shared by
-// the boot validator (packages/framework/src/engine/boot-validator/screens.ts)
+// the boot validator (packages/framework/src/engine/boot-validator/screens-forms.ts)
 // and the client-side required-field check (packages/renderer/src/app/form-schema.ts).
 // Embedded LIST fields (`multiple: true`) are the one exception — they get
 // their own EmbeddedListField grid widget — callers must check that

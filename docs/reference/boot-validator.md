@@ -50,7 +50,7 @@ Das ist der typische Fehler: man übergibt das Row-Schema statt der Envelope.
 Jede Action, die als Button in einer `projectionDetail`/`entityEdit`-Card-
 Titelzeile landet — Screen-`actions`, Section-`actions`, und `relatedList`
 `emptyState.action` (auch der von `entityList`/`projectionList`) — muss ein auflösbares Icon haben
-(`validateActionHasIcon`, `packages/framework/src/engine/boot-validator/screens.ts`).
+(`validateActionHasIcon`, `packages/framework/src/engine/boot-validator/screens-actions.ts`).
 Auflösung: explizites `icon` auf der Action, sonst ein Default über die
 `id`-Konvention (z. B. ein `deletion`-Segment in der id → `trash`). Fehlt
 beides, stoppt der Boot mit einer Meldung, die Screen, Section (falls
