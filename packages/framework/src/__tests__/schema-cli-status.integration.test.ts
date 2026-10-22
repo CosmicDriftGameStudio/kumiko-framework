@@ -80,7 +80,7 @@ describe("runSchemaCli status", () => {
     const { out, lines } = captureOut();
     const code = await runSchemaCli(["status"], appDir, out);
     expect(code).toBe(0);
-    expect(lines.join("\n")).toContain("Kein kumiko/migrations/");
+    expect(lines.join("\n")).toContain("No kumiko/migrations/");
   });
 
   test("unreachable DB → reports the connection error with exit 1 (no silent '0 applied')", async () => {

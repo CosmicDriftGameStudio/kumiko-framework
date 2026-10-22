@@ -78,9 +78,9 @@ describe("runSchemaCli — no-DB paths", () => {
     const cap = captureOut();
     const code = await runSchemaCli(["cutover"], appCwd, cap.out);
     expect(code).toBe(1);
-    expect(cap.err.join("\n")).toContain('Unbekanntes Subcommand: "cutover"');
+    expect(cap.err.join("\n")).toContain('Unknown subcommand: "cutover"');
     expect(cap.err.join("\n")).toContain(
-      "Erlaubt: generate | validate | apply | baseline | status",
+      "Allowed: generate | validate | apply | baseline | status",
     );
     expect(cap.log).toHaveLength(0);
   });
@@ -152,7 +152,7 @@ describe("runSchemaCli — no-DB paths", () => {
     const code = await runSchemaCli(["generate", "init"], appCwd, cap.out);
     expect(code).toBe(1);
     expect(cap.err.join("\n")).toContain("kumiko/schema.ts");
-    expect(cap.err.join("\n")).toContain("fehlt");
+    expect(cap.err.join("\n")).toContain("is missing");
   });
 
   test("generate writes 0001_<name>.sql + .snapshot.json and exits 0", async () => {
@@ -209,7 +209,7 @@ describe("runSchemaCli — no-DB paths", () => {
         const cap = captureOut();
         const code = await runSchemaCli(["status"], appCwd, cap.out);
         expect(code).toBe(0);
-        expect(cap.log.join("\n")).toContain("alten drizzle-Pfad");
+        expect(cap.log.join("\n")).toContain("legacy drizzle path");
       },
     );
   });

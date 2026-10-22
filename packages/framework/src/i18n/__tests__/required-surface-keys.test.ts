@@ -260,4 +260,10 @@ describe("requiredKeysFromScreen — field texts and success links", () => {
       expect(keys).not.toContain(literal);
     }
   });
+
+  test("a screen with an unknown type yields only its title key", () => {
+    expect(requiredKeysFromScreen("shop", { id: "mystery", type: "bogus" } as never)).toEqual([
+      "screen:mystery.title",
+    ]);
+  });
 });

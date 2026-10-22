@@ -29,7 +29,7 @@ export type SchemaApplyOptions = ComposeFeaturesOptions & {
   /** App features (e.g. APP_FEATURES from run-config), composed with the
    * bundled features for the projection rebuild registry. */
   readonly features: readonly FeatureDefinition[];
-  /** Default INIT_CWD ?? process.cwd(); Migrations unter <appCwd>/kumiko/migrations. */
+  /** Default INIT_CWD ?? process.cwd(); migrations live under <appCwd>/kumiko/migrations. */
   readonly appCwd?: string;
 };
 
@@ -43,7 +43,9 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
   const appCwd = opts.appCwd ?? process.env["INIT_CWD"] ?? process.cwd();
   const migrationsDir = join(appCwd, "kumiko/migrations");
   if (!existsSync(migrationsDir)) {
-    console.error(`\n  ${migrationsDir} fehlt — kumiko/migrations/ muss im Image liegen.\n`);
+    console.error(
+      `\n  ${migrationsDir} is missing — kumiko/migrations/ must be part of the image.\n`,
+    );
     return 1;
   }
 
@@ -54,12 +56,12 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
     // on an empty Greenfield DB they create kumiko_events/_consumers/_projections
     // before the app migrations run. Without this, an empty DB (e.g. cashcolt
     // on a fresh CNPG) fails with `relation "kumiko_events" does not exist`.
-    console.log("\n  Lege Framework-Infra-Tabellen an (idempotent)…");
+    console.log("\n  Creating framework infrastructure tables (idempotent)…");
     await createEventsTable(db);
     await createEventConsumerStateTable(db);
     await createProjectionStateTable(db);
 
-    console.log(`  Wende kumiko-Migrations an (${migrationsDir})…`);
+    console.log(`  Applying kumiko migrations (${migrationsDir})…`);
     const result = await runMigrationsFromDir(db, migrationsDir);
     if (result.applied.length === 0) {
       console.log(`\n  ✓ All ${result.skipped.length} migrations already applied.\n`);
@@ -103,7 +105,7 @@ export async function runStandaloneSchemaCli(opts: SchemaApplyOptions): Promise<
   }
 
   console.error(
-    `\n  Unbekannt: kumiko ${cmd ?? ""} ${sub ?? ""}\n  Nur 'kumiko schema apply' im Standalone-Bundle.\n`,
+    `\n  Unknown command: kumiko ${cmd ?? ""} ${sub ?? ""}\n  The standalone bundle only supports 'kumiko schema apply'.\n`,
   );
   process.exit(1);
 }
