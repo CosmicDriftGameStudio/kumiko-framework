@@ -36,17 +36,28 @@ async function unusedLocalPort(): Promise<number> {
   return port;
 }
 
-function redisUrl(): string {
+// CLIENT LIST on the shared Redis also lists the clients of integration files
+// running in parallel, so the worker gets a db index no other test selects and
+// only clients on that index are counted.
+const ISOLATED_REDIS_DB = 15;
+
+function sharedRedisUrl(): string {
   return process.env["REDIS_URL"] ?? "redis://localhost:16379";
+}
+
+function redisUrl(): string {
+  const url = new URL(sharedRedisUrl());
+  url.pathname = `/${ISOLATED_REDIS_DB}`;
+  return url.toString();
 }
 
 describe("worker boot against an unreachable database", () => {
   test("retries until the deadline, aborts with the last connection error and closes its Redis clients", async () => {
-    const probe = new Redis(redisUrl());
+    const probe = new Redis(sharedRedisUrl());
     const countClients = async (): Promise<number> =>
       String(await probe.client("LIST"))
-        .trim()
-        .split("\n").length;
+        .split("\n")
+        .filter((line) => line.includes(` db=${ISOLATED_REDIS_DB} `)).length;
     try {
       const clientsBefore = await countClients();
       const port = await unusedLocalPort();
