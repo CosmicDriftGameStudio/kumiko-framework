@@ -5,6 +5,7 @@ import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.ts
 import { DefaultPageHeader } from "../../primitives/page-header.tsx";
 import { PageHeaderSlotProvider } from "../page-header-slot.tsx";
 import { ShellHeader } from "../shell-header.tsx";
+import { UNIFORM_BAR_CONTROLS_CLASSES } from "../uniform-bar-controls.ts";
 
 const emptySchema: AppSchema = { features: [] };
 
@@ -116,6 +117,20 @@ describe("ShellHeader", () => {
       expect(parent.className).toContain("@xs:inline-flex");
     }
     expect(items[2]?.className).not.toContain("hidden");
+  });
+
+  test("buttons portalled into the header actions slot are forced to the uniform control height", () => {
+    renderWithSidebar(
+      <NavProvider value={routedNav}>
+        <PageHeaderSlotProvider>
+          <ShellHeader schema={routedSchema} />
+          <DefaultPageHeader actions={<button type="button">AI</button>} />
+        </PageHeaderSlotProvider>
+      </NavProvider>,
+    );
+    const actions = document.querySelector("[data-kumiko-layout='page-header-actions']");
+    expect(actions?.className).toContain(UNIFORM_BAR_CONTROLS_CLASSES);
+    expect(actions?.textContent).toBe("AI");
   });
 
   test("below sm the actions container is capped at half the header so the h1 keeps its width", () => {

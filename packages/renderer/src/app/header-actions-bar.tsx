@@ -61,7 +61,6 @@ export function HeaderActionsBar({
             Button={Button}
             Dialog={Dialog}
             iconOnly={compactPrimary.iconOnly}
-            compactLabel
             onError={onError}
           />
         )}
