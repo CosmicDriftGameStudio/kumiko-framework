@@ -119,6 +119,28 @@ describe("DataTable column pinning", () => {
   });
 });
 
+describe("DataTable totals row under pinned columns", () => {
+  test("the leading select cell of the totals row sticks with the pinned select column", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        testId="t"
+        rowActions={actions}
+        bulk={{ actions: [], reload: async () => {} }}
+        totals={{ measures: [{ field: "age", kind: "sum", value: 106 }] }}
+        view={view({ pins: { name: "left" }, onPinsChange: () => {} })}
+      />,
+    );
+    const bodySelectCell = screen.getByTestId("row-r1-select").closest("td");
+    const totalsSelectCell = screen.getByTestId("list-totals-__select");
+    expect(bodySelectCell?.style.position).toBe("sticky");
+    expect(totalsSelectCell.style.position).toBe("sticky");
+    expect(totalsSelectCell.style.left).toBe(bodySelectCell?.style.left ?? "");
+    expect(screen.getByTestId("list-totals-age").textContent).toContain("106");
+  });
+});
+
 describe("DataTable right pin next to the actions column", () => {
   afterEach(() => mock.restore());
 

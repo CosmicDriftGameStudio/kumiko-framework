@@ -1,8 +1,8 @@
 ---
 status: in-progress
-verified: 2026-10-22
+verified: 2026-10-23
 issue: kumiko-framework#3956
-next: Runde 2 (#3958) und Runde 6 (#3962) laufen parallel, danach R5 (#3961), zuletzt R4 (#3960); R1 (#3957, PR #3967) und R3 (#3959, PR #3966) sind gemergt.
+next: "#3979, danach Doku-Seite und Marketing-News (#3956)"
 track: framework
 depends: []
 ---
@@ -51,10 +51,9 @@ Belegt am 2026-10-22 im Framework-Checkout (0.386.0):
 - Filter-Reset: `onFilterReset` → `clearFilters` löscht Facets, Datumsbereich
   und Seite. Suche, Sortierung und Seitengröße bleiben. Der Button sitzt im
   Facet-Cluster, eine Liste ohne Facets hat keinen Reset.
-- Gruppierung: die Primitive rendert klappbare Gruppen (`rowGrouping`), auch
-  im Karten-Layout. Die Dev-Konfig `groupBy` gibt es nur auf relatedList
-  (`RelatedListGroupBy` in `screen-entity-edit.ts`), nicht auf entityList und
-  projectionList.
+- Gruppierung: vor Runde 4 renderte die Primitive klappbare Gruppen
+  (`rowGrouping`) aus der relatedList-Konfig `groupBy`. Beides ist mit #3979
+  entfernt, Gruppen kommen nur noch über `table.grouping` vom Server.
 - Aktionen: `rowActions` (writeHandler, navigate, drawer, clientAction),
   `toolbarActions`, Confirm, Icons, Sichtbarkeit pro Zeile, Modus inline oder
   Kebab. Mehrfachauswahl fehlt.
@@ -89,8 +88,8 @@ Belegt am 2026-10-22 im Framework-Checkout (0.386.0):
 - Field-Read-Gate: `fieldReadClause` liefert `pass`, `empty` oder `sql`.
   Ein Filter auf ein Feld ohne Leserecht wird zu `FALSE`, eine Sortierung
   fällt still weg, damit die Existenz eines Feldes nicht verraten wird.
-- relatedList-`groupBy` gruppiert heute clientseitig über die geladene
-  Seite (`components/related-list-section.tsx`, `{count}`, `{lastDate}`).
+- relatedList-`groupBy` gruppierte vor #3979 clientseitig über die geladene
+  Seite (`{count}`, `{lastDate}`).
 
 ## Ziel und Nicht-Ziele
 
@@ -106,10 +105,9 @@ Nicht-Ziele:
 - Kein CSV, kein PDF.
 - Keine Auswahl „alle Treffer über alle Seiten“. Bulk gilt für geladene Zeilen.
 - Keine clientseitige Gruppierung oder Summe über geladene Zeilen. Beides
-  rechnet der Server über die ganze Treffermenge. Einzige Ausnahme ist das
-  bestehende `groupBy` auf relatedList: es bleibt unverändert, damit
-  Screens ohne `table`-Block byte-gleich bleiben. Ob es später abgelöst
-  wird, entscheidet Marc nach Runde 4.
+  rechnet der Server über die ganze Treffermenge. Das frühere `groupBy` auf
+  relatedList ist mit #3979 durch `table.grouping` ersetzt, auch auf
+  expandableRow (dort ohne `userChoice`).
 
 ## Entscheidungen
 
@@ -207,14 +205,12 @@ Startwerte, Nutzerwerte landen im Store.
 
 ### Gruppierung rechnet der Server, die Gruppe ist die Einheit
 
-`table.grouping` nimmt die Form von `RelatedListGroupBy` (`field`, `label`,
-`labels`, `collapsedWhen`) plus `userChoice` und `fields`; `dateField`
-entfällt, ein Datum je Gruppe liefert ein `max`-Measure.
-`relatedListGroupKey` und `relatedListGroupHeaderLabel` werden geteilt. Das
-bestehende `groupBy` auf relatedList bleibt als benannte Ausnahme
-unverändert und wird nicht auf den Server-Pfad gemappt, weil sich sonst
-bestehende Screens ändern und jede gebundene Query `aggregate` annehmen
-müsste.
+`table.grouping` nimmt `field`, `label`, `labels` und `collapsedWhen` plus
+`userChoice` und `fields`; `dateField` entfällt, ein Datum je Gruppe liefert
+ein `max`-Measure. Das frühere `groupBy` auf relatedList ist mit #3979
+entfernt: relatedList und expandableRow gruppieren über `table.grouping` auf
+dem Server-Pfad, die gebundene Query muss `aggregate` annehmen. Ein
+expandableRow nimmt nur `grouping` mit festem `field`, ohne `userChoice`.
 
 Die `list`-Query bekommt ein optionales Payload `aggregate` mit `groupBy`
 (ein Feld) und `measures` (Feld plus `sum`, `avg`, `count`, `min`, `max`).
@@ -371,8 +367,8 @@ Paging und Writer.
 - `bun run gen:agent-docs` nach jeder Runde, der Drift-Guard prüft
   `agents/widgets.md`.
 - `docs/reference/renderer-widget-options.md` bekommt einen Abschnitt
-  „DataTable `table`-Block“. Nebenbefund aus dem Check: `rowGrouping` und
-  `onFilterReset` fehlen dort heute, sie kommen in Runde 1 mit rein.
+  „DataTable `table`-Block“. Nebenbefund aus dem Check: `onFilterReset` fehlte dort, es kam in
+  Runde 1 mit rein (`rowGrouping` ist mit #3979 entfernt).
 - Die Docs-Site in kumiko-platform zieht nach dem letzten Release nach.
 
 ## Runden

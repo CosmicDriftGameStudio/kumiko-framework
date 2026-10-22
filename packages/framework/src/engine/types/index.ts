@@ -397,6 +397,7 @@ export type {
   EntityEditScreenDefinition,
   EntityListExpandableRow,
   EntityListScreenDefinition,
+  ExpandableRowGrouping,
   FieldCondition,
   FieldFormatRegistry,
   FieldRenderer,

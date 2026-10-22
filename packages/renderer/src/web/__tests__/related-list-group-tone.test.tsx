@@ -1,9 +1,6 @@
-// relatedList groupBy / rowTone: rows sit under collapsible group headers
-// (label interpolates count/value/lastDate) and matching rows get a tone.
-
 import { afterEach, describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "../../headless/index.ts";
 import {
   AppFeaturesProvider,
@@ -40,9 +37,7 @@ const features: readonly FeatureSchema[] = [
   { featureName: "campaigns", entities: { post: postEntity }, screens: [] },
 ];
 
-const bundles = {
-  de: { "campaigns.posts.group": "{count} Beiträge, zuletzt {lastDate} ({value})" },
-};
+const bundles = { de: {} };
 
 const rows = [
   { id: "p1", datum: "2026-09-29", status: "gepostet", kanal: "mobile.de" },
@@ -111,46 +106,7 @@ function renderSection(section: EditRelatedListSectionViewModel): void {
   );
 }
 
-describe("RelatedListSection groupBy / rowTone", () => {
-  const groupBy = {
-    field: "status",
-    collapsedWhen: "gepostet",
-    label: "campaigns.posts.group",
-    dateField: "datum",
-  };
-
-  test("groups get an interpolated header; the collapsedWhen group starts closed and toggles open", async () => {
-    renderSection({ ...baseSection, entity: "post", groupBy });
-
-    const posted = await screen.findByTestId("row-group-gepostet");
-    expect(posted.textContent).toBe("2 Beiträge, zuletzt 01.10.2026 (gepostet)");
-    expect(screen.getByTestId("row-group-geplant").textContent).toContain("1 Beiträge");
-    expect(screen.queryByTestId("row-p1")).toBeNull();
-    expect(screen.getByTestId("row-p3")).toBeTruthy();
-
-    fireEvent.click(screen.getByTestId("row-group-gepostet-toggle"));
-    expect(screen.getByTestId("row-p1")).toBeTruthy();
-    expect(screen.getByTestId("row-p2")).toBeTruthy();
-  });
-
-  test("a group without a header label shows its rows directly while the labelled group stays collapsible", async () => {
-    renderSection({
-      ...baseSection,
-      entity: "post",
-      groupBy: {
-        field: "status",
-        collapsedWhen: "gepostet",
-        labels: { gepostet: "campaigns.posts.group" },
-        dateField: "datum",
-      },
-    });
-
-    expect((await screen.findByTestId("row-group-gepostet")).textContent).toContain("2 Beiträge");
-    expect(screen.queryByTestId("row-group-geplant")).toBeNull();
-    expect(screen.getByTestId("row-p3")).toBeTruthy();
-    expect(screen.queryByTestId("row-p1")).toBeNull();
-  });
-
+describe("RelatedListSection rowTone", () => {
   test("rowTone tints only the rows matching its condition", async () => {
     renderSection({
       ...baseSection,

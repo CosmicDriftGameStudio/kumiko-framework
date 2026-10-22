@@ -37,7 +37,7 @@ const orderEntity = createEntity({
   },
 });
 
-type ScreenKind = "entityList" | "projectionList" | "relatedList";
+type ScreenKind = "entityList" | "projectionList" | "relatedList" | "expandableRow";
 const KINDS: ScreenKind[] = ["entityList", "projectionList", "relatedList"];
 
 type ScreenOptions = {
@@ -63,7 +63,23 @@ function featureWith(kind: ScreenKind, options: ScreenOptions) {
       access: OPEN_TO_ALL,
     });
     const tableBlock = table === undefined ? {} : { table };
-    if (kind === "entityList") {
+    const relatedList = {
+      kind: "relatedList",
+      title: "Orders",
+      query,
+      columns: COLUMNS,
+      ...tableBlock,
+      ...(groupBy !== undefined && { groupBy }),
+    };
+    if (kind === "expandableRow") {
+      r.screen({
+        id: "order-list",
+        type: "entityList",
+        entity: "order",
+        columns: ["name"],
+        expandableRow: relatedList,
+      } as never);
+    } else if (kind === "entityList") {
       r.screen({
         id: "order-list",
         type: "entityList",
@@ -86,18 +102,7 @@ function featureWith(kind: ScreenKind, options: ScreenOptions) {
         id: "order-detail",
         type: "projectionDetail",
         query: PLAIN_QUERY,
-        layout: {
-          sections: [
-            {
-              kind: "relatedList",
-              title: "Orders",
-              query,
-              columns: COLUMNS,
-              ...tableBlock,
-              ...(groupBy !== undefined && { groupBy }),
-            },
-          ],
-        },
+        layout: { sections: [relatedList] },
       } as never);
     }
   });
@@ -187,14 +192,51 @@ describe("validateBoot — table.grouping and table.totals", () => {
     },
   );
 
-  test("relatedList: groupBy alone keeps working, combined with table.grouping it is rejected", () => {
-    const groupBy = { field: "status", label: "shop.group" };
-    expect(() => validateBoot([featureWith("relatedList", { groupBy })])).not.toThrow();
+  test.each(["relatedList", "expandableRow"] as const)(
+    "%s: the removed groupBy is rejected with a pointer to table.grouping",
+    (kind) => {
+      const groupBy = { field: "status", label: "shop.group" };
+      expect(() => validateBoot([featureWith(kind, { groupBy })])).toThrow(
+        /uses groupBy, which was removed\. Use table\.grouping/,
+      );
+    },
+  );
+});
+
+describe("validateBoot — table.grouping on an expandableRow", () => {
+  test("a fixed grouping field passes", () => {
+    const grouping = { field: "status", collapsedWhen: "paid", labels: { paid: "shop.paid" } };
+    expect(() =>
+      validateBoot([featureWith("expandableRow", { table: { grouping } })]),
+    ).not.toThrow();
+  });
+
+  test("the bound query must accept aggregate", () => {
     expect(() =>
       validateBoot([
-        featureWith("relatedList", { groupBy, table: { grouping: { field: "status" } } }),
+        featureWith("expandableRow", {
+          query: PLAIN_QUERY,
+          table: { grouping: { field: "status" } },
+        }),
       ]),
-    ).toThrow(/declares both groupBy .* and table\.grouping/);
+    ).toThrow(/need query "shop:query:order:rows" to accept "aggregate"/);
+  });
+
+  test.each(["userChoice", "fields"] as const)("grouping.%s is rejected", (key) => {
+    const grouping = { field: "status", [key]: key === "userChoice" ? true : ["name"] };
+    expect(() => validateBoot([featureWith("expandableRow", { table: { grouping } })])).toThrow(
+      new RegExp(`does not support table\\.grouping\\.${key}`),
+    );
+  });
+
+  test("totals and the other table options are rejected", () => {
+    expect(() =>
+      validateBoot([
+        featureWith("expandableRow", {
+          table: { grouping: { field: "status" }, totals: [{ field: "qty", kind: "sum" }] },
+        }),
+      ]),
+    ).toThrow(/supports only table\.grouping, not table\.totals/);
   });
 });
 

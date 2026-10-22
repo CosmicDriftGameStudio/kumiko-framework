@@ -25,7 +25,6 @@ import {
   type DataTableBandItem,
   GroupBand,
 } from "./data-table/group-band.tsx";
-import { useToggledRowGroups } from "./data-table/row-group-toggle.tsx";
 import { SortableHeader } from "./data-table/sortable-header.tsx";
 import {
   EXPAND_TOGGLE_CELL_CLASS,
@@ -83,7 +82,6 @@ export function DefaultDataTable({
   rowActions,
   rowActionMode,
   bulk,
-  rowGrouping,
   rowTone,
   filterFacets,
   filterValues,
@@ -121,7 +119,6 @@ export function DefaultDataTable({
   const viewColumns = useViewColumns(schemaColumns, view, isNarrow);
   const density = densityClasses(view, scrollBody === true);
   const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
-  const [toggledGroups, toggleGroup] = useToggledRowGroups();
   // Toolbar wrapper: shared container for toolbar + table so the two belong
   // together visually. The toolbar is NOT sticky: lists typically scroll with
   // the page container, not internally. Sticky would compete with the topbar.
@@ -240,7 +237,7 @@ export function DefaultDataTable({
     </div>
   );
 
-  const tableItems = buildDataTableItems(rows, rowGrouping, toggledGroups, serverGroups);
+  const tableItems = buildDataTableItems(rows, serverGroups);
   const keyboardRow = useRowKeyboardNavigation({
     view,
     isNarrow,
@@ -251,7 +248,7 @@ export function DefaultDataTable({
   const schemaColumnByField = new Map(schemaColumns.map((col) => [col.field, col]));
   const columnOf = (field: string) => schemaColumnByField.get(field);
   function renderBand(item: DataTableBandItem): ReactNode {
-    return <GroupBand item={item} columnOf={columnOf} onClientToggle={toggleGroup} />;
+    return <GroupBand item={item} columnOf={columnOf} />;
   }
 
   function tableInner(): ReactNode {
@@ -469,8 +466,8 @@ export function DefaultDataTable({
               totals={totals}
               columns={columns}
               cellPin={pins.bodyCell}
-              leadingCells={[isRowExpandable, selection.active].filter(Boolean).length}
-              trailingCells={hasTableActions ? 1 : 0}
+              leadingCells={{ select: selection.active, expand: isRowExpandable }}
+              actionsCell={hasTableActions ? { fillsHeight } : undefined}
               cellClassName={density.cell}
             />
           )}

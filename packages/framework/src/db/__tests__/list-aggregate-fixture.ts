@@ -36,6 +36,9 @@ export const orderEntity = createEntity({
     rowOwnedQty: createNumberField({
       access: { read: { Admin: "all", User: from("user:id", "fieldOwnerId") } },
     }),
+    rowOwnedAmount: createMoneyField({
+      access: { read: { Admin: "all", User: from("user:id", "fieldOwnerId") } },
+    }),
     rowOwnedGroup: createTextField({
       personal: false,
       reason: "test_fixture",

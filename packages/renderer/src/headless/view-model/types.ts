@@ -13,7 +13,6 @@ import type {
   ListTableOptions,
   OptionsQueryPayload,
   PlatformComponent,
-  RelatedListGroupBy,
   RelatedListRowTone,
   RelatedListToolbarAction,
   RowAction,
@@ -449,7 +448,6 @@ export type EditRelatedListSectionViewModel = {
   readonly rowActions?: readonly RowAction[];
   readonly rowActionMode?: RowActionMode;
   readonly bulkActions?: readonly ListBulkAction[];
-  readonly groupBy?: RelatedListGroupBy;
   readonly rowTone?: RelatedListRowTone;
   readonly toolbarActions?: readonly RelatedListToolbarAction[];
   /** From `EditRelatedListSection.actions` — rendered in the

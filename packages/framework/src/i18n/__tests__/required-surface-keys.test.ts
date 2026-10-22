@@ -54,7 +54,7 @@ describe("requiredKeysFromScreen — entityList expandableRow", () => {
   });
 });
 
-describe("requiredKeysFromScreen — entityList expandableRow groupBy", () => {
+describe("requiredKeysFromScreen — entityList expandableRow table.grouping", () => {
   test("requires the group header keys of an expandable sub-list", () => {
     const keys = requiredKeysFromScreen("campaigns", {
       id: "campaign-list",
@@ -67,13 +67,17 @@ describe("requiredKeysFromScreen — entityList expandableRow groupBy", () => {
         query: "campaigns:query:post:list",
         parentParam: "campaign",
         columns: ["datum"],
-        groupBy: {
-          field: "status",
-          collapsedWhen: "done",
-          labels: { done: "campaigns:posts:group-done" },
+        table: {
+          grouping: {
+            field: "status",
+            collapsedWhen: "done",
+            label: "campaigns:posts:group",
+            labels: { done: "campaigns:posts:group-done" },
+          },
         },
       },
     });
+    expect(keys).toContain("campaigns:posts:group");
     expect(keys).toContain("campaigns:posts:group-done");
   });
 });

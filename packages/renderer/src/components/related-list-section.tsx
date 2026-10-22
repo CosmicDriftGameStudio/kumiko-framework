@@ -1,7 +1,6 @@
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
-  RelatedListGroupBy,
   RelatedListRowTone,
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -9,8 +8,6 @@ import {
   evalFieldCondition,
   normalizeListColumn,
   parseRefTarget,
-  relatedListGroupHeaderLabel,
-  relatedListGroupKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
@@ -53,12 +50,7 @@ import { useRelatedListRows } from "../hooks/use-related-list-rows.ts";
 import { useRelatedListState } from "../hooks/use-related-list-state.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
-import {
-  type DataTableFacet,
-  type DataTableProps,
-  type DataTableRowGrouping,
-  usePrimitives,
-} from "../primitives.tsx";
+import { type DataTableFacet, type DataTableProps, usePrimitives } from "../primitives.tsx";
 import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { RenderList } from "./render-list.tsx";
@@ -144,43 +136,6 @@ function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
   );
 }
 
-function buildRowGrouping(
-  groupBy: RelatedListGroupBy,
-  translate: Translate,
-  locale: string,
-): DataTableRowGrouping {
-  return {
-    keyOf: (row) => relatedListGroupKey(row.values[groupBy.field]),
-    startsCollapsed: (key) =>
-      groupBy.collapsedWhen !== undefined && key === relatedListGroupKey(groupBy.collapsedWhen),
-    headerLabel: (key, rows) => {
-      const labelKey = relatedListGroupHeaderLabel(groupBy, key);
-      if (labelKey === undefined) return undefined;
-      const dates =
-        groupBy.dateField === undefined
-          ? []
-          : rows
-              .map((row) => String(row.values[groupBy.dateField ?? ""] ?? ""))
-              .filter((value) => value !== "")
-              .sort();
-      const latest = dates[dates.length - 1];
-      return translate(labelKey, {
-        count: rows.length,
-        value: key,
-        lastDate:
-          latest === undefined
-            ? ""
-            : new Date(latest).toLocaleDateString(locale, {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                timeZone: "UTC",
-              }),
-      });
-    },
-  };
-}
-
 function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["rowTone"] {
   if (rule === undefined) return undefined;
   return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
@@ -240,13 +195,6 @@ export function RelatedListSection({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useOptionalLocale();
-  const rowGrouping = useMemo(
-    () =>
-      section.groupBy === undefined
-        ? undefined
-        : buildRowGrouping(section.groupBy, effectiveTranslate, locale ?? "en"),
-    [section.groupBy, effectiveTranslate, locale],
-  );
   const rowTone = useMemo(() => buildRowTone(section.rowTone), [section.rowTone]);
   const nav = useNav();
   const host = useReturnHost();
@@ -584,7 +532,6 @@ export function RelatedListSection({
           {...(rowActions !== undefined && { rowActions })}
           {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
           {...(bulk !== undefined && { bulk })}
-          {...(rowGrouping !== undefined && { rowGrouping })}
           {...(rowTone !== undefined && { rowTone })}
           {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
           {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}

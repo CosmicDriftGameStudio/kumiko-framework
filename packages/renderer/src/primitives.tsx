@@ -772,20 +772,9 @@ export type {
   DataTableFacetChip,
 } from "./data-table-facet-types.ts";
 
-/** Splits rows into collapsible groups (order of first appearance). A
- *  renderer without grouping support shows the flat list. A group whose
- *  `headerLabel` is undefined shows its rows without a header and never
- *  collapses. */
-export type DataTableRowGrouping = {
-  readonly keyOf: (row: ListRowViewModel) => string;
-  readonly headerLabel: (groupKey: string, rows: readonly ListRowViewModel[]) => string | undefined;
-  readonly startsCollapsed: (groupKey: string) => boolean;
-};
-
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
-  readonly rowGrouping?: DataTableRowGrouping;
   /** Tints a row. Renderers without row tinting ignore it. */
   readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
   readonly onRowClick?: (row: ListRowViewModel) => void;

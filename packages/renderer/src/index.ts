@@ -264,7 +264,6 @@ export type {
   DataTableProps,
   DataTableRowAction,
   DataTableRowActionMode,
-  DataTableRowGrouping,
   DataTableSort,
   DataTableSortDir,
   DialogProps,

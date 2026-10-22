@@ -13,6 +13,7 @@ export const expenseEntity = {
     status: { type: "select", options: ["open", "approved", "paid"], sortable: true },
     category: { type: "select", options: ["travel", "office", "software"], sortable: true },
     amount: { type: "money", currency: { kind: "literal", code: "EUR" }, sortable: true },
+    reportId: { type: "text" },
   },
 } as unknown as EntityDefinition;
 

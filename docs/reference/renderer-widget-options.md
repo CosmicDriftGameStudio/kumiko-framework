@@ -148,7 +148,7 @@ r.screen({
 | `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. |
 | `export.xlsx` | Shows an Export button that downloads the filtered list as an XLSX file. `entityList` and `projectionList` only. |
 | `export.maxRows` | Row limit of one export, default 10000, hard cap 100000. |
-| `grouping` | Groups the list on the server: `field`, optional `label`, `labels` and `collapsedWhen` like the `groupBy` of a `relatedList`, plus `userChoice` and `fields` for a "Group by" choice in the view menu. |
+| `grouping` | Groups the list on the server: `field`, optional `label`, `labels` and `collapsedWhen`, plus `userChoice` and `fields` for a "Group by" choice in the view menu. |
 | `totals` | A footer row with `[{ field, kind }]` measures (`sum`, `avg`, `count`, `min`, `max`) over all rows that match the filters and search. |
 
 `hidden: true` on a column starts it hidden. It needs `columnPicker`, otherwise the boot validator rejects the screen, and so does hiding every column. The boot validator also rejects unknown keys and wrong types in the block.
@@ -165,7 +165,7 @@ r.screen({
 
 **XLSX export.** The button sends the current search, sort and facets, and the visible columns in their order, to `POST /api/export/xlsx`. The server runs the list query again with the user's session and reads the whole filtered list, not just the loaded page. Above `maxRows` it answers 413 and the button shows a hint instead of a file. The sheet drops encrypted, sensitive, write-only and unreadable fields and virtual columns, so it never holds more than the list query would show this user. Reference columns show the label of the target instead of its id, joined with commas for multiple references. Timestamps use the time zone of the browser, falling back to the profile zone and then UTC. Text cells are always plain strings, never formulas. A `projectionList` query must honor `offset` or return `nextCursor`, otherwise the export stops after the first page. Personal access tokens are rejected on this route.
 
-**Server groups.** With `grouping` the groups are the unit that loads. One `aggregate` query with `groupBy` returns every group with its count and the `totals` measures; the header shows these server numbers, never a count or sum over loaded rows. Each open group whose header is near the viewport loads its rows with the list query plus `<field> eq <key>`, in pages of the list's page size, and "Load more" at the end of the group fetches the next page. At most four groups load at once, a collapsed group sends no query, and the global pager and infinite scroll give way to the per-group paging in both pagination modes. `userChoice` stores the chosen field like the other view choices; "None" turns grouping off. The `groupBy` of a `relatedList` section keeps grouping its loaded rows on the client. The query behind the list must accept `aggregate` (`entityListSchema` does); a hand-written query answers it with `answerListAggregate`, otherwise the boot validator rejects the screen.
+**Server groups.** With `grouping` the groups are the unit that loads. One `aggregate` query with `groupBy` returns every group with its count and the `totals` measures; the header shows these server numbers, never a count or sum over loaded rows. Each open group whose header is near the viewport loads its rows with the list query plus `<field> eq <key>`, in pages of the list's page size, and "Load more" at the end of the group fetches the next page. At most four groups load at once, a collapsed group sends no query, and the global pager and infinite scroll give way to the per-group paging in both pagination modes. `userChoice` stores the chosen field like the other view choices; "None" turns grouping off. A `relatedList` section groups the same way. An `expandableRow` takes `grouping` with a fixed `field` and no `userChoice` or `fields`; every other `table` option belongs on the entityList itself. The query behind the list must accept `aggregate` (`entityListSchema` does); a hand-written query answers it with `answerListAggregate`, otherwise the boot validator rejects the screen.
 
 **Totals row.** `totals` sends one `aggregate` query without `groupBy` over the same filters and search, kept live like the list. Money measures come back per currency and show one amount per currency. When the server caps groups or search hits, the toolbar shows a hint (`truncated`, `searchTruncated`).
 
@@ -192,8 +192,6 @@ With at least one bulk action the table gets a checkbox column on the left, a he
 
 **Limits.** The selection covers the loaded rows of the current page and at most 100 rows. There is no "select all matches across pages". With `table.keyboardNavigation`, Space toggles the focused row.
 
-## `DataTable`: `rowGrouping`, `onFilterReset`
-
-`rowGrouping` groups rows under collapsible headers. `keyOf` returns the group of a row, `headerLabel` the header text (a group without a label shows its rows without a header and never collapses) and `startsCollapsed` decides the initial state. A renderer without grouping support shows the flat list.
+## `DataTable`: `onFilterReset`
 
 `onFilterReset` clears all active facets. The table shows the reset button only while at least one facet is active. With `table.resetAll` the screen passes `resetAll` instead and the facet reset is not shown.

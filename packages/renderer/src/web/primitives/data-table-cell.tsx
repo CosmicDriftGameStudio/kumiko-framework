@@ -14,7 +14,6 @@ import type {
 } from "../../headless/index.ts";
 import { applyFormatSpec, EMPTY_VALUE_PLACEHOLDER, isSafeHref } from "../../headless/index.ts";
 import {
-  type DataTableRowGrouping,
   type PrimitivesRegistry,
   statusToneForOptionTone,
   statusToneForValue,
@@ -364,39 +363,6 @@ export function cellLinkProp(
     ...(link !== undefined && { link }),
     ...(linkItems !== undefined && { linkItems }),
   };
-}
-
-export type TableItem =
-  | {
-      readonly kind: "group";
-      readonly key: string;
-      readonly label: string;
-      readonly collapsed: boolean;
-    }
-  | { readonly kind: "row"; readonly row: ListRowViewModel };
-
-export function buildTableItems(
-  rows: readonly ListRowViewModel[],
-  grouping: DataTableRowGrouping | undefined,
-  toggledGroups: ReadonlySet<string>,
-): readonly TableItem[] {
-  if (grouping === undefined) return rows.map((row) => ({ kind: "row", row }));
-  const groups = new Map<string, ListRowViewModel[]>();
-  for (const row of rows) {
-    const key = grouping.keyOf(row);
-    const members = groups.get(key);
-    if (members === undefined) groups.set(key, [row]);
-    else members.push(row);
-  }
-  return [...groups].flatMap(([key, members]): TableItem[] => {
-    const label = grouping.headerLabel(key, members);
-    if (label === undefined) return members.map((row): TableItem => ({ kind: "row", row }));
-    const collapsed = grouping.startsCollapsed(key) !== toggledGroups.has(key);
-    return [
-      { kind: "group", key, label, collapsed },
-      ...(collapsed ? [] : members.map((row): TableItem => ({ kind: "row", row }))),
-    ];
-  });
 }
 
 const ROW_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {

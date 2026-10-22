@@ -268,12 +268,10 @@ export type {
   FieldFillAction,
   FormWidth,
   ListEmptyStateSpec,
-  RelatedListGroupBy,
   RelatedListRowTone,
 } from "./screen-entity-edit.ts";
 export { relatedListGroupHeaderLabel, relatedListGroupKey } from "./screen-entity-edit.ts";
 export type {
-  EntityListExpandableRow,
   EntityListFacetConfig,
   EntityListFacetExtraOption,
   EntityListScreenDefinition,
@@ -297,6 +295,7 @@ export type {
   ScreenFilterOp,
   ToolbarAction,
 } from "./screen-entity-list.ts";
+export type { EntityListExpandableRow, ExpandableRowGrouping } from "./screen-expandable-row.ts";
 export type { ListBulkAction } from "./screen-list-bulk.ts";
 export { LIST_BULK_ACTION_KEYS, MAX_BULK_SELECTION } from "./screen-list-bulk.ts";
 export type {

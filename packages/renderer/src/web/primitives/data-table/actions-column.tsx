@@ -5,6 +5,10 @@ import { ROW_FOCUS_RING_CELL_CLASS } from "./use-row-keyboard-navigation.ts";
 
 export const ACTIONS_CONTENT_ATTRIBUTE = "data-actions-content";
 
+export function stickyActionsCellClass(fillsHeight: boolean): string {
+  return cn("md:sticky md:right-0 md:z-10 md:bg-background", fillsHeight && "md:bg-card");
+}
+
 export function ActionsHeaderCell({
   label,
   style,
@@ -54,9 +58,9 @@ export function ActionsBodyCell({
       // viewports. bg-background sets the column apart during
       // scroll — no border-l (divider too heavy).
       className={cn(
-        "whitespace-nowrap text-right md:sticky md:right-0 md:z-10 md:bg-background",
+        "whitespace-nowrap text-right",
+        stickyActionsCellClass(fillsHeight),
         ROW_FOCUS_RING_CELL_CLASS,
-        fillsHeight && "md:bg-card",
       )}
       // Action-cell events must not trigger the row click/activation
       // (typically "Open Detail" — the user wanted the action,
