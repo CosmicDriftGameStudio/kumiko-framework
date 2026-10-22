@@ -6,6 +6,7 @@ import {
   normalizeListColumn,
   sectionFieldSpecs,
 } from "../engine/screen-helpers.ts";
+import type { ScreenKind, ScreenOfKind } from "../engine/screen-kind.ts";
 import type {
   DashboardChartPanel,
   DashboardFilterDefinition,
@@ -13,6 +14,7 @@ import type {
   DashboardScreenDefinition,
   DashboardTextPanel,
   EditFieldSpec,
+  EditWriteFormSection,
   EntityListExpandableRow,
   FeatureDefinition,
   ListEmptyStateSpec,
@@ -270,6 +272,262 @@ function pushExpandableRowKeys(out: Set<string>, section: EntityListExpandableRo
   }
 }
 
+type ScreenKeyCollectorContext = {
+  readonly out: Set<string>;
+  readonly featureName: string;
+  readonly treatDotFormAsKey: boolean;
+};
+
+type ScreenKeyCollectors = {
+  readonly [K in ScreenKind]: (ctx: ScreenKeyCollectorContext, screen: ScreenOfKind[K]) => void;
+};
+
+type FieldLabelOverrides = Readonly<Record<string, string>> | undefined;
+
+function pushFieldLabelOrOverrideKey(
+  ctx: ScreenKeyCollectorContext,
+  labelEntity: string,
+  fieldName: string,
+  fieldLabels: FieldLabelOverrides,
+  treatAsKey = false,
+): void {
+  const override = fieldLabels?.[fieldName];
+  if (override !== undefined) pushKey(ctx.out, override, treatAsKey);
+  else ctx.out.add(fieldLabelKey(ctx.featureName, labelEntity, fieldName));
+}
+
+function pushListChromeKeys(
+  out: Set<string>,
+  list: ScreenOfKind["entityList"] | ScreenOfKind["projectionList"],
+): void {
+  pushKey(out, list.createLabel);
+  pushKey(out, list.searchPlaceholder);
+  pushKey(out, list.description);
+  pushListEmptyStateKeys(out, list.emptyState);
+  for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
+  for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+}
+
+function collectEntityListKeys(
+  ctx: ScreenKeyCollectorContext,
+  list: ScreenOfKind["entityList"],
+): void {
+  for (const col of list.columns) {
+    const normalized = normalizeListColumn(col);
+    if (normalized.label !== undefined) {
+      pushKey(ctx.out, normalized.label);
+    } else {
+      ctx.out.add(fieldLabelKey(ctx.featureName, list.entity, normalized.field));
+    }
+  }
+  pushListChromeKeys(ctx.out, list);
+  if (list.expandableRow !== undefined) pushExpandableRowKeys(ctx.out, list.expandableRow);
+}
+
+function collectProjectionListKeys(
+  ctx: ScreenKeyCollectorContext,
+  list: ScreenOfKind["projectionList"],
+): void {
+  // No entity means there are no field-label fallbacks; only explicit column labels are
+  // collected.
+  for (const col of list.columns) {
+    const normalized = normalizeListColumn(col);
+    if (normalized.label !== undefined) pushKey(ctx.out, normalized.label);
+  }
+  pushListChromeKeys(ctx.out, list);
+}
+
+function pushEditLayoutSectionKeys(
+  ctx: ScreenKeyCollectorContext,
+  sections: ScreenOfKind["entityEdit"]["layout"]["sections"],
+  labelEntity: string,
+  fieldLabels: FieldLabelOverrides,
+): void {
+  for (const section of sections) {
+    if (isExtensionEditSection(section)) {
+      pushKey(ctx.out, section.title);
+      continue;
+    }
+    if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+    pushSectionTitles(ctx.out, section);
+    for (const f of sectionFieldSpecs(section)) {
+      pushEditFieldTextKeys(ctx.out, f);
+      pushFieldLabelOrOverrideKey(ctx, labelEntity, editFieldName(f), fieldLabels);
+    }
+  }
+}
+
+function collectEntityEditKeys(
+  ctx: ScreenKeyCollectorContext,
+  edit: ScreenOfKind["entityEdit"],
+): void {
+  pushKey(ctx.out, edit.submitLabel);
+  pushKey(ctx.out, edit.titleTemplate);
+  pushEditLayoutSectionKeys(ctx, edit.layout.sections, edit.entity, edit.fieldLabels);
+}
+
+function collectActionFormKeys(
+  ctx: ScreenKeyCollectorContext,
+  form: ScreenOfKind["actionForm"],
+): void {
+  pushKey(ctx.out, form.submitLabel);
+  pushKey(ctx.out, form.summary?.title);
+  pushKey(ctx.out, form.summary?.subtitle);
+  for (const action of form.footerActions ?? []) pushKey(ctx.out, action.label);
+  for (const link of form.successLinks ?? []) pushKey(ctx.out, link.label);
+  for (const fact of form.successFacts ?? []) pushKey(ctx.out, fact.label);
+  for (const fieldName of Object.keys(form.fields)) {
+    pushFieldLabelOrOverrideKey(ctx, ACTION_FORM_ENTITY, fieldName, form.fieldLabels);
+  }
+  pushEditLayoutSectionKeys(ctx, form.layout.sections, ACTION_FORM_ENTITY, form.fieldLabels);
+}
+
+function collectSecretMintKeys(
+  ctx: ScreenKeyCollectorContext,
+  mint: ScreenOfKind["secretMint"],
+): void {
+  const { out, featureName } = ctx;
+  pushKey(out, mint.submitLabel);
+  pushActionFormShapedKeys(out, featureName, mint);
+  pushKey(out, mint.reveal.title);
+  pushKey(out, mint.reveal.warning);
+  pushKey(out, mint.reveal.confirmLabel);
+  pushKey(out, mint.reveal.acknowledge);
+  for (const revealField of mint.reveal.fields) {
+    pushKey(out, revealField.label);
+  }
+  if (mint.confirm !== undefined) {
+    pushKey(out, mint.confirm.submitLabel);
+    pushKey(out, mint.confirm.doneMessage);
+    pushActionFormShapedKeys(out, featureName, mint.confirm);
+  }
+}
+
+function pushConfigEditSectionKeys(
+  ctx: ScreenKeyCollectorContext,
+  config: ScreenOfKind["configEdit"],
+): void {
+  const { out, treatDotFormAsKey } = ctx;
+  for (const section of config.layout.sections) {
+    if (isExtensionEditSection(section)) {
+      pushKey(out, section.title);
+      continue;
+    }
+    if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+    pushSectionTitles(out, section, treatDotFormAsKey);
+    pushKey(out, section.description, treatDotFormAsKey);
+    for (const f of sectionFieldSpecs(section)) {
+      pushEditFieldTextKeys(out, f, treatDotFormAsKey);
+      pushFieldLabelOrOverrideKey(
+        ctx,
+        CONFIG_EDIT_ENTITY,
+        editFieldName(f),
+        config.fieldLabels,
+        treatDotFormAsKey,
+      );
+    }
+  }
+}
+
+function collectConfigEditKeys(
+  ctx: ScreenKeyCollectorContext,
+  config: ScreenOfKind["configEdit"],
+): void {
+  const { out, treatDotFormAsKey } = ctx;
+  pushKey(out, config.submitLabel);
+  pushKey(out, config.description, treatDotFormAsKey);
+  for (const key of Object.values(config.fieldDescriptions ?? {})) {
+    pushKey(out, key, treatDotFormAsKey);
+  }
+  for (const fieldName of Object.keys(config.fields)) {
+    pushFieldLabelOrOverrideKey(
+      ctx,
+      CONFIG_EDIT_ENTITY,
+      fieldName,
+      config.fieldLabels,
+      treatDotFormAsKey,
+    );
+  }
+  pushConfigEditSectionKeys(ctx, config);
+}
+
+function collectSecretsEditKeys(
+  ctx: ScreenKeyCollectorContext,
+  secretsEdit: ScreenOfKind["secretsEdit"],
+): void {
+  const { out, treatDotFormAsKey } = ctx;
+  for (const key of Object.values(secretsEdit.fieldLabels)) pushKey(out, key, treatDotFormAsKey);
+  for (const key of Object.values(secretsEdit.fieldHints ?? {})) {
+    pushKey(out, key, treatDotFormAsKey);
+  }
+  for (const section of secretsEdit.sections) pushKey(out, section.title, treatDotFormAsKey);
+}
+
+function pushWriteFormSectionKeys(
+  ctx: ScreenKeyCollectorContext,
+  section: EditWriteFormSection,
+): void {
+  pushKey(ctx.out, section.title);
+  pushKey(ctx.out, section.description);
+  pushKey(ctx.out, section.submitLabel);
+  for (const f of section.fields) {
+    pushEditFieldTextKeys(ctx.out, f);
+    ctx.out.add(fieldLabelKey(ctx.featureName, WRITE_FORM_SECTION_ENTITY, editFieldName(f)));
+  }
+}
+
+function collectProjectionDetailKeys(
+  ctx: ScreenKeyCollectorContext,
+  detail: ScreenOfKind["projectionDetail"],
+): void {
+  for (const section of detail.layout.sections) {
+    if (isExtensionEditSection(section)) {
+      pushKey(ctx.out, section.title);
+      continue;
+    }
+    if (section.kind === "relatedList") {
+      pushRelatedListSectionKeys(ctx.out, section);
+      continue;
+    }
+    if (isWriteFormEditSection(section)) {
+      pushWriteFormSectionKeys(ctx, section);
+      continue;
+    }
+    pushSectionTitles(ctx.out, section);
+    for (const f of sectionFieldSpecs(section)) {
+      pushEditFieldTextKeys(ctx.out, f);
+      pushFieldLabelOrOverrideKey(
+        ctx,
+        PROJECTION_DETAIL_ENTITY,
+        editFieldName(f),
+        detail.fieldLabels,
+      );
+    }
+  }
+}
+
+const SCREEN_KEY_COLLECTORS: ScreenKeyCollectors = {
+  entityList: collectEntityListKeys,
+  projectionList: collectProjectionListKeys,
+  entityEdit: collectEntityEditKeys,
+  actionForm: collectActionFormKeys,
+  secretMint: collectSecretMintKeys,
+  configEdit: collectConfigEditKeys,
+  secretsEdit: collectSecretsEditKeys,
+  projectionDetail: collectProjectionDetailKeys,
+  dashboard: (ctx, screen) => pushDashboardScreenKeys(ctx.out, screen),
+  // Custom screens translate their own texts.
+  custom: () => {},
+};
+
+function collectScreenKeysOfKind<K extends ScreenKind>(
+  ctx: ScreenKeyCollectorContext,
+  kind: K,
+  screen: ScreenOfKind[K],
+): void {
+  SCREEN_KEY_COLLECTORS[kind](ctx, screen);
+}
+
 export type RequiredKeysOptions = {
   /** Bypass `isI18nKey`'s colon-only check for generated dot-form labels. */
   readonly treatDotFormAsKey?: boolean;
@@ -280,197 +538,17 @@ export function requiredKeysFromScreen(
   screen: ScreenDefinition,
   options: RequiredKeysOptions = {},
 ): readonly string[] {
-  const { treatDotFormAsKey = false } = options;
-  const out = new Set<string>();
-  pushKey(out, screenTitleKey(screen.id));
-
-  switch (screen.type) {
-    case "entityList": {
-      const list = screen;
-      for (const col of list.columns) {
-        const normalized = normalizeListColumn(col);
-        if (normalized.label !== undefined) {
-          pushKey(out, normalized.label);
-        } else {
-          out.add(fieldLabelKey(featureName, list.entity, normalized.field));
-        }
-      }
-      pushKey(out, list.createLabel);
-      pushKey(out, list.searchPlaceholder);
-      pushKey(out, list.description);
-      pushListEmptyStateKeys(out, list.emptyState);
-      for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
-      for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
-      if (list.expandableRow !== undefined) pushExpandableRowKeys(out, list.expandableRow);
-      break;
-    }
-    case "projectionList": {
-      const list = screen;
-      // No entity means there are no field-label fallbacks; only explicit column labels are
-      // collected.
-      for (const col of list.columns) {
-        const normalized = normalizeListColumn(col);
-        if (normalized.label !== undefined) pushKey(out, normalized.label);
-      }
-      pushKey(out, list.createLabel);
-      pushKey(out, list.searchPlaceholder);
-      pushKey(out, list.description);
-      pushListEmptyStateKeys(out, list.emptyState);
-      for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
-      for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
-      break;
-    }
-    case "dashboard": {
-      pushDashboardScreenKeys(out, screen);
-      break;
-    }
-    case "entityEdit": {
-      const edit = screen;
-      pushKey(out, edit.submitLabel);
-      pushKey(out, edit.titleTemplate);
-      for (const section of edit.layout.sections) {
-        if (isExtensionEditSection(section)) {
-          pushKey(out, section.title);
-          continue;
-        }
-        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushSectionTitles(out, section);
-        for (const f of sectionFieldSpecs(section)) {
-          pushEditFieldTextKeys(out, f);
-          const fieldName = editFieldName(f);
-          const override = edit.fieldLabels?.[fieldName];
-          if (override !== undefined) pushKey(out, override);
-          else out.add(fieldLabelKey(featureName, edit.entity, fieldName));
-        }
-      }
-      break;
-    }
-    case "actionForm": {
-      const form = screen;
-      pushKey(out, form.submitLabel);
-      pushKey(out, form.summary?.title);
-      pushKey(out, form.summary?.subtitle);
-      for (const action of form.footerActions ?? []) pushKey(out, action.label);
-      for (const link of form.successLinks ?? []) pushKey(out, link.label);
-      for (const fact of form.successFacts ?? []) pushKey(out, fact.label);
-      for (const fieldName of Object.keys(form.fields)) {
-        const override = form.fieldLabels?.[fieldName];
-        if (override !== undefined) pushKey(out, override);
-        else out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
-      }
-      for (const section of form.layout.sections) {
-        if (isExtensionEditSection(section)) {
-          pushKey(out, section.title);
-          continue;
-        }
-        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushSectionTitles(out, section);
-        for (const f of sectionFieldSpecs(section)) {
-          pushEditFieldTextKeys(out, f);
-          const fieldName = editFieldName(f);
-          const override = form.fieldLabels?.[fieldName];
-          if (override !== undefined) pushKey(out, override);
-          else out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
-        }
-      }
-      break;
-    }
-    case "secretMint": {
-      const mint = screen;
-      pushKey(out, mint.submitLabel);
-      pushActionFormShapedKeys(out, featureName, mint);
-      pushKey(out, mint.reveal.title);
-      pushKey(out, mint.reveal.warning);
-      pushKey(out, mint.reveal.confirmLabel);
-      pushKey(out, mint.reveal.acknowledge);
-      for (const revealField of mint.reveal.fields) {
-        pushKey(out, revealField.label);
-      }
-      if (mint.confirm !== undefined) {
-        pushKey(out, mint.confirm.submitLabel);
-        pushKey(out, mint.confirm.doneMessage);
-        pushActionFormShapedKeys(out, featureName, mint.confirm);
-      }
-      break;
-    }
-    case "configEdit": {
-      const config = screen;
-      pushKey(out, config.submitLabel);
-      pushKey(out, config.description, treatDotFormAsKey);
-      for (const key of Object.values(config.fieldDescriptions ?? {})) {
-        pushKey(out, key, treatDotFormAsKey);
-      }
-      for (const fieldName of Object.keys(config.fields)) {
-        const override = config.fieldLabels?.[fieldName];
-        if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
-        else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
-      }
-      for (const section of config.layout.sections) {
-        if (isExtensionEditSection(section)) {
-          pushKey(out, section.title);
-          continue;
-        }
-        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushSectionTitles(out, section, treatDotFormAsKey);
-        pushKey(out, section.description, treatDotFormAsKey);
-        for (const f of sectionFieldSpecs(section)) {
-          pushEditFieldTextKeys(out, f, treatDotFormAsKey);
-          const fieldName = editFieldName(f);
-          const override = config.fieldLabels?.[fieldName];
-          if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
-          else out.add(fieldLabelKey(featureName, CONFIG_EDIT_ENTITY, fieldName));
-        }
-      }
-      break;
-    }
-    case "secretsEdit": {
-      const secretsEdit = screen;
-      for (const key of Object.values(secretsEdit.fieldLabels))
-        pushKey(out, key, treatDotFormAsKey);
-      for (const key of Object.values(secretsEdit.fieldHints ?? {})) {
-        pushKey(out, key, treatDotFormAsKey);
-      }
-      for (const section of secretsEdit.sections) pushKey(out, section.title, treatDotFormAsKey);
-      break;
-    }
-    case "projectionDetail": {
-      const detail = screen;
-      for (const section of detail.layout.sections) {
-        if (isExtensionEditSection(section)) {
-          pushKey(out, section.title);
-          continue;
-        }
-        if (section.kind === "relatedList") {
-          pushRelatedListSectionKeys(out, section);
-          continue;
-        }
-        if (isWriteFormEditSection(section)) {
-          pushKey(out, section.title);
-          pushKey(out, section.description);
-          pushKey(out, section.submitLabel);
-          for (const f of section.fields) {
-            pushEditFieldTextKeys(out, f);
-            const fieldName = editFieldName(f);
-            out.add(fieldLabelKey(featureName, WRITE_FORM_SECTION_ENTITY, fieldName));
-          }
-          continue;
-        }
-        pushSectionTitles(out, section);
-        for (const f of sectionFieldSpecs(section)) {
-          pushEditFieldTextKeys(out, f);
-          const fieldName = editFieldName(f);
-          const override = detail.fieldLabels?.[fieldName];
-          if (override !== undefined) pushKey(out, override);
-          else out.add(fieldLabelKey(featureName, PROJECTION_DETAIL_ENTITY, fieldName));
-        }
-      }
-      break;
-    }
-    case "custom":
-      break;
+  const ctx: ScreenKeyCollectorContext = {
+    out: new Set<string>(),
+    featureName,
+    treatDotFormAsKey: options.treatDotFormAsKey ?? false,
+  };
+  pushKey(ctx.out, screenTitleKey(screen.id));
+  // An unknown type is only reachable by casting past ScreenDefinition and yields the title key alone.
+  if (Object.hasOwn(SCREEN_KEY_COLLECTORS, screen.type)) {
+    collectScreenKeysOfKind(ctx, screen.type, screen);
   }
-
-  return [...out];
+  return [...ctx.out];
 }
 
 export function requiredKeysFromNav(

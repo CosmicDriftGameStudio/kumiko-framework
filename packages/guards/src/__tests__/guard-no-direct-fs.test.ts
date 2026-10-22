@@ -94,6 +94,41 @@ describe("No-Direct-Fs Guard", () => {
     expect(guard.run(project.getSourceFiles()).violations).toHaveLength(0);
   });
 
+  test.skipIf(!frameworkRoot)("allows the schema-cli handler files", () => {
+    const path = join(
+      frameworkRoot!.absPath,
+      "packages/framework/src/schema-cli/generate-command.ts",
+    );
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      useInMemoryFileSystem: true,
+    });
+    project.createSourceFile(
+      path,
+      `
+				import { readFileSync } from "node:fs";
+				void readFileSync;
+			`,
+    );
+    expect(guard.run(project.getSourceFiles()).violations).toHaveLength(0);
+  });
+
+  test.skipIf(!frameworkRoot)("flags fs in a nested folder below schema-cli", () => {
+    const path = join(frameworkRoot!.absPath, "packages/framework/src/schema-cli/nested/x.ts");
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      useInMemoryFileSystem: true,
+    });
+    project.createSourceFile(
+      path,
+      `
+				import { readFileSync } from "node:fs";
+				void readFileSync;
+			`,
+    );
+    expect(guard.run(project.getSourceFiles()).violations).toHaveLength(1);
+  });
+
   test.skipIf(!frameworkRoot)(
     "allows kumiko-cli tooling but still flags the same relative path under framework",
     () => {

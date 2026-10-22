@@ -5,6 +5,7 @@
 // so there is no same-folder require cycle.
 
 import { qualifyEntityName } from "../qualified-name.ts";
+import type { ScreenKind, ScreenOfKind } from "../screen-kind.ts";
 import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.ts";
 import type {
   ActionFormScreenDefinition,
@@ -45,10 +46,6 @@ export {
 export { validateDashboardCustomPanel, validateDashboardScreenPanel } from "./screens-dashboard.ts";
 export { validateColumnRendererForm } from "./screens-lists.ts";
 
-type ScreenKind = ScreenDefinition["type"];
-type ScreenOfKind = {
-  readonly [K in ScreenKind]: Extract<ScreenDefinition, { readonly type: K }>;
-};
 type ScreenKindValidators = {
   readonly [K in ScreenKind]: (
     ctx: ScreenValidationContext,
