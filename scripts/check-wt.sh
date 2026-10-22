@@ -6,9 +6,10 @@
 #
 # One form: the full hook (packages/guards/src/pre-push.sh) plus this repo's
 # extras from scripts/pre-push-extra.sh, which the hook runs first. The hook
-# does not re-enter this script when KUMIKO_CHECK_WT=1.
+# recognises this script as its own wrapper by process ancestry and does not
+# re-enter it.
 set -uo pipefail
 
 [ -f tsconfig.json ] || { echo "✗ no tsconfig.json in cwd — are you in the worktree root?"; exit 2; }
 
-exec env KUMIKO_CHECK_WT=1 packages/guards/src/pre-push.sh
+exec packages/guards/src/pre-push.sh

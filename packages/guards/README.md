@@ -77,8 +77,9 @@ workspace it runs a tracked `scripts/check-wt.sh` if present, otherwise the
 worktree's own `package.json` scripts `typecheck`, `lint`, `test`, and
 `test:dom` (whichever are declared), directly in the worktree — the parent's
 `bun check` would otherwise check the main checkout instead. There is no
-bypass switch. A `check-wt.sh` that wraps this hook sets `KUMIKO_CHECK_WT=1`
-so the hook does not call it again.
+bypass switch. A `check-wt.sh` that wraps this hook (via `exec` or as a child
+process) is recognised by process ancestry, so the hook does not call it
+again; an exported variable cannot skip it.
 
 Extension point: a tracked, executable `scripts/pre-push-extra.sh` runs
 before the main check in every branch (worktree, parent-scoped, and
