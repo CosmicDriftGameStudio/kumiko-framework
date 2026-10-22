@@ -58,6 +58,21 @@ type ToolFailure = {
 
 type FailureClassifier = (failure: ToolFailure, cause: unknown) => ToolCallResult;
 
+export const TOOL_CALL_ERROR_CODES = {
+  invalidToolCall: "invalid_tool_call",
+  unknownTool: "unknown_tool",
+} as const;
+
+type ToolCallFailure = Extract<ToolCallResult, { readonly ok: false }>;
+
+function invalidToolCall(error: string): ToolCallFailure {
+  return { ok: false, error, code: TOOL_CALL_ERROR_CODES.invalidToolCall };
+}
+
+function unknownTool(error: string): ToolCallFailure {
+  return { ok: false, error, code: TOOL_CALL_ERROR_CODES.unknownTool };
+}
+
 const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_SERVER_ERROR = 500;
 const UNEXPECTED_FAILURE_MESSAGE = "Tool failed unexpectedly";
@@ -108,7 +123,7 @@ type FilterOp = (typeof FILTER_OPS)[number];
 
 type PayloadResult =
   | { readonly ok: true; readonly value: Readonly<Record<string, unknown>> }
-  | { readonly ok: false; readonly error: string };
+  | ToolCallFailure;
 
 function isFilterOp(value: unknown): value is FilterOp {
   return isOneOf(FILTER_OPS, value);
@@ -120,7 +135,7 @@ function buildSearchPayload(
 ): PayloadResult {
   const query = toolInput["query"];
   if (typeof query !== "string" || query.length === 0) {
-    return { ok: false, error: `Tool "${toolName}" requires a non-empty string "query" argument` };
+    return invalidToolCall(`Tool "${toolName}" requires a non-empty string "query" argument`);
   }
   return { ok: true, value: { search: query, limit: SEARCH_RESULT_LIMIT } };
 }
@@ -132,7 +147,7 @@ function buildFindByPayload(
 ): PayloadResult {
   const value = toolInput[fieldName];
   if (value === undefined) {
-    return { ok: false, error: `Tool "${toolName}" requires a "${fieldName}" argument` };
+    return invalidToolCall(`Tool "${toolName}" requires a "${fieldName}" argument`);
   }
   return {
     ok: true,
@@ -156,10 +171,10 @@ function buildEntityListPayload(
   const search = input["search"];
   if (search !== undefined) {
     if (typeof search !== "string") {
-      return { ok: false, error: `"search" must be a string` };
+      return invalidToolCall(`"search" must be a string`);
     }
     if (list.searchableFields.length === 0) {
-      return { ok: false, error: "This entity has no searchable fields" };
+      return invalidToolCall("This entity has no searchable fields");
     }
     payload["search"] = search;
   }
@@ -167,18 +182,18 @@ function buildEntityListPayload(
   const filters = input["filters"];
   if (filters !== undefined) {
     if (!Array.isArray(filters)) {
-      return { ok: false, error: `"filters" must be an array` };
+      return invalidToolCall(`"filters" must be an array`);
     }
     const validated: Array<{ field: string; op: FilterOp; value: unknown }> = [];
     for (const entry of filters) {
       if (!isRecord(entry) || typeof entry["field"] !== "string" || !("value" in entry)) {
-        return { ok: false, error: `Each filter must be { field, op, value }` };
+        return invalidToolCall(`Each filter must be { field, op, value }`);
       }
       if (!list.filterableFields.includes(entry["field"])) {
-        return { ok: false, error: `Field "${entry["field"]}" is not filterable on this entity` };
+        return invalidToolCall(`Field "${entry["field"]}" is not filterable on this entity`);
       }
       if (!isFilterOp(entry["op"])) {
-        return { ok: false, error: `Unsupported filter operator "${String(entry["op"])}"` };
+        return invalidToolCall(`Unsupported filter operator "${String(entry["op"])}"`);
       }
       validated.push({ field: entry["field"], op: entry["op"], value: entry["value"] });
     }
@@ -250,7 +265,7 @@ async function dispatchServerQuery(
   if (descriptor.detail) {
     const id = input["id"];
     if (typeof id !== "string" || id.length === 0) {
-      return { ok: false, error: `This tool requires a non-empty string "id" argument` };
+      return invalidToolCall(`This tool requires a non-empty string "id" argument`);
     }
     const data = await dispatcher.query(descriptor.qn, { id }, user);
     return { ok: true, data };
@@ -285,16 +300,16 @@ async function dispatchServerWrite(
   if (descriptor.injectsVersion) {
     const id = input["id"];
     if (typeof id !== "string" || id.length === 0) {
-      return { ok: false, error: `This tool requires a non-empty string "id" argument` };
+      return invalidToolCall(`This tool requires a non-empty string "id" argument`);
     }
     if (!descriptor.detailQn) {
-      return { ok: false, error: "Tool is misconfigured: no detail handler to read version from" };
+      return invalidToolCall("Tool is misconfigured: no detail handler to read version from");
     }
     const current = await dispatcher.query(descriptor.detailQn, { id }, user);
     const version =
       isRecord(current) && typeof current["version"] === "number" ? current["version"] : undefined;
     if (version === undefined) {
-      return { ok: false, error: `Could not read the current "version" for id "${id}"` };
+      return invalidToolCall(`Could not read the current "version" for id "${id}"`);
     }
     payload = { ...input, version };
   }
@@ -336,10 +351,10 @@ function dispatchClientNavigate(
   const entity = input["entity"];
   if (typeof entity === "string") {
     const screenId = descriptor.entityScreens.get(entity);
-    if (!screenId) return { ok: false, error: `Unknown entity "${entity}" for navigation` };
+    if (!screenId) return invalidToolCall(`Unknown entity "${entity}" for navigation`);
     const id = input["id"];
     if (typeof id !== "string" || id.length === 0) {
-      return { ok: false, error: `Navigating to "${entity}" requires a non-empty string "id"` };
+      return invalidToolCall(`Navigating to "${entity}" requires a non-empty string "id"`);
     }
     return { ok: true, data: { kind: "navigate", screenId, params: { id } } };
   }
@@ -347,19 +362,19 @@ function dispatchClientNavigate(
   const screenId = input["screenId"];
   if (typeof screenId === "string") {
     if (!descriptor.screenIds.has(screenId)) {
-      return { ok: false, error: `Unknown screen "${screenId}"` };
+      return invalidToolCall(`Unknown screen "${screenId}"`);
     }
     const params = input["params"];
     if (params !== undefined) {
       if (!isRecord(params) || Object.values(params).some((value) => typeof value !== "string")) {
-        return { ok: false, error: `"params" must be an object of string values` };
+        return invalidToolCall(`"params" must be an object of string values`);
       }
       return { ok: true, data: { kind: "navigate", screenId, params } };
     }
     return { ok: true, data: { kind: "navigate", screenId, params: {} } };
   }
 
-  return { ok: false, error: `navigate requires either { entity, id } or { screenId }` };
+  return invalidToolCall(`navigate requires either { entity, id } or { screenId }`);
 }
 
 function dispatchClientOpenForm(
@@ -368,10 +383,10 @@ function dispatchClientOpenForm(
 ): ToolCallResult {
   const handlerQn = input["handlerQn"];
   if (typeof handlerQn !== "string") {
-    return { ok: false, error: `open_form requires a string "handlerQn" argument` };
+    return invalidToolCall(`open_form requires a string "handlerQn" argument`);
   }
   const screenId = descriptor.formScreens.get(handlerQn);
-  if (!screenId) return { ok: false, error: `No form screen mounted for handler "${handlerQn}"` };
+  if (!screenId) return invalidToolCall(`No form screen mounted for handler "${handlerQn}"`);
   return {
     ok: true,
     data: { kind: "open_form", screenId, handlerQn, prefill: input["prefill"] ?? {} },
@@ -385,14 +400,14 @@ function isStringArray(value: unknown): value is readonly string[] {
 function dispatchClientAskUser(input: Readonly<Record<string, unknown>>): ToolCallResult {
   const question = input["question"];
   if (typeof question !== "string" || question.length === 0) {
-    return { ok: false, error: `ask_user requires a non-empty string "question" argument` };
+    return invalidToolCall(`ask_user requires a non-empty string "question" argument`);
   }
   const options = input["options"];
   if (options === undefined) {
     return { ok: true, data: { kind: "ask_user", question } };
   }
   if (!isStringArray(options)) {
-    return { ok: false, error: `ask_user "options" argument must be an array of strings` };
+    return invalidToolCall(`ask_user "options" argument must be an array of strings`);
   }
   return { ok: true, data: { kind: "ask_user", question, options } };
 }
@@ -413,9 +428,10 @@ function dispatchClient(
 
 /** Executes one LLM-issued tool call. Never throws: every failure comes back as `{ ok: false }`
  *  so the agent loop can feed the error back to the model instead of crashing.
- *  Handler and dispatcher failures carry a `code` (429 adds `retryable`); client errors (< 500)
- *  keep their message, server failures (>= 500, unknown throws) are logged and returned as a
- *  generic message. Local validation errors (unknown tool, bad arguments) have no `code`.
+ *  Every failure carries a `code`: the handler's own code for handler and dispatcher failures
+ *  (429 adds `retryable`), `invalid_tool_call` for bad arguments and `unknown_tool` for a tool
+ *  that is not in the table. Client errors (< 500) keep their message, server failures (>= 500,
+ *  unknown throws) are logged and returned as a generic message.
  *  `request.user` must be the caller's real identity: server-kind tools run through the same
  *  permission-checked pipeline as an HTTP request. */
 export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCallResult> {
@@ -423,7 +439,7 @@ export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCa
   const classifyFailure = createFailureClassifier(toolName, request.log ?? fallbackLog);
   const descriptor = dispatchTable.get(toolName);
   if (!descriptor) {
-    return { ok: false, error: `Unknown tool "${toolName}"` };
+    return unknownTool(`Unknown tool "${toolName}"`);
   }
 
   try {
