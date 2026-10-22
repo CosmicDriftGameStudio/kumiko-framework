@@ -268,9 +268,6 @@ export type BootOptionName =
   | "fileStorage"
   | "billing"
   | "featureToggles"
-  | "demoMode"
-  | "seeds"
-  | "signals"
   | "rateLimit";
 
 export type StackBootRequirement = {

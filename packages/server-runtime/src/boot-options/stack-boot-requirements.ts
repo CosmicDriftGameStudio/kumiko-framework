@@ -55,18 +55,6 @@ const OPTION_CHECKS: { readonly [K in BootOptionName]: OptionCheck } = {
     isSatisfied: (options) => options.featureToggles === true,
     hint: "set featureToggles: true",
   },
-  demoMode: {
-    isSatisfied: (options) => options.demoMode !== undefined,
-    hint: "set demoMode: { readOnly }",
-  },
-  seeds: {
-    isSatisfied: (options) => options.seeds !== undefined,
-    hint: "set seeds",
-  },
-  signals: {
-    isSatisfied: (options) => options.signals !== false,
-    hint: "drop signals: false",
-  },
   rateLimit: {
     isSatisfied: (options) => options.rateLimit !== false,
     hint: "drop rateLimit: false",
@@ -95,7 +83,7 @@ function unsatisfiedRequirements(
 
 /** Reads `bootRequires` from the raw feature list: dedupe may later drop the
  *  tagged copy of a feature two stacks share. `scope` limits the check to the
- *  options the calling boot function can set at all (runDevApp has no `signals`). */
+ *  options the calling boot function can set at all. */
 export function assertStackBootRequirements(
   options: StackBootOptionFields,
   scope?: readonly BootOptionName[],
