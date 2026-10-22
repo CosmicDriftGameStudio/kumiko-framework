@@ -23,6 +23,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -262,6 +263,55 @@ describe("sync-subscription", () => {
       admin,
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows[0]?.["status"]).toBe(SubscriptionStatuses.canceled);
+  });
+
+  test("a webhook the provider emits right after a sync (same second, whole-second clock) is applied, not dropped as stale", async () => {
+    const admin = adminFor(6031);
+    await createSubscription(admin.tenantId, {
+      providerSubscriptionId: "sub_6031",
+      providerCustomerId: "cus_6031",
+    });
+    retrieveSnapshot = {
+      providerCustomerId: "cus_6031",
+      providerSubscriptionId: "sub_6031",
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+      currentPeriodEnd: "2026-06-01T00:00:00Z",
+      cancelAt: "2026-05-01T00:00:00Z",
+    };
+    const syncStartedAt = Temporal.Now.instant();
+    const synced = await stack.http.writeOk<{ synced: boolean }>(
+      SubscriptionFoundationHandlers.syncSubscription,
+      {},
+      admin,
+    );
+    expect(synced).toEqual({ synced: true });
+
+    const webhook = await stack.http.writeOk<{ stale?: boolean; duplicate: boolean }>(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        providerEventId: "evt_6031_after_sync",
+        providerName: "mock-sync-provider",
+        type: "subscription.updated",
+        providerCustomerId: "cus_6031",
+        providerSubscriptionId: "sub_6031",
+        status: SubscriptionStatuses.active,
+        tier: "team",
+        currentPeriodEndIso: "2026-06-01T00:00:00Z",
+        providerEventAtIso: syncStartedAt
+          .round({ smallestUnit: "second", roundingMode: "floor" })
+          .toString(),
+      },
+      admin,
+    );
+    expect(webhook.stale).toBeFalsy();
+
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows[0]?.["tier"]).toBe("team");
   });
 
   test("cancel → sync → reactivate → sync → cancel-again → sync appends a third update, not a duplicate-hash skip", async () => {

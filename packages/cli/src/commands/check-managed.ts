@@ -47,6 +47,14 @@ export async function runManagedCheckStep(
     out.log(`    ${NOT_ADOPTED_NOTE}`);
     return 0;
   }
+  return reportManagedCheck(out, managed, result);
+}
+
+function reportManagedCheck(
+  out: Output,
+  managed: ManagedFilesModule,
+  result: ReturnType<ManagedFilesModule["checkManagedFiles"]>,
+): number {
   const drift = result.files.filter(managed.isManagedDrift);
   const local = result.files.filter((report) => report.state === "local");
   const okCount = result.files.length - drift.length - local.length;

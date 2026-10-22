@@ -161,6 +161,7 @@ function defaultSlotsDir(): string {
 // symlink) to hold slots forever or redirect the pid write.
 function assertPrivateOwnDirectory(dir: string): void {
   const uid = process.getuid?.();
+  // skip: no uid to compare against on this platform.
   if (uid === undefined) return;
   const stats = lstatSync(dir);
   if (

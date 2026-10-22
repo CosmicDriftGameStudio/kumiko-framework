@@ -147,6 +147,25 @@ function targetCurrency(
   return undefined;
 }
 
+function computeOrdinary(
+  derivation: Extract<FormFieldDerivation, { from: unknown }>,
+  values: Record<string, unknown>,
+  fields: FormDerivationScreen["fields"],
+): { computed: number | undefined; sourceCurrency: string | undefined } {
+  const operands = derivation.from.map((name) => readOperand(values, fields, name));
+  const currencies = new Set(operands.flatMap((operand) => operand.currency ?? []));
+  const sourceCurrency = currencies.values().next().value;
+  // Operands in different currencies have no meaningful sum.
+  if (currencies.size > 1) return { computed: undefined, sourceCurrency };
+  return {
+    computed: computeDerivedCellValue(
+      derivation.op,
+      operands.map((operand) => operand.value),
+    ),
+    sourceCurrency,
+  };
+}
+
 /** Recomputes every derived head field of an action form from its inputs.
  *  Pure and client-safe: the renderer runs it live, the server runs it
  *  again (`withFormDerivations`) and overwrites whatever the client sent.
@@ -181,17 +200,7 @@ export function applyFormDerivations(values: unknown, screen: FormDerivationScre
     }
 
     if (ordinary !== undefined) {
-      const operands = ordinary.from.map((name) => readOperand(result, screen.fields, name));
-      const currencies = new Set(operands.flatMap((operand) => operand.currency ?? []));
-      sourceCurrency = currencies.values().next().value;
-      // Operands in different currencies have no meaningful sum.
-      computed =
-        currencies.size > 1
-          ? undefined
-          : computeDerivedCellValue(
-              ordinary.op,
-              operands.map((operand) => operand.value),
-            );
+      ({ computed, sourceCurrency } = computeOrdinary(ordinary, result, screen.fields));
     }
 
     if (computed === undefined) {

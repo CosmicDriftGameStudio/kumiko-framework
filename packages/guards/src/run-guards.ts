@@ -157,7 +157,10 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
     );
     return 0;
   }
-  const strictSecurityBaseline = flags.includes("--strict-security-baseline");
+  return runAllGuards(flags.includes("--strict-security-baseline"), deps);
+}
+
+function runAllGuards(strictSecurityBaseline: boolean, deps: RunGuardsCliDeps): number {
   const guards = strictSecurityBaseline ? GUARDS.filter(isSecurityGuard) : GUARDS;
   // Taken before the ts-morph project is built: that is where the memory goes.
   const releaseSlot = (deps.acquireSlot ?? acquireGuardRunSlot)();
