@@ -28,6 +28,7 @@ import {
   importWaitlistEntry,
   isWaitlistImportId,
   type WaitlistImportEntry,
+  waitlistImportEntryWithinLimits,
   waitlistImportId,
 } from "./import.ts";
 import { WAITLIST_STATUS, type WaitlistStatus } from "./web/constants.ts";
@@ -265,7 +266,7 @@ export async function migrateLegacyWaitlist(
       options.from === "offlot"
         ? await mapOfflotRow(row)
         : mapPublicstatusRow(row, options.defaultLocale);
-    if (!entry) {
+    if (!entry || !waitlistImportEntryWithinLimits(entry)) {
       unreadable += 1;
       continue;
     }

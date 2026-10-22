@@ -1,9 +1,10 @@
 import { join } from "node:path";
+import { wireKmsFromEnv } from "../kms-wiring";
 import { loadAppConfig } from "../load-app-config";
 import type { CliCommandContext } from "../types";
 
 const USAGE =
-  "Usage: kumiko ops waitlist-migrate --from <offlot|publicstatus> [--dry-run] [--source-table <name>] [--locale <tag>]";
+  "Usage: kumiko ops waitlist-migrate --from <offlot|publicstatus> [--dry-run] [--source-table <name>] [--locale <tag>] [--allow-plaintext-pii <reason>]";
 
 function flagValue(argv: readonly string[], flag: string): string | undefined {
   const index = argv.indexOf(flag);
@@ -45,10 +46,25 @@ export const waitlistMigrateOp = {
       );
     }
 
+    const allowPlaintextPii = flagValue(ctx.argv, "--allow-plaintext-pii");
+    if (ctx.argv.includes("--allow-plaintext-pii") && !allowPlaintextPii?.trim()) {
+      return fail(ctx, "--allow-plaintext-pii requires a non-empty reason");
+    }
+
     const dryRun = ctx.argv.includes("--dry-run");
     const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
     const { db, close } = createDbConnection({ url: databaseUrl });
+    let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
     try {
+      // Without the KMS the executor would write name/email/message as plaintext into the
+      // event log, where crypto-shredding cannot reach them.
+      wiring = await wireKmsFromEnv({
+        logPrefix: "[kumiko ops waitlist-migrate]",
+        log: (line) => ctx.out.log(line),
+        features: config.features,
+        allowPlaintextPii,
+        consequence: "The import would store personal data as plaintext in the event log.",
+      });
       const report = await migrateLegacyWaitlist(db, {
         from,
         dryRun,
@@ -64,6 +80,7 @@ export const waitlistMigrateOp = {
     } catch (e) {
       return fail(ctx, `✗ ${e instanceof Error ? e.message : String(e)}`);
     } finally {
+      await wiring?.close();
       await close();
     }
   },

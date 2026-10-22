@@ -14,7 +14,7 @@ verified: 2026-10-18
 | `invite` | `{ mode: "own-tenant", role: "TenantAdmin" }` | `own-tenant` creates a tenant per invited entry, `shared-tenant` adds everyone to one existing tenant. |
 | `rateLimit` | 5 submits per IP per 10 minutes | Per-IP limit of `submit`. `{ disabled: true, reason }` turns it off, for example behind a CDN that throttles the route. |
 | `emailRateLimits` | 3 submits per address per day | Per-address limit across all IPs. `[]` disables it. |
-| `notifyRecipient` | none | Resolver for the address of the admin notice mail. It runs on every new entry, may be async, and a throwing resolver only skips the notice. The mail goes through the mail channel, so a callback-only setup resolves the address there. |
+| `notifyRecipient` | none | Resolver for the address of the admin notice mail. It runs on every new entry, may be async, and a throwing resolver only skips the notice. Statements through `ctx.systemDb` run in a savepoint, so a failing one is rolled back without aborting the submit; statements through other `ctx` handles share the submit transaction. The mail goes through the mail channel, so a callback-only setup resolves the address there. |
 | `linkOnSignup` | `false` | Marks an `invited` entry `provisioned` and stores `linkedTenantId` and `provisionedAt` when its email becomes the first TenantAdmin member of a tenant. |
 | `exportPurge` | `true` | Mounts `waitlist:write:export` and `waitlist:write:purge`. `false` leaves both out. |
 | `appName` | none | Shown in the confirmation mail. |
@@ -46,8 +46,9 @@ kumiko ops waitlist-migrate --from publicstatus --source-table my_subscribers
 | `--dry-run` | Reads and reports, writes nothing. |
 | `--source-table <name>` | Legacy table when it is not the default (`read_waitlist_entries` for offlot, `marketing_waitlist` for publicstatus). |
 | `--locale <tag>` | Locale for formats without one (publicstatus). Default `en`. |
+| `--allow-plaintext-pii <reason>` | Only for apps without subject encryption: lets the import run without a PII KMS and stores name, email and message as plaintext. |
 
-The command loads `kumiko.config.ts`, needs `DATABASE_URL` and the mounted `waitlist` feature, reads the legacy table through the app database and writes only through the entity handlers. Every legacy row maps to a deterministic entry id, so a second run finds the entries and writes nothing. The summary line reports read, created, already present and unreadable rows. Rows whose personal fields are still ciphertext cannot be read by the CLI, which has no PII key service configured, and make the exit code 1.
+The command loads `kumiko.config.ts`, needs `DATABASE_URL` and the mounted `waitlist` feature, reads the legacy table through the app database and writes only through the entity handlers. Every legacy row maps to a deterministic entry id, so a second run finds the entries and writes nothing. The summary line reports read, created, already present and unreadable rows. The CLI wires the PII key service from the environment like the app boot (`PLATFORM_KEK`, `SUBJECT_KEYS_DATABASE_URL`, `KUMIKO_BLIND_INDEX_KEY`) and aborts without it, so imported personal fields are encrypted and can be crypto-shredded later. Legacy offlot rows that hold ciphertext are decrypted with the same key service; rows that still cannot be read are counted as unreadable and make the exit code 1.
 
 Legacy fields without a counterpart (city, stock, country, notes) are folded into `message` as labelled lines. The publicstatus format has no name, so the local part of the email is used.
 
