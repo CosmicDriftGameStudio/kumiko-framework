@@ -91,7 +91,11 @@ export type StoreFileDeps = {
   readonly writeBytes: (storageKey: string, data: Uint8Array, mimeType: string) => Promise<void>;
   // Must drop the upload-ledger row together with the bytes.
   readonly deleteBytes: (storageKey: string) => Promise<void>;
+  // Re-read in the transaction that inserts the row: the record can be locked while the bytes upload.
+  readonly isAttachTargetLocked?: (rowDb: TenantDb) => Promise<boolean>;
 };
+
+class AttachTargetLockedError extends Error {}
 
 export type CreatedFileRef = {
   readonly id: string;
@@ -118,6 +122,7 @@ export type UploadBytesOutcome =
 export type StoreFileOutcome =
   | { readonly kind: "created"; readonly fileRef: CreatedFileRef }
   | { readonly kind: "rejected"; readonly error: string }
+  | { readonly kind: "target-locked" }
   | { readonly kind: "failed"; readonly failure: WriteFailure };
 
 type AcceptedFile =
@@ -320,15 +325,18 @@ export async function storeFileAsFileRef(
       // skip: the create failure is the error worth reporting; the leftover bytes stay in storage.
     }
   };
+  const createRow = async (rowDb: TenantDb) => {
+    if (await deps.isAttachTargetLocked?.(rowDb)) throw new AttachTargetLockedError();
+    return createFileRefRow({ user: deps.user, tenantDb: rowDb }, upload.uploaded);
+  };
   let row: Awaited<ReturnType<typeof createFileRefRow>>;
   try {
     row = deps.rowInOwnTransaction
-      ? await runInOwnTransaction(deps.tenantDb, (txDb) =>
-          createFileRefRow({ user: deps.user, tenantDb: txDb }, upload.uploaded),
-        )
-      : await createFileRefRow(deps, upload.uploaded);
+      ? await runInOwnTransaction(deps.tenantDb, createRow)
+      : await createRow(deps.tenantDb);
   } catch (e) {
     await deleteUploadedBytes();
+    if (e instanceof AttachTargetLockedError) return { kind: "target-locked" };
     throw e;
   }
   if ("failure" in row) {

@@ -27,7 +27,7 @@ import { getUser, identifyOptionalSession } from "./auth-middleware.ts";
 import { createAuthRoutes } from "./auth-routes.ts";
 import { createClientErrorRoute } from "./client-error-route.ts";
 import { type ClientIpResolver, clientIpSourceFromHonoContext } from "./client-ip.ts";
-import { collectEntityReadAccess } from "./entity-read-access.ts";
+import { collectEntityReadAccess, collectEntityRowReadMaps } from "./entity-read-access.ts";
 import { computeStrongEtag, etagMatches } from "./http-cache.ts";
 import { requestContext } from "./request-context.ts";
 import { buildRequestContextData } from "./request-id-middleware.ts";
@@ -120,6 +120,7 @@ export function mountDispatcherRoutes(
     createSseRoute(sseBroker, {
       anonymousLiveEntities: collectAnonymousLiveEntities(options.registry),
       entityReadAccess: collectEntityReadAccess(options.registry),
+      entityRowReadMaps: collectEntityRowReadMaps(options.registry),
     }),
   );
 }
@@ -183,9 +184,15 @@ export function mountSchemaRoute(
 
 export function mountFileRoutes(
   app: Hono,
-  wiring: Pick<ServerWiring, "options" | "dispatcher" | "fileProviderResolver">,
+  wiring: Pick<
+    ServerWiring,
+    "options" | "dispatcher" | "fileProviderResolver" | "rateLimitResolver" | "tracedRedis"
+  >,
 ): void {
-  const { options, dispatcher, fileProviderResolver } = wiring;
+  const { options, dispatcher, fileProviderResolver, rateLimitResolver, tracedRedis } = wiring;
+  const metaBatchRateLimitResolver =
+    rateLimitResolver ??
+    (tracedRedis ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
   // Mount upload/download routes whenever a file provider is resolvable (a
   // file-provider plugin is mounted, or a resolver was injected). They resolve
   // the provider per-tenant through file-foundation — no `files` option; route
@@ -203,6 +210,7 @@ export function mountFileRoutes(
         db: fileDb,
         registry: options.registry,
         resolveProvider: fileProviderResolver,
+        ...(metaBatchRateLimitResolver ? { metaBatchRateLimitResolver } : {}),
         canReadRecord,
         canWriteRecord: createRecordWriteCheck({
           registry: options.registry,

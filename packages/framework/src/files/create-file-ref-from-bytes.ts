@@ -97,6 +97,11 @@ export async function createFileRefFromBytes(
       return fileRejectedFailure(outcome.error);
     case "failed":
       return outcome.failure;
+    case "target-locked":
+      // Only the HTTP route supplies the lock re-check, so this path cannot produce it.
+      return writeFailure(
+        new InternalError({ message: "createFileRefFromBytes: unexpected target-locked outcome" }),
+      );
   }
 }
 

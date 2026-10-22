@@ -4,6 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildMultipartBody,
+  createBarrier,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -11,7 +12,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
 import {
   createBooleanField,
   createEntity,
@@ -25,7 +26,12 @@ import {
   type SessionUser,
 } from "../../engine/index.ts";
 import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
-import { createFilesFeature, createInMemoryFileProvider } from "../index.ts";
+import { fileRefsTable } from "../file-ref-table.ts";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+  type InMemoryFileProvider,
+} from "../index.ts";
 
 const PNG_BYTES = new Uint8Array([
   0x89,
@@ -74,6 +80,15 @@ const uploadFeature = defineFeature("uploadcheck", (r) => {
 });
 
 const provider = createInMemoryFileProvider();
+// Lets a test act between the upload's access check and its row insert: the bytes are written in between.
+let beforeBytesLand: (() => Promise<void>) | undefined;
+const gatedProvider: InMemoryFileProvider = {
+  ...provider,
+  write: async (key, data, mimeType) => {
+    await beforeBytesLand?.();
+    return provider.write(key, data, mimeType);
+  },
+};
 let stack: TestStack;
 const admin = TestUsers.admin;
 const otherAdmin = createTestUser({ id: 5, tenantId: admin.tenantId, roles: ["Admin"] });
@@ -82,7 +97,7 @@ beforeAll(async () => {
   patchFileInstanceofForBunTest();
   stack = await setupTestStack({
     features: [createFilesFeature(), uploadFeature],
-    files: { storageProvider: provider },
+    files: { storageProvider: gatedProvider },
   });
   await unsafeCreateEntityTable(stack.db, dossierEntity, "dossier");
   await unsafeCreateEntityTable(stack.db, ownedEntity, "owned");
@@ -93,6 +108,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  beforeBytesLand = undefined;
   provider.clear();
   await asRawClient(stack.db).unsafe(
     `TRUNCATE upload_check_dossiers, upload_check_owned, file_refs RESTART IDENTITY CASCADE`,
@@ -191,6 +207,31 @@ describe("POST /files with an entityId", () => {
     const res = await upload(admin, { entityType: "dossier", entityId: id, fieldName: "scan" });
     expect(res.status).toBe(409);
     expect(JSON.stringify(res.body)).toContain("record_locked");
+    expect(provider.keys()).toHaveLength(0);
+  });
+
+  test("a record locked while the bytes upload answers 409 and leaves no row or bytes", async () => {
+    const id = await createDossier();
+    const uploadReachedBytes = createBarrier({ expected: 2 });
+    const recordLocked = createBarrier({ expected: 2 });
+    beforeBytesLand = async () => {
+      await uploadReachedBytes.arrive();
+      await recordLocked.arrive();
+    };
+
+    const racing = upload(admin, { entityType: "dossier", entityId: id, fieldName: "scan" });
+    await uploadReachedBytes.arrive();
+    await stack.http.writeOk(
+      "uploadcheck:write:dossier:update",
+      { id, version: 1, changes: { isSealed: true } },
+      admin,
+    );
+    await recordLocked.arrive();
+    const res = await racing;
+
+    expect(res.status).toBe(409);
+    expect(JSON.stringify(res.body)).toContain("record_locked");
+    expect(await selectMany(stack.db, fileRefsTable, {})).toEqual([]);
     expect(provider.keys()).toHaveLength(0);
   });
 
