@@ -139,8 +139,27 @@ function isAssumedRegistrar(receiver: Node, assumeRegistrarNames: ReadonlySet<st
   );
 }
 
+function isFeatureNameLiteral(arg: Node): boolean {
+  return (
+    Node.isStringLiteral(arg) ||
+    Node.isNoSubstitutionTemplateLiteral(arg) ||
+    Node.isTemplateExpression(arg) ||
+    Node.isSpreadElement(arg)
+  );
+}
+
+// An identifier or call argument could be a features object (already the object form) or a name,
+// so it is neither rewritten nor skipped silently.
+function isAmbiguousRequires(method: RegistrarMethod, args: readonly Node[]): boolean {
+  return (
+    method === "requires" &&
+    !args.some(isFeatureNameLiteral) &&
+    args.some((arg) => !Node.isObjectLiteralExpression(arg))
+  );
+}
+
 export function isPositionalShape(method: RegistrarMethod, args: readonly Node[]): boolean {
-  if (method === "requires") return args.some((arg) => !Node.isObjectLiteralExpression(arg));
+  if (method === "requires") return args.some(isFeatureNameLiteral);
   // The object form takes exactly one argument, so a spread can only be a positional call.
   if (args.some((arg) => Node.isSpreadElement(arg))) return true;
   return args.length >= (method === "hook" ? 3 : 2);
@@ -477,13 +496,29 @@ function visitRegistrarCall(
   if (
     !Node.isPropertyAccessExpression(callee) ||
     method === undefined ||
-    !isRegistrarMethod(method) ||
-    !isPositionalShape(method, call.getArguments())
+    !isRegistrarMethod(method)
   ) {
+    return;
+  }
+  const args = call.getArguments();
+  const receiver = callee.getExpression();
+  if (isAmbiguousRequires(method, args)) {
+    if (
+      isFeatureRegistrarReceiver(receiver) ||
+      isAssumedRegistrar(receiver, assumeRegistrarNames)
+    ) {
+      rewriter.recordManual(
+        call,
+        method,
+        "argument is not a string literal, so it may already be the object form — check by hand",
+      );
+    }
+    return;
+  }
+  if (!isPositionalShape(method, args)) {
     // skip: not a positional registrar call, nothing to rewrite
     return;
   }
-  const receiver = callee.getExpression();
   if (isFeatureRegistrarReceiver(receiver) || isAssumedRegistrar(receiver, assumeRegistrarNames)) {
     rewriter.recordPlan(call, method, planRegistrarCall(rewriter, call, method));
   } else if (isUnresolvedRegistrarLookalike(receiver)) {

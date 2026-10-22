@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import { createEnvMasterKeyProvider } from "../env-master-key-provider.ts";
 
 function env(vars: Record<string, string>): Record<string, string> {
@@ -128,5 +129,13 @@ describe("EnvMasterKeyProvider — dry run", () => {
 
   test("still fails at construction outside a dry run", () => {
     expect(() => createEnvMasterKeyProvider({ env: env({}) })).toThrow();
+  });
+
+  test("defers when only the host process is in a dry run, not the passed env", async () => {
+    await withEnv({ KUMIKO_DRY_RUN_ENV: "boot" }, async () => {
+      const provider = createEnvMasterKeyProvider({ env: env({}) });
+
+      expect(() => provider.currentVersion()).toThrow();
+    });
   });
 });

@@ -195,32 +195,18 @@ async function runLifecycle(
     await settleSaveFileRefs(handlerContext, result, user);
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
     afterCommitHooks.push(async () => {
-      const afterCommitContext = await buildHandlerContext(
-        ctx,
-        type,
-        user,
-        origin,
-        undefined,
-        undefined,
-        undefined,
-        "postCommit",
-      );
+      const afterCommitContext = await buildHandlerContext(ctx, type, user, origin, {
+        transactionScope: "postCommit",
+      });
       await lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit);
     });
   } else if (result.kind === "delete") {
     await lifecycle.runPreDelete(type, result, handlerContext);
     await lifecycle.runPostDelete(type, result, handlerContext, HookPhases.inTransaction);
     afterCommitHooks.push(async () => {
-      const afterCommitContext = await buildHandlerContext(
-        ctx,
-        type,
-        user,
-        origin,
-        undefined,
-        undefined,
-        undefined,
-        "postCommit",
-      );
+      const afterCommitContext = await buildHandlerContext(ctx, type, user, origin, {
+        transactionScope: "postCommit",
+      });
       await lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit);
     });
   }
@@ -873,16 +859,11 @@ async function executeWriteInner(
   if (gated.kind === "failed") return gated.failure;
 
   // Without a database there is no transaction either, but ordinary handlers keep the in-transaction nested-write semantics.
-  const handlerContext = await buildHandlerContext(
-    ctx,
-    type,
-    user,
-    origin,
+  const handlerContext = await buildHandlerContext(ctx, type, user, origin, {
     tx,
     afterCommitHooks,
-    undefined,
-    isPerCommand ? "withoutTransaction" : "inTransaction",
-  );
+    transactionScope: isPerCommand ? "withoutTransaction" : "inTransaction",
+  });
 
   const transitionGuardDb = resolveTransitionGuardDb(handlerContext, type);
   await guardAutoTransitions(ctx, handler, type, gated.parsedPayload, transitionGuardDb, tx);

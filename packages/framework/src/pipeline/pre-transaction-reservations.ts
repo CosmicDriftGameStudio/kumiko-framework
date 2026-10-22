@@ -117,11 +117,11 @@ export async function reserveBeforeTransaction(
         rootWriteOrigin(ctx.registry, command.type, user),
         inheritedOrigin,
       );
-      const handlerContext = await buildHandlerContext(ctx, command.type, user, origin);
       const event = { type: command.type, payload: gates.payload, user };
 
       let confirmInTransaction: ReservationConfirm | undefined;
       if (handler.reserveBeforeTransaction) {
+        const handlerContext = await buildHandlerContext(ctx, command.type, user, origin);
         const handle = toReservationHandle(
           await handler.reserveBeforeTransaction(
             event,
@@ -134,18 +134,9 @@ export async function reserveBeforeTransaction(
 
       let prepared: unknown;
       if (handler.beforeTransaction) {
-        const phaseContext = await buildHandlerContext(
-          ctx,
-          command.type,
-          user,
-          origin,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          true,
-        );
+        const phaseContext = await buildHandlerContext(ctx, command.type, user, origin, {
+          readOnlyForTenant: true,
+        });
         const phase = await handler.beforeTransaction(
           event,
           applyBeforeTransactionReadOnly(phaseContext),

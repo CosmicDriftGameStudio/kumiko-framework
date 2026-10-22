@@ -12,7 +12,7 @@
 // Without a mode flag it writes (kumiko-upgrade --apply calls it that way). --check exits 1
 // while any rewritable or manual site is left; --dry-run only reports.
 
-import { type ImportDeclaration, Project, SyntaxKind } from "ts-morph";
+import { type ExportDeclaration, type ImportDeclaration, Project, SyntaxKind } from "ts-morph";
 import {
   type CodemodResult,
   ensureNamedImport,
@@ -62,6 +62,44 @@ function reportNamespaceUses(
       });
     }
   }
+}
+
+function rewriteReexports(
+  declaration: ExportDeclaration,
+  moved: ReadonlySet<string>,
+  filePath: string,
+  result: SiteLists,
+): void {
+  const line = declaration.getStartLineNumber();
+  const namedExports = declaration.getNamedExports();
+  if (namedExports.length === 0) {
+    result.manual.push({
+      file: filePath,
+      line,
+      description: `export * from ${declaration.getModuleSpecifierValue()}: re-export the moved names from ${TARGET_MODULE} by hand`,
+    });
+    return;
+  }
+  const movedExports = namedExports.filter((named) => moved.has(named.getName()));
+  if (movedExports.length === 0) return;
+  const snapshots = movedExports.map((named) => ({
+    name: named.getName(),
+    alias: named.getAliasNode()?.getText(),
+    isTypeOnly: named.isTypeOnly(),
+  }));
+  for (const named of movedExports) named.remove();
+  const typeOnlyDeclaration = declaration.isTypeOnly();
+  if (declaration.getNamedExports().length === 0) declaration.remove();
+  declaration.getSourceFile().addExportDeclaration({
+    moduleSpecifier: TARGET_MODULE,
+    namedExports: snapshots,
+    isTypeOnly: typeOnlyDeclaration,
+  });
+  result.rewrites.push({
+    file: filePath,
+    line,
+    description: `export { ${snapshots.map((snapshot) => snapshot.name).join(", ")} } -> ${TARGET_MODULE}`,
+  });
 }
 
 export function transformTestingInjectionSource(
@@ -118,6 +156,10 @@ export function transformTestingInjectionSource(
       line,
       description: `${names.join(", ")} -> ${TARGET_MODULE}`,
     });
+  }
+  for (const declaration of sourceFile.getExportDeclarations()) {
+    const moved = MOVED_NAMES_BY_MODULE.get(declaration.getModuleSpecifierValue() ?? "");
+    if (moved !== undefined) rewriteReexports(declaration, moved, filePath, result);
   }
   const output = result.rewrites.length > 0 ? sourceFile.getFullText() : source;
   return { output, ...result };

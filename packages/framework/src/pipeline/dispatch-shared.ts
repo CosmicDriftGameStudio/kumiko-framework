@@ -366,21 +366,33 @@ export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): 
 // hooks, which may write legitimately.
 export type HandlerTransactionScope = "inTransaction" | "withoutTransaction" | "postCommit";
 
+export type BuildHandlerContextOptions = {
+  tx?: DbTx;
+  afterCommitHooks?: AfterCommitHook[];
+  includeDeleted?: boolean;
+  transactionScope?: HandlerTransactionScope;
+  // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
+  // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
+  outerNotifySink?: AfterCommitHook[];
+  // beforeTransaction phase: ctx.forTenant stays available but every target db denies writes.
+  readOnlyForTenant?: boolean;
+};
+
 export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
   origin: WriteOrigin,
-  tx?: DbTx,
-  afterCommitHooks?: AfterCommitHook[],
-  includeDeleted?: boolean,
-  transactionScope: HandlerTransactionScope = tx ? "inTransaction" : "withoutTransaction",
-  // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
-  // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
-  outerNotifySink?: AfterCommitHook[],
-  // beforeTransaction phase: ctx.forTenant stays available but every target db denies writes.
-  readOnlyForTenant = false,
+  options: BuildHandlerContextOptions = {},
 ): Promise<HandlerContext> {
+  const {
+    tx,
+    afterCommitHooks,
+    includeDeleted,
+    outerNotifySink,
+    readOnlyForTenant = false,
+    transactionScope = tx ? "inTransaction" : "withoutTransaction",
+  } = options;
   const scope = resolveHandlerContextScope({ ctx, type, user, origin, tx, transactionScope });
   const dbFacet = buildHandlerDbFacet(scope);
   const observability = buildObservabilityFacet(scope);

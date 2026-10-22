@@ -62,6 +62,20 @@ const FIXTURES: readonly Fixture[] = [
     rewrites: 0,
     manual: 1,
   },
+  {
+    name: "splits a named re-export of moved names",
+    input: `export { type SeededTenant, seedTenant, setupAppTestStack as setup } from "@cosmicdrift/kumiko-testing";\n`,
+    expected: `export { type SeededTenant } from "@cosmicdrift/kumiko-testing";\nexport { seedTenant, setupAppTestStack as setup } from "${DEV}";\n`,
+    rewrites: 1,
+    manual: 0,
+  },
+  {
+    name: "flags export-star from the testing package",
+    input: `export * from "@cosmicdrift/kumiko-testing";\n`,
+    expected: `export * from "@cosmicdrift/kumiko-testing";\n`,
+    rewrites: 0,
+    manual: 1,
+  },
 ];
 
 describe("testing-injection codemod", () => {

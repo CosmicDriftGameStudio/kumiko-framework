@@ -49,7 +49,8 @@ function isSubsetOf(stored: readonly unknown[], wanted: readonly string[]): bool
 
 // A stored list that lies inside the current default and misses attributes is an
 // older default that gained fields since; anything with a foreign attribute is
-// an explicit configure() and stays untouched.
+// an explicit configure() and stays untouched. Known limit: an explicit configure() that
+// narrowed to a strict subset of the default is indistinguishable and gets widened again.
 function isOutdatedDefault(
   stored: {
     searchable: readonly unknown[];

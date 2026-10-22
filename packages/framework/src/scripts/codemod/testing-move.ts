@@ -197,12 +197,25 @@ function usesSplitName(
   }
   if (namespaceName === undefined) return true;
   return sourceFile
-    .getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)
-    .some(
-      (access) =>
-        access.getExpression().getText() === namespaceName &&
-        targetForName(old, access.getName()) !== mainTarget(old),
-    );
+    .getDescendantsOfKind(SyntaxKind.Identifier)
+    .some((identifier) => namespaceUseNeedsSplit(identifier, namespaceName, old));
+}
+
+// Conservative: any use other than `ns.name` / `ns.name` in a type position (destructuring,
+// passing the namespace on, typeof) cannot be attributed to one target package.
+function namespaceUseNeedsSplit(identifier: Node, namespaceName: string, old: OldModule): boolean {
+  if (identifier.getText() !== namespaceName) return false;
+  if (identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined) return false;
+  const parent = identifier.getParent();
+  if (Node.isPropertyAccessExpression(parent)) {
+    if (parent.getNameNode() === identifier) return false;
+    return targetForName(old, parent.getName()) !== mainTarget(old);
+  }
+  if (Node.isQualifiedName(parent)) {
+    if (parent.getRight() === identifier) return false;
+    return targetForName(old, parent.getRight().getText()) !== mainTarget(old);
+  }
+  return true;
 }
 
 function repointWholeModule(

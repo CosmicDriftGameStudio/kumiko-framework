@@ -128,15 +128,21 @@ const FEATURE_RECORD_KEYS = [
   "storeTables",
 ] as const satisfies readonly (keyof FeatureDefinition)[];
 
+function firstFeatureShapeViolation(entry: unknown): string | undefined {
+  if (!isPlainObject(entry)) return "entry must be an object";
+  if (typeof entry["name"] !== "string") return "`name` must be a string";
+  if (typeof entry["systemScope"] !== "boolean") return "`systemScope` must be a boolean";
+  const arrayKey = FEATURE_ARRAY_KEYS.find((key) => !Array.isArray(entry[key]));
+  if (arrayKey) return `\`${arrayKey}\` must be an array`;
+  const setKey = FEATURE_SET_KEYS.find((key) => !(entry[key] instanceof Set));
+  if (setKey) return `\`${setKey}\` must be a Set`;
+  const recordKey = FEATURE_RECORD_KEYS.find((key) => !isPlainObject(entry[key]));
+  if (recordKey) return `\`${recordKey}\` must be an object`;
+  return undefined;
+}
+
 function isFeatureDefinitionShape(entry: unknown): entry is FeatureDefinition {
-  if (!isPlainObject(entry)) return false;
-  return (
-    typeof entry["name"] === "string" &&
-    typeof entry["systemScope"] === "boolean" &&
-    FEATURE_ARRAY_KEYS.every((key) => Array.isArray(entry[key])) &&
-    FEATURE_SET_KEYS.every((key) => entry[key] instanceof Set) &&
-    FEATURE_RECORD_KEYS.every((key) => isPlainObject(entry[key]))
-  );
+  return firstFeatureShapeViolation(entry) === undefined;
 }
 
 // FEATURES comes from the app's schema module; one malformed entry would make
@@ -147,7 +153,7 @@ export function featureDefinitionsOf(value: unknown): readonly FeatureDefinition
   for (const [index, entry] of value.entries()) {
     if (!isFeatureDefinitionShape(entry)) {
       throw new Error(
-        `FEATURES[${index}] is not a FeatureDefinition (expected an object with a string \`name\`)`,
+        `FEATURES[${index}] is not a FeatureDefinition: ${firstFeatureShapeViolation(entry)}`,
       );
     }
     definitions.push(entry);
