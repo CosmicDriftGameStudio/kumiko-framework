@@ -1,5 +1,5 @@
 import type { OrderByClause } from "@cosmicdrift/kumiko-types/where-clause-types";
-import type { TableInfo } from "./query.ts";
+import type { TableInfo } from "./table-info.ts";
 
 type DistinctOnClause = {
   /** Physical column names, unquoted. */

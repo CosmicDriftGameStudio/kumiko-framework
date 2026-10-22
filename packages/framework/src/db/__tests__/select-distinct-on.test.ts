@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createNumberField, createTextField } from "../../engine/index.ts";
 import { buildDistinctOnClause } from "../distinct-on.ts";
-import { extractTableInfo, selectMany } from "../query.ts";
+import { selectMany } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
+import { extractTableInfo } from "../table-info.ts";
 
 const docEntity = createEntity({
   table: "read_distinct_on_units",

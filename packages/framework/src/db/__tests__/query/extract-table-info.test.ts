@@ -10,8 +10,9 @@
 // every create of such an entity (e.g. pattern-storage's pattern-file).
 
 import { describe, expect, test } from "bun:test";
-import { extractTableInfo, resolveConflictColumns } from "../../query.ts";
+import { resolveConflictColumns } from "../../query.ts";
 import { buildEntityTable } from "../../table-builder.ts";
+import { extractTableInfo } from "../../table-info.ts";
 
 describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", () => {
   test("an entity field named `source` does not shadow the discriminator", () => {

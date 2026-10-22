@@ -16,7 +16,8 @@ import {
   selectEventsHeadId,
   selectPendingAndNewEventRows,
 } from "../db/queries/event-store.ts";
-import { coerceRow, extractTableInfo } from "../db/query.ts";
+import { coerceRow } from "../db/query.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import { qnScope } from "../engine/qualified-name.ts";
 import type { AppContext } from "../engine/types/index.ts";
 import {

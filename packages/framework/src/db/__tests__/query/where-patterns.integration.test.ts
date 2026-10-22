@@ -9,6 +9,7 @@
 // Deep-path queries (->>'key') are out of scope for WhereObject.
 import { afterAll, describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { sql } from "../../dialect.ts";
 import { asRawClient, insertMany, selectMany } from "../../query.ts";
 import { closeDb, withTable } from "./_helpers.ts";
 
@@ -260,6 +261,87 @@ describe("where — scalar filter on a jsonb column holding scalars", () => {
       expect(await labelsOf({ flag: "x" })).toEqual(["word"]);
       expect(await labelsOf({ flag: { in: [true, "x"] } })).toEqual(["on", "word"]);
       expect(await labelsOf({ flag: { ne: true } })).toEqual(["off", "word"]);
+    });
+  });
+});
+
+describe("where — empty lists and null operators", () => {
+  const nullableLabelCols = [
+    { name: "label", pgType: "text" as const, notNull: false },
+    { name: "score", pgType: "integer" as const, notNull: true },
+  ] as const;
+
+  test("empty bare array and empty { in: [] } match nothing", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [{ label: "a", score: 1 }]);
+      expect(await selectMany(db, meta, { score: [] })).toEqual([]);
+      expect(await selectMany(db, meta, { score: { in: [] } })).toEqual([]);
+    });
+  });
+
+  test("{ ne: null } matches exactly the non-null rows", async () => {
+    await withTable(nullableLabelCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "a", score: 1 },
+        { label: null, score: 2 },
+        { label: "c", score: 3 },
+      ]);
+      const rows = await selectMany<{ label: string }>(db, meta, { label: { ne: null } });
+      expect(rows.map((r) => r.label).sort()).toEqual(["a", "c"]);
+    });
+  });
+});
+
+describe("where — sql expression as literal", () => {
+  test("literal works in arrays, in/notIn, comparisons and equality", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "a", score: 1 },
+        { label: "b", score: 2 },
+        { label: "c", score: 3 },
+      ]);
+      const labelsOf = async (where: Record<string, unknown>) =>
+        (await selectMany<{ label: string }>(db, meta, where)).map((r) => r.label).sort();
+
+      expect(await labelsOf({ score: [sql`1`, sql`3`] })).toEqual(["a", "c"]);
+      expect(await labelsOf({ score: { in: [sql`2`] } })).toEqual(["b"]);
+      expect(await labelsOf({ score: { notIn: [sql`2`] } })).toEqual(["a", "c"]);
+      expect(await labelsOf({ score: { gt: sql`1` } })).toEqual(["b", "c"]);
+      expect(await labelsOf({ score: sql`2` })).toEqual(["b"]);
+    });
+  });
+});
+
+describe("where — jsonb option array filters", () => {
+  const tagCols = [
+    { name: "label", pgType: "text" as const, notNull: true },
+    { name: "tags", pgType: "jsonb" as const, notNull: true },
+  ] as const;
+
+  test("bare array matches rows containing any of the values", async () => {
+    await withTable(tagCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "x", tags: ["a"] },
+        { label: "y", tags: ["b", "c"] },
+        { label: "z", tags: ["c"] },
+      ]);
+      const rows = await selectMany<{ label: string }>(db, meta, { tags: ["a", "b"] });
+      expect(rows.map((r) => r.label).sort()).toEqual(["x", "y"]);
+    });
+  });
+
+  test("{ ne: [] } matches nothing", async () => {
+    await withTable(tagCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [{ label: "x", tags: ["a"] }]);
+      expect(await selectMany(db, meta, { tags: { ne: [] } })).toEqual([]);
+    });
+  });
+
+  test("{ notIn } is rejected", async () => {
+    await withTable(tagCols, async ({ db, meta }) => {
+      await expect(selectMany(db, meta, { tags: { notIn: ["a"] } })).rejects.toThrow(
+        'where: notIn is not supported on jsonb column "tags"',
+      );
     });
   });
 });

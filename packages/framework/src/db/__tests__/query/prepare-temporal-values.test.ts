@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { instantToTimestamptzParam } from "../../driver-value-preparation.ts";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
-import { instantToTimestamptzParam, selectMany } from "../../query.ts";
+import { selectMany } from "../../query.ts";
 import { brandWritable } from "../../table-introspection.ts";
 
 const meta = brandWritable<EntityTableMeta>({

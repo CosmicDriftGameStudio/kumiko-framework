@@ -3,12 +3,13 @@
 // with "Temporal is not defined" unless some other boot path happened to
 // install it globally first (order-dependent, easy to miss in a fresh
 // process). The fix is a static import of `@cosmicdrift/kumiko-types/temporal`
-// in query.ts, so this test deletes globalThis.Temporal before calling
+// in driver-row-coercion.ts, so this test deletes globalThis.Temporal before calling
 // coerceRow — proving the coercion no longer depends on the global at all.
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { coerceRow, type TableInfo } from "../../query.ts";
+import { coerceRow } from "../../query.ts";
+import type { TableInfo } from "../../table-info.ts";
 
 function timestamptzTableInfo(): TableInfo {
   return {

@@ -20,8 +20,9 @@ import {
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
-import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query.ts";
+import { coerceRow, runInSavepoint, selectMany } from "../db/query.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import type { EventMetadata } from "../event-store/event-store.ts";
