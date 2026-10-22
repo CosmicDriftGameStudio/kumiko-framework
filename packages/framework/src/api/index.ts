@@ -105,13 +105,13 @@ export {
 } from "./route-registrars.ts";
 export { createApiRoutes } from "./routes.ts";
 export type { KumikoServer, ServerOptions } from "./server.ts";
+export { buildServer } from "./server.ts";
 export {
-  buildServer,
   makeDispatchSystemQuery,
   makeDispatchSystemWrite,
   makeDispatchWriteAs,
-  withFileProviderResolver,
-} from "./server.ts";
+} from "./server-extra-routes.ts";
+export { withFileProviderResolver } from "./server-wiring.ts";
 export type {
   ResolvedSessionCookies,
   SessionCookieBase,

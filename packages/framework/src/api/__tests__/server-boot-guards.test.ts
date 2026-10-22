@@ -1,6 +1,7 @@
 // buildServer boot-time guards + httpRoute verb wiring (PUT branch).
 
 import { describe, expect, spyOn, test } from "bun:test";
+import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 import * as z from "zod";
 import {
   createEntity,
@@ -12,6 +13,7 @@ import {
   EXT_PRINCIPAL_STATUS,
   EXT_TENANT_LIFECYCLE_STATUS,
 } from "../../engine/index.ts";
+import { SEED_MODE_ENV } from "../../event-store/seed-clock.ts";
 import { createInMemorySearchAdapter } from "../../search/index.ts";
 import { buildServer } from "../server.ts";
 import { createSseBroker } from "../sse-broker.ts";
@@ -468,5 +470,102 @@ describe("buildServer — systemScope without RateLimitResolver boot warning", (
     } finally {
       restore();
     }
+  });
+});
+
+describe("buildServer — instance id fallback warning", () => {
+  function randomUuidWarning(calls: unknown[][]): string | undefined {
+    const hit = calls.find(
+      (args) => typeof args[0] === "string" && args[0].includes("generated a random UUID"),
+    );
+    return hit ? String(hit[0]) : undefined;
+  }
+
+  function buildWithInstanceId(instanceId: string | undefined): unknown[][] {
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "warn").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    const previousInstanceId = process.env["KUMIKO_INSTANCE_ID"];
+    delete process.env["KUMIKO_INSTANCE_ID"];
+    try {
+      buildServer({
+        registry: createRegistry([]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+        ...(instanceId !== undefined ? { instanceId } : {}),
+      });
+      return calls;
+    } finally {
+      if (previousInstanceId === undefined) delete process.env["KUMIKO_INSTANCE_ID"];
+      else process.env["KUMIKO_INSTANCE_ID"] = previousInstanceId;
+      spy.mockRestore();
+    }
+  }
+
+  test("warns when neither ServerOptions.instanceId nor KUMIKO_INSTANCE_ID is set", () => {
+    expect(randomUuidWarning(buildWithInstanceId(undefined))).toContain("generated a random UUID");
+  });
+
+  test("stays silent with an explicit instanceId", () => {
+    expect(randomUuidWarning(buildWithInstanceId("pod-a"))).toBeUndefined();
+  });
+});
+
+describe("buildServer — /metrics off warning in production", () => {
+  function metricsOffWarning(calls: unknown[][]): string | undefined {
+    const hit = calls.find(
+      (args) => typeof args[0] === "string" && args[0].includes("/metrics is off"),
+    );
+    return hit ? String(hit[0]) : undefined;
+  }
+
+  function buildInProduction(metrics: { token: string } | undefined): unknown[][] {
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "warn").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    const previousNodeEnv = process.env["NODE_ENV"];
+    const previousSeedMode = process.env[SEED_MODE_ENV];
+    process.env["NODE_ENV"] = "production";
+    delete process.env[SEED_MODE_ENV];
+    try {
+      buildServer({
+        registry: createRegistry([]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+        ...(metrics ? { metrics } : {}),
+      });
+      return calls;
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = previousNodeEnv;
+      if (previousSeedMode === undefined) delete process.env[SEED_MODE_ENV];
+      else process.env[SEED_MODE_ENV] = previousSeedMode;
+      spy.mockRestore();
+    }
+  }
+
+  test("warns in production when no metrics option is set", () => {
+    expect(metricsOffWarning(buildInProduction(undefined))).toContain("/metrics is off");
+  });
+
+  test("stays silent in production when metrics are wired", () => {
+    expect(metricsOffWarning(buildInProduction({ token: "m".repeat(32) }))).toBeUndefined();
+  });
+});
+
+describe("buildServer — file routes without db", () => {
+  test("throws at boot when a file provider resolver is wired but context has no db", () => {
+    const resolveProvider: FileProviderResolver = async () => {
+      throw new Error("provider resolution is not exercised at boot");
+    };
+    expect(() =>
+      buildServer({
+        registry: createRegistry([]),
+        context: { _fileProviderResolver: resolveProvider },
+        jwtSecret: JWT_SECRET,
+      }),
+    ).toThrow(/file routes require db in context/);
   });
 });
