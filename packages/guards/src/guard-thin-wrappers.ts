@@ -335,16 +335,51 @@ function extractMarkerReason(node: FnNode): string | null {
   return null;
 }
 
+// A typed lookup table (`const T: Record<K, Fn> = {…}` or `{…} satisfies …`) fixes one
+// signature per slot; a one-call entry adapts that signature, so inlining it would mean
+// dropping the table, not the wrapper.
+function isTypedTableLiteral(literal: Node): boolean {
+  let parent = literal.getParent();
+  while (parent?.isKind(SyntaxKind.AsExpression)) parent = parent.getParent();
+  if (parent?.isKind(SyntaxKind.SatisfiesExpression)) return true;
+  return parent?.isKind(SyntaxKind.VariableDeclaration) === true && !!parent.getTypeNode();
+}
+
+function collectTypedTableValueNames(sf: SourceFile): Set<string> {
+  const names = new Set<string>();
+  for (const literal of sf.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
+    if (!isTypedTableLiteral(literal)) continue;
+    for (const property of literal.getProperties()) {
+      if (property.isKind(SyntaxKind.ShorthandPropertyAssignment)) names.add(property.getName());
+      if (!property.isKind(SyntaxKind.PropertyAssignment)) continue;
+      const value = property.getInitializer();
+      if (value?.isKind(SyntaxKind.Identifier)) names.add(value.getText());
+    }
+  }
+  return names;
+}
+
+function isInlineTypedTableValue(node: FnNode): boolean {
+  const property = node.getParent();
+  const literal = property?.isKind(SyntaxKind.PropertyAssignment)
+    ? property.getParent()
+    : undefined;
+  return literal !== undefined && isTypedTableLiteral(literal);
+}
+
 // ── Scan ──────────────────────────────────────────────────────────────────
 
 export function collectFindings(sf: SourceFile): Finding[] {
   const file = path.relative(ROOT, sf.getFilePath());
   const findings: Finding[] = [];
+  const typedTableValueNames = collectTypedTableValueNames(sf);
 
   const check = (node: FnNode) => {
     const fnName = getFnName(node);
     // skip: anonymous functions cannot be reported by name
     if (!fnName) return;
+    // skip: a typed table slot, see isTypedTableLiteral
+    if (typedTableValueNames.has(fnName) || isInlineTypedTableValue(node)) return;
 
     const callee = getSingleDirectCallee(node);
     // skip: not a single-callee wrapper

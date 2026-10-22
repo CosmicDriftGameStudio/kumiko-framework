@@ -45,7 +45,7 @@ import { Redis } from "ioredis";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
-import { requireEnv } from "../require-env.ts";
+import { readEnv, requireEnv } from "../require-env.ts";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -54,6 +54,7 @@ import {
 import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.ts";
 import { resolveBootCrypto } from "./boot-crypto.ts";
 import { jobRunLoggerCallbacks } from "./job-run-logger.ts";
+import { INSTANCE_ID_ENV } from "./record-app-started-on-boot.ts";
 import {
   buildEffectiveFeaturesResolver,
   openDatabasePools,
@@ -285,6 +286,7 @@ export async function bootWorkerProcess(
       getActiveTenantIds: options.jobs.getActiveTenantIds,
     }),
     ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
+    instanceId: readEnv(INSTANCE_ID_ENV, envSource),
   });
 
   entrypoint.lifecycle.registerShutdownHook("workerCacheSync", async () => {

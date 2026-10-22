@@ -1,9 +1,8 @@
 {
   "format": 1,
   "generated": "2026-10-22",
-  "total": 15533,
+  "total": 14080,
   "perFile": {
-    "packages/dev-server/src/create-kumiko-server.ts": 1453,
     "packages/framework/src/engine/boot-validator/entity-handler.ts": 1477,
     "packages/framework/src/engine/feature-ast/pattern-change-schema.ts": 1453,
     "packages/renderer/src/components/render-edit.tsx": 1877,

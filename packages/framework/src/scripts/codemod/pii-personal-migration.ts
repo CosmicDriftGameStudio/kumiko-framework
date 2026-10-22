@@ -177,7 +177,225 @@ function reportRawSubjectLiterals(
   }
 }
 
-// kumiko-lint-ignore complexity-budget migration codemod, one-time script — splitting would add risk without benefit
+type SubjectProp = { readonly name: SubjectFlagName; readonly prop: PropertyAssignment };
+type PersonalInit = { readonly personal: string; readonly reason: string | undefined };
+type FindSupport = "text" | "longText" | "none";
+type FindabilityProps = {
+  readonly lookupable: PropertyAssignment | undefined;
+  readonly searchable: PropertyAssignment | undefined;
+  readonly sensitive: PropertyAssignment | undefined;
+};
+
+function singleSubjectFlag(obj: ObjectLiteralExpression): SubjectProp | undefined {
+  const subjectProps = SUBJECT_FLAG_NAMES.map((n) => ({ name: n, prop: findProp(obj, n) })).filter(
+    (x): x is { name: SubjectFlagName; prop: PropertyAssignment } => !!x.prop,
+  );
+  if (subjectProps.length === 0) {
+    // `searchable`/`sensitive` alone remain valid, unrelated FieldDef
+    // properties — left untouched. `lookupable` alone can never compile
+    // (always an excess property without a `personal` to attach `find`
+    // to). `anonymize` alone has no PersonalAnnotations arm to live on.
+    const lookupableProp = findProp(obj, "lookupable");
+    if (lookupableProp) {
+      report(
+        lookupableProp,
+        "lookupable without any subject annotation — no `personal` to attach `find` to",
+      );
+    }
+    const anonymizeProp = obj.getProperty("anonymize");
+    if (anonymizeProp) {
+      report(
+        anonymizeProp,
+        "anonymize without any subject annotation — no PersonalAnnotations arm accepts anonymize alone",
+      );
+    }
+    return undefined;
+  }
+  if (subjectProps.length > 1) {
+    const first = subjectProps[0];
+    if (first) {
+      report(
+        first.prop,
+        `multiple subject annotations on one field (${subjectProps.map((s) => s.name).join(", ")}) — needs a human decision on which subject is correct`,
+      );
+    }
+    return undefined;
+  }
+  return subjectProps[0];
+}
+
+function findSupportOf(factoryName: string, subject: SubjectProp): FindSupport | undefined {
+  if (NO_PERSONAL_FACTORIES.has(factoryName)) {
+    report(
+      subject.prop,
+      `${factoryName} has no personal-annotation support — subject flag "${subject.name}" cannot be expressed here`,
+    );
+    return undefined;
+  }
+  if (TEXT_FIND_FACTORIES.has(factoryName)) return "text";
+  if (LONGTEXT_FIND_FACTORIES.has(factoryName)) return "longText";
+  if (NO_FIND_FACTORIES.has(factoryName)) return "none";
+  report(
+    subject.prop,
+    `unrecognized field factory "${factoryName}" — cannot verify its PersonalAnnotations shape`,
+  );
+  return undefined;
+}
+
+function personalFromTrueFlag(
+  personal: string,
+): (subject: SubjectProp) => PersonalInit | undefined {
+  return (subject) => {
+    if (isTrueLiteral(subject.prop.getInitializer())) return { personal, reason: undefined };
+    report(subject.prop, `${subject.name} is set to a non-\`true\` value — cannot infer intent`);
+    return undefined;
+  };
+}
+
+function personalFromAllowPlaintext(subject: SubjectProp): PersonalInit | undefined {
+  const init = subject.prop.getInitializer();
+  if (!init) {
+    report(subject.prop, "allowPlaintext has no value");
+    return undefined;
+  }
+  const reason = Node.isStringLiteral(init)
+    ? `"${normalizeReasonSlug(init.getLiteralText())}"`
+    : init.getText();
+  return { personal: "false", reason };
+}
+
+function personalFromUserOwned(subject: SubjectProp): PersonalInit | undefined {
+  const init = subject.prop.getInitializer();
+  if (!init || !Node.isObjectLiteralExpression(init)) {
+    report(subject.prop, "userOwned value is not an object literal — cannot extract ownerField");
+    return undefined;
+  }
+  const ownerFieldInit = findProp(init, "ownerField")?.getInitializer();
+  if (!ownerFieldInit) {
+    report(subject.prop, 'userOwned is missing an "ownerField" property');
+    return undefined;
+  }
+  return { personal: `{ of: ${ownerFieldInit.getText()} }`, reason: undefined };
+}
+
+// One row per subject flag of the mapping table in the file header; a row
+// reports and returns undefined when the flag value cannot be mapped.
+const PERSONAL_INIT_BY_SUBJECT: Record<
+  SubjectFlagName,
+  (subject: SubjectProp) => PersonalInit | undefined
+> = {
+  pii: personalFromTrueFlag(`"self"`),
+  userOwned: personalFromUserOwned,
+  tenantOwned: personalFromTrueFlag(`"tenant"`),
+  subjectRef: personalFromTrueFlag(`"ref"`),
+  allowPlaintext: personalFromAllowPlaintext,
+};
+
+// These PersonalAnnotations arms carry no `find` field at all.
+function migrateFindlessSubject(
+  obj: ObjectLiteralExpression,
+  subject: SubjectProp,
+  personal: PersonalInit,
+  lookupableProp: PropertyAssignment | undefined,
+): void {
+  const isRef = subject.name === "subjectRef";
+  if (lookupableProp) {
+    report(
+      lookupableProp,
+      `lookupable combined with personal:${isRef ? '"ref"' : "false"} — findability doesn't apply to this subject, table has no mapping`,
+    );
+    // skip: reported above — lookupable doesn't apply to this subject, no mapping to migrate
+    return;
+  }
+  applyTransform(obj, [subject.prop], {
+    personal: personal.personal,
+    reason: personal.reason,
+    find: undefined,
+  });
+  counts[isRef ? "ref" : "personal-false"]++;
+}
+
+function migrateNoFindField(
+  obj: ObjectLiteralExpression,
+  factoryName: string,
+  subject: SubjectProp,
+  personal: PersonalInit,
+  findability: FindabilityProps,
+): void {
+  const stray = findability.lookupable ?? findability.searchable ?? findability.sensitive;
+  if (stray) {
+    report(
+      stray,
+      `${factoryName} has no \`find\` in its PersonalAnnotations — findability flag present on a non-text field`,
+    );
+    // skip: reported above — findability flag on a non-text field, no valid find to attach
+    return;
+  }
+  applyTransform(obj, [subject.prop], {
+    personal: personal.personal,
+    reason: undefined,
+    find: undefined,
+  });
+  counts["no-find"]++;
+}
+
+// lookupable + searchable and searchable alone both map to "fuzzy".
+function findValueOf(findability: FindabilityProps): "exact" | "fuzzy" | "none" | "secret" {
+  if (findability.sensitive) return "secret";
+  if (findability.searchable) return "fuzzy";
+  if (findability.lookupable) return "exact";
+  return "none";
+}
+
+function migrateTextFindField(
+  obj: ObjectLiteralExpression,
+  subject: SubjectProp,
+  personal: PersonalInit,
+  findability: FindabilityProps,
+  support: Exclude<FindSupport, "none">,
+): void {
+  const { lookupable, searchable, sensitive } = findability;
+  if (sensitive && (lookupable || searchable)) {
+    report(
+      sensitive,
+      'sensitive combined with lookupable/searchable — two find values ("secret" vs "exact"/"fuzzy"), needs a human decision',
+    );
+    // skip: reported above — sensitive plus lookupable/searchable is an ambiguous find value
+    return;
+  }
+
+  const find = findValueOf(findability);
+  if (support === "longText" && (find === "exact" || find === "fuzzy")) {
+    const findSite = lookupable ?? searchable;
+    if (findSite) {
+      report(
+        findSite,
+        'lookupable/searchable on createLongTextField — only "none"/"secret" are valid find values on longText',
+      );
+    }
+    // skip: reported above — exact/fuzzy find isn't valid on createLongTextField
+    return;
+  }
+
+  // searchable-alone -> "fuzzy" makes expandPersonalAnnotations add
+  // `lookupable: true`, which the field didn't carry before — that's a
+  // new `_bidx` column (DDL migration), tracked separately for the report.
+  if (searchable && !lookupable) {
+    newLookupableSites.push({
+      file: obj.getSourceFile().getFilePath(),
+      line: subject.prop.getStartLineNumber(),
+      // Guard keys on property name `reason`; this is console copy, not an error code.
+      note: "needs a `_bidx` column migration",
+    });
+  }
+
+  const removedProps = [subject.prop, lookupable, searchable, sensitive].filter(
+    (p): p is PropertyAssignment => !!p,
+  );
+  applyTransform(obj, removedProps, { personal: personal.personal, reason: undefined, find });
+  counts[find]++;
+}
+
 function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string): void {
   // skip: field already carries `personal` — already migrated, idempotent no-op
   if (obj.getProperty("personal")) return;
@@ -192,216 +410,28 @@ function processObjectLiteral(obj: ObjectLiteralExpression, factoryName: string)
     return;
   }
 
-  const subjectProps = SUBJECT_FLAG_NAMES.map((n) => ({ name: n, prop: findProp(obj, n) })).filter(
-    (x): x is { name: SubjectFlagName; prop: PropertyAssignment } => !!x.prop,
-  );
-  const lookupableProp = findProp(obj, "lookupable");
-  const searchableProp = findProp(obj, "searchable");
-  const sensitiveProp = findProp(obj, "sensitive");
-  const anonymizeProp = obj.getProperty("anonymize");
+  const subject = singleSubjectFlag(obj);
+  // skip: no subject flag, or several, reported by singleSubjectFlag where needed
+  if (!subject) return;
+  const support = findSupportOf(factoryName, subject);
+  // skip: factory without a verifiable PersonalAnnotations shape, reported by findSupportOf
+  if (!support) return;
+  const personal = PERSONAL_INIT_BY_SUBJECT[subject.name](subject);
+  // skip: flag value cannot be mapped, reported by its PERSONAL_INIT_BY_SUBJECT row
+  if (!personal) return;
 
-  if (subjectProps.length === 0) {
-    // `searchable`/`sensitive` alone remain valid, unrelated FieldDef
-    // properties — left untouched. `lookupable` alone can never compile
-    // (always an excess property without a `personal` to attach `find`
-    // to). `anonymize` alone has no PersonalAnnotations arm to live on.
-    if (lookupableProp) {
-      report(
-        lookupableProp,
-        "lookupable without any subject annotation — no `personal` to attach `find` to",
-      );
-    }
-    if (anonymizeProp) {
-      report(
-        anonymizeProp,
-        "anonymize without any subject annotation — no PersonalAnnotations arm accepts anonymize alone",
-      );
-    }
-    // skip: no subject flag on this field — stray lookupable/anonymize already reported above if present
-    return;
-  }
-
-  if (subjectProps.length > 1) {
-    const first = subjectProps[0];
-    if (first) {
-      report(
-        first.prop,
-        `multiple subject annotations on one field (${subjectProps.map((s) => s.name).join(", ")}) — needs a human decision on which subject is correct`,
-      );
-    }
-    // skip: reported above — multiple subject annotations need a human call on which one wins
-    return;
-  }
-
-  const subject = subjectProps[0];
-  if (!subject) {
-    // skip: length===0 and length>1 already returned — empty [0] is unreachable
-    return;
-  }
-
-  if (NO_PERSONAL_FACTORIES.has(factoryName)) {
-    report(
-      subject.prop,
-      `${factoryName} has no personal-annotation support — subject flag "${subject.name}" cannot be expressed here`,
-    );
-    // skip: reported above — this factory has no personal-annotation support to migrate into
-    return;
-  }
-  const isTextFind = TEXT_FIND_FACTORIES.has(factoryName);
-  const isLongTextFind = LONGTEXT_FIND_FACTORIES.has(factoryName);
-  const isNoFind = NO_FIND_FACTORIES.has(factoryName);
-  if (!isTextFind && !isLongTextFind && !isNoFind) {
-    report(
-      subject.prop,
-      `unrecognized field factory "${factoryName}" — cannot verify its PersonalAnnotations shape`,
-    );
-    // skip: reported above — unknown factory shape, cannot verify safely
-    return;
-  }
-
-  let personalInit: string;
-  let reasonInit: string | undefined;
-  if (subject.name === "pii") {
-    if (!isTrueLiteral(subject.prop.getInitializer())) {
-      report(subject.prop, "pii is set to a non-`true` value — cannot infer intent");
-      // skip: reported above — non-`true` pii value, can't infer intent
-      return;
-    }
-    personalInit = `"self"`;
-  } else if (subject.name === "tenantOwned") {
-    if (!isTrueLiteral(subject.prop.getInitializer())) {
-      report(subject.prop, "tenantOwned is set to a non-`true` value — cannot infer intent");
-      // skip: reported above — non-`true` tenantOwned value, can't infer intent
-      return;
-    }
-    personalInit = `"tenant"`;
-  } else if (subject.name === "subjectRef") {
-    if (!isTrueLiteral(subject.prop.getInitializer())) {
-      report(subject.prop, "subjectRef is set to a non-`true` value — cannot infer intent");
-      // skip: reported above — non-`true` subjectRef value, can't infer intent
-      return;
-    }
-    personalInit = `"ref"`;
-  } else if (subject.name === "allowPlaintext") {
-    const init = subject.prop.getInitializer();
-    if (!init) {
-      report(subject.prop, "allowPlaintext has no value");
-      // skip: reported above — allowPlaintext has no value to migrate
-      return;
-    }
-    personalInit = "false";
-    reasonInit = Node.isStringLiteral(init)
-      ? `"${normalizeReasonSlug(init.getLiteralText())}"`
-      : init.getText();
+  const findability: FindabilityProps = {
+    lookupable: findProp(obj, "lookupable"),
+    searchable: findProp(obj, "searchable"),
+    sensitive: findProp(obj, "sensitive"),
+  };
+  if (subject.name === "subjectRef" || subject.name === "allowPlaintext") {
+    migrateFindlessSubject(obj, subject, personal, findability.lookupable);
+  } else if (support === "none") {
+    migrateNoFindField(obj, factoryName, subject, personal, findability);
   } else {
-    const init = subject.prop.getInitializer();
-    if (!init || !Node.isObjectLiteralExpression(init)) {
-      report(subject.prop, "userOwned value is not an object literal — cannot extract ownerField");
-      // skip: reported above — userOwned value isn't an object literal, can't extract ownerField
-      return;
-    }
-    const ownerFieldProp = findProp(init, "ownerField");
-    const ownerFieldInit = ownerFieldProp?.getInitializer();
-    if (!ownerFieldInit) {
-      report(subject.prop, 'userOwned is missing an "ownerField" property');
-      // skip: reported above — userOwned is missing its ownerField property
-      return;
-    }
-    personalInit = `{ of: ${ownerFieldInit.getText()} }`;
+    migrateTextFindField(obj, subject, personal, findability, support);
   }
-
-  const subjectIsRefOrPlaintext =
-    subject.name === "subjectRef" || subject.name === "allowPlaintext";
-
-  if (subjectIsRefOrPlaintext) {
-    // These PersonalAnnotations arms carry no `find` field at all.
-    if (lookupableProp) {
-      report(
-        lookupableProp,
-        `lookupable combined with personal:${subject.name === "subjectRef" ? '"ref"' : "false"} — findability doesn't apply to this subject, table has no mapping`,
-      );
-      // skip: reported above — lookupable doesn't apply to this subject, no mapping to migrate
-      return;
-    }
-    applyTransform(obj, [subject.prop], {
-      personal: personalInit,
-      reason: reasonInit,
-      find: undefined,
-    });
-    counts[subject.name === "subjectRef" ? "ref" : "personal-false"]++;
-    // skip: already transformed above — nothing left to check for this subject
-    return;
-  }
-
-  if (isNoFind) {
-    const stray = lookupableProp ?? searchableProp ?? sensitiveProp;
-    if (stray) {
-      report(
-        stray,
-        `${factoryName} has no \`find\` in its PersonalAnnotations — findability flag present on a non-text field`,
-      );
-      // skip: reported above — findability flag on a non-text field, no valid find to attach
-      return;
-    }
-    applyTransform(obj, [subject.prop], {
-      personal: personalInit,
-      reason: undefined,
-      find: undefined,
-    });
-    counts["no-find"]++;
-    // skip: already transformed above — no-find factory has nothing further to check
-    return;
-  }
-
-  const hasLookupable = !!lookupableProp;
-  const hasSearchable = !!searchableProp;
-  const hasSensitive = !!sensitiveProp;
-
-  if (sensitiveProp && (hasLookupable || hasSearchable)) {
-    report(
-      sensitiveProp,
-      'sensitive combined with lookupable/searchable — two find values ("secret" vs "exact"/"fuzzy"), needs a human decision',
-    );
-    // skip: reported above — sensitive plus lookupable/searchable is an ambiguous find value
-    return;
-  }
-
-  let find: "exact" | "fuzzy" | "none" | "secret";
-  if (hasSensitive) find = "secret";
-  else if (hasLookupable && hasSearchable) find = "fuzzy";
-  else if (hasLookupable) find = "exact";
-  else if (hasSearchable) find = "fuzzy";
-  else find = "none";
-
-  if (isLongTextFind && (find === "exact" || find === "fuzzy")) {
-    const findSite = lookupableProp ?? searchableProp;
-    if (findSite) {
-      report(
-        findSite,
-        'lookupable/searchable on createLongTextField — only "none"/"secret" are valid find values on longText',
-      );
-    }
-    // skip: reported above — exact/fuzzy find isn't valid on createLongTextField
-    return;
-  }
-
-  // searchable-alone -> "fuzzy" makes expandPersonalAnnotations add
-  // `lookupable: true`, which the field didn't carry before — that's a
-  // new `_bidx` column (DDL migration), tracked separately for the report.
-  if (hasSearchable && !hasLookupable) {
-    newLookupableSites.push({
-      file: obj.getSourceFile().getFilePath(),
-      line: subject.prop.getStartLineNumber(),
-      // Guard keys on property name `reason`; this is console copy, not an error code.
-      note: "needs a `_bidx` column migration",
-    });
-  }
-
-  const removedProps = [subject.prop, lookupableProp, searchableProp, sensitiveProp].filter(
-    (p): p is PropertyAssignment => !!p,
-  );
-  applyTransform(obj, removedProps, { personal: personalInit, reason: undefined, find });
-  counts[find]++;
 }
 
 function applyTransform(

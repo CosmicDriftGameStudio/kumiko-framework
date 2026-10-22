@@ -7,9 +7,10 @@ import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { createLifecycle } from "../../lifecycle/index.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { createApiEntrypoint } from "../index.ts";
+import { createApiEntrypoint, createWorkerEntrypoint } from "../index.ts";
 
 const APP_REASON = "order_locked";
 const DOCS_BASE_URL = "https://docs.acme.example";
@@ -67,5 +68,27 @@ describe("createApiEntrypoint server options", () => {
         instanceId: SHARED_INSTANCE_SENTINEL,
       }),
     ).toThrow(/cannot equal the reserved sentinel/);
+  });
+});
+
+describe("createWorkerEntrypoint server options", () => {
+  test("instanceId reaches the worker server: the reserved sentinel is rejected at boot", async () => {
+    // The job runner is built before the server; drain its hook after the throw.
+    const lifecycle = createLifecycle({ startReady: true });
+    const { host, port, db } = testRedis.redis.options;
+    try {
+      expect(() =>
+        createWorkerEntrypoint({
+          registry: createRegistry([failingFeature]),
+          context: { db: testDb.db, redis: testRedis.redis },
+          jwtSecret: JWT,
+          redisUrl: `redis://${host}:${port}/${db}`,
+          lifecycle,
+          instanceId: SHARED_INSTANCE_SENTINEL,
+        }),
+      ).toThrow(/cannot equal the reserved sentinel/);
+    } finally {
+      await lifecycle.drain();
+    }
   });
 });

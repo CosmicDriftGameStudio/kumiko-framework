@@ -60,7 +60,7 @@ const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 
 const COMPLEXITY_THRESHOLD = 15;
 const MAX_REPORTED = 30;
-export const HARD_COMPLEXITY_CAP = 60;
+export const HARD_COMPLEXITY_CAP = 40;
 const BUDGET_TAG = "kumiko-lint-ignore complexity-budget";
 
 const FUNCTION_KINDS = [

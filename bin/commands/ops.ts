@@ -8,8 +8,7 @@ export const opsCommand = defineCommand({
   category: "ops",
   roles: ["maintainer"],
   run: async (ctx) => {
-    // ops-Implementation lebt in bin/ops.ts (~500 LOC). Direkt importieren
-    // statt Logic zu duplizieren — die Module-Boundary ist sauber.
+    // The implementation lives in bin/ops.ts; import it instead of duplicating it here.
     const { runOpsCommand } = await import("../ops");
     try {
       await runOpsCommand([...ctx.argv]);

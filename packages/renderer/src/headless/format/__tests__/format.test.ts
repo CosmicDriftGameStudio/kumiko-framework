@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
 import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.ts";
 
@@ -391,5 +391,24 @@ describe("applyFormatSpec — image and file", () => {
   test("fall back to the raw id outside the web list cell, joining arrays", () => {
     expect(applyFormatSpec({ format: "image", variant: "thumb" }, "abc")).toBe("abc");
     expect(applyFormatSpec({ format: "file" }, ["a", "b"])).toBe("a, b");
+  });
+});
+
+describe("applyFormatSpec — inherited member names", () => {
+  test("a format named like an Object.prototype member takes the unknown-format path", () => {
+    // The warning fires only when NODE_ENV !== "production"; set it explicitly
+    // instead of relying on the test runner preset.
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(applyFormatSpec({ format: "toString" }, 42)).toBe("42");
+      expect(applyFormatSpec({ format: "constructor" }, true)).toBe("true");
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn.mock.calls[0]?.[0]).toContain('unknown format key "toString"');
+    } finally {
+      warn.mockRestore();
+      process.env.NODE_ENV = prevNodeEnv;
+    }
   });
 });

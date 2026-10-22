@@ -1,11 +1,11 @@
-// `bunx kumiko ops <subcommand>` — ES-Operations CLI.
+// `bunx kumiko ops <subcommand>`: event-store operations CLI.
 //
 // Phase 1: seed-migrations.
 //   ops seed:new <slug>    — scaffold seeds/<date>-<slug>.ts
 //   ops seed:status        — was applied, was pending
-//   ops seed:apply [--dry-run]  — apply pending (für CI / manual)
+//   ops seed:apply [--dry-run]  — apply pending (for CI / manual runs)
 //
-// Wird aus bin/kumiko.ts unter `commands.ops` aufgerufen.
+// Called from bin/kumiko.ts under `commands.ops`.
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
@@ -13,7 +13,7 @@ import { join, resolve as resolvePath } from "node:path";
 const SEEDS_DIR_DEFAULT = "./seeds";
 
 function todayDate(): string {
-  // YYYY-MM-DD — chronologisch sortierbar als filename-prefix.
+  // YYYY-MM-DD sorts chronologically as a filename prefix.
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -30,7 +30,7 @@ function usage(): void {
     "\n  Usage: bun kumiko ops <subcommand>\n\n" +
       "  Subcommands:\n" +
       "    seed:new <slug>          Scaffold seeds/<date>-<slug>.ts\n" +
-      "    seed:status              Liste applied + pending seed-migrations\n" +
+      "    seed:status              List applied + pending seed-migrations\n" +
       "    seed:apply [--dry-run]   Applies pending seed-migrations\n\n" +
       "  Optional: --seeds-dir <path>   (default: ./seeds)\n",
   );
@@ -63,31 +63,31 @@ function seedNew(argv: readonly string[]): void {
   const filePath = join(seedsDir, filename);
 
   if (existsSync(filePath)) {
-    console.error(`\n  ${filePath} existiert bereits — überschreibe nicht.\n`);
+    console.error(`\n  ${filePath} already exists, not overwriting it.\n`);
     process.exit(1);
   }
 
   const template = `// ${filename}
 //
-// Seed-Migration. Wird beim nächsten App-Boot automatisch ausgeführt
-// (vorausgesetzt KUMIKO_SKIP_ES_OPS != "1") und in kumiko_es_operations
-// als applied markiert. Fail → Boot bricht ab, Retry beim nächsten Boot.
+// Seed migration. Runs automatically on the next app boot (unless
+// KUMIKO_SKIP_ES_OPS = "1") and is marked as applied in kumiko_es_operations.
+// A failure aborts the boot; the next boot retries it.
 //
-// ctx.systemWriteAs(<handlerQualifiedName>, payload) ruft existing
-// write-handler als System-User — gleicher Pfad den ein UI-Click triggern
-// würde, nur ohne Access-Check.
+// ctx.systemWriteAs(<handlerQualifiedName>, payload) calls an existing
+// write handler as the system user: the same path a UI click would take,
+// only without the access check.
 
 import type { SeedMigration } from "@cosmicdrift/kumiko-framework/es-ops";
 
 export default {
-  description: "TODO: kurze Beschreibung was diese Migration tut",
+  description: "TODO: short description of what this migration does",
   run: async (_ctx) => {
-    // TODO: Implementiere die Migration.
+    // TODO: implement the migration.
     //
     // Read helpers: ctx.findUserByEmail, ctx.findMembershipsOfUser, ctx.findTenants,
     // ctx.findTemplateResources({ slug?, kind?, status?, locale? }).
     //
-    // Beispiel (admin-roles-fix):
+    // Example (admin-roles-fix):
     //   const admin = await ctx.findUserByEmail("admin@example.com");
     //   if (!admin) return;
     //   for (const m of await ctx.findMembershipsOfUser(admin.id)) {
@@ -103,7 +103,7 @@ export default {
 `;
 
   writeFileSync(filePath, template);
-  console.log(`\n  ✓ ${filePath}\n  Edit + commit. Wird beim nächsten Boot oder via 'bun kumiko ops seed:apply' angewendet.\n`);
+  console.log(`\n  ✓ ${filePath}\n  Edit + commit. Applied on the next boot or via 'bun kumiko ops seed:apply'.\n`);
 }
 
 // --- ops seed:status ---------------------------------------------------------
@@ -113,7 +113,7 @@ async function seedStatus(argv: readonly string[]): Promise<void> {
 
   const onDisk = listSeedFilesSync(seedsDir);
   if (onDisk.length === 0) {
-    console.log(`\n  ${seedsDir} — keine seeds vorhanden.\n`);
+    console.log(`\n  ${seedsDir} : no seeds found.\n`);
     return;
   }
 
@@ -146,9 +146,9 @@ async function seedApply(argv: readonly string[]): Promise<void> {
   // primitive. CLI-apply bootstraps a minimal stack via the app's runProdApp
   // entry. For Phase 1 the simplest path is "let the app boot apply them".
   console.log(
-    "\n  CLI-apply ist Phase-1 nicht aktiviert — start die App, sie wendet beim\n" +
-      "  Boot alle pending Seeds automatisch an. (Phase 1: bunx kumiko ops\n" +
-      "  seed:apply ohne --dry-run ist no-op. Geplant für Phase 1.5.)\n",
+    "\n  CLI apply is not enabled in phase 1. Start the app; it applies all\n" +
+      "  pending seeds automatically on boot. (Phase 1: bunx kumiko ops\n" +
+      "  seed:apply without --dry-run is a no-op. Planned for phase 1.5.)\n",
   );
 }
 
@@ -208,7 +208,7 @@ export async function runOpsCommand(argv: readonly string[]): Promise<void> {
       await seedApply(rest);
       return;
     default:
-      console.error(`\n  Unbekannt: "${sub}"\n`);
+      console.error(`\n  Unknown subcommand: "${sub}"\n`);
       usage();
       process.exit(1);
   }
