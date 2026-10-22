@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { warnOnUniqueAccessRoles } from "../access-roles.ts";
 
@@ -60,7 +63,7 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(consoleCallsMentioning(warnSpy, "is only used by one handler")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("does NOT warn for built-in roles 'all' or 'system' even when used by one handler", () => {
@@ -81,6 +84,6 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(consoleCallsMentioning(warnSpy, "is only used by one handler")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 });

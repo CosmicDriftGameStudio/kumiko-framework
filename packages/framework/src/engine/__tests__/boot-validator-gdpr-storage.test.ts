@@ -9,7 +9,10 @@
 // package.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { validateGdprStoragePersistence } from "../boot-validator/gdpr-storage.ts";
 import { defineFeature } from "../define-feature.ts";
 
@@ -46,7 +49,7 @@ describe("validateGdprStoragePersistence (V1)", () => {
 
   test("no user-data-rights → never warns", () => {
     validateGdprStoragePersistence([fileProvider("inmemory")]);
-    expect(consoleCallsMentioning(warnSpy, "GDPR")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("user-data-rights + only inmemory → ephemeral-store warn", () => {
@@ -63,7 +66,7 @@ describe("validateGdprStoragePersistence (V1)", () => {
 
   test("user-data-rights + s3 provider → no warn", () => {
     validateGdprStoragePersistence([udr(), fileProvider("s3")]);
-    expect(consoleCallsMentioning(warnSpy, "GDPR")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("user-data-rights + s3-env, env missing → s3-env env warn naming the vars", () => {
@@ -78,11 +81,11 @@ describe("validateGdprStoragePersistence (V1)", () => {
   test("user-data-rights + s3-env, env set → no warn", () => {
     for (const k of S3_ENV) process.env[k] = "x";
     validateGdprStoragePersistence([udr(), fileProvider("s3-env")]);
-    expect(consoleCallsMentioning(warnSpy, "GDPR")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("user-data-rights + s3 AND s3-env (use-all-bundled shape) → no warn even with env unset", () => {
     validateGdprStoragePersistence([udr(), fileProvider("s3"), fileProvider("s3-env")]);
-    expect(consoleCallsMentioning(warnSpy, "GDPR")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 });

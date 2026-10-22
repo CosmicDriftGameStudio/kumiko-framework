@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import { consoleCallsFromNamespace } from "@cosmicdrift/kumiko-testing/helpers";
 import { validateBoot } from "../boot-validator.ts";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.ts";
 import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema.ts";
@@ -255,7 +255,7 @@ describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => 
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       buildAppSchema(createRegistry([placingShell("system"), billing]));
-      const settingsHubWarnings = consoleCallsMentioning(warn, "[kumiko] Settings-Hub:");
+      const settingsHubWarnings = consoleCallsFromNamespace(warn, "kumiko");
       expect(settingsHubWarnings).toHaveLength(0);
     } finally {
       warn.mockRestore();

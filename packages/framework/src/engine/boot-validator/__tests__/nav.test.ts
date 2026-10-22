@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
+  consoleCallsFromNamespace,
   consoleCallsMentioning,
   withBootValidatorFixture,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -58,7 +59,7 @@ describe("warnOnUnreachableNavScreens", () => {
 
     warnOnUnreachableNavScreens(allNavQns, new Set(["vehicles:nav:a"]));
 
-    expect(consoleCallsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("warns only for the unallowlisted nav whose screen nobody else reaches", () => {
@@ -130,7 +131,7 @@ describe("warnOnUnreachableNavScreens", () => {
       new Set(["vehicles:nav:c"]),
     );
 
-    expect(consoleCallsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("never warns for a nav without a screen (pure grouping entry)", () => {
@@ -147,7 +148,7 @@ describe("warnOnUnreachableNavScreens", () => {
 
     warnOnUnreachableNavScreens(allNavQns, new Set());
 
-    expect(consoleCallsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 });
 
@@ -232,7 +233,7 @@ describe("warnOnNavAccessInversion", () => {
       ]),
     );
 
-    expect(consoleCallsMentioning(warnSpy, "requires roles")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 });
 
@@ -264,7 +265,7 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
     warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
 
-    expect(consoleCallsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("does not warn for a nav that self-assigns via workspaces", () => {
@@ -287,7 +288,7 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
     warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
 
-    expect(consoleCallsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("warns for a nav in no workspace whose screen nobody else reaches (solon#113)", () => {

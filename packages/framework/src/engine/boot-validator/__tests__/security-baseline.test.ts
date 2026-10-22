@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { defineFeature } from "../../define-feature.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { validateBoot } from "../index.ts";
@@ -50,7 +53,7 @@ describe("warnOnMissingSecurityBaseline", () => {
 
     warnOnMissingSecurityBaseline(features, "production");
 
-    expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test.each(["development", "test", undefined])(
@@ -58,7 +61,7 @@ describe("warnOnMissingSecurityBaseline", () => {
     (nodeEnv) => {
       warnOnMissingSecurityBaseline([], nodeEnv);
 
-      expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(0);
+      expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
     },
   );
 
@@ -96,7 +99,7 @@ describe("validateBoot + security baseline warning", () => {
     const features = SECURITY_BASELINE_FEATURE_NAMES.map((name) => stubFeature(name));
 
     expect(() => validateBoot(features)).not.toThrow();
-    expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(warnSpy, "kumiko:boot")).toHaveLength(0);
   });
 
   test("production boot with no baseline features mounted warns but does not throw", () => {

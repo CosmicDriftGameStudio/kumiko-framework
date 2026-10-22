@@ -23,7 +23,11 @@ export {
   terminateBackendsByApplicationName,
   testDatabaseUrl,
 } from "./closed-connection-error.ts";
-export { type ConsoleSpyLike, consoleCallsMentioning } from "./console-calls.ts";
+export {
+  type ConsoleSpyLike,
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "./console-calls.ts";
 export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup.ts";
 export {
   type E2EGeneratorOptions,
