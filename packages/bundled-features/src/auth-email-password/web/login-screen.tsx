@@ -17,7 +17,11 @@ import {
 } from "./auth-client.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
 import { DEFAULT_AUTH_PATHS, DEFAULT_FORGOT_PASSWORD_PATH } from "./auth-paths.ts";
-import { followNextOrLandingAfterLogin } from "./auth-redirect.ts";
+import {
+  appendReturnTo,
+  followNextOrLandingAfterLogin,
+  readNextFromWindow,
+} from "./auth-redirect.ts";
 import { AuthQueries } from "./constants.ts";
 import { useSession } from "./session.tsx";
 
@@ -131,12 +135,16 @@ function LoginScreenBody({
   // would silently go to the edited, possibly mistyped address.
   const [failedLoginEmail, setFailedLoginEmail] = useState<string | null>(null);
   const basePath = useBasePath();
+  // The page the user was sent away from rides along so the reset or signup mail leads back to it.
+  const returnTo = readNextFromWindow();
   const effectiveForgotHref =
     forgotPasswordHref === undefined
       ? loginOptions?.passwordReset === true
-        ? prependBasePath(DEFAULT_FORGOT_PASSWORD_PATH, basePath)
+        ? appendReturnTo(prependBasePath(DEFAULT_FORGOT_PASSWORD_PATH, basePath), returnTo)
         : null
-      : forgotPasswordHref;
+      : forgotPasswordHref === null
+        ? null
+        : appendReturnTo(forgotPasswordHref, returnTo);
   const effectiveUnlockHref =
     unlockAccountHref === undefined
       ? loginOptions?.accountUnlock === true
@@ -284,7 +292,7 @@ function LoginScreenBody({
         </Link>
       )}
       {signupHref !== undefined && (
-        <Link href={signupHref} variant="muted" className="self-center">
+        <Link href={appendReturnTo(signupHref, returnTo)} variant="muted" className="self-center">
           {t("auth.signup.title")}
         </Link>
       )}

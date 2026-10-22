@@ -31,6 +31,7 @@ export function createRequestAccountUnlockHandler(opts: RequestAccountUnlockOpti
       // empty) lockout state — harmless no-op if they weren't locked.
       extraSilentSkip: () => false,
       notificationType: AuthMailNotificationTypes.accountUnlock,
+      forwardsReturnTo: false,
     },
     opts,
   );

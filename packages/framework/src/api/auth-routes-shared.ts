@@ -11,6 +11,10 @@ const log = createFallbackLogger("kumiko");
 // 429 comes from the per-route rate limit; handler errors map to the rest.
 export type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
 
+// Content is checked where the mail link is built (bundled-features knows the path rules); a bad
+// value must never void the whole body, or the request would silently send no mail.
+const returnToField = z.string().max(2048).optional().catch(undefined);
+
 // Cross-device try-first handover: an optional tenant-handover grant the signup-request
 // route forwards to the handler for server-side verification and binding —
 // the grant itself never appears anywhere else (URL, mail, log, response).
@@ -22,6 +26,7 @@ export const SignupRequestBody = z.object({
       token: z.string().min(1).max(4096),
     })
     .optional(),
+  returnTo: returnToField,
 });
 
 // Shape guard for "handler not registered" — the only legitimate reason to
@@ -115,4 +120,5 @@ export function registerTokenRequestRoute(opts: {
 // gains optional fields (locale, deviceId, …).
 const RequestTokenBody = z.object({
   email: z.email(),
+  returnTo: returnToField,
 });

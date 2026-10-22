@@ -171,6 +171,21 @@ describe("POST /auth/request-email-verification", () => {
     expect(sent.html).toContain(`${appVerifyUrl}?token&#x3D;`);
   });
 
+  test("a returnTo in the request is ignored: the verification link carries only the token", async () => {
+    await seedUser({ email: "noreturn@example.com", password: "pw-initial-1234" });
+
+    const res = await post("/api/auth/request-email-verification", {
+      email: "noreturn@example.com",
+      returnTo: "/a/settings",
+    });
+
+    expect(res.status).toBe(200);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.text).toContain(`${appVerifyUrl}?token=`);
+    expect(sent.text).not.toContain("returnTo");
+  });
+
   test("already-verified user → 200, NO mail (enumeration-safe)", async () => {
     await seedUser({
       email: "done@example.com",

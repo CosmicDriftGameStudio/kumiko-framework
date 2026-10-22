@@ -2,33 +2,35 @@
 // string, so anything read back from it is untrusted: only same-origin
 // root-relative paths pass (no "//host", no "/\host", no scheme).
 
+import { isSafeReturnPath, RETURN_TO_QUERY_PARAM, readReturnToFromSearch } from "./return-path.ts";
+
 export const NEXT_QUERY_PARAM = "next";
 
-function hasControlOrWhitespace(candidate: string): boolean {
-  for (let i = 0; i < candidate.length; i++) {
-    const code = candidate.charCodeAt(i);
-    if (code <= 0x20 || code === 0x7f) return true;
-  }
-  return false;
-}
-
-// The URL parse is a backstop: browsers strip tabs/newlines, so "/\t/evil.com"
-// would otherwise normalize to "//evil.com" past the leading-slash check.
-export function isSafeNextPath(candidate: unknown): candidate is string {
-  if (typeof candidate !== "string" || !candidate.startsWith("/")) return false;
-  if (candidate[1] === "/" || candidate.includes("\\")) return false;
-  if (hasControlOrWhitespace(candidate)) return false;
-  try {
-    const parsed = new URL(candidate, "https://next.invalid");
-    return parsed.origin === "https://next.invalid" && !parsed.pathname.startsWith("//");
-  } catch {
-    return false;
-  }
-}
+export const isSafeNextPath = isSafeReturnPath;
 
 export function readNextFromSearch(search: string): string | null {
   const candidate = new URLSearchParams(search).get(NEXT_QUERY_PARAM);
   return isSafeNextPath(candidate) ? candidate : null;
+}
+
+// The returnTo a mail link or sibling auth page carried in this page's own URL; null on native, where there is no window.
+export function readReturnToFromWindow(): string | null {
+  return typeof window === "undefined" ? null : readReturnToFromSearch(window.location.search);
+}
+
+// Adds returnTo to an href of a sibling auth page; a missing value leaves the href untouched.
+export function appendReturnTo(href: string, returnTo: string | null): string {
+  if (returnTo === null) return href;
+  const hashAt = href.indexOf("#");
+  const base = hashAt === -1 ? href : href.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : href.slice(hashAt);
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}${RETURN_TO_QUERY_PARAM}=${encodeURIComponent(returnTo)}${hash}`;
+}
+
+// The safe `next` of this page's URL; null on native, where there is no window.
+export function readNextFromWindow(): string | null {
+  return typeof window === "undefined" ? null : readNextFromSearch(window.location.search);
 }
 
 // loginUrl/postLogoutUrl come from app code (trusted), but a typo like

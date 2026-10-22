@@ -30,6 +30,7 @@ export function createRequestPasswordResetHandler(opts: RequestPasswordResetOpti
       // state. The sessions feature handles the post-change revocation.
       extraSilentSkip: () => false,
       notificationType: AuthMailNotificationTypes.passwordReset,
+      forwardsReturnTo: true,
     },
     opts,
   );

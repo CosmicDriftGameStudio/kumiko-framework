@@ -63,6 +63,11 @@ export type { RequestAccountUnlockScreenProps } from "./request-account-unlock-s
 export { RequestAccountUnlockScreen } from "./request-account-unlock-screen.tsx";
 export type { ResetPasswordScreenProps } from "./reset-password-screen.tsx";
 export { ResetPasswordScreen } from "./reset-password-screen.tsx";
+export {
+  isSafeReturnPath,
+  RETURN_TO_QUERY_PARAM,
+  readReturnToFromSearch,
+} from "./return-path.ts";
 export type {
   SessionApi,
   SessionBootstrapFailure,

@@ -21,7 +21,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup, type SignupConfirmSuccess } from "./auth-client.ts";
 import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic.ts";
 import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
-import { buildLoginRedirectUrl } from "./auth-redirect.ts";
+import { buildLoginRedirectUrl, readReturnToFromWindow } from "./auth-redirect.ts";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
@@ -74,13 +74,21 @@ export function SignupCompleteScreen({
     const res = await confirmSignup(token, password);
     setSubmitting(false);
     if (res.ok) {
+      // The page the signup started from beats the server's landing path.
+      const returnTo = readReturnToFromWindow();
       if (res.data.kind === "mfa-pending") {
         setMfaPending(true);
+        const next = returnTo ?? res.data.landingPath;
         setContinueHref(
-          res.data.landingPath === undefined
+          next === undefined
             ? loginHref
-            : buildLoginRedirectUrl(loginHref, res.data.landingPath, window.location.origin),
+            : buildLoginRedirectUrl(loginHref, next, window.location.origin),
         );
+        return;
+      }
+      // A claimed handover keeps its app-defined target.
+      if (returnTo !== null && res.data.handover === undefined) {
+        setContinueHref(returnTo);
         return;
       }
       // Cookies are already set (auto-login). Show a confirmation with an

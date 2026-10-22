@@ -28,6 +28,7 @@ export type IssueSignupActivationArgs = {
   readonly locale?: string;
   readonly timeZone?: string;
   readonly tokenTtlMinutes?: number;
+  readonly returnTo?: string;
   /** Runs after the token is stored and before the mail goes out. */
   readonly onTokenStored?: (stored: {
     readonly token: string;
@@ -75,6 +76,7 @@ export async function issueSignupActivation(
       ...(args.timeZone !== undefined && { timeZone: args.timeZone }),
       ...(args.appName !== undefined && { appName: args.appName }),
       ...(args.locale !== undefined && { locale: args.locale }),
+      ...(args.returnTo !== undefined && { returnTo: args.returnTo }),
     },
   );
 

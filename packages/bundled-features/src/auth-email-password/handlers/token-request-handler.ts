@@ -22,9 +22,12 @@ import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.ts";
 import type { AuthMailLocale } from "../email-templates.ts";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.ts";
+import { MAX_RETURN_PATH_LENGTH } from "../web/return-path.ts";
 
 const RequestTokenSchema = z.object({
   email: z.email(),
+  // A bad returnTo must not void the request; the mail builder drops unsafe values.
+  returnTo: z.string().max(MAX_RETURN_PATH_LENGTH).optional().catch(undefined),
 });
 
 // What the route layer reads off `result.data` after dispatching. Identical
@@ -67,6 +70,9 @@ export type TokenRequestSpec<TName extends string, TSuccessKind extends string> 
   // Trigger-less r.notification dispatched via ctx.notify on success; the
   // recipient is an anonymous email, so route:{email} delivers directly.
   readonly notificationType: string;
+  // Only flows whose landing page can continue to a page (password reset) put the request's
+  // returnTo into the mail link; verification and unlock ignore it.
+  readonly forwardsReturnTo: boolean;
 };
 
 export type TokenRequestOptions = {
@@ -159,6 +165,8 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           timeZone: recipientTimeZone(user, ctx.tz.user),
           ...(opts.appName !== undefined && { appName: opts.appName }),
           locale,
+          ...(spec.forwardsReturnTo &&
+            event.payload.returnTo !== undefined && { returnTo: event.payload.returnTo }),
         },
       );
 

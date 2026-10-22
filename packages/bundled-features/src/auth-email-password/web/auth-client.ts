@@ -226,12 +226,13 @@ async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
 // found. 429 → typed rate-limit failure. 5xx → unknown-error.
 export async function requestPasswordReset(
   email: string,
+  returnTo?: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
   const res = await fetch("/api/auth/request-password-reset", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, ...(returnTo !== undefined && { returnTo }) }),
   });
   if (res.ok) return { ok: true };
   return { ok: false, error: await parseTokenFailure(res) };
@@ -332,12 +333,17 @@ export async function requestSignup(
   // travels any further than this request — never in the URL, the mail,
   // or the confirm response.
   handover?: { readonly entityType: string; readonly token: string },
+  returnTo?: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
   const res = await fetch("/api/auth/signup-request", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ email, ...(handover !== undefined && { handover }) }),
+    body: JSON.stringify({
+      email,
+      ...(handover !== undefined && { handover }),
+      ...(returnTo !== undefined && { returnTo }),
+    }),
   });
   if (res.ok) return { ok: true };
   return { ok: false, error: await parseTokenFailure(res) };

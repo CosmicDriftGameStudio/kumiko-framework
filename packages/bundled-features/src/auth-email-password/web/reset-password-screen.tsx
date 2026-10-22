@@ -13,6 +13,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { resetPassword } from "./auth-client.ts";
 import { passwordPairIssue } from "./auth-form-logic.ts";
 import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
+import { buildLoginRedirectUrl, readReturnToFromWindow } from "./auth-redirect.ts";
 
 export type ResetPasswordScreenProps = {
   readonly title?: string;
@@ -37,6 +38,7 @@ export function ResetPasswordScreen({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [afterResetHref, setAfterResetHref] = useState(loginHref);
 
   const doSubmit = async (): Promise<void> => {
     setError(null);
@@ -53,6 +55,10 @@ export function ResetPasswordScreen({
     const res = await resetPassword(token, newPassword);
     setSubmitting(false);
     if (res.ok) {
+      const returnTo = readReturnToFromWindow();
+      if (returnTo !== null) {
+        setAfterResetHref(buildLoginRedirectUrl(loginHref, returnTo, window.location.origin));
+      }
       setDone(true);
       return;
     }
@@ -97,7 +103,7 @@ export function ResetPasswordScreen({
             <p className="font-medium text-foreground">{t("auth.resetPassword.successTitle")}</p>
             <p className="mt-1">{t("auth.resetPassword.successBody")}</p>
           </Banner>
-          <Link href={loginHref} variant="button">
+          <Link href={afterResetHref} variant="button">
             {t("auth.resetPassword.goToLogin")}
           </Link>
         </>

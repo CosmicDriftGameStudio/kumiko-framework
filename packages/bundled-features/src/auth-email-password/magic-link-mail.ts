@@ -12,6 +12,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { mailT, resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
 import { type AuthMailLocale, tokenMailExpiry } from "./email-templates.ts";
 import { authMailTemplateLocale } from "./mail-notifications.ts";
+import { isSafeReturnPath, RETURN_TO_QUERY_PARAM } from "./web/return-path.ts";
 
 // Per-flow constants: which notification type to dispatch. fallbackAppName
 // replaces the translated default when the flow has no app name of its own.
@@ -38,15 +39,23 @@ export type MagicLinkMailParams = {
   readonly timeZone?: string;
   // Invite mails name the role the recipient is invited as.
   readonly role?: string;
+  /** Page the landing page should lead to afterwards; an unsafe value is left out of the link. */
+  readonly returnTo?: string;
 };
 
 function resolveAppUrl(appUrl: string | ((locale: string) => string), locale: string): string {
   return typeof appUrl === "function" ? appUrl(locale) : appUrl;
 }
 
-function appendToken(appUrl: string, token: string): string {
+function appendTokenAndReturnTo(
+  appUrl: string,
+  token: string,
+  returnTo: string | undefined,
+): string {
+  const query = new URLSearchParams({ token });
+  if (isSafeReturnPath(returnTo)) query.set(RETURN_TO_QUERY_PARAM, returnTo);
   const sep = appUrl.includes("?") ? "&" : "?";
-  return `${appUrl}${sep}token=${encodeURIComponent(token)}`;
+  return `${appUrl}${sep}${query.toString()}`;
 }
 
 // X-Locale on the request wins over the handler's static opts.locale, then
@@ -93,7 +102,11 @@ export async function dispatchMagicLinkMail(
     data: {
       appName:
         params.appName ?? spec.fallbackAppName ?? mailT(templateLocale, "auth.mail.appNameDefault"),
-      actionUrl: appendToken(resolveAppUrl(params.appUrl, urlLocale), params.token),
+      actionUrl: appendTokenAndReturnTo(
+        resolveAppUrl(params.appUrl, urlLocale),
+        params.token,
+        params.returnTo,
+      ),
       validFor,
       validUntil,
       ...(params.role !== undefined && { role: params.role }),
