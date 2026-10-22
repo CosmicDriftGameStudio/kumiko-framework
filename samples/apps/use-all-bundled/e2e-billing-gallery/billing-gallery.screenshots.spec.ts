@@ -12,6 +12,7 @@
 import { randomUUID } from "node:crypto";
 import { wrapInLayout } from "@cosmicdrift/kumiko-bundled-features/page-render";
 import {
+  applyDefaultTheme,
   type CapturedMail,
   captureScreenshot,
   expect,
@@ -352,6 +353,9 @@ test("flow 6: provider choice in the checkout dialog", async ({ page, request, s
   await expect(choice.getByRole("radio", { name: /Dodo Payments/ })).toBeChecked();
   await expect(page.getByTestId("checkout-consent-summary")).toContainText("9,90");
   await shot(page, "06-03-dialog-dodo-selected");
+  await applyDefaultTheme(page, "default-dark");
+  await shot(page, "06-04-dialog-dodo-selected-dark");
+  await applyDefaultTheme(page, "default-light");
 
   await tickBothConsents(page);
   await page.getByTestId("checkout-consent-order").click();
@@ -376,6 +380,9 @@ test("flow 7: in-app plan switch with consent", async ({ page, request, seedTena
   await expect(page.getByTestId("plan-switch-summary")).toContainText("19,90");
   await expect(page.getByTestId("plan-switch-confirm-order")).toBeDisabled();
   await shot(page, "07-02-plan-switch-dialog-unchecked");
+  await applyDefaultTheme(page, "default-dark");
+  await shot(page, "07-05-plan-switch-dialog-dark");
+  await applyDefaultTheme(page, "default-light");
 
   await page.locator("#plan-switch-early-performance").check();
   await page.locator("#plan-switch-withdrawal-loss").check();
