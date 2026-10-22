@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * File Size Guard — production files above 2000 lines are frozen in
+ * File Size Guard — production files above 1200 lines are frozen in
  * `.kumiko-file-size-baseline.json` (key = file, value = line count) and may
  * not grow; a new file above the threshold is a violation. Without a baseline
  * file (consumer repos) it only warns.
@@ -31,7 +31,7 @@ const SCAN: ScanSpec = {
   frameworkWithin: ["packages/*/src/**"],
 };
 
-export const MAX_FILE_LINES = 2000;
+export const MAX_FILE_LINES = 1200;
 
 const EXCLUDE =
   /(__tests__|\.test\.(ts|tsx)$|\.integration\.(ts|tsx)$|\.d\.(ts|tsx)$|\.generated\.(ts|tsx)$|\/generated\/|\/locale-[^/]+\/src\/strings\.ts$)/;

@@ -21,12 +21,14 @@
  *
  * Opt-out: `// kumiko-lint-ignore complexity-budget <reason>` on the function
  * line, the line above, or (for JSDoc-documented functions) the line above
- * the JSDoc block.
+ * the JSDoc block. The opt-out does NOT hold above HARD_COMPLEXITY_CAP: such a
+ * function in the repo's own files always fails, regardless of baseline or tag.
  *
  * Usage:
  *   bun guards/check-complexity.ts                  # compare against baseline
  *   bun guards/check-complexity.ts --write-baseline # rewrite baseline
  *   bun guards/check-complexity.ts --no-baseline    # skip comparison
+ *   bun guards/check-complexity.ts --all            # list every hotspot, not the first 30
  */
 
 import * as path from "node:path";
@@ -58,6 +60,7 @@ const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 
 const COMPLEXITY_THRESHOLD = 15;
 const MAX_REPORTED = 30;
+export const HARD_COMPLEXITY_CAP = 60;
 const BUDGET_TAG = "kumiko-lint-ignore complexity-budget";
 
 const FUNCTION_KINDS = [
@@ -152,26 +155,49 @@ export function computeComplexity(fn: Node): number {
   return complexity;
 }
 
-export function collectHotspots(
+export interface FunctionMetric extends Hotspot {
+  budgetTagged: boolean;
+}
+
+// Single walk per file: complexity is computed once and feeds both the
+// hotspot list and the hard cap.
+export function collectFunctionMetrics(
   sf: SourceFile,
   roots: readonly RepoRoot[] = resolveRepoRoots(),
-): Hotspot[] {
+): FunctionMetric[] {
   const file = relFromRepoRoot(sf.getFilePath(), roots);
-  const hotspots: Hotspot[] = [];
+  const metrics: FunctionMetric[] = [];
   for (const kind of FUNCTION_KINDS) {
     for (const fn of sf.getDescendantsOfKind(kind)) {
       const complexity = computeComplexity(fn);
       if (complexity < COMPLEXITY_THRESHOLD) continue;
-      if (hasBudgetTag(fn)) continue;
-      hotspots.push({
+      metrics.push({
         file,
         line: fn.getStartLineNumber(),
         name: functionName(fn),
         complexity,
+        budgetTagged: hasBudgetTag(fn),
       });
     }
   }
-  return hotspots;
+  return metrics;
+}
+
+export function hotspotsOf(metrics: readonly FunctionMetric[]): Hotspot[] {
+  return metrics
+    .filter((m) => !m.budgetTagged)
+    .map(({ file, line, name, complexity }) => ({ file, line, name, complexity }));
+}
+
+export function capBreachesOf(metrics: readonly FunctionMetric[]): FunctionMetric[] {
+  return metrics.filter((m) => m.complexity > HARD_COMPLEXITY_CAP && isLocalFinding(m));
+}
+
+export function collectHotspots(
+  sf: SourceFile,
+  roots: readonly RepoRoot[] = resolveRepoRoots(),
+): Hotspot[] {
+  return hotspotsOf(collectFunctionMetrics(sf, roots));
 }
 
 const BASELINE_FILE = ".kumiko-complexity-baseline.json";
@@ -199,26 +225,37 @@ function scan(
   roots: readonly RepoRoot[] = resolveRepoRoots(),
 ): {
   hotspots: Hotspot[];
+  capBreaches: FunctionMetric[];
   scanned: number;
 } {
-  const hotspots: Hotspot[] = [];
+  const metrics: FunctionMetric[] = [];
   let scanned = 0;
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
     scanned++;
-    hotspots.push(...collectHotspots(sf, roots));
+    metrics.push(...collectFunctionMetrics(sf, roots));
   }
-  hotspots.sort((a, b) => b.complexity - a.complexity);
-  return { hotspots, scanned };
+  const hotspots = hotspotsOf(metrics).sort((a, b) => b.complexity - a.complexity);
+  const capBreaches = capBreachesOf(metrics).sort((a, b) => b.complexity - a.complexity);
+  return { hotspots, capBreaches, scanned };
 }
 
-function report(hotspots: readonly Hotspot[], scanned: number): void {
+function report(
+  hotspots: readonly Hotspot[],
+  scanned: number,
+  capBreaches: readonly FunctionMetric[],
+  reportLimit: number,
+): void {
   console.log(`Complexity Check: ${scanned} files checked.`);
   console.log(`  Hotspots (complexity >= ${COMPLEXITY_THRESHOLD}): ${hotspots.length}`);
+  console.log(`  Above hard cap (complexity > ${HARD_COMPLEXITY_CAP}): ${capBreaches.length}`);
+  for (const b of capBreaches) {
+    console.log(`    CAP ${b.file}:${b.line}  ${b.name}()  complexity=${b.complexity}`);
+  }
   if (hotspots.length === 0) {
     console.log("  Nothing to report.");
   } else {
-    const shown = hotspots.slice(0, MAX_REPORTED);
+    const shown = hotspots.slice(0, reportLimit);
     for (const h of shown) {
       console.log(`    ${h.file}:${h.line}  ${h.name}()  complexity=${h.complexity}`);
     }
@@ -231,11 +268,24 @@ function report(hotspots: readonly Hotspot[], scanned: number): void {
   }
 }
 
+type Ratchet = ReturnType<typeof baselineRatchet>;
+
 const complexityBaseline = baselineRatchet({
   file: path.join(ROOT, BASELINE_FILE),
   formatVersion: BASELINE_FORMAT_VERSION,
   unit: "Complexity-Hotspot(s)",
 });
+
+function capViolations(capBreaches: readonly FunctionMetric[]): GuardViolation[] {
+  return capBreaches.map((b) => ({
+    file: b.file,
+    line: b.line,
+    neverFrozen: true,
+    message:
+      `${b.name}() has complexity ${b.complexity}, above the hard cap of ${HARD_COMPLEXITY_CAP}. ` +
+      `A "${BUDGET_TAG}" tag and the baseline do not apply above the cap — split the function.`,
+  }));
+}
 
 // `scan` sorts by complexity descending, so the first hit for a file is its
 // worst function — the one the violation should point at, not whichever
@@ -244,9 +294,9 @@ export function resolveHotspotLine(hotspots: readonly Hotspot[], file: string): 
   return hotspots.find((h) => h.file === file)?.line ?? 1;
 }
 
-function checkBaseline(scanned: readonly Hotspot[]): GuardViolation[] {
+function checkBaseline(scanned: readonly Hotspot[], ratchet: Ratchet): GuardViolation[] {
   const hotspots = localHotspots(scanned);
-  return complexityBaseline.check(
+  return ratchet.check(
     countHotspotsByFile(hotspots),
     `Split the function, or allow it with "// ${BUDGET_TAG} <reason>".`,
     {
@@ -256,18 +306,21 @@ function checkBaseline(scanned: readonly Hotspot[]): GuardViolation[] {
   );
 }
 
-function analyse(
+export function analyse(
   files: readonly SourceFile[],
   roots: readonly RepoRoot[],
   compareBaseline: boolean,
+  options: { ratchet?: Ratchet; reportLimit?: number } = {},
 ): GuardOutcome {
-  const { hotspots, scanned } = scan(files, roots);
-  report(hotspots, scanned);
+  const { ratchet = complexityBaseline, reportLimit = MAX_REPORTED } = options;
+  const { hotspots, capBreaches, scanned } = scan(files, roots);
+  report(hotspots, scanned, capBreaches, reportLimit);
+  const hardViolations = capViolations(capBreaches);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
-    return { violations: [] };
+    return { violations: hardViolations };
   }
-  return { violations: checkBaseline(hotspots) };
+  return { violations: [...hardViolations, ...checkBaseline(hotspots, ratchet)] };
 }
 
 export const guard: AstGuard = {
@@ -279,8 +332,8 @@ export const guard: AstGuard = {
   hint: 'after a deliberate change: `kumiko-guards guards --write-baseline --guard="Complexity Check"`',
   run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
   writeBaseline: (files) => {
-    const { hotspots, scanned } = scan(files);
-    report(hotspots, scanned);
+    const { hotspots, capBreaches, scanned } = scan(files);
+    report(hotspots, scanned, capBreaches, MAX_REPORTED);
     complexityBaseline.write(countHotspotsByFile(localHotspots(hotspots)));
   },
 };
@@ -290,17 +343,23 @@ export const guard: AstGuard = {
 // silently rewrite the baseline.
 if (import.meta.main) {
   const args = process.argv.slice(2);
+  const reportLimit = args.includes("--all") ? Number.POSITIVE_INFINITY : MAX_REPORTED;
   if (args.includes("--write-baseline")) {
     const project = buildSharedProject([guard]);
-    const { hotspots, scanned } = scan(filesForGuard(project, guard));
-    report(hotspots, scanned);
+    const { hotspots, capBreaches, scanned } = scan(filesForGuard(project, guard));
+    report(hotspots, scanned, capBreaches, reportLimit);
     complexityBaseline.write(countHotspotsByFile(localHotspots(hotspots)));
     process.exit(0);
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), resolveRepoRoots(), false);
-    process.exit(0);
+    const { violations } = analyse(filesForGuard(project, guard), resolveRepoRoots(), false, {
+      reportLimit,
+    });
+    process.exit(violations.length > 0 ? 1 : 0);
   }
-  runStandalone(guard);
+  runStandalone({
+    ...guard,
+    run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true, { reportLimit }),
+  });
 }

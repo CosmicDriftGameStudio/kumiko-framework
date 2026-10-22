@@ -35,7 +35,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-event-store-writes` | Guard: flags string/template literals containing UPDATE/DELETE FROM/INSERT INTO against kumiko_events, kumiko_snapshots or kumiko_archived_streams outside the event store's own files. | - |
 | `guard-fake-tests` | Guard: tests must actually assert something. | - |
 | `guard-feature-integration-tests` | Guard: every feature in packages/bundled-features/src/<name>/feature.ts must be imported by at least one *.integration.ts. | - |
-| `guard-file-size` | File Size Guard — production files above 2000 lines are frozen in `.kumiko-file-size-baseline.json` (key = file, value = line count) and may not grow; a new file above the threshold is a violation. | - |
+| `guard-file-size` | File Size Guard — production files above 1200 lines are frozen in `.kumiko-file-size-baseline.json` (key = file, value = line count) and may not grow; a new file above the threshold is a violation. | - |
 | `guard-guards-doc-drift` | Fails when docs/reference/guards.md differs from what the generator renders from the guard sources. | - |
 | `guard-html-escape` | Guard: HTML-building template literals must escape every interpolation. | - |
 | `guard-i18n-keys` | Guard: i18n keys must be defined before they are used. | - |
