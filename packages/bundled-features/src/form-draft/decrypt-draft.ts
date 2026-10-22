@@ -4,6 +4,7 @@ import {
   decryptPiiFieldValues,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { type FormDraftBlob, formDraftBlobSchema } from "./schemas.ts";
 
 // Raw reads (fetchOne/selectMany/SQL) return the stored column, which is
@@ -13,7 +14,9 @@ import { type FormDraftBlob, formDraftBlobSchema } from "./schemas.ts";
 export async function readStoredDraft(stored: unknown): Promise<FormDraftBlob | null> {
   let plain = stored;
   const kms = configuredPiiSubjectKms();
-  if (isPiiCiphertext(stored) && kms) {
+  if (isPiiCiphertext(stored)) {
+    // A silent null would make the stale-draft cleanup treat the draft as empty and leak its file refs.
+    if (!kms) throw new InternalError({ message: "form-draft: pii kms not configured" });
     const out = await decryptPiiFieldValues({ draft: stored }, ["draft"], kms, {
       requestId: requestContext.get()?.requestId ?? "form-draft:read",
     });

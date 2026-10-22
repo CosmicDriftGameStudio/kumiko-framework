@@ -11,6 +11,7 @@ export type UnsubscribePageState =
   | { readonly kind: "unsubscribed"; readonly resubscribeToken?: string }
   | { readonly kind: "resubscribed" }
   | { readonly kind: "failed" }
+  | { readonly kind: "resubscribeLimitReached" }
   | { readonly kind: "invalid" };
 
 export type UnsubscribePageInput = {
@@ -161,6 +162,11 @@ ${tokenForm(DELIVERY_RESUBSCRIBE_PATH, state.resubscribeToken, mailT(lang, "mail
       return {
         title: mailT(lang, "mail.unsubscribe.failedTitle"),
         bodyHtml: paragraph("mail.unsubscribe.failed"),
+      };
+    case "resubscribeLimitReached":
+      return {
+        title: mailT(lang, "mail.unsubscribe.failedTitle"),
+        bodyHtml: paragraph("mail.unsubscribe.resubscribeLimitReached"),
       };
     case "invalid":
       return {

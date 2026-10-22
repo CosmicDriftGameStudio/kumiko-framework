@@ -1264,6 +1264,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail.unsubscribe.resubscribedMessage": "Diese E-Mails kommen wieder.",
   "mail.unsubscribe.failed": "Das hat nicht geklappt. Bitte später noch einmal versuchen.",
   "mail.unsubscribe.failedTitle": "Etwas ist schiefgelaufen",
+  "mail.unsubscribe.resubscribeLimitReached":
+    "Diese Adresse kann hier nicht erneut angemeldet werden.",
   "mail.unsubscribe.invalidTitle": "Link nicht mehr gültig",
   "mail.unsubscribe.invalidMessage":
     "Dieser Link ist ungültig oder abgelaufen. Bitte den Abmeldelink aus einer neueren E-Mail verwenden.",

@@ -53,6 +53,12 @@ export class FileRefTooLargeError extends Error {
   }
 }
 
+export class FileStorageUnavailableError extends Error {
+  constructor() {
+    super("readFileRefContent: no file storage is available for the file's tenant");
+  }
+}
+
 // fileName of the row is never used: it is personal data and may be a PII ciphertext.
 export async function readFileRefContent(args: {
   readonly db: DbRunner | TenantDb;
@@ -82,7 +88,7 @@ export async function readFileRefContent(args: {
   }
   const files = args.filesForTenant(row.tenantId);
   if (files === undefined) {
-    throw new Error("readFileRefContent: no file storage is available for the file's tenant");
+    throw new FileStorageUnavailableError();
   }
   const content = await files.refFromFileRef(row).read();
   return { content, contentType: row.mimeType, tenantId: row.tenantId, size };

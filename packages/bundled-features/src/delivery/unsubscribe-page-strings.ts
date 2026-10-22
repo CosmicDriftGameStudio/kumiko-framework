@@ -14,6 +14,7 @@ export const UNSUBSCRIBE_PAGE_EN = {
   "mail.unsubscribe.resubscribedMessage": "You have been subscribed again.",
   "mail.unsubscribe.failed": "That did not work. Please try again later.",
   "mail.unsubscribe.failedTitle": "Something went wrong",
+  "mail.unsubscribe.resubscribeLimitReached": "This address cannot be subscribed again here.",
   "mail.unsubscribe.invalidTitle": "Link no longer valid",
   "mail.unsubscribe.invalidMessage":
     "This link is invalid or has expired. Please use the unsubscribe link in a more recent email.",

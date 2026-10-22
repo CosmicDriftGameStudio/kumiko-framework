@@ -13,8 +13,6 @@ export type NamedS3EnvProviderOptions = {
   readonly name: string;
   /** Env prefix of the credential set, e.g. `RELEASES_S3_`. */
   readonly envPrefix: string;
-  /** Tolerate missing credentials at boot; the provider then fails on its first file operation. */
-  readonly lazy?: boolean;
 };
 
 /** An additional S3 provider next to `"s3-env"`, reading its credentials from `<envPrefix>BUCKET` etc. */

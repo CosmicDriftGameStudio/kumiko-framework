@@ -1269,6 +1269,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail.unsubscribe.resubscribedMessage": "Vous êtes de nouveau abonné.",
   "mail.unsubscribe.failed": "Cela n'a pas fonctionné. Veuillez réessayer plus tard.",
   "mail.unsubscribe.failedTitle": "Une erreur s'est produite",
+  "mail.unsubscribe.resubscribeLimitReached": "Cette adresse ne peut pas être réabonnée ici.",
   "mail.unsubscribe.invalidTitle": "Lien n'est plus valide",
   "mail.unsubscribe.invalidMessage":
     "Ce lien est invalide ou a expiré. Utilisez le lien de désabonnement d'un e-mail plus récent.",

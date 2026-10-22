@@ -484,9 +484,37 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
   }
 
+  // The app's tenantOrigin callback typically hits the DB: once per run and tenant, not per recipient.
+  const unsubscribeOriginsByRun = new WeakMap<NotifyRun, Map<TenantId, Promise<string>>>();
+
+  function unsubscribeOriginOnce(
+    run: NotifyRun,
+    links: UnsubscribeLinkConfig,
+    channelCtx: ChannelContext,
+    notificationType: string,
+  ): Promise<string> {
+    let originsByTenant = unsubscribeOriginsByRun.get(run);
+    if (originsByTenant === undefined) {
+      originsByTenant = new Map();
+      unsubscribeOriginsByRun.set(run, originsByTenant);
+    }
+    let origin = originsByTenant.get(channelCtx.tenantId);
+    if (origin === undefined) {
+      origin = unsubscribeLinkOrigin(links, channelCtx, (reason) =>
+        logError.warn(`unsubscribe link falls back to the app origin: ${reason}`, {
+          tenantId: channelCtx.tenantId,
+          notificationType,
+        }),
+      );
+      originsByTenant.set(channelCtx.tenantId, origin);
+    }
+    return origin;
+  }
+
   // A caller-supplied unsubscribeUrl wins; the recipient comes from the server-side notify
   // context, never from the notification data.
   async function withUnsubscribeUrl(
+    run: NotifyRun,
     message: ChannelMessage,
     channelName: string,
     recipient: UnsubscribeLinkRecipient,
@@ -498,11 +526,11 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
     const supplied = message.data?.["unsubscribeUrl"];
     if (typeof supplied === "string" && supplied !== "") return message;
-    const origin = await unsubscribeLinkOrigin(unsubscribeLinks, channelCtx, (reason) =>
-      logError.warn(`unsubscribe link falls back to the app origin: ${reason}`, {
-        tenantId: channelCtx.tenantId,
-        notificationType: message.notificationType,
-      }),
+    const origin = await unsubscribeOriginOnce(
+      run,
+      unsubscribeLinks,
+      channelCtx,
+      message.notificationType,
     );
     const unsubscribeUrl = await buildUnsubscribeUrl(unsubscribeLinks, origin, recipient, {
       tenantId: channelCtx.tenantId,
@@ -811,6 +839,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           channel,
           address,
           message: await withUnsubscribeUrl(
+            run,
             message,
             channel.name,
             { kind: "user", userId },
@@ -914,6 +943,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           channel,
           address,
           message: await withUnsubscribeUrl(
+            run,
             message,
             channel.name,
             { kind: "address", address },
