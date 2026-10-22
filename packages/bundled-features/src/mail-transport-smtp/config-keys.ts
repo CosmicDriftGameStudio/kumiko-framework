@@ -6,6 +6,7 @@ const tenantAdminWrite = access.withSystem(access.roles("TenantAdmin"));
 const tenantAdminRead = access.roles("TenantAdmin", "SystemAdmin");
 
 // required: true ↔ the requireNonEmpty calls in buildSmtpTransport — keep in sync.
+// authUser stays optional: empty means an unauthenticated relay.
 export const SMTP_CONFIG_KEYS = {
   host: createTenantConfig("text", {
     required: true,
@@ -41,7 +42,6 @@ export const SMTP_CONFIG_KEYS = {
     },
   }),
   authUser: createTenantConfig("text", {
-    required: true,
     default: "",
     write: tenantAdminWrite,
     read: tenantAdminRead,
