@@ -8,7 +8,6 @@ import {
   findUnavailableSelectOptions,
   isRecordLocked,
   isUnchangedValue,
-  type UnavailableSelectOption,
 } from "../engine/screen-helpers.ts";
 import type { EntityId, SessionUser, TenantId } from "../engine/types/index.ts";
 import {
@@ -29,21 +28,16 @@ import {
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
-  type StoredEvent,
 } from "../event-store/index.ts";
 import {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
 } from "../pipeline/irreversible-operation-gate.ts";
-import {
-  hasLiveProjectionsForEvent,
-  runProjectionsForEvent,
-} from "../pipeline/projections-runner.ts";
 import { generateId } from "../utils/index.ts";
 import { applyEntityEvent } from "./apply-entity-event.ts";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.ts";
-import type { DbRow, DbRunner } from "./connection.ts";
+import type { DbRow } from "./connection.ts";
 import {
   type EventStoreExecutor,
   type LockGuardOption,
@@ -57,122 +51,26 @@ import {
   ownershipSubject,
   tryMapUniqueViolation,
 } from "./event-store-executor-context.ts";
+import {
+  optimisticLockFailure,
+  ownershipDeniedFailure,
+  projectEntityEvent,
+  runPreSave,
+  selectOptionNotAvailableFailure,
+  withoutEventInJson,
+} from "./event-store-executor-write-steps.ts";
 import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
-import { projectionRegistryOf } from "./projection-registry-binding.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
 import { tenantDbWriteRunner } from "./tenant-db-runner.ts";
 
-// The echoed event carries entity PII and must never reach a handler's JSON response, while
-// hooks and projections still read it by property. Non-enumerable keeps it out of spread/stringify.
-function withoutEventInJson<T extends { readonly event: unknown }>(result: T): T {
-  return Object.defineProperty(result, "event", { value: result.event, enumerable: false });
-}
-
-// Custom projections for a write that did not go through the dispatcher (hook or
-// job writing a second aggregate). Savepoint like applyEntityEvent: a throwing
-// projection fails the write and the caller's transaction rolls it back.
-async function projectEntityEvent(
-  db: TenantDb,
-  runner: DbRunner,
-  event: StoredEvent,
-): Promise<void> {
-  const registry = projectionRegistryOf(db);
-  // skip: TenantDb not built by a dispatcher/job runner — nothing bound to project with
-  if (!registry) return;
-  // skip: no live projection listens — avoid a SAVEPOINT round trip on every plain write
-  if (!hasLiveProjectionsForEvent(event, registry)) return;
-  await runInSavepointIfSupported(runner, (sp) => runProjectionsForEvent(event, registry, sp));
-}
+type WriteRunner = ReturnType<typeof tenantDbWriteRunner>;
+type AppendedEvent = Awaited<ReturnType<typeof append>>;
+type UpdateOptions = Parameters<EventStoreExecutor["update"]>[3];
 
 // The five write verbs (create/update/delete/forget/restore) of the event-
-// store-executor. Split out of event-store-executor.ts —
-// behavior-preserving relocation, not a redesign: every closure below is
-// unchanged from the original, just relocated behind an explicit
+// store-executor, split out of event-store-executor.ts. They read an explicit
 // ExecutorContext instead of capturing the factory's local scope directly.
-
-function selectOptionNotAvailableFailure(entries: readonly UnavailableSelectOption[]) {
-  const [first] = entries;
-  if (!first) return undefined;
-  const i18nKey = "kumiko.validation.optionNotAvailable";
-  return writeFailure(
-    new UnprocessableError("select_option_not_available", {
-      i18nKey,
-      details: {
-        field: first.field,
-        value: first.value,
-        allowed: first.allowed,
-        fields: entries.map((entry) => ({
-          path: entry.field,
-          code: "select_option_not_available",
-          i18nKey,
-          params: { allowed: entry.allowed },
-        })),
-      },
-    }),
-  );
-}
-
-type PreSaveFn = (
-  changes: Record<string, unknown>,
-  previous: Record<string, unknown>,
-  isNew: boolean,
-) => Promise<Record<string, unknown>>;
-
-// preSave runs before ownership checks: authorization must evaluate the row
-// as it will actually be persisted, including hook-derived fields. A throwing
-// hook is an app-author bug (bad business rule, not a framework fault) — map it
-// to a clean writeFailure instead of letting it propagate as an internal_error
-// 500.
-async function runPreSave(
-  preSave: PreSaveFn | undefined,
-  changes: Record<string, unknown>,
-  previous: Record<string, unknown>,
-  isNew: boolean,
-  entityName: string,
-  action: "create" | "update",
-  outputSchema: () => ZodType,
-): Promise<{ readonly data: DbRow } | { readonly failure: ReturnType<typeof writeFailure> }> {
-  if (!preSave) return { data: changes as DbRow };
-  try {
-    const hookResult = await preSave(changes, previous, isNew);
-    // A hook that echoes `id`/`version` back (e.g. `{ ...changes, id: x }`)
-    // must not leak them into the persisted row — aggregateId already comes
-    // from generateId()/the loaded row, not from hook output.
-    const { id: _hookId, version: _hookVersion, ...safe } = hookResult;
-    // Hook output skips the handler's input validation yet goes straight into the projection.
-    // Validated only, not replaced by the parse result: hooks may set fields in storage form.
-    const parsed = outputSchema().safeParse(safe);
-    if (!parsed.success) {
-      return {
-        failure: writeFailure(
-          new UnprocessableError("presave_hook_invalid_output", {
-            i18nKey: "errors.presaveHookInvalidOutput",
-            details: {
-              entityName,
-              action,
-              handler: `${entityName}:${action}`,
-              issues: parsed.error.issues.map((issue) => ({
-                path: issue.path.join("."),
-                message: issue.message,
-              })),
-            },
-          }),
-        ),
-      };
-    }
-    return { data: safe as DbRow };
-  } catch (e) {
-    return {
-      failure: writeFailure(
-        new UnprocessableError("presave_hook_failed", {
-          i18nKey: "errors.presaveHookFailed",
-          details: { entityName, action, message: e instanceof Error ? e.message : String(e) },
-        }),
-      ),
-    };
-  }
-}
 
 export function createWriteVerbs(
   ctx: ExecutorContext,
@@ -253,15 +151,13 @@ export function createWriteVerbs(
   // A forgotten subject has no key any more: restore re-encrypts the stored row and reports
   // that as a failure result like any other write conflict instead of throwing.
   async function appendRestoredEvent(
-    runner: ReturnType<typeof tenantDbWriteRunner>,
+    runner: WriteRunner,
     user: SessionUser,
     id: EntityId,
     previousPlain: DbRow,
     streamTenantId: TenantId | undefined,
     currentVersion: number,
-  ): Promise<
-    { readonly event: Awaited<ReturnType<typeof append>> } | { readonly failure: WriteFailure }
-  > {
+  ): Promise<{ readonly event: AppendedEvent } | { readonly failure: WriteFailure }> {
     try {
       const previous = await encryptForStorage(previousPlain, user, {
         keyTenantId: streamTenantId,
@@ -281,27 +177,13 @@ export function createWriteVerbs(
       return { event };
     } catch (e) {
       if (isSubjectErasedConflict(e)) return { failure: writeFailure(e) };
-      if (e instanceof EventStoreVersionConflict) {
-        return {
-          failure: writeFailure(
-            new FrameworkVersionConflict({
-              entityId: id,
-              expectedVersion: currentVersion,
-              currentVersion: await versionAfterConflict(
-                runner,
-                String(id),
-                streamTenantFor(user, streamTenantId),
-              ),
-            }),
-          ),
-        };
-      }
-      if (e instanceof EventStoreIdempotentAppendConflict) {
-        return {
-          failure: writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey })),
-        };
-      }
-      throw e;
+      return {
+        failure: await appendConflictFailure(e, runner, {
+          entityId: id,
+          expectedVersion: currentVersion,
+          streamTenant: streamTenantFor(user, streamTenantId),
+        }),
+      };
     }
   }
 
@@ -334,16 +216,454 @@ export function createWriteVerbs(
     }
     return snapshot.streamVersion;
   }
+  async function appendConflictFailure(
+    error: unknown,
+    runner: WriteRunner,
+    conflict: {
+      readonly entityId: EntityId;
+      readonly expectedVersion: number;
+      readonly streamTenant: TenantId;
+    },
+  ): Promise<WriteFailure> {
+    if (error instanceof EventStoreVersionConflict) {
+      return writeFailure(
+        new FrameworkVersionConflict({
+          entityId: conflict.entityId,
+          expectedVersion: conflict.expectedVersion,
+          currentVersion: await versionAfterConflict(
+            runner,
+            String(conflict.entityId),
+            conflict.streamTenant,
+          ),
+        }),
+      );
+    }
+    if (error instanceof EventStoreIdempotentAppendConflict) {
+      return writeFailure(new IdempotentReplayError({ idempotencyKey: error.idempotencyKey }));
+    }
+    throw error;
+  }
+
+  // Stream-version is authoritative, not row.version. `ctx.appendEvent`
+  // can bump the stream between CRUD writes (domain event on the same
+  // aggregate); a stale row.version here would make the next CRUD write
+  // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
+  // with version_conflict.
+  //
+  // With `expect:` the version comes from loadExpectSnapshot's combined
+  // query instead; see its comment for why.
+  async function currentStreamVersion(
+    db: TenantDb,
+    runner: WriteRunner,
+    id: EntityId,
+    streamTenant: TenantId,
+    expect: Readonly<Record<string, unknown>> | undefined,
+  ): Promise<number | WriteFailure> {
+    return expect
+      ? await expectedStreamVersion(db, id, streamTenant, expect)
+      : await getStreamVersion(runner, String(id), streamTenant);
+  }
+
+  function assertFieldWritesAllowed(db: TenantDb, action: "create" | "update", data: DbRow): void {
+    // After preSave so derived fields count, before the event append so nothing persists.
+    assertPersonalDataWrite(db, tableNameOf(table), Object.keys(data), entity);
+    assertInstructionFieldWriteAllowed(
+      entityName,
+      action,
+      Object.keys(data),
+      entityInstructionFieldNames,
+    );
+  }
+
+  function createOwnershipFailure(
+    user: SessionUser,
+    streamTenantId: TenantId | undefined,
+    payloadWithoutId: Record<string, unknown>,
+    data: DbRow,
+  ): WriteFailure | undefined {
+    // H.2 — entity-level write-ownership on create. No oldRow exists, so
+    // only the new row is checked. No Straddle concern for creates.
+    if (
+      !userCanCreateFieldRow(ownershipSubject(user, streamTenantId), entity.access?.write, data)
+    ) {
+      return ownershipDeniedFailure({
+        scope: "entity",
+        entityName,
+        action: "create",
+        userId: user.id,
+      });
+    }
+
+    // Field-level write-ownership on create — mirror of entity-level but
+    // per declared field. Role-level was already checked by the
+    // dispatcher; here we enforce ownership-rules against the new row.
+    //
+    // Which fields get checked is scoped to the pre-hook payload
+    // — a hook-derived field the user never submitted must not be
+    // field-ownership-checked against the user. The rule for a checked
+    // field is still evaluated against the full post-hook row (`data`) —
+    // an ownership rule can reference a column only a hook populates.
+    const fieldDeniedCreate = checkWriteFieldOwnership(
+      entity,
+      applyDefaults(payloadWithoutId),
+      ownershipSubject(user, streamTenantId),
+      undefined,
+      data,
+    );
+    if (fieldDeniedCreate) {
+      return ownershipDeniedFailure({
+        scope: "field",
+        entityName,
+        action: "create",
+        field: fieldDeniedCreate,
+        userId: user.id,
+      });
+    }
+    return undefined;
+  }
+
+  function updateOwnershipFailure(
+    user: SessionUser,
+    streamTenantId: TenantId | undefined,
+    id: EntityId,
+    submittedChanges: Record<string, unknown>,
+    previous: DbRow,
+    changes: DbRow,
+    mergedNew: Record<string, unknown>,
+  ): WriteFailure | undefined {
+    // H.2 — entity-level write-ownership on update. Load old row (already
+    // done above), build post-change row via shallow merge. Straddle-safe
+    // multi-role check: at least one role must accept BOTH old and new —
+    // prevents the attack where role A passes old, role B passes new and
+    // aggregation would wrongly allow a row-grab.
+    if (
+      !userCanWriteFieldRow(
+        ownershipSubject(user, streamTenantId),
+        entity.access?.write,
+        previous,
+        mergedNew,
+      )
+    ) {
+      return ownershipDeniedFailure({
+        scope: "entity",
+        entityName,
+        action: "update",
+        userId: user.id,
+        entityId: id,
+      });
+    }
+    // Field-level write-ownership on update — this is the path the
+    // dispatcher could not evaluate (no oldRow). Now that we have
+    // `previous`, we can run the ownership rules per field against both
+    // sides and reject individual fields the user isn't entitled to
+    // touch on this specific row.
+    //
+    // Which fields get checked is scoped to `payload.changes` (the user's
+    // actual submission), NOT `changes` (post-preSave-hook data)
+    // — a hook-derived field the user never submitted (e.g. a system hook
+    // setting `assignedTo`) has no business being field-ownership-checked
+    // against the *user*, and doing so rejects writes the user is fully
+    // entitled to make. The dispatcher's role-gate (checkWriteFieldAccess)
+    // already runs on this same pre-hook payload for consistency. The rule
+    // for a checked field is still evaluated against the full post-hook
+    // row (`changes` merged onto `previous`) — an ownership rule can
+    // reference a column only a hook populates.
+    const fieldDeniedUpdate = checkWriteFieldOwnership(
+      entity,
+      submittedChanges,
+      ownershipSubject(user, streamTenantId),
+      previous,
+      changes,
+    );
+    if (fieldDeniedUpdate) {
+      return ownershipDeniedFailure({
+        scope: "field",
+        entityName,
+        action: "update",
+        field: fieldDeniedUpdate,
+        userId: user.id,
+        entityId: id,
+      });
+    }
+    return undefined;
+  }
+
+  function updateSelectOptionFailure(
+    user: SessionUser,
+    mergedNew: Record<string, unknown>,
+    previous: DbRow,
+    options: UpdateOptions,
+  ): WriteFailure | undefined {
+    // Statutory retention/erasure writes may change a condition field (e.g. null a PII
+    // reference) and must not be blocked by the select rule — same exemption as the lock.
+    const isStatutorySystemWrite =
+      options?.writePurpose !== undefined && isFrameworkSystemUser(user);
+    return isStatutorySystemWrite
+      ? undefined
+      : selectOptionNotAvailableFailure(
+          findUnavailableSelectOptions(entity.fields, mergedNew, previous),
+        );
+  }
+
+  async function appendCreatedEvent(
+    runner: WriteRunner,
+    user: SessionUser,
+    streamTenantId: TenantId | undefined,
+    aggregateId: string,
+    flatData: Record<string, unknown>,
+  ): Promise<{ readonly event: AppendedEvent } | { readonly failure: WriteFailure }> {
+    // 1. Append the event in the same transaction as the projection write — both must
+    //    succeed or both roll back; the dispatcher wraps them in one transaction.
+    //    flatData is already table ciphertext for pii/encrypted fields, so the immutable
+    //    log never sees plaintext and replay reproduces the row byte-for-byte.
+    //
+    //    `expectedVersion: 0` means the stream does not yet exist. With deterministic
+    //    aggregate-ID patterns (for example, uuidv5(tenantId|naturalKey)), a create can
+    //    legitimately collide — the same ID has an existing stream — so return
+    //    version_conflict instead of internal_error. Update uses the same catch.
+    try {
+      // Savepoint-scoped: postgres.js poisons the WHOLE surrounding
+      // begin() once any statement inside it errors, even if the JS error
+      // is caught — a losing concurrent create's unique-violation
+      // would otherwise abort the caller's outer transaction and surface as
+      // internal_error at commit time instead of the version_conflict this
+      // catch classifies. runInSavepointIfSupported confines the failed
+      // INSERT to a nested scope that rolls back on its own (same pattern as
+      // ctx.tryAppendEvent), and falls back to a plain call when the runner
+      // is a bare pool connection with no active transaction to poison
+      // (seeds/tests calling the executor directly).
+      const event = await runInSavepointIfSupported(runner, async (sp) =>
+        append(sp, {
+          aggregateId,
+          aggregateType: entityName,
+          tenantId: streamTenantFor(user, streamTenantId),
+          expectedVersion: 0,
+          type: entityEventName(entityName, "created"),
+          eventVersion,
+          payload: flatData,
+          metadata: buildEventMetadata(user),
+        }),
+      );
+      return { event };
+    } catch (e) {
+      return {
+        failure: await appendConflictFailure(e, runner, {
+          entityId: aggregateId,
+          expectedVersion: 0,
+          streamTenant: streamTenantFor(user, streamTenantId),
+        }),
+      };
+    }
+  }
+
+  // 2. Update the projection through applyEntityEvent — the same code path used by
+  //    rebuildProjection for replay, with the same StoredEvent, so live and rebuild
+  //    produce the same result by construction.
+  //
+  //    Application-level unique violations (for example, (tenantId, email) on a User
+  //    entity or (tenantId, slug) on an Article) produce pg-23505 from the projection
+  //    write. Without this catch, the error propagates as an unhandled exception and
+  //    becomes a 500 internal_error. Map it to UniqueViolationError 409 so the
+  //    designer/frontend can show a clear "duplicate" message instead of a cryptic
+  //    "internal server error".
+  // Savepoint like the append: an unclassified DB error from the projection
+  // write would otherwise poison the enclosing transaction (postgres-js rejects the
+  // whole begin() once any statement in it fails). The savepoint rolls back the failed
+  // write while allowing the error to propagate and remain catchable.
+  async function applyProjection(
+    runner: WriteRunner,
+    event: AppendedEvent,
+    noRowMessage: string,
+  ): Promise<{ readonly row: DbRow } | { readonly failure: WriteFailure }> {
+    let result: Awaited<ReturnType<typeof applyEntityEvent>>;
+    try {
+      result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>
+        applyEntityEvent(event, table, entity, sp),
+      );
+    } catch (e) {
+      const mapped = tryMapUniqueViolation(e, entityName);
+      if (mapped) return { failure: mapped };
+      throw e;
+    }
+    if (result.kind !== "applied" || result.row === null) {
+      return { failure: writeFailure(new InternalError({ message: noRowMessage })) };
+    }
+    return { row: result.row };
+  }
+
+  // Read-side conversion: DB form → combined API form for all compound types in one pass.
+  async function readProjectedRow(row: DbRow): Promise<DbRow> {
+    return await decryptForRead(rehydrateCompoundTypes(row, entity) as DbRow);
+  }
+
+  async function evictCachedEntity(
+    user: SessionUser,
+    streamTenantId: TenantId | undefined,
+    id: EntityId,
+  ): Promise<void> {
+    if (entityCache && entityName) {
+      await entityCache.del(streamTenantId ?? user.tenantId, entityName, id);
+    }
+  }
+
+  async function encryptUpdatePayload(
+    user: SessionUser,
+    streamTenantId: TenantId | undefined,
+    previous: DbRow,
+    changes: DbRow,
+    mergedNew: Record<string, unknown>,
+    options: UpdateOptions,
+  ) {
+    // Compound-type conversion in one pass.
+    // subjectSource: partial changes may carry a pii field without its
+    // ownerField — the merged row still identifies the subject.
+    // skipUnchanged is opt-in: an identical resubmitted key is dropped before
+    // encryption so pii/encrypted fields receive no fresh ciphertext when nothing
+    // actually changed.
+    // Direct callers (KEK rotation, backfill) rely on the default to force re-encryption.
+    const submittedChanges = options?.skipUnchanged
+      ? Object.fromEntries(
+          Object.entries(changes).filter(([key, value]) => !isUnchangedValue(value, previous[key])),
+        )
+      : changes;
+    // Crypto-shredding follows the current owner, so personal
+    // fields not in this update are re-written under the new owner's key.
+    // Owner -> absent is not re-keyed; the value stays under the old owner.
+    const changesToPersist = {
+      ...submittedChanges,
+      ...ownerTransitionRekeys(previous, mergedNew, submittedChanges),
+    };
+    const flatChangesPlain = flattenCompoundTypes(changesToPersist, entity);
+    const flatChanges = await encryptForStorage(flatChangesPlain, user, {
+      onlyKeys: Object.keys(changesToPersist),
+      subjectSource: mergedNew,
+      keyTenantId: streamTenantId,
+      ...erasureSentinelOption(options),
+    });
+
+    // The event payload carries BOTH `changes` (what the user asked for) AND
+    // `previous` (the pre-update row). Cross-aggregate projections need the
+    // previous value to decrement/undo when a parent-FK moves — without it
+    // you'd have to snapshot-and-diff on every apply, and replays would
+    // break. Storage cost is acceptable (rows are bounded), correctness is
+    // not negotiable. `previous` came from loadById(), which decrypts —
+    // re-encrypt it before it's persisted so plaintext of pii/encrypted
+    // fields doesn't land in the immutable log (flatChanges is already
+    // ciphertext from encryptForStorage above).
+    // Owner chain for the ownerless-then-assigned row: previous owner, then
+    // the owner this event sets, then whenAbsent.
+    const encryptedPrevious = await encryptForStorage(previous, user, {
+      keyTenantId: streamTenantId,
+      ownerFallback: submittedChanges,
+      ...erasureSentinelOption(options),
+    });
+    return { flatChangesPlain, flatChanges, encryptedPrevious };
+  }
+
+  async function appendUpdatedEvent(
+    runner: WriteRunner,
+    user: SessionUser,
+    id: EntityId,
+    streamTenant: TenantId,
+    currentVersion: number,
+    flatChanges: Record<string, unknown>,
+    encryptedPrevious: Record<string, unknown>,
+  ): Promise<AppendedEvent> {
+    // Savepoint-scoped — see appendCreatedEvent for why:
+    // confines a losing writer's unique-violation to a nested scope
+    // instead of poisoning the whole outer transaction.
+    return await runInSavepointIfSupported(runner, (sp) =>
+      append(sp, {
+        aggregateId: String(id),
+        aggregateType: entityName,
+        tenantId: streamTenant,
+        expectedVersion: currentVersion,
+        type: entityEventName(entityName, "updated"),
+        eventVersion,
+        payload: {
+          changes: flatChanges,
+          previous: encryptedPrevious,
+        },
+        metadata: buildEventMetadata(user),
+      }),
+    );
+  }
+
+  async function persistUpdate(input: {
+    readonly db: TenantDb;
+    readonly runner: WriteRunner;
+    readonly user: SessionUser;
+    readonly id: EntityId;
+    readonly previous: DbRow;
+    readonly changes: DbRow;
+    readonly mergedNew: Record<string, unknown>;
+    readonly streamTenantId: TenantId | undefined;
+    readonly streamTenant: TenantId;
+    readonly currentVersion: number;
+    readonly options: UpdateOptions;
+  }): Promise<
+    { readonly data: DbRow; readonly echoEvent: AppendedEvent } | { readonly failure: WriteFailure }
+  > {
+    const { db, runner, user, id, previous, changes, mergedNew, streamTenantId } = input;
+    const { flatChangesPlain, flatChanges, encryptedPrevious } = await encryptUpdatePayload(
+      user,
+      streamTenantId,
+      previous,
+      changes,
+      mergedNew,
+      input.options,
+    );
+    const event = await appendUpdatedEvent(
+      runner,
+      user,
+      id,
+      input.streamTenant,
+      input.currentVersion,
+      flatChanges,
+      encryptedPrevious,
+    );
+
+    // Live and rebuild use applyEntityEvent with the same StoredEvent —
+    // apply reads only `changes`, which contain identical ciphertext in live writes
+    // and replays.
+    //
+    // An update that violates a unique index (for example, an email update to an
+    // already-existing value) is reported as 409 unique_violation instead of 500
+    // internal_error.
+    // Savepoint like the create path: a raw DB error from the projection UPDATE would
+    // otherwise poison the enclosing transaction, so a sibling write after a failed
+    // nested one would throw 500 instead of failing cleanly.
+    const projected = await applyProjection(runner, event, "projection update returned no row");
+    if ("failure" in projected) return projected;
+    const data = await readProjectedRow(projected.row);
+    await evictCachedEntity(user, streamTenantId, id);
+
+    const echoEvent = {
+      ...event,
+      payload: {
+        changes: stripSensitive(flatChangesPlain),
+        previous: stripSensitive(previous),
+      },
+    };
+    await projectEntityEvent(db, runner, echoEvent);
+    return { data, echoEvent };
+  }
+
+  function assertTenantAllowedOnGlobalEntity(
+    verb: "create" | "update",
+    payloadField: string,
+    tenantId: unknown,
+  ): void {
+    if (isForeignTenantOnGlobalEntity(entity, tenantId)) {
+      throw new AccessDeniedError({
+        message: `${entityName}.${verb}: entity is tenancy: "global" — ${payloadField} must be SYSTEM_TENANT_ID or omitted.`,
+      });
+    }
+  }
 
   return {
     async create(payload, user, db, options) {
-      if (isForeignTenantOnGlobalEntity(entity, payload["tenantId"])) {
-        throw new AccessDeniedError({
-          message:
-            `${entityName}.create: entity is tenancy: "global" — payload.tenantId must be ` +
-            "SYSTEM_TENANT_ID or omitted.",
-        });
-      }
+      assertTenantAllowedOnGlobalEntity("create", "payload.tenantId", payload["tenantId"]);
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantCreateFailure(db, payload, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
@@ -366,58 +686,9 @@ export function createWriteVerbs(
       if ("failure" in preSaveResult) return preSaveResult.failure;
       const data = preSaveResult.data;
 
-      // After preSave so derived fields count, before the event append so nothing persists.
-      assertPersonalDataWrite(db, tableNameOf(table), Object.keys(data), entity);
-      assertInstructionFieldWriteAllowed(
-        entityName,
-        "create",
-        Object.keys(data),
-        entityInstructionFieldNames,
-      );
-
-      // H.2 — entity-level write-ownership on create. No oldRow exists, so
-      // only the new row is checked. No Straddle concern for creates.
-      if (
-        !userCanCreateFieldRow(ownershipSubject(user, streamTenantId), entity.access?.write, data)
-      ) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: { scope: "entity", entityName, action: "create", userId: user.id },
-          }),
-        );
-      }
-
-      // Field-level write-ownership on create — mirror of entity-level but
-      // per declared field. Role-level was already checked by the
-      // dispatcher; here we enforce ownership-rules against the new row.
-      //
-      // Which fields get checked is scoped to the pre-hook payload
-      // — a hook-derived field the user never submitted must not be
-      // field-ownership-checked against the user. The rule for a checked
-      // field is still evaluated against the full post-hook row (`data`) —
-      // an ownership rule can reference a column only a hook populates.
-      const fieldDeniedCreate = checkWriteFieldOwnership(
-        entity,
-        applyDefaults(payloadWithoutId),
-        ownershipSubject(user, streamTenantId),
-        undefined,
-        data,
-      );
-      if (fieldDeniedCreate) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: {
-              scope: "field",
-              entityName,
-              action: "create",
-              field: fieldDeniedCreate,
-              userId: user.id,
-            },
-          }),
-        );
-      }
+      assertFieldWritesAllowed(db, "create", data);
+      const ownershipDenied = createOwnershipFailure(user, streamTenantId, payloadWithoutId, data);
+      if (ownershipDenied) return ownershipDenied;
 
       const unavailableOnCreate = selectOptionNotAvailableFailure(
         findUnavailableSelectOptions(entity.fields, data),
@@ -435,97 +706,20 @@ export function createWriteVerbs(
         keyTenantId: streamTenantId,
       });
 
-      // 1. Append the event in the same transaction as the projection write — both must
-      //    succeed or both roll back; the dispatcher wraps them in one transaction.
-      //    flatData is already table ciphertext for pii/encrypted fields, so the immutable
-      //    log never sees plaintext and replay reproduces the row byte-for-byte.
-      //
-      //    `expectedVersion: 0` means the stream does not yet exist. With deterministic
-      //    aggregate-ID patterns (for example, uuidv5(tenantId|naturalKey)), a create can
-      //    legitimately collide — the same ID has an existing stream — so return
-      //    version_conflict instead of internal_error. Update uses the same catch.
-      let event: Awaited<ReturnType<typeof append>>;
-      try {
-        // Savepoint-scoped: postgres.js poisons the WHOLE surrounding
-        // begin() once any statement inside it errors, even if the JS error
-        // is caught — a losing concurrent create's unique-violation
-        // would otherwise abort the caller's outer transaction and surface as
-        // internal_error at commit time instead of the version_conflict this
-        // catch classifies. runInSavepointIfSupported confines the failed
-        // INSERT to a nested scope that rolls back on its own (same pattern as
-        // ctx.tryAppendEvent), and falls back to a plain call when the runner
-        // is a bare pool connection with no active transaction to poison
-        // (seeds/tests calling the executor directly).
-        event = await runInSavepointIfSupported(runner, async (sp) =>
-          append(sp, {
-            aggregateId,
-            aggregateType: entityName,
-            tenantId: streamTenantFor(user, streamTenantId),
-            expectedVersion: 0,
-            type: entityEventName(entityName, "created"),
-            eventVersion,
-            payload: flatData,
-            metadata: buildEventMetadata(user),
-          }),
-        );
-      } catch (e) {
-        if (e instanceof EventStoreVersionConflict) {
-          const currentVersion = await versionAfterConflict(
-            runner,
-            aggregateId,
-            streamTenantFor(user, streamTenantId),
-          );
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: aggregateId,
-              expectedVersion: 0,
-              currentVersion,
-            }),
-          );
-        }
-        if (e instanceof EventStoreIdempotentAppendConflict) {
-          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
-        }
-        throw e;
-      }
-
-      // 2. Update the projection through applyEntityEvent — the same code path used by
-      //    rebuildProjection for replay, with the same StoredEvent, so live and rebuild
-      //    produce the same result by construction.
-      //
-      //    Application-level unique violations (for example, (tenantId, email) on a User
-      //    entity or (tenantId, slug) on an Article) produce pg-23505 from the projection
-      //    INSERT. Without this catch, the error propagates as an unhandled exception and
-      //    becomes a 500 internal_error. Map it to UniqueViolationError 409 so the
-      //    designer/frontend can show a clear "duplicate" message instead of a cryptic
-      //    "internal server error".
-      // Savepoint like the append above: an unclassified DB error from the projection
-      // INSERT would otherwise poison the enclosing transaction (postgres-js rejects the
-      // whole begin() once any statement in it fails). The savepoint rolls back the failed
-      // INSERT while allowing the error to propagate and remain catchable.
-      let result: Awaited<ReturnType<typeof applyEntityEvent>>;
-      try {
-        result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>
-          applyEntityEvent(event, table, entity, sp),
-        );
-      } catch (e) {
-        const mapped = tryMapUniqueViolation(e, entityName);
-        if (mapped) return mapped;
-        throw e;
-      }
-      if (result.kind !== "applied" || result.row === null) {
-        return writeFailure(new InternalError({ message: "projection insert returned no row" }));
-      }
-      const row = result.row;
-      // Read-side conversion: DB form → combined API form for all
-      // compound types in one pass.
-      const projection = await decryptForRead(
-        rehydrateCompoundTypes(row as DbRow, entity) as DbRow,
+      const appended = await appendCreatedEvent(
+        runner,
+        user,
+        streamTenantId,
+        aggregateId,
+        flatData,
       );
+      if ("failure" in appended) return appended.failure;
+      const event = appended.event;
 
-      if (entityCache && entityName) {
-        await entityCache.del(streamTenantId ?? user.tenantId, entityName, aggregateId);
-      }
+      const projected = await applyProjection(runner, event, "projection insert returned no row");
+      if ("failure" in projected) return projected.failure;
+      const projection = await readProjectedRow(projected.row);
+      await evictCachedEntity(user, streamTenantId, aggregateId);
 
       // The echoed event is the one projections see (and the dispatcher later
       // skips), so build it before projecting.
@@ -551,13 +745,11 @@ export function createWriteVerbs(
 
     async update(payload, user, db, updateOptions) {
       const runner = tenantDbWriteRunner(db, "ctx.db executor update");
-      if (isForeignTenantOnGlobalEntity(entity, payload.changes["tenantId"])) {
-        throw new AccessDeniedError({
-          message:
-            `${entityName}.update: entity is tenancy: "global" — payload.changes.tenantId must ` +
-            "be SYSTEM_TENANT_ID or omitted.",
-        });
-      }
+      assertTenantAllowedOnGlobalEntity(
+        "update",
+        "payload.changes.tenantId",
+        payload.changes["tenantId"],
+      );
       const previous = await loadById(payload.id, db, {
         includeDeleted: updateOptions?.includeDeleted === true,
       });
@@ -565,7 +757,6 @@ export function createWriteVerbs(
       const streamTenantId = updateOptions?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
-
       const preSaveResult = await runPreSave(
         updateOptions?.preSave,
         payload.changes,
@@ -578,237 +769,59 @@ export function createWriteVerbs(
       if ("failure" in preSaveResult) return preSaveResult.failure;
       const changes = preSaveResult.data;
 
-      // After preSave so derived fields count, before the event append so nothing persists.
-      assertPersonalDataWrite(db, tableNameOf(table), Object.keys(changes), entity);
-      assertInstructionFieldWriteAllowed(
-        entityName,
-        "update",
-        Object.keys(changes),
-        entityInstructionFieldNames,
-      );
+      assertFieldWritesAllowed(db, "update", changes);
 
-      // H.2 — entity-level write-ownership on update. Load old row (already
-      // done above), build post-change row via shallow merge. Straddle-safe
-      // multi-role check: at least one role must accept BOTH old and new —
-      // prevents the attack where role A passes old, role B passes new and
-      // aggregation would wrongly allow a row-grab.
       const mergedNew: Record<string, unknown> = { ...previous, ...changes };
-      if (
-        !userCanWriteFieldRow(
-          ownershipSubject(user, streamTenantId),
-          entity.access?.write,
+      const guardFailure =
+        updateOwnershipFailure(
+          user,
+          streamTenantId,
+          payload.id,
+          payload.changes,
           previous,
+          changes,
           mergedNew,
-        )
-      ) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: {
-              scope: "entity",
-              entityName,
-              action: "update",
-              userId: user.id,
-              entityId: payload.id,
-            },
-          }),
-        );
-      }
-      // Field-level write-ownership on update — this is the path the
-      // dispatcher could not evaluate (no oldRow). Now that we have
-      // `previous`, we can run the ownership rules per field against both
-      // sides and reject individual fields the user isn't entitled to
-      // touch on this specific row.
-      //
-      // Which fields get checked is scoped to `payload.changes` (the user's
-      // actual submission), NOT `changes` (post-preSave-hook data)
-      // — a hook-derived field the user never submitted (e.g. a system hook
-      // setting `assignedTo`) has no business being field-ownership-checked
-      // against the *user*, and doing so rejects writes the user is fully
-      // entitled to make. The dispatcher's role-gate (checkWriteFieldAccess)
-      // already runs on this same pre-hook payload for consistency. The rule
-      // for a checked field is still evaluated against the full post-hook
-      // row (`changes` merged onto `previous`) — an ownership rule can
-      // reference a column only a hook populates.
-      const fieldDeniedUpdate = checkWriteFieldOwnership(
-        entity,
-        payload.changes,
-        ownershipSubject(user, streamTenantId),
-        previous,
-        changes,
-      );
-      if (fieldDeniedUpdate) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: {
-              scope: "field",
-              entityName,
-              action: "update",
-              field: fieldDeniedUpdate,
-              userId: user.id,
-              entityId: payload.id,
-            },
-          }),
-        );
-      }
-
-      const lockedUpdate = recordLockedFailure(previous, payload.id, user, updateOptions);
-      if (lockedUpdate) return lockedUpdate;
-
-      // Statutory retention/erasure writes may change a condition field (e.g. null a PII
-      // reference) and must not be blocked by the select rule — same exemption as the lock.
-      const isStatutorySystemWrite =
-        updateOptions?.writePurpose !== undefined && isFrameworkSystemUser(user);
-      const unavailableOnUpdate = isStatutorySystemWrite
-        ? undefined
-        : selectOptionNotAvailableFailure(
-            findUnavailableSelectOptions(entity.fields, mergedNew, previous),
-          );
-      if (unavailableOnUpdate) return unavailableOnUpdate;
+        ) ??
+        recordLockedFailure(previous, payload.id, user, updateOptions) ??
+        updateSelectOptionFailure(user, mergedNew, previous, updateOptions);
+      if (guardFailure) return guardFailure;
 
       const streamTenant = streamTenantFor(user, streamTenantId);
       await assertStreamWritable(db, payload.id, streamTenant);
 
-      // Stream-version is authoritative, not row.version. `ctx.appendEvent`
-      // can bump the stream between CRUD writes (domain event on the same
-      // aggregate); a stale row.version here would make the next CRUD write
-      // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
-      // with version_conflict.
-      //
-      // With `expect:` the version comes from loadExpectSnapshot's combined
-      // query instead; see its comment for why.
-      const expect = updateOptions?.expect;
-      const currentVersion = expect
-        ? await expectedStreamVersion(db, payload.id, streamTenant, expect)
-        : await getStreamVersion(runner, String(payload.id), streamTenant);
+      const currentVersion = await currentStreamVersion(
+        db,
+        runner,
+        payload.id,
+        streamTenant,
+        updateOptions?.expect,
+      );
       if (typeof currentVersion !== "number") return currentVersion;
 
-      if (!updateOptions?.skipOptimisticLock) {
-        if (payload.version === undefined) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: 0,
-              currentVersion,
-            }),
-          );
-        }
-        if (currentVersion !== payload.version) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: payload.version,
-              currentVersion,
-            }),
-          );
-        }
-      }
+      const versionConflict = optimisticLockFailure(
+        payload.id,
+        payload.version,
+        currentVersion,
+        updateOptions?.skipOptimisticLock,
+      );
+      if (versionConflict) return versionConflict;
 
       try {
-        // Compound-type conversion in one pass.
-        // subjectSource: partial changes may carry a pii field without its
-        // ownerField — the merged row still identifies the subject.
-        // skipUnchanged is opt-in: an identical resubmitted key is dropped before
-        // encryption so pii/encrypted fields receive no fresh ciphertext when nothing
-        // actually changed.
-        // Direct callers (KEK rotation, backfill) rely on the default to force re-encryption.
-        const submittedChanges = updateOptions?.skipUnchanged
-          ? Object.fromEntries(
-              Object.entries(changes).filter(
-                ([key, value]) => !isUnchangedValue(value, previous[key]),
-              ),
-            )
-          : changes;
-        // Crypto-shredding follows the current owner, so personal
-        // fields not in this update are re-written under the new owner's key.
-        // Owner -> absent is not re-keyed; the value stays under the old owner.
-        const changesToPersist = {
-          ...submittedChanges,
-          ...ownerTransitionRekeys(previous, mergedNew, submittedChanges),
-        };
-        const flatChangesPlain = flattenCompoundTypes(changesToPersist, entity);
-        const flatChanges = await encryptForStorage(flatChangesPlain, user, {
-          onlyKeys: Object.keys(changesToPersist),
-          subjectSource: mergedNew,
-          keyTenantId: streamTenantId,
-          ...erasureSentinelOption(updateOptions),
+        const persisted = await persistUpdate({
+          db,
+          runner,
+          user,
+          id: payload.id,
+          previous,
+          changes,
+          mergedNew,
+          streamTenantId,
+          streamTenant,
+          currentVersion,
+          options: updateOptions,
         });
-
-        // The event payload carries BOTH `changes` (what the user asked for) AND
-        // `previous` (the pre-update row). Cross-aggregate projections need the
-        // previous value to decrement/undo when a parent-FK moves — without it
-        // you'd have to snapshot-and-diff on every apply, and replays would
-        // break. Storage cost is acceptable (rows are bounded), correctness is
-        // not negotiable. `previous` came from loadById(), which decrypts —
-        // re-encrypt it before it's persisted so plaintext of pii/encrypted
-        // fields doesn't land in the immutable log (flatChanges is already
-        // ciphertext from encryptForStorage above).
-        // Owner chain for the ownerless-then-assigned row: previous owner, then
-        // the owner this event sets, then whenAbsent.
-        const encryptedPrevious = await encryptForStorage(previous, user, {
-          keyTenantId: streamTenantId,
-          ownerFallback: submittedChanges,
-          ...erasureSentinelOption(updateOptions),
-        });
-        // Savepoint-scoped — see the create() append() above for why:
-        // confines a losing writer's unique-violation to a nested scope
-        // instead of poisoning the whole outer transaction.
-        const event = await runInSavepointIfSupported(runner, (sp) =>
-          append(sp, {
-            aggregateId: String(payload.id),
-            aggregateType: entityName,
-            tenantId: streamTenant,
-            expectedVersion: currentVersion,
-            type: entityEventName(entityName, "updated"),
-            eventVersion,
-            payload: {
-              changes: flatChanges,
-              previous: encryptedPrevious,
-            },
-            metadata: buildEventMetadata(user),
-          }),
-        );
-
-        // Live and rebuild use applyEntityEvent with the same StoredEvent —
-        // apply reads only `changes`, which contain identical ciphertext in live writes
-        // and replays.
-        //
-        // An update that violates a unique index (for example, an email update to an
-        // already-existing value) is reported as 409 unique_violation instead of 500
-        // internal_error.
-        // Savepoint like the create path: a raw DB error from the projection UPDATE would
-        // otherwise poison the enclosing transaction, so a sibling write after a failed
-        // nested one would throw 500 instead of failing cleanly.
-        let result: Awaited<ReturnType<typeof applyEntityEvent>>;
-        try {
-          result = await runInSavepointIfSupported(withExecutorManagedWrites(runner), async (sp) =>
-            applyEntityEvent(event, table, entity, sp),
-          );
-        } catch (e) {
-          const mapped = tryMapUniqueViolation(e, entityName);
-          if (mapped) return mapped;
-          throw e;
-        }
-        if (result.kind !== "applied" || result.row === null) {
-          return writeFailure(new InternalError({ message: "projection update returned no row" }));
-        }
-        const row = result.row;
-        const data = await decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
-
-        if (entityCache && entityName) {
-          await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
-        }
-
-        const echoEvent = {
-          ...event,
-          payload: {
-            changes: stripSensitive(flatChangesPlain),
-            previous: stripSensitive(previous),
-          },
-        };
-        await projectEntityEvent(db, runner, echoEvent);
-
+        if ("failure" in persisted) return persisted.failure;
+        const { data, echoEvent } = persisted;
         return {
           isSuccess: true,
           data: withoutEventInJson({
@@ -827,19 +840,11 @@ export function createWriteVerbs(
         // branch catches the narrow race where two writers both read version=N
         // and both pass the local check — the unique index on (aggregate_id,
         // version) serializes them, one wins, the other lands here.
-        if (e instanceof EventStoreVersionConflict) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: payload.version ?? 0,
-              currentVersion: await versionAfterConflict(runner, String(payload.id), streamTenant),
-            }),
-          );
-        }
-        if (e instanceof EventStoreIdempotentAppendConflict) {
-          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
-        }
-        throw e;
+        return await appendConflictFailure(e, runner, {
+          entityId: payload.id,
+          expectedVersion: payload.version ?? 0,
+          streamTenant,
+        });
       }
     },
 
@@ -866,18 +871,13 @@ export function createWriteVerbs(
           existing,
         )
       ) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: {
-              scope: "entity",
-              entityName,
-              action: "delete",
-              userId: user.id,
-              entityId: payload.id,
-            },
-          }),
-        );
+        return ownershipDeniedFailure({
+          scope: "entity",
+          entityName,
+          action: "delete",
+          userId: user.id,
+          entityId: payload.id,
+        });
       }
 
       const lockedDelete = recordLockedFailure(existing, payload.id, user, options);
@@ -898,7 +898,7 @@ export function createWriteVerbs(
       // to rebuild from the event log alone. `existing` came from loadById(),
       // which decrypts — re-encrypt before persisting so plaintext doesn't
       // land in the immutable log.
-      let event: Awaited<ReturnType<typeof append>>;
+      let event: AppendedEvent;
       try {
         event = await runInSavepointIfSupported(runner, async (sp) =>
           append(sp, {
@@ -918,23 +918,11 @@ export function createWriteVerbs(
           }),
         );
       } catch (e) {
-        if (e instanceof EventStoreVersionConflict) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: currentVersion,
-              currentVersion: await versionAfterConflict(
-                runner,
-                String(payload.id),
-                streamTenantFor(user, streamTenantId),
-              ),
-            }),
-          );
-        }
-        if (e instanceof EventStoreIdempotentAppendConflict) {
-          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
-        }
-        throw e;
+        return await appendConflictFailure(e, runner, {
+          entityId: payload.id,
+          expectedVersion: currentVersion,
+          streamTenant: streamTenantFor(user, streamTenantId),
+        });
       }
 
       // Live==Rebuild via applyEntityEvent. Savepoint like create/update.
@@ -948,9 +936,7 @@ export function createWriteVerbs(
         );
       }
 
-      if (entityCache && entityName) {
-        await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
-      }
+      await evictCachedEntity(user, streamTenantId, payload.id);
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
       await projectEntityEvent(db, runner, echoEvent);
@@ -980,7 +966,7 @@ export function createWriteVerbs(
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, raw, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
-      const existing = await decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
+      const existing = await readProjectedRow(raw);
 
       if (
         !isFrameworkSystemUser(user) &&
@@ -991,18 +977,13 @@ export function createWriteVerbs(
           existing,
         )
       ) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: {
-              scope: "entity",
-              entityName,
-              action: "delete",
-              userId: user.id,
-              entityId: payload.id,
-            },
-          }),
-        );
+        return ownershipDeniedFailure({
+          scope: "entity",
+          entityName,
+          action: "delete",
+          userId: user.id,
+          entityId: payload.id,
+        });
       }
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
@@ -1012,7 +993,7 @@ export function createWriteVerbs(
         streamTenantFor(user, streamTenantId),
       );
 
-      let event: Awaited<ReturnType<typeof append>>;
+      let event: AppendedEvent;
       try {
         event = await runInSavepointIfSupported(runner, async (sp) =>
           append(sp, {
@@ -1034,23 +1015,11 @@ export function createWriteVerbs(
           }),
         );
       } catch (e) {
-        if (e instanceof EventStoreVersionConflict) {
-          return writeFailure(
-            new FrameworkVersionConflict({
-              entityId: payload.id,
-              expectedVersion: currentVersion,
-              currentVersion: await versionAfterConflict(
-                runner,
-                String(payload.id),
-                streamTenantFor(user, streamTenantId),
-              ),
-            }),
-          );
-        }
-        if (e instanceof EventStoreIdempotentAppendConflict) {
-          return writeFailure(new IdempotentReplayError({ idempotencyKey: e.idempotencyKey }));
-        }
-        throw e;
+        return await appendConflictFailure(e, runner, {
+          entityId: payload.id,
+          expectedVersion: currentVersion,
+          streamTenant: streamTenantFor(user, streamTenantId),
+        });
       }
 
       const forgetResult = await runInSavepointIfSupported(
@@ -1063,9 +1032,7 @@ export function createWriteVerbs(
         );
       }
 
-      if (entityCache && entityName) {
-        await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
-      }
+      await evictCachedEntity(user, streamTenantId, payload.id);
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
       await projectEntityEvent(db, runner, echoEvent);
@@ -1108,18 +1075,13 @@ export function createWriteVerbs(
           data,
         )
       ) {
-        return writeFailure(
-          new UnprocessableError("ownership_denied", {
-            i18nKey: "errors.ownershipDenied",
-            details: {
-              scope: "entity",
-              entityName,
-              action: "restore",
-              userId: user.id,
-              entityId: payload.id,
-            },
-          }),
-        );
+        return ownershipDeniedFailure({
+          scope: "entity",
+          entityName,
+          action: "restore",
+          userId: user.id,
+          entityId: payload.id,
+        });
       }
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
@@ -1152,34 +1114,17 @@ export function createWriteVerbs(
       // plus the version bump, so there is no sensitive-field drift and no
       // payload override is needed.
       // Soft-delete unique indexes are partial (WHERE is_deleted = false), so a live row may have re-taken the value this restore brings back.
-      let restoreResult: Awaited<ReturnType<typeof applyEntityEvent>>;
-      try {
-        restoreResult = await runInSavepointIfSupported(
-          withExecutorManagedWrites(runner),
-          async (sp) => applyEntityEvent(event, table, entity, sp),
-        );
-      } catch (e) {
-        const mapped = tryMapUniqueViolation(e, entityName);
-        if (mapped) return mapped;
-        throw e;
-      }
-      if (restoreResult.kind !== "applied" || restoreResult.row === null) {
-        return writeFailure(new InternalError({ message: "projection restore returned no row" }));
-      }
-      const restored = restoreResult.row;
+      const projected = await applyProjection(runner, event, "projection restore returned no row");
+      if ("failure" in projected) return projected.failure;
 
-      if (entityCache && entityName) {
-        await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
-      }
+      await evictCachedEntity(user, streamTenantId, payload.id);
 
       // Read-side auto-convert for compound types, same as update/list.
       // decryptForRead matches create/update/list/detail: the caller-facing
       // row and `previous` snapshot must be plaintext for `encrypted` fields,
       // same as every other executor method — `data`/`restored` are raw rows
       // (db.fetchOne / applyEntityEvent), never decrypted before this point.
-      const restoredHydrated = await decryptForRead(
-        rehydrateCompoundTypes(restored as DbRow, entity) as DbRow,
-      );
+      const restoredHydrated = await readProjectedRow(projected.row);
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(previousPlain) } };
       await projectEntityEvent(db, runner, echoEvent);
