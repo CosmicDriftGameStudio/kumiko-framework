@@ -17,6 +17,13 @@ export {
 } from "./document-toolbar-blocks.ts";
 export { MAIL_TONES, type MailTone } from "./mail-constants.ts";
 export {
+  HEX_COLOR_PATTERN,
+  MAIL_LAYOUT_ACCENT_LINES,
+  MAIL_LAYOUT_BUTTON_STYLES,
+  MAIL_LAYOUT_FONTS,
+  MAIL_LAYOUT_WIDTHS,
+} from "./mail-layout-constants.ts";
+export {
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,

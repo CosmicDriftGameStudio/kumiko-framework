@@ -396,6 +396,28 @@ describe("legacy waitlist migration", () => {
     expect(await rowsOf(stack)).toHaveLength(0);
   });
 
+  test("dry run counts the legacy stream it would archive and archives nothing", async () => {
+    const legacyStream = await waitlistExecutor.create(
+      {
+        id: offlotId,
+        name: "Dealer Dan",
+        email: "dan@dealer.example",
+        locale: "es",
+        status: WAITLIST_STATUS.Invited,
+        submittedAt: Temporal.Instant.from("2026-08-01T10:00:00Z"),
+      },
+      platformActor(),
+      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
+    );
+    expect(legacyStream.isSuccess).toBe(true);
+
+    const dry = await migrateLegacyWaitlist(stack.db, { ...offlotOptions, dryRun: true });
+    expect(dry).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 1 });
+
+    const real = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(real).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 1 });
+  });
+
   test("offlot rows land in the FW entity; the second run writes nothing", async () => {
     const first = await migrateLegacyWaitlist(stack.db, offlotOptions);
     expect(first).toEqual({ read: 1, created: 1, skipped: 0, unreadable: 0, archivedStreams: 0 });

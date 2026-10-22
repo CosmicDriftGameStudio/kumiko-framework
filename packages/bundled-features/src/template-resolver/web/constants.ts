@@ -73,6 +73,7 @@ export const TEMPLATE_STATUSES = ["draft", "active", "archived"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
 export const ACTIVE_TEMPLATE_STATUS = "active" satisfies TemplateStatus;
 
+export { HEX_COLOR_PATTERN } from "./mail-layout-constants.ts";
 export {
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
@@ -82,9 +83,6 @@ export {
   type PdfOrientation,
   type PdfPageFormat,
 } from "./pdf-constants.ts";
-
-// Colors end up inside MJML attributes, so only a strict hex is ever written there.
-export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 export const DEFAULT_MAIL_LAYOUT_SLUG = "default";
 export const DEFAULT_PDF_LAYOUT_SLUG = "default";

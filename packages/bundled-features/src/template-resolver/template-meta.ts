@@ -6,6 +6,12 @@ import {
   type TemplateKind,
 } from "./web/constants.ts";
 import { MAIL_TONES, type MailTone } from "./web/mail-constants.ts";
+import {
+  MAIL_LAYOUT_ACCENT_LINES,
+  MAIL_LAYOUT_BUTTON_STYLES,
+  MAIL_LAYOUT_FONTS,
+  MAIL_LAYOUT_WIDTHS,
+} from "./web/mail-layout-constants.ts";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.
@@ -89,13 +95,15 @@ const pdfMetaSchema = z
   })
   .strict();
 
-const MAIL_LAYOUT_FONTS = ["sans", "serif"] as const;
-const MAIL_LAYOUT_ACCENT_LINES = ["branding", "none"] as const;
-const MAIL_LAYOUT_BUTTON_STYLES = ["filled-rounded", "filled-square", "outline"] as const;
+const MAIL_LAYOUT_WIDTH_LITERALS = [
+  z.literal(MAIL_LAYOUT_WIDTHS[0]),
+  z.literal(MAIL_LAYOUT_WIDTHS[1]),
+  z.literal(MAIL_LAYOUT_WIDTHS[2]),
+] as const;
 
 const mailLayoutMetaSchema = z
   .object({
-    width: z.union([z.literal(560), z.literal(600), z.literal(640)]).optional(),
+    width: z.union(MAIL_LAYOUT_WIDTH_LITERALS).optional(),
     font: z.enum(MAIL_LAYOUT_FONTS).optional(),
     outerBackground: z.string().regex(HEX_COLOR_PATTERN, "must be a #rrggbb color").optional(),
     accentLine: z.enum(MAIL_LAYOUT_ACCENT_LINES).optional(),

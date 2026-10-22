@@ -1,3 +1,4 @@
+import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   i18nKey,
   type ListColumnSpec,
@@ -106,12 +107,10 @@ const EDITABLE_KINDS: readonly TemplateEditorKind[] = [
   "pdf-layout",
 ];
 
-const RESET_TO_SYSTEM_HANDLER = "template-resolver:write:reset-to-system";
-
 const RESET_LOCKED_OVERRIDE_ACTION: RowAction = {
   id: "reset-locked-override",
   label: i18nKey("documentDesigner.action.resetLockedOverride"),
-  handler: RESET_TO_SYSTEM_HANDLER,
+  handler: TemplateResolverHandlers.resetToSystem,
   payload: { map: { id: "lockedOverrideId" } },
   confirm: i18nKey("documentDesigner.action.resetLockedOverride.confirm"),
   confirmLabel: i18nKey("documentDesigner.action.resetLockedOverride.confirmLabel"),

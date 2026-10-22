@@ -9,6 +9,7 @@ import {
   createTenantDb,
   selectMany,
   table,
+  tableExists,
   text as textColumn,
   timestamp,
   transaction,
@@ -30,6 +31,8 @@ import {
   waitlistImportId,
 } from "./import.ts";
 import { WAITLIST_STATUS, type WaitlistStatus } from "./web/constants.ts";
+
+const ARCHIVED_STREAMS_TABLE = "public.kumiko_archived_streams";
 
 export const LEGACY_WAITLIST_SOURCES = ["offlot", "publicstatus"] as const;
 export type LegacyWaitlistSource = (typeof LEGACY_WAITLIST_SOURCES)[number];
@@ -215,15 +218,19 @@ async function archiveLegacyStream(
   db: DbConnection,
   legacyId: string,
   importedId: string,
+  dryRun: boolean,
 ): Promise<number> {
   if (legacyId === importedId) return 0;
-  if (await isStreamArchived(db, SYSTEM_TENANT_ID, legacyId)) return 0;
+  // A dry run never creates the archive table, so a missing one means nothing is archived yet.
+  const archiveTableReady = !dryRun || (await tableExists(db, ARCHIVED_STREAMS_TABLE));
+  if (archiveTableReady && (await isStreamArchived(db, SYSTEM_TENANT_ID, legacyId))) return 0;
   const legacyEvents = await countWhere(db, eventsTable, {
     tenantId: SYSTEM_TENANT_ID,
     aggregateId: legacyId,
     aggregateType: LEGACY_AGGREGATE_TYPE,
   });
   if (legacyEvents === 0) return 0;
+  if (dryRun) return 1;
   await archiveStream(db, {
     tenantId: SYSTEM_TENANT_ID,
     aggregateId: legacyId,
@@ -268,11 +275,12 @@ export async function migrateLegacyWaitlist(
       if (outcome === "created") created += 1;
       else skipped += 1;
     });
-    if (!options.dryRun && options.from === "offlot") {
+    if (options.from === "offlot") {
       archivedStreams += await archiveLegacyStream(
         db,
         String(row["id"]),
         waitlistImportId(entry.sourceKey),
+        options.dryRun,
       );
     }
   }

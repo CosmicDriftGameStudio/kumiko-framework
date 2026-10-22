@@ -29,6 +29,7 @@ type Call = { readonly type: string; readonly payload: unknown };
 
 type FakeOptions = {
   readonly missingRequired?: readonly string[];
+  readonly singleOverride?: boolean;
   readonly puppeteer: "available" | "unavailable" | "unknown-query";
 };
 
@@ -109,7 +110,7 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
           isSuccess: true,
           data: {
             activeOverrides: 1,
-            draftOverrides: 1,
+            draftOverrides: options.singleOverride === true ? 0 : 1,
             totalTenants: 12,
             diff: null,
             rows: [
@@ -133,7 +134,7 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
                 changedAt: "2026-10-13T09:00:00.000Z",
                 changedBy: null,
               },
-            ],
+            ].slice(0, options.singleOverride === true ? 1 : 2),
           },
         };
       case TemplateResolverQueries.usage:
@@ -303,5 +304,17 @@ describe("PdfTemplateEditor", () => {
     expect(text).toContain("Hansa Wohnbau eG");
     expect(text).toContain("2 tenants have their own version");
     expect(text).toContain("No registered notification uses this template directly.");
+  });
+
+  test("a single customising tenant reads in the singular in the origin bar and the drawer", async () => {
+    renderEditor({ puppeteer: "available", singleOverride: true }, undefined, ["SystemAdmin"]);
+    await ready();
+
+    expect(
+      await screen.findByText(/1 of 12 tenants has its own version and does not receive/),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByText("Show tenant customisations"));
+    const drawer = await screen.findByTestId("document-designer-overrides-drawer");
+    await waitFor(() => expect(drawer.textContent).toContain("1 tenant has its own version"));
   });
 });

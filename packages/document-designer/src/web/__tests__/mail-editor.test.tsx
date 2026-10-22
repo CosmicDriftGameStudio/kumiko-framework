@@ -746,6 +746,45 @@ describe("MailEditor", () => {
       ).toMatchObject({ variables: pickedValues }),
     );
   });
+  test("a picked value for a variable the template does not declare is not sent along", async () => {
+    const calls: Call[] = [];
+    const previewCalls = (): Call[] =>
+      calls.filter((call) => call.type === "template-resolver:query:preview");
+    renderEditor(fakeDispatcher("draft", calls), (children) => (
+      <PreviewRecordPickerProvider
+        value={{
+          label: "Pick invoice",
+          renderPicker: ({ onPick }) => (
+            <button
+              type="button"
+              data-testid="fake-pick"
+              onClick={() => onPick({ invoiceNumber: "RE-PICKED-2", removedVariable: "stale" })}
+            >
+              pick
+            </button>
+          ),
+        }}
+      >
+        {children}
+      </PreviewRecordPickerProvider>
+    ));
+    await openPreview();
+    fireEvent.click(await screen.findByTestId("mail-record-picker-open"));
+    fireEvent.click(await screen.findByTestId("fake-pick"));
+    await waitFor(() =>
+      expect(previewCalls().at(-1)?.payload).toEqual(
+        expect.objectContaining({ variables: { invoiceNumber: "RE-PICKED-2" } }),
+      ),
+    );
+
+    fireEvent.click(screen.getByTestId("mail-test-send"));
+    await waitFor(() =>
+      expect(
+        calls.find((call) => call.type === "template-resolver:write:send-test")?.payload,
+      ).toEqual(expect.objectContaining({ variables: { invoiceNumber: "RE-PICKED-2" } })),
+    );
+  });
+
   test("the test mail button stays off with a hint when the server has no address for the user", async () => {
     const noAddress = { canSend: false, reason: "no_address" };
     renderEditor(fakeDispatcher("draft", [], validation, preview, STORED_META, noAddress));

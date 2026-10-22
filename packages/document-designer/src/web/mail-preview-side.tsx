@@ -1,7 +1,10 @@
-import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
-import { useNav, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useNav,
+  usePrimitives,
+  useTenantCurrency,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { DOCUMENT_FALLBACK_CURRENCY } from "@cosmicdrift/kumiko-renderer/headless";
-import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useState } from "react";
 import { displayValue } from "./mail-draft.ts";
 import type { MailPreview, MailValidation, PickedValues, PreviewCheck } from "./mail-types.ts";
@@ -32,18 +35,14 @@ function checkText(t: Translate, check: PreviewCheck, validation: MailValidation
   return translated === check.i18nKey ? check.code : translated;
 }
 
-type TenantConfigValues = Readonly<Record<string, { readonly value: unknown } | undefined>>;
-
-// Same source and fallback as the renderer's readDocumentFormat, so a bare amount shows
-// the currency the rendered mail prints.
-function useTenantCurrency(): string | undefined {
-  const { data, error } = useQuery<TenantConfigValues>(ConfigQueries.values, {
-    keys: [TENANT_CURRENCY_CONFIG_KEY],
-  });
-  if (error) return undefined;
-  if (data === null) return undefined;
-  const value = data[TENANT_CURRENCY_CONFIG_KEY]?.value;
-  return typeof value === "string" && value !== "" ? value : DOCUMENT_FALLBACK_CURRENCY;
+// Same fallback as the renderer's readDocumentFormat, so a bare amount shows the currency the
+// rendered mail prints, also when the config query fails.
+function useSampleTenantCurrency(validation: MailValidation | null): string | undefined {
+  const hasMoneyVariable = Object.values(validation?.variables ?? {}).some(
+    (variable) => variable.type === "money",
+  );
+  const resolution = useTenantCurrency(hasMoneyVariable, DOCUMENT_FALLBACK_CURRENCY);
+  return resolution.status === "ready" ? resolution.currency : undefined;
 }
 
 function SampleValues({
@@ -58,7 +57,7 @@ function SampleValues({
   readonly locale: string;
 }): ReactNode {
   const t = useTranslation();
-  const tenantCurrency = useTenantCurrency();
+  const tenantCurrency = useSampleTenantCurrency(validation);
   const values = { ...(preview?.sampleValues ?? {}), ...(picked ?? {}) };
   const names = Object.keys(validation?.variables ?? values);
   return (

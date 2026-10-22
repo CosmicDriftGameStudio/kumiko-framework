@@ -19,10 +19,16 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.localeDialog.title": "Unsaved changes",
     "documentDesigner.notFound": 'Template "{slug}" was not found.',
     "documentDesigner.originBar.export": "Export as bundle",
-    "documentDesigner.originBar.noTotal":
-      "System template for all tenants. {count} tenants have their own version and do not receive changes made here.",
-    "documentDesigner.originBar.withTotal":
-      "System template for all tenants. {count} of {total} tenants have their own version and do not receive changes made here.",
+    "documentDesigner.originBar.noTotal": {
+      one: "System template for all tenants. {count} tenant has its own version and does not receive changes made here.",
+      other:
+        "System template for all tenants. {count} tenants have their own version and do not receive changes made here.",
+    },
+    "documentDesigner.originBar.withTotal": {
+      one: "System template for all tenants. {count} of {total} tenants has its own version and does not receive changes made here.",
+      other:
+        "System template for all tenants. {count} of {total} tenants have their own version and do not receive changes made here.",
+    },
     "documentDesigner.originBar.showOverrides": "Show tenant customisations",
     "documentDesigner.overrides.action.diff": "Show difference",
     "documentDesigner.overrides.action.open": "Open",
@@ -36,7 +42,10 @@ export const documentDesignerTranslations: TranslationsByLocale = {
       "No tenant has customised this template. Changes here apply to everyone.",
     "documentDesigner.overrides.status.active": "Customised",
     "documentDesigner.overrides.status.draft": "Draft",
-    "documentDesigner.overrides.summary": "{count} tenants have their own version.",
+    "documentDesigner.overrides.summary": {
+      one: "{count} tenant has its own version.",
+      other: "{count} tenants have their own version.",
+    },
     "documentDesigner.overrides.title": "Tenant customisations",
     "documentDesigner.overrides.usedBy": "Used by",
     "documentDesigner.overrides.usedByEmpty":
@@ -105,10 +114,16 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.localeDialog.title": "Ungespeicherte Änderungen",
     "documentDesigner.notFound": 'Die Vorlage "{slug}" wurde nicht gefunden.',
     "documentDesigner.originBar.export": "Als Bundle exportieren",
-    "documentDesigner.originBar.noTotal":
-      "System-Vorlage für alle Mandanten. {count} Mandanten haben eine eigene Fassung und bekommen Änderungen hier nicht.",
-    "documentDesigner.originBar.withTotal":
-      "System-Vorlage für alle Mandanten. {count} von {total} Mandanten haben eine eigene Fassung und bekommen Änderungen hier nicht.",
+    "documentDesigner.originBar.noTotal": {
+      one: "System-Vorlage für alle Mandanten. {count} Mandant hat eine eigene Fassung und bekommt Änderungen hier nicht.",
+      other:
+        "System-Vorlage für alle Mandanten. {count} Mandanten haben eine eigene Fassung und bekommen Änderungen hier nicht.",
+    },
+    "documentDesigner.originBar.withTotal": {
+      one: "System-Vorlage für alle Mandanten. {count} von {total} Mandanten hat eine eigene Fassung und bekommt Änderungen hier nicht.",
+      other:
+        "System-Vorlage für alle Mandanten. {count} von {total} Mandanten haben eine eigene Fassung und bekommen Änderungen hier nicht.",
+    },
     "documentDesigner.originBar.showOverrides": "Anpassungen der Mandanten anzeigen",
     "documentDesigner.overrides.action.diff": "Unterschied anzeigen",
     "documentDesigner.overrides.action.open": "Öffnen",
@@ -122,7 +137,10 @@ export const documentDesignerTranslations: TranslationsByLocale = {
       "Kein Mandant hat diese Vorlage angepasst. Änderungen hier gelten für alle.",
     "documentDesigner.overrides.status.active": "Angepasst",
     "documentDesigner.overrides.status.draft": "Entwurf",
-    "documentDesigner.overrides.summary": "{count} Mandanten haben eine eigene Fassung.",
+    "documentDesigner.overrides.summary": {
+      one: "{count} Mandant hat eine eigene Fassung.",
+      other: "{count} Mandanten haben eine eigene Fassung.",
+    },
     "documentDesigner.overrides.title": "Anpassungen der Mandanten",
     "documentDesigner.overrides.usedBy": "Wird verwendet von",
     "documentDesigner.overrides.usedByEmpty":
@@ -193,10 +211,16 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.localeDialog.title": "Cambios sin guardar",
     "documentDesigner.notFound": "No se encontró la plantilla «{slug}».",
     "documentDesigner.originBar.export": "Exportar como paquete",
-    "documentDesigner.originBar.noTotal":
-      "Plantilla del sistema para todas las organizaciones. {count} organizaciones tienen su propia versión y no reciben los cambios que hagas aquí.",
-    "documentDesigner.originBar.withTotal":
-      "Plantilla del sistema para todas las organizaciones. {count} de {total} organizaciones tienen su propia versión y no reciben los cambios que hagas aquí.",
+    "documentDesigner.originBar.noTotal": {
+      one: "Plantilla del sistema para todas las organizaciones. {count} organización tiene su propia versión y no recibe los cambios que hagas aquí.",
+      other:
+        "Plantilla del sistema para todas las organizaciones. {count} organizaciones tienen su propia versión y no reciben los cambios que hagas aquí.",
+    },
+    "documentDesigner.originBar.withTotal": {
+      one: "Plantilla del sistema para todas las organizaciones. {count} de {total} organizaciones tiene su propia versión y no recibe los cambios que hagas aquí.",
+      other:
+        "Plantilla del sistema para todas las organizaciones. {count} de {total} organizaciones tienen su propia versión y no reciben los cambios que hagas aquí.",
+    },
     "documentDesigner.originBar.showOverrides": "Ver personalizaciones de las organizaciones",
     "documentDesigner.overrides.action.diff": "Ver diferencias",
     "documentDesigner.overrides.action.open": "Abrir",
@@ -210,7 +234,10 @@ export const documentDesignerTranslations: TranslationsByLocale = {
       "Ninguna organización ha personalizado esta plantilla. Los cambios que hagas aquí se aplican a todas.",
     "documentDesigner.overrides.status.active": "Personalizada",
     "documentDesigner.overrides.status.draft": "Borrador",
-    "documentDesigner.overrides.summary": "{count} organizaciones tienen su propia versión.",
+    "documentDesigner.overrides.summary": {
+      one: "{count} organización tiene su propia versión.",
+      other: "{count} organizaciones tienen su propia versión.",
+    },
     "documentDesigner.overrides.title": "Personalizaciones de las organizaciones",
     "documentDesigner.overrides.usedBy": "Se usa en",
     "documentDesigner.overrides.usedByEmpty":

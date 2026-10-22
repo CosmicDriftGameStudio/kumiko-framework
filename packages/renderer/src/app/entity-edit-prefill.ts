@@ -83,7 +83,7 @@ type TenantConfigValuesResponse = Readonly<
   Record<string, { readonly value: string | number | boolean | undefined }>
 >;
 
-type TenantCurrencyResolution =
+export type TenantCurrencyResolution =
   | { readonly status: "not-needed" }
   | { readonly status: "loading" }
   | { readonly status: "unresolved" }
@@ -95,11 +95,11 @@ type TenantCurrencyResolution =
 // screen with no tenant-declared money field, or a query that errored or
 // returned no value for the key, resolves immediately instead of blocking.
 function resolveTenantCurrency(
-  fieldNames: readonly string[],
+  needed: boolean,
   query: UseQueryResult<TenantConfigValuesResponse>,
   fallback: string | undefined,
 ): TenantCurrencyResolution {
-  if (fieldNames.length === 0) return { status: "not-needed" };
+  if (!needed) return { status: "not-needed" };
   if (query.error) {
     return fallback === undefined
       ? { status: "unresolved" }
@@ -111,6 +111,20 @@ function resolveTenantCurrency(
   return fallback === undefined
     ? { status: "unresolved" }
     : { status: "ready", currency: fallback };
+}
+
+// `needed = false` skips the config query entirely; an errored query or a missing value
+// resolves to `fallback` (or `unresolved` without one).
+export function useTenantCurrency(
+  needed: boolean,
+  fallback: string | undefined,
+): TenantCurrencyResolution {
+  const query = useQuery<TenantConfigValuesResponse>(
+    "config:query:values",
+    { keys: [TENANT_CURRENCY_CONFIG_KEY] },
+    { enabled: needed },
+  );
+  return resolveTenantCurrency(needed, query, fallback);
 }
 
 // A money field naming a fixed ISO code (`currency: { kind: "literal", code }`)
@@ -152,12 +166,7 @@ export function useMoneyCurrencyOverrides(
   readonly loading: boolean;
   readonly unresolved: boolean;
 } {
-  const query = useQuery<TenantConfigValuesResponse>(
-    "config:query:values",
-    { keys: [TENANT_CURRENCY_CONFIG_KEY] },
-    { enabled: tenantFieldNames.length > 0 },
-  );
-  const resolution = resolveTenantCurrency(tenantFieldNames, query, fallback);
+  const resolution = useTenantCurrency(tenantFieldNames.length > 0, fallback);
   const resolvedTenantCurrency = resolution.status === "ready" ? resolution.currency : undefined;
   const overrides = useMemo(() => {
     const out: Record<string, string> = { ...literalCurrencyOverrides(fields) };
