@@ -256,7 +256,8 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
     throw new Error(
       `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
         "Pass ctx.db.unsafeRaw() (with escapeHatch: { reason } on the handler/hook) for an " +
-        "explicit cross-tenant op, or use a scoped TenantDb method.",
+        "explicit cross-tenant op, or use a scoped TenantDb method " +
+        "(for an upsert: ctx.db.upsert(table, values, { conflictTarget })).",
     );
   }
 }
@@ -296,7 +297,7 @@ function coerceRows<TOut>(
 
 // Write and other non-retried paths: log when a closed-connection error leaves
 // the db layer, rethrow unchanged.
-async function unsafeLoggingClosedConnection<TRow = unknown>(
+export async function unsafeLoggingClosedConnection<TRow = unknown>(
   db: AnyDb,
   sqlText: string,
   params: readonly unknown[],
@@ -713,13 +714,13 @@ export async function deleteMany(
   return count;
 }
 
-type InsertEntry = {
+export type InsertEntry = {
   readonly field: string;
   readonly col: string;
   readonly prepared: PreparedValue;
 };
 
-function insertEntries(info: TableInfo, values: Record<string, unknown>): InsertEntry[] {
+export function insertEntries(info: TableInfo, values: Record<string, unknown>): InsertEntry[] {
   return Object.entries(values)
     .filter(([k]) => info.hasColumn(k))
     .map(([k, v]) => {
@@ -749,7 +750,36 @@ export function resolveConflictColumns(
   throw new Error("upsert: cannot infer conflict keys — pass conflictKeys explicitly");
 }
 
-function buildInsertSql(
+// Appends bound values to `params`; `skipCols` only applies to the default EXCLUDED set.
+export function conflictUpdateParts(
+  info: TableInfo,
+  entries: readonly InsertEntry[],
+  update: Record<string, unknown> | undefined,
+  skipCols: ReadonlySet<string>,
+  params: unknown[],
+): string[] {
+  const parts: string[] = [];
+  if (update === undefined) {
+    for (const e of entries) {
+      if (skipCols.has(e.col)) continue;
+      parts.push(`${quoteIdent(e.col)} = EXCLUDED.${quoteIdent(e.col)}`);
+    }
+    return parts;
+  }
+  for (const [field, value] of Object.entries(update)) {
+    const col = info.columnOf(field);
+    const p = prepareValue(value, info.pgTypeOf(col));
+    if (p.kind === "literal") {
+      parts.push(`${quoteIdent(col)} = ${p.literal}`);
+    } else {
+      params.push(p.bound);
+      parts.push(`${quoteIdent(col)} = $${params.length}${p.sql}`);
+    }
+  }
+  return parts;
+}
+
+export function buildInsertSql(
   info: TableInfo,
   entries: readonly InsertEntry[],
 ): { sqlPrefix: string; params: unknown[] } {
@@ -877,26 +907,7 @@ async function upsertOnConflictChecked<TRow>(
   const conflictSet = new Set(conflictCols);
   const { sqlPrefix, params } = buildInsertSql(info, entries);
 
-  const updateParts: string[] = [];
-  let idx = params.length + 1;
-
-  if (options.update !== undefined) {
-    for (const [field, value] of Object.entries(options.update)) {
-      const col = info.columnOf(field);
-      const p = prepareValue(value, info.pgTypeOf(col));
-      if (p.kind === "literal") {
-        updateParts.push(`${quoteIdent(col)} = ${p.literal}`);
-      } else {
-        updateParts.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
-        params.push(p.bound);
-      }
-    }
-  } else {
-    for (const e of entries) {
-      if (conflictSet.has(e.col)) continue;
-      updateParts.push(`${quoteIdent(e.col)} = EXCLUDED.${quoteIdent(e.col)}`);
-    }
-  }
+  const updateParts = conflictUpdateParts(info, entries, options.update, conflictSet, params);
 
   if (updateParts.length === 0) {
     throw new Error("upsertOnConflict: nothing to update on conflict");
