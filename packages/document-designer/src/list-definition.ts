@@ -118,6 +118,12 @@ const RESET_LOCKED_OVERRIDE_ACTION: RowAction = {
   visible: { field: "canResetLockedOverride", eq: true },
 };
 
+// A layout opens in the scope of the row's origin, so a SystemAdmin editing a tenant row on the
+// tenant screen does not end up changing the system layout.
+function isLayoutKind(kind: TemplateEditorKind): boolean {
+  return kind === "mail-layout" || kind === "pdf-layout";
+}
+
 export function templateRowActions(): RowAction[] {
   const editActions = EDITABLE_KINDS.flatMap((kind): RowAction[] => {
     const screen = TEMPLATE_EDITOR_SCREENS[kind];
@@ -128,7 +134,7 @@ export function templateRowActions(): RowAction[] {
         id: `edit-${kind}`,
         label: i18nKey("documentDesigner.action.edit"),
         screen,
-        params: { pick: ["slug", "kind"] },
+        params: { pick: isLayoutKind(kind) ? ["slug", "kind", "origin"] : ["slug", "kind"] },
         visible: { field: "kind", eq: kind },
       },
     ];

@@ -268,6 +268,21 @@ describe("template-resolver :: layout-source", () => {
     expect(source.mjmlSource).toBe(MJML_LAYOUT);
   });
 
+  test("a SystemAdmin asking for the tenant scope gets the tenant view without the mjml source", async () => {
+    const source = await layoutSource(systemAdmin, { kind: "mail-layout", scope: "tenant" });
+    expect(source.mjmlSource).toBeNull();
+    expect(source.system).toMatchObject({ contentFormat: "mjml" });
+  });
+
+  test("the system scope is refused for a TenantAdmin", async () => {
+    const error = await stack.http.queryErr(
+      TemplateResolverQueries.layoutSource,
+      { kind: "mail-layout", scope: "system" },
+      adminA,
+    );
+    expect(error.httpStatus).toBe(403);
+  });
+
   test("a missing layout falls back to the requested locale", async () => {
     const source = await layoutSource(adminA, { kind: "pdf-layout", locale: "fr" });
     expect(source).toMatchObject({

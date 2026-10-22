@@ -114,6 +114,7 @@ function renderEditor(
   roles: readonly string[],
   source: LayoutSourceView | null,
   calls: Call[],
+  searchParams: Readonly<Record<string, string>> = nav.searchParams,
 ): void {
   render(
     <LocaleProvider
@@ -123,7 +124,7 @@ function renderEditor(
       <DispatcherProvider dispatcher={fakeDispatcher(source, calls)}>
         <UserRolesProvider roles={roles}>
           <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={nav}>
+            <NavProvider value={{ ...nav, searchParams }}>
               <LayoutEditor />
             </NavProvider>
           </PrimitivesProvider>
@@ -252,6 +253,46 @@ describe("LayoutEditor", () => {
     ).toEqual({
       id: "s-2",
     });
+  });
+
+  test("a platform admin asks for the system layout by default", async () => {
+    const calls: Call[] = [];
+    renderEditor(["SystemAdmin"], systemSource, calls);
+    await screen.findByTestId("layout-mjml-tab");
+    expect(
+      calls.find((call) => call.type === "template-resolver:query:layout-source")?.payload,
+    ).toEqual({ kind: "mail-layout", slug: "default", scope: "system" });
+  });
+
+  test("a platform admin opening a tenant row edits the tenant layout, not the system one", async () => {
+    const calls: Call[] = [];
+    renderEditor(
+      ["SystemAdmin"],
+      { ...tenantSource, tenant: { id: "t-1", version: 4, status: "draft", locale: "de" } },
+      calls,
+      {
+        kind: "mail-layout",
+        slug: "default",
+        origin: "tenant",
+      },
+    );
+    const publish = await screen.findByTestId("document-designer-publish");
+    expect(
+      calls.find((call) => call.type === "template-resolver:query:layout-source")?.payload,
+    ).toEqual({ kind: "mail-layout", slug: "default", scope: "tenant" });
+    expect(screen.queryByTestId("layout-mjml-tab")).toBeNull();
+    expect(calls.some((call) => call.type === "template-resolver:query:tenant-overrides")).toBe(
+      false,
+    );
+
+    await waitFor(() => expect(publish.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(publish);
+    await waitFor(() =>
+      expect(
+        calls.find((call) => call.type === "template-resolver:write:upsert-tenant"),
+      ).toBeDefined(),
+    );
+    expect(calls.some((call) => call.type === "template-resolver:write:upsert-system")).toBe(false);
   });
 
   test("a tenant admin publishing a draft sends the composed regions as active html", async () => {

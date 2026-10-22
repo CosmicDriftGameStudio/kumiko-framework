@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { filterDeliveredTo } from "../api.ts";
 import { type LayoutRegions, readLayoutRegions } from "../layout-regions.ts";
@@ -14,6 +15,7 @@ import {
 } from "../template-draft.ts";
 import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.ts";
 import { FALLBACK_LOCALE } from "../web/constants.ts";
+import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson } from "./template-gates.ts";
 
@@ -66,20 +68,29 @@ function layoutFormat(row: WorkingRow): "html" | "mjml" | null {
   return row.contentFormat === "html" || row.contentFormat === "mjml" ? row.contentFormat : null;
 }
 
+type EditScope = "tenant" | "system";
+
 function pickEditedRows(
   rows: readonly TemplateResourceRow[],
-  user: { readonly tenantId: string; readonly roles: readonly string[] },
+  caller: { readonly tenantId: string; readonly roles: readonly string[] },
+  scope: EditScope,
   locale: string | undefined,
 ): {
   readonly tenantRow: WorkingRow | null;
   readonly systemRow: WorkingRow | null;
 } {
-  const tenantRow = user.roles.includes("SystemAdmin")
-    ? null
-    : pickByLocale(
-        rows.filter((row) => row.scope === "tenant"),
-        locale,
-      );
+  // A SystemAdmin editing the tenant layout sees the system version like a tenant does: served only, no draft.
+  const user =
+    scope === "system"
+      ? caller
+      : { ...caller, roles: caller.roles.filter((role) => role !== "SystemAdmin") };
+  const tenantRow =
+    scope === "system"
+      ? null
+      : pickByLocale(
+          rows.filter((row) => row.scope === "tenant"),
+          locale,
+        );
   const systemRow = pickByLocale(
     rows.filter((row) => row.scope === "system" && !isHiddenSystemDraft(user, row)),
     locale,
@@ -136,13 +147,21 @@ export const layoutSourceQuery = defineQueryHandler({
     kind: z.enum(["mail-layout", "pdf-layout"]),
     slug: templateSlugSchema.default("default"),
     locale: localeSchema.optional(),
+    scope: z.enum(["tenant", "system"]).optional(),
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Reads the layout the caller edits: the tenant's own version and the system version of one layout slug (each the open draft if there is one, else the stored version, with `active` naming the served version), the header, signature and footer regions of the effective html version, and the locale a save has to use; a SystemAdmin edits the system version and also receives its mjml source. Use it to load the layout editor.",
+    "Reads the layout the caller edits: the tenant's own version and the system version of one layout slug (each the open draft if there is one, else the stored version, with `active` naming the served version), the header, signature and footer regions of the effective html version, and the locale a save has to use; a SystemAdmin edits the system version by default and also receives its mjml source; scope tenant loads the SystemAdmin's own tenant layout instead, and scope system is refused for everyone else. Use it to load the layout editor.",
   handler: async (query, ctx): Promise<LayoutSourceResponse> => {
     const { kind, slug, locale } = query.payload;
-    const isSystemAdmin = query.user.roles.includes("SystemAdmin");
+    const callerIsSystemAdmin = query.user.roles.includes("SystemAdmin");
+    const scope = query.payload.scope ?? (callerIsSystemAdmin ? "system" : "tenant");
+    if (scope === "system" && !callerIsSystemAdmin) {
+      throw new AccessDeniedError({
+        i18nKey: "errors.access.denied",
+        details: { reason: TemplateResolverErrors.systemAdminRequired },
+      });
+    }
     const policy = deliveryPolicyOf(ctx.registry);
     const rows = await filterDeliveredTo(
       ctx.db,
@@ -150,7 +169,13 @@ export const layoutSourceQuery = defineQueryHandler({
       query.user,
       await selectMany<TemplateResourceRow>(ctx.db, templateResourcesTable, { kind, slug }),
     );
-    const { tenantRow, systemRow } = pickEditedRows(rows, query.user, locale);
-    return buildLayoutSource({ kind, locale, isSystemAdmin, tenantRow, systemRow });
+    const { tenantRow, systemRow } = pickEditedRows(rows, query.user, scope, locale);
+    return buildLayoutSource({
+      kind,
+      locale,
+      isSystemAdmin: scope === "system",
+      tenantRow,
+      systemRow,
+    });
   },
 });
