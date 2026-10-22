@@ -162,7 +162,7 @@ function wasEmptiedByWriteExclusion(
 }
 
 // relatedList runs its own query — nothing here to resolve against
-// entity/values, the spec passes through verbatim (fw#2166).
+// entity/values, the spec passes through verbatim.
 export function computeRelatedListSectionViewModel(
   sectionSpec: EditRelatedListSection,
   translate: Translate,
@@ -824,7 +824,7 @@ export function computeEditViewModel<
     const visible = hasVisibleContent(fields, sectionSpec.actions, values);
     // Tabs mode renders this section as its own panel, where two columns reads
     // better than the single-column default a stacked form keeps. Applies to
-    // entityEdit tabs as well since fw#3134, not just projectionDetail.
+    // entityEdit tabs as well, not just projectionDetail.
     const defaultColumns = screen.layout.mode === "tabs" ? 2 : 1;
     const groups = ("groups" in sectionSpec ? sectionSpec.groups : undefined)
       ?.map((group) => ({ ...group, fields: group.fields.filter((f) => !isHiddenByExclusion(f)) }))

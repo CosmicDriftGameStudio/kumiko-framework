@@ -11,7 +11,7 @@ import {
   primaryHeaderAction,
 } from "./header-actions.ts";
 
-// Header actions bar (A7): <=2 actions render as plain buttons; >2 with an
+// Header actions bar: <=2 actions render as plain buttons; >2 with an
 // `ActionOverflowMenu` primitive collapse to the primary button plus a menu
 // for the rest — same rule as RowActionsCell for table rows. Owns confirm
 // state for menu items: RenderEditActionButton already owns a per-button

@@ -1,17 +1,16 @@
-// Tier 2.1c: Searchable Select / Combobox.
+// Searchable Select / Combobox.
 //
-// Pattern ist das shadcn-Standard-Combobox: Popover-Trigger als Button
-// (zeigt aktuellen Wert oder Placeholder), Popover-Content enthält
-// cmdk-Command mit Search-Input + filterable Item-List.
+// The pattern follows the shadcn standard: a popover trigger rendered as a
+// button showing the current value or placeholder, with a popover containing
+// a cmdk command with a search input and filterable item list.
 //
-// cmdk ist Radix's Standard-Combobox (Library für Command-K + Searchable
-// Selects), client-side Fuzzy-Match via `Command.Filter` mit Default-
-// Behavior. Server-side Remote-Search (debounced query) ist nicht im
-// MVP — kommt später als zweiter Mode-Schalter.
+// cmdk provides client-side fuzzy matching through `Command.Filter` by
+// default. Server-side remote search with a debounced query is not included
+// in the MVP and can be enabled later as a separate mode.
 //
-// Multi-Mode: `multiple: true` schaltet auf Tag-Anzeige + Mehrfach-
-// Auswahl. Selected-Tags rendern als kleine entfernbare Chips, das
-// Search-Input bleibt offen für weitere Auswahl.
+// Multi-mode: `multiple: true` switches to tag display and multi-selection.
+// Selected values render as small chips, while the search input remains open
+// for additional selections.
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
@@ -32,10 +31,10 @@ export type ComboboxOption = {
   readonly disabled?: boolean;
 };
 
-// Discriminated Union per `multiple`-Flag — Single-Mode hat string-
-// value/onChange, Multi-Mode hat string[]/string[]. Caller muss den
-// Mode beim Build entscheiden, der Compiler zwingt dann die richtige
-// Signature ohne Runtime-narrow.
+// The discriminated union ties `multiple` to the value and onChange types:
+// single mode uses a string, while multi-mode uses string[]. The caller must
+// choose the mode at build time so TypeScript enforces the matching signature
+// without a runtime narrowing cast.
 type ComboboxBaseProps = {
   readonly id: string;
   readonly name: string;
@@ -47,27 +46,27 @@ type ComboboxBaseProps = {
   readonly placeholder?: string;
   readonly searchPlaceholder?: string;
   readonly emptyText?: string;
-  /** Tier 2.7e Remote-Search: wenn gesetzt, wechselt der Combobox in
-   *  Remote-Mode. cmdk's client-side Filter wird deaktiviert (Server
-   *  hat schon gefiltert), und der Search-Input ruft onSearchChange
-   *  debounced (300ms). Ohne diesen Callback bleibt die Local-Filter-
-   *  Variante (cmdk fuzzy-match auf den geladenen options). */
+  /** When set, enables remote search. cmdk's client-side filter is disabled
+   * because the server has already filtered the results, and the search input
+   * invokes onSearchChange with a 300ms debounce. Without this callback,
+   * filtering remains local using cmdk's fuzzy matching on the loaded options.
+   */
   readonly onSearchChange?: (q: string) => void;
-  /** Spinner im Trigger + Popover-Footer wenn remote search läuft. */
+  /** Shows a spinner in the trigger and popover footer while remote search is
+   * in progress. */
   readonly loading?: boolean;
   /** Fixed footer row below the option list ("+ createLabel"). Rendered
    *  unfiltered — stays visible even when the search matches nothing,
    *  which is the most common case for reference-lookups on a freshly
-   *  seeded system (kumiko-framework#1681). Omit for the plain
+   *  seeded system. Omit for the plain
    *  select-existing combobox. */
   readonly onCreate?: () => void;
   /** Label for the create-footer row. Default: i18n `kumiko.actions.create`. */
   readonly createLabel?: string;
-  /** Test-Hook: forciert den initial open-state des Popovers. In
-   *  jsdom + Radix-Popover triggert userEvent.click auf den Trigger
-   *  nicht zuverlässig PointerEvents — Tests setzen defaultOpen=true,
-   *  damit der Popover sofort gerendert ist. Production-Code lässt
-   *  den Default (false). */
+  /** Test hook that controls the popover's initial open state. In jsdom with
+   * Radix Popover, userEvent.click does not reliably trigger PointerEvents;
+   * tests set defaultOpen=true so the popover is rendered immediately.
+   * Production code leaves the default as false. */
   readonly defaultOpen?: boolean;
 };
 
@@ -102,15 +101,16 @@ const tagClass =
   "inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-0.5 text-xs " +
   "font-medium text-muted-foreground";
 
-// Debounce-Default lebt zentral (hooks/reference-limits.ts) damit
-// app-weit ein consistentes Tipp-Window gilt.
+// The debounce default is centralized in hooks/reference-limits.ts so the
+// same typing interval applies throughout the app.
 
-// Substring-Filter für cmdk's Local-Mode. cmdk's Default ist
-// `command-score` (fuzzy), das matcht "Ad" auch gegen "Backend" weil 'a'
-// und 'd' irgendwo enthalten sind — für Reference-Lookups irreführend
-// (User erwartet Prefix/Substring-Verhalten, nicht Subsequence-Match).
-// Returns 1 wenn search im value enthalten, 0 sonst — cmdk hidet Items
-// mit Score 0.
+// Substring filter for cmdk's local mode. cmdk's default is
+// `command-score` (fuzzy), which matches "Ad" against "Backend" because 'a'
+// and 'd' occur somewhere in the text. That is misleading for reference
+// lookups, where users expect prefix or substring matching rather than
+// subsequence matching.
+// Returns 1 when search occurs in value or keywords, and 0 otherwise;
+// cmdk hides items with a score of 0.
 function substringFilter(value: string, search: string, keywords?: string[]): number {
   const needle = search.toLowerCase();
   return [value, ...(keywords ?? [])].some((text) => text.toLowerCase().includes(needle)) ? 1 : 0;
@@ -134,9 +134,9 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
     onCreate,
     createLabel,
   } = props;
-  // i18n-Defaults aus dem Framework-Bundle (kumikoDefaultTranslations).
-  // Caller-Override gewinnt; Bundle-Override greift wenn der Caller
-  // den Prop nicht setzt; raw-Key-Fallback wenn weder noch.
+  // i18n defaults come from the framework bundle (kumikoDefaultTranslations).
+  // A caller override takes precedence, followed by the bundle override;
+  // the raw key is used only when neither is available.
   const t = useTranslation();
   const effectivePlaceholder = placeholder ?? t("kumiko.combobox.placeholder");
   const effectiveSearchPlaceholder = searchPlaceholder ?? t("kumiko.combobox.search-placeholder");
@@ -145,10 +145,10 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
   const effectiveCreateLabel = createLabel ?? t("kumiko.actions.create");
   const multiple = props.multiple === true;
   const [open, setOpen] = useState(defaultOpen === true);
-  // Local Search-Buffer für Remote-Mode. Tipps werden mit 300ms
-  // Debounce an onSearchChange weitergereicht, damit pro Tastendruck
-  // nicht ein Server-Roundtrip fliegt. Im Local-Mode ist das State
-  // ungenutzt (cmdk steuert sein Search-Input intern).
+  // Local search buffer for remote mode. Keystrokes are passed to
+  // onSearchChange after a 300ms debounce, avoiding a server round-trip for
+  // every keystroke. In local mode, this state is unused because cmdk
+  // controls its search input internally.
   const [searchTerm, setSearchTerm] = useState("");
   const isRemote = onSearchChange !== undefined;
   useEffect(() => {
@@ -156,14 +156,13 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
     const timer = setTimeout(() => onSearchChange(searchTerm), REFERENCE_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [isRemote, searchTerm, onSearchChange]);
-  // Beim Schließen des Popovers den Suchbegriff zurücksetzen damit
-  // beim nächsten Öffnen nicht der vorherige term hängt. Würde sonst
-  // den Server-State stale halten zwischen Aufrufen.
+  // Reset the search term when the popover closes so the next opening does not
+  // retain the previous term and leave the server state stale between uses.
   useEffect(() => {
     if (!open && searchTerm !== "") setSearchTerm("");
   }, [open, searchTerm]);
-  // Discriminated-Union per `multiple`: TS narrowt props.value/onChange
-  // automatisch — Runtime-Cast entfällt.
+  // The discriminated union lets TypeScript narrow props.value and onChange
+  // automatically, so no runtime cast is needed.
   const selectedValues = multiple ? new Set(props.value) : new Set<string>();
   const singleValue = !multiple ? props.value : "";
   const singleLabel = options.find((o) => o.value === singleValue)?.label ?? "";
@@ -203,10 +202,10 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
             {selectedValues.size === 0 ? (
               <span className="text-muted-foreground">{effectivePlaceholder}</span>
             ) : (
-              // Tags sind read-only Anzeige (kein nested <button>
-              // möglich im Trigger-<button>). Entfernen via Re-Click
-              // im Combobox-Popup — der Item-Toggle deselektiert die
-              // entsprechende Option (analog shadcn-Standard-Combobox).
+              // Tags are read-only because the trigger is a <button> and cannot contain a
+              // nested <button>. Removing a value therefore requires selecting
+              // it again in the combobox popup, where the item toggle deselects
+              // the corresponding option.
               [...selectedValues].map((v) => {
                 const opt = options.find((o) => o.value === v);
                 return (

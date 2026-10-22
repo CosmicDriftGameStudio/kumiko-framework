@@ -1,16 +1,17 @@
-// Generic Action-Menu — Trigger + Items, auf @radix-ui/react-dropdown-
-// menu basiert. Wird benutzt für ProfileMenu (Topbar-Avatar), Edit-
-// Header-Menu (Three-Dots), List-Row-Kebab — die Mechanik ist überall
-// dieselbe, nur der Trigger unterscheidet sich.
+// Generic action menu built on @radix-ui/react-dropdown-
+// menu. Used for ProfileMenu (topbar avatar), Edit-
+// Header-Menu (three dots), and list-row kebab menus; only the
+// trigger differs between uses.
 //
-// Nicht zu verwechseln mit RowActionsCell (siehe primitives/index.tsx),
-// die hat die rowActions-Schema-API + per-row Visibility-Logik. Hier
-// ist der Layer drunter: stable, schema-frei, callable von App-Code
-// und vom Schema-Renderer (KumikoApp).
+// Unlike RowActionsCell (see primitives/index.tsx), this is a
+// stable, schema-free layer callable from app code and the schema
+// renderer (KumikoApp), without the rowActions schema or per-row
+// visibility logic.
 //
-// Items sind Discriminated Union (item / separator / label), Item kann
-// optional einen Keyboard-Shortcut-Hint rechts tragen (Linear-Pattern
-// "O then M") + Icon links + variant für danger-styling.
+// Items form a discriminated union (item / separator / label). Items
+// can optionally display a keyboard-shortcut hint on the right
+// (Linear-style strings such as "O then M"), an icon on the left,
+// and a variant for danger styling.
 
 import { type ReactNode, useState } from "react";
 import {
@@ -27,15 +28,15 @@ export type MenuItemDef =
       readonly kind: "item";
       readonly id: string;
       readonly label: string;
-      /** Optional Icon links vor dem Label (16px). */
+      /** Optional icon displayed before the label (16px). */
       readonly icon?: ReactNode;
-      /** Pure-display Shortcut-Hint rechts (monospace, gedimmt).
-       *  Caller registriert den Shortcut separat — Linear-Style
-       *  Strings wie "O then M", "Alt + Q", "⌘K". */
+      /** Display-only shortcut hint on the right (monospace, muted).
+       * The caller registers the shortcut separately; Linear-style
+       * strings include "O then M", "Alt + Q", and "⌘K". */
       readonly shortcut?: string;
       readonly onSelect: () => void;
       readonly disabled?: boolean;
-      /** "danger" rendert Label rot — typisch Sign-out, Delete. */
+      /** "danger" renders the label in red, typically for sign-out or delete actions. */
       readonly variant?: "default" | "danger";
     }
   | { readonly kind: "separator" }
@@ -44,12 +45,12 @@ export type MenuItemDef =
 export type ActionMenuProps = {
   /** Free-form Trigger-Component — Avatar, IconButton, Pill, Custom. */
   readonly trigger: ReactNode;
-  /** aria-label für den Trigger-Wrapper. */
+  /** aria-label for the trigger wrapper. */
   readonly triggerLabel?: string;
   readonly items: readonly MenuItemDef[];
-  /** Wo das Popup relativ zum Trigger anchorn soll. Default: end. */
+  /** Where to anchor the popup relative to the trigger. Default: end. */
   readonly align?: "start" | "center" | "end";
-  /** Min-width für den Content. Default: 14rem. */
+  /** Minimum width for the content. Default: 14rem. */
   readonly minWidth?: string;
   readonly testId?: string;
 };
@@ -78,11 +79,11 @@ export function ActionMenu({
       <DropdownMenuContent align={align} style={{ minWidth }}>
         {items.map((item, idx) => {
           if (item.kind === "separator") {
-            // biome-ignore lint/suspicious/noArrayIndexKey: Separators haben keine ID — Reihenfolge ist Identität
+            // biome-ignore lint/suspicious/noArrayIndexKey: Separators have no ID, so their position provides identity
             return <DropdownMenuSeparator key={`sep-${idx}`} />;
           }
           if (item.kind === "label") {
-            // biome-ignore lint/suspicious/noArrayIndexKey: gleicher Grund wie separator
+            // biome-ignore lint/suspicious/noArrayIndexKey: Separators have no ID, so their position provides identity
             return <DropdownMenuLabel key={`label-${idx}`}>{item.label}</DropdownMenuLabel>;
           }
           return (

@@ -1,14 +1,11 @@
-// MoneyInput — type=text mit focus-aware Locale-Format. Canonical-Wert
-// bleiben Minor-Units (Cents) wie auf der Wire; während Focus zeigt das
-// Input einen rohen, editierbaren Decimal-String. Bei Blur formatiert
-// Intl.NumberFormat mit `style: "currency"` — das liefert Currency-
-// Symbol (€/$/¥) UND Tausender-Trenner UND korrekte Decimals in einem
-// Aufruf.
+// MoneyInput uses locale-aware formatting while preserving minor units (cents) as the canonical value.
+// On focus, it shows a raw editable decimal string; on blur, Intl.NumberFormat with
+// `style: "currency"` supplies the currency symbol (€/$/¥), grouping separators, and
+// correct decimal places in one call.
 //
-// Warum nicht type=number: number-Inputs lehnen formatierte Strings
-// ("1.234,56 €") ab — kein Browser akzeptiert Locale-Decimals (Komma)
-// in number-Inputs. inputMode="decimal" gibt mobiles Numpad-Keyboard
-// trotzdem.
+// `type=number` cannot accept formatted strings such as ("1.234,56 €") or locale-specific
+// decimal separators such as commas. `inputMode="decimal"` still provides a mobile numeric
+// keypad.
 
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { currencyDecimals, formatMoney as formatMoneyForLocale } from "../../headless/index.ts";
@@ -16,7 +13,7 @@ import { cn } from "../lib/cn.ts";
 import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
 
 // Re-exported for backward compat — callers used to import this from here
-// before it moved to headless (shared with RenderField, kumiko-framework#1923).
+// before it moved to headless (shared with RenderField).
 export { currencyDecimals, parseLocaleNumber };
 
 export type MoneyInputProps = {
@@ -42,8 +39,8 @@ const wrapperClass =
 const inputClass =
   "h-full min-w-0 flex-1 bg-transparent px-3 placeholder:text-muted-foreground " +
   "focus-visible:outline-none disabled:cursor-not-allowed " +
-  // Numerische Inputs rechtsbündig — wie native type=number — damit
-  // Beträge unter Listen-Spalten an den Tausender-Stellen alignen.
+  // Right-aligns the value like a native type=number input so amounts align at the thousands
+  // separators in list columns.
   "text-right tabular-nums";
 
 export function MoneyInput({
@@ -62,8 +59,8 @@ export function MoneyInput({
   const factor = 10 ** decimals;
   const resolvedLocale = resolveSafeLocale(locale);
   const [focused, setFocused] = useState(false);
-  // Raw-Edit-Buffer während Focus. Sonst würde jeder Tipp-Step durch
-  // Math.round → format-Roundtrip jagen und der Cursor würde springen.
+  // Keeps edits raw while focused; otherwise each keystroke would round-trip through
+  // Math.round and formatting, causing the cursor to jump.
   const [draft, setDraft] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -74,7 +71,6 @@ export function MoneyInput({
   );
   const formatted = value === "" ? "" : formatNumber(value / factor);
 
-  // Edit-Mode: Decimal-String ohne Tausender-Trenner.
   const toEditable = (m: number | null): string =>
     m === null
       ? ""
@@ -96,7 +92,7 @@ export function MoneyInput({
   // to the *end* of the new value rather than preserving position — so
   // without an explicit re-select, typing right after focus appends
   // instead of replacing. That's what silently corrupted values set via
-  // Playwright's `.fill()` (framework#1856). It also matches standard
+  // Playwright's `.fill()`. It also matches standard
   // money-input UX (immediate overtype on click), and sidesteps mapping a
   // click position from the formatted view to the editable one, which has
   // no well-defined equivalent once separators and the currency symbol

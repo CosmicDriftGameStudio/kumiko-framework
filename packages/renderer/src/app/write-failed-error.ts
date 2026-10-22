@@ -1,10 +1,10 @@
 import type { DispatcherError } from "../headless/index.ts";
 
-// dispatcher.write wirft bei Server-Fehlern NICHT — es returnt
-// { isSuccess: false, error }. Action-Wiring das das Result verwirft,
-// macht Fehler unsichtbar ("Klick tut nichts"-Prod-Bug 2026-06-07).
-// Diese Klasse trägt den strukturierten DispatcherError dahin, wo eine
-// UI ihn anzeigen kann (Toast mit docsUrl).
+// dispatcher.write does NOT throw on server errors; it returns
+// { isSuccess: false, error }. Action wiring that discards the result
+// makes failures invisible ("click does nothing" in production).
+// This class carries the structured DispatcherError to a layer that can
+// display it in the UI, such as a toast with docsUrl.
 export class WriteFailedError extends Error {
   readonly dispatcherError: DispatcherError;
 
@@ -15,8 +15,9 @@ export class WriteFailedError extends Error {
   }
 }
 
-// i18nKey gewinnt wenn das Bundle ihn kennt (translate returnt den Key
-// unverändert wenn nicht — Renderer-Convention), sonst message, zuletzt code.
+// i18nKey takes precedence when the bundle knows it (translate returns
+// the key unchanged when it does not, per the renderer convention),
+// followed by message and then code.
 export function dispatcherErrorText(
   error: DispatcherError,
   translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,

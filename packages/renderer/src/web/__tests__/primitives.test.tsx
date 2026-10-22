@@ -69,7 +69,7 @@ describe("Button", () => {
     );
     const btn = screen.getByTestId("btn") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-    // Visuelles Feedback kommt aus Tailwind-Klassen (shadcn-Pattern).
+    // Visual feedback comes from Tailwind classes (shadcn pattern).
     expect(btn.className).toContain("disabled:pointer-events-none");
     expect(btn.className).toContain("disabled:opacity-50");
   });
@@ -239,7 +239,7 @@ describe("Field", () => {
         <input />
       </Field>,
     );
-    // shadcn-Field rendert den Mark als <span>* mit text-destructive.
+    // shadcn-Field renders the marker as <span>* with text-destructive.
     const label = screen.getByTestId("f").querySelector("label");
     expect(label?.textContent).toContain("*");
   });
@@ -296,9 +296,9 @@ describe("Input kind mapping", () => {
   });
 
   test('kind="date": tippbares Text-Input mit locale-Datum, kein nativer date-Input', () => {
-    // Default-DateInput nutzt seit #369 ein tippbares Text-Input +
-    // DayPicker-Popover statt native <input type="date">. Das Datum steht
-    // locale-numerisch im Eingabefeld.
+    // Default-DateInput uses a typeable text input with a
+    // DayPicker popover instead of a native <input type="date">. The date is
+    // displayed numerically according to the locale.
     const onChange = mock();
     render(
       <Input id="i" name="i" kind="date" value="2026-04-23" onChange={onChange} locale="de-DE" />,
@@ -525,7 +525,7 @@ describe("Form", () => {
     expect(screen.getByTestId("form-title").textContent).toContain("Eintrag bearbeiten");
     const actionsFooter = screen.getByTestId("form-actions");
     expect(actionsFooter.textContent).toContain("Save");
-    // Titel ist NICHT mehr in der Action-Leiste (raus aus dem Header).
+    // The title is no longer in the action bar; it was moved out of the header.
     expect(actionsFooter.textContent).not.toContain("Eintrag bearbeiten");
   });
 
@@ -553,8 +553,8 @@ describe("Form", () => {
     // stickyActions classes now live on the primary-actions group itself —
     // only the submit action stays pinned above a virtual keyboard; a Back
     // button or secondaryActions (Cancel/Delete/…) sit in normal flow via
-    // form-actions-secondary instead (fw#2606: whole footer no longer
-    // includes those on mobile).
+    // form-actions-secondary instead.
+    // The whole footer no longer includes those on mobile.
     expect(actionsFooter.className).toContain("max-sm:fixed");
     const footer = actionsFooter.parentElement as HTMLElement;
     expect(footer.className).not.toContain("max-sm:fixed");
@@ -580,14 +580,13 @@ describe("Form", () => {
     );
   });
 
-  // fillHeight (fw#2722, height fw#2778): the flex chain RenderEdit opts a
-  // lone relatedList tab into, so its table can scroll inside the tab panel
-  // instead of the whole page stretching to the row count. The chain caps
-  // at h-full but does NOT flex-1/grow past its content — a short table
-  // must not stretch the card to the bottom of the panel (fw#2778); only
-  // the innermost table wrapper (primitives.test.tsx's DataTable coverage)
-  // keeps flex-1 to actually claim the leftover height once the ancestor
-  // chain is force-shrunk.
+  // fillHeight: the flex chain RenderEdit opts a lone relatedList tab into,
+  // so its table can scroll inside the tab panel instead of the whole page
+  // stretching to the row count. The chain caps at h-full but does NOT
+  // flex-1/grow past its content — a short table must not stretch the card
+  // to the bottom of the panel; only the innermost table wrapper
+  // (primitives.test.tsx's DataTable coverage) keeps flex-1 to actually claim
+  // the leftover height once the ancestor chain is force-shrunk.
   test("fillHeight: form root caps at h-full/min-h-0, its card sizes to content instead of growing (fw#2778)", () => {
     render(
       <Form onSubmit={() => undefined} testId="form" fillHeight>
@@ -731,10 +730,9 @@ describe("Dialog", () => {
         testId="dlg"
       />,
     );
-    // userEvent.click wartet auf React-State-Updates die durch Radix-
-    // Lifecycle (Presence/FocusScope/DismissableLayer) ausgelöst werden
-    // — fireEvent.click würde dieselben Updates uneingewickelt lassen
-    // und mit ~13 act()-Warnings spammen.
+    // userEvent.click waits for React state updates triggered by the Radix
+    // lifecycle (Presence/FocusScope/DismissableLayer). fireEvent.click would
+    // leave the same updates outside act() and produce about 13 warnings.
     await user.click(screen.getByTestId("dlg-confirm"));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onOpenChange).toHaveBeenCalledWith(false);

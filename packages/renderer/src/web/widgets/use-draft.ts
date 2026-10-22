@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
 
-/** Formular-State für Rechner-Screens: ein Draft-Objekt + `patch` für
- *  Teil-Updates + `field(name)` das die `{ id, name, value, onChange }`-Props
- *  fertig für die Feld-Widgets (NumberField/MoneyField/PercentField) liefert.
- *  Ersetzt das pro Screen wiederholte Draft-Interface + patch-Helper.
- *  `idPrefix` verhindert doppelte DOM-`id`s, wenn mehrere `useDraft`-Formulare
- *  mit gleichnamigen Feldern auf derselben Seite gemountet werden — `name`
- *  bleibt der reine Key fürs Form-Payload. */
+/** Form state for calculator screens: a draft object plus `patch` for
+ *  partial updates, and `field(name)` that provides `{ id, name, value, onChange }`
+ *  props ready for field widgets (NumberField/MoneyField/PercentField).
+ *  Replaces the repeated draft interface and patch helper in each screen.
+ *  `idPrefix` prevents duplicate DOM `id`s when multiple `useDraft` forms with
+ *  same-named fields are mounted on the same page; `name` remains the plain key
+ *  for the form payload. */
 export function useDraft<T extends object>(
   defaults: T,
   options?: { readonly idPrefix?: string },

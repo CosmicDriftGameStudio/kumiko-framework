@@ -55,7 +55,7 @@ import {
   ScreenMissingState,
 } from "./screen-shared.tsx";
 
-// ---- drawer-kind actions: ToolbarAction (fw#2225) + RowAction (fw#2710) ----
+// ---- drawer-kind actions: ToolbarAction + RowAction ----
 //
 // Shared across EntityListBody, ProjectionListBody, ProjectionDetailBody and
 // EntityEditUpdateForm: state for "which drawer-kind action is currently
@@ -249,11 +249,11 @@ export function ActionFormBody({
   readonly translate?: Translate;
   /** Record id from the route path; the source of the `load` query's id. */
   readonly entityId?: string;
-  /** Row-drawer usage (RowAction kind:"drawer", fw#2710): prefill extracted
+  /** Row-drawer usage (RowAction kind:"drawer"): prefill extracted
    *  from the clicked row, applied on top of searchParams through the same
    *  renderableFields/sensitive gates (see mergeSearchParamsIntoInitial). */
   readonly initialOverrides?: Readonly<Record<string, unknown>>;
-  /** Drawer-hosted usage (toolbarAction kind:"drawer", fw#2225): called
+  /** Drawer-hosted usage (toolbarAction kind:"drawer"): called
    *  instead of the redirect-based navigation on successful submit, so the
    *  host closes the drawer + refetches its list regardless of whether
    *  `screen.redirect` is set — a full-page redirect would navigate away
@@ -285,7 +285,7 @@ export function ActionFormBody({
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
   const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
   // This screen has no entity, so a money field here declares its own currency
-  // source (fw#2839, boot-enforced) — without one the form would seed a bare
+  // source (boot-enforced) — without one the form would seed a bare
   // `0` the handler's schema rejects. When a tenant-declared field's config
   // query errors or holds no value there is no entity default to use, and
   // submitting a guessed currency would mis-book the amount — block instead.
@@ -467,7 +467,7 @@ export function ActionFormBody({
       navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
   }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride, returnTarget]);
   // Rendering the form before a tenant-declared currency lands would show the
-  // fallback and, on a fast click, submit it (fw#2933) — hold instead.
+  // fallback and, on a fast click, submit it — hold instead.
   if (currencyLoading) {
     return <QueryLoadingBanner />;
   }

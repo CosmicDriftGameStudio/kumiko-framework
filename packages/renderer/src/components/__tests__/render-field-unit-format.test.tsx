@@ -1,4 +1,4 @@
-// fw#2187: readOnly fields with an explicit `field.renderer: { format: "unit" }`
+// readOnly fields with an explicit `field.renderer: { format: "unit" }`
 // must render through applyFormatSpec's unit case, and default to the
 // LocaleProvider's App-Locale when the FormatSpec itself carries no `locale`
 // — same posture as render-field-app-locale.test.tsx for money/date inputs,

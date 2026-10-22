@@ -1,4 +1,4 @@
-// fw#2933: a `money` field declaring `currency: { kind: "tenant" }` resolves
+// A `money` field declaring `currency: { kind: "tenant" }` resolves
 // its empty-value currency from the tenant-settings config key
 // (`tenant-settings:config:currency`) via `config:query:values`, instead of
 // entity.defaultCurrency ?? "EUR". A stored value always keeps its own

@@ -1,15 +1,15 @@
 // Regression coverage for the hidden-section guards in render-edit.tsx
-// (kumiko-framework#1731, from PR-review finding #1690): nothing previously
-// asserted that a fully-hidden section actually stays out of the DOM.
+// Nothing previously asserted that a fully-hidden section actually stays out of
+// the DOM.
 //
 // Two cases, verified by mutation-testing each guard in isolation:
 //  - "Hidden": a "fields" section whose only field is condition-hidden — the
-//    issue's literal ask. Redundantly guarded: both the
+//    requested case. Redundantly guarded: both the
 //    `filterEditSections(...).filter(...)` pass and the render loop's
 //    `if (!section.visible) return null;` independently suppress it, so this
 //    case only goes red if BOTH guards are removed.
-//  - "Empty": a "fields" section declared with zero fields. fw#1901 keeps it
-//    past the filter above on purpose (it isn't "hidden", it just has
+//  - "Empty": a "fields" section declared with zero fields. The filter above
+//    intentionally lets it pass (it isn't "hidden", it just has
 //    nothing to hide), so its `visible` stays vacuously false and
 //    `if (!section.visible) return null;` is the ONLY thing nulling it out —
 //    this case is what actually pins that line, verified red when it's

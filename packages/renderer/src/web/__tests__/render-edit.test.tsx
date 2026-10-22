@@ -107,7 +107,7 @@ describe("RenderEdit", () => {
     expect(grid?.children.length).toBe(4);
   });
 
-  // Issue #1677: a section's optional `description` renders as the
+  // A section's optional `description` renders as the
   // Section's subtitle slot underneath the block heading, and a field's
   // `icon` reaches the DOM as a prefix icon on its input.
   test("section.description renders as the section subtitle; field.icon renders a prefix icon", () => {
@@ -181,15 +181,15 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
     expect(screen.queryByTestId("section-Contact-title")).toBeNull();
     expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
-    // fw#3234 round 3: the Card itself must draw no title either (fw#3218 —
-    // the Tab strip right above already names this panel). The section had
+    // The Card itself must draw no title either —
+    // the Tab strip right above already names this panel. The section had
     // no actions, so its Card renders with no header row at all.
     const card = screen.getByTestId("section-Contact");
     expect(card.querySelector("h3")).toBeNull();
     expect(card.textContent).not.toContain("Contact");
   });
 
-  // S2: a fields-kind section's `groups` splits it into its own titled cards
+  // A fields-kind section's `groups` splits it into its own titled cards
   // (tabs mode only — the branch that renders `groups` at all lives behind
   // `hideSectionTitles`) instead of one flat grid.
   test("a section with two groups renders two titled cards in tabs mode, each with its own fields", () => {
@@ -274,10 +274,10 @@ describe("RenderEdit", () => {
     expect(within(screen.getByTestId("section-Overview")).getByTestId("field-email")).toBeTruthy();
   });
 
-  // End-to-end-Routing: ein `type:"locatedTimestamp"`-Entity-Feld muss durch
-  // computeEditViewModel → render-field → DefaultInput auf den Located-Picker
-  // laufen (Datum + Uhrzeit + Zone), NICHT auf den Klartext-Fallthrough. Vor
-  // Item 10 fehlte der `case "locatedTimestamp"` → das Feld rendrte als Text.
+  // End-to-end routing: a `type:"locatedTimestamp"` entity field must pass through
+  // computeEditViewModel → render-field → DefaultInput to reach the Located picker
+  // (date + time + zone), rather than the plain-text fallthrough. The
+  // `case "locatedTimestamp"` was missing, so the field rendered as text.
   test("locatedTimestamp field renders the located picker (date + time + zone), not plain text", () => {
     const entity = {
       fields: { pickup: { type: "locatedTimestamp", required: true } },
@@ -771,9 +771,9 @@ describe("RenderEdit", () => {
         />
       </DispatcherProvider>,
     );
-    // Default-Translate (Test-Setup hat keinen Bundle für screen:*.title)
-    // → i18n returnt den Key selber, RenderEdit detected das + zeigt
-    // den screenId. Beweist die Convention: kein Hardcoded "Untitled".
+    // Default translation (the test setup has no bundle for screen:*.title)
+    // → i18n returns the key itself, so RenderEdit detects this and displays
+    // the screenId. This verifies the convention: no hardcoded "Untitled".
     const formTitle = screen.getByTestId("render-edit-form-title");
     expect(formTitle.textContent).toContain("orders:screen:order-edit");
   });
@@ -828,11 +828,11 @@ describe("RenderEdit", () => {
     expect(mounted.textContent).toBe("order:row-42");
   });
 
-  // Realer Update-Flow: EntityEditUpdateForm lässt `id` BEWUSST aus den
-  // Form-values (id ist keine deklarierte Field) und reicht die route-id
-  // stattdessen über die entityId-prop durch. Ohne den entityId-prop-Pfad
-  // fiele die Section auf vm.id (=values["id"]=undefined) zurück → create-
-  // mode trotz Edit (der Set-Value-UI-Bug, #187..fix).
+  // Real update flow: EntityEditUpdateForm deliberately omits `id` from
+  // the form values because `id` is not a declared field, and passes the route ID
+  // through the entityId prop instead. Without this path, the section would fall
+  // back to vm.id (=values["id"]=undefined) and incorrectly use create mode
+  // during editing.
   test("extension section uses the entityId prop when id is absent from form values", () => {
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-edit",
@@ -867,8 +867,8 @@ describe("RenderEdit", () => {
             screen={screenDef}
             entity={orderEntity}
             featureName="orders"
-            // KEIN id in den values (wie der echte Update-Form), aber
-            // entityId-prop trägt die route-id.
+            // No id in the values (as in the real update form), but
+            // the entityId prop carries the route ID.
             initial={{ title: "Existing", count: 0, isUrgent: false } as TestValues}
             entityId="order-99"
             writeCommand="order:update"
@@ -919,8 +919,8 @@ describe("RenderEdit", () => {
     expect(placeholder.textContent).toContain("UnregisteredComp");
   });
 
-  // Issue #1888: ExtensionSectionProps.values/patch/validate pass-through —
-  // same controller functions as RenderEditControls (#1887), just handed to
+  // ExtensionSectionProps.values/patch/validate pass-through —
+  // same controller functions as RenderEditControls, just handed to
   // the extension section instead of onControlsReady.
   test("extension section sees current form values and its patch(...) lands in the form + outer onChange", () => {
     const screenDef: EntityEditScreenDefinition = {
@@ -1149,7 +1149,7 @@ describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
     })) as unknown as Dispatcher["write"];
     renderWith(submitSpy, writeSpy);
 
-    // Main unverändert + Section nicht dirty → Save disabled.
+    // The main form is unchanged and the section is not dirty, so Save is disabled.
     expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
 
     // Section dirty machen → Save enabled (composed-dirty propagiert hoch).
@@ -1158,7 +1158,8 @@ describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
     });
     expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(false);
 
-    // Save → Section-Handler mit entityId; KEIN Main-Write (main unverändert).
+    // Save → the section handler receives entityId; no main write occurs because
+    // the main form is unchanged.
     await act(async () => {
       fireEvent.click(screen.getByTestId("render-edit-submit"));
     });

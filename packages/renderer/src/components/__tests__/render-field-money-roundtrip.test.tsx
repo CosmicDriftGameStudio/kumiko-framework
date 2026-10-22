@@ -1,5 +1,4 @@
-// kumiko-framework#1923: money didn't round-trip on the auto-wired
-// entityEdit path — create sent a bare number against the server's
+// Money didn't round-trip on the auto-wired entityEdit path — create sent a bare number against the server's
 // `{amount, currency}` schema, update rendered the rehydrated read value as
 // NaN, and a naive fix would have been 100x off (minor vs. major units).
 //

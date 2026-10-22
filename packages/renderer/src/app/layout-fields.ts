@@ -13,7 +13,7 @@ import {
 // (and relatedList) sections skipped. Both this and `layoutFieldNames` key
 // off "rendered by the layout" for the same reason: a field the user never
 // sees gets no chance to review/correct a value nor to fix a presence error
-// (search-param merge, #1708; presence schema in form-schema.ts).
+// (search-param merge; presence schema in form-schema.ts).
 export function layoutEditFields(
   screen: EntityEditScreenDefinition,
 ): readonly Exclude<EditFieldSpec, string>[] {

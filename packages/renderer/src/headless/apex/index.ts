@@ -212,8 +212,8 @@ export type ApexPage = {
   readonly footer: ApexFooter;
 };
 
-// JSON in <script>-Kontext: `<` als < serialisieren, damit weder
-// `</script>` noch `<!--` aus dem Block ausbrechen kann (JSON bleibt valide).
+// JSON in <script> context: serialize `<` as < so neither
+// `</script>` nor `<!--` can escape the block (JSON remains valid).
 function scriptSafeJsonHtml(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
@@ -528,7 +528,7 @@ export function renderApexHeadTags(head: ApexHead): string {
 export function renderApexPage(page: ApexPage): string {
   const { head, brand } = page;
   const theme = page.theme ?? "light";
-  // Brand-CSS ist app-authored (Trust-Boundary siehe Datei-Header), kein Tenant-Input.
+  // Brand CSS is app-authored (see the file header for the trust boundary), not tenant input.
   const cssHtml = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
   const sectionsHtml = page.sections.map(renderSection).join("\n\n    ");
   // interactive-widget is ignored by iOS Safari; apex pages have no fixed bottom bars, so
@@ -616,7 +616,7 @@ export function injectPageHead(html: string, tagsHtml: string): string {
 // Resolver runs alongside the request, never gates it: a slow, throwing, or
 // null-returning resolver must never turn a 200 shell into a 500 or a
 // stall. One constant shared by runProdApp and runDevApp so both time out
-// on the same value (kumiko-framework#3026).
+// on the same value.
 const PAGE_HEAD_TIMEOUT_MS = 300;
 
 async function resolvePageHeadWithTimeout(
@@ -679,8 +679,7 @@ function toApexHead(meta: PageHeadMeta): ApexHead {
  *  the shared timeout. Never throws and never changes `html` on a resolver
  *  error, a `null` resolve, or a timeout — the caller's shell always ships
  *  unchanged. runProdApp and runDevApp both call this single function, so a
- *  future change to timeout or fallback semantics has one place to land
- *  (kumiko-framework#3026). */
+ *  future change to timeout or fallback semantics has one place to land. */
 export async function resolveAndInjectPageHead(
   html: string,
   resolvePageHead: PageHeadResolver,

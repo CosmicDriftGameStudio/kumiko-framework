@@ -438,7 +438,7 @@ function EntityListBody({
   const runNavigate = useCallback(
     (action: RowActionNavigate, row: ListRowViewModel) => {
       if (action.entity !== undefined) {
-        // Entity targets (fw#2228) only resolve in the NavApi implementation
+        // Entity targets only resolve in the NavApi implementation
         // against ALL features (resolveTarget in renderer/web/nav.tsx); this
         // package only knows `schema` (the one calling feature) and cannot look up
         // detailFor across features itself.
@@ -698,8 +698,8 @@ function EntityListBody({
   // the entity has searchable fields (dead toolbar slot otherwise — the
   // server search index has nothing to filter). Gated on
   // schema.searchAdapterMissing !== true regardless of source (explicit or
-  // auto) — a search bar the server can't serve would 422 at request-time
-  // (#2032); matches the boot-time check in api/server.ts (#2051).
+  // auto) — a search bar the server can't serve would 422 at request-time;
+  // matches the boot-time check in api/server.ts.
   const searchable =
     schema.searchAdapterMissing !== true &&
     (screen.searchable ??

@@ -1,4 +1,4 @@
-// fw#2165: buildListQueryPayload was extracted out of EntityListBody's
+// buildListQueryPayload was extracted out of EntityListBody's
 // queryPayload useMemo so ProjectionListBody could reuse it without
 // duplicating the branch logic. This pins the extracted function against
 // exactly what EntityListBody built before the extraction — the regression

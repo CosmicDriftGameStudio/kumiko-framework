@@ -1,4 +1,4 @@
-// fw#3381: an entityEdit screen pins its action bar to the shell height by
+// An entityEdit screen pins its action bar to the shell height by
 // default (Form fillHeight + stickyActions); `fillHeight: false` opts out.
 import { describe, expect, test } from "bun:test";
 import type {

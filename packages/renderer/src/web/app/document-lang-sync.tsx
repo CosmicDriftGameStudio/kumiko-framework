@@ -16,7 +16,7 @@ import type { LocaleResolver } from "../../headless/index.ts";
 function syncDocumentLocale(locale: string): void {
   document.documentElement.lang = locale;
   // Dedicated marker for dispatcher-live — static <html lang> must not
-  // look like an active UI locale (kumiko-framework#2334).
+  // look like an active UI locale.
   document.documentElement.dataset["kumikoLocale"] = locale;
 }
 

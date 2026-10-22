@@ -189,7 +189,7 @@ describe("UploadZone", () => {
       const onUpload = mock(async (_uploaded: File) => {});
       render(<UploadZone title="Datei hochladen" onUpload={onUpload} testId="zone" />);
       // Content sized well above the fake resize's 13 bytes — resizeImageBeforeUpload
-      // (framework#1979) only takes the re-encode when it's actually smaller.
+      // only takes the re-encode when it's actually smaller.
       const file = new File(["x".repeat(2000)], "photo.jpg", { type: "image/jpeg" });
       pick(screen.getByTestId("zone-input"), [file]);
 

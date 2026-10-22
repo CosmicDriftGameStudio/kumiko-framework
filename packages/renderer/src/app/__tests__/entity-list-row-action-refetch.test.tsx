@@ -1,4 +1,4 @@
-// Bug found while archiving a cost-type in solon (kumiko-framework#113-adjacent):
+// Bug found while archiving a cost-type:
 // a `writeHandler` row-action on an entityList screen writes successfully
 // (HTTP 200, projection updated) but the list keeps showing the old state,
 // because nothing ever refetches the rows query after the write resolves.

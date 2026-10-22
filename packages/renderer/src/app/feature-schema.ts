@@ -4,10 +4,10 @@
 // file that exports a schema can be imported from the browser bundle
 // without dragging in Node-only framework internals.
 //
-// Types wohnen in `framework/ui-types/app-schema.ts` damit der Server
-// (buildAppSchema, dev-server) sie produzieren kann ohne renderer als
-// Dependency zu ziehen. Hier nur Re-Export + Runtime-Helpers
-// (toAppSchema, isAppSchema) die Client-Code zur Laufzeit braucht.
+// Types live in `framework/ui-types/app-schema.ts` so the server
+// (buildAppSchema, dev-server) can produce them without pulling in
+// renderer as a dependency. Only re-exports and runtime helpers
+// (toAppSchema, isAppSchema) needed by client code at runtime belong here.
 //
 // Typical layout on the feature author's side:
 //
@@ -38,10 +38,10 @@ import type {
 
 export type { AppSchema, FeatureSchema, QualifiedContentCollection, WorkspaceSchema };
 
-// Normalisiert FeatureSchema → AppSchema. Idempotent für AppSchema.
-// Hebt eine Feature-lokal deklarierte `workspaces`-Liste (Legacy) auf
-// App-Ebene hoch, damit alle Layouts mit der neuen Form arbeiten können
-// ohne dass alte clientSchemas migriert werden müssen.
+// Normalizes FeatureSchema → AppSchema and is idempotent for AppSchema.
+// Promotes a feature-local `workspaces` list (legacy) to the app level
+// so all layouts can use the new form without requiring old clientSchemas
+// to be migrated.
 export function toAppSchema(input: FeatureSchema | AppSchema): AppSchema {
   if ("features" in input) return input;
   // Old single-feature shape — wrap.
@@ -52,9 +52,9 @@ export function toAppSchema(input: FeatureSchema | AppSchema): AppSchema {
   };
 }
 
-// TypeGuard — Caller die schon zur Laufzeit unterscheiden müssen
-// (selten; meist reicht toAppSchema). Nicht via `"features" in x` inline
-// machen — narrow'd TS dann auf den join-Typ statt die echte Differenz.
+// Type guard for callers that need to distinguish the types at runtime
+// (rare; toAppSchema is usually sufficient). Do not use `"features" in x`
+// inline: TS then narrows to the join type instead of the actual distinction.
 export function isAppSchema(input: FeatureSchema | AppSchema): input is AppSchema {
   return "features" in input;
 }

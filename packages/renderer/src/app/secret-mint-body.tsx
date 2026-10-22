@@ -61,10 +61,10 @@ function isBlank(value: unknown): boolean {
 // Mint form → one-time reveal → optional confirm → done. The revealed values
 // live ONLY in this component's `revealed` state — never in the URL, a query
 // cache, or nav — the write-handler's success payload is the only place the
-// secret ever exists (fw#2548). onSubmit copies exclusively the fields
+// secret ever exists. onSubmit copies exclusively the fields
 // declared in `screen.reveal.fields` out of that payload (a whitelist, never
 // the payload as a whole) so an unrelated field (e.g. an internal "id") can
-// never leak into the reveal. `screen.confirm` (fw#2838, e.g. TOTP enroll:
+// never leak into the reveal. `screen.confirm` (e.g. TOTP enroll:
 // scan the code, then enter one) works the same way for its own carried
 // mint-payload fields — those live only in `carriedRef`, never in React state
 // that gets rendered, never in the confirm form's own values.
@@ -106,7 +106,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
         // A mint form has no entity either, so its money fields name their own
-        // currency source (fw#2839, fw#2933).
+        // currency source.
         ...(mintCurrencyOverrides !== undefined && {
           moneyCurrencyOverrides: mintCurrencyOverrides,
         }),
@@ -319,7 +319,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     // submit state) across phases.
     if (confirm !== undefined && confirmEntity !== undefined && confirmScreen !== undefined) {
       // Hold until a tenant-declared currency lands, else the form would seed (and
-      // on a fast click submit) the fallback currency (fw#2933).
+      // on a fast click submit) the fallback currency.
       if (confirmCurrencyLoading) {
         return <QueryLoadingBanner />;
       }

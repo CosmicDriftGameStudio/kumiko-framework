@@ -139,7 +139,7 @@ export function DefaultSection({
 export function DefaultFillContainer({ children, testId, grow }: FillContainerProps): ReactNode {
   // flex-1 only on request (`grow`, set under fillScreenHeight): without it the
   // container sizes to its content and only shrinks (min-h-0), so a two-row
-  // table in a non-fixed-height screen does not stretch (fw#2778).
+  // table in a non-fixed-height screen does not stretch.
   return (
     <div data-testid={testId} className={cn("flex min-h-0 flex-col", grow === true && "flex-1")}>
       {children}

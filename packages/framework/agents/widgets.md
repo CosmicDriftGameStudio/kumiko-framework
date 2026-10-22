@@ -16,11 +16,11 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `BareFormProvider` |  |
 | `BooleanField` | Checkbox/Switch = Field(layout:"inline") + Input(kind:"boolean"). |
 | `Card` |  |
-| `CollapsibleSection` | Aufklappbare Sektion (native <details>, aber React-kontrolliert: sonst springt das open-Attribut bei jedem Parent-Re-Render auf den Initialwert zurück). |
-| `ComparisonTable` | Transponierte Vergleichstabelle: Zeile = Kennzahl, Spalte = Variante, je Kennzahl optional die beste Spalte hervorgehoben. |
-| `DateField` | Datumsfeld = Field + Input(kind:"date"), ISO yyyy-mm-dd. |
+| `CollapsibleSection` | Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render. |
+| `ComparisonTable` | Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric. |
+| `DateField` | Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd. |
 | `DefaultAppShell` |  |
-| `DetailList` | Read-only Schlüssel-Wert-Liste für Detail-Masken (Label links gedimmt, Wert rechts). |
+| `DetailList` | Read-only key-value list for detail views (dimmed label on the left, value on the right). |
 | `DispatcherProvider` |  |
 | `Drawer` | Slide-in panel beside a list (e.g. mail reader next to the inbox) — thin wrapper over the Sheet primitive with header/body/footer slots so screens skip per-route Radix boilerplate. |
 | `DropdownMenu` |  |
@@ -32,10 +32,10 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `DropdownMenuSeparator` |  |
 | `DropdownMenuTrigger` |  |
 | `EditorPanel` |  |
-| `EmptyState` | Leerer-Zustand mit optionalem Icon + CTA — die dashed-Box-Optik der entityList-Empty-States, als Standalone-Widget für Custom-Screens. |
-| `ErrorState` | Fehler-Zustand auf Basis des Banner-Primitives, mit Retry-Button. |
-| `FeedList` | Nicht-tabellarische Kurzliste (z.B. |
-| `FileField` | Datei-Upload = Field + Input(kind:"file"\|"image") — FileRef-basiert. |
+| `EmptyState` | Empty state with an optional icon and CTA, using the dashed-box style of entityList empty states as a standalone widget for custom screens. |
+| `ErrorState` | Error state based on the Banner primitive, with a retry button. |
+| `FeedList` | Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row. |
+| `FileField` | File upload = Field + Input(kind:"file"\|"image"), based on FileRef. |
 | `FloatingPanel` | Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered. |
 | `FormScreenShell` |  |
 | `HeaderActionGroup` |  |
@@ -46,14 +46,14 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `LanguageMenuItems` | Locale choices as dropdown entries, for a user menu that carries the shell controls. |
 | `LanguageSwitcher` |  |
 | `LiveEventsProvider` |  |
-| `LoadingState` | Lade-Zustand: Skeleton-Zeilen in Card-Optik. |
+| `LoadingState` | Loading state with skeleton rows styled like cards; `rows` controls the height. |
 | `LocaleProvider` |  |
-| `MiniStat` | Kompakte Kennzahl-Kachel (ohne Icon) — für dichte KPI-Raster. |
-| `ModeSwitch` | Segmented-Control für sich ausschließende Modi — die prominente Alternative zum vergrabenen <select>. |
+| `MiniStat` | Compact metric tile (without an icon) — for dense KPI grids. |
+| `ModeSwitch` | Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>. |
 | `MoneyField` |  |
 | `NavProvider` |  |
 | `NavTree` |  |
-| `NumberField` | Zahlenfeld = Field + Input(kind:"number") in einem — nimmt der Screen die wiederholte id/name/value/onChange-Verdrahtung ab. |
+| `NumberField` | Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen. |
 | `PageSection` |  |
 | `PdfPreview` |  |
 | `PercentField` |  |
@@ -64,22 +64,22 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `PrimitivesProvider` |  |
 | `ProfileMenu` |  |
 | `ProgressBar` | Progress bar, `value` 0..1 (clamped). |
-| `ProgressList` | Liste aus Label/Wert-Kopfzeile + Fortschrittsbalken pro Eintrag (z.B. |
+| `ProgressList` | Label/value header and progress bar for each entry (for example, loan repayment progress). |
 | `PublicShell` | One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in). |
 | `QueryTable` |  |
-| `RangeField` | Schieberegler = Field + Input(kind:"range"). |
+| `RangeField` | Slider = Field + Input(kind:"range"). |
 | `RenderEdit` |  |
 | `RenderField` |  |
 | `RenderList` |  |
 | `ResizableHandle` |  |
 | `ResizablePanel` |  |
 | `ResizablePanelGroup` |  |
-| `ResultPanel` | Ergebnis-Sektion eines Rechners: SectionCard mit Empty-Zustand (Banner) oder Kennzahl-Liste (DetailList) + optionalen Extras (Tabelle, Hinweise). |
-| `ResultTable` | Statische, prop-getriebene Ergebnistabelle für berechnete Zeilen (Tranchen, Szenarien). |
+| `ResultPanel` | Result section for a calculator: SectionCard with an empty state (Banner) or a metric list (DetailList) plus optional extras (table, notes). |
+| `ResultTable` | Static, prop-driven result table for calculated rows (tranches, scenarios). |
 | `RichContentEditor` |  |
 | `ScreenWidthProvider` |  |
-| `SectionCard` | Sektion mit Titel + optionalem Action-Slot (Range-Umschalter, Filter) — ersetzt die wiederholten `<section className={CARD}>…<h2>`-Blöcke in Custom-Screens. |
-| `SelectField` | Auswahlfeld = Field + Input(kind:"select"). |
+| `SectionCard` | Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens. |
+| `SelectField` | Select field = Field + Input(kind:"select"). |
 | `SideBySideTable` | Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs. |
 | `Sidebar` |  |
 | `SidebarBrand` |  |
@@ -91,15 +91,15 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `SidebarUser` |  |
 | `Sparkline` |  |
 | `Stack` |  |
-| `StatCard` | Icon-tragende Kennzahl-Kachel mit optionalem Delta-Chip, Trend-Zeile und Sparkline. |
+| `StatCard` | Icon-bearing metric tile with an optional delta chip, trend line, and sparkline. |
 | `StatusBadge` | Pill badge with a status dot. |
 | `StatusBarChart` | Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe. |
 | `StepBar` | Wizard step overview — numbered chips with a connector line between them. |
-| `TextField` | Textfeld = Field + Input(kind:"text"). |
-| `TextareaField` | Mehrzeiliges Textfeld = Field + Input(kind:"textarea"). |
+| `TextField` | Text field = Field + Input(kind:"text"). |
+| `TextareaField` | Multi-line text field = Field + Input(kind:"textarea"). |
 | `ThemeMenuItem` | Theme toggle as a dropdown entry, for a user menu that carries the shell controls. |
 | `ThemeToggle` |  |
-| `TimeseriesChart` | Zeitreihen-Linien-Chart (geglättete Linie + Flächen-Verlauf). |
+| `TimeseriesChart` | Time-series line chart (smoothed line with area fill). |
 | `ToastProvider` |  |
 | `TokensProvider` |  |
 | `Topbar` |  |
@@ -112,16 +112,16 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 
 | Name | Description |
 | --- | --- |
-| `useBrowserNavApi` | React-Hook der eine NavApi aus der Browser-History baut. |
-| `useBrowserTokensApi` | Hook der eine TokensApi für den Browser baut. |
+| `useBrowserNavApi` | React hook that builds a NavApi from browser history. |
+| `useBrowserTokensApi` | Builds a TokensApi for the browser. |
 | `useDispatcher` |  |
 | `useDispatcherStatus` |  |
-| `useDraft` | Formular-State für Rechner-Screens: ein Draft-Objekt + `patch` für Teil-Updates + `field(name)` das die `{ id, name, value, onChange }`-Props fertig für die Feld-Widgets (NumberField/MoneyField/PercentField) liefert. |
+| `useDraft` | Form state for calculator screens: a draft object plus `patch` for partial updates, and `field(name)` that provides `{ id, name, value, onChange }` props ready for field widgets (NumberField/MoneyField/PercentField). |
 | `useForm` |  |
 | `useIsNarrowViewport` |  |
 | `useIsViewportBelow` |  |
-| `useLiveEvents` | Hook für useQuery-like Consumer. |
-| `useLocale` | Liefert den aktuellen LocaleResolver und abonniert automatisch Locale-Änderungen — der aufrufende Component re-rendert sobald die Sprache gewechselt wird. |
+| `useLiveEvents` | Hook for a useQuery-like consumer. |
+| `useLocale` | Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes. |
 | `useNav` |  |
 | `usePrimitives` |  |
 | `useQuery` |  |
@@ -129,8 +129,8 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `useStore` |  |
 | `useStoreSelector` |  |
 | `useToast` |  |
-| `useTokenController` | Volle API inkl. |
-| `useTokens` | Read-only Tokens-Hook. |
+| `useTokenController` | Full API including theme toggling, for a dark/light switch button. |
+| `useTokens` | Read-only tokens hook. |
 | `useTranslation` | `t("key", params)` resolves in this order: 1. |
 | `useUserRoles` |  |
 
@@ -138,17 +138,17 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 
 | Name | Description |
 | --- | --- |
-| `applyTokensToCssVars` | Historisch: schrieb Tokens auf :root als CSS-vars. |
+| `applyTokensToCssVars` | Historically wrote tokens to :root as CSS variables. |
 | `buildFileUploadFormData` |  |
 | `buildNavRegistrySlice` |  |
 | `buildNavRegistrySliceForApp` |  |
-| `cn` | shadcn-Standard-Helper: clsx für konditionales Zusammenstecken, tailwind-merge für Konfliktauflösung (z.B. |
+| `cn` | Standard shadcn helper: `clsx` combines conditional classes, while `tailwind-merge` resolves conflicts (for example, `px-2 px-4` → `px-4`). |
 | `createBrowserDraftStorage` | Default DraftStorage when createKumikoApp boots without one. |
-| `createBrowserLocaleResolver` | Default-Resolver wenn createKumikoApp ohne `locale`-Option gebootet wird. |
-| `createEventSourceLiveEvents` | Liefert einen `LiveEventSubscriber` der EventSource-backed ist. |
+| `createBrowserLocaleResolver` | Default resolver when createKumikoApp is booted without a `locale` option. |
+| `createEventSourceLiveEvents` | Returns an EventSource-backed `LiveEventSubscriber`. |
 | `createKumikoApp` |  |
 | `createPublicSurface` |  |
-| `createStaticLocaleResolver` | Default-Resolver für Apps ohne eigene i18n-Schicht. |
+| `createStaticLocaleResolver` | Default resolver for apps without their own i18n layer. |
 | `downloadFileRef` |  |
 | `fetchFileRefBlob` |  |
 | `fileNameFromContentDisposition` |  |
@@ -157,16 +157,16 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `formatMoney` |  |
 | `formatPath` |  |
 | `parsePath` |  |
-| `parseTargetFromSearchParams` | Inverse — parse the current search-params back into a TargetRef. |
+| `parseTargetFromSearchParams` | Parses the current search parameters back into a TargetRef. |
 | `postWithDownload` |  |
 | `qualifyScreenId` |  |
 | `readLoadedBuild` |  |
 | `reparentAppSchemaNavs` |  |
 | `resolveDefaultId` |  |
 | `saveBlobAsFile` |  |
-| `smoothPath` | Quadratic-durch-Mittelpunkte-Trick: glättet die Zick-Zack-Linie ohne Overshoot (~5 Zeilen statt Catmull-Rom/Bezier-Fit). |
-| `synthesizeActionFormEntity` | Baut eine minimale EntityDefinition aus den Inline-Fields eines ActionForm- oder SecretMint-Screens. |
-| `synthesizeActionFormScreen` | Wandelt ein ActionFormScreenDefinition oder SecretMintScreenDefinition in die EntityEditScreen-Shape die RenderEdit erwartet. |
+| `smoothPath` | Quadratic midpoint technique: smooths the zigzag line without overshoot (~5 lines instead of a Catmull-Rom/Bezier fit). |
+| `synthesizeActionFormEntity` | Builds a minimal EntityDefinition from the inline fields of an ActionForm or SecretMint screen. |
+| `synthesizeActionFormScreen` | Converts an ActionFormScreenDefinition or SecretMintScreenDefinition to the EntityEditScreen shape expected by RenderEdit. |
 | `uploadFileRef` | Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id. |
 
 ## Constants
@@ -177,7 +177,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `STATUS_TONE_TEXT` |  |
 | `cssVarTokens` | Tokens with var-string values. |
 | `defaultPrimitives` |  |
-| `defaultTokens` | Default-Tokens — identisch zu `cssVarTokens` (var-string-refs). |
+| `defaultTokens` | Default tokens—identical to `cssVarTokens` (variable-string references). |
 | `lightTokens` |  |
 
 ## Classes

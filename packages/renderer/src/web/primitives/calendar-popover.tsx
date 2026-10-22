@@ -1,13 +1,13 @@
-// CalendarPopover — gemeinsamer Kalender-Trigger für DateInput und
-// TimestampInput. Ein Icon-Button öffnet ein Radix-Popover mit
+// CalendarPopover — shared calendar trigger for DateInput and
+// TimestampInput. An icon button opens a Radix popover with
 // react-day-picker (v9). captionLayout="dropdown" + startMonth/endMonth
-// geben Monats- UND Jahres-Dropdown statt nur Monats-Vor/Zurück — der
-// Grund für #369 (10 Jahre zurück war ~120 Klicks). min/max grauen
-// Tage außerhalb des erlaubten Bereichs aus.
+// provide month AND year dropdowns instead of only month navigation —
+// going back 10 years would otherwise take ~120 clicks. min/max gray out
+// days outside the allowed range.
 //
-// Der Text-Input (Tippen) lebt bewusst NICHT hier, sondern im jeweiligen
-// Primitive — date hat ein Feld, timestamp zwei (Datum + Uhrzeit). So
-// teilen beide dieselbe Kalender-Mechanik ohne ihre Eingabe-Form zu teilen.
+// The text input (typing) intentionally lives in each Primitive, not here:
+// date has one field, while timestamp has two (date + time). This lets both
+// share the calendar mechanics without sharing their input layout.
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Calendar as CalendarIcon } from "lucide-react";
@@ -26,7 +26,7 @@ export type CalendarPopoverProps = {
   readonly max?: Date;
   readonly disabled?: boolean;
   readonly hasError?: boolean;
-  /** a11y-Label für den Icon-Button (kein sichtbarer Text). */
+  /** a11y label for the icon button (no visible text). */
   readonly triggerLabel: string;
 };
 
@@ -42,8 +42,8 @@ const popoverClass =
   "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 " +
   "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95";
 
-// Default-Range wenn das Feld kein min/max setzt — sonst wäre das
-// Jahres-Dropdown leer/unbrauchbar. Zur Render-Zeit berechnet.
+// Default range when the field does not set min/max; otherwise the year
+// dropdown would be empty or unusable. Computed at render time.
 function defaultRange(): { start: Date; end: Date } {
   const thisYear = new Date().getFullYear();
   return { start: new Date(1900, 0, 1), end: new Date(thisYear + 10, 11, 31) };

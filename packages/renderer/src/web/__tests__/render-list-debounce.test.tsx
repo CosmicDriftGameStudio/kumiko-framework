@@ -1,9 +1,9 @@
 //
-// RenderList puffert Tipps im Search-Input lokal und schickt
-// onSearchChange erst nach 300ms ohne weitere Tasten. Vor dieser Suite
-// nur durch Code-Read bewiesen — bei der nächsten Refactor-Welle wäre
-// die Race-Condition (Sync-Effect auf searchValue + Debounce-Effect)
-// wahrscheinlich kaputt gegangen ohne dass eine CI das fängt.
+// RenderList buffers keystrokes in the search input locally and sends
+// onSearchChange only after 300ms without further keystrokes. Before this suite,
+// this was verified only by reading the code—the race condition between the
+// searchValue sync effect and debounce effect likely would have broken in a
+// later refactor without CI catching it.
 
 import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import type {
@@ -20,9 +20,9 @@ import {
 } from "../../index.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
 
-// Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.
-// Eine Spalte reicht — wir testen nur den Search-Debounce-Pfad, nicht
-// die DataTable-Render-Tiefe.
+// Use a minimal entity so RenderList does not encounter missing fields.
+// One column is sufficient because this tests only the search-debounce path,
+// not the depth of DataTable rendering.
 const entity: EntityDefinition = {
   fields: { title: { type: "text", allowPlaintext: "test fixture value, not personal data" } },
 } as EntityDefinition;
@@ -73,14 +73,14 @@ describe("RenderList — Search-Debounce", () => {
     fireEvent.change(input, { target: { value: "acm" } });
     fireEvent.change(input, { target: { value: "acme" } });
 
-    // Vor Debounce-Ablauf: kein call (jeder Keypress hat den Timer
-    // resettet).
+    // Before the debounce expires: no call (each keypress reset the timer).
+    //
     act(() => {
       jest.advanceTimersByTime(299);
     });
     expect(onSearchChange).not.toHaveBeenCalled();
 
-    // 300ms: jetzt feuert es exakt einmal mit dem letzten Wert.
+    // At 300ms, it fires exactly once with the latest value.
     act(() => {
       jest.advanceTimersByTime(1);
     });
@@ -94,8 +94,8 @@ describe("RenderList — Search-Debounce", () => {
     const input = screen.getByDisplayValue("first") as HTMLInputElement;
     expect(input.value).toBe("first");
 
-    // Externe Quelle (Browser-Back, Cross-Component-Reset) ändert
-    // searchValue → RenderList soll den Input-Wert spiegeln.
+    // An external source (browser back navigation or a cross-component reset)
+    // changes searchValue, so RenderList must mirror it in the input value.
     rerender(
       <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
         <PrimitivesProvider value={defaultPrimitives}>
@@ -153,9 +153,9 @@ describe("RenderList — Search-Debounce", () => {
   });
 
   test("onSearchChange wird NICHT gerufen wenn lokal === searchValue (kein Echo)", () => {
-    // Wenn der Parent searchValue auf "x" setzt UND der lokale Buffer
-    // schon "x" ist (z.B. Cleanup-Timing), darf RenderList nicht den
-    // Wert nochmal zurückrufen — sonst wäre's eine Loop.
+    // If the parent sets searchValue to "x" while the local buffer is already
+    // "x" (for example, due to cleanup timing), RenderList must not emit the
+    // value again, or it would create a loop.
     const onSearchChange = mock();
     renderRL({ searchValue: "x", onSearchChange });
     act(() => {

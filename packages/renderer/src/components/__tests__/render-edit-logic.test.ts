@@ -31,7 +31,7 @@ describe("resolveExtensionEntityId", () => {
     expect(resolveExtensionEntityId("entity-42", "row-7")).toBe("entity-42");
   });
 
-  // The #345/1 regression: mount fell back to vm.id but persist did not, so a
+  // The regression: mount fell back to vm.id but persist did not, so a
   // custom-fields section mounted editable against the existing row yet saved
   // to null → silent data loss. Both sites now resolve this same value.
   test("undefined prop → vm.id fallback (update form carries the row id)", () => {
@@ -48,7 +48,7 @@ describe("resolveExtensionEntityId", () => {
 });
 
 describe("shouldNotifyCaller", () => {
-  // The one case the #345/1 fix changes: a successful entity write whose
+  // The one case the fix changes: a successful entity write whose
   // extension persist failed must NOT notify (caller would navigate away and
   // unmount the extension-error banner → silent custom-field data loss). The
   // pre-fix code notified unconditionally, so this row flips false↔true.
@@ -170,7 +170,7 @@ describe("hasEditableSection", () => {
     expect(hasEditableSection([section])).toBe(false);
   });
 
-  // The #1689 regression: the section is visible because field A is visible
+  // The regression: the section is visible because field A is visible
   // (readOnly), but the only editable field B is hidden by its own
   // FieldCondition. Old code checked section.visible + !readOnly only, so it
   // saw B's !readOnly and returned true — Save appeared over zero editable

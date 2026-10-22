@@ -1,6 +1,6 @@
-// Update-Erkennung: die Korrektheitsgrenze ist der ID-Vergleich, nicht die
-// Listener-Verdrahtung. shouldShowUpdate kapselt die "nie ein Fake-Banner"-
-// Invariante — hier die vier Fälle direkt geprüft.
+// The correctness boundary is the ID comparison, not listener wiring.
+// shouldShowUpdate encapsulates the "never show a fake banner" invariant;
+// the four cases are tested directly here.
 
 import { describe, expect, test } from "bun:test";
 import { isKumikoBuild, shouldShowUpdate } from "../update-checker.tsx";

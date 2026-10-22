@@ -1,4 +1,4 @@
-// #3043 — event attribution. append() stamps metadata.feature +
+// Event attribution. append() stamps metadata.feature +
 // metadata.handler from the ambient execution scope, below every envelope
 // builder, so no writer can forget it.
 //

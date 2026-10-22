@@ -1,11 +1,11 @@
 //
-// Unit-Tests für den configEdit-Screen-Type. Decken die Pfade ab die
-// Integration + E2E nur indirekt sehen:
-//   - Initial-Load via config:query:values + Pre-Fill aus values[qn]
-//   - customSubmit dispatcht pro geändertem Field einen separaten
-//     config:write:set Call mit dem qualifizierten Key + scope
-//   - Save-Button Greying via controller.rebase nach Success
-//   - Loading-State während config:query:values noch läuft
+// Unit tests for the configEdit screen type. They cover paths that
+// integration and E2E tests only exercise indirectly:
+//   - Initial load via config:query:values and prefill from values[qn]
+//   - customSubmit dispatches a separate config:write:set call for each
+//     changed field, using the qualified key and scope
+//   - Save-button disabling via controller.rebase after success
+//   - Loading state while config:query:values is pending
 //
 // `as unknown as Dispatcher["query"/"batch"]` throughout: each inline mock
 // lambda only implements the one overload a given test exercises, never the
@@ -39,7 +39,7 @@ const settingsScreen: ConfigEditScreenDefinition = {
 };
 
 // A money-typed field is a legitimate FieldDefinition (screen.fields reuses
-// the entity field-shape, kumiko-framework#1923 render-field.tsx money case)
+// the entity field-shape, render-field.tsx money case)
 // even though ConfigKeyType (write-helpers.ts) never carries "money" — the
 // server side of a config key is always a bare scalar.
 const moneySettingsScreen: ConfigEditScreenDefinition = {
@@ -82,12 +82,12 @@ describe("KumikoScreen / configEdit", () => {
       </DispatcherProvider>,
     );
 
-    // Solange die query pending ist, rendert ConfigEditBody den
-    // Loading-Banner (kein Form, kein vorzeitiges leeres Feld).
+    // While the query is pending, ConfigEditBody renders the loading banner
+    // rather than a form or a prematurely empty field.
     expect(screen.getByTestId("kumiko-screen-loading")).toBeTruthy();
 
-    // Cleanup: Query auflösen damit der useEffect-Subscriber sauber
-    // unmounten kann ohne open-handle-Warning.
+    // Cleanup: resolve the query so the useEffect subscriber can unmount
+    // cleanly without an open-handle warning.
     resolveQuery({ isSuccess: true, data: {} });
     await waitFor(() => screen.queryByTestId("render-edit-form"));
   });
@@ -240,8 +240,8 @@ describe("KumikoScreen / configEdit", () => {
     const siteInput = screen.getByTestId("field-siteName").querySelector("input");
     if (!siteInput) throw new Error("expected siteName input");
 
-    // Ändert NUR siteName — der Batch darf nur EIN Command enthalten,
-    // nicht beide (unchanged-Field bleibt aus).
+    // Changes ONLY siteName — the batch must contain exactly one command,
+    // leaving the unchanged field out.
     await user.clear(siteInput);
     await user.type(siteInput, "Globex");
     await user.click(screen.getByTestId("render-edit-submit"));
@@ -351,7 +351,7 @@ describe("KumikoScreen / configEdit", () => {
     });
   });
 
-  // kumiko-framework#1923: RenderField's money case now always emits the
+  // RenderField's money case now always emits the
   // entityEdit `{amount, currency}` payload shape. A config key's server
   // value is always a bare scalar (ConfigKeyType has no "money" variant) —
   // customSubmit must unwrap back to `.amount` before dispatching, or the
@@ -423,16 +423,15 @@ describe("KumikoScreen / configEdit", () => {
     const submit = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
     await user.click(submit);
 
-    // After rebase, draft == server-snapshot, isUnchanged=true,
-    // Button wird disabled. Ohne customSubmit-rebase-Wiring blieb
-    // dieser State stale (regression-guard).
+    // After rebase, draft == server-snapshot and isUnchanged=true, so the
+    // button is disabled. Without the customSubmit rebase wiring, this
+    // state remained stale (regression guard).
     await waitFor(() => expect(submit.disabled).toBe(true));
   });
 
-  // Regression Bug-Bash-2 (2026-06-08): RenderEdit reichte denselben
-  // Appendix-Callback als labelAppendix UND fieldAppendix durch —
-  // Badge + Standard-Disclosure erschienen doppelt (vor und nach dem
-  // Input) auf jedem Settings-Screen mit Default-Werten.
+  // RenderEdit passed the same appendix callback as both labelAppendix and
+  // fieldAppendix, so the badge and standard disclosure appeared twice,
+  // before and after the input, on every settings screen with default values.
   test("Source-Badge und Standard-Disclosure erscheinen genau einmal pro Feld", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (qn: string) => {
@@ -481,19 +480,19 @@ describe("KumikoScreen / configEdit", () => {
     await waitFor(() =>
       expect(field.querySelectorAll('[data-testid="config-cascade"]')).toHaveLength(1),
     );
-    // Eine einzige Status-Stelle pro Feld: die Cascade-Disclosure unter dem
-    // Input trägt Quelle + Wert. Das frühere Label-Badge war redundant und
-    // wurde entfernt (User-Feedback "2× Fehlt").
+    // Each field has one status location: the cascade disclosure below the
+    // input shows the source and value. The former label badge was redundant
+    // and was removed (user feedback: "2× Fehlt").
     expect(field.querySelectorAll('[data-testid="config-source-badge"]')).toHaveLength(0);
     const label = field.querySelector("label");
     expect(label?.querySelector('[data-testid="config-source-badge"]')).toBeNull();
     expect(label?.querySelector('[data-testid="config-cascade"]')).toBeNull();
   });
 
-  // Regression #430: nach "Speichern" zeigte die Cascade-Disclosure den
-  // alten Wert bis zum Page-Reload — customSubmit rebased nur den Form-State
-  // (controller.rebase), refetchte aber values/cascade NICHT (onReset tat es).
-  // Guard: nach erfolgreichem Save MUSS jede der beiden Queries erneut laufen.
+  // After "Save", the cascade disclosure showed the old value until a page
+  // reload: customSubmit rebased only the form state (controller.rebase) but
+  // did not refetch values or the cascade, unlike onReset.
+  // After a successful save, both queries must run again.
   test("save refetcht values + cascade — Disclosure nach Speichern aktuell, nicht erst nach Reload", async () => {
     const queryCalls: Record<string, number> = {};
     const dispatcher: Dispatcher = createMockDispatcher({
@@ -553,14 +552,14 @@ describe("KumikoScreen / configEdit", () => {
     await user.type(siteInput, "Globex");
     await user.click(screen.getByTestId("render-edit-submit"));
 
-    // Ohne den refetch im customSubmit bleiben beide Counts flat (rot).
+    // Without the refetch in customSubmit, both counts remain unchanged (failure).
     await waitFor(() => {
       expect(queryCalls["config:query:cascade"] ?? 0).toBeGreaterThan(cascadeBefore);
     });
     expect(queryCalls["config:query:values"] ?? 0).toBeGreaterThan(valuesBefore);
   });
 
-  // #432/1: the cascade disclosure button (below the input) opens and closes
+  // The cascade disclosure button (below the input) opens and closes
   // the level panel; the open/close cycle is pinned here as an interaction.
   test("#432/1: cascade disclosure toggles the level panel open and closed", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({

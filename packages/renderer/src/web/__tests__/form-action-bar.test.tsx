@@ -1,7 +1,7 @@
-// shadcn-Form-Muster: die Action-Buttons sitzen als Footer am ENDE des
-// Formulars (border-t-getrennt, rechtsbündig, im max-w-Body), NICHT mehr
-// als Sticky-Bar im Header. Der Titel ist ein Heading oben. Strukturelle
-// Assertions (Klassen/DOM) — der visuelle Beweis läuft über den Runner.
+// shadcn form pattern: action buttons sit in a footer at the END of the
+// form (separated by border-t, right-aligned, within the max-w body), NOT
+// as a sticky bar in the header. The title is a heading above. Structural
+// assertions (classes/DOM) — the visual proof runs through the test runner.
 
 import { describe, expect, mock, test } from "bun:test";
 import type {
@@ -204,17 +204,17 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
         </Section>
       </Form>,
     );
-    // Inner-Region: keine eigene bg-card; beide Sections sind Geschwister im
-    // selben Body-Wrapper (der die Trennlinie ZWISCHEN ihnen per CSS macht).
+    // Inner region: no own bg-card; both sections are siblings in the same
+    // body wrapper, which creates the divider BETWEEN them through CSS.
     const s1 = screen.getByTestId("s1");
     const s2 = screen.getByTestId("s2");
     expect(s1.className).not.toContain("bg-card");
     expect(s1.parentElement).toBe(s2.parentElement);
-    // Das Form wrappt alles in GENAU eine Card-Fläche.
+    // The form wraps everything in exactly one card surface.
     const card = screen.getByTestId("f").querySelector(".bg-card");
     expect(card).toBeTruthy();
     expect(card?.querySelectorAll(".bg-card").length).toBe(0);
-    // Titel + Action-Footer sitzen in dieser Card.
+    // The title and action footer are contained in this card.
     expect(card?.querySelector("[data-testid='f-title']")).toBeTruthy();
     expect(card?.querySelector("[data-testid='f-actions']")).toBeTruthy();
   });
@@ -308,7 +308,7 @@ describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
     );
     expect(screen.getByTestId("sc-subtitle").textContent).toBe("Kontext-Zeile");
     expect(screen.getByTestId("sc-subtitle").className).toContain("text-muted-foreground");
-    // border-b-Header (alt) ist weg — Titel fließt in den Body (shadcn-Muster).
+    // The border-b header is gone — the title flows into the body (shadcn pattern).
     expect(screen.getByTestId("sc").querySelector(".border-b")).toBeNull();
   });
 
@@ -382,8 +382,8 @@ function makeScreen(sectionTitle: string): EntityEditScreenDefinition {
 
 describe("RenderEdit Section-Titel-Dopplung", () => {
   test("Section-Titel == Form-Titel → Header unterdrückt", () => {
-    // Ohne translate-Bundle fällt der Form-Titel auf screen.id zurück —
-    // ein gleichlautender Section-Titel reproduziert die Dopplung.
+    // Without a translation bundle, the form title falls back to screen.id —
+    // a matching section title reproduces the duplication.
     render(
       <DispatcherProvider dispatcher={createMockDispatcher()}>
         <RenderEdit

@@ -1,8 +1,8 @@
-// workspace-shell Pure-Logik Tests (Phase 1, test-luecken-integration, Tier 1).
+// Pure-logic tests for workspace-shell.
 //
-// filterByAccess (Rollen-Filter + Sortierung), resolveDefaultId
-// (preferred > default > first), firstNavScreenId (erste Nav mit Screen).
-// Pure, kein DOM.
+// filterByAccess (role filtering + sorting), resolveDefaultId
+// (preferred > default > first), firstNavScreenId (first nav with a screen).
+// Pure, no DOM.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -76,7 +76,7 @@ describe("firstNavScreenId", () => {
         entities: {},
         screens: [],
         navs: [
-          { id: "header", label: "H" }, // Section-Header ohne screen
+          { id: "header", label: "H" }, // Section header without a screen
           { id: "list", label: "L", screen: "catalog" },
         ],
       },

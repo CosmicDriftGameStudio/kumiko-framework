@@ -1,7 +1,7 @@
-// AppLayout: pinnt den fill-Vertrag — Default ist die viewport-hohe
-// Shell (h-screen, main scrollt innen via min-h-0), fill={false} ist der
-// Escape-Hatch auf den klassischen min-h-screen-Seitenflow.
-// Plus die className/mainClassName-Erweiterungspunkte.
+// AppLayout: pins the fill contract — the default is a viewport-height
+// shell (h-screen, main scrolls internally via min-h-0), while fill={false}
+// is an escape hatch to the classic min-h-screen page flow.
+// Also documents the className/mainClassName extension points.
 
 import { describe, expect, test } from "bun:test";
 import { AppLayout } from "../layout/app-layout.tsx";

@@ -32,9 +32,9 @@ import {
 import { ModeSwitch } from "./mode-switch.tsx";
 import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge.tsx";
 
-// Inline-SVG-Charts — kein Chart-Dep. Farben ausschließlich über die
-// --color-status-* / --color-foreground Theme-Tokens; Achsen-Labels
-// kommen translated vom Caller (keine Locale-Annahmen im Widget).
+// Inline SVG charts without a chart dependency. Colors come exclusively from the
+// --color-status-* / --color-foreground theme tokens; axis labels are supplied
+// translated by the caller, so the widget makes no locale assumptions.
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -50,10 +50,10 @@ const TONE_VAR: Record<StatusTone, string> = {
 export type StatusBarEntry = {
   /** Stable key (z.B. ISO-Datum). */
   readonly key: string;
-  /** Balkenhöhe 0..1 (z.B. operational=1, degraded=0.75, outage=0.25). */
+  /** Bar height from 0 to 1 (e.g. operational=1, degraded=0.75, outage=0.25). */
   readonly level: number;
   readonly tone: StatusTone;
-  /** Tooltip-Text (<title>) — translated vom Caller. */
+  /** Tooltip text (<title>), supplied translated by the caller. */
   readonly label?: string;
 };
 
@@ -72,7 +72,7 @@ export function StatusBarChart({
 }: {
   readonly entries: readonly StatusBarEntry[];
   readonly ariaLabel: string;
-  /** Achsen-Beschriftung links/rechts unter dem Chart — translated. */
+  /** Left and right axis labels below the chart, supplied translated. */
   readonly startLabel?: string;
   readonly endLabel?: string;
   readonly highlightLast?: boolean;
@@ -171,8 +171,8 @@ function clampDotY(y: number, height: number): number {
   return Math.max(SINGLE_POINT_RADIUS, Math.min(height - SINGLE_POINT_RADIUS, y));
 }
 
-/** Quadratic-durch-Mittelpunkte-Trick: glättet die Zick-Zack-Linie ohne
- *  Overshoot (~5 Zeilen statt Catmull-Rom/Bezier-Fit). */
+/** Quadratic midpoint technique: smooths the zigzag line without overshoot
+ *  (~5 lines instead of a Catmull-Rom/Bezier fit). */
 export function smoothPath(pts: ReadonlyArray<{ readonly x: number; readonly y: number }>): string {
   const first = pts[0];
   if (!first) return "";
@@ -192,7 +192,7 @@ export function smoothPath(pts: ReadonlyArray<{ readonly x: number; readonly y: 
 
 export type TimeseriesPoint = {
   readonly atMs: number;
-  /** null = Ausfall/kein Wert → fällt auf die Grundlinie (sichtbarer Einbruch). */
+  /** null = outage/no value → falls to the baseline for a visible drop. */
   readonly value: number | null;
 };
 
@@ -249,9 +249,9 @@ export type TimeseriesReferenceLine = {
   readonly tone?: StatusTone;
 };
 
-/** Zeitreihen-Linien-Chart (geglättete Linie + Flächen-Verlauf). x-Achse =
- *  ZEIT im Fenster windowStartMs..windowEndMs, nicht Index — 5 Min Daten in
- *  einem 30-Tage-Fenster ergeben ehrlich einen schmalen Streifen rechts. */
+/** Time-series line chart (smoothed line with area fill). The x-axis uses
+ *  TIME within windowStartMs..windowEndMs rather than the index, so 5-minute
+ *  data in a 30-day window correctly appears as a narrow strip on the right. */
 export function TimeseriesChart({
   points,
   windowStartMs,
@@ -273,7 +273,7 @@ export function TimeseriesChart({
   readonly windowEndMs: number;
   readonly tone?: StatusTone;
   readonly ariaLabel: string;
-  /** Achsen-Zeile unter dem Chart (translated/formatiert vom Caller). */
+  /** Axis row below the chart, formatted and translated by the caller. */
   readonly axisLabels?: { readonly start: string; readonly mid?: string; readonly end: string };
   /** Date axis with n evenly spaced labels; replaces `axisLabels` when set. */
   readonly xAxis?: TimeseriesXAxis;
@@ -718,7 +718,7 @@ function YTicks({
       )}
     >
       {values.map((value, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: statische Tick-Liste
+        // biome-ignore lint/suspicious/noArrayIndexKey: static tick list
         <span key={i}>{formatValue(value)}</span>
       ))}
     </div>

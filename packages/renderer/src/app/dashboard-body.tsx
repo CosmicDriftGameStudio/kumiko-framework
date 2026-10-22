@@ -1,7 +1,6 @@
-// Dashboard-Body-Injection: der KumikoScreen-Switch ist plattform-agnostisch,
-// die Dashboard-Panels (StatCard, Charts) sind es nicht — die Implementierung
-// kommt vom Platform-Package (renderer/web registriert seine Web-Variante in
-// createKumikoApp). Gleiches Muster wie CustomScreensProvider.
+// The KumikoScreen switch is platform-agnostic, but dashboard panels (StatCard, Charts) are not.
+// The implementation therefore comes from the platform package (renderer/web registers its web
+// variant in createKumikoApp), following the same pattern as CustomScreensProvider.
 
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
@@ -26,8 +25,8 @@ export function DashboardBodyProvider({ children, value }: DashboardBodyProvider
   return <DashboardBodyContext.Provider value={value}>{children}</DashboardBodyContext.Provider>;
 }
 
-/** Undefined wenn kein Platform-Package einen Dashboard-Body registriert
- *  hat — KumikoScreen zeigt dann seinen Placeholder-Banner. */
+/** Undefined when no platform package has registered a dashboard body;
+ * KumikoScreen then displays its placeholder banner. */
 export function useDashboardBody(): ComponentType<DashboardBodyProps> | undefined {
   return useContext(DashboardBodyContext);
 }

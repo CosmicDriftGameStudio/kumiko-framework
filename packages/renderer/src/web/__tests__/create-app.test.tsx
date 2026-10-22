@@ -72,12 +72,11 @@ const baseSchema: FeatureSchema = {
   navs: [{ id: "task-edit", label: "tasks:nav.task-edit", screen: "tasks:screen:task-edit" }],
 };
 
-// createKumikoApp ruft createRoot(...).render(...) direkt auf — React 18+
-// batcht das in einer concurrent-render-phase, deren State-Updates React
-// im Test-Modus als "outside act()" flaggt. Produktions-Code muss nicht in
-// act() wissen; der Test übernimmt das Wrapping an der einzigen
-// Test-eigenen Aufrufstelle. async weil der erste useEffect-Tick in
-// KumikoScreen (useQuery) ebenfalls geflusht werden muss.
+// createKumikoApp calls createRoot(...).render(...) directly; React 18+
+// batches this in a concurrent render phase whose state updates React flags
+// as "outside act()" in test mode. Production code should not need to know
+// about act(); the test wraps the only test-owned call site. async is needed
+// to flush the first useEffect tick in KumikoScreen (useQuery) as well.
 let appRoot: { unmount: () => void } | undefined;
 
 async function mountApp(options: CreateKumikoAppOptions): Promise<void> {
@@ -89,8 +88,8 @@ async function mountApp(options: CreateKumikoAppOptions): Promise<void> {
 
 describe("createKumikoApp", () => {
   // createKumikoApp mounts via createRoot into document.body. Reset
-  // between tests: unmount den React-Root (damit keine pending Effects
-  // in nachfolgende Tests leaken) + leere den body.
+  // between tests: unmount the React root so pending effects cannot leak into
+  // subsequent tests, then clear the body.
   afterEach(() => {
     if (appRoot !== undefined) {
       act(() => {
@@ -164,9 +163,9 @@ describe("createKumikoApp", () => {
     expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
   });
 
-  // kumiko-framework#3314: per-role projected schemas can legitimately omit
+  // Per-role projected schemas can legitimately omit
   // a screen a stale URL/deep-link still points at — pins the pre-existing
-  // a localized empty state rather than a crash or a raw QN banner.
+  // localized empty state rather than a crash or a raw QN banner.
   test("screenQn pointing at a screen absent from the schema → unavailable empty state", async () => {
     mountRoot();
     await mountApp({
@@ -376,10 +375,10 @@ describe("createKumikoApp", () => {
   });
 
   test("clientFeatures.columnRenderers → bei Key-Kollision warnt + last-wins gewinnt", async () => {
-    // Zwei Features liefern denselben Renderer-Key — der Merge in
-    // create-app warnt und behält den späteren Eintrag (Last-Wins).
-    // Beweist dass das bewusste Override-Verhalten nicht silent
-    // wegrutscht falls jemand auf "first-wins" refactored.
+    // Two features provide the same renderer key; the merge in create-app warns
+    // and keeps the later entry (last wins). This verifies that the intentional
+    // override behavior does not silently change if someone refactors it to
+    // "first-wins".
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
 
     function FirstSwatch({ value }: ColumnRendererProps): ReactNode {
@@ -422,7 +421,7 @@ describe("createKumikoApp", () => {
       ],
     });
 
-    // Last-Wins: SecondSwatch ist gemounted, FirstSwatch nicht.
+    // Last wins: SecondSwatch is mounted, while FirstSwatch is not.
     expect(await screen.findByTestId("ca-second")).toBeTruthy();
     expect(screen.queryByTestId("ca-first")).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(
@@ -433,10 +432,10 @@ describe("createKumikoApp", () => {
   });
 
   test("clientFeatures.columnRenderers → __component-Renderer mounten echtes Component im DOM", async () => {
-    // Beweist die Verdrahtung end-to-end: ClientFeatureDefinition.columnRenderers
-    // → Provider in create-app → useColumnRenderer im DataTable-Cell → JSX
-    // landet im DOM. Schema deklariert die String-Form, Component lebt nur
-    // client-seitig.
+    // Verifies the end-to-end wiring: ClientFeatureDefinition.columnRenderers
+    // → provider in create-app → useColumnRenderer in the DataTable cell → JSX
+    // in the DOM. The schema declares the string form; the component exists only
+    // on the client.
     function Swatch({ value, column }: ColumnRendererProps): ReactNode {
       return (
         <span data-testid="ca-swatch">
@@ -538,7 +537,7 @@ describe("createKumikoApp", () => {
   test("schema.translations (r.translations, #1059) resolves nav/dashboard labels without any clientFeatures duplication", async () => {
     // Mirrors cap-counter's real shape: a feature that declares r.translations
     // for its own nav label but ships NO web/i18n.ts / clientFeatures entry at
-    // all. Before #1059 this label rendered as the raw i18n key forever.
+    // all. Previously this label rendered as the raw i18n key forever.
     const dashboardScreen: DashboardScreenDefinition = {
       id: "overview",
       type: "dashboard",
@@ -586,9 +585,9 @@ describe("createKumikoApp", () => {
   });
 
   test("clientFeatures.translations still overrides schema.translations for the same key (precedence)", async () => {
-    // App-Override muss auch gegen ein framework-eigenes Label gewinnen —
-    // sonst kann eine App ein bundled-feature-Label nicht mehr anpassen,
-    // sobald #1059 dessen r.translations automatisch mitliefert.
+    // The app override must also win over a framework-provided label; otherwise
+    // an app could no longer customize a bundled feature's label once its
+    // r.translations are supplied automatically.
     const dashboardScreen: DashboardScreenDefinition = {
       id: "overview",
       type: "dashboard",
@@ -643,10 +642,10 @@ describe("createKumikoApp", () => {
   });
 
   test("navAdapter override: eigener Router steuert den aktiven Screen", async () => {
-    // Beweist den Nav-Seam: der Default-Adapter liest location.pathname,
-    // dieser Memory-Adapter hardcoded die Route. Wenn swap funktioniert,
-    // sehen wir den Listen-Screen statt den Form-Screen, ohne `screenQn`
-    // zu setzen und ohne `window.history` zu touchen.
+    // Verifies the navigation seam: the default adapter reads location.pathname,
+    // while this memory adapter hardcodes the route. If the swap works, we see
+    // the list screen instead of the form screen without setting `screenQn` or
+    // touching `window.history`.
     mountRoot();
     const memoryNav: NavApi = {
       route: { screenId: "task-list" },
@@ -667,12 +666,12 @@ describe("createKumikoApp", () => {
       navAdapter: () => memoryNav,
     });
     expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
-    // Und definitiv NICHT der Edit-Screen (der wäre die Default-Landing).
+    // And definitely not the edit screen, which would be the default landing.
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
-  // fw#2164: default row-click target. A screen declaring `detailFor` for the
-  // entity is the "Akte" — the click should land there without anyone
+  // Default row-click target. A screen declaring `detailFor` for the
+  // entity is the "record" — the click should land there without anyone
   // wiring rowActions/onRowClick, and it should win over both of the old
   // defaults (entityEdit-search, app-wide onRowClick).
   describe("default row click (fw#2164)", () => {
@@ -759,7 +758,7 @@ describe("createKumikoApp", () => {
       await waitFor(() => expect(window.location.pathname).toBe("/task-detail/r1"));
     });
 
-    // fw#2640: a list screen with no reachable click target must not look
+    // A list screen with no reachable click target must not look
     // clickable either — the click handler was always defined before,
     // silently no-op-ing on click. Row-testids stay independent of the
     // handler (see primitives/index.tsx), so getByTestId still finds them.
@@ -801,7 +800,7 @@ describe("createKumikoApp", () => {
     });
   });
 
-  // kumiko-framework#3314: without an explicit `schema`, createKumikoApp
+  // Without an explicit `schema`, createKumikoApp
   // fetches it from the authenticated GET /api/schema instead of throwing
   // at boot — these tests exercise the loading/unauthorized/failed states
   // and the "gate first, fetch after" ordering.

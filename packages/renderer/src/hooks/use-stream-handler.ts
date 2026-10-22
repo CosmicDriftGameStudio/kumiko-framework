@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import type { DispatcherError } from "../headless/index.ts";
 
-// React wrapper around dispatcher.stream (#1382). Accumulates yielded
+// React wrapper around dispatcher.stream. Accumulates yielded
 // chunks into `chunks` (unlike useQuery({live:true}), which only
 // invalidates and re-fetches). Each start() owns an AbortController;
 // a newer start() / unmount aborts the previous run so late chunks

@@ -1,17 +1,16 @@
-// Test-Utilities für renderer-web-Tests. Wrappt `render()` mit den
-// Providern die Consumer-Komponenten (RenderEdit, RenderList,
-// KumikoScreen) zur Laufzeit erwarten: PrimitivesProvider mit den
-// HTML-Defaults, NavProvider mit einem Stub (route=undefined), und
-// LiveEventsProvider mit einem No-op-Subscriber.
+// Test utilities for renderer-web tests. Wraps `render()` with the
+// providers that consumer components (RenderEdit, RenderList,
+// KumikoScreen) expect at runtime: PrimitivesProvider with the HTML
+// defaults, NavProvider with a stub (route=undefined), and
+// LiveEventsProvider with a no-op subscriber.
 //
-// Dispatcher wird NICHT automatisch gestellt — Tests die einen
-// brauchen, mounten DispatcherProvider selber (sonst landeten alle
-// Tests mit dem gleichen Stub-Dispatcher, was echte Tests unsichtbar
-// vor-defaultet). Für Nav brauchen die kumiko-screen-Tests nur dass
-// `useNav()` nicht throwt; ein Stub reicht.
+// DispatcherProvider is intentionally not included: tests that need one
+// mount it themselves, preventing every test from silently using the same
+// stub dispatcher. The kumiko-screen tests only need `useNav()` not to
+// throw, so a stub is sufficient.
 //
-// Tests die ein anderes Setup brauchen (z.B. custom primitives, echte
-// browser-Nav) bauen ihren Wrapper selbst — siehe nav.test.tsx.
+// Tests requiring a different setup (for example, custom primitives or real
+// browser navigation) build their own wrapper; see nav.test.tsx.
 
 import { afterEach, beforeEach } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -39,10 +38,10 @@ import { defaultPrimitives } from "../primitives/index.tsx";
 import { defaultTokens } from "../tokens.ts";
 import { SidebarProvider } from "../ui/sidebar.tsx";
 
-// jsdom hat keinen ResizeObserver — cmdk (Combobox-Library) braucht
-// das im Setup. Stub reicht für unsere Tests; wir messen keine
-// Sizes, nur Mount-Lifecycle. Setze als globaler Side-Effect beim
-// Modul-Import damit alle Tests die test-utils laden ihn haben.
+// jsdom has no ResizeObserver, which cmdk (the Combobox library) requires
+// during setup. The stub is sufficient because these tests do not measure
+// sizes, only mount lifecycles. Install it as a global side effect on module
+// import so every test loading test-utils has it.
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = class {
     observe(): void {}
@@ -67,8 +66,8 @@ const stubNav: NavApi = {
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 
-// Stub-Tokens-API für Tests. Mode-Setter ist ein no-op — Tests die
-// Theme-Toggle testen wollen, bauen sich ihren eigenen Wrapper.
+// Stub token API for tests. The mode setters are no-ops; tests that exercise
+// the theme toggle create their own wrapper.
 const stubTokens = {
   tokens: defaultTokens,
   mode: "dark" as const,
@@ -92,11 +91,12 @@ function DefaultProviders({ children }: { readonly children: ReactNode }): React
   );
 }
 
-// DefaultProviders + SidebarProvider. Nur für Tests die vendored shadcn-
-// Sidebar-Teile (NavTree → SidebarMenuButton ruft useSidebar()) ISOLIERT
-// rendern. Nicht der Default: SidebarProvider zieht TooltipProvider +
-// keydown/matchMedia-Listener ein — global gewrappt verlangsamt/leakt das
-// auf single-CPU-CI (Banner-Timeouts). Shells stellen ihren Provider selbst.
+// DefaultProviders + SidebarProvider. Used only for isolated tests of
+// vendored shadcn Sidebar components (NavTree → SidebarMenuButton calls
+// useSidebar()). It is not the default because SidebarProvider adds
+// TooltipProvider and keydown/matchMedia listeners; wrapping everything
+// globally slows down and leaks across single-CPU CI (Banner timeouts).
+// Shells provide their own provider.
 function SidebarProviders({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <DefaultProviders>
@@ -141,9 +141,9 @@ export function renderWithPrimitivesOverride(
 // ---------------------------------------------------------------------------
 
 export type MockDispatcherOptions = {
-  /** Initialer Status. Default: "online". Tests die Transitions prüfen,
-   *  greifen den zurückgegebenen `statusStore` ab und mutieren ihn via
-   *  `statusStore.setState(...)`. */
+  /** Initial status. Default: "online". Tests that check transitions can
+   * access the returned `statusStore` and mutate it via
+   * `statusStore.setState(...)`. */
   readonly initialStatus?: DispatcherStatus;
   /** Override write(). Default: returnt `{ isSuccess: true, data: {} }`. */
   readonly write?: Dispatcher["write"];
@@ -153,21 +153,19 @@ export type MockDispatcherOptions = {
   readonly batch?: Dispatcher["batch"];
 };
 
-/** Minimal Mock-Dispatcher für renderer-web-Tests. Replaces the
- *  hand-rolled `makeDispatcher()` Funktionen, die in fast jedem
- *  Test-File identisch waren. Der zurückgegebene `statusStore` ist
- *  ein WritableStore, damit Tests Status-Wechsel auslösen können —
- *  beim public Dispatcher-Contract ist statusStore read-only, aber
- *  Mocks dürfen mehr.
+/** Minimal mock dispatcher for renderer-web tests. Replaces the
+ *  hand-rolled `makeDispatcher()` functions that were duplicated in nearly
+ *  every test file. The returned `statusStore` is writable so tests can
+ *  trigger status changes; the public dispatcher contract exposes it as
+ *  read-only, but mocks may provide additional access.
  *
- *  Pending queues sind immer `[]` (live-dispatcher-Semantik); Tests
- *  die savable-Pending-Verhalten prüfen wollen, mocken den Dispatcher
- *  selbst.
+ *  Pending queues are always `[]` (live-dispatcher semantics). Tests that
+ *  check savable pending behavior should mock the dispatcher themselves.
  */
 export function createMockDispatcher(options: MockDispatcherOptions = {}): Dispatcher & {
-  /** Schreibbarer Zugriff auf den Status-Store für Test-Mutationen.
-   *  Identisch zu `dispatcher.statusStore` (Aliasing), aber als
-   *  WritableStore typisiert. */
+  /** Writable access to the status store for test mutations.
+   *  Aliases `dispatcher.statusStore`, but is typed as a
+   *  WritableStore. */
   readonly statusStore: WritableStore<DispatcherStatus>;
 } {
   const statusStore = createStore<DispatcherStatus>(options.initialStatus ?? "online");
@@ -213,7 +211,7 @@ export function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher 
 // ---------------------------------------------------------------------------
 
 /** In-memory DraftStorage for tests that need RenderEdit's create-mode
- *  draftId to survive a same-tab remount (issue #1913) — the same role
+ *  draftId to survive a same-tab remount — the same role
  *  `sessionStorage` plays for `createBrowserDraftStorage()` in production.
  *  Fresh Map per call, so tests stay isolated from one another; wrap the
  *  SAME instance around both renders of a "simulated reload" test to prove

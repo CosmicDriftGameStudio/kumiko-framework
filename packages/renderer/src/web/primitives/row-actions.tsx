@@ -25,9 +25,8 @@ import { useToast } from "./toast.tsx";
 import "../react-css-custom-properties.ts";
 import { actionIconFor, SECONDARY_BUTTON_EXTRA_CLASSES } from "./button.tsx";
 
-// The primary row action is the one that always stays a visible text
-// button — `edit` if declared, else the first visible action (fw
-// bedienkonzept L3: "Bearbeiten steht in jeder Zeile, immer, als Text").
+// The primary row action always remains a visible text button: `edit` when declared,
+// otherwise the first visible action ("Edit appears in every row, always, as text").
 function primaryRowAction(actions: readonly DataTableRowAction[]): DataTableRowAction | undefined {
   return actions.find((a) => a.id === "edit") ?? actions[0];
 }
@@ -323,7 +322,7 @@ function RowActionsKebab({
   );
 }
 
-// Header/row-actions overflow menu (A7): the trigger carries the classes of a
+// Header/row-actions overflow menu: the trigger carries the classes of a
 // secondary icon Button so it matches neighbouring icon buttons, including
 // the 44 px touch size on phones. Generic ActionMenuItemSpec items instead of
 // the DataTableRowAction schema (callers own confirm/danger handling per item).

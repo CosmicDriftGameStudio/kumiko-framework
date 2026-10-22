@@ -1,16 +1,15 @@
-// EditorPanel — V.1.2: Main-area editor für Target-Dispatch im
-// Visual-Tree-Workspace. VS-Code-Style-Layout: Tree links, Editor füllt
-// den Main-Bereich; kein floating-Right-Panel. Resolver liefert die
-// Editor-Component für `${featureId}:${action}`, Fallback-Info zeigt
-// die Args wenn nichts registriert ist, Empty-State wenn nichts gewählt.
+// EditorPanel: Main-area editor for target dispatch in the
+// visual-tree workspace. VS Code-style layout: tree on the left, editor fills
+// the main area; no floating right panel. The resolver provides the editor
+// component for `${featureId}:${action}`; fallback information shows the
+// args when nothing is registered, and an empty state appears when nothing is selected.
 //
-// **V.1.4b URL-State**: target wird in `nav.searchParams` persistiert
-// (Format: `?t=text-content:edit&a_slug=imprint&a_lang=de`). F5 +
-// Back-Button stellen den Editor-State wieder her. Single source of
-// truth = URL; useState fällt weg. Close clears params via setSearchParams.
-// Subscribe-Stream bleibt für Test-Hooks (setDispatchListener), wird
-// in Prod nicht mehr für EditorPanel benutzt.
-// Siehe visual-tree.md V.1.2 + V.1.1-B + V.1.4b.
+// **URL state**: target is persisted in `nav.searchParams`
+// (format: `?t=text-content:edit&a_slug=imprint&a_lang=de`). F5 and
+// the Back button restore the editor state. The URL is the single source of
+// truth, so useState is unnecessary. Closing clears the params via setSearchParams.
+// The subscribe stream remains available for test hooks (setDispatchListener),
+// but is no longer used by EditorPanel in production.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { X } from "lucide-react";
@@ -81,9 +80,9 @@ function EditorPanelInner({
 
 export function EditorPanel({ resolvers }: EditorPanelProps): ReactNode {
   const nav = useNav();
-  // target derived from URL → F5/Back stellen state wieder her.
-  // useMemo stabilisiert reference solange searchParams shallow-gleich
-  // sind (nav-Impl liefert plain-record für genau diesen check).
+  // target is derived from the URL, so F5 and Back restore the state.
+  // useMemo keeps the reference stable while searchParams are shallow-equal
+  // (the nav implementation provides a plain record for this check).
   const target = useMemo(() => parseTargetFromSearchParams(nav.searchParams), [nav.searchParams]);
 
   const handleClose = useCallback(() => {

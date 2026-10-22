@@ -1,7 +1,7 @@
 //
-// Sidebar: 4-Slot-Layout (header, actions, children, footer). Pinnt
-// dass die Sektionen conditional rendern UND in der richtigen
-// Reihenfolge stehen — header → actions → nav → footer.
+// Sidebar: four-slot layout (header, actions, children, footer). Ensures
+// sections render conditionally and remain in the required order:
+// header → actions → nav → footer.
 
 import { describe, expect, test } from "bun:test";
 import { Sidebar } from "../layout/sidebar.tsx";

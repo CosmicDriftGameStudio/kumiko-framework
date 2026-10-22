@@ -1,4 +1,4 @@
-// fw#3104: a dateRange facet turns two calendar dates into the two query
+// A dateRange facet turns two calendar dates into the two query
 // params it declares. The conversion is the whole risk surface — a calendar
 // date has no time, `createdAt` is an instant, and "to the 14th" has to mean
 // "through the end of the 14th" in the viewer's zone, not "at 00:00".

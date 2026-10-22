@@ -1,4 +1,4 @@
-// fw#2780: a reference field whose target has no readable column sources its
+// A reference field whose target has no readable column sources its
 // picker options from a query handler instead of the target's list handler.
 // The rows carry a composed `label`; `labelField` stays untouched (it still
 // drives list cells and the SQL search/sort paths).

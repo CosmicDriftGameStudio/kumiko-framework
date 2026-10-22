@@ -1,4 +1,4 @@
-// WorkspaceSwitcher Render-Tests (Phase 1, test-luecken-integration, Tier 2).
+// WorkspaceSwitcher Render tests (test-gap integration).
 //
 // Dropdown built on Radix (like LanguageSwitcher/TenantSwitcher). Pins:
 // no switcher at <= 1 workspace, trigger shows the active label, dropdown

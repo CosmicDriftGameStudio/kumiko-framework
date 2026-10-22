@@ -1,8 +1,7 @@
-// Theme-Persistenz (Bug-Bash 2026-06-07, Bug 13): Der Toggle setzte
-// nur die .dark-Class — ohne localStorage-Persist + Restore war die
-// Wahl nach jedem Reload weg, was sich für User als "dark/light geht
-// nicht" anfühlte. Der FOUC-Schutz (Inline-Script in der Host-HTML)
-// ist App-Sache; hier wird die JS-Seite gepinnt.
+// Theme persistence: the toggle set only the .dark class — without localStorage
+// persistence and restore, the choice was lost after every reload, making it
+// appear to users as if "dark/light doesn't work". FOUC protection (an inline
+// script in the host HTML) belongs to the app; this pins the JavaScript side.
 
 import { beforeEach, describe, expect, test } from "bun:test";
 import { act, render, screen } from "@testing-library/react";
@@ -61,9 +60,9 @@ describe("useBrowserTokensApi — Theme-Persistenz", () => {
   });
 
   test("Mount-Restore: erster Hook-Mount übernimmt die gespeicherte Wahl ins DOM", () => {
-    // Der eigentliche Headline-Pfad (286/1): nicht applyStoredThemeMode
-    // isoliert, sondern die Glue im Hook — localStorage VOR dem Mount
-    // geseedet, der Mount selbst muss die .dark-Class setzen.
+    // Test the actual integration path: do not isolate applyStoredThemeMode;
+    // seed localStorage BEFORE mounting, so the mount itself must set the
+    // .dark class.
     __resetStoredModeAppliedForTests();
     window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
     document.documentElement.classList.remove("dark");
@@ -75,7 +74,7 @@ describe("useBrowserTokensApi — Theme-Persistenz", () => {
   });
 
   test("applyStoredThemeMode restored die gespeicherte Wahl (Reload-Simulation)", () => {
-    // "Reload": Class weg (frisches HTML), aber localStorage hat dark.
+    // "Reload": the class is gone (fresh HTML), but localStorage still contains dark.
     window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
     document.documentElement.classList.remove("dark");
 
@@ -86,7 +85,7 @@ describe("useBrowserTokensApi — Theme-Persistenz", () => {
   test("applyStoredThemeMode ohne gespeicherte Wahl lässt den HTML-Default stehen", () => {
     document.documentElement.classList.add("dark");
     applyStoredThemeMode();
-    // Kein gespeicherter Wert → nichts anfassen.
+    // No stored value means the HTML default remains unchanged.
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 

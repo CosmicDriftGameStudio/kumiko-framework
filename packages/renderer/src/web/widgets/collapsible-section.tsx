@@ -1,9 +1,9 @@
 import { ChevronRight } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
-/** Aufklappbare Sektion (native <details>, aber React-kontrolliert: sonst
- *  springt das open-Attribut bei jedem Parent-Re-Render auf den Initialwert
- *  zurück). Eine Optik für alle „Erweitert"/„Mehr"-Abschnitte. */
+/** Collapsible section using native <details> with React-controlled state; otherwise
+ *  the open attribute resets to its initial value on every parent re-render.
+ *  Provides consistent styling for all “Erweitert”/“Mehr” sections. */
 export function CollapsibleSection({
   title,
   defaultOpen = false,
@@ -16,9 +16,9 @@ export function CollapsibleSection({
   readonly testId?: string;
 }): ReactNode {
   const [open, setOpen] = useState(defaultOpen);
-  // useState(defaultOpen) liest nur den Mount-Wert — ein async hydrierter
-  // Draft flippt `defaultOpen` zu spät für den Lazy-Initializer. Open-only
-  // Effect: kämpft nie gegen ein manuelles Zuklappen des Users.
+  // useState(defaultOpen) reads only the mount-time value; an asynchronously hydrated
+  // draft flips `defaultOpen` too late for the lazy initializer. An open-only
+  // effect never overrides the user's manual collapse.
   useEffect(() => {
     if (defaultOpen) setOpen(true);
   }, [defaultOpen]);

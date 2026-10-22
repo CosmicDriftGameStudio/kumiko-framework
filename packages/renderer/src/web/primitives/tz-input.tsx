@@ -1,5 +1,5 @@
 // TzInput (kind:"tz") — standalone IANA-zone picker for `tz`-typed fields
-// (#1925). Same searchable-combobox UX as the zone half of
+// Same searchable-combobox UX as the zone half of
 // LocatedTimestampInput, shared TZ_OPTIONS source.
 
 import type { ReactNode } from "react";

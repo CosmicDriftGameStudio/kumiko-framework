@@ -6,7 +6,7 @@ import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import { findDetailForScreen } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 
-// Shared UI-visibility predicate for the screen-render path (#1203 — nav
+// Shared UI-visibility predicate for the screen-render path — nav
 // filtering via filterByAccess in workspace-shell.tsx hid role-gated
 // screens from the menu, but a direct URL/screenQn hit reached
 // KumikoScreen unchecked). Public name kept as an alias of the shared
@@ -15,7 +15,7 @@ export { isUiAccessGranted as screenAccessAllows };
 
 // A navigate target (metric click) declares no access rule of its own — the
 // destination screen already does, so the jump is offered exactly when the
-// user may open where it lands (solon#424). No second copy of the rule to
+// user may open where it lands. No second copy of the rule to
 // drift from the screen's own.
 export function navigateTargetAllows(
   navigate: { readonly screen?: string; readonly entity?: string },

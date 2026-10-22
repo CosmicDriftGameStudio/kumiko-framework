@@ -7,7 +7,7 @@
 // Only one of the two layouts (table for md+, cards below md) is mounted
 // at a time, picked via useIsNarrowViewport — mounting both and toggling
 // with `hidden`/`md:hidden` left two live inputs per cell sharing one DOM
-// id (#1854). The `hidden md:block` / `md:hidden` classes stay on the
+// id. The `hidden md:block` / `md:hidden` classes stay on the
 // wrapper divs as a defensive fallback (e.g. SSR/no-JS, where
 // getServerSnapshot forces the desktop layout) even though
 // useIsNarrowViewport — unlike the vendored useIsMobile it replaced —
@@ -529,7 +529,7 @@ export function EmbeddedListInput({
   testId,
 }: EmbeddedListInputProps): ReactNode {
   // Callers that don't wire up the field-currency plumbing (or direct
-  // callers/tests that predate #1839) keep getting the same "EUR" this
+  // callers/tests) keep getting the same "EUR" this
   // component always hardcoded.
   const effectiveCurrency = currency ?? "EUR";
   const t = useTranslation();
@@ -551,7 +551,7 @@ export function EmbeddedListInput({
   const [scrollContainerEl, setScrollContainerEl] = useState<HTMLDivElement | null>(null);
 
   // Resetting scrollLeft here is what guarantees the table always opens
-  // scrolled fully left (fw#2159): browsers still auto-scroll a focused
+  // scrolled fully left: browsers still auto-scroll a focused
   // descendant into view even inside an overflow-x-auto container, but
   // that's now a real, user-drivable scroll instead of an invisible one.
   useEffect(() => {
@@ -699,16 +699,7 @@ export function EmbeddedListInput({
         <div data-testid={testIdFor("desktop")} className="hidden min-w-0 md:block">
           <div className="min-w-0 overflow-hidden rounded-lg border bg-card">
             <div className="relative min-w-0">
-              {/* This div — not ui/table.tsx's own `data-slot=table-container`
-                  wrapper — is the single source of truth for horizontal
-                  scroll (fw#2159): a table wider than its container must
-                  become reachable via a real, visible scrollbar instead of
-                  silently clipping columns. The nested selector below
-                  neutralizes the vendored wrapper's own overflow-x-auto so
-                  scrollLeft/scrollWidth/canScroll* all read from one place —
-                  two nested auto-scroll containers would otherwise let the
-                  inner one absorb the scroll and leave this ref/effect
-                  permanently reading scrollLeft=0. */}
+              {/* This div — not ui/table.tsx's own `data-slot=table-container` wrapper — is the single source of truth for horizontal scroll: a table wider than its container must become reachable via a real, visible scrollbar instead of silently clipping columns. The nested selector below neutralizes the vendored wrapper's own overflow-x-auto so scrollLeft/scrollWidth/canScroll* all read from one place — two nested auto-scroll containers would otherwise let the inner one absorb the scroll and leave this ref/effect permanently reading scrollLeft=0. */}
               <div
                 ref={setScrollContainerEl}
                 data-testid={testIdFor("desktop-scroll")}

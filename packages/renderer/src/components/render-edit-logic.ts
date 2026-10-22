@@ -7,7 +7,7 @@ import type {
 
 // Hides the Save button when no field is editable and no extension section
 // contributes to the composed form submit. Extensions that persist via their
-// own dispatcher writes must not opt in (fw#2359).
+// own dispatcher writes must not opt in.
 // Explicit-positive per kind (653/1), not `s.kind !== "fields"` — a future
 // third EditSectionViewModel member would otherwise default to "editable"
 // without anyone deciding that on purpose.

@@ -55,12 +55,12 @@ import { MultiSelectCheckboxes } from "./multi-select-checkboxes.tsx";
 import { QueryOptionsSelect } from "./query-options-select.tsx";
 import { ReferenceCreateDialog } from "./reference-create-dialog.tsx";
 
-// RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
-// Kein raw HTML mehr; alle Darstellungsentscheidungen (Label-Position,
-// Fehler-Layout, Input-Styling) leben in der Primitives-Implementation.
+// RenderField translates an EditFieldViewModel into a primitives tree.
+// Raw HTML is excluded; all presentation decisions (label position,
+// error layout, input styling) belong to the primitives implementation.
 //
-// Der field.type → Input-kind Mapping bleibt hier, weil es
-// Domain-Logik ist (EntityDefinition-Feldtyp) und nicht Darstellung.
+// The field.type → input-kind mapping remains here because it is
+// domain logic (EntityDefinition field type), not presentation.
 
 // `hideLabel` is not part of EditFieldViewModel/EntityEditScreenDefinition (no
 // schema slot); the section renderer sets it for an embedded list whose label
@@ -69,14 +69,14 @@ export type RenderFieldProps = {
   readonly field: EditFieldViewModel;
   readonly issues?: readonly FieldIssue[];
   readonly onChange: (val: unknown) => void;
-  /** Nur bei type:"reference" relevant — Feature-Name für die Lookup-
-   *  Query-QN (`<feature>:query:<refEntity>:list`). Andere Field-Types
-   *  ignorieren das Prop. */
+  /** Relevant only for type:"reference": the feature name for the lookup
+   *  query QN (`<feature>:query:<refEntity>:list`). Other field types
+   *  ignore this prop. */
   readonly featureName?: string;
-  /** Optionaler Zusatz-Inhalt der nach dem Label gerendert wird (z.B.
+  /** Optional content rendered after the label (for example,
    *  ConfigSourceBadge). */
   readonly labelAppendix?: ReactNode;
-  /** Optionaler Zusatz-Inhalt der nach dem Input gerendert wird (z.B.
+  /** Optional content rendered after the input (for example,
    *  ConfigCascade). */
   readonly fieldAppendix?: ReactNode;
   readonly appendixPlacement?: FieldProps["appendixPlacement"];
@@ -90,12 +90,12 @@ export type RenderFieldProps = {
   /** "form" (default) renders every field as its editable Input, disabled
    *  when `field.readOnly` — unchanged behavior. "text" renders a
    *  `field.readOnly` field as plain text instead (projectionDetail's read
-   *  view, fw#2245); editable fields are untouched by this prop either way. */
+   *  view); editable fields are untouched by this prop either way. */
   readonly valueDisplay?: "form" | "text";
   /** Current form values, keyed by field name. Consulted when
    *  `field.renderer` resolves to a `{ react: { __component } }` registry
    *  component (passed through as `ColumnRendererProps.row`, same contract
-   *  as list-column renderers, fw#2245), and to resolve a `type: "number"`
+   *  as list-column renderers), and to resolve a `type: "number"`
    *  field's sibling-field `unit`. Omitted → falls back to a single-key
    *  `{ [field.field]: field.value }` row. */
   readonly row?: Readonly<Record<string, unknown>>;
@@ -134,11 +134,10 @@ export function RenderField({
   hideLabel,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView } = usePrimitives();
-  // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
-  // navigator.language (Browser-Sprache) zurück statt der gewählten
-  // App-Sprache. BEWUSSTE API-Verschärfung (seit 0.38): RenderField ist
-  // public exportiert und verlangt jetzt einen LocaleProvider —
-  // Standalone-Consumer/Tests müssen wrappen (createKumikoApp tut es).
+  // The app locale is required for money/date inputs; otherwise they fall back
+  // to navigator.language instead of the selected app language. RenderField is
+  // publicly exported and therefore requires a LocaleProvider; standalone
+  // consumers and tests must wrap it (createKumikoApp does this).
   const appLocale = useLocale().locale();
   const t = useTranslation();
   const allFieldsRequired = useContext(AllFieldsRequiredContext);
@@ -150,14 +149,14 @@ export function RenderField({
   // the list-column path (render-list.tsx). Only takes effect once the field
   // is actually readOnly — a FormatSpec/PlatformComponent renderer has no
   // editable widget of its own, so applying it to an editable field would
-  // silently make that field un-editable (fw#2245).
+  // silently make that field un-editable.
   const readOnlyText = valueDisplay === "text" && field.readOnly && field.renderer === undefined;
 
-  // Reference-Field rendert eine eigene Component — sie nutzt
-  // useQuery() für den Live-Lookup, also muss sie als React-
-  // Komponente gemountet werden (nicht als pure render-Call).
-  // The list input prints its own list-level issues (empty state included), so
-  // the Field wrapper must not print them a second time.
+  // The reference field renders its own component because it uses useQuery()
+  // for the live lookup and must therefore be mounted as a React component,
+  // not called as a pure render function.
+  // The list input prints its own list-level issues (including the empty state),
+  // so the Field wrapper must not print them a second time.
   const listPrintsOwnIssues =
     field.type === "embedded" &&
     field.embeddedListCells !== undefined &&
@@ -439,20 +438,18 @@ function WriteOnlyTextInput({
   );
 }
 
-// Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox
-// gefüllt aus einer Live-Query auf die referenced Entity. Default-
-// Limit: 200 — bei größeren Datasets fehlt der Tail im Dropdown
-// (Tier 2.7e-Remote: server-side Search-Query mit debounce kommt später).
-//   - Display = row[refLabelField], Default labelField "id".
-//   - Loading-State: leeres Dropdown bis die rows da sind. Field
-//     ist disabled während useQuery läuft.
-//   - Multi-Mode (Tier 2.7e-Multi via field.refMultiple): value ist
-//     ein UUID-Array, Combobox rendert Selected-Tags.
+// ReferenceInput renders a searchable combobox populated by a live query for
+// the referenced entity. With the default limit of 200, larger datasets miss
+// the tail in the dropdown; a server-side debounced search query comes later.
+//   - Display = row[refLabelField], default labelField "id".
+//   - During loading, the dropdown is empty and the field is disabled.
+//   - In multiple mode (field.refMultiple), value is a UUID array and the
+//     combobox renders tags.
 //
-// Storage: UI-Wert ist UUID (row.id) oder UUID-Array bei multiple.
-// Server-Schema: z.uuid() bzw. z.array(z.uuid()).
-// REFERENCE_COMBOBOX_LIMIT lebt zentral in hooks/reference-limits.ts
-// (siehe dort für Begründung der Default-Werte).
+// Storage: the UI value is a UUID (row.id), or a UUID array in multiple mode.
+// Server schema: z.uuid() or z.array(z.uuid()).
+// REFERENCE_COMBOBOX_LIMIT is centralized in hooks/reference-limits.ts
+// (see there for the rationale behind the default values).
 
 function ReferenceInput({
   field,
@@ -473,19 +470,18 @@ function ReferenceInput({
   const refEntity = field.refEntity ?? "";
   const refFeature = field.refFeature ?? featureName;
   const isMultiple = field.refMultiple === true;
-  // Tier 2.7e Cross-Feature: refFeature kann ≠ featureName sein
-  // (z.B. items.assignee → users:query:user:list). Default ist
-  // same-feature, kommt aus dem ViewModel (parseRefTarget).
-  // fw#2780: refOptionsQuery replaces that source with an author-supplied
-  // handler whose rows already carry a composed `label`.
+  // refFeature may differ from featureName (for example,
+  // items.assignee → users:query:user:list). The default is the same feature,
+  // as provided by the ViewModel (parseRefTarget).
+  // refOptionsQuery replaces that source with an author-supplied handler whose
+  // rows already carry a composed `label`.
   const { queryQn, labelKey } = referenceOptionSource(field, refFeature, refEntity);
-  // Issue #1681: "+ Neu" in der Combobox öffnet den Create-Screen der
-  // referenced entity als Dialog, statt die aktuelle Form zu verlassen.
-  // refFeature kann ein anderes Feature als das aktuell gerenderte sein
-  // — appFeatures (createKumikoApp) kennt alle Feature-Schemas, nicht
-  // nur das der aktiven Screen. Kein Match (Feature/Screen/Entity nicht
-  // registriert, oder allowCreate:false) → onCreate bleibt undefined,
-  // Combobox rendert dann ohne den Footer.
+  // "+ Neu" in the combobox opens the referenced entity's create screen in a
+  // dialog instead of leaving the current form.
+  // refFeature may differ from the currently rendered feature; appFeatures
+  // (createKumikoApp) knows all feature schemas, not only the active screen.
+  // If the feature, screen, or entity is not registered, or allowCreate:false,
+  // onCreate remains undefined and the combobox renders without the footer.
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
   const t = useTranslation();
@@ -499,10 +495,10 @@ function ReferenceInput({
       screenAccessAllows(s.access, userRoles),
   );
   const refEntityDef = refTargetSchema?.entities[refEntity];
-  // Tier 2.7e Remote-Search: User tippt im Combobox → Server filtert
-  // via existing list-payload `search`-Param (Tier 2.6c). Combobox
-  // debounced den keystroke selbst (300ms) und ruft onSearchChange.
-  // Initial-State leer → erste 50 Items vom Server (default-sortiert).
+  // When the user types in the combobox, the server filters through the
+  // existing list-payload `search` parameter. The combobox debounces the
+  // keystroke itself (300ms) and calls onSearchChange.
+  // An empty initial state requests the first 50 items in default order.
   const [searchTerm, setSearchTerm] = useState("");
   const queryPayload = useMemo<Record<string, unknown>>(
     () =>
@@ -552,13 +548,14 @@ function ReferenceInput({
       return { value: idVal, label };
     });
   }, [queryResult.data, labelKey]);
-  // Single: value ist String/null; Multi: Array. Coerce auf das was
-  // der Combobox-Mode erwartet, damit Storage-Drift (Server liefert
-  // alten String wo jetzt Array erwartet wird) keine Crash auslöst.
+  // Single mode uses a String/null value; multiple mode uses an array. Coerce
+  // to the shape expected by the combobox so storage drift (for example, an
+  // old String from the server where an array is now expected) cannot crash it.
   const baseInputProps = {
     id,
     name: field.field,
-    // Initial-Load disabled — danach loading-Indicator im Popover.
+    // Disable the input during the initial load; subsequent loads show a
+    // loading indicator in the popover.
     disabled: field.readOnly || (queryResult.loading && options.length === 0),
     required: field.required,
     hasError,
@@ -643,7 +640,7 @@ function FieldRendererOutput({
   if (isFormatSpec(renderer)) {
     // format:"json" wants the raw value (JsonView stringifies + highlights
     // itself) — applyFormatSpec's already-indented string is only the
-    // fallback for primitives-providers without JsonView (fw#2312).
+    // fallback for primitives-providers without JsonView.
     if (renderer.format === "json" && JsonView !== undefined) {
       return (
         <JsonView
@@ -662,8 +659,8 @@ function FieldRendererOutput({
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/
     // bigInt/unit) fell back to Intl's runtime default instead of the app
-    // language chosen via LocaleProvider (fw#2187). Prefer renderer.locale
-    // when set; coalesce undefined (spread override) back to appLocale (#2332).
+    // language chosen via LocaleProvider. Prefer renderer.locale
+    // when set; coalesce undefined (spread override) back to appLocale.
     return (
       <Text testId={`field-value-${field.field}`}>
         {applyFormatSpec(
@@ -818,7 +815,7 @@ function resolveFieldIcon(field: EditFieldViewModel): FieldIconKey | undefined {
 // from the EditFieldViewModel (computeEditViewModel pulls them from
 // SelectFieldDef.options). Structural types without a widget (embedded,
 // jsonb, multiSelect) render read-only instead of a data-destroying text
-// fallback (#1834); truly unknown scalar types still fall back to text.
+// fallback; truly unknown scalar types still fall back to text.
 function renderInput({
   field,
   id,
@@ -867,7 +864,7 @@ function renderInput({
     // decimal/bigInt are both plain numbers on the wire (fieldToZod:
     // z.number() / z.number().int().safe()) — the number input's onChange
     // already emits `number | undefined`, so no extra coercion is needed
-    // beyond what "number" already does (#1925).
+    // beyond what "number" already does.
     case "number":
     case "bigInt": {
       const icon = resolveFieldIcon(field);
@@ -1007,11 +1004,11 @@ function renderInput({
         />
       );
     case "select": {
-      // Translated Option-Labels kommen aus dem ViewModel-Builder
-      // (computeEditViewModel, Convention-Key
+      // Translated option labels come from the ViewModel builder
+      // (computeEditViewModel, convention key
       // `<feature>:entity:<entity>:field:<field>:option:<value>`).
-      // Wenn keine Translations registriert sind, fallback auf raw
-      // value als Label — der ComboboxInput zeigt dann unverändert.
+      // If no translations are registered, fall back to the raw value as the
+      // label, which ComboboxInput then shows unchanged.
       const selectOptions =
         field.optionLabels !== undefined ? staticSelectOptions(field) : (field.options ?? []);
       // `display` is shared with multiSelect's "checkboxes", which is not a
@@ -1064,11 +1061,11 @@ function renderInput({
         />
       );
     // embedded (without embeddedListCells — that's embeddedList, which has
-    // had its own EmbeddedListField widget since #1838) and jsonb carry
+    // had its own EmbeddedListField widget) and jsonb carry
     // arbitrary objects. Without a dedicated widget these must NOT fall
     // through to a text input: stringValue() turns them into
     // "[object Object]" and saving that overwrites the real data with the
-    // mangled string (#1834). A `required: true` on either is caught loudly
+    // mangled string. A `required: true` on either is caught loudly
     // at boot (validateNoWidgetRequiredField in the framework package)
     // instead of silently failing here.
     case "embedded":
@@ -1111,7 +1108,7 @@ function renderInput({
       // is set (the view-model carries it), the renderer switches to
       // textarea. longText always renders a textarea — that's the point of
       // the type — regardless of whether `multiline` is set; `multiline`
-      // only supplies an optional `{ rows }` override for it (#1925).
+      // only supplies an optional `{ rows }` override for it.
       if (field.type === "longText" || (field.type === "text" && field.multiline)) {
         const rows = typeof field.multiline === "object" ? field.multiline.rows : undefined;
         return (
@@ -1253,8 +1250,9 @@ function moneyPayload(minorUnits: number | undefined, currency: string): unknown
   return { amount: minorUnits / 10 ** currencyDecimals(currency), currency };
 }
 
-// locatedTimestamp-Feldwert: das Read-Wrapper liefert `{ at, tz, utc }`; leer
-// (noch nicht gesetzt) → "" als Empty-Sentinel, analog money/timestamp.
+// A locatedTimestamp field value is supplied by the read wrapper as
+// `{ at, tz, utc }`; an unset value becomes "" as the empty sentinel,
+// consistent with money and timestamp fields.
 function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | "" {
   if (v !== null && typeof v === "object" && "at" in v && "tz" in v) {
     const utc = propertyOf(v, "utc");
@@ -1270,7 +1268,7 @@ function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | ""
 // Read-only text for a `field.readOnly` field without its own `renderer` —
 // per-type formatting that reuses the same value-shaping helpers as the
 // editable widgets above, so a text value and its would-be Input widget stay
-// derived from the identical parse (fw#2245). `type: "reference"` isn't
+// derived from the identical parse. `type: "reference"` isn't
 // covered here — it needs a live label lookup, see ReadOnlyReferenceValue.
 // `isComplexFieldType` types aren't covered either — callers keep those on
 // `renderInput`'s existing Banner fallback.

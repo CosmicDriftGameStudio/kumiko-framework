@@ -1,11 +1,9 @@
+// These tests pin the ThemeToggle contract: clicking calls toggleMode, the icon
+// slot defaults to Unicode, custom slots are forwarded, and the title/aria-label
+// pair reflects the current mode.
 //
-// Tests pinnen den ThemeToggle-Vertrag: Click ruft toggleMode, Icon-
-// Slot defaultet auf Unicode, Custom-Slots werden durchgereicht, das
-// title/aria-label-Paar reagiert auf den aktuellen Mode.
-//
-// Ein Stub-TokensApi reicht — der Hook useTokenController liest nur
-// `mode` + `toggleMode`, der Rest (tokens, setMode) wird vom Toggle
-// nicht angefasst.
+// A stub TokensApi is sufficient because useTokenController only reads `mode` +
+// `toggleMode`; the Toggle does not access the rest (`tokens`, `setMode`).
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -29,8 +27,8 @@ function makeStub(
 }
 
 function renderWithMode(stub: StubApi, ui: ReactNode) {
-  // Cast über unknown — TokensApi hat tokens/setMode die wir hier nicht
-  // brauchen, aber der Provider ist generisch typisiert.
+  // Cast through unknown because TokensApi requires tokens/setMode, which are not
+  // needed here, but the provider is generically typed.
   const api = {
     tokens: {} as never,
     mode: stub.mode,
@@ -85,7 +83,7 @@ describe("ThemeToggle", () => {
       lightStub,
       <ThemeToggle testId="t" titleInLight="zu dark" titleInDark="zu light" />,
     );
-    // Im light-Mode kündigt der Toggle an "wechselt zu dark"
+    // In light mode, the Toggle announces "switches to dark"
     expect(screen.getByTestId("t").getAttribute("aria-label")).toBe("zu dark");
     expect(screen.getByTestId("t").getAttribute("title")).toBe("zu dark");
     unmount();

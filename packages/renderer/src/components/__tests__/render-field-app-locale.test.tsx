@@ -1,11 +1,11 @@
-// Regression: RenderField muss das App-Locale (useLocale) an money-/date-
-// Inputs durchreichen — auch ohne explizites field.locale. Vorher fielen
-// die Inputs auf navigator.language (Browser-Sprache) statt der per
-// LocaleProvider gewählten App-Sprache zurück → Separator-Mismatch.
+// Regression: RenderField must pass the app locale (useLocale) to money/date
+// inputs, even without an explicit field.locale. Previously, the inputs fell
+// back to navigator.language (the browser language) instead of the app language
+// selected through LocaleProvider, causing a separator mismatch.
 //
-// Capture-Input statt echter Primitive: hält den Test renderer-intern
-// (relativer Import von RenderField → diese Source), unabhängig davon
-// wie @cosmicdrift/* im Workspace aufgelöst wird.
+// Capture input instead of real primitives: keeps the test renderer-internal
+// (relative import of RenderField → this source), regardless of how
+// @cosmicdrift/* is resolved in the workspace.
 
 import { describe, expect, test } from "bun:test";
 import { render } from "@testing-library/react";
@@ -88,7 +88,7 @@ describe("RenderField — App-Locale an money durchreichen", () => {
 
   test("ein anderes App-Locale wird ebenso durchgereicht (en-US)", () => {
     renderUnderLocale("en-US");
-    // Unconditional zuerst — ohne sie wäre der Test bei falschem kind leer.
+    // Assert this first—without it, the test would be empty for an incorrect kind.
     expect(captured?.kind).toBe("money");
     if (captured?.kind === "money") expect(captured.locale).toBe("en-US");
   });
@@ -115,7 +115,7 @@ describe("RenderField — min/max/dateLocale ans Picker-Input durchreichen (#369
     if (captured?.kind === "date") {
       expect(captured.min).toBe("2020-01-01");
       expect(captured.max).toBe("2026-12-31");
-      // dateLocale (per-Feld) hat Vorrang vor dem App-Locale (de-DE).
+      // dateLocale (per field) takes precedence over the app locale (de-DE).
       expect(captured.locale).toBe("en-US");
     }
   });

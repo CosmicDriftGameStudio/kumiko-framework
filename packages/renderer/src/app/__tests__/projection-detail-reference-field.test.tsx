@@ -1,4 +1,4 @@
-// fw#2662: projectionDetail fields have no EntityDefinition to carry a real
+// projectionDetail fields have no EntityDefinition to carry a real
 // "reference" field type (the shim hardcodes every field as "text"), so a
 // declared reference field used to render the raw id. This renders the real
 // path (KumikoScreen -> ProjectionDetailScreen -> RenderEdit -> RenderField
@@ -61,7 +61,7 @@ function stubDispatcher(): Dispatcher {
         };
       }
       // user:user resolves through the tenant-scoped member directory, not the
-      // SystemAdmin-only user:query:user:list a TenantAdmin can't call (fw#3107).
+      // SystemAdmin-only user:query:user:list a TenantAdmin can't call.
       if (type === "tenant:query:member-directory") {
         return {
           isSuccess: true,
@@ -90,7 +90,7 @@ const detailScreen: ProjectionDetailScreenDefinition = {
       {
         fields: [
           { field: "userId", refEntity: "user:user", refLabelField: "displayName" },
-          // Mirrors the audit-log detail actor field (fw#3103) — a system
+          // Mirrors the audit-log detail actor field — a system
           // write has no read_users row for the bulk lookup to find.
           { field: "actedBy", refEntity: "user:user", refLabelField: "displayName" },
           "ip",

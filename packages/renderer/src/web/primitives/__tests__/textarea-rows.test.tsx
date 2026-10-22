@@ -1,4 +1,4 @@
-// #2677 — `field-sizing: content` on the vendored shadcn Textarea makes the
+// `field-sizing: content` on the vendored shadcn Textarea makes the
 // `rows` attribute inert, so a declared row count has to reach the rendered
 // height as a min-height floor. Asserting the attribute alone would pass even
 // with the bug present.

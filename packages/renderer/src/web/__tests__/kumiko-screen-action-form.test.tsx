@@ -206,7 +206,7 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    // #2419: entityList targets ignore entityId — do not attach a handler id.
+    // entityList targets ignore entityId — do not attach a handler id.
     expect(navigateCalls[0]).toEqual({ screenId: "task-list" });
     expect(Object.hasOwn(navigateCalls[0] ?? {}, "entityId")).toBe(false);
   });
@@ -265,7 +265,7 @@ describe("KumikoScreen", () => {
     fireEvent.change(titleInput, { target: { value: "go" } });
     await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    // #2485: the cross-feature target now resolves (over all mounted
+    // The cross-feature target now resolves (over all mounted
     // features) — it just happens to be an entityList, which never carries
     // an id, same as a same-feature entityList redirect above.
     expect(navigateCalls[0]).toEqual({ screenId: "statement-upload-list" });
@@ -330,7 +330,7 @@ describe("KumikoScreen", () => {
     fireEvent.change(vinInput, { target: { value: "1HGCM82633A004352" } });
     await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
-    // #2485: redirect crosses a feature boundary (vehicle-vin-decode →
+    // Redirect crosses a feature boundary (vehicle-vin-decode →
     // vehicles) — the target is only found by searching all mounted
     // features, and it must still carry the created id since it's an
     // entityEdit screen.
@@ -535,7 +535,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "x" });
   });
 
-  // #2670: a handler that writes a child record reports the child's id, but
+  // A handler that writes a child record reports the child's id, but
   // the redirect target is the parent's detail screen — `idFrom` names the
   // payload field the navigation id comes from, so the handler keeps
   // reporting what it actually wrote.
@@ -713,7 +713,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "child" });
   });
 
-  // #2416: entityEdit-create passes the newly created record's id through to
+  // entityEdit-create passes the newly created record's id through to
   // the post-submit navigate as `entityId` (extractCreatedId); actionForm's
   // redirect did the same navigate but never extracted the id. The with-id
   // case is covered by the actionForm redirect success test above (now
@@ -879,7 +879,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls).toEqual([{ screenId: "statement-upload-list" }]);
   });
 
-  // Tier 2.7e-2: URL search params fill the actionForm initial values.
+  // URL search params fill the actionForm initial values.
   // Use case: a rowAction kind=navigate sets `?taskId=r1`, the actionForm
   // sees it on mount and prefills the title field.
   test("actionForm initial values: searchParams überschreiben Field-Defaults", async () => {
@@ -955,7 +955,7 @@ describe("KumikoScreen", () => {
     const priorityInput = screen
       .getByTestId("field-priority")
       .querySelector("input") as HTMLInputElement;
-    expect(priorityInput.value).toBe("7"); // Fallback auf default
+    expect(priorityInput.value).toBe("7"); // Fallback to the default
   });
 
   const payoutScreen: ActionFormScreenDefinition = {
@@ -1270,13 +1270,13 @@ describe("KumikoScreen", () => {
   });
 });
 
-// --- singleton entityEdit (fw#1941) ---
+// --- singleton entityEdit ---
 // Singleton entities (exactly one record per tenant) have no nav path
 // that supplies an entityId. `singleton: true` resolves the existing
 // record via list(limit:1) before deciding create vs update.
 // KumikoScreen: singleton entityEdit — moved to
-// kumiko-screen-singleton-entity-edit.test.tsx (#2495): its create->update
-// submit test needs its own isolated bun test process (#457 shared
+// kumiko-screen-singleton-entity-edit.test.tsx: its create->update
+// submit test needs its own isolated bun test process (shared
 // single-process happy-dom event-delegation corruption).
 
 // --- actionForm extension-section (wave J: incident update timeline) ---

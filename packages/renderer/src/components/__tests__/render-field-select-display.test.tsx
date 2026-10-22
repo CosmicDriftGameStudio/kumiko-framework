@@ -1,4 +1,4 @@
-// SelectFieldDef.display travels the whole declarative chain (#2711):
+// SelectFieldDef.display travels the whole declarative chain:
 // EntityDefinition → computeEditViewModel → RenderField → InputProps. Without
 // it an app can only hope its labels fall under the renderer's heuristic.
 

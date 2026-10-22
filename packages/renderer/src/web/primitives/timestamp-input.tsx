@@ -1,14 +1,14 @@
-// TimestampInput (kind:"timestamp") — gemeinsame Datums-Eingabe (DateField,
-// Tippen + Jahres-Kalender) plus ein Uhrzeit-Input. Bis #369 war dies ein
-// natives <input type="datetime-local"> — tippbar, aber mit nicht-stylebarem
-// Browser-Picker ohne Jahres-Navigation und divergent zu DateInput.
+// TimestampInput (kind:"timestamp") — shared date input (DateField,
+// typing + year calendar) plus a time input. This replaced the native
+// <input type="datetime-local">: it was typeable, but had an unstyleable
+// browser picker without year navigation and diverged from DateInput.
 //
-// Die Wire-Konvertierung bleibt unverändert: der Server validiert timestamp
-// als ISO-UTC mit `Z` (z.iso.datetime()) bzw. als Wall-Clock ohne Offset bei
-// locatedTimestamps (z.iso.datetime({ local: true })). Intern rechnen wir
-// über die datetime-local-Form `yyyy-MM-ddTHH:mm`; timestampToInputValue /
-// inputValueToTimestamp kapseln die UTC↔Wall-Clock-Umrechnung (Bug-Bash-2,
-// 2026-06-08) und sind separat getestet.
+// Wire conversion remains unchanged: the server validates timestamp values
+// as ISO UTC with `Z` (z.iso.datetime()) or as an offset-free wall clock for
+// locatedTimestamps (z.iso.datetime({ local: true })). Internally, the
+// datetime-local form `yyyy-MM-ddTHH:mm` is used; timestampToInputValue /
+// inputValueToTimestamp encapsulate the UTC↔wall-clock conversion and are
+// tested separately.
 
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "../../index.ts";
@@ -22,9 +22,9 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-/** Form-State → datetime-local-Format (`yyyy-MM-ddTHH:mm`).
- *  UTC-Instants (mit `Z`/Offset) werden in lokale Wall-Clock
- *  umgerechnet; offset-lose Werte nur auf Minuten gekürzt. */
+/** Form state → datetime-local format (`yyyy-MM-ddTHH:mm`).
+ *  UTC instants (with `Z`/offset) are converted to the local wall clock;
+ *  offset-free values are only truncated to minutes. */
 export function timestampToInputValue(value: string): string {
   if (value === "") return "";
   if (HAS_OFFSET.test(value)) {
@@ -36,14 +36,14 @@ export function timestampToInputValue(value: string): string {
   return m !== null ? m[0] : "";
 }
 
-/** datetime-local-Wert → Wire-Format. wallClock=true reicht die
- *  Wall-Clock unverändert durch; sonst wird die lokale Zeit als
- *  UTC-Instant mit `Z`-Suffix emittiert. */
+/** datetime-local value → wire format. wallClock=true passes the wall clock
+ *  through unchanged; otherwise the local time is emitted as a UTC instant
+ *  with a `Z` suffix. */
 export function inputValueToTimestamp(raw: string, wallClock: boolean): string | undefined {
   if (raw === "") return undefined;
   if (wallClock) return raw;
-  // Offset-loser Datetime-String wird von Date als LOKALE Zeit geparst
-  // (ES2020+) — genau die Semantik die datetime-local liefert.
+  // An offset-free datetime string is parsed by Date as LOCAL time
+  // (ES2020+), matching the semantics provided by datetime-local.
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return undefined;
   // Seconds are mandatory: write schemas validate offset-bearing timestamps
@@ -62,9 +62,9 @@ export type TimestampInputProps = {
   readonly hasError?: boolean;
   readonly ariaLabel?: string;
   readonly locale?: string;
-  /** Untere/obere Grenze als ISO-Datetime. Begrenzt den Kalender auf
-   *  Tages-Granularität; die exakte Uhrzeit-Grenze setzt die Zod-Validierung
-   *  durch. */
+  /** Lower and upper bounds as ISO datetimes. The calendar is constrained to
+   *  day-level granularity; Zod validation enforces the exact time bounds.
+   */
   readonly min?: string;
   readonly max?: string;
 };
@@ -97,9 +97,9 @@ export function TimestampInput({
   const t = useTranslation();
   const local = timestampToInputValue(value);
   const isoDate = local !== "" ? local.slice(0, 10) : "";
-  // Uhrzeit ohne gesetztes Datum würde im Wire-Wert verschwinden — lokal
-  // halten, bis ein Datum gewählt ist. Sobald `value` ein Datum trägt, ist
-  // dessen Uhrzeit maßgeblich.
+  // A time without a selected date would be lost from the wire value, so keep
+  // it locally until a date is selected. Once `value` contains a date, its
+  // time takes precedence.
   const [timeText, setTimeText] = useState("");
   const effectiveTime = local !== "" ? local.slice(11, 16) : timeText;
 

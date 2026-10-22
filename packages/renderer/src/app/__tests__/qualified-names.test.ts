@@ -1,8 +1,8 @@
-// Qualified-Name Pure-Logik Tests (Phase 1, test-luecken-integration, Tier 1).
+// Pure qualified-name logic tests.
 //
-// lastSegment (qn.ts) ist die Inverse von qualifyScreenId/qualifyNavId
-// (kumiko-screen.tsx) — Schema speichert QN-Form, der Renderer/die URL
-// nutzt Short-Form. Roundtrip pinnt diese Symmetrie.
+// lastSegment (qn.ts) is the inverse of qualifyScreenId/qualifyNavId
+// (kumiko-screen.tsx): the schema stores qualified names, while the
+// renderer and URL use the short form. The roundtrip verifies this symmetry.
 
 import { describe, expect, test } from "bun:test";
 import { qualifyNavId, qualifyScreenId } from "../kumiko-screen.tsx";

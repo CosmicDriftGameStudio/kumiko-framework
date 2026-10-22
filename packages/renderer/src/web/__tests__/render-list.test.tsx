@@ -31,7 +31,7 @@ const listScreen: EntityListScreenDefinition = {
 describe("RenderList", () => {
   test("empty state when rows is empty", () => {
     render(<RenderList screen={listScreen} entity={taskEntity} rows={[]} featureName="tasks" />);
-    // Default-Primitive hängt "-empty" an die testId der DataTable.
+    // Default-Primitive appends "-empty" to the DataTable testId.
     expect(screen.getByTestId("render-list-table-empty")).toBeTruthy();
     expect(screen.queryByTestId("render-list-table")).toBeNull();
   });
@@ -170,14 +170,14 @@ describe("RenderList — slots.header", () => {
     );
     const header = screen.getByTestId("list-header-slot");
     expect(header.textContent).toContain("header for task");
-    // Listen-Kontext → keine Row → entityId null.
+    // List context → no row → entityId is null.
     expect(header.textContent).toContain("id=null");
     // Core edit: the header slot gets THIS list's screenId so a control like
     // the tags TagFilter can drive its url-filter state (useListUrlState).
     expect(header.textContent).toContain(`screen=${screenWithHeader.id}`);
-    // Placement-Regression (Bug-Bash 3 #12): der Header-Slot lebt IM
-    // Toolbar-Container (toolbarEnd), NICHT als loser Node über dem
-    // Screen-Titel.
+    // Placement regression: the header slot lives INSIDE the
+    // Toolbar container (toolbarEnd), NOT as a loose node above the
+    // screen title.
     const toolbar = screen.getByTestId("render-list-table-toolbar");
     expect(toolbar.contains(header)).toBe(true);
   });
@@ -207,7 +207,7 @@ afterEach(() => {
   warn.mockRestore?.();
 });
 
-// fw#3104: the audit log declares a dateRange facet and nothing else, so the
+// The audit log declares a dateRange facet and nothing else, so the
 // toolbar's facet cluster must render for a screen with no option-dropdown
 // facets at all — otherwise the whole filter is invisible on the one screen
 // the feature exists for.

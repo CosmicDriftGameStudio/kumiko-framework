@@ -1,8 +1,8 @@
-// Avatar Render-Tests (Phase 1, test-luecken-integration, Tier 2).
+// Avatar rendering tests.
 //
-// Avatar ist ein pures Presentational-Component (kein Context, kein Radix)
-// → happy-dom-Render reicht. Pinnt die Initials-Extraktion und die
-// deterministische, id-basierte Farbwahl.
+// Avatar is a pure presentational component without context or Radix,
+// so happy-dom rendering is sufficient. These tests pin initial extraction
+// and deterministic, ID-based color selection.
 
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
@@ -26,8 +26,8 @@ describe("Avatar — Initials", () => {
   });
 
   test("Email als Single-Token → erste 2 Buchstaben (alice@… → AL)", () => {
-    // Hinweis: der Code-Kommentar behauptet "A", der Code liefert aber "AL"
-    // (split(/\s+/) trennt nicht an '@'). Test pinnt das IST-Verhalten.
+    // The code comment claims "A", but the code returns "AL".
+    // (split(/\s+/) does not split at '@'.) This test pins the current behavior.
     render(<Avatar id="u" label="alice@example.com" testId="av" />);
     expect(screen.getByTestId("av").textContent).toBe("AL");
   });

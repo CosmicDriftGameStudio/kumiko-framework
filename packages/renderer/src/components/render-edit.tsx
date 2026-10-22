@@ -139,11 +139,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const disabled = disabledProp || viewMode;
   const i18nScreenId = props.i18nScreenId ?? screen.id;
   const { customSubmit } = props;
-  // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
-  // konsumieren wir den i18next-Context direkt. Sonst wären Field-
-  // Labels ohne Caller-Wiring raw-Keys (`feature:entity:foo:field:title`).
-  // useTranslation throwt ohne LocaleProvider — das ist ok, weil RenderEdit
-  // ohnehin nur in einem mounted Kumiko-App-Tree läuft.
+  // Translate fallback: when the caller does not provide a translate function,
+  // consume the i18next context directly. Otherwise field labels would remain raw
+  // keys (`feature:entity:foo:field:title`) without caller wiring.
+  // useTranslation throws without a LocaleProvider, which is acceptable because
+  // RenderEdit only runs inside a mounted Kumiko app tree.
   const t = useTranslation();
   const translate = translateProp ?? t;
   const dispatcher = useOptionalDispatcher();
@@ -152,7 +152,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Tabs reuse the wizard's step machinery: one section visible at a time,
   // all of them mounted, `currentStep` as the active index. What they do NOT
   // share is navigation — a tab form submits from any tab, so every
-  // step-transition path below stays wizard-only (fw#3134).
+  // step-transition path below stays wizard-only.
   const isTabs = screen.layout.mode === "tabs";
   const draftEnabled = isWizard && screen.layout.draft === true && dispatcher !== undefined;
   const isCreateMode = entityIdProp === undefined || entityIdProp === null || entityIdProp === "";
@@ -171,8 +171,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // One state for all header actions (actions?), not per-button — only one
   // action can be in flight at a time, and this keeps the error surfaced in
   // the shared formError-adjacent banner region instead of inside the
-  // button row (fw#2166 review: a full-width Banner there breaks the
-  // flex justify-end action bar).
+  // button row: a full-width Banner there breaks the
+  // flex justify-end action bar.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
   const [rawStep, setRawStep] = useState(0);
   const [passedStepKeys, setPassedStepKeys] = useState<ReadonlySet<string>>(() => new Set());
@@ -194,15 +194,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     draftStorage,
   });
   const { draftCandidates, setDraftCandidates } = draftState;
-  // Composed-Save: Extension-Sections melden hier ihren dirty-State (damit der
-  // Save-Button aktiv wird wenn NUR eine Section geändert wurde) + ihren
-  // Submit-Handler (läuft nach dem Entity-Write). extensionErrorKey hält den
-  // i18n-Key einer fehlgeschlagenen Section-Persistierung.
+  // Composed save: extension sections report their dirty state so the Save button
+  // activates when only a section changed, and provide a submit handler that runs
+  // after the entity write. extensionErrorKey stores the i18n key for a failed
+  // section persistence.
   //
-  // Not a second write path for saveDraft()'s data (#1914): deriveFormFields
-  // (above) skips extension sections entirely, so extension-owned field state
-  // never enters `fields`/`controller.getSnapshot().values` — there is no
-  // draft-blob-covered state left for persistExtensions() to compete over.
+  // This is not a second write path for saveDraft()'s data: deriveFormFields
+  // skips extension sections entirely, so extension-owned field state never enters
+  // `fields` or `controller.getSnapshot().values`; there is no draft-covered state
+  // left for persistExtensions() to compete over.
   const [extensionDirty, setExtensionDirty] = useState(false);
   // Mirror for the leave guard: it must see "saved" before React re-renders.
   const extensionDirtyRef = useRef(false);
@@ -241,7 +241,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Both stepped layouts show one section at a time and keep the rest mounted
   // but inert. A tabs layout on a host without the Tabs primitive has no strip
   // to switch with, so it falls back to rendering every section stacked rather
-  // than stranding the user on section 0 (fw#3134). Same fallback when the
+  // than stranding the user on section 0. Same fallback when the
   // WizardStepGroup wrapper is missing.
   const isStepped = isWizard || (isTabs && Tabs !== undefined && WizardStepGroup !== undefined);
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
@@ -254,7 +254,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // scoping would silently drop root-level .refine() issues.
   // A `fieldsFilter` that matches nothing in `fields` (typo, renamed field)
   // must fall back to unscoped too — an empty scope array would filter out
-  // ALL validation issues (kumiko-framework#1907), letting submit() through
+  // ALL validation issues, letting submit() through
   // unvalidated on a form that also renders no sections.
   const scopeFieldNames = useMemo(() => {
     if (fieldsFilter === undefined) return undefined;
@@ -262,9 +262,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return matched.length === 0 ? undefined : matched;
   }, [fieldsFilter, fields]);
 
-  // Submit-Config nur wenn der Caller einen writeCommand mitgibt; bei
-  // customSubmit-Pfad kommt der Form-Controller ohne Submit-Wiring,
-  // weil wir controller.submit() eh nicht rufen.
+  // Configure submission only when the caller provides a writeCommand; with
+  // customSubmit, the form controller has no submit wiring because
+  // controller.submit() is not called.
   const writeVerb = isCreateMode ? "create" : "update";
   // A write-excluded field must never reach the payload: the handler schema is
   // z.never() for it, so even an unchanged read-only value would be rejected.
@@ -328,12 +328,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     controller.rebase();
   }, [refreshToken, controller, initial]);
 
-  // Controlled mode (Issue #1887). Both callbacks live in refs so a
+  // Controlled mode. Both callbacks live in refs so a
   // re-rendering caller (identity-unstable `onChange`/`onControlsReady`
   // closures, e.g. inline arrows) doesn't retrigger these effects — only a
   // real snapshot mutation (typing, patch()) does. Without this, a caller
   // whose onChange calls patch() to fill other fields (the VIN-decode use
-  // case from #1888) would loop: patch → new snapshot → effect
+  // case) would loop: patch → new snapshot → effect
   // re-subscribes with a "new" onChange → refires.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -342,7 +342,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // effect below on every render since the callback itself is now a dep).
   // Tracks the actual prop, not a ref snapshot, so a caller that swaps in a
   // real handler after mount (e.g. `onControlsReady={ready ? cb : undefined}`)
-  // gets delivered to for THIS mount instead of never (fw#1899).
+  // gets delivered to for THIS mount instead of never.
   const deliveredControlsToRef = useRef<typeof onControlsReady>(undefined);
   const onControlsReadyRef = useRef(onControlsReady);
   onControlsReadyRef.current = onControlsReady;
@@ -394,9 +394,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }, []);
 
   // patch() (controlled mode, extension sections) applies immediately —
-  // only the resulting draft save is debounced (#1914), so a patch() burst
+  // only the resulting draft save is debounced, so a patch() burst
   // (VIN-decode filling several fields, or onChange fanning a keystroke out
-  // through patch(), see the #1888 test above) collapses into one save.
+  // through patch(), see the VIN-decode test above) collapses into one save.
   const patchAndScheduleDraftSave = useCallback(
     (partial: Partial<TValues>) => {
       controller.setValues(partial);
@@ -415,7 +415,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // execution order) so that an onChange fired on mount always sees
   // `controls !== undefined` — both effects depend only on mount-stable
   // values (controller/scopedValidate/patchAndScheduleDraftSave), so the
-  // swap is otherwise a no-op. See the #1888 VIN-decode test: an initial
+  // swap is otherwise a no-op. See the VIN-decode test: an initial
   // value that should derive dependent fields on mount needs controls.patch
   // available on the very first onChange call, not just from the second
   // keystroke onward.
@@ -531,7 +531,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // run their own query / own submit), so they always pass through. A
     // section with no fields at all (e.g. a review-only step) has
     // `visible: fields.some(...)` = false vacuously; that's "no fields to
-    // hide", not "hidden", so it stays too (fw#1901). Unless the create
+    // hide", not "hidden", so it stays too. Unless the create
     // exclusion emptied it: that would leave an empty wizard step / tab.
     () =>
       filterEditSections(vm.sections, fieldsFilter).filter(
@@ -558,9 +558,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const showsAllRequiredHint = allFieldsRequired && hideSectionTitles !== true && !isWizard;
 
-  // true when editable fields exist or an extension opted into composed submit (fw#2359).
+  // true when editable fields exist or an extension opted into composed submit.
   const isFormEditable = hasEditableSection(filteredSections);
-  // A fieldless form (input-less secretMint mint, fw#2838 — the secret is
+  // A fieldless form (input-less secretMint mint — the secret is
   // server-generated, the mint step is only its submit button) has no
   // section to gate on: it IS the action, so it always shows the submit
   // button, and it can never go dirty either.
@@ -572,8 +572,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // reaches this line and `filteredSections[0]` stays the active section)
   // needs its own tab panel capped at the available height so its table
   // scrolls inside the panel instead of the whole page stretching to the
-  // row count (fw#2722) — a short table still sizes to its content instead
-  // of stretching the panel to the bottom (fw#2778). Any other layout —
+  // row count — a short table still sizes to its content instead
+  // of stretching the panel to the bottom. Any other layout —
   // multiple sections, a non-relatedList tab, stacked (non-tabs) forms —
   // keeps normal document-flow height untouched.
   const fillHeight =
@@ -587,9 +587,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     hideSectionTitles === true && filteredSections[0]?.kind === "writeForm";
   const [writeFormFooterAction, setWriteFormFooterAction] = useState<ReactNode>(undefined);
 
-  // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
-  // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
-  // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
+  // Persist all composed extension sections using the resolved entityId.
+  // false means a section failed and its i18n key is shown in the banner. Without
+  // entity context (create mode without a route id), there is nothing to write.
   async function persistExtensions(): Promise<boolean> {
     const entityId = resolveExtensionEntityId(entityIdProp, vm.id);
     if (entityId === null) return true;
@@ -672,7 +672,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   function handleWizardNext(): void {
     const next = Math.min(currentStep + 1, lastStepIndex);
     hasNavigatedRef.current = true;
-    // Locked state (#1896): `disabled` means "no input/no write", not "no
+    // Locked state: `disabled` means "no input/no write", not "no
     // navigation" — a disabled wizard must still be steppable so Back/Next
     // reach every step. But neither validate() (would block on an empty
     // required field nobody can fill in) nor saveDraft() (would mint a
@@ -746,7 +746,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       handleWizardNext();
       return;
     }
-    // Locked state (#1896): the submit button is visibly disabled, but a
+    // Locked state: the submit button is visibly disabled, but a
     // native form submit (Enter key) reaches this handler regardless of the
     // button's disabled attribute — block it here too, not just in the UI.
     if (disabled || submitBlocked) return;
@@ -757,9 +757,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     setIsSubmitting(true);
     setExtensionErrorKey(null);
     try {
-      // Extension-only: only a section is dirty, the main form is unchanged.
-      // No entity write (would send an empty changes payload) — only
-      // die Section-Handler laufen lassen.
+      // Extension-only: only a section is dirty and the main form is unchanged.
+      // Skip the entity write (it would send an empty changes payload) and only
+      // run the section handlers.
       if (snapshot.isUnchanged && extensionDirty) {
         // Same discard as the main path: an extension-only save is still a
         // successful submit, so the draft must not survive it.
@@ -772,22 +772,19 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       }
       let result: SubmitResult<unknown>;
       if (customSubmit !== undefined) {
-        // customSubmit path (e.g. configEdit, which fires a separate write
-        // per field). Client-side validation first, then
-        // an den Caller; on-success rebased der Form-State explizit
-        // because controller.submit() normally does this itself and
-        // without customSubmit's help the controller knows nothing about
-        // erfolgreichen Submit (isUnchanged blieb sonst false).
+        // customSubmit path (e.g. configEdit, which performs a separate write per
+        // field). Validate on the client first, then call the caller; on success,
+        // explicitly rebase the form state because controller.submit() normally
+        // does this itself, and the controller otherwise knows nothing about a
+        // successful custom submission (isUnchanged would remain false).
         //
-        // WICHTIG: snapshot direkt vom Controller holen statt aus
-        // React state. On rapid fill→click, React batching may not have
-        // committed input state updates yet when the submit click fires.
-        // handleSubmit's closure would then run with
-        // stale snapshot.changes={} laufen, customSubmit fired keine
-        // Writes, returnt success, Form rebase → User glaubt "saved"
-        // aber gar nichts ist passiert. controller.getSnapshot() ist
-        // immer aktuell — der Controller ist die Source-of-Truth, die
-        // React state is only a mirror for rendering.
+        // Read the snapshot directly from the controller rather than React state.
+        // With rapid fill-then-click input, React batching may not have committed
+        // state updates when the submit click fires. handleSubmit's closure could otherwise
+        // see stale snapshot.changes={} and perform no writes, then return success
+        // and rebase the form, making it appear that the data was saved.
+        // controller.getSnapshot() is always current: the controller is the
+        // source of truth, while React state is only a rendering mirror.
         const valid = controller.validate(scopeFieldNames);
         if (!valid) {
           // Field order matters: validationBlocked:true is its own
@@ -814,7 +811,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // `isNoOp: true` (payloadMode "changes", pre-filled form submitted
         // untouched) means controller.submit() never called dispatcher.write
         // — nothing to discard, and discarding here would delete a draft the
-        // form never persisted (fw#1978). Awaited, not fire-and-forget:
+        // form never persisted. Awaited, not fire-and-forget:
         // `onSubmit` typically navigates away and unmounts this form, which
         // would abort an in-flight discard and leave the draft behind after
         // a successful submit.
@@ -846,7 +843,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // otherwise invisible — jump to the first step that contains one of
         // the errored fields. For tabs this is what keeps the submit from
         // blocking in silence, the failure mode the boot-validator used to
-        // prevent by rejecting the layout outright (fw#3134). An issue no
+        // prevent by rejecting the layout outright. An issue no
         // rendered field can show (`version`, `id`, a root-level refine, a
         // hidden field) keeps the banner, jump or not.
         if (isStepped) {
@@ -1215,14 +1212,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     </>
   );
 
-  // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
+  // Title + Subtitle, create/edit-aware. i18n-Keys (mode = "create"|"edit"):
   //   screen:<id>.<mode>.title / .<mode>.subtitle  (mode = "create"|"edit"|"view")
-  // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
+  // Fallback chain: mode-specific → generic (screen:<id>.title/.subtitle).
   // title falls back to screenId; subtitle falls back to screen.description,
   // itself run through translate() so an i18n key (the established
   // convention for description, e.g. bundled-features) resolves instead of
   // showing the raw key — translate() returns the input unchanged for plain
-  // prose, same as it does for an unknown key (fw#2723 review). Same slot
+  // prose, same as it does for an unknown key. Same slot
   // section.description already fills for a section. Falls back to
   // undefined (no subtitle) when neither is set.
   const formMode = isCreate ? "create" : viewMode ? "view" : "edit";
@@ -1496,7 +1493,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             // survives navigating past its step — otherwise Finish only ran the
             // last mounted step's handler and silently dropped earlier steps'
             // writes. For tabs this is also what makes ONE submit cover every
-            // tab, including tabs the user never opened (fw#3134).
+            // tab, including tabs the user never opened.
             const stepHidden = isStepped && sectionIndex !== currentStep;
             const wrapWizardStep = (key: string, el: ReactNode): ReactNode => {
               if (!isStepped) return el;
@@ -1578,7 +1575,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             }
             if (section.kind === "relatedList") {
               // parentId is the displayed record's id — without it there's no
-              // parent row whose related rows could be queried (fw#2166).
+              // parent row whose related rows could be queried.
               // Rejected at boot in wizard layouts, so no WizardStepGroup here.
               const parentId = resolveExtensionEntityId(entityIdProp, vm.id);
               if (parentId === null) return null;
@@ -1587,7 +1584,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   key={section.title}
                   section={section}
                   parentId={parentId}
-                  // @cast-boundary form-values: TValues ist strukturell ein Record.
+                  // @cast-boundary form-values: TValues is structurally a Record.
                   record={snapshot.values as unknown as Readonly<Record<string, unknown>>}
                   featureName={featureName}
                   translate={translate}
@@ -1635,7 +1632,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               );
             }
             if (!section.visible) return null;
-            // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
+            // Title-less sections would otherwise collide on key/testId, so use the index
+            // as a fallback.
             const sectionKey = section.title ?? `section-${sectionIndex}`;
             const renderFieldGrid = (
               fields: readonly EditFieldViewModel[],
@@ -1726,7 +1724,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   </Card>,
                 );
               }
-              // No section title here (fw#3218) — the Tab strip right above
+              // No section title here — the Tab strip right above
               // already names this panel, so a repeated Card title would just
               // duplicate it. The header row only exists to carry the section
               // description and actions, never the title text.

@@ -1,5 +1,5 @@
-// #950 — Input forwardet testId (→ data-testid) + readOnly ans echte <input>,
-// damit App-Tests getByTestId(...) + .readOnly/.disabled assertieren können.
+// Input forwards testId (as data-testid) and readOnly to the real <input> so
+// app tests can use getByTestId(...) and assert .readOnly/.disabled.
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { defaultPrimitives } from "../index.tsx";

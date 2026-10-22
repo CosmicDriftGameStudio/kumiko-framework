@@ -274,8 +274,8 @@ describe("computeListViewModel", () => {
   // picks tenantId as a column this way). Together with boot-validator.test.ts
   // (both boot validators accept the same set) and list-row-meta-drift.test.ts
   // (LIST_ROW_META_COLUMNS key-set drift guard), this pins "whatever boot
-  // accepts as a row-meta column, the renderer can actually draw" — a #2601
-  // review found the two sides had drifted apart.
+  // accepts as a row-meta column, the renderer can actually draw" and prevents
+  // the two sides from drifting apart.
   test("every row-meta column resolves to its declared type, sortable, no throw", () => {
     for (const [field, expectedType] of Object.entries(LIST_ROW_META_COLUMNS)) {
       const vm = computeListViewModel({

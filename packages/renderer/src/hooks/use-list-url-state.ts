@@ -1,19 +1,19 @@
-// useListUrlState — bündelt sort/dir/page/q einer entityList in einen
-// per-screen-id namespaced URL-State. Mit Screen-ID-Prefix damit zwei
-// Listen auf derselben Route (z.B. Dashboard mit Orders + Incidents)
-// nicht über dieselben Query-Keys streiten.
+// useListUrlState — combines an entityList's sort/dir/page/q into a
+// per-screen-id namespaced URL state. The screen-ID prefix prevents two
+// lists on the same route (e.g. a dashboard with Orders + Incidents)
+// from competing over the same query keys.
 //
-// Param-Schema pro Liste:
+// Parameter schema per list:
 //   <screenId>.sort     — field name (string)
 //   <screenId>.dir      — "asc" | "desc"
 //   <screenId>.q        — search term (URL-encoded)
-//   <screenId>.page     — 1-based page number (nur bei pagination="pages")
-//   <screenId>.f.<field> — Faceted-Filter: comma-joined selected values;
-//                          NO_FILTER_URL_VALUE = "no filter", chosen on purpose
+//   <screenId>.page     — 1-based page number (only for pagination="pages")
+//   <screenId>.f.<field> — faceted filter: comma-joined selected values;
+//                          NO_FILTER_URL_VALUE = "no filter", chosen deliberately
 //                          for a field that has a declared default
 //
-// Schreibt mit setSearchParams (replaceState — kein push), damit
-// Sort/Filter-Toggles nicht die Browser-History fluten.
+// Uses setSearchParams (replaceState, not push) so sort/filter toggles do not
+// flood the browser history.
 
 import { useCallback, useMemo } from "react";
 import { useNav } from "../app/nav.tsx";
@@ -24,40 +24,41 @@ import type { DataTableSort, DataTableSortDir } from "../primitives.tsx";
 // default would come straight back.
 export const NO_FILTER_URL_VALUE = "~";
 
-// ListSort + DataTableSort hatten dieselbe Shape und drohten zu driften
-// — aliased auf den primitives-Type (eine Quelle, kein Cast in RenderList).
+// ListSort and DataTableSort had the same shape and could drift apart,
+// so this aliases the primitives type to keep one source of truth and avoid
+// a cast in RenderList.
 export type ListSortDir = DataTableSortDir;
 export type ListSort = DataTableSort;
 
 export type ListUrlState = {
-  /** Aktive Sortierung (oder null = unsorted, Server liefert Default-Order). */
+  /** Active sort (or null for unsorted; the server supplies the default order). */
   readonly sort: ListSort | null;
-  /** Search-Term (leer wenn nicht gesetzt). */
+  /** Search term (empty when unset). */
   readonly q: string;
-  /** 1-basierte Page-Nummer. Bei pagination="infinite" oder false ist
-   *  der Wert ignoriert; Caller liest ihn nur wenn relevant. */
+  /** 1-based page number. For pagination="infinite" or false, this value is
+   * ignored; callers read it only when relevant. */
   readonly page: number;
   /** User-chosen page size from `PAGE_SIZE_OPTIONS`; undefined = screen default. */
   readonly pageSize: number | undefined;
-  /** Aktive Faceted-Filter: field → ausgewählte Werte (Strings; Caller
-   *  coerced pro Field-Type). Leer wenn kein Filter gesetzt. */
+  /** Active faceted filters: field → selected values (strings; callers coerce
+   * them according to the field type). Empty when no filter is set. */
   readonly filters: Readonly<Record<string, readonly string[]>>;
 };
 
 export type ListUrlStateApi = ListUrlState & {
-  /** Setzt sort + dir atomar. null = unsorted (löscht beide Keys). */
+  /** Atomically sets sort + dir. null means unsorted and clears both keys. */
   readonly setSort: (next: ListSort | null) => void;
-  /** Setzt den Search-Term. Empty-String löscht den Key. Caller debounced
-   *  selber (z.B. useDebouncedCallback in der Search-Input-Komponente). */
+  /** Sets the search term. An empty string clears the key. Callers must debounce
+   * this themselves (e.g. with useDebouncedCallback in the search input component). */
   readonly setQ: (next: string) => void;
-  /** Setzt die Page. 1 oder kleiner löscht den Key (Default-Page). */
+  /** Sets the page. 1 or less clears the key and restores the default page. */
   readonly setPage: (next: number) => void;
   /** Sets the page size and resets the page; undefined clears the key. */
   readonly setPageSize: (next: number | undefined) => void;
-  /** Setzt die ausgewählten Werte eines Facet-Felds. Leeres Array löscht
-   *  den Key. Resettet die Page (wie sort/search). */
+  /** Sets the selected values for a facet field. An empty array clears the key
+   * and resets the page, like sort/search changes. */
   readonly setFilter: (field: string, values: readonly string[]) => void;
-  /** Löscht alle aktiven Faceted-Filter (Reset-Button). */
+  /** Clears all active faceted filters (for a reset button). */
   readonly clearFilters: () => void;
   /** Sets both bounds of a dateRange facet in ONE params update — two
    *  setFilter calls would overwrite each other, since the second still sees
@@ -69,9 +70,10 @@ export type ListUrlStateApi = ListUrlState & {
   ) => void;
 };
 
-// `.` als Trenner: lesbar (`?orders.sort=name`), kollidiert nicht mit
-// üblichen Field-Namen (kebab- oder camelCase ohne Punkt). Boot-Validator
-// pinnt screen.id ohne Punkt — siehe boot-validator entityList Section.
+// `.` is used as a separator because it is readable (`?orders.sort=name`)
+// and does not conflict with conventional field names (kebab- or camelCase
+// without dots). The boot validator requires screen.id to contain no dots;
+// see the boot-validator entityList section.
 export const PAGE_SIZE_OPTIONS: readonly number[] = [25, 50, 100];
 
 function parsePageSize(value: string | undefined): number | undefined {
@@ -124,8 +126,8 @@ export function useListUrlState(
       if (!k.startsWith(filterPrefix) || v === "") continue;
       const field = k.slice(filterPrefix.length);
       if (field === "") continue;
-      // ponytail: comma-join — Facet-Werte sind select-Options/booleans
-      // ohne Komma; upgrade auf repeated-keys falls je Komma-Werte nötig.
+      // ponytail: comma-join — facet values are select options/booleans without
+      // commas; use repeated keys if comma-containing values are ever needed.
       out[field] = v === NO_FILTER_URL_VALUE ? [] : v.split(",").filter((s) => s !== "");
     }
     for (const [field, values] of Object.entries(defaultFilters ?? {})) {
@@ -144,10 +146,9 @@ export function useListUrlState(
 
   const setSort = useCallback(
     (next: ListSort | null) => {
-      // Atomares Update: bei jedem Sort-Wechsel resetten wir auch die
-      // Page (sonst wäre der User auf "Seite 5 von alter Sortierung"
-      // hängen, was visuell verwirrend ist). Page-Reset gilt auch bei
-      // null — gleiche Logik.
+      // Atomically reset the page on every sort change; otherwise the user could
+      // land on page 5 of the old ordering, which is visually confusing. The
+      // page reset also applies when next is null for the same reason.
       nav.setSearchParams({
         [key(screenId, "sort")]: next === null ? null : next.field,
         [key(screenId, "dir")]: next === null ? null : next.dir,
@@ -159,9 +160,8 @@ export function useListUrlState(
 
   const setQ = useCallback(
     (next: string) => {
-      // Search-Change resettet Page (gleicher Grund wie Sort) UND
-      // Sort? Nein — User kann mit aktivem Sort suchen wollen, das
-      // soll die Sortierung nicht zerlegen. Nur Page wird gereset.
+      // A search change resets the page but preserves the sort, so users can search
+      // while keeping the active ordering.
       nav.setSearchParams({
         [key(screenId, "q")]: next === "" ? null : next,
         [key(screenId, "page")]: null,

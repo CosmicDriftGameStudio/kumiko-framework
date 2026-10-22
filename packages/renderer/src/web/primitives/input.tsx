@@ -264,7 +264,7 @@ export function DefaultInput(props: InputProps): ReactNode {
         props.display === "radio" ? comboOptions : withoutSegmentedSelectPlaceholder(comboOptions);
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
-      // one even when the options outnumber the heuristic's threshold (#2711).
+      // one even when the options outnumber the heuristic's threshold.
       const requestedPresentation =
         props.radioVariant === "card"
           ? "radioList"
@@ -321,7 +321,7 @@ export function DefaultInput(props: InputProps): ReactNode {
       );
     }
     case "combobox": {
-      // Tier 2.1c + tier 2.7e: discriminated union per `multiple`; we split
+      // Discriminated union per `multiple`; we split
       // TS-side into two branches so ComboboxInput's single/multi variants
       // render with the right types.
       const baseProps = {

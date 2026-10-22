@@ -77,9 +77,9 @@ describe("createPublicSurface", () => {
   });
 
   test("ignores window.__KUMIKO_SCHEMA__ entirely (no topology leak)", async () => {
-    // Ein Admin-Schema im Window darf NICHT zu gerenderter Admin-Nav/
-    // Topologie führen — die Surface liest das Global gar nicht, sie
-    // rendert ausschließlich die deklarierte Route.
+    // An admin schema on `window` must not lead to a rendered admin nav or
+    // topology: the surface never reads the global and renders only the
+    // declared route.
     setPath("/login");
     (window as unknown as { __KUMIKO_SCHEMA__?: unknown }).__KUMIKO_SCHEMA__ = {
       features: [
@@ -123,7 +123,7 @@ describe("createPublicSurface", () => {
       clientFeatures: [feature],
       routes: [{ path: "/login", component: <ProbeRoute /> }],
     });
-    // Provider sichtbar (Context greift), Gate nicht angewandt.
+    // The provider is visible (its context applies); the gate is not applied.
     expect(screen.getByTestId("probe").textContent).toBe("present");
     expect(screen.queryByTestId("gate-hijack")).toBeNull();
   });

@@ -5,7 +5,7 @@
 // One source for both date primitives: DateInput (kind:"date") is a thin
 // re-export of this, TimestampInput (kind:"timestamp") uses it as the
 // date part next to the time input. So `date` and `timestamp` share the
-// same typing/navigation UX instead of two diverging primitives (#369).
+// same typing/navigation UX instead of two diverging primitives.
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { type ReactNode, useState } from "react";
@@ -113,7 +113,7 @@ export function DateField({
         // the app's UI locale via t() — a caller rendering a date in a
         // locale that differs from the UI locale gets a mixed-locale
         // placeholder (e.g. German UI + locale="en-US" → "MM/TT/JJJJ").
-        // Accepted for now (fw#1879): a static per-locale letter lookup
+        // Accepted for now: a static per-locale letter lookup
         // would need its own locale-root resolution and tests for a
         // placeholder-only, Low-severity mismatch.
         placeholder={formatDatePlaceholder(resolvedLocale, {

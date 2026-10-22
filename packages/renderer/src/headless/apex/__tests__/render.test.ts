@@ -125,8 +125,8 @@ describe("renderApexPage", () => {
     // APEX_NAV_MENU_CSS sets `.nav-toggle { display: none; }` unconditionally;
     // APEX_NAV_TOGGLE_RESPONSIVE_CSS re-declares it `.nav .nav-toggle { display:
     // inline-flex; }` inside the 640px query. A markup-only assertion can't catch
-    // a reordering that silently restores fw#2047 (nav-links hidden on mobile
-    // with no way to reopen them).
+    // a reordering that silently leaves nav-links hidden on mobile
+    // with no way to reopen them.
     const hiddenDefault = APEX_STRUCTURAL_CSS.indexOf(".nav-toggle { display: none; }");
     const mobileOpen = APEX_STRUCTURAL_CSS.indexOf(".nav .nav-toggle { display: inline-flex; }");
     expect(hiddenDefault).toBeGreaterThan(-1);
@@ -160,7 +160,7 @@ describe("renderApexPage", () => {
     // its containing block. renderApexPage gets that from CHROME_LIGHT, but a
     // standalone renderApexHeader() consumer's own header CSS typically doesn't
     // declare it, and without it the dropdown opens off-screen against the
-    // viewport instead of under the header (fw#2125 follow-up: verified none of
+    // viewport instead of under the header (verified: none of
     // money-horse/show-pony/the docs sample's HEADER_CSS set it).
     expect(APEX_NAV_TOGGLE_RESPONSIVE_CSS).toContain(".nav { position: relative; }");
   });

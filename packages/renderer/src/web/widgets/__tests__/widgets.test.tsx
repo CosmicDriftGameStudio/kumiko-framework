@@ -536,7 +536,7 @@ describe("StatCard", () => {
       />,
     );
     const chip = container.querySelector("span[style]");
-    // happy-dom parst color-mix()-backgroundColor nicht — color reicht als Beleg.
+    // happy-dom does not parse color-mix()-backgroundColor; color is sufficient evidence.
     expect(chip?.getAttribute("style") ?? "").toContain("#123456");
   });
 });

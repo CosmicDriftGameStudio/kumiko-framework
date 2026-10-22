@@ -1,23 +1,21 @@
-// Column-Renderer-Map: client-side Lookup für ListColumn-Spalten die im
-// Schema einen PlatformComponent-Renderer (`{ react: { __component: "Name" } }`)
-// statt einer String-Funktion angeben. createKumikoApp im renderer/web sammelt
-// alle clientFeatures.columnRenderers und mountet den Provider; der DataTable-
-// Cell-Renderer schlägt den Component über `useColumnRenderer(name)` nach.
+// Column-Renderer-Map: client-side lookup for ListColumn columns that specify a
+// PlatformComponent renderer (`{ react: { __component: "Name" } }`) in the schema
+// instead of a string function. createKumikoApp in renderer/web collects all
+// clientFeatures.columnRenderers and mounts the provider; the DataTable cell
+// renderer looks up the component through `useColumnRenderer(name)`.
 //
-// Analog zu CustomScreensProvider — der Renderer-Web-Bootstrap mounted beide
-// Provider an derselben Stelle. Schemas selbst bleiben serializable: der
-// Component wird nur per String-Key referenziert, die Map liegt allein
-// client-seitig.
+// Like CustomScreensProvider, the renderer web bootstrap mounts both providers
+// at the same location. Schemas remain serializable: the component is referenced
+// only by string key, while the map exists solely on the client.
 
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
 
-// Props die ein Column-Renderer-Component bekommt. `value` ist der
-// Cell-Value für die Spalte (rohes Field-Value aus der Row), `row` ist
-// die ganze Row als plain object — nice-to-have für Renderer die auf
-// andere Spalten zugreifen wollen (z.B. Status-Badge der den
-// Erstellungs-Zeitpunkt aus der Row mitnimmt). `column.field` ist der
-// Field-Name; hilfreich für generische Renderer (JSON-Pretty-Printer
-// oder Debug-Renderer die den Feldnamen anzeigen).
+// Props passed to a column-renderer component. `value` is the column's cell
+// value (the raw field value from the row), while `row` is the entire row as a
+// plain object—a convenience for renderers that need to access other columns
+// (for example, a status badge that uses the creation timestamp from the row).
+// `column.field` is the field name, which is useful for generic renderers such
+// as a JSON pretty-printer or a debug renderer that displays the field name.
 export type ColumnRendererProps = {
   readonly value: unknown;
   readonly row: Readonly<Record<string, unknown>>;
@@ -50,16 +48,14 @@ export function ColumnRenderersProvider({
   );
 }
 
-/** Schaut die Component für einen Renderer-Key nach. Returnt undefined
- *  wenn `name` leer/undefined ist (Caller hat keinen __component-Renderer)
- *  oder weder Provider gemounted noch der Key in der Map ist. Der Caller
- *  (DataTable.renderCell) loggt dann eine Warnung und fällt auf den
- *  Default-Type-Renderer zurück.
+/** Looks up the component for a renderer key. Returns undefined when `name` is
+ *  empty/undefined (the caller has no __component renderer), or when no provider
+ *  is mounted or the key is absent from the map. The caller (DataTable.renderCell)
+ *  then logs a warning and falls back to the default type renderer.
  *
- *  `name` ist optional damit Caller den Hook unkonditional aufrufen
- *  können — Rules-of-Hooks verbieten einen Function-Branch der den Hook
- *  überspringt. So bleibt der Aufruf eine einzige Zeile, ohne dass der
- *  Caller einen Stub-Key wie `""` reichen muss. */
+ *  `name` is optional so callers can invoke the hook unconditionally—Rules of
+ *  Hooks prohibit a function branch that skips the hook. This keeps the call to
+ *  a single line without requiring the caller to provide a stub key such as `""`. */
 export function useColumnRenderer(name?: string): ColumnRendererComponent | undefined {
   const map = useContext(ColumnRenderersContext);
   if (name === undefined || name === "") return undefined;

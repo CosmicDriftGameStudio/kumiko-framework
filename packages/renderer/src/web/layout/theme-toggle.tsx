@@ -1,8 +1,7 @@
-// ThemeToggle — Button der die Theme-Wahl weiterschaltet (hell → dunkel → auto).
-// Icon-Slots als Props, damit renderer/web keine Icon-Lib als Hard-
-// Dependency zieht. Default: Unicode-Glyphs (☀ / ☾) — funktionieren in
-// jedem Browser, jede App kann lucide/heroicons/eigene SVG via Props
-// reinreichen.
+// ThemeToggle — Button that cycles through the theme choices (light → dark → auto).
+// Icon slots are props so renderer/web does not pull in an icon library as a hard
+// dependency. Defaults: Unicode glyphs (☀ / ☾) — they work in every browser, and
+// each app can pass lucide/heroicons/custom SVGs through the props.
 
 import { type ReactNode, useContext } from "react";
 import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";

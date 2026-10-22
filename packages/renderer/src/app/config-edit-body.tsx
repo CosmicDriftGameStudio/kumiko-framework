@@ -61,7 +61,7 @@ type ConfigValueResponse = Readonly<
 >;
 
 // A money-typed config-edit field renders through RenderField's entityEdit
-// `{amount, currency}` payload shape (render-field.tsx, #1923), but
+// `{amount, currency}` payload shape (render-field.tsx), but
 // `ConfigKeyType` (write-helpers.ts validateType) only ever knows
 // number/boolean/text/select — a config value is always a bare scalar.
 // Unwrap back to the amount before it hits config:write:set.

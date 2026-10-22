@@ -563,8 +563,8 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
   });
 });
 
-// fw#2839: an entity-less form screen passes no `defaultCurrency`, so before
-// this the money branch fell through to a bare `0` the handler's zod schema
+// An entity-less form screen passes no `defaultCurrency`, so previously
+// the money branch fell through to a bare `0` that the handler's zod schema
 // rejected. `literalCurrencyOverrides` resolves a declared literal source with
 // no query; configEdit's plain-number contract depends on getting neither.
 describe("money currency sources on an entity-less form (fw#2839)", () => {

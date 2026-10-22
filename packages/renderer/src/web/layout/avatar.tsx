@@ -1,12 +1,11 @@
-// Avatar-Pill mit Initials. Color-coded background basierend auf
-// string-hash damit der gleiche User immer dieselbe Farbe bekommt
-// (Linear-Pattern). 8 Hue-Targets für gute Distinktion ohne über-
-// bunte Sidebar.
+// Avatar pill with initials. The color is based on a string hash so the same
+// user always gets the same color (linear pattern). Eight hue targets provide
+// good distinction without making the sidebar overly colorful.
 //
-// Nutzung: `<Avatar id="user-123" label="Daniel Hennig" size="md" />`.
-// `id` ist die Hash-Quelle für die Farbe; `label` wird für Initials
-// + aria-label genutzt. Kein Image-Slot im MVP — kommt wenn Apps
-// echte Avatar-URLs haben.
+// Usage: `<Avatar id="user-123" label="Daniel Hennig" size="md" />`.
+// `id` is the color's hash source; `label` is used for initials and the
+// aria-label. There is no image slot yet; one follows once apps provide real
+// avatar URLs.
 
 import { type ReactNode, useMemo } from "react";
 import { cn } from "../lib/cn.ts";
@@ -14,20 +13,20 @@ import { cn } from "../lib/cn.ts";
 export type AvatarSize = "sm" | "md" | "lg";
 
 export type AvatarProps = {
-  /** Stable Identifier — Hash-Quelle für die Background-Farbe. Üblich
-   *  user.id; bei rein labelbasierten Avataren auch der label-String. */
+  /** Stable identifier—the source for the background-color hash. Usually
+   *  `user.id`; for avatars based only on a label, the label string can also
+   *  be used. */
   readonly id: string;
-  /** Voller Name oder Email — Initials werden daraus extrahiert. */
+  /** Full name or email—the initials are extracted from this value. */
   readonly label: string;
   readonly size?: AvatarSize;
   readonly testId?: string;
 };
 
-// Tailwind-Klassen pro Hue. Die Background-Lightness ist dezent (550-
-// 600 für saturation), die Foreground-Lightness ist hell (50-100) für
-// Kontrast. Passt zu beiden Modes weil die Tokens via CSS-vars greifen
-// — aber: feste hex-Farben hier sind stabiler als token-mapping
-// (Avatar-Farbe sollte deterministic sein, nicht theme-abhängig).
+// Tailwind classes for each hue. Background lightness is moderate (550–600)
+// for saturation, while foreground lightness is high (50–100) for contrast.
+// Fixed colors keep avatar colors deterministic and independent of the theme,
+// even though the tokens work in both modes through CSS variables.
 const COLOR_CLASSES = [
   "bg-rose-600 text-rose-50",
   "bg-orange-600 text-orange-50",
@@ -46,8 +45,8 @@ const SIZE_CLASSES: Record<AvatarSize, string> = {
 } satisfies Record<AvatarSize, string>;
 
 function hashCode(str: string): number {
-  // djb2-Variante — schnell, deterministic, gut genug verteilt für
-  // 8 Buckets. Crypto-Hash wäre Overkill für color-bucketing.
+  // A djb2 variant: fast and sufficiently well distributed for 8 buckets.
+  // A cryptographic hash would be overkill for color bucketing.
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
@@ -61,8 +60,8 @@ function pickColor(id: string): string {
 }
 
 function extractInitials(label: string): string {
-  // "Daniel Hennig" → "DH". "alice@example.com" → "AL". Single-word
-  // fällt auf erste 2 Buchstaben zurück ("Daniel" → "DA"). Alles
+  // "Daniel Hennig" → "DH". "alice@example.com" → "AL". For a single word,
+  // it falls back to the first 2 letters ("Daniel" → "DA"). Everything is
   // upper-case.
   const trimmed = label.trim();
   if (trimmed.length === 0) return "?";

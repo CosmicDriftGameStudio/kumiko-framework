@@ -17,7 +17,7 @@ import { RenderEdit } from "./render-edit.tsx";
 
 // Hosts a target entity's create-form inside a bare Modal so a reference
 // field can create a missing record without leaving the current form
-// (kumiko-framework#1681) — same create wiring as EntityEditCreateBody
+// — same create wiring as EntityEditCreateBody
 // (kumiko-screen.tsx), but reports the new id back via a callback instead
 // of navigating to the entity's list screen.
 
@@ -28,7 +28,7 @@ function entityWriteCommand(featureName: string, entity: string): string {
 // The create handler's success payload is `{ kind: "save", id, ... }`
 // (see event-store-executor-write.ts) but RenderEdit's onSubmit only
 // types it as `unknown` — narrow defensively instead of casting through it.
-// `field` is author-declared (ActionFormRedirect.idFrom, fw#2670), never
+// `field` is author-declared (ActionFormRedirect.idFrom), never
 // user input; the own-property check keeps a prototype key like
 // "constructor" from resolving to anything.
 export function extractIdField(data: unknown, field: string): string | undefined {
@@ -48,7 +48,7 @@ export type ReferenceCreateDialogProps = {
   // id is undefined when the record was created but the write-handler's
   // success payload carried no `id` (custom create-handler variant) — the
   // record already exists server-side, so this is still a success signal
-  // to the caller, just one it can't auto-select from (#1694).
+  // to the caller, just one it can't auto-select.
   readonly onCreated: (id: string | undefined) => void;
   readonly featureName: string;
   readonly screen: EntityEditScreenDefinition;
@@ -70,7 +70,7 @@ export function ReferenceCreateDialog({
     () => (open ? tenantCurrencyMoneyFieldNames(entity.fields) : []),
     [open, entity.fields],
   );
-  // Same tenant-currency resolution as the entityEdit create screen (fw#2933),
+  // Same tenant-currency resolution as the entityEdit create screen,
   // so a `currency: { kind: "tenant" }` field seeds identically via this dialog.
   const { overrides: moneyCurrencyOverrides, loading: currencyLoading } = useMoneyCurrencyOverrides(
     entity.fields,

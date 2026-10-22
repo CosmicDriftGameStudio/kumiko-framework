@@ -482,7 +482,7 @@ describe("RenderEdit fields filter", () => {
     expect(screen.getByTestId("field-notes-errors")).toBeTruthy();
   });
 
-  // #1907: `fields` naming only unknown field names (typo, renamed field)
+  // `fields` naming only unknown field names (typo, renamed field)
   // must not collapse the validation scope to an empty array — an empty
   // scope filters out ALL issues and lets submit through unvalidated.
   test("fields naming only unknown field names falls back to unscoped and still blocks submit", async () => {
@@ -800,9 +800,9 @@ describe("RenderEdit — slots.footer", () => {
     });
   }
 
-  // fw#1918 pinned the wizard's submit-type button above the mobile keyboard
-  // and demoted everything else (Back, a footer-slot mount) to the non-sticky
-  // secondary group. offlot-app#518: a footer-slot action (e.g. a "Publish"
+  // The wizard's submit-type button is pinned above the mobile keyboard
+  // and everything else (Back, a footer-slot mount) is demoted to the non-sticky
+  // secondary group. A footer-slot action (e.g. a "Publish"
   // button on the last step) that IS meant to be that pinned primary action
   // has no `type="submit"` of its own — `EditSlotMount` wraps it, not a
   // `Button` — so it fell into secondary regardless. `footerPrimary` opts a
@@ -1048,7 +1048,7 @@ describe("RenderEdit — slots.footer", () => {
   });
 });
 
-// fw#3134: entityEdit gained layout.mode "tabs". The boot-validator used to
+// entityEdit gained layout.mode "tabs". The boot-validator used to
 // reject it because a required field on a hidden tab would block submit with
 // nothing on screen to explain it. What makes it safe is not per-tab scoping
 // (that would skip the field instead) but the opposite: validate everything,
@@ -1426,14 +1426,14 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
   });
 
-  // fw#3234 only sets `hideSectionTitles` for projectionDetail
+  // `hideSectionTitles` is only set for projectionDetail
   // (ProjectionDetailBody, kumiko-screen.tsx) — entityEdit's RenderEdit call
   // never passes it, so entityEdit tabs mode is unaffected by the per-tab
   // Card unification: every tab keeps sharing the ONE head Card the form
   // title/actions/footer already live in, with plain (non-Card) Sections per
-  // tab. This test guards that fw#3234 didn't regress entityEdit into either
-  // per-tab Cards (wrong frame count) or a titleless head Card (parity with
-  // the non-tabs entityEdit case above).
+  // tab. This test guards that entityEdit remains unaffected by the per-tab
+  // Card unification, avoiding either per-tab Cards (wrong frame count) or a
+  // titleless head Card (parity with the non-tabs entityEdit case above).
   test("stays on the single shared head Card across tabs — unaffected by projectionDetail's per-tab Card unification (fw#3234)", () => {
     const { container } = render(
       <DispatcherProvider dispatcher={makeDispatcher()}>

@@ -9,26 +9,25 @@ import {
 } from "../index.ts";
 import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.ts";
 
-// Web-spezifische TokensApi-Impl. Theme-Toggle via `.dark`-Class auf
-// <html>. Die echten Farben leben in styles.css; hier ist nur die
-// JS-Seite die den class-switch triggert und React-Consumer mit
-// useSyncExternalStore darüber informiert.
+// Web-specific TokensApi implementation. The theme toggle uses the `.dark` class on
+// <html>. The actual colors live in styles.css; this is only the JS side that triggers
+// the class switch and informs React consumers through useSyncExternalStore.
 //
-// Source-of-truth ist der DOM (`<html class="dark">`); der Store ist
-// reiner Notification-Bus (Tick-Counter), den setMode/toggleMode bei
-// jedem Class-Wechsel hochzählen. So bleibt die DOM-Klasse die einzige
-// Wahrheit — readCurrentMode liest sie frisch bei jedem getSnapshot.
+// The DOM (`<html class="dark">`) is the source of truth; the store is only a
+// notification bus (a tick counter) incremented by setMode/toggleMode on every class
+// change. This keeps the DOM class as the sole authority—readCurrentMode reads it
+// freshly on every getSnapshot.
 //
-// Persistence: the choice is stored in localStorage (THEME_STORAGE_KEY) and
-// restored on the first hook mount; without it the toggle was lost on every
-// reload (prod bug 2026-06-07).
-// Preference: "auto" follows prefers-color-scheme live (matchMedia listener),
-// "light"/"dark" are explicit choices and win. Without a stored choice,
-// AppTheme.defaultColorScheme (CSS variable) applies, otherwise the HTML state.
+// Persistence: the choice is stored in localStorage (THEME_STORAGE_KEY) and restored
+// on the first hook mount; without it, the toggle would be lost on every reload.
+// Preference: "auto" follows prefers-color-scheme live (matchMedia listener), while
+// "light"/"dark" are explicit choices and take precedence. Without a stored choice,
+// AppTheme.defaultColorScheme (CSS variable) applies; otherwise, the HTML state.
 //
-// Against FOUC the host HTML also needs a synchronous inline script BEFORE
-// the stylesheet link. Under a strict CSP its hash is the sha256 in the build's
-// csp-hashes.json, which runProdApp also hands to hostDispatch as deps.cspScriptHashes:
+// To prevent FOUC, the host HTML also needs a synchronous inline script BEFORE the
+// stylesheet link. Under a strict CSP, its hash is the sha256 in the build's
+// csp-hashes.json, which runProdApp also passes to hostDispatch as
+// deps.cspScriptHashes:
 //
 //   <script>try{var s=localStorage.getItem("kumiko:theme");
 //     if(s==="dark"||(s==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))
@@ -110,8 +109,8 @@ function persistPreference(preference: ThemePreference): void {
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, preference);
   } catch {
-    // skip: localStorage kann werfen (Private-Mode/Quota) — Theme bleibt
-    // dann sessionbasiert, der Class-Toggle hat trotzdem funktioniert.
+    // skip: localStorage can throw (private mode/quota); the theme then remains
+    // session-based, but the class toggle still works.
   }
 }
 
@@ -141,24 +140,23 @@ export function applyStoredThemeMode(): void {
 
 let storedModeApplied = false;
 
-/** Nur für Tests: der once-per-page-load-Guard ist ein Module-Singleton —
- *  ohne Reset wäre der Mount-Restore-Pfad nach der ersten Render im
- *  Testfile strukturell unerreichbar. */
+/** Tests only: the once-per-page-load guard is a module singleton; without a reset,
+ *  the mount-restore path would be structurally unreachable after the first render
+ *  in the test file. */
 export function __resetStoredModeAppliedForTests(): void {
   storedModeApplied = false;
   currentPreference = null;
 }
 
-/** Hook der eine TokensApi für den Browser baut. Wird von
- *  createKumikoApp genutzt; App-Code der einen eigenen Token-State
- *  braucht (z.B. User-Präferenz aus localStorage) kann selber
- *  `<TokensProvider value={...}>` mounten. */
+/** Builds a TokensApi for the browser. Used by createKumikoApp; app code that needs
+ *  its own token state (for example, a user preference from localStorage) can mount
+ *  its own `<TokensProvider value={...}>`. */
 export function useBrowserTokensApi(): TokensApi {
-  // Einmal pro Page-Load: gespeicherte Wahl anwenden. Lazy statt
-  // Modul-Side-Effect, damit Import ohne DOM (SSR/Tests) safe bleibt.
-  // Als useState-Lazy-Initializer statt nackt im Render-Body: der
-  // DOM-Side-Effect lief sonst potenziell in einem verworfenen
-  // Concurrent-Render (React darf Render-Bodies wiederholen/abbrechen).
+  // Apply the stored choice once per page load. This is lazy rather than a module
+  // side effect so importing without a DOM (SSR/tests) remains safe.
+  // A useState lazy initializer is used instead of placing this directly in the
+  // render body because the DOM side effect could otherwise run during a discarded
+  // concurrent render (React may repeat or abandon render bodies).
   useState(() => {
     if (!storedModeApplied && typeof document !== "undefined") {
       storedModeApplied = true;
@@ -213,14 +211,14 @@ export function useBrowserTokensApi(): TokensApi {
   };
 }
 
-/** Default-Tokens — identisch zu `cssVarTokens` (var-string-refs).
- *  Light- und Dark-Werte switchen via `.dark`-class auf <html>. */
+/** Default tokens—identical to `cssVarTokens` (variable-string references).
+ *  Light and dark values switch via the `.dark` class on <html>. */
 export const defaultTokens: Tokens = cssVarTokens;
 export const lightTokens: Tokens = cssVarTokens;
 
-/** Historisch: schrieb Tokens auf :root als CSS-vars. Jetzt no-op —
- *  die CSS-vars leben in styles.css, nicht in JS. Bleibt als Export
- *  damit alter App-Code nicht bricht. */
+/** Historically wrote tokens to :root as CSS variables. Now a no-op—the CSS
+ *  variables live in styles.css, not JS. Retained as an export so existing app code
+ *  does not break. */
 export function applyTokensToCssVars(_tokens: Tokens): void {
-  // Absichtlich leer — siehe Kommentar oben.
+  // Intentionally empty—see the comment above.
 }

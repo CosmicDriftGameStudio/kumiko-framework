@@ -1,20 +1,20 @@
-// TargetResolver — V.1.2: Multi-Listener-TargetDispatch mit Test-Hook.
-// V.1.4b: URL-State-Bridge via useDispatchTarget-Hook. Production schreibt
-// target in nav.searchParams (F5-recovery); Subscribe-Stream bleibt für
-// Test-Hooks (setDispatchListener) und Apps die kein NavProvider haben.
+// TargetResolver: multi-listener target dispatch with a test hook, plus a
+// URL-state bridge via the useDispatchTarget hook. Production writes
+// the target to nav.searchParams (F5 recovery); the subscription stream remains
+// available for test hooks (setDispatchListener) and apps without a NavProvider.
 //
-// Dispatch-Priority (V.1.2):
-//   1. Test-Listener (setDispatchListener) — exklusiv, kein Production-
-//      Subscriber läuft während Tests (Test-Isolation).
-//   2. Production-Subscriber (subscribeTargetDispatches) — alle
-//      registrierten Production-Subscriber.
-//   3. Kein Test-Listener + keine Subscriber → console.debug fallback
-//      (damit unhandled Klicks sichtbar bleiben).
+// Dispatch priority:
+//   1. Test listener (setDispatchListener) — exclusive; no production
+//      subscriber runs during tests (test isolation).
+//   2. Production subscribers (subscribeTargetDispatches) — all registered
+//      production subscribers.
+//   3. No test listener and no subscribers → console.debug fallback so unhandled
+//      clicks remain visible.
 //
-// **useDispatchTarget (V.1.4b)** ist der empfohlene Production-Pfad.
-// NavTree ruft den Hook im Click-Handler eines target-Knotens — er schreibt
-// die URL via nav.setSearchParams UND ruft den globalen dispatchTarget für
-// Test-Listener-Kompatibilität.
+// **useDispatchTarget** is the recommended production path.
+// NavTree calls the hook from a target node's click handler. It writes the URL
+// via nav.setSearchParams AND calls the global dispatchTarget for compatibility
+// with test listeners.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { useCallback } from "react";
@@ -49,8 +49,8 @@ export function setDispatchListener(fn: DispatchListener): () => void {
   };
 }
 
-/** Production-Subscriber registrieren. Returnt unsubscribe. Läuft nur
- *  wenn kein Test-Listener aktiv (Test-Isolation). */
+/** Registers a production subscriber and returns an unsubscribe function.
+ *  It runs only when no test listener is active (test isolation). */
 export function subscribeTargetDispatches(fn: DispatchListener): () => void {
   subscribers.add(fn);
   return () => {
@@ -58,9 +58,9 @@ export function subscribeTargetDispatches(fn: DispatchListener): () => void {
   };
 }
 
-/** V.1.4b: empfohlener Production-Dispatch. Schreibt target in
- *  nav.searchParams (URL-State, F5-fähig) UND ruft dispatchTarget für
- *  Test-Listener + legacy-Subscribers. */
+/** Recommended production dispatch. Writes the target to
+ *  nav.searchParams (URL state, F5-compatible) AND calls dispatchTarget for
+ *  test listeners and legacy subscribers. */
 export function useDispatchTarget(): (target: TargetRef) => void {
   const nav = useNav();
   return useCallback(

@@ -291,7 +291,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     expect(setSearchParamsCalls).toEqual([{ tab: "history", returnTo: "rent-detail/rent-1" }]);
   });
 
-  // solon#424: the metric declares no access rule of its own, so the jump is
+  // The metric declares no access rule of its own, so the jump is
   // offered exactly when the destination screen's own `access` lets the user
   // open it — otherwise the click is a dead end (the query rejects it
   // server-side, which stays the real defense; this is the UX half).
@@ -1024,7 +1024,7 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
       expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
     );
 
-    // A `key` on the record identifier alone (fw#2518 fix) must not also
+    // A `key` on the record identifier alone must not also
     // depend on the active tab — folding tab into the key would remount the
     // body on every tab click and refire this query. The pre-fix "fires
     // exactly one query" test above only checks first render and would not

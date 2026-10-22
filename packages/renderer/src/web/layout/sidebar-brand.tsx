@@ -7,16 +7,16 @@ import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type SidebarBrandProps = {
-  /** Workspace-/App-Name (fett, erste Zeile). */
+  /** Workspace/app name (bold, first line). */
   readonly name: string;
-  /** Zweite Zeile — Plan, Tagline, Tenant (klein, gedimmt). */
+  /** Second line — plan, tagline, or tenant (small, dimmed). */
   readonly plan?: string;
-  /** Logo in der Kachel — typisch ein Lucide-Icon. Fehlt es, steht der
-   *  erste Buchstabe des Namens. */
+  /** The tile typically contains a Lucide icon. If omitted, the first
+   *  character of the name is shown. */
   readonly logo?: ReactNode;
-  /** Zeigt das ChevronsUpDown-Icon (Aufklapp-Affordance) nur wenn die App den
-   *  Brand tatsächlich in ein Dropdown wrappt. Default false: ohne Dropdown
-   *  ist das Chevron irreführend (suggeriert ein Menü, das nicht aufgeht). */
+  /** Shows the ChevronsUpDown icon only when the app wraps the brand in a
+   *  dropdown. Default false: without a dropdown, the chevron misleadingly
+   *  suggests a menu that does not open. */
   readonly collapsible?: boolean;
 };
 

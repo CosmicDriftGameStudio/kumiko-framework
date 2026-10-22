@@ -1,8 +1,8 @@
-// LocatedTimestampInput (kind:"locatedTimestamp") — Wall-Clock + IANA-Zone.
-// Pinnt das emittierte `at` gegen das ECHTE Server-Schema (die
-// locatedTimestamp-Write-Union aus schema-builder.ts nutzt für `at`
-// z.iso.datetime({ local: true })). Ein located Timestamp ist reine
-// Wall-Clock — KEINE UTC-Konvertierung im UI.
+// LocatedTimestampInput (kind:"locatedTimestamp") — Wall-Clock + IANA zone.
+// Pins the emitted `at` to the actual server schema (the
+// locatedTimestamp write union from schema-builder.ts uses
+// z.iso.datetime({ local: true }) for `at`). A located timestamp is pure
+// wall-clock time — the UI performs NO UTC conversion.
 
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
@@ -59,7 +59,7 @@ describe("Input kind=locatedTimestamp", () => {
     expect(last.tz).toBe("Europe/Lisbon");
     expect(last.at).toBe("2026-04-03T10:00");
     expect(atSchema.safeParse(last.at).success).toBe(true);
-    // Located ist reine Wall-Clock — kein Offset/Z.
+    // A located timestamp is pure wall-clock time, with no offset or Z.
     expect(last.at).not.toContain("Z");
     expect(last.at).not.toContain("+");
   });

@@ -188,13 +188,12 @@ export function DefaultDataTable({
   onToggleRowExpanded,
   renderExpandedRow,
 }: DataTableProps): ReactNode {
-  // One locale/translate subscription per table — not per cell (fw#2345).
+  // One locale/translate subscription per table — not per cell.
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
   const tableTranslate = useOptionalTranslation();
   const tableLocale = useOptionalLocale();
   // Below 768px a table scrolls its columns out of reach with no visible
-  // affordance (fw#2159 fixed the desktop case; narrow viewports never had
-  // one). Cards replace the table entirely below the breakpoint — same
+  // affordance. Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
   const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
@@ -320,7 +319,7 @@ export function DefaultDataTable({
       // carries the bg-muted gray. `bg-card` (instead of transparent) -> the list
       // sits on the same card surface as forms; on themes with a colored page
       // background (e.g. cream) lists would otherwise not match the cards.
-      // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
+      // `chromeless` drops that frame for a host with its own boundary already (a tab panel).
       // `scrollBody`: the scroll surface and its border live on the wrapper
       // in `content` below, so the table renders frameless and without the
       // vendored `overflow-x-auto` container — that container would become
@@ -874,10 +873,10 @@ export function DefaultDataTable({
   return (
     // `screenPadding`: on a list screen this wrapper IS the screen container,
     // so it takes the same token as FormScreenShell/PageSection instead of its
-    // own inset — a list ends at the same footer distance as a form (fw#2640).
+    // own inset — a list ends at the same footer distance as a form.
     // Explicit `false` (vs. the default/omitted case) means a host that
     // already pads its own children — a relatedList section nested in a
-    // tabs-mode Card (fw#3234 round 3) — so this wrapper adds no inset of its
+    // tabs-mode Card — so this wrapper adds no inset of its
     // own, or its content would sit ~24px deeper than sibling banners in the
     // same Card body.
     <div

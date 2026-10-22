@@ -1,5 +1,5 @@
 // iOS Safari ignores interactive-widget=resizes-content, so fixed bottom bars follow
-// window.visualViewport instead (fw#1959).
+// window.visualViewport instead.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";

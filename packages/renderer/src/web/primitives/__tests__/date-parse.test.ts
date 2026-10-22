@@ -1,7 +1,7 @@
 // date-parse pure logic tests. parseIso pins the non-obvious timezone
 // behavior (PlainDate has no TZ conversion, so "2026-04-25" doesn't shift
 // to the 24th in the calendar depending on the zone). parseTypedDate
-// covers typed input (#369): locale order, separator tolerance, overflow
+// covers typed input: locale order, separator tolerance, overflow
 // rejection.
 
 import { describe, expect, test } from "bun:test";
@@ -157,7 +157,7 @@ describe("formatDateForInput", () => {
     if (roundtrip !== undefined) expect(toIso(roundtrip)).toBe("2026-04-25");
   });
 
-  // #1659: y/m/d locale branch of localeDateOrder (ISO-like)
+  // y/m/d locale branch of localeDateOrder (ISO-like)
   test("ja-JP locale (y/m/d order), re-parseable", () => {
     const formatted = formatDateForInput(
       Temporal.PlainDate.from({ year: 2026, month: 4, day: 25 }),
@@ -169,7 +169,7 @@ describe("formatDateForInput", () => {
   });
 });
 
-// #1865: placeholder shows the locale's format pattern, not a hardcoded
+// The placeholder shows the locale's format pattern, not a hardcoded
 // example date that reads as an already-filled-in value.
 describe("formatDatePlaceholder", () => {
   test("de-DE → day.month.year pattern with dot separator", () => {
@@ -184,7 +184,7 @@ describe("formatDatePlaceholder", () => {
     expect(formatDatePlaceholder("en-GB", enPlaceholderLetters)).toBe("DD/MM/YYYY");
   });
 
-  // #1879: a missing i18n key falls back to the raw, multi-character key
+  // A missing i18n key falls back to the raw, multi-character key
   // string (see i18n.tsx) — the placeholder must clamp to one char per slot
   // instead of repeating the whole fallback key.
   test("multi-character letters (e.g. raw i18n fallback key) clamp to first code point", () => {

@@ -35,7 +35,7 @@ import type { LocaleResolver } from "./headless/index.ts";
  *  `resolveTranslationValue`. */
 export type TranslationBundle = Readonly<Record<string, TranslationValue>>;
 
-/** Map von Locale-Code (BCP-47, z.B. `"de"`, `"en-US"`) → Bundle. */
+/** Map from locale code (BCP-47, e.g. `"de"`, `"en-US"`) → bundle. */
 export type TranslationsByLocale = Readonly<Record<string, TranslationBundle>>;
 
 /** Key-first shape for `r.translations({ keys })` — each key maps locale → TranslationValue. */
@@ -68,9 +68,9 @@ export function translationsByKeyFromLocales(source: TranslationsByLocale): Tran
   return out;
 }
 
-/** Merged zwei TranslationsByLocale-Maps — der override gewinnt pro Key,
- *  die Locales werden zusammengeführt. Standard-Baustein für Client-
- *  Plugins, die App-Overrides über ihre Default-Bundles legen. */
+/** Merges two TranslationsByLocale maps — the override wins per key,
+ *  and the locales are combined. Standard building block for client
+ *  plugins that layer app overrides over their default bundles. */
 export function mergeTranslations(
   base: TranslationsByLocale,
   override: TranslationsByLocale,
@@ -92,10 +92,10 @@ type LocaleContextValue = {
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 const FormalityContext = createContext<Formality>("informal");
 
-// Stabile Referenz statt `fallbackBundles = []` als Default-Parameter:
-// ein Literal-Default wird bei JEDEM Aufruf neu allokiert und würde die
-// useMemo-Referenzprüfung im Provider unten aushebeln, sobald der
-// Aufrufer fallbackBundles weglässt.
+// Stable reference instead of `fallbackBundles = []` as a default parameter:
+// a literal default is allocated on EVERY call and would invalidate the
+// useMemo reference check in the provider below whenever the caller omits
+// fallbackBundles.
 const EMPTY_FALLBACK_BUNDLES: readonly TranslationsByLocale[] = [];
 
 export type LocaleProviderProps = {
@@ -130,16 +130,16 @@ export function LocaleProvider({
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
-/** Liefert den aktuellen LocaleResolver und abonniert automatisch
- *  Locale-Änderungen — der aufrufende Component re-rendert sobald die
- *  Sprache gewechselt wird. Wirft wenn kein Provider im Baum ist. */
+/** Provides the current LocaleResolver and automatically subscribes to
+ *  locale changes — the calling component re-renders when the language
+ *  changes. Throws when there is no provider in the tree. */
 export function useLocale(): LocaleResolver {
   const ctx = useContext(LocaleContext);
   if (ctx === undefined) {
     throw new Error("useLocale must be used inside <LocaleProvider>");
   }
-  // Subscribe + current locale-snapshot. Wir brauchen den Rückgabewert
-  // selbst nicht — wichtig ist nur der re-render-trigger.
+  // Subscribe + current locale snapshot. We do not need the return value
+  // itself — only the re-render trigger matters.
   const getLocaleSnapshot = () => ctx.resolver.locale();
   useSyncExternalStore(ctx.resolver.subscribe, getLocaleSnapshot, getLocaleSnapshot);
   return ctx.resolver;
@@ -160,17 +160,17 @@ export function useTranslation(): (
   if (ctx === undefined) {
     throw new Error("useTranslation must be used inside <LocaleProvider>");
   }
-  // Re-Render bei Sprach-Wechsel. `ctx.resolver.subscribe` ist bereits
-  // eine stable-reference aus dem Resolver, daher hier keine eigene
-  // Memoization der Subscribe-Callback nötig.
+  // Re-render on language changes. `ctx.resolver.subscribe` is already
+  // a stable reference from the resolver, so no separate subscription
+  // callback memoization is needed here.
   const getLocaleSnapshot = () => ctx.resolver.locale();
   const locale = useSyncExternalStore(ctx.resolver.subscribe, getLocaleSnapshot, getLocaleSnapshot);
 
-  // `t` MUSS referenz-stabil sein solange sich Resolver/Bundles/Locale
-  // nicht ändern — Consumer nutzen `t` regelmäßig in useEffect-Deps
-  // (z.B. um Queries neu zu laden wenn sich die Sprache ändert). Ein neu
-  // erzeugtes `t` pro Render führt sonst zu einem Render/Effect-Endlos-
-  // Loop (siehe admin-shell Overview-Screens, Prod-Incident 2026-07-07).
+  // `t` MUST remain referentially stable while the resolver/bundles/locale
+  // do not change — consumers regularly use `t` in useEffect dependencies
+  // (e.g. to reload queries when the language changes). Creating a new `t`
+  // on every render would otherwise cause a render/effect infinite loop
+  // (see the admin-shell Overview screens, production incident).
   const formality = useContext(FormalityContext);
   return useCallback(
     (key: string, params?: Readonly<Record<string, unknown>>): string =>
@@ -276,9 +276,9 @@ export function useOptionalTranslation():
   return ctx === undefined ? undefined : t;
 }
 
-/** Default-Resolver für Apps ohne eigene i18n-Schicht. Gibt jeden Key
- *  unverändert zurück — die Plugin-Fallback-Bundles erledigen dann die
- *  echte Übersetzung. Nützlich auch als Basis für Tests. */
+/** Default resolver for apps without their own i18n layer. Returns every key
+ *  unchanged — the plugin fallback bundles then provide the actual
+ *  translation. Also useful as a basis for tests. */
 export function createStaticLocaleResolver(
   options: { readonly locale?: string; readonly timeZone?: string } = {},
 ): LocaleResolver {
@@ -288,8 +288,8 @@ export function createStaticLocaleResolver(
     translate: (key: string) => key,
     locale: () => locale,
     timeZone: () => timeZone,
-    // No-op subscribe: unsere Locale ist statisch, es gibt nie ein
-    // Change-Event. Unsubscribe ist ebenfalls no-op.
+    // No-op subscribe: our locale is static, so no change event ever occurs.
+    // Unsubscribe is also a no-op.
     subscribe: () => () => {},
   };
 }

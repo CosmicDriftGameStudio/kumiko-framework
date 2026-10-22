@@ -1,4 +1,4 @@
-// Issue #1680: navigate params on entityEdit-create were documented as
+// Navigate params on entityEdit-create were documented as
 // "will be read" but EntityEditCreateBody never consulted nav.searchParams —
 // only buildInitialValues(entity.fields). A rowAction navigate with params
 // to an entityEdit target therefore opened an empty form with no boot error.

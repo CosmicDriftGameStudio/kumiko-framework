@@ -1,4 +1,4 @@
-// DataTable — card layout below the 768px breakpoint (offlot#37). Below
+// DataTable — card layout below the 768px breakpoint. Below
 // that width the table scrolled its columns out of reach with no visible
 // affordance (worse: the `md:sticky` actions column scrolled away WITH the
 // last data columns instead of staying reachable). These tests pin the

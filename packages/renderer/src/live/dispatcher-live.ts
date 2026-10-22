@@ -33,7 +33,7 @@ import { iterateSseChunks } from "./sse-stream.ts";
 //   - mobile "managed" apps where offline means "locked"
 //
 // For local-first UIs (mobile-field apps, PWA offline mode) use
-// @cosmicdrift/kumiko-dispatcher-savable (M7) — same contract, different semantics.
+// @cosmicdrift/kumiko-dispatcher-savable — same contract, different semantics.
 //
 // Wiring — app entrypoint:
 //   const dispatcher = createLiveDispatcher();  // defaults are fine for same-origin
@@ -168,7 +168,7 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       opts?: WriteOpts,
     ): Promise<WriteResult<TData>> {
       const body: Record<string, unknown> = { type, payload };
-      // Idempotency by default (#761): without a requestId the server-side
+      // Idempotency by default: without a requestId the server-side
       // dedup never engages and a transport-level double-send duplicates
       // events. Callers with a logical-submit id (savable queue, form
       // controllers) pass their own and keep it across their retries.
@@ -191,7 +191,7 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       const body: Record<string, unknown> = { commands };
       // One id for the whole batch — the server caches the BatchResult
       // under it, so a retried batch returns the cached outcome instead of
-      // re-executing the commands (#761).
+      // re-executing the commands.
       body["requestId"] = opts?.requestId ?? generateRequestId();
       const call = await callJson(PATH_BATCH, body, opts?.signal);
       return normalizeBatchResponse(call);

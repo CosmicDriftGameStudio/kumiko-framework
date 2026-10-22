@@ -91,21 +91,21 @@ import { ToastActionNotifier } from "./toast-action-notifier.tsx";
 const EMPTY_FEATURES: readonly FeatureSchema[] = [];
 const EMPTY_COLLECTIONS: readonly QualifiedContentCollection[] = [];
 
-// Qualifiziert den Key eines navProviders auf seine Nav-QN. Lokale ids
-// (z.B. "content") werden wie in r.nav mit dem Feature-Namen qualifiziert;
-// bereits qualifizierte QNs (App registriert die Nav für ein bundled-feature
-// und gibt die QN als navId rein, z.B. "publicstatus:nav:content") gehen
-// unverändert durch. MUSS konsistent zu qualifyNavId bleiben, sonst findet
-// der NavTree-Knoten (Schema-Seite) seinen Provider nicht.
+// Qualifies a navProvider key to its nav QN. Local IDs
+// (e.g. "content") are qualified with the feature name as in r.nav;
+// already qualified QNs (the app registers navigation for a bundled feature
+// and passes the QN as navId, e.g. "publicstatus:nav:content") pass through
+// unchanged. This MUST stay consistent with qualifyNavId, otherwise the
+// schema-side NavTree node cannot find its provider.
 export function qualifyNavProviderKey(feature: string, id: string): string {
   return id.includes(":nav:") ? id : `${feature}:nav:${id}`;
 }
 
-// Nav-Provider-Map: ein navProvider hängt dynamische Children an einen
-// konkreten r.nav({provider:true})-Knoten (per QN). Lokale nav-ids werden wie
-// in r.nav mit dem Feature-Namen qualifiziert; bereits qualifizierte QNs
-// (cross-feature, z.B. App registriert Nav für ein bundled-feature) gehen
-// unverändert durch.
+// Nav-provider map: a navProvider attaches dynamic children to a specific
+// r.nav({provider:true}) node by QN. Local nav IDs are qualified with the
+// feature name as in r.nav; already qualified QNs (for cross-feature use,
+// e.g. when the app registers navigation for a bundled feature) pass through
+// unchanged.
 //
 // Schema-derived providers (r.contentCollection) run first and hold the weaker
 // claim on a QN — an explicitly registered navProvider overrides them without
@@ -149,10 +149,10 @@ export function buildNavProviderMaps(
   return { navProviders, navEntities };
 }
 
-// Web-Bootstrap. Mounted den ganzen Kumiko-Render-Stack im Browser:
-// Tokens (class-based light/dark via <html>), Primitives (HTML),
-// Navigation (window.history), LiveEvents (EventSource), Dispatcher
-// (live-HTTP). URL ist Source-of-Truth für den aktuellen Screen.
+// Web bootstrap. Mounts the complete Kumiko render stack in the browser:
+// tokens (class-based light/dark via <html>), primitives (HTML),
+// navigation (window.history), live events (EventSource), and the dispatcher
+// (live HTTP). The URL is the source of truth for the current screen.
 //
 // Typical client.ts:
 //
@@ -199,7 +199,7 @@ export type CreateKumikoAppOptions = {
    *  `createLiveDispatcher`); a cross-origin URL is fetched with
    *  `credentials: "include"`. */
   readonly schemaUrl?: string;
-  /** RenderEdit's create-mode draftId storage (issue #1913) — where a
+  /** RenderEdit's create-mode draftId storage — where a
    *  same-tab reload finds which of several parallel create-sessions on a
    *  screen to resume. Default: `createBrowserDraftStorage()`
    *  (sessionStorage-backed). Apps that don't want any client-side draftId
@@ -209,51 +209,48 @@ export type CreateKumikoAppOptions = {
   readonly screenQn?: string;
   readonly translate?: Translate;
   /** Row-click fallback for entities with no declared `detailFor` screen
-   *  (fw#2164) — a `detailFor` screen always wins over this option. */
+   *  — a `detailFor` screen always wins over this option. */
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
-  /** App-Shell. Bekommt das resolved `schema` als Prop — so können
-   *  AppShell-Komponenten an WorkspaceShell/DefaultAppShell durchreichen
-   *  ohne selbst das Schema zu importieren oder auf window-Globals zu
-   *  greifen. */
+  /** App shell. Receives the resolved `schema` as a prop so AppShell
+   *  components can pass it through to WorkspaceShell/DefaultAppShell
+   *  without importing the schema themselves or accessing window globals. */
   readonly shell?: (props: {
     readonly children: ReactNode;
     readonly schema: AppSchema;
   }) => ReactNode;
   readonly primitives?: Partial<PrimitivesRegistry>;
-  /** Feature-gelieferte Client-Extensions. Jedes Element bringt
-   *  Provider + Gates mit — siehe ClientFeatureDefinition. Beispiel:
-   *  `clientFeatures: [emailPasswordClient()]` für Session+Login. */
+  /** Client extensions supplied by features. Each element provides a
+   *  provider and gates; see ClientFeatureDefinition. Example:
+   *  `clientFeatures: [emailPasswordClient()]` for session and login. */
   readonly clientFeatures?: readonly ClientFeatureDefinition[];
-  /** App-level LocaleResolver. Typischerweise ein Adapter um i18next
-   *  oder eine eigene Store-Impl. Wenn nicht gesetzt → Static-Default
-   *  (`locale: "en"`, `translate: key → key`); Plugin-Translations
-   *  springen dann als Fallback ein. */
+  /** App-level LocaleResolver. Typically an adapter around i18next
+   *  or a custom store. If unset, the static default is used
+   *  (`locale: "en"`, `translate: key → key`); plugin translations then
+   *  serve as fallbacks. */
   readonly locale?: LocaleResolver;
-  /** Nav-Adapter — ein React-Hook der eine NavApi-Instanz liefert
-   *  (route + navigate + hrefFor). Default: `useBrowserNavApi`, das
-   *  window.history als Source-of-Truth benutzt. Wer einen anderen
-   *  Router anbinden will (TanStack Router, Expo Linking auf Mobile,
-   *  Memory-Router in Tests) übergibt hier seinen eigenen Hook.
+  /** Navigation adapter — a React hook that returns a NavApi instance
+   *  (route + navigate + hrefFor). Default: `useBrowserNavApi`, which uses
+   *  window.history as the source of truth. To integrate another router
+   *  (TanStack Router, Expo Linking on mobile, or a memory router in tests),
+   *  provide your own hook here.
    *
-   *  Der Hook wird EINMAL im Component-Tree aufgerufen (siehe
-   *  `BrowserNavBoot`), muss also den React-Rules-of-Hooks folgen —
-   *  `useSyncExternalStore` auf der zugrundeliegenden Router-State
-   *  ist das gängige Pattern.
+   *  The hook is called ONCE in the component tree (see `BrowserNavBoot`),
+   *  so it must follow the React Rules of Hooks — `useSyncExternalStore` on
+   *  the underlying router state is the usual pattern.
    *
-   *  Wenn das Schema Workspaces deklariert, wird der Adapter mit
-   *  `{ hasWorkspaces: true }` aufgerufen — der Default-Hook nutzt das
-   *  um das URL-Pattern auf `/<workspace>/<screen>[/<entityId>]`
-   *  umzustellen. Eigene Adapter dürfen die Option ignorieren wenn ihr
-   *  Router das anders löst. `features` ist `app.features` — der
-   *  Default-Hook braucht sie für resolveTarget() (ObjectTarget →
-   *  ScreenTarget); eigene Adapter die nie ein ObjectTarget bekommen,
-   *  dürfen sie ignorieren. */
+   *  When the schema declares workspaces, the adapter is called with
+   *  `{ hasWorkspaces: true }`; the default hook uses this to change the URL
+   *  pattern to `/<workspace>/<screen>[/<entityId>]`. Custom adapters may
+   *  ignore this option if their router handles it differently. `features` is
+   *  `app.features`; the default hook needs it for resolveTarget()
+   *  (ObjectTarget → ScreenTarget). Adapters that never receive an
+   *  ObjectTarget may ignore it. */
   readonly navAdapter?: (options?: {
     readonly hasWorkspaces?: boolean;
     readonly features?: readonly FeatureSchema[];
   }) => NavApi;
   /** App-wide default width for form/detail screens that don't set their
-   *  own `layout.width` (fw#2656). Default "4xl" (unchanged behavior) — a
+   *  own `layout.width`. Default "4xl" (unchanged behavior) — a
    *  consumer app that wants e.g. bundled-feature screens to match its own
    *  full-width lists passes `screenWidth: "full"` once here instead of
    *  forking every screen it doesn't own. Per-screen `layout.width` always
@@ -275,7 +272,7 @@ function readInjectedSchema(): AppSchema | FeatureSchema | undefined {
 // screen a feature only registers for manual app-side placement (e.g.
 // auth-mfa's enable screen) can win by declaration order alone, landing
 // every app without an explicit `screenQn` on a screen nobody wired a
-// component for (#1258).
+// component for.
 function firstNavReachableScreenQn(
   features: readonly FeatureSchema[],
   acceptsScreen: (screen: ScreenDef) => boolean,
@@ -304,7 +301,7 @@ function firstNavReachableScreenQn(
 
 // Only screens whose `access` excludes nobody: on an unprojected schema the
 // landing is picked without knowing the user's roles, so a role-restricted
-// screen would land every non-admin on access-denied (#1176).
+// screen would land every non-admin on access-denied.
 export function firstOpenScreenQn(features: readonly FeatureSchema[]): string | undefined {
   return firstNavReachableScreenQn(
     features,
@@ -383,15 +380,15 @@ export function mergeContentEditors(
 // declare a `type: "custom"` screen that's reachable directly by URL
 // even without nav placement — without this check, a missing client
 // plugin only surfaces as an error placeholder to whoever happens to
-// open that URL (kumiko-framework#2025). Screens flagged `dormant`
+// open that URL. Screens flagged `dormant`
 // (e.g. user-data-rights privacy-center, auth-mfa's enable screen) are
 // registered without a self-owned r.nav on purpose — an app opts in by
 // navving them explicitly, so a consumer that hasn't done that yet isn't
-// missing anything (kumiko-framework#2034). Still dev-only: several
+// missing anything. Still dev-only: several
 // bundled screens that ARE self-navved (e.g. compliance-profiles'
 // profile-picker) have real unmounted-client-plugin bugs in existing
-// consumer apps today (kumiko-framework#2025) — running this in
-// production before those are fixed (tracked via infra#503) would just
+// consumer apps today — running this in
+// production before those are fixed would just
 // spam every affected app's console.
 function warnMissingCustomScreens(
   app: AppSchema,
@@ -455,7 +452,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
   //   1. clientFeatures.translations — app overrides always win, even
   //      against the framework's own labels.
   //   2. schemaTranslations — server-authored r.translations, projected
-  //      verbatim by buildAppSchema (#1059). Without this bundle, nav/
+  //      verbatim by buildAppSchema. Without this bundle, nav/
   //      screen labels only resolve if an app ALSO duplicates them in its
   //      own web/i18n.ts — most bundled features never did, labels then
   //      render as raw i18n keys.
@@ -865,7 +862,7 @@ function findEditScreenForEntity(
   return undefined;
 }
 
-// fw#2640: a list screen with no reachable click target (no `detailFor`
+// A list screen with no reachable click target (no `detailFor`
 // screen for its entity, no app-wide onRowClick, no entityEdit screen)
 // must render without the row-click affordance instead of a silent no-op —
 // mirrors the precedence effectiveOnRowClick itself resolves at click time.
@@ -916,7 +913,6 @@ function RoutedScreen({
       };
     }
     const shortId = nav.route.screenId;
-    // Suche das Feature dessen Screens den short id enthalten.
     let matchedFeature: FeatureSchema | undefined;
     for (const f of app.features) {
       if (f.screens.some((s) => s.id === shortId)) {
@@ -946,7 +942,7 @@ function RoutedScreen({
         screenId: lastSegment(qn),
         ...(entityId !== undefined && { entityId }),
       };
-      // Precedence (fw#2164): detailFor screen, then onRowClick, then the
+      // Precedence: detailFor screen, then onRowClick, then the
       // entityEdit-search fallback below. An explicit rowActions
       // rowClick:true already wins over all of this — kumiko-screen.tsx
       // handles it before onRowClick is ever called.
@@ -972,7 +968,7 @@ function RoutedScreen({
     };
   }, [app, activeScreen, onRowClick, nav, qn, entityId]);
 
-  // Copy-link action (Issue #912) for entityEdit update screens. Builds
+  // Copy-link action for entityEdit update screens. Builds
   // the absolute permalink URL from the current route + copies it —
   // `navigator`/`window` are allowed here (renderer/web, not a
   // platform-neutral package). No button without entityId (create-mode).

@@ -1,7 +1,6 @@
 import { createContext, type ReactNode, useContext } from "react";
 
-// Client-side draftId storage for RenderEdit's create-mode draftKey (issue
-// #1913) — `${screen.id}:new:${draftId}` needs the same `draftId` across a
+// Client-side draftId storage for RenderEdit's create-mode draftKey — `${screen.id}:new:${draftId}` needs the same `draftId` across a
 // same-tab reload so the wizard resumes the right row instead of the leader
 // on the last-write-wins upsert. Contract only, platform-neutral — the
 // concrete impl (window.sessionStorage on web) is injected by the platform

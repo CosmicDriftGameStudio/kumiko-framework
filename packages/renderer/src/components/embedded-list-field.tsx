@@ -97,11 +97,11 @@ function coerceCellValue(column: EmbeddedListColumn, text: string, currency: str
       // (renderCellControl's MoneyInput, which scales by the same
       // currencyDecimals) — a hardcoded ×100 here diverged for zero-/three-
       // decimal currencies (JPY, BHD, ...), landing a pasted value 100x off
-      // from the same value typed by hand (kumiko-framework#1972).
+      // from the same value typed by hand.
       // parseLocaleAwareDecimal handles both "1.234,56" (de) and
       // "1,234.56" (en-US) thousands/decimal conventions — a naive
-      // `replace(",", ".")` mangled DE-locale pastes with thousands
-      // separators into NaN (kumiko-framework#1838).
+      // `replace(",", ".")` mangled German-locale pastes with thousands
+      // separators into NaN.
       if (text.trim() === "") return undefined;
       const n = parseLocaleAwareDecimal(text);
       return n === undefined ? undefined : Math.round(n * 10 ** currencyDecimals(currency));
@@ -323,7 +323,7 @@ function EmbeddedListFieldInner({
         const coerced = coerceCellValue(column, text, field.embeddedListCurrency ?? "EUR");
         // Also covers an unparseable money paste (e.g. mangled thousands
         // separators) — the cell must stay unchanged instead of silently
-        // clearing to undefined (kumiko-framework#1838).
+        // clearing to undefined.
         const isUnmatchedOrUnparseable =
           (column.type === "select" || column.type === "reference" || column.type === "money") &&
           coerced === undefined &&

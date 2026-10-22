@@ -1,27 +1,27 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 
-// Linear-Pattern: Sidebar ist Geschwister von <Topbar+Main>-Spalte,
-// nimmt die volle Höhe. Wenn ein Topbar gesetzt ist, lebt er NUR über
-// der Main-Spalte rechts neben der Sidebar. So wirkt die Sidebar als
-// kontinuierlicher Chrome-Streifen mit eigener Identität, statt unter
-// einer durchgehenden Kopfzeile geklemmt zu werden.
+// Linear pattern: The sidebar is a sibling of the <Topbar+Main> column,
+// spanning the full height. When a topbar is set, it exists ONLY above
+// the main column to the right of the sidebar. This makes the sidebar a
+// continuous chrome strip with its own identity instead of being trapped
+// beneath a full-width header.
 
 export type AppLayoutProps = {
-  /** Optional. Lebt nur über dem Main-Bereich, nicht über der Sidebar. */
+  /** Optional. Exists only above the main area, not above the sidebar. */
   readonly topbar?: ReactNode;
   readonly sidebar?: ReactNode;
   readonly children: ReactNode;
   readonly testId?: string;
-  /** Viewport-fit Shell. Default `true` → Wurzel = `h-screen` (fixe
-   *  Viewport-Höhe), Sidebar/Topbar bleiben stehen, der Main-Bereich
-   *  scrollt INNEN (`min-h-0` + `overflow-auto`). `false` → klassischer
-   *  `min-h-screen`-Flow, die ganze Seite scrollt — Escape-Hatch für
-   *  eine öffentliche, lange Content-Seite die echten Body-Scroll
-   *  braucht. Clippt nie — der Content scrollt in `main` statt im Body. */
+  /** Viewport-fit shell. Default `true` → root = `h-screen` (fixed
+   *  viewport height); sidebar/topbar remain fixed while the main area
+   *  scrolls INSIDE (`min-h-0` + `overflow-auto`). `false` → classic
+   *  `min-h-screen` flow where the whole page scrolls—an escape hatch for
+   *  a public, long content page that needs real body scrolling. Never
+   *  clips—content scrolls in `main` instead of the body. */
   readonly fill?: boolean;
-  /** Optionaler Klassen-Append an die Wurzel (eigener Hintergrund etc.).
-   *  Erweitert die Defaults, ersetzt sie nicht (cn-merge). */
+  /** Optional classes appended to the root (for a custom background, etc.).
+   *  Extends the defaults rather than replacing them (`cn` merge). */
   readonly className?: string;
   /** Optionaler Klassen-Append an `<main>`. */
   readonly mainClassName?: string;
@@ -42,8 +42,8 @@ export function AppLayout({
       data-kumiko-layout="app"
       {...(fill === true && { "data-kumiko-fill": "true" })}
       className={cn(
-        // new-york inset-Frame: gedämpfter Rail-Background, die Sidebar sitzt
-        // transparent darauf, der Main-Bereich schwebt als eigenes Panel.
+        // new-york inset frame: muted rail background; the sidebar sits
+        // transparently on it, while the main area floats as its own panel.
         "flex flex-row bg-muted/40 text-foreground",
         fill === true ? "h-screen" : "min-h-screen",
         className,
@@ -57,10 +57,7 @@ export function AppLayout({
         )}
       >
         {topbar}
-        {/* main hat KEIN Padding — Screens (Form, Liste, Demo-Pages)
-             managen ihr Padding selber, damit Action-Bars edge-to-edge
-             spannen können ohne Negative-Margin-Tricks die mit
-             `position: sticky` kollidieren. */}
+        {/* main has NO padding—screens (forms, lists, demo pages) manage their own padding so action bars can span edge-to-edge without negative-margin tricks that conflict with `position: sticky`. */}
         <main className={cn("flex-1 overflow-auto", fill === true && "min-h-0", mainClassName)}>
           {children}
         </main>

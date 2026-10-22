@@ -2,17 +2,17 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import type { FeatureSchema } from "./feature-schema.ts";
 import { lastSegment } from "./qn.ts";
 
-// Navigation-Contract, plattform-neutral. Types + Context + Hook leben
-// hier; die konkrete Implementation (window.history im Web,
-// react-navigation im Native) kommt via `<NavProvider value={...}>`
-// vom Plattform-Package rein.
+// Navigation contract, platform-neutral. Types, context, and hook live
+// here; the concrete implementation (`window.history` on the web,
+// `react-navigation` on native) is supplied by the platform package via
+// `<NavProvider value={...}>`.
 //
-// Pfad-Format hat zwei Modi je nach App-Schema:
-//   * ohne Workspaces: `/<screenId>[/<entityId>]`
-//   * mit Workspaces:  `/<workspaceId>/<screenId>[/<entityId>]`
-// Der Mode wird beim parsePath() per `hasWorkspaces` Flag durchgereicht
-// — Schema-Layer entscheidet, parsePath bleibt dumm/pure. formatPath()
-// braucht keinen Hint: target.workspaceId vorhanden → Prefix; sonst flach.
+// The path format has two modes depending on the app schema:
+//   * without workspaces: `/<screenId>[/<entityId>]`
+//   * with workspaces:    `/<workspaceId>/<screenId>[/<entityId>]`
+// `hasWorkspaces` is passed to `parsePath()` so the schema layer decides the
+// mode while `parsePath` remains dumb and pure. `formatPath()` needs no hint:
+// a present `target.workspaceId` adds the prefix; otherwise the path is flat.
 
 export type NavRoute = {
   // Active workspace short id, present iff the app runs in workspace
@@ -73,27 +73,27 @@ export type NavApi = {
    *  platform-specific Link-Komponenten (Web: `<a href>`; Native
    *  typically doesn't need this). */
   readonly hrefFor: (target: NavTarget, options?: NavigateOptions) => string;
-  /** Lese-Snapshot der aktuellen Search-Params (Browser: ?key=value-
-   *  Pairs nach dem Pfad). Native-Impls die kein URL-Konzept haben
-   *  liefern ein leeres Object. Wert ist ein Plain-Record (kein Map)
-   *  damit React-Subscribers shallow-compare können. */
+  /** Snapshot of the current search params (browser: `?key=value` pairs
+   * after the path). Native implementations without a URL concept return
+   * an empty object. The value is a plain record, not a Map, so React
+   * subscribers can compare it shallowly. */
   readonly searchParams: Readonly<Record<string, string>>;
-  /** Mergt Updates in die aktuellen Search-Params. Wert `null` löscht
-   *  den Key. Ändert NICHT den Pfad. Plattform-Impls nutzen
-   *  history.replaceState (kein Push) — Sort/Filter-Toggles sollen
-   *  nicht die Back-Navigation fluten. Native-Impls können no-op'en
-   *  wenn das Konzept nicht existiert. */
+  /** Merges updates into the current search params. A `null` value deletes
+   * the key. The path is unchanged. Platform implementations use
+   * `history.replaceState` rather than a push so sort/filter toggles do not
+   * flood back navigation. Native implementations may no-op when the
+   * concept does not exist. */
   readonly setSearchParams: (updates: Readonly<Record<string, string | null>>) => void;
 };
 
-// Pfad-Format:
-//   ohne workspaces: `/task-list`, `/task-edit/abc-123`, `/` → undefined
-//   mit workspaces:  `/admin/task-list`, `/admin/task-edit/abc`,
-//                    `/admin` → workspace-only (no screen yet),
-//                    `/` → undefined.
-// Alles nach den ersten 2/3 Segmenten wird ignoriert — kumikos
-// Navigation-Grammatik nested nicht weiter. Nested-Routes wäre eine
-// Spec-Änderung, nicht ein URL-Shape-Unfall.
+// Path format:
+//   without workspaces: `/task-list`, `/task-edit/abc-123`, `/` → undefined
+//   with workspaces:    `/admin/task-list`, `/admin/task-edit/abc`,
+//                       `/admin` → workspace-only (no screen yet),
+//                       `/` → undefined.
+// Everything after the first 2/3 segments is ignored because Kumiko's
+// navigation grammar does not support further nesting. Nested routes would
+// be a spec change, not an accidental URL shape.
 function decodeSegments(segments: readonly string[]): string[] | undefined {
   try {
     return segments.map((segment) => decodeURIComponent(segment));
@@ -139,7 +139,7 @@ export function formatPath(target: ScreenTarget): string {
 }
 
 // Shared entity→detailFor-screen lookup — resolveTarget's ObjectTarget
-// branch and hasDetailScreen (create-app's row-click default, fw#2164) both
+// branch and hasDetailScreen (create-app's row-click default) both
 // need "is there a detail screen for this entity", one to resolve it, the
 // other to just check before falling back to a different default.
 export function findDetailForScreen(
@@ -162,7 +162,7 @@ export function findDetailForScreen(
 }
 
 /** Non-throwing existence check for findDetailForScreen — lets a caller pick
- *  a different default (fw#2164's row-click fallback) instead of resolving. */
+ *  a different default (row-click fallback) instead of resolving. */
 export function hasDetailScreen(features: readonly FeatureSchema[], entity: string): boolean {
   return findDetailForScreen(features, entity) !== undefined;
 }
@@ -190,9 +190,9 @@ export function resolveTarget(features: readonly FeatureSchema[], target: NavTar
   );
 }
 
-// Context + Hook. Default ist `undefined` damit fehlender Provider
-// laut kracht statt ein silent-no-op NavApi mit toten navigate()
-// Aufrufen anzubieten.
+// Context and hook. The default is `undefined` so a missing provider fails
+// loudly instead of exposing a silent no-op NavApi with dead `navigate()`
+// calls.
 const NavContext = createContext<NavApi | undefined>(undefined);
 
 export type NavProviderProps = {

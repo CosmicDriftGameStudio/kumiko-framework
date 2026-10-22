@@ -11,7 +11,7 @@ function wrap(dispatcher: Dispatcher) {
 }
 
 describe("useMutation", () => {
-  // #902/2: two overlapping calls on one instance (list-row actions sharing
+  // Two overlapping calls on one instance (list-row actions sharing
   // it) must not let the earlier-STARTED, later-RESOLVING call clobber the
   // state set by the later-started, earlier-resolving one.
   test("out-of-order resolution: state reflects the most recently started call, not the most recently resolved one", async () => {

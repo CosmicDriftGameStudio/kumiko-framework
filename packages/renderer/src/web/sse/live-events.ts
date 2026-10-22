@@ -7,18 +7,17 @@ import {
   type LiveEventSubscriber,
 } from "../../index.ts";
 
-// EventSource-backed Live-Events für den Web-Renderer. Der shared
-// Layer konsumiert nur das `LiveEventSubscriber`-Interface; diese Datei
-// liefert eine Factory die intern eine EventSource auf /api/sse aufbaut,
-// pro Entity EINEN addEventListener verdrahtet (Server benennt den Frame
-// nach dem aggregateType, siehe sse-route.ts) und subscriptions routet.
+// EventSource-backed live events for the web renderer. The shared
+// layer consumes only the `LiveEventSubscriber` interface; this file
+// provides a factory that creates an EventSource for /api/sse,
+// wires one addEventListener per entity (the server names each frame
+// after aggregateType; see sse-route.ts), and routes subscriptions.
 //
-// Verbindungs-Lifecycle: lazy beim ersten subscribe, close wenn der
-// letzte unsubscribe feuert. Ein vom Browser aufgegebener Stream (CLOSED)
-// wird nach einer Session-Probe mit Backoff neu aufgebaut; nach jedem
-// Wiederaufbau bekommen die Listener ein Resync-Signal, weil Frames
-// während der Lücke verloren sind. Mehrere Consumer teilen sich dieselbe
-// EventSource, sparen CPU + Server-Load.
+// Connection lifecycle: lazy on the first subscribe, and closed when the
+// last unsubscribe fires. A browser-abandoned stream (CLOSED) is rebuilt
+// after a session probe with backoff; listeners receive a resync signal
+// after each rebuild because frames may have been lost during the gap.
+// Multiple consumers share the same EventSource to reduce CPU and server load.
 
 type EntitySubscriber = {
   readonly entityName: string;
@@ -26,9 +25,9 @@ type EntitySubscriber = {
 };
 
 export type CreateEventSourceLiveEventsOptions = {
-  /** URL des SSE-Endpoints. Default: /api/sse (das ist wo
-   *  createSseRoute im Kumiko-Server mountet). Override wenn der
-   *  Mountpath divergiert. */
+  /** URL of the SSE endpoint. Defaults to /api/sse, where
+   * createSseRoute mounts it on the Kumiko server. Override this when
+   * the mount path differs. */
   readonly url?: string;
   /** Fires once per connection when the session ended: the server refused the SSE
    *  handshake, or opened the stream with a `session-ended` frame (stale auth
@@ -110,9 +109,9 @@ async function isSessionEndedRejection(url: string): Promise<boolean> {
   }
 }
 
-/** Liefert einen `LiveEventSubscriber` der EventSource-backed ist.
- *  Normalerweise einmal im App-Bootstrap gerufen und als value an
- *  `<LiveEventsProvider>` durchgereicht — createKumikoApp tut das. */
+/** Returns an EventSource-backed `LiveEventSubscriber`.
+ *  Typically called once during app bootstrap and passed as a value to
+ *  `<LiveEventsProvider>`; `createKumikoApp` does this. */
 export function createEventSourceLiveEvents(
   options: CreateEventSourceLiveEventsOptions = {},
 ): LiveEventSubscriber {

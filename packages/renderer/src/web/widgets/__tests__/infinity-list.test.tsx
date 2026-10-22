@@ -217,7 +217,7 @@ describe("InfinityList", () => {
     await waitFor(() => expect(screen.getByText("Keine Nachrichten")).toBeTruthy());
   });
 
-  // fw#1705: a fast payload change (e.g. two keystrokes in a search field)
+  // A fast payload change (e.g. two keystrokes in a search field)
   // fires a second request before the first resolves. Without sequencing,
   // a slow first response landing after a faster second one clobbers it —
   // the displayed rows end up out of sync with the current payload.
@@ -272,10 +272,10 @@ describe("InfinityList", () => {
     });
   });
 
-  // fw#1827: InfinityList used dispatcher.query directly and never subscribed
+  // InfinityList used dispatcher.query directly and never subscribed
   // to live events, so a solon inbox stayed stale until the user reloaded.
   describe("Live-Mode", () => {
-    // fw#1829 debounces live refresh by 250ms; CI needs headroom beyond default 1s.
+    // Live refresh is debounced by 250ms; CI needs headroom beyond default 1s.
     const liveWait = { timeout: 3000 } as const;
 
     test("SSE-Event mergt nur die erste Seite, bereits geladene Folgeseiten bleiben erhalten", async () => {
@@ -610,8 +610,8 @@ describe("InfinityList", () => {
     });
 
     // A live event arriving while the mount fetch is still in flight must not
-    // discard that fetch — it's the normal case for #1827's own scenario (a
-    // screen mounts while writes are already streaming in).
+    // discard that fetch — it's the normal case for a screen that mounts while
+    // writes are already streaming in.
     test("SSE-Event während der ersten Ladephase lässt die Mount-Anfrage trotzdem landen", async () => {
       const resolvers: Array<(res: unknown) => void> = [];
       const dispatcher = createMockDispatcher({

@@ -11,11 +11,10 @@ import {
 } from "../../index.ts";
 import { act, createMockDispatcher, render, waitFor } from "./test-utils.tsx";
 
-// Test-Helper: fake LiveEventSubscriber. Sammelt alle Subscriber, das
-// Test kann `inject(type, data)` rufen um die matching listener zu
-// feuern. Ersetzt die alten `__injectLiveEvent`-Seams aus dem
-// Module-Singleton; jetzt lebt der Fake im Provider-Tree — identisch
-// zum Production-Pattern.
+// Fake LiveEventSubscriber for testing. It collects subscribers so the test can call
+// `inject(type, data)` to trigger matching listeners. Unlike the old
+// `__injectLiveEvent` seams in the module singleton, the fake lives in the provider
+// tree, matching the production pattern.
 function makeFakeLiveEvents(): {
   subscriber: LiveEventSubscriber;
   inject: (type: string, data: LiveEvent["data"]) => void;
@@ -138,7 +137,7 @@ describe("useQuery live-mode", () => {
 
     await waitFor(() => expect(getByTestId("probe").textContent).toBe("1"));
 
-    // Event für andere Entity — kein refetch.
+    // Event for another entity — no refetch.
     fake.inject("note.created", {
       id: "n1",
       aggregateType: "note",

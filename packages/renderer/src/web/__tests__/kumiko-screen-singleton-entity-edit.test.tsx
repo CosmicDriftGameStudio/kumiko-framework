@@ -8,10 +8,10 @@ import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, kumikoDefaultTranslations } from "../../index.ts";
 import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
 
-// Split out of kumiko-screen.test.tsx (#2495): the create->update submit
+// Split out of kumiko-screen.test.tsx: the create->update submit
 // test below fires fireEvent.change immediately followed by fireEvent.click
 // right after an async data-load settles — exactly the pattern that trips
-// the #457 shared single-process happy-dom event-delegation corruption once
+// the shared single-process happy-dom event-delegation corruption once
 // enough prior DOM test files have mounted/unmounted in the same process.
 
 // Re-queries the button (not a held reference, which a re-render could have
@@ -151,7 +151,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
-  // kumiko-screen#1944: EntityEditSingletonBody runs without a wrapping
+  // EntityEditSingletonBody runs without a wrapping
   // entityList screen, so the create-body's default "navigate back to the
   // list" success handler is a silent no-op — a successful create used to
   // leave the form stuck on the just-submitted create values, and a second

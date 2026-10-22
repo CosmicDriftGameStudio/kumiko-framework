@@ -4,9 +4,9 @@ import { cn } from "../lib/cn.ts";
 import { DetailList } from "./detail-list.tsx";
 import { SectionCard } from "./section-card.tsx";
 
-/** Ergebnis-Sektion eines Rechners: SectionCard mit Empty-Zustand (Banner)
- *  oder Kennzahl-Liste (DetailList) + optionalen Extras (Tabelle, Hinweise).
- *  Ersetzt die handgebauten `<dl>`/Banner-Blöcke in Custom-Screens. */
+/** Result section for a calculator: SectionCard with an empty state (Banner)
+ *  or a metric list (DetailList) plus optional extras (table, notes).
+ *  Replaces hand-built `<dl>`/banner blocks in custom screens. */
 export function ResultPanel({
   title,
   subtitle,
@@ -26,7 +26,7 @@ export function ResultPanel({
     readonly value: ReactNode;
     readonly emphasize?: boolean;
   }[];
-  /** Action-Slot am Karten-Fuß (z.B. „In Finanzierung übernehmen"). */
+  /** Action slot at the bottom of the card (e.g. "Move to financing"). */
   readonly footer?: ReactNode;
   readonly children?: ReactNode;
   readonly testId?: string;
@@ -60,10 +60,10 @@ export interface ResultTableFooterRow {
   readonly emphasize?: boolean;
 }
 
-/** Statische, prop-getriebene Ergebnistabelle für berechnete Zeilen (Tranchen,
- *  Szenarien). Nimmt dem Screen die `<table>`+tabular-nums-Ketten ab.
- *  ponytail: bewusst die minimale Read-only-Tabelle — für Sort/Pager/Facets
- *  stattdessen usePrimitives().DataTable bzw. QueryTable nutzen. */
+/** Static, prop-driven result table for calculated rows (tranches, scenarios).
+ *  Avoids repeating the `<table>`+tabular-nums pattern in each screen.
+ *  ponytail: intentionally minimal and read-only—for sorting, paging, or facets,
+ *  use usePrimitives().DataTable or QueryTable instead. */
 export function ResultTable<Row>({
   columns,
   rows,
@@ -78,8 +78,8 @@ export function ResultTable<Row>({
   readonly rowKey: (row: Row, index: number) => string;
   readonly testId?: string;
   readonly className?: string;
-  /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
-   *  bg-muted-Header-Band. Default = bare (nur die Tabelle, ohne Container). */
+  /** Framed appearance like the CRUD list (DataTable): rounded border container +
+   *  bg-muted header band. Default = bare (table only, without a container). */
   readonly card?: boolean;
   /** Summary rows (Subtotal/Tax/Total) rendered as real `<tr>`s in the same
    *  `<table>` instead of a separate flex-div next to it — guarantees
@@ -170,13 +170,13 @@ export function ResultTable<Row>({
 export interface ComparisonMetric<Col> {
   readonly label: string;
   readonly value: (col: Col, index: number) => ReactNode;
-  /** Index der besten Spalte für diese Zeile (hervorgehoben); -1 = keine. */
+  /** Index of the best column for this row (highlighted); -1 = none. */
   readonly bestIndex?: (cols: readonly Col[]) => number;
 }
 
-/** Transponierte Vergleichstabelle: Zeile = Kennzahl, Spalte = Variante, je
- *  Kennzahl optional die beste Spalte hervorgehoben. Für Szenario-/Angebots-
- *  Vergleiche, wo ResultTable (Zeile=Datensatz) nicht passt. */
+/** Transposed comparison table: row = metric, column = variant, with the best
+ *  column optionally highlighted for each metric. For scenario/offer comparisons
+ *  where ResultTable (row = record) is not suitable. */
 export function ComparisonTable<Col>({
   columns,
   columnHeader,
@@ -194,8 +194,8 @@ export function ComparisonTable<Col>({
   readonly metricLabel: string;
   readonly testId?: string;
   readonly className?: string;
-  /** Rahmen-Look wie die CRUD-Liste (DataTable): gerundeter Border-Container +
-   *  bg-muted-Header-Band. Default = bare. */
+  /** Framed appearance like the CRUD list (DataTable): rounded border container +
+   *  bg-muted header band. Default = bare. */
   readonly card?: boolean;
 }): ReactNode {
   const table = (

@@ -1,9 +1,9 @@
-// Regression Bug-Bash-2 (2026-06-08): timestamp-Felder ohne locatedBy
-// werden server-seitig als z.iso.datetime() (UTC mit `Z`) validiert,
-// das native datetime-local-Input emittierte aber offset-lose lokale
-// Zeit ("2026-06-08T21:09") → jeder Save endete in 422 invalid_format.
-// Die Assertions laufen gegen die ECHTEN Zod-Schemas aus
-// schema-builder.ts (z.iso.datetime / z.iso.datetime({local:true})).
+// Regression: timestamp fields without locatedBy were validated server-side as
+// z.iso.datetime() (UTC with `Z`), but the native datetime-local input emitted
+// offset-free local time ("2026-06-08T21:09"), so every save ended in 422
+// invalid_format.
+// These assertions use the actual Zod schemas from schema-builder.ts
+// (z.iso.datetime / z.iso.datetime({local:true})).
 
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
@@ -50,11 +50,11 @@ describe("timestamp Konvertierung (Helpers)", () => {
 });
 
 describe("Input kind=timestamp (Primitive)", () => {
-  // Seit #369: getrennte Datums- (tippbar, ISO direkt akzeptiert) und
-  // Uhrzeit-Eingabe statt nativem datetime-local. inputs[0] = Datum,
-  // inputs[1] = type=time. Die Wire-Konvertierung (UTC↔Wall-Clock) ist
-  // unverändert und oben über die Helpers gepinnt. Kontrollierter Wrapper,
-  // damit `value` wie in einer echten Form zurückfließt.
+  // Separate date input (editable, directly accepts ISO) and time input instead
+  // of native datetime-local. inputs[0] = date, inputs[1] = type=time. The
+  // wire conversion (UTC↔Wall-Clock) is unchanged and pinned above through the
+  // helpers. This controlled wrapper makes `value` flow back as it does in a
+  // real form.
   function ControlledTimestamp({
     wallClock,
     onEmit,

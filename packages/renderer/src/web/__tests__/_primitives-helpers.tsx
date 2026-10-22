@@ -16,7 +16,7 @@ export const {
 } = defaultPrimitives;
 
 // Padding utilities of one element, sorted — every screen container must
-// resolve to the same set (fw#2640).
+// resolve to the same set.
 export const paddingClasses = (el: Element | null | undefined): string[] =>
   (el?.className ?? "")
     .split(" ")

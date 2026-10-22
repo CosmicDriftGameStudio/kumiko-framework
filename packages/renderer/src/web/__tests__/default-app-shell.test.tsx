@@ -1,10 +1,10 @@
 //
-// DefaultAppShell — pinnt dass user-prop an NavTree durchgereicht wird.
+// DefaultAppShell — verifies that the user prop is passed to NavTree.
 //
-// Prod-Bug 2026-05-02: DefaultAppShell hatte user-prop NICHT, sysadmin
-// sah keine SystemAdmin-only nav-einträge (resolveNavigation behandelte
-// fehlende user als anonymous → alle role-gated navs ausgeblendet). Test
-// pinst dass DefaultAppShell user nun akzeptiert UND durchreicht.
+// DefaultAppShell previously lacked a user prop, so sysadmins could not see
+// SystemAdmin-only navigation entries: resolveNavigation treated a missing
+// user as anonymous and hid all role-gated navigation. This test verifies
+// that DefaultAppShell accepts and forwards the user prop.
 
 import { describe, expect, test } from "bun:test";
 import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -94,7 +94,7 @@ describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
 });
 
 // DefaultAppShell threads `user.roles` into a UserRolesProvider around
-// children (#1203) — KumikoScreen reads that to gate role-restricted
+// children — KumikoScreen reads that to gate role-restricted
 // screens at render time, not just in nav.
 describe("DefaultAppShell wires user.roles into children for screen-level access (#1203)", () => {
   const restrictedScreen: EntityListScreenDefinition = {

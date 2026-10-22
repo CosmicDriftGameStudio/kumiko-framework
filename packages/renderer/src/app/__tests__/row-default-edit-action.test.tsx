@@ -1,7 +1,7 @@
 // entityList and projectionList rowActions
 // get a default "Edit" row action for free when the row's entity has a
 // visible entityEdit screen — same cross-feature resolution as
-// projectionDetail's header defaultEditAction (fw#2166), reused here via
+// projectionDetail's header defaultEditAction, reused here via
 // findEditScreenFor (screen-access.ts). Declared rowActions with id "edit"
 // win; access-gating and a missing entityEdit screen both suppress the
 // default. Mirrors entity-list-row-action-entity-target.test.tsx's harness.

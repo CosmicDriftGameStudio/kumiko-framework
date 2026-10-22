@@ -1,4 +1,4 @@
-// fw#2312: readOnly fields with `field.renderer: { format: "json" }` (audit
+// readOnly fields with `field.renderer: { format: "json" }` (audit
 // payload/metadata, job logs) must hand the RAW value to a registered
 // JsonView primitive — applyFormatSpec's already-indented string is only
 // the fallback for a primitives-provider without JsonView (e.g. an app

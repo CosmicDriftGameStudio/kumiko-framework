@@ -1,11 +1,10 @@
-// Toast-Primitive auf @radix-ui/react-toast. Ein globaler Provider
-// + ein useToast()-Hook der von überall in der App aus Toasts auslösen
-// kann. Kein Context-Boilerplate für Konsumenten — der Hook returned
-// einen `toast()`-Trigger, mehr Public-API gibt's nicht.
+// Toast primitive built on @radix-ui/react-toast: a global provider and
+// a useToast() hook for triggering toasts throughout the app. Consumers
+// get only the `toast()` trigger, without Context boilerplate.
 //
-// Variant = StatusTone (dieselbe Farb-Familie wie StatusBadge), Default
-// "muted" (neutral). Auto-dismiss nach 5s, manuell schließbar via X-Button.
-// Der ARIA-Live-Region-Setup kommt komplett aus Radix.
+// Variant is StatusTone, using the same color family as StatusBadge;
+// the default is "muted" (neutral). Toasts auto-dismiss after 5s and can
+// be closed manually with the X button. Radix provides the ARIA live region.
 
 import * as Primitive from "@radix-ui/react-toast";
 import { X } from "lucide-react";
@@ -30,9 +29,9 @@ export type ToastOptions = {
   readonly title: string;
   readonly description?: string;
   readonly variant?: ToastVariant;
-  // Self-service deep-link (z.B. KumikoError.docsUrl). Wenn gesetzt
-  // rendert der Toast einen "Mehr erfahren →" Link der in neuem Tab
-  // öffnet. Label override via `docsLinkLabel` (Default: i18n
+  // Self-service deep link (for example, KumikoError.docsUrl). When set,
+  // the toast renders a "Mehr erfahren →" link that opens in a new tab.
+  // The label can be overridden with `docsLinkLabel` (default: i18n
   // kumiko.toast.learn-more).
   readonly docsUrl?: string;
   readonly docsLinkLabel?: string;
@@ -52,8 +51,8 @@ const ToastContext = createContext<ToastApi | null>(null);
 export function useToast(): ToastApi {
   const ctx = useContext(ToastContext);
   if (ctx === null) {
-    // Nicht throwen — Tests die einen Component ohne Provider rendern
-    // sollen nicht crashen. No-op statt fehlerhaftes Mount.
+    // Do not throw: tests rendering a component without a provider must not
+    // crash. Use a no-op instead of failing the mount.
     return { toast: () => undefined };
   }
   return ctx;
@@ -65,10 +64,10 @@ export type ToastProviderProps = {
 
 export function ToastProvider({ children }: ToastProviderProps): ReactNode {
   const [entries, setEntries] = useState<readonly ToastEntry[]>([]);
-  // Monoton wachsender Counter via useRef — useState hätte einen
-  // closure-Bug: zwei toast()-Calls im selben Tick lesen denselben
-  // alten Wert aus dem Closure und kollidieren bei der ID. Ref ist
-  // synchron-mutabel, jeder Aufruf bekommt eine garantiert neue ID.
+  // A monotonically increasing useRef counter avoids a closure bug: two
+  // toast() calls in the same tick would read the same stale useState value
+  // and collide on the ID. The ref is synchronously mutable, so each call
+  // receives a guaranteed-unique ID.
   const idPrefix = useId();
   const counterRef = useRef(0);
 

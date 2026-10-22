@@ -72,7 +72,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** Fires when the form gains or loses unsaved input (field changes or a
    *  dirty extension section). Lets a host such as a drawer guard closing. */
   readonly onDirtyChange?: (dirty: boolean) => void;
-  /** Copy-link action (issue #912) — only set in update mode (create mode
+  /** Copy-link action — only set in update mode (create mode
    *  has no entity id yet, hence no permalink). The callback is already fully
    *  bound (URL building + clipboard happen outside, in
    *  `@cosmicdrift/kumiko-renderer/web`'s RoutedScreen — this platform-neutral
@@ -90,7 +90,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  header menu (drawer, card form, shell without a header slot) they fall
    *  back to buttons next to `actions`. */
   readonly menuActions?: readonly RenderEditAction[];
-  /** Opens a relatedList section row's drawer-kind action (fw#2710).
+  /** Opens a relatedList section row's drawer-kind action.
    *  RenderEdit has no `schema` to resolve the target actionForm itself —
    *  the caller (ProjectionDetailBody, which does have schema) supplies the
    *  opener and owns the actual Drawer state/rendering. Only projectionDetail
@@ -133,7 +133,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** Edit-mode "changed" markers also for screens without an entity id
    *  (configEdit loads its values from a query, not a record). */
   readonly markChangedFields?: boolean;
-  /** Controlled mode (issue #1887): fires on every values-snapshot change
+  /** Controlled mode: fires on every values-snapshot change
    *  (typing, `patch(...)` from outside) with the current values. `changes`
    *  is the delta against the initial values — same semantics as
    *  `payloadMode: "changes"` — so a caller never overwrites unseen fields.
@@ -150,7 +150,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  happens, so a caller patching dependent fields from inside `onChange`
    *  never has to guard against `controls` being undefined. */
   readonly onChange?: (state: RenderEditChangeState<TValues>) => void;
-  /** Controlled mode (issue #1887): called once after mount, hands the
+  /** Controlled mode: called once after mount, hands the
    *  caller `patch`/`validate`/`getValues` bound to this RenderEdit
    *  instance — addressable from outside without a remount. `patch` merges
    *  only the given keys (existing `controller.setValues` semantics),
@@ -169,7 +169,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  validation scope (the underlying `useForm` controller is mount-lived);
    *  rendering and `controls.validate()` do stay reactive to later changes. */
   readonly fields?: readonly string[];
-  /** Locked state (issue #1896): every rendered field and the submit button
+  /** Locked state: every rendered field and the submit button
    *  go visibly inactive, no write possible. For cases where input becomes
    *  moot — e.g. Solon's editor pointing at an existing record instead of
    *  creating a new one. Extension sections are out of scope: RenderEdit has
@@ -193,7 +193,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** "form" (default) — every field renders as its Input widget, disabled
    *  when `field.readOnly`, unchanged behavior. "text" renders a
    *  `field.readOnly` field as plain text instead of a disabled Input
-   *  (ProjectionDetailBody's read view, fw#2245) — editable fields are
+   *  (ProjectionDetailBody's read view) — editable fields are
    *  unaffected either way, so this only changes forms that already have
    *  readOnly fields. */
   readonly valueDisplay?: "form" | "text";

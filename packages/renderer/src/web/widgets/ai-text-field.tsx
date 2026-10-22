@@ -1,5 +1,5 @@
 // AiTextField / AiTextArea — Drop-in replacement for TextField/TextareaField
-// with AI-augmented actions (ai-text-primitive plan doc, Phase 3).
+// with AI-augmented actions (from the ai-text-primitive plan).
 //
 // Built on raw <input>/<textarea> (not the generic Input primitive) because
 // ghost-text needs a keydown handler (Tab/Esc) and an overlay that the

@@ -5,7 +5,7 @@
 // crosses this boundary. tiptap itself is dynamic-imported (TiptapEditor
 // lives in ./tiptap-editor) so an app that never mounts a "rich" collection
 // never pays for it; the fallback while the chunk loads is the same plain
-// textarea #1794 uses for a missing editor, never a blank panel.
+// textarea uses for a missing editor, never a blank panel.
 
 import { lazy, type ReactNode, Suspense } from "react";
 import { type ContentEditorProps, TextareaContentEditor } from "../../index.ts";

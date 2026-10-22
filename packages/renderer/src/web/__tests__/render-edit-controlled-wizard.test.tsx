@@ -22,7 +22,7 @@ import {
 } from "./_render-edit-helpers.tsx";
 import { act, fireEvent, render, screen } from "./test-utils.tsx";
 
-// Issue #1887: controlled mode. onChange reports values out, onControlsReady
+// Controlled mode. onChange reports values out, onControlsReady
 // hands the caller patch()/validate()/getValues() bound to this instance —
 // all without an entity-write and without remounting RenderEdit.
 describe("RenderEdit — controlled mode (#1887)", () => {
@@ -141,7 +141,7 @@ describe("RenderEdit — controlled mode (#1887)", () => {
           writeCommand="order:create"
           onChange={(state) => {
             calls += 1;
-            // The #1888 VIN-decode shape: a derived field is patched from
+            // The VIN-decode shape: a derived field is patched from
             // inside onChange itself. `count` converges to title.length, so
             // once patch() computes the same value again, setValues' no-op
             // guard (reference-equal merge) stops the chain — a caller that
@@ -201,7 +201,7 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     expect(controls?.getValues().count).toBe("Acme".length);
   });
 
-  // fw#1899: a caller that supplies onControlsReady only after this mount
+  // A caller that supplies onControlsReady only after this mount
   // (e.g. `onControlsReady={ready ? handler : undefined}`) must still get
   // delivered to for THIS mount — the effect's deps previously excluded
   // onControlsReady itself, so it never re-ran once mounted without it.
@@ -381,9 +381,9 @@ describe("RenderEdit — controlled mode (#1887)", () => {
   });
 });
 
-// Issue #1916: proves FieldConditions (visible/readOnly/required) react to
+// Proves FieldConditions (visible/readOnly/required) react to
 // values an extension section writes at runtime via patch() — not just to
-// user keystrokes. Tests already merged behavior from #1887/#1888
+// user keystrokes. Tests already merged behavior from controlled mode
 // (controlled mode + extension-section pass-through); this is the missing
 // coverage for the VIN-decode shape: a decode result reveals a different
 // set of follow-up fields per car, and a field a previous decode revealed
@@ -547,7 +547,7 @@ describe("RenderEdit — FieldConditions react to extension patch() (#1916)", ()
     expect(isDisabled("field-vin")).toBe(false);
   });
 
-  // #1916's required condition must reach the validation record, not just
+  // The required condition must reach the validation record, not just
   // the rendered asterisk — a regression where the extension patch() lands
   // in the render model but not the values the schema validates against
   // would stay green without this: the field would look required but submit
@@ -865,7 +865,7 @@ describe("RenderEdit wizard mode", () => {
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
-  // fw#1901: a section that's entirely hidden (every field in it currently
+  // A section that's entirely hidden (every field in it currently
   // condition-hidden) must not occupy its own wizard step — it would render
   // empty and the step count/progress would include a step nobody can see.
   test("a fully-hidden section is skipped in the wizard step count instead of rendering an empty step", async () => {

@@ -1,9 +1,9 @@
 //
-// NavTree: Sidebar-Navigation aus dem Schema. Pinnt zwei Verträge:
-//   1. Section-Header (parent ohne screen) plus children-Collapse
-//      via Chevron-Click — State lokal im NavTree.
-//   2. Active-State greift auf node mit screen wenn nav.route's
-//      screenId matcht (Standard-Sidebar-Verhalten).
+// NavTree: sidebar navigation from the schema. It enforces two contracts:
+//   1. A section header (parent without a screen) plus child collapse via
+//      chevron click, with state local to NavTree.
+//   2. The active state applies to a node with a screen when nav.route's
+//      screenId matches (standard sidebar behavior).
 
 import {
   afterAll,
@@ -43,9 +43,9 @@ function makeSchema(): FeatureSchema {
       { id: "backlog", type: "entityList", entity: "item", columns: [] },
     ],
     navs: [
-      // Section ohne Screen mit children — togglebar (Variant 2)
+      // Section without a screen but with children — collapsible (variant 2)
       { id: "data", label: "Data", order: 10 },
-      // Parent mit Screen UND children — Link + separater Chevron (Variant 1)
+      // Parent with a screen and children — link plus separate chevron (variant 1)
       {
         id: "items",
         label: "Items",
@@ -81,9 +81,9 @@ function makeRoleGatedSchema(): FeatureSchema {
       { id: "sysadmin-screen", type: "entityList", entity: "x", columns: [] },
     ],
     navs: [
-      // Public — keine access-rule, sichtbar für alle (auch anonymous)
+      // Public — no access rule, visible to everyone (including anonymous users)
       { id: "public", label: "Public", screen: "public-screen", order: 10 },
-      // Admin — nur User mit "Admin"-Rolle
+      // Admin — only users with the "Admin" role
       {
         id: "admin",
         label: "Admin",
@@ -91,7 +91,7 @@ function makeRoleGatedSchema(): FeatureSchema {
         order: 20,
         access: { roles: ["Admin"] },
       },
-      // Sysadmin — nur User mit "SystemAdmin"-Rolle
+      // Sysadmin — only users with the "SystemAdmin" role
       {
         id: "sysadmin",
         label: "Sysadmin",
@@ -104,10 +104,9 @@ function makeRoleGatedSchema(): FeatureSchema {
 }
 
 describe("NavTree role-gating", () => {
-  // Pinnt den prod-bug aus 2026-05-02: DefaultAppShell hat user-prop
-  // nicht durchgereicht → resolveNavigation sieht user=undefined →
-  // ALLE role-gated nav-einträge werden ausgeblendet (auch wenn der
-  // user de-facto die Rolle hat).
+  // Regression coverage: DefaultAppShell previously failed to pass through the
+  // user prop, so resolveNavigation saw user=undefined and hid ALL role-gated
+  // navigation entries, even when the user actually had the required role.
 
   test("user mit ['SystemAdmin','User'] sieht public + sysadmin, NICHT admin", () => {
     render(
@@ -129,9 +128,9 @@ describe("NavTree role-gating", () => {
   });
 
   test("OHNE user-prop (anonymous) → role-gated navs ausgeblendet, nur public sichtbar", () => {
-    // Genau das Verhalten das den prod-bug verursacht hat: wenn
-    // DefaultAppShell user nicht weiterreicht, sieht resolveNavigation
-    // anonymous → alle role-gated navs verschwinden.
+    // This is the behavior caused by the production bug: when DefaultAppShell
+    // fails to pass through user, resolveNavigation treats the request as
+    // anonymous and hides all role-gated navigation entries.
     render(<NavTree schema={makeRoleGatedSchema()} />);
     expect(screen.getByText("Public")).toBeTruthy();
     expect(screen.queryByText("Admin")).toBeNull();
@@ -204,12 +203,11 @@ describe("NavTree", () => {
   test("Section-Header (parent ohne screen) ist statisches Label, children sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    // Section "Data" ist eine STATISCHE Überschrift (sidebar-07-Muster), kein
-    // Toggle-Button — Collapse gehört auf Items mit children, nicht die Section.
+    // Section "Data" is a STATIC heading (sidebar-07 pattern), not a toggle
+    // button — collapse belongs on items with children, not on the section.
     expect(screen.getByText("Data")).toBeTruthy();
     expect(screen.getByText("Data").closest("button")).toBeNull();
 
-    // Children sind sichtbar im DOM.
     expect(screen.getByText("Items")).toBeTruthy();
     expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByText("Backlog")).toBeTruthy();
@@ -218,8 +216,8 @@ describe("NavTree", () => {
   test("Section-Header collapst NICHT — children bleiben sichtbar", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
-    // Kein Section-Toggle: "Data" sitzt nicht in einem Button, es gibt nichts
-    // zu klicken. Die Items bleiben dauerhaft sichtbar.
+    // There is no section toggle: "Data" is not inside a button, so there is
+    // nothing to click. The items must remain permanently visible.
     expect(screen.getByText("Data").closest("button")).toBeNull();
     expect(screen.getByText("Items")).toBeTruthy();
     expect(screen.getByText("Active")).toBeTruthy();
@@ -265,21 +263,20 @@ describe("NavTree", () => {
     expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByText("Backlog")).toBeTruthy();
 
-    // Section-Header "Data" ist ein einziger Toggle-Button (kein nested
-    // chevron-button drin). Parent-mit-Screen "Items" rendert dagegen den
-    // KumikoLink + separaten Chevron-Button als Geschwister — der ist
-    // der EINZIGE button mit aria-label "Zuklappen"/"Aufklappen".
-    // aria-Label kommt aus dem Framework-Default-Bundle. Test-Setup
-    // läuft auf "en" → "Expand"/"Collapse". Apps können das in eigenen
-    // Bundles per `kumiko.nav.*` überschreiben.
+    // The section header "Data" is a single toggle button (with no nested
+    // chevron button). In contrast, the parent-with-screen "Items" renders
+    // a KumikoLink and a separate sibling chevron button — the only button
+    // with an aria-label of "Expand" or "Collapse".
+    // The aria label comes from the framework's default bundle. The test
+    // setup runs in "en"; apps can override it in their own bundles via
+    // `kumiko.nav.*`.
     const chevronButtons = screen.getAllByRole("button", { name: /Expand|Collapse/ });
     expect(chevronButtons.length).toBe(1);
     fireEvent.click(chevronButtons[0] as HTMLButtonElement);
 
-    // Items ist jetzt collapsed; Active/Backlog weg
     expect(screen.queryByText("Active")).toBeNull();
     expect(screen.queryByText("Backlog")).toBeNull();
-    // Items selbst bleibt sichtbar
+    // Items itself stays visible
     expect(screen.getByText("Items")).toBeTruthy();
   });
 
@@ -458,9 +455,9 @@ describe("NavTree", () => {
 });
 
 describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
-  // Tier-Badge & Co: die App liefert per bare nav-id einen ReactNode (Wert
-  // UND Farbe). Gekeyt auf lastSegment(qualifiedName) → die App schreibt
-  // "tarif", nicht "showcase:nav:tarif".
+  // The app supplies a ReactNode per bare nav ID (including its value and
+  // color). Keys use lastSegment(qualifiedName), so the app writes
+  // "tarif", not "showcase:nav:tarif".
   function flatSchema(): FeatureSchema {
     return {
       featureName: "showcase",
@@ -481,7 +478,8 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
     const badge = screen.getByText("Pro");
     expect(screen.getByText("Tarif & Limits").closest("li")?.textContent).toContain("Pro");
     expect(screen.getByText("Plain").closest("li")?.textContent).not.toContain("Pro");
-    // Slot-Wrapper schiebt rechts (ml-auto), Badge selbst shrinkt nicht weg.
+    // The slot wrapper pushes the badge to the right (ml-auto), while the
+    // badge itself must not shrink away.
     expect(badge.parentElement?.className).toContain("ml-auto");
   });
 
@@ -502,7 +500,7 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
   });
 });
 
-// fw#2724: leaving a list for a sub-screen (entityEdit/actionForm/...) used
+// Leaving a list for a sub-screen (entityEdit/actionForm/...) used
 // to lose BOTH orientation cues at once — nav marks nothing, breadcrumb
 // shrinks to one crumb. NavTree now falls back to resolveParentScreenId
 // (same resolution shell-breadcrumb.ts uses) when the routed screen has no
@@ -666,12 +664,12 @@ describe("NavTree active-marker parent fallback", () => {
   });
 });
 
-// ── Visual-Tree-Merge: dynamische Knoten in der EINEN Nav ──────────────
+// ── Visual-tree merge: dynamic nodes in the single navigation tree ─────
 //
-// Beweist die vier Caps die NavTree aus dem alten VisualTree übernimmt:
-// target-Dispatch, lazy Provider-Children, createAction (+), und — der
-// kritische Pfad — der SSE-treeEntities-Refresh, der neue Knoten LIVE in
-// die Nav bringt (sonst lädt der Tree einmal und „+pricing" erscheint nie).
+// Covers the four capabilities inherited from the old VisualTree:
+// target dispatch, lazy provider children, createAction (+), and the
+// critical SSE-treeEntities refresh that adds new nodes LIVE to the
+// navigation (otherwise the tree loads once and "+pricing" never appears).
 
 type LiveCb = Parameters<LiveEventSubscriber>[1];
 
@@ -691,8 +689,9 @@ function controllableLiveEvents(): {
   return {
     subscribe,
     fire(entity) {
-      // Die Consumer-cbs (NavTree, prod) ignorieren das Event-Arg → zero-arg
-      // call genügt; Cast überbrückt nur die Param-Signatur.
+      // The consumer callbacks (NavTree, production code) ignore the event
+      // argument, so a zero-argument call is sufficient; the cast only bridges
+      // the parameter signatures.
       for (const cb of listeners.get(entity) ?? []) (cb as () => void)();
     },
   };
@@ -718,8 +717,8 @@ function pageLeaf(slug: string): TreeNode {
   return { label: slug, target: { featureId: "cms", action: "edit", args: { slug } } };
 }
 
-// Provider mit `provider: true`-Knoten "Content" + „+"-createAction. QN =
-// "cms:nav:content" (featureName:nav:id). Der Provider liefert die Children.
+// A `provider: true` node named "Content" with a "+" createAction. QN =
+// "cms:nav:content" (featureName:nav:id). The provider supplies the children.
 function dynamicSchema(): FeatureSchema {
   return {
     featureName: "cms",
@@ -755,8 +754,8 @@ function renderDynamic(args: {
       <NavTree schema={args.schema} />
     </NavProvidersProvider>
   );
-  // Eigene (kontrollierbare) LiveEventsProvider überschreibt den No-op aus
-  // den DefaultProviders (nächster Provider gewinnt).
+  // A dedicated, controllable LiveEventsProvider overrides the no-op provider
+  // from DefaultProviders (the nearest provider wins).
   return render(
     args.live !== undefined ? (
       <LiveEventsProvider value={args.live}>{inner}</LiveEventsProvider>
@@ -965,8 +964,8 @@ describe("NavTree dynamic provider nodes", () => {
   });
 
   test("SSE-treeEntities-Refresh bringt neu erstellte Knoten LIVE in die Nav", async () => {
-    // Der eigentliche Kern: ein text-block-Event re-fired den Provider →
-    // die frisch erstellte Seite („pricing") erscheint, ohne Re-Mount.
+    // The key behavior: a text-block event re-fires the provider, so the newly
+    // created page ("pricing") appears without a remount.
     let pages = ["apex", "hero"];
     const provider: TreeChildrenSubscribe = () => (emit) => {
       emit(pages.map(pageLeaf));
@@ -985,7 +984,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(screen.getByText("apex")).toBeTruthy();
     expect(screen.queryByText("pricing")).toBeNull();
 
-    // Neue Seite angelegt → text-block-Event feuert → Provider re-fired.
+    // A new page is created → the text-block event fires → the provider re-fires.
     pages = ["apex", "hero", "pricing"];
     await fireAndFlushCoalesced(live, "text-block");
 
@@ -993,13 +992,13 @@ describe("NavTree dynamic provider nodes", () => {
   });
 
   test("Provider-Subscription wird beim Re-Fire + Unmount sauber abgebaut (kein Leak)", async () => {
-    // Jeder subscribe() liefert eine cleanup-Funktion. Invariante: zu jedem
-    // Zeitpunkt darf höchstens EINE Subscription aktiv sein. Beim SSE-Re-Fire
-    // muss die vorherige abgebaut werden BEVOR neu subscribed wird (sonst
-    // akkumulieren sie = Leak); beim Unmount läuft die letzte cleanup. Heute
-    // liefern alle Provider no-op-cleanup — dieser Test schützt den ersten
-    // mit echtem Teardown. (active() statt fixer Counts → robust gegen
-    // StrictMode-Doppel-Mount: net bleibt eine aktive Subscription.)
+    // Every subscribe() returns a cleanup function. Invariant: at most ONE
+    // subscription may be active at any time. Before an SSE re-fire, the
+    // previous subscription must be removed; otherwise subscriptions
+    // accumulate and leak. Unmount must clean up the final subscription.
+    // Today every provider returns a no-op cleanup; this test guards the first
+    // one with real teardown. active() rather than fixed counts keeps this robust against
+    // StrictMode double mounting.
     let subscribes = 0;
     let unsubscribes = 0;
     const active = (): number => subscribes - unsubscribes;
@@ -1020,17 +1019,17 @@ describe("NavTree dynamic provider nodes", () => {
         live: live.subscribe,
       });
     });
-    expect(active()).toBe(1); // genau eine aktive Subscription nach Mount
+    expect(active()).toBe(1); // exactly one active subscription after mount
 
     const before = subscribes;
     await fireAndFlushCoalesced(live, "text-block");
     expect(subscribes).toBeGreaterThan(before); // Re-Fire hat neu subscribed
-    expect(active()).toBe(1); // …aber die alte vorher abgebaut → weiterhin eine
+    expect(active()).toBe(1); // …but the old one was removed first, so only one remains
 
     await act(async () => {
       r?.unmount();
     });
-    expect(active()).toBe(0); // Unmount baut alles ab → kein Leak
+    expect(active()).toBe(0); // Unmount removes everything, so there is no leak
   });
 });
 
@@ -1113,9 +1112,9 @@ describe("NavTree Actions-Positionierung", () => {
 });
 
 describe("NavTree Suchfeld", () => {
-  // Das Suchfeld ist das einzige <input> im Baum; über die Rolle statt den
-  // i18n-Placeholder gefunden (i18n-Bundle resolvt im Worktree gegen den
-  // Haupt-Checkout, wo der neue Key noch fehlt — in CI greift er).
+  // The search field is the only <input> in the tree; use its role instead of
+  // the i18n placeholder because the local i18n bundle may not contain the
+  // new key, while CI does.
 
   test("Filter blendet Nicht-Treffer aus, hält Treffer + deren Ancestors", () => {
     render(<NavTree schema={makeSchema()} />);
@@ -1123,11 +1122,11 @@ describe("NavTree Suchfeld", () => {
 
     fireEvent.change(input, { target: { value: "active" } });
 
-    // Treffer selbst sichtbar (case-insensitiv).
+    // The match itself remains visible (case-insensitive).
     expect(screen.getByText("Active")).toBeTruthy();
     // Nicht-Treffer-Geschwister weg.
     expect(screen.queryByText("Backlog")).toBeNull();
-    // Ancestors bleiben, damit der Treffer erreichbar bleibt.
+    // Ancestors remain so the matching item stays reachable.
     expect(screen.getByText("Items")).toBeTruthy();
     expect(screen.getByText("Data")).toBeTruthy();
   });
@@ -1159,12 +1158,12 @@ describe("NavTree folder-open Icon", () => {
         providers: new Map([["cms:nav:content", provider]]),
       }).container;
     });
-    // Default-expanded → offener Ordner, kein geschlossener.
+    // Initially expanded → open-folder icon, not closed-folder icon.
     expect(container?.querySelector(".lucide-folder-open")).toBeTruthy();
     expect(container?.querySelector(".lucide-folder")).toBeNull();
 
-    // Der einzige aria-gelabelte Chevron gehört dem "page"-Sub-Ordner
-    // (der Provider-Container toggelt inline, ohne aria-Label).
+    // The only aria-labeled chevron belongs to the "page" subfolder
+    // (the provider container toggles inline without an aria label).
     const chevron = screen.getByRole("button", { name: /Expand|Collapse/ });
     await act(async () => {
       fireEvent.click(chevron);

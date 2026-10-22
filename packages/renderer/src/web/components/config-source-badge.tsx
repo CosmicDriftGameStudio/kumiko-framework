@@ -50,10 +50,10 @@ export function ConfigSourceBadge({
   readonly screenScope?: ConfigScope;
 }): ReactNode {
   const t = useTranslation();
-  // Gleiche Kollaps-Regel wie toDisplayLevels (config-cascade.tsx):
-  // Operator-Quellen oberhalb des Screen-Scopes erscheinen für Nicht-
-  // Operator-Screens als neutrales "Vorgabe"-Badge — sonst leakte das
-  // Badge die System-Quelle, die die Cascade-View bewusst versteckt.
+  // Uses the same collapsing rule as toDisplayLevels (config-cascade.tsx):
+  // for non-operator screens, operator sources above the screen scope appear
+  // as a neutral "Vorgabe" badge so the badge does not reveal the system source
+  // intentionally hidden by the cascade view.
   let effective = source;
   if (screenScope !== undefined && screenScope !== "system") {
     const scopeIdx = SOURCE_ORDER.indexOf(scopeToSource(screenScope));

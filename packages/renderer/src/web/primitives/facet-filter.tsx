@@ -122,7 +122,7 @@ export function FacetFilter({
   );
 }
 
-// Time-range filter (fw#3104): two native <input type="date"> instead of a
+// Time-range filter: two native <input type="date"> instead of a
 // dropdown — the browser supplies the calendar, the locale and the keyboard
 // handling, so no date dependency is needed. Each bound constrains the other
 // through min/max so the picker can't offer an inverted span; the caller

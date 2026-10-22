@@ -9,10 +9,10 @@ import {
 } from "../../index.ts";
 import { act, createMockDispatcher, render, renderHook } from "./test-utils.tsx";
 
-// Minimal fake dispatcher: write/query/batch throwen, damit klar wird
-// wenn ein Hook unter Test irgendwohin greift wo er nicht hingehört.
-// Status-Mutationen laufen über den exposed setStatus-Helper, der den
-// statusStore direkt schreibt.
+// Minimal fake dispatcher: write/query/batch throw so accidental access by a
+// tested hook is immediately detected.
+// Status mutations go through the exposed setStatus helper, which writes
+// directly to statusStore.
 function makeFakeDispatcher(): {
   readonly dispatcher: Dispatcher;
   setStatus(next: DispatcherStatus): void;
@@ -76,11 +76,10 @@ describe("DispatcherContext", () => {
     expect(result.current).toBe("online");
   });
 
-  // useOptionalDispatcher: identisch zu useDispatcher AUSSER beim Missing-
-  // Provider — dort returnt es undefined statt zu throwen. Genau dafür
-  // existiert es: KumikoScreen.EntityListBody braucht den Dispatcher
-  // optional (rowActions silent skipping wenn keiner mounted ist), und
-  // soll nicht throw'en in Tests die kein Mutation-Wiring brauchen.
+  // Unlike useDispatcher, this returns undefined rather than throwing when the
+  // provider is missing. KumikoScreen.EntityListBody needs the dispatcher to be
+  // optional so rowActions can silently skip when none is mounted, including in
+  // tests without mutation wiring.
   test("useOptionalDispatcher: returns the instance when provider is mounted", () => {
     const { dispatcher } = makeFakeDispatcher();
     const { result } = renderHook(() => useOptionalDispatcher(), {

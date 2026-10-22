@@ -1,9 +1,9 @@
-// Unit-Tests für den projectionDetail-Screen-Type (read-only single-row
-// inspector, kumiko-framework#255). Deckt den Pfad ab, der Integration/E2E
-// nicht prüft (e2e-generator skippt projectionDetail explizit — kein CRUD):
-//   - Row wird über idParam gefetcht, Felder zeigen die Query-Response-Werte
-//   - jedes Feld ist readOnly, kein Submit-Button (hasEditableSection=false)
-//   - fehlende entityId → Error-Banner statt Crash
+// Unit tests for the projectionDetail screen type (read-only single-row
+// inspector). Covers the path that integration and E2E tests do not check
+// (the E2E generator explicitly skips projectionDetail because it has no CRUD):
+//   - Fetches the row through idParam and displays the query response values
+//   - Every field is read-only, with no submit button (hasEditableSection=false)
+//   - A missing entityId shows an error banner instead of crashing
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -77,7 +77,7 @@ describe("KumikoScreen / projectionDetail", () => {
     );
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
-    // fw#2245: projectionDetail defaults to text display — a readOnly field
+    // projectionDetail defaults to text display — a readOnly field
     // renders its value as plain text, not a disabled Input.
     expect(screen.getByTestId("field-userId").textContent).toContain("user-42");
     expect(screen.getByTestId("field-userId").querySelector("input")).toBeNull();
@@ -87,9 +87,9 @@ describe("KumikoScreen / projectionDetail", () => {
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
   });
 
-  // fw#2245 Teil 4: synthesizeProjectionDetailEntity (projection-detail-shim.ts)
+  // synthesizeProjectionDetailEntity (projection-detail-shim.ts)
   // stamps every field as type:"text" — the shim has no access to the query's
-  // real field types. field.renderer (Teil 1) is the only way this screen
+  // real field types. field.renderer is the only way this screen
   // type reaches real per-type formatting; without it a timestamp field would
   // render its raw ISO string. Mirrors the sessions bundled feature's actual
   // session-detail screen (feature.ts).
@@ -135,7 +135,7 @@ describe("KumikoScreen / projectionDetail", () => {
 
   // synthesizeProjectionDetailScreen rebuilds `layout` from `sections` alone
   // (structural readOnly:true proof) — a naive rebuild would drop sibling
-  // layout fields like `width` (#1676).
+  // layout fields like `width`.
   test("layout.width survives the projectionDetail → entityEdit shim", async () => {
     const wideDetailScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
@@ -389,7 +389,7 @@ describe("KumikoScreen / projectionDetail", () => {
   });
 });
 
-// fw#2166: `relatedList` sections run their own query against the shown
+// `relatedList` sections run their own query against the shown
 // record's id, independent of the detail query above.
 describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => {
   const relatedListSection = {
@@ -572,7 +572,7 @@ describe("KumikoScreen / projectionDetail relatedList section (fw#2166)", () => 
   });
 });
 
-// solon#264: a hand-written NotesSection block had no declarative equivalent
+// A hand-written NotesSection block had no declarative equivalent
 // on projectionDetail. Extension sections without contributesToFormSubmit
 // (self-persisting, e.g. via their own dispatcher writes) are now allowed.
 describe("KumikoScreen / projectionDetail extension section (solon#264)", () => {
@@ -1125,7 +1125,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
   });
 });
 
-// projectionDetail.actions kind:"drawer" (fw#2710) — same shared DrawerHost
+// projectionDetail.actions kind:"drawer" — same shared DrawerHost
 // as toolbarActions/rowActions, wired into ProjectionDetailBody's own
 // headerActions builder (ProjectionDetailBody owns the Drawer directly,
 // unlike relatedList sections which only forward through onOpenDrawer).
@@ -1345,13 +1345,13 @@ describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", (
   });
 });
 
-// fw#2312 mounts extension sections (ExtensionSectionMount, render-edit.tsx)
+// mounts extension sections (ExtensionSectionMount, render-edit.tsx)
 // INSIDE RenderEdit's own host <form testId="render-edit-form"> (render-edit.tsx:1059).
 // A section that renders its own <form> — the pattern ChangeEmailSection/
-// ChangePasswordSection used before fw#2703 via BareFormProvider — used to
+// ChangePasswordSection used via BareFormProvider — used to
 // produce two nested <form> elements, invalid DOM that let real browsers
 // silently degrade the inner submit into a native GET navigation of the
-// OUTER form (offlot-app e2e, currentPassword leaked into the URL). fw#2705
+// OUTER form (offlot-app e2e, currentPassword leaked into the URL).
 // fixes the cause in DefaultForm (primitives/index.tsx): it degrades to a
 // <div> whenever InsideFormContext says it is already nested in a form, and
 // intercepts a click on its own submit button (onClickCapture +
@@ -1465,7 +1465,7 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
   // degraded to a <div>, its submit button sits inside the SAME real <form>
   // as render-edit-form. Without FormRoot's onClickCapture + preventDefault,
   // activating that type="submit" button would fire the OUTER form's native
-  // submit instead of routing to the section's onSubmit — the exact fw#2705
+  // submit instead of routing to the section's onSubmit — the exact
   // hazard the nested-<form> version produced, just surfacing here as a
   // wrong dispatch target rather than a URL GET (the dispatch test above
   // cannot tell the two apart: RenderEdit's own handleSubmit is a no-op for
@@ -1487,8 +1487,8 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
   });
 });
 
-// fw#3234: a fields section's own `actions` render in that section's Card
-// title row (not the screen-level head region fw#2713 covers below) and
+// a fields section's own `actions` render in that section's Card
+// title row (not the screen-level head region covered below) and
 // dispatch against the same record, with the same navigate/params
 // evaluation as a screen-level action.
 describe("KumikoScreen / projectionDetail section actions (fw#3234)", () => {
@@ -1554,7 +1554,7 @@ describe("KumikoScreen / projectionDetail section actions (fw#3234)", () => {
 
     const actionButton = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
     // Renders inside the section's own Card, in its title row — not the
-    // screen-level head region (fw#2713's own actions render there instead).
+    // screen-level head region's own actions render there instead).
     expect(
       actionButton.closest('[data-slot="card"]')?.querySelector('[data-testid="field-userId"]'),
     ).not.toBeNull();
@@ -1565,7 +1565,7 @@ describe("KumikoScreen / projectionDetail section actions (fw#3234)", () => {
   });
 });
 
-// fw#2713: `actions` are on the record the head shows, not on whichever tab
+// `actions` are on the record the head shows, not on whichever tab
 // is open — they used to render in the card footer, below the active tab's
 // content, so a long tab pushed them off-screen and they visually "moved"
 // as the tab content's length changed. They now render inside the head

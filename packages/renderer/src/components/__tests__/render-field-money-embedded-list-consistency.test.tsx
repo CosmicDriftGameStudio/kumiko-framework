@@ -1,11 +1,11 @@
-// kumiko-framework#1972: one form, two money contracts. A top-level money
+// One form, two money contracts. A top-level money
 // field's write payload is `{amount, currency}` in MAJOR units
 // (render-field.tsx's moneyPayload) while an embedded-list row's money
 // sub-field is a bare number in MINOR units (embedded-list-field.tsx passes
 // the widget's minor-unit value straight through — currency lives on the
 // head aggregate, not the row). Both are correct in isolation; the risk is
 // a consumer that reads the combined payload and compares the two amounts
-// without converting units first (exactly the reported solon incident:
+// without converting units first (exactly the reported incident:
 // `linesSum:10000` vs `netTotal:100`).
 //
 // This test drives BOTH real conversion paths — RenderField's moneyPayload

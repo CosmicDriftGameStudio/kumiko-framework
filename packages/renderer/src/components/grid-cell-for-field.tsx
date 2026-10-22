@@ -11,7 +11,7 @@ export type GridCellForFieldProps = {
   readonly issues: readonly FieldIssue[] | undefined;
   readonly onChange: (value: unknown) => void;
   readonly GridCell: ReturnType<typeof usePrimitives>["GridCell"];
-  /** Tier 2.7e-3: passed through so Reference fields can build the correct
+  /** Passed through so Reference fields can build the correct
    *  lookup query QN (`<feature>:query:<refEntity>:list`). */
   readonly featureName: string;
   readonly labelAppendix?: ReactNode;

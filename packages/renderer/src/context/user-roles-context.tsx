@@ -1,8 +1,8 @@
 import { createContext, type ReactNode, useContext } from "react";
 
 // Threads the current user's roles through the tree so KumikoScreen can
-// gate role-restricted screens at render time (see #1203 — nav filtering
-// alone doesn't stop a direct-URL/screenQn hit on a role-gated screen).
+// gate role-restricted screens at render time — nav filtering alone
+// doesn't stop a direct-URL/screenQn hit on a role-gated screen).
 // Apps wire this from their `shell` render-prop, the same place they
 // already pass `user` to WorkspaceShell for nav filtering.
 //

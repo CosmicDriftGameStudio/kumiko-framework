@@ -1,4 +1,4 @@
-// fw#2228: RowActionNavigate can now name an ObjectTarget (`entity`) instead
+// RowActionNavigate can now name an ObjectTarget (`entity`) instead
 // of a ScreenTarget (`screen`). This renders the real entityList pipeline
 // (KumikoScreen → EntityListBody) and asserts a click on the entity-target
 // row action calls nav.navigate with `{ entity, id }` — resolution to an
@@ -311,7 +311,7 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-// headerRegion carries projectionDetail's header actions since fw#2713 — a
+// headerRegion carries projectionDetail's header actions — a
 // stub that only forwards children/actions/secondaryActions drops them
 // silently, as this test's own action button did until it grew this slot.
 const FormWithActions: ComponentType<FormProps> = ({

@@ -3,19 +3,17 @@ import type { Store } from "../headless/index.ts";
 
 // React bindings for Kumiko's store primitive (`createStore` from
 // @cosmicdrift/kumiko-renderer/headless). Both hooks are thin wrappers around React's
-// useSyncExternalStore — the whole subscribe/notify mechanism lives in the
-// store itself, only React wiring happens here.
+// useSyncExternalStore — the entire subscribe/notify mechanism lives in the
+// store itself; only React wiring happens here.
 //
-// useStore: returns the whole snapshot. Re-renders when the store changes
-// its identity. The Object.is gate in the store itself prevents no-op
-// updates.
+// useStore: returns the whole snapshot and re-renders when the store changes
+// its identity. The Object.is gate in the store prevents no-op updates.
 //
-// useStoreSelector: gibt eine abgeleitete Sicht zurück. Selectors die
-// Object-/Array-Literale zurückgeben (z.B. `s => ({ a, b })`) erzeugen
-// pro Render eine neue Identität — useSyncExternalStore würde das als
-// "Change" lesen und in eine Re-Render-Schleife laufen. Der dritte
-// Arg `equals` dient genau dafür: gleiche Auswahl → cached
-// Identität zurück, kein Re-Render.
+// useStoreSelector: returns a derived view. Selectors that return object or
+// array literals (e.g. `s => ({ a, b })`) create a new identity on every
+// render — useSyncExternalStore would interpret this as a change and enter
+// a re-render loop. The `equals` argument handles this case: when the
+// selection is equal, the cached identity is returned and no re-render occurs.
 
 // @wrapper-known semantic-alias
 export function useStore<T>(store: Store<T>): T {
@@ -27,10 +25,10 @@ export function useStoreSelector<T, S>(
   select: (snapshot: T) => S,
   equals: (a: S, b: S) => boolean = Object.is,
 ): S {
-  // Cache der letzten Auswahl. Beim nächsten getSnapshot-Call vergleicht
-  // der Wrapper die neu berechnete Auswahl mit dem Cache und gibt — falls
-  // gleich — die cached Identität zurück. Das ist der Trick, der
-  // Selector-Returns wie `s => ({ a, b })` stabil hält.
+  // Cache of the last selection. On the next getSnapshot call, the wrapper
+  // compares the newly computed selection with the cache and returns the
+  // cached identity when they are equal. This keeps selector results such as
+  // `s => ({ a, b })` stable.
   const lastSelected = useRef<{ readonly value: S } | null>(null);
 
   const getSelectedSnapshot = (): S => {

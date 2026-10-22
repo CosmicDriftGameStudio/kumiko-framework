@@ -1,24 +1,24 @@
-// Browser-spezifischer LocaleResolver-Default für createKumikoApp.
+// Browser-specific LocaleResolver default for createKumikoApp.
 //
-// Stateful: hält die aktuelle Locale in localStorage, bricht subscribe-
-// listener bei setLocale(). Initial-wert kommt aus localStorage wenn
-// gespeichert, sonst aus navigator.language, sonst aus defaultLocale.
+// Stateful: stores the current locale in localStorage and notifies subscribed
+// listeners when setLocale() is called. The initial value comes from
+// localStorage when available, otherwise from navigator.language, and finally
+// from defaultLocale.
 //
-// App-Code setzt die Locale programmatisch via resolver.setLocale() —
-// der LanguageSwitcher-Component macht genau das. Persistenz über
-// localStorage heißt: nach Page-Reload gleiche Sprache, ohne Server-
-// Roundtrip. Für device-übergreifende Persistenz würde ein
-// user:write:update auf user.locale zusätzlich gesetzt (separater
-// App-Code, nicht im Resolver).
+// App code sets the locale programmatically via resolver.setLocale(), as the
+// LanguageSwitcher component does. localStorage persistence preserves the
+// language after a page reload without a server round trip. Cross-device
+// persistence would additionally require a user:write:update for user.locale
+// in separate app code, not in the resolver.
 
 import { createStore, type LocaleResolver } from "../../headless/index.ts";
 
 export type CreateBrowserLocaleResolverOptions = {
-  /** localStorage-Key unter dem die aktive Locale persistiert wird.
-   *  Default: `"kumiko:locale"`. Apps die mehrere Kumiko-Instanzen auf
-   *  derselben Origin mounten (selten), setzen verschiedene Keys. */
+  /** localStorage key used to persist the active locale.
+   *  Default: `"kumiko:locale"`. Apps that mount multiple Kumiko instances on
+   *  the same origin (rarely) should use different keys. */
   readonly storageKey?: string;
-  /** Fallback wenn weder localStorage noch navigator.language liefern.
+  /** Fallback when neither localStorage nor navigator.language provides a locale.
    *  Default: `"en"`. */
   readonly defaultLocale?: string;
   /** Maps a stored or browser-reported tag onto one of the app's locales;
@@ -43,8 +43,8 @@ function detectInitialLocale(
         if (normalized !== undefined) return normalized;
       }
     } catch {
-      // localStorage kann throwen (safari private mode, disabled) —
-      // leise auf navigator zurückfallen.
+      // localStorage can throw (Safari private mode, disabled) —
+      // silently fall back to navigator.
     }
   }
   if (typeof navigator !== "undefined" && navigator.language) {
@@ -62,11 +62,11 @@ function detectTimeZone(): string {
   }
 }
 
-/** Default-Resolver wenn createKumikoApp ohne `locale`-Option gebootet
- *  wird. Stateful: setLocale() persistiert in localStorage und ruft
- *  subscribed listeners. Apps die eine vollwertige i18n-Schicht haben
- *  (i18next, FormatJS, eigener Store), reichen stattdessen ihre eigene
- *  Resolver-Impl via `createKumikoApp({ locale })`. */
+/** Default resolver when createKumikoApp is booted without a `locale` option.
+ *  Stateful: setLocale() persists to localStorage and notifies subscribed
+ *  listeners. Apps with a full i18n layer (i18next, FormatJS, or a custom
+ *  store) should instead pass their own resolver via
+ *  `createKumikoApp({ locale })`. */
 export function createBrowserLocaleResolver(
   options: CreateBrowserLocaleResolverOptions = {},
 ): LocaleResolver {
@@ -92,8 +92,8 @@ export function createBrowserLocaleResolver(
         try {
           localStorage.setItem(storageKey, next);
         } catch {
-          // Persistenz fehlgeschlagen ist nicht fatal — die Session-Locale
-          // bleibt trotzdem gesetzt, nur der nächste Reload verliert sie.
+          // Persistence failure is not fatal — the session locale remains set,
+          // but the next reload will lose it.
         }
       }
     },

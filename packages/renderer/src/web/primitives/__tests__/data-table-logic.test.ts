@@ -1,7 +1,7 @@
-// DataTable-Pure-Logik Tests (Phase 1, test-luecken-integration, Tier 1).
+// DataTable pure-logic tests.
 //
-// Reine Funktionen aus primitives/index.tsx (exportiert für Test, wie
-// money-input seine Pure-Logik exportiert). Kein DOM.
+// Pure functions from primitives/index.tsx, exported for testing as with
+// money-input's pure logic. No DOM.
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { applyFormatSpec, defaultCellRender, isComponentRendererRef } from "../index.tsx";
@@ -103,8 +103,8 @@ describe("applyFormatSpec", () => {
   });
 
   test("unbekanntes format → String(value) fallback + dev-warning", () => {
-    // Warnung feuert nur bei NODE_ENV !== "production" — explizit setzen
-    // statt sich aufs Test-Runner-Preset zu verlassen.
+    // The warning fires only when NODE_ENV !== "production"; set it explicitly
+    // instead of relying on the test runner preset.
     const prevNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";
     const warn = spyOn(console, "warn").mockImplementation(() => {});
@@ -283,7 +283,7 @@ describe("defaultCellRender", () => {
   });
 
   test("money → rehydrated { amount major, amountMinor } derives minor units from amount + currencyDecimals", () => {
-    // rehydrateMoney (fw#1830): amount is major units, amountMinor is a flat
+    // rehydrateMoney: amount is major units, amountMinor is a flat
     // ×100 scale that disagrees with currencyDecimals for non-2-decimal
     // currencies — defaultCellRender ignores amountMinor and derives minor
     // units from `amount` instead (see index.tsx).

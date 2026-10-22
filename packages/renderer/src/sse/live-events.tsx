@@ -1,14 +1,14 @@
-// Live-Events-Contract, plattform-neutral. Die Plattform (Web mit
-// EventSource, Native mit polyfill) liefert einen `LiveEventSubscriber`
-// via `<LiveEventsProvider value={...}>`; der shared-Layer konsumiert
-// nur das Interface.
+// Platform-neutral live-events contract. The platform (Web with
+// EventSource, Native with polyfill) supplies a `LiveEventSubscriber`
+// via `<LiveEventsProvider value={...}>`; the shared layer consumes
+// only the interface.
 //
-// Warum ein Context statt Module-Singleton wie vor dem Split: ein
-// Module-Singleton koppelt an eine globale Verbindung. Mit Context
-// kann der Caller pro Tree eine andere Subscribe-Quelle durchreichen
-// — nützlich in Tests (Fake-Feed), bei Multi-Tenant-Bridges, und
-// beim Native-Renderer wo die Verbindungs-Lifecycle oft nicht dem
-// App-Lifecycle entspricht.
+// A Context is used instead of a module singleton as before the split:
+// a module singleton couples the code to a global connection. Context
+// lets the caller provide a different subscription source per tree,
+// which is useful for tests (Fake-Feed), multi-tenant bridges, and
+// the Native renderer, where connection lifecycle often differs from
+// the app lifecycle.
 
 import { createContext, type ReactNode, useContext } from "react";
 
@@ -31,19 +31,19 @@ export type LiveEvent = {
  *  reconnected: frames during the gap are lost, so consumers must refetch. */
 export const LIVE_RESYNC_EVENT_TYPE = "live.resync";
 
-/** Abonniert Live-Events für eine Entity (aggregateType). Returnt die
- *  Unsubscribe-Funktion. Mehrere Subscriptions parallel auf dieselbe
- *  Entity sind erlaubt — jede bekommt ihr eigenes Event. */
+/** Subscribes to live events for an entity (aggregateType) and returns the
+ *  unsubscribe function. Multiple subscriptions to the same entity are
+ *  allowed in parallel; each receives its own event. */
 export type LiveEventSubscriber = (
   entityName: string,
   listener: (event: LiveEvent) => void,
 ) => () => void;
 
-// Wenn kein Provider da ist, liefern wir einen No-op-Subscriber statt
-// zu crashen. Grund: useQuery({ live: true }) kann optimistisch
-// ausgehakt werden ohne den ganzen Baum abzureißen, wenn die Plattform
-// z.B. SSE temporär deaktiviert hat. Fehler-Signale würden stumm
-// geschluckt — das ist explizit dokumentiert.
+// If no provider is present, return a no-op subscriber instead of
+// throwing. This allows useQuery({ live: true }) to be optimistically
+// disabled without tearing down the entire tree when the platform has
+// temporarily disabled SSE. Error signals are silently swallowed; this
+// is intentional and documented.
 const noopSubscriber: LiveEventSubscriber = () => () => {};
 
 const LiveEventsContext = createContext<LiveEventSubscriber>(noopSubscriber);
@@ -57,8 +57,8 @@ export function LiveEventsProvider({ children, value }: LiveEventsProviderProps)
   return <LiveEventsContext.Provider value={value}>{children}</LiveEventsContext.Provider>;
 }
 
-/** Hook für useQuery-like Consumer. Liefert die Subscribe-Function
- *  aus dem Context. Wenn kein Provider da ist, ist's ein No-op. */
+/** Hook for a useQuery-like consumer. Returns the subscription function
+ *  from the context. Without a provider, it is a no-op. */
 export function useLiveEvents(): LiveEventSubscriber {
   return useContext(LiveEventsContext);
 }

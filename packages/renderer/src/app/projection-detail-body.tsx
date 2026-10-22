@@ -285,12 +285,12 @@ export function ProjectionDetailBody({
     setReloadNonce((n) => n + 1);
   }, [detailQuery.refetch]);
 
-  // Header actions render directly via RenderEditActionButton (fw#2713,
-  // headerActions moved out of RenderEdit's footer) — this component owns
+  // Header actions render directly via RenderEditActionButton
+  // headerActions moved out of RenderEdit's footer — this component owns
   // the failure-surfacing state RenderEdit used to own for them.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
 
-  // Default edit action (fw#2166): resolved cross-feature over ALL mounted
+  // Default edit action: resolved cross-feature over ALL mounted
   // features, not just this feature's own schema — detailFor itself is
   // resolved cross-feature by the boot-validator (detail-screens.ts), and
   // the motivating case is a projectionDetail whose query belongs to one
@@ -526,7 +526,7 @@ export function ProjectionDetailBody({
       />
     );
   }
-  // Grouped into the head Card alongside title/status/metrics (fw#2713):
+  // Grouped into the head Card alongside title/status/metrics:
   // these are actions on the record the head shows, not on whichever tab is
   // open, so they must stay in place across tab switches instead of
   // trailing the active tab's content in the card footer.

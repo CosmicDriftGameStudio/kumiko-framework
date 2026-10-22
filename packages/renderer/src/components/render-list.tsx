@@ -36,18 +36,18 @@ import {
 import { ListEmptyStateBody, type ListEmptyStateContent } from "./list-empty-state.tsx";
 import { needsActionConfirm } from "./render-edit-action-button.tsx";
 
-// RenderList — präsentationaler View für entityList-Screens.
+// RenderList is a presentational view for entityList screens.
 //
-// Daten + State sind komplett controlled vom Caller (KumikoScreen):
-//   - rows kommen aus dem Server (durch useQuery + URL-State-Payload)
-//   - sort/q sind Props, RenderList ruft onSortChange/onQChange wenn
-//     der User UI-Aktionen macht
-//   - Search ist serverseitig (via SearchAdapter / Meilisearch). Lokaler
-//     State im Search-Input ist nur Debounce-Buffer, keine Filterung.
+// Data and state are fully controlled by the caller (KumikoScreen):
+//   - rows come from the server (through the useQuery + URL-state payload)
+//   - sort/q are props; RenderList calls onSortChange/onQChange when
+//     the user performs UI actions
+//   - Search is server-side (via SearchAdapter / Meilisearch). Local state
+//     in the search input is only a debounce buffer, not a filter.
 //
-// Apps die RenderList ohne Server-State nutzen wollen (z.B. ein
-// statischer Lookup) liefern stabile rows + lassen sort/q weg —
-// DataTable fällt dann auf "kein Sort-Wiring + kein Search" zurück.
+// Apps that use RenderList without server state (for example, a static
+// lookup) provide stable rows and omit sort/q — DataTable then falls back
+// to no sort wiring and no search.
 
 export type RenderListProps = {
   readonly screen: EntityListScreenDefinition;
@@ -56,22 +56,21 @@ export type RenderListProps = {
   readonly featureName: string;
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel) => void;
-  /** Override der Default-Empty-Box. Wenn gesetzt, wird der Auto-CTA
-   *  via `onCreate` ignoriert — Caller-Inhalt gewinnt. */
+  /** Overrides the default empty box. When set, the automatic CTA via
+   *  `onCreate` is ignored; the caller's content takes precedence. */
   readonly emptyState?: ReactNode;
-  /** Setzt einen "+ Neu" Button in die Toolbar UND dient als CTA in
-   *  der Default-Empty-Box. Caller liefert die Action selber (z. B.
-   *  navigate auf den Edit-Screen). */
+  /** Adds a "+ New" button to the toolbar and uses it as the CTA in the
+   *  default empty box. The caller provides the action (for example,
+   *  navigation to the edit screen). */
   readonly onCreate?: () => void;
-  /** Label für den + Neu Button. Default kommt aus dem i18n-Bundle
-   *  (`kumiko.actions.create`). Caller kann durch eigenen String
-   *  überschreiben. */
+  /** Label for the + New button. Defaults to the i18n bundle key
+   *  (`kumiko.actions.create`). The caller can override it. */
   readonly createLabel?: string;
-  /** Aktiviert ein Search-Input in der Toolbar. Server-side Filter
-   *  via Caller's onSearchChange — RenderList filtert NICHT lokal. */
+  /** Enables a search input in the toolbar. Filtering is server-side via
+   *  the caller's onSearchChange; RenderList does not filter locally. */
   readonly searchable?: boolean;
-  /** Placeholder für das Search-Input. Default kommt aus dem i18n-
-   *  Bundle (`kumiko.list.search-placeholder`). */
+  /** Placeholder for the search input. Defaults to the i18n bundle key
+   *  (`kumiko.list.search-placeholder`). */
   readonly searchPlaceholder?: string;
   /** Hint at the left of the toolbar (already translated). */
   readonly description?: string;
@@ -83,35 +82,35 @@ export type RenderListProps = {
   readonly defaultFilterActive?: boolean;
   /** Plural-forms key for the footer count noun; default is the entity's `:noun` convention key. */
   readonly itemNounKey?: string;
-  /** Aktueller Search-Term (vom URL-State / Parent). RenderList puffert
-   *  Tipps lokal mit 300ms Debounce, bevor onSearchChange gefeuert
-   *  wird — sonst macht jeder Tastendruck einen Server-Roundtrip. */
+  /** Current search term (from URL state / the parent). RenderList buffers
+   *  typing locally with a 300ms debounce before calling onSearchChange;
+   *  otherwise every keystroke would trigger a server round trip. */
   readonly searchValue?: string;
-  /** Wird gerufen wenn der debounced Search-Term sich ändert. Caller
-   *  setzt damit URL-State (?<id>.q=…) und triggert ein refetch. */
+  /** Called when the debounced search term changes. The caller uses it to
+   *  set URL state (?<id>.q=…) and trigger a refetch. */
   readonly onSearchChange?: (next: string) => void;
-  /** Aktuelle Sortierung (oder null = Server-Default-Order). */
+  /** Current sorting, or null for the server's default order. */
   readonly sort?: ListSort | null;
-  /** Wird gerufen mit dem nächsten Sort-State nach einem Header-Klick. */
+  /** Called with the next sort state after a header click. */
   readonly onSortChange?: (next: ListSort | null) => void;
-  /** Pager-Props für pagination="pages". Wenn undefined, kein Pager-
-   *  UI — Default oder infinite-Mode. KumikoScreen liefert das je nach
-   *  screen.pagination. */
+  /** Pager props for pagination="pages". If undefined, no pager UI is
+   *  rendered; the default or infinite mode is used. KumikoScreen supplies
+   *  this according to screen.pagination. */
   readonly pager?: {
     readonly page: number;
     readonly limit: number;
     readonly total: number;
     readonly onPageChange: (next: number) => void;
   };
-  /** Infinite-Scroll-Wiring für pagination="infinite". KumikoScreen
-   *  hält accumulated rows + cursor, RenderList reicht die Callbacks
-   *  einfach durch an DataTable. */
+  /** Infinite-scroll wiring for pagination="infinite". KumikoScreen keeps
+   *  the accumulated rows and cursor; RenderList passes the callbacks
+   *  through to DataTable. */
   readonly onReachEnd?: () => void;
   readonly loadingMore?: boolean;
   readonly hasMore?: boolean;
-  /** Pro-Row-Aktionen — Resolved-Form (KumikoScreen baut das aus
-   *  EntityListScreenDefinition.rowActions: handler-QN → dispatcher-Call,
-   *  i18n-Keys → translated Strings). */
+  /** Per-row actions in resolved form. KumikoScreen builds them from
+   *  EntityListScreenDefinition.rowActions: handler-QN becomes a dispatcher
+   *  call, and i18n keys become translated strings. */
   readonly rowActions?: readonly DataTableRowAction[];
   /** How the row-action column renders (see `DataTableProps.rowActionMode`).
    *  KumikoScreen derives it from the actions themselves; without it the
@@ -120,38 +119,38 @@ export type RenderListProps = {
   /** Forwarded to `DataTableProps.rowGrouping` / `rowTone`. */
   readonly rowGrouping?: DataTableRowGrouping;
   readonly rowTone?: DataTableProps["rowTone"];
-  /** Toolbar-Aktionen im List-Header — Resolved-Form (KumikoScreen baut
-   *  das aus EntityListScreenDefinition.toolbarActions: navigate-target
-   *  → useNav, handler-QN → dispatcher-Call). RenderList rendert die
-   *  Buttons rechts in der Toolbar, vor "+ Neu". */
+  /** Toolbar actions in the list header in resolved form. KumikoScreen
+   *  builds them from EntityListScreenDefinition.toolbarActions:
+   *  navigate targets use useNav and handler-QN uses a dispatcher call.
+   *  RenderList renders the buttons on the right side of the toolbar,
+   *  before "+ New". */
   readonly toolbarActions?: readonly ToolbarActionButton[];
-  /** Faceted-Filter-Dropdowns — KumikoScreen baut sie aus den filterable
-   *  select/boolean-Feldern; RenderList reicht sie an die DataTable durch. */
+  /** Faceted filter dropdowns. KumikoScreen builds them from filterable
+   *  select/boolean fields; RenderList passes them through to DataTable. */
   readonly filterFacets?: readonly DataTableFacet[];
-  /** Aktuell gewählte Facet-Werte je Feld (vom URL-State). */
+  /** Currently selected facet values by field (from URL state). */
   readonly filterValues?: Readonly<Record<string, readonly string[]>>;
-  /** Toggle eines Facet-Werts (URL-State setzen + refetch). */
+  /** Toggles a facet value (sets URL state and refetches). */
   readonly onFilterChange?: (field: string, values: readonly string[]) => void;
   /** Reset aller aktiven Facets. */
   readonly onFilterReset?: () => void;
-  /** Time-range filters (fw#3104) — forwarded to the DataTable. */
+  /** Time-range filters — forwarded to the DataTable. */
   readonly dateRangeFacets?: readonly DataTableDateRangeFacet[];
   /** One bound changed (set URL state + refetch). */
   readonly onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void;
   /** Forwarded to `DataTableProps.chromeless` — drops the table's own card
    *  frame for a host that already provides one (relatedList in a tabs-mode
-   *  section, fw#2722). Default false. */
+   *  section). Default false. */
   readonly chromeless?: boolean;
   /** Forwarded to `DataTableProps.scrollBody` — bounds the table height and
    *  scrolls rows internally instead of growing the page (relatedList in a
-   *  tabs-mode section, fw#2722). Default false. */
+   *  tabs-mode section). Default false. */
   readonly scrollBody?: boolean;
   /** Forwarded to `DataTableProps.screenPadding` — `true`: the table carries
    *  the shared screen padding because it is the screen body (entityList/
-   *  projectionList, fw#2640). Explicit `false`: no padding at all — the
-   *  host already pads its own children (relatedList in a tabs-mode Card,
-   *  fw#3234). Omitted: legacy `p-6` fallback for a standalone table with no
-   *  padded host. */
+   *  projectionList). Explicit `false`: no padding at all — the host already
+   *  pads its own children (relatedList in a tabs-mode Card). Omitted: legacy
+   *  `p-6` fallback for a standalone table with no padded host. */
   readonly screenPadding?: boolean;
   /** Forwarded to `DataTableProps.expandedRowIds` / `onToggleRowExpanded` /
    *  `renderExpandedRow` (entityList `expandableRow`). */
@@ -160,10 +159,10 @@ export type RenderListProps = {
   readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
 };
 
-// Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
-// Schema (entweder navigate- oder writeHandler-kind), RenderList sieht
-// nur einen onTrigger-Callback + Label/Style — keine kind-Discrimination
-// mehr.
+// Resolved form of a toolbar action: KumikoScreen builds this from the
+// schema (either navigate or writeHandler kind), while RenderList sees
+// only an onTrigger callback plus label/style and no longer needs to
+// discriminate between kinds.
 export type ToolbarActionButton = {
   readonly id: string;
   readonly label: string;
@@ -231,8 +230,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     onToggleRowExpanded,
     renderExpandedRow,
   } = props;
-  // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
-  // wären Column-Header raw i18n-Keys.
+  // As in RenderEdit, fall back to the i18next context for translation;
+  // otherwise column headers would display raw i18n keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
   const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
@@ -279,14 +278,12 @@ export function RenderList(props: RenderListProps): ReactNode {
     [screen, entity, rows, translate, featureName],
   );
 
-  // Tier 2.7e-4: Reference-Field-Eagerload via Bridge-Component-Pattern.
-  // Hooks-Rule-Konflikt: pro reference-Spalte muss useReferenceLookup
-  // gerufen werden, aber die Anzahl varriiert per Schema. Lösung —
-  // ReferenceLookupBridge-Komponenten pro Spalte gemountet, die ihre
-  // Map über onMap-Callback in einen lokalen State veröffentlichen.
-  // Anzahl der Hook-Calls pro Bridge-Component ist konstant (1), und
-  // React verwaltet die mounted/unmounted Lifecycles beim Schema-
-  // Wechsel über die key-Property automatisch.
+  // Reference-field eager loading through bridge components.
+  // The Hooks rule requires useReferenceLookup for each reference column,
+  // but the number of columns varies with the schema. Each column therefore
+  // mounts a ReferenceLookupBridge that publishes its map to local state
+  // through onMap. Each bridge makes a constant number of hook calls (one),
+  // and React manages its lifecycle when the schema changes via key.
   const referenceColumns = useMemo(
     () =>
       vm.columns
@@ -294,8 +291,8 @@ export function RenderList(props: RenderListProps): ReactNode {
         .map((c: ListColumnViewModel) => ({
           field: c.field,
           refEntity: c.refEntity ?? "",
-          // Tier 2.7e Cross-Feature: refFeature kommt aus parseRefTarget
-          // im ViewModel (default = current featureName).
+          // refFeature comes from parseRefTarget in the ViewModel
+          // (default = the current featureName).
           refFeature: c.refFeature ?? featureName,
           labelField: c.refLabelField ?? "id",
         })),
@@ -304,9 +301,9 @@ export function RenderList(props: RenderListProps): ReactNode {
   const [referenceLookups, setReferenceLookups] = useState<Record<string, ReferenceLookupMap>>({});
   const handleLookupMap = useCallback((field: string, map: ReferenceLookupMap) => {
     setReferenceLookups((prev) => {
-      // skip-update wenn die Map identisch ist (Render-Loop-Schutz —
-      // Bridge-Component re-rendert sonst und schickt die gleiche Map
-      // wieder rein bis React in eine Endlosschleife geht).
+      // Skip the update when the map is identical. Otherwise the bridge
+      // would re-render and send the same map back until React entered
+      // an infinite loop.
       if (prev[field] === map) return prev;
       return { ...prev, [field]: map };
     });
@@ -316,8 +313,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     if (referenceColumns.length === 0) return vm.columns;
     return vm.columns.map((col: ListColumnViewModel) => {
       if (col.type !== "reference") return col;
-      // Author-deklarierter Renderer übersteuert immer — Default greift
-      // nur wenn keiner gesetzt ist.
+      // An author-declared renderer always takes precedence;
+      // the default is used only when none is set.
       if (col.renderer !== undefined) return col;
       const map = referenceLookups[col.field];
       const unknownKey =
@@ -370,11 +367,11 @@ export function RenderList(props: RenderListProps): ReactNode {
         value: unknown,
         row?: Readonly<Record<string, unknown>>,
       ): string => {
-        // Tier 2.7e Server-Eagerload: wenn der Server _refs mit-
-        // schickt, lesen wir den Display-Wert direkt aus der
-        // resolved Row — kein Roundtrip durch die Bridge-Map nötig
-        // und keine limit:200-Constraint. EagerloadedRow-Type aus
-        // @cosmicdrift/kumiko-framework/db pinnt die Form von _refs.
+        // Server eager loading: when the server includes _refs, read the display
+        // value directly from the resolved row. This avoids a round trip
+        // through the bridge map and the limit:200 constraint. The
+        // EagerloadedRow type from @cosmicdrift/kumiko-framework/db defines
+        // the shape of _refs.
         const resolved = eagerloadedRef(row, col.field);
         if (Array.isArray(resolved) && resolved.length > 0) {
           return resolved.map((r) => String(r[labelField] ?? r["id"] ?? "")).join(", ");
@@ -382,7 +379,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         if (isPlainRecord(resolved)) {
           return String(resolved[labelField] ?? resolved["id"] ?? "");
         }
-        // Renderer-Side-Fallback (kein Server-Eagerload aktiv).
+        // Renderer-side fallback when server eager loading is not active.
         if (Array.isArray(value)) {
           if (value.length === 0) return EMPTY_VALUE_PLACEHOLDER;
           return value.map((v) => map?.get(String(v)) ?? unresolvedLabel(String(v))).join(", ");
@@ -409,9 +406,9 @@ export function RenderList(props: RenderListProps): ReactNode {
     [vm, enrichedColumns],
   );
 
-  // i18n-Defaults für Toolbar/Empty-State Strings — Caller kann jeden
-  // einzeln per Prop überschreiben, sonst kommen die Framework-Bundles
-  // (kumiko.actions.create, kumiko.list.search-placeholder, …).
+  // i18n defaults for toolbar and empty-state strings. The caller can
+  // override each one through a prop; otherwise the framework bundles provide
+  // them (kumiko.actions.create, kumiko.list.search-placeholder, …).
   const effectiveCreateLabel = translate(
     createLabel ?? screen.createLabel ?? "kumiko.actions.create",
   );
@@ -437,12 +434,12 @@ export function RenderList(props: RenderListProps): ReactNode {
     />
   ) : undefined;
 
-  // Toolbar-End-Slot: optionaler Header-Slot (z.B. Cap-Counter, links im
-  // rechten Cluster) + Toolbar-Actions (List-Header-Buttons aus dem Schema)
-  // + optional "+ Neu" am rechten Edge. Der Header-Slot lebt IN der Toolbar-
-  // Zeile (gleicher Card-Rahmen), nicht als loser Text über dem Screen-Titel
-  // (Bug-Bash 3 #12). Reihenfolge = Array-Reihenfolge (Schema-deklariert),
-  // "+ Neu" zuletzt weil das die häufigste/auffälligste CTA ist.
+  // Toolbar-end slot: an optional header slot (for example, a cap counter,
+  // at the left of the right-hand cluster), toolbar actions from the schema,
+  // and an optional "+ New" button at the right edge. The header slot lives
+  // inside the toolbar row, with the same card frame, rather than as loose
+  // text above the screen title. Items retain array order, and "+ New" comes
+  // last because it is the most common and prominent CTA.
   const hasToolbarActions = toolbarActions !== undefined && toolbarActions.length > 0;
   const hasHeaderSlot = screen.slots?.header !== undefined;
   const toolbarIconOnly = hasToolbarActions && shouldRenderActionsIconOnly(toolbarActions);
@@ -512,10 +509,10 @@ export function RenderList(props: RenderListProps): ReactNode {
       </>
     ) : undefined;
 
-  // Empty-State: Default zeigt Heading + Description + optional CTA-
-  // Button. Caller kann via emptyState-Prop komplett überschreiben.
-  // Wenn weder onCreate noch ein Override gegeben ist, fällt die
-  // DataTable auf den DataTable-Default zurück (`kumiko.list.no-entries`).
+  // Empty state: by default, show a heading, description, and optional CTA
+  // button. The caller can replace it completely through emptyState.
+  // Without onCreate or an override, DataTable uses its default
+  // (`kumiko.list.no-entries`).
   const defaultFilterActive = defaultFilterActiveProp && onFilterReset !== undefined;
   const composedEmptyState =
     emptyState ??
@@ -541,15 +538,14 @@ export function RenderList(props: RenderListProps): ReactNode {
       />
     ) : undefined);
 
-  // Title-Resolution: ein konventioneller i18n-Key `screen:<id>.title`.
-  // Wenn das Bundle den Key kennt, schöner Titel; sonst kommt der
-  // screenId selber raus (kein "Untitled"-Fallback — der App-Dev sieht
-  // dann dass die Übersetzung fehlt).
+  // Title resolution uses the conventional i18n key `screen:<id>.title`.
+  // If the bundle knows the key, use its translated title; otherwise use
+  // screenId so the app developer can see that the translation is missing.
   const titleKey = `screen:${screen.id}.title`;
   const resolvedTitle = translate(titleKey);
   const toolbarTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
 
-  // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
+  // ListSort = DataTableSort (aliased in use-list-url-state), so no cast is needed.
   return (
     <>
       {createInPageHeader && PageHeader !== undefined && <PageHeader actions={createButton} />}
@@ -606,13 +602,13 @@ export function RenderList(props: RenderListProps): ReactNode {
   );
 }
 
-// Header-Slot in der Listen-Toolbar (toolbarEnd): `screen.slots.header` ist
-// eine PlatformComponent (`{ react: { __component: "X" } }`), aufgelöst über
-// dieselbe ExtensionSectionsProvider-Registry wie entityEdit-Sections.
-// entityId ist null (Listen-Kontext, keine Row); die Component lädt ihre
-// Daten selbst (z.B. ein Cap-Counter aus einer usage-Query). Eigene
-// Component wegen Rules-of-Hooks — useExtensionSectionComponent darf nicht
-// konditional im RenderList-Body laufen.
+// Header slot in the list toolbar (toolbarEnd): `screen.slots.header` is
+// a PlatformComponent (`{ react: { __component: "X" } }`) resolved through
+// the same ExtensionSectionsProvider registry as entityEdit sections.
+// entityId is null in the list context because there is no row; the component
+// loads its own data (for example, a cap counter from a usage query). A
+// separate component is required by the Rules of Hooks because
+// useExtensionSectionComponent must not run conditionally in RenderList.
 function ListHeaderSlotMount({
   screen,
 }: {
@@ -638,11 +634,10 @@ function ListHeaderSlotMount({
   return <Component entityName={screen.entity} entityId={null} screenId={screen.id} />;
 }
 
-// Tier 2.7e-4: Bridge-Component pro reference-Spalte. Mounted für jede
-// Spalte einmal, ruft useReferenceLookup unconditional (Hook-Rules
-// happy), und published die Map über onMap an den Parent. React
-// verwaltet das Mounting/Unmounting beim Schema-Wechsel über die
-// key-Prop im map-Loop des Parents.
+// Bridge component for each reference column. It is mounted once per
+// column, calls useReferenceLookup unconditionally, and publishes the map
+// to the parent through onMap. React manages mounting and unmounting when
+// the schema changes through the key prop in the parent's map loop.
 function ReferenceLookupBridge({
   field,
   refEntity,
@@ -657,11 +652,12 @@ function ReferenceLookupBridge({
   readonly onMap: (field: string, map: ReferenceLookupMap) => void;
 }): null {
   const lookup = useReferenceLookup(featureName, refEntity, labelField);
-  // useEffect statt direktem call damit setState außerhalb des Render-
-  // Pfads passiert (sonst React-Warning "Cannot update a component
-  // while rendering a different component").
-  // Unpublished while loading or after a failed lookup: the renderer treats a missing map as
-  // "not resolved", an empty published map as "nothing found". Only the latter may say "Unknown".
+  // Use an effect rather than calling directly so setState runs outside the
+  // render path; otherwise React warns about updating one component while
+  // rendering another.
+  // Do not publish while loading or after a failed lookup: a missing map means
+  // "not resolved", whereas an empty published map means "nothing found".
+  // Only the latter may display "Unknown".
   const resolved = !lookup.loading && !lookup.failed;
   useEffect(() => {
     if (resolved) onMap(field, lookup.map);
@@ -669,10 +665,10 @@ function ReferenceLookupBridge({
   return null;
 }
 
-// ToolbarActionView — pro Toolbar-Action ein Button (+ Confirm-Dialog
-// wenn confirm gesetzt). Same Pattern wie RowAction (Inline-Variante)
-// aber ohne row-Context. busy-State während async onTrigger; Dialog
-// öffnet sich vor dem Trigger wenn confirm/danger gesetzt.
+// ToolbarActionView renders one button per toolbar action, with a confirm
+// dialog when required. It follows the inline RowAction pattern but has no
+// row context. The busy state covers async onTrigger; the dialog opens before
+// the trigger when confirmation is required for confirm/danger actions.
 function ToolbarActionView({
   action,
   iconOnly = false,
@@ -690,11 +686,10 @@ function ToolbarActionView({
 }): ReactNode {
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // Toolbar-Actions haben (anders als rowActions, die über die DataTable-
-  // Primitive laufen) keine Toast-Primitive zur Verfügung — ein inline
-  // Error-Banner ist der surfacing-Pfad hier. Gleicher Grund wie bei
-  // rowActions (Prod-Bug 2026-06-07): ein verschlucktes Failure-Result
-  // sieht für den User wie "nichts passiert" aus.
+  // Toolbar actions do not have access to the toast primitive, unlike
+  // rowActions routed through the DataTable primitive, so an inline error
+  // banner is used to surface failures. Without it, a swallowed failure result
+  // would look to the user as though nothing happened.
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const trigger = async (): Promise<void> => {

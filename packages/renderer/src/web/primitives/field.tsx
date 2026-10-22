@@ -403,7 +403,7 @@ export function withTrailingAction(
 // Default presentation for `kind: "select"` without a `display` of its own
 // (board rule): up to 3 short options read as a segmented control, up to 3
 // longer ones as a vertical radio list, everything else as a dropdown. Labels
-// arrive translated, so the widget can differ between UI languages (#2606).
+// arrive translated, so the widget can differ between UI languages.
 const SEGMENTED_SELECT_MAX_OPTIONS = 3;
 
 const SEGMENTED_SELECT_MAX_LABEL_LENGTH = 16;
@@ -420,9 +420,9 @@ export function defaultSelectPresentation(
 }
 
 // A "" value is the unselected placeholder, not a real choice — a radio
-// group can't render an unchecked-everything state as its own segment
-// (#2606 follow-up). Filtered once so the eligibility count and the
-// rendered segments never drift apart.
+// group can't render an unchecked-everything state as its own segment.
+// Filtered once so the eligibility count and the rendered segments never drift
+// apart.
 export function withoutSegmentedSelectPlaceholder<T extends { readonly value: string }>(
   options: readonly T[],
 ): readonly T[] {
@@ -531,7 +531,7 @@ export function RadioListSelect({
 }
 
 // The vendored shadcn Textarea carries `field-sizing: content`, which derives
-// the box height from the content and makes the `rows` attribute inert (#2677).
+// the box height from the content and makes the `rows` attribute inert.
 // A declared row count therefore only survives as a min-height floor: the field
 // starts at `rows` lines tall and still grows with its content. The addend is
 // the textarea frame — py-2 top+bottom plus the 1px borders.

@@ -1,10 +1,10 @@
 //
 // useBrowserNavApi({ hasWorkspaces }) — NavTarget-Contract: workspaceId
-// weglassen = aktueller Workspace bleibt. Regression zum Prod-Bug
-// 2026-06-07 (publicstatus Bugs 3/5): navigate({ screenId }) aus einem
-// Workspace heraus erzeugte `/<screenId>`, parsePath las das Screen-
-// Segment als Workspace-Id, WorkspaceShell revertete sofort auf den
-// Default-Screen — Edit-/Toolbar-Aktionen wirkten tot.
+// Omitting it preserves the current workspace. Regression for a production bug:
+// navigate({ screenId }) from within a workspace produced `/<screenId>`;
+// parsePath read the screen segment as the workspace ID, and WorkspaceShell
+// immediately reverted to the default screen, making edit and toolbar actions
+// appear unresponsive.
 //
 
 import { beforeEach, describe, expect, test } from "bun:test";
@@ -137,8 +137,8 @@ describe("useBrowserNavApi({ hasWorkspaces: true }) — Workspace-Erhalt ohne ex
     act(() => {
       fireEvent.click(screen.getByTestId("go-form"));
     });
-    // Kein Workspace zum Erben — formatPath bleibt flach; WorkspaceShell
-    // löst die Default-Workspace-Auflösung wie bisher selbst.
+    // No workspace to inherit — formatPath remains flat; WorkspaceShell
+    // resolves the default workspace as before.
     expect(window.location.pathname).toBe("/maintenance-schedule-form");
   });
 });

@@ -1,8 +1,8 @@
 //
-// useListUrlState pinnt den URL-State-Vertrag pro Screen-ID-Namespace:
+// useListUrlState defines the URL-state contract per screen-ID namespace:
 // `?<screenId>.sort=…&<screenId>.dir=…&<screenId>.q=…&<screenId>.page=…`.
-// Zwei Listen auf der Route teilen sich die URL ohne Param-Konflikt.
-// Page wird bei Sort/Filter-Wechsel reseted; Sort bleibt bei Search.
+// Multiple lists on the route can share the URL without parameter conflicts.
+// Page resets when sorting or filters change; sorting is preserved when searching.
 
 import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
@@ -76,7 +76,7 @@ describe("useListUrlState", () => {
     expect(nav.captures[0]).toEqual({
       "orders.sort": "name",
       "orders.dir": "asc",
-      "orders.page": null, // page-reset bei sort-change
+      "orders.page": null, // page reset on sort change
     });
   });
   test("setSort(null) löscht sort+dir+page", () => {
@@ -109,8 +109,7 @@ describe("useListUrlState", () => {
       "orders.q": "acme",
       "orders.page": null,
     });
-    // Sort darf NICHT in den captures sein — search-change zerlegt
-    // die Sortierung nicht.
+    // Sort must not appear in the captures: a search change keeps the sort order.
     expect(nav.captures[0]).not.toHaveProperty("orders.sort");
   });
   test("setQ('') löscht den q-Key", () => {
@@ -183,7 +182,7 @@ describe("useListUrlState", () => {
     });
   });
 
-  // fw#3104: the date-range facet lives in the same .f. namespace so
+  // The date-range facet lives in the same .f. namespace so
   // clearFilters covers it — but both bounds have to land in ONE params
   // update, or the second call overwrites the first.
   test("setDateRange schreibt beide Grenzen atomar + resettet page", () => {

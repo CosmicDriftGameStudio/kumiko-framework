@@ -54,7 +54,7 @@ import { buildListQueryPayload, type PagedRows, pageSizeOptionsFor } from "./scr
 // (instead of being derived from an entity) — cross-feature capable.
 // search/sort/pagination reuse the same URL-state + buildListQueryPayload
 // wiring as EntityListBody; which of them are actually offered is derived
-// from the query handler's Zod schema at buildAppSchema time (fw#2165), not
+// from the query handler's Zod schema at buildAppSchema time, not
 // declared here. Pages-mode pagination only — infinite-scroll accumulation
 // isn't wired for projectionList.
 export function ProjectionListBody({
@@ -87,7 +87,7 @@ export function ProjectionListBody({
   }, [appFeatures, screen.detailFor, userRoles]);
 
   // searchable/sortable/paginated are derived at buildAppSchema time from the
-  // query handler's Zod schema (fw#2165) — not authored on the screen.
+  // query handler's Zod schema — not authored on the screen.
   const searchable = screen.searchable ?? false;
   const sortable = screen.sortable ?? false;
   const paginated = screen.paginated ?? false;
@@ -116,7 +116,7 @@ export function ProjectionListBody({
   // "infinite" on a paginated projectionList is silently a no-op today.
   const usePager = paginated && (screen.pagination ?? "pages") === "pages";
 
-  // Facets (fw#2224) — a projectionList has no entity, so screen.facets is
+  // Facets — a projectionList has no entity, so screen.facets is
   // the only field inventory; resolveProjectionFacetSpecs reshapes +
   // translates its explicit labels into the same ResolvedFacetSpec the
   // entityList adapter produces, so both feed the same
@@ -148,7 +148,7 @@ export function ProjectionListBody({
     [urlState.filters, facetSpecs],
   );
 
-  // dateRange facets (fw#3104) bypass `filters` entirely — their two bounds
+  // dateRange facets bypass `filters` entirely — their two bounds
   // become the top-level query params the facet declares, resolved from a
   // calendar date to an instant in the viewer's zone.
   const timeZone = useOptionalTimeZone();
@@ -174,7 +174,7 @@ export function ProjectionListBody({
     // Gated on screen.filter/screen.facets being declared (not just on
     // urlState/filterPayload happening to carry a value) — same rule as
     // activeSearch/activeSort above: a stale URL must not smuggle a param
-    // the bound query's Zod schema doesn't accept (fw#2165 pattern).
+    // the bound query's Zod schema doesn't accept.
     if (screen.filter !== undefined) {
       payload["filter"] = screen.filter;
     }
@@ -220,8 +220,8 @@ export function ProjectionListBody({
     [urlState.setDateRange, urlState.filters],
   );
 
-  // Entity-Targets (fw#2228) — see EntityListBody.runNavigate for why the
-  // resolution happens in the NavApi impl. Unlike there: NO row["id"]
+  // Entity targets: see EntityListBody.runNavigate for why the resolution happens
+  // in the NavApi impl. Unlike there: NO row["id"]
   // fallback — projectionList rows come from an arbitrary query projection
   // with no guaranteed "id" field. The boot validator therefore enforces an
   // explicit entityId for projectionList entity targets. Same helper
@@ -319,8 +319,8 @@ export function ProjectionListBody({
   ) : null;
 
   // rowsQuery.data is typed as PagedRows but the query handler is free to
-  // return anything at runtime (fw#2216: a bare array silently rendered an
-  // empty table instead of surfacing the mismatch), so the shape is checked.
+  // return anything at runtime (a bare array silently rendered an empty
+  // table instead of surfacing the mismatch), so the shape is checked.
   if (rowsQuery.data !== null && !Array.isArray(rowsQuery.data.rows)) {
     return (
       <Banner padded variant="error" testId="kumiko-screen-projection-list-bad-shape">
@@ -343,7 +343,7 @@ export function ProjectionListBody({
 
   // Same pager-construction as EntityListBody: no Pager UI until the
   // server-provided `total` arrives (guards pagination="pages" without
-  // totalCount support, see fw#2165 report on solon's leaseOverviewHandler).
+  // totalCount support).
   const total = rowsQuery.data?.total;
   const pager =
     usePager && total !== undefined

@@ -71,7 +71,7 @@ function baseProps(overrides: Partial<EmbeddedListInputProps> = {}): EmbeddedLis
 }
 
 // A real onAddRow that appends a row via useState, wired to the same
-// pendingFocusCellId batching #1839 relies on — a mock onAddRow that
+// pendingFocusCellId batching relies on — a mock onAddRow that
 // never actually grows `rows` can't reproduce the auto-focus effect,
 // since it targets a cell in a row that doesn't exist yet.
 function ControlledFocusHarness({
@@ -282,7 +282,7 @@ describe("EmbeddedListInput — issue rendering", () => {
     ).toBeTruthy();
   });
 
-  // #1876: a long validation message in a narrow cell must wrap instead of
+  // A long validation message in a narrow cell must wrap instead of
   // widening the column into horizontal scroll.
   test("cellIssues in the desktop table are width-constrained and wrap", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
@@ -865,7 +865,7 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
 
 // happy-dom performs no layout — scrollWidth/clientWidth/getBoundingClientRect
 // always read 0, so the affordance decision itself (computeScrollAffordance)
-// is the only piece of fw#2159 a unit test can actually exercise; the rest
+// is the only piece of this behavior a unit test can actually exercise; the rest
 // of this describe block covers what's left: that the DOM only exposes one
 // real scroll container, and that a fresh table always opens scrolled left.
 describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
@@ -915,7 +915,7 @@ describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
     expect(scrollContainers.length).toBe(1);
     const scrollContainer = scrollContainers[0] as HTMLElement;
     expect(scrollContainer.className).toContain("overflow-x-auto");
-    // Guards the fw#2159 trap: without this, ui/table.tsx's own
+    // Guards the trap: without this, ui/table.tsx's own
     // `data-slot=table-container` wrapper (also overflow-x-auto) would
     // absorb the actual scrolling, leaving our ref permanently at
     // scrollLeft=0 and the affordance/reset logic silently dead.

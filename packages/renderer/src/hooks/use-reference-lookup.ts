@@ -1,21 +1,20 @@
-// Tier 2.7e-4: Renderer-Side Eagerload für Reference-Felder.
+// Renderer-side eager load for reference fields.
 //
-// Pro Reference-Spalte einer Liste wird einmal `<feature>:query:
-// <refEntity>:list` (limit:200) gerufen, eine Map<uuid, displayValue>
-// gebaut, und der Renderer nutzt sie als Cell-Display-Renderer.
+// Each reference column of a list calls `<feature>:query:
+// <refEntity>:list` (limit:200) once, builds a Map<uuid, displayValue>,
+// and the renderer uses it as the cell display renderer.
 //
-// Strategy-Trade-offs:
-//   - Server-side Drizzle-Joins wären effizienter (eine Query statt
-//     N+1), würden aber die executor-API um lookupTables erweitern
-//     müssen. Für das MVP geht der Renderer-Side-Pfad vor.
-//   - Limit:200 ist eine harte UX-Grenze: bei mehr Entries in der
-//     referenced Entity zeigen die letzten Rows nur noch UUIDs.
-//     Searchable-Combobox (Tier 2.1c) + Server-Eagerload mit
-//     ID-Whitelist heben das später auf.
+// Strategy trade-offs:
+//   - Server-side Drizzle joins would be more efficient (one query instead
+//     of N+1) but would have to extend the executor API with lookupTables.
+//     The renderer-side path wins for the MVP.
+//   - limit:200 is a hard UX limit: with more entries in the referenced
+//     entity, the last rows show only UUIDs. A searchable combobox plus a
+//     server-side eager load with an ID whitelist will lift that later.
 //
-// Dieser Hook ist call-stable: Lookup-Map wird durch useQuery's
-// internen Cache shared zwischen List + Edit-Form für die gleiche
-// Entity, Live-Updates kommen via SSE (use-query-live).
+// The hook is call-stable: useQuery's internal cache shares the lookup map
+// between list and edit form for the same entity, and live updates arrive
+// via SSE (use-query-live).
 
 import {
   REFERENCE_LOOKUP_SOURCES,
@@ -48,8 +47,8 @@ export function referenceLookupSource(
 
 // Where a reference field's option rows come from, and which of their keys
 // holds the display text — the entity's own list handler plus `refLabelField`
-// by default, or an author-supplied handler whose rows carry `label`
-// (fw#2780), for targets with no readable column of their own.
+// by default, or an author-supplied handler whose rows carry `label`,
+// for targets with no readable column of their own.
 export function referenceOptionSource(
   field: { readonly refLabelField?: string; readonly refOptionsQuery?: string },
   refFeature: string,

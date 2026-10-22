@@ -1,46 +1,46 @@
 // @runtime client
-// URL-Bridge für Visual-Tree-Targets. Serialisiert TargetRef in
-// Search-Params + parsed zurück.
+// URL bridge for visual-tree targets. Serializes TargetRef into
+// search params and parses it back.
 //
-// **URL-Shape**:
+// **URL shape**:
 //   ?t=<featureId>:<action>&a_<argKey1>=<value1>&a_<argKey2>=<value2>...
 //
-// Beispiel: text-content edit "imprint/de"
+// Example: text-content edit "imprint/de"
 //   ?t=text-content:edit&a_slug=imprint&a_lang=de
 //
-// **Warum prefix `a_`**: vermeidet Naming-Konflikt mit anderen Query-
-// Params (Pagination, Sort, Filter). Plus klare Trennung target-meta
-// (`t`) vs. action-args (`a_*`).
+// **Why the `a_` prefix**: avoids naming conflicts with other query
+// params (pagination, sorting, filtering) and clearly separates target
+// metadata (`t`) from action arguments (`a_*`).
 //
-// **Warum nicht JSON-encoded**: URL bleibt lesbar + bookmark-fähig.
-// JSON-base64 wäre robust für arbitrary Shapes aber unleserlich. arg-
-// values sind heute nur primitive strings (text-content: slug, lang) —
-// V.1.5 kann auf JSON wechseln wenn nested-args echten Bedarf zeigen.
+// **Why not JSON-encoded**: keeps the URL readable and bookmarkable.
+// JSON-base64 would be robust for arbitrary shapes but unreadable. Argument
+// values are currently only primitive strings (text-content: slug, lang) —
+// nested arguments could switch to JSON if they create a real need.
 
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 
 const TARGET_PARAM = "t";
 const ARG_PREFIX = "a_";
 
-/** Build a search-params update for `setSearchParams`. Clears all
- *  existing `a_*` keys plus `t` (so wechsel target nicht alte args
- *  liegen lässt). Returns null-value entries to clear, plus the new
+/** Builds a search-params update for `setSearchParams`. Clears all
+ *  existing `a_*` keys plus `t` so switching targets cannot leave stale
+ *  arguments behind. Returns null-valued entries to clear, plus the new
  *  target entries. */
 export function serializeTarget(
   target: TargetRef,
   currentParams: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string | null>> {
   const updates: Record<string, string | null> = {};
-  // Clear all previous arg-keys (vermeidet stale args bei target-switch).
+  // Clear previous argument keys so switching targets cannot leave stale arguments.
   for (const key of Object.keys(currentParams)) {
     if (key.startsWith(ARG_PREFIX)) updates[key] = null;
   }
   updates[TARGET_PARAM] = `${target.featureId}:${target.action}`;
   if (target.args !== undefined) {
     for (const [k, v] of Object.entries(target.args)) {
-      // V.1.4b: nur string-args. Numbers/booleans werden via String()
-      // koerziert; nested objects/arrays werden NICHT supported (würde
-      // JSON-encoded URL brauchen, siehe Header-Comment).
+      // Only string arguments are supported. Numbers and booleans are coerced via String();
+      // nested objects and arrays are unsupported because they would require a
+      // JSON-encoded URL.
       if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
         updates[`${ARG_PREFIX}${k}`] = String(v);
       }
@@ -49,8 +49,8 @@ export function serializeTarget(
   return updates;
 }
 
-/** Inverse — parse the current search-params back into a TargetRef.
- *  Returns undefined wenn der `t`-Key fehlt (kein active target). */
+/** Parses the current search parameters back into a TargetRef.
+ *  Returns undefined when the `t` key is missing, indicating no active target. */
 export function parseTargetFromSearchParams(
   params: Readonly<Record<string, string>>,
 ): TargetRef | undefined {
@@ -73,8 +73,8 @@ export function parseTargetFromSearchParams(
   return hasArgs ? { featureId, action, args } : { featureId, action };
 }
 
-/** Returns null-valued updates that clear target + all args. Used vom
- *  Close-Button + onUnmount. */
+/** Returns null-valued updates that clear the target and all arguments. Used by
+ *  the close button and on unmount. */
 export function clearTargetSearchParams(
   currentParams: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string | null>> {

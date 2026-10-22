@@ -1,7 +1,7 @@
 // Read-only number display (`field.readOnly: true`, no own `renderer`) goes
 // through readOnlyDisplayText's own Intl.NumberFormat call, independent of
 // the headless `applyFormatSpec` path already covered by
-// format.test.tsx — `field.grouping` gates it the same way (fw#3234).
+// format.test.tsx — `field.grouping` gates it the same way.
 
 import { describe, expect, test } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
