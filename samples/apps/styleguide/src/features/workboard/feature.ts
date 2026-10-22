@@ -33,7 +33,7 @@ export const taskEntity = createEntity({
     }),
     dueDate: createDateField({ sortable: true }),
     assignee: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
-    estimateHours: createNumberField({ sortable: true }),
+    estimateHours: createNumberField({ sortable: true, filterable: true }),
   },
 });
 
@@ -120,6 +120,27 @@ export const workboardFeature = defineFeature("workboard", (r) => {
     bulkActions: [{ id: "delete", rowAction: "delete" }],
   });
 
+  // The same tasks grouped by status on the server: each header carries the
+  // group's count and estimate sum, a footer row the sum over all filtered tasks.
+  r.screen({
+    id: "task-estimates",
+    type: "entityList",
+    entity: "task",
+    columns: ["title", "status", "priority", "assignee", "estimateHours"],
+    pagination: "pages",
+    pageSize: 3,
+    defaultSort: { field: "title", dir: "asc" },
+    searchable: true,
+    facets: { estimateHours: { display: "range" } },
+    table: {
+      grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
+      totals: [{ field: "estimateHours", kind: "sum" }],
+    },
+    rowActions: [
+      { kind: "navigate", id: "edit", label: "Edit", screen: "task-edit", rowClick: true },
+    ],
+  });
+
   r.screen({
     id: "task-edit",
     type: "entityEdit",
@@ -152,5 +173,13 @@ export const workboardFeature = defineFeature("workboard", (r) => {
     screen: "workboard:screen:task-board",
     icon: "table",
     order: 20,
+  });
+  r.nav({
+    id: "task-estimates",
+    label: "workboard:nav.estimates",
+    parent: "workboard:nav:workboard",
+    screen: "workboard:screen:task-estimates",
+    icon: "table",
+    order: 30,
   });
 });

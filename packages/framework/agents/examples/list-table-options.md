@@ -30,7 +30,14 @@ the `table` block renders and behaves as before.
   Reference columns export their label and timestamps use the browser time zone.
 - `bulkActions`: row checkboxes and a selection bar. "Delete" runs the delete
   row action once per selected row; done tasks are skipped.
-- The same block on a `projectionList`.
+- `table.grouping`: the server groups the list by status; each header shows the
+  group's count and estimate sum, "done" starts collapsed and the view menu
+  offers grouping by priority or none.
+- `table.totals`: a footer row with the estimate sum over the filtered list.
+- `facets.estimateHours: { display: "range" }`: from/to inputs for a number field.
+- The same block on a `projectionList`, and `task:workload`, a hand-written list
+  query that keeps grouping and totals by accepting `aggregate`
+  (`entityListSchema`) and answering it with `answerListAggregate`.
 
 ## Source
 
@@ -47,6 +54,8 @@ The test boots the feature through the boot validator and checks that a
 misspelled key, a hidden column without the picker, an unknown density, a pinned column
 without `pinning`, a width without `resizing` and a bulk action on a navigate
 row action are rejected.
+`workload.integration.test.ts` runs the hand-written query over HTTP and checks
+the grouped sums and the filtered total.
 
 ## Source files
 
@@ -86,6 +95,8 @@ describe("list-table-options recipe", () => {
       resizing: true,
       keyboardNavigation: true,
       export: { xlsx: true, maxRows: 5000 },
+      grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
+      totals: [{ field: "estimateHours", kind: "sum" }],
     });
   });
 
@@ -156,9 +167,86 @@ describe("list-table-options recipe", () => {
 });
 ```
 
+### src/__tests__/workload.integration.test.ts
+
+```ts
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createTaskBoardFeature } from "../feature";
+
+type ListAggregateResult = {
+  readonly groups: readonly { key: unknown; count: number; measures: readonly unknown[] }[];
+};
+
+let stack: TestStack;
+const user = createTestUser({ roles: ["User"], tenantId: testTenantId(1) });
+
+const TASKS = [
+  { title: "Quarterly VAT filing", assignee: "Ines", estimateHours: 6 },
+  { title: "Prepare audit", assignee: "Ines", estimateHours: 24 },
+  { title: "Plan offsite", assignee: "Mara", estimateHours: 7 },
+] as const;
+
+beforeAll(async () => {
+  stack = await setupTestStack({ features: [createTaskBoardFeature()], systemHooks: [] });
+  for (const task of TASKS) {
+    await stack.http.writeOk("task-board:write:task:create", task, user);
+  }
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("hand-written list query with aggregate", () => {
+  test("groups by assignee with the server count and estimate sum", async () => {
+    const result = await stack.http.queryOk<ListAggregateResult>(
+      "task-board:query:task:workload",
+      { aggregate: { groupBy: "assignee", measures: [{ field: "estimateHours", kind: "sum" }] } },
+      user,
+    );
+    expect(result.groups.map(({ key, count, measures }) => ({ key, count, measures }))).toEqual([
+      { key: "Ines", count: 2, measures: [30] },
+      { key: "Mara", count: 1, measures: [7] },
+    ]);
+  });
+
+  test("the totals answer follows the list filter", async () => {
+    const result = await stack.http.queryOk<ListAggregateResult>(
+      "task-board:query:task:workload",
+      {
+        filters: [{ field: "estimateHours", op: "lte", value: 7 }],
+        aggregate: { measures: [{ field: "estimateHours", kind: "sum" }] },
+      },
+      user,
+    );
+    expect(result.groups.map((group) => group.measures)).toEqual([[13]]);
+  });
+
+  test("without aggregate the same query lists rows", async () => {
+    const list = await stack.http.queryOk<{ rows: { title: string }[] }>(
+      "task-board:query:task:workload",
+      { sort: "title" },
+      user,
+    );
+    expect(list.rows.map((row) => row.title)).toEqual([
+      "Plan offsite",
+      "Prepare audit",
+      "Quarterly VAT filing",
+    ]);
+  });
+});
+```
+
 ### src/feature.ts
 
 ```ts
+import {
+  answerListAggregate,
+  buildEntityTable,
+  createEventStoreExecutor,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createDateField,
   createEntity,
@@ -166,6 +254,7 @@ import {
   createSelectField,
   createTextField,
   defineFeature,
+  entityListSchema,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -195,7 +284,7 @@ export const taskEntity = createEntity({
     }),
     dueDate: createDateField({ sortable: true }),
     assignee: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
-    estimateHours: createNumberField({ sortable: true }),
+    estimateHours: createNumberField({ sortable: true, filterable: true }),
   },
 });
 
@@ -216,6 +305,8 @@ export function createTaskBoardFeature(
     resizing: true,
     keyboardNavigation: true,
     export: { xlsx: true, maxRows: 5000 },
+    grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
+    totals: [{ field: "estimateHours", kind: "sum" }],
   },
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {
@@ -235,7 +326,7 @@ export function createTaskBoardFeature(
         // Starts hidden; the user can add it back in the view menu.
         { field: "estimateHours", hidden: true, hideOnNarrow: true },
       ],
-      facets: { status: { display: "chips" }, priority: {} },
+      facets: { status: { display: "chips" }, priority: {}, estimateHours: { display: "range" } },
       defaultSort: { field: "dueDate", dir: "asc" },
       searchable: true,
       table: taskTable,
@@ -302,6 +393,52 @@ export function createTaskBoardFeature(
       table: { rememberState: true, density: { userChoice: true } },
     });
 
+    // A hand-written list query keeps grouping and totals when it accepts
+    // `aggregate` (entityListSchema carries it) and answers it on the server.
+    const taskExecutor = createEventStoreExecutor(
+      buildEntityTable("task", taskEntity),
+      taskEntity,
+      {
+        entityName: "task",
+      },
+    );
+    r.queryHandler({
+      name: "task:workload",
+      schema: entityListSchema,
+      handler: async (query, ctx) => {
+        const parentVisibility = { entities: ctx.registry.getAllEntities() };
+        const listPayload = query.payload;
+        if (listPayload.aggregate !== undefined) {
+          return answerListAggregate(
+            taskExecutor,
+            { ...listPayload, aggregate: listPayload.aggregate },
+            query.user,
+            ctx.db,
+            { parentVisibility },
+            {
+              entity: taskEntity,
+              resolveEntity: (name) => ctx.registry.getEntity(name),
+              viewer: { user: query.user, parentVisibility },
+            },
+          );
+        }
+        return taskExecutor.list(listPayload, query.user, ctx.db, { parentVisibility });
+      },
+      access: openAccess.access,
+    });
+
+    r.screen({
+      id: "task-workload",
+      type: "projectionList",
+      query: "task-board:query:task:workload",
+      columns: ["title", "assignee", "status", "estimateHours"],
+      defaultSort: { field: "title", dir: "asc" },
+      table: {
+        grouping: { field: "assignee" },
+        totals: [{ field: "estimateHours", kind: "sum" }],
+      },
+    });
+
     r.nav({ id: "tasks", label: "task-board:nav.tasks", icon: "list", order: 10 });
     r.nav({
       id: "task-list",
@@ -316,6 +453,13 @@ export function createTaskBoardFeature(
       parent: "task-board:nav:tasks",
       screen: "task-board:screen:task-overdue",
       order: 20,
+    });
+    r.nav({
+      id: "task-workload",
+      label: "task-board:nav.workload",
+      parent: "task-board:nav:tasks",
+      screen: "task-board:screen:task-workload",
+      order: 30,
     });
   });
 }

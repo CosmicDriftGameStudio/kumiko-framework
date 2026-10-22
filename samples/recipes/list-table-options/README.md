@@ -22,7 +22,14 @@ the `table` block renders and behaves as before.
   Reference columns export their label and timestamps use the browser time zone.
 - `bulkActions`: row checkboxes and a selection bar. "Delete" runs the delete
   row action once per selected row; done tasks are skipped.
-- The same block on a `projectionList`.
+- `table.grouping`: the server groups the list by status; each header shows the
+  group's count and estimate sum, "done" starts collapsed and the view menu
+  offers grouping by priority or none.
+- `table.totals`: a footer row with the estimate sum over the filtered list.
+- `facets.estimateHours: { display: "range" }`: from/to inputs for a number field.
+- The same block on a `projectionList`, and `task:workload`, a hand-written list
+  query that keeps grouping and totals by accepting `aggregate`
+  (`entityListSchema`) and answering it with `answerListAggregate`.
 
 ## Source
 
@@ -39,3 +46,5 @@ The test boots the feature through the boot validator and checks that a
 misspelled key, a hidden column without the picker, an unknown density, a pinned column
 without `pinning`, a width without `resizing` and a bulk action on a navigate
 row action are rejected.
+`workload.integration.test.ts` runs the hand-written query over HTTP and checks
+the grouped sums and the filtered total.
