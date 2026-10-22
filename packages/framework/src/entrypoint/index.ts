@@ -60,7 +60,7 @@ import { createNoopProvider } from "../observability/index.ts";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.ts";
 import { dispatcherToWriteRef } from "../pipeline/dispatcher.ts";
 import type { EventDedup, EventDispatcher } from "../pipeline/index.ts";
-import type { SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
+import type { LifecycleHooks, SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
 import { resolveCacheSyncBus } from "../redis/cache-sync-bus.ts";
 
 // Shared fields across all three modes. A caller that swaps between
@@ -146,6 +146,8 @@ export type ApiEntrypoint = {
   // Command-dispatcher behind /api/* — for writes outside the HTTP
   // pipeline (provider-webhook routes, see KumikoServer.dispatcher).
   readonly dispatcher: Dispatcher;
+  // Same instance as the dispatcher behind /api/*, for seed dispatchers outside the HTTP pipeline.
+  readonly lifecycleHooks: LifecycleHooks;
   // Set when `eventDispatcher.runLocal: true` built a local poller —
   // single-container mode. Undefined for API-only processes.
   readonly eventDispatcher?: EventDispatcher;
@@ -438,6 +440,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
     lifecycle,
     observability: server.observability,
     dispatcher: server.dispatcher,
+    lifecycleHooks: server.lifecycleHooks,
     ...(server.eventDispatcher && { eventDispatcher: server.eventDispatcher }),
     mode: "api",
     async start() {
@@ -554,6 +557,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
     jobRunner: workerJobRunner,
     observability: server.observability,
     dispatcher: server.dispatcher,
+    lifecycleHooks: server.lifecycleHooks,
     mode: "all-in-one",
     async start() {
       await eventDispatcher.start();

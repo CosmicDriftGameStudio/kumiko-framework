@@ -119,6 +119,7 @@ export async function runProdBootSeeds(
     ? withSeedErrorContext(
         createDispatcher(composed.registry, seedContext, {
           ...dispatcherOptions,
+          lifecycle: entrypoint.lifecycleHooks,
           ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
         }),
       )
