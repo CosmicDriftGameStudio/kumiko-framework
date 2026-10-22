@@ -52,7 +52,6 @@ import {
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
-import postgres from "postgres";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
@@ -147,11 +146,11 @@ let handle: ProdAppHandle | undefined;
 
 beforeAll(async () => {
   if (!ADMIN_URL) throw new Error("TEST_DATABASE_URL must be set");
-  const adminClient = postgres(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = new Bun.SQL(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
   try {
     await adminClient.unsafe(`CREATE DATABASE "${TEST_DB}"`);
   } finally {
-    await adminClient.end();
+    await adminClient.close();
   }
   const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
@@ -180,11 +179,11 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  const adminClient = postgres(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = new Bun.SQL(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
   try {
     await adminClient.unsafe(`DROP DATABASE IF EXISTS "${TEST_DB}" WITH (FORCE)`);
   } finally {
-    await adminClient.end();
+    await adminClient.close();
   }
 });
 

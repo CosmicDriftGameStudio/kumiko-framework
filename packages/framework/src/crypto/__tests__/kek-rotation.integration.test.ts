@@ -7,7 +7,6 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { createTestDb } from "@cosmicdrift/kumiko-testing/stack";
-import postgres from "postgres";
 import type { KmsContext, SubjectId } from "../kms-adapter.ts";
 import { createPgKmsAdapter, rewrapSubjectKeys } from "../pg-kms-adapter.ts";
 
@@ -22,10 +21,10 @@ const KEK_V2 = Buffer.alloc(32, 2).toString("base64");
 const ctx: KmsContext = { requestId: "kek-rotation-test" };
 const freshUser = (): SubjectId => ({ kind: "user", userId: randomUUID() });
 
-const raw = postgres(DB_URL, { max: 1, onnotice: () => {} });
+const raw = new Bun.SQL(DB_URL, { max: 1 });
 
 afterAll(async () => {
-  await raw.end();
+  await raw.close();
   await testDb.cleanup();
 });
 

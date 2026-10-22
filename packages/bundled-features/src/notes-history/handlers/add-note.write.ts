@@ -69,7 +69,7 @@ export function createAddNoteHandler(
       let authorName: string | null = null;
       try {
         // read_users is tenant-agnostic → ctx.db.unsafeRaw, not the tenant-scoped ctx.db.
-        // postgres-js poisons the whole tx after any error inside it, even one that's
+        // Postgres aborts the whole tx after any error inside it, even one that's
         // caught — so the lookup runs in a savepoint where available, otherwise directly
         // (pool statements are their own units).
         authorName = await runInSavepointIfSupported(ctx.db.unsafeRaw(), async (sp) => {

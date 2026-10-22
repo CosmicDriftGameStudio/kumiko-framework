@@ -6,13 +6,13 @@ import { isTemporalInstant, isTemporalPlainDate } from "./temporal-value-guards.
 
 // --- Value coercion at the driver boundary ------------------------------
 //
-// postgres-js returns timestamptz as JS Date (or ISO string depending on
+// The driver returns timestamptz as JS Date (or ISO string depending on
 // driver config). Framework contract says timestamptz surfaces as
 // Temporal.Instant — without coercion every read hands callers a Date and
 // downstream code that does .epochMilliseconds / .add(...) crashes.
 //
-// Symmetric on write: Temporal.Instant doesn't bind directly into postgres-js
-// params — convert to ISO string when the column pgType is timestamptz.
+// Symmetric on write: Temporal.Instant doesn't bind directly as a driver
+// param — convert to ISO string when the column pgType is timestamptz.
 
 // Postgres bigint → JS: safe integers become `number` (matches createBigIntField /
 // drizzle mode:"number"); values outside ±2^53 stay `bigint` (money cents, raw
@@ -69,7 +69,7 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
 // the day, so say so once per column instead of returning the wrong day quietly.
 const warnedNonMidnightDateColumns = new Set<string>();
 const MS_PER_DAY = 86_400_000;
-const dateColumnDriftLog = createFallbackLogger("postgres-js");
+const dateColumnDriftLog = createFallbackLogger("bun-sql");
 
 function warnIfNotDateColumn(epochMs: number, column: string): void {
   // skip: midnight value is a correct date column, and an already-warned column is deduped

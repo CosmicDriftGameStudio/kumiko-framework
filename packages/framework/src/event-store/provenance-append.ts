@@ -49,7 +49,7 @@ export async function appendProvenanceEvent(
       message: `appendProvenanceEvent: event tenant "${event.tenantId}" does not match the TenantDb's tenant "${db.tenantId}".`,
     });
   }
-  // postgres-js aborts the whole surrounding begin() on a statement
+  // Postgres aborts the whole surrounding transaction on a statement
   // error (25P02) even when the caller's catch swallows it — the savepoint
   // confines that to this scope. Pool connections have no ambient tx to poison.
   await runInSavepointIfSupported(runner, async (sp) => {

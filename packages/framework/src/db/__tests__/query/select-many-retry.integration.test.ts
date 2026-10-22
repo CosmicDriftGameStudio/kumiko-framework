@@ -3,14 +3,21 @@
 // closed-connection-retry.integration.test.ts.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
+import { captureClosedConnectionError, testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { selectMany } from "../../query.ts";
 import { buildEntityTable } from "../../table-builder.ts";
 
 let closedConnectionError: unknown;
+let syntaxError: unknown;
 
 beforeAll(async () => {
   closedConnectionError = await captureClosedConnectionError();
+  const pool = new Bun.SQL(testDatabaseUrl(), { max: 1 });
+  try {
+    syntaxError = await pool.unsafe("selec 1").catch((e: unknown) => e);
+  } finally {
+    await pool.close({ timeout: 0 });
+  }
 });
 
 type FakeClientOptions = {
@@ -136,8 +143,7 @@ describe("selectMany — closed-connection retry", () => {
   });
 
   test("does not retry generic query errors", async () => {
-    const syntax = Object.assign(new Error("syntax error at or near"), { name: "PostgresError" });
-    const db = fakeClient([syntax]);
+    const db = fakeClient([syntaxError]);
     await expect(selectMany(db, table)).rejects.toThrow("syntax error");
     expect(db.calls).toBe(1);
   });

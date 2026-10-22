@@ -105,11 +105,11 @@ export type ServerOptions = {
       jobTrigger?: boolean;
       accessInvalidation?: boolean;
     };
-    // LISTEN-capable client (postgres-js) for NOTIFY wake-up. When
+    // LISTEN-capable client (Bun.SQL) for NOTIFY wake-up. When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
     // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
     // stays on as a safety net. Typically wired from
-    // `createConnection(url).client`.
+    // `createDbConnection({ url }).listenClient`.
     pgClient?: PgListenClient;
   };
   // Observability: tracer + meter used for auto-instrumentation across

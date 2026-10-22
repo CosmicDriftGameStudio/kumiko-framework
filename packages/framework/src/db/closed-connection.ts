@@ -6,7 +6,7 @@ import { extractPgError } from "./pg-error.ts";
 // A pool can briefly keep handing out connections the server just closed.
 // Each failed attempt discards one, so retries are bounded by pool size.
 const CLOSED_CONNECTION_CODES: ReadonlySet<string> = new Set([
-  "CONNECTION_CLOSED", // postgres-js
+  "ERR_POSTGRES_CONNECTION_CLOSED", // Bun.SQL
   "57P01", // PG SQLSTATE: admin_shutdown / terminated backend
 ]);
 
@@ -26,28 +26,18 @@ export function isPooledClient(raw: unknown): boolean {
   );
 }
 
-const closedConnectionLog = createFallbackLogger("postgres-js");
-
-// The driver rejects in-flight queries with this AbortError (no code) when the
-// pool closes under them, so isClosedConnectionError can't see it.
-const DRIVER_CLOSED_ABORT_MESSAGE = "The connection was closed.";
-
-function isDriverClosedAbort(err: unknown): boolean {
-  return (
-    err instanceof Error && err.name === "AbortError" && err.message === DRIVER_CLOSED_ABORT_MESSAGE
-  );
-}
+const closedConnectionLog = createFallbackLogger("bun-sql");
 
 function isHandleLike(raw: unknown): raw is Record<string, unknown> {
   return raw !== null && (typeof raw === "object" || typeof raw === "function");
 }
 
-type ClosedConnectionDriver = "postgres-js" | "unknown";
+type ClosedConnectionDriver = "bun-sql" | "unknown";
 
-// postgres-js pool and tx handles both carry `typed`.
+// Bun.SQL pool and tx handles both carry `flush`.
 function driverOf(raw: unknown): ClosedConnectionDriver {
   if (!isHandleLike(raw)) return "unknown";
-  if (typeof raw["typed"] === "function") return "postgres-js";
+  if (typeof raw["flush"] === "function") return "bun-sql";
   return "unknown";
 }
 
@@ -55,15 +45,14 @@ function positiveNumber(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
-// postgres-js configures timeouts in seconds.
+// Bun.SQL reports its timeout options in milliseconds.
 function timeoutOptionMs(
   options: Record<string, unknown>,
   driver: ClosedConnectionDriver,
   optionName: string,
 ): number | undefined {
-  if (driver !== "postgres-js") return undefined;
-  const seconds = positiveNumber(options[optionName]);
-  return seconds === undefined ? undefined : seconds * 1000;
+  if (driver !== "bun-sql") return undefined;
+  return positiveNumber(options[optionName]);
 }
 
 function errorProp(err: unknown, name: string): unknown {
@@ -76,7 +65,7 @@ export function describeClosedConnectionFailure(
   err: unknown,
   attempts: number,
 ): Record<string, unknown> | undefined {
-  if (!isClosedConnectionError(err) && !isDriverClosedAbort(err)) return undefined;
+  if (!isClosedConnectionError(err)) return undefined;
   const driver = driverOf(raw);
   const rawOptions = isHandleLike(raw) ? raw["options"] : undefined;
   const options = isHandleLike(rawOptions) ? rawOptions : {};
@@ -85,9 +74,9 @@ export function describeClosedConnectionFailure(
     pooled: isPooledClient(raw),
     attempts,
     poolMax: positiveNumber(options["max"]),
-    idleTimeoutMs: timeoutOptionMs(options, driver, "idle_timeout"),
-    maxLifetimeMs: timeoutOptionMs(options, driver, "max_lifetime"),
-    connectionTimeoutMs: timeoutOptionMs(options, driver, "connect_timeout"),
+    idleTimeoutMs: timeoutOptionMs(options, driver, "idleTimeout"),
+    maxLifetimeMs: timeoutOptionMs(options, driver, "maxLifetime"),
+    connectionTimeoutMs: timeoutOptionMs(options, driver, "connectionTimeout"),
     errorName: errorProp(err, "name"),
     errorCode: extractPgError(err)?.code ?? errorProp(err, "code"),
     errorErrno: errorProp(err, "errno"),

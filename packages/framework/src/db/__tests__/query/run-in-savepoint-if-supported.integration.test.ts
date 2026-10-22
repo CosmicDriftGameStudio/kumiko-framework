@@ -2,7 +2,7 @@
 // loudly on a transaction handle that has already committed, instead of
 // silently re-running `fn` outside the savepoint's isolation. Uses a real
 // Postgres connection — a mock handle can't produce the driver's actual
-// PG 25P01 ("no active sql transaction") on a post-commit savepoint call.
+// ERR_POSTGRES_INVALID_TRANSACTION_STATE on a post-commit savepoint call.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { InternalError } from "../../../errors/index.ts";
@@ -22,7 +22,7 @@ describe("runInSavepointIfSupported — already-committed transaction", () => {
       committedTx = tx;
     });
     // `committedTx` is now a driver handle whose transaction has committed —
-    // it still exposes `.savepoint()`, calling it fails with PG 25P01.
+    // it still exposes `.savepoint()`, calling it fails with ERR_POSTGRES_INVALID_TRANSACTION_STATE.
 
     let fnCalls = 0;
     const fn = async () => {
@@ -47,7 +47,7 @@ describe("runInSavepointIfSupported — already-committed transaction", () => {
   test("an error thrown inside fn is not remapped, even with a closed-connection code", async () => {
     const db = await getDb();
     const original = Object.assign(new Error("Connection closed"), {
-      code: "CONNECTION_CLOSED",
+      code: "ERR_POSTGRES_CONNECTION_CLOSED",
     });
 
     let caught: unknown;

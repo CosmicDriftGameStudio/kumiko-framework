@@ -5,13 +5,13 @@ import {
   outsideTransactionPoolOptionsFromEnv,
 } from "../connection.ts";
 
-// createDbConnection itself opens a real postgres.js socket, so it's
+// createDbConnection itself opens a real Bun.SQL socket, so it's
 // exercised in the DB-integration suite. The env-parsing + validation
 // logic is pure and worth pinning as a unit — misconfig at boot is the
 // whole point of parsing strictly.
 
 describe("dbConnectionOptionsFromEnv", () => {
-  test("empty env → empty options (falls back to postgres.js defaults)", () => {
+  test("empty env → empty options (falls back to Bun.SQL defaults)", () => {
     expect(dbConnectionOptionsFromEnv({})).toEqual({});
   });
 
@@ -34,8 +34,10 @@ describe("dbConnectionOptionsFromEnv", () => {
     );
   });
 
-  test("postgres or an empty driver selection is accepted", () => {
-    expect(dbConnectionOptionsFromEnv({ DB_PROVIDER: "postgres" })).toEqual({});
+  test("a leftover postgres driver selection is rejected, an empty one is accepted", () => {
+    expect(() => dbConnectionOptionsFromEnv({ DB_PROVIDER: "postgres" })).toThrow(
+      'DB_PROVIDER="postgres" is no longer supported',
+    );
     expect(dbConnectionOptionsFromEnv({ DB_PROVIDER: "" })).toEqual({});
   });
 
@@ -47,7 +49,7 @@ describe("dbConnectionOptionsFromEnv", () => {
     expect(opts).toEqual({ idleTimeoutSeconds: 30 });
   });
 
-  test("zero is allowed (idle_timeout=0 disables idle eviction in postgres.js)", () => {
+  test("zero is allowed (idleTimeout=0 disables idle eviction in Bun.SQL)", () => {
     const opts = dbConnectionOptionsFromEnv({
       DATABASE_POOL_IDLE_TIMEOUT: "0",
     });
@@ -66,7 +68,7 @@ describe("dbConnectionOptionsFromEnv", () => {
     );
   });
 
-  test("decimal → throws (postgres.js expects integer seconds)", () => {
+  test("decimal → throws (Bun.SQL expects integer seconds)", () => {
     expect(() => dbConnectionOptionsFromEnv({ DATABASE_POOL_IDLE_TIMEOUT: "1.5" })).toThrow(
       /DATABASE_POOL_IDLE_TIMEOUT="1.5".*integer/i,
     );

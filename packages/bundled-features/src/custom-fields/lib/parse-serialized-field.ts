@@ -1,7 +1,7 @@
 // Centralised parser for `fieldDefinition.serializedField`.
 //
 // The column is stored as `text` in B1 (entity.ts) — what the db row hands
-// back depends on the driver: postgres-js returns text as a `string`, but
+// back depends on the driver: text normally arrives as a `string`, but
 // jsonb-tolerant drivers and middleware can deliver an already-parsed
 // object. This helper normalises both, validates the shape, and centralises
 // the single boundary cast so callers don't sprinkle `as { … }`-narrowings

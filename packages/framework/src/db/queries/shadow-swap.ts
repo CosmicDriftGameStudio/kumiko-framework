@@ -23,6 +23,7 @@ import type { ProjectionRowIdOf } from "@cosmicdrift/kumiko-types/projection";
 import { configuredBlindIndexKey } from "../../crypto/index.ts";
 import type { DbConnection, DbTx } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
+import { extractPgError } from "../pg-error.ts";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
@@ -34,8 +35,7 @@ export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
 const SCHEMA_IDENT = quoteTableIdent(PROJECTION_REBUILD_SCHEMA);
 
 function isDuplicateSchemaError(e: unknown): boolean {
-  if (typeof e !== "object" || e === null || !("code" in e)) return false;
-  const { code } = e;
+  const code = extractPgError(e)?.code;
   // 42P06 duplicate_schema, 23505 unique_violation on pg_namespace — both
   // surface from the well-known CREATE SCHEMA IF NOT EXISTS race.
   return code === "42P06" || code === "23505";

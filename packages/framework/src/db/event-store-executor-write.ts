@@ -425,8 +425,8 @@ export function createWriteVerbs(
     //    legitimately collide — the same ID has an existing stream — so return
     //    version_conflict instead of internal_error. Update uses the same catch.
     try {
-      // Savepoint-scoped: postgres.js poisons the WHOLE surrounding
-      // begin() once any statement inside it errors, even if the JS error
+      // Savepoint-scoped: Postgres aborts the WHOLE surrounding
+      // transaction once any statement inside it errors, even if the JS error
       // is caught — a losing concurrent create's unique-violation
       // would otherwise abort the caller's outer transaction and surface as
       // internal_error at commit time instead of the version_conflict this
@@ -470,8 +470,8 @@ export function createWriteVerbs(
   //    designer/frontend can show a clear "duplicate" message instead of a cryptic
   //    "internal server error".
   // Savepoint like the append: an unclassified DB error from the projection
-  // write would otherwise poison the enclosing transaction (postgres-js rejects the
-  // whole begin() once any statement in it fails). The savepoint rolls back the failed
+  // write would otherwise poison the enclosing transaction (Postgres aborts the
+  // whole transaction once any statement in it fails). The savepoint rolls back the failed
   // write while allowing the error to propagate and remain catchable.
   async function applyProjection(
     runner: WriteRunner,

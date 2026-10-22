@@ -1,7 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createTestDb } from "@cosmicdrift/kumiko-testing/stack";
-import postgres from "postgres";
 import { type KmsContext, type SubjectId, subjectIdToKey } from "../kms-adapter.ts";
 import { resolveKmsWiring } from "../kms-wiring.ts";
 import { PgKmsAdapter } from "../pg-kms-adapter.ts";
@@ -14,11 +13,11 @@ const testDb = await createTestDb();
 const databaseUrl = baseUrl.replace(/\/[^/]+$/, `/${testDb.dbName}`);
 const platformKek = randomBytes(32).toString("base64");
 const adapter = new PgKmsAdapter({ databaseUrl, platformKek, maxConnections: 2 });
-const raw = postgres(databaseUrl, { max: 1 });
+const raw = new Bun.SQL(databaseUrl, { max: 1 });
 
 afterAll(async () => {
   await adapter.close();
-  await raw.end();
+  await raw.close();
   await testDb.cleanup();
 });
 

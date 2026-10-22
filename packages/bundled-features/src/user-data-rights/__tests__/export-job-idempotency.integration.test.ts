@@ -62,8 +62,8 @@ beforeEach(async () => {
 
 const NOW = () => getTemporal().Now.instant();
 
-// postgres-js throws PostgresError directly; Drizzle wraps it in .cause.
-// extractPgError normalizes both shapes. Pin the constraint name so the test
+// Bun.SQL throws a PostgresError with the SQLSTATE in errno and the constraint in
+// constraint; extractPgError maps both to code and constraint_name. Pin the constraint name so the test
 // checks only our idempotency constraint, not an unrelated unique violation
 // such as a UUID collision on the id primary key.
 async function expectUniqueViolation(

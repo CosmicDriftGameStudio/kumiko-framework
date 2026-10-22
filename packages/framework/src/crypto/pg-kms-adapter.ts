@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import postgres from "postgres";
-import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "../db/connection.ts";
+import { createDbConnection, type DbConnectionHandle } from "../db/connection.ts";
+import { isUniqueViolation } from "../db/pg-error.ts";
 import {
   KeyAlreadyExistsError,
   KeyErasedError,
@@ -45,20 +45,9 @@ function decodePlatformKek(base64: string): Buffer {
   return kek;
 }
 
-const PG_UNIQUE_VIOLATION = "23505";
-
 // pg_advisory_xact_lock key for createSchema — serializes concurrent cold-start
 // DDL across processes sharing one subject-keys DB.
 const SCHEMA_ADVISORY_LOCK_KEY = 0x6b_6d_73_31; // 'kms1'
-
-function isPgUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === PG_UNIQUE_VIOLATION
-  );
-}
 
 interface SubjectKeyRow {
   cipher_key: Uint8Array | null;
@@ -87,7 +76,8 @@ export interface PgKmsAdapterOptions {
 export class PgKmsAdapter implements LocalKeyKmsAdapter {
   readonly capabilities = { mode: "local-key" } as const;
 
-  private readonly sql: ReturnType<typeof postgres>;
+  private readonly connection: DbConnectionHandle;
+  private readonly sql: DbConnectionHandle["client"];
   private readonly kek: Buffer;
   private readonly kekVersion: number;
   private readonly previousKeks: ReadonlyMap<number, Buffer>;
@@ -107,12 +97,11 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
       previous.set(v, decodePlatformKek(kek));
     }
     this.previousKeks = previous;
-    this.sql = postgres(options.databaseUrl, {
-      max: options.maxConnections ?? 4,
-      // The connection is exclusive to this adapter and its only DDL is
-      // idempotent IF NOT EXISTS — notices are pure boot-log noise.
-      onnotice: () => {},
+    this.connection = createDbConnection({
+      url: options.databaseUrl,
+      maxConnections: options.maxConnections ?? 4,
     });
+    this.sql = this.connection.client;
   }
 
   async createKey(subject: SubjectId, ctx: KmsContext): Promise<void> {
@@ -123,7 +112,7 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
         INSERT INTO kumiko_subject_keys (subject_id, cipher_key, kek_version, created_by)
         VALUES (${subjectIdToKey(subject)}, ${wrapped}, ${this.kekVersion}, ${ctx.userId ?? null})`;
     } catch (error) {
-      if (isPgUniqueViolation(error)) throw new KeyAlreadyExistsError(subject);
+      if (isUniqueViolation(error)) throw new KeyAlreadyExistsError(subject);
       throw error;
     }
   }
@@ -177,7 +166,7 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
   }
 
   async close(): Promise<void> {
-    await this.sql.end({ timeout: DEFAULT_DB_CLOSE_TIMEOUT_SECONDS });
+    await this.connection.close();
   }
 
   private ensureSchema(): Promise<void> {
@@ -249,7 +238,8 @@ export async function rewrapSubjectKeys(options: RewrapOptions): Promise<RewrapR
     fromKeks.set(Number(version), decodePlatformKek(kek));
   }
   const batchSize = options.batchSize ?? 200;
-  const sql = postgres(options.databaseUrl, { max: 2, onnotice: () => {} });
+  const connection = createDbConnection({ url: options.databaseUrl, maxConnections: 2 });
+  const sql = connection.client;
 
   const failures: Array<{ subjectId: string; reason: string }> = [];
   const result = { scanned: 0, rewrapped: 0, skippedErased: 0, failures };
@@ -297,7 +287,7 @@ export async function rewrapSubjectKeys(options: RewrapOptions): Promise<RewrapR
       cursor = last.subject_id;
     }
   } finally {
-    await sql.end();
+    await connection.close();
   }
   return result;
 }

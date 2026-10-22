@@ -90,9 +90,9 @@ async function appendDomainEvent(
 }
 
 // Savepoint-scoped append: catches a losing writer's VersionConflictError
-// without poisoning the rest of the handler's transaction. postgres.js
-// aborts the WHOLE begin() on an uncaught statement error
-// (SQLSTATE 25P02) even if the JS error is caught — runInSavepoint
+// without poisoning the rest of the handler's transaction. Postgres
+// aborts the WHOLE transaction on a statement error
+// (SQLSTATE 25P02 until rollback) even if the JS error is caught — runInSavepoint
 // wraps the append in a real SAVEPOINT so only that nested scope rolls
 // back on conflict, and subsequent statements in the outer tx (e.g. a
 // dedup-anchor insert) still succeed. Use when a handler must react to

@@ -101,13 +101,13 @@ const ALLOWLIST = [
   // Number.isNaN(d.getTime()) as a validity check.
   /packages\/framework\/src\/pipeline\/entity-cache\.ts$/,
   // Event-store insertSubsequentEvent: raw SQL row.created_at can be Date|string
-  // (postgres-js driver-config dependent), normalised to Temporal.Instant via
+  // (driver-config dependent), normalised to Temporal.Instant via
   // .getTime() bridge.
   /packages\/framework\/src\/event-store\/event-store\.ts$/,
   // HTTP Last-Modified/ETag header: Bun/Node Response API expects a native
   // Date object from fs.Stats.mtimeMs — wire boundary, not a Temporal format.
   /packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,
-  // postgres-js timestamptz columns arrive as native Date (driver wire format,
+  // timestamptz columns arrive as native Date (driver wire format,
   // same reason as packages/framework/src/db/ above).
   /packages\/publish\/src\/rollback\.ts$/,
 ];

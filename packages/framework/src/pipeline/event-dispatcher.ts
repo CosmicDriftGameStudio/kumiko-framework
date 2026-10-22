@@ -214,7 +214,7 @@ export type EventDispatcherOptions = {
   // consumer has delivery="per-instance"; createEventDispatcher throws on
   // boot if the invariant is violated, avoiding a later runtime surprise.
   readonly instanceId?: string;
-  // Optional LISTEN-capable client (postgres-js) for wake-up
+  // Optional LISTEN-capable client (Bun.SQL) for wake-up
   // (Sprint E.4). When present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL
   // and fires runOnce on each NOTIFY — delivery latency becomes TCP-round-
   // trip instead of pollIntervalMs. The polling timer remains active as a
@@ -232,12 +232,10 @@ const PENDING_GAPS_WARN_THRESHOLD = 1000;
 // Only these say the database socket itself is gone; timeouts, schema or pool errors do not
 // imply the dedicated LISTEN connection dropped.
 const CONNECTION_LOSS_CODES: ReadonlySet<string> = new Set([
-  "CONNECTION_CLOSED",
-  "CONNECTION_DESTROYED",
-  "CONNECTION_ENDED",
-  "CONNECT_TIMEOUT",
-  "ECONNREFUSED",
-  "ECONNRESET",
+  "ERR_POSTGRES_CONNECTION_CLOSED",
+  "ERR_POSTGRES_CONNECTION_REFUSED",
+  "ERR_POSTGRES_CONNECTION_TIMEOUT",
+  "ERR_POSTGRES_CONNECTION_FAILED",
   "57P01",
 ]);
 
@@ -349,7 +347,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
 
   // Bounds how many consumer turns hold a DB transaction at once. Each turn's
   // db.begin() checks out one pool connection, plus any writes the handler
-  // itself makes via context.db — the app db pool defaults to postgres-js's
+  // itself makes via context.db — the app db pool defaults to Bun.SQL's
   // max=10 (db/connection.ts, no DATABASE_POOL_MAX override) and is shared
   // with HTTP request handlers, so turns can't be allowed to claim it all.
   // A pool no larger than this limit can deadlock: every connection held by
@@ -806,8 +804,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
             () => {
               // Fires on initial connect and again when the driver's own
               // re-LISTEN lands after a drop; during an outage that re-LISTEN
-              // waits in its connection backoff (postgres-js: measured 10-30s
-              // after the DB returns), polling covers
+              // waits in the driver's reconnect backoff, polling covers
               // delivery meanwhile. Never unlisten()
               // + listen() by hand: that leaves duplicate listeners.
               // ponytail: no own LISTEN reconnect, the backoff gap is polled;

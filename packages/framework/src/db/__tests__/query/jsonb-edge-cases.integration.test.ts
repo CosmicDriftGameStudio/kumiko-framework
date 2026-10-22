@@ -142,6 +142,20 @@ describe("jsonb — numbers + special", () => {
     });
   });
 
+  test("top-level number, boolean and string scalars keep their JSON type", async () => {
+    await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
+      for (const value of [4711, -12, 0, 3.25, true, false, "Zebulon Quaxford"]) {
+        const inserted = await insertOne<{ id: string }>(db as never, meta as never, {
+          data: value,
+        });
+        const row = await fetchOne<{ data: unknown }>(db as never, meta as never, {
+          id: inserted?.id,
+        });
+        expect(row?.data).toBe(value);
+      }
+    });
+  });
+
   test("ISO date strings stay strings (NOT auto-parsed to Date)", async () => {
     await withTable(jsonbCol("'{}'::jsonb"), async ({ db, meta }) => {
       // Important: db/query must not coerce string values in jsonb to Date.

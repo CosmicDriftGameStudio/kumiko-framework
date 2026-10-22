@@ -2,7 +2,6 @@
 // the production matcher checks driver-specific codes a fake can't reproduce.
 
 import { isClosedConnectionError } from "@cosmicdrift/kumiko-framework/internal/stack-support";
-import postgres from "postgres";
 import { requireEnv } from "../stack/db.ts";
 
 export function testDatabaseUrl(): string {
@@ -14,8 +13,6 @@ const READS_PER_ROUND = 5;
 
 type AdminClient = { unsafe(sql: string, params?: readonly unknown[]): Promise<unknown> };
 
-// A per-round admin client hits a postgres-js reconnect timing bug (the first
-// retry after terminate hangs); a single long-lived admin client avoids it.
 export async function terminateBackendsByApplicationName(
   admin: AdminClient,
   applicationName: string,
@@ -31,11 +28,11 @@ export async function terminateBackendsByApplicationName(
 export async function captureClosedConnectionError(
   url: string = testDatabaseUrl(),
 ): Promise<unknown> {
-  const admin = postgres(url, { max: 1 });
+  const admin = new Bun.SQL(url, { max: 1 });
   try {
     for (let round = 0; round < MAX_WARMUP_ROUNDS; round++) {
       const applicationName = `kumiko-closed-conn-test-${crypto.randomUUID()}`;
-      const pool = postgres(url, { max: 1, connection: { application_name: applicationName } });
+      const pool = new Bun.SQL(url, { max: 1, connection: { application_name: applicationName } });
       try {
         await pool.unsafe("select 1");
         await terminateBackendsByApplicationName(admin, applicationName);
@@ -47,13 +44,13 @@ export async function captureClosedConnectionError(
           }
         }
       } finally {
-        await pool.end({ timeout: 0 });
+        await pool.close({ timeout: 0 });
       }
     }
     throw new Error(
       `captureClosedConnectionError: no closed-connection error observed after ${MAX_WARMUP_ROUNDS} rounds.`,
     );
   } finally {
-    await admin.end({ timeout: 0 });
+    await admin.close({ timeout: 0 });
   }
 }

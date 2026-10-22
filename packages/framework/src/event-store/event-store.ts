@@ -474,7 +474,7 @@ export async function loadEventsAfterVersion(
 // abort iteration. Checked both at batch boundaries (before the next
 // fetch) AND between yields (so abort lands within one event regardless
 // of batch size). Throws AbortError on the first check after abort;
-// in-flight queries are not actively cancelled (postgres-js connection-
+// in-flight queries are not actively cancelled (connection
 // cancel is a separate, riskier concern handled per-query at the TenantDb
 // boundary).
 export async function* streamAllEventsByType(
