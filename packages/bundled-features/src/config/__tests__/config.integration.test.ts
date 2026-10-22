@@ -9,7 +9,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
-  type ConfigValidateContext,
   createSeed,
   createSystemConfig,
   createSystemSeed,
@@ -238,7 +237,7 @@ const patternFeature = defineFeature("patterned", (r) => {
 });
 
 const tenantsSeenByValidator: string[][] = [];
-const validatorCalls: Array<{ value: string; ctx: Omit<ConfigValidateContext, "db"> }> = [];
+const validatorCalls: Array<{ value: string; ctx: Record<string, unknown> }> = [];
 const validatedFeature = defineFeature("validated", (r) => {
   r.requires({ features: ["config"] });
   r.config({
@@ -246,7 +245,7 @@ const validatedFeature = defineFeature("validated", (r) => {
       endpoint: createTenantConfig("text", {
         default: "",
         write: access.roles("Admin"),
-        validate: async (value, { db: _db, ...ctx }) => {
+        validate: async (value, { db: _db, readCascade: _readCascade, ...ctx }) => {
           await Promise.resolve();
           validatorCalls.push({ value, ctx });
           if (value === "boom") throw new Error("validator_crashed");
