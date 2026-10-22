@@ -18,6 +18,35 @@ function fail(ctx: CliCommandContext, ...lines: readonly string[]): number {
   return 1;
 }
 
+type AppConfig = NonNullable<Awaited<ReturnType<typeof loadAppConfig>>>;
+type Preflight =
+  | { readonly ok: true; readonly databaseUrl: string; readonly config: AppConfig }
+  | { readonly ok: false; readonly exitCode: number };
+
+async function preflight(ctx: CliCommandContext): Promise<Preflight> {
+  const configPath = join(ctx.cwd, "kumiko.config.ts");
+  if (!(await Bun.file(configPath).exists())) {
+    return { ok: false, exitCode: fail(ctx, `kumiko.config.ts not found at: ${configPath}`) };
+  }
+  const databaseUrl = process.env["DATABASE_URL"];
+  if (!databaseUrl) return { ok: false, exitCode: fail(ctx, "DATABASE_URL not set.") };
+  const config = await loadAppConfig(ctx, configPath);
+  if (config === null) return { ok: false, exitCode: 1 };
+  if (!config.features.some((feature) => feature.name === "waitlist")) {
+    const message =
+      "The app config does not mount the framework `waitlist` feature; add createWaitlistFeature() first.";
+    return { ok: false, exitCode: fail(ctx, message) };
+  }
+  return { ok: true, databaseUrl, config };
+}
+
+function plaintextPiiReasonIsMissing(ctx: CliCommandContext): boolean {
+  return (
+    ctx.argv.includes("--allow-plaintext-pii") &&
+    !flagValue(ctx.argv, "--allow-plaintext-pii")?.trim()
+  );
+}
+
 export const waitlistMigrateOp = {
   id: "waitlist-migrate",
   description: "Copy a legacy app waitlist into the framework waitlist entity (idempotent)",
@@ -31,29 +60,15 @@ export const waitlistMigrateOp = {
     const from = flagValue(ctx.argv, "--from");
     if (!isLegacyWaitlistSource(from)) return fail(ctx, USAGE);
 
-    const configPath = join(ctx.cwd, "kumiko.config.ts");
-    if (!(await Bun.file(configPath).exists())) {
-      return fail(ctx, `kumiko.config.ts not found at: ${configPath}`);
-    }
-    const databaseUrl = process.env["DATABASE_URL"];
-    if (!databaseUrl) return fail(ctx, "DATABASE_URL not set.");
-    const config = await loadAppConfig(ctx, configPath);
-    if (config === null) return 1;
-    if (!config.features.some((feature) => feature.name === "waitlist")) {
-      return fail(
-        ctx,
-        "The app config does not mount the framework `waitlist` feature; add createWaitlistFeature() first.",
-      );
-    }
-
-    const allowPlaintextPii = flagValue(ctx.argv, "--allow-plaintext-pii");
-    if (ctx.argv.includes("--allow-plaintext-pii") && !allowPlaintextPii?.trim()) {
+    const checked = await preflight(ctx);
+    if (!checked.ok) return checked.exitCode;
+    if (plaintextPiiReasonIsMissing(ctx)) {
       return fail(ctx, "--allow-plaintext-pii requires a non-empty reason");
     }
 
     const dryRun = ctx.argv.includes("--dry-run");
     const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
-    const { db, close } = createDbConnection({ url: databaseUrl });
+    const { db, close } = createDbConnection({ url: checked.databaseUrl });
     let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
     try {
       // Without the KMS the executor would write name/email/message as plaintext into the
@@ -61,8 +76,8 @@ export const waitlistMigrateOp = {
       wiring = await wireKmsFromEnv({
         logPrefix: "[kumiko ops waitlist-migrate]",
         log: (line) => ctx.out.log(line),
-        features: config.features,
-        allowPlaintextPii,
+        features: checked.config.features,
+        allowPlaintextPii: flagValue(ctx.argv, "--allow-plaintext-pii"),
         consequence: "The import would store personal data as plaintext in the event log.",
       });
       const report = await migrateLegacyWaitlist(db, {
