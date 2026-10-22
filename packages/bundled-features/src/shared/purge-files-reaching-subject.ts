@@ -129,6 +129,7 @@ async function* candidateRowsPaged(
       limit: PURGE_CANDIDATE_PAGE_SIZE,
     });
     yield* page;
+    // skip: a short page is the last one
     if (page.length < PURGE_CANDIDATE_PAGE_SIZE) return;
     cursor = page[page.length - 1]?.["id"];
   }
