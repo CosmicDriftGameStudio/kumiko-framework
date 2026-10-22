@@ -34,6 +34,7 @@ import {
   synthesizeConfigEditEntity,
   synthesizeConfigEditScreen,
 } from "./config-edit-shim.ts";
+import { configEditWithoutSecretFields } from "./config-edit-without-secret-fields.ts";
 import { buildInitialValues } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { layoutEditFields } from "./layout-fields.ts";
@@ -157,7 +158,7 @@ function isEmptyNumericFormValue(value: unknown): boolean {
 
 export function ConfigEditBody({
   schema,
-  screen,
+  screen: declaredScreen,
   translate,
 }: {
   readonly schema: FeatureSchema;
@@ -173,19 +174,26 @@ export function ConfigEditBody({
   // We map them via screen.configKeys from short to qualified name onto our
   // form field values.
   const valuesQuery = useQuery<ConfigValueResponse>("config:query:values", {
-    scope: screen.scope,
+    scope: declaredScreen.scope,
   });
 
   const cascadeQuery = useQuery<Record<string, ConfigCascade>>("config:query:cascade", {
-    scope: screen.scope,
+    scope: declaredScreen.scope,
   });
 
-  const secretKeys = screen.secretKeys;
   const secretsQuery = useQuery<readonly StoredSecretRow[]>(
     "secrets:query:list",
     {},
-    { enabled: secretKeys !== undefined },
+    { enabled: declaredScreen.secretKeys !== undefined },
   );
+  // The form screen's access is the union of config and secrets access, so a viewer may write
+  // the config keys without being allowed to list secrets: that must not take the form down.
+  const secretsDenied = secretsQuery.error?.code === "access_denied";
+  const screen = useMemo(
+    () => (secretsDenied ? configEditWithoutSecretFields(declaredScreen) : declaredScreen),
+    [secretsDenied, declaredScreen],
+  );
+  const secretKeys = secretsDenied ? undefined : declaredScreen.secretKeys;
 
   const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
@@ -391,7 +399,11 @@ export function ConfigEditBody({
   );
 
   if (valuesQuery.loading && valuesQuery.data === null) return <QueryLoadingBanner />;
-  const failedQuery = valuesQuery.error ? valuesQuery : secretsQuery.error ? secretsQuery : null;
+  const failedQuery = valuesQuery.error
+    ? valuesQuery
+    : secretsQuery.error && !secretsDenied
+      ? secretsQuery
+      : null;
   if (failedQuery?.error) {
     return (
       <QueryErrorBanner
