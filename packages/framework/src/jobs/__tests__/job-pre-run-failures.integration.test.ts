@@ -172,4 +172,48 @@ describe("pre-run job failures", () => {
       await purgeWorkerKeys(queueNamePrefix);
     }
   });
+
+  test("a throwing onJobStart does not leave the sequential lock behind", async () => {
+    let starts = 0;
+    let handlerRuns = 0;
+    const feature = defineFeature("prerunlock", (r) => {
+      r.job(
+        "seq",
+        { trigger: { manual: true }, runOnBoot: true, retries: 0, concurrency: "sequential" },
+        async () => {
+          handlerRuns += 1;
+        },
+      );
+    });
+    const { context, errors } = captureContext();
+    const failures: Failure[] = [];
+    const queueNamePrefix = uniquePrefix("lock");
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobStart: () => {
+        starts += 1;
+        if (starts === 1) throw new Error("run log unreachable");
+      },
+      onJobFailed: (jobName, _id, error) => {
+        failures.push({ jobName, error });
+      },
+    });
+    try {
+      await runner.start();
+      await waitFor(() => expect(starts).toBe(1));
+      expect(handlerRuns).toBe(0);
+      await waitFor(() => expect(failures).toHaveLength(1));
+      expect(failures[0]).toEqual({ jobName: "prerunlock:job:seq", error: "run log unreachable" });
+      await waitFor(() => expect(failedLines(errors)).toHaveLength(1));
+      await runner.dispatch("prerunlock:job:seq", {});
+      await waitFor(() => expect(handlerRuns).toBe(1));
+    } finally {
+      await runner.stop();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
 });

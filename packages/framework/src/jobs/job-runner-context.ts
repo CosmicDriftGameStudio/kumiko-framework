@@ -23,12 +23,13 @@ import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts"
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate, parseWriteOrigin } from "../pipeline/write-origin.ts";
 import {
+  attemptNumberOf,
   createJobLogger,
   handlerPayloadOf,
+  isFinalAttempt,
   isJobTriggerEvent,
   jobSubjectKey,
   missingDbProxy,
-  priorAttemptsOf,
   tenantIdOfJobData,
 } from "./job-runner-helpers.ts";
 import type { JobRunnerScope } from "./job-runner-scope.ts";
@@ -409,16 +410,14 @@ export function prepareJobRun(
   // retry number, so audit queries distinguish fresh from retry runs
   // without peeking at BullMQ internals.
   const rawData = bullJob.data;
-  const attempt = bullJob.attemptsMade + 1 + priorAttemptsOf(rawData);
+  const attempt = attemptNumberOf(bullJob);
   // Build handler payload (without internal meta fields)
   const payload = handlerPayloadOf(rawData);
   // Determine tenantId and triggeredBy from meta
   const tenantId = tenantIdOfJobData(rawData);
   const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null; // @cast-boundary dynamic-key
   const subjects = resolveTenantVisibleSubjects(jobName, jobDef, payload);
-  // BullMQ stops retrying once attemptsMade reaches the configured attempts
-  // (`retries + 1`), so this is the attempt whose failure is final.
-  const finalAttempt = bullJob.retryable === false || attempt >= (jobDef.retries ?? 0) + 1;
+  const finalAttempt = isFinalAttempt(bullJob, jobDef);
   const { writeOrigin, writeOriginInvalid } = parseJobWriteOrigin(rawData, jobName);
   const meta: JobMeta = {
     triggeredById: rawData["_triggeredById"] as string | undefined, // @cast-boundary dynamic-key

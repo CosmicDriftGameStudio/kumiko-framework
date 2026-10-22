@@ -103,14 +103,20 @@ describe("ctx.defer", () => {
         failures.push(error);
       },
     });
+    const queue = new Queue(`${queueNamePrefix}-worker`, { connection: { url: redisUrl } });
     try {
       await runner.start();
       await waitFor(() => expect(failures.length).toBe(1));
       expect(failures[0]).toContain("maxDefers");
       expect(deferred).toBe(2);
-      await Bun.sleep(1500);
+      // "failed" is terminal; a pending retry would show up as delayed/waiting.
+      await waitFor(async () => {
+        const job = await queue.getJob(bootJobIdForJobName("defercap:job:forever"));
+        expect(await job?.getState()).toBe("failed");
+      });
       expect(failures).toHaveLength(1);
     } finally {
+      await queue.close();
       await runner.stop();
       await purgeWorkerKeys(queueNamePrefix);
     }

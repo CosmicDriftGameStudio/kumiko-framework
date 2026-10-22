@@ -1,10 +1,13 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 
 import type { JobDefinition } from "../engine/types/index.ts";
+import { type JobRun, prepareJobRun } from "./job-runner-context.ts";
 import {
+  attemptNumberOf,
   buildRetryBullOpts,
   DEFER_COUNT_KEY,
   deferDelayMs,
+  isFinalAttempt,
   priorAttemptsOf,
   priorDeferCountOf,
 } from "./job-runner-helpers.ts";
@@ -128,6 +131,34 @@ async function reportPreRunFailure(
   await scope.options.onJobFailed?.(jobName, bullJob.id ?? "unknown", message, [
     { level: "error", message, timestamp: Temporal.Now.instant() },
   ]);
+}
+
+// prepareJobRun and onJobStart throw before the handler span exists, so the
+// span's own failure recording never sees them.
+export async function startJobRun(
+  scope: JobRunnerScope,
+  jobDef: JobDefinition,
+  bullJob: JobInvocation,
+  token: string | undefined,
+): Promise<JobRun> {
+  try {
+    const run = prepareJobRun(scope, jobDef, bullJob, token);
+    await scope.options.onJobStart?.(run.jobName, run.jobId, run.meta);
+    return run;
+  } catch (err) {
+    const finalAttempt = isFinalAttempt(bullJob, jobDef);
+    logFailedAttempt(scope, {
+      job: bullJob.name,
+      jobId: bullJob.id ?? "unknown",
+      attempt: attemptNumberOf(bullJob),
+      finalAttempt,
+      err,
+    });
+    if (finalAttempt) {
+      await reportPreRunFailure(scope, bullJob.name, bullJob, err);
+    }
+    throw err;
+  }
 }
 
 export async function resolveJobDefinitionOrFail(
