@@ -14,7 +14,7 @@ import { loginAs } from "./_helpers/login";
 
 test.use({ locale: "de-DE", viewport: { width: 1280, height: 820 } });
 
-const MAIL_LAYOUT_URL = "/layout-editor?kind=mail-layout&slug=default";
+const PLATFORM_MAIL_LAYOUT_URL = "/platform-layout-editor?kind=mail-layout&slug=default";
 const NEW_FOOTER_TEXT = "Nordlicht Immobilien GmbH, Hafenstraße 12, 24103 Kiel";
 
 async function rowOf(page: Page, title: string) {
@@ -70,7 +70,7 @@ test("platform admin sees who customised each template and the MJML source of th
   await page.goto("/platform-templates");
   await expect(page.getByRole("columnheader", { name: "Angepasst von" })).toBeVisible();
 
-  await page.goto(MAIL_LAYOUT_URL);
+  await page.goto(PLATFORM_MAIL_LAYOUT_URL);
   await expect(page.getByTestId("layout-mjml-tab")).toBeVisible();
 });
 

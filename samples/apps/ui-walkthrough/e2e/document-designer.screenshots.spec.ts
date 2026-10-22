@@ -34,6 +34,7 @@ async function openEditor(
   page: Page,
   kind: "mail-layout" | "pdf-layout",
   readyTestId = "document-designer-paper",
+  screen: "layout-editor" | "platform-layout-editor" = "layout-editor",
 ): Promise<void> {
   // Cold dev-server: the editor chunk and layout source arrive slowly; wait for the
   // data response itself instead of racing the 5 s expect timeout against compilation.
@@ -41,7 +42,7 @@ async function openEditor(
     (response) =>
       response.request().postData()?.includes("template-resolver:query:layout-source") === true,
   );
-  await page.goto(`/layout-editor?kind=${kind}&slug=default`);
+  await page.goto(`/${screen}?kind=${kind}&slug=default`);
   await layoutSourceLoaded;
   await expect(page.getByTestId("document-designer-layout-editor")).toBeVisible();
   await expect(page.getByTestId(readyTestId)).toBeVisible();
@@ -67,7 +68,7 @@ test("document-designer-layout-mail-tenant", async ({ page }) => {
 
 test("document-designer-layout-mail-platform", async ({ page }) => {
   await loginAs(page, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD);
-  await openEditor(page, "mail-layout", "document-designer-mjml-source");
+  await openEditor(page, "mail-layout", "document-designer-mjml-source", "platform-layout-editor");
   await shot(page, "document-designer-layout-mail-platform");
 });
 
