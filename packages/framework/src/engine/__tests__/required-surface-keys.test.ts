@@ -448,6 +448,17 @@ describe("requiredKeysFromScreen reads section.groups (fw#2986)", () => {
     expect(keys).toContain(fieldLabelKey("publicstatus", PROJECTION_DETAIL_ENTITY, "openedAt"));
   });
 
+  test("projectionDetail: metric labels are required keys", () => {
+    const keys = requiredKeysFromScreen("publicstatus", {
+      id: "incident-detail",
+      type: "projectionDetail",
+      query: "publicstatus:query:incident:detail",
+      metrics: [{ field: "openedAt", label: "publicstatus:metric.openedAt" }],
+      layout: { sections: [] },
+    });
+    expect(keys).toContain("publicstatus:metric.openedAt");
+  });
+
   test("projectionDetail: writeForm sections keep the WRITE_FORM_SECTION_ENTITY namespace", () => {
     const keys = requiredKeysFromScreen("publicstatus", {
       id: "incident-detail",

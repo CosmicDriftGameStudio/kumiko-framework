@@ -71,19 +71,40 @@ describe("applyFormDerivations", () => {
     expect(result).toMatchObject({ netTotal: eur(100), vatTotal: eur(19), grossTotal: eur(119) });
   });
 
-  test("a stale gross is overwritten and the target currency is kept", () => {
+  test("a stale gross is overwritten and a manipulated target currency is ignored", () => {
     const result = applyFormDerivations(
       {
-        netTotal: { amount: 10, currency: "USD" },
+        netTotal: eur(10),
         vatRate: 10,
         grossTotal: { amount: 500, currency: "USD" },
       },
       screen,
     );
-    expect(result).toMatchObject({
-      vatTotal: { amount: 1, currency: "USD" },
-      grossTotal: { amount: 11, currency: "USD" },
-    });
+    expect(result).toMatchObject({ vatTotal: eur(1), grossTotal: eur(11) });
+  });
+
+  test("the source currency beats the client currency on a non-literal target", () => {
+    const tenantCurrency = { kind: "tenant" } as const;
+    const tenantScreen: FormDerivationScreen = {
+      fields: {
+        a: { type: "money", currency: tenantCurrency },
+        total: { type: "money", currency: tenantCurrency },
+      },
+      derive: { total: { op: "sum", from: ["a"] } },
+    };
+    const result = applyFormDerivations(
+      { a: eur(10), total: { amount: 0, currency: "USD" } },
+      tenantScreen,
+    );
+    expect(result).toMatchObject({ total: eur(10) });
+  });
+
+  test("operands in different currencies yield no derived value", () => {
+    const result = applyFormDerivations(
+      { netTotal: eur(10), vatTotal: { amount: 5, currency: "USD" }, grossTotal: eur(1) },
+      { ...screen, derive: { grossTotal: { op: "sum", from: ["netTotal", "vatTotal"] } } },
+    );
+    expect(result).not.toHaveProperty("grossTotal");
   });
 
   test("a result without sources removes the key; the input is not mutated", () => {

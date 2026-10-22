@@ -262,7 +262,8 @@ function renderEntity(p: EntityPattern): string {
   // losing `name` to the sentinel shortcut — spread the reference verbatim
   // next to the name instead.
   if (isRawRefSentinel(p.definition)) {
-    return `r.entity({ name: ${JSON.stringify(p.entityName)}, ...${p.definition.__raw} });`;
+    const backingTable = p.backingTable ? `, backingTable: ${p.backingTable.__raw}` : "";
+    return `r.entity({ name: ${JSON.stringify(p.entityName)}, ...${p.definition.__raw}${backingTable} });`;
   }
   const merged = { name: p.entityName, ...p.definition };
   return `r.entity(${renderValue(merged)});`;

@@ -28,4 +28,26 @@ describe("createDeferringNotify", () => {
 
     expect(delivered.map((o) => o.data?.["title"])).toEqual(["first", "second"]);
   });
+
+  test("defers a notify whose data holds a Temporal value instead of failing the write", async () => {
+    const scheduled: AfterCommitHook[] = [];
+    const delivered: NotifyOptions[] = [];
+    const notify = createDeferringNotify({
+      registry: undefined,
+      tenantId: testTenantId(1),
+      notifyAfterCommit: async (_type, options) => {
+        delivered.push(options);
+        return { kind: "dispatched", deliveries: [] };
+      },
+      notifyNow: async () => ({ kind: "dispatched", deliveries: [] }),
+      scheduleAfterCommit: (hook) => scheduled.push(hook),
+    });
+
+    const dueAt = Temporal.Instant.from("2026-10-22T08:00:00Z");
+    await notify("any-type", { route: { email: "a@example.com" }, data: { dueAt } });
+    for (const hook of scheduled) await hook();
+
+    expect(delivered).toHaveLength(1);
+    expect(String(delivered[0]?.data?.["dueAt"])).toBe("2026-10-22T08:00:00Z");
+  });
 });

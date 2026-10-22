@@ -13,6 +13,44 @@ type DerivationCheck = {
   readonly target: string;
 };
 
+function isMoneyType(type: string | undefined): boolean {
+  return type === "money";
+}
+
+// Money operands are computed in minor units, number/decimal in major units: mixing them
+// silently scales the result by 100 or 10000.
+function validateUnitCompatibility(
+  { prefix, screen, target }: DerivationCheck,
+  derivation: Extract<FormFieldDerivation, { from: unknown }>,
+): void {
+  const targetIsMoney = isMoneyType(screen.fields[target]?.type);
+  const moneyFlags = derivation.from.map((source) => isMoneyType(screen.fields[source]?.type));
+  const moneyCount = moneyFlags.filter(Boolean).length;
+  if (derivation.op === "sum" || derivation.op === "subtract") {
+    if (moneyCount !== 0 && moneyCount !== moneyFlags.length) {
+      throw new Error(
+        `${prefix}.${target}: "${derivation.op}" sources must be all money or all number/decimal.`,
+      );
+    }
+    if (moneyCount > 0 !== targetIsMoney) {
+      throw new Error(
+        `${prefix}.${target}: a "${derivation.op}" over ${moneyCount > 0 ? "money" : "number/decimal"} sources needs a ${moneyCount > 0 ? "money" : "number/decimal"} target.`,
+      );
+    }
+    return;
+  }
+  if (moneyCount > 1 || (derivation.op === "percent" && moneyFlags[1] === true)) {
+    throw new Error(
+      `${prefix}.${target}: "${derivation.op}" takes at most one money source${derivation.op === "percent" ? " (the base, not the rate)" : ""}.`,
+    );
+  }
+  if ((moneyCount === 1) !== targetIsMoney) {
+    throw new Error(
+      `${prefix}.${target}: the target must be money exactly when a "${derivation.op}" source is money.`,
+    );
+  }
+}
+
 function validateFromList(
   { prefix, screen, target }: DerivationCheck,
   derivation: Extract<FormFieldDerivation, { from: unknown }>,
@@ -21,12 +59,19 @@ function validateFromList(
     throw new Error(`${prefix}.${target}: "percent" needs exactly two sources (base, rate).`);
   }
   for (const source of derivation.from) {
-    if (!(source in screen.fields)) {
+    const sourceField = screen.fields[source];
+    if (sourceField === undefined) {
       throw new Error(
         `${prefix}.${target}: unknown source field "${source}". Name a field of this screen.`,
       );
     }
+    if (!NUMERIC_FORM_FIELD_TYPES.includes(sourceField.type)) {
+      throw new Error(
+        `${prefix}.${target}: source "${source}" must be money, number or decimal, not "${sourceField.type}".`,
+      );
+    }
   }
+  validateUnitCompatibility({ prefix, screen, target }, derivation);
 }
 
 function validateListSum(
@@ -47,6 +92,11 @@ function validateListSum(
   if (cellType === undefined || !NUMERIC_SUB_FIELD_TYPES.includes(cellType)) {
     throw new Error(
       `${prefix}.${target}: "${derivation.cell}" must be a money, number or decimal sub-field of "${derivation.list}".`,
+    );
+  }
+  if (isMoneyType(cellType) !== isMoneyType(screen.fields[target]?.type)) {
+    throw new Error(
+      `${prefix}.${target}: a listSum of a ${isMoneyType(cellType) ? "money" : "number/decimal"} cell needs a ${isMoneyType(cellType) ? "money" : "number/decimal"} target.`,
     );
   }
   const { whenEmpty } = derivation;

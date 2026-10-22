@@ -225,7 +225,7 @@ function makeHandler() {
 
 defineFeature("refs", (r) => {
   r.requires({ features: [someFeature.name, "config"] });
-  r.entity({ name: "event", ...eventEntity });
+  r.entity({ name: "event", ...eventEntity, backingTable: eventsTable });
   r.entity({ name: "task", fields: buildFields() });
   r.writeHandler(makeHandler());
   r.streamHandler(chatCompleteHandler);
@@ -254,6 +254,7 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
     });
     expect(rendered).toContain("someFeature.name");
     expect(rendered).toContain("eventEntity");
+    expect(rendered).toContain("...eventEntity, backingTable: eventsTable");
     expect(rendered).toContain("buildFields()");
     expect(rendered).toContain("r.writeHandler(makeHandler())");
     expect(rendered).toContain("r.streamHandler(chatCompleteHandler)");

@@ -45,6 +45,7 @@ import type { TreeActionDef } from "../types/tree-node.ts";
 import type { WorkspaceDefinition } from "../types/workspace.ts";
 import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "./entity-field-types.ts";
 import { AGENT_RISK_VALUES } from "./extractors/handlers.ts";
+import type { RawRefSentinel } from "./extractors/shared.ts";
 import { isPlainObject, isRawRefSentinel } from "./extractors/shared.ts";
 import type {
   PatternChange,
@@ -442,6 +443,7 @@ const entitySchema = z
     source: sourceFieldSchema,
     entityName: z.string(),
     definition: entityDefinitionSchema,
+    backingTable: passthroughSchema<RawRefSentinel>().optional(),
   })
   .strict();
 

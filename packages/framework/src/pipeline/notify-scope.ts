@@ -24,6 +24,16 @@ export function assertNotifyTargetsOwnTenant(options: NotifyOptions, tenantId: T
   }
 }
 
+// Temporal values, functions and class instances in `data` are not structured-cloneable; the
+// job pipeline serializes them to JSON on enqueue anyway, so the JSON form is the faithful snapshot.
+function snapshotNotifyOptions(options: NotifyOptions): NotifyOptions {
+  try {
+    return structuredClone(options);
+  } catch {
+    return JSON.parse(JSON.stringify(options));
+  }
+}
+
 type DeferringNotifyDeps = {
   readonly registry: Pick<Registry, "getAllNotifications"> | undefined;
   readonly tenantId: TenantId;
@@ -53,7 +63,7 @@ export function createDeferringNotify(deps: DeferringNotifyDeps): NotifyFn {
     if (registry) assertNotificationVariables(registry, notificationType, options.data);
     if (options.immediate === true) return notifyNow(notificationType, options);
     // The hook runs after the handler returned; a caller reusing `data` meanwhile must not change what is sent.
-    const optionsAtCallTime = structuredClone(options);
+    const optionsAtCallTime = snapshotNotifyOptions(options);
     scheduleAfterCommit(async () => {
       await notifyAfterCommit(notificationType, optionsAtCallTime);
     });

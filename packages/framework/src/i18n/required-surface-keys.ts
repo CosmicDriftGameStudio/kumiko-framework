@@ -480,6 +480,7 @@ function collectProjectionDetailKeys(
   ctx: ScreenKeyCollectorContext,
   detail: ScreenOfKind["projectionDetail"],
 ): void {
+  for (const metric of detail.metrics ?? []) pushKey(ctx.out, metric.label);
   for (const section of detail.layout.sections) {
     if (isExtensionEditSection(section)) {
       pushKey(ctx.out, section.title);

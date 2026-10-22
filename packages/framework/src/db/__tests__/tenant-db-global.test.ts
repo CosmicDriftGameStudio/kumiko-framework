@@ -8,7 +8,7 @@ import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.ts";
 import { buildEntityTable } from "../table-builder.ts";
-import { brandWritable } from "../table-introspection.ts";
+import { brandWritable, tableNameOf } from "../table-introspection.ts";
 import {
   createTenantDb,
   createUncheckedSystemDb,
@@ -220,7 +220,11 @@ describe("TenantDb.global()", () => {
     });
     await tdb.global(globalUnmanagedTable).insertOne({ name: "x" });
     expect(calls).toEqual([
-      { kind: "global-write", reason: "cross-tenant backfill job", target: undefined },
+      {
+        kind: "global-write",
+        reason: "cross-tenant backfill job",
+        target: { id: tableNameOf(globalUnmanagedTable), tenantId: own },
+      },
     ]);
   });
 
