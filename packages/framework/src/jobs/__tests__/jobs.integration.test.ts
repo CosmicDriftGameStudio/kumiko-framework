@@ -1564,8 +1564,20 @@ describe("boot gates", () => {
       await waitFor(() => {
         expect(gateLog.filter((e) => e === "gate").length).toBe(2);
       });
-      // A wrongly re-enqueued boot job runs asynchronously; give it time before asserting absence.
-      await sleep(300);
+      // A wrongly re-enqueued boot job would sit in the queue or run; assert absence only once
+      // the queue has drained.
+      const queue = new Queue(`${prefix}-worker`, {
+        connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+      });
+      queue.on("error", () => {});
+      try {
+        await waitFor(async () => {
+          const counts = await queue.getJobCounts("waiting", "active", "delayed", "prioritized");
+          expect(counts).toMatchObject({ waiting: 0, active: 0, delayed: 0, prioritized: 0 });
+        });
+      } finally {
+        await queue.close();
+      }
       // The persistent boot-enqueued marker set from the first start is
       // still present in Redis, so the second start skips re-enqueueing —
       // that dedup is why runOnBoot cannot gate a deploy.

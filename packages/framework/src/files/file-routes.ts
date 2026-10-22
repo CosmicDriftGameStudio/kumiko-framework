@@ -35,7 +35,7 @@ import {
   getFileRefExecutor,
   storeFileAsFileRef,
 } from "./create-file-ref.ts";
-import { createFileContext } from "./file-handle.ts";
+import { createFileContext, createTenantFileContext } from "./file-handle.ts";
 import { fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import type { FileProviderResolver } from "./provider-resolver.ts";
@@ -43,7 +43,7 @@ import type { RecordReadCheck } from "./record-read-check.ts";
 import { type RecordWriteCheck, RecordWriteDecisions } from "./record-write-check.ts";
 import { neutralFileNameForMimeType } from "./resolve-content-type.ts";
 import { parseMaxSize, resolveServedContentType } from "./types.ts";
-import { createFileUploadLedger } from "./upload-ledger.ts";
+import { withUploadLedger } from "./upload-ledger.ts";
 
 // Exactly the httpStatus values declared by KumikoError subclasses across packages/*.
 const ERROR_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 503, 504] as const;
@@ -219,6 +219,10 @@ export function readFilesRouteOptions(
 
 export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
+  // Plain resolvers (not built via withFileProviderResolver) get the ledger on the route's own root connection.
+  const resolveProvider: FileProviderResolver = options.resolveProvider.uploadLedgerFor
+    ? options.resolveProvider
+    : withUploadLedger(options.resolveProvider, db);
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
   const guard: FileAccessGuard =
     options.accessGuard ??
@@ -347,8 +351,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     }
 
     const data = new Uint8Array(await file.arrayBuffer());
-    const storageProvider = await options.resolveProvider(user.tenantId);
-    const uploadLedger = createFileUploadLedger(db, user.tenantId);
+    const files = createTenantFileContext(resolveProvider, user.tenantId);
     const outcome = await storeFileAsFileRef(
       {
         user,
@@ -356,13 +359,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         rowInOwnTransaction: true,
         registry: options.registry,
         defaultMaxUploadSize: options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
-        writeBytes: async (key, bytes, mimeType) => {
-          await uploadLedger.record(key);
-          await storageProvider.write(key, bytes, mimeType);
-        },
+        writeBytes: (key, bytes, mimeType) => files.writeUploadBytes(key, bytes, mimeType),
         deleteBytes: async (key) => {
-          await storageProvider.delete(key);
-          await uploadLedger.forget(key);
+          await files.ref(key).delete();
+          await files.forgetUploadBytes(key);
         },
       },
       {

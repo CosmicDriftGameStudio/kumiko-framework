@@ -7,8 +7,10 @@ import type { FileStorageProvider } from "@cosmicdrift/kumiko-types/file-storage
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { DbConnection, DbRunner } from "../db/connection.ts";
 import { defineUnmanagedTable } from "../db/entity-table-meta.ts";
+import { runnerCanBeginTransaction } from "../db/query.ts";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import { tenantDbRunner } from "../db/tenant-db-runner.ts";
+import { InternalError } from "../errors/index.ts";
 
 const CREATED_AT_INDEX = "store_file_upload_ledger_created_at_idx";
 
@@ -36,6 +38,12 @@ export function createFileUploadLedger(
   tenantId: TenantId,
 ): FileUploadLedger {
   const runner: DbRunner = isTenantDb(db) ? tenantDbRunner(db) : db;
+  if (!runnerCanBeginTransaction(runner)) {
+    throw new InternalError({
+      message:
+        "createFileUploadLedger: the connection is already inside a transaction; the ledger row would roll back with it and the uploaded bytes become unfindable",
+    });
+  }
   const ledgerDb = createTenantDb({ db: runner, tenantId });
   return {
     record: async (storageKey) => {

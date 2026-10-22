@@ -10,7 +10,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import type { DbTx } from "../../db/connection.ts";
 import { deleteMany, selectMany } from "../../db/query.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import { defineFeature, defineWriteHandler, type WriteResult } from "../../engine/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 import {
@@ -274,6 +276,14 @@ describe("uploads that commit", () => {
 
     expect(provider.keys()).toEqual([stored.storageKey]);
     expect(await ledgerKeys()).toHaveLength(0);
+  });
+
+  test("a ledger cannot be built on a connection that is already inside a transaction", async () => {
+    await stack.db.begin(async (tx: DbTx) => {
+      expect(() =>
+        createFileUploadLedger(createTenantDb({ db: tx, tenantId: tenantA }), tenantA),
+      ).toThrow("already inside a transaction");
+    });
   });
 
   test("POST /files leaves no ledger row after the happy path", async () => {

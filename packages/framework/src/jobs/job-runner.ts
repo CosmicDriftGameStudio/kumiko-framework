@@ -529,12 +529,6 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         });
       });
       await upsertCronSchedulers(consumerQueue, consumerLane);
-      schedulerSeenTimer = startSchedulerSeenRefresh(
-        consumerQueue,
-        consumerLane,
-        expectedSchedulerIds,
-      );
-
       await removeOrphanJobSchedulers(consumerQueue, expectedSchedulerIds, consumerLane, {
         info: (msg, data) =>
           context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
@@ -580,6 +574,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (context.meter) {
         queueDepthTimer = await startQueueDepthPolling(consumerQueue, consumerLane, context.meter);
       }
+
+      // Last on purpose: a start() that fails earlier must not leave a timer stamping for a runner that is not running.
+      schedulerSeenTimer = startSchedulerSeenRefresh(
+        consumerQueue,
+        consumerLane,
+        expectedSchedulerIds,
+      );
     },
 
     async stop(): Promise<void> {
