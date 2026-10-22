@@ -28,6 +28,7 @@ import { createAuthRoutes } from "./auth-routes.ts";
 import { createClientErrorRoute } from "./client-error-route.ts";
 import { type ClientIpResolver, clientIpSourceFromHonoContext } from "./client-ip.ts";
 import { collectEntityReadAccess, collectEntityRowReadMaps } from "./entity-read-access.ts";
+import { createExportRoutes } from "./export/export-route.ts";
 import { computeStrongEtag, etagMatches } from "./http-cache.ts";
 import { requestContext } from "./request-context.ts";
 import { buildRequestContextData } from "./request-id-middleware.ts";
@@ -115,6 +116,7 @@ export function mountDispatcherRoutes(
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
     }),
   );
+  app.route("/api", createExportRoutes(dispatcher, options.registry));
   app.route(
     "/api",
     createSseRoute(sseBroker, {

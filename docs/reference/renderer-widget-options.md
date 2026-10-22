@@ -131,6 +131,7 @@ r.screen({
     pinning: true,
     resizing: true,
     keyboardNavigation: true,
+    export: { xlsx: true },
   },
 });
 ```
@@ -145,6 +146,8 @@ r.screen({
 | `pinning` | The user pins columns left or right in the view menu. Columns may start pinned with `pinned: "left" \| "right"`. Pinned columns stay sticky while scrolling horizontally. |
 | `resizing` | Switches the table to `table-layout: fixed`; the user drags or uses the arrow keys on the header edge. `width` and `minWidth` (px) on a column are start values. Widths stay between `minWidth` and 2000 px and are remembered per session, like the column choice and density, whether or not `rememberState` is on. |
 | `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space stays reserved for selection. |
+| `export.xlsx` | Shows an Export button that downloads the filtered list as an XLSX file. `entityList` and `projectionList` only. |
+| `export.maxRows` | Row limit of one export, default 10000, hard cap 100000. |
 
 `hidden: true` on a column starts it hidden. It needs `columnPicker`, otherwise the boot validator rejects the screen, and so does hiding every column. The boot validator also rejects unknown keys and wrong types in the block.
 
@@ -157,6 +160,8 @@ r.screen({
 **View menu.** The icon button next to the toolbar actions opens columns (checkbox, drag handle and up/down buttons) and density. The last visible column cannot be hidden. Compact density sets the row height to 32 px and the cell padding to 4 px.
 
 **Card layout.** Below the md breakpoint the list renders as cards. Column visibility applies there, the order does not, because the cards take title, status and meta columns from the column sequence of the screen. A card sort select and the compact density still apply.
+
+**XLSX export.** The button sends the current search, sort and facets, and the visible columns in their order, to `POST /api/export/xlsx`. The server runs the list query again with the user's session and reads the whole filtered list, not just the loaded page. Above `maxRows` it answers 413 and the button shows a hint instead of a file. The sheet drops encrypted, sensitive, write-only and unreadable fields and virtual columns, so it never holds more than the list query would show this user. Reference columns show the label of the target instead of its id, joined with commas for multiple references. Timestamps use the time zone of the browser, falling back to the profile zone and then UTC. Text cells are always plain strings, never formulas. A `projectionList` query must honor `offset` or return `nextCursor`, otherwise the export stops after the first page. Personal access tokens are rejected on this route.
 
 **Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
 

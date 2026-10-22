@@ -12,7 +12,12 @@ export const LIST_TABLE_OPTION_KEYS = [
   "pinning",
   "resizing",
   "keyboardNavigation",
+  "export",
 ] as const;
+export const LIST_TABLE_EXPORT_KEYS = ["xlsx", "maxRows"] as const;
+export const DEFAULT_EXPORT_MAX_ROWS = 10000;
+/** Hard cap: the server builds the whole workbook in memory. */
+export const MAX_EXPORT_MAX_ROWS = 100000;
 export const LIST_TABLE_DENSITY_KEYS = ["default", "userChoice"] as const;
 
 /** Opt-in table behaviour of a list. Without the block a list renders and behaves exactly as before. */
@@ -35,4 +40,12 @@ export type ListTableOptions = {
     /** Shows the density choice in the view menu and remembers it per session. */
     readonly userChoice?: boolean;
   };
+  /** Shows an export button; the server reads the whole filtered list (not just the visible page). */
+  readonly export?: ListTableExportOptions;
+};
+
+export type ListTableExportOptions = {
+  readonly xlsx: true;
+  /** Export is refused above this many rows. Default 10000, hard cap 100000. Encrypted, sensitive and virtual columns are never written. */
+  readonly maxRows?: number;
 };

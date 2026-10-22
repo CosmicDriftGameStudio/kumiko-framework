@@ -296,12 +296,20 @@ export type {
   ScreenFilterOp,
   ToolbarAction,
 } from "./screen-entity-list.ts";
-export type { ListColumnPin, ListTableDensity, ListTableOptions } from "./screen-list-table.ts";
+export type {
+  ListColumnPin,
+  ListTableDensity,
+  ListTableExportOptions,
+  ListTableOptions,
+} from "./screen-list-table.ts";
 export {
+  DEFAULT_EXPORT_MAX_ROWS,
   LIST_COLUMN_PINS,
   LIST_TABLE_DENSITIES,
   LIST_TABLE_DENSITY_KEYS,
+  LIST_TABLE_EXPORT_KEYS,
   LIST_TABLE_OPTION_KEYS,
+  MAX_EXPORT_MAX_ROWS,
 } from "./screen-list-table.ts";
 export type {
   ListFacetSpec,

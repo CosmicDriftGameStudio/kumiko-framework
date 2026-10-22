@@ -27,12 +27,12 @@ import {
   FlushTable,
   RowExpandToggle,
 } from "./data-table/table-chrome.tsx";
+import { ToolbarEndCluster, toolbarEndHasContent } from "./data-table/toolbar-end-cluster.tsx";
 import { EXPAND_COLUMN_KEY, useColumnPins } from "./data-table/use-column-pins.ts";
 import { useColumnSizing } from "./data-table/use-column-sizing.ts";
 import { useMeasuredColumnWidths } from "./data-table/use-measured-column-widths.ts";
 import { useRowKeyboardNavigation } from "./data-table/use-row-keyboard-navigation.ts";
 import { useViewColumns } from "./data-table/use-view-columns.ts";
-import { ViewMenu, viewHasMenu } from "./data-table/view-menu.tsx";
 import {
   buildTableItems,
   cellLinkProp,
@@ -122,6 +122,7 @@ export function DefaultDataTable({
   renderExpandedRow,
   view,
   resetAll,
+  exportList,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell.
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -784,14 +785,12 @@ export function DefaultDataTable({
     ) : undefined;
 
   const columnLabels = new Map(schemaColumns.map((col) => [col.field, col.label]));
-  const viewMenu = viewHasMenu(view) ? <ViewMenu view={view} columnLabels={columnLabels} /> : null;
 
   const collapsesFacetsBehindButton = isNarrow && fillsHeight && facetCluster !== undefined;
   const hasToolbar =
     toolbarStart !== undefined ||
-    toolbarEnd !== undefined ||
     facetCluster !== undefined ||
-    viewMenu !== null;
+    toolbarEndHasContent(view, exportList, toolbarEnd);
 
   // dashboard-01 pattern: the toolbar (search + facets + "+ New") sits ABOVE
   // the table in the same padding block; no separate bg bar, no screen title
@@ -873,12 +872,12 @@ export function DefaultDataTable({
           ) : (
             facetCluster
           )}
-          {(toolbarEnd !== undefined || viewMenu !== null) && (
-            <div className="flex flex-wrap items-center gap-2 ml-auto">
-              {viewMenu}
-              {toolbarEnd}
-            </div>
-          )}
+          <ToolbarEndCluster
+            view={view}
+            columnLabels={columnLabels}
+            exportList={exportList}
+            toolbarEnd={toolbarEnd}
+          />
         </div>
       )}
       {toolbarDescription !== undefined && (

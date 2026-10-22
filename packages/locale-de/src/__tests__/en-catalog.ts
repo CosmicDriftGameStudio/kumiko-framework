@@ -851,6 +851,11 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.sort.label": "Sort",
   "kumiko.list.sort.unsorted": "Unsorted",
   "kumiko.list.reset-all": "Reset",
+  "kumiko.list.export": "Export",
+  "kumiko.list.export-busy": "Exporting…",
+  "kumiko.list.export-too-many":
+    "More than {max} rows. Narrow the list with a filter and export again.",
+  "kumiko.list.export-failed": "The export failed. Please try again.",
   "kumiko.list.view.menu": "View",
   "kumiko.list.view.columns": "Columns",
   "kumiko.list.view.density": "Density",

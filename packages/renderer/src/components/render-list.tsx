@@ -159,10 +159,7 @@ export type RenderListProps = {
   readonly expandedRowIds?: ReadonlySet<string>;
   readonly onToggleRowExpanded?: (rowId: string) => void;
   readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
-  /** Forwarded to `DataTableProps.view` / `resetAll` (the `table` block). */
-  readonly view?: DataTableProps["view"];
-  readonly resetAll?: DataTableProps["resetAll"];
-};
+} & Pick<DataTableProps, "view" | "resetAll" | "exportList">;
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -215,8 +212,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     expandedRowIds,
     onToggleRowExpanded,
     renderExpandedRow,
-    view,
-    resetAll,
+    ...tableBlockProps
   } = props;
   // As in RenderEdit, fall back to the i18next context for translation;
   // otherwise column headers would display raw i18n keys.
@@ -597,8 +593,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(expandedRowIds !== undefined && { expandedRowIds })}
         {...(onToggleRowExpanded !== undefined && { onToggleRowExpanded })}
         {...(renderExpandedRow !== undefined && { renderExpandedRow })}
-        {...(view !== undefined && { view })}
-        {...(resetAll !== undefined && { resetAll })}
+        {...tableBlockProps}
         testId="render-list-table"
       />
     </>

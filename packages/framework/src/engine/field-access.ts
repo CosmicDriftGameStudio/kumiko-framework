@@ -43,6 +43,21 @@ export function dropEmptyWriteOnlyValues<T extends Readonly<Record<string, unkno
   return kept as T; // @cast-boundary engine-payload
 }
 
+// Role-level gate for bulk exports: false for writeOnly fields and for fields whose read-access
+// map grants none of the user's roles. Per-row ownership rules are not evaluated here; those
+// cells come back empty from the list query itself.
+export function userMayReadFieldInBulk(
+  entity: EntityDefinition,
+  fieldName: string,
+  user: Pick<SessionUser, "roles">,
+): boolean {
+  const field = entity.fields[fieldName];
+  if (!field) return false;
+  if (field.type === "text" && field.writeOnly === true) return false;
+  const accessMap = normalizeAccessEntry(field.access?.read);
+  return accessMap === undefined || user.roles.some((role) => accessMap[role] !== undefined);
+}
+
 // Field-level read filtering. Returns a copy of `data` with fields stripped
 // if the user's roles don't grant read access OR the ownership-rule for the
 // matching role doesn't accept this concrete row. Fields without access

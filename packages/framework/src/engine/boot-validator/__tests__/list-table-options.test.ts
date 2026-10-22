@@ -274,3 +274,56 @@ describe("validateBoot — list table block", () => {
     expect(() => validateBoot([feature])).toThrow(/expandableRow.*does not support a table block/);
   });
 });
+
+describe("validateBoot — table.export", () => {
+  const LIST_KINDS: ScreenKind[] = ["entityList", "projectionList"];
+
+  test.each(LIST_KINDS)("%s: a valid export block passes", (kind) => {
+    expect(() =>
+      validateBoot([featureWith(kind, { export: { xlsx: true, maxRows: 500 } })]),
+    ).not.toThrow();
+    expect(() => validateBoot([featureWith(kind, { export: { xlsx: true } })])).not.toThrow();
+  });
+
+  test.each([0, -1])("maxRows %d is rejected", (maxRows) => {
+    expect(() =>
+      validateBoot([featureWith("entityList", { export: { xlsx: true, maxRows } })]),
+    ).toThrow(/table\.export\.maxRows is .* must be an integer >= 1/);
+  });
+
+  test("a non-integer maxRows is rejected", () => {
+    expect(() =>
+      validateBoot([featureWith("entityList", { export: { xlsx: true, maxRows: 2.5 } })]),
+    ).toThrow(/must be an integer >= 1/);
+  });
+
+  test("maxRows above the hard cap is rejected", () => {
+    expect(() =>
+      validateBoot([featureWith("projectionList", { export: { xlsx: true, maxRows: 100001 } })]),
+    ).toThrow(/must be at most 100000/);
+  });
+
+  test("an unknown export key lists the allowed keys", () => {
+    expect(() =>
+      validateBoot([featureWith("entityList", { export: { xlsx: true, csv: true } })]),
+    ).toThrow(/table\.export has unknown key\(s\) "csv"\. Allowed keys: xlsx, maxRows/);
+  });
+
+  test("xlsx: false is rejected", () => {
+    expect(() => validateBoot([featureWith("entityList", { export: { xlsx: false } })])).toThrow(
+      /table\.export\.xlsx must be true/,
+    );
+  });
+
+  test("a non-object export is rejected", () => {
+    expect(() => validateBoot([featureWith("entityList", { export: true })])).toThrow(
+      /table\.export must be an object/,
+    );
+  });
+
+  test("relatedList rejects export", () => {
+    expect(() => validateBoot([featureWith("relatedList", { export: { xlsx: true } })])).toThrow(
+      /export is only available on entityList and projectionList screens/,
+    );
+  });
+});

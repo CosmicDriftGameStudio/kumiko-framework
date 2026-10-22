@@ -33,6 +33,7 @@
     "@cosmicdrift/kumiko-locale-it": "workspace:*"
   },
   "devDependencies": {
-    "@cosmicdrift/kumiko-testing": "workspace:*"
+    "@cosmicdrift/kumiko-testing": "workspace:*",
+    "fflate": "^0.8.2"
   }
 }

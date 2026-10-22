@@ -24,6 +24,9 @@ the `table` block renders and behaves as before.
 - `table.resizing`: columns can be resized (table-layout fixed); `width` and
   `minWidth` on a column are start values in px.
 - `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows.
+- `table.export`: an Export button downloads the whole filtered list as an XLSX
+  file; `maxRows` lowers the default limit of 10000 rows.
+  Reference columns export their label and timestamps use the browser time zone.
 - The same block on a `projectionList`.
 
 ## Source
@@ -77,6 +80,7 @@ describe("list-table-options recipe", () => {
       pinning: true,
       resizing: true,
       keyboardNavigation: true,
+      export: { xlsx: true, maxRows: 5000 },
     });
   });
 
@@ -94,7 +98,7 @@ describe("list-table-options recipe", () => {
 
   test("a misspelled table key is rejected with the allowed keys", () => {
     expect(() => validateBoot([featureWithBlock({ rememberStatee: true })])).toThrow(
-      /unknown key\(s\) "rememberStatee"\. Allowed keys: rememberState, resetAll, columnPicker, density/,
+      /unknown key\(s\) "rememberStatee"\. Allowed keys: rememberState, resetAll, columnPicker, density, pinning, resizing, keyboardNavigation, export/,
     );
   });
 
@@ -108,6 +112,14 @@ describe("list-table-options recipe", () => {
     expect(() =>
       validateBoot([featureWithBlock({ columnPicker: true, density: { default: "tight" } })]),
     ).toThrow(/table\.density\.default is "tight"/);
+  });
+
+  test("an export row limit above the hard cap is rejected", () => {
+    expect(() =>
+      validateBoot([
+        featureWithBlock({ columnPicker: true, export: { xlsx: true, maxRows: 100001 } }),
+      ]),
+    ).toThrow(/table\.export\.maxRows is 100001 .* at most 100000/);
   });
 });
 ```
@@ -171,6 +183,7 @@ export function createTaskBoardFeature(
     pinning: true,
     resizing: true,
     keyboardNavigation: true,
+    export: { xlsx: true, maxRows: 5000 },
   },
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {

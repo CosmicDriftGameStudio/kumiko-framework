@@ -2,7 +2,7 @@
 status: in-progress
 verified: 2026-10-22
 issue: kumiko-framework#3956
-next: Runde 1 (kumiko-framework#3957) mit /issue-ship umsetzen; Reihenfolge #3957, #3958, #3959, #3961, #3962, #3960; Screenshot-Abnahme durch Marc vor dem Merge von #3958 und #3960.
+next: Runde 2 (#3958) und Runde 6 (#3962) laufen parallel, danach R5 (#3961), zuletzt R4 (#3960); R1 (#3957, PR #3967) und R3 (#3959, PR #3966) sind gemergt.
 track: framework
 depends: []
 ---

@@ -2,7 +2,11 @@ import type { ListTableOptions } from "@cosmicdrift/kumiko-types/screen";
 import { useCallback, useMemo } from "react";
 import { useNav } from "../app/nav.tsx";
 import { useListStateStore } from "../components/list-state-store.tsx";
-import type { DataTableResetAll, DataTableViewOptions } from "../data-table-view-types.ts";
+import type {
+  DataTableExport,
+  DataTableResetAll,
+  DataTableViewOptions,
+} from "../data-table-view-types.ts";
 import { isListStateAtDefault, listResetUpdates } from "./list-reset.ts";
 import { type ListViewSchemaColumn, useListViewState } from "./use-list-view-state.ts";
 
@@ -18,12 +22,27 @@ type ListTableArgs = {
   readonly url?: { readonly screenId: string };
   /** List with component-local state (relatedList): the owner resets it. */
   readonly local?: { readonly atDefault: boolean; readonly reset: () => void };
+  /** Screen identity and current list payload; used only when `table.export.xlsx` is on. */
+  readonly exportSource?: {
+    readonly screen: string;
+    readonly screenShortId: string;
+    readonly payload: Readonly<Record<string, unknown>>;
+  };
 };
 
 export type ListTableProps = {
   readonly view?: DataTableViewOptions;
   readonly resetAll?: DataTableResetAll;
+  readonly exportList?: DataTableExport;
 };
+
+const PAGING_PAYLOAD_KEYS = ["limit", "offset", "cursor", "totalCount", "filter"] as const;
+
+function withoutPaging(payload: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const kept: Record<string, unknown> = { ...payload };
+  for (const key of PAGING_PAYLOAD_KEYS) delete kept[key];
+  return kept;
+}
 
 /** Props for the DataTable's `view` / `resetAll` from a screen's `table` block. */
 export function useListTable({
@@ -32,6 +51,7 @@ export function useListTable({
   schemaColumns,
   url,
   local,
+  exportSource,
 }: ListTableArgs): ListTableProps {
   const nav = useNav();
   const store = useListStateStore();
@@ -95,8 +115,19 @@ export function useListTable({
     [hasView, viewState, options.keyboardNavigation],
   );
 
+  const exportEnabled = options.export?.xlsx === true;
+  const viewColumns = viewState.columns;
+  const exportList = useMemo<DataTableExport | undefined>(() => {
+    if (!exportEnabled || exportSource === undefined) return undefined;
+    const ordered =
+      viewColumns?.filter((column) => column.visible).map((column) => column.field) ??
+      schemaColumns.map((column) => column.field);
+    return { ...exportSource, payload: withoutPaging(exportSource.payload), columns: ordered };
+  }, [exportEnabled, exportSource, viewColumns, schemaColumns]);
+
   return {
     ...(view !== undefined && { view }),
     ...(resetAll !== undefined && { resetAll }),
+    ...(exportList !== undefined && { exportList }),
   };
 }

@@ -293,9 +293,9 @@ function EntityListBody({
     [entityFacetSpecs],
   );
   const listTable = useScreenListTable({
-    screenId: screen.id,
-    table: screen.table,
-    columns: screen.columns,
+    screen,
+    featureName: featureName,
+    payload: queryPayload,
     filterFields: facetFilterFields,
   });
   const [entityReferenceFacetOptions, setEntityReferenceFacetOptions] = useState<

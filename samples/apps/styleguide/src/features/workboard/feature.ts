@@ -73,6 +73,7 @@ export const workboardFeature = defineFeature("workboard", (r) => {
       resetAll: true,
       columnPicker: true,
       density: { default: "comfortable", userChoice: true },
+      export: { xlsx: true },
     },
     rowActions: [
       { kind: "navigate", id: "edit", label: "Edit", screen: "task-edit", rowClick: true },

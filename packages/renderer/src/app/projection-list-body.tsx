@@ -189,9 +189,9 @@ export function ProjectionListBody({
     [screen.facets],
   );
   const listTable = useScreenListTable({
-    screenId: screen.id,
-    table: screen.table,
-    columns: screen.columns,
+    screen,
+    featureName: schema.featureName,
+    payload: queryPayload,
     filterFields: facetFilterFields,
   });
 
