@@ -156,7 +156,7 @@ function toCapturedMail(message: InboxMessage): CapturedMail {
 // createE2eSeedRoutes() : [])` in a server entry that also runs in prod.
 // Each route's own assertGateOpen() 404s outside the seed condition regardless
 // — this is belt-and-suspenders, not the only gate.
-export function createE2eSeedRoutes(
+export function createE2eSeedRoutesWith(
   options: E2eSeedRoutesOptions,
   bundled: SeedRouteBundledApi,
 ): readonly ExtraRouteDefinition[] {
@@ -327,3 +327,6 @@ export function createE2eSeedRoutes(
 
   return [seedTenantRoute, seedUserRoute, inboxRoute, extraSeedRoute];
 }
+
+/** @deprecated Use `createE2eSeedRoutesWith`; the old name collides with the bound `createE2eSeedRoutes` of dev-server/testing. */
+export const createE2eSeedRoutes = createE2eSeedRoutesWith;

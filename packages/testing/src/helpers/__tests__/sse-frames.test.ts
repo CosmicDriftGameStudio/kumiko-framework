@@ -62,6 +62,19 @@ describe("readSseFrames", () => {
     expect(frames[0]?.data).toBe("line1\nline2");
   });
 
+  test("parses CRLF line endings, including a CRLF split across chunks", async () => {
+    const { response } = responseOfChunks([
+      "event: a\r\ndata: 1\r\n\r",
+      "\nevent: b\rdata: 2\r\r",
+      "\n",
+    ]);
+    const frames = await readSseFrames(response, { until: (_, all) => all.length === 2 });
+    expect(frames.map((f) => [f.event, f.data])).toEqual([
+      ["a", "1"],
+      ["b", "2"],
+    ]);
+  });
+
   test("throws when the stream ends before the condition is met", async () => {
     const { response } = responseOfChunks(["data: 1\n\n"]);
     await expect(readSseFrames(response, { until: () => false })).rejects.toThrow(

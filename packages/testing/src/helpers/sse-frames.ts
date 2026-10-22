@@ -25,6 +25,8 @@ export async function readSseFrames(
   const decoder = new TextDecoder();
   const frames: SseFrame[] = [];
   let buffer = "";
+  // A "\r" at a chunk end may be the first half of "\r\n", so it is held back until the next chunk.
+  let heldCarriageReturn: boolean = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<never>((_, reject) => {
     timer = setTimeout(
@@ -40,7 +42,10 @@ export async function readSseFrames(
       if (chunk.done) {
         throw new Error(`sse stream ended before condition: ${frames.length} frames read`);
       }
-      buffer += decoder.decode(chunk.value, { stream: true });
+      const decodedText = decoder.decode(chunk.value, { stream: true });
+      const decoded: string = (heldCarriageReturn ? "\r" : "") + decodedText;
+      heldCarriageReturn = decoded.endsWith("\r");
+      buffer += (heldCarriageReturn ? decoded.slice(0, -1) : decoded).replace(/\r\n?/g, "\n");
       let separator = buffer.indexOf("\n\n");
       while (separator !== -1) {
         const rawFrame = buffer.slice(0, separator);

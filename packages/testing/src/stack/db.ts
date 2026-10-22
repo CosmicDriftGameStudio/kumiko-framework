@@ -54,7 +54,7 @@ export function testDbTemplatePrefix(runId: string): string {
   return `kumiko_test_tpl_${runId}_`;
 }
 
-function adminUrlOf(url: string): string {
+export function adminUrlOf(url: string): string {
   return url.replace(/\/[^/]+$/, "/postgres");
 }
 
@@ -132,7 +132,7 @@ export function ensureTestDbTemplate(
   return pending;
 }
 
-async function buildTestDbTemplate(
+export async function buildTestDbTemplate(
   templateDbName: string,
   buildSchema: (db: DbConnection) => Promise<void>,
 ): Promise<void> {

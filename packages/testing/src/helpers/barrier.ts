@@ -19,6 +19,8 @@ export function createBarrier(options: {
   let arrived = 0;
   let skipped = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // Late arrivals after a timeout must fail loudly too instead of hanging until the test timeout.
+  let timedOutError: Error | undefined;
   const waiting: { resolve: () => void; reject: (error: Error) => void }[] = [];
 
   function openIfComplete(): void {
@@ -30,15 +32,17 @@ export function createBarrier(options: {
 
   return {
     arrive() {
+      if (timedOutError !== undefined) return Promise.reject(timedOutError);
       arrived++;
       const pending = new Promise<void>((resolve, reject) => {
         waiting.push({ resolve, reject });
       });
-      if (arrived === 1 && arrived + skipped < expected) {
+      if (timer === undefined && arrived + skipped < expected) {
         timer = setTimeout(() => {
           const error = new Error(
             `barrier timed out: ${arrived} of ${expected} arrived, ${skipped} skipped`,
           );
+          timedOutError = error;
           for (const waiter of waiting.splice(0)) waiter.reject(error);
         }, timeoutMs);
       }

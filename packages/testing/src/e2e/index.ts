@@ -22,7 +22,11 @@ export {
   syntheticClientIpFor,
   totpCode,
 } from "./auth-kit";
-export { boundaryGuardedTest } from "./boundary-guard";
+export {
+  type BoundaryFindings,
+  boundaryGuardedTest,
+  observeErrorBoundaries,
+} from "./boundary-guard";
 export {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
