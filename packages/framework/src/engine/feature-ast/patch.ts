@@ -40,12 +40,8 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import {
-  readNameLiteral,
-  readNameOrRef,
-  readPropertyKey,
-  resolveSameFileObjectLiteral,
-} from "./extractors/shared.ts";
+import { readPropertyKey } from "./extractors/shared.ts";
+import { callMatchesId } from "./pattern-id-matchers.ts";
 import type {
   FeaturePattern,
   FeaturePatternKind,
@@ -717,7 +713,7 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     if (!propAccess) continue;
     if (propAccess.getExpression().getText() !== registrarParam) continue;
     if (propAccess.getName() !== id.kind) continue;
-    if (callMatchesId(call, id)) matches.push(call);
+    if (callMatchesId(call, id.kind, id)) matches.push(call);
   }
 
   if (SINGLETON_KINDS.has(id.kind) && matches.length > 1) {
@@ -734,31 +730,13 @@ const AI_STEP_FACTORY: Readonly<Record<"ai.generate" | "ai.extract" | "ai.classi
   "ai.classify": "aiClassifyStep",
 };
 
-function readAiStepKey(call: CallExpression): string | undefined {
-  const arg = call.getArguments()[0];
-  if (!arg) return undefined;
-  const obj = resolveSameFileObjectLiteral(arg);
-  if (!obj) return undefined;
-  const prop = obj.getProperty("stepKey");
-  if (!prop) return undefined;
-  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
-  if (assign) {
-    const init = assign.getInitializer();
-    if (!init) return undefined;
-    return readNameLiteral(init);
-  }
-  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
-  if (shorthand) return readNameLiteral(shorthand.getNameNode());
-  return undefined;
-}
-
 function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
   if (!isAiStepId(id)) return undefined;
   const factory = AI_STEP_FACTORY[id.kind];
   const matches: CallExpression[] = [];
   for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     if (call.getExpression().getText() !== factory) continue;
-    if (callMatchesId(call, id)) matches.push(call);
+    if (callMatchesId(call, id.kind, id)) matches.push(call);
   }
   if (matches.length > 1) {
     throw new Error(
@@ -768,192 +746,6 @@ function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression |
     );
   }
   return matches[0];
-}
-
-function callMatchesId(call: CallExpression, id: PatternId): boolean {
-  switch (id.kind) {
-    // Singletons: kind alone identifies the call.
-    case "requires":
-    case "optionalRequires":
-    case "readsConfig":
-    case "systemScope":
-    case "toggleable":
-    case "describe":
-    case "uiHints":
-    case "config":
-    case "translations":
-    case "authClaims":
-    case "treeActions":
-      return true;
-
-    case "entity":
-      return (
-        matchFirstArgString(call, id.entityName) || matchObjectProperty(call, "name", id.entityName)
-      );
-    case "relation":
-      // Positional: r.relation(entity, name, def) | Object: { entity, name, ... }
-      if (matchFirstArgString(call, id.entityName)) {
-        return matchArgString(call, 1, id.relationName);
-      }
-      return (
-        matchObjectProperty(call, "entity", id.entityName) &&
-        matchObjectProperty(call, "name", id.relationName)
-      );
-    case "nav":
-    case "workspace":
-    case "screen":
-      return matchObjectProperty(call, "id", id.id);
-    case "writeHandler":
-    case "queryHandler":
-    case "streamHandler":
-      return (
-        matchFirstArgString(call, id.handlerName) ||
-        matchObjectProperty(call, "name", id.handlerName)
-      );
-    case "hook":
-      // Positional: r.hook(type, target, fn) | Object: { type, target }
-      if (typeof id.target === "object") {
-        // Entity-wide { allOf } target — only ever appears as the object
-        // literal { allOf: entity } (positional or nested in the object
-        // form), never as a bare string, so check both call shapes.
-        if (matchFirstArgString(call, id.hookType)) {
-          return matchAllOfArg(call.getArguments()[1], id.target.allOf);
-        }
-        return (
-          matchObjectProperty(call, "type", id.hookType) &&
-          matchObjectAllOfProperty(call, "target", id.target.allOf)
-        );
-      }
-      if (matchFirstArgString(call, id.hookType)) {
-        return matchArgNameOrRef(call, 1, id.target);
-      }
-      return (
-        matchObjectProperty(call, "type", id.hookType) &&
-        matchObjectProperty(call, "target", id.target)
-      );
-    case "metric":
-    case "secret":
-    case "secretNamespace":
-    case "claimKey":
-      return (
-        matchFirstArgString(call, id.shortName) || matchObjectProperty(call, "name", id.shortName)
-      );
-    case "referenceData":
-      return (
-        matchFirstArgString(call, id.entityName) ||
-        matchObjectProperty(call, "entity", id.entityName)
-      );
-    case "useExtension":
-      // Positional: r.useExtension(name, entity) | Object: { name, entity }
-      if (matchFirstArgString(call, id.extensionName)) {
-        return matchArgNameOrRef(call, 1, id.entityName);
-      }
-      return (
-        matchObjectProperty(call, "name", id.extensionName) &&
-        matchObjectProperty(call, "entity", id.entityName)
-      );
-    case "job":
-      return matchFirstArgString(call, id.jobName) || matchObjectProperty(call, "name", id.jobName);
-    case "notification":
-      return (
-        matchFirstArgString(call, id.notificationName) ||
-        matchObjectProperty(call, "name", id.notificationName)
-      );
-    case "httpRoute":
-      // Object form only; positional doesn't apply.
-      return (
-        matchObjectProperty(call, "method", id.method) && matchObjectProperty(call, "path", id.path)
-      );
-    case "projection":
-    case "multiStreamProjection":
-      return matchObjectProperty(call, "name", id.name);
-    case "defineEvent":
-      return (
-        matchFirstArgString(call, id.eventName) || matchObjectProperty(call, "name", id.eventName)
-      );
-    case "extendsRegistrar":
-      return matchFirstArgString(call, id.extensionName);
-    case "ai.generate":
-    case "ai.extract":
-    case "ai.classify":
-      return readAiStepKey(call) === id.stepKey;
-    default: {
-      const _exhaustive: never = id;
-      return _exhaustive;
-    }
-  }
-}
-
-// Resolves an argument the same way the extractors do (readNameLiteral):
-// a string literal directly, or a bare identifier following its
-// declaration (same-file or imported) to a string-literal initializer —
-// the dominant naming style in the framework's own bundled-features
-// (`r.entity(ENTITY, ...)`, `r.useExtension(EXT_X, ...)`).
-//
-// Narrow on purpose: every kind's arg-0 (and relation's arg-1) is parsed
-// via readNameLiteral, never readNameOrRef (see round2.ts/round3.ts) —
-// widening this shared helper to readNameOrRef would let an object-form
-// call's first argument (an ObjectLiteralExpression) match here too,
-// short-circuiting the object-form branch in callMatchesId. Positions
-// where the parser itself accepts an inline `{ name: "..." }` ref use
-// `matchArgNameOrRef` below instead.
-function matchArgString(call: CallExpression, index: number, expected: string): boolean {
-  const arg = call.getArguments()[index];
-  if (!arg) return false;
-  return readNameLiteral(arg) === expected;
-}
-
-// @wrapper-known semantic-alias
-function matchFirstArgString(call: CallExpression, expected: string): boolean {
-  return matchArgString(call, 0, expected);
-}
-
-// Like matchArgString, but via readNameOrRef — for the specific positional
-// slots where the parser accepts an inline `{ name: "..." }` object ref in
-// addition to a literal/identifier (useExtension's entity arg, hook's
-// target arg; see round3.ts:445 / hooks.ts:75). Not a drop-in replacement
-// for matchArgString: applying it to an arg-0 position would match an
-// object-form call's first (and only) argument, see the comment above.
-function matchArgNameOrRef(call: CallExpression, index: number, expected: string): boolean {
-  const arg = call.getArguments()[index];
-  if (!arg) return false;
-  return readNameOrRef(arg) === expected;
-}
-
-// Object-form property values are resolved via readNameOrRef, not the
-// narrower readNameLiteral — some properties (useExtension's `entity`,
-// hook's `target`/`allOf`) accept an inline `{ name: "..." }` ref in the
-// parser (see extractors/round3.ts, extractors/hooks.ts), not just a
-// literal or identifier. readNameOrRef is a superset of readNameLiteral,
-// so this is safe for every other property too.
-function matchObjectProperty(call: CallExpression, propName: string, expected: string): boolean {
-  const obj = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (!obj) return false;
-  const init = obj.getProperty(propName)?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
-  if (!init) return false;
-  return readNameOrRef(init) === expected;
-}
-
-// Matches an r.hook `{ allOf: entity }` target — as the arg node directly
-// (positional call form) or as a nested object property (object call form).
-function matchAllOfArg(node: Node | undefined, expectedEntity: string): boolean {
-  const obj = node?.asKind(SyntaxKind.ObjectLiteralExpression);
-  const init = obj?.getProperty("allOf")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
-  if (!init) return false;
-  return readNameOrRef(init) === expectedEntity;
-}
-
-function matchObjectAllOfProperty(
-  call: CallExpression,
-  propName: string,
-  expectedEntity: string,
-): boolean {
-  const obj = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
-  const propInit = obj
-    ?.getProperty(propName)
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
-  return matchAllOfArg(propInit, expectedEntity);
 }
 
 // =============================================================================
