@@ -278,6 +278,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare const page: { screenshot: (opts: unknown) => Promise<void> };\nexport const run = () => page.screenshot({ path: "out.png" });',
     expectedMessage: /Direct page\.screenshot/,
   },
+  "comment-issue-ref-only": {
+    path: `${PKG}/features/x/refs.ts`,
+    code: "// see #1234\nexport const value = 1;\n",
+    expectedMessage: /issue-reference-only comment\(s\) over baseline/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report
