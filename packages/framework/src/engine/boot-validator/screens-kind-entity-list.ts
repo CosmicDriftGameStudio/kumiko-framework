@@ -6,6 +6,7 @@ import { normalizeListColumn } from "../screen-helpers.ts";
 import type { EntityDefinition } from "../types/index.ts";
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
+import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import {
   assertWriteHandlerRegistered,
@@ -410,6 +411,11 @@ export function validateEntityListScreen(
     }
     validateAtMostOneRowClick(featureName, screenId, "entityList", screen.rowActions);
   }
+  validateListBulkActions(
+    `[Feature ${featureName}] Screen "${screenId}" (entityList)`,
+    screen.bulkActions,
+    screen.rowActions,
+  );
   for (const action of screen.toolbarActions ?? []) {
     validateEntityListToolbarAction(ctx, screenId, fields, action);
   }

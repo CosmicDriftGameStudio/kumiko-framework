@@ -23,10 +23,13 @@ the `table` block renders and behaves as before.
   `pinned: "left"` on a column starts it pinned.
 - `table.resizing`: columns can be resized (table-layout fixed); `width` and
   `minWidth` on a column are start values in px.
-- `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows.
+- `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows,
+  Space selects the focused row.
 - `table.export`: an Export button downloads the whole filtered list as an XLSX
   file; `maxRows` lowers the default limit of 10000 rows.
   Reference columns export their label and timestamps use the browser time zone.
+- `bulkActions`: row checkboxes and a selection bar. "Delete" runs the delete
+  row action once per selected row; done tasks are skipped.
 - The same block on a `projectionList`.
 
 ## Source
@@ -42,7 +45,8 @@ bun test
 
 The test boots the feature through the boot validator and checks that a
 misspelled key, a hidden column without the picker, an unknown density, a pinned column
-without `pinning` and a width without `resizing` are rejected.
+without `pinning`, a width without `resizing` and a bulk action on a navigate
+row action are rejected.
 
 ## Source files
 
@@ -52,11 +56,12 @@ without `pinning` and a width without `resizing` are rejected.
 import { describe, expect, test } from "bun:test";
 import {
   createRegistry,
+  defineFeature,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTaskBoardFeature } from "../feature";
+import { createTaskBoardFeature, openAccess, taskEntity } from "../feature";
 
 // The boot validator is the net for blocks the type system never sees (JS, generated features).
 function featureWithBlock(block: object) {
@@ -82,6 +87,33 @@ describe("list-table-options recipe", () => {
       keyboardNavigation: true,
       export: { xlsx: true, maxRows: 5000 },
     });
+  });
+
+  test("the bulk action resolves to the delete row action", () => {
+    const screen = createRegistry([createTaskBoardFeature()]).getScreen(
+      "task-board:screen:task-list",
+    );
+    expect(screen?.type === "entityList" ? screen.bulkActions : undefined).toEqual([
+      { id: "delete", rowAction: "delete" },
+    ]);
+  });
+
+  test("a bulk action that points at a navigate row action is rejected", () => {
+    const feature = defineFeature("bulk-on-navigate", (r) => {
+      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.screen({
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title"],
+        rowActions: [{ kind: "navigate", id: "open", label: "Open", screen: "task-list" }],
+        bulkActions: [{ id: "open", rowAction: "open" }],
+        access: openAccess.access,
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /bulk action "open" points at rowAction "open" of kind "navigate"/,
+    );
   });
 
   test("a pinned column needs table.pinning", () => {
@@ -167,7 +199,7 @@ export const taskEntity = createEntity({
   },
 });
 
-const openAccess = {
+export const openAccess = {
   access: {
     openToAll: { reason: "recipe: any signed-in user manages the tasks; no per-user ownership" },
   },
@@ -209,7 +241,18 @@ export function createTaskBoardFeature(
       table: taskTable,
       rowActions: [
         { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+        {
+          kind: "writeHandler",
+          id: "delete",
+          label: "Delete",
+          handler: "task-board:write:task:delete",
+          style: "danger",
+          // Done tasks are skipped by the bulk run and counted as skipped.
+          visible: { field: "status", ne: "done" },
+        },
       ],
+      // Row checkboxes and a selection bar; each selected row gets its own delete write.
+      bulkActions: [{ id: "delete", rowAction: "delete" }],
       access: openAccess.access,
     });
 

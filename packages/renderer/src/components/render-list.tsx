@@ -115,11 +115,11 @@ export type RenderListProps = {
    *  EntityListScreenDefinition.rowActions: handler-QN becomes a dispatcher
    *  call, and i18n keys become translated strings. */
   readonly rowActions?: readonly DataTableRowAction[];
-  /** How the row-action column renders (see `DataTableProps.rowActionMode`).
-   *  KumikoScreen derives it from the actions themselves; without it the
-   *  DataTable falls back to its adaptive default. */
+  /** How the row-action column renders (see `DataTableProps.rowActionMode`). KumikoScreen
+   *  derives it from the actions; without it the DataTable uses its adaptive default. */
   readonly rowActionMode?: DataTableRowActionMode;
-  /** Forwarded to `DataTableProps.rowGrouping` / `rowTone`. */
+  /** Forwarded to `DataTableProps.bulk` / `rowGrouping` / `rowTone`. */
+  readonly bulk?: DataTableProps["bulk"];
   readonly rowGrouping?: DataTableRowGrouping;
   readonly rowTone?: DataTableProps["rowTone"];
   /** Toolbar actions in the list header in resolved form. KumikoScreen
@@ -141,13 +141,11 @@ export type RenderListProps = {
   readonly dateRangeFacets?: readonly DataTableDateRangeFacet[];
   /** One bound changed (set URL state + refetch). */
   readonly onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void;
-  /** Forwarded to `DataTableProps.chromeless` — drops the table's own card
-   *  frame for a host that already provides one (relatedList in a tabs-mode
-   *  section). Default false. */
+  /** Forwarded to `DataTableProps.chromeless` — drops the table's own card frame for a
+   *  host that already provides one (relatedList in a tabs-mode section). Default false. */
   readonly chromeless?: boolean;
-  /** Forwarded to `DataTableProps.scrollBody` — bounds the table height and
-   *  scrolls rows internally instead of growing the page (relatedList in a
-   *  tabs-mode section). Default false. */
+  /** Forwarded to `DataTableProps.scrollBody` — bounds the table height and scrolls rows
+   *  internally instead of growing the page (relatedList in a tabs-mode section). Default false. */
   readonly scrollBody?: boolean;
   /** Forwarded to `DataTableProps.screenPadding` — `true`: the table carries
    *  the shared screen padding because it is the screen body (entityList/
@@ -198,6 +196,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     hasMore,
     rowActions,
     rowActionMode,
+    bulk,
     rowGrouping,
     rowTone,
     toolbarActions,
@@ -622,6 +621,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(itemNoun !== undefined && { itemNoun })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
+        {...(bulk !== undefined && { bulk })}
         {...(rowGrouping !== undefined && { rowGrouping })}
         {...(rowTone !== undefined && { rowTone })}
         {...(filterFacets !== undefined && { filterFacets })}

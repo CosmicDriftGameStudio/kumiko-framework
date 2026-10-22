@@ -15,10 +15,13 @@ the `table` block renders and behaves as before.
   `pinned: "left"` on a column starts it pinned.
 - `table.resizing`: columns can be resized (table-layout fixed); `width` and
   `minWidth` on a column are start values in px.
-- `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows.
+- `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows,
+  Space selects the focused row.
 - `table.export`: an Export button downloads the whole filtered list as an XLSX
   file; `maxRows` lowers the default limit of 10000 rows.
   Reference columns export their label and timestamps use the browser time zone.
+- `bulkActions`: row checkboxes and a selection bar. "Delete" runs the delete
+  row action once per selected row; done tasks are skipped.
 - The same block on a `projectionList`.
 
 ## Source
@@ -34,4 +37,5 @@ bun test
 
 The test boots the feature through the boot validator and checks that a
 misspelled key, a hidden column without the picker, an unknown density, a pinned column
-without `pinning` and a width without `resizing` are rejected.
+without `pinning`, a width without `resizing` and a bulk action on a navigate
+row action are rejected.

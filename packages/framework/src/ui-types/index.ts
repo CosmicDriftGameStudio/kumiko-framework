@@ -151,6 +151,7 @@ export type {
   FieldRenderer,
   FormWidth,
   ListBadgeTone,
+  ListBulkAction,
   ListColumnDisplay,
   ListColumnSpec,
   ListEmptyStateSpec,
@@ -188,6 +189,7 @@ export type {
   ToolbarAction,
 } from "../engine/types/screen.ts";
 export {
+  MAX_BULK_SELECTION,
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
 } from "../engine/types/screen.ts";

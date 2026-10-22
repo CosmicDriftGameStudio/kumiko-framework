@@ -27,6 +27,7 @@ import { EntityListExpandedRow } from "./entity-list-expanded-row.tsx";
 import { resolveEntityFacetSpecs } from "./entity-list-facet-specs.ts";
 import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
+import { useListBulk } from "./list-bulk-actions.ts";
 import {
   isDefaultFilterActive,
   isListNarrowed,
@@ -48,7 +49,7 @@ import {
   buildDefaultEditRowAction,
   buildDrawerRowAction,
   buildProjectionToolbarActions,
-  evalRowExtractor,
+  buildWriteHandlerRowAction,
   findRowClickAction,
   navigateActionSearchParams,
   refetchAfterWrite,
@@ -64,7 +65,6 @@ import {
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
 import { useScreenListTable } from "./use-screen-list-table.ts";
-import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.ts";
 
 export function EntityListScreen({
   schema,
@@ -466,42 +466,12 @@ function EntityListBody({
           );
         }
         if (dispatcher === undefined) return null;
-        const writeAction = action;
-        const writeActionVisible = writeAction.visible;
-        return {
-          id: writeAction.id,
-          label: effectiveTranslate(writeAction.label),
-          style: writeAction.style,
-          icon: resolveActionIcon(writeAction.id, writeAction.icon),
-          confirm:
-            writeAction.confirm !== undefined ? effectiveTranslate(writeAction.confirm) : undefined,
-          confirmLabel:
-            writeAction.confirmLabel !== undefined
-              ? effectiveTranslate(writeAction.confirmLabel)
-              : undefined,
-          onTrigger: async (row: ListRowViewModel) => {
-            const buildPayload = writeAction.payload;
-            const payload =
-              buildPayload !== undefined
-                ? evalRowExtractor(buildPayload, row.values)
-                : { id: row.values["id"] };
-            const result = await dispatcher.write(writeAction.handler, payload);
-            // write() does not throw: a failure result MUST become an error here,
-            // otherwise the confirm dialog closes silently and the user sees "nothing
-            // happened" (prod bug 2026-06-07).
-            if (!result.isSuccess) {
-              throw new WriteFailedError(
-                result.error,
-                dispatcherErrorText(result.error, effectiveTranslate),
-              );
-            }
-            await refreshRowsAfterWrite();
-          },
-          isVisible:
-            writeActionVisible !== undefined
-              ? (row: ListRowViewModel) => evalFieldCondition(writeActionVisible, row.values)
-              : undefined,
-        };
+        return buildWriteHandlerRowAction(
+          action,
+          effectiveTranslate,
+          refreshRowsAfterWrite,
+          dispatcher,
+        );
       })
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
   }, [
@@ -514,6 +484,13 @@ function EntityListBody({
     refreshRowsAfterWrite,
     openDrawer,
   ]);
+  const bulk = useListBulk({
+    bulkActions: screen.bulkActions,
+    rowActions: screen.rowActions,
+    translate: effectiveTranslate,
+    dispatcher,
+    reload: refreshRowsAfterWrite,
+  });
 
   // ToolbarActions: Schema → Resolved-Form (analog rowActions), shared with
   // projectionList and relatedList sections via buildProjectionToolbarActions.
@@ -700,6 +677,7 @@ function EntityListBody({
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(screen.rowActionMode !== undefined && { rowActionMode: screen.rowActionMode })}
+        {...(bulk !== undefined && { bulk })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
         {...(useInfinite && {
           onReachEnd: loadMore,

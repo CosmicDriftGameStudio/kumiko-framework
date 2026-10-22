@@ -60,6 +60,7 @@ export const taskEntity = {
     estimate: { type: "number", sortable: true },
     notes: { type: "text" },
     location: { type: "text" },
+    archived: { type: "boolean", default: false },
   },
 } as unknown as EntityDefinition;
 
@@ -126,6 +127,27 @@ export const taskBoardPlainScreen: EntityListScreenDefinition = {
   rowActions: [
     { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
   ],
+};
+
+export const ARCHIVE_TASK_HANDLER = "test:write:task:archive";
+
+export const taskBulkScreen: EntityListScreenDefinition = {
+  id: "task-bulk",
+  type: "entityList",
+  entity: "task",
+  columns: ["title", "owner", "archived"],
+  table: { keyboardNavigation: true },
+  rowActions: [
+    { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+    {
+      id: "archive",
+      label: "Archive",
+      handler: ARCHIVE_TASK_HANDLER,
+      icon: "archive",
+      visible: { field: "archived", ne: true },
+    },
+  ],
+  bulkActions: [{ id: "archive", rowAction: "archive" }],
 };
 
 export const taskEditScreen: EntityEditScreenDefinition = {
@@ -212,6 +234,7 @@ export const e2eSchema: AppSchema = {
         "test:entity:task:field:owner": { en: "Owner", de: "Zuständig" },
         "test:entity:task:field:priority": { en: "Priority", de: "Priorität" },
         "test:entity:task:field:estimate": { en: "Estimate", de: "Aufwand" },
+        "test:entity:task:field:archived": { en: "Archived", de: "Archiviert" },
       },
       entities: { thing: thingEntity, task: taskEntity },
       screens: [
@@ -227,6 +250,7 @@ export const e2eSchema: AppSchema = {
         taskWideListScreen,
         taskBoardScreen,
         taskBoardPlainScreen,
+        taskBulkScreen,
         taskEditScreen,
       ],
       navs: [
@@ -248,6 +272,7 @@ export const e2eSchema: AppSchema = {
           screen: "task-board-plain",
           order: 80,
         },
+        { id: "task-bulk", label: "Bulk actions", screen: "task-bulk", order: 90 },
       ],
     },
   ],

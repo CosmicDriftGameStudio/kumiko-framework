@@ -306,6 +306,7 @@ function pushListChromeKeys(
   pushListEmptyStateKeys(out, list.emptyState);
   for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
   for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+  for (const bulk of list.bulkActions ?? []) pushKey(out, bulk.confirm);
 }
 
 function collectEntityListKeys(
@@ -488,6 +489,7 @@ function collectProjectionDetailKeys(
     }
     if (section.kind === "relatedList") {
       pushRelatedListSectionKeys(ctx.out, section);
+      for (const bulk of section.bulkActions ?? []) pushKey(ctx.out, bulk.confirm);
       continue;
     }
     if (isWriteFormEditSection(section)) {

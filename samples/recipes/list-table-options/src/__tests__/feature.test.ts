@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   createRegistry,
+  defineFeature,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTaskBoardFeature } from "../feature";
+import { createTaskBoardFeature, openAccess, taskEntity } from "../feature";
 
 // The boot validator is the net for blocks the type system never sees (JS, generated features).
 function featureWithBlock(block: object) {
@@ -31,6 +32,33 @@ describe("list-table-options recipe", () => {
       keyboardNavigation: true,
       export: { xlsx: true, maxRows: 5000 },
     });
+  });
+
+  test("the bulk action resolves to the delete row action", () => {
+    const screen = createRegistry([createTaskBoardFeature()]).getScreen(
+      "task-board:screen:task-list",
+    );
+    expect(screen?.type === "entityList" ? screen.bulkActions : undefined).toEqual([
+      { id: "delete", rowAction: "delete" },
+    ]);
+  });
+
+  test("a bulk action that points at a navigate row action is rejected", () => {
+    const feature = defineFeature("bulk-on-navigate", (r) => {
+      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.screen({
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title"],
+        rowActions: [{ kind: "navigate", id: "open", label: "Open", screen: "task-list" }],
+        bulkActions: [{ id: "open", rowAction: "open" }],
+        access: openAccess.access,
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /bulk action "open" points at rowAction "open" of kind "navigate"/,
+    );
   });
 
   test("a pinned column needs table.pinning", () => {

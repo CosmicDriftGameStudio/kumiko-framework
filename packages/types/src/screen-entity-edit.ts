@@ -13,6 +13,7 @@ import type {
   RowActionMode,
   RowFieldExtractor,
 } from "./screen-entity-list.ts";
+import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableOptions } from "./screen-list-table.ts";
 import type { ListFacetSpec } from "./screen-projection.ts";
 
@@ -332,6 +333,8 @@ export type EditRelatedListSection = {
   readonly rowActions?: readonly RowAction[];
   /** Layout of the row-action column — see `RowActionMode`. */
   readonly rowActionMode?: RowActionMode;
+  /** Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action. Adds a checkbox column and a selection bar; without it the list has no checkboxes. */
+  readonly bulkActions?: readonly ListBulkAction[];
   /** Groups rows by the value of a field under collapsible group headers. */
   readonly groupBy?: RelatedListGroupBy;
   /** Tints rows whose field matches — a declarative rule, not a function, so

@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-22
-evidence: "packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; samples/recipes/list-table-options"
+evidence: "packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
 ---
 
 # Renderer widget options
@@ -145,7 +145,7 @@ r.screen({
 | `density.userChoice` | Shows the density choice in the view menu. |
 | `pinning` | The user pins columns left or right in the view menu. Columns may start pinned with `pinned: "left" \| "right"`. Pinned columns stay sticky while scrolling horizontally. |
 | `resizing` | Switches the table to `table-layout: fixed`; the user drags or uses the arrow keys on the header edge. `width` and `minWidth` (px) on a column are start values. Widths stay between `minWidth` and 2000 px and are remembered per session, like the column choice and density, whether or not `rememberState` is on. |
-| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space stays reserved for selection. |
+| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. |
 | `export.xlsx` | Shows an Export button that downloads the filtered list as an XLSX file. `entityList` and `projectionList` only. |
 | `export.maxRows` | Row limit of one export, default 10000, hard cap 100000. |
 
@@ -164,6 +164,25 @@ r.screen({
 **XLSX export.** The button sends the current search, sort and facets, and the visible columns in their order, to `POST /api/export/xlsx`. The server runs the list query again with the user's session and reads the whole filtered list, not just the loaded page. Above `maxRows` it answers 413 and the button shows a hint instead of a file. The sheet drops encrypted, sensitive, write-only and unreadable fields and virtual columns, so it never holds more than the list query would show this user. Reference columns show the label of the target instead of its id, joined with commas for multiple references. Timestamps use the time zone of the browser, falling back to the profile zone and then UTC. Text cells are always plain strings, never formulas. A `projectionList` query must honor `offset` or return `nextCursor`, otherwise the export stops after the first page. Personal access tokens are rejected on this route.
 
 **Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
+
+## List `bulkActions`
+
+An `entityList`, `projectionList` or `relatedList` section takes `bulkActions`. Each entry names a writeHandler entry of the same screen's `rowActions`, which supplies handler, payload, label, icon, style and `visible`. The boot validator rejects an unknown id, a duplicate id and a row action of kind `clientAction`, `navigate` or `drawer`.
+
+```ts illustration
+rowActions: [
+  { kind: "writeHandler", id: "delete", label: "Delete", handler: "task-board:write:task:delete", style: "danger" },
+],
+bulkActions: [{ id: "delete", rowAction: "delete" }],
+```
+
+With at least one bulk action the table gets a checkbox column on the left, a header checkbox for the loaded rows and a checkbox on every card in the card layout. A bar above the table shows "n selected", one button per action and "Clear selection". A list without `bulkActions` renders without the column.
+
+**Run.** A bulk action sends one `/api/write` per row, at most 4 at a time, so every row goes through the same access checks, hooks and audit event as a single click. There is no batch endpoint. Rows the row action's `visible` hides are skipped and counted. The bar shows the progress as a counter; "Cancel" stops new writes, running writes finish. Afterwards a banner shows succeeded, failed, skipped and not run, plus the first error. Failed and not-run rows stay selected for a retry, the others are deselected, and the list reloads.
+
+**Confirm.** The dialog appears once for the whole selection and names the count. It appears when the bulk entry sets `confirm` (an i18n key with `{count}` and `{action}`) or the row action has `confirm` or `style: "danger"`.
+
+**Limits.** The selection covers the loaded rows of the current page and at most 100 rows. There is no "select all matches across pages". With `table.keyboardNavigation`, Space toggles the focused row.
 
 ## `DataTable`: `rowGrouping`, `onFilterReset`
 

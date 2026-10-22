@@ -3,21 +3,24 @@ import { MAX_COLUMN_WIDTH_PX } from "../../../hooks/list-column-layout.ts";
 import { useOptionalTranslation } from "../../../index.ts";
 import { arrowKeyDelta, usePointerDrag } from "../../widgets/use-pointer-drag.ts";
 import type { ColumnSizing } from "./use-column-sizing.ts";
-import { EXPAND_COLUMN_WIDTH_PX } from "./use-measured-column-widths.ts";
+import { EXPAND_COLUMN_WIDTH_PX, SELECT_COLUMN_WIDTH_PX } from "./use-measured-column-widths.ts";
 
 export function ColumnWidthGroup({
   fields,
   sizing,
   hasExpandColumn,
+  hasSelectColumn = false,
   hasActionsColumn,
 }: {
   readonly fields: readonly string[];
   readonly sizing: ColumnSizing;
   readonly hasExpandColumn: boolean;
+  readonly hasSelectColumn?: boolean;
   readonly hasActionsColumn: boolean;
 }): ReactNode {
   return (
     <colgroup>
+      {hasSelectColumn && <col style={{ width: SELECT_COLUMN_WIDTH_PX }} />}
       {hasExpandColumn && <col style={{ width: EXPAND_COLUMN_WIDTH_PX }} />}
       {fields.map((field) => (
         <col key={field} style={{ width: sizing.widthOf(field) }} />

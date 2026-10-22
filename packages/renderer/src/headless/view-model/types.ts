@@ -6,6 +6,7 @@ import type {
   FieldIconKey,
   FieldRenderer,
   IconKey,
+  ListBulkAction,
   ListColumnSpec,
   ListFacetSpec,
   ListSortSpec,
@@ -447,6 +448,7 @@ export type EditRelatedListSectionViewModel = {
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
   readonly rowActions?: readonly RowAction[];
   readonly rowActionMode?: RowActionMode;
+  readonly bulkActions?: readonly ListBulkAction[];
   readonly groupBy?: RelatedListGroupBy;
   readonly rowTone?: RelatedListRowTone;
   readonly toolbarActions?: readonly RelatedListToolbarAction[];

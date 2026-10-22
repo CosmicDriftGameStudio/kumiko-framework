@@ -232,7 +232,20 @@ function mergeDefaultEditAction(
     : (rowActions ?? []);
 }
 
-function buildWriteHandlerRowAction(
+/** The one server write of a writeHandler row action for one row. */
+export function writeRowAction(
+  action: RowActionWriteHandler,
+  row: ListRowViewModel,
+  dispatcher: Dispatcher,
+): ReturnType<Dispatcher["write"]> {
+  const payload =
+    action.payload !== undefined
+      ? evalRowExtractor(action.payload, row.values)
+      : { id: row.values["id"] };
+  return dispatcher.write(action.handler, payload);
+}
+
+export function buildWriteHandlerRowAction(
   action: RowActionWriteHandler,
   translate: Translate,
   refetch: () => Promise<unknown>,
@@ -250,11 +263,8 @@ function buildWriteHandlerRowAction(
       confirmLabel: translate(action.confirmLabel),
     }),
     onTrigger: async (row: ListRowViewModel) => {
-      const payload =
-        action.payload !== undefined
-          ? evalRowExtractor(action.payload, row.values)
-          : { id: row.values["id"] };
-      const result = await dispatcher.write(action.handler, payload);
+      const result = await writeRowAction(action, row, dispatcher);
+      // write() does not throw: an unthrown failure would close the confirm dialog silently.
       if (!result.isSuccess) {
         throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
       }

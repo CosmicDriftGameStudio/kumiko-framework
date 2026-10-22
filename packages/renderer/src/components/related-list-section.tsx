@@ -16,6 +16,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
 import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
+import { useListBulk } from "../app/list-bulk-actions.ts";
 import {
   buildFilterFacets,
   buildFilterPayload,
@@ -466,6 +467,13 @@ export function RelatedListSection({
       host,
     ],
   );
+  const bulk = useListBulk({
+    bulkActions: section.bulkActions,
+    rowActions: section.rowActions,
+    translate: effectiveTranslate,
+    dispatcher,
+    reload: refetchSelfAndHost,
+  });
 
   // Toolbar actions (e.g. "+ Create" above the tab table) — same schema
   // and dispatch semantics as entityList/projectionList.
@@ -621,6 +629,7 @@ export function RelatedListSection({
             {...(onRowClick !== undefined && { onRowClick })}
             {...(rowActions !== undefined && { rowActions })}
             {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
+            {...(bulk !== undefined && { bulk })}
             {...(rowGrouping !== undefined && { rowGrouping })}
             {...(rowTone !== undefined && { rowTone })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}

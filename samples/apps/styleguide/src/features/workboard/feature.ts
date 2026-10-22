@@ -81,7 +81,7 @@ export const workboardFeature = defineFeature("workboard", (r) => {
   });
 
   // The same tasks as a spreadsheet-like board: fixed column widths, a pinned title,
-  // keyboard navigation between rows.
+  // keyboard navigation between rows, row checkboxes with a bulk delete.
   r.screen({
     id: "task-board",
     type: "entityList",
@@ -108,7 +108,16 @@ export const workboardFeature = defineFeature("workboard", (r) => {
     },
     rowActions: [
       { kind: "navigate", id: "edit", label: "Edit", screen: "task-edit", rowClick: true },
+      {
+        kind: "writeHandler",
+        id: "delete",
+        label: "Delete",
+        handler: "workboard:write:task:delete",
+        style: "danger",
+        visible: { field: "status", ne: "done" },
+      },
     ],
+    bulkActions: [{ id: "delete", rowAction: "delete" }],
   });
 
   r.screen({
