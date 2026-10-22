@@ -319,7 +319,7 @@ export function validateScreenNavTarget(
 
 // kind:"drawer" resolves same-feature only — unlike navigate/redirect,
 // which the runtime router resolves app-wide (see the comment on
-// validateScreens below), the drawer mounts the target inline using this
+// buildScreenValidationContext in screens.ts), the drawer mounts the target inline using this
 // feature's schema, so a cross-feature reference could never actually
 // render. Two distinct failure messages: dangling reference vs. wrong
 // screen type. Shared by ToolbarAction and RowAction drawer variants —
@@ -846,4 +846,19 @@ export function validateNavigateActionTab(
     lookups.screensByShortId,
     lookups.detailForScreens,
   );
+}
+
+export function assertWriteHandlerRegistered(
+  featureName: string,
+  subject: string,
+  handler: string,
+  allWriteHandlerQns: ReadonlySet<string>,
+): void {
+  if (!allWriteHandlerQns.has(handler)) {
+    throw new Error(
+      `[Feature ${featureName}] ${subject} handler "${handler}" ` +
+        `is not a registered write-handler. Check the QN spelling (expected ` +
+        `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+    );
+  }
 }

@@ -16,6 +16,7 @@ import type {
 } from "../types/screen.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
 import {
+  assertWriteHandlerRegistered,
   isRowClickAction,
   rejectRedirectOnListRowAction,
   resolveRowActionNavigateTarget,
@@ -192,7 +193,7 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
   }
 }
 
-type ListActionTargetContext = NavigateTargetLookups & {
+export type ListActionTargetContext = NavigateTargetLookups & {
   readonly featureName: string;
   readonly screenId: string;
   readonly screenType: NavigateSourceScreenType;
@@ -224,9 +225,21 @@ export function validateListActionTargets(
   actionLabel: "rowAction" | "emptyState action",
   action: RowAction,
 ): void {
-  const { featureName, screenId, screenType } = ctx;
-  rejectRedirectOnListRowAction(featureName, screenId, screenType, action);
+  rejectRedirectOnListRowAction(ctx.featureName, ctx.screenId, ctx.screenType, action);
   if (actionLabel === "emptyState action") rejectEmptyStateActionParams(ctx, actionLabel, action);
+  validateRowActionTarget(ctx, actionLabel, actionLabel, action);
+}
+
+// Header actions have always reported navigate-params errors under the
+// "rowAction" label, which validateRowActionNavigateParams only knows in list
+// labels — hence paramsLabel apart from actionLabel.
+export function validateRowActionTarget(
+  ctx: ListActionTargetContext,
+  actionLabel: "rowAction" | "emptyState action" | "action",
+  paramsLabel: "rowAction" | "emptyState action",
+  action: RowAction,
+): void {
+  const { featureName, screenId, screenType } = ctx;
   if (action.kind === "navigate") {
     const target = resolveRowActionNavigateTarget(
       featureName,
@@ -246,18 +259,18 @@ export function validateListActionTargets(
       ctx.screenEntity,
       action,
       target,
-      actionLabel,
+      paramsLabel,
     );
   } else if (action.kind === "drawer") {
     validateDrawerTargetAction(featureName, screenId, screenType, actionLabel, action, ctx.screens);
   } else if (action.kind === "clientAction") {
     validateClientActionName(featureName, screenId, screenType, actionLabel, action);
-  } else if (!ctx.allWriteHandlerQns.has(action.handler)) {
-    throw new Error(
-      `[Feature ${featureName}] ${ctx.where} ` +
-        `${actionLabel} "${action.id}" handler "${action.handler}" ` +
-        `is not a registered write-handler. Check the QN spelling (expected ` +
-        `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+  } else {
+    assertWriteHandlerRegistered(
+      featureName,
+      `${ctx.where} ${actionLabel} "${action.id}"`,
+      action.handler,
+      ctx.allWriteHandlerQns,
     );
   }
 }

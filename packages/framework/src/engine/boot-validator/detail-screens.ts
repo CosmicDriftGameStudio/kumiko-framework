@@ -1,11 +1,11 @@
 import { qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type { ScreenDefinition } from "../types/screen.ts";
-import { findEntityFeature } from "./screens.ts";
+import { findEntityFeature } from "./screens-kind-shared.ts";
 
 // Entity name → the one screen that declares detailFor: "<entity>". Built
 // once, up front (before the per-feature validateScreens loop) so both this
-// module's own uniqueness check AND rowAction entity-targets (in screens.ts)
+// module's own uniqueness check AND rowAction entity-targets (in screens-actions.ts)
 // resolve against the same map instead of re-walking every feature's
 // screens twice.
 export function collectDetailForScreens(

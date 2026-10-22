@@ -27,7 +27,7 @@
 // @cosmicdrift/kumiko-types/handlers) — an unset `access` here means every
 // signed-in user may see the entry, the opposite stance from `hasAccess`.
 //
-// Reference-site coverage (every place boot-validator/screens.ts resolves a
+// Reference-site coverage (every place boot-validator/screens*.ts resolves a
 // screen target is a site this file also projects):
 //   - nav.screen / nav.parent (author-registered AND settings-hub-generated
 //     navs — the latter use short ids relative to the synthetic "config"
@@ -299,7 +299,7 @@ function isDroppedByPropagation(
   return children.length > 0 && children.every((child) => dropped.has(child.qn));
 }
 
-// --- screen-target resolution helpers (mirror boot-validator/screens.ts) ---
+// --- screen-target resolution helpers (mirror boot-validator/screens*.ts) ---
 
 function isScreenTargetKept(
   featureName: string,

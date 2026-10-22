@@ -920,3 +920,28 @@ describe("validateBoot — projectionList screens", () => {
     });
   });
 });
+
+describe("validateBoot — projectionList toolbarAction drawer", () => {
+  test("a drawer toolbarAction naming a missing screen fails boot", () => {
+    const feature = defineFeature("ledger", (r) => {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+        toolbarActions: [
+          { kind: "drawer", id: "add-note", label: "actions.addNote", screen: "ghost-form" },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /\(projectionList\) toolbarAction "add-note" drawer-target "ghost-form" does not resolve/,
+    );
+  });
+});

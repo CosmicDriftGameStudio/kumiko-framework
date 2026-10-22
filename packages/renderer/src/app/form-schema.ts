@@ -47,7 +47,7 @@ function isRequiredValueMissing(
   // — they're fillable, so NO_WIDGET_FIELD_TYPES's "embedded"
   // entry must not exempt them. A statically-`required: true` field
   // with no bound widget is also caught at boot
-  // (validateNoWidgetRequiredField in boot-validator/screens.ts).
+  // (validateNoWidgetRequiredField in boot-validator/screens-forms.ts).
   if (NO_WIDGET_FIELD_TYPES.includes(field.type) && !isEmbeddedListField(field)) return false;
   if (isPresent(record[spec.field])) return false;
   return !(
