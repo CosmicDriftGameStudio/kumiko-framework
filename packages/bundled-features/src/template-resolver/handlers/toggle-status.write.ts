@@ -58,13 +58,13 @@ type StatusPlan =
   | { readonly ok: false; readonly failure: WriteFailure };
 
 // Publishing promotes an open draft (gated as the version that goes live); a row
-// without one is activated as stored. Archiving leaves the draft standing.
+// without one is activated as stored. Archiving drops the draft: a draft only lives beside an active version.
 function planStatusChange(
   ctx: HandlerContext,
   row: TemplateResourceRow,
   status: TemplateStatus,
 ): StatusPlan {
-  if (status === "archived") return { ok: true, changes: { status } };
+  if (status === "archived") return { ok: true, changes: { status, draft: null } };
   const issues = publishGateIssues(ctx.registry, toWorkingRow(row, row.tenantId));
   if (issues.length > 0) {
     return { ok: false, failure: writeFailure(new ValidationError({ fields: [...issues] })) };
@@ -116,7 +116,7 @@ export function makeArchiveWrite(policy: TemplateEditPolicy) {
     "archive",
     "own",
     "archived",
-    "Sets one template resource of the caller's tenant to archived so the resolver stops serving it while the row and its content survive; use it to retire a template reversibly instead of deleting it. An open draft stays. Outside the templates the app lists in tenantEditable only a SystemAdmin may use it.",
+    "Sets one template resource of the caller's tenant to archived so the resolver stops serving it while the row and its content survive; use it to retire a template reversibly instead of deleting it. An open draft is dropped. Outside the templates the app lists in tenantEditable only a SystemAdmin may use it.",
   );
 }
 export function makePublishWrite(policy: TemplateEditPolicy) {

@@ -130,6 +130,26 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
     expect(row?.status).toBe("destroyed");
   });
 
+  test("the tenant-row stage fails loudly when the tombstone update does not apply, so the pipeline retries", async () => {
+    const unknownTenantId = crypto.randomUUID() as TenantId;
+    const tenantRow = DESTRUCTION_STAGES.find((stage) => stage.name === "tenant-row");
+    if (!tenantRow) throw new Error("tenant-row stage missing");
+
+    await expect(
+      tenantRow.run({
+        db: stack.db,
+        registry: stack.registry,
+        tenantId: unknownTenantId,
+        deadlineAt: Number.POSITIVE_INFINITY,
+      }),
+    ).rejects.toThrow(`failed to mark tenant ${unknownTenantId} destroyed`);
+
+    const rows = await selectMany<{ status: string }>(stack.db, tenantTable, {
+      id: unknownTenantId,
+    });
+    expect(rows.find((row) => row.status === "destroyed")).toBeUndefined();
+  });
+
   test("the derived search document of the tenant name is purged with the key", async () => {
     const tenantId = await createTenant();
     await stack.eventDispatcher?.runOnce();

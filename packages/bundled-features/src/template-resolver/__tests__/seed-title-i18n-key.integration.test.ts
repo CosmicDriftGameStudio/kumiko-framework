@@ -47,6 +47,19 @@ describe("seeded system template titleI18nKey", () => {
     expect(titleOf(PLAIN_SLUG)).toBe(PLAIN_SLUG);
   });
 
+  test("a titleI18nKey that is free text instead of a namespace:key is rejected", async () => {
+    await expect(
+      seedSystemTemplate(stack.db, {
+        slug: "money-horse:free-text",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>x</p>",
+        contentFormat: "html",
+        titleI18nKey: "Tilgungsplan fuer Kredite",
+      }),
+    ).rejects.toThrow(/not a "namespace:key" i18n key/);
+  });
+
   test("title and titleI18nKey together are rejected", async () => {
     await expect(
       seedSystemTemplate(stack.db, {

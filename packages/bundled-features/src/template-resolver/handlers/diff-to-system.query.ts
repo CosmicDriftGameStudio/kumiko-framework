@@ -2,8 +2,9 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { isRowDeliveredTo } from "../api.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
+import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft } from "../template-draft.ts";
 import { buildOverrideDiff } from "./override-diff.ts";
 
@@ -21,7 +22,7 @@ export const diffToSystemQuery = defineQueryHandler({
       !tenantRow ||
       tenantRow.tenantId !== query.user.tenantId ||
       tenantRow.scope !== "tenant" ||
-      !isRowServedTo(deliveryPolicyOf(ctx.registry), query.user, tenantRow)
+      !(await isRowDeliveredTo(ctx.db, deliveryPolicyOf(ctx.registry), query.user, tenantRow))
     ) {
       throw new NotFoundError("template-resource", query.payload.id);
     }

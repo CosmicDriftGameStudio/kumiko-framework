@@ -41,7 +41,7 @@ import {
 } from "./handlers/toggle-status.write.ts";
 import { upsertSystemWrite } from "./handlers/upsert-system.write.ts";
 import { makeUpsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
-import { usageQuery } from "./handlers/usage.query.ts";
+import { makeUsageQuery } from "./handlers/usage.query.ts";
 import { validateQuery } from "./handlers/validate.query.ts";
 import { TEMPLATE_RESOLVER_I18N } from "./i18n.ts";
 import { templateResourceEntity } from "./table.ts";
@@ -181,7 +181,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       list: r.queryHandler(listQuery),
       bySlug: r.queryHandler(bySlugQuery),
       byTenant: r.queryHandler(byTenantQuery),
-      usage: r.queryHandler(usageQuery),
+      usage: r.queryHandler(makeUsageQuery(policy)),
       overview: r.queryHandler(makeOverviewQuery(policy)),
       layoutSource: r.queryHandler(layoutSourceQuery),
       tenantOverrides: r.queryHandler(tenantOverridesQuery),

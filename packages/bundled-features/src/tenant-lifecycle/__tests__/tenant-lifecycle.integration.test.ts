@@ -400,7 +400,7 @@ describe("tenant-lifecycle :: full sweep pipeline", () => {
 // destroy-hook fails, does that stall every OTHER destroying tenant's sweep
 // progress in the same tick?" without a second full stack.
 let selectivePoisonTargetTenantId: TenantId | null = null;
-const deadlinesSeenByHook: number[] = [];
+const deadlinesSeenByHook: { readonly deadlineAt: number; readonly calledAt: number }[] = [];
 
 function createSelectivePoisonTenantDataFeature() {
   return defineFeature("test-selective-poison-tenant-data", (r) => {
@@ -409,7 +409,9 @@ function createSelectivePoisonTenantDataFeature() {
     // fires on the very first sweep tick instead of several stages in.
     r.useExtension(EXT_EXTERNAL_RESOURCE, "selective-poison-pill", {
       destroyTenant: async (tenantId: TenantId, hookCtx) => {
-        if (hookCtx.deadlineAt !== undefined) deadlinesSeenByHook.push(hookCtx.deadlineAt);
+        if (hookCtx.deadlineAt !== undefined) {
+          deadlinesSeenByHook.push({ deadlineAt: hookCtx.deadlineAt, calledAt: Date.now() });
+        }
         if (tenantId === selectivePoisonTargetTenantId) {
           throw new Error("selective-poison");
         }
@@ -529,14 +531,15 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
       db: isolationStack.db,
       registry: isolationStack.registry,
     });
-    const finishedAt = Date.now();
 
     expect(deadlinesSeenByHook).toHaveLength(2);
-    const [earliest, latest] = [...deadlinesSeenByHook].sort((a, b) => a - b);
-    // Tenant 1 gets half of the tick window, so no single tenant can consume the whole budget
-    // and the tenant behind it still starts with time left.
-    expect(earliest).toBeLessThanOrEqual(finishedAt + DESTRUCTION_STAGE_TICK_BUDGET_MS / 2);
-    expect(latest).toBeLessThanOrEqual(finishedAt + DESTRUCTION_STAGE_TICK_BUDGET_MS);
+    // Each slice starts when its tenant starts: a shared tick deadline would leave the second
+    // tenant a shrinking or zero slice, and a slice above half the budget would let one tenant
+    // consume the window.
+    for (const { deadlineAt, calledAt } of deadlinesSeenByHook) {
+      expect(deadlineAt - calledAt).toBeGreaterThan(0);
+      expect(deadlineAt - calledAt).toBeLessThanOrEqual(DESTRUCTION_STAGE_TICK_BUDGET_MS / 2);
+    }
   });
 
   test("with many destroying tenants every slice keeps the minimum", async () => {
@@ -556,8 +559,8 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
 
     expect(deadlinesSeenByHook).toHaveLength(tenantCount);
     // An even split would give each tenant under the minimum and starve chunking hooks.
-    for (const deadline of deadlinesSeenByHook) {
-      expect(deadline).toBeGreaterThanOrEqual(startedAt + DESTRUCTION_STAGE_MIN_SLICE_MS);
+    for (const { deadlineAt } of deadlinesSeenByHook) {
+      expect(deadlineAt).toBeGreaterThanOrEqual(startedAt + DESTRUCTION_STAGE_MIN_SLICE_MS);
     }
   });
 });

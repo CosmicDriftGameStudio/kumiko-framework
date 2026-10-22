@@ -59,6 +59,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "bundle-attachment-on-document",
     "bundle-second-resource-invalid",
     "release-upload",
+    "release-attachment",
     "release-bundle",
     "copy-release",
     "copy-source-changes",
@@ -697,6 +698,27 @@ describe("a failure inside the transaction releases the uploaded binaries", () =
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.resourceUpload,
       { sourceFileRefId, templateId, key: "logo" },
+      tenantAAdmin,
+    );
+    failTemplateSaveInTransaction = false;
+
+    expect(err.httpStatus).toBe(500);
+    await expectUnchanged(before);
+    expect(await linkedResourcesOf(templateId, tenantAAdmin)).toEqual({});
+  });
+
+  test("resource-upload attachment: a failing link write leaves no binary and no fileRef row", async () => {
+    const templateId = await createMailTemplate(tenantAAdmin, "release-attachment");
+    const sourceFileRefId = await uploadSource(tenantAAdmin, PDF_BYTES, {
+      name: "offer.pdf",
+      type: "application/pdf",
+    });
+    const before = await snapshot();
+
+    failTemplateSaveInTransaction = true;
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.resourceUpload,
+      { sourceFileRefId, templateId, key: "offer", purpose: "attachment", fileName: "offer.pdf" },
       tenantAAdmin,
     );
     failTemplateSaveInTransaction = false;

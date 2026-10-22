@@ -112,6 +112,12 @@ describe("validateTemplatePlaceholders", () => {
 });
 
 describe("variablesFromSchema", () => {
+  test("keeps a stored richText variable with its label and example", () => {
+    expect(
+      variablesFromSchema({ body: { type: "richText", label: "Body", example: "<p>x</p>" } }),
+    ).toEqual({ body: { type: "richText", label: "Body", example: "<p>x</p>" } });
+  });
+
   test("bare strings are legacy text variables, junk is dropped", () => {
     expect(variablesFromSchema({ a: "string", b: { type: "money" }, c: 42 })).toEqual({
       a: { type: "text" },

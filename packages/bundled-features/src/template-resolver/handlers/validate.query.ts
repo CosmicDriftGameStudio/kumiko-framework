@@ -6,10 +6,11 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { isRowDeliveredTo } from "../api.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { imageResourceKeysOf } from "../linked-resources.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import { deliveryPolicyOf, isRowServedTo } from "../template-delivery-policy.ts";
+import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { isSystemAdmin } from "../template-draft.ts";
 import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.ts";
 import type { ContentFormat, UpsertKind } from "../web/constants.ts";
@@ -69,7 +70,11 @@ export async function knownResourceKeysFor(
       locale,
     })),
     ...(scope === "tenant" &&
-    isRowServedTo(deliveryPolicyOf(ctx.registry), user, { tenantId: user.tenantId, kind, slug })
+    (await isRowDeliveredTo(ctx.db, deliveryPolicyOf(ctx.registry), user, {
+      tenantId: user.tenantId,
+      kind,
+      slug,
+    }))
       ? await knownResourceKeys(ctx.db, { tenantId: user.tenantId, slug, kind, scope, locale })
       : []),
   ];
