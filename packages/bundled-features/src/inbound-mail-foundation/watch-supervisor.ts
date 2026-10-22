@@ -223,11 +223,19 @@ export function createInboundMailSupervisor(
     const piiKms = configuredPiiSubjectKms();
     const records: MailAccountRecord[] = [];
     for (const row of rows) {
-      const decrypted = piiKms
-        ? await decryptPiiFieldValues(row, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
-            requestId: "inbound-mail-foundation:supervisor:list-accounts",
-          })
-        : row;
+      let decrypted: Record<string, unknown>;
+      try {
+        decrypted = piiKms
+          ? await decryptPiiFieldValues(row, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
+              requestId: "inbound-mail-foundation:supervisor:list-accounts",
+            })
+          : row;
+      } catch (error) {
+        // Class name only: the message may carry ciphertext or key details.
+        const errorName = error instanceof Error ? error.name : "unknown error";
+        log(`inbound-mail: account ${row.id} skipped — address did not decrypt (${errorName})`);
+        continue;
+      }
       const decryptedAddress = decrypted["address"];
       // Falling back to row.address would hand the ciphertext to a provider.
       // One undecryptable account must not stop polling of every other tenant's accounts.

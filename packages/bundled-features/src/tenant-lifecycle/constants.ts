@@ -62,3 +62,8 @@ export type TenantDestructionStageName = (typeof TENANT_DESTRUCTION_STAGES)[numb
 // The sweep cron fires every minute with concurrency "skip", so a tick must
 // finish well inside that window or the next one is skipped.
 export const DESTRUCTION_STAGE_TICK_BUDGET_MS = 30_000;
+
+// Lower bound of a tenant's share of the tick budget. Below it a chunking hook
+// without a guaranteed first batch processes nothing, and a no-progress stage
+// counts as a failed attempt, which would abandon the pipeline under load.
+export const DESTRUCTION_STAGE_MIN_SLICE_MS = 2_000;

@@ -39,6 +39,9 @@ export type JobMeta = {
 export type JobQueuedMeta = {
   readonly tenantId: string;
   readonly subject: string | null;
+  // BullMQ creation time of the job (epoch ms). A deduplicated add hands back the
+  // existing job, so this tells a re-announced job apart from a reused id.
+  readonly jobCreatedAtMs: number;
 };
 
 // Names the tenant whose queued row a dropped job id belonged to; job ids are

@@ -227,6 +227,49 @@ describe("watch-supervisor — undecryptable account", () => {
     expect(rows).toHaveLength(1);
     expect(lines.some((line) => line.includes(brokenAccountId))).toBe(true);
   });
+
+  test("an account whose ciphertext fails to decrypt is skipped; others still poll", async () => {
+    const brokenAccountId = await connectSharedAccount(adminFor(4141));
+    const healthyAccountId = await connectSharedAccount(adminFor(4142));
+    const kms = configuredPiiSubjectKms();
+    if (!kms) throw new Error("pii kms not configured");
+    // Valid envelope bound to another field: decrypting it as "address" fails the AAD check.
+    const wrongFieldCiphertext = await encryptPiiJsonValueForSubject(
+      kms,
+      { kind: "tenant", tenantId: testTenantId(4141) },
+      "broken@example.com",
+      { requestId: "watch-supervisor-test" },
+      "displayName",
+    );
+    await updateRows(
+      db,
+      mailAccountsProjectionTable,
+      { address: wrongFieldCiphertext },
+      { id: brokenAccountId },
+    );
+    await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-2" }));
+    const lines: string[] = [];
+    const supervisor = createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db,
+      dispatchWrite: ({ handlerQn, payload, tenantId }) =>
+        stack.dispatcher.write(
+          handlerQn,
+          payload,
+          createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+        ),
+      pollIntervalMs: 60_000,
+      log: (line) => lines.push(line),
+    });
+
+    await supervisor.pollOnce();
+
+    const rows = await selectMany(db, inboundMessagesProjectionTable, {
+      accountId: healthyAccountId,
+    });
+    expect(rows).toHaveLength(1);
+    expect(lines.some((line) => line.includes(brokenAccountId))).toBe(true);
+  });
 });
 
 describe("watch-supervisor — IDLE watch path", () => {
