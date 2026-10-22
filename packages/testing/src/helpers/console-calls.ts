@@ -10,3 +10,12 @@ export function consoleCallsMentioning(
 ): ReadonlyArray<ReadonlyArray<unknown>> {
   return spy.mock.calls.filter((args) => args.some((arg) => String(arg).includes(fragment)));
 }
+
+// For "stays silent" assertions: counts every call from the given logger namespace instead of one
+// message text, so a new or reworded warning from the module under test still fails the test.
+export function consoleCallsFromNamespace(
+  spy: ConsoleSpyLike,
+  namespace: string,
+): ReadonlyArray<ReadonlyArray<unknown>> {
+  return spy.mock.calls.filter((args) => String(args[0]).startsWith(`[${namespace}]`));
+}

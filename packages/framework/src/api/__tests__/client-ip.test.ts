@@ -5,7 +5,10 @@
 // middleware.integration.test.ts for the end-to-end behavior.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   assertValidTrustedProxyHops,
   type ClientIpHeaderSource,
@@ -88,7 +91,7 @@ describe("createClientIpResolver", () => {
         const resolver = createClientIpResolver(0);
         resolver.resolve(sourceOf({}));
         resolver.resolve(sourceOf({ "x-forwarded-for": "   " }));
-        expect(consoleCallsMentioning(warnSpy, "received X-Forwarded-For")).toHaveLength(0);
+        expect(consoleCallsFromNamespace(warnSpy, "kumiko")).toHaveLength(0);
       });
     });
   });
