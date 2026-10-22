@@ -46,6 +46,33 @@ function containsPath(parentDir: string, candidate: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+type OutDirContext = {
+  readonly outDir: string;
+  readonly rootDir: string;
+  readonly cwd: string;
+  readonly sourceRepoDirs: readonly string[];
+  readonly inputDirs: readonly string[];
+};
+
+function wipesBuildInputs({
+  outDir,
+  rootDir,
+  cwd,
+  sourceRepoDirs,
+  inputDirs,
+}: OutDirContext): boolean {
+  const containsOutDir = (dir: string) => containsPath(dir, outDir);
+  const wipesProtectedDir = [cwd, rootDir, ...sourceRepoDirs, ...inputDirs].some((dir) =>
+    containsPath(outDir, dir),
+  );
+  // The default out dir lives under --root, which a "." repo legitimately is.
+  const outIsDefaultLocation = containsPath(join(rootDir, ".handbuch"), outDir);
+  const lieInsideSource =
+    inputDirs.some(containsOutDir) ||
+    (!outIsDefaultLocation && sourceRepoDirs.some(containsOutDir));
+  return wipesProtectedDir || lieInsideSource;
+}
+
 async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Promise<number> {
   let parsed: ReturnType<
     typeof parseArgs<{ options: typeof BUILD_OPTIONS; allowPositionals: true }>
@@ -90,20 +117,21 @@ async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Pr
   // buildHandbuch wipes outDir recursively, so a mistyped --out must never be
   // (or contain) a directory the build reads from or the user works in.
   const outDir = resolve(ctx.cwd, values.out ?? join(rootDir, ".handbuch", appSlug(configPath)));
-  const protectedDirs = [
-    ctx.cwd,
-    rootDir,
+  const optionalDir = (value: string | undefined) => (value ? resolve(ctx.cwd, value) : undefined);
+  const inputDirs = [values.texts, values.shots, values["web-texts"], values["web-shots"]].flatMap(
+    (value) => optionalDir(value) ?? [],
+  );
+  const sourceRepoDirs = [
     resolve(rootDir, config.repo),
     ...(config.flowSources ?? []).map((source) => resolve(rootDir, source.repo)),
   ];
-  if (protectedDirs.some((dir) => containsPath(outDir, dir))) {
+  if (wipesBuildInputs({ outDir, rootDir, cwd: ctx.cwd, sourceRepoDirs, inputDirs })) {
     return usageError(
       ctx,
-      `Refusing to build into ${outDir}: it is or contains the working directory, --root or a source repo, and is deleted before the build.`,
+      `Refusing to build into ${outDir}: it is, contains or lies inside the working directory, --root, a source repo or an input directory, and is deleted before the build.`,
     );
   }
 
-  const optionalDir = (value: string | undefined) => (value ? resolve(ctx.cwd, value) : undefined);
   try {
     const result = await buildHandbuch(config, {
       rootDir,

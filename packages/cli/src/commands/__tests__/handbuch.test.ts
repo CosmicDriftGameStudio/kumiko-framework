@@ -107,4 +107,42 @@ describe("kumiko handbuch build", () => {
       expect(existsSync(text)).toBe(true);
     }
   });
+
+  test("refuses an --out inside a source repo or equal to an input dir and deletes nothing", async () => {
+    write(
+      "handbuch.json",
+      JSON.stringify({
+        title: "CLI Handbuch",
+        repo: "app",
+        locales: ["de"],
+        defaultLocale: "de",
+        groups: [{ id: "eins", label: "Eins" }],
+        textsDir: "handbuch/{locale}",
+        screens: [{ id: "alpha", title: "Alpha", group: "eins" }],
+      }),
+    );
+    const text = write(
+      "app/handbuch/de/alpha.md",
+      "---\ntitel: Alpha\nscreenId: alpha\n---\n\nHallo",
+    );
+    const textsDir = join(workDir, "app", "handbuch", "{locale}");
+    const cases: string[][] = [
+      ["--out", join(workDir, "app", "handbuch")],
+      ["--out", textsDir, "--texts", textsDir],
+      ["--out", join(workDir, "shots", "nested"), "--shots", join(workDir, "shots")],
+      ["--out", join(workDir, "web-shots"), "--web-shots", join(workDir, "web-shots")],
+    ];
+
+    for (const extra of cases) {
+      errors.length = 0;
+      const code = await runCli({
+        argv: ["handbuch", "build", "handbuch.json", "--root", workDir, ...extra],
+        out: out(),
+      });
+
+      expect(code).toBe(2);
+      expect(errors.join("\n")).toContain("Refusing to build into");
+      expect(existsSync(text)).toBe(true);
+    }
+  });
 });
