@@ -96,6 +96,18 @@ type TenantDbNonWrites = {
     spec: AggregateSpec,
     where?: WhereObject,
   ): Promise<readonly AggregateRow[]>;
+  // conflictTarget must include tenantId; the update only touches rows of the inserted tenant.
+  // Rejected at runtime on event-fed tables, even for ExecutorManagedTenantDb.
+  upsert<T = Record<string, unknown>>(
+    table: WritableTable,
+    values: Record<string, unknown>,
+    options: TenantDbUpsertOptions,
+  ): Promise<T | undefined>;
+};
+
+export type TenantDbUpsertOptions = {
+  readonly conflictTarget: readonly string[];
+  readonly update?: Record<string, unknown>;
 };
 
 export type TenantDb = TenantDbNonWrites & TenantDbWrites<WritableTable>;

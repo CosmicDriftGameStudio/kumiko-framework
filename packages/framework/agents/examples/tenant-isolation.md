@@ -13,6 +13,7 @@ Multi-tenant data isolation by default.
 ## What it shows
 
 - Tenant filter on ordinary handlers
+- `ctx.db.upsert`: insert-or-update on a tenant-scoped, non-event-sourced table. `conflictTarget` must contain `tenantId` and match a declared unique index (here `tenant_id, key`); event-fed tables are rejected
 - What breaks if you forget tenancy (and how the framework prevents it)
 
 ## Source
@@ -37,6 +38,7 @@ bun test
 // Proves: tenant_id scopes all data, cross-tenant access returns nothing
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -45,7 +47,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntity, noteFeature } from "../feature";
+import { noteEntity, noteFeature, preferenceTable } from "../feature";
 
 let stack: TestStack;
 
@@ -136,12 +138,48 @@ describe("tenant isolation", () => {
     expect(listB.rows.some((r) => r["title"] === "A-Note")).toBe(false);
   });
 });
+
+describe("ctx.db.upsert", () => {
+  const setPreference = (user: typeof tenantBAdmin, key: string, value: string) =>
+    stack.http.writeOk<{ value: string }>("notes:write:preference:set", { key, value }, user);
+
+  test("a second upsert with the same key updates the tenant's row instead of inserting", async () => {
+    await setPreference(tenantAAdmin, "theme", "light");
+    const second = await setPreference(tenantAAdmin, "theme", "dark");
+
+    expect(second.value).toBe("dark");
+    const rows = await selectMany(stack.db, preferenceTable, {
+      tenantId: tenantAAdmin.tenantId,
+      key: "theme",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["value"]).toBe("dark");
+  });
+
+  test("the same key in another tenant creates a separate row and leaves A's value alone", async () => {
+    await setPreference(tenantAAdmin, "language", "de");
+    await setPreference(tenantBAdmin, "language", "en");
+
+    const rowsA = await selectMany(stack.db, preferenceTable, {
+      tenantId: tenantAAdmin.tenantId,
+      key: "language",
+    });
+    const rowsB = await selectMany(stack.db, preferenceTable, {
+      tenantId: tenantBAdmin.tenantId,
+      key: "language",
+    });
+    expect(rowsA.map((row) => row["value"])).toEqual(["de"]);
+    expect(rowsB.map((row) => row["value"])).toEqual(["en"]);
+  });
+});
 ```
 
 ### src/feature.ts
 
 ```ts
+import { defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import * as z from "zod";
 
 export const noteEntity = createEntity({
   table: "read_sample_notes",
@@ -149,6 +187,26 @@ export const noteEntity = createEntity({
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     content: createTextField({ personal: false, reason: "is_business_data" }),
   },
+});
+
+// Not event-sourced: ctx.db.upsert rejects executor-managed tables.
+export const preferenceTable = defineUnmanagedTable({
+  tableName: "sample_tenant_preferences",
+  columns: [
+    {
+      name: "id",
+      pgType: "uuid",
+      notNull: true,
+      primaryKey: true,
+      defaultSql: "gen_random_uuid()",
+    },
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "key", pgType: "text", notNull: true },
+    { name: "value", pgType: "text", notNull: true },
+  ],
+  indexes: [
+    { name: "sample_tenant_preferences_tenant_key", columns: ["tenant_id", "key"], unique: true },
+  ],
 });
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
@@ -167,6 +225,20 @@ export const noteFeature = defineFeature("notes", (r) => {
     write: adminWrite,
     read: openRead,
     verbs: { update: false, delete: false, restore: false },
+  });
+
+  r.storeTable(preferenceTable, { reason: "settings.tenant_preferences" });
+
+  r.writeHandler({
+    name: "preference:set",
+    schema: z.object({ key: z.string().min(1), value: z.string() }),
+    handler: async (event, ctx) => {
+      const row = await ctx.db.upsert<{ value: string }>(preferenceTable, event.payload, {
+        conflictTarget: ["tenantId", "key"],
+      });
+      return { isSuccess: true, data: { value: row?.value } };
+    },
+    ...adminWrite,
   });
 });
 ```

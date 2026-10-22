@@ -14,6 +14,7 @@ import {
   SYSTEM_SCOPE_CHECK_BRAND,
   type TenantDb,
   type TenantDbMode,
+  type TenantDbUpsertOptions,
   type UncheckedSystemDb,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -65,6 +66,7 @@ import {
   tenantDbWritesDeniedError,
   tenantDbWritesDeniedReason,
 } from "./tenant-db-runner.ts";
+import { upsertTableDenied, upsertTenantRow } from "./tenant-db-upsert.ts";
 
 type Table = SchemaTable;
 
@@ -974,6 +976,20 @@ function buildTenantDb(
       if (managedDenied) return Promise.reject(managedDenied);
       const data = insertValues(table, values);
       return withDbSpan("insert", table, async () => insertRow<T>(table, data));
+    },
+
+    upsert<T = Record<string, unknown>>(
+      table: Table | EntityTableMeta,
+      values: Record<string, unknown>,
+      options: TenantDbUpsertOptions,
+    ): Promise<T | undefined> {
+      const denied =
+        writesDenied("ctx.db.upsert") ??
+        upsertTableDenied(table, mode) ??
+        personalDataDenied(table, [...Object.keys(values), ...Object.keys(options.update ?? {})]);
+      if (denied) return Promise.reject(denied);
+      const data = insertValues(table, values);
+      return withDbSpan("insert", table, () => upsertTenantRow<T>(db, table, data, options));
     },
 
     updateMany<T = Record<string, unknown>>(
