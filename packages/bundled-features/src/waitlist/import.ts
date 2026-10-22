@@ -3,7 +3,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
-import type { WaitlistStatus } from "./web/constants.ts";
+import { WAITLIST_FIELD_LIMITS, type WaitlistStatus } from "./web/constants.ts";
 
 export type WaitlistImportEntry = {
   /** Stable identity of the source row (e.g. `offlot:<uuid>`); the new entry id derives from it. */
@@ -43,18 +43,38 @@ export function isWaitlistImportId(id: string): boolean {
   return id[14] === "5";
 }
 
+// The live submit schema caps these fields; an imported value above the cap would be
+// stored but could never pass a later update through the same payload schema.
+export function waitlistImportEntryWithinLimits(entry: WaitlistImportEntry): boolean {
+  const limited: ReadonlyArray<readonly [string | undefined, number]> = [
+    [entry.name, WAITLIST_FIELD_LIMITS.name],
+    [entry.email, WAITLIST_FIELD_LIMITS.email],
+    [entry.locale, WAITLIST_FIELD_LIMITS.locale],
+    [entry.company, WAITLIST_FIELD_LIMITS.company],
+    [entry.portfolio, WAITLIST_FIELD_LIMITS.portfolio],
+    [entry.message, WAITLIST_FIELD_LIMITS.message],
+  ];
+  return limited.every(([value, max]) => value === undefined || value.length <= max);
+}
+
 function presentOnly(fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
 }
 
-// Writes through the entity executor, so events, projection and subject encryption
-// behave exactly as for a live submit. No mail, no rate limit, no duplicate-by-email
+// Writes through the entity executor, so events and projection match a live submit; subject
+// encryption applies only when the caller configured a PII KMS (the CLI wires it from env
+// and aborts without one). No mail, no rate limit, no duplicate-by-email
 // check: the source row is the truth and the id makes the call idempotent.
 export async function importWaitlistEntry(
   db: TenantDb,
   entry: WaitlistImportEntry,
   options: { readonly dryRun?: boolean } = {},
 ): Promise<WaitlistImportOutcome> {
+  if (!waitlistImportEntryWithinLimits(entry)) {
+    throw new InternalError({
+      message: `waitlist import entry ${entry.sourceKey} exceeds a field length limit`,
+    });
+  }
   const id = waitlistImportId(entry.sourceKey);
   const existing = await waitlistExecutor.detail({ id }, platformActor(), db);
   if (existing) return "skipped";

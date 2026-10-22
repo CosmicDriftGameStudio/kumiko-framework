@@ -15,7 +15,7 @@ import {
   publicstatusLegacyTable,
 } from "../legacy-migrate.ts";
 import { platformActor, waitlistExecutor } from "../lib.ts";
-import { WAITLIST_STATUS, WaitlistHandlers } from "../web/constants.ts";
+import { WAITLIST_FIELD_LIMITS, WAITLIST_STATUS, WaitlistHandlers } from "../web/constants.ts";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,
@@ -464,6 +464,21 @@ describe("legacy waitlist migration", () => {
     });
     const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
     expect(report).toEqual({ read: 2, created: 1, skipped: 0, unreadable: 1, archivedStreams: 0 });
+  });
+
+  test("a row with a value above the live field limit is counted unreadable and not imported", async () => {
+    await seedRow(stack.db, offlotTable, {
+      id: crypto.randomUUID(),
+      name: "Verbose",
+      email: "verbose@example.com",
+      locale: "en",
+      status: WAITLIST_STATUS.Pending,
+      notes: "n".repeat(WAITLIST_FIELD_LIMITS.message + 1),
+      submittedAt: Temporal.Instant.from("2026-08-04T10:00:00Z"),
+    });
+    const report = await migrateLegacyWaitlist(stack.db, offlotOptions);
+    expect(report).toEqual({ read: 2, created: 1, skipped: 0, unreadable: 1, archivedStreams: 0 });
+    expect((await rowsOf(stack)).map((row) => row["name"])).not.toContain("Verbose");
   });
 
   test("a rebuild after the migration does not replay the legacy event stream next to the new entry", async () => {

@@ -17,6 +17,8 @@ export async function wireKmsFromEnv(options: {
   readonly log: (line: string) => void;
   readonly features: readonly FeatureDefinition[];
   readonly allowPlaintextPii?: string | undefined;
+  /** What goes wrong without the wiring; completes the abort message. */
+  readonly consequence?: string;
 }): Promise<KmsWiring> {
   const crypto = await import("@cosmicdrift/kumiko-framework/crypto");
   const { assertPiiBootInvariants } = await import(
@@ -46,7 +48,7 @@ export async function wireKmsFromEnv(options: {
     await wiring.close();
     const reason = e instanceof Error ? e.message : String(e);
     throw new Error(
-      `${options.logPrefix} ${reason} The rebuild would null the blind-index columns. Provide PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL and KUMIKO_BLIND_INDEX_KEY, or pass --allow-plaintext-pii <reason>.`,
+      `${options.logPrefix} ${reason} ${options.consequence ?? "The rebuild would null the blind-index columns."} Provide PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL and KUMIKO_BLIND_INDEX_KEY, or pass --allow-plaintext-pii <reason>.`,
     );
   }
   return wiring;
