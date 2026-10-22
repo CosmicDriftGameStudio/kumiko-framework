@@ -270,6 +270,14 @@ describe("infraRef, visibility and app jobs", () => {
     expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
+  test("public ci.yml points the integration step at the meilisearch service port", () => {
+    setDeploy({ visibility: "public" });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain("MEILI_URL: http://localhost:17700");
+    expect(ci).toContain("MEILI_MASTER_KEY: kumiko-dev-key");
+  });
+
   test("docStatusGuard false renders the input, the default does not", () => {
     syncAll();
     expect(read(".github/workflows/ci.yml")).not.toContain("doc-status-guard");

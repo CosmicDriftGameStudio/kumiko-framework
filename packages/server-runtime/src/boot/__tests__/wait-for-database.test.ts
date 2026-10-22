@@ -72,6 +72,13 @@ describe("isTransientConnectionError", () => {
 });
 
 describe("waitUntilDatabaseReachable", () => {
+  test("names the waited-for dependency in the retry log line", async () => {
+    const h = harness([pgError("ECONNREFUSED"), undefined]);
+    await waitUntilDatabaseReachable(h.ping, { ...h.options, target: "KMS" });
+    expect(h.logs).toHaveLength(1);
+    expect(h.logs[0]).toContain("[test-proc] KMS not reachable");
+  });
+
   test("returns immediately when the database answers", async () => {
     const h = harness([undefined]);
     await waitUntilDatabaseReachable(h.ping, h.options);

@@ -39,20 +39,24 @@ function propertyName(node: Node): string | undefined {
 }
 
 function objectProperty(object: ObjectLiteralExpression, name: string): Node | undefined {
+  let found: Node | undefined;
+  let opaqueAfterFound = false;
   for (const property of object.getProperties()) {
-    if (
-      property.isKind(SyntaxKind.SpreadAssignment) ||
-      property.isKind(SyntaxKind.ShorthandPropertyAssignment)
-    ) {
-      throw new StaticConfigError(
-        `${name}: spread and shorthand properties cannot be read statically`,
-      );
-    }
-    if (propertyName(property) === name && property.isKind(SyntaxKind.PropertyAssignment)) {
-      return property.getInitializerOrThrow();
+    if (property.isKind(SyntaxKind.SpreadAssignment)) {
+      opaqueAfterFound = true;
+    } else if (property.isKind(SyntaxKind.ShorthandPropertyAssignment)) {
+      if (property.getName() === name) opaqueAfterFound = true;
+    } else if (propertyName(property) === name && property.isKind(SyntaxKind.PropertyAssignment)) {
+      found = property.getInitializerOrThrow();
+      opaqueAfterFound = false;
     }
   }
-  return undefined;
+  if (opaqueAfterFound) {
+    throw new StaticConfigError(
+      `${name}: spread and shorthand properties cannot be read statically`,
+    );
+  }
+  return found;
 }
 
 function numericLiteral(node: Node | undefined, path: string): number {

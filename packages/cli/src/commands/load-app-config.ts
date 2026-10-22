@@ -38,7 +38,9 @@ export async function loadAppConfig(
     ctx.out.err("");
     ctx.out.err(`  ${configPath} must default-export an object with a "features" array:`);
     ctx.out.err('    import { defineAppConfig } from "@cosmicdrift/kumiko-framework/config";');
-    ctx.out.err("    export default defineAppConfig({ features: [myFeature], client, ports });");
+    ctx.out.err(
+      '    export default defineAppConfig({ features: [myFeature], client: { entries: ["src/client.tsx"] }, ports: { dev: 4173, e2e: 4174 } });',
+    );
     ctx.out.err("");
     return null;
   }

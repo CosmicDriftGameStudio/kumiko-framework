@@ -58,6 +58,16 @@ describe("app-owned workflow jobs", () => {
     );
   });
 
+  test("app jobs with a trailing comment or a quoted name are still recognised", () => {
+    const content =
+      "jobs:\n  test:\n    runs-on: x\n  app-a: # own check\n    runs-on: x\n  'app-b':\n    runs-on: x\n  build:\n    runs-on: x\n";
+    expect(stripAppJobs(content)).toBe(
+      "jobs:\n  test:\n    runs-on: x\n  build:\n    runs-on: x\n",
+    );
+    expect(appJobsOf(content)).toContain("app-a: # own check");
+    expect(appJobsOf(content)).toContain("'app-b':");
+  });
+
   test("a top-level key after jobs ends the last app job", () => {
     const content = "jobs:\n  app-x:\n    runs-on: x\nenv:\n  A: b\n";
     expect(stripAppJobs(content)).toBe("jobs:\nenv:\n  A: b\n");

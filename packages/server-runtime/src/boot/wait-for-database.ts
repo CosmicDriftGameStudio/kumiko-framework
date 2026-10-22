@@ -30,6 +30,8 @@ export const WAIT_FOR_DATABASE_DEADLINE_MS = 90_000;
 
 export type WaitForDatabaseOptions = {
   readonly processName: string;
+  /** Names the dependency in the retry log line; default "database". */
+  readonly target?: string;
   readonly log?: (line: string) => void;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly now?: () => number;
@@ -59,7 +61,13 @@ export async function waitUntilDatabaseReachable<T>(
   ping: () => Promise<T>,
   options: WaitForDatabaseOptions,
 ): Promise<T> {
-  const { processName, log = logToConsole, sleep = sleepReal, now = Date.now } = options;
+  const {
+    processName,
+    target = "database",
+    log = logToConsole,
+    sleep = sleepReal,
+    now = Date.now,
+  } = options;
   const deadline = options.deadline ?? now() + WAIT_FOR_DATABASE_DEADLINE_MS;
   let backoffMs = WAIT_FOR_DATABASE_INITIAL_BACKOFF_MS;
 
@@ -73,7 +81,7 @@ export async function waitUntilDatabaseReachable<T>(
       const waitMs = Math.min(backoffMs, remainingMs);
       const code = extractPgError(error)?.code ?? "unknown";
       log(
-        `[${processName}] database not reachable (code ${code}, attempt ${attempt}), retrying in ${waitMs}ms…`,
+        `[${processName}] ${target} not reachable (code ${code}, attempt ${attempt}), retrying in ${waitMs}ms…`,
       );
       await sleep(waitMs);
       backoffMs = Math.min(backoffMs * 2, WAIT_FOR_DATABASE_MAX_BACKOFF_MS);

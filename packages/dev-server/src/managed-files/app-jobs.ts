@@ -1,7 +1,7 @@
 // Jobs named `app-<name>` in a managed workflow belong to the app: drift
 // checks ignore them and a sync carries them over.
 const JOBS_HEADER = /^jobs:\s*$/;
-const JOB_START = /^ {2}([A-Za-z0-9_-]+):\s*$/;
+const JOB_START = /^ {2}["']?([A-Za-z0-9_-]+)["']?:\s*(?:#.*)?$/;
 const TOP_LEVEL_KEY = /^[^\s#]/;
 const APP_JOB_PREFIX = "app-";
 

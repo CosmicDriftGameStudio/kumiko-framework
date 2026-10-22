@@ -208,6 +208,7 @@ export async function bootWorkerProcess(
     const kms = options.kms;
     const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
       processName: processName,
+      target: "KMS",
       deadline: databaseWaitDeadline,
     });
     if (!kmsHealth.ok) {
