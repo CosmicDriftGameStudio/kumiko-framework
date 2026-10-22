@@ -1,8 +1,14 @@
-import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
+import {
+  acquireNamespacedAdvisoryLock,
+  createSystemDbView,
+  createTenantDb,
+  runInSavepointIfSupported,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineWriteHandler,
   type HandlerContext,
+  type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
@@ -25,7 +31,7 @@ import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../web/constants.t
 // framework's other fixed advisory-lock keys.
 const SUBMIT_LOCK_NAMESPACE = 0x776c7374;
 const SUBMIT_LOCK_REASON =
-  "takes the per-email advisory lock so parallel submits cannot both pass the duplicate check; TenantDb has no lock API";
+  "takes the per-email advisory lock so parallel submits cannot both pass the duplicate check and wraps the admin-recipient resolver in a savepoint so a failing statement cannot abort the submit transaction; TenantDb has neither API";
 
 // Logged-in callers carry no anonymous role, so every signed-in role must be listed.
 const SUBMIT_ROLES = access.roles(
@@ -73,16 +79,24 @@ async function hasOpenEntryForEmail(email: string, ctx: HandlerContext): Promise
   return found.rows.length > 0;
 }
 
-// The resolver usually reads config. It runs before the per-email advisory lock so a
-// slow resolver does not extend the lock. It still shares the handler transaction: a
-// thrown JS error is swallowed here, but a failed SQL statement inside it would abort
-// the transaction, so resolvers must not issue statements that can fail.
+// The resolver usually reads config. It runs before the per-email advisory lock so a slow
+// resolver does not extend the lock. Postgres aborts the whole transaction after a failed
+// statement, even one whose JS error is caught here, so the resolver gets a ctx whose
+// systemDb is bound to its own savepoint: a failing statement rolls back only that.
+// Statements through any other ctx handle (ctx.query, ctx.write) stay in the handler transaction.
 async function resolveAdminRecipient(
   opts: WaitlistOptions,
   ctx: HandlerContext,
+  systemDb: NonNullable<HandlerContext["systemDb"]>,
+  tenantId: TenantId,
 ): Promise<string | null> {
   try {
-    return (await opts.notifyRecipient?.(ctx)) || null;
+    return await runInSavepointIfSupported(systemDb.unsafeRaw(SUBMIT_LOCK_REASON), async (sp) => {
+      const savepointSystemDb = createSystemDbView(
+        createTenantDb({ db: sp, tenantId, mode: "system" }),
+      );
+      return (await opts.notifyRecipient?.({ ...ctx, systemDb: savepointSystemDb })) || null;
+    });
   } catch (err) {
     ctx.log?.warn("[waitlist:submit] admin notice recipient resolution failed", {
       error: err instanceof Error ? err.message : String(err),
@@ -130,7 +144,12 @@ export function createSubmitHandler(opts: WaitlistOptions) {
           message: "waitlist:submit requires ctx.systemDb — is r.systemScope() set?",
         });
       }
-      const adminRecipient = await resolveAdminRecipient(opts, ctx);
+      const adminRecipient = await resolveAdminRecipient(
+        opts,
+        ctx,
+        ctx.systemDb,
+        event.user.tenantId,
+      );
       await acquireNamespacedAdvisoryLock(
         ctx.systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
         SUBMIT_LOCK_NAMESPACE,

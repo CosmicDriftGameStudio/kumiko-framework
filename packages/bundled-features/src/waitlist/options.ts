@@ -22,7 +22,8 @@ export type WaitlistInviteOptions =
 export type WaitlistOptions = {
   /** Address for an admin notification mail on each new entry. Null, an empty
    *  string or an absent option sends none. Best effort, never fails the submit,
-   *  also when the resolver throws or rejects. */
+   *  also when the resolver throws or rejects. `ctx.systemDb` is bound to a savepoint, so a
+   *  failing statement through it is rolled back without aborting the submit transaction. */
   readonly notifyRecipient?: (ctx: HandlerContext) => string | null | Promise<string | null>;
   /** Language of the admin notice mail (en, de or es; anything else falls back to en).
    *  Not taken from the request: a submit comes from the entrant, not the operator. */
