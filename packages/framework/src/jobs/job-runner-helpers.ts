@@ -8,10 +8,12 @@ import { requestContext } from "../api/request-context.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import type {
   AppContext,
+  JobDeferral,
   JobDefinition,
   JobRunIn,
   JobTriggerEvent,
 } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { isKumikoError } from "../errors/kumiko-error.ts";
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
@@ -342,4 +344,52 @@ export function maxRetryWindowMs(jobDef: JobDefinition): number {
     DEFAULT_JOB_BACKOFF_DELAY_MS;
   const type = typeof jobDef.backoff === "string" ? jobDef.backoff : jobDef.backoff.type;
   return type === "exponential" ? delayMs * (2 ** jobDef.retries - 1) : jobDef.retries * delayMs;
+}
+
+export function isJobDeferral(value: unknown): value is JobDeferral {
+  return (
+    typeof value === "object" && value !== null && "kind" in value && value.kind === "job-deferral"
+  );
+}
+
+export function priorDeferCountOf(data: Record<string, unknown>, key: string): number {
+  const prior = data[key];
+  return typeof prior === "number" ? prior : 0;
+}
+
+export function handlerPayloadOf(data: Record<string, unknown>): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (!k.startsWith("_")) payload[k] = v;
+  }
+  return payload;
+}
+
+export function tenantIdOfJobData(data: Record<string, unknown>): string {
+  return (
+    (data["_tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
+    (data["tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
+    SYSTEM_TENANT_ID
+  );
+}
+
+// Growing delay bounds Redis and worker load while one tenant has a large
+// backlog: every deferred job would otherwise be re-checked every deferMs.
+export function deferDelayMs(deferMs: number, deferCount: number): number {
+  const grown = Math.min(
+    deferMs * 2 ** Math.min(deferCount, DEFER_BACKOFF_MAX_DOUBLINGS),
+    DEFER_DELAY_CAP_MS,
+  );
+  return grown + Math.floor(Math.random() * deferMs);
+}
+
+export function isActiveBefore(
+  other: { readonly id?: string | undefined; readonly processedOn?: number | undefined },
+  self: { readonly id: string | undefined; readonly processedOn: number | undefined },
+): boolean {
+  if (other.id === self.id) return false;
+  if (self.processedOn === undefined) return true;
+  const otherProcessedOn = other.processedOn ?? 0;
+  if (otherProcessedOn !== self.processedOn) return otherProcessedOn < self.processedOn;
+  return (other.id ?? "") < (self.id ?? "");
 }

@@ -175,4 +175,32 @@ describe("ctx.defer", () => {
       await purgeWorkerKeys(queueNamePrefix);
     }
   });
+
+  test("a non-positive defer delay fails the run", async () => {
+    const failures: string[] = [];
+    const feature = defineFeature("deferzero", (r) => {
+      r.job("zero", { trigger: { manual: true }, runOnBoot: true }, async (_payload, ctx) =>
+        ctx.defer(0),
+      );
+    });
+    const queueNamePrefix = uniquePrefix("zero");
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context: {} satisfies AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobFailed: (_name, _id, error) => {
+        failures.push(error);
+      },
+    });
+    try {
+      await runner.start();
+      await waitFor(() => expect(failures).toHaveLength(1));
+      expect(failures[0]).toContain("ctx.defer needs a positive integer delay");
+    } finally {
+      await runner.stop();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
 });
