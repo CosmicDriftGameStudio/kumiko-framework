@@ -1,0 +1,23 @@
+import type { LocalizedString } from "../shared-i18n";
+
+export const WORKBOARD_I18N: Readonly<Record<string, LocalizedString>> = {
+  "workboard:nav.workboard": { de: "Aufgaben", en: "Workboard" },
+  "workboard:nav.tasks": { de: "Alle Aufgaben", en: "All tasks" },
+  "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
+  "screen:task-edit.title": { de: "Aufgabe bearbeiten", en: "Edit task" },
+  "screen:task-edit.create.title": { de: "Aufgabe anlegen", en: "Create task" },
+  "screen:task-edit.edit.title": { de: "Aufgabe bearbeiten", en: "Edit task" },
+  "workboard:entity:task:field:title": { de: "Titel", en: "Title" },
+  "workboard:entity:task:field:status": { de: "Status", en: "Status" },
+  "workboard:entity:task:field:status:option:open": { de: "Offen", en: "Open" },
+  "workboard:entity:task:field:status:option:inProgress": { de: "In Arbeit", en: "In progress" },
+  "workboard:entity:task:field:status:option:blocked": { de: "Blockiert", en: "Blocked" },
+  "workboard:entity:task:field:status:option:done": { de: "Erledigt", en: "Done" },
+  "workboard:entity:task:field:priority": { de: "Priorität", en: "Priority" },
+  "workboard:entity:task:field:priority:option:low": { de: "Niedrig", en: "Low" },
+  "workboard:entity:task:field:priority:option:medium": { de: "Mittel", en: "Medium" },
+  "workboard:entity:task:field:priority:option:high": { de: "Hoch", en: "High" },
+  "workboard:entity:task:field:dueDate": { de: "Fällig am", en: "Due date" },
+  "workboard:entity:task:field:assignee": { de: "Zuständig", en: "Assignee" },
+  "workboard:entity:task:field:estimateHours": { de: "Aufwand (Std.)", en: "Estimate (h)" },
+};

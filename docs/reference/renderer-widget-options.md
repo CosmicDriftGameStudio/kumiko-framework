@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-04
-evidence: "packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx"
+verified: 2026-10-22
+evidence: "packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; samples/recipes/list-table-options"
 ---
 
 # Renderer widget options
@@ -112,3 +112,48 @@ nav.navigate(
   { searchParams: { [listFilterUrlKey("campaign-list", "status")]: "open" } },
 );
 ```
+
+## DataTable `table` block
+
+An `entityList`, `projectionList` or `relatedList` section takes an optional `table` block. Without it the list renders and behaves as before. The recipe `samples/recipes/list-table-options` boots a list with the full block.
+
+```ts illustration
+r.screen({
+  id: "task-list",
+  type: "entityList",
+  entity: "task",
+  columns: ["title", "status", { field: "estimateHours", hidden: true }],
+  table: {
+    rememberState: true,
+    resetAll: true,
+    columnPicker: true,
+    density: { default: "comfortable", userChoice: true },
+  },
+});
+```
+
+| Key | Effect |
+|---|---|
+| `rememberState` | Keeps search, sort, page size, facets and date range for the browser session. |
+| `resetAll` | One button resets search, sort, page size, facets and date range. |
+| `columnPicker` | The view menu lets the user hide and reorder columns. |
+| `density.default` | Row density on first visit, `"comfortable"` or `"compact"`. Default `"comfortable"`. |
+| `density.userChoice` | Shows the density choice in the view menu. |
+
+`hidden: true` on a column starts it hidden. It needs `columnPicker`, otherwise the boot validator rejects the screen, and so does hiding every column. The boot validator also rejects unknown keys and wrong types in the block.
+
+**URL against store.** The URL stays the source of truth. The remembered parameters are copied into the URL once, when the list opens without any list parameter. A link that carries parameters always wins, and the remembered state follows the new URL. The page number alone does not count as a deviation. A `relatedList` keeps its state in the component and under the key `<route screenId>#<section id or query>`.
+
+**Reset.** The button appears only while something differs from the screen defaults and replaces the facet reset. It clears the remembered list parameters. Column and density choices stay; the view menu has its own "Reset view".
+
+**View menu.** The icon button next to the toolbar actions opens columns (checkbox, drag handle and up/down buttons) and density. The last visible column cannot be hidden. Compact density sets the row height to 32 px and the cell padding to 4 px.
+
+**Card layout.** Below the md breakpoint the list renders as cards. Column visibility applies there, the order does not, because the cards take title, status and meta columns from the column sequence of the screen. A card sort select and the compact density still apply.
+
+**Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
+
+## `DataTable`: `rowGrouping`, `onFilterReset`
+
+`rowGrouping` groups rows under collapsible headers. `keyOf` returns the group of a row, `headerLabel` the header text (a group without a label shows its rows without a header and never collapses) and `startsCollapsed` decides the initial state. A renderer without grouping support shows the flat list.
+
+`onFilterReset` clears all active facets. The table shows the reset button only while at least one facet is active. With `table.resetAll` the screen passes `resetAll` instead and the facet reset is not shown.

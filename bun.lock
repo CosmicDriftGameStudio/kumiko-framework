@@ -980,6 +980,15 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/list-table-options": {
+      "name": "@cosmicdrift/kumiko-sample-list-table-options",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/managed-config": {
       "name": "@cosmicdrift/kumiko-sample-managed-config",
       "dependencies": {
@@ -1500,6 +1509,8 @@
     "@cosmicdrift/kumiko-sample-legal-pages": ["@cosmicdrift/kumiko-sample-legal-pages@workspace:samples/recipes/legal-pages"],
 
     "@cosmicdrift/kumiko-sample-lifecycle-hooks": ["@cosmicdrift/kumiko-sample-lifecycle-hooks@workspace:samples/recipes/lifecycle-hooks"],
+
+    "@cosmicdrift/kumiko-sample-list-table-options": ["@cosmicdrift/kumiko-sample-list-table-options@workspace:samples/recipes/list-table-options"],
 
     "@cosmicdrift/kumiko-sample-managed-config": ["@cosmicdrift/kumiko-sample-managed-config@workspace:samples/recipes/managed-config"],
 

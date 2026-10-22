@@ -1,0 +1,86 @@
+import type { ListTableOptions } from "@cosmicdrift/kumiko-types/screen";
+import { useCallback, useMemo } from "react";
+import { useNav } from "../app/nav.tsx";
+import { useListStateStore } from "../components/list-state-store.tsx";
+import type { DataTableResetAll, DataTableViewOptions } from "../data-table-view-types.ts";
+import { isListStateAtDefault, listResetUpdates } from "./list-reset.ts";
+import { type ListViewSchemaColumn, useListViewState } from "./use-list-view-state.ts";
+
+const NO_TABLE_OPTIONS: ListTableOptions = {};
+
+type ListTableArgs = {
+  readonly storeKey: string;
+  /** Undefined: the list has no `table` block and nothing below is active. */
+  readonly table: ListTableOptions | undefined;
+  /** Must be referentially stable across renders. */
+  readonly schemaColumns: readonly ListViewSchemaColumn[];
+  /** URL-backed list (entityList, projectionList): reset clears the `<screenId>.*` keys. */
+  readonly url?: { readonly screenId: string };
+  /** List with component-local state (relatedList): the owner resets it. */
+  readonly local?: { readonly atDefault: boolean; readonly reset: () => void };
+};
+
+export type ListTableProps = {
+  readonly view?: DataTableViewOptions;
+  readonly resetAll?: DataTableResetAll;
+};
+
+/** Props for the DataTable's `view` / `resetAll` from a screen's `table` block. */
+export function useListTable({
+  storeKey,
+  table,
+  schemaColumns,
+  url,
+  local,
+}: ListTableArgs): ListTableProps {
+  const nav = useNav();
+  const store = useListStateStore();
+  const options = table ?? NO_TABLE_OPTIONS;
+  const viewState = useListViewState({ storeKey, store, table: options, schemaColumns });
+
+  const urlParams = nav.searchParams;
+  const urlScreenId = url?.screenId;
+  const localAtDefault = local?.atDefault;
+  const localReset = local?.reset;
+  const atDefault =
+    urlScreenId !== undefined
+      ? isListStateAtDefault(urlParams, urlScreenId)
+      : (localAtDefault ?? true);
+
+  // The remembered view (columns, density) survives: "reset view" is its own action.
+  const onReset = useCallback(() => {
+    if (urlScreenId !== undefined) nav.setSearchParams(listResetUpdates(urlParams, urlScreenId));
+    localReset?.();
+    const { params: _forgotten, ...kept } = store.read(storeKey) ?? {};
+    if (kept.view === undefined) store.remove(storeKey);
+    else store.write(storeKey, kept);
+  }, [nav, urlParams, urlScreenId, localReset, store, storeKey]);
+
+  const resetAll = useMemo<DataTableResetAll | undefined>(
+    () => (options.resetAll === true ? { active: !atDefault, onReset } : undefined),
+    [options.resetAll, atDefault, onReset],
+  );
+
+  const hasViewMenu = options.columnPicker === true || options.density !== undefined;
+  const view = useMemo<DataTableViewOptions | undefined>(
+    () =>
+      hasViewMenu
+        ? {
+            ...(viewState.columns !== undefined && {
+              columns: viewState.columns,
+              onColumnsChange: viewState.setColumns,
+            }),
+            density: viewState.density,
+            ...(viewState.userChoosesDensity && { onDensityChange: viewState.setDensity }),
+            viewIsDefault: viewState.viewIsDefault,
+            onViewReset: viewState.resetView,
+          }
+        : undefined,
+    [hasViewMenu, viewState],
+  );
+
+  return {
+    ...(view !== undefined && { view }),
+    ...(resetAll !== undefined && { resetAll }),
+  };
+}

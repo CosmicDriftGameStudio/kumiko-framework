@@ -1,5 +1,6 @@
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { ProjectionListScreenDefinition } from "../types/screen.ts";
+import { validateListTableOptions } from "./list-table-options.ts";
 import {
   assertWriteHandlerRegistered,
   resolveRowActionNavigateTarget,
@@ -89,6 +90,11 @@ export function validateProjectionListScreen(
   for (const col of screen.columns) {
     validateListColumnRendering(ctx, screenId, "projectionList", normalizeListColumn(col));
   }
+  validateListTableOptions(
+    `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
+    screen.table,
+    screen.columns,
+  );
   // Screen filter: field existence can't be checked without an entity (columns
   // aren't a complete field inventory of the underlying query), so only the
   // structure is pinned: "in" requires an array.

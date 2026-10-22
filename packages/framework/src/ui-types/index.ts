@@ -156,6 +156,8 @@ export type {
   ListEmptyStateSpec,
   ListFacetSpec,
   ListSortSpec,
+  ListTableDensity,
+  ListTableOptions,
   MetricNavigate,
   MetricSpec,
   PlatformComponent,

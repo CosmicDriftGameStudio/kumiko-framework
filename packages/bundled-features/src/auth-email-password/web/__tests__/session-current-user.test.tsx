@@ -57,6 +57,7 @@ describe("SessionProvider provides the renderer's current user", () => {
       email: "ines@example.com",
       displayName: "Ines",
       timeZone: "Europe/Berlin",
+      tenantId: "t1",
     });
   });
 

@@ -8,6 +8,8 @@ export type CurrentUser = {
   readonly displayName: string;
   /** Effective IANA zone of the user (override, else tenant). */
   readonly timeZone?: string;
+  /** Active tenant; scopes per-user browser state such as remembered list views. */
+  readonly tenantId?: string;
 };
 
 const CurrentUserContext = createContext<CurrentUser | undefined>(undefined);

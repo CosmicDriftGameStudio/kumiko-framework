@@ -1,13 +1,5 @@
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronRight,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   Fragment,
   type PointerEvent,
@@ -17,7 +9,6 @@ import {
   useState,
 } from "react";
 import type { ListRowViewModel } from "../../headless/index.ts";
-import type { DataTableSortDir } from "../../index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../index.ts";
 import { UNIFORM_BAR_CONTROLS_CLASSES } from "../layout/uniform-bar-controls.ts";
 import { cn } from "../lib/cn.ts";
@@ -27,6 +18,12 @@ import { CardLeadingImage } from "./file-thumbnail.tsx";
 import { screenPaddingClassName } from "./layout.tsx";
 import { useIsNarrowViewport } from "./use-narrow-viewport.ts";
 import "../react-css-custom-properties.ts";
+import { CardSortSelect } from "./data-table/card-sort-select.tsx";
+import { densityClasses } from "./data-table/density.ts";
+import { ResetAllButton } from "./data-table/reset-all-button.tsx";
+import { RowGroupToggle, useToggledRowGroups } from "./data-table/row-group-toggle.tsx";
+import { useViewColumns } from "./data-table/use-view-columns.ts";
+import { ViewMenu } from "./data-table/view-menu.tsx";
 import {
   buildTableItems,
   cellLinkProp,
@@ -154,7 +151,7 @@ function showFullTextOnHover(event: PointerEvent<HTMLElement>): void {
 }
 
 export function DefaultDataTable({
-  columns,
+  columns: schemaColumns,
   rows,
   onRowClick,
   sort,
@@ -188,6 +185,8 @@ export function DefaultDataTable({
   expandedRowIds,
   onToggleRowExpanded,
   renderExpandedRow,
+  view,
+  resetAll,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell.
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -197,8 +196,10 @@ export function DefaultDataTable({
   // affordance. Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
+  const columns = useViewColumns(schemaColumns, view, isNarrow);
+  const density = densityClasses(view, scrollBody === true);
   const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
-  const [toggledGroups, setToggledGroups] = useState<ReadonlySet<string>>(new Set());
+  const [toggledGroups, toggleGroup] = useToggledRowGroups();
   // Toolbar wrapper: shared container for toolbar + table so the two belong
   // together visually. The toolbar is NOT sticky: lists typically scroll with
   // the page container, not internally. Sticky would compete with the topbar.
@@ -290,26 +291,12 @@ export function DefaultDataTable({
 
   function renderGroupToggle(item: Extract<TableItem, { kind: "group" }>): ReactNode {
     return (
-      <button
-        type="button"
-        aria-expanded={!item.collapsed}
-        data-testid={`row-group-${item.key}-toggle`}
-        onClick={() =>
-          setToggledGroups((prev) => {
-            const next = new Set(prev);
-            if (!next.delete(item.key)) next.add(item.key);
-            return next;
-          })
-        }
-        className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-foreground-secondary"
-      >
-        {item.collapsed ? (
-          <ChevronRight className="size-3.5" />
-        ) : (
-          <ChevronDown className="size-3.5" />
-        )}
-        {item.label}
-      </button>
+      <RowGroupToggle
+        groupKey={item.key}
+        collapsed={item.collapsed}
+        label={item.label}
+        onToggle={toggleGroup}
+      />
     );
   }
 
@@ -346,6 +333,7 @@ export function DefaultDataTable({
                   highlighted={col.highlighted === true}
                   numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
                   fitContent={col.fileDisplay !== undefined}
+                  className={density.header}
                   {...(sort !== undefined && sort !== null && { sort })}
                   {...(onSortChange !== undefined && { onSortChange })}
                 />
@@ -394,6 +382,7 @@ export function DefaultDataTable({
                       rowToneClass(rowTone?.(row)),
                       opensOnClick && "cursor-pointer",
                       fillsHeight && "h-10 border-border-row hover:bg-muted",
+                      density.row,
                     )}
                   >
                     {isRowExpandable && (
@@ -426,6 +415,7 @@ export function DefaultDataTable({
                           NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
                           TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
                           col.highlighted === true && "bg-accent/40",
+                          density.cell,
                         )}
                         title={cellTitle(row.values[col.field])}
                       >
@@ -503,23 +493,6 @@ export function DefaultDataTable({
       </div>
     );
   }
-
-  // No column headers below the breakpoint, so the click-to-sort affordance
-  // on SortableHeader has nothing to attach to. A single native <select> is
-  // the whole fix — no custom widget, no menu — fed straight from the
-  // columns marked sortable in the ViewModel. Options carry the resolved
-  // {field, dir} directly so onChange can look the pick up by value instead
-  // of parsing/casting the option string back apart.
-  const sortableColumns = columns.filter((col) => col.sortable);
-  const sortOptions: readonly {
-    readonly value: string;
-    readonly field: string;
-    readonly dir: DataTableSortDir;
-    readonly label: string;
-  }[] = sortableColumns.flatMap((col) => [
-    { value: `${col.field}:asc`, field: col.field, dir: "asc", label: `${col.label} ↑` },
-    { value: `${col.field}:desc`, field: col.field, dir: "desc", label: `${col.label} ↓` },
-  ]);
 
   const {
     image: cardImageColumn,
@@ -644,6 +617,7 @@ export function DefaultDataTable({
           rowToneClass(rowTone?.(row)),
           isRowExpandable ? "pl-2" : "pl-4",
           hasMenu ? "pr-2" : "pr-4",
+          density.card,
         )}
         {...(opensOnClick && { onClick: () => onRowClick(row) })}
       >
@@ -691,62 +665,18 @@ export function DefaultDataTable({
 
   function cardsInner(): ReactNode {
     if (isEmpty) return emptyBlock;
-    const sortLabel =
-      sort !== undefined && sort !== null
-        ? (tableTranslate?.("kumiko.list.sort.by", {
-            column: columns.find((col) => col.field === sort.field)?.label ?? sort.field,
-          }) ?? `Sorted by ${sort.field}`)
-        : (tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted");
-    const SortArrow = sort?.dir === "desc" ? ArrowDown : ArrowUp;
-    // URL state can carry a sort on a column that is not sortable; without an
-    // option for it the select would claim "Unsorted" while the list is sorted.
-    const currentSortValue = sort !== undefined && sort !== null ? `${sort.field}:${sort.dir}` : "";
-    const currentSortIsUnlisted =
-      sort !== undefined && sort !== null && !sortOptions.some((o) => o.value === currentSortValue);
     return (
       <div data-testid={testId} className="contents">
         <div
           data-testid={testId !== undefined ? `${testId}-cards` : "render-list-cards"}
           className="flex flex-col"
         >
-          {onSortChange !== undefined && sortableColumns.length > 0 && (
-            <div className="relative flex h-9 items-center gap-1.5 px-4 text-[13px] text-foreground-secondary">
-              <span aria-hidden="true">{sortLabel}</span>
-              {sort !== undefined && sort !== null && (
-                <SortArrow className="size-3.5" aria-hidden="true" />
-              )}
-              <select
-                aria-label={tableTranslate?.("kumiko.list.sort.label") ?? "Sort"}
-                data-testid={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
-                value={currentSortValue}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") {
-                    onSortChange(null);
-                    return;
-                  }
-                  const picked = sortOptions.find((o) => o.value === raw);
-                  if (picked === undefined) return;
-                  onSortChange({ field: picked.field, dir: picked.dir });
-                }}
-                className="absolute inset-0 size-full cursor-pointer opacity-0"
-              >
-                <option value="">
-                  {tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted"}
-                </option>
-                {currentSortIsUnlisted && (
-                  <option value={currentSortValue}>
-                    {`${columns.find((col) => col.field === sort.field)?.label ?? sort.field} ${sort.dir === "desc" ? "↓" : "↑"}`}
-                  </option>
-                )}
-                {sortOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <CardSortSelect
+            columns={columns}
+            sort={sort}
+            onSortChange={onSortChange}
+            testId={testId}
+          />
           <ul className="m-0 list-none border-t border-border-row p-0">
             {tableItems.map((item) =>
               item.kind === "group" ? (
@@ -832,8 +762,9 @@ export function DefaultDataTable({
     dateRangeFacets !== undefined && dateRangeFacets.length > 0 && onDateRangeChange !== undefined;
   const hasActiveFilters =
     filterValues !== undefined && Object.values(filterValues).some((v) => v.length > 0);
+  const showsResetAll = resetAll?.active === true;
   const facetCluster =
-    hasFacets || hasDateRangeFacets ? (
+    hasFacets || hasDateRangeFacets || showsResetAll ? (
       <div className="flex flex-wrap items-center gap-2">
         {hasFacets &&
           filterFacets.map((facet) => (
@@ -849,7 +780,7 @@ export function DefaultDataTable({
           dateRangeFacets.map((facet) => (
             <DateRangeFacetFilter key={facet.field} facet={facet} onChange={onDateRangeChange} />
           ))}
-        {hasActiveFilters && onFilterReset !== undefined && (
+        {resetAll === undefined && hasActiveFilters && onFilterReset !== undefined && (
           <UiButton
             variant="ghost"
             size="sm"
@@ -861,12 +792,23 @@ export function DefaultDataTable({
             <X />
           </UiButton>
         )}
+        {showsResetAll && <ResetAllButton onReset={resetAll.onReset} />}
       </div>
     ) : undefined;
 
+  const columnLabels = new Map(schemaColumns.map((col) => [col.field, col.label]));
+  const hasViewMenu =
+    view !== undefined &&
+    ((view.columns !== undefined && view.onColumnsChange !== undefined) ||
+      view.onDensityChange !== undefined);
+  const viewMenu = hasViewMenu ? <ViewMenu view={view} columnLabels={columnLabels} /> : null;
+
   const collapsesFacetsBehindButton = isNarrow && fillsHeight && facetCluster !== undefined;
   const hasToolbar =
-    toolbarStart !== undefined || toolbarEnd !== undefined || facetCluster !== undefined;
+    toolbarStart !== undefined ||
+    toolbarEnd !== undefined ||
+    facetCluster !== undefined ||
+    viewMenu !== null;
 
   // dashboard-01 pattern: the toolbar (search + facets + "+ New") sits ABOVE
   // the table in the same padding block; no separate bg bar, no screen title
@@ -948,8 +890,11 @@ export function DefaultDataTable({
           ) : (
             facetCluster
           )}
-          {toolbarEnd !== undefined && (
-            <div className="flex flex-wrap items-center gap-2 ml-auto">{toolbarEnd}</div>
+          {(toolbarEnd !== undefined || viewMenu !== null) && (
+            <div className="flex flex-wrap items-center gap-2 ml-auto">
+              {viewMenu}
+              {toolbarEnd}
+            </div>
           )}
         </div>
       )}

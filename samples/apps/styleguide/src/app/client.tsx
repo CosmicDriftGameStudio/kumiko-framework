@@ -7,6 +7,7 @@ import { styleguideClient } from "../features/demo/web";
 import { examplesClient } from "../features/examples/web";
 import { galleryClient } from "../features/gallery/web";
 import { widgetsClient } from "../features/widgets/web";
+import { workboardClient } from "../features/workboard/web";
 import { AppShell } from "./shell";
 
 // createKumikoApp fetches the schema itself from the authenticated
@@ -24,5 +25,6 @@ createKumikoApp({
     widgetsClient,
     examplesClient,
     contentClient(),
+    workboardClient,
   ],
 });

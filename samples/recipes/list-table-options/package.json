@@ -1,0 +1,11 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-list-table-options",
+  "description": "Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

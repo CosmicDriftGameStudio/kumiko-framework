@@ -47,6 +47,50 @@ export const thingEditScreen: EntityEditScreenDefinition = {
   },
 };
 
+export const taskEntity = {
+  fields: {
+    title: { type: "text", required: true, sortable: true },
+    owner: { type: "text", sortable: true },
+    priority: {
+      type: "select",
+      options: ["low", "medium", "high"],
+      default: "medium",
+      filterable: true,
+    },
+    estimate: { type: "number", sortable: true },
+  },
+} as unknown as EntityDefinition;
+
+export const taskListScreen: EntityListScreenDefinition = {
+  id: "task-list",
+  type: "entityList",
+  entity: "task",
+  columns: ["title", "owner", "priority", "estimate"],
+  searchable: true,
+  defaultSort: { field: "title", dir: "asc" },
+  table: {
+    rememberState: true,
+    resetAll: true,
+    columnPicker: true,
+    density: { default: "comfortable", userChoice: true },
+  },
+  rowActions: [
+    { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+  ],
+};
+
+export const taskEditScreen: EntityEditScreenDefinition = {
+  id: "task-edit",
+  type: "entityEdit",
+  entity: "task",
+  listScreenId: "task-list",
+  layout: {
+    sections: [
+      { title: "Task", columns: 2, fields: [{ field: "title", span: 2 }, "owner", "priority"] },
+    ],
+  },
+};
+
 export const FAILING_WRITE_HANDLER = "test:write:thing:fail";
 
 const explodeAction = {
@@ -115,8 +159,12 @@ export const e2eSchema: AppSchema = {
       translations: {
         "screen:debt-dashboard.title": { en: "Debts", de: "Schulden" },
         "screen:boom.title": { en: "Broken screen", de: "Kaputter Screen" },
+        "test:entity:task:field:title": { en: "Title", de: "Titel" },
+        "test:entity:task:field:owner": { en: "Owner", de: "Zuständig" },
+        "test:entity:task:field:priority": { en: "Priority", de: "Priorität" },
+        "test:entity:task:field:estimate": { en: "Estimate", de: "Aufwand" },
       },
-      entities: { thing: thingEntity },
+      entities: { thing: thingEntity, task: taskEntity },
       screens: [
         thingEditScreen,
         thingListScreen,
@@ -126,6 +174,8 @@ export const e2eSchema: AppSchema = {
         boomScreen,
         failingListScreen,
         failingEditScreen,
+        taskListScreen,
+        taskEditScreen,
       ],
       navs: [
         { id: "thing-list", label: "Things", screen: "thing-list", order: 10 },
@@ -137,6 +187,7 @@ export const e2eSchema: AppSchema = {
           screen: "roles-availability",
           order: 40,
         },
+        { id: "task-list", label: "Tasks", screen: "task-list", order: 50 },
       ],
     },
   ],

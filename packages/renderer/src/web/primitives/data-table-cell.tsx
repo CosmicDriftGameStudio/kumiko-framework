@@ -181,6 +181,7 @@ export function SortableHeader({
   highlighted,
   numeric,
   fitContent,
+  className,
   sort,
   onSortChange,
 }: {
@@ -190,6 +191,7 @@ export function SortableHeader({
   readonly highlighted?: boolean;
   readonly numeric?: boolean;
   readonly fitContent?: boolean;
+  readonly className?: string;
   readonly sort?: DataTableSort;
   readonly onSortChange?: (next: DataTableSort | null) => void;
 }): ReactNode {
@@ -208,6 +210,7 @@ export function SortableHeader({
           numeric === true && "text-right",
           fitContent === true && FIT_CONTENT_CELL_CLASS,
           highlighted === true && "bg-accent/40",
+          className,
         )}
       >
         {label}
@@ -232,6 +235,7 @@ export function SortableHeader({
         numeric === true && "text-right",
         fitContent === true && FIT_CONTENT_CELL_CLASS,
         highlighted === true && "bg-accent/40",
+        className,
       )}
     >
       <button

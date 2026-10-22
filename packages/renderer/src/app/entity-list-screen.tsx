@@ -4,7 +4,7 @@ import type {
   RowAction,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,11 +14,7 @@ import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
-import {
-  computeRelatedListSectionViewModel,
-  fieldLabelKey,
-  fieldOptionLabelKey,
-} from "../headless/index.ts";
+import { computeRelatedListSectionViewModel } from "../headless/index.ts";
 import { useListUrlState } from "../hooks/use-list-url-state.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { useTranslation } from "../i18n.tsx";
@@ -28,6 +24,7 @@ import { DrawerHost, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import { EntityListExpandedRow } from "./entity-list-expanded-row.tsx";
+import { resolveEntityFacetSpecs } from "./entity-list-facet-specs.ts";
 import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import {
@@ -41,7 +38,6 @@ import {
   buildFilterPayload,
   mergeReferenceFacetOptions,
   normalizeDefaultFilters,
-  type ResolvedFacetSpec,
 } from "./list-facets.ts";
 import { type ScreenTarget, useNav } from "./nav.tsx";
 import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
@@ -67,72 +63,8 @@ import {
   pageSizeOptionsFor,
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
+import { useScreenListTable } from "./use-screen-list-table.ts";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.ts";
-
-// entityList adapter — one DataTableFacet per filterable select/boolean
-// entity field, labels via the standard field/option i18n convention.
-function resolveEntityFacetSpecs(
-  fields: Readonly<Record<string, unknown>>,
-  featureName: string,
-  entityName: string,
-  translate: Translate,
-): ResolvedFacetSpec[] {
-  const out: ResolvedFacetSpec[] = [];
-  for (const [field, rawDef] of Object.entries(fields)) {
-    // entity.fields is weakly typed at the renderer layer (Record<string,
-    // unknown>, deserialized from the schema); boundary cast like buildInitialValues.
-    const def = rawDef as {
-      type?: string;
-      filterable?: boolean;
-      options?: readonly string[];
-      entity?: string;
-      labelField?: string;
-    };
-    if (def.filterable !== true) continue;
-    const label = translate(fieldLabelKey(featureName, entityName, field));
-    if (def.type === "select" && Array.isArray(def.options)) {
-      out.push({
-        field,
-        type: "select",
-        label,
-        options: def.options.map((value) => ({
-          value,
-          label: translate(fieldOptionLabelKey(featureName, entityName, field, value)),
-        })),
-      });
-    } else if (def.type === "boolean") {
-      out.push({
-        field,
-        type: "boolean",
-        label,
-        options: [
-          {
-            value: "true",
-            label: translate(fieldOptionLabelKey(featureName, entityName, field, "true")),
-          },
-          {
-            value: "false",
-            label: translate(fieldOptionLabelKey(featureName, entityName, field, "false")),
-          },
-        ],
-      });
-    } else if (def.type === "reference" && def.entity !== undefined) {
-      const target = parseRefTarget(def.entity, featureName);
-      out.push({
-        field,
-        type: "reference",
-        label,
-        options: [],
-        reference: {
-          refEntity: target.entityName,
-          refFeature: target.featureName,
-          labelField: def.labelField ?? "id",
-        },
-      });
-    }
-  }
-  return out;
-}
 
 export function EntityListScreen({
   schema,
@@ -356,6 +288,16 @@ function EntityListBody({
     () => resolveEntityFacetSpecs(entity.fields, featureName, screen.entity, effectiveTranslate),
     [entity.fields, featureName, screen.entity, effectiveTranslate],
   );
+  const facetFilterFields = useMemo(
+    () => entityFacetSpecs.map((spec) => spec.field),
+    [entityFacetSpecs],
+  );
+  const listTable = useScreenListTable({
+    screenId: screen.id,
+    table: screen.table,
+    columns: screen.columns,
+    filterFields: facetFilterFields,
+  });
   const [entityReferenceFacetOptions, setEntityReferenceFacetOptions] = useState<
     Record<string, readonly ReferenceFacetOption[]>
   >({});
@@ -773,6 +715,7 @@ function EntityListBody({
           onFilterChange: urlState.setFilter,
           onFilterReset: urlState.clearFilters,
         })}
+        {...listTable}
         {...(expandableSection !== undefined && {
           expandedRowIds,
           onToggleRowExpanded: toggleRowExpanded,

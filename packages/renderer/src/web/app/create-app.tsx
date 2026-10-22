@@ -82,6 +82,7 @@ import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin.tsx
 import { WebDashboardBody } from "./dashboard-body.tsx";
 import { DocumentLangSync } from "./document-lang-sync.tsx";
 import { createBrowserDraftStorage } from "./draft-storage.ts";
+import { ListStateStoreBoot } from "./list-state-store-boot.tsx";
 import { useBrowserNavApi } from "./nav.tsx";
 import { NavProvidersProvider } from "./nav-providers-context.tsx";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context.tsx";
@@ -531,7 +532,10 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                                         >
                                           {stackWrappers(
                                             props.providers,
-                                            stackWrappers(props.gates, screenNode),
+                                            stackWrappers(
+                                              props.gates,
+                                              <ListStateStoreBoot>{screenNode}</ListStateStoreBoot>,
+                                            ),
                                           )}
                                         </SessionEndedSignalProvider>
                                       </ToastActionNotifier>

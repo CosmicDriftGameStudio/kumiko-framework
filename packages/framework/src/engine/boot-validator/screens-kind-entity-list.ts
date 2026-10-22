@@ -6,6 +6,7 @@ import { normalizeListColumn } from "../screen-helpers.ts";
 import type { EntityDefinition } from "../types/index.ts";
 import type { EntityListScreenDefinition, RowAction, ToolbarAction } from "../types/screen.ts";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
+import { validateListTableOptions } from "./list-table-options.ts";
 import {
   assertWriteHandlerRegistered,
   rejectRedirectOnListRowAction,
@@ -381,6 +382,11 @@ export function validateEntityListScreen(
         `must be a positive integer.`,
     );
   }
+  validateListTableOptions(
+    `[Feature ${featureName}] Screen "${screenId}" (entityList)`,
+    screen.table,
+    screen.columns,
+  );
   if (screen.defaultSort !== undefined) {
     validateEntityListDefaultSort(featureName, screenId, screen.defaultSort, fields);
   }
