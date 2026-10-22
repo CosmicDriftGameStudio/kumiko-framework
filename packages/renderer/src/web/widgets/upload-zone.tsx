@@ -173,6 +173,23 @@ export function UploadZone({
     if (row.value !== undefined) onRemove?.(row.value);
   }
 
+  // Values the owner already held before any upload of this zone (editing a record with files).
+  // Hidden while an upload runs: its value reaches `doneValues` one render before its row is done.
+  const uploading = rows.some((row) => row.status === "uploading");
+  const existingRows: readonly UploadRow[] =
+    doneValues === undefined || uploading
+      ? []
+      : doneValues
+          .filter((value) => !rows.some((row) => row.value === value))
+          .map((value) => ({ id: `existing:${value}`, fileName: value, status: "done", value }));
+  const visibleRows = [
+    ...existingRows,
+    ...rows.filter(
+      (row) =>
+        row.value === undefined || doneValues === undefined || doneValues.includes(row.value),
+    ),
+  ];
+
   const acceptAttr = toAcceptAttr(accept);
 
   return (
@@ -212,43 +229,36 @@ export function UploadZone({
           onChange={(e) => void uploadFiles(e.target.files)}
         />
       </label>
-      {rows.length > 0 && (
+      {visibleRows.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {rows
-            .filter(
-              (row) =>
-                row.value === undefined ||
-                doneValues === undefined ||
-                doneValues.includes(row.value),
-            )
-            .map((row) => (
-              <li
-                key={row.id}
-                data-testid={testId !== undefined ? `${testId}-row` : undefined}
-                className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <FileUp className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span className="truncate text-sm">{row.fileName}</span>
-                </div>
-                <output className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                  {STATUS_ICON[row.status]}
-                  <span className="sr-only">{t(STATUS_LABEL_KEY[row.status])}</span>
-                  {row.status === "error" && row.error !== undefined && <span>{row.error}</span>}
-                  {row.value !== undefined && onRemove !== undefined && disabled !== true && (
-                    <button
-                      type="button"
-                      className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-                      aria-label={t("kumiko.widget.upload.remove")}
-                      data-testid={testId !== undefined ? `${testId}-remove` : undefined}
-                      onClick={() => removeRow(row)}
-                    >
-                      <X className="size-3.5" aria-hidden="true" />
-                    </button>
-                  )}
-                </output>
-              </li>
-            ))}
+          {visibleRows.map((row) => (
+            <li
+              key={row.id}
+              data-testid={testId !== undefined ? `${testId}-row` : undefined}
+              className="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-2"
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                <FileUp className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="truncate text-sm">{row.fileName}</span>
+              </div>
+              <output className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                {STATUS_ICON[row.status]}
+                <span className="sr-only">{t(STATUS_LABEL_KEY[row.status])}</span>
+                {row.status === "error" && row.error !== undefined && <span>{row.error}</span>}
+                {row.value !== undefined && onRemove !== undefined && disabled !== true && (
+                  <button
+                    type="button"
+                    className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                    aria-label={t("kumiko.widget.upload.remove")}
+                    data-testid={testId !== undefined ? `${testId}-remove` : undefined}
+                    onClick={() => removeRow(row)}
+                  >
+                    <X className="size-3.5" aria-hidden="true" />
+                  </button>
+                )}
+              </output>
+            </li>
+          ))}
         </ul>
       )}
     </div>

@@ -40,7 +40,7 @@ import {
 } from "../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
-import { referenceOptionSource } from "../hooks/use-reference-lookup.ts";
+import { isCompleteRowPage, referenceOptionSource } from "../hooks/use-reference-lookup.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { type FieldProps, type InputFillAction, usePrimitives } from "../primitives.tsx";
 import {
@@ -706,7 +706,10 @@ function ReadOnlyReferenceValue({
   const refFeature = field.refFeature ?? featureName;
   const isMultiple = field.refMultiple === true;
   const { queryQn, labelKey } = referenceOptionSource(field, refFeature, refEntity);
-  const queryResult = useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(queryQn, {
+  const queryResult = useQuery<{
+    rows: ReadonlyArray<Record<string, unknown>>;
+    nextCursor?: string | null;
+  }>(queryQn, {
     limit: REFERENCE_COMBOBOX_LIMIT,
   });
   const ids: readonly string[] = isMultiple
@@ -730,7 +733,10 @@ function ReadOnlyReferenceValue({
     if (row === undefined) {
       const unknownKey = UNRESOLVED_REFERENCE_LABEL_KEYS[`${refFeature}:${refEntity}`];
       const label =
-        unknownKey !== undefined && !queryResult.loading && queryResult.error === null
+        unknownKey !== undefined &&
+        !queryResult.loading &&
+        queryResult.error === null &&
+        isCompleteRowPage(queryResult.data)
           ? t(unknownKey)
           : id;
       return { id, label, link: undefined };

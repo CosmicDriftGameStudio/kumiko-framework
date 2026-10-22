@@ -742,8 +742,8 @@ function TextBlockView({
     case "list":
       return (
         <ul data-block="list" className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          {block.items.map((item) => (
-            <li key={item}>{translate(item)}</li>
+          {withOccurrenceKeys(block.items, (item) => item).map(({ entry, key }) => (
+            <li key={key}>{translate(entry)}</li>
           ))}
         </ul>
       );
@@ -789,6 +789,20 @@ function TextBlockLink({
   );
 }
 
+// Content-derived keys collide for identical entries; the occurrence count keeps them unique.
+function withOccurrenceKeys<T>(
+  entries: readonly T[],
+  contentKey: (entry: T) => string,
+): { readonly entry: T; readonly key: string }[] {
+  const seen = new Map<string, number>();
+  return entries.map((entry) => {
+    const content = contentKey(entry);
+    const occurrence = seen.get(content) ?? 0;
+    seen.set(content, occurrence + 1);
+    return { entry, key: `${content}#${occurrence}` };
+  });
+}
+
 function textBlockKey(block: DashboardTextBlock): string {
   switch (block.kind) {
     case "list":
@@ -811,8 +825,8 @@ export function TextPanelBody({
 }): ReactNode {
   const blocks = (
     <div className="flex flex-col gap-3">
-      {panel.blocks.map((block) => (
-        <TextBlockView key={textBlockKey(block)} block={block} translate={translate} />
+      {withOccurrenceKeys(panel.blocks, textBlockKey).map(({ entry, key }) => (
+        <TextBlockView key={key} block={entry} translate={translate} />
       ))}
     </div>
   );

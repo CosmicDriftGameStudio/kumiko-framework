@@ -355,11 +355,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     () => controller.validate(scopeFieldNamesRef.current),
     [controller],
   );
-  const markSaved = useCallback(() => {
-    controller.rebase();
-    extensionDirtyRef.current = false;
-    setExtensionDirty(false);
-  }, [controller]);
+  // The extension dirty flag aggregates every section; each section clears its
+  // own part, so a host-side markSaved must not reset it.
+  const markSaved = useCallback(
+    (fields?: readonly string[]) => {
+      if (fields === undefined) controller.rebase();
+      else controller.rebaseFields(fields);
+    },
+    [controller],
+  );
 
   // `saveDraft` (defined below) is a fresh closure every render, over that
   // render's `draftKey`/`draftId` — the ref lets the debounce timer below

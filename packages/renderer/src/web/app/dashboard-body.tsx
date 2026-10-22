@@ -383,6 +383,24 @@ function useVisibilityGateResults(): {
   return { results, report, forget };
 }
 
+const NOOP_REFETCH = async (): Promise<void> => {};
+
+// A gate reports through an effect, so for its first commit (and after a payload change) no
+// result exists yet; without a placeholder that reads as "hidden" and flashes the fallback.
+function withPendingGates(
+  results: VisibilityQueryResults,
+  gateKeys: readonly string[],
+): VisibilityQueryResults {
+  if (gateKeys.every((key) => results.has(key))) return results;
+  const merged = new Map(results);
+  for (const key of gateKeys) {
+    if (!merged.has(key)) {
+      merged.set(key, { data: null, error: null, loading: true, refetch: NOOP_REFETCH });
+    }
+  }
+  return merged;
+}
+
 function distinctVisibilityGates(
   panels: readonly DashboardPanelDefinition[],
   screenParams: ScreenParams,
@@ -563,6 +581,15 @@ export function WebDashboardBody({
   const { loadedAtMs, reportLoaded } = useLoadedAt(screenParams);
   const visibilityGates = distinctVisibilityGates(screen.panels, screenParams);
   const gateResults = useVisibilityGateResults();
+  const gateKeysSignature = visibilityGates.map((gate) => gate.key).join("\n");
+  const gateResultsWithPending = useMemo(
+    () =>
+      withPendingGates(
+        gateResults.results,
+        gateKeysSignature === "" ? [] : gateKeysSignature.split("\n"),
+      ),
+    [gateResults.results, gateKeysSignature],
+  );
 
   // The record query is not a panel query: it needs the interval before the
   // registry context below exists, and `refresh.field` reads from its own row.
@@ -716,7 +743,7 @@ export function WebDashboardBody({
               {effectiveTranslate(scope.notice)}
             </Banner>
           )}
-          <VisibilityQueryContext.Provider value={gateResults.results}>
+          <VisibilityQueryContext.Provider value={gateResultsWithPending}>
             <VisibilityGateQueries
               gates={visibilityGates}
               onResult={gateResults.report}

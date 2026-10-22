@@ -992,7 +992,7 @@ function RoutedScreen({
     return (
       <ScreenMissingState
         {...(landingExists && { homeScreenId: lastSegment(fallbackQn) })}
-        screenQn={qn}
+        screenQn={nav.route?.screenId ?? qn}
       />
     );
   }

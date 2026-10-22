@@ -166,6 +166,11 @@ export type FormController<TValues extends FormValues> = {
   // achieve that.
   rebase(): void;
 
+  // Promotes only the given fields' current values to the baseline, so other
+  // fields keep their unsaved changes. For a writer that persisted just a
+  // subset of the form.
+  rebaseFields(fields: readonly string[]): void;
+
   // Swap the external context threaded into field-condition predicates.
   // Rare — most conditionals depend on values, not ctx — but needed when
   // e.g. the user switches tenant mid-form and visibility rules key off

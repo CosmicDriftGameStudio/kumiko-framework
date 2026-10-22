@@ -298,14 +298,17 @@ export function RenderList(props: RenderListProps): ReactNode {
         })),
     [vm.columns, featureName],
   );
-  const [referenceLookups, setReferenceLookups] = useState<Record<string, ReferenceLookupMap>>({});
-  const handleLookupMap = useCallback((field: string, map: ReferenceLookupMap) => {
+  const [referenceLookups, setReferenceLookups] = useState<
+    Record<string, PublishedReferenceLookup>
+  >({});
+  const handleLookupMap = useCallback((field: string, lookup: PublishedReferenceLookup) => {
     setReferenceLookups((prev) => {
-      // Skip the update when the map is identical. Otherwise the bridge
+      // Skip the update when the lookup is identical. Otherwise the bridge
       // would re-render and send the same map back until React entered
       // an infinite loop.
-      if (prev[field] === map) return prev;
-      return { ...prev, [field]: map };
+      const current = prev[field];
+      if (current?.map === lookup.map && current.complete === lookup.complete) return prev;
+      return { ...prev, [field]: lookup };
     });
   }, []);
   const resolveReferenceLink = useReferenceLinkResolver();
@@ -316,17 +319,21 @@ export function RenderList(props: RenderListProps): ReactNode {
       // An author-declared renderer always takes precedence;
       // the default is used only when none is set.
       if (col.renderer !== undefined) return col;
-      const map = referenceLookups[col.field];
+      const published = referenceLookups[col.field];
+      const map = published?.map;
       const unknownKey =
         UNRESOLVED_REFERENCE_LABEL_KEYS[`${col.refFeature ?? featureName}:${col.refEntity ?? ""}`];
       // No raw id for entities that opt in: a placeholder while the lookup
-      // loads, the "unknown" label once it found nothing.
+      // loads, the "unknown" label once the complete lookup found nothing. A
+      // capped lookup page cannot prove absence, so it keeps the raw id.
       const unresolvedLabel = (id: string): string =>
         unknownKey === undefined
           ? id
-          : map === undefined
+          : published === undefined
             ? EMPTY_VALUE_PLACEHOLDER
-            : translate(unknownKey);
+            : published.complete
+              ? translate(unknownKey)
+              : id;
       const labelField = col.refLabelField ?? "id";
       const refEntity = col.refEntity ?? "";
       // Only a row the user can see is linkable: resolved by the server
@@ -634,6 +641,11 @@ function ListHeaderSlotMount({
   return <Component entityName={screen.entity} entityId={null} screenId={screen.id} />;
 }
 
+type PublishedReferenceLookup = {
+  readonly map: ReferenceLookupMap;
+  readonly complete: boolean;
+};
+
 // Bridge component for each reference column. It is mounted once per
 // column, calls useReferenceLookup unconditionally, and publishes the map
 // to the parent through onMap. React manages mounting and unmounting when
@@ -649,7 +661,7 @@ function ReferenceLookupBridge({
   readonly refEntity: string;
   readonly labelField: string;
   readonly featureName: string;
-  readonly onMap: (field: string, map: ReferenceLookupMap) => void;
+  readonly onMap: (field: string, lookup: PublishedReferenceLookup) => void;
 }): null {
   const lookup = useReferenceLookup(featureName, refEntity, labelField);
   // Use an effect rather than calling directly so setState runs outside the
@@ -660,8 +672,8 @@ function ReferenceLookupBridge({
   // Only the latter may display "Unknown".
   const resolved = !lookup.loading && !lookup.failed;
   useEffect(() => {
-    if (resolved) onMap(field, lookup.map);
-  }, [field, lookup.map, resolved, onMap]);
+    if (resolved) onMap(field, { map: lookup.map, complete: lookup.complete });
+  }, [field, lookup.map, lookup.complete, resolved, onMap]);
   return null;
 }
 

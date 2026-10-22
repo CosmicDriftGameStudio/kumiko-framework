@@ -234,6 +234,61 @@ describe("actionForm resetOnSuccess", () => {
   });
 });
 
+describe("actionForm resetOnSuccess with load", () => {
+  test("reseeds the form from the record as saved, not from the stale loaded copy", async () => {
+    let storedNote = "old";
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { name: "Ada", note: storedNote },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => {
+        storedNote = "saved";
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["write"],
+    });
+    const loadingReset = {
+      ...CREATE_PAIR,
+      successLinks: undefined,
+      resetOnSuccess: true,
+      load: { query: "demo:query:record:detail", singleton: true },
+    } as unknown as ActionFormScreenDefinition;
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "demo:screen:create-pair" },
+            navigate: () => {},
+            replace: () => {},
+            hrefFor: () => "#",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={{ ...SCHEMA, screens: [loadingReset] }}
+            qn="demo:screen:create-pair"
+            translate={(key) => LABELS[key] ?? key}
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+    const noteInput = (): HTMLInputElement => {
+      const input = screen.getByTestId("field-note").querySelector("input");
+      if (!input) throw new Error("expected a note input");
+      return input;
+    };
+    await waitFor(() => expect(noteInput().value).toBe("old"));
+
+    const user = userEvent.setup();
+    await user.type(noteInput(), "x");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(noteInput().value).toBe("saved"));
+    expect(screen.getByTestId("action-form-success")).toBeTruthy();
+  });
+});
+
 describe("field placeholder", () => {
   test("is translated and set on a single-line text input", async () => {
     renderScreen(

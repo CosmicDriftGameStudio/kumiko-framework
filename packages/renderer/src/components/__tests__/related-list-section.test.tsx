@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { createDateField, createEntity } from "@cosmicdrift/kumiko-framework/engine";
 import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
@@ -1845,5 +1846,59 @@ describe("RelatedListSection — default edit row action", () => {
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
     expect(rtlScreen.queryByTestId("action-edit-r1")).toBeNull();
+  });
+});
+
+describe("RelatedListSection — sortable column over a declared entity", () => {
+  test("a sortable column keeps its flag on a source field that omits the sortable key", async () => {
+    const { dispatcher } = stubDispatcher();
+    const seenSortable: Record<string, boolean>[] = [];
+    const capturingDataTable: ComponentType<DataTableProps> = ({ rows, columns }) => {
+      seenSortable.push(Object.fromEntries(columns.map((c) => [c.field, c.sortable])));
+      return (
+        <table>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} data-testid={`row-${row.id}`} />
+            ))}
+          </tbody>
+        </table>
+      );
+    };
+    const schema: FeatureSchema = {
+      featureName: "lease",
+      entities: { item: createEntity({ table: "Items", fields: { dueDate: createDateField() } }) },
+      screens: [],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <AppFeaturesProvider features={[schema]}>
+            <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+              <NavProvider value={stubNav().nav}>
+                <RelatedListSection
+                  section={{
+                    kind: "relatedList",
+                    title: "Positions",
+                    query: "lease:query:items:list",
+                    entity: "lease:item",
+                    columns: [{ field: "dueDate", sortable: true }],
+                  }}
+                  parentId="order-1"
+                  record={{ id: "order-1" }}
+                  featureName="orders"
+                />
+              </NavProvider>
+            </PrimitivesProvider>
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(seenSortable.at(-1)).toEqual({ dueDate: true });
   });
 });

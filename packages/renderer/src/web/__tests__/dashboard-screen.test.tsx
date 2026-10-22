@@ -15,7 +15,7 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, render, screen, waitFor, within } from "./test-utils.tsx";
+import { act, createMockDispatcher, render, screen, waitFor, within } from "./test-utils.tsx";
 
 const dashboardScreen: DashboardScreenDefinition = {
   id: "overview",
@@ -644,13 +644,14 @@ function renderAccountSecurity(
   mfaEnabled: boolean,
   schema: FeatureSchema = accountSecuritySchema,
   sessions: FeatureSchema = sessionsSchema,
-  options: { readonly statusFails?: boolean } = {},
+  options: { readonly statusFails?: boolean; readonly statusGate?: Promise<void> } = {},
 ): { readonly queryTypes: string[] } {
   const queryTypes: string[] = [];
   const dispatcher = createMockDispatcher({
     query: (async (type: string) => {
       queryTypes.push(type);
       if (type === mfaStatus.query) {
+        await options.statusGate;
         if (options.statusFails === true) {
           return {
             isSuccess: false,
@@ -765,6 +766,22 @@ describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
       renderAccountSecurity(false, fallbackSchema);
       expect(screen.queryByTestId("dashboard-panel-mfa")).toBeNull();
       expect(screen.queryByText("Firefox on Linux")).toBeNull();
+    });
+
+    test("never mounts the fallback screen before the gate answers", async () => {
+      let openGate: () => void = () => {};
+      const statusGate = new Promise<void>((resolve) => {
+        openGate = resolve;
+      });
+      const { queryTypes } = renderAccountSecurity(false, fallbackSchema, sessionsSchema, {
+        statusGate,
+      });
+      await act(async () => {});
+      expect(queryTypes).toContain(mfaStatus.query);
+      expect(queryTypes).not.toContain("sessions:query:user-session:mine");
+
+      openGate();
+      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
     });
 
     test("falls back when the gate query fails instead of showing an error", async () => {

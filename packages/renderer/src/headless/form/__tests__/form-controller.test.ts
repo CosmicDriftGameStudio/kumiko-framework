@@ -135,6 +135,19 @@ describe("createFormController — core state machine", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  test("rebaseFields: only the given fields join the baseline, other changes stay dirty", () => {
+    const form = createFormController({ initial: { title: "a", note: "b" } });
+    form.setField("title", "a2");
+    form.setField("note", "b2");
+
+    form.rebaseFields(["title"]);
+    const snap = form.getSnapshot();
+
+    expect(snap.initial).toEqual({ title: "a2", note: "b" });
+    expect(snap.changes).toEqual({ note: "b2" });
+    expect(snap.isDirty).toBe(true);
+  });
+
   test("rebase: current values become the new baseline, changes collapse to {}", () => {
     const form = createFormController({ initial: { title: "hello" } });
     form.setField("title", "world");

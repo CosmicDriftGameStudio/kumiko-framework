@@ -32,7 +32,7 @@ export function ExtensionSectionMount({
   readonly values?: Readonly<Record<string, unknown>>;
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
-  readonly markSaved?: () => void;
+  readonly markSaved?: (fields?: readonly string[]) => void;
   readonly hideTitle?: boolean;
   /** section.actions, already resolved into buttons by the caller. */
   readonly actions?: ReactNode;
@@ -126,7 +126,7 @@ export function EditSlotMount({
   readonly entityName: string;
   readonly entityId: string | null;
   readonly values: Readonly<Record<string, unknown>>;
-  readonly markSaved?: () => void;
+  readonly markSaved?: (fields?: readonly string[]) => void;
   readonly hasUnsavedChanges?: boolean;
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
 } & StickyPrimaryActionMarker): ReactNode {
