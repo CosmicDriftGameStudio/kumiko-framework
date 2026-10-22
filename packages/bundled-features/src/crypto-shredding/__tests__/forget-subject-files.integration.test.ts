@@ -47,6 +47,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { PURGE_CANDIDATE_PAGE_SIZE } from "../../shared/purge-files-reaching-subject.ts";
 import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
@@ -503,5 +504,34 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(await fileRefExists(pendingId)).toBe(false);
     expect(await memory.exists(keptKey)).toBe(true);
     expect(await fileRefExists(keptId)).toBe(true);
+  });
+  test("user subject: a user owning more records than one candidate page loses every file, not only the first page", async () => {
+    const total = PURGE_CANDIDATE_PAGE_SIZE + 5;
+    const seeded: Array<{ id: string; key: string }> = [];
+    for (let start = 0; start < total; start += 25) {
+      const batch = await Promise.all(
+        Array.from({ length: Math.min(25, total - start) }, async () => {
+          const id = await upload(foreignUploader, "owned-doc", "contract");
+          await stack.http.writeOk(
+            CREATE_OWNED,
+            { ownerId: ownerUserId, contract: id },
+            foreignUploader,
+          );
+          return { id, key: await storageKeyOf(id) };
+        }),
+      );
+      seeded.push(...batch);
+    }
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: ownerUserId }, reason: REASON },
+      dpo,
+    );
+
+    for (const { id, key } of seeded) {
+      expect(await memory.exists(key)).toBe(false);
+      expect(await fileRefExists(id)).toBe(false);
+    }
   });
 });
