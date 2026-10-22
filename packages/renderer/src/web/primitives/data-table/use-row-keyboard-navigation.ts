@@ -46,16 +46,18 @@ function targetRow(event: KeyboardEvent<HTMLTableRowElement>): HTMLElement | und
   }
 }
 
-/** Roving tabindex over the data rows: one tab stop, arrows/Home/End move, Enter opens.
- *  Space stays free for row selection. Inactive: no attributes at all. */
+/** Roving tabindex over the data rows: one tab stop, arrows/Home/End move, Enter opens,
+ *  Space selects when the table has a selection column. Inactive: no attributes at all. */
 export function useRowKeyboardNavigation({
   view,
   isNarrow,
   rowIds,
+  onSelect,
 }: {
   readonly view: DataTableViewOptions | undefined;
   readonly isNarrow: boolean;
   readonly rowIds: readonly string[];
+  readonly onSelect?: ((rowId: string) => void) | undefined;
 }): (rowId: string, open: (() => void) | undefined) => KeyboardRow {
   const active = isKeyboardNavigationActive(view, isNarrow);
   const [focusedId, setFocusedId] = useState<string | undefined>(undefined);
@@ -72,6 +74,9 @@ export function useRowKeyboardNavigation({
         if (event.key === "Enter" && open !== undefined) {
           event.preventDefault();
           open();
+        } else if (event.key === " " && onSelect !== undefined) {
+          event.preventDefault();
+          onSelect(rowId);
         } else {
           const target = targetRow(event);
           // skip: not a navigation key, or no row in that direction

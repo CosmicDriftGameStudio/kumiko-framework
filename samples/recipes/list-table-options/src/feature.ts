@@ -38,7 +38,7 @@ export const taskEntity = createEntity({
   },
 });
 
-const openAccess = {
+export const openAccess = {
   access: {
     openToAll: { reason: "recipe: any signed-in user manages the tasks; no per-user ownership" },
   },
@@ -80,7 +80,18 @@ export function createTaskBoardFeature(
       table: taskTable,
       rowActions: [
         { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+        {
+          kind: "writeHandler",
+          id: "delete",
+          label: "Delete",
+          handler: "task-board:write:task:delete",
+          style: "danger",
+          // Done tasks are skipped by the bulk run and counted as skipped.
+          visible: { field: "status", ne: "done" },
+        },
       ],
+      // Row checkboxes and a selection bar; each selected row gets its own delete write.
+      bulkActions: [{ id: "delete", rowAction: "delete" }],
       access: openAccess.access,
     });
 

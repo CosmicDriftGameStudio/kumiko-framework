@@ -17,6 +17,14 @@ import { createMockDispatcher } from "./mock-dispatcher";
 import { MoneyTestPage } from "./money-page";
 import { BOOM_SCREEN_ID, e2eSchema } from "./schema";
 
+// Write controls a spec sets with addInitScript before boot and reads back afterwards.
+type WriteControlWindow = Window & {
+  __E2E_REJECT_WRITE_IDS__?: readonly string[];
+  __E2E_HOLD_WRITES__?: boolean;
+  __E2E_WRITE_LOG__?: readonly string[];
+  __E2E_RELEASE_WRITES__?: () => void;
+};
+
 function mountReact(node: ReactNode): void {
   const root = document.getElementById("root");
   if (root === null) throw new Error("renderer/e2e: #root not found");
@@ -60,12 +68,20 @@ async function boot(): Promise<void> {
     return;
   }
 
+  const controlWindow: WriteControlWindow = window;
   const dispatcher = createMockDispatcher({
+    ...(controlWindow.__E2E_REJECT_WRITE_IDS__ !== undefined && {
+      rejectWriteIds: controlWindow.__E2E_REJECT_WRITE_IDS__,
+    }),
+    holdWrites: controlWindow.__E2E_HOLD_WRITES__ === true,
     // Test-Pages können vor dem Boot via window.__E2E_SEED__ Pre-Daten
     // einfüttern; ohne Seed startet jeder Test mit leerer In-Memory-DB.
     seed: ((globalThis as { __E2E_SEED__?: Record<string, unknown[]> }).__E2E_SEED__ ??
       {}) as Record<string, readonly { id: string; [key: string]: unknown }[]>,
   });
+
+  controlWindow.__E2E_WRITE_LOG__ = dispatcher.writeLog;
+  controlWindow.__E2E_RELEASE_WRITES__ = dispatcher.releaseWrites;
 
   const Brand = (): ReactNode => (
     <strong className="text-foreground tracking-tight">Renderer-Web E2E</strong>

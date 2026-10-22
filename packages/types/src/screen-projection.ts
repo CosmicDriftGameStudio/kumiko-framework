@@ -13,6 +13,7 @@ import type {
   ScreenFilter,
   ToolbarAction,
 } from "./screen-entity-list.ts";
+import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableOptions } from "./screen-list-table.ts";
 
 // --- projectionList ---
@@ -101,6 +102,8 @@ export type ProjectionListScreenDefinition = {
   readonly rowActions?: readonly RowAction[];
   /** Layout of the row-action column — see `RowActionMode`. */
   readonly rowActionMode?: RowActionMode;
+  /** Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action. Adds a checkbox column and a selection bar; without it the list has no checkboxes. */
+  readonly bulkActions?: readonly ListBulkAction[];
   readonly toolbarActions?: readonly ToolbarAction[];
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;

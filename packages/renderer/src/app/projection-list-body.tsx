@@ -17,6 +17,7 @@ import { DrawerHost, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
+import { useListBulk } from "./list-bulk-actions.ts";
 import { isListNarrowed, useListEmptyContent } from "./list-empty-content.ts";
 import {
   buildFilterFacets,
@@ -268,6 +269,13 @@ export function ProjectionListBody({
       userRoles,
     ],
   );
+  const bulk = useListBulk({
+    bulkActions: screen.bulkActions,
+    rowActions: screen.rowActions,
+    translate: effectiveTranslate,
+    dispatcher,
+    reload: rowsQuery.refetch,
+  });
   const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
     nav,
     host,
@@ -362,6 +370,7 @@ export function ProjectionListBody({
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(screen.rowActionMode !== undefined && { rowActionMode: screen.rowActionMode })}
+        {...(bulk !== undefined && { bulk })}
         {...(toolbarActions !== undefined && { toolbarActions })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}

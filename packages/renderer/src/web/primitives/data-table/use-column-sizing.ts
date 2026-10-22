@@ -1,7 +1,11 @@
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import type { DataTableViewOptions } from "../../../data-table-view-types.ts";
 import { isResizingActive } from "./column-layout-mode.ts";
-import { EXPAND_COLUMN_WIDTH_PX, type MeasuredColumnWidths } from "./use-measured-column-widths.ts";
+import {
+  EXPAND_COLUMN_WIDTH_PX,
+  type MeasuredColumnWidths,
+  SELECT_COLUMN_WIDTH_PX,
+} from "./use-measured-column-widths.ts";
 
 export type ColumnSizing = {
   readonly widthOf: (field: string) => number;
@@ -19,12 +23,14 @@ export function useColumnSizing({
   isNarrow,
   measured,
   hasExpandColumn,
+  hasSelectColumn = false,
 }: {
   readonly columns: readonly { readonly field: string }[];
   readonly view: DataTableViewOptions | undefined;
   readonly isNarrow: boolean;
   readonly measured: MeasuredColumnWidths | undefined;
   readonly hasExpandColumn: boolean;
+  readonly hasSelectColumn?: boolean;
 }): ColumnSizing | undefined {
   const [live, setLive] = useState<{ readonly field: string; readonly width: number } | null>(null);
   const active = isResizingActive(view, isNarrow);
@@ -49,6 +55,7 @@ export function useColumnSizing({
     const total =
       columns.reduce((sum, column) => sum + widthOf(column.field), 0) +
       (hasExpandColumn ? EXPAND_COLUMN_WIDTH_PX : 0) +
+      (hasSelectColumn ? SELECT_COLUMN_WIDTH_PX : 0) +
       (measured?.actions ?? 0);
     return {
       widthOf,
@@ -57,5 +64,15 @@ export function useColumnSizing({
       setLiveWidth: (field, width) => setLive({ field, width }),
       commit,
     };
-  }, [active, widths, minWidths, live, columns, hasExpandColumn, measured, commit]);
+  }, [
+    active,
+    widths,
+    minWidths,
+    live,
+    columns,
+    hasExpandColumn,
+    hasSelectColumn,
+    measured,
+    commit,
+  ]);
 }

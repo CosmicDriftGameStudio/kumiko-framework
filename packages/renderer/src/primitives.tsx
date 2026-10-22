@@ -49,6 +49,7 @@ import {
   type Ref,
   useContext,
 } from "react";
+import type { DataTableBulk } from "./data-table-bulk-types.ts";
 import type { DataTableDateRangeFacet, DataTableFacet } from "./data-table-facet-types.ts";
 import type { DataTableTableBlock } from "./data-table-view-types.ts";
 import type {
@@ -761,6 +762,11 @@ export function shouldRenderActionsIconOnly(
 }
 
 export type {
+  BulkRowOutcome,
+  DataTableBulk,
+  DataTableBulkAction,
+} from "./data-table-bulk-types.ts";
+export type {
   DataTableDateRangeFacet,
   DataTableFacet,
   DataTableFacetChip,
@@ -807,6 +813,8 @@ export type DataTableProps = {
    *    kebab). Actions then sit at the same x-position across all rows
    *    (no drifting with label width) and all lists in an app look alike. */
   readonly rowActionMode?: DataTableRowActionMode;
+  /** Present: row checkboxes plus a selection bar that runs these actions once per selected row. */
+  readonly bulk?: DataTableBulk;
   /** Custom empty-state content (e.g. Icon + Heading + CTA-Button).
    *  The default renderer wraps it in a dashed-border box. */
   readonly emptyState?: ReactNode;

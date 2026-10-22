@@ -6,6 +6,7 @@ import type { MeasuredColumnWidths } from "./use-measured-column-widths.ts";
 import { ROW_FOCUS_RING_CELL_CLASS } from "./use-row-keyboard-navigation.ts";
 
 export const EXPAND_COLUMN_KEY = "__expand";
+export const SELECT_COLUMN_KEY = "__select";
 
 // Header over pins over actions (10) over cells. Header z-index 30 also lifts
 // the sticky scrollBody header, whose class selector would otherwise set 10.
@@ -44,7 +45,7 @@ function placePins(
   columns: readonly { readonly field: string }[],
   pinOfField: (field: string) => DataTableColumnPin | undefined,
   measured: MeasuredColumnWidths,
-  hasExpandColumn: boolean,
+  leading: { readonly hasSelectColumn: boolean; readonly hasExpandColumn: boolean },
   hasActionsColumn: boolean,
 ): ReadonlyMap<string, PinPlacement> {
   const placements = new Map<string, PinPlacement>();
@@ -52,10 +53,16 @@ function placePins(
   const leftFields = columns.filter((c) => pinOfField(c.field) === "left").map((c) => c.field);
   const rightFields = columns.filter((c) => pinOfField(c.field) === "right").map((c) => c.field);
 
-  if (hasExpandColumn && leftFields.length > 0) {
-    placements.set(EXPAND_COLUMN_KEY, { side: "left", offset: 0, onInnerEdge: false });
+  let left = 0;
+  // Leading select and expand columns stick ahead of left pins so they stay with their row.
+  if (leftFields.length > 0 && leading.hasSelectColumn) {
+    placements.set(SELECT_COLUMN_KEY, { side: "left", offset: left, onInnerEdge: false });
+    left += measured.select;
   }
-  let left = hasExpandColumn && leftFields.length > 0 ? measured.expand : 0;
+  if (leftFields.length > 0 && leading.hasExpandColumn) {
+    placements.set(EXPAND_COLUMN_KEY, { side: "left", offset: left, onInnerEdge: false });
+    left += measured.expand;
+  }
   leftFields.forEach((field, index) => {
     placements.set(field, {
       side: "left",
@@ -105,6 +112,7 @@ export function useColumnPins<TColumn extends { readonly field: string }>({
   measured,
   hasActionsColumn,
   hasExpandColumn,
+  hasSelectColumn = false,
   fillsHeight,
 }: {
   readonly columns: readonly TColumn[];
@@ -113,6 +121,7 @@ export function useColumnPins<TColumn extends { readonly field: string }>({
   readonly measured: MeasuredColumnWidths | undefined;
   readonly hasActionsColumn: boolean;
   readonly hasExpandColumn: boolean;
+  readonly hasSelectColumn?: boolean;
   readonly fillsHeight: boolean;
 }): ColumnPins<TColumn> {
   const active = isPinningActive(view, isNarrow);
@@ -132,8 +141,8 @@ export function useColumnPins<TColumn extends { readonly field: string }>({
       ? placePins(
           ordered,
           (field) => pinOf(view, field),
-          measured ?? { fields: {}, expand: 0, actions: 0 },
-          hasExpandColumn,
+          measured ?? { fields: {}, select: 0, expand: 0, actions: 0 },
+          { hasSelectColumn, hasExpandColumn },
           hasActionsColumn,
         )
       : new Map<string, PinPlacement>();
@@ -157,5 +166,14 @@ export function useColumnPins<TColumn extends { readonly field: string }>({
       bodyCell: (field) => cellProps(field, "body"),
       actionsHeaderStyle: active ? { zIndex: HEADER_Z_INDEX } : undefined,
     };
-  }, [active, ordered, view, measured, hasExpandColumn, hasActionsColumn, fillsHeight]);
+  }, [
+    active,
+    ordered,
+    view,
+    measured,
+    hasSelectColumn,
+    hasExpandColumn,
+    hasActionsColumn,
+    fillsHeight,
+  ]);
 }

@@ -38,6 +38,16 @@ export type MockDispatcherState = {
   /** Pre-seed Daten — z.B. um List-Renderings zu testen ohne erst create
    *  zu rufen. Keys sind entity-Names (so wie sie in der QN auftauchen). */
   readonly seed?: Readonly<Record<string, readonly Row[]>>;
+  /** Row ids whose writes answer with an access error, like a row the user may not change. */
+  readonly rejectWriteIds?: readonly string[];
+  /** Writes wait for `releaseWrites()` before they answer, so in-flight writes stay observable. */
+  readonly holdWrites?: boolean;
+};
+
+export type MockDispatcher = Dispatcher & {
+  /** `<verb>:<id>` of every write in the order it started. */
+  readonly writeLog: readonly string[];
+  readonly releaseWrites: () => void;
 };
 
 let nextId = 1;
@@ -77,8 +87,17 @@ const ONLINE_STORE: Store<DispatcherStatus> = {
   subscribe: () => () => {},
 };
 
-export function createMockDispatcher(state: MockDispatcherState = {}): Dispatcher {
+export function createMockDispatcher(state: MockDispatcherState = {}): MockDispatcher {
   const tables = new Map<string, Map<string, Row>>();
+  const writeLog: string[] = [];
+  const rejectWriteIds = new Set(state.rejectWriteIds ?? []);
+  let writesHeld = state.holdWrites === true;
+  const heldWrites: (() => void)[] = [];
+
+  function releaseWrites(): void {
+    writesHeld = false;
+    for (const resume of heldWrites.splice(0)) resume();
+  }
 
   // Seed laden
   for (const [entity, rows] of Object.entries(state.seed ?? {})) {
@@ -104,6 +123,20 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);
     const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
+    const rowId = data["id"];
+    writeLog.push(`${verb}:${String(rowId)}`);
+    if (writesHeld) await new Promise<void>((resume) => heldWrites.push(resume));
+    if (typeof rowId === "string" && rejectWriteIds.has(rowId)) {
+      return {
+        isSuccess: false,
+        error: {
+          code: "access_denied",
+          httpStatus: 403,
+          i18nKey: "errors.access_denied",
+          message: `No access to ${rowId}.`,
+        },
+      };
+    }
 
     switch (verb) {
       case "fail":
@@ -123,13 +156,19 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
         table.set(id, row);
         return { isSuccess: true, data: row as unknown as TData };
       }
+      case "archive":
       case "update": {
         const id = data["id"] as string | undefined;
         if (id === undefined) throw new Error(`MockDispatcher: update without id (qn=${type})`);
         const existing = table.get(id);
         if (!existing)
           throw new Error(`MockDispatcher: update on missing row id=${id} entity=${entity}`);
-        const row: Row = { ...existing, ...data, id };
+        const row: Row = {
+          ...existing,
+          ...data,
+          ...(verb === "archive" && { archived: true }),
+          id,
+        };
         table.set(id, row);
         return { isSuccess: true, data: row as unknown as TData };
       }
@@ -198,6 +237,8 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
   }
 
   return {
+    writeLog,
+    releaseWrites,
     write,
     query,
     batch,

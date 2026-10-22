@@ -3,14 +3,16 @@ import { ACTIONS_CONTENT_ATTRIBUTE } from "./actions-column.tsx";
 
 export const COLUMN_FIELD_ATTRIBUTE = "data-column-field";
 export const EXPAND_COLUMN_WIDTH_PX = 40;
+export const SELECT_COLUMN_WIDTH_PX = 40;
 
 export type MeasuredColumnWidths = {
   readonly fields: Readonly<Record<string, number>>;
+  readonly select: number;
   readonly expand: number;
   readonly actions: number;
 };
 
-const NOT_MEASURED: MeasuredColumnWidths = { fields: {}, expand: 0, actions: 0 };
+const NOT_MEASURED: MeasuredColumnWidths = { fields: {}, select: 0, expand: 0, actions: 0 };
 
 function roundToHundredth(value: number): number {
   return Math.round(value * 100) / 100;
@@ -43,20 +45,22 @@ function naturalActionsWidth(headerRow: HTMLElement, headerCell: Element): numbe
 
 function measureHeaderRow(headerRow: HTMLElement): MeasuredColumnWidths {
   const fields: Record<string, number> = {};
+  let select = 0;
   let expand = 0;
   let actions = 0;
   for (const cell of headerRow.children) {
     const field = cell.getAttribute(COLUMN_FIELD_ATTRIBUTE);
     const testId = cell.getAttribute("data-testid");
     if (field !== null) fields[field] = widthOfElement(cell);
+    else if (testId === "column-select") select = widthOfElement(cell);
     else if (testId === "column-expand") expand = widthOfElement(cell);
     else if (testId === "column-actions") actions = naturalActionsWidth(headerRow, cell);
   }
-  return { fields, expand, actions };
+  return { fields, select, expand, actions };
 }
 
 function isSameMeasurement(a: MeasuredColumnWidths, b: MeasuredColumnWidths): boolean {
-  if (a.expand !== b.expand || a.actions !== b.actions) return false;
+  if (a.select !== b.select || a.expand !== b.expand || a.actions !== b.actions) return false;
   const aKeys = Object.keys(a.fields);
   return (
     aKeys.length === Object.keys(b.fields).length && aKeys.every((k) => a.fields[k] === b.fields[k])

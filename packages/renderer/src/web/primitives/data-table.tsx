@@ -1,6 +1,6 @@
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
-import { Fragment, type PointerEvent, type ReactNode, useId, useState } from "react";
+import { Fragment, type ReactNode, useId, useState } from "react";
 import type { ListRowViewModel } from "../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../index.ts";
 import { UNIFORM_BAR_CONTROLS_CLASSES } from "../layout/uniform-bar-controls.ts";
@@ -27,8 +27,14 @@ import {
   FlushTable,
   RowExpandToggle,
 } from "./data-table/table-chrome.tsx";
+import { DataTableFooter, showFullTextOnHover } from "./data-table/table-footer.tsx";
 import { ToolbarEndCluster, toolbarEndHasContent } from "./data-table/toolbar-end-cluster.tsx";
-import { EXPAND_COLUMN_KEY, useColumnPins } from "./data-table/use-column-pins.ts";
+import { useBulkSelection } from "./data-table/use-bulk-selection.tsx";
+import {
+  EXPAND_COLUMN_KEY,
+  SELECT_COLUMN_KEY,
+  useColumnPins,
+} from "./data-table/use-column-pins.ts";
 import { useColumnSizing } from "./data-table/use-column-sizing.ts";
 import { useMeasuredColumnWidths } from "./data-table/use-measured-column-widths.ts";
 import { useRowKeyboardNavigation } from "./data-table/use-row-keyboard-navigation.ts";
@@ -50,40 +56,8 @@ import {
   type TableItem,
 } from "./data-table-cell.tsx";
 import { DateRangeFacetFilter, FacetFilter } from "./facet-filter.tsx";
-import { InfiniteSentinel, Pager, TABLE_FOOTER_BAR_CLASS } from "./pager.tsx";
+import { InfiniteSentinel, Pager } from "./pager.tsx";
 import { RowActionsCell } from "./row-actions.tsx";
-
-function DataTableFooter({
-  count,
-  itemNoun,
-  testId,
-}: {
-  readonly count: number;
-  readonly itemNoun?: (count: number) => string;
-  readonly testId: string;
-}): ReactNode {
-  const t = useOptionalTranslation();
-  const noun = itemNoun?.(count);
-  const label =
-    noun !== undefined
-      ? (t?.("kumiko.list.count.noun", { count: count.toLocaleString(), noun }) ??
-        `${count.toLocaleString()} ${noun}`)
-      : count === 1
-        ? (t?.("kumiko.list.count.one") ?? "1 entry")
-        : (t?.("kumiko.list.count.other", { count: count.toLocaleString() }) ??
-          `${count.toLocaleString()} entries`);
-  return (
-    <div data-testid={testId} className={TABLE_FOOTER_BAR_CLASS}>
-      <span data-testid={`${testId}-count`}>{label}</span>
-    </div>
-  );
-}
-
-// Cell content is a ReactNode, so the tooltip text is read from the rendered DOM.
-function showFullTextOnHover(event: PointerEvent<HTMLElement>): void {
-  const element = event.currentTarget;
-  element.title = element.scrollWidth > element.clientWidth ? (element.textContent ?? "") : "";
-}
 
 export function DefaultDataTable({
   columns: schemaColumns,
@@ -102,6 +76,7 @@ export function DefaultDataTable({
   itemNoun,
   rowActions,
   rowActionMode,
+  bulk,
   rowGrouping,
   rowTone,
   filterFacets,
@@ -159,8 +134,16 @@ export function DefaultDataTable({
   const hasTableActions = tableActions !== undefined && tableActions.length > 0;
   const isEmpty = rows.length === 0;
   const expansionIdPrefix = useId();
+  const rowTestId = (row: ListRowViewModel): string => getRowTestId?.(row) ?? `row-${row.id}`;
   const isRowExpandable = renderExpandedRow !== undefined && onToggleRowExpanded !== undefined;
   const fillsHeight = scrollBody === true;
+  const selection = useBulkSelection({
+    bulk,
+    rows,
+    titleField: schemaColumns[0]?.field,
+    rowTestId,
+    flush: fillsHeight,
+  });
   const { headerRowRef, measured } = useMeasuredColumnWidths(
     isPinningActive(view, isNarrow) || isResizingActive(view, isNarrow),
   );
@@ -171,6 +154,7 @@ export function DefaultDataTable({
     measured,
     hasActionsColumn: hasTableActions,
     hasExpandColumn: isRowExpandable,
+    hasSelectColumn: selection.active,
     fillsHeight,
   });
   const columns = pins.columns;
@@ -180,8 +164,10 @@ export function DefaultDataTable({
     isNarrow,
     measured,
     hasExpandColumn: isRowExpandable,
+    hasSelectColumn: selection.active,
   });
-  const rowTestId = (row: ListRowViewModel): string => getRowTestId?.(row) ?? `row-${row.id}`;
+  const fullColSpan =
+    columns.length + [isRowExpandable, hasTableActions, selection.active].filter(Boolean).length;
   const expansionDomId = (row: ListRowViewModel): string => `${expansionIdPrefix}-${row.id}`;
   // The expand toggle of a row, shared by table and card layout. Named after
   // the first data column, the one a user recognizes the row by.
@@ -248,6 +234,7 @@ export function DefaultDataTable({
     view,
     isNarrow,
     rowIds: tableItems.flatMap((item) => (item.kind === "row" ? [item.row.id] : [])),
+    onSelect: selection.onKeyboardSelect,
   });
 
   function renderGroupToggle(item: Extract<TableItem, { kind: "group" }>): ReactNode {
@@ -291,11 +278,13 @@ export function DefaultDataTable({
               fields={columns.map((col) => col.field)}
               sizing={sizing}
               hasExpandColumn={isRowExpandable}
+              hasSelectColumn={selection.active}
               hasActionsColumn={hasTableActions}
             />
           )}
           <TableHeader className="bg-muted">
             <TableRow ref={headerRowRef} className="hover:bg-transparent">
+              {selection.headerCell(pins.headerCell(SELECT_COLUMN_KEY))}
               {isRowExpandable && (
                 <TableHead
                   data-testid="column-expand"
@@ -341,12 +330,7 @@ export function DefaultDataTable({
               if (item.kind === "group") {
                 return (
                   <TableRow key={`group-${item.key}`} data-testid={`row-group-${item.key}`}>
-                    <TableCell
-                      colSpan={
-                        columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0)
-                      }
-                      className="bg-muted/40 p-0"
-                    >
+                    <TableCell colSpan={fullColSpan} className="bg-muted/40 p-0">
                       {renderGroupToggle(item)}
                     </TableCell>
                   </TableRow>
@@ -373,6 +357,7 @@ export function DefaultDataTable({
                     )}
                     {...keyboard.props}
                   >
+                    {selection.bodyCell(row, pins.bodyCell(SELECT_COLUMN_KEY))}
                     {isRowExpandable && (
                       <TableCell
                         data-testid={getCellTestId?.(row, "expand") ?? `cell-${row.id}-expand`}
@@ -468,11 +453,7 @@ export function DefaultDataTable({
                       </ActionsBodyCell>
                     )}
                   </TableRow>
-                  {renderExpansion(
-                    row,
-                    "row",
-                    columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0),
-                  )}
+                  {renderExpansion(row, "row", fullColSpan)}
                 </Fragment>
               );
             })}
@@ -603,12 +584,13 @@ export function DefaultDataTable({
         className={cn(
           "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3",
           rowToneClass(rowTone?.(row)),
-          isRowExpandable ? "pl-2" : "pl-4",
+          isRowExpandable || selection.active ? "pl-2" : "pl-4",
           hasMenu ? "pr-2" : "pr-4",
           density.card,
         )}
         {...(opensOnClick && { onClick: () => onRowClick(row) })}
       >
+        {selection.cardCheckbox(row)}
         {renderExpandToggle(row)}
         {opensOnClick ? (
           <button
@@ -721,6 +703,7 @@ export function DefaultDataTable({
   // stays INSIDE, or it would never intersect the scrollport.
   const content = fillsHeight ? (
     <>
+      {selection.bar}
       <div
         data-testid={testId !== undefined ? `${testId}-scroll` : "render-list-scroll"}
         className="min-h-0 flex-1 overflow-auto border-t border-border bg-card"
@@ -738,6 +721,7 @@ export function DefaultDataTable({
     </>
   ) : (
     <>
+      {selection.bar}
       {tableContent}
       {pagerElement}
       {sentinelElement}

@@ -188,6 +188,7 @@ export function computeRelatedListSectionViewModel(
     ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
     ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
     ...(sectionSpec.rowActionMode !== undefined && { rowActionMode: sectionSpec.rowActionMode }),
+    ...(sectionSpec.bulkActions !== undefined && { bulkActions: sectionSpec.bulkActions }),
     ...(sectionSpec.groupBy !== undefined && { groupBy: sectionSpec.groupBy }),
     ...(sectionSpec.rowTone !== undefined && { rowTone: sectionSpec.rowTone }),
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),

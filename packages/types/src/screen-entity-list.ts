@@ -5,6 +5,7 @@ import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } fr
 import type { ActionFormRedirect } from "./screen-action-form.ts";
 import type { DashboardPanelVisibility } from "./screen-dashboard.ts";
 import type { EditRelatedListSection, ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListColumnPin, ListTableOptions } from "./screen-list-table.ts";
 
 // --- entityList ---
@@ -432,7 +433,10 @@ export type RelatedListToolbarAction =
  *  `id` (tab id) and `countField` (tab badge) have no meaning outside a tabs
  *  layout and are therefore omitted. `kind` stays the discriminator so further
  *  expansion kinds can be added without a breaking change. */
-export type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" | "table">;
+export type EntityListExpandableRow = Omit<
+  EditRelatedListSection,
+  "id" | "countField" | "table" | "bulkActions"
+>;
 
 /** An extra choice on a facet next to the field's own options: a named
  *  bundle of values ("Running" = several statuses) or "no filter" (`values:
@@ -499,6 +503,8 @@ export type EntityListScreenDefinition = {
   readonly rowActions?: readonly RowAction[];
   /** Layout of the row-action column — see `RowActionMode`. */
   readonly rowActionMode?: RowActionMode;
+  /** Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action. Adds a checkbox column and a selection bar; without it the list has no checkboxes. */
+  readonly bulkActions?: readonly ListBulkAction[];
   /** Toolbar actions (list header). "Open Incident", "Schedule Maintenance"
    *  etc. — next to "+ New" if present. Array order = UI order,
    *  primary-style links. */

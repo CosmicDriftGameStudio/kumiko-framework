@@ -14,6 +14,7 @@ import type {
   RowAction,
   ScreenDefinition,
 } from "../types/screen.ts";
+import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
 import {
@@ -137,6 +138,29 @@ type RelatedListSectionValidation = {
 
 // Shared by projectionDetail relatedList sections and entityList.expandableRow:
 // both render a relatedList whose rows come from an arbitrary query.
+function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): void {
+  const { featureName, where, section } = args;
+  if (args.screenType === "entityList expandableRow" && Object.hasOwn(section, "table")) {
+    throw new Error(
+      `[Feature ${featureName}] ${where} does not support a table block. ` +
+        `Put table on the entityList screen itself.`,
+    );
+  }
+  if (args.screenType === "entityList expandableRow" && Object.hasOwn(section, "bulkActions")) {
+    throw new Error(
+      `[Feature ${featureName}] ${where} does not support bulkActions. ` +
+        `Put bulkActions on the entityList screen itself.`,
+    );
+  }
+  validateListTableOptions(`[Feature ${featureName}] ${where}`, section.table, section.columns);
+  if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
+  validateListBulkActions(
+    `[Feature ${featureName}] ${where}`,
+    section.bulkActions,
+    section.rowActions,
+  );
+}
+
 export function validateRelatedListSection(args: RelatedListSectionValidation): void {
   const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
@@ -178,14 +202,7 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
       );
     }
   }
-  if (args.screenType === "entityList expandableRow" && Object.hasOwn(section, "table")) {
-    throw new Error(
-      `[Feature ${featureName}] ${where} does not support a table block. ` +
-        `Put table on the entityList screen itself.`,
-    );
-  }
-  validateListTableOptions(`[Feature ${featureName}] ${where}`, section.table, section.columns);
-  if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
+  validateRelatedListTableAndBulk(args);
   if (section.defaultSort !== undefined) validateRelatedListDefaultSort(args, section.defaultSort);
   if (section.facets !== undefined) {
     validateListFacets(
