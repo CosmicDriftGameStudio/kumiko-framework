@@ -106,6 +106,9 @@ export type EventConsumerErrorPolicy = {
   // adapter, external APIs) needs more retry headroom than the dispatcher-
   // wide default before it gets dead-lettered.
   readonly maxAttempts?: number;
+  // A failure this predicate accepts (infra outage, not a poison event) is retried without
+  // counting towards maxAttempts, so it never dead-letters the consumer.
+  readonly isTransientError?: (error: unknown) => boolean;
 };
 
 export type EventConsumer = {

@@ -666,26 +666,43 @@ function readPatRevokedScope(payload: Record<string, unknown>): AccessInvalidati
 const ACCESS_INVALIDATION_BACKOFF_INITIAL_MS = 250;
 const ACCESS_INVALIDATION_BACKOFF_MAX_MS = 10_000;
 
-// A rejected publish means Redis is unreachable: the consumer must keep retrying until it is
-// back, because parking it dead would silently stop every later revocation reaching open
-// streams. The gate rethrows without touching Redis until the backoff elapsed.
+// Only the publish can fail because Redis is unreachable. The consumer must keep retrying those
+// until Redis is back (dead-lettering would silently stop every later revocation reaching open
+// streams), while any other failure keeps the dispatcher's attempt limit so one poison event
+// cannot hold back every later revocation for good.
+class AccessInvalidationTransportError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "AccessInvalidationTransportError";
+  }
+}
+
+function isAccessInvalidationTransportError(
+  error: unknown,
+): error is AccessInvalidationTransportError {
+  return error instanceof AccessInvalidationTransportError;
+}
+
+// The gate rethrows without touching Redis until the backoff elapsed.
 function withTransportBackoff(
-  publish: (event: StoredEvent) => Promise<void>,
+  handle: (event: StoredEvent) => Promise<void>,
   now: () => number,
 ): (event: StoredEvent) => Promise<void> {
   let delayMs = ACCESS_INVALIDATION_BACKOFF_INITIAL_MS;
   let retryNotBefore = 0;
-  let lastError: unknown = null;
+  let transportError: AccessInvalidationTransportError | null = null;
   return async (event) => {
-    if (lastError !== null && now() < retryNotBefore) throw lastError;
+    if (transportError !== null && now() < retryNotBefore) throw transportError;
     try {
-      await publish(event);
+      await handle(event);
       delayMs = ACCESS_INVALIDATION_BACKOFF_INITIAL_MS;
-      lastError = null;
+      transportError = null;
     } catch (err) {
-      lastError = err;
-      retryNotBefore = now() + delayMs;
-      delayMs = Math.min(delayMs * 2, ACCESS_INVALIDATION_BACKOFF_MAX_MS);
+      if (isAccessInvalidationTransportError(err)) {
+        transportError = err;
+        retryNotBefore = now() + delayMs;
+        delayMs = Math.min(delayMs * 2, ACCESS_INVALIDATION_BACKOFF_MAX_MS);
+      }
       throw err;
     }
   };
@@ -696,11 +713,17 @@ export function createAccessInvalidationEventConsumer(
   opts: { readonly now?: () => number } = {},
 ): EventConsumer {
   const now = opts.now ?? Date.now;
+  const publish = async (userId: string, scope?: AccessInvalidationScope): Promise<void> => {
+    try {
+      await sseBroker.publishAccessInvalidation(userId, scope);
+    } catch (cause) {
+      throw new AccessInvalidationTransportError(cause);
+    }
+  };
   return {
     name: ACCESS_INVALIDATION_CONSUMER_NAME,
-    // Count-based dead-lettering would end after a few seconds of Redis downtime; the
-    // attempts counter just keeps climbing until the publish goes through.
-    errorPolicy: { maxAttempts: Number.POSITIVE_INFINITY },
+    // Count-based dead-lettering would end after a few seconds of Redis downtime.
+    errorPolicy: { isTransientError: isAccessInvalidationTransportError },
     // Shared delivery, same reasoning as SSE broadcast: one
     // cursor reads every event once and calls sseBroker.publishAccessInvalidation
     // below, which a Redis-backed broker republishes to every replica's
@@ -719,7 +742,7 @@ export function createAccessInvalidationEventConsumer(
         // poison would otherwise permanently stop access-invalidation for
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
-        await sseBroker.publishAccessInvalidation(userId, readSessionRevokedScope(event.payload));
+        await publish(userId, readSessionRevokedScope(event.payload));
       }
 
       if (event.type === PAT_REVOKED_EVENT_TYPE) {
@@ -727,7 +750,7 @@ export function createAccessInvalidationEventConsumer(
         // skip: malformed pat-revoked payload — same fail-open reasoning as
         // session-revoked above.
         if (typeof userId !== "string" || userId.length === 0) return;
-        await sseBroker.publishAccessInvalidation(userId, readPatRevokedScope(event.payload));
+        await publish(userId, readPatRevokedScope(event.payload));
       }
 
       if (
@@ -738,7 +761,7 @@ export function createAccessInvalidationEventConsumer(
         // skip: previous snapshot missing/malformed userId — same fail-open
         // reasoning as above.
         if (userId === undefined) return;
-        await sseBroker.publishAccessInvalidation(userId);
+        await publish(userId);
       }
     }, now),
   };
