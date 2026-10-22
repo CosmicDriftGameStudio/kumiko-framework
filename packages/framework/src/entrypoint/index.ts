@@ -123,6 +123,8 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
     readonly runLocal?: boolean;
   };
   readonly trustedProxyHops?: ServerOptions["trustedProxyHops"];
+  readonly errorDocs?: ServerOptions["errorDocs"];
+  readonly instanceId?: ServerOptions["instanceId"];
 };
 
 export type WorkerEntrypointOptions = BaseEntrypointOptions &
@@ -270,6 +272,8 @@ function buildApiServer(
     jwtIssuer: opts.jwtIssuer,
     auth: opts.auth,
     trustedProxyHops: opts.trustedProxyHops,
+    errorDocs: opts.errorDocs,
+    instanceId: opts.instanceId,
     anonymousAccess: opts.anonymousAccess,
     sseBroker: opts.sseBroker,
     rateLimit: opts.rateLimit,
