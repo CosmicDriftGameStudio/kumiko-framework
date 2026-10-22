@@ -16,6 +16,12 @@ const PHASE = process.env["SHOT_PHASE"] ?? "after";
 
 test.use({ locale: "de-DE", viewport: { width: 1280, height: 820 } });
 
+// The "before" phase predates the feature, so only "after" may demand its element.
+function featureOrMain(page: Page, testId: string) {
+  const feature = page.getByTestId(testId);
+  return PHASE === "after" ? feature : feature.or(page.locator("main")).first();
+}
+
 async function shot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForLoadState("networkidle");
@@ -25,16 +31,14 @@ async function shot(page: Page, name: string): Promise<void> {
 test("management-profile-singleton", async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto("/management-profile");
-  await expect(page.getByTestId("render-edit-form").or(page.locator("main")).first()).toBeVisible();
+  await expect(featureOrMain(page, "render-edit-form")).toBeVisible();
   await shot(page, "management-profile-singleton");
 });
 
 test("dashboard-profile-link", async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto("/rental-dashboard");
-  await expect(
-    page.getByTestId("dashboard-panel-profile-hint").or(page.locator("main")).first(),
-  ).toBeVisible();
+  await expect(featureOrMain(page, "dashboard-panel-profile-hint")).toBeVisible();
   await shot(page, "dashboard-profile-link");
 });
 

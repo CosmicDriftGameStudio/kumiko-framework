@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 
-/** Read-only key-value list for detail views (dimmed label on the left, value on the right). The value is a ReactNode, so badges and chips are supported. `emphasize` highlights a row, such as the final result in a calculator. */
+/**
+ * Read-only key-value list for detail views (dimmed label on the left, value on the right). The
+ * value is a ReactNode, so badges and chips are supported. `emphasize` highlights a row, such as
+ * the final result in a calculator.
+ */
 export function DetailList({
   rows,
   testId,

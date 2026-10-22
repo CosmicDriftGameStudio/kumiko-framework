@@ -562,6 +562,8 @@ export type NotificationTemplateMeta = {
   readonly layoutSlug?: string;
   readonly category?: "transactional" | "marketing";
   readonly sender?: string;
+  readonly senderName?: string;
+  readonly replyTo?: string;
 };
 
 export type NotificationTemplateBody = { readonly body: string };

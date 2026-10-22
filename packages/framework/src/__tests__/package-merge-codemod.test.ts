@@ -176,6 +176,32 @@ describe("package-merge codemod: package.json", () => {
     });
   });
 
+  it("keeps one runtime entry when the target is already in the other block", () => {
+    const alreadyRuntime = JSON.stringify({
+      dependencies: { [MANIFEST]: "^0.375.0", "@cosmicdrift/kumiko-guards": "^0.380.0" },
+    });
+    const devOnlyOld = JSON.stringify({
+      dependencies: { "@cosmicdrift/kumiko-guards": "^0.380.0" },
+      devDependencies: { [MANIFEST]: "^0.375.0" },
+    });
+    expect(JSON.parse(transformPackageMergeSource(devOnlyOld, PKG_FILE).output)).toEqual({
+      dependencies: { "@cosmicdrift/kumiko-guards": "^0.380.0" },
+      devDependencies: {},
+    });
+    expect(JSON.parse(transformPackageMergeSource(alreadyRuntime, PKG_FILE).output)).toEqual({
+      dependencies: { "@cosmicdrift/kumiko-guards": "^0.380.0" },
+    });
+    const runtimeOldDevTarget = JSON.stringify({
+      dependencies: { [MANIFEST]: "^0.375.0" },
+      devDependencies: { "@cosmicdrift/kumiko-guards": "^0.380.0" },
+    });
+    const result = transformPackageMergeSource(runtimeOldDevTarget, PKG_FILE);
+    expect(JSON.parse(result.output)).toEqual({
+      dependencies: { "@cosmicdrift/kumiko-guards": "^0.375.0" },
+      devDependencies: {},
+    });
+  });
+
   it("does not add a dependency of a package on itself", () => {
     const input = JSON.stringify({
       name: "@cosmicdrift/kumiko-framework",

@@ -25,7 +25,7 @@ import {
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
-// Unique per test: the tenant is fixed, so rows are told apart by value, not by reset.
+// Each value is written by exactly one test; the tenant is fixed, so rows are told apart by value, not by reset.
 const PRODUCT_NAME = "Espresso Beans (anonymous read)";
 const GUEST_EMAIL = "guest-checkout@example.com";
 
