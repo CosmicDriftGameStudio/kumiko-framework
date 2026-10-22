@@ -48,7 +48,6 @@ beforeAll(async () => {
   const { destination } = await scaffoldApp({
     name: "check-fixture",
     cwd,
-    frameworkVersion: "0.378.0",
     testSetup: renderTestSetup,
   });
   const init = await run(["git", "init", "-q"], destination);

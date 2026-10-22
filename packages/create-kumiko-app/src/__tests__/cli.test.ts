@@ -45,7 +45,7 @@ describe("create-kumiko-app CLI", () => {
     const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8")) as {
       devDependencies: Record<string, string>;
     };
-    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\^\d+\.\d+\.\d+/);
+    expect(pkg.devDependencies["@cosmicdrift/kumiko-testing"]).toMatch(/^\d+\.\d+\.\d+$/);
 
     const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
     // Picker-MVP recommended features land in run-config — except the four

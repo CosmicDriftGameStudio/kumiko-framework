@@ -19,11 +19,11 @@ afterEach(() => {
 });
 
 describe("resolveFrameworkVersion", () => {
-  test("resolves the real dev-server version with a caret range", async () => {
+  test("resolves the real dev-server version as an exact version", async () => {
     const own: { version: string } = await Bun.file(
       join(import.meta.dir, "../../package.json"),
     ).json();
-    expect(resolveFrameworkVersion()).toBe(`^${own.version}`);
+    expect(resolveFrameworkVersion()).toBe(own.version);
   });
 
   test("skips corrupt and foreign package.json files on the way up", () => {
@@ -34,7 +34,7 @@ describe("resolveFrameworkVersion", () => {
     );
     writeFileSync(join(root, "a", "package.json"), '{"name":"other","version":"9.9.9"}');
     writeFileSync(join(nested, "package.json"), "{ not json");
-    expect(resolveFrameworkVersion(nested)).toBe("^1.2.3");
+    expect(resolveFrameworkVersion(nested)).toBe("1.2.3");
   });
 
   test("ignores a dev-server manifest without a version", () => {

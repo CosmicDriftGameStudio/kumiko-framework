@@ -20,6 +20,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { resolveFrameworkVersion } from "./framework-version.ts";
 import { isKebabSegment } from "./kebab.ts";
 import {
   CURRENT_INFRA_REF,
@@ -86,7 +87,8 @@ export type ScaffoldAppOptions = {
    *  (the CLI's ctx.cwd) MUST pass it so the scaffold lands where the
    *  command's output claims it does. */
   readonly cwd?: string;
-  /** npm-version-pin for @cosmicdrift/* deps. Default "*" for latest. */
+  /** Exact version pin for @cosmicdrift/* deps. Default: the running framework version
+   *  (resolveFrameworkVersion); scaffoldApp throws when that cannot be resolved. */
   readonly frameworkVersion?: string;
   /** Bundled-features to mount in run-config.ts. Default: secrets + auth-foundation + sessions
    *  (the historical foundation). create-kumiko-app passes the picker output
@@ -115,7 +117,12 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   if (existsSync(destination)) {
     throw new Error(`scaffoldApp: ${destination} already exists — refusing to overwrite`);
   }
-  const version = options.frameworkVersion ?? "*";
+  const version = options.frameworkVersion ?? resolveFrameworkVersion();
+  if (version === undefined) {
+    throw new Error(
+      "scaffoldApp: cannot resolve the framework version; pass frameworkVersion explicitly",
+    );
+  }
   const testSetup = options.testSetup?.({ appName: options.name, frameworkVersion: version });
 
   mkdirSync(join(destination, "bin"), { recursive: true });
