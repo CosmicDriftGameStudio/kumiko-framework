@@ -1,9 +1,15 @@
-// Mirrors the mail-layout meta of template-resolver (template-meta.ts); the server parses it again on every write and render.
+import {
+  HEX_COLOR_PATTERN,
+  MAIL_LAYOUT_ACCENT_LINES,
+  MAIL_LAYOUT_BUTTON_STYLES,
+  MAIL_LAYOUT_FONTS,
+  MAIL_LAYOUT_WIDTHS,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 
-export const LAYOUT_WIDTHS = [560, 600, 640] as const;
-export const LAYOUT_FONTS = ["sans", "serif"] as const;
-export const LAYOUT_ACCENT_LINES = ["branding", "none"] as const;
-export const LAYOUT_BUTTON_STYLES = ["filled-rounded", "filled-square", "outline"] as const;
+export const LAYOUT_WIDTHS = MAIL_LAYOUT_WIDTHS;
+export const LAYOUT_FONTS = MAIL_LAYOUT_FONTS;
+export const LAYOUT_ACCENT_LINES = MAIL_LAYOUT_ACCENT_LINES;
+export const LAYOUT_BUTTON_STYLES = MAIL_LAYOUT_BUTTON_STYLES;
 
 export type LayoutWidth = (typeof LAYOUT_WIDTHS)[number];
 export type LayoutFont = (typeof LAYOUT_FONTS)[number];
@@ -36,10 +42,8 @@ export const DEFAULT_LAYOUT_APPEARANCE: LayoutAppearance = {
   buttonStyle: "filled-rounded",
 };
 
-const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-
 export function isHexColor(value: string): boolean {
-  return HEX_COLOR.test(value);
+  return HEX_COLOR_PATTERN.test(value);
 }
 
 export function appearanceOf(meta: LayoutMeta): LayoutAppearance {

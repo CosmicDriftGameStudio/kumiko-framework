@@ -27,6 +27,7 @@ import {
   loadedMailOf,
   parseJsonRecord,
   parseLinkedResources,
+  pickDeclaredVariables,
   systemLabelMap,
   variableLabelMap,
 } from "./mail-draft.ts";
@@ -136,6 +137,8 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     scope: isSystemAdmin ? "system" : "tenant",
   }).data;
 
+  const pickedVariables = pickDeclaredVariables(picked, validation?.variables);
+
   const update = (patch: Partial<MailDraft>): void => {
     const next = { ...draft, ...patch };
     setDraft(next);
@@ -212,7 +215,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
       variableSchema,
       includeAttachments,
       prefixSubject,
-      ...(picked !== null && { variables: picked }),
+      ...(pickedVariables !== null && { variables: pickedVariables }),
     });
   };
 
@@ -372,7 +375,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
             content: settled.body,
             meta: buildMeta(settled),
             variableSchema,
-            ...(picked !== null && { variables: picked }),
+            ...(pickedVariables !== null && { variables: pickedVariables }),
           }}
           picked={picked}
           onPick={setPicked}

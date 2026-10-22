@@ -57,7 +57,7 @@ export const waitlistMigrateOp = {
       });
       ctx.out.log("");
       ctx.out.log(
-        `  ${dryRun ? "[dry-run] " : ""}waitlist-migrate --from ${from}: read ${report.read}, ${dryRun ? "would create" : "created"} ${report.created}, already present ${report.skipped}, unreadable ${report.unreadable}, legacy streams archived ${report.archivedStreams}`,
+        `  ${dryRun ? "[dry-run] " : ""}waitlist-migrate --from ${from}: read ${report.read}, ${dryRun ? "would create" : "created"} ${report.created}, already present ${report.skipped}, unreadable ${report.unreadable}, legacy streams ${dryRun ? "would archive" : "archived"} ${report.archivedStreams}`,
       );
       ctx.out.log("");
       return report.unreadable > 0 ? 1 : 0;

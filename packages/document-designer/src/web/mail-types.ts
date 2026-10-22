@@ -94,7 +94,7 @@ export type MailDraft = {
   readonly category: MailCategory;
   readonly senderName: string;
   readonly replyTo: string;
-  /** Meta lines without rail fields yet; carried so a tenant save keeps them. */
+  /** Placeholder lines; an empty tone stores the accent default. */
   readonly headerChip: string;
   readonly tone: string;
   readonly footerNote: string;

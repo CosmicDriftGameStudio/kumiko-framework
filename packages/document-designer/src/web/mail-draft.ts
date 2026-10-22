@@ -10,6 +10,7 @@ import type {
   MailCategory,
   MailDraft,
   MailVariable,
+  PickedValues,
   PlaceholderType,
   TemplateRowView,
 } from "./mail-types.ts";
@@ -89,6 +90,17 @@ export function parseJsonRecord(value: unknown): Readonly<Record<string, unknown
   } catch {
     return {};
   }
+}
+
+// The server rejects any variable the template does not declare, so a stale pick must not travel along.
+export function pickDeclaredVariables(
+  picked: PickedValues | null,
+  declared: Readonly<Record<string, MailVariable>> | undefined,
+): PickedValues | null {
+  if (picked === null || declared === undefined) return null;
+  return Object.fromEntries(
+    Object.entries(picked).filter(([name]) => Object.hasOwn(declared, name)),
+  );
 }
 
 function categoryOf(value: unknown): MailCategory {
@@ -206,7 +218,7 @@ export function variableLabelMap(
 
 export type SampleValueFormat = {
   readonly locale: string;
-  // Undefined while the tenant setting is still loading: a bare amount then stays raw
+  // Undefined while the tenant setting is still loading or not requested: a bare amount then stays raw
   // instead of showing a currency the rendered mail might not use.
   readonly tenantCurrency: string | undefined;
 };
