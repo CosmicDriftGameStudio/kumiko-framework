@@ -28,7 +28,11 @@ function LayoutEditorLoader({
   readonly isSystemAdmin: boolean;
   readonly onKindChange: (kind: LayoutKind) => void;
 }): ReactNode {
-  const source = useQuery<LayoutSourceView>(TemplateResolverQueries.layoutSource, { kind, slug });
+  const source = useQuery<LayoutSourceView>(TemplateResolverQueries.layoutSource, {
+    kind,
+    slug,
+    scope: isSystemAdmin ? "system" : "tenant",
+  });
   const overview = useQuery<OverviewResponse>(TemplateResolverQueries.overview, {
     limit: 200,
     layoutSlug: slug,
@@ -87,12 +91,15 @@ export function LayoutEditor(): ReactNode {
   const roles = useUserRoles();
   const [kind, setKind] = useState<LayoutKind>(() => parseLayoutKind(nav.searchParams["kind"]));
   const slug = nav.searchParams["slug"] ?? DEFAULT_LAYOUT_SLUG;
+  // `isSystemAdmin` below means "edits the system layout": a tenant row opens in tenant scope even for a SystemAdmin.
+  const editsSystemLayout =
+    roles?.includes("SystemAdmin") === true && nav.searchParams["origin"] !== "tenant";
   return (
     <LayoutEditorLoader
       key={kind}
       kind={kind}
       slug={slug}
-      isSystemAdmin={roles?.includes("SystemAdmin") === true}
+      isSystemAdmin={editsSystemLayout}
       onKindChange={setKind}
     />
   );
