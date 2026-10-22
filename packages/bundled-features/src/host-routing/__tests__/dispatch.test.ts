@@ -286,6 +286,14 @@ describe("createHostDispatch — redirects", () => {
     });
   });
 
+  test("a redirect from an /api path fails at boot", () => {
+    for (const from of ["/api", "/api/query"]) {
+      expect(() => createHostDispatch({ ...hostMode, redirects: [{ from, to: "/a" }] })).toThrow(
+        "redirect from must not be an /api path",
+      );
+    }
+  });
+
   test("invalid redirect targets fail at boot", () => {
     for (const to of ["//evil.test", "http://evil.test", "/a?x=1", "javascript:alert(1)"]) {
       expect(() => createHostDispatch({ ...hostMode, redirects: [{ from: "/a", to }] })).toThrow(
