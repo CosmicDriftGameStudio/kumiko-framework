@@ -78,6 +78,14 @@ describe("PlanCard", () => {
     expect(screen.getByTestId("plan-card-pro-price-unavailable")).toBeTruthy();
   });
 
+  test("price.prefix renders before the amount", () => {
+    render(
+      <PlanCard title="Pro" price={{ amount: "9,00 €", prefix: "ab" }} testId="plan-card-pro" />,
+    );
+    const text = screen.getByTestId("plan-card-pro").textContent ?? "";
+    expect(text.indexOf("ab")).toBeLessThan(text.indexOf("9,00 €"));
+  });
+
   test("price omitted renders neither an amount nor the fallback", () => {
     render(<PlanCard title="Free" />);
     expect(screen.queryByText("Price not available")).toBeNull();

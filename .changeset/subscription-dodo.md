@@ -2,6 +2,7 @@
 "@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-server-runtime": minor
 "@cosmicdrift/kumiko-locale-de": minor
+"@cosmicdrift/kumiko-renderer": minor
 ---
 
 Dodo Payments as a subscription provider, and billing-foundation offers several providers side by side.
@@ -55,4 +56,18 @@ feature: locale-de
 type: improvement
 title: German strings for the provider choice and the in-app plan switch
 detail: Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors.
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: ChoiceCards widget and PlanCard price prefix
+detail: ChoiceCards is a card-styled radio group (title, description, aside, native radios, keyboard operable) for exclusive choices that need more than a segment label. PlanCardPrice takes an optional prefix shown before the amount, for example "from".
+-->
+
+<!-- kumiko-changes
+feature: billing-foundation
+type: improvement
+title: Provider choice moved into the checkout dialog
+detail: The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a "from" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval.
 -->

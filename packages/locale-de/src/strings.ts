@@ -330,6 +330,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.cancel.withdrawalHint":
     "Ein Widerruf ist nur innerhalb der gesetzlichen Widerrufsfrist möglich.",
   "billing-foundation.consent.back": "Zurück",
+  "billing-foundation.consent.chooseProvider": "Zahlungsanbieter",
+  "billing-foundation.plans.priceFrom": "ab",
   "billing-foundation.consent.cancelAnytime":
     "Du kannst jederzeit zum Ende des laufenden Zeitraums kündigen.",
   "billing-foundation.consent.link.privacy": "Datenschutzerklärung",

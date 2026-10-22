@@ -9,13 +9,12 @@ import {
 import { toInstant, type WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   formatMoney,
-  ModeSwitch,
   PlanCard,
   type PlanCardActionSlot,
   PlanGrid,
 } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
-import type { BillingPlansResult, BillingPlanView, BillingProviderView } from "../types.ts";
+import type { BillingPlansResult, BillingPlanView } from "../types.ts";
 import { BillingContactPlan } from "./billing-contact-plan.tsx";
 import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
 import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
@@ -27,23 +26,10 @@ import {
 } from "./constants.ts";
 import { resolveConsentLocale } from "./consumer-protection/consent-locale.ts";
 import { localizedParams } from "./localized-params.ts";
+import { cheapestPrice, intervalKey, pricesDiffer, renewalKey, tierPrices } from "./plan-price.ts";
 import { PlanSwitchConfirmDialog } from "./plan-switch-confirm-dialog.tsx";
 
 type UseTranslation = ReturnType<typeof useTranslation>;
-
-function intervalKey(price: BillingPlanView["price"]): string | undefined {
-  if (price === null || price.interval === null) return undefined;
-  return price.intervalCount !== null && price.intervalCount > 1
-    ? `billing-foundation.plans.everyInterval.${price.interval}`
-    : `billing-foundation.plans.perInterval.${price.interval}`;
-}
-
-function renewalKey(price: BillingPlanView["price"]): string | undefined {
-  if (price === null || price.interval === null) return undefined;
-  return price.intervalCount !== null && price.intervalCount > 1
-    ? `billing-foundation.consent.renewsEvery.${price.interval}`
-    : `billing-foundation.consent.renews.${price.interval}`;
-}
 
 /** Which action the plan "would" offer if it weren't blocked — mirrors
  *  plan-catalog.ts's own decision tree, since `unavailable` collapses both
@@ -115,42 +101,6 @@ function planCta(
   };
 }
 
-function ProviderChoice({
-  providers,
-  active,
-  onChange,
-}: {
-  readonly providers: readonly BillingProviderView[];
-  readonly active: BillingProviderView | undefined;
-  readonly onChange: (providerName: string) => void;
-}): ReactNode {
-  const t = useTranslation();
-  const locale = useLocale().locale();
-  const { Text } = usePrimitives();
-  const note = active?.note?.[resolveConsentLocale(locale)];
-  return (
-    <>
-      {providers.length > 1 && (
-        <ModeSwitch
-          testId="billing-provider-switch"
-          ariaLabel={t("billing-foundation.plans.providerChoice")}
-          value={active?.name ?? null}
-          options={providers.map((provider) => ({
-            value: provider.name,
-            label: provider.displayName,
-          }))}
-          onChange={onChange}
-        />
-      )}
-      {note !== undefined && (
-        <Text variant="muted" testId="billing-provider-note">
-          {note}
-        </Text>
-      )}
-    </>
-  );
-}
-
 export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
@@ -186,9 +136,13 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
 
   async function orderWithConsent(
     tier: string,
-    consent: CheckoutConsentPayload,
+    consent: CheckoutConsentPayload | undefined,
   ): Promise<WriteResult<{ readonly url: string }>> {
-    const result = await checkoutMutation.mutate({ tier, consent, ...providerArg });
+    const result = await checkoutMutation.mutate({
+      tier,
+      ...(consent !== undefined && { consent }),
+      ...providerArg,
+    });
     if (result.isSuccess) {
       setRedirecting(true);
       window.location.assign(result.data.url);
@@ -197,7 +151,11 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   }
 
   async function handleAction(tier: string, kind: "checkout" | "switch"): Promise<void> {
-    if (kind === "checkout" && query.data?.consumerProtection !== undefined) {
+    if (
+      kind === "checkout" &&
+      (query.data?.consumerProtection !== undefined || (providers?.length ?? 0) > 1)
+    ) {
+      setChosenProvider(null);
       setConsentTier(tier);
       return;
     }
@@ -243,7 +201,9 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   }
   if (!query.data) return null;
   const result: BillingPlansResult = query.data;
-  const shownPlans = activeProvider?.plans ?? result.plans;
+  // Cards show the first provider's price; the dialog then follows the chosen one.
+  const shownPlans = providers?.[0]?.plans ?? result.plans;
+  const dialogPlans = activeProvider?.plans ?? result.plans;
 
   // The consent dialog shows the checkout error itself.
   const mutationError =
@@ -254,7 +214,11 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
     result.subscription !== null && !result.subscription.terminal && result.canPurchase;
 
   function toCardProps(plan: BillingPlanView) {
-    const key = intervalKey(plan.price);
+    const comparable =
+      providers !== undefined && providers.length > 1 ? tierPrices(providers, plan.tier) : [];
+    const fromPrice = pricesDiffer(comparable) ? cheapestPrice(comparable) : undefined;
+    const shownPrice = fromPrice ?? plan.price;
+    const key = intervalKey(shownPrice);
     return {
       title: t(plan.labelKey),
       description:
@@ -269,13 +233,14 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
       price:
         !result.enabled && plan.isCurrent
           ? undefined
-          : plan.price === null
+          : shownPrice === null
             ? null
             : {
-                amount: formatMoney(plan.price.unitAmount, plan.price.currency, locale),
+                amount: formatMoney(shownPrice.unitAmount, shownPrice.currency, locale),
+                ...(fromPrice !== undefined && { prefix: t("billing-foundation.plans.priceFrom") }),
                 ...(key !== undefined && {
                   period: t(key, {
-                    count: new Intl.NumberFormat(locale).format(plan.price.intervalCount ?? 1),
+                    count: new Intl.NumberFormat(locale).format(shownPrice.intervalCount ?? 1),
                   }),
                 }),
               },
@@ -294,10 +259,39 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   // rendered plans is the current one, a synthetic current-tier card (no
   // price, no cta) keeps it visible regardless of enabled/disabled.
   const consentPlan =
-    consentTier !== null ? shownPlans.find((plan) => plan.tier === consentTier) : undefined;
+    consentTier !== null ? dialogPlans.find((plan) => plan.tier === consentTier) : undefined;
   const switchPlan =
     switchTier !== null ? shownPlans.find((plan) => plan.tier === switchTier) : undefined;
   const consumerProtection = result.consumerProtection;
+  const noteLocale = resolveConsentLocale(locale);
+  const noteOf = (provider: { readonly note?: Readonly<Record<string, string>> }) =>
+    provider.note?.[noteLocale] ?? provider.note?.["en"];
+  const singleProviderNote =
+    providers !== undefined && providers.length === 1 && providers[0] !== undefined
+      ? noteOf(providers[0])
+      : undefined;
+  function providerChoiceFor(tier: string) {
+    if (providers === undefined || providers.length < 2 || activeProvider === undefined) {
+      return undefined;
+    }
+    const prices = tierPrices(providers, tier);
+    const showPrices = pricesDiffer(prices);
+    return {
+      value: activeProvider.name,
+      onChange: setChosenProvider,
+      options: providers.map((provider) => {
+        const price = provider.plans.find((plan) => plan.tier === tier)?.price;
+        const note = noteOf(provider);
+        return {
+          value: provider.name,
+          title: provider.displayName,
+          ...(note !== undefined && { description: note }),
+          ...(showPrices &&
+            price && { aside: formatMoney(price.unitAmount, price.currency, locale) }),
+        };
+      }),
+    };
+  }
   const currentTierInPlans = shownPlans.some((plan) => plan.isCurrent);
   const visiblePlans = result.enabled ? shownPlans : shownPlans.filter((plan) => plan.isCurrent);
 
@@ -351,13 +345,6 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           </Button>
         </div>
       )}
-      {providers !== undefined && (
-        <ProviderChoice
-          providers={providers}
-          active={activeProvider}
-          onChange={setChosenProvider}
-        />
-      )}
       <PlanGrid testId="billing-plans-grid">
         {!currentTierInPlans && (
           <PlanCard
@@ -385,25 +372,25 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
         ))}
         {result.contact !== undefined && <BillingContactPlan contact={result.contact} />}
       </PlanGrid>
-      {consumerProtection !== undefined &&
-        consentPlan !== undefined &&
-        consentPlan.price !== null && (
-          <CheckoutConsentDialog
-            open
-            onOpenChange={(open) => {
-              if (!open) setConsentTier(null);
-            }}
-            planName={t(consentPlan.labelKey)}
-            price={{
-              amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, locale),
-              renewalKey: renewalKey(consentPlan.price),
-              count: new Intl.NumberFormat(locale).format(consentPlan.price.intervalCount ?? 1),
-            }}
-            consumerProtection={consumerProtection}
-            onOrder={(consent) => orderWithConsent(consentPlan.tier, consent)}
-            onConsentTextOutdated={() => void query.refetch()}
-          />
-        )}
+      {consentPlan !== undefined && consentPlan.price !== null && (
+        <CheckoutConsentDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setConsentTier(null);
+          }}
+          planName={t(consentPlan.labelKey)}
+          price={{
+            amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, locale),
+            renewalKey: renewalKey(consentPlan.price),
+            count: new Intl.NumberFormat(locale).format(consentPlan.price.intervalCount ?? 1),
+          }}
+          consumerProtection={consumerProtection}
+          providerChoice={providerChoiceFor(consentPlan.tier)}
+          note={singleProviderNote}
+          onOrder={(consent) => orderWithConsent(consentPlan.tier, consent)}
+          onConsentTextOutdated={() => void query.refetch()}
+        />
+      )}
       {switchPlan !== undefined && (
         <PlanSwitchConfirmDialog
           open

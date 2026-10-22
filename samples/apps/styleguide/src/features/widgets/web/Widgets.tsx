@@ -6,6 +6,7 @@ import {
   AiTextArea,
   AiTextField,
   BooleanField,
+  ChoiceCards,
   CollapsibleSection,
   ComparisonTable,
   DateField,
@@ -50,6 +51,7 @@ export function Widgets(): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
   const [mode, setMode] = useState<"annuity" | "fixed">("annuity");
+  const [provider, setProvider] = useState<"direct" | "reseller">("direct");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [belowHeaderDrawerOpen, setBelowHeaderDrawerOpen] = useState(false);
   const [floatingPanelOpen, setFloatingPanelOpen] = useState(false);
@@ -176,6 +178,28 @@ export function Widgets(): ReactNode {
             {
               label: t("widgets:catalog:status"),
               value: <StatusBadge tone="ok">{t("widgets:catalog:active")}</StatusBadge>,
+            },
+          ]}
+        />
+      </SectionCard>
+
+      <SectionCard title={t("widgets:catalog:choice-cards")}>
+        <ChoiceCards
+          value={provider}
+          onChange={setProvider}
+          ariaLabel={t("widgets:catalog:choice-cards")}
+          options={[
+            {
+              value: "direct",
+              title: t("widgets:catalog:choice-direct"),
+              description: t("widgets:catalog:choice-direct-description"),
+              aside: "9,00 €",
+            },
+            {
+              value: "reseller",
+              title: t("widgets:catalog:choice-reseller"),
+              description: t("widgets:catalog:choice-reseller-description"),
+              aside: "9,90 €",
             },
           ]}
         />

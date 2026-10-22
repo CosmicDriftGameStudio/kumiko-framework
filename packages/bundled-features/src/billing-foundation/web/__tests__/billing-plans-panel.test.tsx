@@ -740,45 +740,100 @@ describe("BillingPlansPanel — providers", () => {
   };
   const twoProviders = [stripeProvider, dodoProvider];
 
-  test("several providers render a switch that defaults to the first and shows its plans", () => {
+  test("cards show the cheapest price with a prefix when the providers disagree", () => {
     queryState = {
       data: result({ plans: stripePlans, providers: twoProviders }),
       loading: false,
       error: null,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-provider-switch")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Stripe" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    expect(screen.getByTestId("billing-plan-card-pro").textContent).toContain("€9.99");
-    expect(screen.queryByTestId("billing-provider-note")).toBeNull();
+    const card = screen.getByTestId("billing-plan-card-pro").textContent ?? "";
+    expect(card).toContain("billing-foundation.plans.priceFrom");
+    expect(card).toContain("€9.99");
   });
 
-  test("choosing another provider shows its plans and note and sends providerName with the checkout", async () => {
+  test("cards show the plain price when the providers agree", () => {
+    const sameAsStripe: BillingProviderView = { ...dodoProvider, plans: stripePlans };
+    queryState = {
+      data: result({ plans: stripePlans, providers: [stripeProvider, sameAsStripe] }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    expect(screen.getByTestId("billing-plan-card-pro").textContent).not.toContain(
+      "billing-foundation.plans.priceFrom",
+    );
+  });
+
+  test("with several providers the choose button opens the dialog, the first provider is preselected", () => {
     queryState = {
       data: result({ plans: stripePlans, providers: twoProviders }),
       loading: false,
       error: null,
     };
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "Dodo Payments" }));
-    expect(screen.getByTestId("billing-plan-card-pro").textContent).toContain("€19.90");
-    expect(screen.getByTestId("billing-provider-note").textContent).toBe("EN Dodo note");
     fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    expect(checkoutMutate).not.toHaveBeenCalled();
+    expect(screen.getByTestId("checkout-consent-dialog")).toBeTruthy();
+    expect((screen.getByRole("radio", { name: /Stripe/ }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId("checkout-consent-summary").textContent).toContain("€9.99");
+    expect(
+      screen.getByRole("radio", { name: /Dodo Payments/ }).closest("label")?.textContent,
+    ).toContain("EN Dodo note");
+  });
+
+  test("choosing the other provider follows price and order, without a consent when there is no consumerProtection", async () => {
+    queryState = {
+      data: result({ plans: stripePlans, providers: twoProviders }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    fireEvent.click(screen.getByRole("radio", { name: /Dodo Payments/ }));
+    expect(screen.getByTestId("checkout-consent-summary").textContent).toContain("€19.90");
+    const order = screen.getByTestId("checkout-consent-order") as HTMLButtonElement;
+    expect(order.disabled).toBe(false);
+    fireEvent.click(order);
     await waitFor(() => expect(checkoutMutate).toHaveBeenCalled());
     expect(checkoutMutate).toHaveBeenCalledWith({ tier: "pro", providerName: "dodo" });
   });
 
-  test("a single provider with a note shows the note but no switch", () => {
+  test("a single provider with a note and no consumerProtection checks out directly", async () => {
     queryState = {
       data: result({ plans: dodoPlans, providers: [dodoProvider] }),
       loading: false,
       error: null,
     };
     renderPanel();
-    expect(screen.queryByTestId("billing-provider-switch")).toBeNull();
-    expect(screen.getByTestId("billing-provider-note").textContent).toBe("EN Dodo note");
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    await waitFor(() => expect(checkoutMutate).toHaveBeenCalled());
+    expect(checkoutMutate).toHaveBeenCalledWith({ tier: "pro", providerName: "dodo" });
+  });
+
+  test("a single provider with a note shows it under the price line in the consent dialog", () => {
+    queryState = {
+      data: result({
+        plans: dodoPlans,
+        providers: [dodoProvider],
+        consumerProtection: {
+          consentTexts: {
+            de: { earlyPerformance: "a", withdrawalLoss: "b", consentTextVersion: "v" },
+            en: { earlyPerformance: "a", withdrawalLoss: "b", consentTextVersion: "v" },
+          },
+          legalLinks: {
+            de: { terms: "/t", withdrawal: "/w", privacy: "/p" },
+            en: { terms: "/t", withdrawal: "/w", privacy: "/p" },
+          },
+        },
+      }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    expect(screen.getByTestId("checkout-consent-note").textContent).toBe("EN Dodo note");
+    expect(screen.queryByTestId("checkout-provider-choice")).toBeNull();
   });
 
   test("without providers no providerName is sent", async () => {

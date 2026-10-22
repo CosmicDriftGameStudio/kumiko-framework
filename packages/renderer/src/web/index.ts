@@ -253,6 +253,7 @@ export {
   AiTextArea,
   AiTextField,
   BooleanField,
+  ChoiceCards,
   CollapsibleSection,
   ComparisonTable,
   DateField,

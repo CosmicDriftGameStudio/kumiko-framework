@@ -315,6 +315,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.cancel.withdrawalHint":
     "A withdrawal is only possible within the statutory withdrawal period.",
   "billing-foundation.consent.back": "Back",
+  "billing-foundation.consent.chooseProvider": "Payment provider",
+  "billing-foundation.plans.priceFrom": "from",
   "billing-foundation.consent.cancelAnytime":
     "You can cancel at any time, effective at the end of the current period.",
   "billing-foundation.consent.link.privacy": "Privacy policy",

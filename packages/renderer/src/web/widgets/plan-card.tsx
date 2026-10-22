@@ -5,6 +5,8 @@ import { cn } from "../lib/cn.ts";
 export type PlanCardPrice = {
   readonly amount: string;
   readonly period?: string;
+  /** Shown before the amount, e.g. "from" when prices differ per provider. */
+  readonly prefix?: string;
 };
 
 export type PlanCardActionSlot = {
@@ -126,6 +128,9 @@ export function PlanCard({
             </span>
           ) : (
             <>
+              {price.prefix !== undefined && (
+                <span className="mr-1 text-sm text-muted-foreground">{price.prefix}</span>
+              )}
               <span className="text-2xl font-bold">{price.amount}</span>
               {price.period !== undefined && (
                 <span className="ml-1 text-sm text-muted-foreground">{price.period}</span>

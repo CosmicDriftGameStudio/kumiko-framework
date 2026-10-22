@@ -20,6 +20,7 @@ import { GALLERY_TENANT_HOST, GALLERY_TERMS_SLUG } from "./gallery-constants";
 import {
   createGalleryBillingFeature,
   createGalleryEmailFeature,
+  createGalleryMorEnableRoute,
   galleryMailTransport,
   galleryProviderFeature,
   galleryScreensFeature,
@@ -81,6 +82,7 @@ await runDevApp({
   extraRoutes: [
     ...createE2eSeedRoutes({ mailOutbox: galleryMailTransport }),
     createSubscriptionWebhookRoute(),
+    createGalleryMorEnableRoute(),
     ...createContractTerminationRoutes(),
   ],
 });

@@ -85,6 +85,8 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.consent.link.withdrawal": { en: "Withdrawal policy" },
   "billing-foundation.consent.link.privacy": { en: "Privacy policy" },
   "billing-foundation.consent.order": { en: "Order with obligation to pay" },
+  "billing-foundation.plans.priceFrom": { en: "from" },
+  "billing-foundation.consent.chooseProvider": { en: "Payment provider" },
   "billing-foundation.consent.back": { en: "Back" },
   "billing-foundation.cancel.open": { en: "Cancel contract here" },
   "billing-foundation.cancel.title": { en: "Cancel contract" },

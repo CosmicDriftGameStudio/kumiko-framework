@@ -329,28 +329,30 @@ test("flow 5: error states", async ({ page, request, seedTenant, baseURL }) => {
   await shot(page, "05-03-platform-host-page-works");
 });
 
-test("flow 6: provider choice and checkout through the merchant of record", async ({
-  page,
-  seedTenant,
-}) => {
-  await seedTenant({ admin: { email: "chooser-{tenantId}@gallery.example" } });
-  const providerSwitch = page.getByTestId("billing-provider-switch");
+async function offerMor(request: APIRequestContext, tenantId: string): Promise<void> {
+  const response = await request.post(`/gallery/mor/${tenantId}`);
+  expect(response.status()).toBe(204);
+}
+
+test("flow 6: provider choice in the checkout dialog", async ({ page, request, seedTenant }) => {
+  const tenant = await seedTenant({ admin: { email: "chooser-{tenantId}@gallery.example" } });
+  await offerMor(request, tenant.id);
+  const choice = page.getByTestId("checkout-provider-choice");
 
   await openPlans(page);
-  await expect(providerSwitch.getByRole("button", { name: "Stripe" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await shot(page, "06-01-provider-choice-stripe");
-
-  await providerSwitch.getByRole("button", { name: "Dodo Payments" }).click();
-  await expect(page.getByTestId("billing-provider-note")).toContainText(
-    "Vertragspartner und Verkäufer ist Dodo Payments als Merchant of Record",
-  );
-  await expect(page.getByTestId("billing-plan-card-starter")).toContainText("9,90");
-  await shot(page, "06-02-provider-choice-dodo");
+  await expect(page.getByTestId("billing-plan-card-starter")).toContainText("9,00");
+  await shot(page, "06-01-plans-two-providers");
 
   await startCheckout(page);
+  await expect(choice.getByRole("radio", { name: /Stripe/ })).toBeChecked();
+  await expect(choice).toContainText("Rechnung von Gallery Beispiel GmbH");
+  await shot(page, "06-02-dialog-stripe-selected");
+
+  await page.getByTestId("checkout-provider-choice-gallery-mock-mor").click();
+  await expect(choice.getByRole("radio", { name: /Dodo Payments/ })).toBeChecked();
+  await expect(page.getByTestId("checkout-consent-summary")).toContainText("9,90");
+  await shot(page, "06-03-dialog-dodo-selected");
+
   await tickBothConsents(page);
   await page.getByTestId("checkout-consent-order").click();
   await page.waitForURL(/provider=mor/);
@@ -359,6 +361,7 @@ test("flow 6: provider choice and checkout through the merchant of record", asyn
 
 test("flow 7: in-app plan switch with consent", async ({ page, request, seedTenant }) => {
   const tenant = await seedTenant({ admin: { email: "switcher-{tenantId}@gallery.example" } });
+  await offerMor(request, tenant.id);
   await postSubscriptionCreated(request, {
     tenantId: tenant.id,
     tier: "starter",
@@ -370,7 +373,7 @@ test("flow 7: in-app plan switch with consent", async ({ page, request, seedTena
   await page.getByTestId("billing-plan-card-pro").getByRole("button").click();
   const dialog = page.getByTestId("plan-switch-confirm-dialog");
   await expect(dialog).toBeVisible();
-  await expect(page.getByTestId("plan-switch-summary")).toBeVisible();
+  await expect(page.getByTestId("plan-switch-summary")).toContainText("19,90");
   await expect(page.getByTestId("plan-switch-confirm-order")).toBeDisabled();
   await shot(page, "07-02-plan-switch-dialog-unchecked");
 
