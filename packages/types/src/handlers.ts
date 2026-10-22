@@ -1550,6 +1550,9 @@ export type WriteHandlerDef = {
   /** Per-payload-field limits, e.g. per recipient address. Complements
    *  `rateLimit`; anonymous handlers still need an ip-keyed `rateLimit`. */
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
+  /** Tokens each request books on every declared rateLimit bucket, computed from the validated
+   *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
+  readonly rateLimitCost?: (payload: unknown) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
   /** Reserves before the handler transaction opens. Reached through a nested ctx.write the
    *  reservation cannot run, so the dispatcher rejects it unless the top-level batch reserved it. */

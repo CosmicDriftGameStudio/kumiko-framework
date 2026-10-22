@@ -205,6 +205,10 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
         ...(def.rateLimit && { rateLimit: def.rateLimit }),
         ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
+        // @cast-boundary engine-bridge — same payload-variance bridge as `handler` above
+        ...(def.rateLimitCost && {
+          rateLimitCost: def.rateLimitCost as (payload: unknown) => number,
+        }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
         ...transactionPhaseSlots(def),
         ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),

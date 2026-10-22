@@ -49,6 +49,9 @@ export type WriteHandlerDefinition<
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
+  /** Tokens each request books on every declared rateLimit bucket, computed from the validated
+   *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
+  readonly rateLimitCost?: (payload: z.infer<TSchema>) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
@@ -83,6 +86,9 @@ export type WriteHandlerInput<
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
+  /** Tokens each request books on every declared rateLimit bucket, computed from the validated
+   *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
+  readonly rateLimitCost?: (payload: z.infer<TSchema>) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
