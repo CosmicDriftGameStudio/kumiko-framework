@@ -80,6 +80,14 @@ const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
   });
 
   r.writeHandler({
+    name: "register-gizmo-mid",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => gizmoExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    description: "Registers a gizmo and answers with the executor's lifecycle result.",
+  });
+
+  r.writeHandler({
     name: "forget-gizmo-high",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) =>
@@ -272,6 +280,25 @@ describe("dispatchToolCall — real <entity>:list pipeline", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
     expect(result.error).toContain("access denied");
+  });
+});
+
+describe("dispatchToolCall — a write tool result carries no event", () => {
+  test("the result handed to the model has no event, nothing of the written values beyond the detail read", async () => {
+    const manifest = buildAgentManifest(stack.registry, { locale: "en", roles: adminA.roles });
+    const catalog = buildToolCatalog(stack.registry, manifest, { mode: "edit" });
+    const result = await dispatchToolCall({
+      dispatcher: stack.dispatcher,
+      user: adminA,
+      toolName: toolNameForQn("agent-tools-test-gizmo:write:register-gizmo-mid"),
+      input: { label: "Event gizmo" },
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-event",
+      toolCallId: "call-event",
+    });
+    if (!result.ok) throw new Error(result.error);
+    expect(result.data).not.toHaveProperty("event");
+    expect(JSON.stringify(result.data)).not.toContain("eventId");
   });
 });
 
