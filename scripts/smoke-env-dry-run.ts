@@ -19,7 +19,7 @@ import { createSubscriptionMollieFeature } from "../packages/bundled-features/sr
 import { createSubscriptionStripeFeature } from "../packages/bundled-features/src/subscription-stripe";
 import { composeEnvSchema } from "../packages/framework/src/env";
 import { frameworkCoreEnvSchema } from "../packages/dev-server/src/env-schema";
-import { runProdApp } from "../packages/dev-server/src/run-prod-app";
+import { runProdApp } from "../packages/server-runtime/src/run-prod-app";
 import { z } from "zod";
 
 // Real Phase-2 features — exercise the actual r.envSchema() attachment
