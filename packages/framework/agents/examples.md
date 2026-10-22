@@ -48,7 +48,7 @@
 | `ledger-invoicing` | Accrual invoicing on the ledger primitive — revenue at invoice time, VAT as a liability, receivable cleared on payment. | `examples/ledger-invoicing.md` |
 | `legal-pages` | Auto-rendered Impressum + Datenschutzerklärung pages — template-resolver + legal-pages bundled features wired up with anonymousAccess for DACH-compliance. | `examples/legal-pages.md` |
 | `lifecycle-hooks` | preSave, postSave, and the rest. Your logic, our plumbing. | `examples/lifecycle-hooks.md` |
-| `list-table-options` | Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density. | `examples/list-table-options.md` |
+| `list-table-options` | Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density, server-side groups with sums, a totals row and a number range facet. | `examples/list-table-options.md` |
 | `managed-config` | Managed config: one declaration provisions storage + masking + settings-hub, across backings (secrets vs config) and scopes (system vs tenant). | `examples/managed-config.md` |
 | `managed-pages` | Tenant-editable, server-rendered public pages with per-tenant branding + tier-gated sanitized custom CSS — managed-pages wired up with config + anonymousAccess. | `examples/managed-pages.md` |
 | `notes-history-basic` | Append-only note history — who wrote what, when — attached to any entity without changing it. | `examples/notes-history-basic.md` |

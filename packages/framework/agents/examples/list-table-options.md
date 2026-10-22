@@ -2,7 +2,7 @@
 
 # list-table-options
 
-Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density.
+Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density, server-side groups with sums, a totals row and a number range facet.
 
 ## README
 
