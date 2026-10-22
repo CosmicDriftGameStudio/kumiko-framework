@@ -3,7 +3,6 @@ import type {
   APIRequestContext,
   BrowserContext,
   Page,
-  Request as PlaywrightRequest,
   PlaywrightTestArgs,
   PlaywrightTestOptions,
   PlaywrightWorkerArgs,
@@ -19,6 +18,11 @@ import {
   type SeedTenantOptions,
   withSession,
 } from "../seed-types";
+import {
+  appBootBudgetViolation,
+  DEFAULT_MAX_APP_BOOTS_PER_TEST,
+  observeAppBoots,
+} from "./app-boot-budget";
 import {
   CLIENT_IP_HEADER,
   clearSession,
@@ -69,6 +73,7 @@ export type E2eSeededTenant = Omit<SeededTenant, "addUser"> & {
 export type SeedTenantFixture = (opts?: E2eSeedTenantOptions) => Promise<E2eSeededTenant>;
 
 type E2eFixtures = {
+  maxAppBootsPerTest: number;
   seedTenant: SeedTenantFixture;
 };
 
@@ -230,52 +235,35 @@ export function perTestClientIpKey(
   return `${runToken ?? ""}:${testInfo.testId}:${testInfo.repeatEachIndex}:${testInfo.retry}`;
 }
 
-// Same-origin only: on a cross-origin fetch the extra header would force a
-// CORS preflight the target never agreed to (why extraHTTPHeaders is no option
-// here). An explicit X-Forwarded-For set by the test wins.
-export function headersWithClientIp(
-  request: { readonly url: string; readonly frameUrl: string | undefined },
-  headers: Readonly<Record<string, string>>,
-  clientIp: string,
-): Record<string, string> | undefined {
-  if (request.frameUrl === undefined) return undefined;
-  let sameOrigin: boolean;
-  try {
-    sameOrigin = new URL(request.frameUrl).origin === new URL(request.url).origin;
-  } catch {
-    return undefined;
-  }
-  return sameOrigin ? { [CLIENT_IP_HEADER]: clientIp, ...headers } : undefined;
-}
-
-function frameUrlOf(request: PlaywrightRequest): string | undefined {
-  try {
-    return request.frame().url();
-  } catch {
-    // Service-worker requests have no frame.
-    return undefined;
-  }
-}
-
+// Chromium turns its HTTP cache off for a context as soon as it has a route,
+// so the header goes through setExtraHTTPHeaders and the cache stays on.
 export async function providePerTestClientIpContext(
-  { context }: Pick<PlaywrightTestArgs, "context">,
+  {
+    context,
+    maxAppBootsPerTest,
+  }: Pick<PlaywrightTestArgs, "context"> & Pick<E2eFixtures, "maxAppBootsPerTest">,
   use: (context: BrowserContext) => Promise<void>,
-  testInfo: Pick<TestInfo, "testId" | "repeatEachIndex" | "retry">,
+  testInfo: Pick<TestInfo, "testId" | "repeatEachIndex" | "retry" | "status" | "expectedStatus">,
 ): Promise<void> {
-  const clientIp = syntheticClientIpFor(perTestClientIpKey(testInfo));
-  await context.route("**/api/**", (route) => {
-    const request = route.request();
-    const headers = headersWithClientIp(
-      { url: request.url(), frameUrl: frameUrlOf(request) },
-      request.headers(),
-      clientIp,
-    );
-    return headers === undefined ? route.fallback() : route.fallback({ headers });
+  await context.setExtraHTTPHeaders({
+    [CLIENT_IP_HEADER]: syntheticClientIpFor(perTestClientIpKey(testInfo)),
   });
+  const appBoots = observeAppBoots(context);
   await use(context);
+
+  // A window.open tab left open stalls the context close by seconds.
+  await Promise.all(context.pages().map((page) => (page.isClosed() ? undefined : page.close())));
+
+  // Only after a passing body, so the budget never hides the original failure.
+  const violation =
+    testInfo.status === testInfo.expectedStatus
+      ? appBootBudgetViolation(appBoots.count(), maxAppBootsPerTest)
+      : undefined;
+  if (violation !== undefined) throw new Error(violation);
 }
 
 export const test = base.extend<E2eFixtures>({
+  maxAppBootsPerTest: [DEFAULT_MAX_APP_BOOTS_PER_TEST, { option: true }],
   context: providePerTestClientIpContext,
   seedTenant: provideSeedTenant,
 });

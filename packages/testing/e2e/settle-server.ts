@@ -86,6 +86,7 @@ const HANGING_REQUEST_NUMBER = 2;
 const SLOW_RESPONSE_MS = 1500;
 const DELAYED_NAVIGATION_MS = 6000;
 const requestCountByKey = new Map<string, number>();
+const cacheableHitsByKey = new Map<string, number>();
 
 function waitForClientAbort(request: Request): Promise<Response> {
   return new Promise((resolve) => {
@@ -117,6 +118,20 @@ Bun.serve({
         forwardedFor: request.headers.get("x-forwarded-for"),
         cookie: request.headers.get("cookie"),
       });
+    }
+    if (url.pathname === "/cacheable.json") {
+      const key = url.searchParams.get("key") ?? "";
+      cacheableHitsByKey.set(key, (cacheableHitsByKey.get(key) ?? 0) + 1);
+      return new Response("{}", {
+        headers: { "Content-Type": "application/json", "Cache-Control": "max-age=3600" },
+      });
+    }
+    if (url.pathname === "/cacheable-hits") {
+      const key = url.searchParams.get("key") ?? "";
+      return Response.json(
+        { hits: cacheableHitsByKey.get(key) ?? 0 },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
     if (url.pathname === "/content-fit") {
       return new Response(CONTENT_FIT_PAGE, {

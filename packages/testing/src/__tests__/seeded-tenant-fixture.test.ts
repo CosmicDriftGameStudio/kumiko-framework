@@ -9,9 +9,9 @@
 
 import { describe, expect, test } from "bun:test";
 import type { APIRequestContext, BrowserContext } from "@playwright/test";
+import { DEFAULT_MAX_APP_BOOTS_PER_TEST as MAX_APP_BOOTS_PER_TEST } from "../e2e/app-boot-budget";
 import { syntheticClientIpFor } from "../e2e/auth-kit";
 import {
-  headersWithClientIp,
   type ProvideSeedTenantDeps,
   perTestClientIpKey,
   providePerTestClientIpContext,
@@ -49,53 +49,6 @@ describe("provideSeedTenant: baseURL guard", () => {
   });
 });
 
-describe("headersWithClientIp", () => {
-  const clientIp = "10.1.2.3";
-
-  test("adds the per-test X-Forwarded-For to a same-origin request", () => {
-    expect(
-      headersWithClientIp(
-        { url: "http://app.localhost:4174/api/query", frameUrl: "http://app.localhost:4174/admin" },
-        { accept: "application/json" },
-        clientIp,
-      ),
-    ).toEqual({ "x-forwarded-for": clientIp, accept: "application/json" });
-  });
-
-  test("leaves cross-origin, frameless and unparsable requests alone", () => {
-    const url = "http://api.other.test/api/query";
-    expect(headersWithClientIp({ url, frameUrl: "http://app.localhost:4174/" }, {}, clientIp)).toBe(
-      undefined,
-    );
-    expect(headersWithClientIp({ url, frameUrl: undefined }, {}, clientIp)).toBe(undefined);
-  });
-
-  test("treats an opaque origin (about:blank) as cross-origin", () => {
-    const url = "http://app.localhost/api/query";
-    expect(headersWithClientIp({ url, frameUrl: "about:blank" }, {}, clientIp)).toBe(undefined);
-  });
-
-  test("leaves requests with an unparsable frame or request URL alone", () => {
-    expect(
-      headersWithClientIp(
-        { url: "http://app.localhost/api/query", frameUrl: "not a url" },
-        {},
-        clientIp,
-      ),
-    ).toBe(undefined);
-    expect(
-      headersWithClientIp({ url: "::", frameUrl: "http://app.localhost/" }, {}, clientIp),
-    ).toBe(undefined);
-  });
-
-  test("an explicit X-Forwarded-For wins", () => {
-    const url = "http://app.localhost/api/query";
-    expect(
-      headersWithClientIp({ url, frameUrl: url }, { "x-forwarded-for": "10.9.9.9" }, clientIp),
-    ).toEqual({ "x-forwarded-for": "10.9.9.9" });
-  });
-});
-
 describe("perTestClientIpKey", () => {
   test("differs per test, per run and per retry", () => {
     const a = { testId: "spec-a", repeatEachIndex: 0, retry: 0 };
@@ -108,94 +61,123 @@ describe("perTestClientIpKey", () => {
   });
 });
 
-// Stub-level wiring check (route glob, fallback vs continue, header map keeps
-// cookies). Whether a real browser applies the header stays a Playwright concern.
+// Stub-level wiring check. Whether a real browser applies the header and keeps
+// its HTTP cache stays a Playwright concern (e2e/client-ip.spec.ts).
 describe("providePerTestClientIpContext", () => {
-  type StubRoute = {
-    request: () => {
-      url: () => string;
-      headers: () => Record<string, string>;
-      frame: () => { url: () => string };
-    };
-    fallback: (options?: { headers: Record<string, string> }) => void;
-  };
-  type RouteHandler = (route: StubRoute) => unknown;
-  type FallbackCall = { headers: Record<string, string> } | undefined;
+  type RequestListener = (request: { url: () => string }) => void;
+  type TestInfoStub = Parameters<typeof providePerTestClientIpContext>[2];
 
-  const testInfoA = { testId: "spec-a", repeatEachIndex: 0, retry: 0 };
-  const testInfoB = { testId: "spec-b", repeatEachIndex: 0, retry: 0 };
+  const passing = {
+    testId: "spec-a",
+    repeatEachIndex: 0,
+    retry: 0,
+    status: "passed",
+    expectedStatus: "passed",
+  } as const;
 
-  async function installRoute(testInfo: typeof testInfoA) {
-    const installed: Array<{ glob: string; handler: RouteHandler }> = [];
+  function stubContext(pages: Array<{ isClosed: () => boolean; close: () => Promise<void> }> = []) {
+    const extraHeaders: Array<Record<string, string>> = [];
+    const listeners: RequestListener[] = [];
+    let routeCalls = 0;
     const context = {
-      route: async (glob: string, handler: RouteHandler) => {
-        installed.push({ glob, handler });
+      setExtraHTTPHeaders: async (headers: Record<string, string>) => {
+        extraHeaders.push(headers);
       },
-    } as unknown as BrowserContext; // @cast-boundary test double, only route() is used
-    let used: BrowserContext | undefined;
+      route: async () => {
+        routeCalls += 1;
+      },
+      on: (event: string, listener: RequestListener) => {
+        if (event === "request") listeners.push(listener);
+      },
+      pages: () => pages,
+    } as unknown as BrowserContext; // @cast-boundary test double, only the used members exist
+    const fire = (url: string) => {
+      for (const listener of listeners) listener({ url: () => url });
+    };
+    return { context, extraHeaders, fire, routeCalls: () => routeCalls };
+  }
+
+  test("sets the per-test IP as an extra header and registers no route", async () => {
+    const a = stubContext();
+    const b = stubContext();
     await providePerTestClientIpContext(
-      { context },
-      async (c) => {
-        used = c;
+      { context: a.context, maxAppBootsPerTest: MAX_APP_BOOTS_PER_TEST },
+      async () => {},
+      passing,
+    );
+    await providePerTestClientIpContext(
+      { context: b.context, maxAppBootsPerTest: MAX_APP_BOOTS_PER_TEST },
+      async () => {},
+      {
+        ...passing,
+        testId: "spec-b",
+      },
+    );
+
+    expect(a.extraHeaders).toEqual([
+      { "x-forwarded-for": syntheticClientIpFor(perTestClientIpKey(passing)) },
+    ]);
+    expect(b.extraHeaders[0]).not.toEqual(a.extraHeaders[0]);
+    expect(a.routeCalls()).toBe(0);
+  });
+
+  async function runWithBoots(
+    bootCount: number,
+    testInfo: TestInfoStub,
+    limit = MAX_APP_BOOTS_PER_TEST,
+  ) {
+    const stub = stubContext();
+    await providePerTestClientIpContext(
+      { context: stub.context, maxAppBootsPerTest: limit },
+      async () => {
+        for (let i = 0; i < bootCount; i += 1) stub.fire("http://app.localhost/api/schema");
+        stub.fire("http://app.localhost/api/query");
       },
       testInfo,
     );
-    const first = installed[0];
-    if (first === undefined) throw new Error("no route installed");
-    return { context, used, installed, handler: first.handler };
   }
 
-  function runHandler(
-    handler: RouteHandler,
-    url: string,
-    frameUrl: string,
-    headers: Record<string, string>,
-  ): FallbackCall[] {
-    const calls: FallbackCall[] = [];
-    handler({
-      request: () => ({
-        url: () => url,
-        headers: () => headers,
-        frame: () => ({ url: () => frameUrl }),
-      }),
-      fallback: (options) => {
-        calls.push(options);
-      },
-    });
-    return calls;
-  }
+  test("a test within the app boot budget passes", async () => {
+    await expect(runWithBoots(MAX_APP_BOOTS_PER_TEST, passing)).resolves.toBeUndefined();
+  });
 
-  test("routes **/api/** and falls back with the per-test IP, keeping cookies", async () => {
-    const { context, used, installed, handler } = await installRoute(testInfoA);
-    expect(used).toBe(context);
-    expect(installed.map((r) => r.glob)).toEqual(["**/api/**"]);
-
-    const calls = runHandler(handler, "http://app.localhost/api/query", "http://app.localhost/", {
-      cookie: "session=abc",
-    });
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.headers["cookie"]).toBe("session=abc");
-    expect(calls[0]?.headers["x-forwarded-for"]).toBe(
-      syntheticClientIpFor(perTestClientIpKey(testInfoA)),
+  test("a test over the app boot budget fails with count, budget and the seeding hint", async () => {
+    await expect(runWithBoots(MAX_APP_BOOTS_PER_TEST + 1, passing)).rejects.toThrow(
+      `booted the app ${MAX_APP_BOOTS_PER_TEST + 1} times (GET /api/schema), budget is ${MAX_APP_BOOTS_PER_TEST}. Seed through tenant.api`,
     );
   });
 
-  test("tests get different IPs, an explicit X-Forwarded-For wins, cross-origin is untouched", async () => {
-    const a = await installRoute(testInfoA);
-    const b = await installRoute(testInfoB);
-    const url = "http://app.localhost/api/q";
-    const frame = "http://app.localhost/";
+  test("an already failed test keeps its own failure instead of the budget error", async () => {
+    await expect(
+      runWithBoots(MAX_APP_BOOTS_PER_TEST + 5, { ...passing, status: "failed" }),
+    ).resolves.toBeUndefined();
+  });
 
-    const ipA = runHandler(a.handler, url, frame, {})[0]?.headers["x-forwarded-for"];
-    const ipB = runHandler(b.handler, url, frame, {})[0]?.headers["x-forwarded-for"];
-    expect(ipA).toBeDefined();
-    expect(ipA).not.toBe(ipB);
+  test("a raised maxAppBootsPerTest option allows more boots", async () => {
+    await expect(runWithBoots(40, passing, 100)).resolves.toBeUndefined();
+  });
 
-    const explicit = runHandler(a.handler, url, frame, { "x-forwarded-for": "10.9.9.9" });
-    expect(explicit[0]?.headers["x-forwarded-for"]).toBe("10.9.9.9");
-
-    const cross = runHandler(a.handler, "http://api.other.test/api/q", frame, {});
-    expect(cross).toEqual([undefined]);
+  test("closes pages left open by the test", async () => {
+    const closedPages: string[] = [];
+    const stub = stubContext([
+      {
+        isClosed: () => false,
+        close: async () => {
+          closedPages.push("popup");
+        },
+      },
+      {
+        isClosed: () => true,
+        close: async () => {
+          closedPages.push("already-closed");
+        },
+      },
+    ]);
+    await providePerTestClientIpContext(
+      { context: stub.context, maxAppBootsPerTest: MAX_APP_BOOTS_PER_TEST },
+      async () => {},
+      passing,
+    );
+    expect(closedPages).toEqual(["popup"]);
   });
 });
