@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import {
   type CachePolicy,
@@ -10,7 +11,7 @@ import {
 import { rankPreferredLocales } from "@cosmicdrift/kumiko-framework/i18n";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { ASSETS_DIR } from "./build-prod-bundle.ts";
+import { ASSETS_DIR, collectBuildScriptHashes } from "./build-prod-bundle.ts";
 import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.ts";
 import { CSP_HASHES_FILE, parseCspHashes } from "./csp-hashes.ts";
 import {
@@ -92,7 +93,15 @@ export async function resolveHostDispatchScriptHashes(
   return usesDefaultCsp(securityHeaders) ? defaultCspHashes : readBuildScriptHashes(staticDir);
 }
 
+// Apps also write HTML into staticDir at boot (rendered landing pages), after kumiko build wrote
+// the file; staticDir is server-owned, so hashing what is on disk never trusts request data.
 export async function readBuildScriptHashes(staticDir: string): Promise<readonly string[]> {
+  const fromFile = await readBuildHashesFile(staticDir);
+  const onDisk = existsSync(staticDir) ? collectBuildScriptHashes(staticDir).scriptSrc : [];
+  return [...new Set([...fromFile, ...onDisk])].sort();
+}
+
+async function readBuildHashesFile(staticDir: string): Promise<readonly string[]> {
   const file = await readStaticFile(join(staticDir, CSP_HASHES_FILE));
   const result = file ? parseCspHashes(new TextDecoder().decode(file.bytes)) : undefined;
   if (result?.kind === "found") return result.scriptSrc;
