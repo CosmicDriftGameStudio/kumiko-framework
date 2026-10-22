@@ -65,6 +65,32 @@ describe("validateHandlerAccess — rateLimitCost", () => {
     expect(() => validateHandlerAccess(feature)).toThrow(/rateLimitCost/);
   });
 
+  const featureWithAccess = (roles: string[], rateLimit: RateLimitDeclaration) =>
+    defineFeature("rl-cost-guard", (r) => {
+      r.writeHandler({
+        name: "bulk",
+        schema: z.object({ items: z.array(z.string()) }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { roles },
+        rateLimit,
+        rateLimitCost: (payload) => payload.items.length,
+      });
+    });
+
+  test("an ip-scoped bucket throws", () => {
+    const feature = featureWithAccess(["Admin"], { per: "ip", limit: 5, windowSeconds: 60 });
+    expect(() => validateHandlerAccess(feature)).toThrow(/rateLimitCost.*anonymous or ip-limited/);
+  });
+
+  test("an anonymous handler throws", () => {
+    const feature = featureWithAccess(["anonymous"], {
+      per: "tenant",
+      limit: 5,
+      windowSeconds: 60,
+    });
+    expect(() => validateHandlerAccess(feature)).toThrow(/rateLimitCost.*anonymous or ip-limited/);
+  });
+
   test("with an active rateLimit it boots", () => {
     const feature = featureWith({ per: "tenant", limit: 5, windowSeconds: 60 });
     expect(() => validateHandlerAccess(feature)).not.toThrow();

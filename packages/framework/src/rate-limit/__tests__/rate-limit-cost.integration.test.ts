@@ -13,6 +13,14 @@ const bulkFeature = defineFeature("rl-cost", (r) => {
     rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
     rateLimitCost: (payload) => payload.items.length,
   });
+  r.writeHandler({
+    name: "broken-cost",
+    schema: z.object({ items: z.array(z.string()) }),
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+    access: { roles: ["Admin"] },
+    rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
+    rateLimitCost: () => Number.NaN,
+  });
 });
 
 let stack: TestStack;
@@ -55,5 +63,10 @@ describe("rateLimitCost books tokens per payload element", () => {
       expect(invalid.status).toBe(400);
     }
     expect((await stack.http.write("rl-cost:write:bulk", items(20), admin)).status).toBe(200);
+  });
+
+  test("a cost callback returning NaN fails the write instead of crashing", async () => {
+    const res = await stack.http.write("rl-cost:write:broken-cost", items(1), admin);
+    expect(res.status).toBe(500);
   });
 });

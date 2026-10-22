@@ -44,9 +44,10 @@ async function rejectRateLimited(
   handler: WriteHandlerDef,
   type: string,
   user: SessionUser,
-  costOverride?: number,
+  resolveCostOverride?: () => number,
 ): Promise<WriteFailure | undefined> {
   try {
+    const costOverride = resolveCostOverride?.();
     await enforceRateLimit(
       ctx,
       handler.rateLimit,
@@ -165,12 +166,9 @@ async function rejectAfterParse(
   if (overrideDenied) return writeFailure(overrideDenied);
   if (mode === "charge" && handler.rateLimitCost) {
     // Cost comes from the validated payload, so this bucket is billed after the parse instead of before it.
-    const rateLimited = await rejectRateLimited(
-      ctx,
-      handler,
-      type,
-      user,
-      normalizeRateLimitCost(type, handler.rateLimitCost(payload)),
+    const { rateLimitCost } = handler;
+    const rateLimited = await rejectRateLimited(ctx, handler, type, user, () =>
+      normalizeRateLimitCost(type, rateLimitCost(payload)),
     );
     if (rateLimited) return rateLimited;
   }

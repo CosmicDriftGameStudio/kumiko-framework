@@ -317,6 +317,17 @@ export function validateRateLimitCost(
         `the cost is booked on the rateLimit buckets, so declare rateLimit or drop rateLimitCost.`,
     );
   }
+  const isAnonymous = "roles" in handler.access && handler.access.roles.includes("anonymous");
+  const hasIpBucket = declaredRateLimitOptions(handler.rateLimit).some(({ per }) =>
+    IP_SCOPED_RATE_LIMIT_PER.includes(per),
+  );
+  if (isAnonymous || hasIpBucket) {
+    throw new Error(
+      `write handler "${featureName}:write:${handlerName}" declares rateLimitCost on an anonymous or ip-limited handler — ` +
+        `rateLimitCost books after the parse, so such a handler would lose its pre-parse protection against junk floods. ` +
+        `Bulk handlers are authenticated: use a user/tenant bucket and drop "anonymous", or drop rateLimitCost.`,
+    );
+  }
 }
 
 export function validateRateLimitDisabledReason(
