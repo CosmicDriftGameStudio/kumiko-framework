@@ -33,6 +33,7 @@ import {
   formatDocumentPercent,
 } from "@cosmicdrift/kumiko-renderer/headless";
 import Handlebars from "handlebars";
+import { convert as htmlToText } from "html-to-text";
 
 // Handlebars instance, template resolution and resource lookup shared by the
 // mail and PDF renderers, so both format money/dates and find images the same way.
@@ -80,6 +81,17 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
       return value;
     },
   );
+  hbs.registerHelper("richTextPlain", (value: unknown): string =>
+    typeof value === "string"
+      ? htmlToText(value, {
+          wordwrap: false,
+          selectors: [
+            { selector: "a", options: { ignoreHref: true } },
+            { selector: "img", format: "skip" },
+          ],
+        })
+      : "",
+  );
   hbs.registerHelper("link", (value: unknown): string =>
     typeof value === "string" && SAFE_LINK_PROTOCOL.test(value.trim()) ? value : "#",
   );
@@ -119,6 +131,7 @@ const KNOWN_HELPERS = {
   richText: true,
   stepIs: true,
   percent: true,
+  richTextPlain: true,
 } as const;
 
 export function compileDocumentSource(
@@ -151,6 +164,13 @@ export async function readDocumentFormat(
 ): Promise<DocumentFormat> {
   const currency = await readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY);
   const zone = await readConfigText(ctx, TENANT_TIMEZONE_CONFIG_KEY);
+  if (zone !== undefined && !isValidIanaTimeZone(zone)) {
+    documentKitLogger.warn("tenant time zone is not a valid IANA zone, documents print UTC times", {
+      tenantId: ctx.tenantId,
+      configKey: TENANT_TIMEZONE_CONFIG_KEY,
+      zone,
+    });
+  }
   return {
     locale: templateLocale,
     currency: currency ?? DOCUMENT_FALLBACK_CURRENCY,

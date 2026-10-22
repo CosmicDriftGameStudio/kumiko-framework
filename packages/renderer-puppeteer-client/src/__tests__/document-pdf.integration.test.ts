@@ -322,7 +322,8 @@ beforeAll(async () => {
       slug: "photo-sheet",
       kind: "document-pdf",
       locale: "de",
-      content: '<p>Fotos</p><div data-images="photos"></div>',
+      content:
+        '<p>Fotos</p><p data-if="photos">Fotos vorhanden</p><div data-images="photos"></div>',
       contentFormat: "html",
       meta: { layoutSlug: "letterhead", pageFormat: "A4" },
       variableSchema: { photos: { type: "images" } },
@@ -912,6 +913,16 @@ describe("record images in document-pdf", () => {
     expect(dataImages(html)).toHaveLength(1);
     expect(html).toContain('class="kumiko-doc-images"');
     for (const id of photos) expect(html).not.toContain(id);
+  });
+
+  test("a condition on an images variable shows its block only when images resolve", async () => {
+    const photos = await photoIds();
+    await stack.http.writeOk<Generated>(PHOTO_GENERATE, { photos }, adminTenantA);
+    expect(onlyStubRequest().html).toContain("Fotos vorhanden");
+
+    stubRequests.length = 0;
+    await stack.http.writeOk<Generated>(PHOTO_GENERATE, { photos: [] }, adminTenantA);
+    expect(onlyStubRequest().html).not.toContain("Fotos vorhanden");
   });
 
   test("the preview with the same client variables shows the placeholder and reads no file", async () => {

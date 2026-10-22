@@ -85,6 +85,14 @@ const mailDemo = defineFeature("mail-demo", (r) => {
     },
     meta: { de: { subject: "Willkommen {{name}}", previewText: "Summe {{total}} fällig {{due}}" } },
   });
+  r.notification("reply", {
+    trigger: { on: "create" },
+    recipient: () => null,
+    data: () => ({}),
+    variables: { note: templateVariable.richText() },
+    template: { de: { body: "<p>Antwort</p>" } },
+    meta: { de: { subject: "Re: {{note}}" } },
+  });
 });
 
 const tenantAdmin = (id: number) =>
@@ -366,6 +374,23 @@ describe("renderer-mail-html :: layout resolution", () => {
       templateVersion: systemLayout.version,
       scope: "system",
     });
+  });
+
+  test("a seeded mjml layout without the footer placeholder still carries the unsubscribe link", async () => {
+    const result = await renderMail(tenantId(1), PLAIN_VARIABLES, {
+      unsubscribeUrl: "https://example.com/unsub",
+    });
+    expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
+    expect(result.html).toContain('href="https://example.com/unsub"');
+  });
+
+  test("a richText variable in the subject renders as plain text", async () => {
+    const result = await renderMail(
+      tenantId(1),
+      { note: "<p>Hallo <strong>Frau Meier</strong></p>" },
+      { slug: "mail-demo:notify:reply" },
+    );
+    expect(result.subject).toBe("Re: Hallo Frau Meier");
   });
 
   test("a tenant layout wins over the system layout for that tenant only", async () => {

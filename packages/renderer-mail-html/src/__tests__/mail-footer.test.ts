@@ -87,6 +87,15 @@ describe("mail footer", () => {
     );
     expect(layoutLinksToPlaceholder('<a href="{{unsubscribeUrl}}">U</a>', "imprint")).toBe(false);
   });
+
+  test("layoutLinksToPlaceholder ignores a link without text", () => {
+    expect(layoutLinksToPlaceholder('<a href="{{unsubscribeUrl}}"></a>', "unsubscribeUrl")).toBe(
+      false,
+    );
+    expect(layoutLinksToPlaceholder('<a href="{{unsubscribeUrl}}"> </a>', "unsubscribeUrl")).toBe(
+      false,
+    );
+  });
 });
 
 describe("mail band links", () => {

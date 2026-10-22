@@ -64,6 +64,7 @@ export type DocumentPdfRequest = {
 const LINE_BREAKS = /[\r\n]+/g;
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const MAX_RECORD_IMAGES = 24;
+const MAX_RECORD_IMAGE_LOOKUPS = 100;
 const MAX_RECORD_IMAGES_TOTAL_BYTES = 20 * 1024 * 1024;
 const PREVIEW_PAGE_NUMBER = "1";
 const EMPTY_CHROMIUM_REGION = "<span></span>";
@@ -268,8 +269,9 @@ async function loadRecordImageDataUris(
     const dataUris: string[] = [];
     for (const fileRefId of fileRefIdsOf(variables[name])) {
       if (seenIds.has(fileRefId)) continue;
+      if (seenIds.size >= MAX_RECORD_IMAGE_LOOKUPS) break;
       seenIds.add(fileRefId);
-      if (loadedCount >= MAX_RECORD_IMAGES) break;
+      if (loadedCount >= MAX_RECORD_IMAGES || loadedBytes >= MAX_RECORD_IMAGES_TOTAL_BYTES) break;
       const image = await readRecordImage(
         ctx,
         filesForTenant,
@@ -286,16 +288,28 @@ async function loadRecordImageDataUris(
   return dataUrisByVariable;
 }
 
-// Text context without images variables: their value is file ids, which no placeholder,
-// title or file name pattern may print.
-function withoutImageVariables(
+function isImagesVariable(definitions: TemplateVariables, name: string): boolean {
+  return Object.hasOwn(definitions, name) && definitions[name]?.type === "images";
+}
+
+// An images variable's value is file ids, which no placeholder, title or file name pattern
+// may print; the text context carries only whether images exist, so a condition on it works.
+function imagesAsPresenceFlags(
   variables: Readonly<Record<string, unknown>>,
   definitions: TemplateVariables,
+  recordImages: RecordImages,
+  recordImageUris: ReadonlyMap<string, readonly string[]>,
 ): Record<string, unknown> {
+  const hasImages = (name: string): boolean => {
+    if (recordImages === "placeholder") return true;
+    const resolved = recordImageUris.get(name);
+    return resolved !== undefined ? resolved.length > 0 : fileRefIdsOf(variables[name]).length > 0;
+  };
   return Object.fromEntries(
-    Object.entries(variables).filter(
-      ([name]) => !(Object.hasOwn(definitions, name) && definitions[name]?.type === "images"),
-    ),
+    Object.entries(variables).map(([name, value]) => [
+      name,
+      isImagesVariable(definitions, name) ? hasImages(name) : value,
+    ]),
   );
 }
 
@@ -500,22 +514,24 @@ async function assembleDocument(
       slug,
       template.variableSchema,
     );
+    const recordImageUris =
+      recordImages === "resolve"
+        ? await loadRecordImageDataUris(
+            ctx,
+            variables,
+            collectDocumentImageVariables(template.content).filter((name) =>
+              isImagesVariable(variableDefinitions, name),
+            ),
+          )
+        : new Map<string, readonly string[]>();
     const context = {
-      ...withoutImageVariables(variables, variableDefinitions),
+      ...imagesAsPresenceFlags(variables, variableDefinitions, recordImages, recordImageUris),
       tenantName,
       signature: "",
       imprint: "",
       page: "",
       pages: "",
     };
-    const recordImageUris =
-      recordImages === "resolve"
-        ? await loadRecordImageDataUris(
-            ctx,
-            variables,
-            collectDocumentImageVariables(template.content),
-          )
-        : new Map<string, readonly string[]>();
 
     const bodyKeys = collectDocumentResourceKeys(template.content);
     const layoutKeys = collectRegionResourceKeys(layout.regions);
