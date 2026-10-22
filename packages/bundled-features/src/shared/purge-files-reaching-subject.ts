@@ -112,6 +112,28 @@ function fieldsResolvingToSubject(
   });
 }
 
+// A user owning many records must not load them all at once; the id cursor keeps each page
+// bounded while rows purged in place stay out of the way.
+export const PURGE_CANDIDATE_PAGE_SIZE = 200;
+
+async function* candidateRowsPaged(
+  db: DbRunner,
+  table: FileEntity["table"],
+  where: WhereObject,
+): AsyncGenerator<Record<string, unknown>> {
+  let cursor: unknown;
+  for (;;) {
+    const pageWhere: WhereObject = cursor === undefined ? where : { ...where, id: { gt: cursor } };
+    const page = await selectMany<Record<string, unknown>>(db, table, pageWhere, {
+      orderBy: { col: "id", direction: "asc" },
+      limit: PURGE_CANDIDATE_PAGE_SIZE,
+    });
+    yield* page;
+    if (page.length < PURGE_CANDIDATE_PAGE_SIZE) return;
+    cursor = page[page.length - 1]?.["id"];
+  }
+}
+
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
@@ -165,8 +187,7 @@ export async function purgeFilesReachingSubject(args: {
   for (const fileEntity of fileEntities) {
     const seenRowIds = new Set<string>();
     for (const where of candidateWheres(subject, recordTenantId, fileEntity)) {
-      const rows = await selectMany<Record<string, unknown>>(db, fileEntity.table, where);
-      for (const row of rows) {
+      for await (const row of candidateRowsPaged(db, fileEntity.table, where)) {
         const rowId = String(row["id"]);
         const tenantId = parseTenantId(row["tenantId"]);
         // skip: a row without a tenant cannot own tenant-scoped file refs
