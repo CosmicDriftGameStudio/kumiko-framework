@@ -151,13 +151,25 @@ fi
 # canonical sibling path instead of this worktree — checking the wrong
 # code. Run the worktree-local check only when scripts/check-wt.sh is
 # tracked and executable (untracked/symlink stubs must not hijack push).
-# A check-wt.sh that wraps this hook sets KUMIKO_CHECK_WT=1 so it is not re-entered.
-if [ "${KUMIKO_CHECK_WT:-0}" != "1" ] \
+# Re-entry from the wrapping check-wt.sh is detected by process ancestry: the
+# hook records its own PID in KUMIKO_CHECK_WT_OWNER before delegating, so a
+# freely exported variable cannot skip the tracked check-wt.sh.
+is_reentry_from_check_wt() {
+  reentry_pid=$$
+  case "${KUMIKO_CHECK_WT_OWNER:-}" in '' | *[!0-9]*) return 1 ;; esac
+  while [ -n "$reentry_pid" ] && [ "$reentry_pid" -gt 1 ]; do
+    [ "$reentry_pid" = "$KUMIKO_CHECK_WT_OWNER" ] && return 0
+    reentry_pid=$(ps -o ppid= -p "$reentry_pid" 2>/dev/null | tr -d ' ')
+  done
+  return 1
+}
+
+if ! is_reentry_from_check_wt \
    && [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && git -C "$REPO_ROOT" ls-files --error-unmatch scripts/check-wt.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/check-wt.sh" ]; then
   echo "[pre-push] worktree detected — worktree check (see scripts/check-wt.sh)…"
-  cd "$REPO_ROOT" && exec "$REPO_ROOT/scripts/check-wt.sh"
+  cd "$REPO_ROOT" && KUMIKO_CHECK_WT_OWNER=$$ exec "$REPO_ROOT/scripts/check-wt.sh"
 fi
 
 # Runs a guard bin from the worktree's or the parent's node_modules/.bin

@@ -44,6 +44,7 @@ const {
   // pre-push they would leak into the fixture and break "must be unset"
   // assertions below.
   KUMIKO_CHECK_WT,
+  KUMIKO_CHECK_WT_OWNER,
   KUMIKO_CLI_SCOPE,
   KUMIKO_PUSH_REPO_ROOT,
   KUMIKO_PUSH_PARENT_DIR,
@@ -392,22 +393,51 @@ describe("kumiko-pre-push", () => {
     });
   });
 
-  describe("KUMIKO_CHECK_WT=1 (hook wrapped by check-wt.sh)", () => {
-    test("a tracked check-wt.sh is not re-entered; the worktree package.json scripts run", () => {
+  describe("re-entry from a wrapping check-wt.sh", () => {
+    function wrappingCheckWt(spawnAsChild: boolean): string {
+      return [
+        "#!/usr/bin/env sh",
+        `echo "CHECKWT_RAN" >> "$PWD/${HOOK_LOG_NAME}"`,
+        `${spawnAsChild ? "" : "exec "}"${HOOK_PATH}"`,
+        "",
+      ].join("\n");
+    }
+
+    function setupWorktree(checkWt: string): string {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
       initGitRepo(repoDir);
       const worktreeDir = join(parentDir, ".wt", "fw-3152");
       runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
-      writeTracked(worktreeDir, "scripts/check-wt.sh", checkWtScript(), tmp);
+      writeTracked(worktreeDir, "scripts/check-wt.sh", checkWt, tmp);
       writeWorktreePackageJson(worktreeDir, WORKTREE_MARKER_SCRIPTS);
+      return worktreeDir;
+    }
 
-      const { output, exitCode } = runHook(worktreeDir, tmp, { KUMIKO_CHECK_WT: "1" });
+    for (const spawnAsChild of [false, true]) {
+      test(`a check-wt.sh that ${spawnAsChild ? "spawns" : "execs"} the hook is not re-entered; the worktree package.json scripts run`, () => {
+        const worktreeDir = setupWorktree(wrappingCheckWt(spawnAsChild));
 
-      expect(output).not.toContain("worktree detected");
-      expect(existsSync(join(worktreeDir, HOOK_LOG_NAME))).toBe(false);
-      expect(readFileSync(join(worktreeDir, "marker-typecheck.txt"), "utf-8")).toContain(
-        "MARKER_TYPECHECK",
-      );
+        const { exitCode } = runHook(worktreeDir, tmp);
+
+        const log = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8");
+        expect(log.match(/CHECKWT_RAN/g)).toHaveLength(1);
+        expect(readFileSync(join(worktreeDir, "marker-typecheck.txt"), "utf-8")).toContain(
+          "MARKER_TYPECHECK",
+        );
+        expect(exitCode).toBe(0);
+      });
+    }
+
+    test("a freely exported KUMIKO_CHECK_WT does not skip the tracked check-wt.sh", () => {
+      const worktreeDir = setupWorktree(checkWtScript());
+
+      const { output, exitCode } = runHook(worktreeDir, tmp, {
+        KUMIKO_CHECK_WT: "1",
+        KUMIKO_CHECK_WT_OWNER: "1",
+      });
+
+      expect(output).toContain("worktree detected");
+      expect(readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8")).toContain("CHECKWT_RAN");
       expect(exitCode).toBe(0);
     });
   });
