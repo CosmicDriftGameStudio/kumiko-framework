@@ -100,6 +100,43 @@ describe("resolveCspScriptHashes", () => {
   });
 });
 
+describe("resolveCspScriptHashes with html written after the build", () => {
+  let dir = "";
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "kumiko-csp-runtime-html-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  test("unions csp-hashes.json with the inline scripts of html found in staticDir", async () => {
+    const buildHash = `sha256-${"A".repeat(43)}=`;
+    const bootScript = "window.__lightbox = true;";
+    await writeFile(join(dir, CSP_HASHES_FILE), JSON.stringify({ scriptSrc: [buildHash] }));
+    await mkdir(join(dir, "pages", "en"), { recursive: true });
+    await writeFile(
+      join(dir, "pages", "en", "landing.html"),
+      `<!doctype html><html><body><script>${bootScript}</script></body></html>`,
+    );
+
+    const hashes = await resolveCspScriptHashes(dir, undefined);
+
+    expect(hashes).toEqual([buildHash, sha256Of(bootScript)].sort());
+  });
+
+  test("finds boot-rendered html even when kumiko build wrote no csp-hashes.json", async () => {
+    const bootScript = "window.__only = 1;";
+    await writeFile(join(dir, "page.html"), `<html><script>${bootScript}</script></html>`);
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
+      expect(await resolveCspScriptHashes(dir, undefined)).toEqual([sha256Of(bootScript)]);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+});
+
 describe("build output to CSP header", () => {
   let tmp = "";
   beforeEach(async () => {

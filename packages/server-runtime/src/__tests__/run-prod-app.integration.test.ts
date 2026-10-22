@@ -57,6 +57,10 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import {
+  APEX_LIGHTBOX_SCRIPT_CSP_HASH,
+  renderApexPage,
+} from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -952,6 +956,31 @@ describe("runProdApp", () => {
     const bare = await withoutCsp.fetch(new Request("http://x.example.test/"));
     expect(bare.headers.has("content-security-policy")).toBe(false);
     expect(bare.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  test("default CSP covers apex pages the app renders into staticDir after kumiko build", async () => {
+    const tmpStaticDir = await createTempStaticDir({
+      "index.html": "<html>x</html>",
+      "csp-hashes.json": JSON.stringify({ scriptSrc: [] }),
+    });
+    await mkdir(join(tmpStaticDir, "pages", "en"), { recursive: true });
+    await writeFile(
+      join(tmpStaticDir, "pages", "en", "landing.html"),
+      renderApexPage({
+        brand: { tokensCss: ":root{--primary:#123;}" },
+        head: { lang: "en", title: "Landing", description: "Landing page" },
+        header: { brand: { href: "/", label: "Acme" } },
+        sections: [],
+        footer: { brand: { label: "Acme" } },
+      }),
+    );
+    const handle = await boot(undefined, { staticDir: tmpStaticDir });
+
+    const res = await handle.fetch(new Request("http://x.example.test/"));
+
+    expect(res.headers.get("content-security-policy")).toContain(
+      `'${APEX_LIGHTBOX_SCRIPT_CSP_HASH}'`,
+    );
   });
 
   test("hostDispatch: assets bleiben host-unabhängig erreichbar", async () => {
