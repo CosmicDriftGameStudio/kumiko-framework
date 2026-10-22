@@ -1,591 +1,99 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { escapeLikePattern } from "../crypto/ciphertext-pattern.ts";
-import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
-import { coerceRow } from "../db/query.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import {
   buildOwnershipClause,
   combineClauses,
   normalizeAccessEntry,
-  shiftParams,
+  type OwnershipClause,
 } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
-import type { EntityDefinition, EntityId, SessionUser } from "../engine/types/index.ts";
-import { UnprocessableError, ValidationError } from "../errors/index.ts";
+import type { EntityId, SessionUser } from "../engine/types/index.ts";
 import { getStreamVersion } from "../event-store/index.ts";
-import type { SearchAdapter } from "../search/types.ts";
-import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.ts";
-import { rehydrateCompoundTypes } from "./compound-types.ts";
-import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
-import {
-  hasSearchablePlaintext,
-  isListFilterAllowed,
-  isListSortAllowed,
-  isSensitiveLabelField,
-} from "./entity-field-encryption.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
+import type { ExecutorContext } from "./event-store-executor-context.ts";
 import {
-  buildFilterWhere,
-  type ExecutorContext,
-  type Table,
-} from "./event-store-executor-context.ts";
-import { buildParentRefClause } from "./parent-ref-clause.ts";
-import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+  appendShiftedClause,
+  applyListFilter,
+  collectListFilters,
+  deriveParentNarrowTypes,
+  type ListWhere,
+} from "./event-store-executor-read-filter.ts";
+import {
+  appendCursorBoundary,
+  countListRows,
+  encodeNextCursor,
+  resolveListPagination,
+} from "./event-store-executor-read-paging.ts";
+import {
+  appendStreamVersionProjection,
+  coerceAndRehydrateRow,
+  takeStreamVersions,
+  withStreamVersion,
+} from "./event-store-executor-read-rows.ts";
+import { applyListSearch } from "./event-store-executor-read-search.ts";
+import {
+  renderListOrderBy,
+  resolveListSort,
+  takeLastSortLabel,
+} from "./event-store-executor-read-sort.ts";
+import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.ts";
+import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
-import type { TenantDb, TenantDbMode } from "./tenant-db.ts";
+import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
 // of event-store-executor.ts — behavior-preserving relocation, not a redesign:
 // unchanged from the original, now behind an explicit ExecutorContext instead
-// of the factory's local scope.
+// of the factory's local scope. The list steps (filter, search, sort, paging,
+// row post-processing) live in the event-store-executor-read-*.ts neighbours.
 
-// Defense-in-depth pagination guard. The handler boundary (entityListSchema)
-// already validates limit/offset, but the executor is public API for custom
-// handlers that pass their payload straight through — a non-integer limit
-// would otherwise be interpolated raw into `LIMIT ${limit}` SQL text.
-const MAX_LIST_LIMIT = 200; // keep in sync with engine/entity-handlers.ts MAX_LIST_LIMIT
-
-export function resolveListPagination(payload: {
-  readonly limit?: unknown;
-  readonly offset?: unknown;
-}): { readonly limit: number; readonly offset: number } {
-  const limit = payload.limit ?? 50;
-  const offset = payload.offset ?? 0;
-  if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0) {
-    throw new UnprocessableError("invalid_list_limit", {
-      details: { hint: "limit must be a non-negative integer" },
-    });
-  }
-  if (typeof offset !== "number" || !Number.isInteger(offset) || offset < 0) {
-    throw new UnprocessableError("invalid_list_offset", {
-      details: { hint: "offset must be a non-negative integer" },
-    });
-  }
-  return { limit: Math.min(limit, MAX_LIST_LIMIT), offset };
-}
-
-// Cursor sort values travel as text and bind as plain string params — Postgres
-// infers the parameter type from the column they are compared against, the same
-// way prepareValue binds a timestamptz as an ISO string. undefined means the
-// driver value has no faithful text form, which downgrades the page to the
-// legacy id-only boundary instead of emitting a wrong one.
-function toCursorSortText(value: unknown): string | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "object") {
-    const tag = Reflect.get(value, Symbol.toStringTag);
-    if (typeof tag === "string" && tag.startsWith("Temporal.")) return String(value);
-    return JSON.stringify(value);
-  }
-  return undefined;
-}
-
-function withStreamVersion(
-  row: Record<string, unknown>,
-  streamVersion: number,
-): Record<string, unknown> {
-  return streamVersion > 0 ? { ...row, version: streamVersion } : row;
-}
-
-// Keyset boundary for `ORDER BY <sort> <dir>, id ASC` under Postgres' DEFAULT
-// null ordering (ASC → NULLS LAST, DESC → NULLS FIRST). An explicit NULLS clause
-// would change the visible order and cost the sort its index.
-function keysetBoundarySql(
-  sortCol: string,
-  idCol: string,
-  cursor: { readonly id: string; readonly sortValue: string | null },
-  descending: boolean,
-  params: unknown[],
-): string {
-  params.push(cursor.id);
-  const afterId = `${idCol} > $${params.length}`;
-  const nullsComeFirst = descending;
-  if (cursor.sortValue === null) {
-    return nullsComeFirst
-      ? `(${sortCol} IS NOT NULL OR ${afterId})`
-      : `(${sortCol} IS NULL AND ${afterId})`;
-  }
-  params.push(cursor.sortValue);
-  const sortParam = `$${params.length}`;
-  const beyond = `${sortCol} ${descending ? "<" : ">"} ${sortParam}`;
-  const tie = `(${sortCol} = ${sortParam} AND ${afterId})`;
-  return nullsComeFirst
-    ? `(${sortCol} IS NOT NULL AND (${beyond} OR ${tie}))`
-    : `(${sortCol} IS NULL OR ${beyond} OR ${tie})`;
-}
-
-type ListFilter = {
-  readonly field: string;
-  readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
-  readonly value: unknown;
-};
-
-// multiSelect stores its options as a jsonb array — a filter value is one
-// option, not the whole array, so eq/ne/in must check array containment
-// (`@>`) instead of scalar `=`/`<>`/`IN` against the jsonb column.
-// lt/gt/lte/gte have no containment analogue; the boot-validator already
-// blocks them for screen-declared filters (screen-filter-ops.ts
-// EQUALITY_ONLY), but a client-supplied facet filter reaches here
-// unvalidated, so treat it as unsatisfiable rather than emitting SQL
-// Postgres would reject.
-function applyMultiSelectFilter(
-  colSql: (field: string) => string,
-  whereSql: string[],
-  params: unknown[],
-  f: ListFilter,
-): void {
-  if (f.op === "lt" || f.op === "gt" || f.op === "lte" || f.op === "gte") {
-    whereSql.push("FALSE");
-    // skip: lt/gt/lte/gte is unsatisfiable on a multiSelect column
-    return;
-  }
-  if (f.op === "in") {
-    if (!Array.isArray(f.value) || f.value.length === 0) {
-      whereSql.push("FALSE");
-      // skip: empty/non-array `in` is unsatisfiable, mirrors buildFilterWhere's "in" short-circuit
-      return;
-    }
-    const parts = f.value.map((v) => {
-      params.push(JSON.stringify([v]));
-      return `${colSql(f.field)} @> $${params.length}::text::jsonb`;
-    });
-    whereSql.push(`(${parts.join(" OR ")})`);
-    // skip: containment condition already pushed — don't fall through to the eq/ne branch below
-    return;
-  }
-  const candidates = Array.isArray(f.value) ? f.value : [f.value];
-  // `@> '[]'` is true for every non-null row, so an empty array would turn
-  // the filter into a silent match-all.
-  if (candidates.length === 0) {
-    whereSql.push("FALSE");
-    // skip: empty candidate list is unsatisfiable
-    return;
-  }
-  // Bound as text then cast: a JS array makes postgres.js infer boolean[]/int4[]
-  // for client-supplied non-string values, and `boolean[]::jsonb` is rejected
-  // (500 on client input). An array value means "contains all of these".
-  params.push(JSON.stringify(candidates));
-  const containment = `${colSql(f.field)} @> $${params.length}::text::jsonb`;
-  // A NULL column must count as "does not contain" — plain NOT(...) yields
-  // NULL and would drop those rows.
-  whereSql.push(
-    f.op === "ne" ? `(${colSql(f.field)} IS NULL OR NOT (${containment}))` : containment,
-  );
-}
-
-// Falls through to the screen-filter WHERE builder shared with
-// screen-declared filters — buildFilterWhere flattens the op into a
-// WhereObject, which this then lowers to raw SQL fragments.
-function applyScreenFilter(
-  table: Table,
-  colSql: (field: string) => string,
-  whereSql: string[],
-  params: unknown[],
-  f: ListFilter,
-): void {
-  const screen = buildFilterWhere(f.field, f.op, f.value);
-  if (screen === null) {
-    whereSql.push("FALSE");
-    // skip: filter is unsatisfiable → emit FALSE, no params to bind
-    return;
-  }
-  for (const [field, value] of Object.entries(screen)) {
-    // `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in db/where-clause.ts.
-    if (value === null) {
-      whereSql.push(`${colSql(field)} IS NULL`);
-    } else if (Array.isArray(value)) {
-      const placeholders = value.map((v) => {
-        params.push(v);
-        return `$${params.length}`;
-      });
-      whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
-    } else if (isPlainObject(value)) {
-      if (value["ne"] === null && Object.keys(value).length === 1) {
-        whereSql.push(`${colSql(field)} IS NOT NULL`);
-        continue;
-      }
-      const opMap: Record<string, string> = {
-        gt: ">",
-        gte: ">=",
-        lt: "<",
-        lte: "<=",
-        ne: "<>",
-      };
-      for (const [opKey, opSym] of Object.entries(opMap)) {
-        if (!(opKey in value)) continue;
-        params.push(value[opKey]);
-        whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
-      }
-    } else {
-      // Blind-index OR rewrite, lock-step with buildWhereClause
-      // in db/where-clause.ts — equality on lookupable fields matches the
-      // plaintext arm OR the HMAC arm.
-      const bidxKey = configuredBlindIndexKey();
-      if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {
-        params.push(value, computeBlindIndex(bidxKey, value));
-        whereSql.push(
-          `(${colSql(field)} = $${params.length - 1} OR ${colSql(`${field}Bidx`)} = $${params.length})`,
-        );
-      } else {
-        params.push(value);
-        whereSql.push(`${colSql(field)} = $${params.length}`);
-      }
-    }
-  }
-}
-
-// A `filter`/`filters` entry that already pins the parentRef's entityType
-// field is a real subset of the parent-ref clause's own OR-branches — the
-// client-supplied filter can't widen the result, only narrow which branches
-// the SQL even needs to consider. Skipped for multiSelect fields, where `eq`
-// means containment (see applyMultiSelectFilter) rather than equality.
-function deriveParentNarrowTypes(
-  entity: EntityDefinition,
-  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
-): ReadonlySet<string> | undefined {
-  const parentRef = entity.parentRef;
-  if (parentRef === undefined) return undefined;
-  if (entity.fields[parentRef.entityTypeField]?.type === "multiSelect") return undefined;
-
-  const typeFilters = [
-    ...(payload.filter ? [payload.filter] : []),
-    ...(payload.filters ?? []),
-  ].filter((f) => f.field === parentRef.entityTypeField);
-
-  let narrowed: Set<string> | undefined;
-  for (const f of typeFilters) {
-    let values: readonly string[] | undefined;
-    if (f.op === "eq" && typeof f.value === "string") {
-      values = [f.value];
-    } else if (
-      f.op === "in" &&
-      Array.isArray(f.value) &&
-      f.value.every((v) => typeof v === "string")
-    ) {
-      values = f.value;
-    }
-    if (values === undefined) continue;
-    narrowed =
-      narrowed === undefined
-        ? new Set(values)
-        : new Set([...narrowed].filter((v) => values.includes(v)));
-  }
-  return narrowed;
-}
-
-// Above this many target-row matches, drop the reference clause
-// entirely instead of truncating: an arbitrary 200-row slice of "which
-// targets match" would silently hide rows a full-cardinality match would
-// have found. Native text search on the entity's own fields still applies.
-const MAX_REFERENCE_SEARCH_IDS = 200;
-
-// The hit ids become an `id IN (...)` filter beneath the SQL cursor/filters/sort, so the
-// adapter must return the whole candidate set, not a page; matches Meilisearch's default
-// maxTotalHits, which caps a response at exactly this many hits however high a larger limit is
-// asked. A response that reaches the cap is therefore flagged `searchTruncated` rather than
-// treated as complete (a cap of N+1 could never be observed).
-const MAX_SEARCH_CANDIDATE_IDS = 1000;
-
-type ReferenceSearchDescriptor = {
-  readonly ownColumn: string;
-  readonly targetEntityName: string;
-  readonly labelField: string;
-};
-
-// Registry-declared `searchable` reference fields, plus the implicit
-// tenantId→tenant.name row-meta reference — both resolve a text
-// search term against a target row's label instead of the raw FK column.
-function collectReferenceSearchDescriptors(
-  table: Table,
-  referenceSearch: NonNullable<Parameters<EventStoreExecutor["list"]>[3]>["referenceSearch"],
-  dbMode: TenantDbMode,
-): readonly ReferenceSearchDescriptor[] {
-  if (!referenceSearch) return [];
-  const descriptors: ReferenceSearchDescriptor[] = referenceSearch.fields.map((f) => ({
-    ownColumn: f.fieldName,
-    targetEntityName: f.targetEntityName,
-    labelField: f.labelField,
-  }));
-  for (const [ownColumn, ref] of Object.entries(LIST_ROW_META_REFERENCES)) {
-    if (table[ownColumn] === undefined) continue;
-    // In "tenant" mode the outer tenant filter already pins tenantId to one
-    // of exactly two values, so a by-name lookup here can never narrow that further.
-    if (ownColumn === "tenantId" && dbMode === "tenant") continue;
-    descriptors.push({ ownColumn, targetEntityName: ref.refEntity, labelField: ref.refLabelField });
-  }
-  return descriptors;
-}
-
-// Matches the main list's own default: soft-deleted rows are invisible, so a
-// deleted target must neither match a search nor influence an ordering.
-function isSoftDeletedTargetHidden(targetEntity: EntityDefinition, targetTable: Table): boolean {
-  return targetEntity.softDelete === true && targetTable["isDeleted"] !== undefined;
-}
-
-// Tenant-scoped ILIKE lookup against one reference target — never raw/
-// unscoped SQL, a match in a foreign tenant must never surface a row here.
-// Mirrors the main table's own tenant filter (see the `table["tenantId"]`
-// check further down in list()).
-async function resolveReferenceMatchesViaIlike(
-  descriptor: ReferenceSearchDescriptor,
-  searchTerm: string,
-  targetEntity: EntityDefinition,
-  targetTable: Table,
-  targetTableName: string,
+// H.2 — entity-level read ownership, AND-ed with the parent-ref read-gate
+// (join-row entities derive their visibility from a host row's own read path —
+// see db/parent-ref-clause.ts). `empty` means there's no row the user could ever see.
+function resolveReadOwnership(
+  ctx: Pick<ExecutorContext, "entity" | "table">,
+  tableName: string,
   user: SessionUser,
   db: TenantDb,
-): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
-  // The label must not leak through match counts: a viewer who cannot read the
-  // target row or its label field would otherwise probe names by searching.
-  const labelAccess = buildOwnershipClause(
-    user,
-    normalizeAccessEntry(targetEntity.fields[descriptor.labelField]?.access?.read),
-    targetTable,
-  );
-  if (labelAccess.kind !== "pass") return undefined;
-  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
-  if (ownership.kind === "empty") return undefined;
-
-  const labelCol = physicalColumnName(targetTable, descriptor.labelField);
-  const subParams: unknown[] = [`%${escapeLikePattern(searchTerm)}%`];
-  let tenantClause = "";
-  if (targetTable["tenantId"] !== undefined && db.mode === "tenant") {
-    subParams.push(db.tenantId, SYSTEM_TENANT_ID);
-    tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($2, $3)`;
-  }
-  let ownershipClause = "";
-  if (ownership.kind === "sql") {
-    const shifted = shiftParams(
-      { sqlText: ownership.sqlText, params: ownership.params },
-      subParams.length,
-    );
-    ownershipClause = ` AND ${shifted.sqlText}`;
-    for (const p of shifted.params) subParams.push(p);
-  }
-  const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
-    ? ` AND "${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
-    : "";
-  // ::text cast covers a non-text labelField (e.g. a number/select column
-  // used as label) — Postgres has no ILIKE for those types otherwise.
-  const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause}${ownershipClause}${deletedClause} ` +
-    `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
-  const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, subParams);
-  if (rows.length === 0 || rows.length > MAX_REFERENCE_SEARCH_IDS) {
-    // skip: no match, or over the cap — drop the clause rather than
-    // truncate to an arbitrary slice of matching targets
-    return undefined;
-  }
-  return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
-}
-
-// Same lookup, but the target's index is tenant-wide, not per-viewer, so
-// candidate ids get re-checked against the target entity's own read access.
-async function resolveReferenceMatchesViaSearchIndex(
-  descriptor: ReferenceSearchDescriptor,
-  searchTerm: string,
-  targetEntity: EntityDefinition,
-  targetTable: Table,
-  targetTableName: string,
-  user: SessionUser,
-  db: TenantDb,
-  searchAdapter: SearchAdapter,
-): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
-  const searchTenantId = targetEntity.systemStream ? SYSTEM_TENANT_ID : user.tenantId;
-  const results = await searchAdapter.search(searchTenantId, searchTerm, {
-    filterType: descriptor.targetEntityName,
-    limit: MAX_REFERENCE_SEARCH_IDS + 1,
-  });
-  if (results.length === 0 || results.length > MAX_REFERENCE_SEARCH_IDS) {
-    // skip: no match, or over the cap — same drop-the-clause policy as the ILIKE path
-    return undefined;
-  }
-
-  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
-  if (ownership.kind === "empty") return undefined;
-
-  const candidateIds = results.map((r) => String(r.entityId));
-  // The index is only trusted to name candidates: a stale or foreign-tenant document must
-  // never become a filter value, so tenant-scoped targets are always re-read from the DB.
-  const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
-  if (ownership.kind === "pass" && !tenantScoped) {
-    return { ownColumn: descriptor.ownColumn, ids: candidateIds };
-  }
-
-  const params: unknown[] = [...candidateIds];
-  const idPlaceholders = candidateIds.map((_, i) => `$${i + 1}`);
-  let tenantClause = "";
-  if (tenantScoped) {
-    params.push(db.tenantId, SYSTEM_TENANT_ID);
-    tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($${params.length - 1}, $${params.length})`;
-  }
-  let ownershipClause = "";
-  if (ownership.kind === "sql") {
-    const shifted = shiftParams(
-      { sqlText: ownership.sqlText, params: ownership.params },
-      params.length,
-    );
-    for (const p of shifted.params) params.push(p);
-    ownershipClause = ` AND ${shifted.sqlText}`;
-  }
-  const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE "id" IN (${idPlaceholders.join(", ")})` +
-    `${tenantClause}${ownershipClause}`;
-  const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, params);
-  if (rows.length === 0) return undefined;
-  return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
-}
-
-async function resolveReferenceMatches(
-  descriptor: ReferenceSearchDescriptor,
-  searchTerm: string,
-  resolveEntity: (entityName: string) => EntityDefinition | undefined,
-  db: TenantDb,
-  user: SessionUser,
-  searchAdapter: SearchAdapter,
-): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
-  const targetEntity = resolveEntity(descriptor.targetEntityName);
-  if (targetEntity === undefined) {
-    // skip: unknown target entity — registry inconsistency the boot-validator
-    // should have caught; fail open (no clause) rather than 500 the request
-    return undefined;
-  }
-  if (targetEntity.fields[descriptor.labelField] === undefined) {
-    // skip: labelField isn't a real (declared) column on the target entity —
-    // row-meta references (e.g. tenant.name) always resolve here since
-    // `name` is a declared field on the tenant entity, not an id/row-meta column
-    return undefined;
-  }
-
-  const targetTable = referenceTargetTable(descriptor.targetEntityName, targetEntity);
-  const targetTableName = String(schemaTableName(targetTable));
-
-  if (!isSensitiveLabelField(targetEntity, descriptor.labelField)) {
-    return resolveReferenceMatchesViaIlike(
-      descriptor,
-      searchTerm,
-      targetEntity,
-      targetTable,
-      targetTableName,
-      user,
-      db,
-    );
-  }
-  if (!hasSearchablePlaintext(targetEntity, descriptor.labelField)) {
-    // skip: no plaintext anywhere to match — boot rejects this normally,
-    // this is defense-in-depth for a target entity resolved only at runtime.
-    return undefined;
-  }
-  return resolveReferenceMatchesViaSearchIndex(
-    descriptor,
-    searchTerm,
-    targetEntity,
-    targetTable,
-    targetTableName,
+  parentVisibility: ParentVisibilityOption | undefined,
+  gate: { readonly includeDeleted: boolean; readonly narrowTypes: ReadonlySet<string> | undefined },
+): OwnershipClause {
+  const parentClause = buildParentRefClause(
+    ctx.entity,
+    ctx.table,
+    tableName,
     user,
     db,
-    searchAdapter,
+    parentVisibility,
+    gate,
+  );
+  return combineClauses(
+    buildOwnershipClause(user, ctx.entity.access?.read, ctx.table),
+    parentClause,
   );
 }
 
-// Building the table is pure but not free, and runs on every search request;
-// keyed by the definition object so a re-registered entity never sees a stale table.
-const referenceTargetTables = new WeakMap<EntityDefinition, { name: string; table: Table }>();
-
-function referenceTargetTable(name: string, entity: EntityDefinition): Table {
-  const cached = referenceTargetTables.get(entity);
-  if (cached?.name === name) return cached.table;
-  const table = buildEntityTable(name, entity);
-  referenceTargetTables.set(entity, { name, table });
-  return table;
-}
-
-// Projected alongside the row when a reference sort is active, so the keyset
-// cursor carries the label that was ordered by instead of the FK's UUID.
-const SORT_LABEL_ALIAS = "__kumiko_sort_label";
-const STREAM_VERSION_ALIAS = "__streamVersion";
-
-// Resolve a `sortable: true` reference field's label inline for
-// ORDER BY. A correlated scalar subquery, not a join: the result set keeps one
-// row per entity row, the read model stays untouched, and the lookup rides the
-// target's primary key. Tenant-scoped exactly like the search path — a foreign
-// tenant's label must never influence this tenant's ordering.
-// undefined means "cannot order by this label", which drops the sort to plain
-// id order; falling back to the UUID column would look deliberate to the user
-// while being arbitrary, which is worse than no sorting.
-function buildReferenceSortExpr(
-  outerTableName: string,
-  ownColumnSql: string,
-  descriptor: { readonly targetEntityName: string; readonly labelField: string },
-  resolveEntity: (entityName: string) => EntityDefinition | undefined,
+// Replicates TenantDb's readWhere semantics for the raw list SQL.
+function appendTenantAndSoftDeleteScope(
+  where: ListWhere,
+  ctx: Pick<ExecutorContext, "table" | "softDelete">,
   db: TenantDb,
-  user: SessionUser,
-): ((params: unknown[]) => string) | undefined {
-  const targetEntity = resolveEntity(descriptor.targetEntityName);
-  if (targetEntity === undefined) {
-    // skip: unknown target entity — registry inconsistency the boot-validator
-    // should have caught; drop the sort rather than 500 the request
-    return undefined;
-  }
-  if (targetEntity.fields[descriptor.labelField] === undefined) {
-    // skip: labelField isn't a real (declared) column on the target entity
-    return undefined;
-  }
-  if (isSensitiveLabelField(targetEntity, descriptor.labelField)) {
-    // skip: encrypted/PII labelField — ciphertext orders by its bytes, which is
-    // arbitrary to the reader and would also rank rows by their stored secret
-    return undefined;
-  }
-
-  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
-  // The order of labels the viewer may not read would leak them bit by bit, same as the search path.
-  const labelAccess = buildOwnershipClause(
-    user,
-    normalizeAccessEntry(targetEntity.fields[descriptor.labelField]?.access?.read),
-    targetTable,
-  );
-  if (labelAccess.kind !== "pass") return undefined;
-  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
-  if (ownership.kind === "empty") return undefined;
-  const targetTableName = String(schemaTableName(targetTable));
-  const labelCol = physicalColumnName(targetTable, descriptor.labelField);
-  const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
-  const tenantCol = tenantScoped ? physicalColumnName(targetTable, "tenantId") : "";
-  const tenantId = db.mode === "tenant" ? db.tenantId : undefined;
-  const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
-    ? ` AND t."${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
-    : "";
-
-  // No ::text cast (unlike the ILIKE search path): a non-text label must keep
-  // its native collation/numeric order, and the keyset param infers its type
-  // from the comparison anyway.
-  return (params: unknown[]): string => {
-    let tenantClause = "";
-    if (tenantScoped) {
-      params.push(tenantId, SYSTEM_TENANT_ID);
-      tenantClause = ` AND t."${tenantCol}" IN ($${params.length - 1}, $${params.length})`;
-    }
-    let ownershipClause = "";
-    if (ownership.kind === "sql") {
-      const shifted = shiftParams(
-        { sqlText: ownership.sqlText, params: ownership.params },
-        params.length,
-      );
-      for (const p of shifted.params) params.push(p);
-      ownershipClause = ` AND ${shifted.sqlText}`;
-    }
-    return (
-      `(SELECT t."${labelCol}" FROM "${targetTableName}" t ` +
-      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause}${ownershipClause}${deletedClause})`
+  includeDeleted: boolean,
+): void {
+  if (ctx.table["tenantId"] !== undefined && db.mode === "tenant") {
+    where.params.push(db.tenantId, SYSTEM_TENANT_ID);
+    where.whereSql.push(
+      `${where.colSql("tenantId")} IN ($${where.params.length - 1}, $${where.params.length})`,
     );
-  };
+  }
+  if (ctx.softDelete && ctx.table["isDeleted"] && !includeDeleted) {
+    where.whereSql.push(`${where.colSql("isDeleted")} = FALSE`);
+  }
+}
+
+function emptyListPage(totalCount: boolean) {
+  return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
 }
 
 export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, "list" | "detail"> {
@@ -595,7 +103,6 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     entityName,
     entityCache,
     searchAdapter,
-    softDelete,
     streamTenantFor,
     idFilter,
     probeOwnershipWithStreamVersion,
@@ -612,310 +119,103 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
       const tableName = String(schemaTableName(table));
+      const includeDeleted = runtimeOptions?.includeDeleted === true;
 
-      // H.2 — entity-level read ownership, AND-ed with the parent-ref
-      // read-gate (join-row entities derive their visibility from a host
-      // row's own read path — see db/parent-ref-clause.ts). Decide before
-      // touching search or the DB: `empty` means there's no row the user
-      // could ever see, so skip both paths and return an empty page.
-      const narrowTypes = deriveParentNarrowTypes(entity, payload);
-      const parentClause = buildParentRefClause(
-        entity,
-        table,
+      // Decide before touching search or the DB: an `empty` ownership skips both paths.
+      const ownership = resolveReadOwnership(
+        ctx,
         tableName,
         user,
         db,
         runtimeOptions?.parentVisibility,
-        { includeDeleted: runtimeOptions?.includeDeleted === true, narrowTypes },
+        { includeDeleted, narrowTypes: deriveParentNarrowTypes(entity, payload) },
       );
-      const ownership = combineClauses(
-        buildOwnershipClause(user, entity.access?.read, table),
-        parentClause,
-      );
-      if (ownership.kind === "empty") {
-        return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
-      }
+      if (ownership.kind === "empty") return emptyListPage(totalCount);
 
-      let filterIds: EntityId[] | undefined;
       // Build the WHERE clause as raw SQL — ownership produces a
       // parameterised fragment that we splice in alongside simple WhereObject
       // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
-      const whereSql: string[] = [];
-      const params: unknown[] = [];
-      const physicalCol = (field: string): string => physicalColumnName(table, field);
-      const colSql = (field: string): string => `"${physicalCol(field)}"`;
+      const where: ListWhere = {
+        whereSql: [],
+        params: [],
+        colSql: (field) => `"${physicalColumnName(table, field)}"`,
+      };
 
       // Field-level read access gates filtering and sorting the same way it
       // gates the projected row: a caller who cannot read a field must not be
       // able to probe its values through result counts or ordering.
-      // Hoisted above the search block — a searchable-reference clause is the
+      // Built before the search step — a searchable-reference clause is the
       // same probe surface as a filter/sort and must be gated the same way,
       // before the reference-match query even runs.
-      const fieldReadClause = (field: string) =>
+      const fieldReadClause = (field: string): OwnershipClause =>
         buildOwnershipClause(user, normalizeAccessEntry(entity.fields[field]?.access?.read), table);
 
-      // The build-time options.searchAdapter takes precedence; use the runtime override
-      // as a fallback because defaultEntityQueryHandler receives the search adapter only
-      // at runtime, when createEventStoreExecutor has no server context yet.
-      const effectiveSearchAdapter = searchAdapter ?? runtimeOptions?.searchAdapter;
       let searchTruncated = false;
       if (payload.search) {
-        const searchTerm = payload.search;
-        // A search term with no adapter wired must fail loud, not
-        // silently return the unfiltered list dressed up as a search result.
-        if (!effectiveSearchAdapter) {
-          throw new UnprocessableError("search_adapter_not_wired", {
-            details: {
-              entity: entityName,
-              hint: "Wire a SearchAdapter for this entity, or remove `searchable` from the field/screen.",
-            },
-          });
-        }
-        // Same choke-point as writes/index: systemStream docs live under
-        // SYSTEM_TENANT_ID; everything else under the session tenant — db.mode
-        // must not invent a second predicate.
-        const searchTenantId = streamTenantFor(user);
-        const results = await effectiveSearchAdapter.search(searchTenantId, searchTerm, {
-          filterType: entityName,
-          limit: MAX_SEARCH_CANDIDATE_IDS,
-        });
-        searchTruncated = results.length >= MAX_SEARCH_CANDIDATE_IDS;
-        filterIds = results.map((r) => r.entityId);
-
-        // Union in reference-column label matches: a searchable
-        // reference field (or the implicit tenantId→tenant.name row-meta
-        // reference) whose target row's labelField matches the search term
-        // also counts as a hit on this entity, not just a raw text-field hit.
-        const referenceSearch = runtimeOptions?.referenceSearch;
-        // A caller who cannot read the reference column itself must not be able
-        // to infer its value by matching the target's label — same probe
-        // surface as filtering/sorting on it directly.
-        const descriptors = collectReferenceSearchDescriptors(
-          table,
-          referenceSearch,
-          db.mode,
-        ).filter((d) => fieldReadClause(d.ownColumn).kind === "pass");
-        const referenceMatches = referenceSearch
-          ? (
-              await Promise.all(
-                descriptors.map((d) =>
-                  resolveReferenceMatches(
-                    d,
-                    searchTerm,
-                    referenceSearch.resolveEntity,
-                    db,
-                    user,
-                    effectiveSearchAdapter,
-                  ),
-                ),
-              )
-            ).filter(
-              (m): m is { readonly ownColumn: string; readonly ids: readonly string[] } =>
-                m !== undefined,
-            )
-          : [];
-
-        if (filterIds.length === 0 && referenceMatches.length === 0) {
-          return { rows: [], nextCursor: null, ...(totalCount && { total: 0 }) };
-        }
-
-        const orParts: string[] = [];
-        if (filterIds.length > 0) {
-          const placeholders = filterIds.map((id) => {
-            params.push(id);
-            return `$${params.length}`;
-          });
-          orParts.push(`${colSql("id")} IN (${placeholders.join(", ")})`);
-        }
-        for (const match of referenceMatches) {
-          const placeholders = match.ids.map((id) => {
-            params.push(id);
-            return `$${params.length}`;
-          });
-          orParts.push(`${colSql(match.ownColumn)} IN (${placeholders.join(", ")})`);
-        }
-        // Parenthesized as one whereSql entry — whereSql is joined with
-        // " AND " below, an unparenthesized OR here would leak past the
-        // tenant filter that follows.
-        whereSql.push(`(${orParts.join(" OR ")})`);
-      }
-      // A column sort must not 400 (the renderer sends one per header click), and the order of
-      // ciphertext carries no meaning for the user while leaking the order of the plaintext.
-      const sortCandidate =
-        payload.sort &&
-        table[payload.sort] &&
-        fieldReadClause(payload.sort).kind === "pass" &&
-        isListSortAllowed(entity, payload.sort)
-          ? payload.sort
-          : undefined;
-      const sortDescending = payload.sortDirection === "desc";
-
-      // A reference column stores a UUID, so it is never sorted by
-      // directly: either the field opted into `sortable` and we order by the
-      // target row's label, or the sort is dropped to plain id order.
-      let sortField: string | undefined;
-      let referenceSortExpr: ((params: unknown[]) => string) | undefined;
-      if (sortCandidate !== undefined && entity.fields[sortCandidate]?.type === "reference") {
-        const referenceSort = runtimeOptions?.referenceSort;
-        const descriptor = referenceSort?.fields.find((f) => f.fieldName === sortCandidate);
-        referenceSortExpr =
-          referenceSort && descriptor
-            ? buildReferenceSortExpr(
-                tableName,
-                colSql(sortCandidate),
-                descriptor,
-                referenceSort.resolveEntity,
-                db,
-                user,
-              )
-            : undefined;
-        if (referenceSortExpr !== undefined) sortField = sortCandidate;
-      } else {
-        sortField = sortCandidate;
-      }
-
-      // Tenant-Filter (replicates TenantDb's readWhere semantics).
-      if (table["tenantId"] !== undefined && db.mode === "tenant") {
-        params.push(db.tenantId, SYSTEM_TENANT_ID);
-        whereSql.push(`${colSql("tenantId")} IN ($${params.length - 1}, $${params.length})`);
-      }
-      if (softDelete && table["isDeleted"] && runtimeOptions?.includeDeleted !== true) {
-        whereSql.push(`${colSql("isDeleted")} = FALSE`);
-      }
-      if (payload.cursor) {
-        const cursor = decodeKeysetCursor(payload.cursor);
-        if (sortField === undefined || cursor.sortValue === undefined) {
-          params.push(cursor.id);
-          whereSql.push(`${colSql("id")} > $${params.length}`);
-        } else {
-          whereSql.push(
-            keysetBoundarySql(
-              referenceSortExpr !== undefined ? referenceSortExpr(params) : colSql(sortField),
-              colSql("id"),
-              { id: cursor.id, sortValue: cursor.sortValue },
-              sortDescending,
-              params,
-            ),
-          );
-        }
-      }
-      if (ownership.kind === "sql") {
-        const shifted = shiftParams(
-          { sqlText: ownership.sqlText, params: ownership.params },
-          params.length,
+        // The build-time options.searchAdapter takes precedence; use the runtime override
+        // as a fallback because defaultEntityQueryHandler receives the search adapter only
+        // at runtime, when createEventStoreExecutor has no server context yet.
+        const search = await applyListSearch(
+          {
+            searchTerm: payload.search,
+            searchAdapter: searchAdapter ?? runtimeOptions?.searchAdapter,
+            entityName,
+            table,
+            referenceSearch: runtimeOptions?.referenceSearch,
+            fieldReadClause,
+            streamTenantFor,
+            user,
+            db,
+          },
+          where,
         );
-        whereSql.push(shifted.sqlText);
-        for (const p of shifted.params) params.push(p);
+        if (search.kind === "noMatches") return emptyListPage(totalCount);
+        searchTruncated = search.searchTruncated;
       }
-      const applyFilter = (f: ListFilter): void => {
-        if (table[f.field] === undefined) {
-          // skip: unknown field — not a real column, drop the filter (injection guard)
-          return;
-        }
-        const readClause = fieldReadClause(f.field);
-        if (readClause.kind === "empty") {
-          whereSql.push("FALSE");
-          // skip: no role grants read on this field, so no row may be probed
-          // through it — an unsatisfiable filter beats an error, which would
-          // itself confirm the field exists (field-access.ts strips silently)
-          return;
-        }
-        if (!isListFilterAllowed(entity, f.field, f)) {
-          throw new ValidationError({
-            fields: [
-              {
-                path: `filter.${f.field}`,
-                code: "field_not_filterable",
-                i18nKey: "errors.validation.invalid_value",
-                params: {
-                  field: f.field,
-                  op: f.op,
-                  hint: "Encrypted, personal and secret fields cannot be filtered; only equality on a field with find: exact or fuzzy.",
-                },
-              },
-            ],
-          });
-        }
-        if (readClause.kind === "sql") {
-          const shifted = shiftParams(
-            { sqlText: readClause.sqlText, params: readClause.params },
-            params.length,
-          );
-          whereSql.push(shifted.sqlText);
-          for (const p of shifted.params) params.push(p);
-        }
-        if (entity.fields[f.field]?.type === "multiSelect") {
-          applyMultiSelectFilter(colSql, whereSql, params, f);
-          // skip: multiSelect already handled — don't fall through to applyScreenFilter
-          return;
-        }
-        applyScreenFilter(table, colSql, whereSql, params, f);
-      };
-      if (payload.filter !== undefined) applyFilter(payload.filter);
-      if (payload.filters !== undefined) for (const f of payload.filters) applyFilter(f);
+
+      const sort = resolveListSort({
+        payload,
+        table,
+        entity,
+        tableName,
+        colSql: where.colSql,
+        fieldReadClause,
+        referenceSort: runtimeOptions?.referenceSort,
+        db,
+        user,
+      });
+      appendTenantAndSoftDeleteScope(where, ctx, db, includeDeleted);
+      if (payload.cursor) appendCursorBoundary(where, payload.cursor, sort);
+      if (ownership.kind === "sql") appendShiftedClause(where, ownership);
+      for (const f of collectListFilters(payload)) {
+        applyListFilter(where, f, table, entity, fieldReadClause);
+      }
 
       // The COUNT below reuses the WHERE text only, so it must bind exactly the
       // params that text references — Postgres rejects a statement supplied
       // with more parameters than it uses, and ORDER BY may add its own.
-      const whereParams = params.slice();
-
-      const sortSql =
-        sortField === undefined
-          ? undefined
-          : referenceSortExpr !== undefined
-            ? referenceSortExpr(params)
-            : colSql(sortField);
-      // The projected label alias is ordered by directly, so Postgres evaluates
-      // the correlated subquery once per row instead of once for ORDER BY and
-      // once for the SELECT list.
-      const orderBySortSql = referenceSortExpr !== undefined ? `"${SORT_LABEL_ALIAS}"` : sortSql;
-      const orderByClause =
-        orderBySortSql !== undefined
-          ? ` ORDER BY ${orderBySortSql} ${sortDescending ? "DESC" : "ASC"}, ${colSql("id")} ASC`
-          : ` ORDER BY ${colSql("id")} ASC`;
-      const useOffset = !payload.cursor && offset > 0;
-      const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
-
-      const whereClauseSqlText = whereSql.length > 0 ? ` WHERE ${whereSql.join(" AND ")}` : "";
-      // Project the resolved label too, so the keyset cursor below carries the
-      // value that was ordered by rather than the FK column's UUID.
-      const sortLabelProjection =
-        referenceSortExpr !== undefined && sortSql !== undefined
-          ? `, ${sortSql} AS "${SORT_LABEL_ALIAS}"`
-          : "";
-      // Stream version in the same statement as the rows: a separate read could pair a
-      // post-write version with a pre-write row, and update({version}) would then pass
-      // the optimistic lock against a state the client never saw (see loadDetailSnapshot).
-      params.push(streamTenantFor(user));
-      const streamVersionProjection =
-        `, (SELECT MAX("version") FROM "kumiko_events" ` +
-        `WHERE "aggregate_id" = "${tableName}"."id" AND "tenant_id" = $${params.length}) ` +
-        `AS "${STREAM_VERSION_ALIAS}"`;
+      const whereParams = where.params.slice();
+      const { orderByClause, sortLabelProjection } = renderListOrderBy(sort, where);
+      const offsetClause = !payload.cursor && offset > 0 ? ` OFFSET ${offset}` : "";
+      const whereClauseSqlText =
+        where.whereSql.length > 0 ? ` WHERE ${where.whereSql.join(" AND ")}` : "";
+      const streamVersionProjection = appendStreamVersionProjection(
+        where.params,
+        tableName,
+        streamTenantFor(user),
+      );
       const selectList = `*${sortLabelProjection}${streamVersionProjection}`;
       const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
-      const rawRows = await executeRawQueryRead<Record<string, unknown>>(runner, listSql, params);
-      const lastSortLabel = rawRows[rawRows.length - 1]?.[SORT_LABEL_ALIAS];
-      // Aliases are query artifacts, not columns of this entity — strip them before
-      // coercion so they never reach the caller or the entity cache.
-      const streamVersions = rawRows.map((r) => {
-        const v = r[STREAM_VERSION_ALIAS];
-        delete r[STREAM_VERSION_ALIAS];
-        return typeof v === "number" ? v : 0;
-      });
-      if (referenceSortExpr !== undefined) {
-        for (const row of rawRows) delete row[SORT_LABEL_ALIAS];
-      }
-      // Per-row read-side rehydrate + snake→camel coercion for driver-agnostic field names.
-      // Coerce BEFORE rehydrate/decrypt: the raw SELECT * rows carry snake_case
-      // column names, while compound-type lookups (rehydrateMoney et al.) and the
-      // encrypted/pii field lists are all camelCase — running either first on a
-      // still-snake_case row silently no-ops (money) or skips every multi-word
-      // field (ciphertext leaked to the caller).
-      const tableInfo = extractTableInfo(table);
-      const encryptedRows = rawRows.map((r) =>
-        rehydrateCompoundTypes(coerceRow(r, tableInfo), entity),
+      const rawRows = await executeRawQueryRead<Record<string, unknown>>(
+        runner,
+        listSql,
+        where.params,
       );
+      const lastSortLabel = takeLastSortLabel(rawRows, sort);
+      const streamVersions = takeStreamVersions(rawRows);
+      const tableInfo = extractTableInfo(table);
+      const encryptedRows = rawRows.map((r) => coerceAndRehydrateRow(r, tableInfo, entity));
       const decryptedRows = await Promise.all(
         encryptedRows.map((r) => decryptForRead(r, { degradeUndecryptable: () => {} })),
       );
@@ -941,32 +241,12 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       let nextCursor: string | null = null;
       if (rows.length === limit && lastRow && lastRaw) {
         const cursorId = lastRow["id"] as string; // @cast-boundary engine-payload
-        const sortText =
-          sortField === undefined
-            ? undefined
-            : toCursorSortText(
-                referenceSortExpr !== undefined ? lastSortLabel : lastRaw[physicalCol(sortField)],
-              );
-        nextCursor =
-          sortText === undefined ? encodeCursor(cursorId) : encodeKeysetCursor(sortText, cursorId);
+        nextCursor = encodeNextCursor(cursorId, sort, lastRaw, lastSortLabel, table);
       }
 
-      // total: extra COUNT(*) — only when explicitly requested (pager UI).
-      // Postgres cost is O(table-scan) without a filter, with a filter as
-      // expensive as the corresponding WHERE — cheap enough on indexed columns.
-      // Always counted over the full WHERE: search ids, reference matches, tenant,
-      // soft-delete, cursor, ownership and filters all narrow the result, so the
-      // search hit count alone is never the total.
-      let total: number | undefined;
-      if (totalCount) {
-        const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
-        const countRows = await executeRawQueryRead<{ count: number }>(
-          runner,
-          countSql,
-          whereParams,
-        );
-        total = countRows[0]?.count ?? 0;
-      }
+      const total = totalCount
+        ? await countListRows(runner, tableName, whereClauseSqlText, whereParams)
+        : undefined;
 
       return {
         rows,
@@ -982,19 +262,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // db/parent-ref-clause.ts). `empty` → the user can never see this row
       // regardless of its id. Return null (same shape as "not found", so a
       // probing attacker can't distinguish "no access" from "doesn't exist").
-      const parentClause = buildParentRefClause(
-        entity,
-        table,
-        tableName,
-        user,
-        db,
-        options?.parentVisibility,
-        { includeDeleted: false, narrowTypes: undefined },
-      );
-      const ownership = combineClauses(
-        buildOwnershipClause(user, entity.access?.read, table),
-        parentClause,
-      );
+      const ownership = resolveReadOwnership(ctx, tableName, user, db, options?.parentVisibility, {
+        includeDeleted: false,
+        narrowTypes: undefined,
+      });
       if (ownership.kind === "empty") return null;
 
       const idWhere = idFilter(payload.id);
@@ -1053,12 +324,9 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       );
       const raw = snapshot.row;
       if (!raw) return null;
-      // Same coerce-before-rehydrate/decrypt ordering as list() above — raw
-      // is snake_case (raw SQL); coerceRow maps it to camelCase.
-      const rowInfo = extractTableInfo(table);
       const undecryptableFields: string[] = [];
       const coerced = await decryptForRead(
-        rehydrateCompoundTypes(coerceRow(raw, rowInfo), entity),
+        coerceAndRehydrateRow(raw, extractTableInfo(table), entity),
         { degradeUndecryptable: (field) => undecryptableFields.push(field) },
       );
       const result = withStreamVersion(coerced, snapshot.streamVersion);

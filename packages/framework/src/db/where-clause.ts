@@ -52,7 +52,7 @@ function valueList(target: WhereColumn, values: readonly unknown[]): string {
 // array — a filter value is one option, not the whole array, so eq/ne/in
 // must check array containment (`@>`) instead of scalar `=`/`<>`/`IN`
 // against the jsonb column, which Postgres rejects outright.
-// Mirrors event-store-executor-read.ts's applyFilter — keep in lock-step.
+// Mirrors applyMultiSelectFilter in event-store-executor-read-filter.ts — keep in lock-step.
 function jsonbContainsAny(target: WhereColumn, candidates: readonly unknown[]): string {
   const { column, ref, bind } = target;
   if (candidates.length === 0) return "FALSE";

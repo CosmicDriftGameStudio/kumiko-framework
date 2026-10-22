@@ -137,104 +137,124 @@ function indexesByName(meta: EntityTableMeta): Map<string, IndexMeta> {
   return m;
 }
 
-function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff | null {
-  const prevCols = columnsByName(prev);
-  const nextCols = columnsByName(next);
+type FromTo<T> = { readonly from: T; readonly to: T };
 
-  const newColumns: ColumnMeta[] = [];
-  const droppedColumns: string[] = [];
-  const changedColumns: ColumnChange[] = [];
+type KeyedDiff<T, C> = {
+  readonly added: readonly T[];
+  readonly dropped: readonly string[];
+  readonly changed: readonly C[];
+};
 
-  for (const [name, nextCol] of nextCols) {
-    const prevCol = prevCols.get(name);
-    if (!prevCol) {
-      newColumns.push(nextCol);
+function strictEqual<T>(a: T, b: T): boolean {
+  return a === b;
+}
+
+function fromToWhenDifferent<T>(
+  from: T,
+  to: T,
+  isEqual: (a: T, b: T) => boolean = strictEqual,
+): FromTo<T> | undefined {
+  return isEqual(from, to) ? undefined : { from, to };
+}
+
+// added and changed follow next's order, dropped follows prev's order; the
+// rendered migration depends on both.
+function diffByName<T, C>(
+  prev: ReadonlyMap<string, T>,
+  next: ReadonlyMap<string, T>,
+  compare: (name: string, prevItem: T, nextItem: T) => C | undefined,
+): KeyedDiff<T, C> {
+  const added: T[] = [];
+  const changed: C[] = [];
+  for (const [name, nextItem] of next) {
+    const prevItem = prev.get(name);
+    if (prevItem === undefined) {
+      added.push(nextItem);
       continue;
     }
-    const change: ColumnChange = { name };
-    if (prevCol.notNull !== nextCol.notNull) {
-      Object.assign(change, {
-        nullabilityChanged: { from: prevCol.notNull, to: nextCol.notNull },
-      });
-    }
-    if (prevCol.defaultSql !== nextCol.defaultSql) {
-      Object.assign(change, {
-        defaultChanged: { from: prevCol.defaultSql, to: nextCol.defaultSql },
-      });
-    }
-    if (prevCol.pgType !== nextCol.pgType) {
-      Object.assign(change, {
-        typeChanged: { from: prevCol.pgType, to: nextCol.pgType },
-      });
-    }
-    if (change.nullabilityChanged || change.defaultChanged || change.typeChanged) {
-      changedColumns.push(change);
-    }
+    const change = compare(name, prevItem, nextItem);
+    if (change !== undefined) changed.push(change);
   }
-  for (const name of prevCols.keys()) {
-    if (!nextCols.has(name)) droppedColumns.push(name);
-  }
+  const dropped = [...prev.keys()].filter((name) => !next.has(name));
+  return { added, dropped, changed };
+}
 
-  const prevIdx = indexesByName(prev);
-  const nextIdx = indexesByName(next);
-  const newIndexes: IndexMeta[] = [];
-  const droppedIndexes: string[] = [];
-  const changedIndexes: IndexChange[] = [];
-  for (const [name, idx] of nextIdx) {
-    const prevI = prevIdx.get(name);
-    if (!prevI) {
-      newIndexes.push(idx);
-      continue;
-    }
-    const columnsChanged = indexColumnsEqual(prevI.columns, idx.columns)
-      ? undefined
-      : { from: prevI.columns, to: idx.columns };
-    const uniqueChanged =
-      (prevI.unique ?? false) === (idx.unique ?? false)
-        ? undefined
-        : { from: prevI.unique ?? false, to: idx.unique ?? false };
-    // Whitespace-only re-rendering of the predicate must not drop and rebuild a large index.
-    const whereSqlChanged = whereSqlEqual(prevI.whereSql, idx.whereSql)
-      ? undefined
-      : { from: prevI.whereSql, to: idx.whereSql };
-    const needsManualWhereChanged =
-      (prevI.needsManualWhere ?? false) === (idx.needsManualWhere ?? false)
-        ? undefined
-        : { from: prevI.needsManualWhere ?? false, to: idx.needsManualWhere ?? false };
-    if (columnsChanged || uniqueChanged || whereSqlChanged || needsManualWhereChanged) {
-      // Single literal typed as IndexChange so a misspelled key fails to compile instead of silently dropping the change.
-      const change: IndexChange = {
-        name,
-        ...(columnsChanged && { columnsChanged }),
-        ...(uniqueChanged && { uniqueChanged }),
-        ...(whereSqlChanged && { whereSqlChanged }),
-        ...(needsManualWhereChanged && { needsManualWhereChanged }),
-      };
-      changedIndexes.push(change);
-    }
-  }
-  for (const name of prevIdx.keys()) {
-    if (!nextIdx.has(name)) droppedIndexes.push(name);
-  }
-
-  const isEmpty =
-    newColumns.length === 0 &&
-    droppedColumns.length === 0 &&
-    changedColumns.length === 0 &&
-    newIndexes.length === 0 &&
-    droppedIndexes.length === 0 &&
-    changedIndexes.length === 0;
-  if (isEmpty) return null;
+function compareColumns(
+  name: string,
+  prevCol: ColumnMeta,
+  nextCol: ColumnMeta,
+): ColumnChange | undefined {
+  const nullabilityChanged = fromToWhenDifferent(prevCol.notNull, nextCol.notNull);
+  const defaultChanged = fromToWhenDifferent(prevCol.defaultSql, nextCol.defaultSql);
+  const typeChanged = fromToWhenDifferent(prevCol.pgType, nextCol.pgType);
+  if (!nullabilityChanged && !defaultChanged && !typeChanged) return undefined;
   return {
+    name,
+    ...(nullabilityChanged && { nullabilityChanged }),
+    ...(defaultChanged && { defaultChanged }),
+    ...(typeChanged && { typeChanged }),
+  };
+}
+
+function compareIndexes(
+  name: string,
+  prevIndex: IndexMeta,
+  nextIndex: IndexMeta,
+): IndexChange | undefined {
+  const columnsChanged = fromToWhenDifferent(
+    prevIndex.columns,
+    nextIndex.columns,
+    indexColumnsEqual,
+  );
+  const uniqueChanged = fromToWhenDifferent(prevIndex.unique ?? false, nextIndex.unique ?? false);
+  // Whitespace-only re-rendering of the predicate must not drop and rebuild a large index.
+  const whereSqlChanged = fromToWhenDifferent(
+    prevIndex.whereSql,
+    nextIndex.whereSql,
+    whereSqlEqual,
+  );
+  const needsManualWhereChanged = fromToWhenDifferent(
+    prevIndex.needsManualWhere ?? false,
+    nextIndex.needsManualWhere ?? false,
+  );
+  if (!columnsChanged && !uniqueChanged && !whereSqlChanged && !needsManualWhereChanged) {
+    return undefined;
+  }
+  // Single literal typed as IndexChange so a misspelled key fails to compile instead of silently dropping the change.
+  return {
+    name,
+    ...(columnsChanged && { columnsChanged }),
+    ...(uniqueChanged && { uniqueChanged }),
+    ...(whereSqlChanged && { whereSqlChanged }),
+    ...(needsManualWhereChanged && { needsManualWhereChanged }),
+  };
+}
+
+function hasNoTableChanges(diff: TableDiff): boolean {
+  return [
+    diff.newColumns,
+    diff.droppedColumns,
+    diff.changedColumns,
+    diff.newIndexes,
+    diff.droppedIndexes,
+    diff.changedIndexes,
+  ].every((list) => list.length === 0);
+}
+
+function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff | null {
+  const columns = diffByName(columnsByName(prev), columnsByName(next), compareColumns);
+  const indexes = diffByName(indexesByName(prev), indexesByName(next), compareIndexes);
+  const diff: TableDiff = {
     tableName: prev.tableName,
-    newColumns,
-    droppedColumns,
-    changedColumns,
-    newIndexes,
-    droppedIndexes,
-    changedIndexes,
+    newColumns: columns.added,
+    droppedColumns: columns.dropped,
+    changedColumns: columns.changed,
+    newIndexes: indexes.added,
+    droppedIndexes: indexes.dropped,
+    changedIndexes: indexes.changed,
     nextMeta: next,
   };
+  return hasNoTableChanges(diff) ? null : diff;
 }
 
 export function diffSnapshots(prev: Snapshot | null, next: Snapshot): SchemaDiff {

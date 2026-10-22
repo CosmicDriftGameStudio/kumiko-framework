@@ -9,7 +9,6 @@ import type {
   FieldsMap,
 } from "../engine/types/index.ts";
 import { toSnakeCase } from "../utils/case.ts";
-import { assertUnreachable } from "../utils/index.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
@@ -61,179 +60,188 @@ export type AnyPgColumn = ColumnHandle;
 // biome-ignore lint/suspicious/noExplicitAny: ColumnBuilder is parameterised over value type; we erase here
 type AnyColumnBuilder = ColumnBuilder<any>;
 
-// Returns column(s) for a field. Most fields return a single entry,
-// money returns two (amount + currency).
-//
-// `required: true` on a FieldDefinition always maps to .notNull() in the
-// database column. Previously this applied only to reference fields, while
-// text/select/number/etc. remained silently nullable even when the API
-// validator enforced required. That forced hand-written PgTable definitions
-// to add .notNull(), causing duplicate definitions and schema drift. Now
-// r.entity is the single source of truth.
+type FieldType = FieldDefinition["type"];
+type FieldOf<K extends FieldType> = Extract<FieldDefinition, { type: K }>;
+type FieldColumns = Record<string, AnyColumnBuilder>;
+type ColumnEmitter<K extends FieldType> = (
+  name: string,
+  snakeName: string,
+  field: FieldOf<K>,
+  entity: EntityDefinition,
+) => FieldColumns;
+
+// `required: true` maps to NOT NULL for every field type, so r.entity stays the
+// single source of truth and hand-written tables never add .notNull() on top.
+function notNullWhenRequired(
+  column: AnyColumnBuilder,
+  required: boolean | undefined,
+): AnyColumnBuilder {
+  return required ? column.notNull() : column;
+}
+
+// Without a DEFAULT clause ALTER TABLE ADD COLUMN breaks on existing rows, and
+// entity-table-meta renders declared defaults too, so both builders stay in lockstep.
+function withDeclaredDefault(
+  column: AnyColumnBuilder,
+  value: string | number | boolean | undefined,
+): AnyColumnBuilder {
+  return value !== undefined ? column.default(value) : column;
+}
+
+// longText differs from text only in the type layer (no sortable/searchable/filterable).
+function textColumns(
+  name: string,
+  snakeName: string,
+  field: FieldOf<"text" | "longText">,
+): FieldColumns {
+  const declaredDefault = "default" in field ? field.default : undefined;
+  const mainCol = {
+    [name]: notNullWhenRequired(
+      withDeclaredDefault(text(snakeName), declaredDefault),
+      field.required,
+    ),
+  };
+  // Nullable HMAC blind-index column, in lockstep with fieldToColumnMeta in entity-table-meta.ts.
+  if (field.type === "text" && field.lookupable === true) {
+    return { ...mainCol, [`${name}Bidx`]: text(`${snakeName}_bidx`) };
+  }
+  return mainCol;
+}
+
+function booleanColumns(name: string, snakeName: string, field: FieldOf<"boolean">): FieldColumns {
+  if (field.default !== undefined) {
+    return { [name]: boolean(snakeName).default(field.default).notNull() };
+  }
+  return { [name]: notNullWhenRequired(boolean(snakeName), field.required) };
+}
+
+function numberColumns(name: string, snakeName: string, field: FieldOf<"number">): FieldColumns {
+  const base = field.integer === true ? integer(snakeName) : doublePrecision(snakeName);
+  return { [name]: notNullWhenRequired(withDeclaredDefault(base, field.default), field.required) };
+}
+
+function referenceColumns(
+  name: string,
+  snakeName: string,
+  field: FieldOf<"reference">,
+): FieldColumns {
+  if (field.multiple === true) return { [name]: emptyJsonbArray(snakeName) };
+  return { [name]: notNullWhenRequired(uuid(snakeName), field.required) };
+}
+
+// BIGINT minor units: INTEGER would cap at about 21 M EUR. The currency column
+// always has a default, so it is structurally NOT NULL.
+function moneyColumns(
+  name: string,
+  snakeName: string,
+  field: FieldOf<"money">,
+  entity: EntityDefinition,
+): FieldColumns {
+  return {
+    [name]: notNullWhenRequired(moneyAmount(snakeName), field.required),
+    [`${name}Currency`]: text(`${snakeName}_currency`)
+      .default(entity.defaultCurrency ?? "EUR")
+      .notNull(),
+  };
+}
+
+// <name>_utc + <name>_tz form an atomic pair the executor converts on write and
+// read, so `required` propagates to both columns.
+function locatedTimestampColumns(
+  name: string,
+  snakeName: string,
+  field: FieldOf<"locatedTimestamp">,
+): FieldColumns {
+  return {
+    [`${name}Utc`]: notNullWhenRequired(instant(`${snakeName}_utc`), field.required),
+    [`${name}Tz`]: notNullWhenRequired(text(`${snakeName}_tz`), field.required),
+  };
+}
+
+// The `[]` default makes the column structurally never null, so `required` is
+// intentionally ignored and read-side code needs no null check.
+function emptyJsonbArray(snakeName: string): AnyColumnBuilder {
+  return jsonb(snakeName).default([]).notNull();
+}
+
+// Same reasoning as emptyJsonbArray; optional embedded data needs a wrapper field.
+function emptyJsonbObject(snakeName: string): AnyColumnBuilder {
+  return jsonb(snakeName).default({}).notNull();
+}
+
+function singleColumnNotNullWhenRequired(
+  column: (snakeName: string) => AnyColumnBuilder,
+): (name: string, snakeName: string, field: { readonly required?: boolean }) => FieldColumns {
+  return (name, snakeName, field) => ({
+    [name]: notNullWhenRequired(column(snakeName), field.required),
+  });
+}
+
+// Each entry has a type-level twin in ColumnsForField and a meta-level twin in
+// fieldToColumnMeta (entity-table-meta.ts).
+const COLUMN_EMITTERS: { readonly [K in FieldType]: ColumnEmitter<K> } = {
+  text: textColumns,
+  longText: textColumns,
+  boolean: booleanColumns,
+  select: (name, snakeName, field) => ({
+    [name]: notNullWhenRequired(
+      withDeclaredDefault(text(snakeName), field.default),
+      field.required,
+    ),
+  }),
+  multiSelect: (name, snakeName) => ({ [name]: emptyJsonbArray(snakeName) }),
+  number: numberColumns,
+  decimal: (name, snakeName, field) => ({
+    [name]: notNullWhenRequired(
+      withDeclaredDefault(decimalColumn(snakeName, field.precision, field.scale), field.default),
+      field.required,
+    ),
+  }),
+  // mode "number" keeps the value JSON-serializable (safe up to 2^53).
+  bigInt: (name, snakeName, field) => ({
+    [name]: notNullWhenRequired(
+      withDeclaredDefault(bigint(snakeName, { mode: "number" }), field.default),
+      field.required,
+    ),
+  }),
+  reference: referenceColumns,
+  money: moneyColumns,
+  embedded: (name, snakeName, field) => ({
+    [name]: field.multiple === true ? emptyJsonbArray(snakeName) : emptyJsonbObject(snakeName),
+  }),
+  jsonb: (name, snakeName) => ({ [name]: emptyJsonbObject(snakeName) }),
+  date: singleColumnNotNullWhenRequired(plainDate),
+  timestamp: singleColumnNotNullWhenRequired(instant),
+  tz: singleColumnNotNullWhenRequired(text),
+  locatedTimestamp: locatedTimestampColumns,
+  // Must match fileRefsTable.id (uuid); anything narrower breaks the reference.
+  file: singleColumnNotNullWhenRequired(uuid),
+  image: singleColumnNotNullWhenRequired(uuid),
+  files: (name, snakeName) => ({ [name]: emptyJsonbArray(snakeName) }),
+  images: (name, snakeName) => ({ [name]: emptyJsonbArray(snakeName) }),
+};
+
+function emitFieldColumns<K extends FieldType>(
+  type: K,
+  name: string,
+  field: FieldOf<K>,
+  entity: EntityDefinition,
+): FieldColumns {
+  // A type from untyped input must not reach an Object.prototype member.
+  if (!Object.hasOwn(COLUMN_EMITTERS, type)) {
+    throw new Error(`[Kumiko] unhandled field type: ${String(field)}`);
+  }
+  const emit: ColumnEmitter<K> = COLUMN_EMITTERS[type];
+  return emit(name, toSnakeCase(name), field, entity);
+}
+
+// Most fields return one column; money and locatedTimestamp return two.
 function fieldToColumns(
   name: string,
   field: FieldDefinition,
   entity: EntityDefinition,
 ): Record<string, AnyColumnBuilder> {
-  const snakeName = toSnakeCase(name);
-
-  switch (field.type) {
-    case "text":
-    case "longText": {
-      // Both map to PG `text` (unbounded). The difference exists only in the
-      // type layer: longText has no sortable/searchable/filterable support.
-      // The order default() before notNull() matters: the column builder
-      // chains both; without default(), the generated SQL has no DEFAULT
-      // clause, which breaks ALTER TABLE ADD COLUMN on existing rows.
-      // longText currently has no default field in its type, but checking
-      // `field.default !== undefined` is defensive.
-      const base = text(snakeName);
-      const withDefault =
-        "default" in field && field.default !== undefined ? base.default(field.default) : base;
-      const mainCol = { [name]: field.required ? withDefault.notNull() : withDefault };
-      // lookupable → nullable HMAC blind-index column (kept in lockstep with
-      // fieldToColumnMeta in entity-table-meta.ts).
-      if (field.type === "text" && field.lookupable === true) {
-        return { ...mainCol, [`${name}Bidx`]: text(`${snakeName}_bidx`) };
-      }
-      return mainCol;
-    }
-    case "boolean":
-      return {
-        [name]:
-          field.default !== undefined
-            ? boolean(snakeName).default(field.default).notNull()
-            : field.required
-              ? boolean(snakeName).notNull()
-              : boolean(snakeName),
-      };
-    case "select": {
-      // Pass default() through because entity-table-meta renders declared
-      // defaults. This builder must stay in lockstep; otherwise the metadata
-      // on the buildEntityTable object describes a different column than the
-      // migration.
-      const base = text(snakeName);
-      const col = field.default !== undefined ? base.default(field.default) : base;
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "multiSelect":
-      // jsonb string array with default `[]`, always NOT NULL.
-      //
-      // The `required` flag on MultiSelectFieldDef is intentionally ignored:
-      // with default `[]`, the field is structurally never null (an insert
-      // without a value produces an empty array, not NULL). Read-side code
-      // therefore needs no null check; this is an API guarantee. Code that
-      // needs actual null (meaning the field has never been set) should use
-      // a separate status field or an optional-typed reference instead of a
-      // multi-select.
-      return { [name]: jsonb(snakeName).default([]).notNull() };
-    case "number": {
-      const base = field.integer === true ? integer(snakeName) : doublePrecision(snakeName);
-      const col = field.default !== undefined ? base.default(field.default) : base;
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "decimal": {
-      const base = decimalColumn(snakeName, field.precision, field.scale);
-      const col = field.default !== undefined ? base.default(field.default) : base;
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "bigInt": {
-      // 64-bit integer for audit counters, byte sizes, and cumulative sums.
-      // mode:"number" produces a JS `number` (safe up to 2^53 ≈ 9 PB) rather
-      // than JS `bigint`, making it JSON-serializable and frontend-friendly.
-      // Values above 2^53 should use a text field with a custom codec.
-      const base = bigint(snakeName, { mode: "number" });
-      const col = field.default !== undefined ? base.default(field.default) : base;
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "reference":
-      // FK-style UUID column. Multi-mode stores UUIDs as a jsonb string array;
-      // single-mode remains a conventional UUID column (NOT NULL only when
-      // required).
-      if (field.multiple === true) {
-        return { [name]: jsonb(snakeName).default([]).notNull() };
-      }
-      return {
-        [name]: field.required ? uuid(snakeName).notNull() : uuid(snakeName),
-      };
-    case "money":
-      // BIGINT stores the integer minor unit (cents for EUR, yen for JPY —
-      // the currency column identifies which). INTEGER would cap at about
-      // 21 M EUR, which is too low for B2B invoices, property values, or
-      // balance aggregates. BIGINT safely handles up to about 90 trillion
-      // EUR in JS.
-      // Currency always has a default, so it is structurally .notNull().
-      return {
-        [name]: field.required ? moneyAmount(snakeName).notNull() : moneyAmount(snakeName),
-        [`${name}Currency`]: text(`${snakeName}_currency`)
-          .default(entity.defaultCurrency ?? "EUR")
-          .notNull(),
-      };
-    case "embedded":
-      // jsonb with default `{}`, always NOT NULL, analogous to multiSelect.
-      // `required` is intentionally ignored because the default makes the
-      // field structurally never null. To make embedded data optional (so
-      // the field can be omitted entirely), model it with a wrapper field
-      // and boolean flag or a discriminated union.
-      // multiple → the value is a list of rows, so the empty default is `[]`.
-      return field.multiple === true
-        ? { [name]: jsonb(snakeName).default([]).notNull() }
-        : { [name]: jsonb(snakeName).default({}).notNull() };
-    case "jsonb":
-      // Free-form jsonb — keys are not schema-validated. Default `{}`, NOT NULL
-      // (analogous to embedded). Use case: the host entity's custom-fields
-      // bundle in the `customFields` column, whose keys are tenant-defined.
-      return { [name]: jsonb(snakeName).default({}).notNull() };
-    case "date": {
-      // Real PG `date` — no time-of-day, no timezone. Temporal.PlainDate
-      // end-to-end (see plainDate() in dialect.ts). Was aliased on instant()
-      // = TIMESTAMPTZ (TZ-dependent round-trip).
-      const col = plainDate(snakeName);
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "timestamp": {
-      // UTC instant — stored as TIMESTAMPTZ in PG and read/written as
-      // Temporal.Instant through the instant() customType (see dialect.ts).
-      // Callers use only Temporal.Instant, never JS Date. Comparisons
-      // (lte/gt/orderBy) also accept Instants directly, so no .toString()
-      // cast is needed.
-      const col = instant(snakeName);
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "tz": {
-      // IANA time-zone name as TEXT — validated through the Zod schema in the
-      // validator step. Snake-case convention: `pickup_tz`.
-      const col = text(snakeName);
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "locatedTimestamp": {
-      // Two columns form an atomic pair: <name>_utc TIMESTAMPTZ + <name>_tz TEXT.
-      // _utc is instant() (Temporal.Instant), and _tz is text (IANA name).
-      // The executor wires automatic conversion (at+tz → utc on insert;
-      // utc+tz → at on read). required propagates to both columns.
-      const utc = instant(`${snakeName}_utc`);
-      const tz = text(`${snakeName}_tz`);
-      return {
-        [`${name}Utc`]: field.required ? utc.notNull() : utc,
-        [`${name}Tz`]: field.required ? tz.notNull() : tz,
-      };
-    }
-    case "file":
-    case "image": {
-      // Single file: stores fileRefId as UUID — must match fileRefsTable.id
-      // (uuid column). Anything narrower (integer, text length-limited) would
-      // silently truncate or type-coerce at INSERT time and the FK reference
-      // would be unusable.
-      const col = uuid(snakeName);
-      return { [name]: field.required ? col.notNull() : col };
-    }
-    case "files":
-    case "images":
-      // Ordered fileRef UUID array, same shape as multiSelect: never null.
-      return { [name]: jsonb(snakeName).default([]).notNull() };
-    default:
-      assertUnreachable(field, "field type");
-  }
+  return emitFieldColumns(field.type, name, field, entity);
 }
 
 // Accepts both camelCase (`tenantMembership`) and kebab-case (`tenant-membership`)
