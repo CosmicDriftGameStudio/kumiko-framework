@@ -19,6 +19,11 @@ the `table` block renders and behaves as before.
 - `table.columnPicker`: the view menu lets the user hide and reorder columns;
   `hidden: true` on a column starts it hidden.
 - `table.density`: row density default and an optional user choice.
+- `table.pinning`: the user pins columns left or right in the view menu;
+  `pinned: "left"` on a column starts it pinned.
+- `table.resizing`: columns can be resized (table-layout fixed); `width` and
+  `minWidth` on a column are start values in px.
+- `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows.
 - The same block on a `projectionList`.
 
 ## Source
@@ -33,8 +38,8 @@ bun test
 ```
 
 The test boots the feature through the boot validator and checks that a
-misspelled key, a hidden column without the picker and an unknown density are
-rejected.
+misspelled key, a hidden column without the picker, an unknown density, a pinned column
+without `pinning` and a width without `resizing` are rejected.
 
 ## Source files
 
@@ -69,7 +74,22 @@ describe("list-table-options recipe", () => {
       resetAll: true,
       columnPicker: true,
       density: { default: "comfortable", userChoice: true },
+      pinning: true,
+      resizing: true,
+      keyboardNavigation: true,
     });
+  });
+
+  test("a pinned column needs table.pinning", () => {
+    expect(() => validateBoot([featureWithBlock({ columnPicker: true, resizing: true })])).toThrow(
+      /column "title" is pinned but table\.pinning is not enabled/,
+    );
+  });
+
+  test("width and minWidth need table.resizing", () => {
+    expect(() => validateBoot([featureWithBlock({ columnPicker: true, pinning: true })])).toThrow(
+      /column "title" sets width but table\.resizing is not enabled/,
+    );
   });
 
   test("a misspelled table key is rejected with the allowed keys", () => {
@@ -148,6 +168,9 @@ export function createTaskBoardFeature(
     resetAll: true,
     columnPicker: true,
     density: { default: "comfortable", userChoice: true },
+    pinning: true,
+    resizing: true,
+    keyboardNavigation: true,
   },
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {
@@ -158,7 +181,8 @@ export function createTaskBoardFeature(
       type: "entityList",
       entity: "task",
       columns: [
-        "title",
+        // Starts pinned left; width and minWidth are start values for resizing.
+        { field: "title", pinned: "left", width: 280, minWidth: 160 },
         "status",
         "priority",
         { field: "dueDate", hideOnNarrow: true },

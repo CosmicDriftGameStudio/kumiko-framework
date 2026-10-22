@@ -6,6 +6,7 @@ import { useOptionalTranslation } from "../../../index.ts";
 import { Button as UiButton } from "../../ui/button.tsx";
 import { SegmentedControl } from "../segmented-select.tsx";
 import { ColumnPickerSection } from "./column-picker-section.tsx";
+import { PinSection } from "./pin-section.tsx";
 
 const POPOVER_CLASS =
   "z-50 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-md border bg-popover p-3 " +
@@ -13,7 +14,17 @@ const POPOVER_CLASS =
 
 const SECTION_TITLE_CLASS = "m-0 text-xs font-medium text-muted-foreground";
 
-/** Renders nothing when the view has neither a column nor a density section. */
+/** The menu also opens for pinning or resizing alone: pins get a section, widths only the reset. */
+export function viewHasMenu(view: DataTableViewOptions | undefined): view is DataTableViewOptions {
+  if (view === undefined) return false;
+  return (
+    (view.columns !== undefined && view.onColumnsChange !== undefined) ||
+    view.onDensityChange !== undefined ||
+    (view.pins !== undefined && view.onPinsChange !== undefined) ||
+    (view.widths !== undefined && view.onWidthChange !== undefined)
+  );
+}
+
 export function ViewMenu({
   view,
   columnLabels,
@@ -23,9 +34,13 @@ export function ViewMenu({
 }): ReactNode {
   const translate = useOptionalTranslation();
   const label = (key: string, fallback: string): string => translate?.(key) ?? fallback;
-  const { columns, onColumnsChange, onDensityChange } = view;
+  const { columns, onColumnsChange, onDensityChange, pins, onPinsChange } = view;
   const hasColumns = columns !== undefined && onColumnsChange !== undefined;
-  if (!hasColumns && onDensityChange === undefined) return null;
+  if (!viewHasMenu(view)) return null;
+  const pinnableFields =
+    columns !== undefined
+      ? columns.filter((column) => column.visible).map((column) => column.field)
+      : [...columnLabels.keys()];
 
   return (
     <PopoverPrimitive.Root>
@@ -78,6 +93,19 @@ export function ViewMenu({
                   { value: "compact", label: label("kumiko.list.view.density.compact", "Compact") },
                 ]}
                 labelProps={{ "aria-label": label("kumiko.list.view.density", "Density") }}
+              />
+            </section>
+          )}
+          {pins !== undefined && onPinsChange !== undefined && (
+            <section className="flex flex-col gap-1">
+              <h3 className={SECTION_TITLE_CLASS}>
+                {label("kumiko.list.view.pinning", "Pinned columns")}
+              </h3>
+              <PinSection
+                fields={pinnableFields}
+                labels={columnLabels}
+                pins={pins}
+                onChange={onPinsChange}
               />
             </section>
           )}

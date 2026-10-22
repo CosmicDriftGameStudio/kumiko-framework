@@ -61,10 +61,15 @@ export function useListTable({
     [options.resetAll, atDefault, onReset],
   );
 
-  const hasViewMenu = options.columnPicker === true || options.density !== undefined;
+  const hasView =
+    options.columnPicker === true ||
+    options.density !== undefined ||
+    options.pinning === true ||
+    options.resizing === true ||
+    options.keyboardNavigation === true;
   const view = useMemo<DataTableViewOptions | undefined>(
     () =>
-      hasViewMenu
+      hasView
         ? {
             ...(viewState.columns !== undefined && {
               columns: viewState.columns,
@@ -72,11 +77,22 @@ export function useListTable({
             }),
             density: viewState.density,
             ...(viewState.userChoosesDensity && { onDensityChange: viewState.setDensity }),
+            ...(viewState.pins !== undefined && {
+              pins: viewState.pins,
+              onPinsChange: viewState.setPins,
+            }),
+            ...(viewState.widths !== undefined &&
+              viewState.minWidths !== undefined && {
+                widths: viewState.widths,
+                minWidths: viewState.minWidths,
+                onWidthChange: viewState.setWidth,
+              }),
+            ...(options.keyboardNavigation === true && { keyboardNavigation: true }),
             viewIsDefault: viewState.viewIsDefault,
             onViewReset: viewState.resetView,
           }
         : undefined,
-    [hasViewMenu, viewState],
+    [hasView, viewState, options.keyboardNavigation],
   );
 
   return {

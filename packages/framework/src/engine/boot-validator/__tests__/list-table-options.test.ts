@@ -162,6 +162,85 @@ describe("validateBoot — list table block", () => {
     ).toThrow(/column "id" has a non-boolean "hidden"/);
   });
 
+  test.each(KINDS)("%s: a valid pinning, resizing and keyboard combination passes", (kind) => {
+    const table = { pinning: true, resizing: true, keyboardNavigation: true };
+    expect(() =>
+      validateBoot([
+        featureWith(kind, table, [
+          { field: "name", pinned: "left", width: 240, minWidth: 120 },
+          { field: "id", pinned: "right", width: 100 },
+        ]),
+      ]),
+    ).not.toThrow();
+  });
+
+  test.each(["pinning", "resizing", "keyboardNavigation"])(
+    "a non-boolean %s is rejected",
+    (key) => {
+      expect(() => validateBoot([featureWith("entityList", { [key]: "yes" })])).toThrow(
+        new RegExp(`table\\.${key} must be a boolean`),
+      );
+    },
+  );
+
+  test("pinned outside the union lists the allowed values", () => {
+    expect(() =>
+      validateBoot([
+        featureWith("entityList", { pinning: true }, [{ field: "name", pinned: "top" } as never]),
+      ]),
+    ).toThrow(/column "name" has pinned "top" — must be one of "left", "right"/);
+  });
+
+  test.each(KINDS)("%s: pinned without table.pinning is rejected", (kind) => {
+    expect(() =>
+      validateBoot([featureWith(kind, { resizing: true }, [{ field: "name", pinned: "left" }])]),
+    ).toThrow(/column "name" is pinned but table\.pinning is not enabled/);
+  });
+
+  test("pinned without any table block is rejected", () => {
+    expect(() =>
+      validateBoot([featureWith("entityList", undefined, [{ field: "name", pinned: "left" }])]),
+    ).toThrow(/column "name" is pinned but table\.pinning is not enabled/);
+  });
+
+  test.each([
+    ["negative", -5],
+    ["zero", 0],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["a string", "120"],
+  ])("a %s width is rejected", (_label, width) => {
+    expect(() =>
+      validateBoot([
+        featureWith("entityList", { resizing: true }, [{ field: "name", width } as never]),
+      ]),
+    ).toThrow(/column "name" has width .* must be a finite number of pixels greater than 0/);
+  });
+
+  test("a non-positive minWidth is rejected", () => {
+    expect(() =>
+      validateBoot([
+        featureWith("entityList", { resizing: true }, [{ field: "name", minWidth: 0 }]),
+      ]),
+    ).toThrow(/column "name" has minWidth 0/);
+  });
+
+  test("minWidth greater than width is rejected", () => {
+    expect(() =>
+      validateBoot([
+        featureWith("entityList", { resizing: true }, [
+          { field: "name", width: 100, minWidth: 200 },
+        ]),
+      ]),
+    ).toThrow(/column "name" has minWidth 200 greater than width 100/);
+  });
+
+  test.each(["width", "minWidth"] as const)("%s without table.resizing is rejected", (key) => {
+    expect(() =>
+      validateBoot([featureWith("entityList", { pinning: true }, [{ field: "name", [key]: 100 }])]),
+    ).toThrow(new RegExp(`column "name" sets ${key} but table\\.resizing is not enabled`));
+  });
+
   test("expandableRow rejects a table block that slipped past the types", () => {
     const expandableRow = {
       kind: "relatedList",

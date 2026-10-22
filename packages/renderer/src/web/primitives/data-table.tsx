@@ -1,13 +1,6 @@
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
-import {
-  Fragment,
-  type PointerEvent,
-  type ReactNode,
-  type TableHTMLAttributes,
-  useId,
-  useState,
-} from "react";
+import { Fragment, type PointerEvent, type ReactNode, useId, useState } from "react";
 import type { ListRowViewModel } from "../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../index.ts";
 import { UNIFORM_BAR_CONTROLS_CLASSES } from "../layout/uniform-bar-controls.ts";
@@ -18,12 +11,28 @@ import { CardLeadingImage } from "./file-thumbnail.tsx";
 import { screenPaddingClassName } from "./layout.tsx";
 import { useIsNarrowViewport } from "./use-narrow-viewport.ts";
 import "../react-css-custom-properties.ts";
+import { ActionsBodyCell, ActionsHeaderCell } from "./data-table/actions-column.tsx";
 import { CardSortSelect } from "./data-table/card-sort-select.tsx";
+import { isPinningActive, isResizingActive } from "./data-table/column-layout-mode.ts";
+import { ColumnResizeHandle, ColumnWidthGroup } from "./data-table/column-resize-handle.tsx";
 import { densityClasses } from "./data-table/density.ts";
 import { ResetAllButton } from "./data-table/reset-all-button.tsx";
 import { RowGroupToggle, useToggledRowGroups } from "./data-table/row-group-toggle.tsx";
+import { SortableHeader } from "./data-table/sortable-header.tsx";
+import {
+  EXPAND_TOGGLE_CELL_CLASS,
+  EXPANSION_CELL_CLASS,
+  EXPANSION_CONTENT_CLASS,
+  FILL_TABLE_CLASS,
+  FlushTable,
+  RowExpandToggle,
+} from "./data-table/table-chrome.tsx";
+import { EXPAND_COLUMN_KEY, useColumnPins } from "./data-table/use-column-pins.ts";
+import { useColumnSizing } from "./data-table/use-column-sizing.ts";
+import { useMeasuredColumnWidths } from "./data-table/use-measured-column-widths.ts";
+import { useRowKeyboardNavigation } from "./data-table/use-row-keyboard-navigation.ts";
 import { useViewColumns } from "./data-table/use-view-columns.ts";
-import { ViewMenu } from "./data-table/view-menu.tsx";
+import { ViewMenu, viewHasMenu } from "./data-table/view-menu.tsx";
 import {
   buildTableItems,
   cellLinkProp,
@@ -36,7 +45,6 @@ import {
   isUnlabeledFalse,
   NUMERIC_COLUMN_TYPES,
   rowToneClass,
-  SortableHeader,
   showsBareCheckMark,
   TABULAR_COLUMN_TYPES,
   type TableItem,
@@ -44,79 +52,6 @@ import {
 import { DateRangeFacetFilter, FacetFilter } from "./facet-filter.tsx";
 import { InfiniteSentinel, Pager, TABLE_FOOTER_BAR_CLASS } from "./pager.tsx";
 import { RowActionsCell } from "./row-actions.tsx";
-
-// The vendored Table wraps <table> in an `overflow-x-auto` container, which
-// would become the scrollport of a sticky header. A scrollBody table scrolls
-// in its parent instead, so it renders the bare <table>.
-function FlushTable({ className, ...props }: TableHTMLAttributes<HTMLTableElement>): ReactNode {
-  return (
-    <table
-      data-slot="table"
-      className={cn("w-full caption-bottom text-sm", className)}
-      {...props}
-    />
-  );
-}
-
-// Header cells stick to the scroll surface; the bottom rule is an inset
-// shadow because a border on a sticky cell scrolls away under border-collapse.
-// Column weight (medium vs. semibold for the sorted one) lives on the th itself
-// in SortableHeader: a `[&_th]:font-*` rule here would outrank it.
-// Child selectors only: an expanded row nests a whole table inside a cell, and
-// descendant selectors would make its header sticky and re-pad its cells.
-const FILL_TABLE_CLASS = cn(
-  "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-10 [&>thead>tr>th]:h-9 [&>thead>tr>th]:bg-muted [&>thead>tr>th]:px-2 [&>thead>tr>th]:text-[13px]",
-  "[&>thead>tr>th]:shadow-[inset_0_-1px_0_var(--color-border)] [&>thead>tr>th_button]:text-[13px] [&>tbody>tr>td]:px-2 [&>tbody>tr>td]:py-0",
-  "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-6",
-);
-
-// `!`: beats the first/last-child padding of FILL_TABLE_CLASS, which would
-// otherwise widen the narrow toggle column / pad the full-width expansion cell.
-// The nested table's sticky actions cell (last td) gets the muted surface
-// instead of its own md:bg-background, so it blends into the area.
-const EXPAND_TOGGLE_CELL_CLASS = "w-10 px-1! py-0!";
-
-const EXPANSION_CELL_CLASS =
-  "whitespace-normal bg-muted p-0! align-top md:[&_td:last-child]:bg-muted";
-
-const EXPANSION_CONTENT_CLASS = "pt-1 pr-4 pb-3.5 pl-[52px]";
-
-function RowExpandToggle({
-  expanded,
-  controlsId,
-  label,
-  onToggle,
-  testId,
-}: {
-  readonly expanded: boolean;
-  readonly controlsId: string;
-  readonly label: string;
-  readonly onToggle: () => void;
-  readonly testId: string;
-}): ReactNode {
-  return (
-    <UiButton
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="size-8 shrink-0 max-md:size-11"
-      aria-expanded={expanded}
-      {...(expanded && { "aria-controls": controlsId })}
-      aria-label={label}
-      data-testid={testId}
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle();
-      }}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      <ChevronRight
-        className={cn("size-4 transition-transform", expanded && "rotate-90")}
-        aria-hidden="true"
-      />
-    </UiButton>
-  );
-}
 
 function DataTableFooter({
   count,
@@ -196,7 +131,7 @@ export function DefaultDataTable({
   // affordance. Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
-  const columns = useViewColumns(schemaColumns, view, isNarrow);
+  const viewColumns = useViewColumns(schemaColumns, view, isNarrow);
   const density = densityClasses(view, scrollBody === true);
   const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
   const [toggledGroups, toggleGroup] = useToggledRowGroups();
@@ -224,6 +159,27 @@ export function DefaultDataTable({
   const isEmpty = rows.length === 0;
   const expansionIdPrefix = useId();
   const isRowExpandable = renderExpandedRow !== undefined && onToggleRowExpanded !== undefined;
+  const fillsHeight = scrollBody === true;
+  const { headerRowRef, measured } = useMeasuredColumnWidths(
+    isPinningActive(view, isNarrow) || isResizingActive(view, isNarrow),
+  );
+  const pins = useColumnPins({
+    columns: viewColumns,
+    view,
+    isNarrow,
+    measured,
+    hasActionsColumn: hasTableActions,
+    hasExpandColumn: isRowExpandable,
+    fillsHeight,
+  });
+  const columns = pins.columns;
+  const sizing = useColumnSizing({
+    columns,
+    view,
+    isNarrow,
+    measured,
+    hasExpandColumn: isRowExpandable,
+  });
   const rowTestId = (row: ListRowViewModel): string => getRowTestId?.(row) ?? `row-${row.id}`;
   const expansionDomId = (row: ListRowViewModel): string => `${expansionIdPrefix}-${row.id}`;
   // The expand toggle of a row, shared by table and card layout. Named after
@@ -273,7 +229,6 @@ export function DefaultDataTable({
       </TableRow>
     );
   }
-  const fillsHeight = scrollBody === true;
   const TableRoot = fillsHeight ? FlushTable : Table;
   const emptyBlock: ReactNode = (
     <div
@@ -288,6 +243,11 @@ export function DefaultDataTable({
   );
 
   const tableItems = buildTableItems(rows, rowGrouping, toggledGroups);
+  const keyboardRow = useRowKeyboardNavigation({
+    view,
+    isNarrow,
+    rowIds: tableItems.flatMap((item) => (item.kind === "row" ? [item.row.id] : [])),
+  });
 
   function renderGroupToggle(item: Extract<TableItem, { kind: "group" }>): ReactNode {
     return (
@@ -302,6 +262,8 @@ export function DefaultDataTable({
 
   function tableInner(): ReactNode {
     if (isEmpty) return emptyBlock;
+    const expandHeaderPin = pins.headerCell(EXPAND_COLUMN_KEY);
+    const expandBodyPin = pins.bodyCell(EXPAND_COLUMN_KEY);
     return (
       // dashboard-01 pattern: `rounded-lg border` frame, the header row
       // carries the bg-muted gray. `bg-card` (instead of transparent) -> the list
@@ -318,38 +280,57 @@ export function DefaultDataTable({
           !fillsHeight && chromeless !== true && "rounded-lg border bg-card",
         )}
       >
-        <TableRoot data-testid={testId} className={fillsHeight ? FILL_TABLE_CLASS : undefined}>
+        <TableRoot
+          data-testid={testId}
+          className={fillsHeight ? FILL_TABLE_CLASS : undefined}
+          {...(sizing !== undefined && { style: sizing.tableStyle })}
+        >
+          {sizing !== undefined && (
+            <ColumnWidthGroup
+              fields={columns.map((col) => col.field)}
+              sizing={sizing}
+              hasExpandColumn={isRowExpandable}
+              hasActionsColumn={hasTableActions}
+            />
+          )}
           <TableHeader className="bg-muted">
-            <TableRow className="hover:bg-transparent">
+            <TableRow ref={headerRowRef} className="hover:bg-transparent">
               {isRowExpandable && (
-                <TableHead data-testid="column-expand" className={EXPAND_TOGGLE_CELL_CLASS} />
-              )}
-              {columns.map((col) => (
-                <SortableHeader
-                  key={col.field}
-                  field={col.field}
-                  label={col.label}
-                  sortable={col.sortable === true}
-                  highlighted={col.highlighted === true}
-                  numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
-                  fitContent={col.fileDisplay !== undefined}
-                  className={density.header}
-                  {...(sort !== undefined && sort !== null && { sort })}
-                  {...(onSortChange !== undefined && { onSortChange })}
-                />
-              ))}
-              {hasTableActions && (
                 <TableHead
-                  data-testid="column-actions"
-                  // From md: sticky right-0 + bg-muted (= header tone) so the
-                  // action column stays at the right edge during horizontal
-                  // scroll on wider screens. Below md, actions scroll in
-                  // normal flow — sticky there would pin the column over the
-                  // preceding data column instead of the (already narrow)
-                  // page edge. No border-l: a permanent divider looks heavy;
-                  // the sticky bg already sets the column apart during scroll.
-                  className="w-px text-right text-muted-foreground md:sticky md:right-0 md:z-10 md:bg-muted"
-                  aria-label={tableTranslate?.("kumiko.list.actions") ?? "Actions"}
+                  data-testid="column-expand"
+                  className={cn(EXPAND_TOGGLE_CELL_CLASS, expandHeaderPin.className)}
+                  style={expandHeaderPin.style}
+                />
+              )}
+              {columns.map((col) => {
+                const headerPin = pins.headerCell(col.field);
+                return (
+                  <SortableHeader
+                    key={col.field}
+                    field={col.field}
+                    label={col.label}
+                    sortable={col.sortable === true}
+                    highlighted={col.highlighted === true}
+                    numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
+                    fitContent={col.fileDisplay !== undefined}
+                    className={cn(density.header, headerPin.className)}
+                    style={headerPin.style}
+                    columnField={headerPin.columnField}
+                    trailing={
+                      sizing && (
+                        <ColumnResizeHandle field={col.field} label={col.label} sizing={sizing} />
+                      )
+                    }
+                    {...(sort !== undefined && sort !== null && { sort })}
+                    {...(onSortChange !== undefined && { onSortChange })}
+                  />
+                );
+              })}
+              {hasTableActions && (
+                <ActionsHeaderCell
+                  label={tableTranslate?.("kumiko.list.actions") ?? "Actions"}
+                  style={pins.actionsHeaderStyle}
+                  absorbsLeftover={sizing !== undefined}
                 />
               )}
             </TableRow>
@@ -372,6 +353,10 @@ export function DefaultDataTable({
               }
               const row = item.row;
               const opensOnClick = rowIsLink && !rowClickIsHidden(row);
+              const keyboard = keyboardRow(
+                row.id,
+                opensOnClick ? () => onRowClick(row) : undefined,
+              );
               return (
                 <Fragment key={row.id}>
                   <TableRow
@@ -383,93 +368,95 @@ export function DefaultDataTable({
                       opensOnClick && "cursor-pointer",
                       fillsHeight && "h-10 border-border-row hover:bg-muted",
                       density.row,
+                      keyboard.className,
                     )}
+                    {...keyboard.props}
                   >
                     {isRowExpandable && (
                       <TableCell
                         data-testid={getCellTestId?.(row, "expand") ?? `cell-${row.id}-expand`}
-                        className={EXPAND_TOGGLE_CELL_CLASS}
+                        className={cn(EXPAND_TOGGLE_CELL_CLASS, expandBodyPin.className)}
+                        style={expandBodyPin.style}
                       >
                         {renderExpandToggle(row)}
                       </TableCell>
                     )}
-                    {columns.map((col, colIndex) => (
-                      <TableCell
-                        key={col.field}
-                        data-testid={
-                          getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`
-                        }
-                        data-highlighted={col.highlighted === true ? "true" : undefined}
-                        // Text wraps instead of truncating: nowrap cells keep their
-                        // full width, so a wide table scrolled sideways and its
-                        // last column slid under the sticky actions column with
-                        // nothing visibly cut off. max-w-xs bounds a single column;
-                        // badges and dates stay nowrap by their own classes.
-                        className={cn(
-                          col.fileDisplay === undefined
-                            ? "max-w-xs whitespace-normal break-words"
-                            : FIT_CONTENT_CELL_CLASS,
-                          colIndex === 0
-                            ? "font-medium text-foreground"
-                            : "text-foreground-secondary",
-                          NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
-                          TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
-                          col.highlighted === true && "bg-accent/40",
-                          density.cell,
-                        )}
-                        title={cellTitle(row.values[col.field])}
-                      >
-                        <FirstCellLink
-                          enabled={colIndex === 0 && opensOnClick && onCellChange === undefined}
-                          onOpen={() => onRowClick?.(row)}
-                          empty={isEmptyCellValue(row.values[col.field])}
-                          emptyLabel={rowClickLabel}
+                    {columns.map((col, colIndex) => {
+                      const bodyPin = pins.bodyCell(col.field);
+                      return (
+                        <TableCell
+                          key={col.field}
+                          data-testid={
+                            getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`
+                          }
+                          data-highlighted={col.highlighted === true ? "true" : undefined}
+                          // Text wraps instead of truncating: nowrap cells keep their
+                          // full width, so a wide table scrolled sideways and its
+                          // last column slid under the sticky actions column with
+                          // nothing visibly cut off. max-w-xs bounds a single column;
+                          // badges and dates stay nowrap by their own classes.
+                          className={cn(
+                            col.fileDisplay === undefined
+                              ? cn(
+                                  sizing ? "overflow-hidden" : "max-w-xs",
+                                  "whitespace-normal break-words",
+                                )
+                              : FIT_CONTENT_CELL_CLASS,
+                            colIndex === 0
+                              ? "font-medium text-foreground"
+                              : "text-foreground-secondary",
+                            NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
+                            TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
+                            col.highlighted === true && "bg-accent/40",
+                            density.cell,
+                            bodyPin.className,
+                          )}
+                          style={bodyPin.style}
+                          title={cellTitle(row.values[col.field])}
                         >
-                          <DataTableCell
-                            value={row.values[col.field]}
-                            row={row.values}
-                            field={col.field}
-                            type={col.type}
-                            renderer={col.renderer}
-                            translate={tableTranslate}
-                            locale={tableLocale}
-                            {...(col.optionLabels !== undefined && {
-                              optionLabels: col.optionLabels,
-                            })}
-                            {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
-                            {...(col.grouping !== undefined && { grouping: col.grouping })}
-                            {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay })}
-                            {...(onCellChange !== undefined && {
-                              onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-                            })}
-                            {...cellLinkProp(
-                              col,
-                              row,
-                              !(colIndex === 0 && opensOnClick && onCellChange === undefined),
-                            )}
-                          />
-                        </FirstCellLink>
-                      </TableCell>
-                    ))}
+                          <FirstCellLink
+                            enabled={colIndex === 0 && opensOnClick && onCellChange === undefined}
+                            onOpen={() => onRowClick?.(row)}
+                            empty={isEmptyCellValue(row.values[col.field])}
+                            emptyLabel={rowClickLabel}
+                          >
+                            <DataTableCell
+                              value={row.values[col.field]}
+                              row={row.values}
+                              field={col.field}
+                              type={col.type}
+                              renderer={col.renderer}
+                              translate={tableTranslate}
+                              locale={tableLocale}
+                              {...(col.optionLabels !== undefined && {
+                                optionLabels: col.optionLabels,
+                              })}
+                              {...(col.optionTones !== undefined && {
+                                optionTones: col.optionTones,
+                              })}
+                              {...(col.grouping !== undefined && { grouping: col.grouping })}
+                              {...(col.fileDisplay !== undefined && {
+                                fileDisplay: col.fileDisplay,
+                              })}
+                              {...(onCellChange !== undefined && {
+                                onChange: (value: unknown) =>
+                                  onCellChange(row.id, col.field, value),
+                              })}
+                              {...cellLinkProp(
+                                col,
+                                row,
+                                !(colIndex === 0 && opensOnClick && onCellChange === undefined),
+                              )}
+                            />
+                          </FirstCellLink>
+                        </TableCell>
+                      );
+                    })}
                     {hasTableActions && (
-                      <TableCell
-                        data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
-                        // From md: sticky-right so the actions stay visible on the
-                        // right edge during horizontal scroll. Below md, actions
-                        // scroll with the row like any other cell — sticky there
-                        // would hide the neighboring data column on narrow
-                        // viewports. bg-background sets the column apart during
-                        // scroll — no border-l (divider too heavy).
-                        className={cn(
-                          "whitespace-nowrap text-right md:sticky md:right-0 md:z-10 md:bg-background",
-                          fillsHeight && "md:bg-card",
-                        )}
-                        // Action-cell events must not trigger the row click/activation
-                        // (typically "Open Detail" — the user wanted the action,
-                        // not navigation). We stopPropagation for mouse and
-                        // keyboard so a11y stays consistent.
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
+                      <ActionsBodyCell
+                        testId={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
+                        fillsHeight={fillsHeight}
+                        measureContent={sizing !== undefined}
                       >
                         <RowActionsCell
                           row={row}
@@ -477,7 +464,7 @@ export function DefaultDataTable({
                           mode={rowActionMode}
                           rowIsLink={rowIsLink}
                         />
-                      </TableCell>
+                      </ActionsBodyCell>
                     )}
                   </TableRow>
                   {renderExpansion(
@@ -797,11 +784,7 @@ export function DefaultDataTable({
     ) : undefined;
 
   const columnLabels = new Map(schemaColumns.map((col) => [col.field, col.label]));
-  const hasViewMenu =
-    view !== undefined &&
-    ((view.columns !== undefined && view.onColumnsChange !== undefined) ||
-      view.onDensityChange !== undefined);
-  const viewMenu = hasViewMenu ? <ViewMenu view={view} columnLabels={columnLabels} /> : null;
+  const viewMenu = viewHasMenu(view) ? <ViewMenu view={view} columnLabels={columnLabels} /> : null;
 
   const collapsesFacetsBehindButton = isNarrow && fillsHeight && facetCluster !== undefined;
   const hasToolbar =

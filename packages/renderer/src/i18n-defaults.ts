@@ -108,6 +108,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.view.density.compact": "Compact",
     "kumiko.list.view.reset": "Reset view",
     "kumiko.list.view.column.move-up": "Move {column} up",
+    "kumiko.list.view.pinning": "Pinned columns",
+    "kumiko.list.view.pin-left": "Pin {column} left",
+    "kumiko.list.view.pin-right": "Pin {column} right",
+    "kumiko.list.column.resize": "Resize {column}",
     "kumiko.list.view.column.move-down": "Move {column} down",
     "kumiko.list.related-list-truncated":
       "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",

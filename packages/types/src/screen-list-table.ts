@@ -1,11 +1,17 @@
 export const LIST_TABLE_DENSITIES = ["comfortable", "compact"] as const;
 export type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];
 
+export const LIST_COLUMN_PINS = ["left", "right"] as const;
+export type ListColumnPin = (typeof LIST_COLUMN_PINS)[number];
+
 export const LIST_TABLE_OPTION_KEYS = [
   "rememberState",
   "resetAll",
   "columnPicker",
   "density",
+  "pinning",
+  "resizing",
+  "keyboardNavigation",
 ] as const;
 export const LIST_TABLE_DENSITY_KEYS = ["default", "userChoice"] as const;
 
@@ -17,6 +23,12 @@ export type ListTableOptions = {
   readonly resetAll?: boolean;
   /** Lets the user hide and reorder columns in the view menu. Columns marked `hidden` start hidden. */
   readonly columnPicker?: boolean;
+  /** Lets the user pin columns left or right in the view menu; columns may start pinned via `pinned`. Pinned columns stay sticky while scrolling horizontally. No effect in the card layout below `md`. */
+  readonly pinning?: boolean;
+  /** Switches the table to table-layout fixed; the user drags or uses the arrow keys on the header edge to resize. `width` and `minWidth` on a column are start values; widths are remembered per session. No effect in the card layout. */
+  readonly resizing?: boolean;
+  /** Rows become one tab stop; ArrowUp/ArrowDown move, Home/End jump, Enter runs the row click. Space stays reserved for selection. */
+  readonly keyboardNavigation?: boolean;
   readonly density?: {
     /** Row density on first visit. Default "comfortable". */
     readonly default?: ListTableDensity;

@@ -1,15 +1,41 @@
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { ListColumnSpec, ListTableOptions } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  ListColumnPin,
+  ListColumnSpec,
+  ListTableOptions,
+} from "@cosmicdrift/kumiko-types/screen";
 import { useCallback, useMemo, useState } from "react";
 import type { ListStateStore } from "../components/list-state-store.tsx";
-import type { DataTableDensity, DataTableViewColumn } from "../data-table-view-types.ts";
+import type {
+  DataTableColumnPins,
+  DataTableColumnWidths,
+  DataTableDensity,
+  DataTableViewColumn,
+} from "../data-table-view-types.ts";
+import {
+  clampWidth,
+  DEFAULT_MIN_COLUMN_WIDTH_PX,
+  defaultPins,
+  defaultWidths,
+  mergeSavedWidths,
+  minWidthsOf,
+  sameRecord,
+} from "./list-column-layout.ts";
 import { sanitizeStoredListState } from "./list-state-schema.ts";
 
-export type ListViewSchemaColumn = { readonly field: string; readonly hidden?: boolean };
+export type ListViewSchemaColumn = {
+  readonly field: string;
+  readonly hidden?: boolean;
+  readonly pinned?: ListColumnPin;
+  readonly width?: number;
+  readonly minWidth?: number;
+};
 
 type ViewState = {
   readonly columns: readonly DataTableViewColumn[];
   readonly density: DataTableDensity;
+  readonly pins: DataTableColumnPins;
+  readonly widths: DataTableColumnWidths;
 };
 
 export type ListViewState = {
@@ -19,14 +45,27 @@ export type ListViewState = {
   readonly userChoosesDensity: boolean;
   readonly setColumns: (next: readonly DataTableViewColumn[]) => void;
   readonly setDensity: (next: DataTableDensity) => void;
+  /** Undefined unless `table.pinning` is on. */
+  readonly pins: DataTableColumnPins | undefined;
+  readonly setPins: (next: DataTableColumnPins) => void;
+  /** Undefined unless `table.resizing` is on. */
+  readonly widths: DataTableColumnWidths | undefined;
+  readonly minWidths: DataTableColumnWidths | undefined;
+  readonly setWidth: (field: string, width: number) => void;
   readonly resetView: () => void;
   readonly viewIsDefault: boolean;
 };
 
 export function listViewSchemaColumns(columns: readonly ListColumnSpec[]): ListViewSchemaColumn[] {
   return columns.map((column) => {
-    const { field, hidden } = normalizeListColumn(column);
-    return { field, ...(hidden === true && { hidden }) };
+    const { field, hidden, pinned, width, minWidth } = normalizeListColumn(column);
+    return {
+      field,
+      ...(hidden === true && { hidden }),
+      ...(pinned !== undefined && { pinned }),
+      ...(width !== undefined && { width }),
+      ...(minWidth !== undefined && { minWidth }),
+    };
   });
 }
 
@@ -88,6 +127,12 @@ function readInitialView(args: ViewStateArgs, defaults: ViewState): ViewState {
     columns: hasVisibleColumn(merged) ? merged : defaults.columns,
     density:
       args.table.density?.userChoice === true && saved?.density ? saved.density : defaults.density,
+    // Saved pins replace the schema pins entirely, so the user can release a schema pin.
+    pins: args.table.pinning === true && saved?.pins !== undefined ? saved.pins : defaults.pins,
+    widths:
+      args.table.resizing === true && saved?.widths !== undefined
+        ? mergeSavedWidths(defaults.widths, saved.widths, minWidthsOf(args.schemaColumns))
+        : defaults.widths,
   };
 }
 
@@ -97,12 +142,17 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
   const { storeKey, store, table, schemaColumns } = args;
   const columnPicker = table.columnPicker === true;
   const userChoosesDensity = table.density?.userChoice === true;
+  const pinning = table.pinning === true;
+  const resizing = table.resizing === true;
+  const minWidths = useMemo(() => minWidthsOf(schemaColumns), [schemaColumns]);
   const defaults = useMemo<ViewState>(
     () => ({
       columns: schemaDefaultColumns(schemaColumns),
       density: table.density?.default ?? "comfortable",
+      pins: pinning ? defaultPins(schemaColumns) : {},
+      widths: resizing ? defaultWidths(schemaColumns, minWidths) : {},
     }),
-    [schemaColumns, table.density?.default],
+    [schemaColumns, table.density?.default, pinning, resizing, minWidths],
   );
 
   const [seeded, setSeeded] = useState(() => ({
@@ -120,10 +170,12 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
         view: {
           ...(columnPicker && { columns: next.columns }),
           ...(userChoosesDensity && { density: next.density }),
+          ...(pinning && { pins: next.pins }),
+          ...(resizing && { widths: next.widths }),
         },
       });
     },
-    [store, storeKey, columnPicker, userChoosesDensity],
+    [store, storeKey, columnPicker, userChoosesDensity, pinning, resizing],
   );
 
   const setColumns = useCallback(
@@ -138,6 +190,21 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
     (next: DataTableDensity) => commit({ ...view, density: next }),
     [commit, view],
   );
+  const setPins = useCallback(
+    (next: DataTableColumnPins) => commit({ ...view, pins: next }),
+    [commit, view],
+  );
+  const setWidth = useCallback(
+    (field: string, width: number) =>
+      commit({
+        ...view,
+        widths: {
+          ...view.widths,
+          [field]: clampWidth(width, minWidths[field] ?? DEFAULT_MIN_COLUMN_WIDTH_PX),
+        },
+      }),
+    [commit, view, minWidths],
+  );
   const resetView = useCallback(() => {
     setSeeded({ storeKey, view: defaults });
     const { view: _dropped, ...rest } = store.read(storeKey) ?? {};
@@ -150,9 +217,16 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
     userChoosesDensity,
     setColumns,
     setDensity,
+    pins: pinning ? view.pins : undefined,
+    setPins,
+    widths: resizing ? view.widths : undefined,
+    minWidths: resizing ? minWidths : undefined,
+    setWidth,
     resetView,
     viewIsDefault:
       view.density === defaults.density &&
-      (!columnPicker || sameColumns(view.columns, defaults.columns)),
+      (!columnPicker || sameColumns(view.columns, defaults.columns)) &&
+      (!pinning || sameRecord(view.pins, defaults.pins)) &&
+      (!resizing || sameRecord(view.widths, defaults.widths)),
   };
 }

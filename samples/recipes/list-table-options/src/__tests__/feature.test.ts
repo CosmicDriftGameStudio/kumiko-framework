@@ -26,7 +26,22 @@ describe("list-table-options recipe", () => {
       resetAll: true,
       columnPicker: true,
       density: { default: "comfortable", userChoice: true },
+      pinning: true,
+      resizing: true,
+      keyboardNavigation: true,
     });
+  });
+
+  test("a pinned column needs table.pinning", () => {
+    expect(() => validateBoot([featureWithBlock({ columnPicker: true, resizing: true })])).toThrow(
+      /column "title" is pinned but table\.pinning is not enabled/,
+    );
+  });
+
+  test("width and minWidth need table.resizing", () => {
+    expect(() => validateBoot([featureWithBlock({ columnPicker: true, pinning: true })])).toThrow(
+      /column "title" sets width but table\.resizing is not enabled/,
+    );
   });
 
   test("a misspelled table key is rejected with the allowed keys", () => {

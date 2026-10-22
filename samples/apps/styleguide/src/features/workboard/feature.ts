@@ -79,6 +79,37 @@ export const workboardFeature = defineFeature("workboard", (r) => {
     ],
   });
 
+  // The same tasks as a spreadsheet-like board: fixed column widths, a pinned title,
+  // keyboard navigation between rows.
+  r.screen({
+    id: "task-board",
+    type: "entityList",
+    entity: "task",
+    columns: [
+      { field: "title", pinned: "left", width: 260, minWidth: 140 },
+      { field: "status", width: 180, minWidth: 100 },
+      { field: "priority", width: 180, minWidth: 100 },
+      { field: "dueDate", width: 180, minWidth: 100, hideOnNarrow: true },
+      { field: "assignee", width: 220, minWidth: 100, hideOnNarrow: true },
+      { field: "estimateHours", width: 180, minWidth: 100, hideOnNarrow: true },
+    ],
+    pagination: "pages",
+    pageSize: 25,
+    defaultSort: { field: "dueDate", dir: "asc" },
+    searchable: true,
+    table: {
+      rememberState: true,
+      columnPicker: true,
+      pinning: true,
+      resizing: true,
+      keyboardNavigation: true,
+      density: { default: "comfortable", userChoice: true },
+    },
+    rowActions: [
+      { kind: "navigate", id: "edit", label: "Edit", screen: "task-edit", rowClick: true },
+    ],
+  });
+
   r.screen({
     id: "task-edit",
     type: "entityEdit",
@@ -103,5 +134,13 @@ export const workboardFeature = defineFeature("workboard", (r) => {
     screen: "workboard:screen:task-list",
     icon: "table",
     order: 10,
+  });
+  r.nav({
+    id: "task-board",
+    label: "workboard:nav.board",
+    parent: "workboard:nav:workboard",
+    screen: "workboard:screen:task-board",
+    icon: "table",
+    order: 20,
   });
 });
