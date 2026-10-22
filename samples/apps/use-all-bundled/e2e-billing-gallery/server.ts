@@ -30,12 +30,16 @@ const port = Number.parseInt(process.env["PORT"] ?? "4196", 10);
 
 const BILLING_FEATURE = "billing-foundation";
 const EMAIL_FEATURE = "channel-email";
-// The stock app mounts Mollie; the gallery's provider choice is the two mocks.
-const MOLLIE_FEATURE = "subscription-mollie";
+// The stock app mounts the real Mollie and Dodo providers; the gallery's
+// provider choice is the two mocks, which never call out.
+const REAL_PROVIDER_FEATURES: ReadonlySet<string> = new Set([
+  "subscription-mollie",
+  "subscription-dodo",
+]);
 
 const features = [
   ...devAppOptions.features
-    .filter((feature) => feature.name !== MOLLIE_FEATURE)
+    .filter((feature) => !REAL_PROVIDER_FEATURES.has(feature.name))
     .map((feature) => {
       if (feature.name === BILLING_FEATURE)
         return createGalleryBillingFeature(`http://localhost:${port}`);
