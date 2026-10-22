@@ -7,7 +7,8 @@ import type {
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ListGroupPageBridges } from "../components/list-group-page-bridges.tsx";
 import { RenderList } from "../components/render-list.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
@@ -16,7 +17,6 @@ import { rendererWarn } from "../dev-console.ts";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import { computeRelatedListSectionViewModel } from "../headless/index.ts";
 import { useListUrlState } from "../hooks/use-list-url-state.ts";
-import { useQuery } from "../hooks/use-query.ts";
 import { useTranslation } from "../i18n.tsx";
 import { type DataTableFacet, type DataTableRowAction, usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
@@ -52,7 +52,6 @@ import {
   buildWriteHandlerRowAction,
   findRowClickAction,
   navigateActionSearchParams,
-  refetchAfterWrite,
   runDrawerRowAction,
 } from "./row-actions.ts";
 import { findEditScreenFor } from "./screen-access.ts";
@@ -60,10 +59,10 @@ import {
   buildListQueryPayload,
   entityQueryCommand,
   isEntityEditScreenOfEntity,
-  type PagedRows,
-  pageSizeOptionsFor,
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
+import { useEntityRangeFacets } from "./use-entity-range-facets.ts";
+import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
 export function EntityListScreen({
@@ -150,28 +149,17 @@ function EntityListBody({
   const paginationMode = screen.pagination ?? "pages";
   const usePager = paginationMode === "pages";
   const useInfinite = paginationMode === "infinite";
-
-  // Infinite scroll: local state accumulates rows across several useQuery
-  // calls (instead of replacing them like the pager). The cursor changes when
-  // the user reaches the bottom sentinel; on a sort/q change everything is
-  // reset, since the insert order of the accumulated rows would otherwise be
-  // inconsistent with the new sorting.
-  const [accumulated, setAccumulated] = useState<readonly Readonly<Record<string, unknown>>[]>([]);
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
-  const [hasMore, setHasMore] = useState(true);
-  // Ref so the useEffect cleanup does not see stale state.
-  const sortQRef = useRef<string>("");
-  const sortQKey = `${urlState.q}|${effectiveSort?.field ?? ""}|${effectiveSort?.dir ?? ""}`;
-  // Reset rows + cursor on a sort/q change, before the next useQuery so the
-  // reload starts with cursor=undefined.
-  useEffect(() => {
-    if (!useInfinite) return;
-    if (sortQRef.current === sortQKey) return;
-    sortQRef.current = sortQKey;
-    setAccumulated([]);
-    setCursor(undefined);
-    setHasMore(true);
-  }, [useInfinite, sortQKey]);
+  // Hook order: ALL hooks before the early return for loading/error,
+  // otherwise the hook slots collide between renders.
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  const range = useEntityRangeFacets({
+    fields: entity.fields,
+    screen,
+    featureName,
+    translate: effectiveTranslate,
+    urlState,
+  });
 
   // User-selected faceted filters from the URL state -> payload.filters.
   // typeOf reads the field type straight from entity.fields (not gated on
@@ -197,7 +185,7 @@ function EntityListBody({
       usePager,
       page: urlState.page,
       useInfinite,
-      cursor,
+      cursor: undefined,
     });
     // Screen filter (tier 2.7c), declared by the author on the schema and
     // independent of the user's q search. Several buckets of the same entity
@@ -206,9 +194,8 @@ function EntityListBody({
     if (screen.filter !== undefined) {
       payload["filter"] = screen.filter;
     }
-    if (filterPayload.length > 0) {
-      payload["filters"] = filterPayload;
-    }
+    const filters = [...filterPayload, ...range.rangeFilters];
+    if (filters.length > 0) payload["filters"] = filters;
     return payload;
   }, [
     limit,
@@ -216,69 +203,15 @@ function EntityListBody({
     effectiveSort,
     screen.filter,
     filterPayload,
+    range.rangeFilters,
     usePager,
     urlState.page,
     useInfinite,
-    cursor,
   ]);
-
-  const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
 
   // Facet counts come from their own queries, which a write leaves untouched.
   const [facetCountRefreshNonce, setFacetCountRefreshNonce] = useState(0);
   const refreshFacetCounts = useCallback(() => setFacetCountRefreshNonce((n) => n + 1), []);
-
-  const refreshRowsAfterWrite = useCallback(async () => {
-    refreshFacetCounts();
-    if (useInfinite) {
-      setAccumulated([]);
-      setCursor(undefined);
-      setHasMore(true);
-      return;
-    }
-    await refetchAfterWrite(rowsQuery.refetch);
-  }, [useInfinite, rowsQuery.refetch, refreshFacetCounts]);
-
-  // Infinite scroll: on every successful result append the rows and derive
-  // hasMore from nextCursor. Live updates (postgres NOTIFY) and initial loads
-  // both pass through here; the useEffect dependency array pins the dedup to
-  // the last processed data pointer.
-  const lastDataRef = useRef<PagedRows | null>(null);
-  useEffect(() => {
-    if (!useInfinite) return;
-    const data = rowsQuery.data;
-    if (data === null) return;
-    if (data === lastDataRef.current) return;
-    lastDataRef.current = data;
-    setAccumulated((prev) => {
-      // When cursor is undefined this is the first page after a sort/q change:
-      // replace everything instead of appending. Otherwise dedupe on id in case
-      // live updates bring in an entry on the next page that was already appended.
-      if (cursor === undefined) return data.rows;
-      const seen = new Set<unknown>(prev.map((r) => r["id"]));
-      const fresh = data.rows.filter((r) => !seen.has(r["id"]));
-      return [...prev, ...fresh];
-    });
-    setHasMore(data.nextCursor !== null);
-  }, [rowsQuery.data, useInfinite, cursor]);
-
-  const loadMore = useCallback(() => {
-    if (!useInfinite) return;
-    if (rowsQuery.loading) return;
-    const data = rowsQuery.data;
-    if (data?.nextCursor === undefined || data.nextCursor === null) return;
-    setCursor(data.nextCursor);
-  }, [useInfinite, rowsQuery.loading, rowsQuery.data]);
-
-  // RowActions: schema form (handler QN + i18n key) -> resolved form
-  // (dispatcher call + translated strings). dispatcher.write knows the user
-  // internally (JWT cookie). The schema may contain raw strings as well as
-  // i18n keys; translate() returns the key when the bundle does not know it
-  // (convention everywhere in the renderer).
-  // Hook order: ALL hooks before the early return for loading/error,
-  // otherwise the hook slots collide between renders.
-  const t = useTranslation();
-  const effectiveTranslate = translate ?? t;
 
   // Faceted filter: one dropdown per filterable select/boolean/reference field.
   // Labels + select option labels use the same i18n convention as the column
@@ -289,15 +222,30 @@ function EntityListBody({
     [entity.fields, featureName, screen.entity, effectiveTranslate],
   );
   const facetFilterFields = useMemo(
-    () => entityFacetSpecs.map((spec) => spec.field),
-    [entityFacetSpecs],
+    () => [...entityFacetSpecs.map((spec) => spec.field), ...range.rangeFields],
+    [entityFacetSpecs, range.rangeFields],
   );
   const listTable = useScreenListTable({
     screen,
-    featureName: featureName,
+    featureName,
     payload: queryPayload,
     filterFields: facetFilterFields,
+    queryType,
+    pageSize: limit,
+    paging: useInfinite ? "cursor" : "offset",
+    translate: effectiveTranslate,
   });
+  const listRows = useScreenListRows({
+    queryType,
+    payload: queryPayload,
+    infinite: useInfinite,
+    aggregates: listTable.aggregates,
+  });
+  const { refreshAfterWrite: refreshListAfterWrite } = listRows;
+  const refreshRowsAfterWrite = useCallback(async () => {
+    refreshFacetCounts();
+    await refreshListAfterWrite();
+  }, [refreshFacetCounts, refreshListAfterWrite]);
   const [entityReferenceFacetOptions, setEntityReferenceFacetOptions] = useState<
     Record<string, readonly ReferenceFacetOption[]>
   >({});
@@ -328,10 +276,13 @@ function EntityListBody({
     () =>
       buildFacetCountRequests(entityFacetSpecs, screen.facets, effectiveTranslate).map(
         (request) => {
-          const filters = buildFilterPayload(
-            { ...urlState.filters, [request.field]: request.values },
-            (field) => entity.fields[field]?.type,
-          );
+          const filters = [
+            ...buildFilterPayload(
+              { ...urlState.filters, [request.field]: request.values },
+              (field) => entity.fields[field]?.type,
+            ),
+            ...range.rangeFilters,
+          ];
           return {
             key: request.key,
             payload: {
@@ -352,6 +303,7 @@ function EntityListBody({
       urlState.filters,
       urlState.q,
       entity.fields,
+      range.rangeFilters,
     ],
   );
 
@@ -574,24 +526,24 @@ function EntityListBody({
     ],
   );
 
-  if (rowsQuery.loading && rowsQuery.data === null) {
+  if (listRows.firstLoad) {
     return <QueryLoadingBanner />;
   }
-  if (rowsQuery.error && rowsQuery.data === null) {
+  if (listRows.error && !listRows.hasData) {
     return (
       <QueryErrorBanner
-        error={rowsQuery.error}
+        error={listRows.error}
         translate={effectiveTranslate}
-        onRetry={rowsQuery.refetch}
+        onRetry={listRows.retry}
       />
     );
   }
   // A failed refetch keeps the last good data on screen.
-  const refetchErrorBanner = rowsQuery.error ? (
+  const refetchErrorBanner = listRows.error ? (
     <QueryErrorBanner
-      error={rowsQuery.error}
+      error={listRows.error}
       translate={effectiveTranslate}
-      onRetry={rowsQuery.refetch}
+      onRetry={listRows.retry}
     />
   ) : null;
 
@@ -627,26 +579,12 @@ function EntityListBody({
   // Assemble pager props only for pagination="pages". The server total
   // arrives async; until it is there RenderList renders the table without a
   // pager (the pager has its own total>0 guard).
-  const total = rowsQuery.data?.total;
-  const pager =
-    usePager && total !== undefined
-      ? {
-          page: urlState.page,
-          limit,
-          total,
-          onPageChange: urlState.setPage,
-          pageSizeOptions: pageSizeOptionsFor(limit),
-          onPageSizeChange: urlState.setPageSize,
-        }
-      : undefined;
-
-  // In infinite mode rows come from accumulated (collected across several
-  // useQuery calls), with pages/false from the current result.
-  const renderRows = useInfinite ? accumulated : (rowsQuery.data?.rows ?? []);
+  const pager = listPager({ usePager, page: listRows.page, limit, urlState });
 
   return (
     <>
       {refetchErrorBanner}
+      <ListGroupPageBridges {...listTable.aggregates.groupPages} />
       <ReferenceFacetBridges specs={entityFacetSpecs} onOptions={handleEntityFacetOptions} />
       <FacetCountBridges
         queryType={queryType}
@@ -657,7 +595,7 @@ function EntityListBody({
       <RenderList
         screen={screen}
         entity={entity}
-        rows={renderRows}
+        rows={listRows.rows}
         featureName={featureName}
         searchable={searchable}
         narrowed={isListNarrowed(urlState.q, urlState.filters, defaultFilters)}
@@ -679,21 +617,20 @@ function EntityListBody({
         {...(screen.rowActionMode !== undefined && { rowActionMode: screen.rowActionMode })}
         {...(bulk !== undefined && { bulk })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
-        {...(useInfinite && {
-          onReachEnd: loadMore,
-          loadingMore: rowsQuery.loading,
-          hasMore,
-        })}
+        {...listRows.infinite}
         {...(onCreate !== undefined && { onCreate })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-        {...(filterFacets.length > 0 && {
-          filterFacets,
+        {...(filterFacets.length > 0 && { filterFacets, onFilterChange: urlState.setFilter })}
+        {...(range.rangeFacets.length > 0 && {
+          rangeFacets: range.rangeFacets,
+          onRangeChange: range.onRangeChange,
+        })}
+        {...((filterFacets.length > 0 || range.rangeFacets.length > 0) && {
           filterValues: urlState.filters,
-          onFilterChange: urlState.setFilter,
           onFilterReset: urlState.clearFilters,
         })}
-        {...listTable}
+        {...listTable.props}
         {...(expandableSection !== undefined && {
           expandedRowIds,
           onToggleRowExpanded: toggleRowExpanded,
@@ -711,8 +648,7 @@ function EntityListBody({
         onSuccess={() => {
           closeDrawer();
           invalidateExpansions();
-          refreshFacetCounts();
-          void rowsQuery.refetch();
+          void refreshRowsAfterWrite();
         }}
       />
     </>

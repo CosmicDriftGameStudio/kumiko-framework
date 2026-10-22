@@ -60,6 +60,43 @@ describe("useListViewState", () => {
     renderHook(() => useListViewState({ storeKey: "k", store, table: {}, schemaColumns }));
     expect(store.read("k")).toBeUndefined();
   });
+
+  test("grouping starts on the declared field and remembers the user's choice, including off", () => {
+    const store = createMemoryListStateStore();
+    const args = {
+      storeKey: "orders",
+      store,
+      table: { grouping: { field: "city", userChoice: true, fields: ["age", "city"] } },
+      schemaColumns,
+    };
+    const first = renderHook(() => useListViewState(args));
+    expect(first.result.current.groupBy).toBe("city");
+    expect(first.result.current.groupByFields).toEqual(["city", "age"]);
+
+    act(() => first.result.current.setGroupBy(""));
+    expect(first.result.current.viewIsDefault).toBe(false);
+    first.unmount();
+
+    const second = renderHook(() => useListViewState(args));
+    expect(second.result.current.groupBy).toBe("");
+    act(() => second.result.current.resetView());
+    expect(second.result.current.groupBy).toBe("city");
+  });
+
+  test("without userChoice the declared group field is fixed and never stored", () => {
+    const store = createMemoryListStateStore();
+    store.write("k", { view: { groupBy: "age" } });
+    const { result } = renderHook(() =>
+      useListViewState({
+        storeKey: "k",
+        store,
+        table: { grouping: { field: "city" } },
+        schemaColumns,
+      }),
+    );
+    expect(result.current.groupBy).toBe("city");
+    expect(result.current.groupByFields).toBeUndefined();
+  });
 });
 
 describe("useRememberedLocalListState", () => {

@@ -12,7 +12,7 @@ import {
   relatedListGroupHeaderLabel,
   relatedListGroupKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
 import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
@@ -49,7 +49,7 @@ import type {
   ListRowViewModel,
   Translate,
 } from "../headless/index.ts";
-import { useQuery } from "../hooks/use-query.ts";
+import { useRelatedListRows } from "../hooks/use-related-list-rows.ts";
 import { useRelatedListState } from "../hooks/use-related-list-state.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
@@ -59,7 +59,7 @@ import {
   type DataTableRowGrouping,
   usePrimitives,
 } from "../primitives.tsx";
-import { sortByAccessor } from "../sort-by-accessor.ts";
+import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { RenderList } from "./render-list.tsx";
 
@@ -86,15 +86,6 @@ function isSortableCapable(field: SynthesizedField): field is SortableCapableFie
 }
 
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
-
-// Same paged envelope as ProjectionListBody's PagedRows (kumiko-screen.tsx) —
-// duplicated locally because that type isn't exported (projectionList and
-// relatedList are independent query call-sites, not a shared abstraction).
-type PagedRows = {
-  readonly rows: Readonly<Record<string, unknown>>[];
-  readonly nextCursor: string | null;
-  readonly total?: number;
-};
 
 // Minimal EntityDefinition from the section's own columns — same shape as
 // projection-list-shim's synthesizeProjectionEntity, but sortable is read
@@ -308,10 +299,8 @@ export function RelatedListSection({
   // Local state, not URL state: a section `id` is optional, so there is no
   // stable URL key to namespace against — the section's sort is local for the
   // same reason. Consequence: search/filters reset on reload.
-  const { search, filters, sort, setSearch, setFilters, setSort, listTable } = useRelatedListState(
-    section,
-    nav.route?.screenId,
-  );
+  const { search, filters, sort, setSearch, setFilters, setSort, listTable, groupField } =
+    useRelatedListState(section, nav.route?.screenId);
 
   const facetSpecs = useMemo(
     () => resolveProjectionFacetSpecs(section.facets, effectiveTranslate, featureName),
@@ -373,18 +362,17 @@ export function RelatedListSection({
     ],
   );
 
-  const rowsQuery = useQuery<PagedRows>(section.query, payload);
-  const ownRefetch = rowsQuery.refetch;
-  const lastRefreshTokenRef = useRef(refreshToken);
-  useEffect(() => {
-    if (lastRefreshTokenRef.current === refreshToken) return;
-    lastRefreshTokenRef.current = refreshToken;
-    void ownRefetch();
-  }, [refreshToken, ownRefetch]);
-  const refetchSelfAndHost = useCallback(async (): Promise<void> => {
-    await ownRefetch();
-    await onAfterWrite?.();
-  }, [ownRefetch, onAfterWrite]);
+  const listRows = useRelatedListRows({
+    section,
+    payload,
+    groupField,
+    sort,
+    locale,
+    refreshToken,
+    onAfterWrite,
+    translate: effectiveTranslate,
+  });
+  const { refetchSelfAndHost, aggregates } = listRows;
 
   const onFilterChange = useCallback(
     (field: string, values: readonly string[]) =>
@@ -392,29 +380,6 @@ export function RelatedListSection({
     [setFilters],
   );
   const onFilterReset = useCallback(() => setFilters({}), [setFilters]);
-
-  // Sorted client-side over the already-loaded rows only. The section has no
-  // pager (one-shot fetch); when that fetch is truncated (`nextCursor` set) the
-  // truncation banner below tells the user the sorted set is partial.
-  const sortAccessors = useMemo(() => {
-    const accessors: Record<
-      string,
-      (row: Readonly<Record<string, unknown>>) => string | number | null
-    > = {};
-    for (const col of section.columns) {
-      const field = normalizeListColumn(col).field;
-      accessors[field] = (row) => {
-        const value = row[field];
-        if (value === null || value === undefined) return null;
-        return typeof value === "number" ? value : String(value);
-      };
-    }
-    return accessors;
-  }, [section.columns]);
-  const sortedRows = useMemo(
-    () => sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors, locale),
-    [rowsQuery.data, sort, sortAccessors, locale],
-  );
 
   const rowClick = section.rowClick;
   // A row-body click target comes from EITHER the legacy `rowClick` field OR
@@ -567,81 +532,73 @@ export function RelatedListSection({
       </>
     ) : undefined;
 
-  // A truncated fetch means `sortedRows` is a sort of a partial set, not of
-  // the full related-row set — the client-side sort above (or even plain
-  // unsorted display) would silently claim "these are the top N" when they
-  // are really just "the first N in the server's own order".
-  // `nextCursor` is exactly how the paged envelope marks that: non-null means
-  // more rows exist server-side beyond what was fetched.
-  // A handler that omits `nextCursor` (or reports a `total` the fetched rows
-  // already cover) has no further rows — only a real cursor marks truncation.
-  const truncated =
-    rowsQuery.data !== null &&
-    typeof rowsQuery.data.nextCursor === "string" &&
-    (rowsQuery.data.total === undefined || rowsQuery.data.total > rowsQuery.data.rows.length);
-
-  const content =
-    rowsQuery.loading && rowsQuery.data === null ? (
-      <Banner padded variant="loading" testId="related-list-loading">
-        {t("kumiko.widget.loading")}
-      </Banner>
-    ) : rowsQuery.error ? (
-      <Banner padded variant="error" testId="related-list-error">
-        {dispatcherErrorText(rowsQuery.error, effectiveTranslate)}
-      </Banner>
-    ) : (
-      <>
-        {truncated && (
-          <Banner variant="info" testId="related-list-truncated">
-            {effectiveTranslate("kumiko.list.related-list-truncated", {
-              count: sortedRows.length,
-            })}
-          </Banner>
-        )}
-        {emptyStateActionError !== null && (
-          <Banner variant="error" testId="related-list-empty-state-action-error">
-            {emptyStateActionError.message}
-            <ErrorReference requestId={emptyStateActionError.requestId} />
-          </Banner>
-        )}
-        <PageHeaderSlotAvailableProvider value={false}>
-          <RenderList
-            screen={listScreen}
-            entity={entity}
-            rows={sortedRows}
-            featureName={listFeatureName ?? featureName}
-            translate={effectiveTranslate}
-            {...(section.description !== undefined && { description: section.description })}
-            {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
-            sort={sort}
-            onSortChange={setSort}
-            {...(section.searchable === true && {
-              searchable: true,
-              searchValue: search,
-              onSearchChange: setSearch,
-            })}
-            {...(filterFacets.length > 0 && {
-              filterFacets,
-              filterValues: filters,
-              onFilterChange,
-              onFilterReset,
-            })}
-            {...(onRowClick !== undefined && { onRowClick })}
-            {...(rowActions !== undefined && { rowActions })}
-            {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
-            {...(bulk !== undefined && { bulk })}
-            {...(rowGrouping !== undefined && { rowGrouping })}
-            {...(rowTone !== undefined && { rowTone })}
-            {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
-            {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
-            {...listTable}
-            screenPadding={false}
-            {...(hideTitle === true && { scrollBody: true, chromeless: true })}
-            {...(embedded === true && { chromeless: true })}
-          />
-        </PageHeaderSlotAvailableProvider>
-      </>
-    );
+  // Without a cursor-driven pager the client-side sort covers only the fetched
+  // rows; the banner keeps it from claiming "these are the top N".
+  const content = listRows.firstLoad ? (
+    <Banner padded variant="loading" testId="related-list-loading">
+      {t("kumiko.widget.loading")}
+    </Banner>
+  ) : listRows.error ? (
+    <Banner padded variant="error" testId="related-list-error">
+      {dispatcherErrorText(listRows.error, effectiveTranslate)}
+    </Banner>
+  ) : (
+    <>
+      {listRows.truncated && (
+        <Banner variant="info" testId="related-list-truncated">
+          {effectiveTranslate("kumiko.list.related-list-truncated", {
+            count: listRows.rows.length,
+          })}
+        </Banner>
+      )}
+      {emptyStateActionError !== null && (
+        <Banner variant="error" testId="related-list-empty-state-action-error">
+          {emptyStateActionError.message}
+          <ErrorReference requestId={emptyStateActionError.requestId} />
+        </Banner>
+      )}
+      <ListGroupPageBridges {...aggregates.groupPages} />
+      <PageHeaderSlotAvailableProvider value={false}>
+        <RenderList
+          screen={listScreen}
+          entity={entity}
+          rows={listRows.rows}
+          featureName={listFeatureName ?? featureName}
+          translate={effectiveTranslate}
+          {...(section.description !== undefined && { description: section.description })}
+          {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
+          sort={sort}
+          onSortChange={setSort}
+          {...(section.searchable === true && {
+            searchable: true,
+            searchValue: search,
+            onSearchChange: setSearch,
+          })}
+          {...(filterFacets.length > 0 && {
+            filterFacets,
+            filterValues: filters,
+            onFilterChange,
+            onFilterReset,
+          })}
+          {...(onRowClick !== undefined && { onRowClick })}
+          {...(rowActions !== undefined && { rowActions })}
+          {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
+          {...(bulk !== undefined && { bulk })}
+          {...(rowGrouping !== undefined && { rowGrouping })}
+          {...(rowTone !== undefined && { rowTone })}
+          {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
+          {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
+          {...listTable}
+          {...(aggregates.serverGroups !== undefined && { serverGroups: aggregates.serverGroups })}
+          {...(aggregates.totals !== undefined && { totals: aggregates.totals })}
+          {...(aggregates.notice !== undefined && { notice: aggregates.notice })}
+          screenPadding={false}
+          {...(hideTitle === true && { scrollBody: true, chromeless: true })}
+          {...(embedded === true && { chromeless: true })}
+        />
+      </PageHeaderSlotAvailableProvider>
+    </>
+  );
 
   // hideTitle (tabs mode) → the caller (render-edit.tsx) already wraps this
   // component's own return value in the same Card frame every other tab
@@ -655,7 +612,9 @@ export function RelatedListSection({
   const bridges = <ReferenceFacetBridges specs={facetSpecs} onOptions={handleFacetOptions} />;
 
   if (embedded === true) {
-    const countSuffix = rowsQuery.data !== null ? ` · ${sortedRows.length}` : "";
+    const countSuffix = listRows.hasData
+      ? ` · ${aggregates.serverGroups?.totalCount ?? listRows.rows.length}`
+      : "";
     return (
       <>
         {bridges}

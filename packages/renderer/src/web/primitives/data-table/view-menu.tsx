@@ -20,6 +20,7 @@ export function viewHasMenu(view: DataTableViewOptions | undefined): view is Dat
   return (
     (view.columns !== undefined && view.onColumnsChange !== undefined) ||
     view.onDensityChange !== undefined ||
+    view.groupBy !== undefined ||
     (view.pins !== undefined && view.onPinsChange !== undefined) ||
     (view.widths !== undefined && view.onWidthChange !== undefined)
   );
@@ -93,6 +94,25 @@ export function ViewMenu({
                   { value: "compact", label: label("kumiko.list.view.density.compact", "Compact") },
                 ]}
                 labelProps={{ "aria-label": label("kumiko.list.view.density", "Density") }}
+              />
+            </section>
+          )}
+          {view.groupBy !== undefined && (
+            <section className="flex flex-col gap-1">
+              <h3 className={SECTION_TITLE_CLASS}>{label("kumiko.list.group.by", "Group by")}</h3>
+              <SegmentedControl
+                id="list-view-group-by"
+                name="list-view-group-by"
+                value={view.groupBy.value}
+                onChange={view.groupBy.onChange}
+                options={[
+                  { value: "", label: label("kumiko.list.group.none", "None") },
+                  ...view.groupBy.fields.map((field) => ({
+                    value: field,
+                    label: columnLabels.get(field) ?? field,
+                  })),
+                ]}
+                labelProps={{ "aria-label": label("kumiko.list.group.by", "Group by") }}
               />
             </section>
           )}

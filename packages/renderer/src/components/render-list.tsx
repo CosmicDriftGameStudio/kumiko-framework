@@ -30,6 +30,7 @@ import {
   type DataTableRowAction,
   type DataTableRowActionMode,
   type DataTableRowGrouping,
+  type DataTableTableBlockProps,
   shouldRenderActionsIconOnly,
   usePrimitives,
 } from "../primitives.tsx";
@@ -158,7 +159,7 @@ export type RenderListProps = {
   readonly expandedRowIds?: ReadonlySet<string>;
   readonly onToggleRowExpanded?: (rowId: string) => void;
   readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
-} & Pick<DataTableProps, "view" | "resetAll" | "exportList">;
+} & DataTableTableBlockProps;
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -577,7 +578,6 @@ export function RenderList(props: RenderListProps): ReactNode {
   const resolvedTitle = translate(titleKey);
   const toolbarTitle = resolvedTitle === titleKey ? screen.id : resolvedTitle;
 
-  // ListSort = DataTableSort (aliased in use-list-url-state), so no cast is needed.
   return (
     <>
       {headerActions !== undefined && PageHeader !== undefined && (
