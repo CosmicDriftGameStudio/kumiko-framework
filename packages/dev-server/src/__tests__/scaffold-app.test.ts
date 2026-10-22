@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { CURRENT_INFRA_REF } from "../managed-files/index.ts";
+import { CURRENT_INFRA_REF, findKumikoPinErrors } from "../managed-files/index.ts";
 import { FRAMEWORK_AGENTS_IMPORT } from "../scaffold-agent-docs.ts";
 import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.ts";
 
@@ -156,6 +156,13 @@ describe("scaffoldApp", () => {
     expect(existsSync(join(packageDir, "AGENTS.md"))).toBe(true);
     expect(packageFiles).toContain("AGENTS.md");
     expect(packageFiles).toContain("agents");
+  });
+
+  test("default framework version produces exact pins that pass findKumikoPinErrors", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+    const pkg: unknown = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
+    expect(findKumikoPinErrors(pkg)).toEqual([]);
   });
 
   test("package.json has @cosmicdrift/* deps with version pin", async () => {

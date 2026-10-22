@@ -9,11 +9,7 @@
 // `consumer`). Workspace-only maintainer commands (ci:guards, dev, build, …)
 // stay in the framework repo's bin/kumiko.ts.
 
-import {
-  resolveFrameworkVersion,
-  scaffoldApp,
-  scaffoldAppFeature,
-} from "@cosmicdrift/kumiko-dev-server";
+import { scaffoldApp, scaffoldAppFeature } from "@cosmicdrift/kumiko-dev-server";
 import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
 import type { CliCommand } from "./commands";
 import { APP_COMMANDS, findAppCommand } from "./commands";
@@ -93,12 +89,10 @@ async function runNew(args: readonly string[], out: Output, cwd: string): Promis
     return 1;
   }
   try {
-    const frameworkVersion = resolveFrameworkVersion();
     const result = await scaffoldApp({
       name,
       destination: `${cwd}/${name}`,
       testSetup: renderTestSetup,
-      ...(frameworkVersion !== undefined && { frameworkVersion }),
     });
     out.log(`✓ Scaffolded ${result.appName} → ${result.destination}`);
     out.log("");

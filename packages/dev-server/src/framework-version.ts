@@ -23,6 +23,7 @@ function isDevServerManifest(value: unknown): value is DevServerManifest {
 
 // All @cosmicdrift packages release in lockstep (changesets fixed-group), so
 // the dev-server's own version is the framework version.
+// Exact (no caret): `kumiko check managed` rejects ranges on @cosmicdrift pins.
 export function resolveFrameworkVersion(startDir: string = import.meta.dir): string | undefined {
   let dir = startDir;
   while (true) {
@@ -30,7 +31,7 @@ export function resolveFrameworkVersion(startDir: string = import.meta.dir): str
     if (existsSync(candidate)) {
       // A corrupt or foreign package.json on the way up must not abort the search.
       const manifest = parseJsonSafe<unknown>(readFileSync(candidate, "utf-8"), undefined);
-      if (isDevServerManifest(manifest)) return `^${manifest.version}`;
+      if (isDevServerManifest(manifest)) return manifest.version;
     }
     const parent = dirname(dir);
     if (parent === dir) return undefined;
