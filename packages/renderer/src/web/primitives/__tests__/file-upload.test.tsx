@@ -93,10 +93,17 @@ describe("FileUploadInput — directory mode", () => {
 });
 
 describe("Input kind=file — folder picker through the primitive", () => {
+  let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
   test("directory + pickLabel + testId: labelled button, derived testIds, files delivered, no upload", () => {
     const Input = defaultPrimitives.Input;
     const picked: (readonly PickedFile[])[] = [];
-    const fetchSpy = spyOn(globalThis, "fetch");
+    const spy = spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 500 }));
+    fetchSpy = spy;
     const { getByTestId, getByText } = render(
       <Input
         kind="file"
@@ -118,8 +125,7 @@ describe("Input kind=file — folder picker through the primitive", () => {
     Object.defineProperty(file, "webkitRelativePath", { value: "dir/a.txt" });
     fireEvent.change(input, { target: { files: [file] } });
     expect(picked[0]?.[0]?.webkitRelativePath).toBe("dir/a.txt");
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 

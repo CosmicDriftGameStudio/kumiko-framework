@@ -37,7 +37,14 @@ function cardSize(node: FlowNode): { width: number; height: number } {
 }
 
 function assertEdgesReferenceKnownNodes(spec: FlowSpec): void {
-  const ids = new Set(spec.nodes.map((n) => n.id));
+  const ids = new Set<string>();
+  for (const node of spec.nodes) {
+    if (ids.has(node.id)) throw new Error(`FlowSpec: duplicate node id "${node.id}"`);
+    ids.add(node.id);
+    if (node.icon !== undefined && node.icon !== "ai" && !Object.hasOwn(ICONS, node.icon)) {
+      throw new Error(`FlowSpec: node "${node.id}" has unknown icon "${node.icon}"`);
+    }
+  }
   for (const edge of spec.edges) {
     if (!ids.has(edge.from))
       throw new Error(`FlowSpec: edge references unknown node "${edge.from}"`);

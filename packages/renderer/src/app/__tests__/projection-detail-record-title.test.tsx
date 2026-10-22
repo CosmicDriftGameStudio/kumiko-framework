@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
@@ -57,15 +58,12 @@ const testPrimitives: CorePrimitives = {
   PageHeader: TestPageHeader,
 };
 
-const dispatcher = {
-  write: async () => ({ isSuccess: true, data: {} }),
-  query: async () => ({ isSuccess: true, data: { id: "r1", name: "Release 1.2" } }),
-  batch: async () => ({ isSuccess: true, results: [] }),
-  statusStore: { getState: () => "online", subscribe: () => () => {} },
-  async *stream() {},
-  pendingWrites: () => [],
-  pendingFiles: () => [],
-} as unknown as Dispatcher;
+const { dispatcher } = stubDispatcher({
+  query: (async () => ({
+    isSuccess: true,
+    data: { id: "r1", name: "Release 1.2" },
+  })) as unknown as Dispatcher["query"],
+});
 
 function renderDetail(recordTitleField: string | undefined): ReturnType<typeof render> {
   const screen = {

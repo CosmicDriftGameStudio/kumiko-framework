@@ -9,7 +9,8 @@
 //     of N+1) but would have to extend the executor API with lookupTables.
 //     The renderer-side path wins for the MVP.
 //   - limit:200 is a hard UX limit: with more entries in the referenced
-//     entity, the last rows show only UUIDs. A searchable combobox plus a
+//     entity, the last rows fall back to the raw id (or "Unknown" for
+//     opt-in entities once the lookup is complete). A searchable combobox plus a
 //     server-side eager load with an ID whitelist will lift that later.
 //
 // The hook is call-stable: useQuery's internal cache shares the lookup map
@@ -66,7 +67,10 @@ export function isCompleteRowPage(data: { readonly nextCursor?: string | null } 
   return data !== null && (data.nextCursor ?? null) === null;
 }
 
-/** Empty while the query loads (or fails), so callers fall back to the raw id.
+/** `map` holds the resolved labels; while the query loads or has failed an id is
+ *  simply not in it. Callers decide the fallback: the raw id, or the "Unknown"
+ *  label for entities listed in `UNRESOLVED_REFERENCE_LABEL_KEYS` once the
+ *  lookup is complete.
  *  `featureName` is the reference's target feature, not the screen's. */
 export function useReferenceLookup(
   featureName: string,

@@ -1,6 +1,6 @@
 // happy-dom coverage (anchor, object URLs); picked up by bunfig.dom.toml only.
 
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, spyOn, test } from "bun:test";
 import {
   downloadFileRef,
   FileDownloadFailedError,
@@ -37,7 +37,12 @@ describe("saveBlobAsFile and downloadFileRef (happy-dom)", () => {
   const realFetch = globalThis.fetch;
   const spies: Array<{ mockRestore: () => void }> = [];
 
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
   afterEach(() => {
+    jest.useRealTimers();
     globalThis.fetch = realFetch;
     for (const spy of spies.splice(0)) spy.mockRestore();
   });
@@ -63,10 +68,12 @@ describe("saveBlobAsFile and downloadFileRef (happy-dom)", () => {
     globalThis.fetch = (async () => response) as unknown as typeof fetch;
   }
 
-  test("clicks an anchor with the download attribute and revokes the object URL", () => {
+  test("clicks an anchor with the download attribute and revokes the object URL only after a delay", () => {
     const { clicked, revoke } = captureDownloads();
     saveBlobAsFile("export.csv", new Blob(["a;b"]));
     expect(clicked).toEqual([{ download: "export.csv", href: "blob:test-1" }]);
+    expect(revoke).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(40_000);
     expect(revoke).toHaveBeenCalledWith("blob:test-1");
     expect(document.querySelector("a[download]")).toBeNull();
   });
@@ -79,6 +86,7 @@ describe("saveBlobAsFile and downloadFileRef (happy-dom)", () => {
       }),
     );
     expect(() => saveBlobAsFile("x.csv", new Blob(["x"]))).toThrow("blocked");
+    jest.advanceTimersByTime(40_000);
     expect(revoke).toHaveBeenCalledWith("blob:test-1");
   });
 

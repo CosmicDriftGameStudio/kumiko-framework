@@ -4,6 +4,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import type { EditFieldViewModel } from "../../headless/index.ts";
 import { RenderField, RenderList } from "../../index.ts";
 import {
+  clearFileMetaCache,
   FileDisplayCell,
   FileNameLink,
   FileThumbnail,
@@ -95,6 +96,25 @@ describe("FileNameLink", () => {
     );
     await waitFor(() => expect(requested).toBe(true));
     expect(getByText("File attached")).toBeDefined();
+  });
+
+  test("a cleared meta cache refetches instead of serving the previous session's name", async () => {
+    const id = "44444444-2222-4333-8444-555555555555";
+    const answerWith = (fileName: string) => {
+      globalThis.fetch = (async () =>
+        new Response(JSON.stringify({ files: [{ id, fileName, size: 1 }] }), {
+          status: 200,
+        })) as unknown as typeof fetch;
+    };
+    answerWith("first-user.pdf");
+    const first = render(<FileNameLink fileId={id} fallbackLabel="File attached" />);
+    await first.findByText("first-user.pdf");
+    first.unmount();
+
+    answerWith("second-user.pdf");
+    clearFileMetaCache();
+    const second = render(<FileNameLink fileId={id} fallbackLabel="File attached" />);
+    expect(await second.findByText("second-user.pdf")).toBeDefined();
   });
 
   test("file names rendered in the same pass share one batched request", async () => {

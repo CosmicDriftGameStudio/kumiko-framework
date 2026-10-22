@@ -41,6 +41,24 @@ describe("renderFlow", () => {
     expect(svg).toContain("a &amp; b &quot;c&quot;");
   });
 
+  test("throws on duplicate node ids", () => {
+    const spec: FlowSpec = {
+      nodes: [
+        { id: "a", title: "One" },
+        { id: "a", title: "Two" },
+      ],
+      edges: [],
+    };
+    expect(() => renderFlow(spec)).toThrow(/duplicate node id "a"/);
+  });
+
+  test("throws on an unknown icon instead of rendering undefined markup", () => {
+    const spec = JSON.parse(
+      '{"nodes":[{"id":"a","title":"One","icon":"nope"}],"edges":[]}',
+    ) as FlowSpec;
+    expect(() => renderFlow(spec)).toThrow(/unknown icon "nope"/);
+  });
+
   test("throws when an edge references an unknown node", () => {
     const spec: FlowSpec = {
       nodes: [{ id: "a", title: "A" }],

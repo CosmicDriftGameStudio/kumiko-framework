@@ -69,6 +69,7 @@ import {
 } from "../../index.ts";
 import { createLiveDispatcher } from "../../live/index.ts";
 import { lastSegment } from "../layout/nav-tree.tsx";
+import { clearFileMetaCache } from "../primitives/file-thumbnail.tsx";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives/index.tsx";
 import { ToastProvider } from "../primitives/toast.tsx";
 import { createEventSourceLiveEvents } from "../sse/live-events.ts";
@@ -604,9 +605,13 @@ function AppSchemaBoundary({
 
   // A real unmount (the gate withdrawing children, e.g. on logout) resets
   // the schema so the next mount re-fetches instead of reusing this
-  // session's — fetch-mode only, see isFetchMode in KumikoAppRoot.
+  // session's — fetch-mode only, see isFetchMode in KumikoAppRoot. The file
+  // meta cache is dropped in every mode.
   useEffect(() => {
-    return () => onUnmountResetSchemaRef.current?.();
+    return () => {
+      clearFileMetaCache();
+      onUnmountResetSchemaRef.current?.();
+    };
   }, []);
 
   if (app === undefined) {

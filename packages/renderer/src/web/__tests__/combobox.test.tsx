@@ -235,6 +235,8 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     await act(async () => {
       fireEvent.change(searchInput, { target: { value: "abc" } });
     });
+    // The debounce window is still open right after typing.
+    expect(searches).not.toContain("abc");
     // Real-time debounce window; fake timers collide with findByRole's polling.
     await waitFor(() => {
       expect(searches[searches.length - 1]).toBe("abc");
