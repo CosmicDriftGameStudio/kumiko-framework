@@ -35,7 +35,6 @@ const SCAFFOLD_FILES = [
   "kumiko/migrations/.snapshot.json",
   "deploy/Dockerfile",
   "deploy/Dockerfile.dockerignore",
-  "deploy/migrate-step.sh",
   ".husky/pre-push",
   ".github/workflows/cache-cleanup.yml",
   ".github/workflows/ci.yml",
@@ -362,7 +361,6 @@ describe("scaffoldApp", () => {
       ".github/workflows/release.yml",
       ".github/workflows/cache-cleanup.yml",
       ".husky/pre-push",
-      "deploy/migrate-step.sh",
     ]) {
       expect(readFileSync(join(dest, file), "utf-8")).toContain("# kumiko-managed\n");
     }

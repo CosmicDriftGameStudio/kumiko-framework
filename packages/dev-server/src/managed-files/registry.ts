@@ -180,6 +180,8 @@ function renderReleaseWorkflow(facts: ManagedAppFacts): string {
   );
 }
 
+const COMPOSE_ONLY_DEPLOY_FILE = "migrate-step.sh";
+
 export function renderManagedTemplates(facts: ManagedAppFacts): readonly ManagedTemplateFile[] {
   const deploy = renderDeployFiles({
     appName: facts.appName,
@@ -187,9 +189,12 @@ export function renderManagedTemplates(facts: ManagedAppFacts): readonly Managed
     ensuredRegistryConfigFiles: [BUNFIG_FILES.unit],
   });
   return [
-    ...deploy.files.map((file) =>
-      marked(`deploy/${file.output}`, file.content, "#", file.output.endsWith(".sh")),
-    ),
+    ...deploy.files
+      // Managed apps migrate through the k3s release.yml InitContainer; migrate-step.sh is compose-only.
+      .filter((file) => file.output !== COMPOSE_ONLY_DEPLOY_FILE)
+      .map((file) =>
+        marked(`deploy/${file.output}`, file.content, "#", file.output.endsWith(".sh")),
+      ),
     marked(".husky/pre-push", readTemplate("husky-pre-push.template"), "#", true),
     marked(".github/workflows/cache-cleanup.yml", readTemplate("cache-cleanup.yml.template"), "#"),
     marked(".github/workflows/release.yml", renderReleaseWorkflow(facts), "#"),

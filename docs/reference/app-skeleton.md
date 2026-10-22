@@ -21,7 +21,7 @@ evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/regist
 
 | Path | Owner | Content |
 | --- | --- | --- |
-| `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore`, `deploy/migrate-step.sh` | managed | Container build and migrate step |
+| `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore` | managed | Container build; migrations run as the k3s InitContainer from `release.yml`. `deploy/migrate-step.sh` is not managed (compose self-hosting only, from `kumiko-init-deploy`) |
 | `.github/workflows/ci.yml` | managed | Test, integration, e2e and image build via the shared workflows |
 | `.github/workflows/release.yml` | managed | Manual rollout of a built image |
 | `.github/workflows/cache-cleanup.yml` | managed | Removes PR caches after merge |
