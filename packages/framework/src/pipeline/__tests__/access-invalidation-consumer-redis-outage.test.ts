@@ -33,6 +33,15 @@ function sessionRevokedEvent(): StoredEventRow {
   };
 }
 
+function poisonEvent(): StoredEventRow {
+  return {
+    ...sessionRevokedEvent(),
+    get payload(): Record<string, unknown> {
+      throw new Error("corrupt payload");
+    },
+  };
+}
+
 function idleState(attempts: number): ConsumerStateRow {
   return {
     name: "access-invalidation",
@@ -60,7 +69,7 @@ function brokerFailingWhile(isDown: () => boolean, published: string[]): SseBrok
 const context = {} as AppContext;
 
 describe("access-invalidation consumer during a Redis outage", () => {
-  test("is not dead-lettered past the dispatcher default and delivers once Redis is back", async () => {
+  test("a Redis outage does not count towards the attempt limit and delivery resumes once Redis is back", async () => {
     let down = true;
     let nowMs = 0;
     const published: string[] = [];
@@ -77,6 +86,7 @@ describe("access-invalidation consumer during a Redis outage", () => {
       idleState(DISPATCHER_DEFAULT_MAX_ATTEMPTS * 10),
     );
     expect(outage.deadLettered).toBe(false);
+    expect(outage.attempts).toBe(DISPATCHER_DEFAULT_MAX_ATTEMPTS * 10);
     expect(outage.cursor).toBe(0n);
 
     down = false;
@@ -117,5 +127,33 @@ describe("access-invalidation consumer during a Redis outage", () => {
     nowMs += 60_000;
     await deliver();
     expect(calls).toBe(2);
+  });
+
+  test("a poison event still dead-letters at the dispatcher limit instead of blocking later revocations", async () => {
+    const consumer = createAccessInvalidationEventConsumer(
+      brokerFailingWhile(() => false, []),
+      {
+        now: () => 0,
+      },
+    );
+    const firstFailure = await deliverEvents(
+      consumer,
+      [poisonEvent()],
+      context,
+      DISPATCHER_DEFAULT_MAX_ATTEMPTS,
+      idleState(0),
+    );
+    expect(firstFailure.attempts).toBe(1);
+    expect(firstFailure.deadLettered).toBe(false);
+
+    const atLimit = await deliverEvents(
+      consumer,
+      [poisonEvent()],
+      context,
+      DISPATCHER_DEFAULT_MAX_ATTEMPTS,
+      idleState(DISPATCHER_DEFAULT_MAX_ATTEMPTS - 1),
+    );
+    expect(atLimit.deadLettered).toBe(true);
+    expect(atLimit.cursor).toBe(0n);
   });
 });

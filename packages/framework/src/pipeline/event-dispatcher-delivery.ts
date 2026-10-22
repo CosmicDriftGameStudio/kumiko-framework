@@ -352,9 +352,10 @@ export async function deliverEvents(
         resolve(row.id);
         continue;
       }
-      attempts += 1;
       lastError = errMessage;
       failedEventId = row.id;
+      if (consumer.errorPolicy?.isTransientError?.(e)) break;
+      attempts += 1;
       if (attempts >= effectiveMaxAttempts) deadLettered = true;
       break;
     }
