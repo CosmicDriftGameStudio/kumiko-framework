@@ -14,6 +14,7 @@ import {
 } from "./checkout-consent-dialog.tsx";
 import { SubscriptionFoundationHandlers, SubscriptionFoundationQueries } from "./constants.ts";
 import { resolveConsentLocale } from "./consumer-protection/consent-locale.ts";
+import { intervalKey } from "./plan-price.ts";
 
 type ConsumerProtectionView = NonNullable<BillingPlansResult["consumerProtection"]>;
 
@@ -96,6 +97,15 @@ export function PlanSwitchConfirmDialog({
 
   const reply = previewQuery.data;
   const money = (amount: number, currency: string) => formatMoney(amount, currency, locale);
+  const recurringKey = reply === null ? undefined : intervalKey(reply.target);
+  const recurringPrice =
+    reply === null
+      ? ""
+      : `${money(reply.target.unitAmount, reply.target.currency)}${
+          recurringKey === undefined
+            ? ""
+            : ` ${t(recurringKey, { count: new Intl.NumberFormat(locale).format(reply.target.intervalCount ?? 1) })}`
+        }`;
 
   return (
     <Modal
@@ -136,7 +146,7 @@ export function PlanSwitchConfirmDialog({
             </Text>
             <Text variant="muted">
               {t("billing-foundation.planSwitch.recurring", {
-                amount: money(reply.target.unitAmount, reply.target.currency),
+                amount: recurringPrice,
               })}
             </Text>
             <Text variant="muted">{t("billing-foundation.planSwitch.effective")}</Text>

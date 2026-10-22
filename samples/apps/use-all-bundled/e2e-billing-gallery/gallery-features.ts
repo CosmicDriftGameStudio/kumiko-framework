@@ -16,6 +16,7 @@ import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -29,6 +30,24 @@ import {
 } from "./gallery-constants";
 
 export const galleryMailTransport = createInMemoryTransport();
+
+// The merchant-of-record mock is only offered to tenants the spec opts in, so
+// the single-provider flows keep their original screens.
+const morEnabledTenants = new Set<string>();
+
+export const GALLERY_MOR_ENABLE_PATH = "/gallery/mor/:tenantId";
+
+export function createGalleryMorEnableRoute(): ExtraRouteDefinition {
+  return {
+    method: "POST",
+    path: GALLERY_MOR_ENABLE_PATH,
+    entry: "anonymous",
+    handler: (c) => {
+      morEnabledTenants.add(c.req.param("tenantId") ?? "");
+      return c.body(null, 204);
+    },
+  };
+}
 
 function monthlyPrice(priceId: string, unitAmount: number): ProviderPrice {
   return {
@@ -88,10 +107,16 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
       termsTextBlock: GALLERY_TERMS_SLUG,
       vatNote: { de: "Preise inkl. USt.", en: "Prices include VAT." },
       providerTexts: {
+        [GALLERY_PROVIDER]: {
+          checkoutNote: {
+            de: "Rechnung von Gallery Beispiel GmbH",
+            en: "Invoiced by Gallery Beispiel GmbH",
+          },
+        },
         [GALLERY_MOR_PROVIDER]: {
           checkoutNote: {
-            de: "Vertragspartner und Verkäufer ist Dodo Payments als Merchant of Record. Rechnung und Umsatzsteuer kommen von Dodo Payments.",
-            en: "Your contract partner and seller is Dodo Payments as merchant of record. Dodo Payments issues the invoice and charges the VAT.",
+            de: "Verkäufer ist Dodo Payments · Rechnung und USt von Dodo Payments",
+            en: "Sold by Dodo Payments · invoice and VAT from Dodo Payments",
           },
           vatNote: {
             de: "Rechnung und Umsatzsteuer stellt Dodo Payments als Merchant of Record.",
@@ -140,6 +165,7 @@ const galleryProviderPlugin: SubscriptionProviderPlugin = {
 // through.
 const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
   displayName: "Dodo Payments",
+  isBillingEnabled: async (ctx) => morEnabledTenants.has(ctx.user.tenantId),
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
   priceToTier: {
     [GALLERY_MOR_PRICE_IDS.starter]: "starter",

@@ -35,7 +35,7 @@ providerTexts: {
 },
 ```
 
-- `checkoutNote` shows in the plan panel under the provider choice while that provider is selected. It also shows when the app offers only this one provider.
+- `checkoutNote` is the short line on the provider's card in the order dialog, for example who sells and who invoices. With only one offered provider it shows as a note under the price in the same dialog.
 - `vatNote` replaces the global `vatNote` in the confirmation mail of a contract closed with this provider. The consent record stores the provider name, so the mail picks the text of the provider the customer actually ordered with.
 
 Each text needs `de` and `en`. A provider without an entry uses the global texts.
@@ -66,7 +66,7 @@ An app can mount more than one subscription provider, for example `subscription-
 
 - Each provider has its own webhook URL, `/api/subscription/webhook/<providerName>`, so `/api/subscription/webhook/stripe` and `/api/subscription/webhook/dodo`. Register each URL in the provider's dashboard with that provider's signing secret.
 - A provider is offered for new checkouts once the system admin has set its keys and switched `billingLive` on in the provider's config screen. A provider without `isBillingEnabled`, such as `subscription-mollie`, counts as offered as soon as it is mounted.
-- With more than one offered provider the plan panel shows a provider choice above the plans, with the prices of the selected provider. `start-plan-checkout` then needs `providerName` and rejects a provider that is not offered. With one offered provider nothing changes for the customer.
+- With more than one offered provider the customer first picks a plan as before. The order dialog then shows one card per provider with its name and `checkoutNote`, and the price on each card when the prices differ. If a plan costs different amounts per provider, its plan card shows the lowest one with "from". `start-plan-checkout` then needs `providerName` and rejects a provider that is not offered. With one offered provider nothing changes for the customer.
 - An existing subscription stays with the provider stored on it. Its prices, plan switch, portal, cancellation and sync all go to that provider, also after a second provider is switched on. A switch never moves a subscription to another provider. To change providers the customer cancels and orders again.
 
 ## Terminating a contract

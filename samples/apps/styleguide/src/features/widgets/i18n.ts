@@ -119,6 +119,17 @@ export const WIDGETS_I18N = {
   "widgets:catalog:status-maintenance": { de: "maintenance", en: "maintenance" },
   "widgets:catalog:repayment-model": { de: "Tilgungsmodell", en: "Repayment model" },
   "widgets:catalog:mode-annuity": { de: "Annuität", en: "Annuity" },
+  "widgets:catalog:choice-cards": { de: "Zahlungsanbieter", en: "Payment provider" },
+  "widgets:catalog:choice-direct": { de: "Direkt", en: "Direct" },
+  "widgets:catalog:choice-direct-description": {
+    de: "Rechnung vom Anbieter der App",
+    en: "Invoiced by the app operator",
+  },
+  "widgets:catalog:choice-reseller": { de: "Reseller", en: "Reseller" },
+  "widgets:catalog:choice-reseller-description": {
+    de: "Verkäufer ist der Reseller, inklusive Umsatzsteuer",
+    en: "Sold by the reseller, VAT included",
+  },
   "widgets:catalog:mode-fixed": { de: "Feste Rate", en: "Fixed rate" },
   "widgets:catalog:model": { de: "Modell", en: "Model" },
   "widgets:catalog:nominal-rate": { de: "Sollzins", en: "Nominal rate" },
