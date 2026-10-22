@@ -19,6 +19,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import { normalizeBasePath, prependBasePath, stripBasePath } from "../../app/base-path.ts";
 import {
   type FeatureSchema,
   formatPath,
@@ -32,6 +33,12 @@ import {
   type ScreenTarget,
   useNav,
 } from "../../index.ts";
+import {
+  adoptCurrentEntry,
+  handlePopstate,
+  pushEntry,
+  replaceEntry,
+} from "./history-leave-guard.ts";
 
 // basePath allows the app to be mounted under a URL prefix
 // (for example, `/admin`). The read path strips the prefix before parsePath;
@@ -42,43 +49,11 @@ import {
 // returns route=undefined, and the app renders its "outside" state
 // (Not-Found, marketing layer, server-routing pickup, …). There is no
 // automatic redirect to the app root—the host app decides.
-function normalizeBasePath(raw: string | undefined): string {
-  if (raw === undefined || raw === "" || raw === "/") return "";
-  const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
-  return withLeading.endsWith("/") ? withLeading.slice(0, -1) : withLeading;
-}
-
-// Returns the in-app (basePath-relative) path when `path` is under basePath;
-// otherwise returns `undefined`. The segment boundary is strict: "/administrator"
-// does not match "/admin"—otherwise a string-level prefix check would produce
-// false matches.
-function stripBasePath(path: string, basePath: string): string | undefined {
-  if (basePath === "") return path;
-  if (path === basePath) return "/";
-  if (path.startsWith(`${basePath}/`)) return path.slice(basePath.length);
-  return undefined;
-}
-
-function prependBasePath(path: string, basePath: string): string {
-  if (basePath === "") return path;
-  // formatPath always returns an absolute in-app path: "/" or "/screen-id"
-  // or "/screen-id/entity-id". "/" becomes basePath; otherwise, concatenate.
-  if (path === "/" || path === "") return basePath;
-  return `${basePath}${path}`;
-}
-
 // pushState does not fire popstate, so we maintain a listener set that
 // navigate() notifies. Back/Forward navigation goes through a window listener
 // wired exactly once.
 const listeners = new Set<() => void>();
 let popstateWired = false;
-// URL the app currently shows; popstate has already moved the browser to the
-// target by the time we can ask, so a declined leave must restore this one.
-let committedUrl = "";
-
-function readUrl(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
-}
 
 // Stable identity for the omitted-features case — `?? []` would create a
 // fresh array every render, busting the useMemo below on every render for
@@ -89,18 +64,7 @@ function ensurePopstateWired(): void {
   if (popstateWired) return;
   if (typeof window === "undefined") return;
   window.addEventListener("popstate", () => {
-    if (!hasUnsavedInput()) {
-      committedUrl = readUrl();
-      for (const l of listeners) l();
-      return;
-    }
-    const targetUrl = readUrl();
-    window.history.pushState(null, "", committedUrl);
-    requestLeave(() => {
-      // replaceState, not history.back(): the declined entry is already ours
-      // and a forward navigation would otherwise land on the wrong entry.
-      window.history.replaceState(null, "", targetUrl);
-      committedUrl = targetUrl;
+    handlePopstate(() => {
       for (const l of listeners) l();
     });
   });
@@ -114,7 +78,7 @@ function ensurePopstateWired(): void {
 
 function subscribe(listener: () => void): () => void {
   ensurePopstateWired();
-  if (typeof window !== "undefined" && listeners.size === 0) committedUrl = readUrl();
+  if (typeof window !== "undefined" && listeners.size === 0) adoptCurrentEntry();
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -160,8 +124,7 @@ function applySearchParamUpdates(updates: Readonly<Record<string, string | null>
   const nextSearch = next === "" ? "" : `?${next}`;
   if (nextSearch === window.location.search) return;
   const url = `${window.location.pathname}${nextSearch}${window.location.hash}`;
-  window.history.replaceState(null, "", url);
-  committedUrl = readUrl();
+  replaceEntry(url);
   for (const l of listeners) l();
 }
 
@@ -181,8 +144,7 @@ function pushPath(path: string, search: string | undefined): void {
     (search === undefined || window.location.search === search);
   if (unchanged) return;
   requestLeave(() => {
-    window.history.pushState(null, "", `${path}${search ?? ""}`);
-    committedUrl = readUrl();
+    pushEntry(`${path}${search ?? ""}`);
     for (const l of listeners) l();
   });
 }
@@ -198,8 +160,7 @@ function replacePath(path: string, search: string | undefined): void {
     window.location.pathname !== path ||
     (search !== undefined && window.location.search !== search);
   const apply = (): void => {
-    window.history.replaceState(null, "", nextUrl);
-    committedUrl = readUrl();
+    replaceEntry(nextUrl);
     for (const l of listeners) l();
   };
   if (leavesCurrentPage) requestLeave(apply);

@@ -42,3 +42,26 @@ test("failed submit focuses the first invalid field", async ({ page }, testInfo)
   await expect(label).toHaveAttribute("aria-invalid", "true");
   await page.screenshot({ path: screenshotPath(testInfo, "focus-first-error.png") });
 });
+
+test("browser Forward on a dirty form asks; Discard lands on the target and one Back returns to the form", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByText("Things").click();
+  await expect(page.getByTestId("render-edit-form")).toBeHidden();
+  await page.goBack();
+  const label = page.getByTestId("field-label").locator("input");
+  await label.fill("Half-typed thing");
+
+  await page.goForward();
+  const dialog = page.getByTestId("leave-guard-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(label).toHaveValue("Half-typed thing");
+
+  await dialog.getByRole("button", { name: "Discard" }).click();
+  await expect(page.getByTestId("render-edit-form")).toBeHidden();
+
+  // The target must not be stored twice: a single Back reaches the form again.
+  await page.goBack();
+  await expect(page.getByTestId("render-edit-form")).toBeVisible();
+});

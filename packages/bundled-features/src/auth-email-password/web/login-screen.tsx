@@ -2,6 +2,8 @@
 // reason code needs a bundle entry plus a line in that mapping.
 
 import {
+  prependBasePath,
+  useBasePath,
   useOptionalDispatcher,
   usePrimitives,
   useQuery,
@@ -128,16 +130,17 @@ function LoginScreenBody({
   // Hides the resend button once the email input changes; otherwise resend
   // would silently go to the edited, possibly mistyped address.
   const [failedLoginEmail, setFailedLoginEmail] = useState<string | null>(null);
+  const basePath = useBasePath();
   const effectiveForgotHref =
     forgotPasswordHref === undefined
       ? loginOptions?.passwordReset === true
-        ? DEFAULT_FORGOT_PASSWORD_PATH
+        ? prependBasePath(DEFAULT_FORGOT_PASSWORD_PATH, basePath)
         : null
       : forgotPasswordHref;
   const effectiveUnlockHref =
     unlockAccountHref === undefined
       ? loginOptions?.accountUnlock === true
-        ? DEFAULT_AUTH_PATHS.unlockAccount
+        ? prependBasePath(DEFAULT_AUTH_PATHS.unlockAccount, basePath)
         : null
       : unlockAccountHref;
 

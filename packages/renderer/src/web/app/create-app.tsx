@@ -22,6 +22,7 @@ import type {
 import {
   AppFeaturesProvider,
   type AppSchema,
+  BasePathProvider,
   type ClientActionHandler,
   ClientActionsProvider,
   type ColumnRendererComponent,
@@ -251,6 +252,11 @@ export type CreateKumikoAppOptions = {
     readonly hasWorkspaces?: boolean;
     readonly features?: readonly FeatureSchema[];
   }) => NavApi;
+  /** URL prefix the app is mounted under (for example "/admin"). The default nav adapter reads
+   *  and writes URLs relative to it, and the auth gates and pages, which sit outside the
+   *  NavProvider, use it to match and build their paths. A custom `navAdapter` handles its own
+   *  prefix. */
+  readonly basePath?: string;
   /** App-wide default width for form/detail screens that don't set their
    *  own `layout.width`. Default "4xl" (unchanged behavior) — a
    *  consumer app that wants e.g. bundled-feature screens to match its own
@@ -729,7 +735,10 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   }
 
   const localeResolver = options.locale ?? createBrowserLocaleResolver();
-  const navAdapter = options.navAdapter ?? useBrowserNavApi;
+  const { basePath } = options;
+  const useBrowserNavApiWithBasePath = (navOptions?: Parameters<typeof useBrowserNavApi>[0]) =>
+    useBrowserNavApi({ ...navOptions, ...(basePath !== undefined && { basePath }) });
+  const navAdapter = options.navAdapter ?? useBrowserNavApiWithBasePath;
 
   const reporter = options.reportClientErrors === false ? undefined : createClientErrorReporter();
   reporter?.installGlobalHandlers();
@@ -751,31 +760,33 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
       fallback={({ errorId }) => <RootErrorFallback errorId={errorId} />}
     >
       <BoundaryErrorHandlerContext.Provider value={handleBoundaryError}>
-        <KumikoAppRoot
-          initialApp={initialApp}
-          screenQn={options.screenQn}
-          {...(options.schemaUrl !== undefined && { schemaUrl: options.schemaUrl })}
-          clientFeatures={clientFeatures}
-          providers={providers}
-          gates={gates}
-          customScreens={customScreens}
-          columnRenderers={columnRenderers}
-          extensionSectionComponents={extensionSectionComponents}
-          clientActions={clientActions}
-          contentEditors={contentEditors}
-          resolvers={resolvers}
-          dispatcher={dispatcher}
-          sessionEndedSignal={sessionEndedSignal}
-          draftStorage={draftStorage}
-          primitives={primitives}
-          liveEvents={liveEvents}
-          localeResolver={localeResolver}
-          navAdapter={navAdapter}
-          screenWidth={options.screenWidth}
-          {...(options.translate !== undefined && { translate: options.translate })}
-          {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
-          {...(options.shell !== undefined && { shell: options.shell })}
-        />
+        <BasePathProvider basePath={basePath}>
+          <KumikoAppRoot
+            initialApp={initialApp}
+            screenQn={options.screenQn}
+            {...(options.schemaUrl !== undefined && { schemaUrl: options.schemaUrl })}
+            clientFeatures={clientFeatures}
+            providers={providers}
+            gates={gates}
+            customScreens={customScreens}
+            columnRenderers={columnRenderers}
+            extensionSectionComponents={extensionSectionComponents}
+            clientActions={clientActions}
+            contentEditors={contentEditors}
+            resolvers={resolvers}
+            dispatcher={dispatcher}
+            sessionEndedSignal={sessionEndedSignal}
+            draftStorage={draftStorage}
+            primitives={primitives}
+            liveEvents={liveEvents}
+            localeResolver={localeResolver}
+            navAdapter={navAdapter}
+            screenWidth={options.screenWidth}
+            {...(options.translate !== undefined && { translate: options.translate })}
+            {...(options.onRowClick !== undefined && { onRowClick: options.onRowClick })}
+            {...(options.shell !== undefined && { shell: options.shell })}
+          />
+        </BasePathProvider>
       </BoundaryErrorHandlerContext.Provider>
     </ErrorBoundary>,
   );

@@ -5,6 +5,7 @@
 
 import { mock } from "bun:test";
 import {
+  BasePathProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
   LocaleProvider,
@@ -67,11 +68,13 @@ export function renderWithProviders(
     readonly resolver?: LocaleResolver;
     readonly session?: SessionApi;
     readonly dispatcher?: Dispatcher;
+    readonly basePath?: string;
   } = {},
 ): RenderResult & { readonly session: SessionApi } {
   const resolver = options.resolver ?? sharedEnResolver;
   const session = options.session ?? makeSessionApi();
-  const tree = <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>;
+  const sessionTree = <SessionContext.Provider value={session}>{ui}</SessionContext.Provider>;
+  const tree = <BasePathProvider basePath={options.basePath}>{sessionTree}</BasePathProvider>;
   const result = _render(
     <PrimitivesProvider value={defaultPrimitives}>
       <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>

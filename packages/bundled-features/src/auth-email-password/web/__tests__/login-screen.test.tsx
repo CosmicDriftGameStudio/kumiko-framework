@@ -320,6 +320,29 @@ describe("LoginScreen", () => {
     expect(unlock.getAttribute("href")).toBe("/unlock-account");
   });
 
+  test("default forgot and unlock links carry the app base path", async () => {
+    const session = makeSessionApi({
+      status: "unauthenticated",
+      user: null,
+      login: mock<SessionApi["login"]>(async () => ({
+        kind: "failure",
+        error: { reason: "account_locked" },
+      })),
+    });
+    renderWithProviders(<LoginScreen />, {
+      session,
+      basePath: "/admin",
+      dispatcher: loginOptionsDispatcher({ passwordReset: true, accountUnlock: true }),
+    });
+    const forgot = await screen.findByRole("link", { name: /Forgot password/i });
+    expect(forgot.getAttribute("href")).toBe("/admin/forgot-password");
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    const unlock = await screen.findByRole("link", { name: /Unlock account/i });
+    expect(unlock.getAttribute("href")).toBe("/admin/unlock-account");
+  });
+
   test("login-options false → neither link", async () => {
     const session = makeSessionApi({
       status: "unauthenticated",
