@@ -855,7 +855,25 @@ function warnLegacyJwtSecretOnce(): void {
   );
 }
 
+type BootAbortCleanup = () => void | Promise<void>;
+
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
+  const abortCleanups: BootAbortCleanup[] = [];
+  try {
+    return await bootProdApp(options, (cleanup) => abortCleanups.push(cleanup));
+  } catch (error) {
+    // Pools and clients opened before the failing step would otherwise keep the process alive.
+    for (const cleanup of abortCleanups.reverse()) {
+      await Promise.resolve(cleanup()).catch(() => undefined);
+    }
+    throw error;
+  }
+}
+
+async function bootProdApp(
+  options: RunProdAppOptions,
+  registerAbortCleanup: (cleanup: BootAbortCleanup) => void,
+): Promise<ProdAppHandle> {
   assertSeedModeNotInProduction();
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
@@ -889,6 +907,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? { ...bootOptionWiring.envDefaults, ...decryptedEnvSource }
       : decryptedEnvSource;
   const bootKms = bootOptionWiring.kms;
+  registerAbortCleanup(() => bootKms.close());
 
   // 1. Polyfill before anything else — feature code references Temporal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
@@ -1020,6 +1039,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     const kms = bootKms.kms;
     const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
       processName: "runProdApp",
+      target: "KMS",
       deadline: databaseWaitDeadline,
     });
     if (!kmsHealth.ok) {
@@ -1040,6 +1060,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...serverTimeoutOptionsFromEnv(envSource),
   });
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  registerAbortCleanup(closeDb);
+  registerAbortCleanup(closeOutsideTransactionDb);
+  registerAbortCleanup(() => redis.disconnect());
   logRedisConnectionState(redis, log);
 
   await waitForDatabase(db, { processName: "runProdApp", deadline: databaseWaitDeadline });

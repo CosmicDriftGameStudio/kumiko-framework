@@ -96,7 +96,7 @@ function checkStructural(
         return {
           state: "invalid",
           message:
-            "default-export defineAppConfig({ features, client, ports }) from @cosmicdrift/kumiko-framework/config",
+            "default-export defineAppConfig({ features: [...], client: { entries: [...] }, ports: { dev: 4173, e2e: 4174 } }) from @cosmicdrift/kumiko-framework/config",
         };
       case "invalid":
         return { state: "invalid", message: facts.config.message };

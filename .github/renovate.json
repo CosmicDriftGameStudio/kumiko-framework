@@ -14,6 +14,17 @@
         "(?<depName>[a-z0-9.-]+(?:/[a-z0-9._-]+)+):(?<currentValue>[A-Za-z0-9._-]+)\\s+(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Infra tag a newly scaffolded app is pinned to",
+      "managerFilePatterns": ["/^packages/dev-server/src/managed-files/registry\\.ts$/"],
+      "matchStrings": ["CURRENT_INFRA_REF = \"reusables-v(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "CosmicDriftGameStudio/infra",
+      "packageNameTemplate": "CosmicDriftGameStudio/infra",
+      "extractVersionTemplate": "^reusables-v(?<version>.+)$",
+      "versioningTemplate": "semver"
     }
   ],
   "packageRules": [

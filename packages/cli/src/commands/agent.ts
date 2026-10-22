@@ -26,7 +26,9 @@ export const agentCommand: CliCommand = {
       ctx.out.err("    // kumiko.config.ts");
       ctx.out.err('    import { defineAppConfig } from "@cosmicdrift/kumiko-framework/config";');
       ctx.out.err('    import { myFeature } from "./src/features/my-feature";');
-      ctx.out.err("    export default defineAppConfig({ features: [myFeature], client, ports });");
+      ctx.out.err(
+        '    export default defineAppConfig({ features: [myFeature], client: { entries: ["src/client.tsx"] }, ports: { dev: 4173, e2e: 4174 } });',
+      );
       ctx.out.err("");
       return 1;
     }

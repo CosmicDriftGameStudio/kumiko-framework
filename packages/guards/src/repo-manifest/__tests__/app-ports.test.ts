@@ -40,6 +40,21 @@ describe("kumiko.config.ts static read", () => {
     expect(spread.kind).toBe("invalid");
   });
 
+  test("shorthand and spread siblings of ports do not hide literal ports", () => {
+    const sibling = parseStaticAppConfig(
+      "const features = [];\nexport default defineAppConfig({ features, ...rest, client: { entries: ['a'] }, ports: { dev: 1, e2e: 2 } });\n",
+    );
+    expect(sibling).toEqual({ kind: "defined", ports: { dev: 1, e2e: 2 } });
+    const shorthandPorts = parseStaticAppConfig(
+      "const ports = { dev: 1, e2e: 2 };\nexport default defineAppConfig({ features: [], client: { entries: ['a'] }, ports });\n",
+    );
+    expect(shorthandPorts.kind).toBe("invalid");
+    const spreadAfter = parseStaticAppConfig(
+      "export default defineAppConfig({ ports: { dev: 1, e2e: 2 }, ...rest });\n",
+    );
+    expect(spreadAfter.kind).toBe("invalid");
+  });
+
   test("a missing file reads as missing, a present one as defined", () => {
     expect(readStaticAppConfig(root)).toEqual({ kind: "missing" });
     writeFileSync(join(root, "kumiko.config.ts"), APP_CONFIG);
