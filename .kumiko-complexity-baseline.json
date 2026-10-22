@@ -1,7 +1,7 @@
 {
   "format": 1,
   "generated": "2026-10-22",
-  "total": 94,
+  "total": 91,
   "perFile": {
     "packages/bundled-features/src/auth-mfa/handlers/enable-confirm-preauth.write.ts": 1,
     "packages/bundled-features/src/auth-mfa/handlers/verify.write.ts": 1,
@@ -14,7 +14,6 @@
     "packages/bundled-features/src/user-data-rights/feature.ts": 1,
     "packages/dev-server/src/build-server-bundle.ts": 1,
     "packages/dev-server/src/create-kumiko-server.ts": 3,
-    "packages/dev-server/src/run-dev-app.ts": 1,
     "packages/framework/src/api/auth-middleware.ts": 1,
     "packages/framework/src/consumer-cli.ts": 1,
     "packages/framework/src/crypto/pii-field-encryption.ts": 1,
@@ -74,9 +73,7 @@
     "packages/server-runtime/src/boot/worker-boot-core.ts": 1,
     "packages/server-runtime/src/build-prod-bundle.ts": 1,
     "packages/server-runtime/src/run-prod-app-static-files.ts": 1,
-    "packages/server-runtime/src/run-prod-app.ts": 1,
     "packages/testing/src/helpers/e2e-generator.ts": 3,
-    "packages/testing/src/stack/request-helper.ts": 1,
-    "packages/testing/src/stack/test-stack.ts": 1
+    "packages/testing/src/stack/request-helper.ts": 1
   }
 }
