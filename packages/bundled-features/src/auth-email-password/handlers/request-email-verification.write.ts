@@ -28,6 +28,7 @@ export function createRequestEmailVerificationHandler(opts: RequestEmailVerifica
       // caller sees the same 200 regardless of whether a token was minted.
       extraSilentSkip: (user) => user.emailVerified === true,
       notificationType: AuthMailNotificationTypes.emailVerification,
+      forwardsReturnTo: false,
     },
     opts,
   );

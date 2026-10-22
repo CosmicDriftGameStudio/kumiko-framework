@@ -31,6 +31,7 @@ import { resolveHandlerMailLocale } from "../magic-link-mail.ts";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.ts";
 import { issueSignupActivation } from "../signup-activation.ts";
 import { storeSignupHandover, takeOverSignupHandoverForResend } from "../signup-token-store.ts";
+import { MAX_RETURN_PATH_LENGTH } from "../web/return-path.ts";
 
 const SignupRequestSchema = z.object({
   email: z.email(),
@@ -43,6 +44,8 @@ const SignupRequestSchema = z.object({
       token: z.string().min(1),
     })
     .optional(),
+  // A bad returnTo must not void the signup; the mail builder drops unsafe values.
+  returnTo: z.string().max(MAX_RETURN_PATH_LENGTH).optional().catch(undefined),
 });
 
 const HANDOVER_GRANT_VERIFY_REASON =
@@ -133,6 +136,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
         email,
         appUrl: opts.appUrl,
         timeZone: ctx.tz.user,
+        ...(event.payload.returnTo !== undefined && { returnTo: event.payload.returnTo }),
         ...(opts.tokenTtlMinutes !== undefined && { tokenTtlMinutes: opts.tokenTtlMinutes }),
         ...(opts.appName !== undefined && { appName: opts.appName }),
         ...(locale !== undefined && { locale }),

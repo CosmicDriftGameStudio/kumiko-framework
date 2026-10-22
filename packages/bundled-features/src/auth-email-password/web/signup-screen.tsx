@@ -16,6 +16,8 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client.ts";
 import { retryAfterMinutes } from "./auth-form-logic.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
+import { readReturnToFromWindow } from "./auth-redirect.ts";
+import { isSafeReturnPath } from "./return-path.ts";
 
 export type SignupScreenProps = {
   readonly title?: string;
@@ -23,12 +25,20 @@ export type SignupScreenProps = {
   /** href for the "Already have an account?" link. App-specific; defaults to
    *  "/login". */
   readonly loginHref?: string;
+  /** Page the activation mail should lead to after signup; defaults to the `returnTo` query
+   *  parameter of this page. Unsafe values are dropped. */
+  readonly returnTo?: string;
 };
+
+function resolveReturnTo(prop: string | undefined): string | undefined {
+  return (isSafeReturnPath(prop) ? prop : readReturnToFromWindow()) ?? undefined;
+}
 
 export function SignupScreen({
   title,
   subtitle,
   loginHref = "/login",
+  returnTo,
 }: SignupScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
@@ -41,7 +51,7 @@ export function SignupScreen({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await requestSignup(email);
+      const res = await requestSignup(email, undefined, resolveReturnTo(returnTo));
       if (res.ok) {
         setDone(true);
       } else if (res.error.reason === "rate_limited") {
@@ -73,7 +83,7 @@ export function SignupScreen({
     setSubmitting(true);
     setError(null);
     try {
-      await requestSignup(email);
+      await requestSignup(email, undefined, resolveReturnTo(returnTo));
     } finally {
       setSubmitting(false);
     }

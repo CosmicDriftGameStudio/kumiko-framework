@@ -237,6 +237,40 @@ describe("POST /api/auth/signup-request", () => {
     expect(sent.html).toContain(`${APP_ACTIVATION_URL}?token&#x3D;`);
   });
 
+  test("a safe returnTo travels as a query parameter next to the token", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/signup-request",
+      { email: "signup-back@example.com", returnTo: "/a/start?plan=pro" },
+      { "x-forwarded-for": "signup-back@example.com" },
+    );
+
+    expect(res.status).toBe(200);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.text).toMatch(/\?token=[^&\s]+&returnTo=%2Fa%2Fstart%3Fplan%3Dpro/);
+  });
+
+  test.each([
+    ["an open-redirect path", "//evil.example"],
+    ["an overlong value", `/${"a".repeat(5000)}`],
+  ])("%s as returnTo still sends the mail, without returnTo", async (_label, returnTo) => {
+    const email = `signup-bad-${returnTo.length}@example.com`;
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/signup-request",
+      { email, returnTo },
+      { "x-forwarded-for": email },
+    );
+
+    expect(res.status).toBe(200);
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no mail sent");
+    expect(sent.text).toContain(`${APP_ACTIVATION_URL}?token=`);
+    expect(sent.text).not.toContain("returnTo");
+  });
+
   test("Resend: second request for the same email mints a new token and invalidates the previous one", async () => {
     await postSignupRequest("resend@example.com");
     await postSignupRequest("resend@example.com");

@@ -177,6 +177,39 @@ describe("POST /auth/request-password-reset", () => {
     expect(sent.text).toContain(`${appResetUrl}?token=`);
   });
 
+  test("a safe returnTo travels as a query parameter next to the token", async () => {
+    await seedUser({ email: "back@example.com", password: "initial-pw!" });
+
+    const res = await post("/api/auth/request-password-reset", {
+      email: "back@example.com",
+      returnTo: "/a/settings",
+    });
+
+    expect(res.status).toBe(200);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.text).toMatch(/\?token=[^&\s]+&returnTo=%2Fa%2Fsettings/);
+  });
+
+  test.each([
+    ["an open-redirect path", "//evil.example"],
+    ["an overlong value", `/${"a".repeat(5000)}`],
+  ])("%s as returnTo still sends the mail, without returnTo", async (_label, returnTo) => {
+    await seedUser({ email: "badback@example.com", password: "initial-pw!" });
+
+    const res = await post("/api/auth/request-password-reset", {
+      email: "badback@example.com",
+      returnTo,
+    });
+
+    expect(res.status).toBe(200);
+    expect(emailTransport.sent).toHaveLength(1);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.text).toContain(`${appResetUrl}?token=`);
+    expect(sent.text).not.toContain("returnTo");
+  });
+
   test("the expiry is shown in the recipient's profile time zone, not the anonymous request's fallback", async () => {
     await seedUser({ email: "tokyo@example.com", password: "initial-pw!", timezone: "Asia/Tokyo" });
 

@@ -12,6 +12,8 @@ import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestPasswordReset } from "./auth-client.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
+import { readReturnToFromWindow } from "./auth-redirect.ts";
+import { isSafeReturnPath } from "./return-path.ts";
 
 export type ForgotPasswordScreenProps = {
   readonly title?: string;
@@ -19,12 +21,20 @@ export type ForgotPasswordScreenProps = {
   /** href for the "Back to login" link in the success and form states. App-
    * specific — defaults to "/login". */
   readonly loginHref?: string;
+  /** Page the reset mail should lead back to after the new password is set; defaults to the
+   *  `returnTo` query parameter of this page. Unsafe values are dropped. */
+  readonly returnTo?: string;
 };
+
+function resolveReturnTo(prop: string | undefined): string | undefined {
+  return (isSafeReturnPath(prop) ? prop : readReturnToFromWindow()) ?? undefined;
+}
 
 export function ForgotPasswordScreen({
   title,
   subtitle,
   loginHref = "/login",
+  returnTo,
 }: ForgotPasswordScreenProps): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
@@ -38,7 +48,7 @@ export function ForgotPasswordScreen({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await requestPasswordReset(email);
+      const res = await requestPasswordReset(email, resolveReturnTo(returnTo));
       if (res.ok) {
         setDone(true);
       } else if (res.error.reason === "rate_limited") {
