@@ -47,7 +47,12 @@ function inMemoryIpRateLimit(
         if (nowMs - window.startedAt >= windowMs) windows.delete(ip);
       }
     }
-    if (windows.size > MAX_TRACKED_IPS) windows.clear();
+    // Map keeps insertion order and touched IPs are re-inserted, so the front is the least recently
+    // seen; clear() would let an attacker rotating addresses reset every other IP's window.
+    for (const ip of windows.keys()) {
+      if (windows.size <= MAX_TRACKED_IPS) break;
+      windows.delete(ip);
+    }
   }
 
   return async (c, next) => {
@@ -58,6 +63,7 @@ function inMemoryIpRateLimit(
     const window =
       existing && nowMs - existing.startedAt < windowMs ? existing : { count: 0, startedAt: nowMs };
     window.count += 1;
+    windows.delete(ip);
     windows.set(ip, window);
     if (window.count > REPORTS_PER_WINDOW) {
       const resetAtMs = window.startedAt + windowMs;

@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import * as apiBarrel from "../index.ts";
 
 describe("/api barrel request-context surface", () => {
-  test("does not export run or runAsDirectCallEntry", () => {
-    expect("runAsDirectCallEntry" in apiBarrel).toBe(false);
+  test("does not export run or runAsAgentToolCallEntry", () => {
+    expect("runAsAgentToolCallEntry" in apiBarrel).toBe(false);
     expect("run" in apiBarrel).toBe(false);
   });
 

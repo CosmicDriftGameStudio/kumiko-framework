@@ -10,7 +10,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { runAsDirectCallEntry } from "../../api/request-context.ts";
+import { runAsAgentToolCallEntry } from "../../api/request-context.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
@@ -194,7 +194,7 @@ describe("ctx.crossTenantReads on handlers", () => {
 
   for (const handler of ["granted", "implied", "delegating"]) {
     test(`an agent tool call on ${handler} gets no crossTenantReads`, async () => {
-      const result = await runAsDirectCallEntry(() =>
+      const result = await runAsAgentToolCallEntry(() =>
         stack.dispatcher.query(
           `${FEATURE}:query:${handler}`,
           { foreignTenantId: foreignTenant },

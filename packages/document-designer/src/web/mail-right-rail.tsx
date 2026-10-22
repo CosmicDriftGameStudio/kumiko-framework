@@ -20,7 +20,7 @@ import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.t
 import type { OverviewRowView } from "./overview-row.ts";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 import type { InsertTargets } from "./use-insert-targets.ts";
-import { usageParts } from "./used-by-label.ts";
+import { templateTitleText, usageParts } from "./used-by-label.ts";
 
 type Usage = {
   readonly feature: string;
@@ -77,7 +77,7 @@ export function layoutOptionLabel(
   const title =
     layout.title === layout.slug
       ? t(`documentDesigner.editor.title.${layout.kind === "mail-layout" ? "mail" : "pdf"}`)
-      : layout.title;
+      : templateTitleText(t, layout.title);
   return t(
     layout.origin === "tenant"
       ? "documentDesigner.mail.props.layoutTenant"

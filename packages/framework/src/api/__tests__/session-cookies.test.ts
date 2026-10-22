@@ -8,6 +8,7 @@ import { createJwtHelper } from "../jwt.ts";
 import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
+  clearSessionCookies,
   HOST_COOKIE_PREFIX,
   resolveSecureCookies,
   resolveSessionCookies,
@@ -117,6 +118,28 @@ describe("tenant cookie", () => {
     expect(prefixed).toMatch(/;\s*Secure/i);
     expect(prefixed).toMatch(/;\s*Path=\//i);
     expect(legacy).toMatch(/Max-Age=0/i);
+  });
+});
+
+describe("expireLegacySessionCookieVariants", () => {
+  async function clearedCookies(secureCookies: boolean): Promise<string[]> {
+    const app = new Hono();
+    const cookies = resolveSessionCookies({ secureCookies });
+    app.get("/clear", (c) => {
+      clearSessionCookies(c, cookies);
+      return c.json({ ok: true });
+    });
+    return (await app.request("/clear")).headers.getSetCookie();
+  }
+
+  test("secureCookies:false still expires leftover __Host- auth and csrf cookies", async () => {
+    const headers = await clearedCookies(false);
+    for (const base of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
+      const hostPrefixed = headers.find((h) => h.startsWith(`${HOST_COOKIE_PREFIX}${base}=`));
+      expect(hostPrefixed).toMatch(/Max-Age=0/i);
+      expect(hostPrefixed).toMatch(/;\s*Secure/i);
+      expect(hostPrefixed).toMatch(/;\s*Path=\//i);
+    }
   });
 });
 

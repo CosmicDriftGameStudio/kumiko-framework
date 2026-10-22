@@ -141,7 +141,7 @@ export function runWithOrigin<T>(
 // surrounding turn/approve handler. Reserved for dispatchToolCall, so it also marks
 // the scope as an agent tool call; it always mints a scope, because an agent loop
 // running outside any request must still carry that marker.
-export function runAsDirectCallEntry<T>(fn: () => T): T {
+export function runAsAgentToolCallEntry<T>(fn: () => T): T {
   const current = requestContext.get();
   const requestId = current?.requestId ?? requestContext.generateId();
   const { entryHandler: _entryHandler, ...rest } = current ?? {};

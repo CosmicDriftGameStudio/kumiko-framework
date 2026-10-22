@@ -36,4 +36,18 @@ describe("client error route without Redis", () => {
     nowMs += 60_000;
     expect((await post("10.0.0.1")).status).toBe(204);
   });
+
+  test("a flood of fresh IPs does not reset the window of an actively limited IP", async () => {
+    const post = setup(() => 1_000_000);
+
+    for (let i = 0; i < 10; i++) await post("10.0.0.1");
+    expect((await post("10.0.0.1")).status).toBe(429);
+
+    for (let i = 0; i < 10_050; i++) {
+      await post(`172.${(i >> 16) & 255}.${(i >> 8) & 255}.${i & 255}`);
+      if (i % 500 === 0) await post("10.0.0.1");
+    }
+
+    expect((await post("10.0.0.1")).status).toBe(429);
+  });
 });

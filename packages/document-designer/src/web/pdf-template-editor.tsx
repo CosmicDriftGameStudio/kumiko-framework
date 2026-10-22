@@ -58,7 +58,7 @@ import {
 import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
-import { templateTitle } from "./used-by-label.ts";
+import { templateTitle, templateTitleText } from "./used-by-label.ts";
 
 const SETTLE_MS = 500;
 const NO_VARIABLES: Readonly<Record<string, VariableInfo>> = {};
@@ -416,8 +416,9 @@ export function PdfTemplateEditor({
 
   const canPublish = validation?.canPublish === true;
   const layoutSlugShown = layout?.slug ?? DEFAULT_LAYOUT_SLUG;
+  const layoutTitle = layouts.rows.find((row) => row.slug === layoutSlugShown)?.title;
   const layoutName =
-    layouts.rows.find((row) => row.slug === layoutSlugShown)?.title ?? layoutSlugShown;
+    layoutTitle === undefined ? layoutSlugShown : templateTitleText(t, layoutTitle);
   const layoutResourceSrc = (key: string): string | undefined =>
     key === "logo" && brandingLogoFile !== "" ? fileUrl(brandingLogoFile) : undefined;
   const placeholderSource =
