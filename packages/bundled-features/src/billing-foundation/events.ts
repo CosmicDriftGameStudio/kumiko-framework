@@ -141,6 +141,7 @@ export const checkoutConsentRecordedPayloadSchema = z.object({
   termsTemplateVersion: z.number(),
   locale: z.string().min(2).max(35),
   actorUserId: z.string().min(1),
+  providerName: z.string().min(1).max(100).optional(),
   itemLabelKey: z.string().min(1).max(200).optional(),
   itemLabelParams: z.record(z.string(), z.union([z.string().max(100), z.number()])).optional(),
 });

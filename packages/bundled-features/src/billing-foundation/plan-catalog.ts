@@ -6,12 +6,14 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { isPluginBillingEnabled } from "./checkout-core.ts";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant.ts";
-import type {
-  BillingPlanCatalog,
-  BillingPlansResult,
-  BillingPlanView,
-  ProviderPrice,
-  SubscriptionProviderPlugin,
+import {
+  type BillingPlanCatalog,
+  type BillingPlansResult,
+  type BillingPlanView,
+  canSwitchPlans,
+  canSwitchPlansInApp,
+  type ProviderPrice,
+  type SubscriptionProviderPlugin,
 } from "./types.ts";
 import {
   BillingPlanActions,
@@ -51,7 +53,7 @@ function invertPriceToTier(
   return byTier;
 }
 
-type ResolvedPlanPrice = { readonly priceId: string; readonly price: ProviderPrice } | null;
+export type ResolvedPlanPrice = { readonly priceId: string; readonly price: ProviderPrice } | null;
 
 /** Resolves one active, flat-amount price per plan tier. 0 or >1 active
  *  flat-amount prices for a tier is ambiguous — the caller can't tell which
@@ -120,7 +122,7 @@ function canSwitchToTier(
     isSwitchableSubscriptionStatus(subscription.status) &&
     tier !== subscription.tier &&
     subscription.cancelAt === null &&
-    plugin?.createPlanSwitchSession !== undefined
+    canSwitchPlans(plugin)
   );
 }
 
@@ -157,37 +159,60 @@ function resolvePlanAction(
     : BillingPlanActions.unavailable;
 }
 
+/** Tenant-level state every provider's plan list is measured against; loaded
+ *  once so a multi-provider result does not repeat the reads per provider. */
+export type BillingPlansBase = {
+  readonly currentTierValue: string;
+  readonly subscriptionView: Awaited<ReturnType<typeof getSubscriptionForTenant>>;
+  readonly subscription: BillingPlansResult["subscription"];
+  readonly blockingSubscription: boolean;
+  readonly canPurchase: boolean;
+};
+
+export async function loadBillingPlansBase(
+  ctx: HandlerContext,
+  catalog: BillingPlanCatalog,
+  now: () => Temporal.Instant,
+): Promise<BillingPlansBase> {
+  const currentTierValue = await catalog.resolveCurrentTier(ctx.db, ctx.user.tenantId);
+  const subscriptionView = await getSubscriptionForTenant(ctx, ctx.user.tenantId);
+  const blockingSubscription =
+    subscriptionView !== null && isSubscriptionBlockingCheckout(subscriptionView, now());
+  const subscription = subscriptionView
+    ? {
+        status: subscriptionView.status,
+        tier: subscriptionView.tier,
+        terminal: !blockingSubscription,
+        currentPeriodEnd: subscriptionView.currentPeriodEnd.toString(),
+        cancelAt: subscriptionView.cancelAt?.toString() ?? null,
+      }
+    : null;
+  const canPurchase = userHasAnyRole(ctx.user.roles, purchaseRolesOf(catalog));
+  return { currentTierValue, subscriptionView, subscription, blockingSubscription, canPurchase };
+}
+
+export type ProviderPlanViews = {
+  readonly enabled: boolean;
+  readonly inAppSwitch: boolean;
+  readonly plans: readonly BillingPlanView[];
+};
+
 /** `plugin === null` — no provider is registered/resolvable for this
- *  catalog (see checkout-core's `findCatalogProvider`) — collapses onto the
+ *  catalog (see checkout-core's `listCatalogProviders`) — collapses onto the
  *  same "enabled: false" result a disabled provider produces, rather than
  *  a separate error shape the panel would need to special-case. */
-export async function buildBillingPlans(
+export async function buildProviderPlanViews(
   ctx: HandlerContext,
   plugin: SubscriptionProviderPlugin | null,
   catalog: BillingPlanCatalog,
-  now: () => Temporal.Instant,
-): Promise<BillingPlansResult> {
-  const currentTierValue = await catalog.resolveCurrentTier(ctx.db, ctx.user.tenantId);
+  base: BillingPlansBase,
+): Promise<ProviderPlanViews> {
+  const { currentTierValue, subscription, canPurchase } = base;
   const enabled = plugin !== null && (await isPluginBillingEnabled(ctx, plugin));
   const resolvedPrices =
     enabled && plugin
       ? await resolvePlanPrices(ctx, plugin, catalog)
       : new Map<string, ResolvedPlanPrice>(catalog.plans.map((tier) => [tier, null]));
-
-  const subscriptionView = await getSubscriptionForTenant(ctx, ctx.user.tenantId);
-  const nowInstant = now();
-  const subscription = subscriptionView
-    ? {
-        status: subscriptionView.status,
-        tier: subscriptionView.tier,
-        terminal: !isSubscriptionBlockingCheckout(subscriptionView, nowInstant),
-        currentPeriodEnd: subscriptionView.currentPeriodEnd.toString(),
-        cancelAt: subscriptionView.cancelAt?.toString() ?? null,
-      }
-    : null;
-
-  const purchaseRoles = purchaseRolesOf(catalog);
-  const canPurchase = userHasAnyRole(ctx.user.roles, purchaseRoles);
 
   const plans: BillingPlanView[] = catalog.plans.map((tier) => {
     const isCurrent = tier === currentTierValue;
@@ -221,8 +246,17 @@ export async function buildBillingPlans(
     };
   });
 
+  return { enabled, inAppSwitch: plugin !== null && canSwitchPlansInApp(plugin), plans };
+}
+
+export function toBillingPlansResult(
+  catalog: BillingPlanCatalog,
+  base: BillingPlansBase,
+  views: ProviderPlanViews,
+): BillingPlansResult {
+  const { currentTierValue, subscription, canPurchase } = base;
   return {
-    enabled,
+    enabled: views.enabled,
     currentTier: {
       tier: currentTierValue,
       labelKey: catalog.tierLabelKey(currentTierValue),
@@ -230,7 +264,8 @@ export async function buildBillingPlans(
     },
     subscription,
     canPurchase,
-    plans,
+    plans: views.plans,
+    ...(views.inAppSwitch && { inAppPlanSwitch: true as const }),
     ...(catalog.contact !== undefined && { contact: catalog.contact }),
   };
 }

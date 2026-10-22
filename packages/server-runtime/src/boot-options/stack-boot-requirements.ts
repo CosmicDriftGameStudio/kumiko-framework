@@ -49,7 +49,7 @@ const OPTION_CHECKS: { readonly [K in BootOptionName]: OptionCheck } = {
   billing: {
     isSatisfied: (options, mounted) =>
       options.billing !== undefined || mountsExtension(mounted, SUBSCRIPTION_PROVIDER_EXTENSION),
-    hint: "set billing: { stripe: { priceToTier }, defaultTier }",
+    hint: "set billing: { stripe: { priceToTier }, defaultTier } (or dodo)",
   },
   featureToggles: {
     isSatisfied: (options) => options.featureToggles === true,

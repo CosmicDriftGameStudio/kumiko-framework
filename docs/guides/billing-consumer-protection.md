@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-04
-evidence: "kumiko-framework#3468 (consent gate, consent and cancel dialogs, termination handlers, § 312k pages), #3493 (platform termination scope), #3515 (layout around termination pages); packages/bundled-features/src/billing-foundation/{consumer-protection,web}; samples/apps/use-all-bundled/e2e-billing-gallery"
+verified: 2026-10-22
+evidence: "kumiko-framework#3468 (consent gate, consent and cancel dialogs, termination handlers, § 312k pages), #3493 (platform termination scope), #3515 (layout around termination pages); packages/bundled-features/src/billing-foundation/{consumer-protection,web}; samples/apps/use-all-bundled/e2e-billing-gallery; provider texts, several providers and in-app plan switch: packages/bundled-features/src/{billing-foundation,subscription-dodo}"
 ---
 
 # Billing consumer protection: consent, cancel and termination
@@ -18,8 +18,27 @@ evidence: "kumiko-framework#3468 (consent gate, consent and cancel dialogs, term
 - `legalLinks`: `{ terms, withdrawal, privacy }` for all locales, or one such set per locale (`de` and `en` both required). Values are root-relative paths or absolute https URLs.
 - `terminationScope`: `"tenant-host"` (default) or `"platform"`. See below.
 - `oneOffItemLabel(ctx, priceId)`: names the item of a one-off payment for the consent record and the confirmation mail. The key resolves through the registry i18n, so qualify it with the registering feature.
+- `providerTexts`: texts per provider name, see below.
 
 Locales other than `de` and `en` resolve to English.
+
+### Texts per provider
+
+A merchant of record such as Dodo Payments sells to the customer in its own name. The contract partner, the invoice and the VAT then come from the provider, and the customer has to read that before ordering. `providerTexts` sets this per provider name:
+
+```ts illustration
+providerTexts: {
+  dodo: {
+    checkoutNote: { de: "Vertragspartner ist Dodo Payments …", en: "Your contract partner is Dodo Payments …" },
+    vatNote: { de: "Dodo Payments weist die Umsatzsteuer aus.", en: "Dodo Payments charges the VAT." },
+  },
+},
+```
+
+- `checkoutNote` shows in the plan panel under the provider choice while that provider is selected. It also shows when the app offers only this one provider.
+- `vatNote` replaces the global `vatNote` in the confirmation mail of a contract closed with this provider. The consent record stores the provider name, so the mail picks the text of the provider the customer actually ordered with.
+
+Each text needs `de` and `en`. A provider without an entry uses the global texts.
 
 ## Consent before checkout
 
@@ -29,14 +48,26 @@ Locales other than `de` and `en` resolve to English.
 - A `consentTextVersion` that is not current for the locale returns 422 `consent_text_outdated`. The client should reload the plans query to get the new texts.
 - A terms block that cannot be resolved returns 422 `terms_unavailable`.
 
-After the provider accepted the checkout, the handler appends `checkout-consent-recorded` with the price, the text version, the terms hash and template version, the locale and the acting user. When a later subscription or payment event with the same `consentId` shows the contract is live, a job sends the contract confirmation mail once.
+After the provider accepted the checkout, the handler appends `checkout-consent-recorded` with the price, the provider, the text version, the terms hash and template version, the locale and the acting user. When a later subscription or payment event with the same `consentId` shows the contract is live, a job sends the contract confirmation mail once.
+
+A plan switch is a new agreement too. Providers with a hosted switch page (Stripe) collect it there. Providers that switch through the API (Dodo) get a confirmation in the app instead: `plan-switch-preview` returns what is due now, the tax, any credit and the new recurring price, and `switch-plan` then takes the same `consent` payload as a checkout and runs the same gate before it calls the provider. The confirmation mail follows once the provider's webhook reports the switch.
 
 ## `BillingPlansPanel` dialogs
 
 `BillingPlansPanel` from `@cosmicdrift/kumiko-bundled-features/billing-foundation/web` shows both dialogs itself when `billing-plans` returns `consumerProtection`. An app mounts the panel and gets them.
 
 - `CheckoutConsentDialog` opens when a plan is ordered. It shows the plan, the price, links from `legalLinks` for the UI locale and two checkboxes with the consent texts. The order button stays disabled until both are ticked. On `consent_text_outdated` the dialog calls `onConsentTextOutdated`, which refetches the plans. The dialog, its props type and `CONSENT_TEXT_OUTDATED_CODE` are exported for apps that build their own checkout.
+- `PlanSwitchConfirmDialog` opens when an existing subscriber switches plans at a provider without a hosted switch page. It shows the old and the new plan, the amount due now with its tax, a credit if there is one, the new recurring price and the same two checkboxes. The switch button stays disabled until both are ticked.
 - The cancel-contract dialog opens from a button for users who may manage billing, and is hidden once a cancellation is scheduled. It has three steps: choose withdrawal or termination, choose ordinary or extraordinary (a reason is required for extraordinary), then confirm. The receipt shows the request id, the time received and the effective date.
+
+## Several providers
+
+An app can mount more than one subscription provider, for example `subscription-stripe` and `subscription-dodo`, or set both under `billing` in `runProdApp`. Every provider that exposes `priceToTier` serves the catalog, unless `catalog.providerName` pins one.
+
+- Each provider has its own webhook URL, `/api/subscription/webhook/<providerName>`, so `/api/subscription/webhook/stripe` and `/api/subscription/webhook/dodo`. Register each URL in the provider's dashboard with that provider's signing secret.
+- A provider is offered for new checkouts once the system admin has set its keys and switched `billingLive` on in the provider's config screen. A provider without `isBillingEnabled`, such as `subscription-mollie`, counts as offered as soon as it is mounted.
+- With more than one offered provider the plan panel shows a provider choice above the plans, with the prices of the selected provider. `start-plan-checkout` then needs `providerName` and rejects a provider that is not offered. With one offered provider nothing changes for the customer.
+- An existing subscription stays with the provider stored on it. Its prices, plan switch, portal, cancellation and sync all go to that provider, also after a second provider is switched on. A switch never moves a subscription to another provider. To change providers the customer cancels and orders again.
 
 ## Terminating a contract
 

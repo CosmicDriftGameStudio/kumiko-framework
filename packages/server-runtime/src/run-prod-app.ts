@@ -512,7 +512,7 @@ export type RunProdAppOptions = {
    *  @example
    *  fileStorage: { provider: "auto" } */
   readonly fileStorage?: FileStorageBootOption;
-  /** Stripe billing: `subscription-stripe` plus the tier-syncing webhook
+  /** Billing: `subscription-stripe` and/or `subscription-dodo` plus one tier-syncing webhook
    *  route. Needs `billing-foundation` and `tier-engine`. See `BillingBootOption`.
    *  @example
    *  billing: { stripe: { priceToTier: { [env.STRIPE_PRICE_PRO]: "pro" } }, defaultTier: "free" } */

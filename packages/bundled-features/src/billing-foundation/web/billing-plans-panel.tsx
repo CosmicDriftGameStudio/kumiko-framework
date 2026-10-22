@@ -9,12 +9,13 @@ import {
 import { toInstant, type WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   formatMoney,
+  ModeSwitch,
   PlanCard,
   type PlanCardActionSlot,
   PlanGrid,
 } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
-import type { BillingPlansResult, BillingPlanView } from "../types.ts";
+import type { BillingPlansResult, BillingPlanView, BillingProviderView } from "../types.ts";
 import { BillingContactPlan } from "./billing-contact-plan.tsx";
 import { CancelContractDialog } from "./cancel-contract-dialog.tsx";
 import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.tsx";
@@ -24,7 +25,9 @@ import {
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
 } from "./constants.ts";
+import { resolveConsentLocale } from "./consumer-protection/consent-locale.ts";
 import { localizedParams } from "./localized-params.ts";
+import { PlanSwitchConfirmDialog } from "./plan-switch-confirm-dialog.tsx";
 
 type UseTranslation = ReturnType<typeof useTranslation>;
 
@@ -112,6 +115,42 @@ function planCta(
   };
 }
 
+function ProviderChoice({
+  providers,
+  active,
+  onChange,
+}: {
+  readonly providers: readonly BillingProviderView[];
+  readonly active: BillingProviderView | undefined;
+  readonly onChange: (providerName: string) => void;
+}): ReactNode {
+  const t = useTranslation();
+  const locale = useLocale().locale();
+  const { Text } = usePrimitives();
+  const note = active?.note?.[resolveConsentLocale(locale)];
+  return (
+    <>
+      {providers.length > 1 && (
+        <ModeSwitch
+          testId="billing-provider-switch"
+          ariaLabel={t("billing-foundation.plans.providerChoice")}
+          value={active?.name ?? null}
+          options={providers.map((provider) => ({
+            value: provider.name,
+            label: provider.displayName,
+          }))}
+          onChange={onChange}
+        />
+      )}
+      {note !== undefined && (
+        <Text variant="muted" testId="billing-provider-note">
+          {note}
+        </Text>
+      )}
+    </>
+  );
+}
+
 export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
@@ -135,12 +174,21 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   const [redirecting, setRedirecting] = useState(false);
   const [consentTier, setConsentTier] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [chosenProvider, setChosenProvider] = useState<string | null>(null);
+  const [switchTier, setSwitchTier] = useState<string | null>(null);
+  const [switchRequested, setSwitchRequested] = useState(false);
+
+  // Only present when the tenant can choose (several offered providers) or
+  // the single offered provider has a note; absent means the server decides.
+  const providers = query.data?.providers;
+  const activeProvider = providers?.find((p) => p.name === chosenProvider) ?? providers?.[0];
+  const providerArg = activeProvider ? { providerName: activeProvider.name } : {};
 
   async function orderWithConsent(
     tier: string,
     consent: CheckoutConsentPayload,
   ): Promise<WriteResult<{ readonly url: string }>> {
-    const result = await checkoutMutation.mutate({ tier, consent });
+    const result = await checkoutMutation.mutate({ tier, consent, ...providerArg });
     if (result.isSuccess) {
       setRedirecting(true);
       window.location.assign(result.data.url);
@@ -153,9 +201,15 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
       setConsentTier(tier);
       return;
     }
+    if (kind === "switch" && query.data?.inAppPlanSwitch) {
+      setSwitchTier(tier);
+      return;
+    }
     setRedirecting(true);
-    const mutation = kind === "checkout" ? checkoutMutation : switchMutation;
-    const result = await mutation.mutate({ tier });
+    const result =
+      kind === "checkout"
+        ? await checkoutMutation.mutate({ tier, ...providerArg })
+        : await switchMutation.mutate({ tier });
     if (result.isSuccess) {
       window.location.assign(result.data.url);
     } else {
@@ -189,6 +243,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   }
   if (!query.data) return null;
   const result: BillingPlansResult = query.data;
+  const shownPlans = activeProvider?.plans ?? result.plans;
 
   // The consent dialog shows the checkout error itself.
   const mutationError =
@@ -239,12 +294,12 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   // rendered plans is the current one, a synthetic current-tier card (no
   // price, no cta) keeps it visible regardless of enabled/disabled.
   const consentPlan =
-    consentTier !== null ? result.plans.find((plan) => plan.tier === consentTier) : undefined;
+    consentTier !== null ? shownPlans.find((plan) => plan.tier === consentTier) : undefined;
+  const switchPlan =
+    switchTier !== null ? shownPlans.find((plan) => plan.tier === switchTier) : undefined;
   const consumerProtection = result.consumerProtection;
-  const currentTierInPlans = result.plans.some((plan) => plan.isCurrent);
-  const visiblePlans = result.enabled
-    ? result.plans
-    : result.plans.filter((plan) => plan.isCurrent);
+  const currentTierInPlans = shownPlans.some((plan) => plan.isCurrent);
+  const visiblePlans = result.enabled ? shownPlans : shownPlans.filter((plan) => plan.isCurrent);
 
   return (
     <div className="flex flex-col gap-4" data-testid="billing-plans-panel">
@@ -256,6 +311,11 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
       {!result.canPurchase && (
         <Banner variant="warning" testId="billing-plans-panel-readonly">
           {t("billing-foundation.plans.purchaseNotAllowed")}
+        </Banner>
+      )}
+      {switchRequested && (
+        <Banner variant="info" testId="billing-plans-panel-switch-requested">
+          {t("billing-foundation.plans.planSwitchRequested")}
         </Banner>
       )}
       {mutationError !== null && (
@@ -290,6 +350,13 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             {t("billing-foundation.cancel.open")}
           </Button>
         </div>
+      )}
+      {providers !== undefined && (
+        <ProviderChoice
+          providers={providers}
+          active={activeProvider}
+          onChange={setChosenProvider}
+        />
       )}
       <PlanGrid testId="billing-plans-grid">
         {!currentTierInPlans && (
@@ -337,6 +404,24 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             onConsentTextOutdated={() => void query.refetch()}
           />
         )}
+      {switchPlan !== undefined && (
+        <PlanSwitchConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setSwitchTier(null);
+          }}
+          tier={switchPlan.tier}
+          fromPlanName={t(result.currentTier.labelKey)}
+          toPlanName={t(switchPlan.labelKey)}
+          consumerProtection={consumerProtection}
+          onApplied={() => {
+            setSwitchTier(null);
+            setSwitchRequested(true);
+            void query.refetch();
+          }}
+          onConsentTextOutdated={() => void query.refetch()}
+        />
+      )}
       {consumerProtection !== undefined && canManage && (
         <CancelContractDialog
           open={cancelOpen}

@@ -28,6 +28,24 @@ function isRootRelativeOrHttpsUrl(link: string): boolean {
   }
 }
 
+function validateProviderTexts(cp: ConsumerProtectionOptions): void {
+  for (const [providerName, texts] of Object.entries(cp.providerTexts ?? {})) {
+    for (const [textName, text] of [
+      ["vatNote", texts.vatNote],
+      ["checkoutNote", texts.checkoutNote],
+    ] as const) {
+      if (text === undefined) continue;
+      for (const locale of ["de", "en"] as const) {
+        if (!text[locale]?.trim()) {
+          throw new Error(
+            `createBillingFoundationFeature: consumerProtection.providerTexts.${providerName}.${textName} needs a non-empty "${locale}" entry.`,
+          );
+        }
+      }
+    }
+  }
+}
+
 function validateConsumerProtection(cp: ConsumerProtectionOptions): void {
   if (cp.termsTextBlock.trim() === "") {
     throw new Error("createBillingFoundationFeature: consumerProtection.termsTextBlock is empty.");
@@ -39,6 +57,7 @@ function validateConsumerProtection(cp: ConsumerProtectionOptions): void {
       );
     }
   }
+  validateProviderTexts(cp);
   if (!z.email().safeParse(cp.operatorEmail).success) {
     throw new Error(
       `createBillingFoundationFeature: consumerProtection.operatorEmail "${cp.operatorEmail}" is not a valid email address.`,

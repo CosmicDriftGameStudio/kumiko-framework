@@ -351,6 +351,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This provider has no known prices configured.",
   "billing-foundation.errors.providerMismatch":
     "This tenant's subscription is on a different provider than the plan catalog. Contact support to migrate.",
+  "billing-foundation.errors.providerNotOffered":
+    "This payment provider is not available right now.",
+  "billing-foundation.errors.providerRequired": "Choose a payment provider to continue.",
   "billing-foundation.errors.redirectOriginNotAllowed":
     "This redirect URL is not allowed for this app.",
   "billing-foundation.errors.subscriptionExists":
@@ -358,6 +361,16 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.errors.termsUnavailable":
     "The terms are temporarily unavailable. Please try again later.",
   "billing-foundation.errors.unknownPrice": "This price is not recognized.",
+  "billing-foundation.planSwitch.credit": "Credit for the unused time: {amount}",
+  "billing-foundation.planSwitch.dueNow": "Due now: {amount}",
+  "billing-foundation.planSwitch.effective": "Effective immediately",
+  "billing-foundation.planSwitch.includesTax": "including {tax} VAT",
+  "billing-foundation.planSwitch.order": "Switch with obligation to pay",
+  "billing-foundation.planSwitch.pendingNote":
+    "The switch becomes active after payment confirmation.",
+  "billing-foundation.planSwitch.recurring": "New recurring price: {amount}",
+  "billing-foundation.planSwitch.summary": "{from} to {to}",
+  "billing-foundation.planSwitch.title": "Confirm plan switch",
   "billing-foundation.plans.billingDisabled":
     "Billing is not active yet. Your current plan stays in place.",
   "billing-foundation.plans.cancelScheduled": "Your subscription is scheduled to end on {date}.",
@@ -375,7 +388,10 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.plans.perInterval.month": "/ month",
   "billing-foundation.plans.perInterval.week": "/ week",
   "billing-foundation.plans.perInterval.year": "/ year",
+  "billing-foundation.plans.planSwitchRequested":
+    "Plan switch requested. It becomes active once the payment is confirmed.",
   "billing-foundation.plans.priceUnavailable": "Price not available",
+  "billing-foundation.plans.providerChoice": "Payment provider",
   "billing-foundation.plans.purchaseNotAllowed": "Only administrators can change the plan.",
   "billing-foundation.plans.reactivate": "Reactivate subscription",
   "billing-foundation.plans.subscriptionPending": "Your plan change is being processed.",

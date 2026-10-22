@@ -29,14 +29,18 @@ const port = Number.parseInt(process.env["PORT"] ?? "4196", 10);
 
 const BILLING_FEATURE = "billing-foundation";
 const EMAIL_FEATURE = "channel-email";
+// The stock app mounts Mollie; the gallery's provider choice is the two mocks.
+const MOLLIE_FEATURE = "subscription-mollie";
 
 const features = [
-  ...devAppOptions.features.map((feature) => {
-    if (feature.name === BILLING_FEATURE)
-      return createGalleryBillingFeature(`http://localhost:${port}`);
-    if (feature.name === EMAIL_FEATURE) return createGalleryEmailFeature();
-    return feature;
-  }),
+  ...devAppOptions.features
+    .filter((feature) => feature.name !== MOLLIE_FEATURE)
+    .map((feature) => {
+      if (feature.name === BILLING_FEATURE)
+        return createGalleryBillingFeature(`http://localhost:${port}`);
+      if (feature.name === EMAIL_FEATURE) return createGalleryEmailFeature();
+      return feature;
+    }),
   galleryProviderFeature,
   galleryScreensFeature,
 ];

@@ -167,9 +167,34 @@ describe("billing option", () => {
 
   test("mounts subscription-stripe and the tier-sync webhook on the default path", () => {
     const resolved = resolveBillingOption(billing, {});
-    expect(resolved.feature.name).toBe("subscription-stripe");
+    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-stripe"]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
     expect(resolved.route.method).toBe("POST");
+  });
+
+  test("dodo alone mounts subscription-dodo on the shared route", () => {
+    const resolved = resolveBillingOption(
+      { dodo: { priceToTier: { pdt_pro: "pro" } }, defaultTier: "free" },
+      {},
+    );
+    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-dodo"]);
+    expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
+  });
+
+  test("stripe and dodo together mount both providers on one route", () => {
+    const resolved = resolveBillingOption(
+      { ...billing, dodo: { priceToTier: { pdt_pro: "pro" } } },
+      {},
+    );
+    expect(resolved.features.map((feature) => feature.name)).toEqual([
+      "subscription-stripe",
+      "subscription-dodo",
+    ]);
+    expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
+  });
+
+  test("billing without any provider is refused", () => {
+    expect(() => resolveBillingOption({ defaultTier: "free" }, {})).toThrow(/at least one/);
   });
 
   test("webhookPath moves the route", () => {

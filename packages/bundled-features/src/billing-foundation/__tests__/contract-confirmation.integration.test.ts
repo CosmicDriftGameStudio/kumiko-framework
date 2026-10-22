@@ -120,6 +120,15 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
     retrievePrices: async (_ctx, priceIds) =>
       [
         {
+          priceId: "price_starter",
+          unitAmount: 900,
+          currency: "eur",
+          interval: "month" as const,
+          intervalCount: 1,
+          active: true,
+          metadata: {},
+        },
+        {
           priceId: "price_pro",
           unitAmount: 1900,
           currency: "eur",
@@ -141,6 +150,16 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
     createCheckoutSession: async (_ctx, options) => {
       lastConsentId = options.consentId;
       return { url: `https://mock.example/checkout/${options.priceId}` };
+    },
+    previewPlanSwitch: async () => ({
+      amountDueNow: 667,
+      tax: 106,
+      currency: "eur",
+      credit: 333,
+      effectiveAt: "2026-11-01T10:00:00Z",
+    }),
+    applyPlanSwitch: async (_ctx, options) => {
+      lastConsentId = options.consentId;
     },
   };
   r.useExtension("subscriptionProvider", PROVIDER, plugin);
@@ -270,6 +289,7 @@ function subscriptionEvent(
     type?: SubscriptionEvent["type"];
     status?: SubscriptionStatus;
     consentId?: string;
+    tier?: string;
   },
 ): SubscriptionEvent {
   return {
@@ -280,7 +300,7 @@ function subscriptionEvent(
     providerCustomerId: "cus_confirm",
     providerSubscriptionId: "sub_confirm",
     status: overrides.status ?? SubscriptionStatuses.active,
-    tier: "pro",
+    tier: overrides.tier ?? "pro",
     currentPeriodEnd: "2026-11-02T00:00:00Z",
     ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
   };
@@ -334,6 +354,41 @@ describe("contract confirmation mail on a subscription", () => {
     const issued = await issuedEvents(subscriptionAggregateId(buyer.tenantId), buyer.tenantId);
     expect(issued).toHaveLength(1);
     expect(issued[0]?.payload).toMatchObject({ consentId, locale: "de", termsTemplateVersion: 1 });
+  });
+
+  test("an in-app plan switch records its consent and the plan_changed webhook carrying it sends the confirmation mail once", async () => {
+    const buyer = await createBuyer(8205);
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", tier: "starter" }),
+    );
+    await stack.drainJobs();
+    expect(emailTransport.sent).toHaveLength(0);
+
+    const result = await stack.http.writeOk(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentFor("de") },
+      buyer,
+    );
+    expect(result).toEqual({ applied: true });
+    const consentId = lastConsentId;
+    if (!consentId) throw new Error("apply did not receive a consentId");
+
+    const changed = subscriptionEvent(buyer.tenantId, {
+      providerEventId: "evt_2",
+      type: SubscriptionEventTypes.updated,
+      consentId,
+    });
+    await postWebhook(changed);
+    await postWebhook(changed);
+    await stack.drainJobs();
+
+    expect(emailTransport.sent).toHaveLength(1);
+    const html = emailTransport.sent[0]?.html ?? "";
+    expect(html).toContain("Tarif: Pro plan");
+    expect(html).toContain(CONSENT_TEXTS.de.earlyPerformance);
+    const issued = await issuedEvents(subscriptionAggregateId(buyer.tenantId), buyer.tenantId);
+    expect(issued).toHaveLength(1);
+    expect(issued[0]?.payload).toMatchObject({ consentId });
   });
 
   test("an English consent produces the English mail with the English terms", async () => {

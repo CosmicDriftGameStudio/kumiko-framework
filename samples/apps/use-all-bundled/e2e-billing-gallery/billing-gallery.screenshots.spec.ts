@@ -23,6 +23,7 @@ import {
 import type { APIRequestContext, Page } from "@playwright/test";
 import {
   GALLERY_APEX_HOST,
+  GALLERY_MOR_PROVIDER,
   GALLERY_OPERATOR_EMAIL,
   GALLERY_PLAN_PATH,
   GALLERY_PROVIDER,
@@ -64,6 +65,7 @@ type WebhookEvent = {
   readonly tenantId: string;
   readonly tier: string;
   readonly consentId?: string;
+  readonly provider?: string;
 };
 
 type PostedSubscription = {
@@ -76,10 +78,11 @@ const PERIOD_END_ISO = "2027-01-15T00:00:00Z";
 async function postSubscriptionEvent(
   request: APIRequestContext,
   body: Record<string, unknown>,
+  provider: string = GALLERY_PROVIDER,
 ): Promise<void> {
-  const response = await request.post(`/api/subscription/webhook/${GALLERY_PROVIDER}`, {
+  const response = await request.post(`/api/subscription/webhook/${provider}`, {
     headers: { "stripe-signature": "gallery" },
-    data: { providerEventId: `evt_${randomUUID()}`, providerName: GALLERY_PROVIDER, ...body },
+    data: { providerEventId: `evt_${randomUUID()}`, providerName: provider, ...body },
   });
   expect(response.status()).toBe(200);
 }
@@ -93,15 +96,19 @@ async function postSubscriptionCreated(
     providerCustomerId: `cus_${unique}`,
     providerSubscriptionId: `sub_${unique}`,
   };
-  await postSubscriptionEvent(request, {
-    type: "subscription.created",
-    tenantId: event.tenantId,
-    ...(event.consentId !== undefined && { consentId: event.consentId }),
-    ...posted,
-    status: "active",
-    tier: event.tier,
-    currentPeriodEnd: PERIOD_END_ISO,
-  });
+  await postSubscriptionEvent(
+    request,
+    {
+      type: "subscription.created",
+      tenantId: event.tenantId,
+      ...(event.consentId !== undefined && { consentId: event.consentId }),
+      ...posted,
+      status: "active",
+      tier: event.tier,
+      currentPeriodEnd: PERIOD_END_ISO,
+    },
+    event.provider,
+  );
   return posted;
 }
 
@@ -320,4 +327,62 @@ test("flow 5: error states", async ({ page, request, seedTenant, baseURL }) => {
   await useOwnClientIp(page);
   await page.goto(apexUrl(baseURL, "/legal/cancel"));
   await shot(page, "05-03-platform-host-page-works");
+});
+
+test("flow 6: provider choice and checkout through the merchant of record", async ({
+  page,
+  seedTenant,
+}) => {
+  await seedTenant({ admin: { email: "chooser-{tenantId}@gallery.example" } });
+  const providerSwitch = page.getByTestId("billing-provider-switch");
+
+  await openPlans(page);
+  await expect(providerSwitch.getByRole("button", { name: "Stripe" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await shot(page, "06-01-provider-choice-stripe");
+
+  await providerSwitch.getByRole("button", { name: "Dodo Payments" }).click();
+  await expect(page.getByTestId("billing-provider-note")).toContainText(
+    "Vertragspartner und Verkäufer ist Dodo Payments als Merchant of Record",
+  );
+  await expect(page.getByTestId("billing-plan-card-starter")).toContainText("9,90");
+  await shot(page, "06-02-provider-choice-dodo");
+
+  await startCheckout(page);
+  await tickBothConsents(page);
+  await page.getByTestId("checkout-consent-order").click();
+  await page.waitForURL(/provider=mor/);
+  expect(new URL(page.url()).searchParams.get("provider")).toBe("mor");
+});
+
+test("flow 7: in-app plan switch with consent", async ({ page, request, seedTenant }) => {
+  const tenant = await seedTenant({ admin: { email: "switcher-{tenantId}@gallery.example" } });
+  await postSubscriptionCreated(request, {
+    tenantId: tenant.id,
+    tier: "starter",
+    provider: GALLERY_MOR_PROVIDER,
+  });
+
+  await openPlans(page);
+  await shot(page, "07-01-plans-before-switch");
+  await page.getByTestId("billing-plan-card-pro").getByRole("button").click();
+  const dialog = page.getByTestId("plan-switch-confirm-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId("plan-switch-summary")).toBeVisible();
+  await expect(page.getByTestId("plan-switch-confirm-order")).toBeDisabled();
+  await shot(page, "07-02-plan-switch-dialog-unchecked");
+
+  await page.locator("#plan-switch-early-performance").check();
+  await page.locator("#plan-switch-withdrawal-loss").check();
+  await expect(page.getByTestId("plan-switch-confirm-order")).toBeEnabled();
+  await shot(page, "07-03-plan-switch-dialog-checked");
+
+  // The mock refuses to apply without a consent id, so the banner proves the
+  // consent travelled with the switch.
+  await page.getByTestId("plan-switch-confirm-order").click();
+  await expect(page.getByTestId("billing-plans-panel-switch-requested")).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await shot(page, "07-04-plan-switch-requested");
 });

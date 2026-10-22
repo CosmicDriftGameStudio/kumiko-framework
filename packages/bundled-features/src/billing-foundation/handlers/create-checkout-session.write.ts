@@ -121,6 +121,7 @@ export function createCheckoutSessionHandler(
         tier: mode === "subscription" ? (plugin.priceToTier?.[payload.priceId] ?? null) : null,
         priceId: payload.priceId,
         price,
+        providerName: payload.providerName,
         ...(orderItem && { orderItem }),
       });
 

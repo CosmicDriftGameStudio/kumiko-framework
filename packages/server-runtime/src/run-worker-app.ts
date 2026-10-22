@@ -141,7 +141,7 @@ export type RunWorkerAppOptions = {
   readonly fileStorage?: FileStorageBootOption;
   /** Same as RunProdAppOptions["kmsMode"]; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
   readonly kmsMode?: KmsMode;
-  /** Same as RunProdAppOptions["billing"]: mounts subscription-stripe so the registry matches the API. The webhook route belongs to the API process. */
+  /** Same as RunProdAppOptions["billing"]: mounts the configured subscription providers so the registry matches the API. The webhook route belongs to the API process. */
   readonly billing?: BillingBootOption;
   /** Same as RunProdAppOptions["featureToggles"]: mounts feature-toggles and layers the operator switches over the tier resolver. */
   readonly featureToggles?: boolean;
