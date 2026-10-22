@@ -65,6 +65,8 @@ A handler wrapped in `withCapEnforcement(handler, capResolver)` from `cap-counte
 3. The amount is reserved in its own short, immediately committed write.
 4. If the handler transaction ends without committing (rollback, failure result, failed commit), the dispatcher calls the returned release and gives the amount back.
 
+In the reservation phase the same surfaces are blocked as in `beforeTransaction`: `ctx.write`, `writeAs`, `scheduleAfterCommit`, `notify` and the job runner throw an `InternalError`, so the reservation cannot start nested commands.
+
 No connection is held across the handler, so capped requests cannot exhaust the pool, and the counter stream is not locked while the handler runs. A reservation covers one top-level command. A capped handler reached through a nested `ctx.write`, `writeAs` or a second run of the same type finds the reservation spent and fails with an `InternalError`. Book the nested work from the top-level handler instead, or make the capped handler the top-level command. If a commit fails with an unknown outcome, the release can under-count, so a wrapped handler must not book the same counter itself.
 
 `withRollingCapEnforcement` is unchanged: it checks inside the handler and books through the SystemAdmin-only `increment-rolling` handler, with no reservation.
@@ -94,7 +96,7 @@ defineWriteHandler({
 
 ## Handlers without a transaction of their own
 
-Where no transaction is open, `ctx.write` and `ctx.writeAs` run the target as its own top-level command with its own transaction and afterCommit hooks. This applies to stream handlers, top-level query handlers and handlers that declare `transaction: "perCommand"`. In these contexts, and in `beforeTransaction` and `reserveBeforeTransaction`, writes through `ctx.db` (including the entity executor and `db.global()`) and event appends throw; reads work. `ctx.dbOutsideTransaction` and `ctx.outsideTransaction` stay available everywhere except in `beforeTransaction`, and `ctx.db.unsafeRaw()` remains the audited escape hatch. AfterCommit hooks already worked this way and keep their writable `ctx.db`. `runInOwnTransaction(ctx.db, ...)` stays locked in these contexts; use `runInOwnTransaction(ctx.dbOutsideTransaction, ...)` for a deliberate own transaction.
+Where no transaction is open, `ctx.write` and `ctx.writeAs` run the target as its own top-level command with its own transaction and afterCommit hooks. This applies to stream handlers, top-level query handlers and handlers that declare `transaction: "perCommand"`. In `beforeTransaction` and `reserveBeforeTransaction` there is no such command: `ctx.write`, `writeAs`, `scheduleAfterCommit`, `notify` and the job runner throw an `InternalError` (HTTP 500). In all of these contexts, writes through `ctx.db` (including the entity executor and `db.global()`) and event appends throw; reads work. `ctx.dbOutsideTransaction` and `ctx.outsideTransaction` stay available everywhere except in `beforeTransaction`, and `ctx.db.unsafeRaw()` remains the audited escape hatch. AfterCommit hooks already worked this way and keep their writable `ctx.db`. `runInOwnTransaction(ctx.db, ...)` stays locked in these contexts; use `runInOwnTransaction(ctx.dbOutsideTransaction, ...)` for a deliberate own transaction.
 
 ```ts illustration
 defineWriteHandler({
