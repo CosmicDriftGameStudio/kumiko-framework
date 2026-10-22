@@ -58,6 +58,8 @@ export const taskEntity = {
       filterable: true,
     },
     estimate: { type: "number", sortable: true },
+    notes: { type: "text" },
+    location: { type: "text" },
   },
 } as unknown as EntityDefinition;
 
@@ -74,6 +76,52 @@ export const taskListScreen: EntityListScreenDefinition = {
     columnPicker: true,
     density: { default: "comfortable", userChoice: true },
   },
+  rowActions: [
+    { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+  ],
+};
+
+export const taskWideListScreen: EntityListScreenDefinition = {
+  id: "task-wide-list",
+  type: "entityList",
+  entity: "task",
+  columns: ["title", "owner", "priority", "estimate", "notes", "location"],
+  rowActions: [
+    { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+    { kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" },
+  ],
+};
+
+export const taskBoardScreen: EntityListScreenDefinition = {
+  id: "task-board",
+  type: "entityList",
+  entity: "task",
+  columns: [
+    { field: "title", pinned: "left", width: 220 },
+    { field: "owner", width: 160 },
+    { field: "priority", width: 160 },
+    { field: "estimate", width: 140 },
+    { field: "notes", width: 420 },
+    { field: "location", width: 420 },
+  ],
+  table: { rememberState: true, pinning: true, resizing: true, keyboardNavigation: true },
+  rowActions: [
+    { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+    { kind: "navigate", id: "edit", label: "Edit", screen: "task-edit" },
+  ],
+};
+
+export const taskBoardPlainScreen: EntityListScreenDefinition = {
+  id: "task-board-plain",
+  type: "entityList",
+  entity: "task",
+  columns: [
+    { field: "title", width: 220 },
+    { field: "owner", width: 160 },
+    { field: "priority", width: 160 },
+    { field: "location", width: 300 },
+  ],
+  table: { columnPicker: true, resizing: true },
   rowActions: [
     { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
   ],
@@ -175,6 +223,9 @@ export const e2eSchema: AppSchema = {
         failingListScreen,
         failingEditScreen,
         taskListScreen,
+        taskWideListScreen,
+        taskBoardScreen,
+        taskBoardPlainScreen,
         taskEditScreen,
       ],
       navs: [
@@ -188,6 +239,14 @@ export const e2eSchema: AppSchema = {
           order: 40,
         },
         { id: "task-list", label: "Tasks", screen: "task-list", order: 50 },
+        { id: "task-wide-list", label: "Overflow list", screen: "task-wide-list", order: 60 },
+        { id: "task-board", label: "Layout board", screen: "task-board", order: 70 },
+        {
+          id: "task-board-plain",
+          label: "Layout board without memory",
+          screen: "task-board-plain",
+          order: 80,
+        },
       ],
     },
   ],

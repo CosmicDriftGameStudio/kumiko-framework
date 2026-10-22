@@ -128,6 +128,9 @@ r.screen({
     resetAll: true,
     columnPicker: true,
     density: { default: "comfortable", userChoice: true },
+    pinning: true,
+    resizing: true,
+    keyboardNavigation: true,
   },
 });
 ```
@@ -139,8 +142,13 @@ r.screen({
 | `columnPicker` | The view menu lets the user hide and reorder columns. |
 | `density.default` | Row density on first visit, `"comfortable"` or `"compact"`. Default `"comfortable"`. |
 | `density.userChoice` | Shows the density choice in the view menu. |
+| `pinning` | The user pins columns left or right in the view menu. Columns may start pinned with `pinned: "left" \| "right"`. Pinned columns stay sticky while scrolling horizontally. |
+| `resizing` | Switches the table to `table-layout: fixed`; the user drags or uses the arrow keys on the header edge. `width` and `minWidth` (px) on a column are start values. Widths stay between `minWidth` and 2000 px and are remembered per session, like the column choice and density, whether or not `rememberState` is on. |
+| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space stays reserved for selection. |
 
 `hidden: true` on a column starts it hidden. It needs `columnPicker`, otherwise the boot validator rejects the screen, and so does hiding every column. The boot validator also rejects unknown keys and wrong types in the block.
+
+`pinning`, `resizing` and `keyboardNavigation` are opt-in. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
 
 **URL against store.** The URL stays the source of truth. The remembered parameters are copied into the URL once, when the list opens without any list parameter. A link that carries parameters always wins, and the remembered state follows the new URL. The page number alone does not count as a deviation. A `relatedList` keeps its state in the component and under the key `<route screenId>#<section id or query>`.
 

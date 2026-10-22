@@ -11,6 +11,11 @@ the `table` block renders and behaves as before.
 - `table.columnPicker`: the view menu lets the user hide and reorder columns;
   `hidden: true` on a column starts it hidden.
 - `table.density`: row density default and an optional user choice.
+- `table.pinning`: the user pins columns left or right in the view menu;
+  `pinned: "left"` on a column starts it pinned.
+- `table.resizing`: columns can be resized (table-layout fixed); `width` and
+  `minWidth` on a column are start values in px.
+- `table.keyboardNavigation`: rows are one tab stop, arrow keys move between rows.
 - The same block on a `projectionList`.
 
 ## Source
@@ -25,5 +30,5 @@ bun test
 ```
 
 The test boots the feature through the boot validator and checks that a
-misspelled key, a hidden column without the picker and an unknown density are
-rejected.
+misspelled key, a hidden column without the picker, an unknown density, a pinned column
+without `pinning` and a width without `resizing` are rejected.

@@ -51,6 +51,9 @@ export function createTaskBoardFeature(
     resetAll: true,
     columnPicker: true,
     density: { default: "comfortable", userChoice: true },
+    pinning: true,
+    resizing: true,
+    keyboardNavigation: true,
   },
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {
@@ -61,7 +64,8 @@ export function createTaskBoardFeature(
       type: "entityList",
       entity: "task",
       columns: [
-        "title",
+        // Starts pinned left; width and minWidth are start values for resizing.
+        { field: "title", pinned: "left", width: 280, minWidth: 160 },
         "status",
         "priority",
         { field: "dueDate", hideOnNarrow: true },

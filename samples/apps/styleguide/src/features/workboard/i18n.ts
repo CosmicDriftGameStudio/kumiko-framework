@@ -3,6 +3,8 @@ import type { LocalizedString } from "../shared-i18n";
 export const WORKBOARD_I18N: Readonly<Record<string, LocalizedString>> = {
   "workboard:nav.workboard": { de: "Aufgaben", en: "Workboard" },
   "workboard:nav.tasks": { de: "Alle Aufgaben", en: "All tasks" },
+  "workboard:nav.board": { de: "Aufgaben-Board", en: "Task board" },
+  "screen:task-board.title": { de: "Aufgaben-Board", en: "Task board" },
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
   "screen:task-edit.title": { de: "Aufgabe bearbeiten", en: "Edit task" },
   "screen:task-edit.create.title": { de: "Aufgabe anlegen", en: "Create task" },

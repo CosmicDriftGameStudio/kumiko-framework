@@ -5,7 +5,7 @@ import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } fr
 import type { ActionFormRedirect } from "./screen-action-form.ts";
 import type { DashboardPanelVisibility } from "./screen-dashboard.ts";
 import type { EditRelatedListSection, ListEmptyStateSpec } from "./screen-entity-edit.ts";
-import type { ListTableOptions } from "./screen-list-table.ts";
+import type { ListColumnPin, ListTableOptions } from "./screen-list-table.ts";
 
 // --- entityList ---
 
@@ -61,6 +61,13 @@ export type ListColumnSpec =
       /** Start state for the column picker: the column begins hidden and the
        *  user can show it. Only valid together with `table.columnPicker`. */
       readonly hidden?: boolean;
+      /** Start pin for the column: it sticks to this edge while the table scrolls
+       *  horizontally. Only valid together with `table.pinning`. */
+      readonly pinned?: ListColumnPin;
+      /** Start width in px. Only valid together with `table.resizing`. */
+      readonly width?: number;
+      /** Smallest width in px the user can resize to. Only valid together with `table.resizing`. */
+      readonly minWidth?: number;
       /** Dashboard list panels only. "bar": field holds a 0..1 fraction, drawn
        *  as bar + percent. "badge": field holds a label, drawn as a pill whose
        *  tone comes from `badgeToneField`. "datetime": field holds an ISO string or

@@ -6,8 +6,16 @@ import {
   LIST_TABLE_OPTION_KEYS,
   type ListColumnSpec,
 } from "../types/screen.ts";
+import { validateColumnLayout } from "./list-column-layout.ts";
 
-const BOOLEAN_OPTION_KEYS = ["rememberState", "resetAll", "columnPicker"] as const;
+const BOOLEAN_OPTION_KEYS = [
+  "rememberState",
+  "resetAll",
+  "columnPicker",
+  "pinning",
+  "resizing",
+  "keyboardNavigation",
+] as const;
 
 function rejectUnknownKeys(
   where: string,
@@ -83,7 +91,8 @@ export function validateListTableOptions(
 ): void {
   if (table === undefined) {
     validateHiddenColumns(where, false, columns);
-    // skip: no table block: only hidden columns are checked
+    validateColumnLayout(where, { pinning: false, resizing: false }, columns);
+    // skip: no table block: nothing else to check
     return;
   }
   if (!isPlainObject(table)) {
@@ -100,4 +109,9 @@ export function validateListTableOptions(
   }
   if (table["density"] !== undefined) validateDensity(where, table["density"]);
   validateHiddenColumns(where, table["columnPicker"] === true, columns);
+  validateColumnLayout(
+    where,
+    { pinning: table["pinning"] === true, resizing: table["resizing"] === true },
+    columns,
+  );
 }
