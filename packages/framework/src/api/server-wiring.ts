@@ -14,7 +14,7 @@ import {
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher.ts";
 import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher.ts";
-import { createLifecycleHooks } from "../pipeline/lifecycle-pipeline.ts";
+import { createLifecycleHooks, type LifecycleHooks } from "../pipeline/lifecycle-pipeline.ts";
 import { createPayloadDigest, createRateLimitResolver } from "../rate-limit/index.ts";
 import { type ResolvedCacheSyncBus, resolveCacheSyncBus } from "../redis/cache-sync-bus.ts";
 import {
@@ -76,6 +76,7 @@ export type ServerWiring = {
   readonly context: AppContext;
   readonly fileProviderResolver: AppContext["_fileProviderResolver"];
   readonly dispatcher: Dispatcher;
+  readonly lifecycleHooks: LifecycleHooks;
   readonly baseDb: DbConnection | undefined;
   readonly eventConsumers: readonly EventConsumer[];
   readonly eventDispatcher: EventDispatcher | undefined;
@@ -120,7 +121,12 @@ export function resolveServerWiring(options: ServerOptions): ServerWiring {
     cacheSync,
     observability,
   });
-  const dispatcher = createServerDispatcher(options, context, sseBroker, cacheSync);
+  const lifecycleHooks = createLifecycleHooks(
+    options.registry,
+    options.systemHooks,
+    options.eventDedup ? { eventDedup: options.eventDedup } : undefined,
+  );
+  const dispatcher = createServerDispatcher(options, context, lifecycleHooks, sseBroker, cacheSync);
   const events = createServerEventDispatcher({
     options,
     context,
@@ -147,6 +153,7 @@ export function resolveServerWiring(options: ServerOptions): ServerWiring {
     context,
     fileProviderResolver,
     dispatcher,
+    lifecycleHooks,
     baseDb: events.baseDb,
     eventConsumers: events.consumers,
     eventDispatcher: events.eventDispatcher,
@@ -310,20 +317,12 @@ function buildServerAppContext(
 }
 
 function createServerDispatcher(
-  options: Pick<
-    ServerOptions,
-    "registry" | "systemHooks" | "eventDedup" | "dispatcherOptions" | "auth"
-  >,
+  options: Pick<ServerOptions, "registry" | "dispatcherOptions" | "auth">,
   context: AppContext,
+  lifecycle: LifecycleHooks,
   sseBroker: SseBroker,
   cacheSync: ResolvedCacheSyncBus["bus"],
 ): Dispatcher {
-  const lifecycle = createLifecycleHooks(
-    options.registry,
-    options.systemHooks,
-    options.eventDedup ? { eventDedup: options.eventDedup } : undefined,
-  );
-
   return createDispatcher(options.registry, context, {
     ...options.dispatcherOptions,
     lifecycle,

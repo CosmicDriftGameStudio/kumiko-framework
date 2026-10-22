@@ -7,7 +7,7 @@ import type { ObservabilityProvider } from "../observability/index.ts";
 import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.ts";
 import type { EventDedup } from "../pipeline/event-dedup.ts";
 import type { EventDispatcher } from "../pipeline/event-dispatcher.ts";
-import type { SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
+import type { LifecycleHooks, SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
 import type {
   AuthEndpointRateLimitOptions,
   GlobalIpRateLimitOptions,
@@ -222,6 +222,9 @@ export type KumikoServer = {
   // the HTTP pipeline, e.g. provider-webhook routes that authenticate
   // via signature instead of JWT (subscription-stripe et al.).
   dispatcher: Dispatcher;
+  // Same instance the dispatcher above uses; lets a dispatcher built outside the
+  // HTTP pipeline (boot seeds) run the same save/postSave lifecycle.
+  lifecycleHooks: LifecycleHooks;
   // Present when at least one consumer is wired and context.db is a
   // DbConnection. Caller owns the lifecycle: `.start()` in boot, `.stop()`
   // in shutdown. Tests drain via `.runOnce()` instead.
@@ -284,6 +287,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     sseBroker: wiring.sseBroker,
     observability: wiring.observability,
     dispatcher: wiring.dispatcher,
+    lifecycleHooks: wiring.lifecycleHooks,
     context: wiring.context,
     ...(wiring.eventDispatcher ? { eventDispatcher: wiring.eventDispatcher } : {}),
     ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
