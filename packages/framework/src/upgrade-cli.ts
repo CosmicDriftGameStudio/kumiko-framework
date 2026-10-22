@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -19,9 +18,27 @@ import {
   sortEntries,
 } from "./engine/index.ts";
 import { ensureTemporalPolyfill } from "./time/index.ts";
-import { mergeUpgradeSection, type UpgradeChangelogManual } from "./upgrade-changelog.ts";
+import {
+  mergeUpgradeSection,
+  setManualStatusInChangelog,
+  type UpgradeChangelogManual,
+} from "./upgrade-changelog.ts";
+import {
+  dedupeManualById,
+  type ManualResolution,
+  type MarkerCarry,
+  manualEntryId,
+  parseStoredMarker,
+  SEMVER_RE,
+  type StoredMarker,
+  type UpgradeMarkerCodemod,
+  type UpgradeMarkerManual,
+  type UpgradeMarkerResolvedManual,
+} from "./upgrade-marker-parse.ts";
 
-const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+export type { ManualResolution, UpgradeMarkerManual, UpgradeMarkerResolvedManual };
+export { manualEntryId };
+
 const SEMVER_CORE_RE = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
 const CODEMOD_SUBDIR = "scripts/codemod";
 
@@ -352,22 +369,6 @@ function needsManualMigration(e: ChangelogEntry): boolean {
   return !hasCodemod(e) || e.manualAfterCodemod === true;
 }
 
-type UpgradeMarkerCodemod = {
-  readonly version: string;
-  readonly codemod: string;
-  readonly title: string;
-};
-export type UpgradeMarkerManual = {
-  readonly id: string;
-  readonly version: string;
-  readonly title: string;
-};
-export type ManualResolution = "migrated" | "not-applicable";
-export type UpgradeMarkerResolvedManual = UpgradeMarkerManual & {
-  readonly resolution: ManualResolution;
-  readonly reason: string;
-  readonly resolvedAt: string;
-};
 type UpgradeMarker = {
   readonly version: string;
   readonly appliedAt: string;
@@ -376,14 +377,7 @@ type UpgradeMarker = {
   readonly resolvedManual?: readonly UpgradeMarkerResolvedManual[];
 };
 
-const MANUAL_ID_HASH_LENGTH = 8;
 const MAX_RESOLVE_REASON_LENGTH = 500;
-
-// The hash tells apart entries that share a version (studio has several at 0.341.0).
-export function manualEntryId(version: string, title: string): string {
-  const hash = createHash("sha256").update(title).digest("hex").slice(0, MANUAL_ID_HASH_LENGTH);
-  return `${version}:${hash}`;
-}
 
 // Breaking entries that need hand work carry the id `kumiko-upgrade --resolve` takes.
 function manualIdOf(entry: ChangelogEntry): string | undefined {
@@ -398,15 +392,6 @@ function toMarkerManual(entry: ChangelogEntry): UpgradeMarkerManual {
     version: entry.version,
     title: entry.title,
   };
-}
-
-function dedupeManualById<T extends { readonly id: string }>(entries: readonly T[]): readonly T[] {
-  const seen = new Set<string>();
-  return entries.filter((entry) => {
-    if (seen.has(entry.id)) return false;
-    seen.add(entry.id);
-    return true;
-  });
 }
 
 // Open manual items survive every marker write until --resolve moves them.
@@ -445,80 +430,12 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   writeFileSync(join(dir, "upgrade-state.json"), `${JSON.stringify(marker, null, 2)}\n`, "utf-8");
 }
 
-type MarkerCarry = {
-  readonly codemods: readonly UpgradeMarkerCodemod[];
-  readonly pendingManual: readonly UpgradeMarkerManual[];
-  readonly resolvedManual: readonly UpgradeMarkerResolvedManual[];
-};
-
-type StoredMarker = MarkerCarry & {
-  readonly version: string;
-  readonly appliedAt: string;
-  readonly codemods: readonly UpgradeMarkerCodemod[];
-};
-
 type MarkerRead =
   | { readonly kind: "missing" }
   | { readonly kind: "invalid" }
   | { readonly kind: "ok"; readonly version: string; readonly marker: StoredMarker };
 
 const NO_CARRY: MarkerCarry = { codemods: [], pendingManual: [], resolvedManual: [] };
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseManualEntry(value: unknown): UpgradeMarkerManual | null {
-  if (!isRecord(value)) return null;
-  const { id, version, title } = value;
-  if (typeof version !== "string" || typeof title !== "string") return null;
-  return {
-    id: typeof id === "string" && id.length > 0 ? id : manualEntryId(version, title),
-    version,
-    title,
-  };
-}
-
-function parseResolvedEntry(value: unknown): UpgradeMarkerResolvedManual | null {
-  const base = parseManualEntry(value);
-  if (base === null || !isRecord(value)) return null;
-  const { resolution, reason, resolvedAt } = value;
-  if (resolution !== "migrated" && resolution !== "not-applicable") return null;
-  if (typeof reason !== "string" || typeof resolvedAt !== "string") return null;
-  return { ...base, resolution, reason, resolvedAt };
-}
-
-function parseList<T>(value: unknown, parseEntry: (entry: unknown) => T | null): T[] | null {
-  if (value === undefined) return [];
-  if (!Array.isArray(value)) return null;
-  const parsed = value.map(parseEntry);
-  return parsed.every((entry): entry is T => entry !== null) ? parsed : null;
-}
-
-function isMarkerCodemod(value: unknown): value is UpgradeMarkerCodemod {
-  return (
-    isRecord(value) &&
-    typeof value["version"] === "string" &&
-    typeof value["codemod"] === "string" &&
-    typeof value["title"] === "string"
-  );
-}
-
-function parseStoredMarker(raw: unknown): StoredMarker | null {
-  if (!isRecord(raw)) return null;
-  const { version, appliedAt, codemods } = raw;
-  if (typeof version !== "string" || !SEMVER_RE.test(version)) return null;
-  const pendingManual = parseList(raw["pendingManual"], parseManualEntry);
-  const resolvedManual = parseList(raw["resolvedManual"], parseResolvedEntry);
-  if (pendingManual === null || resolvedManual === null) return null;
-  return {
-    version,
-    appliedAt: typeof appliedAt === "string" ? appliedAt : Temporal.Now.instant().toString(),
-    codemods: Array.isArray(codemods) ? codemods.filter(isMarkerCodemod) : [],
-    pendingManual: dedupeManualById(pendingManual),
-    resolvedManual: dedupeManualById(resolvedManual),
-  };
-}
 
 // A missing marker is a bootstrap app that never ran `--apply`; an
 // existing but unreadable one must not silently fall back to the installed
@@ -873,6 +790,15 @@ function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir
     ...(remaining.length > 0 && { pendingManual: remaining }),
     resolvedManual,
   });
+  const changelogPath = join(targetDir, "CHANGELOG.md");
+  if (existsSync(changelogPath)) {
+    const content = readFileSync(changelogPath, "utf-8");
+    writeFileSync(
+      changelogPath,
+      setManualStatusInChangelog(content, resolvedIds, resolution),
+      "utf-8",
+    );
+  }
   out.log("");
   out.log(`  ✓ Marked ${newlyResolved.length} manual migration(s) as ${resolution}:`);
   for (const entry of newlyResolved) {
