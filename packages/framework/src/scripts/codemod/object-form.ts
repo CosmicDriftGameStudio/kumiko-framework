@@ -498,6 +498,7 @@ function visitRegistrarCall(
     method === undefined ||
     !isRegistrarMethod(method)
   ) {
+    // skip: not a registrar method call, nothing to rewrite
     return;
   }
   const args = call.getArguments();
@@ -513,6 +514,7 @@ function visitRegistrarCall(
         "argument is not a string literal, so it may already be the object form — check by hand",
       );
     }
+    // skip: an ambiguous argument is never rewritten; registrar receivers were reported above
     return;
   }
   if (!isPositionalShape(method, args)) {

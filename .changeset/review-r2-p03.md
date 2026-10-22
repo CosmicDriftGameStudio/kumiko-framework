@@ -41,7 +41,7 @@ detail: Without an app transport only notifications declared with tenantTranspor
 
 <!-- kumiko-changes
 feature: config
-type: chore
+type: fix
 title: Remove unreachable branch in configRowHoldsValue
 detail: The undefined key definition is now handled together with the plaintext comparison, dropping a dead return without changing behavior.
 -->

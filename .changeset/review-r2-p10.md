@@ -14,30 +14,30 @@ detail: A layout seeded with a title i18n key now shows its translated name in t
 -->
 
 <!-- kumiko-changes
-feature: client-errors
+feature: framework
 type: fix
 title: Client-error rate limit survives address rotation
 detail: Without Redis, the per-process limiter now drops the least recently seen IPs when more than 10000 are tracked, so a flood of fresh addresses no longer resets the window of every other IP.
 -->
 
 <!-- kumiko-changes
-feature: sse
+feature: framework
 type: fix
 title: Stalled SSE clients are dropped without further broadcasts
 detail: The heartbeat ping is written and tracked like entity frames instead of awaited, so a client that stopped reading is aborted at the next heartbeat after the stall timeout and releases its broker slot.
 -->
 
 <!-- kumiko-changes
-feature: session-cookies
+feature: framework
 type: fix
 title: Leftover __Host- cookies are expired with secureCookies:false too
 detail: Clearing the session cookies now always sends the Secure delete for the __Host- auth and csrf variants when the configured names are unprefixed, so an app switched to secureCookies:false behind a TLS proxy no longer keeps a stale __Host- csrf cookie.
 -->
 
 <!-- kumiko-changes
-feature: agent-tools
+feature: framework
 type: breaking
 title: runAsDirectCallEntry renamed to runAsAgentToolCallEntry
 detail: The internal request-context helper also marks its scope as an agent tool call, so the name now says so; it stays reserved for dispatchToolCall.
-migration: replace imports of runAsDirectCallEntry from @cosmicdrift/kumiko-framework with runAsAgentToolCallEntry; the signature is unchanged
+migration: replace imports of runAsDirectCallEntry from @cosmicdrift/kumiko-framework/internal/request-context with runAsAgentToolCallEntry; the signature is unchanged
 -->

@@ -34,7 +34,7 @@ detail: renderTablePdf parses the document against pdfTableDocumentSchema and th
 
 <!-- kumiko-changes
 feature: host-routing
-type: chore
+type: fix
 title: Redirects documented as hostDispatch-only
 detail: The redirects option and README state that redirects run inside hostDispatch, so only for requests that reach the HTML fallback; a from matching a static file or an API route never fires. The shared existence lookup of the host and resolver modes is one helper.
 -->

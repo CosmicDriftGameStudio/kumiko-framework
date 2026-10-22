@@ -121,9 +121,11 @@ export function validateRequiredLocales(
   features: readonly FeatureDefinition[],
   requiredLocales: readonly string[] | undefined,
 ): void {
-  if (requiredLocales === undefined || requiredLocales.length === 0) return;
-  const gaps = findRequiredLocaleGaps(features, requiredLocales);
-  if (gaps.length > 0) {
+  const gaps =
+    requiredLocales === undefined || requiredLocales.length === 0
+      ? []
+      : findRequiredLocaleGaps(features, requiredLocales);
+  if (requiredLocales !== undefined && gaps.length > 0) {
     const lines = gaps.map(
       (gap) =>
         `[i18n] Feature "${gap.featureName}": translation key "${gap.key}" is missing required locale(s) ${gap.missingLocales.join(", ")}.`,

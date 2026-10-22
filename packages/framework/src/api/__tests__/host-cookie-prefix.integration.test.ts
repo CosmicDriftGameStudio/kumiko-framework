@@ -347,8 +347,10 @@ describe("__Host- session cookies (integration)", () => {
   test("insecure default (test env): names stay unprefixed", async () => {
     await withStack(BASE_AUTH_CONFIG, async (stack) => {
       const cookies = getSetCookies(await login(stack));
-      expect(cookies.get(AUTH_COOKIE_BASE)).toBeDefined();
-      expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
+      expect(cookies.get(AUTH_COOKIE_BASE)?.value).not.toBe("");
+      // The __Host- name only appears as an expiry of a leftover from an earlier secure config.
+      expect(cookies.get(PREFIXED_AUTH)?.value).toBe("");
+      expect(cookies.get(PREFIXED_AUTH)?.raw).toMatch(/Max-Age=0/i);
     });
   });
 });

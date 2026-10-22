@@ -19,8 +19,8 @@ detail: The cursor pattern comment now names the validation error (400) the API 
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
-type: chore
+feature: audit
+type: fix
 title: Tests cover nested agent grants, erased subjects and anonymous change-password
 detail: Integration tests now check that a delegating tool handler keeps the cross-tenant-read marker closed, that an erased subject gets no consumer-protection mail, and that the anonymous change-password check runs once; the audit seed helper uses withEnv.
 -->

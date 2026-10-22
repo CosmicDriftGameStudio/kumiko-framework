@@ -188,6 +188,31 @@ function mergeDependencyBlock(
     : next;
 }
 
+function dropAddedFromDevDependencies(
+  record: Record<string, unknown>,
+  addedToDependencies: ReadonlySet<string>,
+  filePath: string,
+  result: SiteLists,
+): boolean {
+  const devBlock = record["devDependencies"];
+  if (addedToDependencies.size === 0 || !isStringRecord(devBlock)) return false;
+  const kept = Object.fromEntries(
+    Object.entries(devBlock).filter(([name]) => !addedToDependencies.has(name)),
+  );
+  if (Object.keys(kept).length === Object.keys(devBlock).length) return false;
+  record["devDependencies"] = kept;
+  for (const target of addedToDependencies) {
+    if (target in devBlock) {
+      result.rewrites.push({
+        file: filePath,
+        line: 1,
+        description: `devDependencies: ${target} dropped, dependencies already lists it`,
+      });
+    }
+  }
+  return true;
+}
+
 function transformPackageJson(
   source: string,
   filePath: string,
@@ -236,24 +261,7 @@ function transformPackageJson(
     record[blockName] = merged;
     changed = true;
   }
-  const devBlock = record["devDependencies"];
-  if (addedToDependencies.size > 0 && isStringRecord(devBlock)) {
-    const kept = Object.fromEntries(
-      Object.entries(devBlock).filter(([name]) => !addedToDependencies.has(name)),
-    );
-    if (Object.keys(kept).length !== Object.keys(devBlock).length) {
-      record["devDependencies"] = kept;
-      for (const target of addedToDependencies) {
-        if (target in devBlock) {
-          result.rewrites.push({
-            file: filePath,
-            line: 1,
-            description: `devDependencies: ${target} dropped, dependencies already lists it`,
-          });
-        }
-      }
-    }
-  }
+  if (dropAddedFromDevDependencies(record, addedToDependencies, filePath, result)) changed = true;
   if (!changed) return source;
   const trailingNewline = source.endsWith("\n") ? "\n" : "";
   return `${JSON.stringify(record, null, detectIndent(source))}${trailingNewline}`;
