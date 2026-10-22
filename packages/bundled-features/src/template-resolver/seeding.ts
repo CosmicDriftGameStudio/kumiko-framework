@@ -167,21 +167,20 @@ export async function seedSystemTemplate(
       current?.title === rowFields.title &&
       current?.variableSchema === rowFields.variableSchema &&
       current?.meta === rowFields.meta &&
-      current?.status === rowFields.status &&
       current?.parentTemplateId === rowFields.parentTemplateId &&
       (linkedResources === undefined || current?.linkedResources === linkedResources)
     ) {
       return { id: String(row.id) };
     }
-    const result = await executor.update(
-      {
-        id: row.id,
-        version: row.version,
-        changes: { ...rowFields, ...activeStampChanges(row) },
-      },
-      by,
-      tdb,
-    );
+    // An archived system row is a SystemAdmin decision (reversible with publish-system) that a
+    // pod-boot re-seed must not undo; content still follows the code. The seed replaces the
+    // content, so an open draft on the old content is dropped with it.
+    const { status: _status, ...contentFields } = rowFields;
+    const changes =
+      current?.status === "archived"
+        ? { ...contentFields, status: "archived" as const, draft: null }
+        : { ...rowFields, ...activeStampChanges(row), draft: null };
+    const result = await executor.update({ id: row.id, version: row.version, changes }, by, tdb);
     if (!result.isSuccess) {
       throw new Error(`seedSystemTemplate update failed: ${JSON.stringify(result)}`);
     }
@@ -292,8 +291,10 @@ async function seedSystemTemplateBundleWithResources(
       `${label}: bundles with resources need a file provider; pass opts.dispatcher (the dispatcher of the seed deps) so the files are stored through the import-bundle-system write`,
     );
   }
-  if ((opts.ifExists ?? "skip") === "skip") {
-    const existingIds: Record<string, string> = {};
+  const skipExisting = (opts.ifExists ?? "skip") === "skip";
+  const existingIds: Record<string, string> = {};
+  let bundleToImport = bundle;
+  if (skipExisting) {
     for (const locale of Object.keys(bundle.locales)) {
       const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
         tenantId: SYSTEM_TENANT_ID,
@@ -306,16 +307,24 @@ async function seedSystemTemplateBundleWithResources(
     if (Object.keys(existingIds).length === Object.keys(bundle.locales).length) {
       return { ids: existingIds };
     }
+    // import-bundle-system always overwrites, so only the missing locales go in: a
+    // hand-edited system row of an already seeded locale must survive the new-locale boot.
+    bundleToImport = {
+      ...bundle,
+      locales: Object.fromEntries(
+        Object.entries(bundle.locales).filter(([locale]) => !(locale in existingIds)),
+      ),
+    };
   }
   const result = await dispatcher.write(
     TemplateResolverHandlers.importBundleSystem,
-    { bundle },
+    { bundle: bundleToImport },
     opts.by ?? createSystemUser(SYSTEM_TENANT_ID, ["SystemAdmin"]),
   );
   if (!result.isSuccess) {
     throw new Error(`${label} failed: ${result.error.code}: ${result.error.message}`);
   }
-  return { ids: importedIds(result.data) };
+  return { ids: { ...existingIds, ...importedIds(result.data) } };
 }
 
 function importedIds(data: unknown): Record<string, string> {

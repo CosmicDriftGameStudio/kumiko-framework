@@ -99,6 +99,43 @@ describe("seedSystemTemplateBundle with resources", () => {
   });
 });
 
+describe("seedSystemTemplateBundle with a locale added later", () => {
+  const onlyDe: TemplateBundle = {
+    ...layoutBundle,
+    slug: "seeded-growing-layout",
+    locales: { de: { body: LAYOUT } },
+  };
+
+  test("seeds only the new locale and leaves the existing row untouched", async () => {
+    const first = await seedSystemTemplateBundle(stack.db, onlyDe, {
+      dispatcher: stack.dispatcher,
+    });
+    const deBefore = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: onlyDe.slug,
+      kind: onlyDe.kind,
+      locale: "de",
+    });
+
+    const second = await seedSystemTemplateBundle(
+      stack.db,
+      { ...onlyDe, locales: { ...onlyDe.locales, en: { body: LAYOUT } } },
+      { dispatcher: stack.dispatcher },
+    );
+
+    expect(Object.keys(second.ids).sort()).toEqual(["de", "en"]);
+    expect(second.ids["de"]).toBe(first.ids["de"]);
+    const deAfter = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: onlyDe.slug,
+      kind: onlyDe.kind,
+      locale: "de",
+    });
+    expect(deAfter?.version).toBe(deBefore?.version);
+    expect(deAfter?.linkedResources).toBe(deBefore?.linkedResources);
+  });
+});
+
 describe("seedSystemTemplateBundle titles", () => {
   const titledBundle: TemplateBundle = {
     slug: "seeded-titled-layout",

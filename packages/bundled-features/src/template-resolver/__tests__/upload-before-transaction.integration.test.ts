@@ -56,6 +56,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "release-upload",
     "release-bundle",
     "copy-release",
+    "copy-source-changes",
     "orchestrated-upload",
     "orchestrated-bundle",
     "switched-upload",
@@ -98,11 +99,19 @@ async function idleInTransactionCount(): Promise<number> {
   return rows[0]?.count ?? -1;
 }
 
+// Runs once after the next binary was written, to change data between the before-transaction
+// phase and the transaction.
+let afterNextStorageWrite: (() => Promise<void>) | null = null;
+
 const provider: InMemoryFileProvider = {
   ...baseProvider,
   async write(key, data, mimeType) {
     idleInTransactionAtStorageCall.push(await idleInTransactionCount());
-    return baseProvider.write(key, data, mimeType);
+    const written = await baseProvider.write(key, data, mimeType);
+    const hook = afterNextStorageWrite;
+    afterNextStorageWrite = null;
+    await hook?.();
+    return written;
   },
   async read(key) {
     idleInTransactionAtStorageCall.push(await idleInTransactionCount());
@@ -243,6 +252,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  afterNextStorageWrite = null;
   failTemplateSaveInTransaction = false;
   idleInTransactionAtStorageCall.length = 0;
 });
@@ -694,6 +704,43 @@ describe("a failure inside the transaction releases the copied binaries", () => 
         slug: files.slug,
       }),
     ).toHaveLength(0);
+  });
+});
+
+describe("copy-locale when the source changes between the phases", () => {
+  test("a tenant row created after the upload fails the copy and releases the binaries", async () => {
+    const files = await createSystemTemplateWithFiles("copy-source-changes");
+    const before = await snapshot();
+
+    afterNextStorageWrite = async () => {
+      await stack.http.writeOk(
+        TemplateResolverHandlers.upsertTenant,
+        {
+          slug: files.slug,
+          kind: "mail",
+          locale: "de",
+          content: "<p>Eigene Fassung</p>",
+          contentFormat: "html",
+          meta: { subject: "Hallo" },
+          variableSchema: {},
+          status: "draft",
+        },
+        tenantAAdmin,
+      );
+    };
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.copyLocale,
+      copyLocalePayload(files.slug),
+      tenantAAdmin,
+    );
+
+    expect(err.code).toBe("version_conflict");
+    await expectUnchanged(before);
+    const rows = await selectMany(stack.db, templateResourcesTable, {
+      tenantId: tenantAAdmin.tenantId,
+      slug: files.slug,
+    });
+    expect(rows.map((row) => row.locale)).toEqual(["de"]);
   });
 });
 

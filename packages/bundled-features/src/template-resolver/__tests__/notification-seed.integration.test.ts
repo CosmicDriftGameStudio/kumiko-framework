@@ -7,7 +7,7 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   setupTestStack,
@@ -69,6 +69,12 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
+const platformAdmin = createTestUser({
+  id: 90,
+  roles: ["SystemAdmin"],
+  tenantId: SYSTEM_TENANT_ID,
+});
+
 const SLUG = "mailer:notify:welcome-mail";
 
 function readRow(locale: string) {
@@ -100,7 +106,7 @@ describe("seedNotificationTemplates", () => {
     expect(after).toHaveLength(before.length);
   });
 
-  test("a re-seed with unchanged text reactivates an archived system row", async () => {
+  test("a re-seed keeps an archived system row archived", async () => {
     const archived = await readRow("de");
     await stack.http.writeOk(
       TemplateResolverHandlers.archiveSystem,
@@ -108,13 +114,14 @@ describe("seedNotificationTemplates", () => {
       TestUsers.systemAdmin,
     );
     expect((await readRow("de"))?.status).toBe("archived");
+    const versionBefore = (await readRow("de"))?.version;
 
     await seedNotificationTemplates(db, stack.registry);
 
-    expect((await readRow("de"))?.status).toBe("active");
+    expect(await readRow("de")).toMatchObject({ status: "archived", version: versionBefore });
   });
 
-  test("a changed body in code updates the existing row", async () => {
+  test("a changed body updates an archived row but keeps it archived", async () => {
     const changed = createRegistry([
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
@@ -122,7 +129,41 @@ describe("seedNotificationTemplates", () => {
       mailerFeature('<p>Servus <span data-variable="name"></span></p>'),
     ]);
     await seedNotificationTemplates(db, changed);
+    expect(await readRow("de")).toMatchObject({ status: "archived" });
     expect((await readRow("de"))?.content).toContain("Servus");
+  });
+
+  test("a changed body drops an open system draft", async () => {
+    const row = await readRow("de");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.publishSystem,
+      { id: String(row?.id) },
+      platformAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.copyLocale,
+      {
+        slug: SLUG,
+        kind: "mail",
+        fromLocale: "en",
+        toLocale: "de",
+        overwrite: true,
+        scope: "system",
+      },
+      platformAdmin,
+    );
+    expect((await readRow("de"))?.draft).not.toBeNull();
+
+    const changed = createRegistry([
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
+      mailerFeature('<p>Moin <span data-variable="name"></span></p>'),
+    ]);
+    await seedNotificationTemplates(db, changed);
+
+    expect(await readRow("de")).toMatchObject({ draft: null, status: "active" });
+    expect((await readRow("de"))?.content).toContain("Moin");
   });
 
   test("templates without the template-resolver feature fail loudly", async () => {

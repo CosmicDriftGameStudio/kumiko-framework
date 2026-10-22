@@ -11,6 +11,7 @@ import {
   AccessDeniedError,
   NotFoundError,
   ValidationError,
+  VersionConflictError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -172,13 +173,17 @@ export function makeCopyLocaleWrite(policy: TemplateEditPolicy) {
     beforeTransaction: async (event, ctx) => {
       const request = await checkCopyRequest(ctx, policy, event);
       if (!request.isSuccess) return request;
-      if (!request.data.sourceIsForeign) return { isSuccess: true, data: [] };
-      return prepareLinkedResourceCopiesBeforeTransaction({
+      const { source, tenantId, sourceIsForeign, sourceResources } = request.data;
+      const sourceStamp = { sourceId: source.id, sourceVersion: source.version };
+      if (!sourceIsForeign) return { isSuccess: true, data: { ...sourceStamp, copies: [] } };
+      const prepared = await prepareLinkedResourceCopiesBeforeTransaction({
         ctx,
         user: event.user,
-        tenantId: request.data.tenantId,
-        resources: request.data.sourceResources,
+        tenantId,
+        resources: sourceResources,
       });
+      if (!prepared.isSuccess) return prepared;
+      return { ...prepared, data: { ...sourceStamp, copies: prepared.data } };
     },
     handler: async (event, ctx) => {
       const { slug, kind, toLocale } = event.payload;
@@ -186,6 +191,20 @@ export function makeCopyLocaleWrite(policy: TemplateEditPolicy) {
       if (!request.isSuccess) return request;
       const { scope, tenantId, source, contentFormat, sourceResources, sourceIsForeign } =
         request.data;
+      // The uploads were prepared for the source as it was before the transaction; a source that
+      // changed since (own row created or deleted, edited) no longer matches them.
+      if (
+        event.prepared.sourceId !== source.id ||
+        event.prepared.sourceVersion !== source.version
+      ) {
+        return writeFailure(
+          new VersionConflictError({
+            entityId: source.id,
+            expectedVersion: event.prepared.sourceVersion,
+            currentVersion: source.version,
+          }),
+        );
+      }
 
       const variableSchema = storedRecord(source.variableSchema);
       const written = await writeTemplateRow({
@@ -209,7 +228,10 @@ export function makeCopyLocaleWrite(policy: TemplateEditPolicy) {
       });
       if (!written.isSuccess) return written;
       const resources = sourceIsForeign
-        ? await createLinkedResourceCopies({ ctx, user: event.user, tenantId }, event.prepared)
+        ? await createLinkedResourceCopies(
+            { ctx, user: event.user, tenantId },
+            event.prepared.copies,
+          )
         : { isSuccess: true as const, data: sourceResources };
       if (!resources.isSuccess) return resources;
       const attached = await attachTemplateResources(ctx, {
