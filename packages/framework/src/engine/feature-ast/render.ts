@@ -38,6 +38,8 @@ import type {
   ExposesApiPattern,
   ExtendsRegistrarPattern,
   FeaturePattern,
+  FeaturePatternKind,
+  FeaturePatternOfKind,
   HookPattern,
   HttpRoutePattern,
   JobPattern,
@@ -78,92 +80,61 @@ export const VERSION_HEADER = `// kumiko-feature-version: ${FEATURE_FILE_VERSION
  * trailing newline; callers compose statements with their own joiner.
  */
 export function renderPattern(pattern: FeaturePattern): string {
-  switch (pattern.kind) {
-    case "requires":
-      return renderRequires(pattern);
-    case "optionalRequires":
-      return renderOptionalRequires(pattern);
-    case "readsConfig":
-      return renderReadsConfig(pattern);
-    case "systemScope":
-      return renderSystemScope(pattern);
-    case "toggleable":
-      return renderToggleable(pattern);
-    case "describe":
-      return renderDescribe(pattern);
-    case "uiHints":
-      return renderUiHints(pattern);
-    case "entity":
-      return renderEntity(pattern);
-    case "relation":
-      return renderRelation(pattern);
-    case "nav":
-      return renderNav(pattern);
-    case "workspace":
-      return renderWorkspace(pattern);
-    case "config":
-      return renderConfig(pattern);
-    case "translations":
-      return renderTranslations(pattern);
-    case "metric":
-      return renderMetric(pattern);
-    case "secret":
-      return renderSecret(pattern);
-    case "secretNamespace":
-      return renderSecretNamespace(pattern);
-    case "claimKey":
-      return renderClaimKey(pattern);
-    case "referenceData":
-      return renderReferenceData(pattern);
-    case "useExtension":
-      return renderUseExtension(pattern);
-    case "screen":
-      return renderScreen(pattern);
-    case "writeHandler":
-      return renderWriteHandler(pattern);
-    case "queryHandler":
-      return renderQueryHandler(pattern);
-    case "streamHandler":
-      return renderStreamHandler(pattern);
-    case "hook":
-      return renderHook(pattern);
-    case "job":
-      return renderJob(pattern);
-    case "notification":
-      return renderNotification(pattern);
-    case "authClaims":
-      return renderAuthClaims(pattern);
-    case "httpRoute":
-      return renderHttpRoute(pattern);
-    case "projection":
-      return renderProjection(pattern);
-    case "multiStreamProjection":
-      return renderMultiStreamProjection(pattern);
-    case "defineEvent":
-      return renderDefineEvent(pattern);
-    case "extendsRegistrar":
-      return renderExtendsRegistrar(pattern);
-    case "usesApi":
-      return renderUsesApi(pattern);
-    case "exposesApi":
-      return renderExposesApi(pattern);
-    case "treeActions":
-      return renderTreeActions(pattern);
-    case "envSchema":
-      return renderEnvSchema(pattern);
-    case "ai.generate":
-      return renderAiGenerate(pattern);
-    case "ai.extract":
-      return renderAiExtract(pattern);
-    case "ai.classify":
-      return renderAiClassify(pattern);
-    case "unknown":
-      return renderUnknown(pattern);
-    default: {
-      const _exhaustive: never = pattern;
-      return _exhaustive;
-    }
-  }
+  return renderPatternOfKind(pattern.kind, pattern);
+}
+
+type PatternRenderers = {
+  readonly [K in FeaturePatternKind]: (pattern: FeaturePatternOfKind[K]) => string;
+};
+
+const PATTERN_RENDERERS: PatternRenderers = {
+  requires: renderRequires,
+  optionalRequires: renderOptionalRequires,
+  readsConfig: renderReadsConfig,
+  systemScope: renderSystemScope,
+  toggleable: renderToggleable,
+  describe: renderDescribe,
+  uiHints: renderUiHints,
+  entity: renderEntity,
+  relation: renderRelation,
+  nav: renderNav,
+  workspace: renderWorkspace,
+  config: renderConfig,
+  translations: renderTranslations,
+  metric: renderMetric,
+  secret: renderSecret,
+  secretNamespace: renderSecretNamespace,
+  claimKey: renderClaimKey,
+  referenceData: renderReferenceData,
+  useExtension: renderUseExtension,
+  screen: renderScreen,
+  writeHandler: renderWriteHandler,
+  queryHandler: renderQueryHandler,
+  streamHandler: renderStreamHandler,
+  hook: renderHook,
+  job: renderJob,
+  notification: renderNotification,
+  authClaims: renderAuthClaims,
+  httpRoute: renderHttpRoute,
+  projection: renderProjection,
+  multiStreamProjection: renderMultiStreamProjection,
+  defineEvent: renderDefineEvent,
+  extendsRegistrar: renderExtendsRegistrar,
+  usesApi: renderUsesApi,
+  exposesApi: renderExposesApi,
+  treeActions: renderTreeActions,
+  envSchema: renderEnvSchema,
+  "ai.generate": renderAiGenerate,
+  "ai.extract": renderAiExtract,
+  "ai.classify": renderAiClassify,
+  unknown: renderUnknown,
+};
+
+function renderPatternOfKind<K extends FeaturePatternKind>(
+  kind: K,
+  pattern: FeaturePatternOfKind[K],
+): string {
+  return PATTERN_RENDERERS[kind](pattern);
 }
 
 // =============================================================================

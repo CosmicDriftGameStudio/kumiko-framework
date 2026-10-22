@@ -784,3 +784,75 @@ defineFeature("ai-demo", (r) => {
     expect(sf.getFullText()).toContain("defineWorkflow");
   });
 });
+
+describe("callMatchesId — positional hooks, referenceData and literal stepKey", () => {
+  test("removePattern picks the positional hook whose string target matches", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("hooks", (r) => {
+  r.hook("postSave", "task", () => {});
+  r.hook("postSave", "note", () => {});
+});
+`);
+    removePattern(sf, { kind: "hook", hookType: "postSave", target: "note" });
+    expect(sf.getFullText()).toContain('r.hook("postSave", "task", () => {});');
+    expect(sf.getFullText()).not.toContain('"note"');
+  });
+
+  test("removePattern picks the positional hook whose allOf target matches", () => {
+    const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("hooks", (r) => {
+  r.hook("preDelete", { allOf: "task" }, () => {});
+  r.hook("preDelete", { allOf: "note" }, () => {});
+});
+`);
+    removePattern(sf, { kind: "hook", hookType: "preDelete", target: { allOf: "note" } });
+    expect(sf.getFullText()).toContain('r.hook("preDelete", { allOf: "task" }, () => {});');
+    expect(sf.getFullText()).not.toContain('"note"');
+  });
+
+  const REFERENCE_DATA = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("geo", (r) => {
+  r.referenceData("country", { data: [{ code: "DE" }] });
+  r.referenceData({ entity: "currency", data: [{ code: "EUR" }] });
+});
+`;
+
+  test("removePattern finds a positional referenceData by entity", () => {
+    const sf = makeSourceFile(REFERENCE_DATA);
+    removePattern(sf, { kind: "referenceData", entityName: "country" });
+    expect(sf.getFullText()).not.toContain('"country"');
+    expect(sf.getFullText()).toContain('entity: "currency"');
+  });
+
+  test("removePattern finds an object-form referenceData by entity", () => {
+    const sf = makeSourceFile(REFERENCE_DATA);
+    removePattern(sf, { kind: "referenceData", entityName: "currency" });
+    expect(sf.getFullText()).not.toContain('"currency"');
+    expect(sf.getFullText()).toContain('r.referenceData("country"');
+  });
+
+  test("removePattern finds ai.generate by a string-literal stepKey", () => {
+    const sf = makeSourceFile(`
+import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("ai-demo", (r) => {
+  defineWorkflow({
+    name: "demo",
+    steps: stepsPipeline(() => [
+      aiGenerateStep({ stepKey: "summary", promptKey: "demo:summary" }),
+      aiGenerateStep({ stepKey: "title", promptKey: "demo:title" }),
+    ]),
+  });
+});
+`);
+    removePattern(sf, { kind: "ai.generate", stepKey: "title" });
+    expect(sf.getFullText()).toContain('stepKey: "summary"');
+    expect(sf.getFullText()).not.toContain('stepKey: "title"');
+  });
+});

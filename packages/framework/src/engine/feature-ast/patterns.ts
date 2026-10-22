@@ -754,6 +754,12 @@ export type FeaturePattern =
 // switches that exhaustively cover every pattern.
 export type FeaturePatternKind = FeaturePattern["kind"];
 
+export type MembersByKind<U extends { readonly kind: string }> = {
+  readonly [K in U["kind"]]: Extract<U, { readonly kind: K }>;
+};
+
+export type FeaturePatternOfKind = MembersByKind<FeaturePattern>;
+
 // =============================================================================
 // Editability classification — Designer UI uses this to decide whether
 // to render a pattern as a form (editable) or a read-only code block
@@ -766,56 +772,49 @@ export type Editability =
   | "mixed" // Header declarative + body as TS source block.
   | "opaque"; // Whole pattern is TS code, no form surface.
 
+const EDITABILITY_BY_KIND: Readonly<Record<FeaturePatternKind, Editability>> = {
+  entity: "static",
+  relation: "static",
+  nav: "static",
+  workspace: "static",
+  config: "static",
+  translations: "static",
+  requires: "static",
+  optionalRequires: "static",
+  systemScope: "static",
+  toggleable: "static",
+  describe: "static",
+  metric: "static",
+  secret: "static",
+  secretNamespace: "static",
+  claimKey: "static",
+  referenceData: "static",
+  readsConfig: "static",
+  useExtension: "static",
+  usesApi: "static",
+  exposesApi: "static",
+  treeActions: "static",
+  screen: "mixed",
+  writeHandler: "mixed",
+  queryHandler: "mixed",
+  streamHandler: "mixed",
+  hook: "mixed",
+  job: "mixed",
+  notification: "mixed",
+  httpRoute: "mixed",
+  projection: "mixed",
+  multiStreamProjection: "mixed",
+  defineEvent: "mixed",
+  "ai.generate": "mixed",
+  "ai.extract": "mixed",
+  "ai.classify": "mixed",
+  authClaims: "opaque",
+  extendsRegistrar: "opaque",
+  envSchema: "opaque",
+  uiHints: "opaque",
+  unknown: "opaque",
+};
+
 export function getEditability(pattern: FeaturePattern): Editability {
-  switch (pattern.kind) {
-    case "entity":
-    case "relation":
-    case "nav":
-    case "workspace":
-    case "config":
-    case "translations":
-    case "requires":
-    case "optionalRequires":
-    case "systemScope":
-    case "toggleable":
-    case "describe":
-    case "metric":
-    case "secret":
-    case "secretNamespace":
-    case "claimKey":
-    case "referenceData":
-    case "readsConfig":
-    case "useExtension":
-    case "usesApi":
-    case "exposesApi":
-    case "treeActions":
-      return "static";
-    case "screen":
-    case "writeHandler":
-    case "queryHandler":
-    case "streamHandler":
-    case "hook":
-    case "job":
-    case "notification":
-    case "httpRoute":
-    case "projection":
-    case "multiStreamProjection":
-    case "defineEvent":
-    case "ai.generate":
-    case "ai.extract":
-    case "ai.classify":
-      return "mixed";
-    case "authClaims":
-    case "extendsRegistrar":
-    case "envSchema":
-    case "uiHints":
-    case "unknown":
-      return "opaque";
-    default: {
-      // Exhaustiveness guard — adding a new pattern kind without
-      // updating this switch produces a compile error here.
-      const _exhaustive: never = pattern;
-      return _exhaustive;
-    }
-  }
+  return EDITABILITY_BY_KIND[pattern.kind];
 }
