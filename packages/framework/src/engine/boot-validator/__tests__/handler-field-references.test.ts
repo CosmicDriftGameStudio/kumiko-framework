@@ -129,6 +129,9 @@ describe("validateBoot — handler field references meta", () => {
     expect(() => validateBoot([channelFeature(), keyedConsumer(42)])).toThrow(
       /channelKeys.*invalid meta references/s,
     );
+    expect(() =>
+      validateBoot([channelFeature(), keyedConsumer({ entity: "channels:channel", bY: "key" })]),
+    ).toThrow(/channelKeys.*invalid meta references/s);
   });
 });
 

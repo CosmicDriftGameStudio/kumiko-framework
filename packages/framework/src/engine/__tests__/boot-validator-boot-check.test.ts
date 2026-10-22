@@ -61,6 +61,17 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
     );
   });
 
+  test("a message ending in a period gets no doubled punctuation", () => {
+    const feature = defineFeature("period-check", (r) => {
+      r.bootCheck(() => {
+        throw new Error("X is missing.");
+      });
+    });
+    expect(catchMessage(() => validateFeatureBootChecks([feature]))).toBe(
+      "[Feature period-check] r.bootCheck failed: X is missing.",
+    );
+  });
+
   test("no PII field → boot succeeds even without the companion", () => {
     const noPiiFields = { text: createTextField({ personal: false, reason: "test_fixture" }) };
     const noPii = defineFeature("prompt-store-no-pii", (r) => {

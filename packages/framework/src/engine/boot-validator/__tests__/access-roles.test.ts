@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { warnOnUniqueAccessRoles } from "../access-roles.ts";
 
@@ -9,16 +10,6 @@ function fakeFeature(overrides: Partial<FeatureDefinition> & { name: string }): 
     streamHandlers: {},
     ...overrides,
   } as unknown as FeatureDefinition;
-}
-
-// Other test files in the same bun process emit async warnings while this spy is active,
-// so "no warning" assertions only count the messages the validator under test produces.
-function uniqueRoleWarnings(spy: {
-  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
-}) {
-  return spy.mock.calls.filter((args) =>
-    args.some((arg) => String(arg).includes("is only used by one handler")),
-  );
 }
 
 describe("warnOnUniqueAccessRoles", () => {
@@ -44,7 +35,7 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    const warnings = uniqueRoleWarnings(warnSpy);
+    const warnings = consoleCallsMentioning(warnSpy, "is only used by one handler");
     expect(warnings).toHaveLength(1);
     const msg = warnings[0]![0] as string;
     expect(msg).toContain("Admin");
@@ -69,7 +60,7 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(uniqueRoleWarnings(warnSpy)).toHaveLength(0);
+    expect(consoleCallsMentioning(warnSpy, "is only used by one handler")).toHaveLength(0);
   });
 
   test("does NOT warn for built-in roles 'all' or 'system' even when used by one handler", () => {
@@ -90,6 +81,6 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(uniqueRoleWarnings(warnSpy)).toHaveLength(0);
+    expect(consoleCallsMentioning(warnSpy, "is only used by one handler")).toHaveLength(0);
   });
 });

@@ -14,9 +14,7 @@ export function validateFeatureBootChecks(features: readonly FeatureDefinition[]
         check(ctx);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        throw new Error(
-          `[Feature ${feature.name}] r.bootCheck failed: ${message}. Fix the condition this check reports.`,
-        );
+        throw new Error(`[Feature ${feature.name}] r.bootCheck failed: ${message}`);
       }
     }
   }

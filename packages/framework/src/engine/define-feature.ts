@@ -71,8 +71,16 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     },
     requires: (() => {
       const fn = (...args: readonly [{ readonly features: readonly string[] }]) => {
-        if (!args.every(isObjectArgument)) throwObjectArgumentRequired(name, "requires");
-        state.requires.push(...resolveFeatureNamesArgs(args));
+        const [first, ...rest] = args;
+        if (rest.length > 0 || !isObjectArgument(first)) {
+          throwObjectArgumentRequired(name, "requires");
+        }
+        // Untyped callers can pass `{ feature: [...] }`; without this the object would be
+        // registered as a dependency name.
+        if (!Array.isArray(first.features) || !first.features.every((f) => typeof f === "string")) {
+          throw new Error(`[Feature ${name}] r.requires() needs { features: string[] }`);
+        }
+        state.requires.push(...first.features);
       };
       return Object.assign(fn, {
         projection: (tableName: string) => {

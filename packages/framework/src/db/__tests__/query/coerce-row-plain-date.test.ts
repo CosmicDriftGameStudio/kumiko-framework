@@ -7,6 +7,7 @@
 // midnight and the coercion must read it via that anchor, not local getters.
 
 import { describe, expect, spyOn, test } from "bun:test";
+import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { coerceRow } from "../../query.ts";
 import type { TableInfo } from "../../table-info.ts";
@@ -86,9 +87,7 @@ describe("coerceRow — date column that is still timestamptz", () => {
       const first = coerceRow({ legacy_day: shifted }, legacyInfo);
       coerceRow({ legacy_day: shifted }, legacyInfo);
       expect((first["legacy_day"] as unknown as Temporal.PlainDate).toString()).toBe("2026-03-14");
-      const driftWarnings = warn.mock.calls.filter((args) =>
-        args.some((arg) => String(arg).includes('column "legacy_day"')),
-      );
+      const driftWarnings = consoleCallsMentioning(warn, 'column "legacy_day"');
       expect(driftWarnings).toHaveLength(1);
     } finally {
       warn.mockRestore();
@@ -101,11 +100,7 @@ describe("coerceRow — date column that is still timestamptz", () => {
       // Own column: the drift warning dedups per column module-wide, so a column the previous
       // test already warned about would stay silent even if the midnight branch were broken.
       coerceRow({ midnight_day: new Date(Date.UTC(2026, 2, 15)) }, legacyInfo);
-      // Other test files in the same bun process emit async warnings while this spy is active,
-      // so only the date-column drift warning counts.
-      const driftWarnings = warn.mock.calls.filter((args) =>
-        args.some((arg) => String(arg).includes("is declared as date")),
-      );
+      const driftWarnings = consoleCallsMentioning(warn, "is declared as date");
       expect(driftWarnings).toHaveLength(0);
     } finally {
       warn.mockRestore();

@@ -151,6 +151,11 @@ describe("ValidationError", () => {
     });
   });
 
+  test("an embedded list minimum stays visible in the JSON schema", () => {
+    const list = createEmbeddedListField({ description: { type: "text" } }, { minItems: 2 });
+    expect(z.toJSONSchema(fieldToZod(list, ["EUR"]))).toMatchObject({ type: "array", minItems: 2 });
+  });
+
   test("a required multiSelect keeps the generic too-small key, it has no rows", () => {
     const field = { type: "multiSelect", options: ["a", "b"], required: true } as const;
     const result = fieldToZod(field, []).safeParse([]);
