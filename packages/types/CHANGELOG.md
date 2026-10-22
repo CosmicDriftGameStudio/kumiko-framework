@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-types
 
+## 0.387.0
+
+### Patch Changes
+
+- e4ea6e1: Source comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in the smaller packages
+  detail: Comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes; the comment-language baseline is lowered accordingly.
+  -->
+- c25b54f: Suspect `as` casts in framework, types, bundled-features and renderer replaced by type guards, Zod checks at input boundaries and typing at the source.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Fewer unchecked casts, runtime checks at boundaries
+  detail: bridgeStub needs no casts, the db dialect types drop any (TableColumns is SchemaTable, SelectQuery is unknown). Malformed input now fails at the boundary instead of later, for example a step that returns a non-WriteResult as the pipeline result, a non-numeric Redis counter in the login rate limiter, or r.useExtension, r.referenceData, r.job, r.notification, r.metric, r.secret, r.secretNamespace, r.claimKey and r.relation called without their required argument. Snapshot.generatedAt is optional, so snapshots written without it still load. The cast baseline is rewritten so new suspect casts in a file fail the As-Casts Audit.
+  -->
+
 ## 0.386.0
 
 ### Minor Changes

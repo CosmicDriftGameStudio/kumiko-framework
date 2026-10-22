@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.387.0
+
+### Minor Changes
+
+- f604177: New Comment Issue-Ref guard fails on comments that hold only an issue reference or a planning label.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Comment Issue-Ref guard
+  detail: The comment-issue-ref-only guard flags comments that consist only of an issue or PR reference or a planning label (`#1234`, `fw#1234`, `Phase 3`, `S2.H1`) with no explanatory word besides it. Consecutive own-line `//` comments count as one paragraph, so a reference at the end of an explaining paragraph passes. Hits are frozen per file in `.kumiko-comment-issue-ref-baseline.json` and may not grow; without the baseline file the guard only warns. Deliberate exceptions take `// kumiko-lint-ignore comment-issue-ref-only <reason>`.
+  migration: Optional. Freeze existing hits with `kumiko-guards guards --write-baseline --guard=comment-issue-ref-only`.
+  -->
+
+### Patch Changes
+
+- e4ea6e1: Source comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are English and no longer carry issue numbers or planning labels.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: English source comments without issue references in the smaller packages
+  detail: Comments in types, server-runtime, dev-server, guards, testing, cli, create-kumiko-app and renderer-mail-html are translated to English, and issue numbers and planning labels are removed while the reason they stood for stays. Pure paraphrases of the code are dropped. No code changes; the comment-language baseline is lowered accordingly.
+  -->
+- Updated dependencies [10d7581]
+- Updated dependencies [935306d]
+- Updated dependencies [39afc25]
+- Updated dependencies [e4ea6e1]
+- Updated dependencies [5a25c89]
+- Updated dependencies [2b4c84a]
+- Updated dependencies [c25b54f]
+- Updated dependencies [de7a63d]
+  - @cosmicdrift/kumiko-framework@0.387.0
+
 ## 0.386.0
 
 ### Patch Changes
