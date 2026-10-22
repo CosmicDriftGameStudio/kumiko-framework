@@ -1,12 +1,12 @@
 {
   "format": 1,
-  "generated": "2026-10-21",
-  "total": 645,
+  "generated": "2026-10-22",
+  "total": 631,
   "perFile": {
-    "packages/bundled-features:legit-boundary": 240,
+    "packages/bundled-features:legit-boundary": 239,
     "packages/bundled-features:legit-bridge": 5,
     "packages/dev-server:legit-bridge": 2,
-    "packages/framework:legit-boundary": 331,
+    "packages/framework:legit-boundary": 318,
     "packages/framework:legit-bridge": 22,
     "packages/renderer:legit-boundary": 17,
     "packages/renderer:legit-bridge": 5,

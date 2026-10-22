@@ -1,6 +1,18 @@
 {
   "format": 1,
-  "generated": "2026-10-21",
-  "total": 0,
-  "perFile": {}
+  "generated": "2026-10-22",
+  "total": 17159,
+  "perFile": {
+    "packages/dev-server/src/create-kumiko-server.ts": 1453,
+    "packages/framework/src/engine/boot-validator/entity-handler.ts": 1477,
+    "packages/framework/src/engine/feature-ast/pattern-change-schema.ts": 1451,
+    "packages/renderer/src/components/render-edit.tsx": 1873,
+    "packages/renderer/src/components/render-field.tsx": 1326,
+    "packages/renderer/src/primitives.tsx": 1888,
+    "packages/renderer/src/web/widgets/charts.tsx": 1899,
+    "packages/server-runtime/src/run-prod-app.ts": 1638,
+    "packages/types/src/feature.ts": 1231,
+    "packages/types/src/fields.ts": 1290,
+    "packages/types/src/handlers.ts": 1633
+  }
 }
