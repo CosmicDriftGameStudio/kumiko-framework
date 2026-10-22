@@ -219,20 +219,22 @@ export async function runBackfillPii(ctx: CliCommandContext): Promise<number> {
     ctx.out.err(errorMessage(e));
     return 1;
   }
-  crypto.configurePiiSubjectKms(wiring.kms);
-  crypto.configureBlindIndexKey(wiring.blindIndexKey);
-
-  const registry = createRegistry(config.features);
-  const { db, close } = createDbConnection({ url: databaseUrl, maxConnections: 4 });
   try {
-    return args.mode === "rebuild"
-      ? await rebuildPiiProjections(ctx, db, registry, crypto)
-      : await backfillPii(ctx, db, registry, args);
+    crypto.configurePiiSubjectKms(wiring.kms);
+    crypto.configureBlindIndexKey(wiring.blindIndexKey);
+    const registry = createRegistry(config.features);
+    const { db, close } = createDbConnection({ url: databaseUrl, maxConnections: 4 });
+    try {
+      return args.mode === "rebuild"
+        ? await rebuildPiiProjections(ctx, db, registry, crypto)
+        : await backfillPii(ctx, db, registry, args);
+    } finally {
+      await close();
+    }
   } catch (e) {
     ctx.out.err(`${LOG_PREFIX} ${errorMessage(e)}`);
     return 1;
   } finally {
-    await close();
     // The KMS pool keeps the process alive otherwise.
     await wiring.close();
   }

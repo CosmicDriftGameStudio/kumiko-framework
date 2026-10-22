@@ -140,4 +140,26 @@ describe("kumiko ops backfill-pii (real DB)", () => {
     expect(await runCli({ argv: ["ops", "backfill-pii", "--dryrun"], cwd: appDir, out })).toBe(1);
     expect(logs.join("\n")).toContain("unknown flag: --dryrun");
   });
+
+  test("a config that fails registry validation exits 1 and releases the KMS connections", async () => {
+    const brokenDir = mkdtempSync(join(tmpParent, "broken-"));
+    writeFileSync(
+      join(brokenDir, "kumiko.config.ts"),
+      `export { default } from ${JSON.stringify(
+        join(import.meta.dir, "fixtures", "backfill-pii-missing-dependency-app.ts"),
+      )};\n`,
+    );
+    const connectionCount = async (): Promise<number> => {
+      const rows = await asRawClient(testDb.db).unsafe<{ count: string }>(
+        "SELECT count(*)::text AS count FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
+        [testDb.dbName],
+      );
+      return Number(rows[0]?.count);
+    };
+    const before = await connectionCount();
+    const { out, logs } = capture();
+    expect(await runCli({ argv: ["ops", "backfill-pii"], cwd: brokenDir, out })).toBe(1);
+    expect(logs.join("\n")).toContain("backfill-pii");
+    expect(await connectionCount()).toBeLessThanOrEqual(before);
+  });
 });

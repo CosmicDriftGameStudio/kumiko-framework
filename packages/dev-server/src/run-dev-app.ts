@@ -343,7 +343,23 @@ export type RunDevAppOptions = {
   readonly errorDocs?: ErrorDocsConfig;
 };
 
+type BootFailureCleanup = { release: (() => Promise<void>) | undefined };
+
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
+  const bootFailure: BootFailureCleanup = { release: undefined };
+  try {
+    return await bootDevApp(options, bootFailure);
+  } catch (error) {
+    // Anything that throws after the KMS wiring is open (boot gates, server creation) must close it.
+    await bootFailure.release?.().catch(() => {});
+    throw error;
+  }
+}
+
+async function bootDevApp(
+  options: RunDevAppOptions,
+  bootFailure: BootFailureCleanup,
+): Promise<KumikoServerHandle> {
   // Automatically mixes standard features in auth mode through composeFeatures.
   // runProdApp and the per-app Drizzle schema generator use the same helper,
   // keeping migrations and runtime feature composition aligned.
@@ -384,6 +400,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     },
     rawEnvSource,
   );
+  bootFailure.release = () => wiring.kms.close();
   const envSource: Record<string, string | undefined> =
     Object.keys(wiring.envDefaults).length > 0
       ? { ...wiring.envDefaults, ...rawEnvSource }
@@ -526,6 +543,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     releaseEphemeralPiiKms();
     await wiring.kms.close();
   };
+  bootFailure.release = releasePiiKms;
   assertPiiBootInvariants(features, {
     kms: piiKms.kms,
     blindIndexKey: piiKms.blindIndexKey,
@@ -773,7 +791,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           bindReleasable(
             bindAutoRevokeFromFeature(sessionsFeature),
             store.massRevoker,
-            INERT_REVOKER,
             resetLateBindings,
           );
         }
@@ -781,7 +798,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           bindReleasable(
             bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature),
             store.revokeAllOthers,
-            INERT_REVOKER,
             resetLateBindings,
           );
         }
@@ -789,7 +805,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
           bindReleasable(
             bindRevokeAllPatTokensFromFeature(mfaFeature),
             (userId) => revokeAllPatTokensForUser(stack.db, userId),
-            INERT_REVOKER,
             resetLateBindings,
           );
         }
@@ -803,7 +818,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         bindReleasable(
           bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature),
           (userId) => revokeAllPatTokensForUser(stack.db, userId),
-          INERT_REVOKER,
           resetLateBindings,
         );
       }
@@ -826,10 +840,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         await seed(stack);
       }
     },
-  }).catch(async (error: unknown) => {
-    await releasePiiKms().catch(() => {});
-    throw error;
   });
+  bootFailure.release = undefined;
 
   if (options.welcomeBanner) {
     const overrides = typeof options.welcomeBanner === "object" ? options.welcomeBanner : {};
@@ -861,19 +873,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   };
 }
 
-const INERT_REVOKER = async (): Promise<number> => 0;
-
-// Binds a late-bound revoker and records how to swap it for an inert one when the app stops.
+// Binds a late-bound revoker and records its unbind for when the app stops.
 function bindReleasable<Revoker>(
-  bind: ((revoker: Revoker) => void) | undefined,
+  bind: ((revoker: Revoker) => () => void) | undefined,
   revoker: Revoker,
-  inert: NoInfer<Revoker>,
   resets: Array<() => void>,
 ): void {
-  if (bind) {
-    bind(revoker);
-    resets.push(() => bind(inert));
-  }
+  if (bind) resets.push(bind(revoker));
 }
 
 // Exported for the wiring-contract test (config-resolver-default.integration):

@@ -36,7 +36,7 @@ const PAT_REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
 
 export type BindPatAutoRevokeOnPasswordChange = (
   revoker: (userId: string) => Promise<number>,
-) => void;
+) => () => void;
 
 // Reads the late-bind setter off a mounted personal-access-tokens feature's
 // exports — run{Prod,Dev}App call this once a concrete db is available,
@@ -169,6 +169,9 @@ export function createPersonalAccessTokensFeature(
     });
     const bindAutoRevokeOnPasswordChange: BindPatAutoRevokeOnPasswordChange = (revoker) => {
       boundAutoRevoke = revoker;
+      return () => {
+        if (boundAutoRevoke === revoker) boundAutoRevoke = undefined;
+      };
     };
 
     const handlers = {

@@ -220,10 +220,16 @@ export function createAuthMfaFeature(
 
     const bindRevokeAllOtherSessions: BindMfaRevokeAllOtherSessions = (revoker) => {
       revokeAllOtherSessions = revoker;
+      return () => {
+        if (revokeAllOtherSessions === revoker) revokeAllOtherSessions = undefined;
+      };
     };
 
     const bindRevokeAllPatTokens: BindRevokeAllPatTokens = (revoker) => {
       revokeAllPatTokens = revoker;
+      return () => {
+        if (revokeAllPatTokens === revoker) revokeAllPatTokens = undefined;
+      };
     };
 
     return {

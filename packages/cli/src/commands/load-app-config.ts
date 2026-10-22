@@ -20,11 +20,6 @@ function isAppConfig(value: unknown): value is AppConfig {
   );
 }
 
-/** Everything prod mounts: lint and docs checks must see the prod-only features too. */
-export function allConfiguredFeatures(config: AppConfig): readonly FeatureDefinition[] {
-  return [...config.features, ...(config.prodFeatures ?? [])];
-}
-
 // kumiko.config.ts is user-authored: a missing default export or `features`
 // array must produce a readable message, not a TypeError further down.
 export async function loadAppConfig(
