@@ -209,17 +209,26 @@ function bootCryptoContext(crypto: BootCrypto): Record<string, unknown> {
 /** Config key (`feature:config:name`) to value; wins over the key's env variable. */
 export type ConfigOverridesInput = Readonly<Record<string, string | number | boolean>>;
 
+/** Env bridge first, validated app overrides on top: the one merge every boot function shares. */
+export function buildConfigOverrides(
+  registry: Registry,
+  envSource: Record<string, string | undefined>,
+  appOverrides: ConfigOverridesInput | undefined,
+) {
+  const envOverrides = buildEnvConfigOverrides(registry, envSource);
+  return appOverrides
+    ? new Map([...envOverrides, ...validateAppOverrides(registry, appOverrides)])
+    : envOverrides;
+}
+
 function createBootConfigResolver(
   registry: Registry,
   envSource: Record<string, string | undefined>,
   crypto: BootCrypto,
   appOverrides: ConfigOverridesInput | undefined,
 ) {
-  const envOverrides = buildEnvConfigOverrides(registry, envSource);
   return createConfigResolver({
-    appOverrides: appOverrides
-      ? new Map([...envOverrides, ...validateAppOverrides(registry, appOverrides)])
-      : envOverrides,
+    appOverrides: buildConfigOverrides(registry, envSource, appOverrides),
     ...(crypto.configCipher && { cipher: crypto.configCipher }),
   });
 }

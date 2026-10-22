@@ -106,6 +106,25 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
     expect(value).toBe(10);
   });
 
+  test("appOverrides win over the env bridge, same merge as runProdApp", async () => {
+    const extra = mergeConfigResolverDefault(
+      undefined,
+      stack.registry,
+      { DEVCFG_PAGE_SIZE: "25" },
+      undefined,
+      { [PAGE_SIZE]: 50 },
+    ) as ExtraObj;
+    expect(await peekPageSize(extra.configResolver)).toBe(50);
+  });
+
+  test("an unknown appOverrides key aborts the dev boot", () => {
+    expect(() =>
+      mergeConfigResolverDefault(undefined, stack.registry, {}, undefined, {
+        "devcfg:config:nope": 1,
+      }),
+    ).toThrow(/unknown config key/i);
+  });
+
   test("a caller-supplied configResolver overrides the default", () => {
     const custom = createConfigResolver();
     const extra = mergeConfigResolverDefault({ configResolver: custom }, stack.registry, {

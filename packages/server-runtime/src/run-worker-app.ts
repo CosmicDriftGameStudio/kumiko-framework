@@ -38,6 +38,7 @@ import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
+import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import {
   bootWorkerProcess,
   resolveWorkerEnvSource,
@@ -61,6 +62,7 @@ import {
 } from "./extra-routes-deps.ts";
 import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
+import type { ConfigOverridesInput } from "./run-prod-app-boot-context.ts";
 
 export type WorkerContextOption =
   | Record<string, unknown>
@@ -113,6 +115,12 @@ export type RunWorkerAppOptions = {
   /** Subject-key adapter for crypto-shredding — boot checks health()
    *  before any connection (see RunProdAppOptions["kms"]). */
   readonly kms?: KmsAdapter;
+  /** App-level config values, same semantics and merge as RunProdAppOptions["appOverrides"];
+   *  the worker renders the mail layouts and must resolve the same branding as the API. */
+  readonly appOverrides?: ConfigOverridesInput;
+  /** Replaces the real clock, sleep and log sink of the boot backoff for the database and
+   *  KMS waits; tests use it to run the retry path without real waiting. */
+  readonly databaseWait?: DatabaseWaitClock;
   /** Blind-index key for lookupable fields (see
    *  RunProdAppOptions["blindIndexKey"]). */
   readonly blindIndexKey?: string;

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { SUBSCRIPTION_WEBHOOK_PATH } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
@@ -296,5 +296,20 @@ describe("resolveBootOptionWiring feature checks", () => {
     const wiring = await resolveBootOptionWiring({ features: [], seeds: [seed] }, {});
     expect(wiring.customSeeds).toEqual([seed]);
     expect(wiring.shortcutSeeds).toEqual([]);
+  });
+});
+
+describe("resolveBootOptionWiring worker hint", () => {
+  test("runSingleInstance:false with appOverrides warns to pass them to the worker", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await resolveBootOptionWiring(
+        { features: [], runSingleInstance: false, appOverrides: { "a:config:b": 1 } },
+        {},
+      );
+      expect(warn.mock.calls.flat().join("\n")).toContain("appOverrides");
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

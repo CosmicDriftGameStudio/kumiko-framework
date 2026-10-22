@@ -13,10 +13,7 @@
 // @cosmicdrift/kumiko-dev-server.
 
 import type { SeedAdminOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import {
-  buildEnvConfigOverrides,
-  createConfigResolver,
-} from "@cosmicdrift/kumiko-bundled-features/config";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
 import type { PostAuthLandingResolver } from "@cosmicdrift/kumiko-framework/api";
 import {
   parseTrustedProxyHopsEnv,
@@ -91,6 +88,8 @@ import type {
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
+  buildConfigOverrides,
+  type ConfigOverridesInput,
   loggerFromExtraContext,
   type UnsubscribeOption,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
@@ -210,6 +209,8 @@ export type RunDevAppOptions = {
    *  no locale signal. Merged into AppContext before extraContext (app wins). */
   readonly defaultLocale?: string;
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
+  /** App-level config values, same semantics and merge as RunProdAppOptions["appOverrides"]. */
+  readonly appOverrides?: ConfigOverridesInput;
   /** MasterKeyProvider for the automatically wired `ctx.secrets`. Defaults to
    *  `createEnvMasterKeyProvider`; override it for KMS backends. Only relevant
    *  when the secrets feature is mounted. Symmetric with runProdApp. */
@@ -395,7 +396,13 @@ function buildDevExtraContext(
 ): CreateKumikoServerOptions["extraContext"] {
   const { features, envSource, unsubscribeLinks } = config;
   const cfgExtra = registry
-    ? mergeConfigResolverDefault(options.extraContext, registry, envSource, bootCrypto.configCipher)
+    ? mergeConfigResolverDefault(
+        options.extraContext,
+        registry,
+        envSource,
+        bootCrypto.configCipher,
+        options.appOverrides,
+      )
     : options.extraContext;
   return (deps) => {
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
@@ -429,10 +436,11 @@ export function mergeConfigResolverDefault(
   registry: Registry,
   envSource: Record<string, string | undefined>,
   cipher?: EnvelopeCipher,
+  appOverrides?: ConfigOverridesInput,
 ): CreateKumikoServerOptions["extraContext"] {
   const defaults = {
     configResolver: createConfigResolver({
-      appOverrides: buildEnvConfigOverrides(registry, envSource),
+      appOverrides: buildConfigOverrides(registry, envSource, appOverrides),
       ...(cipher && { cipher }),
     }),
   };

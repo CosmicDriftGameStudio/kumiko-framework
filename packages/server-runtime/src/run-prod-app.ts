@@ -74,6 +74,7 @@ import type {
 import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { buildEffectiveFeaturesResolver } from "./boot/shared-boot-steps.ts";
+import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import type { BillingBootOption } from "./boot-options/billing-option.ts";
 import type { DemoModeOption } from "./boot-options/demo-mode.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
@@ -117,6 +118,7 @@ export {
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
+  buildConfigOverrides,
   type ConfigOverridesInput,
   loggerFromExtraContext,
   resolveAuthMail,
@@ -481,6 +483,9 @@ export type RunProdAppOptions = {
    *  cannot start against an unreachable KMS. Without an adapter,
    *  crypto-shredding remains disabled. */
   readonly kms?: KmsAdapter;
+  /** Replaces the real clock, sleep and log sink of the boot backoff for the database, KMS and
+   *  seed waits; tests use it to run the retry path without real waiting. */
+  readonly databaseWait?: DatabaseWaitClock;
   /** 32-byte base64 key for blind-index HMACs on `lookupable` fields
    *  (env: KUMIKO_BLIND_INDEX_KEY, `openssl rand -base64 32`). It is separate
    *  from PLATFORM_KEK and not part of the KmsAdapter contract. It is required
@@ -745,7 +750,12 @@ async function bootProdApp(
     return makeDryRunHandle();
   }
 
-  const connections = await connectProdDependencies(config, log, registerAbortCleanup);
+  const connections = await connectProdDependencies(
+    config,
+    log,
+    registerAbortCleanup,
+    options.databaseWait,
+  );
   // Tier-composition auto-wire: if a feature carries a tenantTierResolver extension, the
   // resolver is built here, before the dispatcher exists. The app author only mounts
   // `createTierEngineFeature(opts)`; the framework does the wiring.
