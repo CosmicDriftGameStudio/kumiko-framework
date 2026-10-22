@@ -243,6 +243,11 @@ describe("findPrivateRepoReferences", () => {
     ]);
   });
 
+  it("does not flag ordinary prose containing a slash", () => {
+    expect(findPrivateRepoReferences("the public website / docs")).toEqual([]);
+    expect(findPrivateRepoReferences("infra and/or apps")).toEqual([]);
+  });
+
   it("leaves bare names and public or look-alike names alone", () => {
     expect(findPrivateRepoReferences("affects solon and kumiko-enterprise")).toEqual([]);
     expect(findPrivateRepoReferences("moved from infra guards to the public package")).toEqual([]);
@@ -342,8 +347,8 @@ describe("findChangesetViolations", () => {
       { version: "0.1.0", type: "breaking", title: "first", migration: "old migration" },
     ];
 
-    function buildRepoWithBase(): string {
-      const root = buildFixtureRoot([["some-feature", baseEntries]]);
+    function buildRepoWithBase(entries: unknown[] = baseEntries): string {
+      const root = buildFixtureRoot([["some-feature", entries]]);
       const env = fixtureGitEnv(root);
       const git = (...args: string[]) => {
         const result = Bun.spawnSync(["git", ...args], { cwd: root, env });
@@ -388,16 +393,7 @@ describe("findChangesetViolations", () => {
     });
 
     it("rejects a changed codemod", () => {
-      const root = buildFixtureRoot([["some-feature", [{ ...baseEntries[1], codemod: "a" }]]]);
-      const env = fixtureGitEnv(root);
-      for (const args of [
-        ["init", "-q"],
-        ["add", "."],
-        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"],
-        ["update-ref", "refs/remotes/origin/main", "HEAD"],
-      ]) {
-        expect(Bun.spawnSync(["git", ...args], { cwd: root, env }).exitCode).toBe(0);
-      }
+      const root = buildRepoWithBase([{ ...baseEntries[1], codemod: "a" }]);
       editEntries(root, [{ ...baseEntries[1], codemod: "b" }]);
 
       expect(isTextOnlyChangesEdit(root, file)).toBe(false);

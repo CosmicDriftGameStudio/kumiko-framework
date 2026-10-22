@@ -122,14 +122,22 @@ function movedTargetOf(
   moved: ReadonlyMap<string, string>,
 ): string | undefined {
   const { base, extension } = stripScriptExtension(absoluteSpecifier);
-  const candidates =
+  const candidates: string[] =
     extension === ".js" || extension === ".ts" || extension === ".tsx" || extension === ""
       ? [absoluteSpecifier, `${base}.ts`, `${base}.tsx`]
       : [absoluteSpecifier];
+  if (extension === "")
+    candidates.push(`${absoluteSpecifier}/index.ts`, `${absoluteSpecifier}/index.tsx`);
   for (const candidate of candidates) {
     if (moved.has(candidate)) return candidate;
   }
   return undefined;
+}
+
+// A moved `<dir>/index.ts` is imported as `<dir>`, so the file name alone never appears in the importer.
+function importableNameOf(file: string): string {
+  const { base } = stripScriptExtension(baseName(file));
+  return base === "index" ? baseName(dirname(file)) : base;
 }
 
 function relativeSpecifierFrom(fromDir: string, target: string): string {
@@ -258,7 +266,7 @@ function buildWrites(
   importRewrites: CodemodSite[],
 ): Map<string, string> {
   const writes = new Map<string, string>();
-  const basenames = [...moved.keys()].map((file) => stripScriptExtension(baseName(file)).base);
+  const basenames = [...moved.keys()].map(importableNameOf);
   for (const [file, original] of files) {
     const content = stripped.get(file) ?? original;
     const newFile = moved.get(file) ?? file;

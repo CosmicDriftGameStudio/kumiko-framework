@@ -1,8 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
 import {
   buildPackageGraph,
   checkAgainstBaseline,
   findCycles,
+  readManifests,
   runtimeBaselineEdges,
 } from "../check-package-cycles.ts";
 
@@ -53,5 +57,21 @@ describe("check-package-cycles", () => {
     const asDev = manifest("a", [], { devDependencies: { "@x/b": "workspace:*" } });
     expect(runtimeBaselineEdges([asDev, manifest("b", ["a"])], [edge])).toEqual([]);
     expect(runtimeBaselineEdges([manifest("a", ["b"]), manifest("b", ["a"])], [edge])).toEqual([edge]);
+  });
+
+  it("skips a directory without package.json but throws on a broken manifest", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pkg-cycles-"));
+    try {
+      mkdirSync(join(dir, "empty"));
+      mkdirSync(join(dir, "ok"));
+      writeFileSync(join(dir, "ok", "package.json"), JSON.stringify({ name: "@x/ok" }));
+      expect(readManifests(dir).map((m) => m.name)).toEqual(["@x/ok"]);
+
+      mkdirSync(join(dir, "broken"));
+      writeFileSync(join(dir, "broken", "package.json"), "{ not json");
+      expect(() => readManifests(dir)).toThrow(/broken.package\.json: invalid JSON/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

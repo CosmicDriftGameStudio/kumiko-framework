@@ -46,11 +46,11 @@ const PRIVATE_REPOS = [
   "website",
 ] as const;
 const PRIVATE_REPO_ALTERNATION = PRIVATE_REPOS.join("|");
-// Second alternative: repo name, then "/" and a path, or whitespace and a token that contains a slash. The lookbehind
+// Second alternative: repo name, then "/" and a path, or whitespace and a non-empty token that contains a slash (so "website / docs" and "and/or" stay prose). The lookbehind
 // admits "." and "/" ("../infra/x", "apps/solon/x") but not word chars, "@" or "-", so "kumiko-guards/infra",
 // "@cosmicdrift/solon-x" and "offlot-web" do not match through a shorter repo name.
 const PRIVATE_REPO_REFERENCE_RE = new RegExp(
-  `(?:github\\.com/CosmicDriftGameStudio/(?:${PRIVATE_REPO_ALTERNATION})/|(?<![\\w@-])(?:${PRIVATE_REPO_ALTERNATION})(?:/[\\w.@-]|\\s+[\\w.@-]*/)[\\w.@/-]*)`,
+  `(?:github\\.com/CosmicDriftGameStudio/(?:${PRIVATE_REPO_ALTERNATION})/|(?<![\\w@-])(?:${PRIVATE_REPO_ALTERNATION})(?:/[\\w.@-]|\\s+(?!and/or\\b)[\\w.@-]+/[\\w.@-])[\\w.@/-]*)`,
   "gi",
 );
 

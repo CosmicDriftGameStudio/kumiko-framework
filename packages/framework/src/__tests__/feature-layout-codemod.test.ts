@@ -62,6 +62,15 @@ describe("feature-layout codemod: moves", () => {
     );
   });
 
+  it("rewrites a directory import of a moved index file", () => {
+    const result = run({
+      [`${ROOT}/components/index.ts`]: `// @runtime client\nexport const C = 1;\n`,
+      [`${ROOT}/feature.ts`]: `import { C } from "./components";\n`,
+    });
+    expect(result.writes.get(`${ROOT}/web/components/index.ts`)).toBe(`export const C = 1;\n`);
+    expect(result.writes.get(`${ROOT}/feature.ts`)).toBe(`import { C } from "./web/components";\n`);
+  });
+
   it("keeps the extension style of each specifier", () => {
     const result = run({
       [`${ROOT}/constants.ts`]: `// @runtime client\nexport const C = 1;\n`,

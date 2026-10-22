@@ -68,7 +68,7 @@ for pkg_json in packages/*/package.json; do
     [ -n "$entry" ] || continue
     entry="${entry#./}"
     entry="${entry%/}"
-    if ! grep -qxF "package/$entry" <<<"$listing" && ! grep -qF "package/$entry/" <<<"$listing"; then
+    if ! grep -qxF "package/$entry" <<<"$listing" && ! awk -v prefix="package/$entry/" 'index($0, prefix) == 1 { found = 1 } END { exit !found }' <<<"$listing"; then
       problems+=("$name: lists $entry in files but the tarball has none")
     fi
   done < <(jq -r '(.files // [])[] | select((contains("*") | not) and (startswith("!") | not) and (startswith("src/") | not))' "$pkg_json")

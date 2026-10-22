@@ -58,8 +58,12 @@ describe("run timeout handling", () => {
       expect(isProbeTimeout(result)).toBe(true);
       const pid = Number(readFileSync(pidFile, "utf-8").trim());
       expect(Number.isInteger(pid)).toBe(true);
-      await waitFor(() => !isAlive(pid));
-      expect(isAlive(pid)).toBe(false);
+      await waitFor(
+        () => {
+          expect(isAlive(pid)).toBe(false);
+        },
+        { delays: [50, 200, 1000] },
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

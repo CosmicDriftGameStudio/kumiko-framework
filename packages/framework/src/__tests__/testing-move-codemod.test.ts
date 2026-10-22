@@ -39,6 +39,7 @@ const FIXTURE_CASES: ReadonlyArray<{
   { name: "namespace-split", filePath: CONSUMER_FILE, rewrites: 1, manual: 1 },
   { name: "namespace-plain", filePath: CONSUMER_FILE, rewrites: 1, manual: 0 },
   { name: "merge-existing", filePath: CONSUMER_FILE, rewrites: 1, manual: 0 },
+  { name: "side-effect-import", filePath: CONSUMER_FILE, rewrites: 2, manual: 0 },
   { name: "already-migrated", filePath: CONSUMER_FILE, rewrites: 0, manual: 0 },
 ];
 
