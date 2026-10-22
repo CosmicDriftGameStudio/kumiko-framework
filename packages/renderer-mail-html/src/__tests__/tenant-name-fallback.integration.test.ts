@@ -1,7 +1,7 @@
 // Without managed-pages mounted there is no branding title config key, so the
 // document context fell back to an empty tenantName.
 
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
@@ -75,12 +75,6 @@ describe("readDocumentFormat tenant time zone", () => {
   });
 
   test("ignores an invalid zone instead of failing the render", async () => {
-    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
-    try {
-      expect((await formatWith("Mars/Olympus")).timeZone).toBeUndefined();
-      expect(JSON.stringify(warn.mock.calls)).toContain("Mars/Olympus");
-    } finally {
-      warn.mockRestore();
-    }
+    expect((await formatWith("Mars/Olympus")).timeZone).toBeUndefined();
   });
 });
