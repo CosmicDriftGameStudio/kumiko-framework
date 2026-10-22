@@ -1,9 +1,8 @@
-// buildProdBundle — Production-Build für Kumiko-Apps. Ein generischer
-// Build-Step ohne App-spezifisches Wissen: Convention-Discovery liest
-// die App-Struktur, Bun.build + Tailwind + Public-Folder-Copy
-// produzieren ein deploybares dist/.
+// buildProdBundle — Production build for Kumiko apps. A generic build step
+// with no app-specific knowledge: convention discovery reads the app structure;
+// Bun.build + Tailwind + public-folder copying produce a deployable dist/.
 //
-// Client entries (fw#2320 — explicit, no filename inference):
+// Client entries (explicit, no filename inference):
 //
 //   package.json "kumiko.clientEntries": [{ name, sourceFile, htmlPath? }]
 //                                     →  one Bun.build bundle per declared entry
@@ -14,23 +13,22 @@
 // Convention for everything else (all optional, missing → skipped):
 //
 //   src/styles.css                   →  Tailwind one-shot
-//                                       (oder fallback auf @cosmicdrift/kumiko-renderer/web/styles.css
-//                                        wenn nur clientEntry da ist und kein eigenes CSS)
-//   public/                          →  rsync 1:1 (kein Hash — User-bewusste URLs)
-//   public/index.html | index.html   →  Template, Placeholder-Tags ersetzt:
+//                                       (or fallback to @cosmicdrift/kumiko-renderer/web/styles.css
+//                                        when only clientEntry exists and no custom CSS)
+//   public/                          →  rsync 1:1 (no hash — URLs are user-facing)
+//   public/index.html | index.html   →  template with placeholder tags replaced:
 //                                         <script type="module" src="/client.js"> → /assets/client-<hash>.js
 //                                         <link href="/styles.css"> → /assets/styles-<hash>.css
-//   (kein HTML, vanilla)             →  Default-HTML ohne Asset-Tags
+//   (no HTML, vanilla)               →  default HTML without asset tags
 //
-// Fehler-Modus: hat client.tsx oder Tailwind etwas produziert, aber das HTML
-// hat keinen passenden Placeholder, wirft der Build mit dem exakten Snippet
-// zum Reinkopieren. Keine silent-injection — das HTML soll lesen wie's
-// auch im Dev-Server liefert.
+// Failure mode: if client.tsx or Tailwind produced output but the HTML has no
+// matching placeholder, the build throws with the exact snippet to copy in.
+// No silent injection — the HTML should behave as it does in the dev server.
 //
 // Output:
 //
 //   dist/
-//     index.html              ← Tags mit gehashten URLs
+//     index.html              ← tags with hashed URLs
 //     assets/
 //       client-<hash>.js      ← entry
 //       <chunk>-<hash>.js     ← split chunks
@@ -41,12 +39,12 @@
 //     csp-hashes.json         ← sha256 of every inline <script> in the HTML above
 //     <public/* 1:1>          ← favicon.ico, robots.txt, og-image.png, …
 //
-// Cache-Header (von runProdApp gesetzt, nicht hier):
+// Cache headers (set by runProdApp, not here):
 //
 //   /assets/*               →  public, max-age=31536000, immutable
 //   /index.html, /sw.js     →  no-cache, must-revalidate
 //   /manifest.json          →  no-cache
-//   alles andere (public/)  →  default (auto-cache)
+//   everything else (public/) → default (auto-cache)
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -69,10 +67,10 @@ import {
 } from "./renderer-web-fonts.ts";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli.ts";
 
-// Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
-// (Tailwind via Bun.spawn, Client-Bundle via Bun.build, Stylesheet-
-// Resolution via Bun.resolveSync) sind Bun-only. Pro-Funktions-Inline-
-// Checks driften sonst — eine Konstante hier hält das konsistent.
+// Bun runtime check as a module-level constant: every build step (Tailwind via
+// Bun.spawn, client bundling via Bun.build, and stylesheet resolution via
+// Bun.resolveSync) is Bun-only. Per-function inline checks could diverge; one
+// constant keeps the checks consistent.
 const hasBun = typeof Bun !== "undefined";
 
 export type BuildProdBundleOptions = {
@@ -106,12 +104,12 @@ export type BuildManifest = Readonly<Record<string, string>>;
 
 export type BuildResult = {
   readonly outDir: string;
-  /** Logical → hashed-URL mapping. Beispiel:
+  /** Logical → hashed-URL mapping. Example:
    *    { "client.js": "/assets/client-a3f2.js",
    *      "styles.css": "/assets/styles-9b4c.css" } */
   readonly manifest: BuildManifest;
-  /** Build-Identität (Hash über die Asset-URLs) + lesbarer Zeitstempel.
-   *  undefined bei vanilla public-only-Builds (kein Bundle). */
+  /** Build identity (hash of the asset URLs) plus a human-readable timestamp.
+   *  undefined for vanilla public-only builds (no bundle). */
   readonly buildInfo?: BuildInfo;
 };
 
@@ -119,20 +117,21 @@ export type BuildResult = {
  *  dist/build-info.json. The UpdateChecker polls build-info.json and compares
  *  `id` with the loaded build, showing a reload banner on drift. */
 export type BuildInfo = {
-  /** Hash über die sortierten (content-gehashten) Asset-URLs. Ändert sich
-   *  gdw. sich ein Asset ändert — selbsttragend, kein Env-Var/Dockerfile. */
+  /** Hash of the sorted, content-hashed asset URLs. Changes exactly when an
+   *  asset changes — self-contained, with no environment variable or Dockerfile. */
   readonly id: string;
-  /** ISO-Zeitstempel des Builds, lesbare Anzeige-Version (ersetzt den rohen sha). */
+  /** ISO timestamp of the build, used as the human-readable display version
+   *  instead of the raw hash. */
   readonly builtAt: string;
 };
 
-// Default-HTML wird nur genutzt wenn der App-Author KEIN index.html liefert.
-// Hat keine Asset-Placeholder, weil der Default-Pfad für vanilla apps
-// (nur public/) gedacht ist — wer JS/CSS will, schreibt ein eigenes
-// index.html mit den richtigen Placeholder-Tags.
-// interactive-widget=resizes-content (fw#1918): keeps `position: fixed`
-// bottom bars anchored above a mobile keyboard instead of behind it. iOS Safari
-// ignores the key; renderer-web's useKeyboardInset covers it via window.visualViewport.
+// The default HTML is used only when the app author provides no index.html.
+// It has no asset placeholders because this path is intended for vanilla apps
+// (public/ only); apps that need JS/CSS must provide an index.html with the
+// appropriate placeholder tags.
+// interactive-widget=resizes-content: keeps `position: fixed` bottom bars
+// anchored above a mobile keyboard instead of behind it. iOS Safari ignores
+// the key; renderer-web's useKeyboardInset covers it via window.visualViewport.
 export const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -147,8 +146,8 @@ export const DEFAULT_HTML = `<!doctype html>
 `;
 
 /** Folder name relative to dist/ for hashed assets (JS, CSS, file-loader
- *  outputs). Exported damit runProdApp dieselbe Konvention für Cache-
- *  Header nutzt — Drift verhindern. */
+ *  outputs). Exported so runProdApp uses the same convention for cache headers
+ *  and cannot drift. */
 export const ASSETS_DIR = "assets";
 
 const ASSET_LOADERS = {
@@ -170,7 +169,7 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   const outDir = resolve(cwd, options.outDir ?? "dist");
   const assetsDir = join(outDir, ASSETS_DIR);
 
-  // 1. Discovery: was ist da?
+  // 1. Discovery
   const clientEntries = resolveClientEntries(cwd, options);
   const firstClientSource = clientEntries[0]?.sourceFile;
   const stylesheet = resolveStylesheetEntry(cwd, firstClientSource, options.stylesheet);
@@ -193,9 +192,9 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
 
   const manifest: Record<string, string> = {};
 
-  // 3. Tailwind one-shot (vor JS, weil JS' loader auf .css trifft falls
-  //    der client.tsx ein "import './foo.css'" macht — den Fall lassen
-  //    wir hier raus, Tailwind ist die einzige CSS-Quelle).
+  // 3. Tailwind one-shot (before JS, because the JS loader would encounter .css
+  //    if client.tsx imports "./foo.css" — that case is not supported here;
+  //    Tailwind is the only CSS source).
   if (stylesheet) {
     const css = await runTailwindOnce(stylesheet.path, cwd);
     assertRendererWebShellPresent(css, stylesheet);
@@ -206,11 +205,10 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     await copyRendererWebFonts(cwd, outDir);
   }
 
-  // 4. Bun.build pro Entry (multi-entry produces N bundles + shared chunks).
-  //    Ein einzelner Bun.build-Call mit allen entrypoints würde shared
-  //    chunks deduplizieren, hashes deterministisch halten — passt zu
-  //    dem split-tree-Pattern von publicstatus (admin + public teilen
-  //    sich den renderer-web-core).
+  // 4. Bun.build per entry (multi-entry produces N bundles + shared chunks).
+  //    A single Bun.build call with all entrypoints deduplicates shared chunks
+  //    and keeps hashes deterministic, matching publicstatus's split-tree
+  //    pattern (admin + public share renderer-web-core).
   if (clientEntries.length > 0) {
     const built = await buildClientBundles(clientEntries, assetsDir);
     for (const [manifestKey, filename] of Object.entries(built)) {
@@ -218,8 +216,9 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     }
   }
 
-  // 5. Public-Folder rsync (ohne index.html / *.html-templates — werden
-  //    separat gerendert). Filter-list = template-basenames der entries.
+  // 5. Public-folder rsync (excluding index.html / *.html templates, which are
+  //    rendered separately). The filter list contains the entries' template
+  //    basenames.
   const templateBasenames = new Set<string>(clientEntries.map((e) => basenameOf(e.htmlPath)));
   if (hasPublicDir) {
     await copyPublicFolder(publicDir, outDir, templateBasenames);
@@ -229,23 +228,23 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   //     public/ so a same-named public file cannot shadow them.
   await copyBundledAssets(cwd, outDir, bundledAssets);
 
-  // 5b. Build-Identität: Hash über die content-gehashten Asset-URLs +
-  //     lesbarer Zeitstempel. Wird in index.html gebacken und als
-  //     build-info.json geschrieben (Update-Awareness, default an).
-  //     ponytail: id hängt nur an Assets — ein reiner Server-Deploy ohne
-  //     Client-Bundle-Change behält die id → kein Banner (die UI ist dann
-  //     nicht stale). Bei Bedarf an Server-Versionierung koppeln.
+  // 5b. Build identity: hash of the content-hashed asset URLs plus a readable
+  //     timestamp. Baked into index.html and written to build-info.json
+  //     (update awareness, enabled by default).
+  //     ponytail: id depends only on assets — a server-only deploy with no
+  //     client-bundle change keeps the id, so no banner appears (the UI is not
+  //     stale). Couple it to the server version when needed.
   const buildInfo: BuildInfo | undefined =
     Object.keys(manifest).length > 0
       ? { id: computeBuildId(manifest), builtAt: Temporal.Now.instant().toString() }
       : undefined;
 
-  // 6. HTML pro Entry rendern. Convention: ein HTML-File pro Client-Entry,
-  //    jede mit ihrem eigenen Script-Tag. Server (runProdApp.hostDispatch)
-  //    serviert je nach Host das passende File.
+  // 6. Render HTML for each entry. Convention: one HTML file per client entry,
+  //    each with its own script tag. The server (runProdApp.hostDispatch)
+  //    serves the matching file for each host.
   if (clientEntries.length === 0) {
-    // Vanilla-public-only-app: keine HTML-Files zu rendern, public-Folder
-    // wurde schon kopiert.
+    // Vanilla public-only app: no HTML files need rendering; the public folder
+    // was already copied.
   } else {
     for (const entry of clientEntries) {
       const templatePath = resolve(cwd, entry.htmlPath);
@@ -311,7 +310,7 @@ const SOURCE_EXTENSION_PATTERN = /\.(?:tsx?|jsx?)$/;
  *  `kumiko-build`/`kumiko build` via `@cosmicdrift/kumiko-dev-server/build`,
  *  not just from unit tests.
  *
- * Precedence (fw#2320 — explicit declaration, no filename inference):
+ * Precedence (explicit declaration, no filename inference):
  *   1. `declared.clientEntry` and `declared.clientEntries` both set → throw.
  *   2. `declared.clientEntries` (non-empty) → one entry per declaration.
  *   3. `declared.clientEntry` → single entry, name "client".
@@ -466,7 +465,7 @@ function resolveConventionEntries(cwd: string): readonly ClientEntry[] {
 
 type LegacyClientFile = { readonly name: string; readonly file: string };
 
-// Pre-fw#2320 multi-entry convention: any src/client-<suffix>.tsx(x) became
+// Legacy multi-entry convention: any src/client-<suffix>.tsx(x) became
 // its own bundle. Detecting these without a declaration means an unmigrated
 // app would silently ship without their bundles — throw instead.
 function findLegacyClientFiles(cwd: string): readonly LegacyClientFile[] {
@@ -606,15 +605,16 @@ function discoverHtmlTemplateFor(cwd: string, basename: string): string | undefi
 
 type ResolvedStylesheet = {
   readonly path: string;
-  /** True nur wenn wir auf das gepackte renderer-web-styles.css zurückfallen
-   *  (App hat clientEntry + renderer-web-Dep, aber kein eigenes src/styles.css).
-   *  Steuert den Shell-Klassen-Sentinel im Build. */
+  /** True only when falling back to the packaged renderer-web-styles.css
+   *  (the app has clientEntry and a renderer-web dependency, but no
+   *  src/styles.css). Controls the shell-class sentinel check during the build. */
   readonly isRendererWebFallback: boolean;
 };
 
-// Äußerster Wrapper von DefaultAppShell/WorkspaceShell trägt diese Utility
-// (app-layout.tsx: "flex min-h-screen …"). Echtes Tailwind-Utility (landet
-// also im kompilierten Output) ohne CSS-Escaping → stabiler Substring-Sentinel.
+// The outer wrapper of DefaultAppShell/WorkspaceShell carries this utility
+// (app-layout.tsx: "flex min-h-screen …"). It is a real Tailwind utility in
+// the compiled output, so it provides a stable substring sentinel without CSS
+// escaping.
 const RENDERER_WEB_SHELL_SENTINEL = "min-h-screen";
 
 function resolveStylesheetEntry(
@@ -627,13 +627,13 @@ function resolveStylesheetEntry(
     return { path: resolve(cwd, override), isRendererWebFallback: false };
   }
 
-  // App-eigenes styles.css schlägt den Default.
+  // An app's own styles.css takes precedence over the default.
   const local = resolve(cwd, "src/styles.css");
   if (existsSync(local)) return { path: local, isRendererWebFallback: false };
 
-  // Sonst: nur wenn ein client da ist, fallback auf renderer-web/styles.css.
-  // Sample-Apps und Showcases nutzen das alle — gleiche Logik wie der dev-
-  // server, damit lokal/prod identisch bauen.
+  // Otherwise, fall back to renderer-web/styles.css only when a client exists.
+  // Sample apps and showcases all use this, matching the dev server so local
+  // and production builds behave identically.
   if (!clientEntry) return undefined;
 
   if (!hasBun) return undefined;
@@ -648,12 +648,12 @@ function resolveStylesheetEntry(
   }
 }
 
-// Build-Zeit-Guard gegen unstyled prod (#359): fällt der Build auf renderer-
-// web/styles.css zurück und fehlt im kompilierten CSS die Shell-Sentinel-
-// Klasse, wurden die DefaultAppShell-Styles nicht gescannt (renderer-web
-// nicht dort installiert wo Tailwind scannt, oder ein @source-Regress).
-// Laut failen statt ein 15KB-Image zu liefern, das in prod nackt rendert.
-// @internal — exportiert nur für Unit-Tests.
+// Build-time guard against unstyled production output: when the build falls
+// back to renderer-web/styles.css but the compiled CSS lacks the shell sentinel,
+// DefaultAppShell styles were not scanned (renderer-web is not installed where
+// Tailwind scans, or an @source regression occurred).
+// Fail rather than shipping a 15KB image that renders unstyled in production.
+// @internal — exported only for unit tests.
 export function assertRendererWebShellPresent(css: string, stylesheet: ResolvedStylesheet): void {
   // skip: not the renderer-web fallback stylesheet, invariant doesn't apply
   if (!stylesheet.isRendererWebFallback) return;
@@ -705,7 +705,7 @@ async function copyBundledAssets(
   }
 }
 
-// @internal — exported nur für Unit-Tests.
+// @internal — exported only for unit tests.
 export function discoverHtmlTemplate(cwd: string): string | undefined {
   for (const candidate of ["index.html", "public/index.html"]) {
     const path = resolve(cwd, candidate);
@@ -718,7 +718,7 @@ export function discoverHtmlTemplate(cwd: string): string | undefined {
 // Build steps
 // ---------------------------------------------------------------------------
 
-// @internal — exportiert nur für Unit-Tests (Relocation-Test des @source-Layouts).
+// @internal — exported only for unit tests (relocation test for the @source layout).
 export async function runTailwindOnce(entry: string, cwd: string): Promise<string> {
   if (!hasBun) {
     throw new Error(
@@ -826,9 +826,9 @@ export function isEntryOutputFor(outName: string, baseName: string): boolean {
   return /^[A-Za-z0-9]+$/.test(outName.slice(prefix.length, -".js".length));
 }
 
-/** Multi-entry-build: ein Bun.build-Call mit allen entrypoints — shared
- *  chunks werden dedupliziert, hashes deterministisch. Returns map
- *  manifestKey → hashed-filename (basename, ohne /assets/-Prefix). */
+/** Multi-entry build: one Bun.build call with all entrypoints, so shared
+ *  chunks are deduplicated and hashes remain deterministic. Returns a map of
+ *  manifestKey → hashed filename (basename, without the /assets/ prefix). */
 async function buildClientBundles(
   entries: readonly ClientEntry[],
   outDir: string,
@@ -842,9 +842,9 @@ async function buildClientBundles(
     target: "browser",
     splitting: true,
     minify: true,
-    // Keine Source-Maps in Prod: 1.6 MB+ Müll im Container, plus
-    // exposed Source-Code reverse-engineerable. Dev hat seine eigenen
-    // sourcemaps via create-kumiko-server.ts.
+    // No source maps in production: 1.6 MB+ of container waste, plus exposed
+    // reverse-engineerable source code. Development has its own sourcemaps via
+    // create-kumiko-server.ts.
     sourcemap: "none",
     naming: {
       entry: "[name]-[hash].[ext]",
@@ -866,9 +866,9 @@ async function buildClientBundles(
       `[kumiko build] expected ${entries.length} entry-point outputs, got ${entryOutputs.length}`,
     );
   }
-  // Bun.build benennt entry-files nach Source-Basename (ohne extension):
-  // `src/client-admin.tsx` → `client-admin-<hash>.js`. Wir mappen jedes
-  // entry-output zurück auf seinen ClientEntry via Basename-match.
+  // Bun.build names entry files after the source basename (without the extension):
+  // `src/client-admin.tsx` → `client-admin-<hash>.js`. Map each entry output
+  // back to its ClientEntry by matching the basename.
   const result: Record<string, string> = {};
   for (const entry of entries) {
     const baseName = (entry.sourceFile.split("/").pop() ?? "").replace(
@@ -897,9 +897,9 @@ async function copyPublicFolder(
   dst: string,
   templateBasenames: ReadonlySet<string>,
 ): Promise<void> {
-  // HTML-templates werden separat gerendert — nicht blind kopieren, sonst
-  // überschreibt das die injizierte Version. (z.B. index.html, admin.html
-  // bei multi-entry).
+  // HTML templates are rendered separately rather than copied blindly, because
+  // copying them would overwrite the injected version (for example index.html
+  // or admin.html in a multi-entry build).
   await cp(src, dst, {
     recursive: true,
     filter: (source) => {
@@ -923,10 +923,10 @@ async function renderHtml(
   entry: ClientEntry,
   buildInfo: BuildInfo | undefined,
 ): Promise<string> {
-  // Edge-Case: kein eigenes HTML-Template + Bun.build oder Tailwind hat
-  // Output produziert. DEFAULT_HTML hat keine Placeholder (vanilla
-  // template), also würde injectAssetTags eh fehlschlagen. Klarer Fehler
-  // mit Vorschlag-Snippet zum Reinkopieren.
+  // Edge case: no custom HTML template exists, but Bun.build or Tailwind produced
+  // output. DEFAULT_HTML has no placeholders (it is a vanilla template), so
+  // injectAssetTags would fail anyway. Report a clear error with a snippet to
+  // copy in.
   if (!templatePath && Object.keys(manifest).length > 0) {
     throw new Error(buildMissingTemplateError(manifest, entry));
   }
@@ -941,7 +941,7 @@ function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry):
     ? `    <link rel="stylesheet" href="/styles.css" />\n`
     : "";
   const jsLine = manifest[entry.manifestKey]
-    ? // html-ok: Error-Hilfetext (Tag-Snippet als Text), wird nie gerendert.
+    ? // html-ok: Error-help text (tag snippet as text), never rendered.
       `    <script type="module" src="/${entry.manifestKey}"></script>\n`
     : "";
   const sourceBasename = basenameOf(entry.sourceFile);
@@ -977,18 +977,17 @@ function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry):
 
 const BUILD_META_NAME = "kumiko-build";
 
-// @internal — exported nur für Unit-Tests.
+// @internal — exported only for unit tests.
 //
-// Convention: das HTML-Template MUSS Placeholder-Tags für jedes Asset
-// dieses Entries enthalten:
-//   - `<script type="module" src="/client.js">` für single-mode entry "client"
-//   - `<script type="module" src="/client-<name>.js">` für multi-mode entry "<name>"
-//   - `<link href="/styles.css">` für styles (gemeinsam über alle entries)
-// Der Build ersetzt sie durch die gehashten URLs.
+// The HTML template MUST contain placeholder tags for every asset of this entry:
+//   - `<script type="module" src="/client.js">` for single-mode entry "client"
+//   - `<script type="module" src="/client-<name>.js">` for multi-mode entry "<name>"
+//   - `<link href="/styles.css">` for styles shared by all entries
+// The build replaces them with hashed URLs.
 //
-// Fehlt ein erwarteter Tag, wirft der Build einen Fehler mit dem exakten
-// Snippet zum Reinkopieren — kein silent injection mehr, weil das den
-// Diff zwischen Dev- und Prod-HTML unsichtbar macht.
+// If an expected tag is missing, the build throws an error with the exact
+// snippet to copy in — no silent injection, which would hide differences
+// between development and production HTML.
 export function injectAssetTags(
   html: string,
   manifest: BuildManifest,
@@ -1018,13 +1017,13 @@ export function injectAssetTags(
         }),
       );
     }
-    // html-ok: cssUrl ist ein selbst-generierter Manifest-Asset-Pfad (Hash-Name).
+    // html-ok: cssUrl is a self-generated manifest asset path (hashed name).
     result = result.replace(placeholder[0], `<link rel="stylesheet" href="${cssUrl}" />`);
   }
 
   const jsUrl = manifest[entry.manifestKey];
   if (jsUrl && !result.includes(jsUrl)) {
-    // Placeholder-pattern: src="/client.js" oder src="/client-<name>.js"
+    // Placeholder pattern: src="/client.js" or src="/client-<name>.js"
     const placeholderRx = new RegExp(
       `<script\\b[^>]*src="\\/${entry.manifestKey.replace(/\./g, "\\.")}"[^>]*><\\/script>`,
     );
@@ -1041,15 +1040,15 @@ export function injectAssetTags(
         }),
       );
     }
-    // html-ok: jsUrl ist ein selbst-generierter Manifest-Asset-Pfad (Hash-Name).
+    // html-ok: jsUrl is a self-generated manifest asset path (hashed name).
     result = result.replace(placeholder[0], `<script type="module" src="${jsUrl}"></script>`);
   }
 
   return result;
 }
 
-/** Einheitliche Error-Form für fehlende Asset-Tags im HTML-Template
- *  (script-tag fürs JS-Bundle ODER stylesheet-link für Tailwind). */
+/** Consistent error format for missing asset tags in the HTML template
+ *  (the script tag for the JS bundle or the stylesheet link for Tailwind). */
 function buildMissingTagError(args: {
   readonly htmlPath: string;
   readonly assetKey: string;
@@ -1075,10 +1074,10 @@ function shortHash(content: string | Uint8Array): string {
   return createHash("sha256").update(content).digest("hex").slice(0, 8);
 }
 
-// Build-Identität aus den content-gehashten Asset-URLs. Sortiert →
-// deterministisch (Manifest-Key-Reihenfolge egal). Identischer Source →
-// gleiche id, geändertes Asset → andere id.
-// @internal — exported nur für Unit-Tests.
+// Build identity from the content-hashed asset URLs. Sorted for determinism
+// (manifest-key order does not matter). Identical source produces the same id;
+// a changed asset produces a different id.
+// @internal — exported only for unit tests.
 export function computeBuildId(manifest: BuildManifest): string {
   return createHash("sha256")
     .update(Object.values(manifest).sort().join("\n"))
@@ -1090,9 +1089,9 @@ export function computeBuildId(manifest: BuildManifest): string {
 // CLI output
 // ---------------------------------------------------------------------------
 
-/** Formatiert ein BuildResult als CLI-freundliche Mehrzeilen-Zusammenfassung
- *  mit ANSI-Farben. Wird sowohl von `kumiko build` als auch von dem
- *  hoisted `kumiko-build`-Bin verwendet, damit das Output konsistent ist. */
+/** Formats a BuildResult as a CLI-friendly, multi-line summary with ANSI
+ *  colors. Used by both `kumiko build` and the hoisted `kumiko-build` binary
+ *  so their output remains consistent. */
 export function formatBuildResult(result: BuildResult, durationMs: number): string {
   const dim = "\x1b[2m";
   const green = "\x1b[32m";

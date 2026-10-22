@@ -115,7 +115,7 @@ function collectImportedFeatureIds(project: Project, roots: readonly RepoRoot[])
 }
 
 /**
- * Baseline from the infra#436 measurement: features with no integration
+ * Baseline from the measurement: features with no integration
  * test reaching their directory at all — only covered (if at all) by unit
  * tests (`feature.test.ts`). Pre-existing at the first sharp run, not
  * introduced by this change. Backfilling is its own scope per feature, not

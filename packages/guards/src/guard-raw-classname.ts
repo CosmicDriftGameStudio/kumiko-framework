@@ -5,7 +5,7 @@
 // Layout utilities (flex/grid/gap/p-/m-/w-) and token classes
 // (bg-primary, text-status-ok, …) stay allowed.
 //
-// Part of App-Mounting 2.0 (infra#208). Enabled per app repo in the
+// Part of App-Mounting 2.0. Enabled per app repo in the
 // respective migration PR (ui-guards input in _app-test.yml).
 
 import { type JsxAttribute, type SourceFile, SyntaxKind } from "ts-morph";

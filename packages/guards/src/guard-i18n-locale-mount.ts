@@ -6,7 +6,7 @@
  * guard-i18n-keys.ts only checks whether a used t() key is defined —
  * and has no concept of a "mount point". A mount that never calls
  * localeDeClient() (client) or localeDe() (server) slips through there
- * completely (kumiko-studio#191, publicstatus#365, infra#533).
+ * completely.
  *
  * Scope gate: the package.json closest to the file must point at
  * kumiko-locale-de (currently kumiko-studio, publicstatus, solon,
@@ -83,9 +83,9 @@ function gateFor(sf: SourceFile, cache: Map<string, Gate>): Gate | undefined {
   return gate;
 }
 
-// localeDeClient() (clientFeatures) matcht per Call-Text; `{ de: ... }` deckt
-// die rohe <LocaleProvider fallbackBundles={[{ de: bundle }, ...]}>-Komposition
-// ab, die keinen localeDeClient()-Call verwendet.
+// localeDeClient() in clientFeatures is matched by call text; `{ de: ... }` also
+// covers a raw <LocaleProvider fallbackBundles={[{ de: bundle }, ...]}> composition
+// that does not use a localeDeClient() call.
 function localeDeClientRef(node: Node): boolean {
   if (node.isKind(SyntaxKind.Identifier) && node.getText() === "localeDeClient") return true;
   if (node.isKind(SyntaxKind.CallExpression)) return localeDeClientRef(node.getExpression());

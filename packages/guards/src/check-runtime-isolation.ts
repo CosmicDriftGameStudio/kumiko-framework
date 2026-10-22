@@ -43,8 +43,8 @@
 // A file/import edge classified "client" importing "runtime" can be a real
 // finding this guard needs to see, but can also be a known, reviewed
 // exception (e.g. samples/recipes are worked examples, not the framework's
-// own production surface — see kumiko-framework#2337 for the one currently
-// frozen here). Exceptions are tracked via a per-repo baseline file
+// own production surface — one exception is currently frozen here).
+// Exceptions are tracked via a per-repo baseline file
 // (`.kumiko-runtime-isolation-baseline.json`, same `baselineRatchet`
 // mechanism as check-complexity/etc.), not a
 // hardcoded list in this source file: a consumer repo can freeze or clear

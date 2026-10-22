@@ -4,7 +4,7 @@
 // feature author controls the wire format themselves.
 //
 // Pattern symmetric to r.queryHandler / r.writeHandler: definition as
-// part of the feature (not the app bootstrapping). Phase-3 multi-tenant
+// part of the feature (not the app bootstrapping). Multi-tenant support
 // becomes trivial because tenant context is picked up via host resolution.
 //
 // Escape-hatch stays: runProdApp.extraRoutes (declarative list with
@@ -14,22 +14,22 @@
 import type { Context } from "hono";
 import type { RateLimitOption } from "./handlers.ts";
 
-/** Subset von HTTP-Methoden den wir aktiv unterstützen. Hono spricht
- *  alle, aber das hier sind die einzigen die ein Feature-Author
- *  realistisch deklariert. */
+/** Subset of HTTP methods actively supported. Hono supports all methods,
+ *  but these are the only ones a feature author is expected to declare. */
 export type HttpRouteMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 
-/** Dependencies die der Handler vom Framework bekommt. App-Author kann
- *  die App selbst aufrufen (`deps.app.fetch(...)` für intern-call) oder
- *  direkt per dispatcher Daten ziehen. Db/Redis sind die rohen Connections
- *  — wer Tenant-Scope braucht muss durch dispatcher.query gehen.
+/** Dependencies provided to the handler by the framework. The app can be
+ *  called directly (`deps.app.fetch(...)` for internal calls), or data can
+ *  be fetched through the dispatcher. Db/Redis are raw connections — tenant
+ *  scoping requires going through dispatcher.query.
  *
- *  Hono-typing: `Context<any, any>` weil das Hono-Type-Param-Setup nur
- *  intern relevant ist. Concrete Hono-app wird im Boot-Path zugewiesen. */
+ *  Hono typing: `Context<any, any>` is used because Hono's type-parameter
+ *  setup is only relevant internally. The concrete Hono app is assigned
+ *  during boot. */
 export type HttpRouteHandlerDeps = {
-  /** Die Hono-app — Handler kann via app.fetch(...) interne Routes
-   *  ansprechen (z.B. /api/query mit der vollen Auth-/Anonymous-Chain). */
-  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic-Param ist im Framework-Boundary unsichtbar
+  /** The Hono app — the handler can use app.fetch(...) to call internal routes
+   *  (e.g. /api/query with the full auth/anonymous chain). */
+  // biome-ignore lint/suspicious/noExplicitAny: Hono's generic parameter is invisible at the framework boundary
   readonly app: import("hono").Hono<any, any>;
   /** Run a query handler in-process, forcing a SPECIFIC tenant — WITHOUT
    *  going through the public /api/query HTTP layer (no header parsing, no
@@ -58,7 +58,7 @@ export type HttpRouteHandlerDeps = {
 };
 
 export type HttpRouteHandler = (
-  // biome-ignore lint/suspicious/noExplicitAny: Hono Context-Generics sind im Framework-Boundary unsichtbar
+  // biome-ignore lint/suspicious/noExplicitAny: Hono Context generics are invisible at the framework boundary
   c: Context<any, any>,
   deps: HttpRouteHandlerDeps,
 ) => Response | Promise<Response>;
@@ -72,9 +72,9 @@ export type HttpRouteRateLimit = Omit<RateLimitOption, "per"> & {
 };
 
 export type HttpRouteDefinition = {
-  /** HTTP-Methode — bei Hono-Mount via app.{get,post,...}(path). */
+  /** HTTP method — mounted in Hono via app.{get,post,...}(path). */
   readonly method: HttpRouteMethod;
-  /** URL-Pfad (Hono-Pattern, z.B. "/feed.xml" oder "/og/:tenantId.png"). */
+  /** URL path (Hono pattern, e.g. "/feed.xml" or "/og/:tenantId.png"). */
   readonly path: string;
   /** true = public, no session required. false = mounted behind the
    *  session auth chain (global IP rate limit when configured, PII
@@ -83,8 +83,8 @@ export type HttpRouteDefinition = {
    *  `/api/*` chain only. A request without a session gets 401. The
    *  handler reads the caller via getUser(c). */
   readonly anonymous: boolean;
-  /** Hono-Handler. Bekommt Hono-Context + Framework-Deps; returnt
-   *  Response (sync oder async). */
+  /** Hono handler. Receives the Hono context and framework dependencies;
+   *  returns a Response synchronously or asynchronously. */
   readonly handler: HttpRouteHandler;
   /** Enforced before the route's guards through the server's rate-limit
    *  resolver (fail-open like the global L1 limiter: a limiter outage

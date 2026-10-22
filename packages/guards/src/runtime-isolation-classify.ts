@@ -108,7 +108,7 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
  * for `kumiko-build` entries (`resolveClientEntries` in kumiko-framework's
  * `packages/server-runtime/src/build-prod-bundle.ts`): `src/client.tsx`/
  * `src/client.ts` (single-entry) or `src/client-<suffix>.tsx?` (declared via
- * package.json `kumiko.clientEntries`, fw#2320 — no longer auto-discovered
+ * package.json `kumiko.clientEntries`; no longer auto-discovered
  * by this filename alone). Framework/enterprise packages never match —
  * their sources live under `packages/*\/src/`, not a repo-root `src/`. Kept
  * independent of the framework's own regex (cross-package import would be a

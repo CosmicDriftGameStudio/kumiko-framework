@@ -1,4 +1,4 @@
-// Guards against #1425/1: callExpression (rendered into generated
+// Guards against duplicated encoding: callExpression (rendered into generated
 // run-config.ts) and callArgs (used at runtime by instantiateScaffoldFeatures)
 // encode the same call twice by hand. If someone edits one without the
 // other, the boot test validates a different feature config than what

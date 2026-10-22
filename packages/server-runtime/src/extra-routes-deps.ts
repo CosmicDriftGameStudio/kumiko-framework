@@ -15,7 +15,7 @@ export {
 } from "@cosmicdrift/kumiko-framework/api";
 
 /** Deps for the `wire` hook (runProdApp/createKumikoServer, after
- *  buildServer has mounted `extraRoutes` — see kumiko-framework#3050) and
+ *  buildServer has mounted `extraRoutes`) and
  *  for `runWorkerApp.wireComponents`. Naming: `deps` not `ctx` because
  *  `ctx` is the framework's HandlerContext (user/tenant/registry) — this
  *  scope is deliberately smaller and has NO `app` (routes are declared via

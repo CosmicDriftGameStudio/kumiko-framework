@@ -32,7 +32,7 @@ const PAGE_SIZE = "devcfg:config:page-size";
 // wires the dispatcher through. Every other test in this file inspects the returned
 // {configResolver, _configAccessorFactory} object without ever dispatching a handler
 // that actually reads ctx.config; a "Boot writes field A, dispatcher expects field B"
-// drift (the original #359-adjacent bug class) would be invisible to all of them.
+// drift would be invisible to all of them.
 const readPageSizeQuery = defineQueryHandler({
   name: "read-page-size",
   schema: z.object({}),

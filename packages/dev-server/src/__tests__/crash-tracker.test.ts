@@ -1,7 +1,7 @@
-// Unit-Tests für createCrashTracker — die rollende-Fenster-Logik aus
-// kumiko-dev. Hier steckt der Crash-Loop-Schutz, der entscheidet ob der
-// Wrapper aufgibt oder noch eine Runde respawnt; off-by-one am Fenster-
-// Rand würde im Bin-Skript schlecht auffallen.
+// Unit tests for createCrashTracker — the rolling-window logic from
+// kumiko-dev. This covers the crash-loop protection that decides whether
+// the wrapper gives up or respawns another round; an off-by-one at the
+// window boundary would be difficult to detect in the bin script.
 
 import { describe, expect, test } from "bun:test";
 import { createCrashTracker } from "../crash-tracker.ts";
@@ -12,7 +12,7 @@ describe("createCrashTracker", () => {
     expect(t.noteCrash(1000)).toBe(true);
     expect(t.noteCrash(1100)).toBe(true);
     expect(t.noteCrash(1200)).toBe(true);
-    // 4. Crash innerhalb des Fensters → über Limit
+    // Fourth crash within the window → over the limit
     expect(t.noteCrash(1300)).toBe(false);
   });
 
@@ -20,9 +20,9 @@ describe("createCrashTracker", () => {
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     t.noteCrash(0);
     t.noteCrash(500);
-    // bei t=1500 ist t=0 raus (1500 - 1000 = 500, alles < 500 fliegt),
-    // im Fenster bleibt nur t=500. Mit dem neuen Crash bei 1500 sind
-    // wir bei 2 → noch im Limit.
+    // At t=1500, t=0 is out (1500 - 1000 = 500; everything < 500 is
+    // removed), so only t=500 remains in the window. With the new crash at
+    // 1500, the count is 2 → still within the limit.
     expect(t.noteCrash(1500)).toBe(true);
     expect(t.crashCountInWindow(1500)).toBe(2);
   });
@@ -36,26 +36,26 @@ describe("createCrashTracker", () => {
   });
 
   test("crashCountInWindow prunt lazy auch ohne vorheriges noteCrash", () => {
-    // Wichtig: crashCountInWindow muss eigenständig korrekt sein, nicht
-    // nur als Folge eines vorangegangenen noteCrash. Sonst lügt der Name.
+    // Important: crashCountInWindow must be correct independently, not only
+    // as a consequence of a previous noteCrash. Otherwise its name is misleading.
     const t = createCrashTracker({ maxCrashes: 5, windowMs: 1000 });
     t.noteCrash(0);
     t.noteCrash(100);
-    // Direkter Aufruf bei now=2000 — alle alten Crashes sind raus.
+    // Direct call at now=2000 — all old crashes have expired.
     expect(t.crashCountInWindow(2000)).toBe(0);
-    // Idempotent: zweiter Aufruf liefert dasselbe.
+    // Idempotent: the second call returns the same result.
     expect(t.crashCountInWindow(2000)).toBe(0);
   });
 
   test("Boundary: Crash genau am Fenster-Endpoint bleibt im Fenster", () => {
-    // Endpoint inklusive: cutoff = now - windowMs. Crash bei t=cutoff
-    // soll noch zählen. Hier: now=1000, windowMs=1000 → cutoff=0.
-    // Ein vorheriger Crash bei t=0 darf nicht als "alt" geprunt werden.
+    // Inclusive endpoint: cutoff = now - windowMs. A crash at t=cutoff
+    // must still count. Here: now=1000, windowMs=1000 → cutoff=0.
+    // A previous crash at t=0 must not be pruned as old.
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     t.noteCrash(0);
     expect(t.noteCrash(1000)).toBe(true);
     expect(t.crashCountInWindow(1000)).toBe(2);
-    // Dritter Crash bei 1000 → 3 im Fenster, über Limit
+    // Third crash at 1000 → 3 in the window, over the limit
     expect(t.noteCrash(1000)).toBe(false);
   });
 
@@ -70,7 +70,7 @@ describe("createCrashTracker", () => {
     const t = createCrashTracker({ maxCrashes: 2, windowMs: 1000 });
     t.noteCrash(0);
     t.noteCrash(100);
-    expect(t.noteCrash(200)).toBe(false); // über Limit
+    expect(t.noteCrash(200)).toBe(false); // over the limit
     // Wartezeit, alte Crashes raus
     expect(t.noteCrash(2000)).toBe(true);
     expect(t.crashCountInWindow(2000)).toBe(1);
@@ -80,9 +80,9 @@ describe("createCrashTracker", () => {
     const t = createCrashTracker({ maxCrashes: 1, windowMs: 1000 });
     expect(t.noteCrash(0)).toBe(true);
     expect(t.noteCrash(500)).toBe(false);
-    // Bei t=1600 sind beide vorigen Crashes (0 und 500) außerhalb
-    // (cutoff = 600, 0 < 600 und 500 < 600), Tracker ist leer
-    // bevor der neue gepusht wird.
+    // At t=1600, both previous crashes (0 and 500) are outside the window
+    // (cutoff = 600, 0 < 600 and 500 < 600), so the tracker is empty
+    // before the new crash is pushed.
     expect(t.noteCrash(1600)).toBe(true);
     expect(t.crashCountInWindow(1600)).toBe(1);
   });

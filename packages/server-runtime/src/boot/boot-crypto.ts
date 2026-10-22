@@ -59,8 +59,7 @@ function envMasterKeyProviderIfConfigured(
 ): MasterKeyProvider | undefined {
   if (!envHasMasterKek(envSource)) return undefined;
   const provider = createEnvMasterKeyProvider({
-    // CURRENT_VERSION default "1" spiegelt secretsEnvSchema — ohne
-    // ihn wirft der raw-env-Provider, obwohl V1 gesetzt ist.
+    // CURRENT_VERSION defaults to "1" in secretsEnvSchema; without it, the raw-env provider throws even when V1 is set.
     env: {
       ...envSource,
       KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION:

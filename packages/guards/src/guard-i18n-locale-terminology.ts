@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Guard: locale bundle values must follow Mandant/Organización terminology (#2200, fw#2355).
+ * Guard: locale bundle values must follow Mandant/Organización terminology.
  *
  * German UI copy always says "Mandant" (never "Tenant"/"Organisation"); Spanish, French
  * and Italian always say "Organización"/"organisation"/"organizzazione" (never the
@@ -50,8 +50,8 @@ const RULES: Record<TerminologyLocale, LocaleRule> = {
   de: {
     preferred: "Mandant",
     // Tenants? covers plural; Organisation(en|s)? without trailing \b so
-    // compounds like Organisations-ID / Organisationsstruktur still match
-    // (infra#603). TenantAdmin stays safe: \b after Tenant fails on 'A'.
+    // compounds like Organisations-ID / Organisationsstruktur still match.
+    // TenantAdmin stays safe: \b after Tenant fails on 'A'.
     forbidden: [/\bTenants?\b/i, /\bOrganisation(en|s)?/i],
   },
   es: {

@@ -327,7 +327,7 @@ export const h = defineWriteHandler({
     },
   );
 
-  // The real #1556 handler is openToAll with a runtime isAdminActor() gate,
+  // The real handler is openToAll with a runtime isAdminActor() gate,
   // not access.admin — keying the check on the access preset alone would have
   // missed the very bug it exists for.
   test("flags an openToAll handler with a payload userId (real #1556 shape)", () => {

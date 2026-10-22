@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createExecutablePool } from "./executable-pool";
 
-// #3152: pre-push.sh is the POSIX-sh port of the former .husky/pre-push hook,
+// pre-push.sh is the POSIX-sh port of the former .husky/pre-push hook,
 // shipped as a bin (kumiko-pre-push) so every repo can wire it via a thin
 // shim instead of vendoring the logic. These tests exercise the real script
 // at its package path (not a chmod'd copy), so a missing executable bit on

@@ -156,7 +156,7 @@ export async function bootWorkerProcess(
 ): Promise<WorkerBootResult> {
   const { processName } = profile;
 
-  // Polyfill before anything else (fw#1725): without it every job fails with
+  // Polyfill before anything else: without it every job fails with
   // "Temporal is not defined" in a retry loop, with no boot-time signal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
   await ensureTemporalPolyfill();
@@ -269,7 +269,7 @@ export async function bootWorkerProcess(
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
 
-  // Same crypto wiring as the API (fw#1725), otherwise this process writes
+  // Same crypto wiring as the API, otherwise this process writes
   // rows the API can no longer read (different cipher, missing blind index).
   const deps: WorkerDeps = { db, redis, registry };
   const resolvedExtraContext =

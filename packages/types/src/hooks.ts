@@ -152,7 +152,7 @@ export type EntityHookMap = {
   readonly postQuery?: Readonly<Record<string, readonly OwnedFn<PostQueryHookFn>[]>>;
 };
 
-// Search-Payload-Extension (F3) — contributor function that adds flat
+// Search-Payload-Extension — contributor function that adds flat
 // fields to an entity's search-document. Fires synchronously during
 // buildSearchDocument (in `system-hooks.ts`), receives current entity
 // state, returns extra fields to merge into the search-index payload.

@@ -1,4 +1,4 @@
-// Relocation test for the @source layout fix (#359).
+// Relocation test for the @source layout fix.
 //
 // The bug: styles.css scanned its own shell classes through a MONOREPO-relative
 // @source. In the workspace that resolves through the symlink (green), in a
@@ -37,27 +37,27 @@ function bunAvailable(): boolean {
 }
 
 describe("renderer-web styles.css @source relocation (#359)", () => {
-  // skipIf statt `if (!bunAvailable()) return;` — sonst meldet der Runner den
-  // Test grün, obwohl er nie lief (silent-pass verschleiert fehlende Coverage).
+  // Use skipIf instead of `if (!bunAvailable()) return;` so the runner does not
+  // report a test as passing when it never ran (a silent pass hides missing coverage).
   test.skipIf(!bunAvailable())(
     "self-relative @source scans the shell standalone; monorepo path would not",
     async () => {
-      // Tailwind v4 auto-scannt nur das cwd-Verzeichnis (empirisch bestätigt:
-      // das Verzeichnis der Input-CSS wird NICHT automatisch gescannt). Im echten
-      // Standalone-Consumer ist renderer-web zudem in node_modules (gitignored) →
-      // ebenfalls nicht auto-gescannt. Die Shell-Klassen erreicht also NUR der
-      // explizite @source der styles.css. Hier mirrorn wir das robust, ohne
-      // gitignore-/node_modules-Semantik: das Paket-`src` (mit der Shell-Probe)
-      // liegt AUSSERHALB des Build-cwd — nur der self-relative `@source "./**"`
-      // der relozierten styles.css erreicht es, der monorepo-Pfad ist tot.
-      // Temp unter REPO_ROOT, damit @import "tailwindcss"/react-day-picker via
-      // node_modules auflösen.
+      // Tailwind v4 automatically scans only the cwd (confirmed empirically; it does
+      // not automatically scan the input CSS directory). In a standalone consumer,
+      // renderer-web is also under node_modules (gitignored), so it is not scanned.
+      // The shell classes are therefore reached only by the explicit @source in
+      // styles.css. Mirror this without relying on gitignore or node_modules
+      // semantics: the package `src` containing the shell probe is outside the
+      // build cwd, so only the relocated stylesheet's self-relative
+      // `@source "./**"` can reach it; the monorepo path is dead.
+      // Keep the temporary directory under REPO_ROOT so @import
+      // "tailwindcss"/react-day-picker resolves through node_modules.
       const dir = await mkdtemp(join(REPO_ROOT, ".reloc-rendererweb-"));
       const buildCwd = join(dir, "app");
       const pkgSrc = join(dir, "pkg");
       try {
         const realCss = await readFile(RENDERER_WEB_STYLES, "utf8");
-        // Guard: der Fix MUSS in der Quelle stehen, sonst testet die Relocation nichts.
+        // Guard: the fix must be present in the source, or the relocation tests nothing.
         expect(realCss).toContain(SELF_SOURCE);
         expect(realCss).toContain(PARENT_SOURCE);
 
@@ -72,9 +72,9 @@ describe("renderer-web styles.css @source relocation (#359)", () => {
         const fixed = await runTailwindOnce(join(pkgSrc, "styles.css"), buildCwd);
         expect(fixed).toContain("min-h-screen");
 
-        // Diskriminator: mit dem ALTEN monorepo-relativen @source ist die Probe
-        // an diesem relozierten Ort unerreichbar → Sentinel fehlt. Beweist, dass
-        // der Fix kein No-op ist (der Test würde bei einem Revert rot).
+        // With the old monorepo-relative @source, the probe is unreachable from this
+        // relocated location, so the sentinel is absent. This proves the fix is not
+        // a no-op: reverting it makes the test fail.
         // The parent line is dropped too: relocated, `../` would reach the probe.
         await writeFile(
           join(pkgSrc, "styles.css"),

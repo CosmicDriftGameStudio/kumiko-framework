@@ -309,7 +309,7 @@ function buildEditFillOps(
           ops.push({ kind: "fill", field, value: String(v) });
           break;
         // embedded/money/timestamp/locatedTimestamp/file/image/files/images:
-        // no generic interaction. Since #369 timestamp renders two inputs
+        // no generic interaction. Since timestamp renders two inputs
         // (date + time) that a single .fill() cannot drive; the test author
         // supplies a hand override or skips it.
         default:
@@ -489,7 +489,7 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
     case "images":
       // File-upload fixtures are not generic yet: Playwright would have to supply
       // file contents, and the write API already expects uploaded fileRef UUIDs.
-      // Can be added once a sample settles the paths (M4).
+      // Can be added once a sample settles the paths.
       return undefined;
     default:
       return undefined;

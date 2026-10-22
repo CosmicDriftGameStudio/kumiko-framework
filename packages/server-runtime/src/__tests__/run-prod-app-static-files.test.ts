@@ -22,8 +22,8 @@ import {
 // Stand-in for a real Hono app's fetch when the test wants "no route
 // matched" — must carry NO_ROUTE_MATCH_HEADER_NAME, same as buildServer's
 // app.notFound() (framework/api/server.ts), otherwise tryHonoFirst treats
-// the fake apiHandler's 404 as a matched route's own deliberate 404 (see
-// kumiko-framework#2435) and never falls through to disk/SPA.
+// the fake apiHandler's 404 as a matched route's own deliberate 404 and
+// never falls through to disk/SPA.
 function noRouteMatchedResponse(): Response {
   return new Response("404", { status: 404, headers: { [NO_ROUTE_MATCH_HEADER_NAME]: "1" } });
 }

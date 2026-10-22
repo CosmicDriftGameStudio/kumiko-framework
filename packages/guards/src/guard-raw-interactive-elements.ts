@@ -9,7 +9,7 @@
  * <button>/<input>/<select>/<textarea>/<dialog>/<form> are deliberately NOT
  * in this guard: <button>/<input>/<select>/<textarea>/<dialog> are already
  * enforced by guard-primitives-discipline.ts (its own CI step, not this
- * bundle), and <form> is a documented exception (PR #488, agent-layer.tsx:71
+ * bundle), and <form> is a documented exception (agent-layer.tsx:71
  * uses a native <form onSubmit> on purpose) — adding either back here would
  * duplicate or contradict an existing rule.
  *

@@ -1,18 +1,15 @@
-// TargetRef — runtime-Repräsentation eines typed buildTarget-Outputs.
-// Wird vom Visual-Tree-Component (renderer/web) an einen Target-Resolver
-// dispatcht; der Resolver findet die Editor-Maske via featureId.
+// TargetRef — runtime representation of a typed buildTarget output.
+// It is dispatched by the Visual Tree component (renderer/web) to a target
+// resolver, which finds the editor form via featureId.
 //
-// **Compile-time-Safety:** TargetRef wird niemals hand-getippt. Stattdessen
-// erzeugt der typed buildTarget-Builder (engine/build-target.ts) einen
-// TargetRef, dessen action + args gegen die treeActions-Map des Ziel-
-// Features validiert sind.
+// **Compile-time safety:** TargetRef is never written by hand. Instead, the
+// typed buildTarget builder (engine/build-target.ts) creates a TargetRef whose
+// action + args are validated against the target feature's treeActions map.
 //
-// **Runtime:** args sind hier untyped (Record<string, unknown>), weil
-// TargetRef die erased-runtime-Version ist. Der Resolver kennt das
-// Ziel-Feature und kann args entsprechend casten — ähnlich wie Event-
-// Payloads im Event-Store.
-//
-// Siehe docs/plans/architecture/visual-tree.md A5.
+// **Runtime:** args are untyped here (Record<string, unknown>) because
+// TargetRef is the erased runtime version. The resolver knows the target
+// feature and can cast args accordingly, similar to event payloads in the
+// event store.
 
 export type TargetRef = {
   readonly featureId: string;

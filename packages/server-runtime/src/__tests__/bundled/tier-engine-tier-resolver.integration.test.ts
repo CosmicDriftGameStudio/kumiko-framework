@@ -1,4 +1,4 @@
-// createTierResolver (fw#2854): resolveTier/resolveTierCaps take only a
+// createTierResolver: resolveTier/resolveTierCaps take only a
 // TenantDb — the tenant comes from db.tenantId, so a caller can't request a
 // foreign tenant's tier. Proves defaultTier for an unassigned tenant, the
 // assigned tier for an assigned one, and the same behavior end-to-end

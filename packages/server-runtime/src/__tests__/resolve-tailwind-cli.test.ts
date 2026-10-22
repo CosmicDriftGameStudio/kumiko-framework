@@ -1,6 +1,5 @@
-// Unit-Tests für resolveTailwindCli — die zwei Failure-Branches sind
-// genau das, was den dev-server-Crash bei flakigem Netz verhindert:
-// kein Bun → undefined, Package nicht installiert → undefined.
+// Unit tests for resolveTailwindCli: both failure branches prevent a dev-server crash
+// when the network is unreliable; no Bun or an uninstalled package returns undefined.
 
 import { describe, expect, test } from "bun:test";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "../resolve-tailwind-cli.ts";

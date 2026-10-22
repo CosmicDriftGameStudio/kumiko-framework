@@ -4,23 +4,22 @@
  * `packages/bundled-features/src/**` must already be reachable through the
  * real Tailwind `@source` scan surface (`packages/renderer/src` +
  * `samples/**\/src`, see `packages/renderer/src/web/styles.css`).
- * bundled-features itself is NOT part of that scan surface (infra#654, follow-up to
- * kumiko-framework#2498/#2496): expanding `@source` there was verified to
- * work in the monorepo build but makes the standalone npm-consumer case
- * (no monorepo-relative scan path — #359) falsely green. A class used only
- * in bundled-features silently drops out of the compiled CSS at runtime,
- * with no build/lint error.
+ * bundled-features itself is NOT part of that scan surface: expanding
+ * `@source` there was verified to work in the monorepo build but makes the
+ * standalone npm-consumer case (no monorepo-relative scan path) falsely
+ * green. A class used only in bundled-features silently drops out of the
+ * compiled CSS at runtime, with no build/lint error.
  *
- * V1 scope (per issue decision, deliberately not a Tailwind-CLI CSS
- * regen): only plain string-literal `className="..."` JSX attributes are
- * extracted on the bundled-features side — no `cn(...)`, no template
- * literals, no dynamic class maps. The allow-set (the real scan surface)
- * is read generously instead — every string/template-literal in those
- * files, not just `className` attributes — because Tailwind's own scanner
- * is a text scan, not JSX-attribute-aware; under-approximating the allow
- * side would turn into false positives on a guard that blocks CI. Tokens
- * compare WITH their modifier prefixes intact (`hover:mb-2` is its own
- * Tailwind candidate, distinct from `mb-2`).
+ * V1 scope, deliberately not a Tailwind-CLI CSS regen: only plain
+ * string-literal `className="..."` JSX attributes are extracted on the
+ * bundled-features side — no `cn(...)`, no template literals, no dynamic
+ * class maps. The allow-set (the real scan surface) is read generously
+ * instead — every string/template-literal in those files, not just
+ * `className` attributes — because Tailwind's own scanner is a text scan,
+ * not JSX-attribute-aware; under-approximating the allow side would turn
+ * into false positives on a guard that blocks CI. Tokens compare WITH their
+ * modifier prefixes intact (`hover:mb-2` is its own Tailwind candidate,
+ * distinct from `mb-2`).
  *
  * Baseline-regression guard: pins the
  * currently-known violation count per file. Reductions are allowed but
@@ -174,11 +173,11 @@ const tailwindScanSurfaceBaseline = (baselineRoot: string) =>
 // ships .tsx with `className` under its own scan surface (renderer/src +
 // samples/**/src) needs its own `@source` entry in the app's
 // styles.css — nothing else scans it. Missed cases so far: kumiko-designer
-// in studio (studio#289), kumiko-ai-agent in publicstatus (publicstatus#442)
-// — both fixed by hand, both silent (no build/lint error) until noticed
-// visually. This does not need ts-morph: it reads package.json + styles.css
-// + a plain text scan of the dependency's shipped .tsx files directly off
-// disk, independent of the scan-selected SourceFile list above.
+// in studio, kumiko-ai-agent in publicstatus — both fixed by hand, both
+// silent (no build/lint error) until noticed visually. This does not need
+// ts-morph: it reads package.json + styles.css + a plain text scan of the
+// dependency's shipped .tsx files directly off disk, independent of the
+// scan-selected SourceFile list above.
 const APP_STYLES_REL = "src/styles.css";
 const PACKAGE_SCOPE = /^@cosmicdrift(?:gamestudio)?\//;
 const CLASSNAME_ATTR = /\bclassName\s*=/;
@@ -390,14 +389,14 @@ export function scanSourceCoverage(roots: readonly RepoRoot[]): SourceCoverageFi
 }
 
 // Third, independent rule: an `@source` glob that is already present and
-// resolves on disk (studio#289's own fix) can still match nothing once the
-// referenced package is installed from a registry instead of a workspace
-// symlink — the symlink exposes the package's full source checkout (`src/`
-// included), a registry tarball only ships what its `package.json` `files`
-// allowlists. This is exactly the bug that got past the guard the first
-// time, so it's a hard violation, not a warning: no baseline/ratchet, every
-// finding fails the run directly (still only under baseline comparison —
-// `--no-baseline` reports it like the other rules but doesn't fail).
+// resolves on disk can still match nothing once the referenced package is
+// installed from a registry instead of a workspace symlink — the symlink
+// exposes the package's full source checkout (`src/`) included, a registry
+// tarball only ships what its `package.json` `files` allowlists. This is
+// exactly the bug that got past the guard the first time, so it's a hard
+// violation, not a warning: no baseline/ratchet, every finding fails the run
+// directly (still only under baseline comparison — `--no-baseline` reports it
+// like the other rules but doesn't fail).
 const NODE_MODULES_PKG_SEGMENT = /node_modules\/((?:@[^/]+\/)?[^/]+)\/([^/]+)/;
 
 export interface PublishedScanSurfaceFinding {

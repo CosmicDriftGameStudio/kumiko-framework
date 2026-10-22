@@ -173,4 +173,4 @@ describe("baselineRatchet", () => {
   });
 });
 
-// infra#445/#419-1 coverage (checkRootFloor brace-extensions, reportResults' vacuous case) tested mechanics infra#789 removed outright; see "per-root floor (D4)" and "exit-code is the count of failed guards" in ./_lib/guard-kit.test.ts instead.
+// coverage (checkRootFloor brace-extensions, reportResults' vacuous case) tested mechanics removed outright; see "per-root floor (D4)" and "exit-code is the count of failed guards" in ./_lib/guard-kit.test.ts instead.

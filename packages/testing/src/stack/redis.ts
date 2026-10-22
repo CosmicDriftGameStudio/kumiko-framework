@@ -7,9 +7,8 @@ export type TestRedis = {
   // The exact REDIS_URL used to build `redis` above — for a second, unrelated
   // connection (e.g. the test-stack's JobRunner) that needs its own client
   // rather than sharing this one's keyPrefix. Reconstructing a URL from
-  // `redis.options` loses password/username/tls/path (pr-review
-  // kumiko-framework #1036/2) — callers needing a fresh connection should use
-  // this raw string, not rebuild one from parsed options.
+  // `redis.options` loses password/username/tls/path — callers needing a fresh
+  // connection should use this raw string, not rebuild one from parsed options.
   redisUrl: string;
   /** The per-test `keyPrefix` on `redis`, e.g. `kt:1a2b3c4d:`. */
   keyPrefix: string;

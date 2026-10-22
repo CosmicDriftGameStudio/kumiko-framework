@@ -90,7 +90,7 @@ export type TestStack = {
   // The AppContext buildServer handed the request path, incl. the fields it
   // wires itself (_fileProviderResolver). A dev-server that starts its own
   // lane job-runners beside this stack must hand them THIS, not a
-  // `{ db, registry }` literal — that's the #1232 drift, and it makes an
+  // `{ db, registry }` literal — that's the drift, and it makes an
   // event-triggered job reaching for ctx.files die where the request path works.
   context: AppContext;
   // Present whenever a system consumer (SSE, Search) or
@@ -253,11 +253,11 @@ export type TestStackOptions = {
   /** Override the event dispatcher's polling-timer interval. Default 50ms.
    *  Tests that assert LISTEN/NOTIFY wake-up latency need this pushed far
    *  out (e.g. 60_000) so the polling timer can't land inside the
-   *  assertion window and mask a dead subscription — see E.4 (#2042). */
+   *  assertion window and mask a dead subscription. */
   eventDispatcherPollIntervalMs?: number;
   /** Opt out of auto-created r.entity() tables for callers that create/migrate
    *  them themselves. Default true — false pushes only projection/MSP/
-   *  storeTable sources, same as before fw#3102. */
+   *  storeTable sources, same as before. */
   entityTables?: boolean;
   /** Time source of the stack's rate-limit resolver, so tests can freeze the
    *  clock instead of racing the window. Default: system time. */
@@ -312,7 +312,7 @@ function bindMfaTokenSecrets(features: readonly FeatureDefinition[], jwtSecret: 
 }
 
 // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
-// was the #255 prod-crash and the #3102 missing r.entity() tables.
+// caused a production crash and left r.entity() tables missing.
 async function collectStackTableMetas(
   options: TestStackOptions,
 ): Promise<readonly EntityTableMeta[]> {
@@ -401,9 +401,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
   await ensureTemporalPolyfill();
 
-  // Ownership boot-guards (fw#2639 unqualified where-fragments, fw#2626
-  // where-rules on the write path) otherwise run only in the prod boot via
-  // validateBoot, leaving every test stack blind to a broken access map.
+  // Ownership boot-guards (unqualified where-fragments, where-rules on the
+  // write path) otherwise run only in the prod boot via validateBoot, leaving
+  // every test stack blind to a broken access map.
   // Runs after the polyfill (buildEntityTable needs it to derive the probe
   // columns) and before the ephemeral DB/Redis exist, so a throw can't leak
   // a database that nothing will clean up.
@@ -504,16 +504,16 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
 
   // Same AppContext buildServer() gets below (db/redis/searchAdapter/
   // entityCache/masterKeyProvider/fileProviderResolver/extraContext) —
-  // shared so the job context can't drift from the request-path context
-  // (kumiko-framework#1232: a reduced `{ db, registry }` literal let jobs
-  // pass in tests while reaching for fields only prod's context has).
+  // shared so the job context can't drift from the request-path context:
+  // a reduced `{ db, registry }` literal let jobs pass in tests while
+  // reaching for fields only prod's context has.
   //
   // effectiveFeatures deliberately stays OUT of appContext — prod never puts
   // it there either (only dispatcherOptions.effectiveFeatures, consumed by
   // the command-dispatcher — see buildJobRunnerWithHook in entrypoint/
   // index.ts). Putting it here would reintroduce the exact test-vs-prod
-  // drift #1232 fixed: a job/handler reading `ctx.effectiveFeatures` would
-  // pass in tests and break in prod (kumiko-framework#1255).
+  // drift fixed: a job/handler reading `ctx.effectiveFeatures` would pass in
+  // tests and break in prod.
   const appContext = {
     db: testDb.db,
     redis: testRedis.redis,
@@ -547,8 +547,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     jobRunner = createJobRunner({
       registry,
       context: { ...appContext, tracer: observability.tracer, meter: observability.meter },
-      // The real REDIS_URL, not one rebuilt from `.options` — that lost
-      // password/username/tls/path (pr-review kumiko-framework #1036/2).
+      // The real REDIS_URL, not one rebuilt from `.options` — rebuilding it lost
+      // password/username/tls/path.
       redisUrl: testRedis.redisUrl,
       ...(options.jobs.consumerLane !== undefined && { consumerLane: options.jobs.consumerLane }),
       queueNamePrefix:
@@ -582,7 +582,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // above (createJobRunner() itself opens live BullMQ Queue/lock Redis
   // connections, .start() adds a live worker) — otherwise a failing
   // buildServer()/search-config/etc. leaks that connection and the test
-  // process hangs on exit (pr-review kumiko-framework #1036/1).
+  // process hangs on exit.
   try {
     if (jobRunner) await jobRunner.start();
 

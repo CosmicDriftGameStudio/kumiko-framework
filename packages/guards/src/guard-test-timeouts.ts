@@ -23,7 +23,7 @@
  * the message.
  *
  * No baseline, no ratchet: any finding
- * fails. #3118's transition period (a `.kumiko-test-timeouts-baseline.json`
+ * fails. The transition period (a `.kumiko-test-timeouts-baseline.json`
  * grandfathering pre-existing sleep loops) is over — every consumer must fix
  * or mark the cause, not accumulate a pinned count.
  *

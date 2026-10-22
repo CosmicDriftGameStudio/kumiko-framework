@@ -137,7 +137,7 @@ export type ScreenSlots = {
   readonly sidebar?: PlatformComponent;
   readonly footer?: PlatformComponent;
   /** entityEdit wizard: marks `footer` as the sticky-footer primary action
-   *  (fw#1918's pinned `max-sm:fixed` group on mobile) instead of the
+   *  (pinned `max-sm:fixed` group on mobile) instead of the
    *  non-sticky secondary bucket it falls into by default alongside
    *  Back/Cancel. Set this when `footer` renders the screen's actual
    *  submit-type action (e.g. a custom "Publish" button standing in for, or

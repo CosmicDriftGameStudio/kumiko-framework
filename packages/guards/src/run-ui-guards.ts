@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// UI-guard bundle (App-Mounting 2.0, infra#208): one process, shared ts-morph
+// UI-guard bundle (App-Mounting 2.0): one process, shared ts-morph
 // Project over the UI enforcement guards.
 import {
   buildSharedProject,

@@ -70,8 +70,8 @@ const features = composeFeatures(
   { includeBundled: true },
 );
 
-// Zweite Komposition MIT Trial-Option: jeder Tenant bekommt 30 Tage ab
-// inserted_at the "pro" features (feat-pro), independent of the stored tier.
+// Second composition WITH the trial option: every tenant receives the "pro" features (feat-pro)
+// for 30 days from inserted_at, independent of the stored tier.
 const TRIAL_HOURS = 30 * 24;
 const featuresWithTrial = composeFeatures(
   [
@@ -201,7 +201,7 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
   });
 
   test("(4) set-tenant-tier reflects in resolver — effective gating, not just projection", async () => {
-    // Core purpose of #434: a manual grant must change the EFFECTIVE feature set (resolver
+    // Core purpose: a manual grant must change the EFFECTIVE feature set (resolver
     // cache), not just the projection. set-tenant-tier writes through the executor directly;
     // does that fire the postSave hook that refreshes the cache? A stale free->pro upgrade
     // covers the case the cache-miss fallback does NOT rescue.

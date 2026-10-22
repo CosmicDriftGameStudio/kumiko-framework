@@ -1,8 +1,8 @@
 // First-run welcome banner for `runDevApp({ welcomeBanner: true })`.
 // Opt-in only — `bun dev` should not normalize this for apps that
 // already log their own startup. Scaffolded apps (create-kumiko-app)
-// flip it on so the first `bun dev` doesn't end on "Server läuft" with
-// the user wondering where to click.
+// flip it on so the first `bun dev` doesn't end on a bare "server running"
+// line with the user wondering where to click.
 
 export type WelcomeBannerInput = {
   /** Resolved listen-URL (`http://localhost:3000`). */

@@ -1,12 +1,12 @@
-// Unit-Tests für staticCachePolicy — die Cache-Strategie hinter
-// runProdApp's static-fallback. Pure function, leicht zu testen.
+// Unit tests for staticCachePolicy — the cache strategy behind
+// runProdApp's static fallback. Pure function, easy to test.
 //
-// Strategie (siehe run-prod-app.ts):
+// Strategy (see run-prod-app.ts):
 //   /assets/*               → immutable
 //   /, /index.html          → revalidate (max-age=0, must-revalidate)
 //   /manifest.json, /sw.js,
 //   /build-info.json        → no-cache
-//   alles andere            → none
+//   everything else         → none
 
 import { describe, expect, test } from "bun:test";
 import { cacheControlHeader } from "@cosmicdrift/kumiko-framework/api";
@@ -75,8 +75,8 @@ describe("staticCachePolicy", () => {
   });
 
   test("path mit assets als Substring (kein /assets/ prefix) → kein immutable", () => {
-    // Schutz: /myassets/foo.js soll NICHT immutable kriegen — wäre ein Bug
-    // weil die nicht gehashed sind.
+    // Guard: /myassets/foo.js must NOT receive immutable — that would be a bug
+    // because those files are not hashed.
     expect(cacheControlFor("/myassets/foo.js")).toEqual({});
     expect(cacheControlFor("/foo/assets/bar.js")).toEqual({});
   });

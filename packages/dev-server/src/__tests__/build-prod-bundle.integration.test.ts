@@ -1,16 +1,16 @@
-// Integration-Tests für buildProdBundle — End-to-End-Pfad gegen das
-// echte Filesystem.
+// Integration tests for buildProdBundle — end-to-end path against the
+// real filesystem.
 //
-// Zwei Szenarien:
+// Two scenarios:
 //
-//   1. Vanilla-Pipeline (kein client.tsx, nur public/ + html-template):
-//      läuft unter Node-Vitest direkt — kein Bun.build, keine
-//      Subprocess-Akrobatik. Beweist Discovery + html-rendering +
-//      public-copy + manifest-format.
+//   1. Vanilla pipeline (no client.tsx, only public/ + HTML template):
+//      runs directly under Node-Vitest — no Bun.build or
+//      subprocess handling. Verifies discovery + HTML rendering +
+//      public copying + manifest format.
 //
-//   2. Volle Pipeline (client.tsx + Bun.build + Hash + Manifest):
-//      braucht Bun. Spawnen kumiko-build als subprocess via PATH.
-//      Skipped wenn `bun` nicht erreichbar — selten, aber sauber.
+//   2. Full pipeline (client.tsx + Bun.build + hash + manifest):
+//      requires Bun. Spawns kumiko-build as a subprocess via PATH.
+//      Skipped when `bun` is unavailable — uncommon, but handled cleanly.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -98,18 +98,17 @@ describe("buildProdBundle (vanilla pipeline)", () => {
 
     await buildProdBundle({ cwd: tmp });
 
-    // dist/index.html existiert (gerendert), public/other.txt wurde kopiert
     expect(existsSync(join(tmp, "dist/index.html"))).toBe(true);
     expect(existsSync(join(tmp, "dist/other.txt"))).toBe(true);
-    // Inhalt: was im Template stand, kommt im Output an (kein Doppel-Pfad
-    // wo public/index.html und dist/index.html sich gegenseitig überschreiben).
+    // The template content reaches the output (no duplicate path where
+    // public/index.html and dist/index.html overwrite each other).
     expect(await readFile(join(tmp, "dist/index.html"), "utf8")).toContain("SOURCE");
   });
 
   test("clean wipe: vorhandenes dist/-Junk wird entfernt", async () => {
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(join(tmp, "public/index.html"), `<html></html>`);
-    // Junk-File aus altem Build
+    // Junk file left by an earlier build
     await mkdir(join(tmp, "dist/old"), { recursive: true });
     await writeFile(join(tmp, "dist/old/stale.js"), "old content");
 
@@ -119,36 +118,35 @@ describe("buildProdBundle (vanilla pipeline)", () => {
   });
 
   test("wirft mit klarer Message wenn weder public/ noch index.html noch client da", async () => {
-    // tmp ist leer
     await expect(buildProdBundle({ cwd: tmp })).rejects.toThrow(/nothing to build/);
   });
 
   test("wirft mit Anweisung wenn HTML-Template ohne /client.js Placeholder vorliegt", async () => {
-    // Simuliert: User hat bereits manifest-entry (faken über option, in
-    // realer Pipeline kommt's aus Bun.build). Wir testen renderHtml /
-    // injectAssetTags-Verhalten via lower-level Pfad: HTML ohne Tag,
-    // public-folder simuliert dass Build was zu tun hat. Erwartete
-    // Error-Message zitiert das exakte Snippet.
+    // Simulates a user-provided manifest entry (faked through an option; in
+    // the real pipeline it comes from Bun.build). Tests renderHtml /
+    // injectAssetTags through a lower-level path: HTML without a tag,
+    // with the public folder simulating work for the build. The expected
+    // error message quotes the exact snippet.
     //
-    // Dieser Pfad wird im realen Build durch buildClientBundle ausgelöst
-    // und im Vanilla-Test können wir ihn nicht direkt triggern (kein
-    // Bun.build). Der CLI-Subprocess-Test deckt das ab.
+    // The real build reaches this path through buildClientBundle, but the
+    // vanilla test cannot trigger it directly (no Bun.build). The CLI
+    // subprocess test covers it.
     await mkdir(join(tmp, "public"), { recursive: true });
     await writeFile(
       join(tmp, "public/index.html"),
       `<!doctype html><html><body>no script tag here</body></html>`,
     );
-    // Ohne client.tsx läuft Bun.build nicht, manifest bleibt {} →
-    // injectAssetTags wirft NICHT. Das ist gewollt: wenn nichts zu
-    // injizieren da ist, ist's auch kein Fehler.
+    // Without client.tsx, Bun.build does not run and the manifest remains {} →
+    // injectAssetTags does NOT throw. This is intentional: nothing to
+    // inject means there is no error.
     const result = await buildProdBundle({ cwd: tmp });
     expect(result.manifest).toEqual({});
   });
 });
 
-// Voller Pipeline-Test gegen das echte CLI-bin via subprocess. Bringt
-// echtes Bun.build + Tailwind ins Spiel — der Pfad den die anderen
-// Tests bewusst nicht laufen können (Vitest unter Node).
+// Full-pipeline test against the actual CLI binary through a subprocess.
+// This exercises Bun.build + Tailwind — the path the other tests
+// intentionally cannot run (Vitest under Node).
 describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", () => {
   let tmp = "";
 

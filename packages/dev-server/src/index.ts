@@ -1,26 +1,26 @@
-// Public API für den Kumiko-Dev-Server. Zwei Schichten:
+// Public API for the Kumiko development server, with two layers:
 //
 //   - createKumikoServer (low-level)
-//     Bun.serve-Wrapper der Client-Bundle, /styles.css, AppSchema-
-//     Injection, SSE-Reload und einen Auto-Mint-JWT-Modus liefert. Nimmt
-//     features + clientEntry direkt an, kein Auth-Auto-Wiring. Wer
-//     einen ungewöhnlichen Auth-Setup braucht (alternative Membership-
-//     Query, eigener Rate-Limiter, custom Login-Routes) geht hier rein.
+//     Bun.serve wrapper that provides the client bundle, /styles.css,
+//     AppSchema injection, SSE reload, and auto-minted JWTs. Accepts
+//     features + clientEntry directly without automatic auth wiring. Use it
+//     for unusual auth setups (alternative Membership query, custom rate
+//     limiter, or custom login routes).
 //
 //   - runDevApp (high-level)
-//     Mischt die Standard-Features (config/user/tenant/auth-email-
-//     password) automatisch dazu wenn `auth` gesetzt ist, wired die
-//     Login-Routes + Error-Map, ruft seedAdminGuarded im onAfterSetup. Default
-//     für Sample-Apps und Showcases — 5-10 Zeilen Bootstrap statt 50.
+//     Automatically adds the standard features (config/user/tenant/
+//     auth-email-password) when `auth` is set, wires the login routes and
+//     error map, and calls seedAdminGuarded in onAfterSetup. The default for
+//     sample apps and showcases: 5–10 lines of bootstrap instead of 50.
 
 export {
   type ComposeFeaturesOptions,
   composeFeatures,
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-// Build-Toolchain (buildProdBundle, Bun.build, Tailwind-Pipeline, ts-morph) lebt
-// im Sub-Path-Export `@cosmicdrift/kumiko-dev-server/build`. Damit zieht der Main-Barrel
-// kein Bun-Toolchain-Bundle mehr in Production-Reads (z.B. wenn drizzle-kit
-// die App-Config unter Node lädt).
+// The build toolchain (buildProdBundle, Bun.build, Tailwind pipeline, ts-morph)
+// lives in the subpath export `@cosmicdrift/kumiko-dev-server/build`. This keeps
+// the Bun toolchain bundle out of production imports from the main barrel (for
+// example, when drizzle-kit loads the app config under Node).
 export {
   type AuthStackOptions,
   composeAuthStack,

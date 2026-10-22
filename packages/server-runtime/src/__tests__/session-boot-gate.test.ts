@@ -33,7 +33,7 @@ describe("assertSessionBootInvariants (#1372)", () => {
   });
 });
 
-// dev/prod split (#2027) — dev-server had no equivalent gate at all before
+// dev/prod split — dev-server had no equivalent gate at all before
 // this: a forgotten sessions mount silently left session-list empty with no
 // signal. Mirrors assertPiiBootInvariants' dev/prod split (warn vs abort).
 describe("assertSessionBootInvariants — dev mode (#2027)", () => {

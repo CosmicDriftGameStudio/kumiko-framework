@@ -68,7 +68,7 @@ describe("parseBunAuditStreams", () => {
     expect(parseBunAuditStreams(corruptGz, valid)).toEqual({ ok: [] });
   });
 
-  // Contract change (infra#414): a stream without any `{` carries no body at
+  // A stream without any `{` carries no body at
   // all — that is the advisory fetch having failed, not malformed data. It no
   // longer reaches JSON.parse, so the failure names the real cause instead of
   // `Unexpected identifier "bun"`.
@@ -79,7 +79,7 @@ describe("parseBunAuditStreams", () => {
     expect(() => parseBunAuditStreams(a, b)).toThrow(/advisory fetch/);
   });
 
-  // infra#416: this is the more common unavailable path (banner without a
+  // This is the more common unavailable path (banner without a
   // JSON body), and it used to drop exitCode — only the empty-stdout-and-
   // stderr path in runBunAuditOnce threaded it through.
   test("exitCode is threaded into the error message on the banner-without-body path", () => {

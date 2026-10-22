@@ -4,7 +4,7 @@
 // exist in the framework (usePrimitives() resp. widgets/) — app rebuilds
 // drift visually and cost every migration twice.
 //
-// Second rule (infra#748): raw form HTML (<input>/<select>/<textarea>/
+// Second rule: raw form HTML (<input>/<select>/<textarea>/
 // <label>) in app/feature web code, regardless of what the file imports —
 // an import gate here previously let the designer's raw <input>s pass just
 // by importing from @cosmicdrift/kumiko-renderer (types only) instead of
@@ -15,8 +15,6 @@
 // closed against an empty baseline while no baseline file exists —
 // otherwise the rule would stay silent in every app repo until someone
 // manually runs --write-baseline there.
-//
-// Part of App-Mounting 2.0 (infra#208).
 
 import { existsSync } from "node:fs";
 import * as path from "node:path";
@@ -93,7 +91,7 @@ const RAW_FORM_HTML_REMEDIATION =
   `or usePrimitives(). Real exception: // ${IGNORE_TAG} <reason>`;
 
 // The rule is new: measured backlog is 0 in every locally checked repo
-// (infra#748). Without a baseline file, check fail-closed against an empty
+// . Without a baseline file, check fail-closed against an empty
 // baseline instead of (as usual) warn-only until the first
 // `--write-baseline` — otherwise the rule would stay silent in every app
 // repo until it separately commits its own baseline file (every baseline

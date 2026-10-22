@@ -99,7 +99,7 @@ describe("setupAppTestStack", () => {
     expect(await databaseExists(dbName)).toBe(false);
   });
 
-  // No optional-chaining fallback on ctx.config — a regression fails loudly instead of silently reading `undefined` (fw#3313).
+  // No optional-chaining fallback on ctx.config — a regression fails loudly instead of silently reading `undefined`.
   test('presets: ["config"] wires ctx.config in a write handler to the value set through config:write:set', async () => {
     const CONFIG_PROBE_KEY = "config-probe:config:greeting";
     const configProbeFeature = defineFeature("config-probe", (r) => {

@@ -1,18 +1,18 @@
-// Cross-Feature Compile-Time-Type-Map.
+// Cross-Feature Compile-Time Type Map.
 //
-// Zweck: ctx.appendEvent / ctx.queryProjection / dispatcher.write gegen ein
-// statisch bekanntes Schema-Bild prüfen, statt erst zur Boot- oder Runtime
-// (zod-validate) zu scheitern. Designer/AI-Layer profitiert dadurch sofort:
-// Autocomplete kennt alle Event-Typen aller geladenen Features, payload-
-// Shape-Mismatches werden im Editor angezeigt, nicht erst beim Boot.
+// Purpose: check ctx.appendEvent / ctx.queryProjection / dispatcher.write against a
+// statically known schema image instead of failing only at boot or runtime
+// (zod-validate). The Designer/AI layer benefits immediately: autocomplete knows all
+// event types from all loaded features, and payload-shape mismatches appear in the
+// editor rather than only at boot.
 //
-// Befüllung erfolgt per Feature über `declare module "@cosmicdrift/kumiko-framework/engine"`
-// — entweder hand-geschrieben (für stabile Frameworks-Internals) oder vom
-// Codegen-Skript erzeugt (für apps/bundled-features). Empty defaults sind
-// kein Bug: ein Feature ohne Augmentation ist runtime-pluggable und nutzt
-// die Fallback-Overload mit `unknown` payload.
+// Each feature populates the map through `declare module "@cosmicdrift/kumiko-framework/engine"`
+// — either manually (for stable framework internals) or through the code-generation
+// script (for apps/bundled-features). Empty defaults are not a bug: a feature without
+// augmentation is runtime-pluggable and uses the fallback overload with `unknown`
+// payload.
 //
-// Pattern für hand-geschriebene Augmentation am File-Top:
+// Pattern for a manually written augmentation at the top of the file:
 //
 //   declare module "@cosmicdrift/kumiko-framework/engine" {
 //     interface KumikoEventTypeMap {

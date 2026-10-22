@@ -28,7 +28,7 @@ export type SeededUser = SeededCredentials & {
 export type SeedPart = (ctx: { readonly tenant: SeededTenant }) => Promise<void>;
 
 // email may contain the literal "{tenantId}" placeholder, substituted with the
-// seeded tenant's id — user:create's email uniqueness is global (fw#2134/#2593),
+// seeded tenant's id — user:create's email uniqueness is global,
 // so a fixed literal email collides across per-scenario tenants.
 export type SeedAdminIdentity = {
   readonly displayName?: string;

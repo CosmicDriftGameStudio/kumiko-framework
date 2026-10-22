@@ -1,4 +1,4 @@
-// Full-stack wiring test for kumiko-framework#266 Step 6: proves the exact
+// Full-stack wiring test: proves the exact
 // bootstrap path runProdApp/runDevApp produce — composeFeatures() auto-
 // detecting a mounted auth-mfa app-feature and wiring its status-checker
 // into the login handler — actually completes a two-step login over real

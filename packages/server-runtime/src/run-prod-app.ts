@@ -1,42 +1,42 @@
 /// <reference types="bun-types" preserve="true" />
-// runProdApp — production-grade Bootstrap-Wrapper für Kumiko-Apps.
+// runProdApp — production-grade bootstrap wrapper for Kumiko apps.
 //
-// Symmetrisch zu runDevApp, aber:
-//   - DATABASE_URL / REDIS_URL / JWT_SECRET aus env (fail-fast bei Boot,
-//     keine ephemeralen Test-DBs)
-//   - Hard Schema-Drift-Gate: prüft kumiko/migrations vs. _kumiko_migrations
-//     + tableExists für jede erwartete Tabelle. KEIN Auto-CREATE TABLE im
-//     Boot — Migration ist ein CI-Step (`bun kumiko schema apply`), Boot
-//     validiert nur. Verhindert Race-Conditions bei Multi-Replica-Deploys
-//     + macht Schema-Stand reviewbar in der Pull-Request.
-//   - Idempotente Seeds: laufen nur wenn DB leer (über `isDbEmpty`-Probe
-//     pro Seed). Re-Boots nach erstem Seed sind no-op.
-//   - HTTP-Server via Bun.serve mit graceful SIGTERM/SIGINT → drain().
-//   - Auth-Routes + bundled-features auto-mix wenn `auth:` gesetzt
-//     (gleiche Logik wie runDevApp).
+// Symmetric with runDevApp, but:
+//   - DATABASE_URL / REDIS_URL / JWT_SECRET come from env (fail-fast at boot;
+//     no ephemeral test databases)
+//   - Hard schema-drift gate: checks kumiko/migrations against
+//     _kumiko_migrations and verifies every expected table with tableExists.
+//     Boot never runs CREATE TABLE automatically; migrations are applied by
+//     CI (`bun kumiko schema apply`) and boot only validates them. This avoids
+//     races in multi-replica deployments and keeps schema state reviewable.
+//   - Idempotent seeds run only when the database is empty, using an
+//     `isDbEmpty` probe per seed. Reboots after the first seed are no-ops.
+//   - HTTP server via Bun.serve with graceful SIGTERM/SIGINT → drain().
+//   - Auth routes and bundled features are mixed automatically when `auth:` is
+//     set, using the same logic as runDevApp.
 //
-// App-Author schreibt:
+// App authors write:
 //   await runProdApp({ features, envSchema, auth, anonymousAccess, seeds });
 //
-// Container/Coolify setzt:
+// Container/Coolify sets:
 //   DATABASE_URL=postgresql://...
 //   REDIS_URL=redis://...
-//   JWT_SECRET=<random-32+>  (always required — also signs the password-
-//     reset/email-verification HMAC tokens, a separate non-rotating family)
-//     — additionally, for zero-downtime rotation of the session-JWT
-//     signing key specifically:
+//   JWT_SECRET=<random-32+>  (always required — also signs password-reset and
+//     email-verification HMAC tokens, a separate non-rotating token family)
+//     — additionally, for zero-downtime rotation of the session-JWT signing
+//     key specifically:
 //   JWT_SECRET_V1=<random-32+>  (repeat _V2, _V3, ... per rotation)
 //   JWT_SECRET_CURRENT_VERSION=1  (which V<n> signs new tokens; the others
 //     still verify in-flight tokens until they expire)
-//   Adopting rotation for the first time (no JWT_SECRET_V<n> set yet): the
-//   plain JWT_SECRET above stays set and is carried into the keyring as a
-//   verify-only legacy key (loadJwtSecretOrKeyring), so sessions signed
-//   before the cutover keep verifying — no mass-logout at adoption. This
-//   legacy key never expires on its own (boot logs a warning while it's
-//   present) — once max token TTL has elapsed since cutover, unset
-//   JWT_SECRET to retire it. Check first whether an app relies on the
-//   auth.mail convenience default for passwordReset/emailVerification
-//   hmacSecret (falls back to this same JWT_SECRET) before unsetting it.
+//   When adopting rotation for the first time (with no JWT_SECRET_V<n> set),
+//   the plain JWT_SECRET remains set and is carried into the keyring as a
+//   verify-only legacy key (loadJwtSecretOrKeyring), so sessions signed before
+//   cutover continue to verify without a mass logout. This legacy key never
+//   expires automatically; boot logs a warning while it is present. Once the
+//   maximum token TTL has elapsed since cutover, unset JWT_SECRET to retire
+//   it. First check whether the app relies on auth.mail's convenience default
+//   for passwordReset/emailVerification hmacSecret, which falls back to this
+//   same JWT_SECRET.
 //   PORT=3000
 //   KUMIKO_INSTANCE_ID=<stable per replica>
 
@@ -296,19 +296,19 @@ export type EmailVerificationSetup = Omit<EmailVerificationOptions, "hmacSecret"
   readonly hmacSecret?: string;
 };
 
-/** Wrapper-API für Magic-Link Self-Signup. = SignupOptions (appUrl, die
- *  Mail geht via delivery/ctx.notify wie reset/verify). Anders als reset/
- *  verify gibt's KEIN hmacSecret — Signup-Tokens sind opaque random in
- *  Redis, nicht HMAC-signed. */
+/** Wrapper API for Magic-Link self-signup. = SignupOptions (appUrl; mail
+ *  is sent through delivery/ctx.notify like reset/verify). Unlike reset/verify,
+ *  there is no hmacSecret: signup tokens are opaque random values in Redis,
+ *  not HMAC-signed. */
 export type SignupSetup = SignupOptions;
 
-/** Wrapper-API für Tenant-Invite Magic-Link. = InviteOptions (appUrl, die
- *  Invite-Mail geht via delivery wie reset/verify/signup). Drei accept-
- *  Branches im framework; handler-names sind hardcoded in run-prod-app aus
- *  AuthHandlers (analog signup). */
+/** Wrapper API for tenant-invite Magic-Link. = InviteOptions (appUrl; the
+ *  invite mail is sent through delivery like reset/verify/signup). The
+ *  framework has three accept branches; handler names are fixed in
+ *  run-prod-app through AuthHandlers, as with signup. */
 export type InviteSetup = InviteOptions;
 
-/** Wrapper API for the account-unlock flow (#1266). = AccountUnlockOptions
+/** Wrapper API for the account-unlock flow. = AccountUnlockOptions
  *  (appUrl via delivery, symmetric to PasswordResetSetup). Self-service
  *  escape hatch for accountLockout's failure counter; the lockout is always
  *  on, so `auth.mail` mounts this flow by default. */
@@ -319,24 +319,26 @@ export type AccountUnlockSetup = Omit<AccountUnlockOptions, "hmacSecret"> & {
 /** Wrapper API for the account-lockout brute-force guard on the login
  *  handler. = AccountLockoutOptions (maxFailedAttempts, lockoutDurationMinutes
  *  — no mail/appUrl fields, it doesn't mount any routes). Symmetric to
- *  RunDevAppAuthOptions.accountLockout (kumiko-framework#1627) — before this,
+ *  RunDevAppAuthOptions.accountLockout — before this,
  *  `accountUnlock` existed on both wrappers with no way to ever set the
  *  lockout it's meant to escape. */
 export type AccountLockoutSetup = AccountLockoutOptions;
 
-/** Auth-Mail-Convenience-Optionen — shared zwischen runProdApp + runDevApp.
- *  Verdrahtet alle 5 Mail-Flows aus einem env-SMTP-Transport + Standard-
- *  Templates (siehe `auth.mail` + resolveAuthMail). */
+/** Auth-mail convenience options shared by runProdApp and runDevApp.
+ *  Wires all five mail flows from an env-based SMTP transport and default
+ *  templates (see `auth.mail` and resolveAuthMail). */
 export type AuthMailOptions = {
   /** App-Basis-URL inkl. Schema (z.B. "https://app.example.com"). */
   readonly baseUrl: string;
-  /** App-Name für Mail-Subject + Body. Default "Account". */
+  /** App name used in the mail subject and body. Default: "Account". */
   readonly appName?: string;
-  /** Locale für die Mail-Templates. Default "de". */
+  /** Locale used by the mail templates. Default: "de". */
   readonly locale?: AuthMailLocale;
-  /** "strict" blockt Login bis emailVerified; "off" mountet ohne Gate. */
+  /** "strict" blocks login until emailVerified; "off" mounts the flow without
+   *  that gate. */
   readonly emailVerificationMode?: "strict" | "off";
-  /** Fallback-From-Adresse wenn `SMTP_FROM`-env fehlt (env gewinnt). */
+  /** Fallback From address when the `SMTP_FROM` env var is absent; the env var
+   *  takes precedence. */
   readonly from?: string;
   /** Overrides single auth paths (default DEFAULT_AUTH_PATHS). */
   readonly paths?: Partial<AuthPaths>;
@@ -372,16 +374,15 @@ export type RunProdAppAuthOptions = {
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
-  /** Self-Signup flow (Magic-Link). When set, /api/auth/signup-request +
-   *  /api/auth/signup-confirm are mounted; signup-confirm mintet JWT +
-   *  Cookies wie ein erfolgreicher login (Auto-Login direkt nach
-   *  Activation). */
+  /** Self-signup flow (Magic-Link). When set, /api/auth/signup-request and
+   *  /api/auth/signup-confirm are mounted; signup-confirm mints a JWT and
+   *  cookies like a successful login (automatic login after activation). */
   readonly signup?: SignupSetup;
   /** Tenant-Invite flow (Magic-Link). When set, /api/auth/invite-accept,
    *  /api/auth/invite-accept-with-login, /api/auth/invite-signup-complete
    *  are mounted. */
   readonly invite?: InviteSetup;
-  /** Account-unlock flow (#1266). When set, /api/auth/request-account-unlock
+  /** Account-unlock flow. When set, /api/auth/request-account-unlock
    *  + /api/auth/confirm-account-unlock are mounted. Self-service escape
    *  hatch for accountLockout's monotonic failure-counter — confirming
    *  clears the Redis lockout state, no entity write. */
@@ -416,13 +417,12 @@ export type RunProdAppAuthOptions = {
    *  `mail.baseUrl`, then of the APP_BASE_URL env. */
   readonly publicOrigin?: string;
   /** Number of trusted reverse-proxy hops between the client and this
-   *  process for client-IP derivation (see AuthRoutesConfig.trustedProxyHops,
-   *  kumiko-framework#1539) — closes the X-Forwarded-For spoofing hole on
-   *  the auth rate-limiters. Falls back to the `KUMIKO_TRUSTED_PROXY_HOPS`
-   *  env var when unset; both unset means 0 hops, the safe socket-only
-   *  default (only the socket address counts, XFF ignored). Deprecated in
-   *  favor of the top-level `trustedProxyHops` option, which wins over
-   *  this and the env var. */
+   *  process for client-IP derivation (see AuthRoutesConfig.trustedProxyHops)
+   *  — closes the X-Forwarded-For spoofing hole on the auth rate-limiters.
+   *  Falls back to the `KUMIKO_TRUSTED_PROXY_HOPS` env var when unset; both
+   *  unset means 0 hops, the safe socket-only default (only the socket address
+   *  counts, XFF ignored). Deprecated in favor of the top-level
+   *  `trustedProxyHops` option, which wins over this and the env var. */
   readonly trustedProxyHops?: number;
   /** Server-computed post-auth redirect (see AuthRoutesConfig.postAuthLanding).
    *  Result lands in the login/signup/invite response as `landingPath`; an
@@ -447,12 +447,10 @@ export type ProdSeedFn = (deps: {
   configEncryption?: import("@cosmicdrift/kumiko-framework/secrets").EnvelopeCipher;
 }) => Promise<void>;
 
-/** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
- *  Argument bekommen. Closure dann in der returned Config (z.B. ein
- *  TenantResolver der gegen `db` queriet, oder ein extraContext-Provider
- *  der direkt SSE-Events publishen will). Single-source: identisch zu
- *  setupTestStack's extraContext-Factory-Shape damit Test/Prod gleich
- *  aussehen. */
+/** Dependencies passed to the `extraContext` and `anonymousAccess` factories.
+ *  The returned config can close over them, for example a TenantResolver that
+ *  queries `db` or an extra-context provider that publishes SSE events. The
+ *  shape matches setupTestStack so test and production wiring remain aligned. */
 export type RunProdAppDeps = {
   readonly db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
   readonly redis: Redis;
@@ -520,7 +518,7 @@ export type HostDispatchFn = (
 ) => HostDispatchResult | Promise<HostDispatchResult>;
 
 // PageHeadMeta/PageHeadResolver/PageHeadSystemQuery moved to
-// @cosmicdrift/kumiko-renderer/headless/apex (kumiko-framework#3026) — runDevApp needs
+// @cosmicdrift/kumiko-renderer/headless/apex — runDevApp needs
 // the same types and the same resolve+inject function runProdApp uses, and
 // headless is where renderApexHeadTags already lives. Re-exported here so
 // existing subpath-imports (`@cosmicdrift/kumiko-server-runtime/run-prod-app`)
@@ -550,20 +548,16 @@ export type RunProdAppOptions = {
    *  @example
    *  seeds: { demoTenant: { key: "demo", name: "Demo" }, sysadminFromEnv: true, run: [seedDemoData] } */
   readonly seeds?: readonly ProdSeedFn[] | ProdSeedsConfig;
-  /** Pfad zum seeds-Directory für ES-Operations / Seed-Migrations
-   *  (file-basiert wie drizzle-migrate). Wenn gesetzt + KUMIKO_SKIP_ES_OPS
-   *  != "1": runProdApp scannt das Verzeichnis nach `<id>.ts` Files,
-   *  diff vs kumiko_es_operations-Table, läuft pending in Tx.
-   *  Plan: kumiko-platform/docs/plans/features/es-ops.md */
+  /** Path to the seeds directory for ES operations and seed migrations
+   *  (file-based like drizzle-migrate). When set and KUMIKO_SKIP_ES_OPS != "1",
+   *  runProdApp scans it for `<id>.ts` files, diffs them against the
+   *  kumiko_es_operations table, and runs pending operations in a transaction. */
   readonly seedsDir?: string;
-  /** Anonymous-access for public endpoints (same shape as runDevApp).
-   *  Akzeptiert entweder einen statischen Config-Object ODER eine
-   *  Factory `({db, redis, registry}) => Config` — die Factory wird
-   *  einmal zur Boot-Zeit aufgerufen, NACHDEM db/redis/registry konstruiert
-   *  sind. Der Caller closure'd typischerweise db/redis/registry in den
-   *  TenantResolver damit z.B. ein Subdomain → Tenant-Lookup gegen die
-   *  DB möglich ist (siehe samples/showcases/publicstatus für das
-   *  Multi-Tenant-Pattern). */
+  /** Anonymous access for public endpoints (same shape as runDevApp).
+   *  Accepts either a static config object or a factory
+   *  `({db, redis, registry}) => Config`, called once at boot after
+   *  db/redis/registry have been constructed. The factory can close over these
+   *  dependencies so a TenantResolver can look up a subdomain in the database. */
   readonly anonymousAccess?: AnonymousAccessOption;
   /** Static-file root for HTML / assets. Served on the catch-all route
    *  for any path that doesn't match an /api/ handler. Use this for the
@@ -616,25 +610,24 @@ export type RunProdAppOptions = {
    *  (AWS/GCP/Azure); with it set, `KUMIKO_SECRETS_MASTER_KEY_V1` is not
    *  required in the env. */
   readonly masterKey?: MasterKeyProvider;
-  /** Subject-Key-Adapter für Crypto-Shredding (DSGVO Art. 17). Wenn gesetzt,
-   *  steht er Feature-Code als `ctx.kms` zur Verfügung und der Boot prüft
-   *  seine health() — die App startet nicht gegen ein unerreichbares KMS
-   *  (Silent-Start würde jeden PII-Read mit 503 beantworten). Kein Default:
-   *  ohne Adapter bleibt Crypto-Shredding aus. */
+  /** Subject-key adapter for crypto-shredding (GDPR Art. 17). When set, it is
+   *  exposed to feature code as `ctx.kms`, and boot checks its health so the app
+   *  cannot start against an unreachable KMS. Without an adapter,
+   *  crypto-shredding remains disabled. */
   readonly kms?: KmsAdapter;
-  /** 32-Byte-Key (base64) für Blind-Index-HMACs auf `lookupable`-Feldern
-   *  (env: KUMIKO_BLIND_INDEX_KEY, `openssl rand -base64 32`). Bewusst
-   *  getrennt vom PLATFORM_KEK und nicht Teil des KmsAdapter-Contracts.
-   *  Pflicht sobald `kms` gesetzt ist UND ein Feature lookupable-Felder
-   *  deklariert — sonst bricht jeder Equality-Lookup auf Ciphertext
-   *  (Login by email!) und der Boot failt hart. */
+  /** 32-byte base64 key for blind-index HMACs on `lookupable` fields
+   *  (env: KUMIKO_BLIND_INDEX_KEY, `openssl rand -base64 32`). It is separate
+   *  from PLATFORM_KEK and not part of the KmsAdapter contract. It is required
+   *  when `kms` is set and a feature declares lookupable fields; otherwise
+   *  equality lookups on ciphertext, such as login by email, fail and boot
+   *  aborts. */
   readonly blindIndexKey?: string;
-  /** Explizites Opt-out aus dem harten PII-Boot-Gate: Features deklarieren
-   *  pii/userOwned/tenantOwned-Felder, aber es ist (noch) kein `kms`
-   *  provisioniert — die Felder liegen dann als KLARTEXT in Rows und
-   *  Events und DSGVO-Erasure via Crypto-Shredding ist unmöglich. Der Wert
-   *  ist eine Begründung für den Audit-Trail (z.B. "kms rollout pending,
-   *  infra#188"). Ohne Flag und ohne `kms` bricht der Boot ab. */
+  /** Explicit opt-out from the strict PII boot gate. Features may declare
+   *  pii/userOwned/tenantOwned fields without a provisioned `kms`; those fields
+   *  remain plaintext in rows and events, and GDPR erasure through
+   *  crypto-shredding is unavailable. The value records the reason for the
+   *  audit trail (for example, "kms rollout pending"). Without this flag and
+   *  without `kms`, boot aborts. */
   readonly allowPlaintextPii?: string;
   /** Short form over `kms` / `blindIndexKey` / `allowPlaintextPii` that wires
    *  the subject-key KMS from the env; not combinable with them. Unset keeps
@@ -688,8 +681,8 @@ export type RunProdAppOptions = {
   /** With `runSingleInstance: false`: the worker mounts the same mail / fileStorage features
    *  (its own boot options or by hand), so the boot warning about them stays silent. */
   readonly workerMountsFeatures?: boolean;
-  /** Job-Block. Wenn das Feature `r.job(...)` registriert, wird er
-   *  automatisch verdrahtet (siehe runSingleInstance). */
+  /** Job settings. Jobs a feature registers with `r.job(...)` are wired
+   *  automatically (see runSingleInstance). */
   readonly jobs?: {
     /** BullMQ-Queue-Prefix (default "kumiko"). */
     readonly queueNamePrefix?: string;
@@ -699,25 +692,20 @@ export type RunProdAppOptions = {
      *  the app manages tenants outside that feature. */
     readonly getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
   };
-  /** Event-Dispatcher (MSP-Anwendung) im API-Process. Default AN —
-   *  runProdApp ist das Single-Container-Deployment, es gibt keinen
-   *  Worker-Process der multiStreamProjections anwenden könnte. Bis
-   *  2026-06-11 fehlte der Dispatcher hier komplett: jede MSP-basierte
-   *  Read-Projektion (z.B. custom-fields jsonb) blieb in Prod leer,
-   *  kumiko_event_consumers blieb ohne Rows. `disabled: true` nur für
-   *  Setups mit dezidiertem Worker-Process. */
+  /** Event dispatcher (MSP application) in the API process. Enabled by default
+   *  because the single-container deployment has no separate worker process to
+   *  apply multiStreamProjections. Set `disabled: true` only when a dedicated
+   *  worker process takes over the dispatcher. */
   readonly eventDispatcher?: {
     readonly disabled?: boolean;
-    /** Poll-Intervall des Dispatcher-Loops (default siehe
-     *  createEventDispatcher). LISTEN/NOTIFY-Wiring kommt mit einem
-     *  späteren pgClient-Pass-through. */
+    /** Dispatcher-loop polling interval (default: see createEventDispatcher).
+     *  LISTEN/NOTIFY wiring comes with a later pgClient pass-through. */
     readonly pollIntervalMs?: number;
   };
   /** Declarative HTTP-routes outside the /api/write|query|batch pipeline —
    *  each entry declares its access tier (`entry`: "anonymous" | "user" |
    *  "signature"), buildServer wires the matching guard + deps. Mounted
-   *  inside buildServer, right after the r.httpRoute loop, before seeds
-   *  (kumiko-framework#3050). */
+   *  inside buildServer, right after the r.httpRoute loop, before seeds. */
   readonly extraRoutes?: readonly ExtraRouteDefinition[];
   /** Framework-managed unsubscribe links. Mounts `createUnsubscribeRoutes({ secret })` and makes
    *  delivery sign `data.unsubscribeUrl` (path `DELIVERY_UNSUBSCRIBE_PATH`) for every email
@@ -774,13 +762,13 @@ export type RunProdAppOptions = {
    *  Tests use this to feed crafted env-maps without polluting the
    *  global. */
   readonly envSource?: Record<string, string | undefined>;
-  /** Observability-Provider (Tracer + Meter). Default: Noop (kein Overhead,
-   *  kein `/metrics`-Endpoint). Setze `createPrometheusMeter()`-basierten
-   *  Provider + `metrics` um `/metrics` real zu exposen (publicstatus#91). */
+  /** Observability provider (tracer and meter). Default: Noop, with no overhead
+   *  or `/metrics` endpoint. Supply a provider based on
+   *  `createPrometheusMeter()` together with `metrics` to expose `/metrics`. */
   readonly observability?: ObservabilityProvider;
-  /** Aktiviert den `/metrics`-Endpoint (Open-Metrics-Format). Ohne einen
-   *  PrometheusMeter-basierten `observability`-Provider antwortet `/metrics`
-   *  mit 503 + Misconfiguration-Hinweis statt echter Metriken. */
+  /** Enables the `/metrics` endpoint in OpenMetrics format. Without a
+   *  PrometheusMeter-based `observability` provider, `/metrics` returns 503
+   *  with a misconfiguration message instead of real metrics. */
   readonly metrics?: import("@cosmicdrift/kumiko-framework/api").ServerOptions["metrics"];
   /** L1 (global per-IP limit) + L2 (auth endpoints) rate-limit middleware, passed
    *  to `buildServer`'s `ServerOptions.rateLimit`. Without a value L1 allows 600/60 s
@@ -924,7 +912,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
   const jwtIssuer = readEnv("JWT_ISSUER", envSource);
   const instanceId = readEnv("KUMIKO_INSTANCE_ID", envSource);
-  // kumiko-framework#1539 — options.auth.trustedProxyHops wins; falls back
+  // options.auth.trustedProxyHops wins; falls back
   // to the env var so ops can close the XFF-spoofing hole per-deployment
   // without a code change (mirrors instanceId's env-first pattern above).
   const trustedProxyHops = resolveTrustedProxyHops({
@@ -946,9 +934,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   log.info(`booting Kumiko stack on port ${port}`);
 
-  // auth.mail → expandiert in die expliziten Flow-Felder, bevor sie sowohl
-  // die Feature-Side (buildComposeAuthOptions) als auch das Routes-Fragment
-  // unten speisen. Ab hier IMMER effectiveAuth statt options.auth lesen.
+  // auth.mail is expanded into the explicit flow fields before feeding both
+  // the feature side (buildComposeAuthOptions) and the routes fragment below.
+  // From here on, always read effectiveAuth instead of options.auth.
   const effectiveAuth = options.auth
     ? resolveAuthMail(options.auth, jwtSecret, envSource, {
         mailConfigured: bootOptionWiring.mailConfigured,
@@ -968,11 +956,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     warn: (message) => createFallbackLogger("runProdApp").warn(message),
   });
 
-  // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
-  //    password via composeFeatures — same source-of-truth as runDevApp
-  //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
-  //    sehen exakt dieselbe Liste. Built BEFORE any connection so boot-mode
-  //    can validate wiring and exit without opening a Postgres/Redis socket.
+  // 3. Feature registry. Auth mode automatically mixes config/user/tenant/
+  // auth-email-password via composeFeatures, using the same feature list as
+  // runDevApp and the per-app schema generator. Build it before any connection
+  // so boot mode can validate wiring without opening Postgres or Redis sockets.
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   const features = composeFeatures([...options.features, ...bootOptionWiring.features], {
     includeBundled: !!effectiveAuth,
@@ -1051,7 +1038,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   await waitForDatabase(db, { processName: "runProdApp" });
 
-  // Sprint-8a Tier-Composition auto-wire: scan features for a
+  // Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found, build the resolver here (db +
   // registry are available) before the dispatcher is constructed. App-Author sees
   // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
@@ -1080,14 +1067,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     resolvedEffectiveFeatures = bound.resolver;
   }
 
-  // 5. Schema-Drift-Gate (drizzle-frei, kumiko/migrations). `kumiko schema
-  //    apply` läuft als Deploy-Step VOR dem Container-Rollout. Boot prüft nur:
-  //      (a) Alle Migrations aus kumiko/migrations/*.sql sind in
-  //          _kumiko_migrations applied (+ checksum unverändert)
-  //      (b) Alle Tabellen aus kumiko/migrations/.snapshot.json existieren
-  //    Drift = Boot-Error mit klarer Meldung (kein Auto-Heal — mehrere
-  //    Container-Replicas würden sonst race-conditionen fahren). Opt-out via
-  //    `migrations: false` für custom Schema-Setups.
+  // 5. Schema-drift gate (without drizzle, using kumiko/migrations). `kumiko
+  // schema apply` runs as a deploy step before container rollout. Boot only
+  // verifies that every kumiko/migrations/*.sql file is applied in
+  // _kumiko_migrations with an unchanged checksum and that every table in
+  // kumiko/migrations/.snapshot.json exists. Drift aborts boot rather than being auto-healed, avoiding
+  // races between container replicas. `migrations: false` opts out for custom
+  // schema setups.
   if (options.migrations !== false) {
     const migrationsDir = options.migrations?.dir ?? "./kumiko/migrations";
     log.info(`checking schema drift (${migrationsDir})`);
@@ -1106,27 +1092,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
 
-  // 7. Lifecycle is built by createApiEntrypoint when not supplied —
-  //    we let the entrypoint own it and read it back through the handle
-  //    for SIGTERM.
+  // 7. When no lifecycle is supplied, createApiEntrypoint builds and owns it;
+  // the handle exposes it for SIGTERM.
   //
-  // extraContext + anonymousAccess sind factory-union: entweder direktes
-  // Object oder Function die {db, redis, registry} bekommt und das Object
-  // returned. Factory-Form gilt als bevorzugt für Cases die zur Boot-Zeit
-  // gegen die DB resolven müssen (z.B. Subdomain-Tenant-Lookup im
-  // tenantResolver) — die Factory closure'd `db` und der Resolver kann
-  // sie zur Request-Zeit aufrufen.
-  // Build the sseBroker here (instead of letting createApiEntrypoint do it
-  // internally) so extraContext factories can close over it at boot time —
-  // e.g. an extraContext provider that publishes SSE events directly. We
-  // pass the same broker into createApiEntrypoint (sseBroker? option) so
-  // the server-internal broadcast and app-specific publishes run over
-  // exactly one broker. createDefaultSseBroker (not createSseBroker
-  // directly) is what makes that broker Redis-backed under REDIS_URL —
-  // an unconditional in-memory broker here would silently win over
-  // buildServer's own REDIS_URL default (ServerOptions.sseBroker always
-  // wins), which is exactly how fw#2630's cross-replica fanout fix shipped
-  // without ever taking effect in production.
+  // extraContext and anonymousAccess accept either an object or a factory that
+  // receives {db, redis, registry}; factories are useful when boot-time database
+  // access is needed, such as a subdomain-to-tenant resolver.
+  //
+  // Build the SSE broker here so extraContext factories can close over it, and
+  // pass the same broker into createApiEntrypoint (sseBroker option) so
+  // server-internal broadcasts and app-specific publishes share one broker. Use
+  // createDefaultSseBroker so REDIS_URL selects a Redis-backed broker; an
+  // unconditional in-memory broker would silently override buildServer's
+  // Redis-backed default (ServerOptions.sseBroker always wins) and prevent
+  // cross-replica fanout.
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
   const deps: RunProdAppDeps = {
     db,
@@ -1142,20 +1121,19 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
 
-  // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
-  // gewinnen immer (z.B. money-horse's eigener configResolver).
-  // App-wide cipher for `encrypted: true` entity fields — executors resolve
-  // it lazily, entities without encrypted fields never touch it.
+  // Install framework defaults first; app values in resolvedExtraContext always
+  // win (for example, an app-specific configResolver).
+  // The app-wide cipher is resolved lazily, so entities without encrypted
+  // fields never access it.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
-  // Subject-key KMS for pii-annotated fields (crypto-shredding, #724).
+  // Subject-key KMS for pii-annotated fields (crypto-shredding).
   // No adapter only gets this far when assertPiiBootInvariants above let it
   // through: no PII carriers, or an explicit allowPlaintextPii opt-out. The
   // engine then stays off and those fields are stored in plaintext.
   configurePiiSubjectKms(bootKms.kms);
-  // Blind-Index-Key (#818) — Boot-Gate: mit aktivem KMS würden lookupable-
-  // Felder als Ciphertext gespeichert, ohne Key gäbe es keinen bidx-Arm und
-  // jeder Equality-Lookup (Login by email!) liefe ins Leere. Fail-fast statt
-  // silent-broken-auth.
+  // Blind-index key boot gate: with KMS enabled, lookupable fields are stored as
+  // ciphertext. Without the key, equality lookups such as login by email cannot
+  // work, so fail fast rather than allowing silently broken authentication.
   configureBlindIndexKey(bootKms.blindIndexKey);
   const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   if (bootLogger) setProcessLogger(bootLogger);
@@ -1181,22 +1159,20 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     typeof options.anonymousAccess === "function"
       ? options.anonymousAccess(deps)
       : options.anonymousAccess;
-  // #1374: tenantResolver / tenantExists come from auth-foundation providers.
+  // tenantResolver / tenantExists come from auth-foundation providers.
   const resolvedAnonymousAccess = await resolveAnonymousAccessFromRegistry(baseAnonymousAccess, {
     db,
     registry,
     warn: (message) => createFallbackLogger("runProdApp").warn(message),
   });
 
-  // Sessions opt-in: db ist hier schon konkret (createDbConnection oben),
-  // also direkt verdrahten — kein late-bound nötig wie bei runDevApp.
-  // Ein JWT ohne sid wird abgelehnt, sobald ein sessionChecker verdrahtet ist —
-  // Prod-Sessions können nicht stillschweigend umgangen werden. sessionMassRevoker
-  // (4. callback aus createSessionCallbacks) ist nicht Teil der
-  // AuthRoutesConfig-Surface — der geht via bindAutoRevokeFromFeature ans
-  // sessions-Feature (Password-Change/-Reset revoked alle Sessions), nicht
-  // über die auth-routes.
-  // Secure-by-default (#1372): sessionStore provider → resolveSessionStore.
+  // Sessions are wired directly because db has already been created; unlike
+  // runDevApp, no late binding is needed. Once a sessionChecker is wired, JWTs
+  // without sid are rejected, so production sessions cannot be bypassed.
+  // sessionMassRevoker (the fourth callback from createSessionCallbacks) is not
+  // part of AuthRoutesConfig; bindAutoRevokeFromFeature hands it to the sessions
+  // feature so password change and reset revoke all sessions. Secure by default: the sessionStore provider
+  // goes through resolveSessionStore.
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
   if (mfaFeature) bindMfaTokenSecretsFromFeature(mfaFeature)?.(jwtSecret, envSource);
   if (mfaFeature && registry.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined) {
@@ -1289,7 +1265,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         // Redis-backed, not the in-memory default createAuthRoutes falls
         // back to — an in-process limiter only rate-limits within a single
         // replica, so a multi-instance prod deployment would silently give
-        // each replica its own bucket (#1262/#1274). Redis is required infra
+        // each replica its own bucket. Redis is required infra
         // here already (REDIS_URL), so this is free.
         loginRateLimit: createRedisLoginRateLimiter(redis),
         ...(effectiveAuth.cookieDomain !== undefined && {
@@ -1375,17 +1351,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(resolvedAnonymousAccess && { anonymousAccess: resolvedAnonymousAccess }),
   };
 
-  // Deploy-Topologie. Default (Single-Container): createAllInOneEntrypoint
-  // fährt HTTP + BEIDE Job-Lanes (zwei Runner, jeder schedult seine eigene
-  // Lane-Crons → kein Double-Fire) + Event-Dispatcher inline. So laufen
-  // worker-Lane-Crons (run-export-jobs default runIn:"worker") UND MSPs ohne
-  // separaten Worker-Process — die Asymmetrie, an der der Daten-Export hing.
-  // runSingleInstance:false → API-only; ein dezidierter Worker MUSS dann die
-  // worker-Lane + MSPs übernehmen (api-Lane-Jobs laufen weiter lokal).
-  // Default single-instance. eventDispatcher.disabled ist die Alt-Art, MSPs
-  // diesem Prozess wegzunehmen (dezidierter Worker) — als runSingleInstance:
-  // false honorieren (api-only, kein lokaler Dispatcher), damit der explizite
-  // Flag Vorrang behält aber Bestands-Caller nicht brechen.
+  // Deployment topology. By default, createAllInOneEntrypoint runs HTTP, both
+  // job lanes (two runners, each scheduling only its own lane's crons, so
+  // nothing fires twice) and the event dispatcher inline. That way worker-lane
+  // crons (run-export-jobs defaults to runIn:"worker") and MSPs run without a
+  // separate worker process, the gap the data export used to stall on.
+  // runSingleInstance:false means API-only: a dedicated worker must then take
+  // over the worker lane and MSPs, while API-lane jobs keep running locally.
+  // The legacy eventDispatcher.disabled maps to runSingleInstance:false so
+  // existing callers keep working; the explicit flag takes precedence.
   const runSingleInstance = options.runSingleInstance ?? options.eventDispatcher?.disabled !== true;
   const hasJobs = registry.getAllJobs().size > 0;
   const queueNamePrefix = options.jobs?.queueNamePrefix;
@@ -1427,7 +1401,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // entrypoint's. Registered after createApiEntrypoint/createAllInOneEntrypoint
   // (which already registered the eventDispatcher/jobRunner hooks above),
   // so it drains LIFO before those, matching the close-before-teardown
-  // order fw#2630 established for buildServer's own hook.
+  // order established for buildServer's own hook.
   entrypoint.lifecycle.registerShutdownHook("prodAppCacheSync", async () => {
     await cacheSync.close();
   });
@@ -1442,7 +1416,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // createApiEntrypoint/createAllInOneEntrypoint, before this function ever
   // runs. `wire` is the remaining escape-hatch for app-wired co-running
   // components that need the system-write dispatcher but don't declare a
-  // route (kumiko-framework#3050).
+  // route.
   if (options.wire) {
     await options.wire({
       db,
@@ -1512,18 +1486,17 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     }
   }
 
-  // ES-Operations / Seed-Migrations (Phase 1). Läuft NACH applyBootSeeds +
-  // existing seeds-array — die deklarativen Seeds sind die "always-insert-
-  // if-missing"-Schicht; seed-migrations sind die "diff-and-update"-
-  // Schicht für Drift den existing Seeds nicht erfassen können (z.B.
-  // Membership-Roles-Change nach initialer Seed-Erstellung).
+  // ES operations and seed migrations run after applyBootSeeds and the existing
+  // seeds array. Declarative seeds insert missing records; seed migrations
+  // diff and update state that existing seeds cannot revise, such as membership
+  // roles changed after initial seed creation.
   if (seedDispatcher && options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
     await createEsOperationsTable(db);
     await runPendingSeedMigrations({
       db,
       seedsDir: options.seedsDir,
       appliedBy: "boot",
-      registry, // → dry-run-validator catched handler-QN-typos vor dem write
+      registry, // The dry-run validator catches handler QN typos before writing.
       // @wrapper-known semantic-alias
       createContext: (dbRunner: DbRunner) =>
         createSeedMigrationContext({ dispatcher: seedDispatcher, dbRunner }),
@@ -1597,15 +1570,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     fetch: fetchHandler,
     webSocketUpgradeFetch,
     listen: async (listenPort = port) => {
-      // Bun.serve is the production HTTP. Tests don't call listen()
-      // because vitest runs under Node where Bun.serve doesn't exist.
-      // Options-Shape (inkl. idleTimeout: 0 für SSE) liegt in der
-      // exportierten buildBunServeOptions-Funktion — siehe ihren
-      // Header für die Begründung.
+      // Bun.serve provides production HTTP. Tests run under Node, so they call the
+      // fetch handler directly instead. buildBunServeOptions centralizes the
+      // options shape, including `idleTimeout: 0` for SSE.
       if (typeof Bun === "undefined") {
-        // Klare Fehlermeldung statt nackter ReferenceError. Trifft wenn
-        // jemand listen() unter Node/vitest aufruft ohne autoListen:false
-        // — hilft beim Debug, statt sich an "Bun is not defined" abzumühen.
+        // Throw a clear error instead of a raw ReferenceError when listen() is called
+        // under Node/vitest without autoListen:false, making the runtime
+        // requirement explicit.
         throw new Error(
           "[runProdApp] listen() requires Bun runtime (Bun.serve). " +
             "Under Node/vitest pass `autoListen: false` and call the returned `fetch()` directly.",

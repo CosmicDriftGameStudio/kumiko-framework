@@ -61,8 +61,8 @@ type RoleHandler = { name: string; file: string; line: number };
 // A `schema:` property that references an outlined const (`schema:
 // CancelInvitationSchema`) has no `role:`/`roles:` text of its own — the field
 // lives in the const's declaration. Resolving the identifier to its
-// declaration covers that ~43% of write handlers (#1556-adjacent bug: a
-// text-only check silently skips them). Falls back to the property's own text
+// declaration covers that ~43% of write handlers; a text-only check silently
+// skips them. Falls back to the property's own text
 // when the initializer isn't a resolvable identifier.
 function resolvedSchemaText(schemaProp: Node): string {
   const init = schemaProp.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
@@ -208,7 +208,7 @@ function globalUserWriteMissingCheck(
   // Presets that resolve to platform-wide actors only (engine/
   // config-helpers `access`): no tenant boundary exists to cross.
   // Everything else — access.admin, and the openToAll handlers that
-  // gate on isAdminActor at runtime (#1556's shape) — is reachable by
+  // gate on isAdminActor at runtime (this shape) — is reachable by
   // a tenant-scoped TenantAdmin.
   if (PLATFORM_WIDE_ACCESS.test(accessProp.getText())) return undefined;
   if (!TARGETS_OTHER_USER.test(resolvedSchemaText(schema))) return undefined;

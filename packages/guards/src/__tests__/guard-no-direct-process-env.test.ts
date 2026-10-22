@@ -38,9 +38,9 @@ describe("isScannableBinFile", () => {
   });
 });
 
-// infra#721 originally covered KUMIKO_CLI_SCOPE/KUMIKO_GUARD_ROOTS narrowing
+// The KUMIKO_CLI_SCOPE/KUMIKO_GUARD_ROOTS narrowing covered
 // a multi-repo scan — this single-repo package has no such env-scope
-// machinery (resolveRepoRoots() only ever resolves the repo cwd sits in).
+// machinery (resolveRepoRoots() only ever resolves the repo cwd it sits in).
 // What's still real here: only repos on the CANDIDATE_ENV_TS_REPOS
 // allowlist with an actual bin/env.ts get scanned at all, and a clean repo
 // doesn't get flagged by a violation elsewhere in the same `roots` array.

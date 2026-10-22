@@ -3,9 +3,9 @@ import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko
 import * as z from "zod";
 import { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "../env-schema.ts";
 
-// Statt Sentinel-throw IM try (ein nicht-werfender parseEnv ließe den
-// Sentinel in den catch fallen und produziert eine irreführende
-// instanceOf-Failure): laufen lassen, danach unconditional asserten.
+// Instead of throwing a sentinel inside try (a non-throwing parseEnv would let the
+// sentinel reach catch and produce a misleading instanceOf failure): run it, then
+// assert unconditionally.
 function expectBootError(run: () => void): KumikoBootError {
   let thrown: unknown;
   try {

@@ -8,17 +8,17 @@ import {
   readExtraRuntimeExternals,
 } from "../build-server-bundle.ts";
 
-// Baut ein Mini-App-Fixture (bin/main.ts + bin/kumiko.ts teilen ein Modul) und
-// prüft das Variante-B-Verhalten: ein Bun.build-Call → server.js + kumiko.js als
-// Entries + geteilter chunk statt zwei vollen Bundles.
+// Builds a mini-app fixture (bin/main.ts and bin/kumiko.ts share a module) and
+// verifies variant B: one Bun.build call produces server.js and kumiko.js as
+// entries plus a shared chunk instead of two complete bundles.
 function makeFixture(): string {
   const dir = mkdtempSync(join(tmpdir(), "server-bundle-"));
   mkdirSync(join(dir, "bin"));
   mkdirSync(join(dir, "src"));
   writeFileSync(join(dir, "package.json"), `${JSON.stringify({ name: "fixture-app" })}\n`);
   writeFileSync(join(dir, "src/shared.ts"), "export function shared(): number { return 42; }\n");
-  // main.ts → wird zu server.js umbenannt; kumiko.ts macht findRepoRoot zum
-  // repoRoot dieses Fixtures, also wird kumiko.js gebaut.
+  // main.ts is renamed to server.js; kumiko.ts makes findRepoRoot return this
+  // fixture's repoRoot, so kumiko.js is built.
   writeFileSync(
     join(dir, "bin/main.ts"),
     `import { shared } from "../src/shared";\nconsole.log("server", shared());\n`,
@@ -37,7 +37,6 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
       const outDir = result.outDir;
 
-      // main.ts wurde zu server.js umbenannt.
       expect(existsSync(join(outDir, "server.js"))).toBe(true);
       expect(existsSync(join(outDir, "main.js"))).toBe(false);
       expect(existsSync(join(outDir, "kumiko.js"))).toBe(true);
@@ -45,16 +44,16 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
       const entryFiles = result.entries.map((e) => e.file).sort();
       expect(entryFiles).toEqual(["kumiko.js", "server.js"]);
 
-      // Das geteilte Modul liegt in einem chunk, nicht in beiden Entries inlined.
+      // The shared module is placed in a chunk rather than inlined into both entries.
       expect(result.chunks.length).toBeGreaterThanOrEqual(1);
       const serverSrc = readFileSync(join(outDir, "server.js"), "utf8");
       expect(serverSrc).toContain("chunk-");
 
-      // Kein Legacy-Drizzle-Output mehr.
+      // No legacy Drizzle output remains.
       expect(existsSync(join(outDir, "migration-hooks.js"))).toBe(false);
       expect(existsSync(join(outDir, "drizzle.config.ts"))).toBe(false);
 
-      // Runtime-package.json mit start-Script, ohne drizzle-deps.
+      // Runtime package.json includes a start script without drizzle dependencies.
       const pkg = JSON.parse(readFileSync(join(outDir, "package.json"), "utf8"));
       expect(pkg.scripts.start).toBe("bun run server.js");
       expect(Object.keys(pkg.dependencies)).not.toContain("drizzle-kit");
@@ -162,9 +161,9 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
   });
 
   test("pins runtime-deps from node_modules/@cosmicdrift/* for consumer apps without a packages/ dir", async () => {
-    // Reproduziert #1217: findRepoRoot liefert für eine Consumer-App die
-    // App-Wurzel selbst (kein packages/-Ordner) — die Version muss aus den
-    // installierten node_modules/@cosmicdrift/*-Packages kommen, nicht "*".
+    // For a consumer app, findRepoRoot returns the app root itself (with no
+    // packages/ directory), so versions must come from the installed
+    // node_modules/@cosmicdrift/* packages rather than "*".
     const dir = makeFixture();
     try {
       const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");

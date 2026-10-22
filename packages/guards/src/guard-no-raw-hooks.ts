@@ -7,8 +7,6 @@
 // pattern that produces them.
 //
 // Local UI state via useState stays allowed.
-//
-// Part of App-Mounting 2.0 (infra#208).
 
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import {

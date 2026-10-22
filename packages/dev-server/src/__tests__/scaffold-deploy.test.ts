@@ -74,7 +74,7 @@ describe("scaffoldDeploy", () => {
   });
 
   it("Dockerfile copies kumiko/migrations and is free of stale drizzle artefacts", () => {
-    // Regression guard for PR #167 deploy-template drift: after the drizzle
+    // Regression guard for deploy-template drift: after the drizzle
     // replacement (framework 0.21) + single-bundle server build (0.20), the
     // template kept three dead drizzle references that broke fresh deploys —
     // a COPY for the unbundled drizzle.config.ts, a COPY of /app/drizzle
@@ -99,7 +99,7 @@ describe("scaffoldDeploy", () => {
   });
 
   it("migrate-step.sh invokes the schema-CLI subcommand registered in kumiko.ts", () => {
-    // Regression guard for PR #167: the deploy step was calling
+    // Regression guard: the deploy step was calling
     // `bun /app/kumiko.js migrate apply`, but the CLI only registers
     // `schema` (with subcommand `apply`). The pre-deploy migrate step
     // crashed with "Unknown command: migrate" until this was fixed.

@@ -1,4 +1,4 @@
-// fw#3360: stack.drainJobs() waits deterministically for every in-flight
+// stack.drainJobs() waits deterministically for every in-flight
 // job AND its follow-up event-consumer / job-trigger cascade — replaces
 // `waitFor` polling on a specific job's side effect.
 

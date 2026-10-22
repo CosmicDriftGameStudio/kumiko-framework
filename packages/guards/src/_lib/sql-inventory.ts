@@ -58,7 +58,7 @@ export type SqlInventoryReport = {
   };
 };
 
-/** Paths where `.unsafe()` / `asRawClient()` are permitted (Phase 5 guard). */
+/** Paths where `.unsafe()` / `asRawClient()` are permitted. */
 export const RAW_SQL_ALLOWLIST: ReadonlyArray<RegExp> = [
   // Layout-agnostic: framework packages/... AND flat app src/... AND enterprise packages/<pkg>/...
   /(^|\/)(packages\/[^/]+\/)?src\/db\/queries\//,
@@ -107,7 +107,7 @@ const PATTERNS: ReadonlyArray<{
   { kind: "execute", re: /\.execute\s*\(/ },
 ];
 
-/** Only these kinds fail CI; delete_from/execute stay inventory-only (infra#610). */
+/** Only these kinds fail CI; delete_from/execute stay inventory-only. */
 export const BLOCKING_SQL_KINDS: ReadonlyArray<SqlInventoryKind> = ["unsafe", "asRawClient"];
 
 const TS_GLOB = new Bun.Glob("**/*.{ts,tsx}");

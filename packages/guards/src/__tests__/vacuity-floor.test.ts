@@ -41,7 +41,7 @@ describe("Vacuity-Floor gegen echte Pfade", () => {
     expect(new Set(GUARDS.map((g) => g.name)).size).toBe(GUARDS.length);
   });
 
-  // infra#480 hardening: a guard whose `scan` resolution throws (an
+  // Hardening: a guard whose `scan` resolution throws (an
   // authoring mistake, e.g. an unsupported glob) must not crash the shared
   // project build — only that guard's own run should fail.
   test("ein Guard mit werfender scan-Auflösung crasht den Build nicht, Geschwister laufen weiter", () => {

@@ -1,4 +1,4 @@
-// Type-level contract for PluralForms (#3344): `other` is the CLDR-mandated
+// Type-level contract for PluralForms: `other` is the CLDR-mandated
 // fallback and must stay required. The body below is never invoked — tsc
 // checks it, bun:test does not run it. If `other` ever becomes optional the
 // `@ts-expect-error` turns into an "unused directive" compile error.

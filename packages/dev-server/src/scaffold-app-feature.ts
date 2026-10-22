@@ -46,10 +46,11 @@ export function scaffoldAppFeature(options: ScaffoldAppFeatureOptions): Scaffold
   }
   mkdirSync(featureDir, { recursive: true });
 
-  // Volle App-Feature-Konvention (Referenz: bundled-features/tenant):
-  // feature.ts = nur Registrierung, schema/ für Entities, i18n.ts für
-  // Server-Keys, web/ für die Client-Seite, __tests__/ mit Boot-Test.
-  // handlers/ + lib/ entstehen beim ersten echten Handler/Logik-Modul.
+  // App-feature layout (see bundled-features/tenant):
+  // feature.ts only registers the feature; schema/ contains entities; i18n.ts
+  // contains server keys; web/ contains the client side; __tests__/ contains
+  // the boot test.
+  // handlers/ and lib/ are created when the first handler or logic module is added.
   mkdirSync(join(featureDir, "schema"), { recursive: true });
   mkdirSync(join(featureDir, "web"), { recursive: true });
   mkdirSync(join(featureDir, "__tests__"), { recursive: true });

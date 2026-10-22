@@ -110,10 +110,9 @@ export type DevClientEntry = {
    *  `kumiko.clientEntries[].name` so dev and prod produce identical
    *  asset URLs (`/client-<name>.js`). */
   readonly name: string;
-  /** Absoluter Pfad zur Browser-Entry-Datei. */
+  /** Absolute path to the browser entry file. */
   readonly sourceFile: string;
-  /** Optional eigenes HTML-Template für diesen Entry. Wenn nicht gesetzt,
-   *  wird `htmlPath` (das default-Template) für alle Entries genutzt. */
+  /** Optional HTML template for this entry. If omitted, `htmlPath` (the default template) is used for all entries. */
   readonly htmlPath?: string;
 };
 
@@ -148,8 +147,7 @@ export type DevHostDispatchResult =
       readonly file?: string;
     };
 
-/** Picks an entry by inspecting the incoming request. Wird von
- *  Multi-Entry-Apps gesetzt; im Single-Entry-Mode irrelevant. */
+/** Picks an entry by inspecting the incoming request. Set by multi-entry apps; irrelevant in single-entry mode. */
 export type DevHostDispatch = (
   req: Request,
   deps: {
@@ -163,27 +161,26 @@ export type CreateKumikoServerOptions = {
   /** Features whose entities, handlers, and screens get wired into the
    *  dev stack. Pass every feature the app is supposed to run. */
   readonly features: readonly FeatureDefinition[];
-  /** Absolute path to the browser entry module. The dev-server runs
+  /** Absolute path to the browser entry module. The dev server runs
    *  `Bun.build` on it and serves the output at `/client.js`. Omit to
-   *  run a headless API-only dev-stack (rare — every sample has one).
-   *  Mutually exclusive mit `clientEntries`. */
+   *  run a headless API-only dev stack. Mutually exclusive with
+   *  `clientEntries`. */
   readonly clientEntry?: string;
-  /** Multi-Entry-Mode: mehrere getrennte Bundles, jeweils unter
-   *  `/client-<name>.js`. Mutually exclusive mit `clientEntry`. Setze
-   *  `hostDispatch` mit, sonst bleibt unklar welches Template zurück-
-   *  geht. */
+  /** Multi-entry mode: separate bundles served at
+   *  `/client-<name>.js`. Mutually exclusive with `clientEntry`. Set
+   *  `hostDispatch` as well; otherwise the server cannot determine which
+   *  template to return. */
   readonly clientEntries?: readonly DevClientEntry[];
-  /** Multi-Entry-Mode: Routing pro Request. Inspiziert `Host` (oder
-   *  was auch immer) und liefert eine Discriminated-Union zurück
-   *  (html → entry-bundle, redirect → 30x, not-found → 404).
-   *  Symmetric zu `runProdApp.hostDispatch` damit dev/prod-Drift
-   *  beim Routing unmöglich ist. */
+  /** Multi-entry request routing. Inspects `Host` (or another request
+   *  property) and returns a discriminated union
+   *  (`html` → entry bundle, `redirect` → 30x, `not-found` → 404).
+   *  Mirrors `runProdApp.hostDispatch` so dev and production routing
+   *  remain aligned. */
   readonly hostDispatch?: DevHostDispatch;
-  /** @internal — ersetzt `Bun.build` für Tests. Default ruft die echte
-   *  Bun-Toolchain. Tests unter Node injizieren einen Stub damit der
-   *  Routing-Pfad treibbar bleibt ohne Bun.build aufzurufen.
-   *  KEIN Public-API-Surface — präfixiert mit `_` damit Konsumenten
-   *  wissen dass das ein Test-Seam ist. */
+  /** @internal — replaces `Bun.build` in tests. The default uses the real
+   *  Bun toolchain; Node-based tests inject a stub so the routing path can
+   *  run without calling Bun.build.
+   *  Not part of the public API; the `_` prefix identifies this test seam. */
   readonly _buildBundle?: (sourceFile: string) => Promise<{
     readonly js: string;
     readonly map: string;
@@ -222,41 +219,40 @@ export type CreateKumikoServerOptions = {
    *  this so repeated `createKumikoServer` calls don't accumulate
    *  listeners on the process. Default true (dev-server behaviour). */
   readonly installSignalHandlers?: boolean;
-  /** Auth-Route-Config (login, tenants, switch-tenant, logout). Wenn
-   *  gesetzt wird die Auto-JWT-Mint auf GET / abgeschaltet — der
-   *  Client ist dann selbst fürs Login zuständig. Zur echten Wirkung
-   *  brauchen die dazugehörigen Features (user/tenant/auth-email-
-   *  password) via `features` drin sein. */
+  /** Auth route configuration (login, tenants, switch-tenant, logout). When
+   *  set, disables automatic JWT minting on GET /; the client is responsible
+   *  for login. The corresponding features (user/tenant/auth-email-password)
+   *  must also be included through `features` for these routes to work. */
   readonly auth?: AuthRoutesConfig;
-  /** Extra-AppContext-Keys (z.B. configResolver für config-feature).
-   *  Wird an setupTestStack weitergereicht. Siehe TestStackOptions
-   *  für die erlaubten Shapes (object oder factory-function). */
+  /** Additional AppContext keys, such as `configResolver` for the config
+   *  feature. Forwarded to `setupTestStack`; see `TestStackOptions` for
+   *  the accepted shapes (object or factory function). */
   readonly extraContext?: TestStackOptions["extraContext"];
-  /** Anonymous-Access aktivieren — Requests ohne JWT werden als
-   *  Pseudo-User mit Rolle `anonymous` durchgelassen, sofern der
-   *  Handler `roles: ["anonymous"]` deklariert. Tenant-Resolution per
-   *  Header/Cookie/Default; siehe AnonymousAccessConfig. */
+  /** Enables anonymous access: requests without a JWT proceed as a
+   *  pseudo-user with the `anonymous` role when the handler declares
+   *  `roles: ["anonymous"]`. Tenant resolution uses a header, cookie, or
+   *  default; see `AnonymousAccessConfig`. */
   readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
-  /** File-Storage-Provider — durchgereicht an setupTestStack. Wenn gesetzt,
-   *  mountet der Stack die Upload-Routes (POST/GET/DELETE /api/files) +
-   *  `ctx.files` und legt die file_refs-Tabelle an. Für Demos:
+  /** File-storage provider forwarded to `setupTestStack`. When set, the
+   *  stack mounts the upload routes (POST/GET/DELETE /api/files), exposes
+   *  `ctx.files`, and creates the `file_refs` table. Example:
    *  `{ storageProvider: createInMemoryFileProvider() }`. */
   readonly files?: TestStackOptions["files"];
-  /** Feature-toggle resolver — durchgereicht an setupTestStack. Wenn
-   *  gesetzt, konsultiert der dispatcher-feature-gate, hook-filter, MSP-
-   *  filter den callback; absent = alle features always-on. Erforderlich
-   *  für Tier-Composition (Sprint 8) wo per-Tenant unterschiedliche
-   *  features aktiv sein sollen. Die typische produktive Implementierung
-   *  ist `() => globalFeatureToggleRuntime.effectiveFeatures` post-boot
-   *  (createLateBoundHolder-pattern, weil runtime stack.db braucht). */
+  /** Feature-toggle resolver forwarded to `setupTestStack`. When set, the
+   *  dispatcher feature gate, hook filter, and MSP filter consult it;
+   *  absent means all features remain enabled. Required for per-tenant
+   *  feature composition. The typical production implementation is
+   *  `() => globalFeatureToggleRuntime.effectiveFeatures` after boot,
+   *  using the createLateBoundHolder pattern because the runtime needs
+   *  `stack.db`. */
   readonly effectiveFeatures?: TestStackOptions["effectiveFeatures"];
-  /** Wird nach dem Aufsetzen der Entity-Tabellen aufgerufen. Hook für
-   *  non-entity-tables (unsafePushTables) und Seeding (admin user, initial
-   *  tenant, …). Muss idempotent sein — im persistent-DB-Modus läuft
-   *  es bei jedem Boot. */
+  /** Called after entity tables are set up. Use this hook for non-entity
+   *  tables (`unsafePushTables`) and seeding (admin user, initial tenant,
+   *  and so on). Must be idempotent because persistent-DB mode runs it on
+   *  every boot. */
   readonly onAfterSetup?: (stack: TestStack) => Promise<void>;
   /** Declarative HTTP-routes outside the /api/write|query|batch pipeline —
-   *  symmetric to runProdApp.extraRoutes (kumiko-framework#3050). Mounted
+   *  symmetric to runProdApp.extraRoutes. Mounted
    *  inside buildServer (setupTestStack), before the Static/HTML-fallback,
    *  so an own GET (/feed.xml, /og-image, …) wins over the dev-asset path. */
   readonly extraRoutes?: readonly ExtraRouteDefinition[];
@@ -273,8 +269,8 @@ export type CreateKumikoServerOptions = {
   /** Per-request head-metadata resolver (Open-Graph/title/description) —
    *  same option, same `PageHeadResolver` signature, and same shared
    *  resolve+inject call (`resolveAndInjectPageHead`) as `runProdApp`'s
-   *  `resolvePageHead`, so dev and e2e exercise the exact code prod does
-   *  (kumiko-framework#3026). Consulted for every templated HTML response
+   *  `resolvePageHead`, so dev and e2e exercise the exact code prod does.
+   *  Consulted for every templated HTML response
    *  (the default single-entry shell and a host-dispatched `"html"` entry),
    *  right before it's served. On error, `null`, or a timeout, the shell
    *  ships unchanged with status 200 — never a 500. `systemQuery` inside
@@ -318,14 +314,12 @@ export const PROD_BUNDLES_ENV = "KUMIKO_DEV_PROD_BUNDLES";
 // Reload snippet injected into every page-load so the browser
 // subscribes to /_reload without the HTML needing to hard-code it.
 //
-// Zwei reload-Trigger:
-//   - explizites `reload`-Event vom Server beim hot-reload (rebuild + send)
-//   - implizites: jede SSE-Connection bekommt beim Connect ein `boot`-Event
-//     mit der bootId des aktuellen Server-Process. Das Snippet merkt sich
-//     die erste bootId; wenn nach einem Reconnect (Server-Restart!) eine
-//     ANDERE bootId kommt, refresh — sonst bleibt der Browser ewig auf
-//     dem alten Bundle hängen wenn der Watcher classifyChange="restart"
-//     gewählt hat oder der User Ctrl-C/bun dev gemacht hat.
+// Two reload triggers:
+//   - explicit `reload` event from the server after hot reload (rebuild + send)
+//   - implicit `boot` event on every SSE connection, containing the current
+//     server process's bootId. The snippet remembers the first bootId; if a
+//     reconnect receives a different one, it refreshes. Otherwise the
+//     browser could remain on a stale bundle after a server restart.
 const RELOAD_SNIPPET = `
 <script>
   (() => {
@@ -353,7 +347,7 @@ const RELOAD_SNIPPET = `
 // replaces `window.history` and every pushState afterwards throws. Prod
 // (build-prod-bundle) has always emitted the module form.
 //
-// `interactive-widget=resizes-content` (fw#1918): without it, a mobile
+// `interactive-widget=resizes-content`: without it, a mobile
 // keyboard shrinks only the visual viewport, not the layout viewport that
 // `position: fixed` anchors to — a fixed bottom action bar would stay
 // pinned behind the keyboard instead of above it. iOS Safari ignores the
@@ -432,9 +426,9 @@ function injectReload(html: string): string {
     : html + RELOAD_SNIPPET;
 }
 
-// Injiziert <link rel="stylesheet" href="/styles.css"> in den <head>,
-// wenn es noch nicht da ist. Wird nur aufgerufen wenn die App das
-// stylesheet-Option genutzt hat — andernfalls kommt keine CSS-Route.
+// Injects <link rel="stylesheet" href="/styles.css"> into <head> if it
+// is not already present. Called only when the stylesheet option is used;
+// otherwise no CSS route is provided.
 function injectStylesheet(html: string): string {
   if (html.includes('href="/styles.css"')) return html;
   const link = '<link rel="stylesheet" href="/styles.css" />';
@@ -574,19 +568,18 @@ async function watchDir(
   signal: AbortSignal,
   watchEvents: DirectoryWatchEvents,
 ): Promise<void> {
-  // AbortSignal wird vom Server-stop() ausgelöst: ohne den Abort liefe
-  // die for-await-Schleife bis zum Process-Exit weiter. Im Test-Setup
-  // (afterEach räumt tmpdir mit rmSync auf) sähe der Watcher dann das
-  // rmSync, klassifizierte's als "restart" und riefe process.exit(75) —
-  // bubbles als unhandled error in vitest hoch.
+  // The server's stop() aborts the signal; without it, the for-await loop
+  // would continue until process exit. During test teardown, removing the
+  // temporary directory could then be classified as a restart and call
+  // process.exit(75), surfacing as an unhandled Vitest error.
   const watcher = watchEvents(dir, { recursive: true, signal });
   try {
     for await (const ev of watcher) {
       if (ev.filename) onChange(ev.filename);
     }
   } catch (err) {
-    // signal.abort() wirft AbortError aus dem async-iterator; das ist
-    // gewollt und kein Fehler. Andere Errors weiterreichen.
+    // signal.abort() causes the async iterator to throw AbortError during
+    // expected teardown; other errors must propagate.
     // skip: AbortSignal fired the abort, this is expected teardown not a real error
     if (typeof err === "object" && err !== null && "name" in err && err.name === "AbortError")
       return;
@@ -594,29 +587,20 @@ async function watchDir(
   }
 }
 
-// Klassifiziert eine geänderte Datei: `hot-reload` für Client-Side
-// (Browser-Bundle rebuild + reload), `restart` für Server-Side (Bun-
-// Module-Cache zwingt einen Process-Restart durch), `ignore` für
-// alles was den Server nicht beeinflusst (Tests, .css, .json…).
+// Classifies a changed file as `hot-reload` for client-side changes,
+// `restart` for server-side changes whose cached Bun modules must be
+// reloaded, or `ignore` when the server is unaffected.
 //
-// Heuristik:
-//   - Tests (`__tests__/` oder `*.test.ts(x)`) → ignore
-//   - `.ts` / `.tsx` außer Tests:
-//       - Client-side-Dirs (`/web/`, `/admin/`, `/public/`, `/client/`)
-//         oder die client-entry-Datei selbst → hot-reload
-//       - sonst → restart (könnte Schema/Feature-Definition sein)
-//   - andere Dateitypen → ignore (kein TS rebuild nötig)
+// Tests and non-TypeScript files are ignored. TypeScript files under
+// `/web/`, `/admin/`, `/public/`, or `/client/`, as well as the client
+// entry itself, trigger hot reload; other TypeScript files trigger a
+// restart because they may contain schema or feature definitions.
 //
-// Warum mehrere Dirs für client-side: in Kumiko-Samples gibt's keine
-// Convention. publicstatus splittet `/admin/` (Admin-Bundle) und
-// `/public/` (Anonymous-Bundle); beammycar nutzt `/web/` für seine
-// Feature-Web-Code; ältere Samples haben einfach `/client.tsx` neben
-// dem Server. Der Watcher muss alle drei verstehen, sonst löst ein
-// Edit der Bridge-Component einen kompletten Server-Restart aus —
-// kostet 2-3s, droppt die Test-DB im ephemeral-Modus, reseed läuft
-// erneut. Ineffektiv und für der User verwirrend.
+// The multiple client directories are intentional: samples use different
+// layouts. Restarting for a client-only edit would be slower, drop the
+// ephemeral test database, and reseed it unnecessarily.
 //
-// Exportiert für Tests; intern wird's von der Watcher-Loop gerufen.
+// Exported for tests; internally called by the watcher loop.
 export function classifyChange(filename: string): "restart" | "hot-reload" | "ignore" {
   if (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) return "ignore";
   if (filename.includes("__tests__")) return "ignore";
@@ -628,9 +612,9 @@ export function classifyChange(filename: string): "restart" | "hot-reload" | "ig
   ) {
     return "ignore";
   }
-  // Plattformpfad-agnostisch: prüfen auf POSIX und Windows-Trenner.
-  // Wir matchen sowohl `<sep><dir><sep>` als auch trailing-`<sep><dir>`
-  // (für Watcher-Filenames die als relativer Pfad ankommen).
+  // Platform-independent: checks both POSIX and Windows separators.
+  // Matches `<sep><dir><sep>` and trailing-`<sep><dir>` for watcher
+  // filenames supplied as relative paths.
   const clientSubdirs = ["web", "admin", "public", "client"];
   for (const dir of clientSubdirs) {
     if (
@@ -661,12 +645,11 @@ export function classifyWatchedChange(
     : classifyChange(filename);
 }
 
-// Expandiert watchDirs-Patterns auf konkrete Verzeichnisse. Ein Eintrag
-// ohne `*` wird als gewöhnlicher Pfad resolved; mit `*` wird er per
-// glob expanded und alle Treffer die Verzeichnisse sind übernommen.
-// Erlaubt z.B. `"../../../packages/*/src"` statt vier hart-kodierte
-// Pfade. Glob ist sync — wird einmal beim Boot ausgewertet, nicht
-// während der Watcher läuft.
+// Expands watchDirs patterns into concrete directories. Entries without
+// `*` are resolved as ordinary paths; entries with `*` are glob-expanded
+// and only directory matches are retained, so `"../../../packages/*/src"`
+// replaces a list of hard-coded paths. Expansion runs once at boot,
+// not while the watcher is running.
 function expandWatchPatterns(patterns: readonly string[]): string[] {
   const out: string[] = [];
   for (const p of patterns) {
@@ -718,14 +701,14 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
   const local = resolve(process.cwd(), "src/styles.css");
   if (existsSync(local)) return local;
 
-  // Bun.resolveSync folgt Package-Exports — "./styles.css" in renderer/web's
-  // package.json. Das Monorepo auflöst direkt auf den Workspace-File, eine
-  // installierte Fremd-App auf den node_modules-File. Kein `fileURLToPath`
-  // nötig, Bun gibt schon einen absoluten FS-Pfad zurück.
+  // Bun.resolveSync follows package exports: `"./styles.css"` in
+  // renderer/web's package.json resolves to the workspace file in the
+  // monorepo or the node_modules file in an installed app. Bun already
+  // returns an absolute filesystem path, so `fileURLToPath` is unnecessary.
   if (!hasBun) {
-    // Unit-Tests unter vitest/Node landen hier. Ohne Bun können wir die
-    // Package-Export-Resolution nicht machen — und im Test-Kontext gibt's
-    // keine echte Tailwind-Pipeline. Skip still, keine Fehlermeldung nötig.
+    // Node-based unit tests reach this branch. Without Bun, package-export
+    // resolution and a real Tailwind pipeline are unavailable, so skip
+    // silently rather than reporting an error.
     return undefined;
   }
   try {
@@ -780,9 +763,9 @@ async function startTailwindPipeline(
       : `[kumiko-server] tailwind one-shot build → ${outPath}`,
   );
   const bunPath = process.argv[0] ?? "bun";
-  // Initial-Build blockend, damit der erste /styles.css-Request kein
-  // 404 bekommt. Dann den watcher im Hintergrund mit unref() — sonst
-  // hing er beim Parent-Crash als orphan-process.
+  // Wait for the initial build so the first /styles.css request does not
+  // return 404. Then run the watcher in the background with unref();
+  // otherwise it could remain as an orphan after the parent crashes.
   try {
     await new Promise<void>((resolvePromise, rejectPromise) => {
       const child = spawn(bunPath, ["run", cliPath, "-i", entryCss, "-o", outPath], {
@@ -811,23 +794,23 @@ async function startTailwindPipeline(
       try {
         watcher.kill("SIGTERM");
       } catch {
-        // schon tot oder nie gestartet — nicht weiter relevant
+        // Already stopped or never started; no further action is needed.
       }
     },
   };
 }
 
-/** @internal — normalisierte Client-Entry-Form, einheitlich über
- *  Single-Mode (`clientEntry`) und Multi-Mode (`clientEntries`). */
+/** @internal — normalized client-entry form shared by single-entry
+ *  (`clientEntry`) and multi-entry (`clientEntries`) modes. */
 type NormalizedEntry = {
   readonly name: string;
   readonly sourceFile: string;
   readonly htmlPath: string | undefined;
 };
 
-/** URL-Pfad unter dem ein Entry ausgeliefert wird. "client" → /client.js
- *  (Single-Mode-Default), sonst "/client-<name>.js". Single-Source-of-Truth
- *  damit Routing + Logging dieselbe Konvention nutzen. */
+/** URL path used to serve an entry: `"client"` → `/client.js`
+ *  (the single-entry default), otherwise `/client-<name>.js`. Keeping
+ *  this in one place ensures routing and logging use the same convention. */
 function assetPathFor(entryName: string): string {
   return entryName === "client" ? "/client.js" : `/client-${entryName}.js`;
 }
@@ -861,7 +844,7 @@ export async function createKumikoServer(
 ): Promise<KumikoServerHandle> {
   const port = options.port ?? Number(process.env["PORT"] ?? 4173);
 
-  // --- client bundles (single-entry oder multi-entry über dieselbe Map) ---
+  // --- client bundles (single-entry or multi-entry through the same map) ---
   const entries = normalizeEntries(options);
   const buildBundle = options._buildBundle ?? buildClient;
   const clientBundles = new Map<string, ClientBundle>();
@@ -896,9 +879,9 @@ export async function createKumikoServer(
   }
 
   // --- HTML templates ---
-  // Single-Entry: ein Template (htmlPath oder DEFAULT_HTML) für alles.
-  // Multi-Entry: pro Entry ein Template (entry.htmlPath ?? options.htmlPath
-  // ?? DEFAULT_HTML). Der hostDispatch wählt zur Request-Zeit.
+  // Single-entry uses one template (`htmlPath` or DEFAULT_HTML).
+  // Multi-entry uses one per entry (`entry.htmlPath ?? options.htmlPath
+  // ?? DEFAULT_HTML`); hostDispatch selects it per request.
   const defaultTemplate =
     options.htmlPath !== undefined
       ? await readFile(resolve(options.htmlPath), "utf-8")
@@ -965,8 +948,8 @@ export async function createKumikoServer(
   if (options.wire !== undefined) {
     await options.wire({
       db: stack.db,
-      // Der nackte ioredis-Client (nicht der TestRedis-Wrapper) —
-      // Parität mit runProdApp, App-Code soll in dev+prod dasselbe sehen.
+      // The raw ioredis client, not the TestRedis wrapper, matching runProdApp
+      // so application code sees the same interface in development and production.
       redis: stack.redis.redis,
       registry: stack.registry,
       metricsFor: createMetricsForFactory(stack.observability.meter),
@@ -975,21 +958,18 @@ export async function createKumikoServer(
     });
   }
 
-  // Hook für Caller-spezifische Tables + Seed. Läuft nach den Entity-
-  // Tabellen damit das Sample auf `stack.db` / `stack.dispatcher`
-  // zugreifen kann, und VOR dem Server-Start damit der erste HTTP-Request
-  // bereits gegen einen gefüllten State läuft. Idempotenz ist Caller-
-  // Verantwortung (persistent-DB-Modus läuft es bei jedem Boot).
+  // Hook for caller-specific tables and seeding. It runs after entity tables
+  // are created, so the hook can use `stack.db` / `stack.dispatcher`, and
+  // before the server starts, so the first request sees initialized state. Idempotence is the caller's responsibility because
+  // persistent-DB mode runs the hook on every boot.
   if (options.onAfterSetup !== undefined) {
     await options.onAfterSetup(stack);
   }
 
-  // setupTestStack konfiguriert den eventDispatcher, startet ihn aber
-  // NICHT — Integration-Tests drain'en deterministisch via runOnce().
-  // Ein Dev-Server will das laufende Polling, damit SSE-Broadcasts
-  // (system-hook sse, Priorität 1001) von selbst an connected Clients
-  // fließen. Ohne start() bleiben alle Events in der events-Tabelle
-  // liegen und die Tabs sehen nichts.
+  // setupTestStack configures but does not start the event dispatcher so
+  // integration tests can drain it deterministically with runOnce(). The
+  // dev server starts polling so SSE broadcasts reach connected clients;
+  // otherwise events remain in the events table.
   if (stack.eventDispatcher) {
     await stack.eventDispatcher.start();
   }
@@ -1001,12 +981,12 @@ export async function createKumikoServer(
     // The stack's own AppContext, not a `{ db, registry }` literal: these
     // runners consume the lanes, and a job reaching for ctx.files /
     // ctx.notify / ctx.config would otherwise die here while the very same
-    // handler works on the request path (kumiko-framework#1232).
+    // handler works on the request path.
     context: stack.context,
     redisUrl,
     // Same dispatcher the request path writes through — without this,
     // ctx.write/ctx.writeAs/ctx.queryAs inside a dev-run job throw on their
-    // first call (kumiko-framework#2553).
+    // first call.
     dispatcher: stack.dispatcher,
     // Same isolation reasoning as setupTestStack's jobs.queueNamePrefix
     // above — both must use the same prefix so enqueuer and consumer agree
@@ -1014,10 +994,9 @@ export async function createKumikoServer(
     queueNamePrefix: jobQueueNamePrefix,
   });
 
-  // Dev user = TestUsers.admin. Demo features are openToAll but the
-  // auth-middleware still needs a valid JWT to let the request past.
-  // Nicht genutzt wenn `options.auth` gesetzt ist — dann macht der Client
-  // selbst den Login.
+  // Dev user = TestUsers.admin. Demo features are openToAll, but the
+  // auth middleware still requires a valid JWT. When `options.auth` is set,
+  // the client performs login instead.
   const autoMintJwt = options.auth === undefined;
   const devUser = TestUsers.admin;
 
@@ -1031,11 +1010,10 @@ export async function createKumikoServer(
   });
 
   // --- SSE reload ---
-  // bootId identifiziert diese spezifische Server-Process-Instanz. Wird
-  // beim Connect an jeden Browser geschickt; Browser merkt sich den
-  // ersten Wert und refresht wenn beim Reconnect ein anderer kommt
-  // (= Server wurde restartet, alter JS-Bundle ist stale). Siehe
-  // RELOAD_SNIPPET oben.
+  // bootId identifies this server process instance. It is sent on connect;
+  // the browser remembers the first value and refreshes when a reconnect
+  // receives a different one, indicating that the server restarted and
+  // the old bundle is stale. See RELOAD_SNIPPET above.
   const bootId = String(Date.now());
   const reloadClients = new Set<ReloadClient>();
   // JSON-encoded so a filename can never break the SSE framing.
@@ -1084,7 +1062,7 @@ export async function createKumikoServer(
 
   // resolvePageHead goes through the same headless resolveAndInjectPageHead
   // that runProdApp uses, so dev and e2e exercise the one timeout and
-  // fallback path instead of a second copy of it (#3026).
+  // fallback path instead of a second copy of it.
   const htmlResponse = async (
     entryName: string,
     req: Request,
@@ -1135,10 +1113,10 @@ export async function createKumikoServer(
   };
 
   // --- Fetch handler (runtime-neutral) ---
-  // Bundle-Pfad-Lookup: für jede Entry serven wir
-  //   GET /client[-name].js      → JS-Bundle
-  //   GET /client[-name].js.map  → Sourcemap
-  // assetPathFor() ist die Single-Source-of-Truth für die URL-Form.
+  // Bundle path lookup: each entry is served at
+  //   GET /client[-name].js      → JS bundle
+  //   GET /client[-name].js.map  → sourcemap
+  // assetPathFor() is the single source of truth for the URL form.
   const bundleByAssetPath = new Map<string, string>();
   for (const e of entries) bundleByAssetPath.set(assetPathFor(e.name), e.name);
 
@@ -1178,7 +1156,7 @@ export async function createKumikoServer(
         }
       }
 
-      // .js.map-Variante: gleicher Lookup mit /.map abgeschnitten.
+      // .js.map variant: perform the same lookup after removing /.map.
       if (url.pathname.endsWith(".js.map")) {
         const jsPath = url.pathname.slice(0, -".map".length);
         const mapName = bundleByAssetPath.get(jsPath);
@@ -1229,9 +1207,9 @@ export async function createKumikoServer(
           const entry: ReloadClient = { controller, encoder, closed: false };
           reloadClients.add(entry);
           controller.enqueue(encoder.encode(": connected\n\n"));
-          // boot-Event: Browser-Snippet vergleicht das mit der ersten
-          // bootId. Verschiedener Wert nach Reconnect = Server wurde
-          // restartet → location.reload().
+          // boot event: the browser snippet compares this with the first
+          // bootId. A different value after reconnect means the server
+          // restarted, so location.reload() is called.
           controller.enqueue(encoder.encode(`event: boot\ndata: ${bootId}\n\n`));
         },
         cancel() {
@@ -1249,26 +1227,20 @@ export async function createKumikoServer(
       });
     }
 
-    // SPA catch-all: any GET to a non-API, non-asset path returns the
-    // HTML shell. The client-side router then reads location.pathname
-    // and mounts the right screen. The "no dot" filter skips
-    // /favicon.ico etc. (let the stack's 404 handler respond).
+    // SPA catch-all: GET or HEAD requests to non-API, non-asset paths return
+    // the HTML shell so the client-side router can mount the screen for
+    // location.pathname. Paths containing a dot are left to the stack's
+    // 404 handling.
     //
-    // Backend routes that live outside /api (currently just /sse) have
-    // to be excluded explicitly, otherwise the catch-all would shadow
-    // the real Hono route with HTML and EventSource would never
-    // connect.
+    // Backend routes outside /api, currently including /sse, must be
+    // excluded so the catch-all does not shadow Hono routes.
     //
-    // Plus: r.httpRoute-deklarierte Feature-Routes (z.B. /legal/*) liegen
-    // ebenfalls außerhalb /api und matchen sonst diesen catch-all. Wir
-    // probieren daher ZUERST stack.app.fetch — wenn Hono eine matchende
-    // Route hat, gewinnt sie. 404 vom Hono-stack → SPA-fallback wie
-    // bisher. Das spiegelt runProdApp's doc-intent ("Hono matched VOR
-    // staticDir-fallback") und macht r.httpRoute mit non-/api paths im
-    // dev-server symmetrisch zu prod.
+    // Feature routes declared with r.httpRoute can also be outside /api.
+    // Try stack.app.fetch first so a matching Hono route wins; only a Hono
+    // 404 proceeds to the SPA fallback, matching production behavior.
     if (
-      // HEAD mitnehmen — prod (runProdApp) fällt für GET UND HEAD auf die
-      // SPA zurück; ohne das liefert dev 404 wo prod 200 liefert.
+      // Include HEAD: runProdApp falls back to the SPA for both GET and HEAD;
+      // omitting it would make development return 404 where production returns 200.
       isRoutableGetOrHead(req, url.pathname) &&
       !url.pathname.includes(".")
     ) {
@@ -1276,8 +1248,8 @@ export async function createKumikoServer(
       if (honoTry.matched) {
         return honoTry.response;
       }
-      // Discriminated-Dispatch — symmetric zu prod. Ohne hostDispatch
-      // landet das im Single-Entry-Default ("client" + Schema-Inject).
+      // Discriminated dispatch mirrors production. Without hostDispatch, use
+      // the single-entry default ("client").
       if (options.hostDispatch !== undefined) {
         const dispatch = await options.hostDispatch(req, {
           systemQuery: buildDevSystemQuery(req, socketAddress),
@@ -1324,12 +1296,11 @@ export async function createKumikoServer(
   const handleFetch = options.wrapFetch ? options.wrapFetch(routeFetch) : routeFetch;
 
   // --- HTTP server (Bun only) ---
-  // Under Node/vitest we skip Bun.serve entirely — the handle's
-  // .fetch() is the test surface. Real dev runs under Bun, where
-  // Bun.serve wires the listener.
-  // Bun.serve-Options kommen aus buildBunServeOptions (run-prod-app.ts)
-  // damit Dev und Prod genau dieselben SSE-relevanten Defaults nutzen
-  // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
+  // Under Node/vitest, skip Bun.serve; the handle's .fetch() is the test
+  // surface. Under Bun, Bun.serve wires the listener.
+  // Bun.serve options come from buildBunServeOptions (run-prod-app.ts) so
+  // development and production share the same SSE-relevant defaults
+  // (idleTimeout: 0); run-prod-app-spec.test.ts pins that.
   const server = hasBun
     ? Bun.serve(
         buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry), {
@@ -1339,24 +1310,22 @@ export async function createKumikoServer(
       )
     : undefined;
 
-  // --- file watcher → rebundle + reload, oder process-restart bei Schema-Änderungen ---
-  // Heuristik: alles in `web/` oder `__tests__/` ist client-side oder
-  // test-only — Hot-Reload reicht (rebuild + broadcast reload). Alles
-  // andere ist server-side; Bun cached die Module-Imports, also würde ein
-  // Schema-Change in feature.ts nicht durchschlagen ohne process-restart.
-  // Wir exiten dann mit Code 75 (EX_TEMPFAIL) — `kumiko-dev` Wrapper
-  // detected das und respawnt.
+  // --- file watcher → rebundle + reload, or process restart for schema changes ---
+  // Heuristic: files in `web/` or `__tests__/` are client-side or test-only,
+  // so hot reload is sufficient. Other files are server-side; because Bun
+  // caches module imports, a schema change in feature.ts requires a process
+  // restart. Exit with code 75 (EX_TEMPFAIL) so the `kumiko-dev` wrapper
+  // can respawn the process.
   //
-  // watcherAbort wird beim stop() ausgelöst → fs.watch beendet die
-  // async-iteration → kein Watcher überlebt einen Test-Teardown und
-  // klassifiziert ein rmSync(tmpdir) als "restart needed".
+  // stop() aborts watcherAbort, which ends fs.watch's async iteration. This
+  // prevents a watcher from surviving test teardown and classifying an
+  // rmSync(tmpdir) as "restart needed".
   const watcherAbort = new AbortController();
   if (entries.length > 0) {
-    // Watch-Dirs: alle entry-Verzeichnisse (deduped) plus die explizit
-    // angegebenen watchDirs. In Multi-Entry-Setups liegen die Entries
-    // oft im selben src/-Verzeichnis (`src/client-admin.tsx` +
-    // `src/client-public.tsx`) — der Set kollabiert das auf einen
-    // Watcher pro Verzeichnis.
+    // Watch directories: all entry directories (deduplicated) plus the explicit
+    // watchDirs. In multi-entry setups, entries often share a src/ directory
+    // (`src/client-admin.tsx` + `src/client-public.tsx`), so the Set keeps
+    // one watcher per directory.
     const entryDirs = new Set<string>();
     for (const e of entries) entryDirs.add(resolve(e.sourceFile, ".."));
     const entrySourceFiles = new Set(entries.map((e) => resolve(e.sourceFile)));
@@ -1379,10 +1348,9 @@ export async function createKumikoServer(
             process.exit(75);
           }
           try {
-            // Alle Entries rebuilden — auch wenn nur eine Datei sich
-            // ändert, wir wissen nicht welche Entries sie importieren.
-            // Bei zwei Entries mit shared Code triggert ein Edit der
-            // gemeinsamen Datei beide Bundles neu, das ist gewollt.
+            // Rebuild all entries—even when only one file changes, because we do not
+            // know which entries import it. With shared code, an edit triggers
+            // both bundles; this is intentional.
             for (const e of entries) {
               const rebuilt = await buildBundle(e.sourceFile);
               clientBundles.set(e.name, rebuilt);
@@ -1423,9 +1391,8 @@ export async function createKumikoServer(
   };
 
   const stop = async (): Promise<void> => {
-    // Watcher zuerst stoppen damit kein onChange während des Teardowns
-    // mehr feuert (sonst können tmpdir-rmSync ein process.exit(75)
-    // auslösen).
+    // Stop the watcher first so no onChange callback runs during teardown;
+    // otherwise removing the temporary directory could trigger process.exit(75).
     watcherAbort.abort();
     if (killTailwind) killTailwind();
     if (server !== undefined) {
@@ -1441,12 +1408,11 @@ export async function createKumikoServer(
   };
 
   // --- graceful shutdown ---
-  // Signal handlers fire on Ctrl-C / kill. Without them, repeated dev
-  // restarts leak Postgres pools, lassen Tailwind-Watcher als orphan
-  // hängen und (in persistent mode) hinterlassen temp Clients.
-  // uncaughtException + unhandledRejection: Crashes hatten den Tailwind-
-  // Watcher nicht gekillt, der lief munter weiter im Hintergrund. Jetzt
-  // räumen wir auch im Fehlerfall auf bevor wir mit non-zero exit'n.
+  // Signal handlers run on Ctrl-C / kill. Without them, repeated dev
+  // restarts leak Postgres pools, leave the Tailwind watcher as an orphan,
+  // and leave temporary clients behind in persistent mode.
+  // uncaughtException and unhandledRejection previously left the Tailwind
+  // watcher running in the background; clean it up before exiting nonzero.
   const installHandlers = options.installSignalHandlers ?? true;
   if (installHandlers) {
     for (const sig of ["SIGINT", "SIGTERM"] as const) {

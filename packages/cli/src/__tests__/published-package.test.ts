@@ -1,7 +1,6 @@
 // Proves the PUBLISHED tarball ships the `kumiko` bin with agent/project/
 // consumer wired in — not just that the source files exist locally. Packs,
-// unpacks and installs the package like npm would, then runs the real bin
-// (#2707).
+// unpacks and installs the package like npm would, then runs the real bin.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -50,7 +49,7 @@ function pathEntryExists(path: string): boolean {
 
 // Workspace hoisting installs @cosmicdrift/* into the parent workspace's
 // node_modules, not this repo's, so a fixed `<repo>/node_modules` path is
-// only right for a standalone clone (#3021). Walk up like node's resolver,
+// only right for a standalone clone. Walk up like node's resolver,
 // but never past the outermost workspace root: a stray ~/node_modules must
 // not be picked up as the install.
 function installedPackageDir(name: string): string {

@@ -234,9 +234,9 @@ describe("baselineCounts", () => {
 
 // Cross-package @source coverage: a consuming app (studio, publicstatus, …)
 // must @source every Framework/Enterprise package it imports that ships
-// .tsx className usage — reproduces the studio#289 (kumiko-designer) and
-// publicstatus#442 (kumiko-ai-agent) cases as an isolated fixture instead of
-// depending on real sibling checkouts on disk.
+// .tsx className usage — reproduces the kumiko-designer and kumiko-ai-agent
+// cases as an isolated fixture instead of depending on real sibling checkouts
+// on disk.
 describe("scanSourceCoverage", () => {
   function makeAppFixture(opts: {
     readonly dependencyName: string;
@@ -475,7 +475,7 @@ describe("scanSourceCoverage — @import chain resolution", () => {
   });
 });
 
-// Fourth rule (studio#289 follow-up): an @source line can already resolve on
+// Fourth rule: an @source line can already resolve on
 // disk and still match nothing once the referenced package is installed from
 // a registry instead of a workspace symlink — the symlink exposes the
 // package's full source checkout, a registry tarball only ships what its
@@ -578,7 +578,7 @@ describe("scanPublishedScanSurface", () => {
   });
 
   // The whole point of the rule: this must be a hard failure, not a
-  // warning — a warning is exactly what let studio#289 through unnoticed.
+  // warning — a warning is exactly what let the problem go unnoticed.
   test("a src-only glob is a real GuardOutcome violation via analyse(), not just a console warning", () => {
     const { root, cleanup } = makePublishedSurfaceFixture({
       filesField: ["dist"],

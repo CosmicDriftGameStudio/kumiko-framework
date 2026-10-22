@@ -1,10 +1,10 @@
-// Production-Behavior von `kumiko schema apply` (runSchemaApply): der
-// migrate-initContainer ruft das gegen eine frische CNPG-DB. Der riskante,
-// neue Teil gegenüber dem alten per-App-Boilerplate ist der Greenfield-
-// Bootstrap — Infra-Tabellen (event-store + pipeline-state) MÜSSEN vor den
-// App-Migrations idempotent angelegt werden, sonst bricht eine leere DB an
-// `relation "kumiko_events" does not exist`. Dieser Test fährt den echten
-// Pfad gegen eine leere DB + den idempotenten Re-Run.
+// Production behavior of `kumiko schema apply` (`runSchemaApply`): the
+// migrate-initContainer runs this against a fresh CNPG database. The risky
+// new part compared with the former per-app boilerplate is the greenfield
+// bootstrap: infrastructure tables (event store + pipeline state) MUST be
+// created idempotently before app migrations; otherwise an empty database
+// fails with `relation "kumiko_events" does not exist`. This test exercises
+// the real path against an empty database and the idempotent re-run.
 
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -56,8 +56,8 @@ beforeAll(async () => {
   process.env["DATABASE_URL"] = testUrl;
   conn = createDbConnection({ url: testUrl });
 
-  // Greenfield erzwingen: createTestDb legt kumiko_events bereits an —
-  // wegdroppen, damit runSchemaApply den Infra-Bootstrap echt durchläuft.
+  // Force a greenfield database: createTestDb already creates kumiko_events, so
+  // drop it to ensure runSchemaApply actually executes the infrastructure bootstrap.
   const raw = asRawClient(conn.db);
   await raw.unsafe(`DROP TABLE IF EXISTS "kumiko_events" CASCADE`);
   await raw.unsafe(`DROP TABLE IF EXISTS "kumiko_event_consumers" CASCADE`);

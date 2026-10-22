@@ -5,9 +5,8 @@
  *
  * `getUnscopedAggregateStreamMaxVersion` / `getUnscopedAggregateStreamTenant`
  * (packages/framework/src/event-store/event-store.ts) have no tenant
- * filter — they are an existence oracle for foreign tenants (see
- * kumiko-framework#1269). Legitimate only for seed-/system-internal code
- * that deliberately works across tenants.
+ * filter — they are an existence oracle for foreign tenants. Legitimate only
+ * for seed-/system-internal code that deliberately works across tenants.
  *
  * Usage:
  *   bun guards/guard-restricted-symbols.ts

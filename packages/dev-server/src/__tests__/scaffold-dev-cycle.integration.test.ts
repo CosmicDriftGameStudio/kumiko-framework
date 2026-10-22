@@ -1,14 +1,13 @@
-// Phase-2 Validator (Plan-Doc create-kumiko-app.md, Risk #1): pinnt dass
-// setupTestStack auf persistent DB einen Reboot mit erweitertem Feature-Set
-// überlebt — eine neue r.entity ohne Migration-CLI muss die Tabelle anlegen,
-// und ein bereits existierendes Entity darf nicht crashen (duplicate CREATE).
+// Verifies that setupTestStack survives a reboot with an expanded feature set
+// on a persistent DB: a new r.entity without the migration CLI must create its
+// table, while an existing entity must not crash because of a duplicate CREATE.
 //
-// Das ist der Pfad den `bun dev` mit KUMIKO_DEV_DB_NAME triggert: der
-// Dev-User editiert src/features/notes.ts, `bun --watch` rebootet den Process,
-// runDevApp ruft createKumikoServer → setupTestStack mit denselben DB-Name
-// auf, und das neue Notes-Entity muss als Tabelle erscheinen ohne dass der
-// User `kumiko schema apply` aufgerufen hat. Bricht der Filter in
-// push-entity-projection-tables (test-stack.ts:200-209), lügt der Dev-Flow.
+// This is the path triggered by `bun dev` with KUMIKO_DEV_DB_NAME: the developer
+// edits src/features/notes.ts, `bun --watch` reboots the process, and runDevApp
+// calls createKumikoServer → setupTestStack with the same DB name. The new Notes
+// entity must appear as a table without the developer running
+// `kumiko schema apply`. If the filter in push-entity-projection-tables
+// (test-stack.ts:200-209) breaks, the development flow gives a false result.
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { asRawClient, createDbConnection, tableExists } from "@cosmicdrift/kumiko-framework/db";
@@ -76,10 +75,10 @@ describe("scaffold dev cycle (Phase 2 Validator)", () => {
       await stack1.cleanup();
     }
 
-    // Boot 2: base + notes — simulates the Dev-User edit + bun --watch reboot.
-    // pushEntityProjectionTables MUSS phase2_base_thing skippen (existiert)
-    // und phase2_note neu anlegen — sonst crash auf duplicate CREATE TABLE
-    // oder die Notes-Tabelle fehlt.
+    // Boot 2: base + notes — simulates the developer edit + bun --watch reboot.
+    // pushEntityProjectionTables MUST skip phase2_base_thing (it exists)
+    // and create phase2_note — otherwise duplicate CREATE TABLE causes a crash
+    // or the Notes table is missing.
     const stack2: TestStack = await setupTestStack({
       features: [baseFeature, notesFeature],
       dbName,

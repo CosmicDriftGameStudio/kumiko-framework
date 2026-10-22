@@ -76,7 +76,7 @@ export type ActionFormScreenDefinition = {
    *  validator).
    *
    *  A `money` field here must name its own currency source: this screen
-   *  has no entity whose `defaultCurrency` it could inherit (fw#2839). */
+   *  has no entity whose `defaultCurrency` it could inherit. */
   readonly fields: Readonly<Record<string, FormFieldDefinition>>;
   /** Fields computed from other fields, shown read-only and recomputed on every
    *  change. A `listSum` over an empty list without `whenEmpty` leaves the field
@@ -127,7 +127,7 @@ export type ActionFormScreenDefinition = {
    *  The object form additionally names the success-payload field the
    *  navigation id comes from (`ActionFormRedirect.idFrom`) — needed when
    *  the handler creates a child record but the target screen is the
-   *  parent's detail screen (fw#2670). */
+   *  parent's detail screen. */
   readonly redirect?: string | ActionFormRedirect;
   /** Links shown in the success box after a successful submit while the
    *  screen stays put. Targets resolve like `redirect` (the id comes from the
@@ -184,7 +184,7 @@ export type ActionFormFooterAction = {
  *  id. The write-handler reports the id of what it wrote (`data.id`); when
  *  that record is a child and the target screen shows its parent, the
  *  parent id has to be read from a different field instead of forcing the
- *  handler to misreport its own result (fw#2670). */
+ *  handler to misreport its own result. */
 export type ActionFormRedirect = {
   /** Same target forms as the string `redirect`: short screen ID
    *  (same-feature) or a fully-qualified cross-feature screen QN. */

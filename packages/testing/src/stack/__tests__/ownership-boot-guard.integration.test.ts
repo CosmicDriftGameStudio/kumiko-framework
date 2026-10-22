@@ -1,5 +1,5 @@
-// setupTestStack runs the ownership boot-guards (fw#2639 unqualified
-// where-fragments, fw#2626 where-rules on the write path). Before this, only
+// setupTestStack runs the ownership boot-guards for unqualified
+// where-fragments and where-rules on the write path. Before this, only
 // the prod boot ran validateBoot, so a feature with a broken access map came
 // through every test suite green and failed on the first real deploy.
 
@@ -16,7 +16,7 @@ import { setupTestStack } from "../test-stack.ts";
 
 // Bare `owner_id` inside the subquery binds to fwbootguard_shares, not to the
 // outer memo table — the predicate collapses into a tautology and grants every
-// row. This is the exact fail-open shape fw#2639 lints for.
+// row. This is the exact fail-open shape that the lint catches.
 const unqualifiedReadRule: WhereRule = {
   kind: "where",
   where: (user, ctx) => ({

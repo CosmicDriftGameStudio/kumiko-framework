@@ -195,7 +195,7 @@ export type StoreTableOptions = {
   /** Direct-write stores skip the executor, so the executor's PII
    *  encryption never runs for them — a feature whose meta carries
    *  piiSubjectFields must encrypt those fields itself before every
-   *  insert/update and declare that here, or boot fails (#820). */
+   *  insert/update and declare that here, or boot fails. */
   readonly piiEncryptedOnWrite?: true;
 };
 
@@ -297,7 +297,7 @@ export type FeatureDefinition = {
   // if a step targets a non-listed table or one that's already an
   // r.entity-registered aggregate-table. See step-vocabulary.md Q10.
   readonly requiredProjections: ReadonlySet<string>;
-  // Tier-2 step kinds opted-in via r.requires.step("webhook.send"). Q9.
+  // Tier-2 step kinds opted-in via r.requires.step("webhook.send").
   readonly requiredSteps: ReadonlySet<string>;
   // Declared via r.toggleable({ default }). Presence makes the feature
   // operator-switchable via the feature-toggles bundled feature; absence
@@ -326,7 +326,7 @@ export type FeatureDefinition = {
   readonly translations: TranslationKeys;
   readonly hooks?: HookMap;
   readonly entityHooks?: EntityHookMap;
-  // F3 search-payload-extension — per-entity contributors that add flat fields
+  // Search-payload-extension — per-entity contributors that add flat fields
   // to the search-index payload during indexing. Keyed by entityName. Wrapped
   // in OwnedFn for feature-toggle filtering (consistent with postQuery-Hooks).
   readonly searchPayloadExtensions?: Readonly<
@@ -340,17 +340,17 @@ export type FeatureDefinition = {
   readonly extensionSelectors: readonly ExtensionSelectorDef[];
   /**
    * Cross-feature API names this feature exposes via `r.exposesApi(name)`.
-   * Pure Marker-Deklaration — die echte Implementation wird als
-   * Query-/Write-Handler unter dem QN-Pattern registriert (z.B.
-   * `compliance-profiles:query:effective-profile`). Boot-Validator prüft
-   * dass jedes `r.usesApi(name)` einen passenden Exposer hier findet —
-   * Tippfehler oder Drop-Refactorings werden zu Boot-Fail statt Runtime-Crash.
+   * Pure marker declaration — the implementation is registered separately as
+   * a query or write handler under the QN pattern (for example,
+   * `compliance-profiles:query:effective-profile`). The boot validator checks
+   * that every `r.usesApi(name)` finds a matching exposer, so typos or dropped
+   * refactors fail at boot instead of causing a runtime crash.
    */
   readonly exposedApis: ReadonlySet<string>;
   /**
-   * Cross-feature API names this feature calls. Pflicht-Boot-Check:
-   * jeder Eintrag muss in `exposedApis` irgendeines Features auftauchen
-   * UND das Provider-Feature muss in requires/optionalRequires sein.
+   * Cross-feature API names this feature calls. The boot check requires every
+   * entry to appear in some feature's `exposedApis` and the provider feature
+   * to be listed in requires/optionalRequires.
    */
   readonly usedApis: ReadonlySet<string>;
   /**
@@ -421,18 +421,18 @@ export type FeatureDefinition = {
   // dispatching, Pattern-AST consumers). The compile-time-typed surface
   // is the registrar's return value (TreeActionsHandle) which the
   // feature exports via setup-return — buildTarget consumes the handle,
-  // not this slot. See visual-tree.md A5 + A7.
+  // not this slot. See visual-tree.md.
   readonly treeActions?: Readonly<Record<string, TreeActionDef>>;
   // Content collections declared via r.contentCollection(). Keyed by the
   // feature-local short id. Each one also produced a nav entry under the
   // same id — this slot carries the `kind` the client needs to build the
   // matching tree provider, which a NavDefinition has no place for.
   readonly contentCollections?: Readonly<Record<string, ContentCollectionDefinition>>;
-  // HTTP-Routes declared via r.httpRoute(). Index is "METHOD path"
-  // (z.B. "GET /feed.xml") — eindeutig pro Feature. Die App-Server-
-  // Boot-Stage iteriert getAllHttpRoutes() und mountet jede Route auf
-  // den Hono-app (außerhalb /api/*). Pattern symmetrisch zu queryHandlers/
-  // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
+  // HTTP routes declared via r.httpRoute(). The index is "METHOD path"
+  // (for example, "GET /feed.xml") and is unique per feature. The app-server
+  // boot stage iterates getAllHttpRoutes() and mounts each route on the Hono
+  // app outside /api/*. The pattern mirrors queryHandlers/writeHandlers:
+  // routes belong to the feature, not the bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
   // WebSocket routes declared via r.webSocketRoute(), keyed by path.
   readonly webSocketRoutes: Readonly<Record<string, WebSocketRouteDefinition>>;
@@ -447,7 +447,7 @@ export type FeatureDefinition = {
   // Declared via `r.envSchema(z.object({...}))`. `composeEnvSchema` reads
   // this to build one app-wide schema for boot-validation + dry-run
   // rendering. Absence means the feature reads no env-vars (or hasn't
-  // been migrated yet — Sprint-9 migration is add-only per phase).
+  // been migrated yet — migration is add-only per phase).
   readonly envSchema?: z.ZodObject<z.ZodRawShape>;
   // Factory guarantee: two instances with shallow-equal dedupeOptions are interchangeable.
   // Compared with Object.is per key: values must be primitives or stable function
@@ -529,7 +529,7 @@ export type HookDefinition =
  */
 export type RequiresApi = ((options: { readonly features: readonly string[] }) => void) & {
   readonly projection: (tableName: string) => void;
-  // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
+  // Tier-2 step opt-in. Tier-1 implicit, Tier-2 must be declared.
   readonly step: (stepKind: string) => void;
 };
 
@@ -609,7 +609,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    */
   hook(definition: HookDefinition): void;
 
-  // F3 — Search-Payload-Extension: contributor function adds flat fields to
+  // Search-Payload-Extension: contributor function adds flat fields to
   // an entity's search-index document. Fires synchronously during
   // buildSearchDocument indexing. Use-case: custom-fields-bundle merging
   // customFields-jsonb-keys flat into search-doc; tags-bundle projecting
@@ -680,15 +680,15 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // if the chain from 1 to `version` has gaps. Migrations were formerly a
   // separate r.eventMigration() call; folded in here because an event and
   // its schema evolution are one lifecycle, not two registrar concepts
-  // (#1082 step 8) — transforms are pure functions (old payload in, new
+  // — transforms are pure functions (old payload in, new
   // payload out) and run once per read, not once per event persisted, so
   // keep them cheap.
   //
-  // `options.piiFields` is a mandatory, explicit PII stance (fw#2558) —
+  // `options.piiFields` is a mandatory, explicit PII stance —
   // registration fails without one. Pass a map of payload fields to their
   // owning subject via `{ personal: { of: "<ownerField>" } }` (the older
   // `{ subjectField: "<ownerField>" }` form still works) for fields carrying
-  // personal data (encrypted under that user's DEK, crypto-shredding #799),
+  // personal data (encrypted under that user's DEK, crypto-shredding),
   // or `"none"` to declare the payload holds no personal data. append()
   // enforces the resulting catalog on every write path.
   //
@@ -696,7 +696,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // also say what happens on those writes — `whenAbsent: "tenant"` encrypts
   // under the envelope tenant key, `whenAbsent: "plaintext"` acknowledges an
   // unshreddable value. Registration fails without one, and an owner that is
-  // empty at append time with no declared fallback aborts the write (fw#2776).
+  // empty at append time with no declared fallback aborts the write.
   defineEvent<const TInner extends string, TPayload>(
     name: TInner,
     schema: ZodType<TPayload>,
@@ -758,21 +758,21 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   ): void;
 
   /**
-   * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
-   * unter dem genannten Namen bereit. Die eigentliche Implementation
-   * wird separat als Query- oder Write-Handler unter dem QN-Pattern
-   * registriert; `r.exposesApi` ist reine Boot-Check-Surface.
+   * Marker declaration: this feature provides a cross-feature API under the
+   * given name. The implementation is registered separately as a query or
+   * write handler under the QN pattern; `r.exposesApi` is only a boot-check
+   * surface.
    *
-   * Boot-Validator prüft, dass jedes `r.usesApi(name)` einen passenden
-   * Exposer findet, dass das Exposer-Feature in requires/optionalRequires
-   * gelisted ist und dass kein API-Name doppelt exposed wird.
+   * The boot validator checks that every `r.usesApi(name)` finds a matching
+   * exposer, that the exposer feature is listed in requires/optionalRequires,
+   * and that no API name is exposed more than once.
    *
    * ```ts
    * defineFeature("compliance-profiles", (r) => {
    *   r.exposesApi("compliance.forTenant");
    *   r.queryHandler({
    *     name: "compliance:query:for-tenant",
-   *     // ... echte Implementation
+   *     // ... actual implementation
    *   });
    * });
    * ```
@@ -780,9 +780,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   exposesApi(apiName: string): void;
 
   /**
-   * Declares that this feature calls a cross-feature API. Boot-Validator
-   * checkt dass irgendein anderes Feature `r.exposesApi(apiName)` macht
-   * und dass dieses Feature `r.requires/optionalRequires` darauf hat.
+   * Declares that this feature calls a cross-feature API. The boot validator
+   * checks that another feature provides `r.exposesApi(apiName)` and that
+   * this feature lists it in `r.requires/optionalRequires`.
    *
    * ```ts
    * defineFeature("user-data-rights", (r) => {
@@ -801,9 +801,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    * Use for cross-feature invariants that `r.requires` can't express
    * because they're conditional (only fail when the feature has a
    * specific shape), e.g. "if this feature has PII entities, some
-   * user-data-hook feature must be mounted" (the prompt-store trap,
-   * kumiko-enterprise#229 — a UserData feature was written but never
-   * mounted, and nothing caught it at boot):
+   * user-data-hook feature must be mounted" (the prompt-store trap —
+   * a UserData feature was written but never mounted, and nothing caught
+   * it at boot):
    *
    * ```ts
    * defineFeature("prompt-store", (r) => {
@@ -906,7 +906,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // the registry qualifies to "<feature>:screen:<id>". Boot-validation checks
   // that entity-bound screens reference a registered entity and that the
   // columns / form-field refs name real fields — cross-feature component-QN
-  // validation (r.uiComponent) comes in M4/M5. Optional `nav` field is
+  // validation (r.uiComponent) comes later. Optional `nav` field is
   // sugar for a single nav entry pointing at this screen — equivalent to
   // a standalone r.nav({ id: <same id>, screen: "<feature>:screen:<id>", ... }).
   screen(definition: ScreenDefinition): void;
@@ -986,7 +986,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   //
   // Without this typed return, the action-map collapses to
   // `Record<string, TreeActionDef>` at the buildTarget call-site and
-  // every action becomes accept-anything-string. See visual-tree.md A5.
+  // every action becomes accept-anything-string. See visual-tree.md.
   //
   // The runtime FeatureDefinition.treeActions slot stores the same map
   // as erased Record (registry lookup, Pattern-AST consumers).
@@ -1086,7 +1086,7 @@ export type Registry = {
     entityName: string,
     effectiveFeatures?: ReadonlySet<string>,
   ): readonly PostQueryHookFn[];
-  // F3 — contributors for an entity's search-doc-payload, fired during
+  // Contributors for an entity's search-doc-payload, fired during
   // buildSearchDocument indexing. See `SearchPayloadContributorFn`.
   // `effectiveFeatures` filters out contributors owned by feature-toggle-
   // disabled features (parallel to other getters' filtering semantic).
@@ -1222,10 +1222,10 @@ export type Registry = {
   // the first workspace the user has access to.
   getDefaultWorkspace(): WorkspaceDefinition | undefined;
 
-  // Tree-Actions-Map des Features. Returns the erased Record (compile-
-  // time-typed handle wandert über setup-export, nicht hier). Die
-  // Content-Tree-Nav nutzt das für Runtime-Action-Lookup beim Klick auf
-  // einen TreeNode.target — der Resolver findet das Feature via
-  // TargetRef.featureId und holt sich die zugehörige Action-Definition.
+  // The feature's tree-actions map. Returns the erased Record; the
+  // compile-time-typed handle travels through the setup export instead.
+  // Content-tree navigation uses this for runtime action lookup when a
+  // TreeNode.target is clicked — the resolver finds the feature through
+  // TargetRef.featureId and retrieves its action definition.
   getTreeActions(featureName: string): Readonly<Record<string, TreeActionDef>> | undefined;
 };

@@ -52,7 +52,7 @@ describe("runWorkerApp boot-mode", () => {
   });
 
   test("ensureTemporalPolyfill runs even in boot-mode — Temporal is defined right after boot validation", async () => {
-    // Regression pin for fw#1725: the bug that cost real time was a
+    // The bug that cost real time was a
     // missing polyfill call. Boot-mode boots without running any job —
     // this test only proves "the polyfill call happens"; the ordering-
     // before-composeFeatures guarantee is covered by the integration
@@ -146,7 +146,7 @@ describe("runWorkerApp boot-mode", () => {
     // Reach-the-boot proof, not an acceptance proof: the probe feature's
     // single "anonymous" handler makes warnOnUniqueAccessRoles emit a
     // warning naming that role, and validateBoot emits it only when the
-    // option arrives (fw#3080).
+    // option arrives.
     const originalLog = console.log;
     console.log = () => {};
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});

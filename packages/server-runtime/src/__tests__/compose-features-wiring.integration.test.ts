@@ -1,25 +1,21 @@
-// Wrapper-spezifischer Integration-Test für composeFeatures + auth-routes-
-// Verdrahtung. Ergänzt password-reset.integration.ts (das das Feature
-// direkt instantiiert) — hier wird der EXAKTE Bootstrap-Pfad gefahren den
-// runProdApp / runDevApp produzieren:
+// Wrapper-specific integration test for composeFeatures and auth-routes wiring.
+// Unlike password-reset.integration.ts, which instantiates the feature directly,
+// this exercises the exact bootstrap path produced by runProdApp / runDevApp:
 //
 //   composeFeatures([], { includeBundled: true, authOptions: {...} })
 //     → setupTestStack(features=..., authConfig=...)
 //     → POST /api/auth/request-password-reset
 //
-// Bug-Pattern den dieser Test pinst: composeFeatures.authOptions wird
-// NICHT an createAuthEmailPasswordFeature durchgereicht → routes mounten
-// (auth-routes-config tut das blind), aber die request-password-reset/
-// reset-password Handler fehlen im Feature → dispatcher kennt den
-// QualifiedName nicht → 5xx in Production. Whitebox-Variante in
-// compose-features.test.ts checkt nur Object.keys(writeHandlers); dieser
-// Test fährt den vollen HTTP-Roundtrip und kann den dispatch-error nicht
-// übersehen.
+// This catches the failure where composeFeatures.authOptions is not passed to
+// createAuthEmailPasswordFeature: routes still mount, but the request-password-reset
+// and reset-password handlers are missing, so dispatch cannot resolve the
+// QualifiedName and production returns 5xx. The white-box test in
+// compose-features.test.ts only checks Object.keys(writeHandlers); this test
+// exercises the complete HTTP round trip and cannot miss the dispatch error.
 //
-// Kein Mocking: setupTestStack bootet echte DB + Redis. reset/verify mailen
-// via delivery (ctx.notify → channel-email); der In-Memory-Transport fängt
-// die echte Mail ab — gewollter Capture ohne Mock-API (CLAUDE.md "Kein Mock
-// in *.integration.ts").
+// No mocking: setupTestStack starts real DB and Redis services. Reset and
+// verification send mail through delivery (ctx.notify → channel-email), while
+// the in-memory transport captures the real message without a mock API.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -91,9 +87,9 @@ async function bootStack(
 ): Promise<{ stack: TestStack; emailTransport: ReturnType<typeof createInMemoryTransport> }> {
   const emailTransport = createInMemoryTransport();
 
-  // Genau das was runProdApp/runDevApp machen würde — composeFeatures als
-  // single-source der Feature-Liste. delivery + channel-email kommen als
-  // App-Features dazu, weil reset/verify ihre Mail via ctx.notify schicken.
+  // Matches runProdApp/runDevApp: composeFeatures is the single source of the
+  // feature list. delivery and channel-email are added as app features because
+  // reset and verification send mail through ctx.notify.
   const features = composeFeatures(
     [
       createTemplateResolverFeature(),
@@ -133,8 +129,8 @@ async function bootStack(
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
-      // Routes IMMER mounten — egal welche authOptionsKind. Genau das
-      // ist die Bug-Bedingung: Routes da, Handler eventuell nicht.
+      // Routes always mount, regardless of authOptionsKind. This is the bug
+      // condition: routes exist while their handlers may be missing.
       passwordReset: {
         requestHandler: AuthHandlers.requestPasswordReset,
         confirmHandler: AuthHandlers.resetPassword,
@@ -278,11 +274,9 @@ describe("composeFeatures wiring — passwordReset", () => {
   });
 
   test("full reset roundtrip: request → email → reset → login with new password", async () => {
-    // Beweis: composeFeatures(authOptions.passwordReset) hat den Handler
-    // im Feature registriert UND auth-routes hat die /api/auth/...-Routes
-    // gemountet — der Wrapper-Pfad ist konsistent. password-reset.
-    // integration.ts beweist das gleiche für direkten Feature-Aufruf;
-    // dieser Test pinst dass der Wrapper das Pattern repliziert.
+    // Verifies that composeFeatures(authOptions.passwordReset) registers the
+    // handler in the feature and mounts the /api/auth/... routes, so the wrapper
+    // path is consistent with the direct feature path.
     await seedUser(suite.stack, { email: "alice@example.com", password: "old-password-1234" });
 
     const requestRes = await suite.stack.http.raw("POST", "/api/auth/request-password-reset", {
@@ -294,9 +288,8 @@ describe("composeFeatures wiring — passwordReset", () => {
     if (!sent) throw new Error("no email sent");
     expect(sent.to).toBe("alice@example.com");
 
-    // Token aus der Mail-URL extrahieren — wie der echte User es täte (Mail
-    // klicken, Browser parsed query-string). Das pinst den vollen
-    // URL-zu-Handler-Roundtrip über delivery.
+    // Extracts the token from the mail URL as a real user would, exercising the
+    // complete URL-to-handler round trip through delivery.
     const resetUrl = tokenUrlFromMailText(sent.text ?? "");
     expect(`${resetUrl.origin}${resetUrl.pathname}`).toBe(APP_RESET_URL);
     const token = resetUrl.searchParams.get("token");
@@ -309,10 +302,8 @@ describe("composeFeatures wiring — passwordReset", () => {
     });
     expect(resetRes.status).toBe(200);
 
-    // Confirmation: das neue Passwort funktioniert für /api/auth/login.
-    // Das ist der echte End-to-End-Beweis (DB-Read würde nur
-    // password_hash != old verifizieren — hier prüfen wir die User-
-    // visible Konsequenz).
+    // The new password works for /api/auth/login, proving the user-visible
+    // end-to-end result rather than merely checking that password_hash changed.
     const loginRes = await suite.stack.http.raw("POST", "/api/auth/login", {
       email: "alice@example.com",
       password: "brand-new-pw-9876",
@@ -351,9 +342,8 @@ describe("composeFeatures wiring — emailVerification", () => {
   });
 
   test("emailVerification authOption durchgereicht → request handler dispatched", async () => {
-    // Symmetric zum reset-Test — pinst dass authOptions.emailVerification
-    // genauso durchgereicht wird wie passwordReset. Bug-Pattern wäre dass
-    // der Wrapper EINS funktioniert, ANDERES vergisst.
+    // Verifies that authOptions.emailVerification is forwarded in the same way as
+    // passwordReset; the failure case is forwarding one option but not the other.
     await seedUser(suite.stack, { email: "bob@example.com", password: "any-pw-1234" });
 
     const res = await suite.stack.http.raw("POST", "/api/auth/request-email-verification", {
@@ -371,13 +361,9 @@ describe("composeFeatures wiring — emailVerification", () => {
 });
 
 describe("composeFeatures wiring — asymmetric activation", () => {
-  // Pinst dass passwordReset und emailVerification UNABHÄNGIG durchgereicht
-  // werden. Bug-Pattern: ein Refactor des Helpers könnte einen Block
-  // versehentlich an den anderen koppeln (z.B. emailVerification nur
-  // durchreichen wenn passwordReset auch gesetzt ist) — dann würde eine
-  // App die NUR Reset-Flow will plötzlich keine Reset-Mails mehr kriegen,
-  // oder eine die NUR Verify-Flow will keine Verify-Mails. Asymmetric-
-  // activation ist also ein eigenständiger Wrapper-Vertrag.
+  // Verifies that passwordReset and emailVerification are forwarded independently.
+  // A refactor must not couple the options, because an app enabling only one flow
+  // must not lose that flow's handlers or mail.
 
   let suite: Awaited<ReturnType<typeof bootStack>>;
 
@@ -398,17 +384,16 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   test("nur passwordReset gesetzt → reset-flow live, verify-flow fail-closed", async () => {
     await seedUser(suite.stack, { email: "alice@example.com", password: "any-pw-1234" });
 
-    // Reset-flow funktioniert: Mail wird produziert.
     const resetRes = await suite.stack.http.raw("POST", "/api/auth/request-password-reset", {
       email: "alice@example.com",
     });
     expect(resetRes.status).toBe(200);
     expect(suite.emailTransport.sent).toHaveLength(1);
 
-    // Verify-Routes sind in dieser bootStack-Variante NICHT gemounted
-    // (authConfig.emailVerification fehlt). Der Endpoint existiert also
-    // gar nicht — Hono returnt 404. Unterscheidet sich vom 200-silent-
-    // success-Pfad: hier ist die ROUTE selbst nicht da. Kein zweites Mail.
+    // This bootStack variant does not mount verification routes because
+    // authConfig.emailVerification is absent. The endpoint therefore returns 404,
+    // rather than the enumeration-safe 200 response from a mounted route, and no
+    // second mail is sent.
     const verifyRes = await suite.stack.http.raw("POST", "/api/auth/request-email-verification", {
       email: "alice@example.com",
     });
@@ -418,12 +403,12 @@ describe("composeFeatures wiring — asymmetric activation", () => {
 });
 
 describe("composeFeatures wiring — accountLockout (kumiko-framework#1627)", () => {
-  // Pinst dass authOptions.accountLockout genauso durchgereicht wird wie
-  // passwordReset/emailVerification — der Bug-Fall war, dass runDevApp die
-  // Option gar nicht erst annahm (kein Feld auf RunDevAppAuthOptions) und
-  // buildComposeAuthOptions sie ignoriert hätte, selbst wenn doch. Anders als
-  // reset/verify mountet accountLockout keine eigenen Routes — der Beweis
-  // ist Login-Verhalten, kein Mail-Capture.
+  // Verifies that authOptions.accountLockout is forwarded like
+  // passwordReset and emailVerification. The regression was that runDevApp did
+  // not accept the option at all (no field on RunDevAppAuthOptions) and
+  // buildComposeAuthOptions would have dropped it anyway. Unlike those flows,
+  // accountLockout has no dedicated routes, so login behavior proves that the
+  // option reached createLoginHandler's accountLockout parameter.
   let stack: TestStack;
   const MAX_ATTEMPTS = 2;
 
@@ -487,19 +472,15 @@ describe("composeFeatures wiring — accountLockout (kumiko-framework#1627)", ()
 });
 
 describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
-  // Der Bug den der Review-Agent gefangen hat. Whitebox-Variante in
-  // compose-features.test.ts checkt nur Object.keys(writeHandlers); hier
-  // pinst der Test das User-visible Verhalten: WENN user existiert + POST
-  // request-password-reset gefeuert wird, MUSS der Wrapper-Pfad eine Mail
-  // produzieren. Tut er das nicht, ist der composeFeatures-authOptions-
-  // Bug zurück.
+  // The white-box variant in compose-features.test.ts only checks
+  // Object.keys(writeHandlers); this verifies the user-visible behavior: when the user exists and
+  // POST request-password-reset is called, the wrapper path must produce a mail.
+  // Otherwise the missing mail identifies a composeFeatures-authOptions failure.
   //
-  // Subtilität: auth-routes mountet die request-Route by-design als
-  // enumeration-safe (always-200, silently swallow handler-Failures —
-  // siehe registerTokenRequestRoute in auth-routes.ts). Ein fehlender
-  // Handler endet daher nicht in 4xx/5xx, sondern silent in "200 + 0
-  // mails". Genau das pinnt dieser Test gegen die Regression: ohne
-  // resetEmails-Capture als Counter-Evidence wäre der Bug unsichtbar.
+  // The request route is enumeration-safe by design (always-200 and silently
+  // swallows handler failures; see registerTokenRequestRoute in auth-routes.ts).
+  // A missing handler therefore produces "200 + 0 mails" rather than 4xx/5xx,
+  // so the captured mail count is required to detect the regression.
 
   let suite: Awaited<ReturnType<typeof bootStack>>;
 
@@ -518,21 +499,17 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   });
 
   test("authOptions fehlt → POST returnt enumeration-safe 200, ABER NULL Mails (der echte Bug-Beweis)", async () => {
-    // User EXISTIERT — das pinst dass die fehlende Mail auf dem
-    // composeFeatures-bug beruht, nicht auf "user not found"
-    // (welcher legitim 0 mails produziert: enumeration-safety).
+    // The user exists, proving that the missing mail is caused by the
+    // composeFeatures configuration rather than enumeration-safe user lookup.
     await seedUser(suite.stack, { email: "noop@example.com", password: "any-pw-1234" });
 
     const res = await suite.stack.http.raw("POST", "/api/auth/request-password-reset", {
       email: "noop@example.com",
     });
 
-    // 200 ist by-design (registerTokenRequestRoute swallowt handler-
-    // Failures). Bug-Beweis ist die fehlende Mail — wenn der "with-both"-
-    // Test 1 Mail bekommt und dieser Test 0 bekommt für denselben
-    // existierenden User, ist die Differenz EXAKT der composeFeatures-
-    // Bug. Diese Asymmetrie zwischen den beiden describe-Blöcken IST
-    // der Test.
+    // 200 is expected because registerTokenRequestRoute swallows handler failures.
+    // The missing mail is the failure signal: compared with the with-both case,
+    // zero mails for the same existing user isolates the composeFeatures bug.
     expect(res.status).toBe(200);
     expect(suite.emailTransport.sent).toHaveLength(0);
   });

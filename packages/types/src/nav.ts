@@ -39,21 +39,21 @@ export type NavDefinition = {
   // ("<feature>:screen:<id>"). Omit for pure grouping entries (a parent-only
   // nav node that renders a sub-tree but has no target screen itself).
   readonly screen?: string;
-  // Polymorphes Klick-Ziel (öffnet die EditorPanel-Maske via Target-
-  // Resolver) — Alternative zu `screen`. Ein Knoten trägt screen XOR
-  // target; der Renderer dispatcht das target statt einen Route-Link zu
-  // rendern. Gespiegelt aus dem alten Visual-Tree (TreeNode.target).
+  // Polymorphic click target (opens the EditorPanel via the Target-
+  // Resolver) — an alternative to `screen`. A node carries either `screen` or
+  // `target`; the renderer dispatches `target` instead of rendering a route
+  // link. Mirrored from the former visual tree (TreeNode.target).
   readonly target?: TargetRef;
-  // Hover-Actions rechts in der Zeile (VS-Code-Pattern) — erst bei Hover
-  // sichtbar. Reihenfolge wie deklariert.
+  // Hover actions on the right side of the row (VS Code pattern), visible only
+  // on hover. Order follows the declaration order.
   readonly actions?: readonly TreeAction[];
   // "+" affordance on the node. Click navigates to createAction.screen or
   // dispatches createAction.target; the provider knows what "create empty"
   // means for it (new page slug, etc.).
   readonly createAction?: TreeAction;
-  // Children kommen zur Laufzeit aus einem registrierten nav-provider
-  // (lazy beim Ausklappen, SSE-live via treeEntities), keyed auf diese
-  // Nav-QN. Macht den Knoten expandable auch ohne statische children.
+  // Children arrive at runtime from a registered nav provider (lazy on
+  // expansion, live via SSE through treeEntities), keyed by this nav QN. This
+  // makes the node expandable without static children.
   readonly provider?: boolean;
   // Role / openToAll gate. The nav resolver hides entries the user can't
   // reach; leave unset to always show (engine stays un-opinionated about

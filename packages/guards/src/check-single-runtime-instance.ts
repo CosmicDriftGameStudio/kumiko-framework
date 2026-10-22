@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Single-Runtime-Instance Guard (kumiko-studio#229).
+ * Single-Runtime-Instance Guard.
  *
  * A Kumiko runtime library resolved at two versions in one bun.lock (a nested
  * copy under a feature package next to the top-level install) loads twice in

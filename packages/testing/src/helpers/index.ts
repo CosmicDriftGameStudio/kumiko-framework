@@ -4,9 +4,9 @@
 
 // The four cache/injection resets stay in their own modules (they close over
 // module-private state) and are only re-exported here — they are out of /crypto
-// and /db as of #1631. A production call to resetPiiSubjectKmsForTests() silently
-// switches the PII layer off, and subject-annotated fields are written in
-// plaintext from then on: no error, no log.
+// and /db. A production call to resetPiiSubjectKmsForTests() silently switches
+// the PII layer off, and subject-annotated fields are written in plaintext from
+// then on: no error, no log.
 export {
   resetBlindIndexKeyForTests,
   resetEntityFieldEncryptionCacheForTests,

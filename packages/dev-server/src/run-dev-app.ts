@@ -1,16 +1,16 @@
 // High-level dev-server wrapper for sample apps and showcases. In auth mode it
 // mixes in the standard features (config/user/tenant/auth-email-password),
-// wires AuthRoutesConfig plus the login error map and calls seedAdminGuarded()
-// in onAfterSetup, cutting a sample bootstrap from ~50 lines to 5-10.
+// wires AuthRoutesConfig plus the login error map, and calls seedAdminGuarded()
+// in onAfterSetup, reducing a sample bootstrap from roughly 50 lines to 5–10.
 //
-// Auto-mix passiert NUR im auth-mode. Ohne `auth`-Block bleibt der
-// Server im Auto-Mint-JWT-Modus (Dev-Default) und mischt nichts dazu —
-// Showcases die nur eine Domain demonstrieren wollen ohne Login-Flow
-// haben so nicht plötzlich vier zusätzliche Features in der Registry.
+// Auto-mixing occurs only in auth mode. Without an `auth` block, the server
+// remains in auto-mint-JWT mode (the dev default) and adds none of these
+// features. Showcases that demonstrate a single domain without a login flow
+// therefore do not unexpectedly gain four additional registry features.
 //
-// Wer maximale Kontrolle braucht (z.B. abweichende Auth-Wiring,
-// alternativer Membership-Query, eigener LoginRateLimiter): geht direkt
-// auf `createKumikoServer` aus @cosmicdrift/kumiko-dev-server.
+// For maximum control, such as custom auth wiring, a different membership
+// query, or a custom LoginRateLimiter, use `createKumikoServer` directly from
+// @cosmicdrift/kumiko-dev-server.
 
 import {
   AuthErrors,
@@ -122,10 +122,10 @@ import {
 } from "./resolve-dev-pii-kms.ts";
 import { renderWelcomeBanner } from "./welcome-banner.ts";
 
-// Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
-// brauchen. PasswordResetSetup / EmailVerificationSetup leben in
-// @cosmicdrift/kumiko-server-runtime (single source of truth) — hier nur
-// durchgereicht.
+// Re-exports the shared auth setup types so apps need only one import path.
+// PasswordResetSetup and EmailVerificationSetup live in
+// @cosmicdrift/kumiko-server-runtime (the single source of truth) and are
+// only forwarded here.
 export type {
   AccountLockoutSetup,
   AccountUnlockSetup,
@@ -162,16 +162,16 @@ export type RunDevAppAuthOptions = {
   /** Optional override of the login error → HTTP status map. Default
    *  maps invalidCredentials → 401, noMembership → 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
-  /** Auth-Mail-Convenience — symmetrisch zu RunProdAppAuthOptions.mail.
-   *  Verdrahtet alle 4 Mail-Flows aus env-SMTP + Standard-Templates;
-   *  hmacSecret = `JWT_SECRET`-env (Dev-Fallback wenn ungesetzt). Ohne
-   *  `SMTP_HOST`-env bleiben die Flows unverdrahtet (Null-Transport-Guard).
-   *  Explizite Flow-Setups gewinnen über den mail-Default. */
+  /** Auth-mail convenience, symmetric with RunProdAppAuthOptions.mail.
+   *  Wires all four mail flows from env-based SMTP settings and the default
+   *  templates; hmacSecret is the `JWT_SECRET` environment value, with a dev
+   *  fallback when unset. Without `SMTP_HOST`, the flows remain unwired
+   *  (the null-transport guard). Explicit flow setups override the mail default. */
   readonly mail?: AuthMailOptions;
-  /** Password-reset flow. Wenn gesetzt werden /api/auth/request-password-
-   *  reset + /api/auth/reset-password als Public-Routes gemounted UND
-   *  der request/confirm-Handler im auth-email-password-Feature wird
-   *  registriert. Symmetrisch zu RunProdAppAuthOptions.passwordReset. */
+  /** Password-reset flow. When set, mounts /api/auth/request-password-
+   *  reset and /api/auth/reset-password as public routes and registers the
+   *  request/confirm handlers in the auth-email-password feature. Symmetric
+   *  with RunProdAppAuthOptions.passwordReset. */
   readonly passwordReset?: PasswordResetSetup;
   /** Email-verification flow. Symmetric to passwordReset. */
   readonly emailVerification?: EmailVerificationSetup;
@@ -179,11 +179,11 @@ export type RunDevAppAuthOptions = {
   readonly signup?: SignupSetup;
   /** Tenant-invite flow (magic link). Symmetric. */
   readonly invite?: InviteSetup;
-  /** Account-unlock flow (#1266). Symmetric to RunProdAppAuthOptions. */
+  /** Account-unlock flow. Symmetric to RunProdAppAuthOptions. */
   readonly accountUnlock?: AccountUnlockSetup;
   /** Brute-force guard on the login handler (maxFailedAttempts,
    *  lockoutDurationMinutes). Mounts no routes. Symmetric to
-   *  RunProdAppAuthOptions.accountLockout (kumiko-framework#1627). */
+   *  RunProdAppAuthOptions.accountLockout. */
   readonly accountLockout?: AccountLockoutSetup;
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Symmetric to RunProdAppAuthOptions. */
@@ -198,7 +198,7 @@ export type RunDevAppAuthOptions = {
   /** Opt out of the Origin guard. Symmetric to RunProdAppAuthOptions. */
   readonly unsafeSkipOriginCheck?: boolean;
   /** Number of trusted reverse-proxy hops for client-IP derivation (see
-   *  AuthRoutesConfig.trustedProxyHops, kumiko-framework#1539). Symmetric to
+   *  AuthRoutesConfig.trustedProxyHops). Symmetric to
    *  RunProdAppAuthOptions — dev usually runs unproxied, so this is normally
    *  left unset (default 0). */
   readonly trustedProxyHops?: number;
@@ -218,9 +218,9 @@ export type RunDevAppSeedsConfig = Omit<ProdSeedsConfig, "run"> & {
 };
 
 export type RunDevAppOptions = {
-  /** App-spezifische Features. Im auth-mode werden config/user/tenant/
-   *  auth-email-password automatisch dazu gemischt — KEIN doppeltes
-   *  manuelles Hinzufügen nötig. */
+  /** App-specific features. In auth mode, config/user/tenant/
+   *  auth-email-password are mixed in automatically, so they must not be
+   *  added manually as well. */
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
@@ -240,38 +240,39 @@ export type RunDevAppOptions = {
    *  through `runDevApp` show the same resolved head prod does. See
    *  `CreateKumikoServerOptions.resolvePageHead` for the full contract. */
   readonly resolvePageHead?: PageHeadResolver;
-  /** CSS-Entry. Default: package-export `@cosmicdrift/kumiko-renderer/web/styles.css`
-   *  wenn ein client-Entry gesetzt ist. `false` deaktiviert die CSS-Pipeline. */
+  /** CSS entry. Defaults to the package export
+   *  `@cosmicdrift/kumiko-renderer/web/styles.css` when a client entry is set.
+   *  `false` disables the CSS pipeline. */
   readonly stylesheet?: string | false;
   /** Tailwind `--watch` process on/off, see `CreateKumikoServerOptions.stylesheetWatch`. */
   readonly stylesheetWatch?: boolean;
-  /** Eigenes HTML-Template; sonst minimal-Default (#root + client.js).
-   *  Im Multi-Entry-Mode ist es das Fallback-Template, wenn ein einzelner
-   *  Entry kein eigenes htmlPath setzt. */
+  /** Custom HTML template; otherwise uses a minimal default (#root + client.js).
+   *  In multi-entry mode, this is the fallback template when an entry does not
+   *  define its own htmlPath. */
   readonly htmlPath?: string;
-  /** Listen-Port. Default 4173 (oder $PORT). */
+  /** Listening port. Defaults to 4173, or `$PORT` when set. */
   readonly port?: number;
-  /** Extra-Verzeichnisse für den File-Watcher (Trigger Hot-Reload). */
+  /** Additional directories for the file watcher to trigger hot reload. */
   readonly watchDirs?: readonly string[];
-  /** SIGINT/SIGTERM-Handler installieren (Default true; in Tests auf
-   *  false damit repeated boots keine Listener akkumulieren). */
+  /** Installs SIGINT/SIGTERM handlers. Defaults to true; tests can disable
+   *  them so repeated boots do not accumulate listeners. */
   readonly installSignalHandlers?: boolean;
   /** Auth mode: standard features mixed in, auth routes wired, seedAdminGuarded
    *  runs in onAfterSetup. Without `auth` the server stays in auto-mint JWT mode. */
   readonly auth?: RunDevAppAuthOptions;
-  /** Eigene Seed-Funktionen, laufen nach dem Admin (wenn auth) in
-   *  Array-Reihenfolge. */
+  /** App-defined seed functions, run after the admin seed when auth is active,
+   *  in array order. */
   readonly seeds?: readonly SeedFn[] | RunDevAppSeedsConfig;
-  /** Extra-AppContext-Keys. `templateResolver` (immer) + `secrets` (wenn das
-   *  secrets-Feature gemountet ist) + `configResolver` (auth-mode) werden
-   *  automatisch ergänzt — App-Werte gewinnen. Symmetrisch zu runProdApp. */
+  /** Additional AppContext keys. `templateResolver` is always added; `secrets`
+   *  is added when the secrets feature is mounted; and `configResolver` is
+   *  added in auth mode. App values take precedence. Symmetric with runProdApp. */
   /** Boot default locale (BCP-47) for ctx.locale when the request carries
    *  no locale signal. Merged into AppContext before extraContext (app wins). */
   readonly defaultLocale?: string;
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
-  /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
-   *  `createEnvMasterKeyProvider`. Override für KMS-Backends. Nur relevant
-   *  wenn das secrets-Feature gemountet ist. Symmetrisch zu runProdApp. */
+  /** MasterKeyProvider for the automatically wired `ctx.secrets`. Defaults to
+   *  `createEnvMasterKeyProvider`; override it for KMS backends. Only relevant
+   *  when the secrets feature is mounted. Symmetric with runProdApp. */
   readonly masterKey?: MasterKeyProvider;
   /** Subject KMS for PII-annotated fields, the dev counterpart of runProdApp({ kms }).
    *  Unset: an ephemeral DB gets an InMemoryKmsAdapter plus a throwaway blind-index key;
@@ -279,32 +280,33 @@ export type RunDevAppOptions = {
    *  createPgKmsAdapter against that DB there (in-memory DEKs vanish on restart).
    *  `false`: explicit plaintext, with the boot warning. */
   readonly kms?: KmsAdapter | false;
-  /** 32-Byte-Key (base64) für Blind-Index-HMACs — Pflicht sobald `kms`
-   *  gesetzt ist und lookupable-Felder gemountet sind (sonst Boot-Abbruch,
-   *  symmetrisch zu runProdApp). */
+  /** 32-byte base64 key for blind-index HMACs. Required when `kms` is set and
+   *  lookupable fields are mounted; otherwise boot aborts. Symmetric with
+   *  runProdApp. */
   readonly blindIndexKey?: string;
-  /** Env-Quelle für die ENV→config-app-override-Brücke (Keys mit `env:`
-   *  bekommen ihren env-Wert als app-override-Default — symmetrisch zu
-   *  runProdApp). Default `process.env`. Injizierbar als Test-Seam, damit
-   *  Tests eigene env-Werte reichen statt `process.env` global zu mutieren. */
+  /** Environment source for the ENV-to-config app-override bridge. Keys with
+   *  `env:` receive their environment value as the app-override default,
+   *  symmetric with runProdApp.
+   *  Defaults to `process.env`; injectable as a test seam so tests can provide
+   *  custom environment values without mutating the global `process.env`. */
   readonly envSource?: Record<string, string | undefined>;
-  /** Anonymous-Access für Public-Endpoints — Requests ohne JWT laufen
-   *  als Pseudo-User mit Rolle `anonymous` durch, wenn der Handler die
-   *  Rolle in `access.roles` führt. */
+  /** Anonymous access for public endpoints. Requests without a JWT proceed as
+   *  a pseudo-user with the `anonymous` role when the handler includes that
+   *  role in `access.roles`. */
   readonly anonymousAccess?: CreateKumikoServerOptions["anonymousAccess"];
   /** File-Storage-Provider — aktiviert die Upload-Routes (/api/files) +
    *  `ctx.files`. Demos: `{ storageProvider: createInMemoryFileProvider() }`. */
   readonly files?: CreateKumikoServerOptions["files"];
-  /** App-eigene HTTP-Routes (z.B. /feed.xml, /sitemap.xml) — wird ans
-   *  Hono-app gehängt, läuft VOR dem static-asset-Pfad. Symmetrisch zur
-   *  gleichnamigen Option in runProdApp. */
+  /** App-defined HTTP routes, such as /feed.xml and /sitemap.xml. They are
+   *  attached to the Hono app before the static-asset path. Symmetric with the
+   *  same-named option in runProdApp. */
   readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
   /** Framework-managed unsubscribe links and routes, same contract as
    *  `RunProdAppOptions.unsubscribe`; the link base URL comes from `auth.mail.baseUrl`
    *  or `APP_BASE_URL` (dev has no `auth.publicOrigin`). */
   readonly unsubscribe?: UnsubscribeOption;
   /** Hook for app-wired co-running components — symmetric to
-   *  runProdApp.wire (kumiko-framework#3050). */
+   *  runProdApp.wire. */
   readonly wire?: CreateKumikoServerOptions["wire"];
   /** Same as `RunProdAppOptions["mail"]`: mounts `channel-email` and wires the auth mail flows. */
   readonly mail?: MailBootOption;
@@ -342,10 +344,9 @@ export type RunDevAppOptions = {
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
-  // Auto-mix Standard-Features im auth-mode via composeFeatures (single
-  // source of truth — auch runProdApp und der per-app drizzle-Schema-
-  // Generator nutzen denselben Helper, damit Migration und Runtime nie
-  // auseinanderdriften können).
+  // Automatically mixes standard features in auth mode through composeFeatures.
+  // runProdApp and the per-app Drizzle schema generator use the same helper,
+  // keeping migrations and runtime feature composition aligned.
   const rawEnvSource = options.envSource ?? process.env;
   const seedsConfig =
     options.seeds !== undefined && !isSeedFnList(options.seeds) ? options.seeds : undefined;
@@ -394,9 +395,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     },
     ["featureToggles"],
   );
-  // auth.mail → normalisiert in die expliziten Flow-Felder (symmetrisch zu
-  // runProdApp). hmacSecret = JWT_SECRET-env (fail-fast, symmetrisch zu
-  // runProdApp). Ab hier IMMER effectiveAuth statt options.auth.
+  // Normalizes auth.mail into the explicit flow fields, symmetrically with
+  // runProdApp. hmacSecret is read from the JWT_SECRET environment value and
+  // fails fast when unavailable. From this point on, use effectiveAuth rather
+  // than options.auth.
   const effectiveAuth = options.auth
     ? resolveAuthMail(options.auth, requireEnv("JWT_SECRET", envSource, "runDevApp"), envSource, {
         mailConfigured: wiring.mailConfigured,
@@ -438,13 +440,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         ? { ...options.validateBootOptions, env: baseBootEnv }
         : options.validateBootOptions;
 
-  // Boot-Validation als allererstes — vor dem Server. Dieselbe
-  // Fehlerklasse (unqualifizierte nav-/handler-QNs, screen-access etc.),
-  // die früher nur runProdApp fing und sonst erst den Prod-Pod im
-  // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
-  // Socket aufgeht.
-  // Resolved before validateBoot: an app-supplied masterKey provider must satisfy the
-  // encrypted-field gate here exactly as it does in runProdApp.
+  // Run boot validation before creating the server. This catches the same
+  // errors runProdApp catches (unqualified navigation or handler QNs,
+  // screen-access violations), which would otherwise only show up as a prod pod
+  // in CrashLoopBackOff. It throws
+  // synchronously before a socket is opened.
+  // Resolve this before validateBoot: an app-supplied masterKey provider must
+  // satisfy the encrypted-field gate exactly as it does in runProdApp.
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   validateBoot(features, {
     ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
@@ -453,7 +455,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 
-  // Sprint-8a Tier-Composition auto-wire: scan features for a
+  // Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension and wire a late-bound wrapper here; it is
   // filled in onAfterSetup (where stack.db + stack.registry are available).
   // The global operator toggles layer over the same wrapper.
@@ -479,9 +481,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
             return tierResolverHolder.resolver(tenantId);
           },
           {
-            // Late-bind: der echte trialGate hängt erst nach plugin.build() am
-            // holder.resolver. Delegieren (nicht kopieren), weil dieses
-            // Wrapper-Closure vor build() konstruiert wird. Kein Trial → false.
+            // The real trialGate lands on holder.resolver only after plugin.build(). Delegate rather than
+            // copy it because this wrapper closure is created before build().
+            // Return false when no trial gate is available.
             trialGate: (tenantId: TenantId, featureName: string): Promise<boolean> =>
               tierResolverHolder.resolver?.trialGate?.(tenantId, featureName) ??
               Promise.resolve(false),
@@ -489,20 +491,20 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         )
       : undefined;
 
-  // configResolver-default fürs config-feature — im auth-mode immer
-  // hinzufügen, im no-auth-mode dem Caller überlassen. Factory-form
-  // wird gewrap't damit der spread auf das aufgerufene Result greift,
-  // nicht auf die function selbst (no-op). Die ENV→config-Brücke (Keys mit
-  // `env:` → app-override-Default) läuft symmetrisch zu runProdApp; die
-  // throwaway-Registry hier extrahiert nur die config-Keys, weil der
-  // configResolver vor dem Server-Boot konstruiert wird (stack.registry
-  // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
-  // App-wide cipher for `encrypted: true` entity fields (symmetrisch zu
-  // runProdApp) — executors resolve it lazily.
+  // Provide the configResolver default for the config feature in auth mode;
+  // in no-auth mode, leave that choice to the caller. Wrap the factory so the
+  // spread applies to its result; spreading the function itself is a no-op. The
+  // ENV-to-config bridge supplies app-override defaults from `env:` keys.
+  // The temporary registry extracts only config keys because the resolver is
+  // built before server boot, and stack.registry only exists from onAfterSetup;
+  // createKumikoServer builds its own registry internally.
+  // The app-wide cipher for `encrypted: true` entity fields is resolved lazily
+  // by executors, symmetrically with runProdApp.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
-  // Subject-KMS + Blind-Index (symmetrisch zu runProdApp). Dev warnt bei
-  // Klartext-PII statt zu failen; kms+lookupable ohne blindIndexKey bricht
-  // auch hier (Lookups wären in jedem Modus kaputt).
+  // Configure Subject-KMS and blind-index handling, symmetrically with
+  // runProdApp. Dev warns instead of failing for plaintext PII, but kms with
+  // lookupable fields still requires blindIndexKey because lookups would fail
+  // in every mode.
   const piiKms: DevPiiKmsResolution =
     options.kmsMode !== undefined
       ? {
@@ -535,7 +537,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     );
   }
   // Throwaway registry, built once and reused below — mirrors runProdApp's
-  // `createRegistry(features)` right after validateBoot (#2027). Symmetric
+  // `createRegistry(features)` right after validateBoot. Symmetric
   // sessionStoreProviderMounted check to runProdApp's (registry.getExtension-
   // Usages, not a raw features.some(...) scan) so dev and prod never ask the
   // same question two different ways again.
@@ -550,11 +552,12 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   const cfgExtra = registry
     ? mergeConfigResolverDefault(options.extraContext, registry, envSource, bootCrypto.configCipher)
     : options.extraContext;
-  // Auto-wire templateResolver (immer) + secrets (feature-gated), symmetrisch zu
-  // runProdApp. Anders als prod existiert die db hier erst im Factory-deps
-  // (createKumikoServer baut den Stack), darum als Factory: buildBootExtraContext
-  // mit hasAuth:false (configResolver kommt schon aus cfgExtra), App-Werte
-  // (cfgExtra) gewinnen über die Boot-Defaults.
+  // Automatically wire templateResolver and feature-gated secrets, symmetrically
+  // with runProdApp. Unlike prod, the database is available here only in the
+  // factory dependencies because createKumikoServer builds the stack. Therefore
+  // use a factory: buildBootExtraContext runs with hasAuth:false because
+  // configResolver already comes from cfgExtra, and cfgExtra values override
+  // the boot defaults.
   const extraContext: CreateKumikoServerOptions["extraContext"] = (deps) => {
     const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
     const bootLogger = loggerFromExtraContext(base);
@@ -579,7 +582,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
 
   // Sessions: late-bound holder — resolveSessionStore needs concrete db+
   // registry (only after setupTestStack). Wired when sessions feature is
-  // mounted (#1372); no auth.sessions opt-in anymore.
+  // mounted; no auth.sessions opt-in anymore.
   let sessionStore: SessionStore | undefined;
   const requireSessionStore = (): SessionStore => {
     if (!sessionStore) {
@@ -625,10 +628,10 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       }
     : {};
 
-  // Parity with runProdApp (#1372 review): gate on sessionStore provider, not
+  // Parity with runProdApp: gate on sessionStore provider, not
   // the sessions feature name — a custom provider must also wire auth
   // callbacks. sessionStoreProviderMounted computed above via the registry
-  // (same check as runProdApp, #2027) — not recomputed here.
+  // (same check as runProdApp) — not recomputed here.
   const sessionAuthFragment =
     effectiveAuth && sessionStoreProviderMounted
       ? {
@@ -739,7 +742,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       },
     }),
     onAfterSetup: async (stack) => {
-      // Sprint-8a: build tier-resolver BEFORE any seeds so seeds can rely
+      // Build tier-resolver BEFORE any seeds so seeds can rely
       // on the resolver being live (e.g. seed that writes a SystemAdmin's
       // tier-assignment can immediately read tier-cuts).
       if (tierResolverUsage) {
@@ -759,7 +762,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         tierResolverHolder.resolver = bound.resolver;
       }
       if (effectiveAuth && stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0) {
-        // Secure-by-default (#1372): resolve sessionStore provider; bind
+        // Secure-by-default: resolve sessionStore provider; bind
         // password-change mass-revoke + MFA revokeAllOthers.
         const store = await resolveSessionStore({
           db: stack.db,
@@ -889,10 +892,11 @@ export function mergeConfigResolverDefault(
       ...(cipher && { cipher }),
     }),
   };
-  // ctx.config wird per-Request aus configAccessorFactory geminted (siehe
-  // addConfigAccessorFactory) — sonst bleibt ctx.config undefined und Handler
-  // die es lesen (createFileProviderForTenant) werfen. Aus dem EFFEKTIVEN
-  // Resolver (Caller-Override gewinnt) gebaut, symmetrisch zu runProdApp.
+  // Build ctx.config per request through configAccessorFactory (see
+  // addConfigAccessorFactory); otherwise
+  // ctx.config remains undefined and handlers such as createFileProviderForTenant
+  // throw. Build it from the effective resolver so a caller override wins,
+  // symmetrically with runProdApp.
   if (ctx === undefined) return addConfigAccessorFactory(defaults, registry);
   if (typeof ctx === "function") {
     return (deps) => addConfigAccessorFactory({ ...defaults, ...ctx(deps) }, registry);

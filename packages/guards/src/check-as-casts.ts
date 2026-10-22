@@ -117,7 +117,7 @@ export function isConstAssertion(cast: AsExpression): boolean {
 // optional ParenthesizedExpression in between (depending on parenthesisation):
 //   `x as unknown as Y`     → AsExpr(target=Y) → AsExpr(target=unknown) → x
 //   `(x as unknown) as Y`   → AsExpr(target=Y) → ParenExpr → AsExpr(target=unknown) → x
-// Wir gehen durch Parens transparent durch.
+// Traverse parentheses transparently.
 function unwrapParens(node: Node | undefined): Node | undefined {
   while (node?.getKind() === SyntaxKind.ParenthesizedExpression) {
     node = node.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression();
@@ -277,7 +277,7 @@ function restOfLine(fullText: string, from: number): string {
 export function extractBoundaryReason(cast: AsExpression): string | null {
   const fullText = cast.getSourceFile().getFullText();
 
-  // (1) Leading comments des enclosing statement
+  // (1) Leading comments of the enclosing statement
   const stmt =
     cast.getFirstAncestorByKind(SyntaxKind.VariableStatement) ??
     cast.getFirstAncestorByKind(SyntaxKind.ExpressionStatement) ??
@@ -288,7 +288,7 @@ export function extractBoundaryReason(cast: AsExpression): string | null {
     if (reason !== null) return reason;
   }
 
-  // (2) Cast-Range selbst (multi-line casts, inline comments innerhalb)
+  // (2) Cast range itself (multi-line casts, inline comments inside)
   const inlineReason = boundaryReasonIn(fullText.slice(cast.getStart(), cast.getEnd()));
   if (inlineReason !== null) return inlineReason;
 
@@ -327,9 +327,8 @@ const FILE_DEFAULT_REASONS: ReadonlyArray<{
   boundaryReason: BoundaryReason;
 }> = [
   {
-    // feature-AST extractors: alle Casts gehen vom erased ts-morph-Parse-
-    // Result zu typed feature-Definitionen (EntityDefinition, RelationDef,
-    // NavDef, ConfigKeys, …). Per Konstruktion ein schema-walk.
+    // Feature-AST extractors cast erased ts-morph parse results to typed feature definitions
+    // (EntityDefinition, RelationDef, NavDef, ConfigKeys, …), so every cast is a schema walk.
     pattern: /\/engine\/feature-ast\//,
     boundaryReason: "schema-walk",
   },
@@ -605,7 +604,7 @@ function writeBaseline(all: readonly Site[]): void {
   legitRatchet.write(legitCountsByPackage(all));
 }
 
-// Per File:target: aktueller Count gegen baseline. Mehr → Regression.
+// Per file:target: current count against the baseline. More → regression.
 // A cast swap (cast A removed, cast B with a different target added) is detected
 // this way although the total stays stable.
 // Merge-conflict markers, truncated writes and hand edits all land here; the

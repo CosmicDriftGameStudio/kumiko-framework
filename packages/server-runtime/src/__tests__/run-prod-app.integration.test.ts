@@ -1,13 +1,13 @@
-// runProdApp Integration: bootet die komplette Production-Chain mit
-// echtem Postgres + Redis. Beweist:
-//   - Migration ist idempotent (2× boot mit gleicher DB → kein Crash)
-//   - Seeds laufen einmal, beim 2. Boot no-op (idempotent-by-design)
-//   - HTTP-Server antwortet auf /api/health
-//   - SIGTERM-handler räumt sauber auf
+// runProdApp integration: boots the complete production chain with
+// real Postgres + Redis. Verifies:
+//   - Migrations are idempotent (2× boots against the same DB → no crash)
+//   - Seeds run once; the second boot is a no-op (idempotent by design)
+//   - The HTTP server responds to /api/health
+//   - The SIGTERM handler cleans up correctly
 //
-// NICHT getestet: Bun.serve über echte TCP-Verbindung — wir treiben
-// fetch direkt. Bun.serve-Wiring ist in Production-Coolify selbst
-// getestet wenn der Container hochfährt.
+// NOT tested: Bun.serve over a real TCP connection—we call fetch directly.
+// Bun.serve wiring is tested separately when the Production-Coolify
+// container starts.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -67,8 +67,8 @@ import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 
-// tmp-Verzeichnisse pro Test, in afterEach geräumt. Tests die staticDir
-// brauchen registrieren ihren Pfad hier.
+// A temporary directory is created per test and removed in afterEach. Tests
+// that need staticDir register their paths here.
 const tempDirs: string[] = [];
 
 async function createTempStaticDir(files: Record<string, string>): Promise<string> {
@@ -103,9 +103,9 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     handler: async () => ({ pong: true }),
   });
   // Echoes the resolved client IP — the only way to prove a real Bun.serve
-  // socket address reaches requestContext.ip end-to-end (fw#3260 addendum:
-  // every other test in this file drives fetchHandler directly, which never
-  // exercises server.requestIP()).
+  // socket address reaches requestContext.ip end-to-end; every other test in
+  // this file drives fetchHandler directly, which never exercises
+  // server.requestIP().
   r.queryHandler({
     name: "ip-probe",
     schema: z.object({}),
@@ -120,10 +120,10 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
     handler: async (_event, ctx) => ({ hasKms: ctx.kms !== undefined }),
   });
-  // SystemAdmin-gated write — Ziel der entry:"signature" / `wire`-Tests:
-  // Echo von user.tenantId + roles beweist, dass der Dispatch
-  // durch den echten Dispatcher (Zod + Access-Check) läuft und der
-  // auto-konstruierte SystemUser den Ziel-Tenant trägt.
+  // SystemAdmin-gated write—the target of the entry:"signature" / `wire` tests:
+  // Echoing user.tenantId + roles proves that dispatch runs through the real
+  // dispatcher (Zod + access check) and that the automatically constructed
+  // SystemUser carries the target tenant.
   r.writeHandler({
     name: "probe-write",
     schema: z.object({ note: z.string() }),
@@ -133,11 +133,11 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
       data: { tenantSeen: event.user.tenantId, roles: event.user.roles },
     }),
   });
-  // Event + MSP-Paar für den lokalen Event-Dispatcher (2026-06-11):
-  // runProdApp ist Single-Container — ohne lokalen Dispatcher wendet KEINE
-  // multiStreamProjection jemals an (Prod hatte deshalb leere Projektionen
-  // + leere kumiko_event_consumers). Der Write appended das Event; die MSP
-  // schreibt async in prod_probe_pings — der Test pollt darauf.
+  // Event + MSP pair for the local event dispatcher:
+  // runProdApp is a single-container deployment, so without a local dispatcher
+  // no multiStreamProjection is ever applied (Production therefore had empty
+  // projections + empty kumiko_event_consumers). The write appends the event;
+  // the MSP writes asynchronously to prod_probe_pings, which the test polls.
   const pingedEvent = r.defineEvent("probe-pinged", z.object({ note: z.string() }), {
     piiFields: "none",
   });
@@ -147,8 +147,8 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     access: { roles: ["SystemAdmin"] },
     handler: async (event, ctx) => {
       const payload = event.payload as { aggregateId: string; note: string }; // @cast-boundary engine-payload
-      // unsafeAppendEvent: das Test-Feature augmentiert keine Event-Type-Map,
-      // der strict-typed appendEvent narrowt hier auf never.
+      // unsafeAppendEvent: this test feature does not augment the event type map,
+      // so the strictly typed appendEvent narrows to never here.
       await ctx.unsafeAppendEvent({
         aggregateId: payload.aggregateId,
         aggregateType: "probe",
@@ -185,7 +185,7 @@ async function workerLaneSchedulers(prefix: string): Promise<{ name?: string; ke
     connection: { host: url.hostname, port: Number(url.port) },
   });
   // A post-close 'error' here is otherwise unhandled and bun:test
-  // attributes it to whichever test runs next (fw#1805).
+  // attributes it to whichever test runs next.
   queue.on("error", () => {});
   // Read-only: do NOT obliterate — the running all-in-one worker consumes this
   // same queue, and deleting its keys mid-flight aborts the worker's blocking
@@ -229,13 +229,13 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
-// Production-Apps booten gegen eine VORHER migrierte DB (CI-Step
-// `kumiko migrate apply`). In diesem Test gibt's keine drizzle-Migration-
-// Files, also imitieren wir den Migration-Step direkt: Framework-Infra-
-// Tables + die widget-Entity-Tabelle anlegen, dann runProdApp mit
-// `migrations: false` (= kein Schema-Drift-Gate) starten. So bleibt der
-// Test fokussiert auf Boot-Wiring (Entrypoint, Hono-Routes, Seeds), ohne
-// den Migrationspfad zu duplizieren.
+// Production apps boot against a DB that was migrated beforehand
+// (`kumiko migrate apply`). This test has no Drizzle migration files, so it
+// performs the migration step directly: create the framework infrastructure
+// tables and the widget entity table, then start runProdApp with
+// `migrations: false` (= no schema-drift gate). This keeps the test focused on
+// boot wiring (entrypoint, Hono routes, seeds) without duplicating the
+// migration path.
 async function migrateTestDb(): Promise<void> {
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
   const { db, close } = createDbConnection({ url });
@@ -359,9 +359,9 @@ describe("runProdApp", () => {
       ],
     });
 
-    // handle.fetch durchläuft den static-fallback wrapper — dort liegt
-    // die "Hono-First, dann Disk"-Logik. entrypoint.app.fetch würde den
-    // wrapper umgehen und damit die regression nicht erkennen.
+    // handle.fetch passes through the static-fallback wrapper, which contains
+    // the "Hono first, then disk" logic. entrypoint.app.fetch would bypass
+    // the wrapper and therefore fail to exercise the regression.
     const res = await handle.fetch(new Request("http://test/feed.xml"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/rss+xml");
@@ -479,11 +479,11 @@ describe("runProdApp", () => {
   });
 
   test("static-fallback: extraRoute beats Disk-File at colliding path (Hono-First)", async () => {
-    // Regression-Test für den static-fallback-Bug von Phase 2 Step 1:
-    // wenn ein extraRoute (z.B. /feed.xml) UND eine gleichnamige Disk-
-    // Datei in staticDir existieren, gewinnt der extraRoute. Sonst
-    // schluckt der SPA-Fallback unbekannte Pfade als index.html und
-    // der App-Author wundert sich warum sein /feed.xml nichts macht.
+    // Regression test for the static-fallback bug:
+    // when an extraRoute (e.g. /feed.xml) and a disk file with the same path
+    // both exist in staticDir, the extraRoute wins. Otherwise the SPA fallback
+    // consumes unknown paths as index.html, making the app author wonder why
+    // their /feed.xml does not work.
     const tmpStaticDir = await createTempStaticDir({
       "feed.xml": "<this-is-the-disk-version />",
       "index.html": "<html>SPA shell</html>",
@@ -510,9 +510,9 @@ describe("runProdApp", () => {
   });
 
   test("static-fallback: Disk-File served when no extraRoute matches", async () => {
-    // Komplement-Test: ohne kollidierenden extraRoute liefert der
-    // static-fallback die Disk-Datei. Beweist dass der Hono-First-Pfad
-    // nicht versehentlich Static-Files schluckt.
+    // Without a colliding extraRoute, the static fallback serves the disk file.
+    // This ensures that the Hono-first path does not accidentally consume
+    // static files.
     const tmpStaticDir = await createTempStaticDir({
       "robots.txt": "User-agent: *\nAllow: /",
       "index.html": "<html>SPA shell</html>",
@@ -527,7 +527,7 @@ describe("runProdApp", () => {
   });
 
   test("static-fallback: a matched extraRoute's own deliberate 404 stays 404, not masked as the SPA shell (#2435)", async () => {
-    // kumiko-framework#2435: tryHonoFirst used to treat ANY 404 as "no
+    // tryHonoFirst used to treat ANY 404 as "no
     // route matched" and fall through to index.html with status 200 —
     // masking a matched route's intentional 404 (e.g. default-deny reads
     // like file-derivatives' public-variant route). An index.html exists
@@ -687,10 +687,9 @@ describe("runProdApp", () => {
   });
 
   test("static-fallback: unknown path → SPA-fallback to index.html", async () => {
-    // Path ohne extraRoute, ohne Disk-File, mit existierendem
-    // index.html → liefert die SPA-Shell. Standard-SPA-Routing-Pattern,
-    // aber wir wollen sicher sein dass der Hono-First-Refactor das
-    // nicht gebrochen hat.
+    // With no extraRoute or disk file but an existing index.html, the SPA shell
+    // is served. This is the standard SPA routing pattern, and verifies that
+    // the Hono-first refactor did not break it.
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html>SPA shell</html>",
     });
@@ -703,9 +702,9 @@ describe("runProdApp", () => {
   });
 
   test("static-fallback: non-GET ohne Hono-Match → 404, nicht SPA-Shell (#259)", async () => {
-    // Prod-Szenario: POST auf einen falsch konfigurierten Webhook-Pfad
-    // (Route nicht gemountet). 200 index.html würde dem Provider
-    // "delivered" signalisieren — Events gingen still verloren.
+    // Production scenario: a POST to a misconfigured webhook path (the route
+    // was not mounted). Returning index.html with status 200 would tell the
+    // provider the event was delivered, causing events to be silently lost.
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html>SPA shell</html>",
       "robots.txt": "User-agent: *\nAllow: /",
@@ -718,7 +717,7 @@ describe("runProdApp", () => {
     );
     expect(unmatched.status).toBe(404);
 
-    // Disk-Files werden ebenfalls nicht auf non-GET serviert.
+    // Disk files are not served for non-GET requests either.
     const diskFile = await handle.fetch(new Request("http://test/robots.txt", { method: "POST" }));
     expect(diskFile.status).toBe(404);
   });
@@ -736,9 +735,9 @@ describe("runProdApp", () => {
 
   test("hostDispatch: per-host html-Datei + Schema-Gating", async () => {
     // Multi-app deployment: two HTML files for different hosts. Neither
-    // ever carries __KUMIKO_SCHEMA__ (kumiko-framework#3314) —
-    // createKumikoApp fetches the schema itself from GET /api/schema
-    // after the auth gates let it through, regardless of host.
+    // ever carries __KUMIKO_SCHEMA__ — createKumikoApp fetches the schema
+    // itself from GET /api/schema after the auth gates let it through,
+    // regardless of host.
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html><body>PUBLIC</body><script src=/client.js></script></html>",
       "admin.html": "<html><body>ADMIN</body><script src=/client.js></script></html>",
@@ -956,8 +955,8 @@ describe("runProdApp", () => {
   });
 
   test("hostDispatch: assets bleiben host-unabhängig erreichbar", async () => {
-    // /assets/* darf NICHT durch hostDispatch laufen — Bundles werden
-    // vom client per absoluter URL nachgeladen, host-Sniffing wäre falsch.
+    // /assets/* must bypass hostDispatch: the client loads bundles by absolute
+    // URL, so host-based routing would be incorrect.
     const tmpStaticDir = await createTempStaticDir({
       "index.html": "<html>x</html>",
       "assets/app-abc.js": "console.log('app');",
@@ -1028,10 +1027,10 @@ describe("runProdApp", () => {
   });
 
   test("extraContext as factory: factory called with {db, redis, registry} at boot", async () => {
-    // Factory-form for extraContext closes over db like anonymousAccess.
-    // In auth-mode the framework auto-sets configResolver; Factory-Result
-    // wird drauf gemerged. Wichtig: Factory wird genau einmal aufgerufen
-    // beim Boot, NACHDEM db/redis/registry konstruiert sind.
+    // Factory form for extraContext closes over db like anonymousAccess.
+    // In auth mode the framework automatically sets configResolver; the factory
+    // result is merged into it. The factory is called exactly once at boot,
+    // after db/redis/registry have been constructed.
     let invocations = 0;
     let factoryDeps: { db: boolean; redis: boolean; registry: boolean } | null = null;
 
@@ -1092,9 +1091,9 @@ describe("runProdApp", () => {
   });
 
   test("Hard Boot-Gate: pending kumiko-Migration → SchemaDriftError, kein Boot", async () => {
-    // Synthetisches kumiko/migrations-Dir mit einer checked-in Migration die
-    // nie applied wurde (kein _kumiko_migrations-Eintrag). runProdApp soll mit
-    // SchemaDriftError abbrechen bevor irgendetwas anderes initialisiert wird.
+    // Synthetic kumiko/migrations directory with a checked-in migration that
+    // has not been applied (no _kumiko_migrations entry). runProdApp must abort
+    // with SchemaDriftError before anything else is initialized.
     const driftDir = await mkdtemp(join(tmpdir(), "kumiko-drift-boot-"));
     tempDirs.push(driftDir);
     await writeFile(
@@ -1176,11 +1175,11 @@ describe("runProdApp — rejected WebSocket upgrades carry the security headers"
 });
 
 describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Container)", () => {
-  // Regression für den 2026-06-11-Incident: runProdApp baute den
-  // Event-Dispatcher nie ({disabled:true} im API-Entrypoint) — jede
-  // multiStreamProjection blieb in Prod unangewendet, kumiko_event_consumers
-  // blieb leer. Der Test schreibt über den ECHTEN Boot-Pfad und pollt auf
-  // die async projizierte Row.
+  // Regression: runProdApp did not build the event dispatcher
+  // ({disabled:true} in the API entrypoint), so no multiStreamProjection was
+  // applied in Production and kumiko_event_consumers remained empty. The test
+  // writes through the real boot path and polls for the asynchronously
+  // projected row.
 
   async function pollFor<T>(probe: () => Promise<T | undefined>): Promise<T> {
     let result: T | undefined;
@@ -1253,9 +1252,9 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   });
 });
 
-// Origin-guard config (framework #340) flows from runProdApp's auth options
-// through to buildServer. Before the forwarding fix, RunProdAppAuthOptions had
-// no `allowedOrigins`, so a cookieDomain app could not satisfy the fail-closed
+// Origin-guard config flows from runProdApp's auth options through to
+// buildServer. Before the forwarding fix, RunProdAppAuthOptions had no
+// `allowedOrigins`, so a cookieDomain app could not satisfy the fail-closed
 // guard — it could only CrashLoop.
 describe("runProdApp — auth allowedOrigins forwarding", () => {
   const ADMIN = {
@@ -1557,10 +1556,10 @@ describe("hard PII boot gate (#818 step 2)", () => {
   });
 });
 
-// Regression for fw#1352: runProdApp wires the metrics route through two
-// independently forwarded options (observability, metrics). Wrong nesting
-// or a renamed key in ApiEntrypointOptions would silently no-op instead of
-// erroring the boot, and /metrics would stay 404 or empty.
+// runProdApp wires the metrics route through two independently forwarded
+// options (observability, metrics). Wrong nesting or a renamed key in
+// ApiEntrypointOptions would silently no-op instead of erroring the boot,
+// and /metrics would stay 404 or empty.
 describe("runProdApp — /metrics endpoint (fw#1352)", () => {
   test("observability (PrometheusMeter) + metrics.token wired → GET /metrics mit Bearer liefert OpenMetrics-Body", async () => {
     const meter = createPrometheusMeter();
@@ -1589,13 +1588,13 @@ describe("runProdApp — /metrics endpoint (fw#1352)", () => {
     expect(res.status).toBe(404);
   });
 
-  // fw#2630 shipped a Redis Pub/Sub fanout fix for SSE/access-invalidation
-  // across replicas, but runProdApp built its own in-memory sseBroker
+  // A Redis Pub/Sub fanout fix for SSE/access-invalidation across replicas
+  // was not effective because runProdApp built its own in-memory sseBroker
   // unconditionally and passed it in as ServerOptions.sseBroker — which
-  // always wins over buildServer's REDIS_URL default — so the fix never
-  // took effect in production. These tests exercise the level prod
-  // actually boots through (runProdApp), not buildServer/createRedisSseBroker
-  // directly, which is why the tests above were green while prod was broken.
+  // always wins over buildServer's REDIS_URL default. These tests exercise
+  // the level prod actually boots through (runProdApp), not
+  // buildServer/createRedisSseBroker directly, which is why the tests above
+  // were green while prod was broken.
   describe("sseBroker wiring (fw#2630 Redis fanout)", () => {
     test("wires a Redis-backed sseBroker so SSE events fan out across replicas", async () => {
       const handle = await boot();

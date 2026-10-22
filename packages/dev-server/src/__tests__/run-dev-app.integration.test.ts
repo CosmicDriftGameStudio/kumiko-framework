@@ -1,9 +1,9 @@
 // The origin-guard config (allowedOrigins / unsafeSkipOriginCheck) is forwarded
-// from runDevApp's auth options through to the server exactly like runProdApp
-// (#399/1). The guard fires during server build — AFTER the ephemeral test DB is
-// up — so this is an integration test (needs TEST_DATABASE_URL), mirroring the
-// run-prod-app forwarding pair. Without it a typo or wrong spread-key on the dev
-// path would silently drop the fail-closed guard and dev/prod would diverge.
+// from runDevApp's auth options through to the server exactly like runProdApp.
+// The guard fires during server build — AFTER the ephemeral test DB is up — so
+// this is an integration test (needs TEST_DATABASE_URL), mirroring the run-prod-app
+// forwarding pair. Without it a typo or wrong spread-key on the dev path would
+// silently drop the fail-closed guard and dev/prod would diverge.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -294,9 +294,9 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
   });
 });
 
-// runDevApp had no equivalent of runProdApp's session boot gate (#1262/#1275):
+// runDevApp had no equivalent of runProdApp's session boot gate:
 // a forgotten sessions mount left session-list silently empty instead of
-// saying anything (#2027). Unlike prod, dev warns rather than aborts —
+// saying anything. Unlike prod, dev warns rather than aborts —
 // mirrors assertPiiBootInvariants' dev/prod split.
 describe("runDevApp — session boot gate (#2027)", () => {
   const ADMIN = {

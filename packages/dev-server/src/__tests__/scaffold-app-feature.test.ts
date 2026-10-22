@@ -48,7 +48,7 @@ describe("scaffoldAppFeature", () => {
     );
     expect(feature).toContain('type: "entityList"');
     expect(feature).toContain("r.translations({ keys: productCatalogTranslationKeys })");
-    // Konvention: Entity-Felder leben in schema/, nicht inline in feature.ts.
+    // Entity fields belong in schema/ rather than inline in feature.ts.
     expect(feature).not.toContain("fields:");
   });
 
@@ -160,8 +160,8 @@ describe("scaffoldAppFeature", () => {
   });
 
   test("gescaffoldetes Feature bootet wirklich (validateBoot über dynamic import)", async () => {
-    // Ins Repo scaffolden (nicht os.tmpdir): nur hier löst der dynamic
-    // import "@cosmicdrift/kumiko-framework/engine" über node_modules auf.
+    // Scaffold inside the repository rather than os.tmpdir: only there does the dynamic
+    // import "@cosmicdrift/kumiko-framework/engine" resolve through node_modules.
     const repoTmp = mkdtempSync(join(import.meta.dir, ".tmp-scaffold-"));
     try {
       scaffoldAppFeature({ name: "boot-probe", appRoot: repoTmp });

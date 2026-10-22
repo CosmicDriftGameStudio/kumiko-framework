@@ -1,20 +1,20 @@
-// buildServerBundle — Production-Server-Bundle für Kumiko-Apps. Pendant zu
-// buildProdBundle (Client). Convention-Driven Discovery liest bin/main.ts
-// (+ optional <repo>/bin/kumiko.ts) und produziert ein runtime-self-contained
-// dist-server/ aus dem ein Bun-Alpine-Container ohne Monorepo bootet.
+// buildServerBundle — Production server bundle for Kumiko apps. Counterpart to
+// buildProdBundle (client). Convention-driven discovery reads bin/main.ts
+// (+ optional <repo>/bin/kumiko.ts) and produces a runtime-self-contained
+// dist-server/ from which a Bun-Alpine container can boot without the monorepo.
 //
 // Convention:
 //
-//   bin/main.ts            →  dist-server/server.js   (App-Boot, ruft runProdApp)
-//   <repo>/bin/kumiko.ts   →  dist-server/kumiko.js   (Migrate-CLI: `schema apply`,
-//                             gefunden via walk-up bis bin/kumiko.ts)
+//   bin/main.ts            →  dist-server/server.js   (app boot, calls runProdApp)
+//   <repo>/bin/kumiko.ts   →  dist-server/kumiko.js   (migration CLI: `schema apply`,
+//                             found by walking up to bin/kumiko.ts)
 //   bin/worker.ts          →  dist-server/worker.js   (optional, next to bin/main.ts:
 //                             background worker as its own process from the same image)
 //   bin/bootstrap.ts       →  dist-server/bootstrap.js (optional, next to bin/main.ts:
 //                             one-shot runBootstrap provisioning, run as a k8s Job)
 //   extraEntries[i]        →  dist-server/<basename>.js (opt-in, e.g. a probe script
 //                             `bin/remote-probe.ts`; CLI: repeatable `--entry <path>`)
-//   dist-server/package.json → runtime-deps mit gepinnten Versionen
+//   dist-server/package.json → runtime dependencies with pinned versions
 //
 // All entries are built in ONE Bun.build call with `splitting`: the framework
 // lands once as shared chunk-*.js and server.js, kumiko.js, worker.js,
@@ -24,26 +24,26 @@
 // Output:
 //
 //   dist-server/
-//     server.js            ← App-Boot-Entry
-//     kumiko.js            ← Migrate-CLI-Entry (wenn bin/kumiko.ts gefunden)
+//     server.js            ← app boot entry
+//     kumiko.js            ← migration CLI entry (if bin/kumiko.ts is found)
 //     worker.js            ← worker entry (if bin/worker.ts sits next to main.ts)
 //     bootstrap.js         ← provisioning entry (if bin/bootstrap.ts sits next to main.ts)
 //     <basename>.js        ← one per extraEntries path
-//     chunk-*.js           ← geteilte Framework-Chunks
-//     package.json         ← runtime-deps mit gepinnten Versionen
+//     chunk-*.js           ← shared framework chunks
+//     package.json         ← runtime dependencies with pinned versions
 //     bun.lock             ← written by writeServerLockfile (kumiko-build), not by buildServerBundle
 //
-// Externals — Pakete die NICHT ins Bundle gebakt werden, sondern via
-// `bun install` im Runtime-Container nachgeholt werden:
+// Externals — packages that are NOT bundled, but installed via
+// `bun install` in the runtime container:
 //
-//   RUNTIME_EXTERNALS — wird zur Laufzeit gebraucht (native bindings,
-//                       worker-threads, dynamic-require). Landet in
+//   RUNTIME_EXTERNALS — needed at runtime (native bindings,
+//                       worker threads, dynamic require). Added to
 //                       dist-server/package.json#dependencies.
 //
-//   BUILD_ONLY_EXTERNALS — referenziert nur transitiv im Framework, vom
-//                          App-Code aber nie. Tree-Shake wirft sie aus dem
-//                          Bundle, der external-Marker schaltet nur das
-//                          resolution-during-build ab. NICHT in runtime-deps.
+//   BUILD_ONLY_EXTERNALS — referenced only transitively in the framework,
+//                          never by app code. Tree-shaking removes them from
+//                          the bundle; the external marker only disables
+//                          resolution during the build. NOT in runtime dependencies.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -52,16 +52,16 @@ import { parseJsonOrThrow, parseJsonSafe } from "@cosmicdrift/kumiko-framework/u
 
 const hasBun = typeof Bun !== "undefined";
 
-// Pakete die das Bundle zur Laufzeit weiter referenziert (`from "<pkg>"` nach
-// Tree-Shake). Native bindings (argon2), worker-thread-Loader (bullmq,
-// ioredis), dynamic-require (postgres, temporal-polyfill) — alles was unter
-// Bun-bundling bricht. (drizzle-kit/drizzle-orm sind raus: der Migrate-Pfad
-// nutzt jetzt den framework-eigenen runMigrationsFromDir, kein drizzle-kit.)
-// meilisearch: deliberately here, not in BUILD_ONLY_EXTERNALS below — apps
+// Packages that the bundle still references at runtime (`from "<pkg>"` after
+// tree-shaking). Native bindings (argon2), worker-thread loaders (bullmq,
+// ioredis), and dynamic require (postgres, temporal-polyfill) — anything that
+// breaks under Bun bundling. (drizzle-kit/drizzle-orm are excluded: the
+// migration path now uses the framework's runMigrationsFromDir, not drizzle-kit.)
+// meilisearch is deliberately here, not in BUILD_ONLY_EXTERNALS below — apps
 // that import createMeilisearchAdapter (kumiko-framework/search/meilisearch)
 // reference the package at runtime (no native binding, plain HTTP client,
-// but a real runtime import). Found 2026-07-19: money-horse prod crash
-// "Cannot find package 'meilisearch'" because it used to sit in
+// but a real runtime import). A production crash in money-horse,
+// "Cannot find package 'meilisearch'", occurred because it used to be in
 // BUILD_ONLY_EXTERNALS instead.
 const RUNTIME_EXTERNALS = [
   "@node-rs/argon2",
@@ -75,11 +75,11 @@ const RUNTIME_EXTERNALS = [
   "meilisearch",
 ] as const;
 
-// Pakete die nur im Build-Stack erscheinen (transitive Imports im Framework),
-// aber vom App-Code nicht referenziert werden. Ohne external-Markierung
-// scheitert bun build an dynamic-imports. Tree-Shake wirft sie eh aus dem
-// Bundle — der Marker schaltet nur das resolution-during-build ab. NICHT in
-// runtime-deps.
+// Packages that appear only in the build stack (transitive framework imports),
+// but are not referenced by app code. Without the external marker,
+// bun build fails on dynamic imports. Tree-shaking removes them from the
+// bundle; the marker only disables resolution during the build. NOT in
+// runtime dependencies.
 const BUILD_ONLY_EXTERNALS = [
   "@planetscale/database",
   "@libsql/client",
@@ -96,10 +96,10 @@ export type BuildServerBundleOptions = {
   readonly cwd?: string;
   /** Output-Folder relativ zu cwd. Default: "dist-server". */
   readonly outDir?: string;
-  /** Zusätzliche Pakete die zur Laufzeit installiert sein müssen
-   *  (beyond RUNTIME_EXTERNALS). App-spezifisch — Default leer. */
+  /** Additional packages that must be installed at runtime
+   *  (beyond RUNTIME_EXTERNALS). App-specific; defaults to empty. */
   readonly extraRuntimeExternals?: readonly string[];
-  /** Zusätzliche Build-only-Externals. App-spezifisch — Default leer. */
+  /** Additional build-only externals. App-specific; defaults to empty. */
   readonly extraBuildOnlyExternals?: readonly string[];
   /** Additional entry points (paths relative to cwd, e.g. "bin/remote-probe.ts"),
    *  each emitted as `<basename>.js` next to server.js and sharing its chunks.
@@ -117,16 +117,16 @@ export type BuildServerBundleResult = {
   readonly outDir: string;
   /** Named entry files (server.js, plus kumiko.js, worker.js, bootstrap.js and extra entries when present). */
   readonly entries: readonly BuildServerBundleEntry[];
-  /** Geteilte Framework-Chunks (von splitting). */
+  /** Shared framework chunks (from splitting). */
   readonly chunks: readonly BuildServerBundleEntry[];
-  /** Gesamt-Größe aller Outputs (entries + chunks) in Bytes. */
+  /** Total size of all outputs (entries + chunks) in bytes. */
   readonly totalBytes: number;
   readonly runtimeDeps: Readonly<Record<string, string>>;
 };
 
-// Bun benennt Entries nach Source-Basename (bin/main.ts → main.js). server.js
-// ist die Runtime-Convention; der Entry wird von nichts importiert (nur die
-// chunks werden referenziert, per relativem Pfad), darum ist der Rename sicher.
+// Bun names entries after the source basename (bin/main.ts → main.js). server.js
+// is the runtime convention; the entry is not imported by anything (only the
+// chunks are referenced by relative path), so renaming it is safe.
 const ENTRY_RENAMES: Readonly<Record<string, string>> = { "main.js": "server.js" };
 
 const OPTIONAL_SIBLING_ENTRY_NAMES = ["worker", "bootstrap"] as const;
@@ -202,8 +202,8 @@ export async function buildServerBundle(
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 
-  // Ein Bun.build-Call mit allen Entries + splitting → das Framework wird
-  // einmal als shared chunk abgelegt statt pro Entry inlined.
+  // One Bun.build call with all entries plus splitting stores the framework
+  // once as a shared chunk instead of inlining it into every entry.
   const optionalSiblingEntries = OPTIONAL_SIBLING_ENTRY_NAMES.map((baseName) =>
     discoverSiblingEntry(dirname(serverEntry), baseName),
   ).filter((path): path is string => path !== undefined);
@@ -228,8 +228,8 @@ export async function buildServerBundle(
     throw new Error(`[buildServerBundle] build FAILED:\n${logs}`);
   }
 
-  // Größe von Disk lesen, nicht aus out.size — letzteres ist für gesplittete
-  // Entry-Points unzuverlässig (meldet teils ~0 für den Entry-Stub).
+  // Read the size from disk rather than out.size — the latter is unreliable for
+  // split entry points and sometimes reports ~0 for the entry stub.
   const entries: BuildServerBundleEntry[] = [];
   const chunks: BuildServerBundleEntry[] = [];
   for (const out of result.outputs) {
@@ -277,9 +277,9 @@ function discoverSiblingEntry(dir: string, baseName: string): string | undefined
   return undefined;
 }
 
-// Walking up vom App-cwd bis ein Verzeichnis mit `bin/kumiko.ts` gefunden wird.
-// Failsafe: nach 8 Levels aufgeben — nichts gefunden, kein Repo-Root, dann
-// liefert die Funktion undefined und der Caller skippt das CLI-Bundle.
+// Walk up from the app cwd until a directory containing `bin/kumiko.ts` is found.
+// Failsafe: stop after 8 levels. If nothing is found, there is no repo root,
+// so the function returns undefined and the caller skips the CLI bundle.
 function findRepoRoot(start: string): string | undefined {
   let cur = start;
   for (let i = 0; i < 8; i++) {
@@ -321,7 +321,7 @@ export function parseKumikoBuildArgs(args: readonly string[]): KumikoBuildArgs {
   return { appDir, extraEntries };
 }
 
-/** Read `package.json#kumiko.extraRuntimeExternals` for kumiko-build (#1484).
+/** Read `package.json#kumiko.extraRuntimeExternals` for kumiko-build.
  *  Invalid / missing shapes → empty list (CLI stays convention-driven). */
 export function readExtraRuntimeExternals(cwd: string): readonly string[] {
   const pkgJson = join(cwd, "package.json");
@@ -340,11 +340,11 @@ export function readExtraRuntimeExternals(cwd: string): readonly string[] {
   return list.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
 }
 
-// Versionen für RUNTIME_EXTERNALS auflösen: erst aus den installierten
-// node_modules/@cosmicdrift/*-Packages (relativ zu cwd — funktioniert für
-// jede Consumer-App), dann als Zusatz aus packages/framework + bundled-
-// features (Workspace-Checkout des Frameworks selbst). Fallback auf "*"
-// wenn keine Quelle den Namen kennt.
+// Resolve versions for RUNTIME_EXTERNALS: first from installed
+// node_modules/@cosmicdrift/*-packages (relative to cwd, which works for
+// any consumer app), then additionally from packages/framework + bundled-
+// features (the framework's own workspace checkout). Fall back to "*"
+// when no source knows the package name.
 async function resolveRuntimeDepsVersions(
   cwd: string,
   repoRoot: string | undefined,
@@ -360,7 +360,7 @@ async function resolveRuntimeDepsVersions(
         ]
       : []),
     // node_modules applied last among framework sources so installed versions
-    // win over the repo-root fallback (#1217).
+    // win over the repo-root fallback.
     join(cwd, "node_modules/@cosmicdrift/kumiko-framework/package.json"),
     join(cwd, "node_modules/@cosmicdrift/kumiko-bundled-features/package.json"),
   ];
@@ -375,7 +375,7 @@ async function resolveRuntimeDepsVersions(
     Object.assign(allDeps, parsed.dependencies ?? {}, parsed.optionalDependencies ?? {});
   }
   // App package.json fills gaps only — pins extraRuntimeExternals without
-  // overriding framework-native pins the app may also list (#1484 / review).
+  // overriding framework-native pins the app may also list.
   const appPkg = join(cwd, "package.json");
   if (existsSync(appPkg)) {
     const raw = await readFile(appPkg, "utf-8");

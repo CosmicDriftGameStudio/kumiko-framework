@@ -1,11 +1,9 @@
-// Resolved den lokal installierten @tailwindcss/cli-Bin auf seinen
-// absoluten Dateipfad. Wir vermeiden `bunx`, weil das auch bei lokal
-// installiertem Package noch das Registry-Manifest fragt und ohne Netz
-// mit `FailedToOpenSocket` stirbt.
+// Resolves the locally installed @tailwindcss/cli binary to its absolute path.
+// We avoid `bunx` because it still requests the registry manifest for a locally
+// installed package and fails with `FailedToOpenSocket` when offline.
 //
-// Ausgelagert aus create-kumiko-server.ts, damit unter vitest/Node
-// testbar (Bun-Branch + Resolve-Fail-Branch) ohne den Server zu
-// booten.
+// Kept separate from create-kumiko-server.ts so the Bun and resolution-failure
+// branches can be tested under Vitest/Node without booting the server.
 
 import { dirname, resolve } from "node:path";
 

@@ -1,4 +1,4 @@
-// biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
+// biome-ignore-all lint/suspicious/noConsole: CLI script; console is an intentional feature.
 //
 // runCli — programmatic entry-point for the kumiko CLI. The bin-shim
 // (../bin/cli.ts) is a 3-line wrapper that forwards process.argv. Tests

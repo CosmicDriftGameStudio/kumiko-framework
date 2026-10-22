@@ -136,8 +136,8 @@ export type QueryHandlerDefinition<
 
 // --- Stream Handler Definition ---
 //
-// Scaffolding only (#1376) — access/rateLimit read by the boot-validator
-// (#1377), dispatch-time consumption (async-generator, SSE) lands in #1378.
+// Scaffolding only — access/rateLimit read by the boot-validator,
+// dispatch-time consumption (async-generator, SSE) lands later.
 
 export type StreamHandlerDefinition<
   TName extends string = string,

@@ -22,29 +22,28 @@ import type { SecurityHeadersOption } from "./security-headers.ts";
 import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.ts";
 
 // Static-asset + SPA-fallback serving for runProdApp's HTTP handler. Split
-// out of run-prod-app.ts (#1005, Welle 2) — mechanical relocation, these
+// out of run-prod-app.ts — mechanical relocation, these
 // functions are self-contained (no closure over runProdApp's local boot
 // state), only params.
 
-// Static-fallback: try the Hono app first, fall back to a file in
-// staticDir if Hono returns 404. Keeps /api/* on the dispatcher and
-// everything else (HTML, JS, CSS, images) on the disk.
+// Static fallback: try the Hono app first and serve a file from staticDir only
+// when Hono returns 404, so /api/* stays on the dispatcher while HTML,
+// JavaScript, CSS, and images come from disk.
 //
-// Cache-Header-Strategie:
+// Cache-header strategy:
 //   /assets/*               → public, max-age=31536000, immutable
-//                             (gehashte Filenames vom Build, sicher cachebar)
+//                             (build-generated hashed filenames are safe to cache)
 //   /index.html             → no-cache, must-revalidate
-//                             (HTML-Shell, must reload on deploy)
+//                             (the HTML shell must reload after deployment)
 //   /manifest.json, /sw.js  → no-cache
-//                             (Update-Detection-Mechanismen, müssen frisch sein)
-//   alles andere            → kein expliziter Header
-//                             (Browser-Default, public/-Files wie favicon)
-// File-reader für den static-fallback. Nutzt node:fs/promises statt
-// Bun.file damit der Pfad in vitest+node integration-tests laufen kann
-// (Bun.file ist Bun-only). Performance-cost ist marginal: die Disk-
-// Files in einem prod-staticDir sind 1-200 KB, full-buffer-Read ist
-// ein paar Mikrosekunden. Streaming via Bun.file wäre nur relevant ab
-// ~1 MB.
+//                             (update-detection mechanisms must stay fresh)
+//   everything else         → no explicit header
+//                             (browser default, including public/ files such as favicon)
+//
+// Use node:fs/promises instead of Bun.file so this path also runs in vitest+node
+// integration tests; Bun.file is Bun-only. Full-buffer reads are acceptable because
+// production static files are typically 1–200 KB; streaming would matter only above
+// roughly 1 MB.
 export async function readStaticFile(
   filePath: string,
 ): Promise<
@@ -137,10 +136,9 @@ export function serveDiskFile(
   });
 }
 
-// Minimal-Mime-Map — deckt die Files ab die kumiko-build und typische
-// public/-Inhalte produzieren. Bun.file leitet das aus dem Suffix ab,
-// im node-Pfad müssen wir es selbst tun. Default: octet-stream (Browser
-// fragt bei unbekanntem MIME nach).
+// Covers files produced by kumiko-build and typical public/ contents. Bun.file
+// infers the type from the suffix, but the node path must do so explicitly;
+// unknown types use octet-stream so the browser can handle them safely.
 export function mimeTypeFor(filePath: string): string {
   const ext = filePath.toLowerCase().split(".").pop() ?? "";
   switch (ext) {
@@ -255,9 +253,9 @@ export function buildStaticFallback(
   // inject into) → the original html object is returned untouched.
   //
   // The resolve+timeout+inject itself runs through headless's
-  // resolveAndInjectPageHead — the single call site runDevApp also uses
-  // (kumiko-framework#3026), so only the systemQuery/dispatcher wiring
-  // below (Request-bound, prod-specific) and the etag recompute are local.
+  // resolveAndInjectPageHead, the same call site runDevApp uses, so only the
+  // systemQuery/dispatcher wiring below (Request-bound, prod-specific) and the
+  // etag recompute are local.
   async function applyPageHead(
     req: Request,
     html: HtmlPayload,
@@ -292,10 +290,9 @@ export function buildStaticFallback(
     };
   }
 
-  // hostDispatch konsultieren wenn gesetzt UND der Request auf den
-  // HTML-Fallback fällt (Root oder SPA-Route). Returnt entweder die
-  // resolved Response (redirect/404/html) oder null wenn der Default-
-  // Pfad weiterlaufen soll.
+  // Consult hostDispatch when the request reaches the HTML fallback (the root or
+  // an SPA route). It can return a resolved response (redirect, 404, or HTML),
+  // or null to continue with the default path.
   async function tryHostDispatch(req: Request, socketAddress?: string): Promise<Response | null> {
     if (!hostDispatch) return null;
     const url = new URL(req.url);
@@ -339,8 +336,8 @@ export function buildStaticFallback(
   ): Promise<Response> {
     const html = await readHtmlFile(`${staticDir}/${file}`);
     if (!html) {
-      // Author-Fehler: hostDispatch verweist auf nicht-existente Datei.
-      // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
+      // Configuration error: hostDispatch references a nonexistent file. Return 500
+      // instead of silently returning 404 so the problem is visible immediately.
       return new Response(`hostDispatch: file not found: ${file}`, { status: 500 });
     }
     // Per-host body (hostDispatch picks the file by host) → Vary: Host,
@@ -361,28 +358,26 @@ export function buildStaticFallback(
       return stripNoRouteMatchHeader(await apiHandler(req, socketAddress));
     }
 
-    // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
-    // /sitemap.xml) UND r.httpRoute-Features (z.B. /legal/*) müssen vor
-    // dem Disk-Lookup greifen, sonst schluckt der SPA-Fallback unten
-    // unbekannte Pfade als index.html. Shared mit dev-server's
-    // createKumikoServer.handleFetch damit beide IDENTISCHE Semantik haben.
+    // Try Hono before disk lookup so extraRoutes (for example /feed.xml and
+    // /sitemap.xml) and r.httpRoute features (for example /legal/*) are handled
+    // before unknown paths fall through to index.html. Keep this consistent with
+    // dev-server's createKumikoServer.handleFetch so both paths have identical semantics.
     const honoTry = await tryHonoFirst({ fetch: apiHandler }, req, socketAddress);
     if (honoTry.matched) {
       return honoTry.response;
     }
     const honoRes = honoTry.response;
 
-    // Disk-/SPA-Fallback ist GET/HEAD-only. Ein non-GET ohne Hono-Match
-    // (z.B. POST auf einen falsch konfigurierten Webhook-Pfad) muss den
-    // Hono-404 durchreichen — 200 index.html würde dem Provider
-    // "delivered" signalisieren und Events gingen still verloren (#259).
+    // The disk/SPA fallback accepts only GET and HEAD. A non-GET without a Hono
+    // match (for example, POST to a misconfigured webhook path) must preserve the
+    // Hono 404: returning index.html with 200 could make the provider report the
+    // event as delivered even though it was dropped.
     if (req.method !== "GET" && req.method !== "HEAD") {
       return honoRes;
     }
 
-    // Disk-Datei (Asset oder konkrete File). Asset-Pfade laufen
-    // host-unabhängig — die Bundles in /assets/* werden vom client
-    // aktiv geladen, kein Server-side Routing nötig.
+    // Asset paths are host-independent because the client actively loads the
+    // bundles in /assets/*; they do not require server-side routing.
     const isIndexRequest = url.pathname === "/" || url.pathname === "/index.html";
     if (!isIndexRequest) {
       const relPath = url.pathname.slice(1);
@@ -407,8 +402,8 @@ export function buildStaticFallback(
       return serveHtmlFile(req, "/index.html", withHead, pageHead && { vary: PAGE_HEAD_VARY });
     }
 
-    // Kein Hono-Match, keine Disk-Datei, kein index.html → liefer den
-    // ursprünglichen 404 von Hono durch (statt einen neuen Roundtrip).
+    // If Hono found no route and neither a disk file nor index.html exists, preserve
+    // its original 404 instead of issuing another request.
     return honoRes;
   };
 }
@@ -417,10 +412,9 @@ export function buildStaticFallback(
 // already keys the cache.
 const PAGE_HEAD_VARY = "Host, Accept-Language";
 
-// Map URL-Pfad → Cache-Policy. Hashed-Asset-Pfade (/assets/*) sind
-// unveränderlich, der Rest bleibt revalidate/no-cache damit Updates ohne
-// Hard-Reload greifen. Exported für Unit-Tests; Konsumenten gehen via
-// runProdApp.
+// Map URL paths to cache policies. Hashed asset paths (/assets/*) are immutable;
+// other paths use revalidation or no-cache so updates take effect without a hard
+// reload. Exported for unit tests; consumers access it through runProdApp.
 export function staticCachePolicy(pathname: string): CachePolicy {
   if (pathname.startsWith(`/${ASSETS_DIR}/`)) {
     return { kind: "immutable" };
@@ -431,9 +425,8 @@ export function staticCachePolicy(pathname: string): CachePolicy {
   if (
     pathname === "/manifest.json" ||
     pathname === "/sw.js" ||
-    // ponytail: build-info.json ist statisch — kein /api/version-Endpoint
-    // nötig, der Disk-Fallback serviert sie. no-cache, sonst pollt der
-    // UpdateChecker eine veraltete id.
+    // ponytail: build-info.json is static, so no /api/version endpoint is needed; the disk
+    // fallback serves it. Use no-cache so UpdateChecker does not poll a stale id.
     pathname === "/build-info.json"
   ) {
     return { kind: "no-cache" };
