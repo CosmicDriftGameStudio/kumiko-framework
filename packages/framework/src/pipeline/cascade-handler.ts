@@ -82,10 +82,12 @@ export function createCascadeDeleteHook(
         entity: EntityDefinition | undefined,
       ): Promise<readonly string[]> => {
         // A soft-deleted child is already invisible; deleting it again would fail.
-        const rows = await selectMany<ChildRow>(db, targetTable, {
-          ...where,
-          ...(entity?.softDelete === true && { isDeleted: false }),
-        });
+        const rows = await selectMany<ChildRow>(
+          db,
+          targetTable,
+          { ...where, ...(entity?.softDelete === true && { isDeleted: false }) },
+          { fields: ["id"] },
+        );
         return rows.map((row) => row.id);
       };
 
@@ -149,6 +151,7 @@ export function createCascadeDeleteHook(
             }
           }
 
+          // ponytail: one executor call per child inside the parent's transaction, batch when child counts need it
           if (strategy === OnDeleteStrategies.cascade && childEntity) {
             const executor = executorFor(relation.target, childEntity);
             for (const id of await childIds(
@@ -169,9 +172,12 @@ export function createCascadeDeleteHook(
 
           if (strategy === OnDeleteStrategies.setNull && childEntity) {
             const executor = executorFor(relation.target, childEntity);
-            const rows = await selectMany<ChildRow>(db, targetTable, {
-              [relation.foreignKey]: payload.id,
-            });
+            const rows = await selectMany<ChildRow>(
+              db,
+              targetTable,
+              { [relation.foreignKey]: payload.id },
+              { fields: ["id"] },
+            );
             for (const row of rows) {
               unwrap(
                 await executor.update(

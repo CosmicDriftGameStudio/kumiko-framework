@@ -19,10 +19,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
+import { selectMany, updateMany } from "../../db/query.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
-import { eventsTable } from "../../event-store/index.ts";
+import { append, eventsTable, runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.ts";
 import {
   ConsumerLagError,
   disableConsumer,
@@ -55,8 +55,10 @@ const admin = TestUsers.admin;
 const observerQn = "retention:projection:observer";
 let stack: TestStack;
 let tdb: TenantDb;
+const previousSeedMode = process.env[SEED_MODE_ENV];
 
 beforeAll(async () => {
+  process.env[SEED_MODE_ENV] = "1";
   stack = await setupTestStack({
     features: [retentionFeature],
     systemHooks: [],
@@ -67,37 +69,43 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  if (previousSeedMode === undefined) delete process.env[SEED_MODE_ENV];
+  else process.env[SEED_MODE_ENV] = previousSeedMode;
 });
 
 afterEach(async () => {
   await resetEventStore(stack, ["read_widgets"]);
 });
 
-// Seed an aggregate event directly with a specific createdAt. Bypasses the
-// executor so we can stamp events in the past for prune tests. Aggregate
-// type defaults to "widget" — matches the test feature's entity type.
+// Seed an aggregate event of an arbitrary type with a specific createdAt through the event store's
+// seed mode. Aggregate type defaults to "widget" — matches the test feature's entity type.
 async function seedOldAggregateEvent(
   createdAt: Temporal.Instant,
   type: string,
   aggregateType = "widget",
 ): Promise<bigint> {
-  const row = await insertOne<{ id: bigint }>(stack.db, eventsTable, {
-    aggregateId: generateId(),
-    aggregateType,
-    tenantId: admin.tenantId,
-    version: 1,
-    type,
-    payload: {},
-    metadata: { userId: admin.id },
-    createdAt,
-    createdBy: admin.id,
-  });
-  if (!row) throw new Error("seed failed");
-  return row.id;
+  const stored = await runSeedWritesAt(createdAt, () =>
+    append(stack.db, {
+      aggregateId: generateId(),
+      aggregateType,
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type,
+      payload: {},
+      metadata: { userId: admin.id },
+    }),
+  );
+  return BigInt(stored.id);
 }
 
 async function appendAggregateWidget(name: string): Promise<void> {
   await executor.create({ name }, admin, tdb);
+}
+
+// Back-dated through the real write path (seed mode) so the events carry a past createdAt.
+async function appendAgedAggregateWidget(name: string, daysAgo: number): Promise<void> {
+  const createdAt = Temporal.Now.instant().subtract({ hours: daysAgo * 24 });
+  await runSeedWritesAt(createdAt, () => appendAggregateWidget(name));
 }
 
 // --- Tests ---
@@ -205,9 +213,9 @@ describe("E.2 — consumer-lag guard", () => {
     // Append 3 aggregate events. Consumer will process only the first,
     // stop advancing, and sit at cursor=1. Then we try to prune — the
     // guard should see candidates up to id=3 and throw.
-    await appendAggregateWidget("one");
-    await appendAggregateWidget("two");
-    await appendAggregateWidget("three");
+    await appendAgedAggregateWidget("one", 30);
+    await appendAgedAggregateWidget("two", 30);
+    await appendAgedAggregateWidget("three", 30);
 
     // Only let the first one through.
     await stack.eventDispatcher?.runOnce();
@@ -219,11 +227,6 @@ describe("E.2 — consumer-lag guard", () => {
       { name: observerQn },
     );
 
-    // Age all three events past the cutoff.
-    await asRawClient(stack.db).unsafe(
-      `UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
-    );
-
     await expect(
       pruneEvents(stack.db, {
         olderThanDays: 7,
@@ -233,15 +236,11 @@ describe("E.2 — consumer-lag guard", () => {
   });
 
   test("disabled consumers are ignored by the lag guard", async () => {
-    await appendAggregateWidget("solo");
+    await appendAgedAggregateWidget("solo", 30);
     await stack.eventDispatcher?.runOnce();
     await disableConsumer(stack.db, observerQn);
 
     // Cursor is at 1 but consumer is disabled — should be skipped.
-    await asRawClient(stack.db).unsafe(
-      `UPDATE kumiko_events SET created_at = now() - interval '30 days'`,
-    );
-
     const result = await pruneEvents(stack.db, {
       olderThanDays: 7,
       aggregateTypes: ["widget"],

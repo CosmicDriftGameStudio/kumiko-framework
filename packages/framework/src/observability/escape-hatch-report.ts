@@ -69,12 +69,22 @@ const PROCESS_REAUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export type EscapeHatchProcessDedup = {
   readonly kinds: ReadonlySet<EscapeHatchKind>;
   readonly lastAuditedAt: Map<string, number>;
+  readonly lastSweep: { atMs: number };
 };
+
+// Row-level targets add a key per touched row; without a sweep a long-lived worker keeps them all.
+function sweepExpiredProcessDedup(dedup: EscapeHatchProcessDedup, nowMs: number): void {
+  if (nowMs - dedup.lastSweep.atMs < PROCESS_REAUDIT_INTERVAL_MS) return;
+  dedup.lastSweep.atMs = nowMs;
+  for (const [key, auditedAt] of dedup.lastAuditedAt) {
+    if (nowMs - auditedAt >= PROCESS_REAUDIT_INTERVAL_MS) dedup.lastAuditedAt.delete(key);
+  }
+}
 
 export function createEscapeHatchProcessDedup(
   kinds: readonly EscapeHatchKind[],
 ): EscapeHatchProcessDedup {
-  return { kinds: new Set(kinds), lastAuditedAt: new Map() };
+  return { kinds: new Set(kinds), lastAuditedAt: new Map(), lastSweep: { atMs: 0 } };
 }
 
 // Default window for createEscapeHatchReporter callers that don't pass their own.
@@ -223,6 +233,7 @@ export function createEscapeHatchReporter(opts: {
       if (lastAuditedAt !== undefined && nowMs - lastAuditedAt < PROCESS_REAUDIT_INTERVAL_MS) {
         return;
       }
+      sweepExpiredProcessDedup(processDedup, nowMs);
       processDedup.lastAuditedAt.set(processKey, nowMs);
       reportEscapeHatchUse(eventFor(kind, reason, target), deps);
       // skip: audited above, the window dedup below only serves the other kinds

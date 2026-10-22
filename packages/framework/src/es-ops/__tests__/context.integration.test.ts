@@ -1,9 +1,9 @@
 // @no-server-stack: covers the SeedMigrationContext read helpers (ctx.db only); the
 // feature-less dispatcher is only needed to build the context, there is no HTTP path.
 //
-// Schema stubs are raw CREATE TABLE statements because mounting the full user/tenant/
-// template-resolver features here would be too heavy: these tests target the read-helper
-// layer, not the event-store pipeline.
+// Read-table schema stubs are raw CREATE TABLE statements because the user/tenant entities
+// live in bundled-features, which the framework package cannot import. Membership events go
+// through the event store's append.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -18,6 +18,7 @@ import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.ts
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
@@ -96,16 +97,15 @@ async function insertMembershipWithEvent(args: {
   `,
     [args.id, args.userId, args.payloadTenantId, args.roles],
   );
-  await asRawClient(testDb.db).unsafe(
-    `
-    INSERT INTO kumiko_events
-      (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
-    VALUES
-      ($1::uuid, 'tenant-membership', $2::uuid, 1,
-       'tenant-membership.created', '{}'::jsonb, '{"userId":"system"}'::jsonb, 'system')
-  `,
-    [args.id, args.streamTenantId],
-  );
+  await append(testDb.db, {
+    aggregateId: args.id,
+    aggregateType: "tenant-membership",
+    tenantId: args.streamTenantId,
+    expectedVersion: 0,
+    type: "tenant-membership.created",
+    payload: {},
+    metadata: { userId: "system" },
+  });
 }
 
 function makeTempSeedsDir(files: readonly { name: string; content: string }[]): string {

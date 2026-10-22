@@ -1,28 +1,25 @@
-// Two custom writes racing one aggregate through ctx.unsafeAppendEvent (same core as appendEvent): the loser's
-// 409 carries the winner's stream version, so a client can rebase.
-
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type Barrier, createBarrier } from "@cosmicdrift/kumiko-testing/helpers";
+import { createBarrier, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
 import { defineFeature } from "../../engine/index.ts";
 import { loadAggregate } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const AGGREGATE_TYPE = "avcDoc";
-const WRITERS_PER_ROUND = 2;
 
-const barriers = new Map<string, Barrier>();
+// The "first" writer appends and then holds its transaction open until released, so the "second"
+// writer reads the stream at version 0 and its insert blocks on the first writer's uncommitted row.
+let firstAppended = createBarrier({ expected: 2 });
+let commitFirst: () => void = () => {};
+let firstMayCommit = Promise.resolve();
 
-// Holds each writer until all have arrived so their version reads overlap. The read sits after the
-// barrier, so a round can still serialize cleanly; the test needs a conflict in some round, not each.
-async function waitForAllWriters(aggregateId: string): Promise<void> {
-  let barrier = barriers.get(aggregateId);
-  if (!barrier) {
-    barrier = createBarrier({ expected: WRITERS_PER_ROUND });
-    barriers.set(aggregateId, barrier);
-  }
-  await barrier.arrive();
+function armRound(): void {
+  firstAppended = createBarrier({ expected: 2 });
+  firstMayCommit = new Promise<void>((resolve) => {
+    commitFirst = resolve;
+  });
 }
 
 const feature = defineFeature("avc", (r) => {
@@ -31,15 +28,22 @@ const feature = defineFeature("avc", (r) => {
   });
   r.writeHandler({
     name: "doc:append",
-    schema: z.object({ aggregateId: z.uuid(), note: z.string() }),
+    schema: z.object({
+      aggregateId: z.uuid(),
+      note: z.string(),
+      role: z.enum(["first", "second"]),
+    }),
     handler: async (event, ctx) => {
-      await waitForAllWriters(event.payload.aggregateId);
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.aggregateId,
         aggregateType: AGGREGATE_TYPE,
         type: appended.name,
         payload: { note: event.payload.note },
       });
+      if (event.payload.role === "first") {
+        await firstAppended.arrive();
+        await firstMayCommit;
+      }
       return { isSuccess: true as const, data: {} };
     },
     access: { roles: ["Admin"] },
@@ -59,27 +63,40 @@ afterAll(async () => {
 
 type ErrorBody = { error: { code: string; details: Record<string, unknown> } };
 
+async function writersBlockedOnRowLock(): Promise<number> {
+  const rows = await executeRawQuery<{ count: number }>(
+    stack.db,
+    `SELECT count(*)::int AS count FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock'
+        AND wait_event = 'transactionid'`,
+  );
+  return rows[0]?.count ?? 0;
+}
+
 describe("ctx.unsafeAppendEvent version conflict", () => {
-  test("the losing writer's 409 carries the winner's stream version", async () => {
-    let conflicts = 0;
-    for (let round = 0; round < 20; round++) {
+  test.each([1, 2, 3])(
+    "round %i: the losing writer's 409 carries the winner's stream version",
+    async () => {
+      armRound();
       const aggregateId = crypto.randomUUID();
-      const responses = await Promise.all(
-        Array.from({ length: WRITERS_PER_ROUND }, (_, n) =>
-          stack.http.write("avc:write:doc:append", { aggregateId, note: `w${n}` }, admin),
-        ),
-      );
-      for (const res of responses) {
-        if (res.status === 200) continue;
-        expect(res.status).toBe(409);
-        const body = (await res.json()) as ErrorBody;
-        expect(body.error.code).toBe("version_conflict");
-        expect(body.error.details).toMatchObject({ expectedVersion: 0, currentVersion: 1 });
-        conflicts++;
-      }
-      const succeeded = responses.filter((res) => res.status === 200).length;
-      expect(await loadAggregate(stack.db, aggregateId, admin.tenantId)).toHaveLength(succeeded);
-    }
-    expect(conflicts).toBeGreaterThan(0);
-  });
+      const write = (role: "first" | "second") =>
+        stack.http.write("avc:write:doc:append", { aggregateId, note: role, role }, admin);
+
+      const firstResponse = write("first");
+      await firstAppended.arrive();
+      const secondResponse = write("second");
+      await waitFor(async () => (await writersBlockedOnRowLock()) > 0, {
+        delays: Array.from({ length: 100 }, () => 50),
+      });
+      commitFirst();
+
+      expect((await firstResponse).status).toBe(200);
+      const loser = await secondResponse;
+      expect(loser.status).toBe(409);
+      const body = (await loser.json()) as ErrorBody;
+      expect(body.error.code).toBe("version_conflict");
+      expect(body.error.details).toMatchObject({ expectedVersion: 0, currentVersion: 1 });
+      expect(await loadAggregate(stack.db, aggregateId, admin.tenantId)).toHaveLength(1);
+    },
+  );
 });

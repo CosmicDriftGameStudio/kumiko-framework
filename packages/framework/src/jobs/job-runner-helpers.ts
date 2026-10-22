@@ -124,11 +124,28 @@ export function jobSubjectKey(
   return serializeJobSubject(subject);
 }
 
+// A job that never reads ctx.tz must not fail because the tenant config read did.
+async function readTenantTimezoneOrUndefined(
+  config: ConfigAccessor | undefined,
+  logger: Pick<Logger, "warn">,
+): Promise<unknown> {
+  if (!config) return undefined;
+  try {
+    return await config(TENANT_TIMEZONE_CONFIG_KEY);
+  } catch (err) {
+    logger.warn("tenant timezone config read failed, falling back to UTC", {
+      error: scrubLogText(err instanceof Error ? err.message : String(err)),
+    });
+    return undefined;
+  }
+}
+
 export async function resolveJobTz(
   config: ConfigAccessor | undefined,
   context: Pick<AppContext, "geoTzProvider" | "clock">,
+  logger: Pick<Logger, "warn">,
 ): Promise<TzContext> {
-  const tenantTz = config ? await config(TENANT_TIMEZONE_CONFIG_KEY) : undefined;
+  const tenantTz = await readTenantTimezoneOrUndefined(config, logger);
   return createTzContext({
     ...(context.geoTzProvider !== undefined && { geoTz: context.geoTzProvider }),
     ...(context.clock !== undefined && { clock: context.clock }),

@@ -24,9 +24,11 @@ import {
   defineFeature,
   defineWriteHandler,
 } from "../../engine/index.ts";
+import type { NotifyFactory } from "../../engine/types/index.ts";
 import { UnprocessableError, writeFailure } from "../../errors/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
 
 const noteEntity = createEntity({
   table: "before_tx_notes",
@@ -43,14 +45,23 @@ const PREPARE_WRITES = `${FEATURE}:write:prepare-writes`;
 const RESERVE_WRITES = `${FEATURE}:write:reserve-writes`;
 const RESERVE_APPENDS = `${FEATURE}:write:reserve-appends`;
 const RESERVE_OUTSIDE = `${FEATURE}:write:reserve-outside`;
+const RESERVE_OUTSIDE_WRITES = `${FEATURE}:write:reserve-outside-writes`;
+const RESERVE_DENIED = `${FEATURE}:write:reserve-denied`;
+const PREPARE_GENERATED = `${FEATURE}:write:prepare-generated`;
 const NESTED_OUTER = `${FEATURE}:write:nested-outer`;
 const PREPARE_FOR_TENANT = `${FEATURE}:write:prepare-for-tenant`;
 
 const beforeCalls: string[] = [];
+const generatedIds: { readonly phase: string; readonly handler: string }[] = [];
 const handlerCalls: string[] = [];
 const releaseCalls: string[] = [];
 const reservationOutsideHandles: boolean[] = [];
 const reservationOutsideReads: number[] = [];
+
+const DENIED_SURFACES = ["writeAs", "scheduleAfterCommit", "notify", "jobRunner"] as const;
+const deniedSurfacePayload = z.object({ surface: z.enum(DENIED_SURFACES) });
+
+const notifyFactory: NotifyFactory = () => async () => ({ kind: "dispatched", deliveries: [] });
 
 const titlePayload = z.object({ title: z.string(), failInHandler: z.boolean().optional() });
 const forTenantPayload = z.object({ targetTenant: z.number(), write: z.boolean() });
@@ -220,6 +231,74 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
 
   r.writeHandler(
     defineWriteHandler({
+      name: "reserve-outside-writes",
+      schema: titlePayload,
+      access: { roles: ["Admin"] },
+      reserveBeforeTransaction: async (event, ctx) => {
+        await runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
+          noteExecutor.create({ title: "reserved" }, event.user, txDb),
+        );
+        return undefined;
+      },
+      handler: async (event) => {
+        handlerCalls.push("reserve-outside-writes");
+        if (event.payload.failInHandler) {
+          return writeFailure(new UnprocessableError("handler_rejected"));
+        }
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "reserve-denied",
+      schema: deniedSurfacePayload,
+      access: { roles: ["Admin"] },
+      reserveBeforeTransaction: async (event, ctx) => {
+        switch (deniedSurfacePayload.parse(event.payload).surface) {
+          case "writeAs":
+            await ctx.writeAs(event.user, `${FEATURE}:write:plain-create`, { title: "sneaky" });
+            break;
+          case "scheduleAfterCommit":
+            ctx.scheduleAfterCommit?.(async () => {});
+            break;
+          case "notify":
+            await ctx.notify?.("before-tx-probe", { route: { email: "probe@example.com" } });
+            break;
+          case "jobRunner":
+            await ctx.jobRunner?.dispatch?.(`${FEATURE}:job:probe`, {});
+            break;
+        }
+        return undefined;
+      },
+      handler: async () => {
+        handlerCalls.push("reserve-denied");
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.job("probe", { trigger: { manual: true }, retries: 0 }, async () => {});
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "prepare-generated",
+      schema: z.object({ id: z.string().default(() => generateId()) }),
+      access: { roles: ["Admin"] },
+      beforeTransaction: async (event) => ({
+        isSuccess: true as const,
+        data: { phaseId: event.payload.id },
+      }),
+      handler: async (event) => {
+        generatedIds.push({ phase: event.prepared.phaseId, handler: event.payload.id });
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
       name: "nested-outer",
       schema: titlePayload,
       access: { roles: ["Admin"] },
@@ -244,7 +323,11 @@ const foreignAdmin = createTestUser({ id: 4, tenantId: testTenantId(9502), roles
 const FOREIGN_TENANT = 9502;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [beforeTxFeature] });
+  stack = await setupTestStack({
+    features: [beforeTxFeature],
+    extraContext: { _notifyFactory: notifyFactory },
+    jobs: {},
+  });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
 });
 
@@ -255,6 +338,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetTestTables(stack.db, [noteTable, eventsTable]);
   beforeCalls.length = 0;
+  generatedIds.length = 0;
   handlerCalls.length = 0;
   releaseCalls.length = 0;
   reservationOutsideHandles.length = 0;
@@ -275,6 +359,13 @@ describe("beforeTransaction", () => {
     expect(handlerCalls).toEqual(["prepared-a"]);
     expect(await noteTitles()).toEqual(["prepared-a"]);
     expect(releaseCalls).toEqual([]);
+  });
+
+  test("a value the schema generates while parsing is the same in the phase and the handler", async () => {
+    await stack.http.writeOk(PREPARE_GENERATED, {}, admin);
+
+    expect(generatedIds).toHaveLength(1);
+    expect(generatedIds[0]?.handler).toBe(generatedIds[0]?.phase);
   });
 
   test("a failure result rejects the write: handler never runs, nothing is written", async () => {
@@ -400,6 +491,36 @@ describe("beforeTransaction", () => {
     );
     expect(handlerCalls).toEqual([]);
     expect(await selectMany(stack.db, eventsTable, {})).toEqual([]);
+  });
+
+  test.each([...DENIED_SURFACES])(
+    "ctx.%s inside a reservation throws before the handler runs",
+    async (surface) => {
+      const error = await stack.http.writeErr(RESERVE_DENIED, { surface }, admin);
+
+      expect(error.httpStatus).toBe(500);
+      expect(error.message).toContain(`ctx.${surface} is not available before the transaction`);
+      expect(handlerCalls).toEqual([]);
+    },
+  );
+
+  test("a reservation write through the outside-transaction db commits with the request", async () => {
+    await stack.http.writeOk(RESERVE_OUTSIDE_WRITES, { title: "ok" }, admin);
+
+    expect(await noteTitles()).toEqual(["reserved"]);
+    expect(handlerCalls).toEqual(["reserve-outside-writes"]);
+  });
+
+  test("a reservation write through the outside-transaction db survives a failing handler", async () => {
+    const error = await stack.http.writeErr(
+      RESERVE_OUTSIDE_WRITES,
+      { title: "bad", failInHandler: true },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expect(handlerCalls).toEqual(["reserve-outside-writes"]);
+    expect(await noteTitles()).toEqual(["reserved"]);
   });
 
   test("a reservation keeps the outside-transaction handles and can read through them", async () => {

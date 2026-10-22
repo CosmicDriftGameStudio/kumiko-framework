@@ -1,5 +1,5 @@
 // ctx.crossTenantReads on handlers: only present with a crossTenantReads/unsafeRaw grant,
-// read-only, tenant-unfiltered (incl. the events table) and audited per call, never inside an
+// read-only, tenant-unfiltered (incl. the events table), audited per report window and metered per call, never inside an
 // agent tool call. Real HTTP + setupTestStack; the agent cases use the scope dispatchToolCall sets.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -16,6 +16,13 @@ import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import type { EscapeHatchUseEvent, HandlerContext } from "../../engine/types/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
+import {
+  DEFAULT_SENSITIVE_CONFIG,
+  type MetricEvent,
+  type ObservabilityProvider,
+  RecordingMeter,
+  RecordingTracer,
+} from "../../observability/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
@@ -120,11 +127,19 @@ const ownAdmin = createTestUser({ id: 1, tenantId: ownTenant, roles: ["Admin"] }
 const foreignAdmin = createTestUser({ id: 2, tenantId: foreignTenant, roles: ["Admin"] });
 
 const auditEvents: EscapeHatchUseEvent[] = [];
+const metricEvents: MetricEvent[] = [];
 let stack: TestStack;
+const recordingProvider: ObservabilityProvider = {
+  name: "recording",
+  meter: new RecordingMeter((e) => metricEvents.push(e)),
+  tracer: new RecordingTracer({ sensitiveConfig: DEFAULT_SENSITIVE_CONFIG, onSpanEnd: () => {} }),
+  shutdown: async () => {},
+};
 
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [probeFeature],
+    observability: recordingProvider,
     extraContext: {
       _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {
         auditEvents.push(event);
@@ -141,6 +156,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetTestTables(stack.db, [noteTable, eventsTable]);
   auditEvents.length = 0;
+  metricEvents.length = 0;
   await stack.http.writeOk(`${FEATURE}:write:add-note`, { title: "own-note" }, ownAdmin);
   await stack.http.writeOk(`${FEATURE}:write:add-note`, { title: "foreign-note" }, foreignAdmin);
 });
@@ -157,7 +173,7 @@ describe("ctx.crossTenantReads on handlers", () => {
     expect(auditEvents).toEqual([]);
   });
 
-  test("grants: [crossTenantReads] reads every tenant but still denies unsafeRaw, and audits each read", async () => {
+  test("grants: [crossTenantReads] reads every tenant but still denies unsafeRaw, and audits once while metering each read", async () => {
     const result = await stack.http.queryOk<ReadsOutcome>(
       `${FEATURE}:query:granted`,
       { foreignTenantId: foreignTenant },
@@ -169,16 +185,20 @@ describe("ctx.crossTenantReads on handlers", () => {
     expect(result.foreignTitle).toBe("foreign-note");
     expect(result.count).toBe(2);
     expect(result.unsafeRawCode).toBe("access_denied");
+    // Targetless reads dedup inside the report window: one audit event, while the meter counts every call.
     const reads = auditEvents.filter((e) => e.kind === "cross-tenant-read");
-    expect(reads.length).toBeGreaterThan(0);
-    for (const read of reads) {
-      expect(read).toMatchObject({
-        handler: `${FEATURE}:query:granted`,
-        reason: GRANT_REASON,
-        tenantId: ownTenant,
-        actor: ownAdmin.id,
-      });
-    }
+    expect(reads).toHaveLength(1);
+    expect(reads[0]).toMatchObject({
+      handler: `${FEATURE}:query:granted`,
+      reason: GRANT_REASON,
+      tenantId: ownTenant,
+      actor: ownAdmin.id,
+    });
+    const meteredReads = metricEvents.filter(
+      (e) =>
+        e.name === "kumiko_escape_hatch_uses_total" && e.labels?.["kind"] === "cross-tenant-read",
+    );
+    expect(meteredReads).toHaveLength(4);
   });
 
   test("the events table can be read for a foreign tenant", async () => {

@@ -22,6 +22,8 @@ type ReservationConfirm = ReservationHandle["confirmInTransaction"];
 export type ConsumedReservation = {
   readonly confirmInTransaction: ReservationConfirm | undefined;
   readonly prepared: unknown;
+  // The payload the phases saw: parsing twice would hand the handler a different value wherever the schema generates one.
+  readonly parsedPayload: unknown;
 };
 
 export function hasPreTransactionPhase(handler: WriteHandlerDef): boolean {
@@ -156,7 +158,11 @@ export async function reserveBeforeTransaction(
         prepared = phase.data;
       }
 
-      reservedCommands.set(index, { confirmInTransaction, prepared });
+      reservedCommands.set(index, {
+        confirmInTransaction,
+        prepared,
+        parsedPayload: gates.payload,
+      });
     } catch (error) {
       await releaseAll(ctx, releases);
       return { isSuccess: false, error: toWriteErrorInfo(wrapToKumiko(error)), failedIndex: index };
