@@ -7,7 +7,7 @@ import {
   emitEvent,
   setFields,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
@@ -43,6 +43,7 @@ export const helpdeskFeature = defineFeature("helpdesk", (r) => {
       if (!ticket) {
         return failNotFound("ticket", event.payload.id);
       }
+      if (ticket["isClosed"]) return failUnprocessable("ticket_already_closed");
       await emitEvent(ctx, ticketClosed, {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
