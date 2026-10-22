@@ -108,8 +108,9 @@ export interface FieldFormatRegistry {
   image: { readonly variant?: string };
   /** FileRef id (or id array) as a download link with the file name. On a
    *  read-only detail field it renders a file list with download links and an
-   *  inline preview for PDFs; elsewhere the raw value is shown. */
-  file: object;
+   *  inline preview for PDFs; elsewhere the raw value is shown.
+   *  `previewOpenByDefault` opens the first file's PDF preview initially. */
+  file: { readonly previewOpenByDefault?: boolean };
 }
 
 // Discriminated union derived from the registry — one variant per key.

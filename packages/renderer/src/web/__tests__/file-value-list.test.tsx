@@ -65,6 +65,22 @@ describe("FileValueList", () => {
     await waitFor(() => expect(queryByTestId(`file-preview-${PDF_ID}`)).toBeNull());
   });
 
+  test("previewOpenByDefault opens the first file's preview on render, not the others", async () => {
+    const { findByTestId, queryByTestId } = render(
+      <FileValueList fileIds={[PDF_ID, PNG_ID]} previewOpenByDefault testId="files" />,
+    );
+    await findByTestId(`file-preview-${PDF_ID}`);
+    expect(queryByTestId(`file-preview-${PNG_ID}`)).toBeNull();
+  });
+
+  test("without previewOpenByDefault the preview starts closed", async () => {
+    const { findByTestId, queryByTestId } = render(
+      <FileValueList fileIds={[PDF_ID]} testId="files" />,
+    );
+    await findByTestId(`files-${PDF_ID}-preview-toggle`);
+    expect(queryByTestId(`file-preview-${PDF_ID}`)).toBeNull();
+  });
+
   test("a non-uuid id is plain text and triggers no request", () => {
     let requests = 0;
     globalThis.fetch = (async () => {

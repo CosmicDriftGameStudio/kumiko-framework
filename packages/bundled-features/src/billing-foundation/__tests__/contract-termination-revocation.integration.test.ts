@@ -14,7 +14,7 @@ import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { expectSuccess, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectSuccess, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -460,6 +460,8 @@ describe("revoke pages", () => {
     expect(declared.status).toBe(200);
     const draining = stack.drainJobs();
     await entered.promise;
+    // The receipt mail and the provider cancel run as separate jobs of the same drain.
+    await waitFor(() => mailsTo("inflight@example.com").length > 0);
     const link = revokeLinkOf("inflight@example.com");
 
     const res = await postRevocation(revokeForm(link));

@@ -1588,6 +1588,8 @@ export type JsonViewProps = {
  *  PDFs, an inline preview. Used for `renderer: { format: "file" }` on a detail field. */
 export type FileValueListProps = {
   readonly fileIds: readonly string[];
+  /** Starts the inline PDF preview of the first file open. */
+  readonly previewOpenByDefault?: boolean;
   readonly testId?: string;
 };
 

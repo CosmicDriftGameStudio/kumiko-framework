@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -31,8 +32,8 @@ export type MfaStatusChecker = (
   ctx: HandlerContext,
   userId: string,
   tenantId: TenantId,
-  // Merged global+tenant roles — needed to evaluate the "admins" policy
-  // value. Must be the MERGED set (see login.write.ts caller): a
+  // Merged global+tenant roles — needed to evaluate the "admins" and "systemAdmins"
+  // policies. Must be the MERGED set (see login.write.ts caller): a
   // SystemAdmin whose admin-ness lives only in global roles would be
   // missed if the caller passed tenant-membership roles alone.
   roles: readonly string[],
@@ -84,9 +85,11 @@ export function createMfaStatusChecker(opts: {
         opts.challengeTokenSecret,
       ).token;
     if (policy === "all") return { setupRequired: true, preauthSetupToken: buildSetupToken() };
-    // policy === "admins"
-    const isAdmin = roles.some((role) => access.admin.includes(role));
-    return isAdmin
+    const isEnforced =
+      policy === "systemAdmins"
+        ? roles.includes(ROLES.SystemAdmin)
+        : roles.some((role) => access.admin.includes(role));
+    return isEnforced
       ? { setupRequired: true, preauthSetupToken: buildSetupToken() }
       : { required: false };
   };

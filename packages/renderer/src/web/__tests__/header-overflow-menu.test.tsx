@@ -314,14 +314,54 @@ describe("primary toolbar action in the header", () => {
     expect(inHeader()?.querySelector(".lucide-plus")).toBeNull();
   });
 
-  test("with onCreate only the create button takes the header", () => {
-    setViewportWidth(PHONE);
-    renderList({ toolbarActions: [action()], onCreate: () => {} });
-    expect(inHeader()).toBeNull();
-    expect(screen.getByTestId("render-list-create")).toBeTruthy();
-    expect(screen.getByTestId("render-list-toolbar-action-new").textContent).toContain(
-      "New credit",
+  test("with onCreate the promoted actions sit left of the create button in the header", () => {
+    setViewportWidth(DESKTOP);
+    renderList({
+      toolbarActions: [action(), action({ id: "upload", label: "Upload" })],
+      onCreate: () => {},
+    });
+    const header = document.querySelector('[data-kumiko-layout="page-header-actions"]');
+    const ids = Array.from(header?.querySelectorAll("[data-testid]") ?? []).map((el) =>
+      el.getAttribute("data-testid"),
     );
+    expect(ids).toEqual([
+      "render-list-toolbar-action-new",
+      "render-list-toolbar-action-upload",
+      "render-list-create",
+    ]);
+    expect(screen.getAllByTestId("render-list-toolbar-action-new")).toHaveLength(1);
+    expect(screen.getAllByTestId("render-list-toolbar-action-upload")).toHaveLength(1);
+  });
+
+  test("on phones next to the create button the action moves into the overflow menu", () => {
+    setViewportWidth(PHONE);
+    const onTrigger = mock(() => {});
+    renderList({ toolbarActions: [action({ onTrigger })], onCreate: () => {} });
+    expect(inHeader()).toBeNull();
+    expect(screen.getByTestId("render-list-create").closest("[data-kumiko-layout]")).not.toBeNull();
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    const item = screen.getByTestId("render-list-toolbar-action-new");
+    expect(item.textContent).toContain("New credit");
+    expect(screen.getAllByTestId("render-list-toolbar-action-new")).toHaveLength(1);
+    fireEvent.click(item);
+    expect(onTrigger).toHaveBeenCalledTimes(1);
+  });
+
+  test("a failing overflow-menu action surfaces its error", async () => {
+    setViewportWidth(PHONE);
+    renderList({
+      toolbarActions: [
+        action({
+          onTrigger: async () => {
+            throw new Error("menu boom");
+          },
+        }),
+      ],
+      onCreate: () => {},
+    });
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    fireEvent.click(screen.getByTestId("render-list-toolbar-action-new"));
+    expect(await screen.findByText("menu boom")).toBeTruthy();
   });
 
   test("a failing promoted action surfaces its error instead of an unhandled rejection", async () => {

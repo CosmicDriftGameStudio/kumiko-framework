@@ -52,6 +52,15 @@ export const leaseListScreen: EntityListScreenDefinition = {
   pageSize: 25,
   createLabel: "rental.action.createLease",
   searchPlaceholder: "rental.search.placeholder",
+  toolbarActions: [
+    {
+      kind: "navigate",
+      id: "show-terminated",
+      label: "rental.action.showTerminated",
+      style: "primary",
+      screen: "lease-list-short",
+    },
+  ],
   rowActions: [openLeaseDetail],
   access: OPEN_ACCESS,
 };
