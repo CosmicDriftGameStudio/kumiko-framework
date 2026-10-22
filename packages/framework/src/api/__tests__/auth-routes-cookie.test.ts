@@ -410,8 +410,10 @@ describe("auth-routes __Host- cookie prefix", () => {
   test("without Secure the names stay unprefixed", async () => {
     const { app } = await buildApp({ secureCookies: false });
     const cookies = getSetCookies(await login(app));
-    expect(cookies.get(AUTH_COOKIE_BASE)).toBeDefined();
-    expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
+    expect(cookies.get(AUTH_COOKIE_BASE)?.value).not.toBe("");
+    // The __Host- name only appears as an expiry of a leftover from an earlier secure config.
+    expect(cookies.get(PREFIXED_AUTH)?.value).toBe("");
+    expect(cookies.get(PREFIXED_AUTH)?.raw).toMatch(/Max-Age=0/i);
   });
 
   test("retired domains are deleted under the unprefixed names only", async () => {

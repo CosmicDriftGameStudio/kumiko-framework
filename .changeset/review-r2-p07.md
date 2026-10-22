@@ -2,7 +2,7 @@
 "@cosmicdrift/kumiko-bundled-features": patch
 ---
 
-Review fixes for template-resolver: the layout usage list sees the same rows as the overview, admin views apply the same delivery rule as rendering, archiving drops an open draft, seeded title keys are format-checked, and a failing rollback no longer hides the upload error.
+Review fixes for template-resolver: the layout usage list sees the same rows as the overview, admin views apply the same delivery rule as rendering, seeded title keys are format-checked, and a failing rollback no longer hides the upload error.
 
 <!-- kumiko-changes
 feature: template-resolver
@@ -16,13 +16,6 @@ feature: template-resolver
 type: fix
 title: Admin views follow the delivery rule of rendering
 detail: List, find-by-id, diff-to-system, validate, preview and the document base hide a collection row that a locked system template of the same slug shadows, as mail, PDF and the resolver already do.
--->
-
-<!-- kumiko-changes
-feature: template-resolver
-type: fix
-title: Archiving drops an open draft
-detail: A draft only lives beside an active version, so archive clears it; the editor shows the archived status and publish brings back the archived version instead of the draft.
 -->
 
 <!-- kumiko-changes

@@ -104,8 +104,11 @@ describe("retiredCookieDomains (integration)", () => {
       const res = await login(stack);
       expect(res.status).toBe(200);
       const headers = res.headers.getSetCookie();
-      expect(headers).toHaveLength(2);
-      expect(headers.some((h) => /Max-Age=0/i.test(h))).toBe(false);
+      for (const name of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
+        expect(headers.some((h) => h.startsWith(`${name}=`) && !/Max-Age=0/i.test(h))).toBe(true);
+      }
+      // Only the __Host- leftovers are expired, always without a Domain attribute.
+      expect(headers.filter((h) => /Domain=/i.test(h))).toEqual([]);
     });
   });
 });

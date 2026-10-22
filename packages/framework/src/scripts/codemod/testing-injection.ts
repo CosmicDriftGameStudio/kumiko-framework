@@ -12,7 +12,14 @@
 // Without a mode flag it writes (kumiko-upgrade --apply calls it that way). --check exits 1
 // while any rewritable or manual site is left; --dry-run only reports.
 
-import { type ExportDeclaration, type ImportDeclaration, Project, SyntaxKind } from "ts-morph";
+import {
+  type ExportDeclaration,
+  type ExportSpecifier,
+  type ImportDeclaration,
+  type ImportSpecifier,
+  Project,
+  SyntaxKind,
+} from "ts-morph";
 import {
   type CodemodResult,
   ensureNamedImport,
@@ -64,24 +71,25 @@ function reportNamespaceUses(
   }
 }
 
-function rewriteReexports(
+function reportStarReexport(
   declaration: ExportDeclaration,
-  moved: ReadonlySet<string>,
+  filePath: string,
+  result: SiteLists,
+): void {
+  result.manual.push({
+    file: filePath,
+    line: declaration.getStartLineNumber(),
+    description: `export * from ${declaration.getModuleSpecifierValue()}: re-export the moved names from ${TARGET_MODULE} by hand`,
+  });
+}
+
+function moveNamedReexports(
+  declaration: ExportDeclaration,
+  movedExports: readonly ExportSpecifier[],
   filePath: string,
   result: SiteLists,
 ): void {
   const line = declaration.getStartLineNumber();
-  const namedExports = declaration.getNamedExports();
-  if (namedExports.length === 0) {
-    result.manual.push({
-      file: filePath,
-      line,
-      description: `export * from ${declaration.getModuleSpecifierValue()}: re-export the moved names from ${TARGET_MODULE} by hand`,
-    });
-    return;
-  }
-  const movedExports = namedExports.filter((named) => moved.has(named.getName()));
-  if (movedExports.length === 0) return;
   const snapshots = movedExports.map((named) => ({
     name: named.getName(),
     alias: named.getAliasNode()?.getText(),
@@ -102,6 +110,76 @@ function rewriteReexports(
   });
 }
 
+function rewriteReexports(
+  declaration: ExportDeclaration,
+  moved: ReadonlySet<string>,
+  filePath: string,
+  result: SiteLists,
+): void {
+  const namedExports = declaration.getNamedExports();
+  const movedExports = namedExports.filter((named) => moved.has(named.getName()));
+  if (namedExports.length === 0) reportStarReexport(declaration, filePath, result);
+  else if (movedExports.length > 0) moveNamedReexports(declaration, movedExports, filePath, result);
+}
+
+function moveNamedImports(
+  declaration: ImportDeclaration,
+  movedImports: readonly ImportSpecifier[],
+  filePath: string,
+  result: SiteLists,
+): void {
+  const line = declaration.getStartLineNumber();
+  const typeOnlyDeclaration = declaration.isTypeOnly();
+  const sourceFile = declaration.getSourceFile();
+  const names = movedImports.map((named) => named.getName());
+  // Collected first: removing a specifier invalidates the nodes of its siblings.
+  const snapshots = movedImports.map((named) => ({
+    name: named.getName(),
+    alias: named.getAliasNode()?.getText(),
+    typeOnly: named.isTypeOnly(),
+  }));
+  for (const named of movedImports) named.remove();
+  if (
+    declaration.getNamedImports().length === 0 &&
+    declaration.getNamespaceImport() === undefined &&
+    declaration.getDefaultImport() === undefined
+  ) {
+    declaration.remove();
+  }
+  for (const snapshot of snapshots) {
+    const typeOnly = typeOnlyDeclaration || snapshot.typeOnly;
+    if (snapshot.alias === undefined) {
+      ensureNamedImport(sourceFile, TARGET_MODULE, snapshot.name, typeOnly);
+    } else {
+      sourceFile.addImportDeclaration({
+        moduleSpecifier: TARGET_MODULE,
+        namedImports: [{ name: snapshot.name, alias: snapshot.alias }],
+        isTypeOnly: typeOnly,
+      });
+    }
+  }
+  result.rewrites.push({
+    file: filePath,
+    line,
+    description: `${names.join(", ")} -> ${TARGET_MODULE}`,
+  });
+}
+
+function rewriteImportDeclaration(
+  declaration: ImportDeclaration,
+  filePath: string,
+  result: SiteLists,
+): void {
+  const moved = movedNamesOf(declaration);
+  if (moved !== undefined) {
+    reportNamespaceUses(declaration, moved, filePath, result);
+    const movedImports = declaration
+      .getNamedImports()
+      .filter((named) => moved.has(named.getName()));
+    if (movedImports.length > 0) moveNamedImports(declaration, movedImports, filePath, result);
+  }
+}
+
 export function transformTestingInjectionSource(
   source: string,
   filePath = "source.ts",
@@ -115,47 +193,7 @@ export function transformTestingInjectionSource(
   });
   const sourceFile = project.createSourceFile(filePath, source);
   for (const declaration of sourceFile.getImportDeclarations()) {
-    const moved = movedNamesOf(declaration);
-    if (moved === undefined) continue;
-    reportNamespaceUses(declaration, moved, filePath, result);
-    const movedImports = declaration
-      .getNamedImports()
-      .filter((named) => moved.has(named.getName()));
-    if (movedImports.length === 0) continue;
-    const line = declaration.getStartLineNumber();
-    const typeOnlyDeclaration = declaration.isTypeOnly();
-    const names = movedImports.map((named) => named.getName());
-    // Collected first: removing a specifier invalidates the nodes of its siblings.
-    const snapshots = movedImports.map((named) => ({
-      name: named.getName(),
-      alias: named.getAliasNode()?.getText(),
-      typeOnly: named.isTypeOnly(),
-    }));
-    for (const named of movedImports) named.remove();
-    if (
-      declaration.getNamedImports().length === 0 &&
-      declaration.getNamespaceImport() === undefined &&
-      declaration.getDefaultImport() === undefined
-    ) {
-      declaration.remove();
-    }
-    for (const snapshot of snapshots) {
-      const typeOnly = typeOnlyDeclaration || snapshot.typeOnly;
-      if (snapshot.alias === undefined) {
-        ensureNamedImport(sourceFile, TARGET_MODULE, snapshot.name, typeOnly);
-      } else {
-        sourceFile.addImportDeclaration({
-          moduleSpecifier: TARGET_MODULE,
-          namedImports: [{ name: snapshot.name, alias: snapshot.alias }],
-          isTypeOnly: typeOnly,
-        });
-      }
-    }
-    result.rewrites.push({
-      file: filePath,
-      line,
-      description: `${names.join(", ")} -> ${TARGET_MODULE}`,
-    });
+    rewriteImportDeclaration(declaration, filePath, result);
   }
   for (const declaration of sourceFile.getExportDeclarations()) {
     const moved = MOVED_NAMES_BY_MODULE.get(declaration.getModuleSpecifierValue() ?? "");

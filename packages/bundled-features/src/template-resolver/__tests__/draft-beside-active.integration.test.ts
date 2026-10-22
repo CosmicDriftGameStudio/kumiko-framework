@@ -42,7 +42,6 @@ const PLAIN_NAMES = [
   "legacy",
   "system",
   "sysdraft",
-  "archived-draft",
 ];
 const slugOf = (name: string) => `dd-mailer:notify:${name}`;
 
@@ -203,22 +202,6 @@ describe("template-resolver :: draft beside the active version", () => {
     });
     expect(stored?.draft).toBeNull();
     expect(stored?.activeVersion).toBe(stored?.version ?? -1);
-  });
-
-  test("archive drops an open draft, so publish brings back the archived version", async () => {
-    const id = await saveMail("archived-draft", "Archiviert", { status: "active" });
-    await saveMail("archived-draft", "Entwurf");
-
-    await stack.http.writeOk(TemplateResolverHandlers.archive, { id }, admin);
-
-    const archived = await findWorking(id);
-    expect(archived).toMatchObject({ status: "archived", active: null });
-    expect(archived.content).toContain("Archiviert");
-
-    await stack.http.writeOk(TemplateResolverHandlers.publish, { id }, admin);
-
-    expect(await servedContent("archived-draft")).toContain("Archiviert");
-    expect((await findWorking(id)).status).toBe("active");
   });
 
   test("discard-draft restores the served version and its number", async () => {

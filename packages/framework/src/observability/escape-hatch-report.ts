@@ -74,10 +74,11 @@ export type EscapeHatchProcessDedup = {
 
 // Row-level targets add a key per touched row; without a sweep a long-lived worker keeps them all.
 function sweepExpiredProcessDedup(dedup: EscapeHatchProcessDedup, nowMs: number): void {
-  if (nowMs - dedup.lastSweep.atMs < PROCESS_REAUDIT_INTERVAL_MS) return;
-  dedup.lastSweep.atMs = nowMs;
-  for (const [key, auditedAt] of dedup.lastAuditedAt) {
-    if (nowMs - auditedAt >= PROCESS_REAUDIT_INTERVAL_MS) dedup.lastAuditedAt.delete(key);
+  if (nowMs - dedup.lastSweep.atMs >= PROCESS_REAUDIT_INTERVAL_MS) {
+    dedup.lastSweep.atMs = nowMs;
+    for (const [key, auditedAt] of dedup.lastAuditedAt) {
+      if (nowMs - auditedAt >= PROCESS_REAUDIT_INTERVAL_MS) dedup.lastAuditedAt.delete(key);
+    }
   }
 }
 
