@@ -2,6 +2,7 @@
 // attacker-triggerable rate_limited case. HTTP-layer only, stub dispatcher.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import { Hono } from "hono";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
 import { createAuthRoutes } from "../auth-routes.ts";
@@ -62,16 +63,6 @@ async function requestReset(app: Hono): Promise<Response> {
   });
 }
 
-// Other test files in the same bun process emit async errors while a console spy is active,
-// so assertions only count the token-request failure log.
-function tokenRequestErrors(spy: {
-  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
-}) {
-  return spy.mock.calls.filter((args) =>
-    args.some((arg) => String(arg).includes("token request handler")),
-  );
-}
-
 describe("POST /auth/request-password-reset failure logging", () => {
   let errorSpy: ReturnType<typeof spyOn>;
   beforeEach(() => {
@@ -82,13 +73,13 @@ describe("POST /auth/request-password-reset failure logging", () => {
   test("rate_limited stays silent and the response is still uniform success", async () => {
     const res = await requestReset(buildApp(dispatcherFailingWith("rate_limited")));
     expect(res.status).toBe(200);
-    expect(tokenRequestErrors(errorSpy)).toHaveLength(0);
+    expect(consoleCallsMentioning(errorSpy, "token request handler")).toHaveLength(0);
   });
 
   test("an unexpected failure code is logged", async () => {
     const res = await requestReset(buildApp(dispatcherFailingWith("internal_error")));
     expect(res.status).toBe(200);
-    const errors = tokenRequestErrors(errorSpy);
+    const errors = consoleCallsMentioning(errorSpy, "token request handler");
     expect(errors).toHaveLength(1);
     expect(errors[0]?.[1]).toMatchObject({ code: "internal_error" });
   });

@@ -117,8 +117,9 @@ describe("handlerFieldReference", () => {
       badEntity: z.string().meta({ references: { entity: 3 } }),
       empty: z.string().meta({ references: "" }),
       badBy: z.string().meta({ references: { entity: "x", by: 1 } }),
+      typoBy: z.string().meta({ references: { entity: "x", bY: "key" } }),
     });
-    for (const field of ["noEntity", "badEntity", "empty", "badBy"]) {
+    for (const field of ["noEntity", "badEntity", "empty", "badBy", "typoBy"]) {
       expect(handlerFieldReference(schema, field)).toBeUndefined();
       expect(readHandlerFieldReference(schema, field).kind).toBe("invalid");
     }

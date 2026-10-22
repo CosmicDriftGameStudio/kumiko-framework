@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import { defineFeature } from "../../define-feature.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { validateBoot } from "../index.ts";
@@ -9,16 +10,6 @@ import {
 
 function stubFeature(name: string): FeatureDefinition {
   return defineFeature(name, () => {});
-}
-
-// Other test files in the same bun process emit async warnings while this spy is active,
-// so "no warning" assertions only count the messages the validator under test produces.
-function baselineWarnings(spy: {
-  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
-}) {
-  return spy.mock.calls.filter((args) =>
-    args.some((arg) => String(arg).includes("security baseline is incomplete")),
-  );
 }
 
 describe("warnOnMissingSecurityBaseline", () => {
@@ -35,7 +26,7 @@ describe("warnOnMissingSecurityBaseline", () => {
   test("production + no baseline features → warns once, naming all four", () => {
     warnOnMissingSecurityBaseline([], "production");
 
-    const warnings = baselineWarnings(warnSpy);
+    const warnings = consoleCallsMentioning(warnSpy, "security baseline is incomplete");
     expect(warnings).toHaveLength(1);
     const msg = String(warnings[0]?.[0]);
     for (const name of SECURITY_BASELINE_FEATURE_NAMES) {
@@ -48,7 +39,7 @@ describe("warnOnMissingSecurityBaseline", () => {
 
     warnOnMissingSecurityBaseline(features, "production");
 
-    const warnings = baselineWarnings(warnSpy);
+    const warnings = consoleCallsMentioning(warnSpy, "security baseline is incomplete");
     expect(warnings).toHaveLength(1);
     const msg = String(warnings[0]?.[0]);
     expect(msg).toContain("missing feature(s): crypto-shredding, rate-limiting.");
@@ -59,7 +50,7 @@ describe("warnOnMissingSecurityBaseline", () => {
 
     warnOnMissingSecurityBaseline(features, "production");
 
-    expect(baselineWarnings(warnSpy)).toHaveLength(0);
+    expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(0);
   });
 
   test.each(["development", "test", undefined])(
@@ -67,7 +58,7 @@ describe("warnOnMissingSecurityBaseline", () => {
     (nodeEnv) => {
       warnOnMissingSecurityBaseline([], nodeEnv);
 
-      expect(baselineWarnings(warnSpy)).toHaveLength(0);
+      expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(0);
     },
   );
 
@@ -105,13 +96,13 @@ describe("validateBoot + security baseline warning", () => {
     const features = SECURITY_BASELINE_FEATURE_NAMES.map((name) => stubFeature(name));
 
     expect(() => validateBoot(features)).not.toThrow();
-    expect(baselineWarnings(warnSpy)).toHaveLength(0);
+    expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(0);
   });
 
   test("production boot with no baseline features mounted warns but does not throw", () => {
     process.env["NODE_ENV"] = "production";
 
     expect(() => validateBoot([])).not.toThrow();
-    expect(baselineWarnings(warnSpy)).toHaveLength(1);
+    expect(consoleCallsMentioning(warnSpy, "security baseline is incomplete")).toHaveLength(1);
   });
 });

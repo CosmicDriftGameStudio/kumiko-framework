@@ -5,6 +5,7 @@
 // middleware.integration.test.ts for the end-to-end behavior.
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   assertValidTrustedProxyHops,
   type ClientIpHeaderSource,
@@ -12,16 +13,6 @@ import {
   extractSocketAddress,
   parseTrustedProxyHopsEnv,
 } from "../client-ip.ts";
-
-// Other test files in the same bun process emit async warnings while a console spy is active,
-// so assertions only count the X-Forwarded-For warning the resolver produces.
-function forwardedForWarnings(spy: {
-  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
-}) {
-  return spy.mock.calls.filter((args) =>
-    args.some((arg) => String(arg).includes("received X-Forwarded-For")),
-  );
-}
 
 describe("extractSocketAddress", () => {
   test("accepts the bare string shape", () => {
@@ -82,14 +73,14 @@ describe("createClientIpResolver", () => {
         resolver.resolve(sourceOf({ "x-forwarded-for": "203.0.113.7" }));
         resolver.resolve(sourceOf({ "x-forwarded-for": "203.0.113.8" }));
         resolver.resolve(sourceOf({ "x-forwarded-for": "203.0.113.9" }));
-        expect(forwardedForWarnings(warnSpy)).toHaveLength(1);
+        expect(consoleCallsMentioning(warnSpy, "received X-Forwarded-For")).toHaveLength(1);
       });
 
       test("a fresh resolver instance warns again — the flag isn't a module singleton", () => {
         warnSpy = spyOn(console, "warn").mockImplementation(() => {});
         createClientIpResolver(0).resolve(sourceOf({ "x-forwarded-for": "203.0.113.7" }));
         createClientIpResolver(0).resolve(sourceOf({ "x-forwarded-for": "203.0.113.7" }));
-        expect(forwardedForWarnings(warnSpy)).toHaveLength(2);
+        expect(consoleCallsMentioning(warnSpy, "received X-Forwarded-For")).toHaveLength(2);
       });
 
       test("no warning when XFF is absent or blank", () => {
@@ -97,7 +88,7 @@ describe("createClientIpResolver", () => {
         const resolver = createClientIpResolver(0);
         resolver.resolve(sourceOf({}));
         resolver.resolve(sourceOf({ "x-forwarded-for": "   " }));
-        expect(forwardedForWarnings(warnSpy)).toHaveLength(0);
+        expect(consoleCallsMentioning(warnSpy, "received X-Forwarded-For")).toHaveLength(0);
       });
     });
   });

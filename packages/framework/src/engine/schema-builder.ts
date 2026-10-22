@@ -244,7 +244,8 @@ function embeddedFieldToZod(field: FieldOf<"embedded">): z.ZodTypeAny {
   if (min === undefined) return list;
   // A custom issue rather than min(): other arrays (multiSelect) share zod's
   // too_small and must not read "rows"; the bridge honours params.i18nKey.
-  return list.superRefine((rows, ctx) => {
+  // The refinement is invisible to z.toJSONSchema; the meta keeps minItems for agent manifests.
+  return list.meta({ minItems: min }).superRefine((rows, ctx) => {
     // skip: the minimum is met, nothing to report
     if (rows.length >= min) return;
     ctx.addIssue({

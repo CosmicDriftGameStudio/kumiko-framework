@@ -40,7 +40,7 @@ const MAX_NESTING_DEPTH = 8;
 
 const referenceMetaSchema = z.union([
   z.string().min(1),
-  z.object({ entity: z.string().min(1), by: z.string().min(1).optional() }),
+  z.strictObject({ entity: z.string().min(1), by: z.string().min(1).optional() }),
 ]);
 
 function rawReferenceMeta(field: z.ZodType): unknown {

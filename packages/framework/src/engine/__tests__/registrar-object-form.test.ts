@@ -242,6 +242,19 @@ describe("registrar — a positional call fails at registration", () => {
     },
   ];
 
+  test("r.requires rejects a misspelled key and extra arguments instead of dropping them", () => {
+    expect(() =>
+      defineFeature("legacy", (r) => {
+        Reflect.apply(r.requires, r, [{ feature: ["auth"] }]);
+      }),
+    ).toThrow("[Feature legacy] r.requires() needs { features: string[] }");
+    expect(() =>
+      defineFeature("legacy", (r) => {
+        Reflect.apply(r.requires, r, [{ features: ["a"] }, { features: ["b"] }]);
+      }),
+    ).toThrow("[Feature legacy] r.requires() takes one options object");
+  });
+
   for (const { method, call } of positionalCalls) {
     test(`r.${method}: a positional call throws instead of registering`, () => {
       expect(() =>

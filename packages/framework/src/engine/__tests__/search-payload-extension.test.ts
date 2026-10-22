@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import { buildSearchDocument } from "../../pipeline/system-hooks.ts";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
 import type { SearchPayloadContributorFn } from "../types/index.ts";
@@ -116,16 +117,6 @@ describe("effectiveFeatures filtering", () => {
   });
 });
 
-// Other test files in the same bun process emit async warnings while a console spy is active,
-// so assertions only count the collision warnings this feature produces.
-function collisionWarnings(spy: {
-  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
-}) {
-  return spy.mock.calls.filter((args) =>
-    args.some((arg) => String(arg).includes("[kumiko:search] searchPayloadExtension")),
-  );
-}
-
 describe("buildSearchDocument — contributor precedence (base fields win)", () => {
   // A describe-body spy is installed at collection time and never removed; under
   // `--no-isolate` it outlives this file and later files inherit its call count.
@@ -155,14 +146,18 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const registry = registryWith(() => ({ title: "from-contributor" }));
     const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
     expect(doc?.fields["title"]).toBe("real-value");
-    expect(collisionWarnings(warnSpy)).toHaveLength(1);
+    expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
+      1,
+    );
   });
 
   test("a non-colliding contributor key is still merged in", async () => {
     const registry = registryWith(() => ({ flatTags: "a,b" }));
     const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
     expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
-    expect(collisionWarnings(warnSpy)).toHaveLength(0);
+    expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
+      0,
+    );
   });
 
   test("collision dedup — same collision warns exactly once across calls", async () => {
@@ -181,7 +176,9 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const registry = createRegistry([feature]);
     await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
     await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
-    expect(collisionWarnings(warnSpy)).toHaveLength(1);
+    expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
+      1,
+    );
   });
 
   test("collision dedup is scoped per registry — separate registries each warn", async () => {
@@ -192,7 +189,9 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const r2 = registryWith(() => ({ title: "from-contributor" }));
     await buildSearchDocument("thing", "t1", { title: "real-value" }, r1);
     await buildSearchDocument("thing", "t1", { title: "real-value" }, r2);
-    expect(collisionWarnings(warnSpy)).toHaveLength(2);
+    expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
+      2,
+    );
   });
 
   test("contributor-vs-contributor collision warns with the right message", async () => {
@@ -216,7 +215,7 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     // second contributor's "overlap" collides with the first one's → "earlier contributor key".
     expect(doc?.fields["title"]).toBe("real-value");
     expect(doc?.fields["overlap"]).toBe("first");
-    const warnings = collisionWarnings(warnSpy);
+    const warnings = consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension");
     expect(warnings).toHaveLength(1);
     expect(warnings[0]?.[0]).toContain("earlier contributor key");
   });
