@@ -225,6 +225,25 @@ describe("upgrade command — framework core changelog", () => {
     expect(lines).not.toContain("fully codemodded  [");
   });
 
+  test("without --apply, pending changes come with a hint that CHANGELOG and marker are only written by --apply", async () => {
+    const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
+    const preview = makeSpyOutput();
+
+    expect(await runUpgradeCli(["--from", "0.165.0"], cwd, preview.out)).toBe(0);
+
+    expect(preview.logs.join("\n")).toContain("written by --apply (add --dry-run");
+    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
+  test("without --apply and nothing pending, no apply hint is printed", async () => {
+    const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
+    const preview = makeSpyOutput();
+
+    expect(await runUpgradeCli(["--from", "0.167.0"], cwd, preview.out)).toBe(0);
+
+    expect(preview.logs.join("\n")).not.toContain("written by --apply");
+  });
+
   test("--from is rejected when it isn't a valid semver — no silent 'nothing new'", async () => {
     const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
     const spy = makeSpyOutput();
