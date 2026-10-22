@@ -2007,3 +2007,51 @@ describe("upload body-size limit", () => {
     });
   });
 });
+
+describe("upload through a plain provider resolver", () => {
+  test("records the ledger row before the bytes are written and consumes it on commit", async () => {
+    const isolatedDb = await createTestDb();
+    await unsafePushTables(isolatedDb.db, { fileRefsTable, fileUploadLedgerTable });
+    const inner = createInMemoryFileProvider();
+    const ledgerKeysSeenAtWrite: string[][] = [];
+    const provider: InMemoryFileProvider = {
+      ...inner,
+      write: async (key, bytes, mimeType) => {
+        const rows = await selectMany<{ storageKey: string }>(
+          isolatedDb.db,
+          fileUploadLedgerTable,
+          {},
+        );
+        ledgerKeysSeenAtWrite.push(rows.map((r) => r.storageKey));
+        await inner.write(key, bytes, mimeType);
+      },
+    };
+    const isolatedServer = buildServer({
+      registry: createRegistry([createFilesFeature()]),
+      context: { db: isolatedDb.db, _fileProviderResolver: () => Promise.resolve(provider) },
+      jwtSecret: JWT_SECRET,
+    });
+    try {
+      const token = await isolatedServer.jwt.sign(adminUser);
+      const fd = new FormData();
+      fd.append(
+        "file",
+        new File([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], "a.png", {
+          type: "image/png",
+        }),
+      );
+      const { body, contentType } = await buildMultipartBody(fd);
+      const res = await isolatedServer.app.request("/api/files", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body: body as unknown as BodyInit,
+      });
+      expect(res.status).toBe(201);
+      expect(inner.keys()).toHaveLength(1);
+      expect(ledgerKeysSeenAtWrite).toEqual([[...inner.keys()]]);
+      expect(await selectMany(isolatedDb.db, fileUploadLedgerTable, {})).toHaveLength(0);
+    } finally {
+      await isolatedDb.cleanup();
+    }
+  });
+});

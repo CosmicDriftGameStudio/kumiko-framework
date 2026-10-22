@@ -74,6 +74,8 @@ describe("resolveContentType", () => {
     const samples = [
       '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
       "<div>hello</div>",
+      '<form action="/x"><input name="a"></form>',
+      '<iframe src="https://example.test"></iframe>',
       '<x:html xmlns:x="http://www.w3.org/1999/xhtml"><x:body/></x:html>',
     ];
     for (const sample of samples) {
