@@ -82,6 +82,33 @@ describe("withDemoReadOnlyFetch", () => {
     expect(res.status).toBe(200);
   });
 
+  test("a WebSocket upgrade is blocked, because the socket writes after the upgrade", async () => {
+    const inner = recordingHandler();
+    const fetch = withDemoReadOnlyFetch(inner.handler, { readOnly: true });
+
+    const res = await fetch(
+      new Request("http://demo.test/api/ws/live", { headers: { upgrade: "websocket" } }),
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: { code: "demo_read_only" } });
+    expect(inner.seen).toEqual([]);
+  });
+
+  test("a WebSocket route listed in allowedWritePaths may upgrade", async () => {
+    const inner = recordingHandler();
+    const fetch = withDemoReadOnlyFetch(inner.handler, {
+      readOnly: true,
+      allowedWritePaths: ["/api/ws/live"],
+    });
+
+    const res = await fetch(
+      new Request("http://demo.test/api/ws/live", { headers: { upgrade: "websocket" } }),
+    );
+
+    expect(res.status).toBe(200);
+  });
+
   test("readOnly false keeps the handler untouched", () => {
     const inner = recordingHandler();
     expect(withDemoReadOnlyFetch(inner.handler, { readOnly: false })).toBe(inner.handler);

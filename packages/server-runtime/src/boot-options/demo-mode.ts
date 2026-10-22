@@ -1,4 +1,7 @@
-import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
+import {
+  type ExtraRouteDefinition,
+  isWebSocketUpgradeRequest,
+} from "@cosmicdrift/kumiko-framework/api";
 
 export type DemoAccountRole = "admin" | "sysadmin";
 
@@ -22,7 +25,7 @@ export type DemoModeNotice = {
 };
 
 /** Live-demo switch. `readOnly: true` answers every mutating request
- *  (POST/PUT/PATCH/DELETE) outside `/api/query` and the login/logout/MFA
+ *  (POST/PUT/PATCH/DELETE) and every WebSocket upgrade outside `/api/query` and the login/logout/MFA
  *  routes with 403 `demo_read_only`. `GET /demo-mode` (anonymous) returns
  *  `{ readOnly, notice }` for the client banner.
  *
@@ -35,7 +38,7 @@ export type DemoModeNotice = {
 export type DemoModeOption = {
   readonly readOnly: boolean;
   readonly notice?: DemoModeNotice;
-  /** Mutating paths that stay open besides the default allowlist. */
+  /** Mutating paths (and WebSocket route paths) that stay open besides the default allowlist. */
   readonly allowedWritePaths?: readonly string[];
 };
 
@@ -123,7 +126,9 @@ export function withDemoReadOnlyFetch<TArg>(
     ...(demoMode.allowedWritePaths ?? []),
   ]);
   return async (req, arg) => {
-    if (MUTATING_METHODS.has(req.method) && !allowed.has(new URL(req.url).pathname)) {
+    // A socket carries writes after the upgrade (route `write` dep), outside this method gate.
+    const mutates = MUTATING_METHODS.has(req.method) || isWebSocketUpgradeRequest(req);
+    if (mutates && !allowed.has(new URL(req.url).pathname)) {
       return Response.json(
         {
           isSuccess: false,

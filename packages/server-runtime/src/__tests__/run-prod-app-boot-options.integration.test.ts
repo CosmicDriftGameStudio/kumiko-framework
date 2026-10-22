@@ -124,6 +124,19 @@ describe("runProdApp boot options (integration)", () => {
     expect(query.status).not.toBe(403);
   });
 
+  test("demoMode refuses a WebSocket upgrade, which would bypass the read-only gate", async () => {
+    handle = await authBoot({ demoMode: { readOnly: true } });
+
+    const res = await handle.webSocketUpgradeFetch(
+      new Request("http://test/api/ws/anything", { headers: { upgrade: "websocket" } }),
+      { server: { upgrade: () => false } },
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: { code: "demo_read_only" } });
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
   test("seed shortcuts create the demo tenant and the sysadmin from the env", async () => {
     const seeds = {
       demoTenant: { key: "demo", name: "Demo" },

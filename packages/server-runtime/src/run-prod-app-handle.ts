@@ -98,8 +98,11 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
   const { fetchHandler, cspScriptHashes } = input.fetch;
 
   // Upgrade rejections (401/403/426...) are ordinary responses and get the same headers as fetchHandler.
+  // Same read-only demo gate as fetchHandler: upgrade requests are GETs, but the socket then writes.
   const securedUpgradeFetch = withSecurityHeaders<KumikoServeEnv>(
-    async (req, env) => stripNoRouteMatchHeader(await entrypoint.app.fetch(req, env)),
+    config.bootOptionWiring.wrapFetch<KumikoServeEnv>(async (req, env) =>
+      stripNoRouteMatchHeader(await entrypoint.app.fetch(req, env)),
+    ),
     options.securityHeaders,
     cspScriptHashes,
   );
