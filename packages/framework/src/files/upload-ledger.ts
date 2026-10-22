@@ -36,6 +36,7 @@ function isTenantDb(db: DbConnection | TenantDb): db is TenantDb {
 export function createFileUploadLedger(
   db: DbConnection | TenantDb,
   tenantId: TenantId,
+  now: () => Temporal.Instant = () => Temporal.Now.instant(),
 ): FileUploadLedger {
   const runner: DbRunner = isTenantDb(db) ? tenantDbRunner(db) : db;
   if (!runnerCanBeginTransaction(runner)) {
@@ -50,7 +51,7 @@ export function createFileUploadLedger(
       await ledgerDb.insertOne(fileUploadLedgerTable, {
         storageKey,
         tenantId,
-        createdAt: Temporal.Now.instant(),
+        createdAt: now(),
       });
     },
     forget: async (storageKey) => {
@@ -62,9 +63,10 @@ export function createFileUploadLedger(
 export function withUploadLedger(
   resolver: (tenantId: TenantId) => Promise<FileStorageProvider>,
   db: DbConnection | TenantDb,
+  now?: () => Temporal.Instant,
 ): FileProviderResolver {
   return Object.assign(resolver, {
-    uploadLedgerFor: (tenantId: TenantId) => createFileUploadLedger(db, tenantId),
+    uploadLedgerFor: (tenantId: TenantId) => createFileUploadLedger(db, tenantId, now),
   });
 }
 

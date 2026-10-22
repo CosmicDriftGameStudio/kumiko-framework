@@ -31,6 +31,7 @@ import {
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { createInMemorySearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import {
   createTestDb,
   ensureTestDbTemplate,
@@ -248,14 +249,26 @@ export function createStackCacheSync(
 // A static `files.storageProvider` is wired as the per-tenant resolver — the
 // framework test seam that doesn't require mounting config + file-foundation.
 // (Bundled GDPR tests mount the real provider features instead.)
+function isClock(value: unknown): value is Clock {
+  return (
+    typeof value === "object" && value !== null && "now" in value && typeof value.now === "function"
+  );
+}
+
 async function resolveStackFileProvider(
   options: TestStackOptions,
   testDb: StackStorage["testDb"],
+  readClock: () => unknown,
 ): Promise<import("@cosmicdrift/kumiko-framework/files").FileProviderResolver | undefined> {
   if (!options.files) return undefined;
   const provider = options.files.storageProvider;
   const { withUploadLedger } = await import("@cosmicdrift/kumiko-framework/files");
-  return withUploadLedger(() => Promise.resolve(provider), testDb.db);
+  // Read per call: the clock arrives via extraContext, which is merged after this resolver is built.
+  const now = (): Temporal.Instant => {
+    const clock = readClock();
+    return isClock(clock) ? clock.now() : Temporal.Now.instant();
+  };
+  return withUploadLedger(() => Promise.resolve(provider), testDb.db, now);
 }
 
 export async function buildStackServices(
@@ -277,7 +290,12 @@ export async function buildStackServices(
   );
 
   const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
-  const fileProviderResolver = await resolveStackFileProvider(options, testDb);
+  const extraContextClock: { current: unknown } = { current: undefined };
+  const fileProviderResolver = await resolveStackFileProvider(
+    options,
+    testDb,
+    () => extraContextClock.current,
+  );
   const observability = options.observability ?? createNoopProvider();
 
   // Same AppContext buildServer() gets below (db/redis/searchAdapter/
@@ -292,6 +310,10 @@ export async function buildStackServices(
   // index.ts). Putting it here would reintroduce the exact test-vs-prod
   // drift fixed: a job/handler reading `ctx.effectiveFeatures` would pass in
   // tests and break in prod.
+  const extraContext =
+    typeof options.extraContext === "function"
+      ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
+      : options.extraContext;
   const appContext = {
     db: testDb.db,
     redis: testRedis.redis,
@@ -301,10 +323,9 @@ export async function buildStackServices(
     ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
     ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
-    ...(typeof options.extraContext === "function"
-      ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
-      : options.extraContext),
+    ...extraContext,
   };
+  extraContextClock.current = extraContext?.["clock"];
   return { searchAdapter, events, registry, sseBroker, entityCache, observability, appContext };
 }
 

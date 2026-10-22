@@ -51,6 +51,7 @@ export function withFileProviderResolver(
 ): AppContext {
   if (context._fileProviderResolver !== undefined) return context;
   if (registry.getExtensionUsages(EXT_FILE_PROVIDER).length === 0) return context;
+  const { clock } = context;
   return {
     ...context,
     _fileProviderResolver: makeFileProviderResolver({
@@ -58,6 +59,7 @@ export function withFileProviderResolver(
       _configAccessorFactory: configAccessorFactoryOf(context),
       secrets: context.secrets,
       db: context.db,
+      ...(clock ? { now: () => clock.now() } : {}),
       ...(cacheSync ? { cacheSync } : {}),
     }),
   };
