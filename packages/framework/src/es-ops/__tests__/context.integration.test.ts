@@ -1,9 +1,9 @@
 // @no-server-stack: covers the SeedMigrationContext read helpers (ctx.db only); the
 // feature-less dispatcher is only needed to build the context, there is no HTTP path.
 //
-// Read-table schema stubs are raw CREATE TABLE statements because the user/tenant entities
-// live in bundled-features, which the framework package cannot import. Membership events go
-// through the event store's append.
+// The user/tenant entities live in bundled-features, which the framework package cannot
+// import, so their read tables are raw stubs. Memberships use a mirror entity so the table
+// is derived from an entity definition and rows are seeded through the entity table.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -16,15 +16,41 @@ import {
 } from "../../crypto/index.ts";
 import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.ts";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
-import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.ts";
+import { buildEntityTable } from "../../db/index.ts";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { unsafeCreateEntityTable } from "../../db/table-push.ts";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  SYSTEM_TENANT_ID,
+} from "../../engine/index.ts";
 import { append } from "../../event-store/index.ts";
+import { withExecutorManagedWritesForTests } from "../../internal/testing.ts";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { createSeedMigrationContext } from "../context.ts";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema.ts";
 import { runPendingSeedMigrations } from "../runner.ts";
+
+const membershipEntity = createEntity({
+  table: "read_tenant_memberships",
+  fields: {
+    userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
+    roles: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
+});
+const membershipsTable = buildEntityTable("tenant-membership", membershipEntity);
+
+async function seedMembershipRow(args: {
+  readonly id: string;
+  readonly userId: string;
+  readonly tenantId: string;
+  readonly roles: string;
+}): Promise<void> {
+  await insertOne(withExecutorManagedWritesForTests(testDb.db), membershipsTable, args);
+}
 
 let testDb: BunTestDb;
 // Real (feature-less) dispatcher — these tests exercise the read-helper layer
@@ -46,19 +72,13 @@ beforeAll(async () => {
     registry,
   });
 
-  // Minimal schema stubs for the three read tables consumed by context.ts.
+  // Minimal schema stubs for the read tables consumed by context.ts.
   // Columns match the production schema.
   await asRawClient(testDb.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_users (
       id          uuid PRIMARY KEY,
       email       text NOT NULL,
       tenant_id   uuid NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id     text NOT NULL,
-      tenant_id   uuid NOT NULL,
-      roles       text NOT NULL
     );
     CREATE TABLE IF NOT EXISTS read_tenants (
       id            uuid PRIMARY KEY,
@@ -67,6 +87,7 @@ beforeAll(async () => {
       inserted_at   timestamptz NOT NULL DEFAULT now()
     );
   `);
+  await unsafeCreateEntityTable(testDb.db, membershipEntity, "tenant-membership");
 });
 
 afterAll(async () => {
@@ -90,13 +111,12 @@ async function insertMembershipWithEvent(args: {
   readonly streamTenantId: string;
   readonly roles: string;
 }): Promise<void> {
-  await asRawClient(testDb.db).unsafe(
-    `
-    INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles)
-    VALUES ($1::uuid, $2, $3::uuid, $4)
-  `,
-    [args.id, args.userId, args.payloadTenantId, args.roles],
-  );
+  await seedMembershipRow({
+    id: args.id,
+    userId: args.userId,
+    tenantId: args.payloadTenantId,
+    roles: args.roles,
+  });
   await append(testDb.db, {
     aggregateId: args.id,
     aggregateType: "tenant-membership",
@@ -248,14 +268,12 @@ describe("SeedMigrationContext.findMembershipsOfUser (integration)", () => {
     // result with a missing stream tenant, which would cause difficult-to-
     // diagnose version_conflict errors.
     const userId = "01900000-0000-7000-8000-000000000003";
-    await asRawClient(testDb.db).unsafe(
-      `
-      INSERT INTO read_tenant_memberships (id, user_id, tenant_id, roles) VALUES
-        ('00000000-0000-4000-8000-0000000000d1'::uuid, $1,
-         '00000000-0000-4000-8000-000000000005'::uuid, '["Admin"]')
-    `,
-      [userId],
-    );
+    await seedMembershipRow({
+      id: "00000000-0000-4000-8000-0000000000d1",
+      userId,
+      tenantId: "00000000-0000-4000-8000-000000000005",
+      roles: '["Admin"]',
+    });
     const ctx = createSeedMigrationContext({
       dispatcher,
       dbRunner: testDb.db,
