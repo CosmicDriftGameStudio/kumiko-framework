@@ -224,6 +224,18 @@ describe("sweeping uploads that never got a fileRef row", () => {
     expect(await ledgerKeys()).toEqual([key]);
   });
 
+  test("an upload is aged by the injected clock, not the wall clock", async () => {
+    clock.set(Temporal.Now.instant().subtract({ hours: 24 * 30 }));
+    await stack.http.writeOk(UPLOAD_ONLY, {}, userA);
+    requireKey(uploadedKey);
+
+    clock.advance({ hours: GRACE_HOURS + 1 });
+    await runSweep();
+
+    expect(provider.keys()).toHaveLength(0);
+    expect(await ledgerKeys()).toHaveLength(0);
+  });
+
   test("bytes stored in a handler whose transaction then fails are swept", async () => {
     const err = await stack.http.writeErr(STORE_THEN_FAIL, {}, userA);
     expect(err.httpStatus).toBe(500);

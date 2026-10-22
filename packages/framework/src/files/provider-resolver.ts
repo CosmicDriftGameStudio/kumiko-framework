@@ -164,6 +164,8 @@ export type FileProviderResolverDeps = {
   readonly db?: DbConnection | TenantDb;
   // Config/secret writes on other pods drop the cached provider; subscriptions live as long as the bus.
   readonly cacheSync?: CacheSyncBus;
+  // Same source as ctx.tz, so ledger timestamps and the sweep cutoff agree under an injected clock.
+  readonly now?: () => Temporal.Instant;
 };
 
 // Builds the resolver from the ambient AppContext fields — the framework-side
@@ -211,5 +213,5 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
     cache.set(tenantId, built);
     return built;
   };
-  return deps.db ? withUploadLedger(resolveProvider, deps.db) : resolveProvider;
+  return deps.db ? withUploadLedger(resolveProvider, deps.db, deps.now) : resolveProvider;
 }
