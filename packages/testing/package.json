@@ -34,6 +34,10 @@
       "types": "./src/helpers/index.ts",
       "default": "./src/helpers/index.ts"
     },
+    "./helpers/mock-module": {
+      "types": "./src/helpers/mock-module.ts",
+      "default": "./src/helpers/mock-module.ts"
+    },
     "./helpers/real-providers": {
       "types": "./src/helpers/real-providers.ts",
       "default": "./src/helpers/real-providers.ts"

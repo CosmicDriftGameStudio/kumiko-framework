@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   type ExtensionSectionProps,
@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
+import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { CapUsageTone, CapUsageWithMeta } from "../../types.ts";
@@ -29,25 +30,29 @@ const useQuerySpy = mock((_type: string, _params: unknown) => ({
 }));
 
 const actualRenderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
-mock.module("@cosmicdrift/kumiko-renderer", () => ({
-  ...actualRenderer,
+mockModuleForFile("@cosmicdrift/kumiko-renderer", actualRenderer, {
   useQuery: useQuerySpy,
-}));
+});
 
 // The real StatusBadge bakes `tone` into a computed Tailwind class string and
 // exposes it nowhere in the DOM — asserting TONE_TO_STATUS through it would
 // mean matching class substrings. Surface the prop as data-tone instead.
-const actualRendererWeb = { ...(await import("@cosmicdrift/kumiko-renderer/web")) };
-mock.module("@cosmicdrift/kumiko-renderer/web", () => ({
-  ...actualRendererWeb,
-  StatusBadge: ({
-    tone,
-    children,
-  }: {
-    readonly tone: string;
-    readonly children: ReactNode;
-  }): ReactNode => <span data-tone={tone}>{children}</span>,
-}));
+mockModuleForFile(
+  "@cosmicdrift/kumiko-renderer/web",
+  await import("@cosmicdrift/kumiko-renderer/web"),
+  {
+    StatusBadge: ({
+      tone,
+      children,
+    }: {
+      readonly tone: string;
+      readonly children: ReactNode;
+    }): ReactNode => <span data-tone={tone}>{children}</span>,
+  },
+  {
+    restoreOverrides: { useQuery: actualRenderer.useQuery },
+  },
+);
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
@@ -294,16 +299,4 @@ describe("CapCardsPanel", () => {
     expect(screen.getByText("cap-overview.cards.loading")).toBeTruthy();
     expect(screen.queryByTestId("cap-cards-panel-empty")).toBeNull();
   });
-});
-
-// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
-// The restore source is a spread copy: mock.module patches an already imported namespace in place.
-afterAll(() => {
-  mock.module("@cosmicdrift/kumiko-renderer", () => actualRenderer);
-  // renderer/web re-exports useQuery and was copied under the renderer mock, so its copy
-  // holds the spy; restoring it unchanged would reinstall the spy for every later file.
-  mock.module("@cosmicdrift/kumiko-renderer/web", () => ({
-    ...actualRendererWeb,
-    useQuery: actualRenderer.useQuery,
-  }));
 });

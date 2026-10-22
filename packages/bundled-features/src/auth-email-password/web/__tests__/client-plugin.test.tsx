@@ -1,4 +1,6 @@
-import { afterAll, describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
+import { fileURLToPath } from "node:url";
+import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 
 // emailPasswordClient() built the session gate without threading
 // options.mfaSetupScreen through to makeSessionAuthGate — the option was
@@ -11,13 +13,12 @@ import { afterAll, describe, expect, mock, test } from "bun:test";
 // DOM test file in the same run; the spy records and delegates to the real module.
 const realAuthGate = { ...(await import("../auth-gate.tsx")) };
 const makeSessionAuthGateCalls: unknown[][] = [];
-mock.module("../auth-gate", () => ({
-  ...realAuthGate,
+mockModuleForFile(fileURLToPath(new URL("../auth-gate.tsx", import.meta.url)), realAuthGate, {
   makeSessionAuthGate: (...args: Parameters<typeof realAuthGate.makeSessionAuthGate>) => {
     makeSessionAuthGateCalls.push(args);
     return realAuthGate.makeSessionAuthGate(...args);
   },
-}));
+});
 
 const { emailPasswordClient } = await import("../client-plugin.ts");
 
@@ -35,9 +36,4 @@ describe("emailPasswordClient — mfaSetupScreen wiring", () => {
       CustomMfaSetup,
     );
   });
-});
-
-// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
-afterAll(() => {
-  mock.module("../auth-gate", () => realAuthGate);
 });

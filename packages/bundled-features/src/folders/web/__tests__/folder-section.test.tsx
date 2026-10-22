@@ -1,10 +1,11 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
+import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FoldersHandlers, FoldersQueries } from "../constants.ts";
@@ -35,12 +36,10 @@ const useQuerySpy = mock((type: string, _params?: unknown) => ({
   refetch: mock(async () => {}),
 }));
 
-const actual_renderer = { ...(await import("@cosmicdrift/kumiko-renderer")) };
-mock.module("@cosmicdrift/kumiko-renderer", () => ({
-  ...actual_renderer,
+mockModuleForFile("@cosmicdrift/kumiko-renderer", await import("@cosmicdrift/kumiko-renderer"), {
   useDispatcher: mock(() => ({ write: dispatchSpy, query: mock(), batch: mock() })),
   useQuery: useQuerySpy,
-}));
+});
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
@@ -194,10 +193,4 @@ describe("FolderSection", () => {
     expect(screen.getByTestId("folder-section-create-mode")).toBeTruthy();
     expect(screen.queryByTestId("folder-section")).toBeNull();
   });
-});
-
-// mock.module is process-global; restore so later files in the shared DOM run see the real modules.
-// The restore source is a spread copy: mock.module patches an already imported namespace in place.
-afterAll(() => {
-  mock.module("@cosmicdrift/kumiko-renderer", () => actual_renderer);
 });
