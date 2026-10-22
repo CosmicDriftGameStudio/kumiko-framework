@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -140,7 +140,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await resetTestTables(db, [tenantTable, tenantComplianceProfileTable]);
-  await stack.db.unsafe?.(
+  await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments RESTART IDENTITY CASCADE`,
   );
 });

@@ -195,7 +195,9 @@ afterAll(async () => {
 beforeEach(async () => {
   emailTransport.sent.length = 0;
   lastConsentId = undefined;
-  await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
+  );
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
   await seedTerms("de", TERMS_DE);

@@ -23,11 +23,16 @@ describe("isWithinWithdrawalPeriod", () => {
     expect(isWithinWithdrawalPeriod(created, afterStart(WITHDRAWAL_PERIOD_DAYS, 1))).toBe(false);
   });
 
-  test("starts from the latest consent when it is newer than the subscription", () => {
+  test("a later consent without a subscription start does not reopen the period", () => {
     const events = [
       ...created,
-      { type: CHECKOUT_CONSENT_RECORDED_EVENT_QN, createdAt: afterStart(10) },
+      { type: CHECKOUT_CONSENT_RECORDED_EVENT_QN, createdAt: afterStart(30) },
     ];
+    expect(isWithinWithdrawalPeriod(events, afterStart(31))).toBe(false);
+  });
+
+  test("starts from the latest subscription start", () => {
+    const events = [...created, { type: SUBSCRIPTION_CREATED_EVENT_QN, createdAt: afterStart(10) }];
     expect(isWithinWithdrawalPeriod(events, afterStart(20))).toBe(true);
     expect(isWithinWithdrawalPeriod(events, afterStart(25))).toBe(false);
   });

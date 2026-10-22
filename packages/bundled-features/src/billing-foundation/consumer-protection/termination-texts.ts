@@ -91,6 +91,7 @@ export const OPERATOR_NOTICE_REASONS = [
   "recording_failed",
   "withdrawal_period_expired",
   "receipt_rate_limited",
+  "receipt_not_sent",
   "revoked",
   "revocation_resume_manual",
   "revocation_resume_failed",
@@ -145,6 +146,8 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
         "Widerruf nach Ablauf der Widerrufsfrist: zum Periodenende gekündigt, Anspruch prüfen",
       receipt_rate_limited:
         "Keine Eingangsbestätigung versendet: Limit pro Empfängeradresse erreicht",
+      receipt_not_sent:
+        "Keine Eingangsbestätigung versendet: Limit-Prüfung nicht verfügbar (Redis-Fehler oder fehlende Konfiguration)",
       revoked:
         "Die Erklärung wurde vom Postfachinhaber über „Diese Kündigung war ich nicht“ zurückgenommen",
       revocation_resume_manual:
@@ -256,6 +259,8 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       withdrawal_period_expired:
         "Withdrawal after the withdrawal period: cancelled at period end, review the claim",
       receipt_rate_limited: "No receipt mail sent: the per-recipient limit was reached",
+      receipt_not_sent:
+        "No receipt mail sent: the limit check was unavailable (limiter error or missing configuration)",
       revoked:
         'The declaration was taken back by the mailbox owner ("I did not request this cancellation")',
       revocation_resume_manual:

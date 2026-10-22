@@ -2,6 +2,7 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
+  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 
 // Raw reads (fetchOne/selectMany) return the stored column value — with an
@@ -23,4 +24,13 @@ export async function decryptStoredPii(
   });
   const decrypted = out[field];
   return typeof decrypted === "string" ? decrypted : value;
+}
+
+// Null for an erased subject: the sentinel must never be mailed or shown as an address.
+export async function decryptStoredUserEmail(
+  stored: string,
+  fallbackRequestId: string,
+): Promise<string | null> {
+  const email = await decryptStoredPii(stored, "email", fallbackRequestId);
+  return email === PII_ERASED_SENTINEL ? null : email;
 }

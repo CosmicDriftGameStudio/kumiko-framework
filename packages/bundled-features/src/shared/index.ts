@@ -15,7 +15,7 @@ export {
   classifyStoredEnvelope,
   type StoredEnvelopeClassification,
 } from "./classify-stored-envelope.ts";
-export { decryptStoredPii } from "./decrypt-stored-pii.ts";
+export { decryptStoredPii, decryptStoredUserEmail } from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";

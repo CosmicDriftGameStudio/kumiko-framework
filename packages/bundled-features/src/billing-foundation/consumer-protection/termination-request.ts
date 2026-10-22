@@ -13,6 +13,7 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import { decryptStoredUserEmail } from "../../shared/index.ts";
 import { TenantQueries } from "../../tenant/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import {
@@ -31,10 +32,9 @@ import {
   SubscriptionFoundationQueries,
 } from "../web/constants.ts";
 import { resolveConsentLocale } from "./consent-text.ts";
-import { openStoredUserEmail } from "./stored-user-email.ts";
 import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.ts";
 import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.ts";
-import { mayMailReceipt } from "./termination-receipt-limit.ts";
+import { mayMailReceipt, type ReceiptMailVerdict } from "./termination-receipt-limit.ts";
 import type { RecordContractTerminationResult } from "./termination-record.ts";
 import { createRevocationToken, revocationUrl } from "./termination-revoke.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
@@ -109,13 +109,19 @@ type TerminationMailPlan = OperatorNoticePlan & {
   readonly revokeUrl?: string;
 };
 
+function receiptWithheldReasons(verdict: ReceiptMailVerdict): readonly OperatorNoticeReason[] {
+  if (verdict === "limited") return ["receipt_rate_limited"];
+  if (verdict === "unavailable") return ["receipt_not_sent"];
+  return [];
+}
+
 async function sendTerminationMails(
   ctx: HandlerContext,
   consumerProtection: ConsumerProtectionOptions,
   plan: TerminationMailPlan,
 ): Promise<void> {
-  const receiptAllowed = await mayMailReceipt(ctx, plan.declaration.email);
-  if (receiptAllowed) {
+  const receiptVerdict = await mayMailReceipt(ctx, plan.declaration.email);
+  if (receiptVerdict === "allowed") {
     await requireNotify(ctx)(CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE, {
       route: { email: plan.declaration.email },
       data: terminationReceiptVariables({
@@ -133,9 +139,7 @@ async function sendTerminationMails(
       priority: "critical",
     });
   }
-  const reasons = receiptAllowed
-    ? plan.reasons
-    : [...plan.reasons, "receipt_rate_limited" as const];
+  const reasons = [...plan.reasons, ...receiptWithheldReasons(receiptVerdict)];
   // skip: no operator notice needed for this declaration
   if (reasons.length === 0) return;
   const { revokeUrl: _revokeUrl, ...noticePlan } = plan;
@@ -320,7 +324,7 @@ export function createTerminateContractHandler(
       );
       const callerEmail =
         caller.success && caller.data.email && caller.data.isDeleted !== true
-          ? await openStoredUserEmail(caller.data.email, "billing-foundation:terminate-contract")
+          ? await decryptStoredUserEmail(caller.data.email, "billing-foundation:terminate-contract")
           : null;
       if (callerEmail === null) {
         throw new InternalError({

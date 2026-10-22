@@ -166,8 +166,14 @@ inlineHtmlMarkdown.use({
     blockquote({ tokens }) {
       return this.parser.parse(tokens);
     },
-    list({ items }) {
-      return items.map((item) => this.parser.parse(item.tokens)).join("");
+    list({ items, ordered, start }) {
+      const firstNumber = typeof start === "number" ? start : 1;
+      return items
+        .map((item, index) => {
+          const marker = ordered ? `${firstNumber + index}. ` : "";
+          return `${marker}${this.parser.parse(item.tokens)}`;
+        })
+        .join("");
     },
     hr: () => "",
     space: () => "",

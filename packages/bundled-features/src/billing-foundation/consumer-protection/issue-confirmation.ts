@@ -12,6 +12,7 @@ import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
+import { decryptStoredUserEmail } from "../../shared/index.ts";
 import { requireTemplateResolver, TEXT_BLOCK_KIND } from "../../template-resolver/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
@@ -29,7 +30,6 @@ import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from
 import { CONTRACT_CONFIRMATION_NOTIFICATION_TYPE } from "../web/constants.ts";
 import { contractConfirmationVariables } from "./confirmation-mail.ts";
 import { resolveConsentLocale } from "./consent-text.ts";
-import { openStoredUserEmail } from "./stored-user-email.ts";
 
 export const issueContractConfirmationSchema = z
   .object({
@@ -145,7 +145,7 @@ export function createIssueContractConfirmationHandler(
       );
       const recipientEmail =
         recipient.success && recipient.data.isDeleted !== true
-          ? await openStoredUserEmail(
+          ? await decryptStoredUserEmail(
               recipient.data.email,
               "billing-foundation:issue-contract-confirmation",
             )

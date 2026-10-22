@@ -93,7 +93,7 @@ const STATE_EVENT_TYPES: ReadonlySet<string> = new Set([
   SubscriptionEventTypes.canceled,
 ]);
 
-function isLateStateEvent(
+export function isLateStateEvent(
   storedEvents: readonly {
     readonly payload: unknown;
     readonly metadata: { readonly headers?: Record<string, unknown> };
@@ -111,7 +111,14 @@ function isLateStateEvent(
     // A stored value that does not parse can never prove a newer event; skip it instead of
     // failing every later delivery of this tenant's stream.
     try {
-      return Temporal.Instant.compare(Temporal.Instant.from(storedAt), incoming) > 0;
+      const order = Temporal.Instant.compare(Temporal.Instant.from(storedAt), incoming);
+      if (order !== 0) return order > 0;
+      // Provider timestamps have second resolution: on a tie a stored cancellation wins over
+      // a non-terminal state, so a reordered same-second `updated` cannot revive a canceled one.
+      return (
+        propertyOf(stored.payload, "status") === SubscriptionStatuses.canceled &&
+        payload.status !== SubscriptionStatuses.canceled
+      );
     } catch {
       return false;
     }

@@ -21,7 +21,6 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 // storage indefinitely.
 
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
-import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
@@ -44,7 +43,7 @@ import {
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
-import { decryptStoredPii } from "../shared/index.ts";
+import { decryptStoredUserEmail } from "../shared/index.ts";
 import { userTable } from "../user/index.ts";
 import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs.ts";
 import { runUserExport, type UserExportBundle } from "./run-user-export.ts";
@@ -822,8 +821,8 @@ async function lookupUserContact(
     locale: string | null;
   } | null;
   if (!row?.email) return null;
-  const email = await decryptStoredPii(row.email, "email", "user-data-rights:export-ready");
-  if (email === PII_ERASED_SENTINEL) return null;
+  const email = await decryptStoredUserEmail(row.email, "user-data-rights:export-ready");
+  if (email === null) return null;
   return { email, locale: row.locale ?? null };
 }
 

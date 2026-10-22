@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { clampProviderEventAt, processEventSchema } from "../handlers/process-event.write.ts";
+import {
+  clampProviderEventAt,
+  isLateStateEvent,
+  processEventSchema,
+} from "../handlers/process-event.write.ts";
 
 const NOW = Temporal.Instant.from("2026-10-20T10:00:00Z");
 
@@ -39,5 +43,30 @@ describe("processEventSchema providerEventAtIso", () => {
       providerEventAtIso: "yesterday",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("isLateStateEvent same-second tie-break", () => {
+  const AT = "2026-10-20T09:00:00Z";
+  const storedWith = (status: string) => [
+    {
+      payload: { status, providerEventAtIso: AT },
+      metadata: { headers: { providerName: "stripe" } },
+    },
+  ];
+
+  test("a non-terminal event with the stored cancellation's timestamp is late", () => {
+    expect(isLateStateEvent(storedWith("canceled"), payloadAt(AT))).toBe(true);
+  });
+
+  test("a same-second event after a non-terminal stored state is not late", () => {
+    expect(isLateStateEvent(storedWith("active"), payloadAt(AT))).toBe(false);
+  });
+
+  test("a same-second cancellation is not late", () => {
+    const canceled = { ...payloadAt(AT), type: "subscription.canceled", status: "canceled" };
+    expect(
+      isLateStateEvent(storedWith("canceled"), canceled as Parameters<typeof isLateStateEvent>[1]),
+    ).toBe(false);
   });
 });
