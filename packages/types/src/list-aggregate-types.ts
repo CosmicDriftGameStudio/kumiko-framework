@@ -39,11 +39,7 @@ export type ListAggregateResult = {
   readonly searchTruncated?: true;
 };
 
-const LIST_AGGREGATE_RESULT_KEYS: ReadonlySet<string> = new Set([
-  "groups",
-  "truncated",
-  "searchTruncated",
-]);
+const LIST_AGGREGATE_RESULT_KEYS: readonly string[] = ["groups", "truncated", "searchTruncated"];
 
 // Closed key set: a row that merely has a `groups` field (jsonb column) must not
 // be mistaken for an aggregate and skip the row-level read filter.
@@ -51,6 +47,6 @@ export function isListAggregateResult(value: unknown): value is ListAggregateRes
   return (
     isPlainObject(value) &&
     Array.isArray(value["groups"]) &&
-    Object.keys(value).every((key) => LIST_AGGREGATE_RESULT_KEYS.has(key))
+    Object.keys(value).every((key) => LIST_AGGREGATE_RESULT_KEYS.includes(key))
   );
 }

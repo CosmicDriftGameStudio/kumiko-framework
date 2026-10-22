@@ -140,6 +140,41 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
+          "aggregate": {
+            "properties": {
+              "groupBy": {
+                "type": "string",
+              },
+              "measures": {
+                "default": [],
+                "items": {
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                    },
+                    "kind": {
+                      "enum": [
+                        "sum",
+                        "avg",
+                        "count",
+                        "min",
+                        "max",
+                      ],
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "field",
+                    "kind",
+                  ],
+                  "type": "object",
+                },
+                "maxItems": 20,
+                "type": "array",
+              },
+            },
+            "type": "object",
+          },
           "cursor": {
             "type": "string",
           },
