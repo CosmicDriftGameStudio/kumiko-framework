@@ -36,17 +36,22 @@ export type ResolvedProvider = {
   readonly plugin: SubscriptionProviderPlugin;
 };
 
+/** Every registered provider plugin, in registration order. */
+function listProviderPlugins(ctx: HandlerContext): readonly ResolvedProvider[] {
+  return ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION).map((usage) => ({
+    name: usage.entityName,
+    // @cast-boundary engine-payload — extension-usage carries unknown options
+    plugin: usage.options as SubscriptionProviderPlugin,
+  }));
+}
+
 /** Non-throwing provider lookup by name — null when no plugin with that
  *  entityName is registered. */
 export function findProviderPlugin(
   ctx: HandlerContext,
   providerName: string,
 ): ResolvedProvider | null {
-  const usage = ctx.registry
-    .getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION)
-    .find((u) => u.entityName === providerName);
-  // @cast-boundary engine-payload — extension-usage carries unknown options
-  return usage ? { name: providerName, plugin: usage.options as SubscriptionProviderPlugin } : null;
+  return listProviderPlugins(ctx).find((provider) => provider.name === providerName) ?? null;
 }
 
 export function resolveProviderPlugin(ctx: HandlerContext, providerName: string): ResolvedProvider {
@@ -64,17 +69,15 @@ export function resolveProviderPlugin(ctx: HandlerContext, providerName: string)
   return found;
 }
 
-/** Picks the catalog's provider — an explicit `catalog.providerName`, or the
- *  single registered provider exposing `priceToTier` when there is exactly
- *  one. Returns null when `providerName` is unset and no registered plugin
- *  exposes `priceToTier` — a state `billing-plans` renders as
- *  `enabled: false` instead of erroring. An explicit `providerName` that is
- *  not registered, or more than one candidate, is a config bug and throws
- *  `UnconfiguredError`. */
-export function findCatalogProvider(
+/** The providers a catalog sells through, in registration order: an explicit
+ *  `catalog.providerName` (only that one), otherwise every registered provider
+ *  exposing `priceToTier`. Empty when none qualifies, a state `billing-plans`
+ *  renders as `enabled: false` instead of erroring. An explicit `providerName`
+ *  that is not registered is a config bug and throws `UnconfiguredError`. */
+export function listCatalogProviders(
   ctx: HandlerContext,
   catalog: BillingPlanCatalog,
-): ResolvedProvider | null {
+): readonly ResolvedProvider[] {
   if (catalog.providerName) {
     const found = findProviderPlugin(ctx, catalog.providerName);
     if (!found) {
@@ -84,40 +87,27 @@ export function findCatalogProvider(
         hint: `provider "${catalog.providerName}" not registered`,
       });
     }
-    return found;
+    return [found];
   }
-  const usages = ctx.registry.getExtensionUsages(SUBSCRIPTION_PROVIDER_EXTENSION);
-  const withPriceCatalog = usages.filter(
-    (u) => (u.options as SubscriptionProviderPlugin).priceToTier !== undefined,
-  );
-  if (withPriceCatalog.length > 1) {
-    throw new UnconfiguredError({
-      feature: "billing-foundation",
-      key: "catalog.providerName",
-      hint: `ambiguous — ${withPriceCatalog.length} registered plugins expose priceToTier, set catalog.providerName explicitly`,
-    });
-  }
-  const usage = withPriceCatalog[0];
-  if (!usage) return null;
-  // @cast-boundary engine-payload — extension-usage carries unknown options
-  return { name: usage.entityName, plugin: usage.options as SubscriptionProviderPlugin };
+  return listProviderPlugins(ctx).filter(({ plugin }) => plugin.priceToTier !== undefined);
 }
 
-/** `findCatalogProvider` for callers that require a provider to proceed —
- *  start-plan-checkout and switch-plan. `FeatureDisabledError` (not
- *  `UnconfiguredError`) when none is found: an unconfigured provider is
- *  the same "billing isn't live yet" state as `isPluginBillingEnabled`
- *  returning false, and the panel already renders both the same way. */
-export function resolveCatalogProvider(
+export async function filterOfferedProviders(
+  ctx: HandlerContext,
+  providers: readonly ResolvedProvider[],
+): Promise<readonly ResolvedProvider[]> {
+  const enabledFlags = await Promise.all(
+    providers.map(({ plugin }) => isPluginBillingEnabled(ctx, plugin)),
+  );
+  return providers.filter((_, index) => enabledFlags[index]);
+}
+
+/** The catalog providers that are live right now: what a buyer can choose from. */
+export async function listOfferedCatalogProviders(
   ctx: HandlerContext,
   catalog: BillingPlanCatalog,
-  handlerName: string,
-): ResolvedProvider {
-  const found = findCatalogProvider(ctx, catalog);
-  if (!found) {
-    throw new FeatureDisabledError(BILLING_FOUNDATION_FEATURE, handlerName);
-  }
-  return found;
+): Promise<readonly ResolvedProvider[]> {
+  return filterOfferedProviders(ctx, listCatalogProviders(ctx, catalog));
 }
 
 /** `plugin.isBillingEnabled?.(ctx) ?? true` — the one place this fallback is

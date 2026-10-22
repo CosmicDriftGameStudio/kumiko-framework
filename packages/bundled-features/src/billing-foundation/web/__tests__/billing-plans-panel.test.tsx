@@ -9,9 +9,13 @@ import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-renderer/
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { BillingPlansResult, BillingPlanView } from "../../types.ts";
+import type { BillingPlansResult, BillingPlanView, BillingProviderView } from "../../types.ts";
 import { BillingPlansPanel } from "../billing-plans-panel.tsx";
-import { BillingPlanActions, SubscriptionFoundationHandlers } from "../constants.ts";
+import {
+  BillingPlanActions,
+  SubscriptionFoundationHandlers,
+  SubscriptionFoundationQueries,
+} from "../constants.ts";
 
 type QueryState = {
   readonly data: BillingPlansResult | null;
@@ -24,7 +28,8 @@ let checkoutResult: WriteResult<{ readonly url: string }> = {
   isSuccess: true,
   data: { url: "https://checkout.example.com/session" },
 };
-let switchResult: WriteResult<{ readonly url: string }> = {
+type SwitchData = { readonly url: string } | { readonly applied: true };
+let switchResult: WriteResult<SwitchData> = {
   isSuccess: true,
   data: { url: "https://portal.example.com/session" },
 };
@@ -48,8 +53,14 @@ let portalResult: WriteResult<{ readonly url: string }> = {
 };
 
 const refetchPlans = mock(async () => {});
-const useQuerySpy = mock((_type: string, _params: unknown) => ({
-  ...queryState,
+type PreviewState = {
+  readonly data: unknown;
+  readonly loading: boolean;
+  readonly error: DispatcherError | null;
+};
+let previewState: PreviewState = { data: null, loading: true, error: null };
+const useQuerySpy = mock((type: string, _params: unknown) => ({
+  ...(type === SubscriptionFoundationQueries.planSwitchPreview ? previewState : queryState),
   refetch: refetchPlans,
 }));
 
@@ -82,7 +93,9 @@ function testResolver(): ReturnType<typeof createStaticLocaleResolver> {
   return {
     ...createStaticLocaleResolver({ locale: uiLocale }),
     translate: (key, params) =>
-      key.startsWith("billing-foundation.cancel.") && params !== undefined
+      (key.startsWith("billing-foundation.cancel.") ||
+        key.startsWith("billing-foundation.planSwitch.")) &&
+      params !== undefined
         ? `${key}|${Object.values(params).join("|")}`
         : key,
   };
@@ -144,6 +157,7 @@ let originalAssign: typeof window.location.assign;
 
 beforeEach(() => {
   queryState = { data: null, loading: true, error: null };
+  previewState = { data: null, loading: true, error: null };
   checkoutResult = { isSuccess: true, data: { url: "https://checkout.example.com/session" } };
   switchResult = { isSuccess: true, data: { url: "https://portal.example.com/session" } };
   portalResult = { isSuccess: true, data: { url: "https://billing-portal.example.com/session" } };
@@ -697,6 +711,181 @@ describe("BillingPlansPanel", () => {
       expect(receiptText).toContain("billing-foundation.cancel.emailConfirmation");
       expect(refetchPlans).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("BillingPlansPanel — providers", () => {
+  const stripePlans = [
+    plan({
+      tier: "pro",
+      price: { unitAmount: 999, currency: "eur", interval: "month", intervalCount: 1 },
+    }),
+  ];
+  const dodoPlans = [
+    plan({
+      tier: "pro",
+      price: { unitAmount: 1990, currency: "eur", interval: "month", intervalCount: 1 },
+    }),
+  ];
+  const stripeProvider: BillingProviderView = {
+    name: "stripe",
+    displayName: "Stripe",
+    plans: stripePlans,
+  };
+  const dodoProvider: BillingProviderView = {
+    name: "dodo",
+    displayName: "Dodo Payments",
+    note: { de: "DE Dodo Hinweis", en: "EN Dodo note" },
+    plans: dodoPlans,
+  };
+  const twoProviders = [stripeProvider, dodoProvider];
+
+  test("several providers render a switch that defaults to the first and shows its plans", () => {
+    queryState = {
+      data: result({ plans: stripePlans, providers: twoProviders }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    expect(screen.getByTestId("billing-provider-switch")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Stripe" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.getByTestId("billing-plan-card-pro").textContent).toContain("€9.99");
+    expect(screen.queryByTestId("billing-provider-note")).toBeNull();
+  });
+
+  test("choosing another provider shows its plans and note and sends providerName with the checkout", async () => {
+    queryState = {
+      data: result({ plans: stripePlans, providers: twoProviders }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Dodo Payments" }));
+    expect(screen.getByTestId("billing-plan-card-pro").textContent).toContain("€19.90");
+    expect(screen.getByTestId("billing-provider-note").textContent).toBe("EN Dodo note");
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    await waitFor(() => expect(checkoutMutate).toHaveBeenCalled());
+    expect(checkoutMutate).toHaveBeenCalledWith({ tier: "pro", providerName: "dodo" });
+  });
+
+  test("a single provider with a note shows the note but no switch", () => {
+    queryState = {
+      data: result({ plans: dodoPlans, providers: [dodoProvider] }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    expect(screen.queryByTestId("billing-provider-switch")).toBeNull();
+    expect(screen.getByTestId("billing-provider-note").textContent).toBe("EN Dodo note");
+  });
+
+  test("without providers no providerName is sent", async () => {
+    queryState = { data: result(), loading: false, error: null };
+    renderPanel();
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    await waitFor(() => expect(checkoutMutate).toHaveBeenCalled());
+    expect(checkoutMutate).toHaveBeenCalledWith({ tier: "pro" });
+  });
+});
+
+describe("BillingPlansPanel — in-app plan switch", () => {
+  const consumerProtection: NonNullable<BillingPlansResult["consumerProtection"]> = {
+    consentTexts: {
+      de: { earlyPerformance: "DE early", withdrawalLoss: "DE loss", consentTextVersion: "v-de" },
+      en: { earlyPerformance: "EN early", withdrawalLoss: "EN loss", consentTextVersion: "v-en" },
+    },
+    legalLinks: {
+      de: { terms: "/agb", withdrawal: "/widerruf", privacy: "/datenschutz" },
+      en: { terms: "/terms", withdrawal: "/withdrawal", privacy: "/privacy" },
+    },
+  };
+
+  function openSwitchDialog(): void {
+    queryState = {
+      data: result({
+        subscription: subscription({ tier: "basic" }),
+        plans: [plan({ action: BillingPlanActions.switch })],
+        inAppPlanSwitch: true,
+        consumerProtection,
+      }),
+      loading: false,
+      error: null,
+    };
+    previewState = {
+      data: {
+        preview: {
+          amountDueNow: 667,
+          tax: 106,
+          currency: "eur",
+          credit: 333,
+          effectiveAt: "2026-11-01T10:00:00Z",
+        },
+        target: {
+          tier: "pro",
+          unitAmount: 1990,
+          currency: "eur",
+          interval: "month",
+          intervalCount: 1,
+        },
+      },
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+  }
+
+  test("the switch CTA opens the confirm dialog with the preview instead of calling switch-plan", () => {
+    openSwitchDialog();
+    expect(switchMutate).not.toHaveBeenCalled();
+    const summary = screen.getByTestId("plan-switch-summary").textContent ?? "";
+    expect(summary).toContain("€6.67");
+    expect(summary).toContain("€1.06");
+    expect(summary).toContain("€3.33");
+    expect(summary).toContain("€19.90");
+  });
+
+  test("confirm stays disabled until both consents are ticked, then applies with the consent and shows the banner", async () => {
+    switchResult = { isSuccess: true, data: { applied: true } };
+    openSwitchDialog();
+    const confirm = screen.getByTestId("plan-switch-confirm-order") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText("EN early"));
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText("EN loss"));
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() =>
+      expect(screen.getByTestId("billing-plans-panel-switch-requested")).toBeTruthy(),
+    );
+    expect(switchMutate).toHaveBeenCalledWith({
+      tier: "pro",
+      consent: {
+        earlyPerformanceRequested: true,
+        withdrawalLossAcknowledged: true,
+        consentTextVersion: "v-en",
+        locale: "en",
+      },
+    });
+    expect(screen.queryByTestId("plan-switch-confirm-dialog")).toBeNull();
+    expect(refetchPlans).toHaveBeenCalledTimes(1);
+  });
+
+  test("a hosted-switch provider still calls switch-plan right away", async () => {
+    queryState = {
+      data: result({
+        subscription: subscription({ tier: "basic" }),
+        plans: [plan({ action: BillingPlanActions.switch })],
+      }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
+    await waitFor(() => expect(switchMutate).toHaveBeenCalledWith({ tier: "pro" }));
+    expect(screen.queryByTestId("plan-switch-confirm-dialog")).toBeNull();
   });
 });
 

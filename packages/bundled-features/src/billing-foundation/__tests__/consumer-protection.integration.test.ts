@@ -299,6 +299,7 @@ describe("consumerProtection on — start-plan-checkout", () => {
       mode: "subscription",
       tier: "pro",
       priceId: "price_pro",
+      providerName: "mock-consent-provider",
       unitAmount: 1900,
       currency: "eur",
       interval: "month",

@@ -95,6 +95,10 @@ export const SubscriptionFoundationQueries = {
    *  current tier and per-plan action. Only registered when a `catalog` is
    *  configured. */
   billingPlans: "billing-foundation:query:billing-plans",
+  /** What switching to a tier would cost right now, for providers that switch
+   *  plans in-app (preview + apply). Only registered when a `catalog` is
+   *  configured. */
+  planSwitchPreview: "billing-foundation:query:plan-switch-preview",
   /** System-only probe: does the caller tenant hold a non-terminal
    *  subscription (consumerProtection only). */
   terminableSubscription: "billing-foundation:query:terminable-subscription",

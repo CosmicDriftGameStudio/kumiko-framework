@@ -1,109 +1,99 @@
 // switch-plan — a tenant-admin/purchase-role switches an existing,
-// non-terminal subscription to a different plan tier via the provider's
-// own confirmation page. Only registered when `createBillingFoundationFeature`
-// gets a `catalog`.
+// non-terminal subscription to a different plan tier. A provider with a hosted
+// switch session answers `{ url }`; a provider that switches in-app (preview +
+// apply) applies the switch right here and answers `{ applied: true }`.
+// Only registered when `createBillingFoundationFeature` gets a `catalog`.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { assertRedirectOrigins, isNonEmptyStringArray, joinBaseUrl } from "../checkout-core.ts";
 import {
-  assertBillingEnabled,
-  assertRedirectOrigins,
-  isNonEmptyStringArray,
-  joinBaseUrl,
-  resolveCatalogProvider,
-} from "../checkout-core.ts";
-import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
-import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.ts";
-import type { BillingFoundationOptions, BillingPlanCatalog } from "../types.ts";
-import { isSwitchableSubscriptionStatus } from "../web/constants.ts";
+  type ConsentPayload,
+  consentPayloadSchema,
+  prepareConsent,
+  recordConsent,
+} from "../consumer-protection/consent-gate.ts";
+import { purchaseRolesOf } from "../plan-catalog.ts";
+import { type PreparedPlanSwitch, preparePlanSwitch } from "../plan-switch.ts";
+import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types.ts";
 
 export function createSwitchPlanHandler(
-  options: BillingFoundationOptions,
+  options: ResolvedBillingFoundationOptions,
   catalog: BillingPlanCatalog,
 ): WriteHandlerDef {
   const plans = catalog.plans;
   if (!isNonEmptyStringArray(plans)) {
     throw new Error("switch-plan: catalog.plans must not be empty");
   }
-  const schema = z.object({ tier: z.enum(plans) }).strict();
+  const consumerProtection = options.consumerProtection;
+  const tierSchema = z.object({ tier: z.enum(plans) });
+  const schema = (
+    consumerProtection
+      ? tierSchema.extend({ consent: consentPayloadSchema.optional() })
+      : tierSchema
+  ).strict();
 
   return {
     name: "switch-plan",
     description:
-      "Opens the provider's confirmation page for switching the existing subscription to another plan tier.",
+      "Switches the existing subscription to another plan tier: opens the provider's confirmation page (answers { url }), or applies the switch in-app for providers that preview and apply themselves (answers { applied: true }; send consent when consumer protection is configured).",
     schema,
     access: { roles: purchaseRolesOf(catalog) },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as { tier: string };
-      const { name: catalogProviderName, plugin } = resolveCatalogProvider(
-        ctx,
-        catalog,
-        "switch-plan",
-      );
-      await assertBillingEnabled(ctx, plugin, "switch-plan");
+      const payload = event.payload as { tier: string; consent?: ConsentPayload };
+      const prepared = await preparePlanSwitch(ctx, catalog, payload.tier, "switch-plan");
+      const { plugin } = prepared.provider;
 
-      const sub = await getSubscriptionForTenant(ctx, event.user.tenantId);
-      if (!sub || !isSwitchableSubscriptionStatus(sub.status)) {
-        throw new ConflictError({
-          i18nKey: "billing-foundation.errors.noActiveSubscription",
-          message:
-            "tenant has no switchable subscription; use billing-foundation:write:start-plan-checkout to start one",
+      if (plugin.createPlanSwitchSession) {
+        const baseUrl = options.baseUrl ?? "";
+        const returnUrl = joinBaseUrl(baseUrl, catalog.returnPath ?? catalog.successPath);
+        assertRedirectOrigins([returnUrl], options.baseUrl);
+        const result = await plugin.createPlanSwitchSession(ctx, {
+          providerSubscriptionId: prepared.subscription.providerSubscriptionId,
+          targetPriceId: prepared.target.priceId,
+          allowedPriceIds: prepared.allowedPriceIds,
+          returnUrl,
         });
-      }
-      if (sub.cancelAt !== null) {
-        throw new ConflictError({
-          i18nKey: "billing-foundation.errors.cancellationScheduled",
-          message:
-            "subscription has a scheduled cancellation; reactivate it via billing-foundation:write:create-portal-session before switching plans",
-        });
-      }
-      if (payload.tier === sub.tier) {
-        throw new ConflictError({
-          i18nKey: "billing-foundation.errors.alreadyOnPlan",
-          message: `tenant is already on plan "${payload.tier}"`,
-        });
-      }
-      // providerSubscriptionId only exists at the subscription's own provider; after a
-      // provider migration the catalog provider can differ, which is not a plan switch.
-      if (sub.providerName !== catalogProviderName) {
-        throw new ConflictError({
-          i18nKey: "billing-foundation.errors.providerMismatch",
-          message: `tenant's active subscription is on provider "${sub.providerName}", the catalog resolves provider "${catalogProviderName}" — switch-plan cannot switch across providers`,
-        });
-      }
-      if (!plugin.createPlanSwitchSession) {
-        throw new UnprocessableError("plan_switch_not_supported", {
-          i18nKey: "billing-foundation.errors.planSwitchNotSupported",
-          message: `subscription-foundation: provider "${sub.providerName}" has no createPlanSwitchSession-method`,
-        });
+        return { isSuccess: true as const, data: { url: result.url } };
       }
 
-      const prices = await resolvePlanPrices(ctx, plugin, catalog);
-      const target = prices.get(payload.tier);
-      if (!target) {
-        throw new UnprocessableError("price_unavailable", {
-          i18nKey: "billing-foundation.errors.priceUnavailable",
-          message: `subscription-foundation: no live price resolved for tier "${payload.tier}"`,
-        });
-      }
-      const allowedPriceIds = [...prices.values()]
-        .filter((p): p is NonNullable<typeof p> => p !== null)
-        .map((p) => p.priceId);
-
-      const baseUrl = options.baseUrl ?? "";
-      const returnUrl = joinBaseUrl(baseUrl, catalog.returnPath ?? catalog.successPath);
-      assertRedirectOrigins([returnUrl], options.baseUrl);
-
-      const result = await plugin.createPlanSwitchSession(ctx, {
-        providerSubscriptionId: sub.providerSubscriptionId,
-        targetPriceId: target.priceId,
-        allowedPriceIds,
-        returnUrl,
-      });
-
-      return { isSuccess: true as const, data: { url: result.url } };
+      return applyInApp(prepared, payload, ctx, options);
     },
   };
+}
+
+// Consent is recorded before the provider call: the apply carries the consentId
+// as provider metadata, and a failing apply rolls the whole handler back.
+async function applyInApp(
+  prepared: PreparedPlanSwitch,
+  payload: { readonly tier: string; readonly consent?: ConsentPayload },
+  ctx: HandlerContext,
+  options: ResolvedBillingFoundationOptions,
+) {
+  const { plugin, name: providerName } = prepared.provider;
+  if (!plugin.applyPlanSwitch) {
+    throw new InternalError({
+      message: `billing-foundation: provider "${providerName}" has neither createPlanSwitchSession nor applyPlanSwitch`,
+    });
+  }
+  const consent = options.consumerProtection
+    ? await prepareConsent(ctx, options.consumerProtection, payload.consent, "subscription")
+    : undefined;
+  if (consent) {
+    await recordConsent(ctx, consent, {
+      tier: payload.tier,
+      priceId: prepared.target.priceId,
+      price: prepared.target.price,
+      providerName,
+    });
+  }
+  await plugin.applyPlanSwitch(ctx, {
+    providerSubscriptionId: prepared.subscription.providerSubscriptionId,
+    targetPriceId: prepared.target.priceId,
+    tenantId: ctx.user.tenantId,
+    ...(consent && { consentId: consent.consentId }),
+  });
+  return { isSuccess: true as const, data: { applied: true as const } };
 }

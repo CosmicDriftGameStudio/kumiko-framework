@@ -79,6 +79,7 @@ export type ConsentPriceDetails = {
     "unitAmount" | "currency" | "interval" | "intervalCount"
   > | null;
   readonly orderItem?: OrderItem;
+  readonly providerName?: string;
 };
 
 export async function prepareConsent(
@@ -163,6 +164,7 @@ export async function recordConsent(
     termsTemplateVersion: prepared.termsTemplateVersion,
     locale: prepared.locale,
     actorUserId: String(ctx.user.id),
+    ...(details.providerName !== undefined && { providerName: details.providerName }),
     ...(details.orderItem && {
       itemLabelKey: details.orderItem.labelKey,
       ...(details.orderItem.params && { itemLabelParams: details.orderItem.params }),

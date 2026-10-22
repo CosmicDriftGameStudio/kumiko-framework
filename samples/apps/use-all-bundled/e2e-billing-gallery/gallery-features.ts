@@ -19,6 +19,8 @@ import {
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  GALLERY_MOR_PRICE_IDS,
+  GALLERY_MOR_PROVIDER,
   GALLERY_OPERATOR_EMAIL,
   GALLERY_PLAN_PATH,
   GALLERY_PRICE_IDS,
@@ -28,25 +30,26 @@ import {
 
 export const galleryMailTransport = createInMemoryTransport();
 
+function monthlyPrice(priceId: string, unitAmount: number): ProviderPrice {
+  return {
+    priceId,
+    unitAmount,
+    currency: "eur",
+    interval: "month",
+    intervalCount: 1,
+    active: true,
+    metadata: {},
+  };
+}
+
 const PRICES: readonly ProviderPrice[] = [
-  {
-    priceId: GALLERY_PRICE_IDS.starter,
-    unitAmount: 900,
-    currency: "eur",
-    interval: "month",
-    intervalCount: 1,
-    active: true,
-    metadata: {},
-  },
-  {
-    priceId: GALLERY_PRICE_IDS.pro,
-    unitAmount: 1900,
-    currency: "eur",
-    interval: "month",
-    intervalCount: 1,
-    active: true,
-    metadata: {},
-  },
+  monthlyPrice(GALLERY_PRICE_IDS.starter, 900),
+  monthlyPrice(GALLERY_PRICE_IDS.pro, 1900),
+];
+
+const MOR_PRICES: readonly ProviderPrice[] = [
+  monthlyPrice(GALLERY_MOR_PRICE_IDS.starter, 990),
+  monthlyPrice(GALLERY_MOR_PRICE_IDS.pro, 1990),
 ];
 
 async function resolveCurrentTier(db: TenantDb, tenantId: string): Promise<string> {
@@ -74,7 +77,6 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
       viewRoles: ["TenantAdmin", "SystemAdmin"],
       successPath: GALLERY_PLAN_PATH,
       cancelPath: GALLERY_PLAN_PATH,
-      providerName: GALLERY_PROVIDER,
       contact: {
         labelKey: "gallery-screens:plan.enterprise.label",
         benefits: [{ labelKey: "gallery-screens:plan.enterprise.benefit" }],
@@ -85,6 +87,18 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
     consumerProtection: {
       termsTextBlock: GALLERY_TERMS_SLUG,
       vatNote: { de: "Preise inkl. USt.", en: "Prices include VAT." },
+      providerTexts: {
+        [GALLERY_MOR_PROVIDER]: {
+          checkoutNote: {
+            de: "Vertragspartner und Verkäufer ist Dodo Payments als Merchant of Record. Rechnung und Umsatzsteuer kommen von Dodo Payments.",
+            en: "Your contract partner and seller is Dodo Payments as merchant of record. Dodo Payments issues the invoice and charges the VAT.",
+          },
+          vatNote: {
+            de: "Rechnung und Umsatzsteuer stellt Dodo Payments als Merchant of Record.",
+            en: "Dodo Payments, as merchant of record, issues the invoice and charges the VAT.",
+          },
+        },
+      },
       operatorEmail: GALLERY_OPERATOR_EMAIL,
       terminationScope: "platform",
       legalLinks: {
@@ -105,6 +119,7 @@ export function createGalleryEmailFeature(): FeatureDefinition {
 // The page URL carries the consent id so the spec can echo it on the webhook,
 // exactly as a real provider echoes the checkout metadata.
 const galleryProviderPlugin: SubscriptionProviderPlugin = {
+  displayName: "Stripe",
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
   priceToTier: {
     [GALLERY_PRICE_IDS.starter]: "starter",
@@ -119,12 +134,46 @@ const galleryProviderPlugin: SubscriptionProviderPlugin = {
   cancelSubscription: async () => {},
 };
 
+// Merchant-of-record stand-in: switches plans in the app with fixed figures
+// (Starter to Pro: 6.67 EUR due now, 1.06 EUR of it VAT). Applying without a
+// consent id fails, so a successful switch in the spec proves the consent went
+// through.
+const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
+  displayName: "Dodo Payments",
+  verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
+  priceToTier: {
+    [GALLERY_MOR_PRICE_IDS.starter]: "starter",
+    [GALLERY_MOR_PRICE_IDS.pro]: "pro",
+  },
+  retrievePrices: async (_ctx, priceIds) => MOR_PRICES.filter((p) => priceIds.includes(p.priceId)),
+  createCheckoutSession: async (_ctx, options) => {
+    const url = new URL(options.successUrl);
+    url.searchParams.set("provider", "mor");
+    if (options.consentId !== undefined) url.searchParams.set("consentId", options.consentId);
+    return { url: url.toString() };
+  },
+  cancelSubscription: async () => {},
+  previewPlanSwitch: async () => ({
+    amountDueNow: 667,
+    tax: 106,
+    currency: "eur",
+    credit: 333,
+    effectiveAt: "2027-01-15T00:00:00Z",
+  }),
+  applyPlanSwitch: async (_ctx, options) => {
+    if (options.consentId === undefined) {
+      throw new Error("gallery MoR mock: plan switch applied without a consent id");
+    }
+  },
+};
+
 export const galleryProviderFeature: FeatureDefinition = defineFeature(
   "gallery-mock-provider",
   (r) => {
     r.describe("E2E-only mock subscription provider for the consent/termination gallery.");
     r.requires({ features: ["billing-foundation"] });
     r.useExtension("subscriptionProvider", GALLERY_PROVIDER, galleryProviderPlugin);
+    r.useExtension("subscriptionProvider", GALLERY_MOR_PROVIDER, galleryMorProviderPlugin);
   },
 );
 

@@ -250,6 +250,7 @@ export function createSubscriptionStripeFeature(
     const portalConfigurationCache = new Map<string, string>();
 
     const plugin: SubscriptionProviderPlugin = {
+      displayName: "Stripe",
       verifyAndParseWebhook: verifyAndParseStripeWebhook(runtimes.webhook, {
         priceToTier: options.priceToTier ?? {},
       }),

@@ -110,7 +110,7 @@ beforeAll(async () => {
           tierMap: { free: { features: [], caps: {} }, pro: { features: [], caps: {} } },
         },
       }),
-      billing.feature,
+      ...billing.features,
     ],
     masterKeyProvider,
     extraContext: ({ db, registry }) => ({

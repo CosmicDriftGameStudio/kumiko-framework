@@ -8,6 +8,10 @@ import {
 import { createAuthMfaFeature } from "../auth-mfa/index.ts";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.ts";
 import {
+  createSubscriptionDodoFeature,
+  subscriptionDodoEnvSchema,
+} from "../subscription-dodo/index.ts";
+import {
   createSubscriptionMollieFeature,
   subscriptionMollieEnvSchema,
 } from "../subscription-mollie/index.ts";
@@ -169,6 +173,33 @@ describe("subscriptionStripeEnvSchema", () => {
       priceToTier: {},
     });
     expect(f.envSchema).toBe(subscriptionStripeEnvSchema);
+  });
+});
+
+describe("subscriptionDodoEnvSchema", () => {
+  it("accepts both bridge values and mounts fine without them", () => {
+    const env = parseEnv(subscriptionDodoEnvSchema, {
+      DODO_PAYMENTS_API_KEY: "dodo_key",
+      DODO_PAYMENTS_WEBHOOK_KEY: "whsec_abc",
+    });
+    expect(env.DODO_PAYMENTS_API_KEY).toBe("dodo_key");
+    expect(parseEnv(subscriptionDodoEnvSchema, {}).DODO_PAYMENTS_WEBHOOK_KEY).toBeUndefined();
+  });
+
+  it("rejects empty values", () => {
+    try {
+      parseEnv(subscriptionDodoEnvSchema, {
+        DODO_PAYMENTS_API_KEY: "",
+        DODO_PAYMENTS_WEBHOOK_KEY: "",
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(asBootError(err).errors.length).toBe(2);
+    }
+  });
+
+  it("attaches the schema via r.envSchema() on the factory", () => {
+    expect(createSubscriptionDodoFeature().envSchema).toBe(subscriptionDodoEnvSchema);
   });
 });
 

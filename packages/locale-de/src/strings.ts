@@ -371,6 +371,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Für diesen Anbieter sind keine Preise konfiguriert.",
   "billing-foundation.errors.providerMismatch":
     "Das Abo dieses Mandanten läuft über einen anderen Anbieter als der Tarifkatalog. Bitte den Support für eine Migration kontaktieren.",
+  "billing-foundation.errors.providerNotOffered":
+    "Dieser Zahlungsanbieter ist gerade nicht verfügbar.",
+  "billing-foundation.errors.providerRequired": "Bitte einen Zahlungsanbieter auswählen.",
   "billing-foundation.errors.redirectOriginNotAllowed":
     "Diese Weiterleitungs-URL ist für diese App nicht erlaubt.",
   "billing-foundation.errors.subscriptionExists":
@@ -378,6 +381,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.errors.termsUnavailable":
     "Die AGB sind vorübergehend nicht verfügbar. Bitte versuch es später erneut.",
   "billing-foundation.errors.unknownPrice": "Dieser Preis ist nicht bekannt.",
+  "billing-foundation.planSwitch.credit": "Gutschrift für die ungenutzte Zeit: {amount}",
+  "billing-foundation.planSwitch.dueNow": "Jetzt fällig: {amount}",
+  "billing-foundation.planSwitch.effective": "Wirksam ab sofort",
+  "billing-foundation.planSwitch.includesTax": "inklusive {tax} USt.",
+  "billing-foundation.planSwitch.order": "Kostenpflichtig wechseln",
+  "billing-foundation.planSwitch.pendingNote": "Der Wechsel wird nach Zahlungsbestätigung aktiv.",
+  "billing-foundation.planSwitch.recurring": "Neuer wiederkehrender Preis: {amount}",
+  "billing-foundation.planSwitch.summary": "{from} zu {to}",
+  "billing-foundation.planSwitch.title": "Tarifwechsel bestätigen",
   "billing-foundation.plans.billingDisabled":
     "Die Abrechnung ist noch nicht aktiv. Dein aktueller Tarif bleibt bestehen.",
   "billing-foundation.plans.cancelScheduled": "Dein Abo endet am {date}.",
@@ -395,7 +407,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.plans.perInterval.month": "/ Monat",
   "billing-foundation.plans.perInterval.week": "/ Woche",
   "billing-foundation.plans.perInterval.year": "/ Jahr",
+  "billing-foundation.plans.planSwitchRequested":
+    "Planwechsel beauftragt. Er wird nach Zahlungsbestätigung aktiv.",
   "billing-foundation.plans.priceUnavailable": "Preis nicht verfügbar",
+  "billing-foundation.plans.providerChoice": "Zahlungsanbieter",
   "billing-foundation.plans.purchaseNotAllowed": "Nur Administratoren können den Tarif ändern.",
   "billing-foundation.plans.reactivate": "Abo reaktivieren",
   "billing-foundation.plans.subscriptionPending": "Dein Tarifwechsel wird gerade verarbeitet.",

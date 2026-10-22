@@ -136,6 +136,9 @@ export type PaymentEvent = {
 // =============================================================================
 
 export type SubscriptionProviderPlugin = {
+  /** Human-readable provider name for the plan panel's provider switch. */
+  readonly displayName?: string;
+
   /**
    * Verify webhook signature + parse provider-event into normalized
    * form. **Pre-tenant-resolution** — no HandlerContext, because at
@@ -314,6 +317,32 @@ export type SubscriptionProviderPlugin = {
   ) => Promise<{ readonly url: string }>;
 
   /**
+   * In-app plan switch, step 1: what the switch would cost right now. Together
+   * with `applyPlanSwitch` an alternative to the hosted `createPlanSwitchSession`.
+   */
+  readonly previewPlanSwitch?: (
+    ctx: HandlerContext,
+    options: {
+      readonly providerSubscriptionId: string;
+      readonly targetPriceId: string;
+    },
+  ) => Promise<PlanSwitchPreview>;
+
+  /**
+   * In-app plan switch, step 2: performs the switch at the provider. The
+   * state change itself arrives later through the webhook.
+   */
+  readonly applyPlanSwitch?: (
+    ctx: HandlerContext,
+    options: {
+      readonly providerSubscriptionId: string;
+      readonly targetPriceId: string;
+      readonly tenantId: string;
+      readonly consentId?: string;
+    },
+  ) => Promise<void>;
+
+  /**
    * Fetches the live provider-side state of one subscription, for the
    * `sync-subscriptions` backfill job — catches drift (e.g. a `cancel_at`
    * set on the provider's own dashboard) that never reached us as a
@@ -328,6 +357,18 @@ export type SubscriptionProviderPlugin = {
     ctx: HandlerContext,
     providerSubscriptionId: string,
   ) => Promise<ProviderSubscriptionSnapshot | null>;
+};
+
+export type PlanSwitchPreview = {
+  /** Charged immediately, smallest currency unit, tax included. */
+  readonly amountDueNow: number;
+  /** Tax part of `amountDueNow`; null when the provider reports none. */
+  readonly tax: number | null;
+  /** Lower-case ISO currency code. */
+  readonly currency: string;
+  /** Credit for the unused time on the old plan, smallest currency unit. */
+  readonly credit: number;
+  readonly effectiveAt: string;
 };
 
 export type ProviderSubscriptionSnapshot = {
@@ -399,7 +440,8 @@ export type BillingPlanCatalog<TTier extends string = string> = {
    *  `baseUrl` itself when unset) and by `switch-plan` after a plan switch
    *  (defaults to `successPath` there instead). */
   readonly returnPath?: string;
-  /** Defaults to the only registered provider exposing `priceToTier`. */
+  /** Restricts the catalog to one provider; defaults to every registered
+   *  provider exposing `priceToTier`. */
   readonly providerName?: string;
   /** Rendered as the last card, no price, visible to `viewRoles` regardless of `purchaseRoles`. */
   readonly contact?: BillingPlanContactCard;
@@ -429,6 +471,19 @@ export type ConsumerProtectionOptions = {
   readonly termsTextBlock: string;
   /** Per-locale VAT note; must carry at least `de` and `en`. */
   readonly vatNote: Readonly<Record<string, string>>;
+  /** Per-provider texts keyed by provider name, e.g. for a merchant-of-record
+   *  provider that issues the invoice and VAT itself. `vatNote` here replaces
+   *  the global one in that provider's confirmation mail; `checkoutNote` is
+   *  shown under the provider choice. de and en are required for each text. */
+  readonly providerTexts?: Readonly<
+    Record<
+      string,
+      {
+        readonly vatNote?: Readonly<Record<string, string>>;
+        readonly checkoutNote?: Readonly<Record<string, string>>;
+      }
+    >
+  >;
   readonly operatorEmail: string;
   /** Where the public § 312k declaration is reachable. `"tenant-host"`
    *  (default): on a host that resolves a tenant. `"platform"`: also on a
@@ -490,6 +545,23 @@ export type BillingPlanView = {
   readonly action: BillingPlanAction;
 };
 
+export type BillingProviderView = {
+  readonly name: string;
+  readonly displayName: string;
+  readonly note?: Readonly<Record<string, string>>;
+  readonly plans: readonly BillingPlanView[];
+};
+
+export function canSwitchPlansInApp(plugin: SubscriptionProviderPlugin): boolean {
+  return plugin.previewPlanSwitch !== undefined && plugin.applyPlanSwitch !== undefined;
+}
+
+/** A provider switches plans via a hosted session or via in-app preview + apply. */
+export function canSwitchPlans(plugin: SubscriptionProviderPlugin | null): boolean {
+  if (plugin === null) return false;
+  return plugin.createPlanSwitchSession !== undefined || canSwitchPlansInApp(plugin);
+}
+
 export type BillingPlansResult = {
   readonly enabled: boolean;
   readonly currentTier: {
@@ -506,6 +578,13 @@ export type BillingPlansResult = {
   } | null;
   readonly canPurchase: boolean;
   readonly plans: readonly BillingPlanView[];
+  /** Present when more than one provider is offered, or the single offered
+   *  provider has a `providerTexts` checkout note. `plans` above are the first
+   *  entry's plans. */
+  readonly providers?: readonly BillingProviderView[];
+  /** True when the subscription's provider switches plans in-app (preview +
+   *  confirm) instead of on a hosted page. */
+  readonly inAppPlanSwitch?: true;
   /** Present only when `catalog.contact` is configured. */
   readonly contact?: BillingPlanContactCard;
   /** Present only when `consumerProtection` is configured. */

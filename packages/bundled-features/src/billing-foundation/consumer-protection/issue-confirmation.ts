@@ -58,6 +58,17 @@ function translatedOrUndefined(translation: string, key: string): string | undef
   return translation === key ? undefined : translation;
 }
 
+function vatNoteFor(
+  consumerProtection: ConsumerProtectionOptions,
+  providerName: string | undefined,
+): Readonly<Record<string, string>> {
+  const providerNote =
+    providerName === undefined
+      ? undefined
+      : consumerProtection.providerTexts?.[providerName]?.vatNote;
+  return providerNote ?? consumerProtection.vatNote;
+}
+
 function pickTimeZone(userZone: string | null | undefined, tenantZone: string): string {
   if (userZone && isValidIanaTimeZone(userZone)) return userZone;
   return isValidIanaTimeZone(tenantZone) ? tenantZone : "UTC";
@@ -203,7 +214,7 @@ export function createIssueContractConfirmationHandler(
         ...(payload.currentPeriodEndIso !== undefined && {
           currentPeriodEndIso: payload.currentPeriodEndIso,
         }),
-        vatNote: consumerProtection.vatNote,
+        vatNote: vatNoteFor(consumerProtection, consent.providerName),
         operatorEmail: consumerProtection.operatorEmail,
         termsContent: terms.content,
       });

@@ -25,6 +25,21 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.plans.everyInterval.year": { en: "every {count} years" },
   "billing-foundation.plans.choose": { en: "Choose {plan}" },
   "billing-foundation.plans.switch": { en: "Switch to {plan}" },
+  "billing-foundation.plans.providerChoice": { en: "Payment provider" },
+  "billing-foundation.plans.planSwitchRequested": {
+    en: "Plan switch requested. It becomes active once the payment is confirmed.",
+  },
+  "billing-foundation.planSwitch.title": { en: "Confirm plan switch" },
+  "billing-foundation.planSwitch.summary": { en: "{from} to {to}" },
+  "billing-foundation.planSwitch.dueNow": { en: "Due now: {amount}" },
+  "billing-foundation.planSwitch.includesTax": { en: "including {tax} VAT" },
+  "billing-foundation.planSwitch.credit": { en: "Credit for the unused time: {amount}" },
+  "billing-foundation.planSwitch.recurring": { en: "New recurring price: {amount}" },
+  "billing-foundation.planSwitch.effective": { en: "Effective immediately" },
+  "billing-foundation.planSwitch.pendingNote": {
+    en: "The switch becomes active after payment confirmation.",
+  },
+  "billing-foundation.planSwitch.order": { en: "Switch with obligation to pay" },
   "billing-foundation.plans.manage": { en: "Manage subscription" },
   "billing-foundation.plans.reactivate": { en: "Reactivate subscription" },
   "billing-foundation.plans.cancelScheduled": {
@@ -129,6 +144,12 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   },
   "billing-foundation.errors.providerMismatch": {
     en: "This tenant's subscription is on a different provider than the plan catalog. Contact support to migrate.",
+  },
+  "billing-foundation.errors.providerNotOffered": {
+    en: "This payment provider is not available right now.",
+  },
+  "billing-foundation.errors.providerRequired": {
+    en: "Choose a payment provider to continue.",
   },
   "billing-foundation.errors.priceUnavailable": {
     en: "This plan's price is temporarily unavailable.",

@@ -63,6 +63,7 @@
     "./billing-foundation": "./src/billing-foundation/index.ts",
     "./billing-foundation/web": "./src/billing-foundation/web/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
+    "./subscription-dodo": "./src/subscription-dodo/index.ts",
     "./subscription-mollie": "./src/subscription-mollie/index.ts",
     "./foundation-shared": "./src/foundation-shared/index.ts",
     "./auth-foundation": "./src/auth-foundation/index.ts",
@@ -358,6 +359,10 @@
       "./subscription-stripe": {
         "types": "./dist/subscription-stripe/index.d.ts",
         "default": "./dist/subscription-stripe/index.js"
+      },
+      "./subscription-dodo": {
+        "types": "./dist/subscription-dodo/index.d.ts",
+        "default": "./dist/subscription-dodo/index.js"
       },
       "./subscription-mollie": {
         "types": "./dist/subscription-mollie/index.d.ts",
