@@ -77,13 +77,18 @@ describe("withoutStatementTimeout pool lifecycle", () => {
         [`%${marker}%`],
       );
     const queryRan = Promise.withResolvers<void>();
-    void withoutStatementTimeout(parent.db, async (unbounded) => {
+    const run = withoutStatementTimeout(parent.db, async (unbounded) => {
       await unbounded.unsafe(`SELECT '${marker}'`);
       queryRan.resolve();
       await new Promise<never>(() => {});
     });
     try {
-      await queryRan.promise;
+      await Promise.race([
+        queryRan.promise,
+        run.then(() => {
+          throw new Error("withoutStatementTimeout settled before the query ran");
+        }),
+      ]);
       expect(await backendsOfAbandonedRun()).toHaveLength(1);
 
       await parent.close();

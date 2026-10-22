@@ -114,12 +114,6 @@ export async function acquireConsumerState(
   const rawState = await selectConsumerForUpdateSkipLocked(tx, name, instanceId);
 
   if (!rawState) {
-    return { state: null, skip: "not_registered" };
-  }
-
-  const state = coerceRow<ConsumerStateRow>(rawState, extractTableInfo(eventConsumerStateTable));
-
-  if (!state) {
     // Either the row never existed (no pre-reg, no ensureRegistered) or
     // another instance currently holds the lock with SKIP LOCKED filtering
     // us out. We can't distinguish here in a single query, so return
@@ -128,6 +122,8 @@ export async function acquireConsumerState(
     // this path is never taken.
     return { state: null, skip: "not_registered" };
   }
+
+  const state = coerceRow<ConsumerStateRow>(rawState, extractTableInfo(eventConsumerStateTable));
 
   if (state.status === ConsumerStatuses.disabled) return { state: null, skip: "disabled" };
   if (state.status === ConsumerStatuses.dead) {

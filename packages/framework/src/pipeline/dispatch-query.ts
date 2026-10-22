@@ -117,17 +117,11 @@ async function runQueryHandler(
   outerNotifySink?: AfterCommitHook[],
 ): Promise<unknown> {
   const { registry } = ctx;
-  const handlerContext = await buildHandlerContext(
-    ctx,
-    type,
-    user,
-    origin,
+  const handlerContext = await buildHandlerContext(ctx, type, user, origin, {
     tx,
-    undefined,
     includeDeleted,
-    undefined,
     outerNotifySink,
-  );
+  });
   let result = await handler.handler({ type, payload, user }, handlerContext);
 
   // postQuery hooks run BEFORE field-access filtering so they see raw data and can

@@ -299,8 +299,19 @@ describe("reindexEntity connection lifecycle", () => {
         },
       };
       // Callers like a boot rebuild race this against their own timeout and move on.
-      void reindexEntity(ownStack.db, ownStack.registry, stallingAdapter, "widget", admin.tenantId);
-      await indexBatchReached.promise;
+      const run = reindexEntity(
+        ownStack.db,
+        ownStack.registry,
+        stallingAdapter,
+        "widget",
+        admin.tenantId,
+      );
+      await Promise.race([
+        indexBatchReached.promise,
+        run.then(() => {
+          throw new Error("reindex settled before indexBatch");
+        }),
+      ]);
     } catch (e) {
       await ownStack.cleanup();
       throw e;

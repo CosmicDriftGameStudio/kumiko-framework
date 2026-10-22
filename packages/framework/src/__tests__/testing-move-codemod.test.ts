@@ -37,6 +37,8 @@ const FIXTURE_CASES: ReadonlyArray<{
   { name: "relative-framework-import", filePath: FRAMEWORK_TEST_FILE, rewrites: 5, manual: 0 },
   { name: "in-testing-package", filePath: TESTING_PACKAGE_FILE, rewrites: 2, manual: 0 },
   { name: "namespace-split", filePath: CONSUMER_FILE, rewrites: 1, manual: 1 },
+  { name: "namespace-split-destructure", filePath: CONSUMER_FILE, rewrites: 0, manual: 1 },
+  { name: "namespace-split-qualified-type", filePath: CONSUMER_FILE, rewrites: 0, manual: 1 },
   { name: "namespace-plain", filePath: CONSUMER_FILE, rewrites: 1, manual: 0 },
   { name: "merge-existing", filePath: CONSUMER_FILE, rewrites: 1, manual: 0 },
   { name: "side-effect-import", filePath: CONSUMER_FILE, rewrites: 2, manual: 0 },
