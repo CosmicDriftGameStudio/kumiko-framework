@@ -131,6 +131,21 @@ const feature = defineFeature(FEATURE, (r) => {
 
   r.writeHandler(
     defineWriteHandler({
+      name: "orchestrate-for-tenant-write",
+      schema: z.object({ targetTenant: z.number() }),
+      access: { roles: ["Admin", "SystemAdmin"] },
+      transaction: "perCommand",
+      handler: async (event, ctx) => {
+        const target = ctx.forTenant?.(testTenantId(event.payload.targetTenant));
+        if (!target) throw new Error("forTenant is expected in a write handler context");
+        await noteExecutor.create({ title: "via-for-tenant" }, ctx.user, target.db);
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
       name: "orchestrate-read",
       schema: titlePayload,
       access: { roles: ["Admin"] },
@@ -350,6 +365,7 @@ const feature = defineFeature(FEATURE, (r) => {
 let stack: TestStack;
 const admin = createTestUser({ id: 1, tenantId: testTenantId(9502), roles: ["Admin"] });
 const plainUser = createTestUser({ id: 3, tenantId: testTenantId(9502), roles: ["User"] });
+const systemAdmin = createTestUser({ id: 4, tenantId: testTenantId(9502), roles: ["SystemAdmin"] });
 const otherAdmin = createTestUser({ id: 2, tenantId: testTenantId(9502), roles: ["Admin"] });
 
 beforeAll(async () => {
@@ -434,6 +450,24 @@ describe("perCommand handler", () => {
     expect(error.message).toContain("writes are not available without an open transaction");
     expect(await noteTitles()).toEqual(["seed"]);
   });
+
+  test.each([
+    { target: "own tenant", targetTenant: 9502 },
+    { target: "foreign tenant", targetTenant: 9503 },
+  ])(
+    "a write through forTenant on the $target throws and persists nothing",
+    async ({ targetTenant }) => {
+      const error = await stack.http.writeErr(
+        type("write", "orchestrate-for-tenant-write"),
+        { targetTenant },
+        systemAdmin,
+      );
+
+      expect(error.httpStatus).toBe(500);
+      expect(error.message).toContain("writes are not available without an open transaction");
+      expect(await noteTitles()).toEqual([]);
+    },
+  );
 
   test("as a nested ctx.write it is rejected and the outer write rolls back", async () => {
     const error = await stack.http.writeErr(

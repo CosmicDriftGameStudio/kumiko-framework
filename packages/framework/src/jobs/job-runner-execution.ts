@@ -71,7 +71,7 @@ async function runJobHandler(
     async () =>
       run.jobDef.handler(run.payload, {
         ...run.jobContext,
-        tz: await resolveJobTz(run.config, scope.context),
+        tz: await resolveJobTz(run.config, scope.context, scope.errorLogger),
       }),
   );
 }

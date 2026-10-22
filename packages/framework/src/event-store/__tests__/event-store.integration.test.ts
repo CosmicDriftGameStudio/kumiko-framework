@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
+import { createBarrier, sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import type { DbRunner } from "../../db/index.ts";
+import { executeRawQuery } from "../../db/queries/raw-sql.ts";
 import { asRawClient, transaction } from "../../db/query.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { generateId as uuid } from "../../utils/index.ts";
@@ -326,6 +327,71 @@ describe("event-store: optimistic concurrency", () => {
 
     const events = await loadAggregate(testDb.db, aggregateId, tenantA);
     expect(events).toHaveLength(2);
+  });
+});
+
+describe("event-store: append blocked on an uncommitted concurrent writer", () => {
+  async function writersBlockedOnRowLock(): Promise<number> {
+    const rows = await executeRawQuery<{ count: number }>(
+      testDb.db,
+      `SELECT count(*)::int AS count FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'
+          AND wait_event = 'transactionid'`,
+    );
+    return rows[0]?.count ?? 0;
+  }
+
+  test("the blocked writer reads the committed version into its conflict and its transaction stays usable", async () => {
+    const aggregateId = uuid();
+    const firstAppended = createBarrier({ expected: 2 });
+    let commitFirst = (): void => {};
+    const firstMayCommit = new Promise<void>((resolve) => {
+      commitFirst = resolve;
+    });
+
+    const first = transaction(testDb.db, async (tx) => {
+      await append(tx, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: { title: "first" },
+        metadata: { userId: userA },
+      });
+      await firstAppended.arrive();
+      await firstMayCommit;
+    });
+
+    const second = (async () => {
+      await firstAppended.arrive();
+      return transaction(testDb.db, async (tx) => {
+        const conflict = await append(tx, {
+          aggregateId,
+          aggregateType: "task",
+          tenantId: tenantA,
+          expectedVersion: 0,
+          type: "task.created",
+          payload: { title: "second" },
+          metadata: { userId: userA },
+        }).then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+        return { conflict, visibleAfter: await loadAggregate(tx, aggregateId, tenantA) };
+      });
+    })();
+
+    await waitFor(async () => (await writersBlockedOnRowLock()) > 0, {
+      delays: Array.from({ length: 100 }, () => 50),
+    });
+    commitFirst();
+    await first;
+    const { conflict, visibleAfter } = await second;
+
+    expect(conflict).toBeInstanceOf(VersionConflictError);
+    expect((conflict as VersionConflictError).currentVersion).toBe(1);
+    expect(visibleAfter.map((e) => e.payload)).toEqual([{ title: "first" }]);
   });
 });
 

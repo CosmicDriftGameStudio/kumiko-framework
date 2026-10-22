@@ -76,6 +76,7 @@ export function resolveHandlerContextScope(input: {
     sink: context._escapeHatchAuditSink,
     log: context.log ?? createFallbackLogger("dispatcher"),
     window: ctx.escapeHatchReportWindow,
+    meter: context.meter,
   });
   const identitySwitchGrantReason =
     identitySwitchEscapeHatch?.reason ??

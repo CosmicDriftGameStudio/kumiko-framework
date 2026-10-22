@@ -316,6 +316,21 @@ describe("createEscapeHatchReporter with a process dedup (system cron hatches)",
     expect(t.useMetrics()).toBe(3);
   });
 
+  test("drops row-target entries older than the re-audit interval instead of keeping them forever", () => {
+    const processDedup = createEscapeHatchProcessDedup(["cross-tenant-read"]);
+    const t = setup({ processDedup });
+    for (let row = 0; row < 5; row++) {
+      t.report("cross-tenant-read", "sweep", { id: `row-${row}`, tenantId });
+    }
+    expect(processDedup.lastAuditedAt.size).toBe(5);
+
+    t.advance(25 * 60 * MINUTE_MS);
+    t.report("cross-tenant-read", "sweep", { id: "row-fresh", tenantId });
+
+    expect(processDedup.lastAuditedAt.size).toBe(1);
+    expect(t.events).toHaveLength(6);
+  });
+
   test("dedups per (handler, kind): another kind is audited on its own", () => {
     const t = setup({
       processDedup: createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]),

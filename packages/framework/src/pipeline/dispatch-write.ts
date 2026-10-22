@@ -605,7 +605,7 @@ async function runWriteGates(
     reservation ? "recheck" : "charge",
   );
   if (!gates.isSuccess) return failedStep(gates);
-  const parsedPayload = gates.payload;
+  const parsedPayload = reservation ? reservation.parsedPayload : gates.payload;
 
   // A handler with a pre-transaction phase cannot run that phase from inside an open transaction;
   // running it without would skip the reservation or the prepared data, so a nested ctx.write of
