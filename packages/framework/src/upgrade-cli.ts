@@ -1101,6 +1101,19 @@ function logNonBreakingSection(
   out.log("");
 }
 
+function logApplyHint(out: UpgradeCliOut, plan: UpgradePlan): void {
+  const { markerRead, targetInstalledVersion } = plan;
+  const markerBehindInstalled =
+    markerRead.kind === "ok" &&
+    targetInstalledVersion !== null &&
+    compareVersions(markerRead.version, targetInstalledVersion) < 0;
+  // skip: nothing differs between marker and installed version, so there is nothing to record.
+  if (plan.pending.length === 0 && !markerBehindInstalled) return;
+  out.log("  Nothing is recorded yet: the upgrade CHANGELOG and the marker are only");
+  out.log("  written by --apply (add --dry-run to preview without writing).");
+  out.log("");
+}
+
 function reportUpgradeText(out: UpgradeCliOut, plan: UpgradePlan, verbose: boolean): number {
   const { pending } = plan;
   const breaking = pending.filter((e) => e.type === "breaking");
@@ -1114,6 +1127,7 @@ function reportUpgradeText(out: UpgradeCliOut, plan: UpgradePlan, verbose: boole
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
     out.log("");
+    logApplyHint(out, plan);
     logOpenManual(out, openManual, manualDetails);
     return 0;
   }
@@ -1140,6 +1154,7 @@ function reportUpgradeText(out: UpgradeCliOut, plan: UpgradePlan, verbose: boole
     out.log("");
   }
 
+  logApplyHint(out, plan);
   logOpenManual(out, openManual, manualDetails);
   return 0;
 }
