@@ -12,7 +12,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { createVariableView } from "./document-editor-extensions.ts";
 import { DocumentVariable } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
-import { createEditorHandle } from "./editor-handle.ts";
+import { useEditorHandleReport } from "./editor-handle.ts";
 import { contentToLine, lineToContent, singleLine } from "./placeholder-text.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
@@ -118,10 +118,9 @@ function LineEditorBody({
       // Rich pastes would bring several paragraphs; only their text is kept.
       transformPastedHTML: (html) => singleLine(html.replace(/<[^>]*>/g, " ")),
     },
-    onCreate: ({ editor: created }) => onEditorReady?.(createEditorHandle(created)),
-    onDestroy: () => onEditorReady?.(null),
     onUpdate: ({ editor: e }) => onChange(contentToLine(e.getJSON().content?.[0]?.content)),
   });
+  useEditorHandleReport(editor, onEditorReady);
 
   return (
     <EditorContent
