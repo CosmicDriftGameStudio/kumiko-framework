@@ -1,4 +1,3 @@
-import { BUNDLED_LIST_FEATURE_NAMES } from "@cosmicdrift/kumiko-bundled-features/list-feature-names";
 import {
   type BundledListsOptions,
   type EditSectionSpec,
@@ -10,8 +9,6 @@ import {
   validateBundledListsOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
 
-const BUNDLED_LIST_FEATURES: ReadonlySet<string> = new Set(BUNDLED_LIST_FEATURE_NAMES);
-
 export function applyBundledListsTable(
   features: readonly FeatureDefinition[],
   options: BundledListsOptions | undefined,
@@ -19,7 +16,7 @@ export function applyBundledListsTable(
   if (options === undefined) return [...features];
   validateBundledListsOptions(options);
   return features.map((feature) =>
-    BUNDLED_LIST_FEATURES.has(feature.name) ? withListTableDefaults(feature, options) : feature,
+    feature.adoptsBundledLists === true ? withListTableDefaults(feature, options) : feature,
   );
 }
 

@@ -67,6 +67,16 @@ export const systemScopeSchema: PatternFormSchema = {
   fields: [],
 };
 
+export const adoptsBundledListsSchema: PatternFormSchema = {
+  kind: "adoptsBundledLists",
+  label: { en: "Adopts bundled lists", de: "Übernimmt Bundled-Listen" },
+  summary: { en: "Feature packages only: takes the app-wide bundledLists table block." },
+  category: "meta",
+  editability: "opaque",
+  singleton: true,
+  fields: [],
+};
+
 export const toggleableSchema: PatternFormSchema = {
   kind: "toggleable",
   label: { en: "Toggleable", de: "Umschaltbar" },

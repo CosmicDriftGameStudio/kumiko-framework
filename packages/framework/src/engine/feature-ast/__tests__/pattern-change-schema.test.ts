@@ -10,12 +10,11 @@ import type * as z from "zod";
 import { parseFeatureFile, parseSourceFile } from "../parse.ts";
 import { applyChanges, type PatternId } from "../patch.ts";
 import {
-  PATTERN_ID_SCHEMAS_BY_KIND,
   PATTERN_SCHEMAS_BY_KIND,
   parsePatternChanges,
-  patternIdSchema,
   patternSchema,
 } from "../pattern-change-schema.ts";
+import { PATTERN_ID_SCHEMAS_BY_KIND, patternIdSchema } from "../pattern-id-schema.ts";
 import type { FeaturePattern, FeaturePatternKind } from "../patterns.ts";
 
 // Compile-time guard (AC5): every pattern/patternId schema's z.output must

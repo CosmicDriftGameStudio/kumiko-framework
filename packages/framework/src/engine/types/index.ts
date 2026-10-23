@@ -98,12 +98,9 @@ export type {
   BootCheckContext,
   BootCheckFn,
   BootOptionName,
-  EntityObjectDefinition,
   FeatureDefinition,
   FeatureMetricDef,
   FeatureMetricType,
-  FeatureRegistrar,
-  HookDefinition,
   MetricOptions,
   Registry,
   SecretKeyDefinition,
@@ -119,6 +116,11 @@ export type {
   UiHintOption,
   UiHints,
 } from "@cosmicdrift/kumiko-types/feature";
+export type {
+  EntityObjectDefinition,
+  FeatureRegistrar,
+  HookDefinition,
+} from "@cosmicdrift/kumiko-types/feature-registrar";
 // Closed field-icon vocabulary — used by `EditFieldSpec.icon`.
 export type { FieldIconKey } from "@cosmicdrift/kumiko-types/field-icon";
 export type {

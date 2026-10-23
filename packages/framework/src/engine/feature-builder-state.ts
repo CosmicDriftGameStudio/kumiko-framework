@@ -106,6 +106,7 @@ export type FeatureBuilderState = {
   translations: TranslationKeys;
   isSystemScoped: boolean;
   toggleableDefault: boolean | undefined;
+  adoptsBundledLists: boolean;
   description: string | undefined;
   uiHints: UiHints | undefined;
   treeActions: Readonly<Record<string, TreeActionDef>> | undefined;
@@ -169,6 +170,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     translations: {},
     isSystemScoped: false,
     toggleableDefault: undefined,
+    adoptsBundledLists: false,
     description: undefined,
     uiHints: undefined,
     treeActions: undefined,

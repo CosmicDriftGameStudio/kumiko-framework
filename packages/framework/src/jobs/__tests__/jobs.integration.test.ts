@@ -29,6 +29,7 @@ import {
   type JobRunnerOptions,
 } from "../job-runner.ts";
 import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
+import { createReleaseGate } from "./release-gate.ts";
 
 // --- Shared state ---
 
@@ -36,6 +37,7 @@ let testRedis: TestRedis;
 let redisUrl: string;
 
 // Track which jobs ran and when
+const perTenantJobs = createReleaseGate();
 const jobLog: Array<{ name: string; payload: Record<string, unknown>; timestamp: number }> = [];
 
 // Counts eventRetrySucceeds' own attempts — throws once on attempt 1, then
@@ -116,14 +118,14 @@ const testFeature = defineFeature("test", (r) => {
     },
   );
 
-  // maxPerTenant: cap concurrent + waiting jobs per tenant. Long sleep so
-  // the dispatcher checks ALL queued counts (including waiting ones).
+  // maxPerTenant: cap concurrent + waiting jobs per tenant. The handler blocks on the
+  // gate so the dispatcher counts active and waiting jobs regardless of CI speed.
   r.job(
     "perTenantLimited",
     { trigger: { manual: true }, concurrency: "parallel", maxPerTenant: 2 },
     async (payload) => {
       jobLog.push({ name: "test:job:per-tenant-limited", payload, timestamp: Date.now() });
-      await sleep(500);
+      await perTenantJobs.wait();
     },
   );
   r.writeHandler({
@@ -147,7 +149,7 @@ const testFeature = defineFeature("test", (r) => {
         payload,
         timestamp: Date.now(),
       });
-      await sleep(500);
+      await perTenantJobs.wait();
     },
   );
 
@@ -744,44 +746,49 @@ describe("concurrency: maxPerTenant", () => {
   test("max=2: third dispatch for same tenant returns skipped, other tenant unaffected", async () => {
     clearLog();
     await withRunner(async (runner) => {
-      const tenantA = "tenant-a";
-      const tenantB = "tenant-b";
+      perTenantJobs.hold();
+      try {
+        const tenantA = "tenant-a";
+        const tenantB = "tenant-b";
 
-      // First two for tenantA fill the bucket — both should accept.
-      const idA1 = await runner.dispatch("test:job:per-tenant-limited", {
-        n: 1,
-        _tenantId: tenantA,
-      });
-      const idA2 = await runner.dispatch("test:job:per-tenant-limited", {
-        n: 2,
-        _tenantId: tenantA,
-      });
-      expect(idA1).not.toBe("skipped:max-per-tenant");
-      expect(idA2).not.toBe("skipped:max-per-tenant");
-
-      // Third for tenantA hits the cap before BullMQ drains the first.
-      const idA3 = await runner.dispatch("test:job:per-tenant-limited", {
-        n: 3,
-        _tenantId: tenantA,
-      });
-      expect(idA3).toBe("skipped:max-per-tenant");
-
-      // tenantB has its own bucket — accepted.
-      const idB1 = await runner.dispatch("test:job:per-tenant-limited", {
-        n: 4,
-        _tenantId: tenantB,
-      });
-      expect(idB1).not.toBe("skipped:max-per-tenant");
-
-      // jobLog.push runs at handler START, so a log entry doesn't mean the job is
-      // done: poll until the 500ms handlers have returned and the bucket accepts again.
-      await waitFor(async () => {
-        const idA4 = await runner.dispatch("test:job:per-tenant-limited", {
-          n: 5,
+        // First two for tenantA fill the bucket — both should accept.
+        const idA1 = await runner.dispatch("test:job:per-tenant-limited", {
+          n: 1,
           _tenantId: tenantA,
         });
-        return idA4 !== "skipped:max-per-tenant";
-      });
+        const idA2 = await runner.dispatch("test:job:per-tenant-limited", {
+          n: 2,
+          _tenantId: tenantA,
+        });
+        expect(idA1).not.toBe("skipped:max-per-tenant");
+        expect(idA2).not.toBe("skipped:max-per-tenant");
+
+        // The first two are held active, so the third always meets the cap.
+        const idA3 = await runner.dispatch("test:job:per-tenant-limited", {
+          n: 3,
+          _tenantId: tenantA,
+        });
+        expect(idA3).toBe("skipped:max-per-tenant");
+
+        // tenantB has its own bucket — accepted.
+        const idB1 = await runner.dispatch("test:job:per-tenant-limited", {
+          n: 4,
+          _tenantId: tenantB,
+        });
+        expect(idB1).not.toBe("skipped:max-per-tenant");
+
+        perTenantJobs.release();
+        // Jobs are released above; poll until BullMQ has drained them and the bucket accepts again.
+        await waitFor(async () => {
+          const idA4 = await runner.dispatch("test:job:per-tenant-limited", {
+            n: 5,
+            _tenantId: tenantA,
+          });
+          return idA4 !== "skipped:max-per-tenant";
+        });
+      } finally {
+        perTenantJobs.release();
+      }
     });
   });
 
@@ -1302,26 +1309,27 @@ describe("handleEvent maxPerTenant", () => {
   test("skips enqueue when tenant is already at the cap", async () => {
     clearLog();
     await withRunner(async (runner) => {
-      const user = { ...TestUsers.admin, tenantId: "cap-tenant-evt" };
-      await runner.handleEvent("test:write:capped-event", { n: 1 }, user);
-      await runner.handleEvent("test:write:capped-event", { n: 2 }, user);
-      await waitFor(() => {
-        const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
-        expect(started.length).toBe(2);
-      });
-      // Third must be skipped by the maxPerTenant guard. handleEvent's cap
-      // check runs synchronously before this call resolves, but a wrongly
-      // enqueued job still needs the worker to pick it up and push its
-      // jobLog entry — polling several times (failing at the first sign of
-      // a 3rd start) is more CI-load-tolerant than a single fixed sleep(200)
-      // racing against the handler's own 500ms sleep, which could land
-      // outside the window on a starved runner and silently pass.
-      await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
-      // @timeout-exception: #3118 asserts a negative (stays capped) at each checkpoint
-      for (const delayMs of [50, 100, 200, 400]) {
-        await sleep(delayMs);
-        const startedNow = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
-        expect(startedNow.length).toBe(2);
+      perTenantJobs.hold();
+      try {
+        const user = { ...TestUsers.admin, tenantId: "cap-tenant-evt" };
+        await runner.handleEvent("test:write:capped-event", { n: 1 }, user);
+        await runner.handleEvent("test:write:capped-event", { n: 2 }, user);
+        await waitFor(() => {
+          const started = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
+          expect(started.length).toBe(2);
+        });
+        // Third must be skipped by the maxPerTenant guard. The two started jobs stay
+        // active until the release, and a wrongly enqueued third would start at once
+        // (worker concurrency 5) and log, so polling the log catches it.
+        await runner.handleEvent("test:write:capped-event", { n: 3 }, user);
+        // @timeout-exception: #3118 asserts a negative (stays capped) at each checkpoint
+        for (const delayMs of [50, 100, 200, 400]) {
+          await sleep(delayMs);
+          const startedNow = jobLog.filter((e) => e.name === "test:job:per-tenant-limited-event");
+          expect(startedNow.length).toBe(2);
+        }
+      } finally {
+        perTenantJobs.release();
       }
     });
   });

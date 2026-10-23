@@ -61,6 +61,7 @@ export function createCapOverviewFeature(opts: CreateCapOverviewOptions): Featur
   }
 
   return defineFeature(CAP_OVERVIEW_FEATURE, (r) => {
+    r.adoptsBundledLists();
     r.describe(
       "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; tenant admins (or the roles in `usageVisibleTo`) get their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
     );

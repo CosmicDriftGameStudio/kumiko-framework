@@ -33,6 +33,7 @@ import { Project, SyntaxKind } from "ts-morph";
 
 import {
   type ExtractOutput,
+  extractAdoptsBundledLists,
   extractAiClassify,
   extractAiExtract,
   extractAiGenerate,
@@ -550,6 +551,8 @@ function dispatchExtractor(
       return extractDescribe(call, sourceFile);
     case "uiHints":
       return extractUiHints(call, sourceFile);
+    case "adoptsBundledLists":
+      return extractAdoptsBundledLists(call, sourceFile);
     // Object-literal-based static patterns
     case "entity":
       return extractEntity(call, sourceFile);

@@ -28,7 +28,6 @@ test("p6-entity-edit-desktop", async ({ page }) => {
   await page.getByText("Octavia").first().click();
   await page.waitForURL(/vehicle-edit\/[0-9a-f-]{36}/);
   await expect(page.getByTestId("render-edit-form-scroll")).toBeVisible();
-  await page.waitForLoadState("networkidle");
   await shot(page, "p6-entity-edit-desktop");
 });
 

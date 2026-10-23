@@ -69,10 +69,11 @@ const shopFeature = defineFeature("shop", (r) => {
   });
 });
 
-// Reuses the bundled feature name so the mixing applies; its own keys must win.
+// Opts in like a bundled feature so the mixing applies; its own keys must win.
 const OWN_TABLE = { columnPicker: false, density: { default: "compact" } } as const;
 const PINNED_COLUMNS: readonly ListColumnSpec[] = ["id", { field: "name", pinned: "right" }];
 const jobsOverride = defineFeature(JOBS_FEATURE, (r) => {
+  r.adoptsBundledLists();
   r.screen({
     id: "own-table",
     type: "projectionList",
@@ -262,6 +263,22 @@ describe("composeFeatures bundledLists", () => {
       { field: "id", hidden: true },
       { field: "name", pinned: "left" },
     ]);
+  });
+
+  test("a feature with list screens but without the marker stays untouched, even under a bundled name", () => {
+    const unmarked = defineFeature(JOBS_FEATURE, (r) => {
+      r.screen({ id: "plain", type: "projectionList", query: ROWS_QN, columns: ["id", "name"] });
+    });
+    const [feature] = composeFeatures([unmarked], { includeBundled: false, bundledLists: FULL });
+    expect(feature).toBe(unmarked);
+  });
+
+  test("calling adoptsBundledLists twice is idempotent", () => {
+    const twice = defineFeature("twice", (r) => {
+      r.adoptsBundledLists();
+      r.adoptsBundledLists();
+    });
+    expect(twice.adoptsBundledLists).toBe(true);
   });
 
   test("undefined bundledLists keeps the feature objects", () => {
