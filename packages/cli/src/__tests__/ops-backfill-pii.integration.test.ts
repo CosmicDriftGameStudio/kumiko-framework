@@ -1,7 +1,8 @@
 // `kumiko ops backfill-pii` drives the framework backfill against the app's
 // kumiko.config.ts: plaintext events written before the KMS existed come out
 // encrypted, a second run finds nothing left to do, and --rebuild carries the
-// ciphertext into the projection table.
+// ciphertext into the projection table. The database belongs to the non-bypass application role with row level
+// security on, so the tool only sees tenant rows because it opens its own system scope.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -11,6 +12,10 @@ import { isPiiCiphertext } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createProjectionStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   resetBlindIndexKeyForTests,
@@ -18,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
+  TEST_APPLICATION_ROLE,
   type TestDb,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -62,7 +68,7 @@ describe("kumiko ops backfill-pii (real DB)", () => {
   const previousEnv = new Map(ENV_KEYS.map((key) => [key, process.env[key]]));
 
   beforeAll(async () => {
-    testDb = await createTestDb();
+    testDb = await createTestDb({ applicationRole: true });
     await createProjectionStateTable(testDb.db);
     mkdirSync(tmpParent, { recursive: true });
     appDir = mkdtempSync(join(tmpParent, "app-"));
@@ -84,9 +90,10 @@ describe("kumiko ops backfill-pii (real DB)", () => {
 
     const url = new URL(process.env["TEST_DATABASE_URL"] ?? "");
     url.pathname = `/${testDb.dbName}`;
-    process.env["DATABASE_URL"] = url.toString();
     // The subject-keys schema is created lazily; the test DB stands in for the dedicated cluster.
     process.env["SUBJECT_KEYS_DATABASE_URL"] = url.toString();
+    url.username = TEST_APPLICATION_ROLE;
+    process.env["DATABASE_URL"] = url.toString();
     process.env["PLATFORM_KEK"] = randomBytes(32).toString("base64");
     process.env["KUMIKO_BLIND_INDEX_KEY"] = randomBytes(32).toString("base64");
   });
@@ -127,9 +134,11 @@ describe("kumiko ops backfill-pii (real DB)", () => {
     const { out, logs } = capture();
     expect(await runCli({ argv: ["ops", "backfill-pii", "--rebuild"], cwd: appDir, out })).toBe(0);
     expect(logs.join("\n")).toContain("rebuilt");
-    const rows = await asRawClient(testDb.db).unsafe<{ email: string }>(
-      `SELECT email FROM "${BACKFILL_CONTACT_TABLE}" WHERE id = $1`,
-      [CONTACT_ID],
+    const rows = await runInRowLevelSecurityScope(tenantRowLevelSecurityScope(TENANT), () =>
+      asRawClient(testDb.db).unsafe<{ email: string }>(
+        `SELECT email FROM "${BACKFILL_CONTACT_TABLE}" WHERE id = $1`,
+        [CONTACT_ID],
+      ),
     );
     expect(rows).toHaveLength(1);
     expect(isPiiCiphertext(rows[0]?.email)).toBe(true);

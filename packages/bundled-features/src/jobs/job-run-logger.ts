@@ -19,10 +19,11 @@ import {
   upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  parseTenantId,
   type Registry,
   SYSTEM_TENANT_ID,
-  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   isRowLevelSecurityViolation,
   runInRowLevelSecurityScope,
@@ -89,7 +90,11 @@ const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 // Job callbacks run outside any request scope; the tenant tables enforce their rows per tenant, so each write
 // declares the tenant it belongs to.
 function inTenantScope<T>(tenantId: string, work: () => Promise<T>): Promise<T> {
-  return runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantId as TenantId), work);
+  const parsed = parseTenantId(tenantId);
+  if (parsed === null) {
+    throw new InternalError({ message: `job run logger got a malformed tenant id "${tenantId}"` });
+  }
+  return runInRowLevelSecurityScope(tenantRowLevelSecurityScope(parsed), work);
 }
 
 function jobRunSubject(triggeredById: string | null): SubjectId {
@@ -197,7 +202,7 @@ const TENANT_RUN_CONFLICT_KEYS = ["tenantId", "jobName", "bullJobId"] as const;
 function tenantJobFailureTarget(
   jobName: string,
   outcome: JobOutcomeMeta | undefined,
-): Record<string, unknown> | null {
+): { tenantId: string; jobName: string; subject: string | null } | null {
   if (!outcome?.tenantVisible || outcome.tenantId === SYSTEM_TENANT_ID) return null;
   return { tenantId: outcome.tenantId, jobName, subject: outcome.tenantVisible.subject };
 }
@@ -217,7 +222,7 @@ async function recordTenantJobFailure(
   // partial unique indexes (subject NULL vs. set) are no ON CONFLICT target.
   // The lock makes the later of two racing final failures replace the earlier
   // one; the indexes are the backstop against any writer that skips the lock.
-  await inTenantScope(String(where["tenantId"]), () =>
+  await inTenantScope(where.tenantId, () =>
     transaction(db, async (tx) => {
       await acquireNamespacedAdvisoryLock(
         tx,
@@ -242,9 +247,7 @@ async function clearTenantJobFailure(
   const where = tenantJobFailureTarget(jobName, outcome);
   // skip: no tenant-visible target — nothing was ever recorded
   if (!where) return;
-  await inTenantScope(String(where["tenantId"]), () =>
-    deleteMany(db, tenantJobFailuresTable, where),
-  );
+  await inTenantScope(where.tenantId, () => deleteMany(db, tenantJobFailuresTable, where));
 }
 
 // Tenant-visible run state. One row per BullMQ job in

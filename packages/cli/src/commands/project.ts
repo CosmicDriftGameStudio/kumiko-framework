@@ -67,10 +67,10 @@ export const projectCommand: CliCommand = {
     } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
     const registry = createRegistry(config.features);
-    const { db, close } = createDbConnection({
-      url: databaseUrl,
-      rowLevelSecurity: "off" /* operator tool, no tenant scope */,
-    });
+    const { runInSystemRowLevelSecurityScope } = await import(
+      "@cosmicdrift/kumiko-framework/internal/row-level-security"
+    );
+    const { db, close } = createDbConnection({ url: databaseUrl });
     let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
 
     try {
@@ -83,14 +83,19 @@ export const projectCommand: CliCommand = {
         });
       }
       await createProjectionStateTable(db);
-      switch (sub) {
-        case "list":
-          return await listProjections(ctx, db, registry, listProjectionsWithState);
-        case "status":
-          return await showProjectionStatus(ctx, db, arg, registry, getProjectionState);
-        case "rebuild":
-          return await rebuildOne(ctx, db, arg, registry, rebuildProjection);
-      }
+      return await runInSystemRowLevelSecurityScope(
+        "operator projection tool reads and rebuilds projections of every tenant",
+        async () => {
+          switch (sub) {
+            case "list":
+              return await listProjections(ctx, db, registry, listProjectionsWithState);
+            case "status":
+              return await showProjectionStatus(ctx, db, arg, registry, getProjectionState);
+            case "rebuild":
+              return await rebuildOne(ctx, db, arg, registry, rebuildProjection);
+          }
+        },
+      );
     } catch (e) {
       ctx.out.err("");
       ctx.out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);
