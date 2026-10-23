@@ -1,0 +1,198 @@
+import { afterAll, describe, expect, it } from "bun:test";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Project } from "ts-morph";
+import { transformCtxNamespaces } from "../scripts/codemod/ctx-namespaces-transform.ts";
+
+const FIXTURES_DIR = join(import.meta.dir, "fixtures", "ctx-namespaces");
+const SCRIPT = join(import.meta.dir, "../scripts/codemod/ctx-namespaces.ts");
+
+type Shape = "old" | "new";
+const SHAPES: readonly Shape[] = ["old", "new"];
+
+interface Case {
+  readonly name: string;
+  readonly rewrites: number;
+  readonly manual: readonly (readonly [number, string])[];
+}
+
+const CASES: readonly Case[] = [
+  { name: "handler-body", rewrites: 10, manual: [] },
+  { name: "job-body", rewrites: 5, manual: [] },
+  {
+    name: "destructuring",
+    rewrites: 4,
+    manual: [
+      [15, "log: destructured with a default value"],
+      [20, "destructuring with a rest element next to moved context members"],
+      [26, "db is already bound next to dbOutsideTransaction"],
+    ],
+  },
+  { name: "mocks", rewrites: 12, manual: [] },
+  { name: "types", rewrites: 6, manual: [[8, "Omit of a moved context member"]] },
+  { name: "phases", rewrites: 4, manual: [] },
+  { name: "negatives", rewrites: 0, manual: [] },
+  { name: "unresolved", rewrites: 0, manual: [[2, "appendEvent: receiver type does not resolve"]] },
+  { name: "merge", rewrites: 2, manual: [] },
+  {
+    name: "spreads",
+    rewrites: 3,
+    manual: [
+      [9, "db is already set to a non-literal next to dbOutsideTransaction"],
+      [27, "write: moved member sits before a spread that carries dispatch"],
+      [35, "write: a spread call may carry dispatch; spread its result by hand"],
+      [42, "dbOutsideTransaction: a spread carrying db would break the TenantDb identity"],
+    ],
+  },
+  { name: "phases-only", rewrites: 2, manual: [] },
+  { name: "config-accessor", rewrites: 6, manual: [] },
+];
+
+const projects = new Map<Shape, Project>();
+
+function projectFor(shape: Shape): Project {
+  const existing = projects.get(shape);
+  if (existing !== undefined) return existing;
+  const created = new Project({
+    tsConfigFilePath: join(FIXTURES_DIR, `tsconfig.${shape}.json`),
+    skipAddingFilesFromTsConfig: true,
+  });
+  projects.set(shape, created);
+  return created;
+}
+
+function caseFile(name: string, kind: "input" | "expected"): string {
+  return join(FIXTURES_DIR, "cases", `${name}.${kind}.ts`);
+}
+
+function runCase(shape: Shape, name: string) {
+  const sourceFile = projectFor(shape).addSourceFileAtPath(caseFile(name, "input"));
+  return transformCtxNamespaces(sourceFile);
+}
+
+function runOn(shape: Shape, name: string, text: string) {
+  const sourceFile = projectFor(shape).createSourceFile(
+    join(FIXTURES_DIR, "cases", `${name}.second-pass.ts`),
+    text,
+    { overwrite: true },
+  );
+  return transformCtxNamespaces(sourceFile);
+}
+
+describe("ctx-namespaces codemod", () => {
+  for (const shape of SHAPES) {
+    describe(`against the ${shape} context types`, () => {
+      for (const testCase of CASES) {
+        it(`${testCase.name}: exact output and sites`, () => {
+          const result = runCase(shape, testCase.name);
+
+          expect(result.output).toBe(readFileSync(caseFile(testCase.name, "expected"), "utf8"));
+          expect(result.rewrites).toHaveLength(testCase.rewrites);
+          expect(result.manual.map((site) => [site.line, site.description])).toEqual(
+            testCase.manual.map(([line, reason]) => [line, reason]),
+          );
+        });
+
+        it(`${testCase.name}: a second run changes nothing`, () => {
+          const first = runCase(shape, testCase.name);
+          const second = runOn(shape, testCase.name, first.output);
+
+          expect(second.output).toBe(first.output);
+          expect(second.rewrites).toHaveLength(0);
+          expect(second.manual.map((site) => site.description)).toEqual(
+            first.manual.map((site) => site.description),
+          );
+        });
+      }
+    });
+  }
+
+  it("resolves handler and job receivers, not the same-named members of other types", () => {
+    const negatives = runCase("old", "negatives");
+    const handler = runCase("old", "handler-body");
+
+    expect(negatives.contextReceivers).toBe(0);
+    expect(handler.contextReceivers).toBeGreaterThan(0);
+  });
+
+  it("drops the HandlerContext import once the phase rewrite leaves it unused", () => {
+    const { output } = runCase("old", "phases-only");
+
+    expect(output).not.toContain("HandlerContext");
+  });
+
+  it("adds the phase context types to the import that supplies HandlerContext", () => {
+    const { output } = runCase("old", "phases");
+
+    expect(output).toContain("ReservationContext");
+    expect(output).toContain("BeforeTransactionContext");
+    expect(output.match(/from "@cosmicdrift\/kumiko-types\/handlers"/g)).toHaveLength(1);
+  });
+});
+
+describe("ctx-namespaces CLI", () => {
+  const roots: string[] = [];
+  afterAll(() => {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  });
+
+  function stageProject(): string {
+    const root = mkdtempSync(join(tmpdir(), "ctx-namespaces-"));
+    roots.push(root);
+    cpSync(join(FIXTURES_DIR, "types-old"), join(root, "types-old"), { recursive: true });
+    cpSync(join(FIXTURES_DIR, "tsconfig.old.json"), join(root, "tsconfig.json"));
+    mkdirSync(join(root, "src"));
+    return root;
+  }
+
+  async function runCli(root: string, args: string[]) {
+    const proc = Bun.spawn({
+      cmd: ["bun", SCRIPT, join(root, "src"), "--no-format", ...args],
+      cwd: root,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+    return { stdout, exitCode };
+  }
+
+  it("--dry-run reports sites, leaves files alone and exits 0 even with manual sites", async () => {
+    const root = stageProject();
+    const target = join(root, "src", "destructuring.ts");
+    const input = readFileSync(caseFile("destructuring", "input"), "utf8");
+    writeFileSync(target, input);
+
+    const { stdout, exitCode } = await runCli(root, ["--dry-run"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("manual  log: destructured with a default value");
+    expect(stdout).toContain("rewritable: 4 site(s) in 1 file(s); manual: 3");
+    expect(readFileSync(target, "utf8")).toBe(input);
+  });
+
+  it("writes by default, then --check passes on the migrated file", async () => {
+    const root = stageProject();
+    const target = join(root, "src", "handler-body.ts");
+    writeFileSync(target, readFileSync(caseFile("handler-body", "input"), "utf8"));
+
+    const before = await runCli(root, ["--check"]);
+    const written = await runCli(root, []);
+    const after = await runCli(root, ["--check"]);
+
+    expect(before.exitCode).toBe(1);
+    expect(written.exitCode).toBe(0);
+    expect(readFileSync(target, "utf8")).toBe(
+      readFileSync(caseFile("handler-body", "expected"), "utf8"),
+    );
+    expect(after.exitCode).toBe(0);
+  });
+
+  it("rejects unknown flags with exit 2", async () => {
+    const root = stageProject();
+
+    const { exitCode } = await runCli(root, ["--bogus"]);
+
+    expect(exitCode).toBe(2);
+  });
+});

@@ -199,3 +199,27 @@ a moved name is reported as `manual`. In `package.json` it adds `@cosmicdrift/ku
 ```bash
 bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/feature-ast-package.ts <dir> [--check | --dry-run | --write] [--no-format]
 ```
+
+## ctx-namespaces.ts
+
+Moves the flat `HandlerContext` / `JobContext` members into their namespaces:
+`ctx.appendEvent` -> `ctx.events.append`, `ctx.write` -> `ctx.dispatch.write`,
+`ctx.log` -> `ctx.obs.log`, `ctx.dbOutsideTransaction` -> `ctx.db.outsideTransaction` and so on.
+Property accesses, destructuring, mock object literals typed as a context, `Pick` / indexed
+access types and the `ctx` annotation of `beforeTransaction` / `reserveBeforeTransaction`
+(`BeforeTransactionContext` / `ReservationContext`) are rewritten. Idempotent.
+
+Unlike the codemods above it is type-aware: it builds a ts-morph `Project` from the nearest
+`tsconfig.json` of every file (or `--tsconfig <path>`) and only touches receivers whose type is a
+Kumiko context, so `AppContext.log`, the MSP apply context's `appendEvent` or a websocket
+`write` stay as they are. It works against both the old and the new context types.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/ctx-namespaces.ts <dir> [--check | --dry-run | --write] [--no-format] [--tsconfig <path>]
+```
+
+Reported as `manual`: object literals with a spread next to moved members, destructuring with a
+default value or rest element, `Omit` of a moved member, a namespace key that is already set to a
+non-literal, a union receiver that maps differently per member, and an unresolved `ctx` / `context`
+receiver. Receivers typed by a hand-written structural type (`{ query: ... }`) are invisible to it
+and show up as type errors afterwards.
