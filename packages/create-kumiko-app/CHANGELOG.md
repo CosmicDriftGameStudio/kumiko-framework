@@ -1,5 +1,75 @@
 # create-kumiko-app
 
+## 0.389.0
+
+### Patch Changes
+
+- 82aeb09: `resolveFrameworkVersion` returns the exact framework version without a caret, and `scaffoldApp` resolves it itself instead of falling back to `"*"`. Freshly scaffolded apps now pass the exact-pin check of `kumiko check managed`. `scaffoldApp` throws when the version cannot be resolved and none is passed.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Scaffolded apps get exact framework pins
+  detail: resolveFrameworkVersion no longer prefixes ^ and scaffoldApp no longer falls back to "*", so a new app is green in kumiko check managed. Without a resolvable version and without an explicit frameworkVersion, scaffoldApp throws.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [d8f0b95]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ed0b92b]
+- Updated dependencies [641f268]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [0fd0f44]
+- Updated dependencies [5b72552]
+- Updated dependencies [4be1e55]
+- Updated dependencies [768a67e]
+- Updated dependencies [2c33bac]
+- Updated dependencies [e83bcf4]
+- Updated dependencies [a407a3c]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [fbae766]
+- Updated dependencies [8628ea3]
+- Updated dependencies [7e1bd28]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [82aeb09]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [a50674e]
+- Updated dependencies [4be1e55]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-testing@0.389.0
+  - @cosmicdrift/kumiko-server-runtime@0.389.0
+  - @cosmicdrift/kumiko-dev-server@0.389.0
+
 ## 0.388.0
 
 ### Patch Changes

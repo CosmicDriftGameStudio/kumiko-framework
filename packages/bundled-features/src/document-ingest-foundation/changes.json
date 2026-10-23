@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "appendMissingDocumentExtractEvent and shared ready/failed payload schemas",
+    "detail": "A provider whose job died after creating the extract calls appendMissingDocumentExtractEvent(deps, existing, fileRefId, { readyEventQn, failedEventQn, mapError }) to append the missing terminal event; it returns appended-ready, appended-failed or already-terminal. documentExtractReadyPayloadSchema and documentExtractFailedPayloadSchema are exported so providers register their own event names with the shared payload shape."
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
     "title": "documentExtract projection survives a rebuild",

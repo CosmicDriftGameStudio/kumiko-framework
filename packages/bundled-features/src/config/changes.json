@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "config:write:set passes readCascade to validators",
+    "detail": "The set handler binds readCascade to the config resolver, the tenant-scoped db and the secrets reader, so validators see the same cascade as the value queries."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "config:query:values and config:query:cascade accept a read scope",

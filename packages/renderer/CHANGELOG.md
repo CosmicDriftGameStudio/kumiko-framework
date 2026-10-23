@@ -1,5 +1,257 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.389.0
+
+### Minor Changes
+
+- ac00e8a: List screens get a `table` block: remembered filter, search and sort per user, a reset-all button, a column picker with reordering, and a comfortable or compact row density.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table block on entityList, projectionList and relatedList
+  detail: The new optional table block (rememberState, resetAll, columnPicker, density with default and userChoice) is validated at boot; unknown keys, hidden columns without columnPicker and invalid density values are rejected. Columns accept hidden: true. Remembered state lives in sessionStorage per tenant and user and is cleared on logout or identity change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable view menu, remembered list state and compact density
+  detail: Lists with a table block show a view menu (columns, density, reset view) and a reset-all button. Remembered query parameters are copied into the URL once; links with explicit parameters win. Compact density uses 32px rows with 4px cell padding. New keys kumiko.list.reset-all and kumiko.list.view.* in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: CurrentUser carries tenantId, logout clears remembered list state
+  detail: The session CurrentUser has an optional tenantId used to scope remembered list state; logout removes all kumiko.list.* storage entries.
+  -->
+- 7ca1a98: The list `table` block gets `pinning`, `resizing` and `keyboardNavigation`, and columns get `pinned`, `width` and `minWidth`. This release carries the types, the boot validation, the remembered view state and the texts.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table.pinning, table.resizing and table.keyboardNavigation, column pinned, width and minWidth
+  detail: The boot validator rejects pinned without table.pinning, a pinned value other than left or right, width or minWidth without table.resizing, values that are not finite numbers above 0, and a minWidth above the width.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: remembered column pins and widths in the list view state
+  detail: useListTable passes pins, widths, minWidths and keyboardNavigation to the DataTable view options. Pins and widths live in the list-state store next to columns and density; a saved pin set replaces the schema pins, so a user can release a pinned column. New keys kumiko.list.view.pinning, kumiko.list.view.pin-left, kumiko.list.view.pin-right and kumiko.list.column.resize in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable resize grip, pinned focus ring and bounded widths
+  detail: Column widths stay between minWidth and 2000 px, also when read back from the session. The resize grip shows on header hover and focus and carries aria-valuenow, aria-valuemin and aria-valuemax. Pinned and actions cells repeat the keyboard focus ring, and a pressed pin button is highlighted.
+  -->
+- 95b16ff: Lists group on the server with `table.grouping`, show a footer row with `table.totals` and filter number fields with a from/to range facet.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Money list aggregates answer one value per currency
+  detail: A sum, avg, min or max measure over a money field in a list aggregate now answers [{ currency, value }] with value in minor units, one entry per currency in the matching rows, and never adds amounts of different currencies. Before, it answered one plain number over all currencies.
+  migration: code reading measures of a money field from a list aggregate answer (executor.aggregate, answerListAggregate or the list query with aggregate) reads an array of { currency, value } instead of a number; take the entry of the wanted currency, value stays in minor units
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table.grouping, table.totals and range facets validated at boot
+  detail: The table block takes grouping ({ field, label?, labels?, collapsedWhen?, userChoice?, fields? }) and totals ([{ field, kind }]). The boot validator checks the fields against the entity or the columns, rejects measures a field type cannot carry and requires the list query to accept aggregate (entityListSchema does; hand-written queries answer it with answerListAggregate). facets.<field>.display "range" needs a filterable number, decimal, money or bigInt field.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Server-side groups, totals row and number range facet in the DataTable
+  detail: With table.grouping the groups load via one aggregate query; each open group near the viewport loads its rows with the list query plus a group filter, page by page with "Load more", at most four groups at once, a collapsed group sends no query. Headers show the server count and measures, the global pager gives way in both pagination modes, and the view menu offers "Group by" with userChoice. table.totals renders a live footer row over the filters and search. A range facet shows from/to inputs, keeps <screenId>.f.<field>.min/.max in the URL and sends gte/lte filters, money in minor units. Infinite lists now also start over when a facet changes. New keys kumiko.list.group.*, kumiko.list.measure.*, kumiko.list.totals.label, kumiko.list.range.* and kumiko.list.notice.* in all locale packages.
+  -->
+- 1b8c7ba: Lists get `bulkActions`: row checkboxes, a selection bar and a run that calls a writeHandler row action once per selected row.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: bulkActions on entityList, projectionList and relatedList
+  detail: Each entry is { id, rowAction, confirm? } and points at a writeHandler entry of the same screen's rowActions. The boot validator rejects unknown keys, a non-kebab or duplicate id, an unknown rowAction and a rowAction of kind clientAction, navigate or drawer.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable row selection and bulk run
+  detail: With bulkActions the table gets a checkbox column, a header checkbox for the loaded rows (at most 100), a checkbox per card and a bar with "n selected" and the actions. A run sends one /api/write per row, at most 4 at a time; rows hidden by the row action's visible are skipped. Cancel stops new writes. A banner shows succeeded, failed, skipped and not run; failed and not-run rows stay selected and the list reloads. With table.keyboardNavigation, Space toggles the focused row. New keys kumiko.list.bulk.* in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: entityList writeHandler row actions keep display
+  detail: entityList built its writeHandler row actions inline and dropped display; it now uses the same builder as projection and related lists.
+  -->
+- 7b3c3c0: Lists with `table.export` get an Export button that downloads the filtered list as an XLSX file.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: XLSX export for entityList and projectionList via table.export
+  detail: The new table.export block ({ xlsx: true, maxRows? }) is validated at boot and is only accepted on entityList and projectionList. POST /api/export/xlsx runs the list query again with the caller's session, pages through the whole filtered list and answers 413 above maxRows (default 10000, hard cap 100000). Encrypted, sensitive, write-only and unreadable fields and virtual columns are left out of the sheet. Reference columns export the label of the target (joined with commas for multiple references), not the id. Timestamp cells use the browser time zone sent with the request, else the profile zone, else UTC. Personal access tokens are rejected. A projectionList query must honor offset or return nextCursor. Adds the write-excel-file dependency.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Export button in the DataTable toolbar
+  detail: Lists with table.export show an Export button next to the view menu. It exports the current search, sort and facets with the visible columns in their order and shows a hint when the list exceeds the row limit. New keys kumiko.list.export, kumiko.list.export-busy, kumiko.list.export-too-many and kumiko.list.export-failed in all locale packages.
+  -->
+- ffbb25e: Lists put every primary toolbar action into the page header, and file lists can open the first PDF preview by default.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: All primary toolbar actions move into the list page header
+  detail: Previously at most one primary toolbar action was promoted, and only when the list had no create button. Now every primary action without a confirm dialog sits in the page header, left of the create button (which stays rightmost), in declaration order. Promoted actions no longer appear in the list toolbar. On phones they become entries of the header overflow menu when a create button is present, so the create button keeps its place.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: renderer { format: "file", previewOpenByDefault: true } opens the first PDF preview
+  detail: FileValueList takes a previewOpenByDefault prop, set declaratively through the file renderer spec, so the inline preview of the first file starts open. The preview is only mounted for PDFs. Without the option the toggle behaves as before.
+  -->
+- ad0c891: Related lists and expandable rows group through `table.grouping` on the server path; the client-side `groupBy` is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: relatedList groupBy replaced by table.grouping
+  detail: The groupBy key on a relatedList section and an entityList expandableRow is removed together with the RelatedListGroupBy type. Both group through table.grouping ({ field, label?, labels?, collapsedWhen? }): groups, counts and header measures come from one aggregate query over all matching rows instead of the loaded page, and each open group loads its own rows. An expandableRow takes only table.grouping with a fixed field; userChoice, fields and every other table option stay boot errors there. The boot validator reports a leftover groupBy with a pointer to table.grouping. ExpandableRowGrouping is the new type of an expandableRow's grouping.
+  migration: move groupBy { field, collapsedWhen, label, labels } to table: { grouping: { field, collapsedWhen, label, labels } }; the bound query must accept aggregate (entityListSchema does, a hand-written query answers it with answerListAggregate). dateField and the {lastDate} placeholder have no replacement on an expandableRow, where totals stay off; on a relatedList a max measure in table.totals shows the latest date. Every group now gets a header: a group without label or labels entry shows its value instead of rendering headerless.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: DataTable rowGrouping removed
+  detail: The client-side rowGrouping prop and the DataTableRowGrouping type are removed from the DataTable contract; grouping runs only through serverGroups. A custom DataTable primitive drops its rowGrouping handling.
+  migration: delete rowGrouping from custom DataTable primitives and their callers; group lists through table.grouping on the screen
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Totals row keeps its leading cells pinned
+  detail: With pinned columns, the empty totals cells under the checkbox and expand columns stick to the left like the cells above them, and the cell under the actions column sticks to the right with the same background.
+  -->
+- 59028a5: An app mounted under a URL prefix gets working default auth pages. `createKumikoApp({ basePath })` passes the prefix to the default nav adapter and exposes it to the auth gates through the new `BasePathProvider` / `useBasePath` (plus the pure `normalizeBasePath`, `stripBasePath`, `prependBasePath`). The default auth pages gate matches `/admin/unlock-account` and friends, and the login screen's default forgot-password and unlock links carry the prefix.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: basePath option for createKumikoApp and the auth pages
+  detail: createKumikoApp accepts basePath. The default auth pages gate matches its paths below the prefix, and the login screen builds its default forgot-password and unlock hrefs with it, so mail links to /admin/unlock-account no longer end on the login screen. New exports BasePathProvider, useBasePath, normalizeBasePath, stripBasePath and prependBasePath.
+  -->
+
+### Patch Changes
+
+- 1dc3182: The action form success message names the chosen reference record even when it lies beyond the 200-row lookup cap. The lookup asks for exactly that id (`ids` for directory sources, an `id` filter for entity list handlers) instead of scanning the capped list.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Success message resolves reference labels by id
+  detail: resolveSuccessMessageParams requests the chosen record by id, so a tenant picked in a tier-admin form with more than 200 tenants is named in the success message instead of showing its raw id. Sources that ignore both inputs keep the previous capped-list behaviour.
+  -->
+- ae805dd: A locked screen whose fallback is itself locked now heads the page with the screen that finally renders, not with the locked intermediate one. Only the outermost locked gate mounts the header; nested gates report their stand-in to it.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Locked fallback chains show the rendered screen in the header
+  detail: When a screen with visibleWhen falls back to another screen that is locked too, the page header and breadcrumb now name the screen that actually renders instead of the locked intermediate fallback.
+  -->
+- 6eb3960: A configEdit form with secret-backed fields no longer turns into an error banner when the viewer may not list secrets. On `access_denied` from `secrets:query:list` the secret fields are hidden and the config fields stay editable and saveable; other secrets failures still show the banner.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Provider forms stay usable without secrets access
+  detail: The merged provider form (config keys plus secrets) previously showed only an error banner if the viewer was denied the secrets list. Now the secret fields are left out and host, port, sender and provider choice can still be saved.
+  -->
+- ae66401: A PDF preview that is still mounted keeps its document alive. The bounded document cache now counts users per entry and only evicts and destroys entries nobody holds, so a list with five or more PDFs no longer blanks the first preview.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: PDF previews keep their document while mounted
+  detail: createBoundedLoadCache now returns { load, retain }. PdfPreview retains its document while mounted, and the cache evicts only unused entries, so a fifth document no longer destroys one that is still rendered.
+  -->
+- 59028a5: Leaving a dirty form via browser Back or Forward no longer writes the target URL twice into the history. A confirmed leave steps back with `history.back()` instead of `replaceState`, and a second Back or Forward while the dialog is open is undone instead of stacking another entry or replacing the open request.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Leave guard keeps the history clean on Back and Forward
+  detail: Confirming the leave dialog after a browser Back or Forward now uses history.back(), so the target is no longer duplicated in the history stack. Popstate events that arrive while a leave request is open restore the URL and leave the open dialog untouched.
+  -->
+- c37831d: A renderer test fixture for denied secrets access types its config fields directly instead of casting them.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: secrets-denied test fixture without a cast
+  detail: The fixture's field map already fits the annotated ConfigEditScreenDefinition, so the cast and its marker are gone. No runtime change.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [641f268]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [5b72552]
+- Updated dependencies [768a67e]
+- Updated dependencies [a407a3c]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [8628ea3]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [a50674e]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-types@0.389.0
+
 ## 0.388.0
 
 ### Minor Changes

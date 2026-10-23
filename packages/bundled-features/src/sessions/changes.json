@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "isPrincipalBlocked is no longer exported from sessions",
+    "detail": "The sessions export dropped its re-export of isPrincipalBlocked, which ignored isDeleted. isPrincipalRowBlocked from the user export covers status and isDeleted and is what the session callbacks use.",
+    "migration": "import isPrincipalRowBlocked (for a user row) or isPrincipalBlocked (for a bare status) from \"@cosmicdrift/kumiko-bundled-features/user\" instead of the sessions export"
+  },
+  {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Session lists show the device",

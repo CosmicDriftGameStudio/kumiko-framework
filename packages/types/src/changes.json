@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency",
+    "detail": "DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.",
+    "migration": "Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from \"bun\", or the DbConnection and DbTx aliases. Manual migration, there is no codemod."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Config validators can read a key's cascade",
+    "detail": "ConfigValidateContext gains readCascade(qualifiedKey), which returns the full cascade of any registered key from the writing tenant and user. Unknown keys throw."
+  },
+  {
     "version": "0.386.0",
     "type": "improvement",
     "title": "RawDbClient is typed instead of any",

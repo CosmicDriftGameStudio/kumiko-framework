@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Optional returnTo for password reset and signup",
+    "detail": "Password reset and signup accept an optional returnTo path. A safe value (same-origin path, no dot segments) is appended to the mailed link as a query parameter, the reset and signup-complete screens follow it, and the login screen forwards its next to the forgot-password and signup links. Invalid values are dropped silently and never block the mail. isSafeReturnPath and readReturnToFromSearch are exported from the web barrel. isSafeNextPath now uses the same check, so a next with a dot segment such as \"/a/../b\" is no longer followed."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "CurrentUser carries tenantId, logout clears remembered list state",
+    "detail": "The session CurrentUser has an optional tenantId used to scope remembered list state; logout removes all kumiko.list.* storage entries."
+  },
+  {
     "version": "0.385.0",
     "type": "improvement",
     "title": "Denser common-password list, comments name postgres-js as the only driver",

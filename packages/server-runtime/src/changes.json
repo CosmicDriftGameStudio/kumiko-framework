@@ -1,5 +1,66 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "The renderer-web stylesheet fallback checks tailwindcss in node_modules",
+    "detail": "canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with \"Can't resolve 'tailwindcss'\". Such a build skips the fallback stylesheet again."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Package lookups no longer auto-install from the registry",
+    "detail": "The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "bundledLists sets one table block for every bundled list",
+    "detail": "composeFeatures takes bundledLists with a table block and an optional pinFirstColumn flag. The block is mixed into every entityList, projectionList and relatedList section of the bundled features, the foundation features user and tenant as well as the features an app mounts from @cosmicdrift/kumiko-bundled-features, before the boot validator runs. A key the screen sets itself wins, export is left out on relatedList sections, and pinFirstColumn pins the first visible column left where no column is pinned yet. grouping and totals are rejected in the shared block. App screens stay untouched. Features opt in with the new registrar method r.adoptsBundledLists(), which every bundled feature with lists calls and which feature packages such as Enterprise can call for their own lists; app features never do. No migration for apps. The option lives in AppConfig.bundledLists for the managed kumiko/schema.ts and in the run options of runProdApp, runDevApp and runWorkerApp, so kumiko check and the running app see the same screens."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Boot database backoff takes an injectable clock",
+    "detail": "The new databaseWait option on runProdApp and runWorkerApp swaps sleep, now and the log sink of the database, KMS and seed waits. A worker boot against an unreachable database is now tested to retry until the deadline, abort with the connection error and close its Redis clients."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Default CSP covers inline scripts of HTML written after the build",
+    "detail": "At boot the hashes from csp-hashes.json are merged with the inline scripts found in the HTML files under staticDir, for the default CSP and for hostDispatch. Boot-rendered pages keep their inline scripts working without a custom securityHeaders.csp."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Read-only demo mode blocks WebSocket upgrades",
+    "detail": "Upgrade requests count as mutating in the demo read-only gate and get 403 demo_read_only unless the route path is in allowedWritePaths. Socket routes in a read-only demo that need to stay open must be listed there."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "BootOptionName drops demoMode, seeds and signals",
+    "detail": "No stack declared them in bootRequires, so their boot checks never ran. A name returns together with its check and a test once a stack needs it.",
+    "migration": "no known callers; remove \"demoMode\", \"seeds\" and \"signals\" from bootRequires options"
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "appOverrides work in runWorkerApp and runDevApp",
+    "detail": "Both boot functions take the same appOverrides option as runProdApp and share its merge, so worker-rendered mails and the dev server resolve the same tenant model, branding and SEO values as the API. The runSingleInstance:false warning names appOverrides next to mail, fileStorage and featureToggles."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Boot seeds survive a short database outage",
+    "detail": "applyStandardBootSeeds re-runs the idempotent seed sequence with the database backoff on transient connection errors (ECONNREFUSED, connection class 08, too_many_connections) until the 90 second deadline. Non-transient errors still abort the boot at once."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "filesForTenant in SystemWireDeps",
+    "detail": "The wire hook and the worker wireComponents receive filesForTenant, built from the AppContext after buildServer wired it. ApiEntrypoint and WorkerEntrypoint expose that context as entrypoint.context."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "runProdApp split into boot phases, boot steps shared with dev and worker",

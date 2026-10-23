@@ -1,5 +1,159 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.389.0
+
+### Minor Changes
+
+- 7e1bd28: New `@cosmicdrift/kumiko-testing/helpers/mock-module` with `mockModuleForFile(specifier, realModule, overrides, { restoreOverrides })`: mocks a module with the real exports plus overrides and restores it in `afterAll`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: mockModuleForFile restores module mocks automatically
+  detail: bun's mock.module is process-global, so tests had to copy the real module and restore it by hand in afterAll. The helper does both and can point re-exporting modules back at the real export.
+  -->
+- 2602c62: Signature extra routes get `deps.dispatchWriteAs({ handlerQn, payload, tenantId, roles })`, a write as the tenant's system user with the "system" role plus exactly the named roles, without SystemAdmin. E2E extra seeders get `ctx.writeAs(roles, handlerQn, payload)` bound to the seeded tenant, so a seeder can write to handlers gated on app roles without adding the role "system" to production handlers.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: E2E seeders and signature routes can write with explicit roles
+  detail: dispatchWriteAs on signature route deps and writeAs on the E2E seeder context run a write as the tenant's system user with the "system" role plus the given roles, without SystemAdmin. write() keeps running as SystemAdmin.
+  -->
+- 2602c62: `@cosmicdrift/kumiko-testing/e2e` exports `presentIdentitiesOnPage`, `restoreIdentitiesOnPage` and `withPresentedIdentities(page, mappings, fn)`. Specs can show stable identities for their own `page.screenshot` calls and get the real values back even when the callback throws.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: E2E specs can present stable identities around their own screenshots
+  detail: withPresentedIdentities replaces generated identities in page text and form values, runs the callback and restores the originals in a finally block. The lower-level present and restore functions are exported too.
+  -->
+
+### Patch Changes
+
+- 1b3a297: Bun.SQL is the only Postgres driver and the postgres-js fork is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bun.SQL replaces postgres-js as the only Postgres driver
+  detail: createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, "disable", "prefer", "require", "verify-ca", "verify-full" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, "postgres" included.
+  migration: Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === "23505" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency
+  detail: DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.
+  migration: Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from "bun", or the DbConnection and DbTx aliases. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: captureClosedConnectionError returns a Bun.SQL error
+  detail: The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.
+  migration: Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The renderer-web stylesheet fallback checks tailwindcss in node_modules
+  detail: canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with "Can't resolve 'tailwindcss'". Such a build skips the fallback stylesheet again.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps pin Bun 1.4.4
+  detail: The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.
+  migration: Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand.
+  -->
+- d8f0b95: The e2e fixture keeps the Chromium HTTP cache on and enforces an app boot budget.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: e2e tests fail after more than 8 app boots; the per-test client IP no longer disables the HTTP cache
+  detail: The test fixture sent the per-test X-Forwarded-For through context.route, which turns Chromium's HTTP cache off for the whole context, so every page.goto re-downloaded all assets and GET /api/schema. It now uses setExtraHTTPHeaders and the cache stays on. The fixture also counts GET /api/schema per test and fails a passing test that boots the app more than 8 times (default of the new maxAppBootsPerTest fixture option), and closes pages left open (window.open tabs) before the context closes.
+  migration: Seed through tenant.api, tenant.seed and tenant.addUser instead of calling page.goto(APP_BASE_PATH) before every seed; each page.goto reloads the app. runMatrix and runScreenshots boot the app once per test themselves, so they need no change; only your own scenario flows or specs that navigate on purpose raise the budget with test.use({ maxAppBootsPerTest: <n> }). Manual migration, there is no codemod. The X-Forwarded-For header is now sent on every request of the context, including cross-origin ones.
+  -->
+- ed0b92b: loginViaUi waits for the MFA auto-submit instead of pressing Enter.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: loginViaUi no longer races the MFA auto-submit
+  detail: The MFA code field submits itself on the sixth digit since 0.388. loginViaUi now fills the code while waiting for the verify response and no longer presses Enter on a field that may already be disabled.
+  -->
+- 0fd0f44: Added `consoleCallsFromNamespace` to the testing helpers so "stays silent" tests count every console call of a logger namespace instead of one message text.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: consoleCallsFromNamespace test helper for silent-log assertions
+  detail: Filters a console spy by logger namespace prefix, so a new or reworded warning from the module under test fails a silent test. The boot-validator, client-ip and settings-hub silent tests use it.
+  -->
+- d8f9c73: The upload ledger stamps rows with the injected `AppContext.clock` (the source behind `ctx.tz`) instead of the wall clock, so the orphan-upload sweep and the ledger agree under a controlled clock. The test stack passes its `extraContext.clock` through.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: upload ledger uses the injected clock
+  detail: createFileUploadLedger and withUploadLedger take an optional now function, and the file provider resolver wires AppContext.clock into it. Without a clock the system time is used as before.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [77a25ac]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [641f268]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [5b72552]
+- Updated dependencies [768a67e]
+- Updated dependencies [ed57bf8]
+- Updated dependencies [a407a3c]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [74d804f]
+- Updated dependencies [8628ea3]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [a50674e]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-types@0.389.0
+  - @cosmicdrift/kumiko-guards@0.389.0
+
 ## 0.388.0
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Guard against hand-made event and membership SQL in tests",
+    "detail": "Flags INSERT INTO / UPDATE kumiko_events and CREATE TABLE read_tenant_memberships in test files. Seed through append() or runSeedWritesAt() and unsafeCreateEntityTable with seedRow instead. Perf bulk seeds and the ordering tests that hold a transaction open are allowlisted."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "pre-push re-entry detection no longer an env switch",
+    "detail": "Before delegating to a tracked scripts/check-wt.sh the hook records its own PID in KUMIKO_CHECK_WT_OWNER and treats a run as re-entry only when that PID is an ancestor of the current process, whether check-wt.sh execs or spawns the hook. KUMIKO_CHECK_WT=1 is ignored, so it cannot skip check-wt.sh; wrappers that still set it need no change."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "Complexity hard cap 40, thin-wrapper guard skips typed table slots",

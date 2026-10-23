@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "requiredPolicy \"systemAdmins\"",
+    "detail": "The new auth-mfa:config:required value systemAdmins (between optional and admins) forces MFA enrollment only for users whose merged global and tenant roles contain SystemAdmin. TenantAdmins and other roles log in as before; enrolled users are always challenged regardless of policy. No locale labels are involved, the option list has none."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "Six-cell code input, autofocus, auto-submit and recovery switch",

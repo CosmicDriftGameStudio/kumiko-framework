@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Unsubscribe link origin is looked up once per notify call",
+    "detail": "The tenantOrigin callback runs once per tenant for a notify call with many recipients, and a fallback warning is logged once. A callback that hangs is still not guarded by a timeout, so keep it fast."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "buildSystemChannelContext for system tenant mails outside a handler",
+    "detail": "buildSystemChannelContext(deps, { config, secrets }) returns a ChannelContext for the system tenant whose readAttachment reads file and inline attachments. SystemWireDeps (wire hook and runWorkerApp wireComponents) has a new required filesForTenant that deps can pass straight in."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Preferences query reports renamed notification types under the current name",

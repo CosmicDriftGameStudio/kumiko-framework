@@ -1,5 +1,36 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Scaffolded apps pin Bun 1.4.4",
+    "detail": "The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.",
+    "migration": "Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Scaffolded docker-compose raises Postgres max_connections to 300",
+    "detail": "Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Fresh scaffolds build with bun run build",
+    "detail": "create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Scaffolded apps get exact framework pins",
+    "detail": "resolveFrameworkVersion no longer prefixes ^ and scaffoldApp no longer falls back to \"*\", so a new app is green in kumiko check managed. Without a resolvable version and without an explicit frameworkVersion, scaffoldApp throws."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "migrate-step.sh leaves the managed file set",
+    "detail": "Managed apps run migrations as the k3s InitContainer from release.yml, so deploy/migrate-step.sh is neither scaffolded nor synced for them. Delete it if present. kumiko-init-deploy keeps generating it for compose self-hosting."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "English buildServerBundle errors",

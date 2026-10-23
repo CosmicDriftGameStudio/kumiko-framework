@@ -1,5 +1,529 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.389.0
+
+### Minor Changes
+
+- 47ba075: Password reset and signup accept an optional `returnTo` path that is carried through the mailed link and the web screens.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Optional returnTo for password reset and signup
+  detail: Password reset and signup accept an optional returnTo path. A safe value (same-origin path, no dot segments) is appended to the mailed link as a query parameter, the reset and signup-complete screens follow it, and the login screen forwards its next to the forgot-password and signup links. Invalid values are dropped silently and never block the mail. isSafeReturnPath and readReturnToFromSearch are exported from the web barrel. isSafeNextPath now uses the same check, so a next with a dot segment such as "/a/../b" is no longer followed.
+  -->
+- 1b3a297: Bun.SQL is the only Postgres driver and the postgres-js fork is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bun.SQL replaces postgres-js as the only Postgres driver
+  detail: createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, "disable", "prefer", "require", "verify-ca", "verify-full" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, "postgres" included.
+  migration: Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === "23505" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency
+  detail: DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.
+  migration: Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from "bun", or the DbConnection and DbTx aliases. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: captureClosedConnectionError returns a Bun.SQL error
+  detail: The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.
+  migration: Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The renderer-web stylesheet fallback checks tailwindcss in node_modules
+  detail: canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with "Can't resolve 'tailwindcss'". Such a build skips the fallback stylesheet again.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps pin Bun 1.4.4
+  detail: The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.
+  migration: Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand.
+  -->
+- c16fa0c: `bundledLists` sets one DataTable `table` block for every list screen and relatedList section of the bundled features.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: bundledLists sets one table block for every bundled list
+  detail: composeFeatures takes bundledLists with a table block and an optional pinFirstColumn flag. The block is mixed into every entityList, projectionList and relatedList section of the bundled features, the foundation features user and tenant as well as the features an app mounts from @cosmicdrift/kumiko-bundled-features, before the boot validator runs. A key the screen sets itself wins, export is left out on relatedList sections, and pinFirstColumn pins the first visible column left where no column is pinned yet. grouping and totals are rejected in the shared block. App screens stay untouched. Features opt in with the new registrar method r.adoptsBundledLists(), which every bundled feature with lists calls and which feature packages such as Enterprise can call for their own lists; app features never do. No migration for apps. The option lives in AppConfig.bundledLists for the managed kumiko/schema.ts and in the run options of runProdApp, runDevApp and runWorkerApp, so kumiko check and the running app see the same screens.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: validateBundledListsOptions and the BundledListsOptions type
+  detail: BundledListsOptions is exported from the types package and the engine barrel. validateBundledListsOptions rejects unknown keys, grouping, totals and pinFirstColumn without table.pinning with a message that names the key, and checks the remaining keys like a screen's own table block.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: MANAGED_PAGES_FEATURE names the feature
+  detail: The barrel exports the MANAGED_PAGES_FEATURE constant so other code can refer to the feature name without a string literal.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: USER_DATA_RIGHTS_FEATURE is exported from the barrel
+  detail: The feature name constant that lived in web/constants.ts is now part of the public barrel.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.adoptsBundledLists() marks features that take the bundledLists block
+  detail: The registrar method r.adoptsBundledLists() marks a feature whose list screens take the app-wide bundledLists block; the flag appears as FeatureDefinition.adoptsBundledLists and in feature-manifest.json, and the feature-ast parser knows the call as an opaque singleton pattern.
+  -->
+- ac00e8a: List screens get a `table` block: remembered filter, search and sort per user, a reset-all button, a column picker with reordering, and a comfortable or compact row density.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table block on entityList, projectionList and relatedList
+  detail: The new optional table block (rememberState, resetAll, columnPicker, density with default and userChoice) is validated at boot; unknown keys, hidden columns without columnPicker and invalid density values are rejected. Columns accept hidden: true. Remembered state lives in sessionStorage per tenant and user and is cleared on logout or identity change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable view menu, remembered list state and compact density
+  detail: Lists with a table block show a view menu (columns, density, reset view) and a reset-all button. Remembered query parameters are copied into the URL once; links with explicit parameters win. Compact density uses 32px rows with 4px cell padding. New keys kumiko.list.reset-all and kumiko.list.view.* in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: CurrentUser carries tenantId, logout clears remembered list state
+  detail: The session CurrentUser has an optional tenantId used to scope remembered list state; logout removes all kumiko.list.* storage entries.
+  -->
+- 7ca1a98: The list `table` block gets `pinning`, `resizing` and `keyboardNavigation`, and columns get `pinned`, `width` and `minWidth`. This release carries the types, the boot validation, the remembered view state and the texts.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table.pinning, table.resizing and table.keyboardNavigation, column pinned, width and minWidth
+  detail: The boot validator rejects pinned without table.pinning, a pinned value other than left or right, width or minWidth without table.resizing, values that are not finite numbers above 0, and a minWidth above the width.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: remembered column pins and widths in the list view state
+  detail: useListTable passes pins, widths, minWidths and keyboardNavigation to the DataTable view options. Pins and widths live in the list-state store next to columns and density; a saved pin set replaces the schema pins, so a user can release a pinned column. New keys kumiko.list.view.pinning, kumiko.list.view.pin-left, kumiko.list.view.pin-right and kumiko.list.column.resize in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable resize grip, pinned focus ring and bounded widths
+  detail: Column widths stay between minWidth and 2000 px, also when read back from the session. The resize grip shows on header hover and focus and carries aria-valuenow, aria-valuemin and aria-valuemax. Pinned and actions cells repeat the keyboard focus ring, and a pressed pin button is highlighted.
+  -->
+- 95b16ff: Lists group on the server with `table.grouping`, show a footer row with `table.totals` and filter number fields with a from/to range facet.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Money list aggregates answer one value per currency
+  detail: A sum, avg, min or max measure over a money field in a list aggregate now answers [{ currency, value }] with value in minor units, one entry per currency in the matching rows, and never adds amounts of different currencies. Before, it answered one plain number over all currencies.
+  migration: code reading measures of a money field from a list aggregate answer (executor.aggregate, answerListAggregate or the list query with aggregate) reads an array of { currency, value } instead of a number; take the entry of the wanted currency, value stays in minor units
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table.grouping, table.totals and range facets validated at boot
+  detail: The table block takes grouping ({ field, label?, labels?, collapsedWhen?, userChoice?, fields? }) and totals ([{ field, kind }]). The boot validator checks the fields against the entity or the columns, rejects measures a field type cannot carry and requires the list query to accept aggregate (entityListSchema does; hand-written queries answer it with answerListAggregate). facets.<field>.display "range" needs a filterable number, decimal, money or bigInt field.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Server-side groups, totals row and number range facet in the DataTable
+  detail: With table.grouping the groups load via one aggregate query; each open group near the viewport loads its rows with the list query plus a group filter, page by page with "Load more", at most four groups at once, a collapsed group sends no query. Headers show the server count and measures, the global pager gives way in both pagination modes, and the view menu offers "Group by" with userChoice. table.totals renders a live footer row over the filters and search. A range facet shows from/to inputs, keeps <screenId>.f.<field>.min/.max in the URL and sends gte/lte filters, money in minor units. Infinite lists now also start over when a facet changes. New keys kumiko.list.group.*, kumiko.list.measure.*, kumiko.list.totals.label, kumiko.list.range.* and kumiko.list.notice.* in all locale packages.
+  -->
+- 1b8c7ba: Lists get `bulkActions`: row checkboxes, a selection bar and a run that calls a writeHandler row action once per selected row.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: bulkActions on entityList, projectionList and relatedList
+  detail: Each entry is { id, rowAction, confirm? } and points at a writeHandler entry of the same screen's rowActions. The boot validator rejects unknown keys, a non-kebab or duplicate id, an unknown rowAction and a rowAction of kind clientAction, navigate or drawer.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable row selection and bulk run
+  detail: With bulkActions the table gets a checkbox column, a header checkbox for the loaded rows (at most 100), a checkbox per card and a bar with "n selected" and the actions. A run sends one /api/write per row, at most 4 at a time; rows hidden by the row action's visible are skipped. Cancel stops new writes. A banner shows succeeded, failed, skipped and not run; failed and not-run rows stay selected and the list reloads. With table.keyboardNavigation, Space toggles the focused row. New keys kumiko.list.bulk.* in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: entityList writeHandler row actions keep display
+  detail: entityList built its writeHandler row actions inline and dropped display; it now uses the same builder as projection and related lists.
+  -->
+- 7b3c3c0: Lists with `table.export` get an Export button that downloads the filtered list as an XLSX file.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: XLSX export for entityList and projectionList via table.export
+  detail: The new table.export block ({ xlsx: true, maxRows? }) is validated at boot and is only accepted on entityList and projectionList. POST /api/export/xlsx runs the list query again with the caller's session, pages through the whole filtered list and answers 413 above maxRows (default 10000, hard cap 100000). Encrypted, sensitive, write-only and unreadable fields and virtual columns are left out of the sheet. Reference columns export the label of the target (joined with commas for multiple references), not the id. Timestamp cells use the browser time zone sent with the request, else the profile zone, else UTC. Personal access tokens are rejected. A projectionList query must honor offset or return nextCursor. Adds the write-excel-file dependency.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Export button in the DataTable toolbar
+  detail: Lists with table.export show an Export button next to the view menu. It exports the current search, sort and facets with the visible columns in their order and shows a hint when the list exceeds the row limit. New keys kumiko.list.export, kumiko.list.export-busy, kumiko.list.export-too-many and kumiko.list.export-failed in all locale packages.
+  -->
+- e2211ac: EventStoreExecutor write verbs open their own transaction when called on a pool-bound TenantDb, so the event append, entity row, custom projections and hooks commit or roll back together.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Executor writes on a pool runner are atomic
+  detail: executor.create/update/delete/forget/restore on a TenantDb that is not inside a transaction used to run append, projection and custom projections as separate autocommit statements, so a failing projection left an event without its row. They now run in their own transaction, and a returned failure such as version_conflict rolls it back too. Calls inside a handler transaction keep their savepoint behavior. Callers that wrapped executor writes in runInOwnTransaction as a workaround can drop it.
+  -->
+- 641f268: FeatureRegistrar types moved to @cosmicdrift/kumiko-types/feature-registrar
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: FeatureRegistrar types moved to @cosmicdrift/kumiko-types/feature-registrar
+  migration: |
+    Import FeatureRegistrar, HookDefinition, EntityObjectDefinition and RequiresApi from @cosmicdrift/kumiko-types/feature-registrar or from the engine barrel of @cosmicdrift/kumiko-framework; @cosmicdrift/kumiko-types/feature no longer exports them.
+  -->
+- ad0c891: Related lists and expandable rows group through `table.grouping` on the server path; the client-side `groupBy` is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: relatedList groupBy replaced by table.grouping
+  detail: The groupBy key on a relatedList section and an entityList expandableRow is removed together with the RelatedListGroupBy type. Both group through table.grouping ({ field, label?, labels?, collapsedWhen? }): groups, counts and header measures come from one aggregate query over all matching rows instead of the loaded page, and each open group loads its own rows. An expandableRow takes only table.grouping with a fixed field; userChoice, fields and every other table option stay boot errors there. The boot validator reports a leftover groupBy with a pointer to table.grouping. ExpandableRowGrouping is the new type of an expandableRow's grouping.
+  migration: move groupBy { field, collapsedWhen, label, labels } to table: { grouping: { field, collapsedWhen, label, labels } }; the bound query must accept aggregate (entityListSchema does, a hand-written query answers it with answerListAggregate). dateField and the {lastDate} placeholder have no replacement on an expandableRow, where totals stay off; on a relatedList a max measure in table.totals shows the latest date. Every group now gets a header: a group without label or labels entry shows its value instead of rendering headerless.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: DataTable rowGrouping removed
+  detail: The client-side rowGrouping prop and the DataTableRowGrouping type are removed from the DataTable contract; grouping runs only through serverGroups. A custom DataTable primitive drops its rowGrouping handling.
+  migration: delete rowGrouping from custom DataTable primitives and their callers; group lists through table.grouping on the screen
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Totals row keeps its leading cells pinned
+  detail: With pinned columns, the empty totals cells under the checkbox and expand columns stick to the left like the cells above them, and the cell under the actions column sticks to the right with the same background.
+  -->
+- 947470b: `ctx.loadAggregate(id, { atVersion })` reads only the event at that stream version, upcast and scoped to the tenant like the full load. The workflow runner uses it to follow a trigger or awaited event reference, so a resume no longer loads the whole stream of the referenced aggregate.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ctx.loadAggregate can read a single event by version
+  detail: The new atVersion option returns the event at that version of the stream (or nothing), with upcasting and the tenant filter. It cannot be combined with asOf. Workflow resume uses it for event references.
+  -->
+- 8628ea3: Removes the unused `ProviderPluginContext` type and its `providerPluginContextFromHandler` / `providerPluginContextFromJob` helpers.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Unused ProviderPluginContext helpers removed
+  detail: ProviderPluginContext, providerPluginContextFromHandler and providerPluginContextFromJob are gone. No plugin type or resolver used them, and the type exposed db handles without an audit user. Provider contexts stay the narrow FileProviderContext, MailTransportContext and InboundMailContext.
+  migration: no known callers; use FileProviderContext, MailTransportContext or InboundMailContext
+  -->
+- 9253635: Selector fields in the generated provider forms now carry the owner feature in their field id, so two selector owners that both name their key `provider` no longer overwrite each other's empty-option label. The mail selector field is now `mail-foundation-provider` and its option labels live under `config:entity:__config-edit__:field:mail-foundation-provider:option:<value>`; the locale catalogs follow.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: provider selector option labels are unique per owner
+  detail: The selector field id of a provider form is qualified with its owner feature, so the translation keys of its option labels change.
+  migration: move app translation overrides from config:entity:__config-edit__:field:provider:option:<value> to the owner-qualified field id, field:mail-foundation-provider:option:<value> or field:file-foundation-provider:option:<value>
+  -->
+- 2602c62: Signature extra routes get `deps.dispatchWriteAs({ handlerQn, payload, tenantId, roles })`, a write as the tenant's system user with the "system" role plus exactly the named roles, without SystemAdmin. E2E extra seeders get `ctx.writeAs(roles, handlerQn, payload)` bound to the seeded tenant, so a seeder can write to handlers gated on app roles without adding the role "system" to production handlers.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: E2E seeders and signature routes can write with explicit roles
+  detail: dispatchWriteAs on signature route deps and writeAs on the E2E seeder context run a write as the tenant's system user with the "system" role plus the given roles, without SystemAdmin. write() keeps running as SystemAdmin.
+  -->
+- 8449190: Handlers get `ctx.scheduleAfterRollback(fn)`, the counterpart of `scheduleAfterCommit` for compensating work outside the transaction.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ctx.scheduleAfterRollback for outside-transaction compensation
+  detail: ctx.scheduleAfterRollback(fn) runs fn when the handler transaction does not commit, or when the enclosing savepoint of a nested ctx.write rolls back (after the outer transaction ends). It never runs on commit, errors are logged and do not change the write result, and it is absent outside a transaction scope (perCommand, post-commit, beforeTransaction, member resolution). A failed COMMIT also triggers it, so callbacks must be idempotent and outcome-safe, for example releasing a reservation row that may already be gone.
+  -->
+- 080c5e7: Mails sent outside a handler as the system tenant can read their attachments: `SystemWireDeps` carries `filesForTenant`, and `buildSystemChannelContext` builds a channel context with `readAttachment` set.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: buildSystemChannelContext for system tenant mails outside a handler
+  detail: buildSystemChannelContext(deps, { config, secrets }) returns a ChannelContext for the system tenant whose readAttachment reads file and inline attachments. SystemWireDeps (wire hook and runWorkerApp wireComponents) has a new required filesForTenant that deps can pass straight in.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: filesForTenant in SystemWireDeps
+  detail: The wire hook and the worker wireComponents receive filesForTenant, built from the AppContext after buildServer wired it. ApiEntrypoint and WorkerEntrypoint expose that context as entrypoint.context.
+  -->
+- 76c95ae: TenantDb gets `upsert(table, values, { conflictTarget, update? })`, a tenant-safe INSERT ... ON CONFLICT DO UPDATE.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Tenant-safe upsert on ctx.db
+  detail: ctx.db.upsert(table, values, { conflictTarget, update? }) requires tenantId in conflictTarget and the target to match a declared unique index or primary key. The update only touches the row of the inserted tenant, update may not set tenantId, and the default update leaves conflict, primary-key and tenant columns alone. Event-fed tables are rejected. Replaces unsafeRaw plus upsertOnConflict for tenant-scoped upserts.
+  -->
+
+### Patch Changes
+
+- ed98312: Settle and consume racing on a swept cap reservation book their units again, schema status and baseline use one connection, package lookups no longer auto-install from the registry, and fresh scaffolds build with `bun run build`.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Settle and consume racing on a swept reservation book their units
+  detail: After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: schema status and baseline use one connection, bun-types is a peer dependency
+  detail: kumiko schema status and baseline open a pool of one connection instead of the default size, because Bun.SQL dials every pool connection on the first query. bun-types is now a peer dependency (^1.4.4) of framework, types, server-runtime and dev-server instead of a regular dependency, so install it next to the framework.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Package lookups no longer auto-install from the registry
+  detail: The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded docker-compose raises Postgres max_connections to 300
+  detail: Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Fresh scaffolds build with bun run build
+  detail: create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either.
+  -->
+- 641f268: `maxPerTenant` counts active and waiting jobs in one snapshot per queue.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: maxPerTenant counts active and waiting jobs in one snapshot
+  detail: The guard read the active and the waiting list with separate Redis calls, so a job that moved from waiting to active between them was missing from both and a dispatch over the cap got through. It now reads both lists with one getJobs snapshot per queue. The integration tests hold the cap jobs on a release gate instead of sleeping.
+  -->
+- dd5fd28: The access-invalidation consumer no longer ends up dead-lettered during a longer Redis outage. It keeps retrying with an exponential backoff (250 ms up to 10 s) until the publish goes through, so later revocations still reach open SSE streams once Redis is back. Only failed publishes are exempt from the attempt limit; any other failure (a poison event) still dead-letters at the dispatcher limit. `EventConsumerErrorPolicy` gains `isTransientError` for consumers that need the same split.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Access invalidation survives a Redis outage
+  detail: The consumer that pushes session, token and membership revocations to open streams does not count failed publishes towards the attempt limit and backs off between them, instead of dying after 10 failed deliveries and silently dropping later revocations. Other failures keep the limit. New EventConsumerErrorPolicy.isTransientError.
+  -->
+- a50674e: An upload that names a record re-checks the record lock in the transaction that inserts the file row. Before, the lock was only checked before the bytes were read and stored, so a record locked in between still received the file; the upload now answers 409 `record_locked` and removes the bytes.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: file upload rechecks the record lock when inserting the row
+  detail: POST /files with an entityId reads the stored row again through the inserting transaction and refuses with 409 record_locked when lockedWhen holds. The window between that read and the commit stays open, like for any other write that checks the lock before its own commit.
+  -->
+- 53e2a0e: Documents the limit of the Meilisearch default-config upgrade: after a restart, an index whose stored settings are a strict subset of the current registry default is treated as an older default and widened again.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Meilisearch default upgrade cannot tell a narrowed configure() from an older default
+  detail: A tenant that called configure() with a strict subset of the default attributes gets the full default back after the next process restart, because Meilisearch stores no marker for an explicit configure(). Configure the full attribute set, or a set that contains an attribute outside the default, to keep it.
+  -->
+- ab1ca17: The per-process audit dedup of system cron escape hatches keys a target only for `global-write`, where it names a table. A `cross-tenant-read` cron no longer adds a dedup entry and an audit event per touched foreign row; it audits once per day and process. Entries older than the re-audit interval were already swept.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cross-tenant-read crons audit once per day, not once per foreign row
+  detail: The process dedup key of a declared system cron hatch includes the target only for global-write (a table). Row targets of cross-tenant-read no longer grow the in-memory map or write one audit event per row.
+  -->
+- 5b72552: A boot gate that runs into its timeout now settles (bounded) before `start()` rejects, so the abandoned gate handler cannot keep writing to the database and Redis while the process shuts down, even if the caller never invokes `stop()`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Failed job-runner start waits for the timed-out boot gate
+  detail: start() now waits a bounded time for an abandoned boot gate before throwing, instead of leaving that to stop(). The scheduler-seen timer is only started after every step that can fail, so no timer outlives a failed start.
+  -->
+- 768a67e: Switching off a toggleable feature no longer hides the workspace of an active feature that declares the same short workspace id. The tenant-level strip now compares the owning feature of each workspace instead of only its short id.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: disabled feature no longer removes another feature's workspace with the same id
+  detail: buildAppSchema records which feature owns each workspace and the feature strip removes only the workspaces of the disabled features. Two features that use the same short workspace id keep their own entries.
+  -->
+- d8f9c73: The upload ledger stamps rows with the injected `AppContext.clock` (the source behind `ctx.tz`) instead of the wall clock, so the orphan-upload sweep and the ledger agree under a controlled clock. The test stack passes its `extraContext.clock` through.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: upload ledger uses the injected clock
+  detail: createFileUploadLedger and withUploadLedger take an optional now function, and the file provider resolver wires AppContext.clock into it. Without a clock the system time is used as before.
+  -->
+- 91fb415: Anonymous saves never bind a pending upload. All anonymous visitors share one user id, so the pending-upload check refuses them in the shared predicate used by `bindPendingFileRef`, `loadPendingFileRef` and the save pipeline. A test now saves as one visitor with the file id another visitor stored and checks it stays unbound.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: anonymous save leaves foreign pending uploads unbound
+  detail: Integration test through the real write route with anonymous access, covering the save pipeline path of the pending-upload ownership check.
+  -->
+- a50674e: Live signals no longer name row ids to roles that only read some rows. When an entity's own `access.read` is an ownership map (for example `Driver: from("user:id", "assigneeId")`), a connection whose roles do not include an `"all"` rule gets the entity signal without `id` and `version`, like a row-filtered query result.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: live signals hide row ids from row-filtered roles
+  detail: createSseRoute takes an optional entityRowReadMaps option, built from entity access.read by the server routes. A signed-in connection receives id and version only if the entity has no read ownership map or one of its roles is mapped to all; otherwise the signal carries just the entity and event type so the client refetches.
+  -->
+- 5b707a6: The echoed write event is now removed from the response at the dispatcher boundary instead of being hidden on the result object. A handler that copies the executor result with a spread (`{ ...created.data, extra }`) keeps the event, so projections and postSave hooks fire again for it.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: write handlers that spread the executor result keep projections and postSave hooks
+  detail: The event is stripped from lifecycle results when the dispatcher masks the response, no longer made non-enumerable on the result, so copying the result does not lose it. Responses still carry no event.
+  -->
+- cee9e32: Tests now prove that the echoed write event is absent from `dispatcher.write` and `dispatcher.batch` results and from agent tool call results, the entry points used by websocket writes, agent tools and jobs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: event-free write results proven for non-HTTP entry points
+  detail: Integration tests assert that dispatcher.write, dispatcher.batch and the agent tool dispatch return no event. No runtime change: all of them already pass through the dispatcher masking.
+  -->
+- aa83c70: `seedReferenceData` now adopts reference-data rows that were seeded before the event-store executor existed. Such rows have no events, so changing a value after the upgrade failed the boot with a stream-version conflict and a projection rebuild dropped the rows. The seeder now deletes the eventless row and re-creates it under the same id through the executor.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: reference-data seed adopts rows that have no event stream
+  detail: Rows from installs that seeded reference data by direct insert are re-created under the same id through the executor on the next boot, so updates apply and the rows survive a rebuild. No action is needed; the row id is unchanged, only its version restarts at 1.
+  -->
+- a50674e: `POST /api/client-errors` keeps a per-process rate limit when the shared limiter is configured. Before, a Redis outage made the fail-open shared limiter the only protection and an anonymous caller could flood the log pipeline; now the in-memory window of 10 reports per minute per IP always applies as a floor.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: client-errors route keeps an in-memory floor limit
+  detail: The in-memory per-IP limiter now runs in front of the Redis-backed limiter instead of only when no resolver is wired, so a failing resolver can no longer lift the limit on the public client-errors endpoint.
+  -->
+- 80399a2: `reindexEntity` now lifts the server `statement_timeout` for each batch scan with `SET LOCAL` in a short transaction on the runner it was given. Before, it asked `withoutStatementTimeout` for an unbounded pool, which silently passed through for the gated runner that `ctx.systemDb.unsafeRaw()` returns, so the reindex job still ran under the 60 s cap.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: reindex job batches are no longer cut off by the server statement timeout
+  detail: reindexEntity reads each batch in its own transaction with statement_timeout lifted for that transaction, on the caller's own runner, so the job path through ctx.systemDb.unsafeRaw() keeps its gates.
+  -->
+- a50674e: `GET /files/meta?ids=` is charged by the number of ids when a rate-limit resolver is wired. Each id costs a KMS-decrypting read, so one request for 100 ids now takes 100 from a per-user budget of 1000 ids per minute instead of counting as a single request.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: files meta batch route is rate limited by id count
+  detail: createFileRoutes takes an optional metaBatchRateLimitResolver, wired by the server from the rate-limit resolver or Redis. A user over 1000 requested ids per minute gets 429 rate_limited; a failing limiter fails open and is reported like the other limiters.
+  -->
+- ff84ee4: `kumiko-upgrade` without `--apply` now says that the upgrade CHANGELOG and the marker are only written by `--apply`, whenever changes are pending or the marker is behind the installed version.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-upgrade explains that --apply writes the CHANGELOG
+  detail: The preview run never wrote the upgrade CHANGELOG or the marker, and consumers running it without --apply got no entry and no explanation. It now prints a hint; the exit code is unchanged.
+  -->
+- 2602c62: Codemods that add an import now place it after the last existing import instead of inside a file's header comment block.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Codemod imports no longer land inside header comments
+  detail: ensureNamedImport appends the new import after the last existing import, so a file with a header comment block keeps the comment intact.
+  -->
+- 2602c62: `readDatabaseNow` returns the database clock at millisecond precision, matching `events.created_at`, so comparing it against stored timestamps no longer tips on microseconds.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Database now is rounded to milliseconds
+  detail: The Postgres clock read behind readDatabaseNow is cast to timestamptz(3), the precision of events.created_at, so a comparison with a stored event time is exact.
+  -->
+- 2602c62: List filters on a `reference` field with `multiple: true` use jsonb containment like `multiSelect`, so eq, ne and in match rows whose id array contains the value.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: List filter on multiple references matches array contents
+  detail: eq, ne and in on a multi-reference field now check jsonb containment instead of scalar equality, and screen filters on such fields allow the equality operators. Consumers no longer need a full scan.
+  -->
+- 2602c62: `kumiko-upgrade --resolve` now also sets the resolved manual migrations to `[migrated]` or `[not-applicable]` in the app's CHANGELOG.md, not only in the marker.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-upgrade --resolve updates CHANGELOG.md
+  detail: The Manual migrations lines of every CHANGELOG.md section change from [open] to the chosen resolution for the resolved ids; other entries and files without a CHANGELOG.md are left alone.
+  -->
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [a407a3c]
+- Updated dependencies [8628ea3]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-types@0.389.0
+
 ## 0.388.0
 
 ### Minor Changes

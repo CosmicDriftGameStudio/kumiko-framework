@@ -1,5 +1,461 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.389.0
+
+### Minor Changes
+
+- 47ba075: Password reset and signup accept an optional `returnTo` path that is carried through the mailed link and the web screens.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Optional returnTo for password reset and signup
+  detail: Password reset and signup accept an optional returnTo path. A safe value (same-origin path, no dot segments) is appended to the mailed link as a query parameter, the reset and signup-complete screens follow it, and the login screen forwards its next to the forgot-password and signup links. Invalid values are dropped silently and never block the mail. isSafeReturnPath and readReturnToFromSearch are exported from the web barrel. isSafeNextPath now uses the same check, so a next with a dot segment such as "/a/../b" is no longer followed.
+  -->
+- c16fa0c: `bundledLists` sets one DataTable `table` block for every list screen and relatedList section of the bundled features.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: bundledLists sets one table block for every bundled list
+  detail: composeFeatures takes bundledLists with a table block and an optional pinFirstColumn flag. The block is mixed into every entityList, projectionList and relatedList section of the bundled features, the foundation features user and tenant as well as the features an app mounts from @cosmicdrift/kumiko-bundled-features, before the boot validator runs. A key the screen sets itself wins, export is left out on relatedList sections, and pinFirstColumn pins the first visible column left where no column is pinned yet. grouping and totals are rejected in the shared block. App screens stay untouched. Features opt in with the new registrar method r.adoptsBundledLists(), which every bundled feature with lists calls and which feature packages such as Enterprise can call for their own lists; app features never do. No migration for apps. The option lives in AppConfig.bundledLists for the managed kumiko/schema.ts and in the run options of runProdApp, runDevApp and runWorkerApp, so kumiko check and the running app see the same screens.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: validateBundledListsOptions and the BundledListsOptions type
+  detail: BundledListsOptions is exported from the types package and the engine barrel. validateBundledListsOptions rejects unknown keys, grouping, totals and pinFirstColumn without table.pinning with a message that names the key, and checks the remaining keys like a screen's own table block.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: MANAGED_PAGES_FEATURE names the feature
+  detail: The barrel exports the MANAGED_PAGES_FEATURE constant so other code can refer to the feature name without a string literal.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: USER_DATA_RIGHTS_FEATURE is exported from the barrel
+  detail: The feature name constant that lived in web/constants.ts is now part of the public barrel.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.adoptsBundledLists() marks features that take the bundledLists block
+  detail: The registrar method r.adoptsBundledLists() marks a feature whose list screens take the app-wide bundledLists block; the flag appears as FeatureDefinition.adoptsBundledLists and in feature-manifest.json, and the feature-ast parser knows the call as an opaque singleton pattern.
+  -->
+- ac00e8a: List screens get a `table` block: remembered filter, search and sort per user, a reset-all button, a column picker with reordering, and a comfortable or compact row density.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: table block on entityList, projectionList and relatedList
+  detail: The new optional table block (rememberState, resetAll, columnPicker, density with default and userChoice) is validated at boot; unknown keys, hidden columns without columnPicker and invalid density values are rejected. Columns accept hidden: true. Remembered state lives in sessionStorage per tenant and user and is cleared on logout or identity change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: DataTable view menu, remembered list state and compact density
+  detail: Lists with a table block show a view menu (columns, density, reset view) and a reset-all button. Remembered query parameters are copied into the URL once; links with explicit parameters win. Compact density uses 32px rows with 4px cell padding. New keys kumiko.list.reset-all and kumiko.list.view.* in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: CurrentUser carries tenantId, logout clears remembered list state
+  detail: The session CurrentUser has an optional tenantId used to scope remembered list state; logout removes all kumiko.list.* storage entries.
+  -->
+- 77a25ac: `appendMissingDocumentExtractEvent` lets a document-ingest provider catch up a document-extract stream that has its created event but no ready or failed event.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: improvement
+  title: appendMissingDocumentExtractEvent and shared ready/failed payload schemas
+  detail: A provider whose job died after creating the extract calls appendMissingDocumentExtractEvent(deps, existing, fileRefId, { readyEventQn, failedEventQn, mapError }) to append the missing terminal event; it returns appended-ready, appended-failed or already-terminal. documentExtractReadyPayloadSchema and documentExtractFailedPayloadSchema are exported so providers register their own event names with the shared payload shape.
+  -->
+- ffbb25e: auth-mfa gets a `systemAdmins` required policy that makes MFA mandatory for SystemAdmins only.
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: requiredPolicy "systemAdmins"
+  detail: The new auth-mfa:config:required value systemAdmins (between optional and admins) forces MFA enrollment only for users whose merged global and tenant roles contain SystemAdmin. TenantAdmins and other roles log in as before; enrolled users are always challenged regardless of policy. No locale labels are involved, the option list has none.
+  -->
+- 203085b: `isPrincipalBlocked` is no longer exported from `@cosmicdrift/kumiko-bundled-features/sessions`. It only compared the status and treated a deleted user with status `active` as active; use `isPrincipalRowBlocked(row)` from the `user` export for the login block, or `isPrincipalBlocked` from `user` where a plain status comparison is meant.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: breaking
+  title: isPrincipalBlocked is no longer exported from sessions
+  detail: The sessions export dropped its re-export of isPrincipalBlocked, which ignored isDeleted. isPrincipalRowBlocked from the user export covers status and isDeleted and is what the session callbacks use.
+  migration: import isPrincipalRowBlocked (for a user row) or isPrincipalBlocked (for a bare status) from "@cosmicdrift/kumiko-bundled-features/user" instead of the sessions export
+  -->
+- 2602c62: A config key's `validate` function can read the cascade of any registered key through `ctx.readCascade(qualifiedKey)`, for example to check the operator default before accepting a tenant value.
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Config validators can read a key's cascade
+  detail: ConfigValidateContext gains readCascade(qualifiedKey), which returns the full cascade of any registered key from the writing tenant and user. Unknown keys throw.
+  -->
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: config:write:set passes readCascade to validators
+  detail: The set handler binds readCascade to the config resolver, the tenant-scoped db and the secrets reader, so validators see the same cascade as the value queries.
+  -->
+- 2602c62: `legalContentSeed(source, { folder })` and `seedLegalContentFromJson(db, blocks, { folder })` put the seeded text blocks into a content-tree folder. A re-seed without a folder option now keeps the folder an existing block already has, instead of resetting it to the root on every boot. `seedTextBlock` with `ifExists: "update"` now keeps an existing folder whenever `folder` is omitted; clearing it needs an explicit `folder: null`.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: legalContentSeed keeps and can set the content folder
+  detail: seedTextBlock no longer resets the folder of an existing block to null when the seed passes no folder. legalContentSeed takes an optional folder, so apps do not need their own seed loop to keep legal blocks in the SystemAdmin content tree.
+  -->
+- 2602c62: The SMTP transport works without authentication: an empty `authUser` builds a transport without login and never reads the password. A set `authUser` still requires the stored password.
+  
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: improvement
+  title: SMTP authentication is optional
+  detail: authUser is no longer a required key and the SMTP password secret no longer counts as missing in readiness. With an empty user the transport connects without auth, which suits internal relays; with a user set, a missing password still fails the send.
+  -->
+- 080c5e7: Mails sent outside a handler as the system tenant can read their attachments: `SystemWireDeps` carries `filesForTenant`, and `buildSystemChannelContext` builds a channel context with `readAttachment` set.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: buildSystemChannelContext for system tenant mails outside a handler
+  detail: buildSystemChannelContext(deps, { config, secrets }) returns a ChannelContext for the system tenant whose readAttachment reads file and inline attachments. SystemWireDeps (wire hook and runWorkerApp wireComponents) has a new required filesForTenant that deps can pass straight in.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: filesForTenant in SystemWireDeps
+  detail: The wire hook and the worker wireComponents receive filesForTenant, built from the AppContext after buildServer wired it. ApiEntrypoint and WorkerEntrypoint expose that context as entrypoint.context.
+  -->
+
+### Patch Changes
+
+- 1b3a297: Bun.SQL is the only Postgres driver and the postgres-js fork is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bun.SQL replaces postgres-js as the only Postgres driver
+  detail: createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, "disable", "prefer", "require", "verify-ca", "verify-full" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, "postgres" included.
+  migration: Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === "23505" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency
+  detail: DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.
+  migration: Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from "bun", or the DbConnection and DbTx aliases. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: captureClosedConnectionError returns a Bun.SQL error
+  detail: The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.
+  migration: Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The renderer-web stylesheet fallback checks tailwindcss in node_modules
+  detail: canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with "Can't resolve 'tailwindcss'". Such a build skips the fallback stylesheet again.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps pin Bun 1.4.4
+  detail: The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.
+  migration: Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand.
+  -->
+- ed98312: Settle and consume racing on a swept cap reservation book their units again, schema status and baseline use one connection, package lookups no longer auto-install from the registry, and fresh scaffolds build with `bun run build`.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Settle and consume racing on a swept reservation book their units
+  detail: After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: schema status and baseline use one connection, bun-types is a peer dependency
+  detail: kumiko schema status and baseline open a pool of one connection instead of the default size, because Bun.SQL dials every pool connection on the first query. bun-types is now a peer dependency (^1.4.4) of framework, types, server-runtime and dev-server instead of a regular dependency, so install it next to the framework.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Package lookups no longer auto-install from the registry
+  detail: The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded docker-compose raises Postgres max_connections to 300
+  detail: Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Fresh scaffolds build with bun run build
+  detail: create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either.
+  -->
+- 947470b: `ctx.loadAggregate(id, { atVersion })` reads only the event at that stream version, upcast and scoped to the tenant like the full load. The workflow runner uses it to follow a trigger or awaited event reference, so a resume no longer loads the whole stream of the referenced aggregate.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ctx.loadAggregate can read a single event by version
+  detail: The new atVersion option returns the event at that version of the stream (or nothing), with upcasting and the tenant filter. It cannot be combined with asOf. Workflow resume uses it for event references.
+  -->
+- 8a6508a: The layout editor edits the scope of the screen it was opened from. Before, a SystemAdmin who clicked Edit on a system-origin layout row on the tenant screen silently edited and published the system layout for all tenants. The tenant overview now always opens the tenant editor, the platform overview opens the new `platform-layout-editor` screen (SystemAdmin only) for the system layout, the editor asks `layout-source` for `scope` tenant or system, and `layout-source` refuses `scope: "system"` for anyone but a SystemAdmin.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: layout editor scope follows the entry screen
+  detail: The tenant overview opens layout rows in the tenant editor even for a SystemAdmin, so a system-origin row there loads and saves the tenant layout through layout-source with scope tenant and upsert-tenant. The platform overview opens the new platform-layout-editor screen (PLATFORM_LAYOUT_EDITOR_SCREEN_ID) for the system layout. layout-source takes an optional scope and answers 403 to scope system for non-SystemAdmins. templateRowActions now takes { platform }.
+  -->
+- 9253635: `copy-locale` of a template with linked files now reads each source file through the storage provider of the tenant that owns it. Before, it read through the caller's provider, so with one provider per tenant the files of a system template looked missing and the copy silently lost its images and attachments. A file whose row exists but whose bytes cannot be read now fails the copy with `templateResolver.errors.resource.sourceUnreadable` and stores nothing.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: copy-locale reads source files from the owning tenant's storage
+  detail: The copy of linked files uses readFileRefContent with the provider of the fileRef's tenant. A source file whose fileRef row exists but whose bytes cannot be read fails the copy with template_resource_source_unreadable and releases the files already copied. A deleted fileRef is still left out of the copy.
+  -->
+- f75a6dd: The waitlist `notifyRecipient` resolver now runs with a `ctx.systemDb` bound to its own savepoint. Before, a resolver whose SQL statement failed (missing table, constraint, timeout) put the submit transaction into the aborted state: the submit answered 500 and stored no entry, although the JS error was caught. Now the savepoint rolls back and the entry is stored. Statements through other `ctx` handles (`ctx.query`, `ctx.write`) still share the submit transaction.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: A failing notifyRecipient SQL statement no longer aborts the submit
+  detail: The resolver receives a ctx whose systemDb runs in a savepoint, so a failed statement is rolled back and the submit answers 200 with the entry stored. Only ctx.systemDb is savepoint-scoped; other ctx handles stay in the handler transaction.
+  -->
+- bd1b61a: Deleting a secret under an undeclared key is rejected when the key carries the prefix of a mounted feature, so a tenant admin can no longer remove feature-owned rows outside their writeRoles. Legacy keys without a mounted-feature prefix stay deletable.
+  
+  <!-- kumiko-changes
+  feature: secrets
+  type: fix
+  title: Feature-prefixed undeclared secret keys are not deletable
+  detail: The delete handler still accepts legacy undeclared keys, but a key starting with "<feature>:" of a mounted feature now fails as unknown key. Feature-owned credentials keep their writeRoles protection.
+  -->
+- 5947ab0: Integration tests now cover the erasure wiring of forget-subject and runForgetCleanup for a user stored before the KMS existed.
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: improvement
+  title: Tests pin the erasure write purpose in forget-subject and the forget cleanup
+  detail: A pre-KMS user whose key was already erased still ends deleted, loses its tokens and gets the erased sentinel in the update event.
+  -->
+- 7d5f95c: The tenant-destroy `subject-keys` stage no longer erases the user key of a member who still belongs to another tenant that is not destroyed. Before, it tombstoned the key of every member, so a user who also belonged to a live tenant got `subject_erased` on every later PII write there.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: Tenant destroy keeps user keys of members in other live tenants
+  detail: The subject-keys stage erases user keys only for members without a membership in another tenant whose status is not destroyed. The tenant and tenant-record keys are erased as before.
+  -->
+- 2dd1de3: Mail steps no longer repeat a send that cannot succeed or may already have gone out. A mail runner failure with an SMTP 5xx `smtpCode` is recorded at once instead of being retried three times, and a mail runner that throws is recorded as failed without a retry, because a mail has no idempotency key and the provider may have accepted it before the error. Failures without a code and 4xx codes are still retried; webhook steps keep their retries under the Idempotency-Key.
+  
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Mail steps do not retry permanent rejections or throws
+  detail: MailDispatchResult failures take an optional smtpCode; 5xx is permanent and recorded after the first attempt. A throwing mail runner is not retried, since the message may already be sent. A mail runner that wants a retry after a transport error should return a failure without smtpCode instead of throwing.
+  -->
+- 7336a78: A calendar cap settle on a swept or released reservation books the actual amount before it writes the settle tombstone, so a lost counter version race no longer commits a tombstone without the booking. A test now races several such settles on one counter and expects the full amount.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Settle after a sweep survives a lost counter race
+  detail: The amount is booked first and the tombstone written afterwards, so a version conflict on the counter retries the whole settle instead of leaving a tombstone that turns the retry into a no-op and drops the usage from the cap.
+  -->
+- f0c2983: Every failed agent tool result now carries a `code`. Bad arguments and a missing handler or screen return `invalid_tool_call`, a tool name that is not in the table returns `unknown_tool`; both are exported as `TOOL_CALL_ERROR_CODES` so an agent loop can branch on them like on a handler code.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: Local agent tool errors carry a code
+  detail: dispatchToolCall returns code invalid_tool_call for validation errors and unknown_tool for an unknown tool name, instead of a result without code. TOOL_CALL_ERROR_CODES names both.
+  -->
+- c14ccd3: The unsubscribe link origin is resolved once per notify call and tenant, so the app's `tenantOrigin` callback no longer runs once per recipient and a bad value logs one warning per call instead of one per recipient. Tests cover the single lookup, the single warning without error text or addresses, and the form and JSON answers of a resubscribe at the generation limit.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Unsubscribe link origin is looked up once per notify call
+  detail: The tenantOrigin callback runs once per tenant for a notify call with many recipients, and a fallback warning is logged once. A callback that hangs is still not guarded by a timeout, so keep it fast.
+  -->
+- 6bb9d66: A test now proves that a waitlist purge whose key shred fails midway rolls back cleanly and that a retry completes it, so the KMS tombstones already written and the retry's audit event leave no half-erased state behind.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: waitlist purge retry after a failed shred is covered
+  detail: An integration test fails the second key shred of a purge, checks that the entries stay and no audit event is written, and that the retried purge erases every entry and records its audit event. No runtime change.
+  -->
+- 9a72476: `purgeFilesReachingSubject` reads the candidate rows of a user subject in id-ordered pages instead of loading every row the user owns at once. Failures were already collected per row and thrown at the end; that stays.
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: improvement
+  title: The subject file purge reads candidate rows in pages
+  detail: A user owning many records no longer loads them all into memory at once; every page is purged, not only the first.
+  -->
+- 9253635: `patch-draft` `replaceText` now says why a find that is visible in `document-blocks` does not match. A find that crosses a formatting change fails with `text_spans_formatting`, and a find containing a `{{placeholder}}` fails with `placeholder_not_replaceable`, instead of `text_not_found`. The handler description names the limit: the text must lie within one formatting run and cannot contain a placeholder.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: replaceText explains finds across formatting or placeholders
+  detail: replaceText matches inside single text nodes so formatting stays intact. A find that appears in the block line but crosses a formatting change now fails with text_spans_formatting, and a find with a {{placeholder}} fails with placeholder_not_replaceable, both with translated messages. Only a string that is not in the block at all still gives text_not_found.
+  -->
+- e5fe5f2: Host-routing rejects a redirect whose `from` is an `/api` path at boot, because redirects only run for requests that reach the HTML fallback and such a rule would never fire.
+  
+  <!-- kumiko-changes
+  feature: host-routing
+  type: fix
+  title: Redirects from /api paths fail at boot
+  detail: Redirects run inside hostDispatch after static files and API routes, so a from of /api or /api/... was silently dead config. Boot validation now throws; the options and README already describe the HTML-fallback scope.
+  -->
+- bec6021: `send-test-status` now uses the same roles as `send-test`: SystemAdmin plus the roles of the `tenantEditable` entries. Before, it was fixed to TenantAdmin and SystemAdmin, so an editor with an opt-in role got a 403 and a permanently disabled test-mail button, while a TenantAdmin without edit rights was told `canSend: true` and hit a 403 on click.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: send-test-status follows the tenantEditable roles
+  detail: send-test-status takes its access from templateEditAccess(policy.tenantEditable), like send-test. Roles that may send a test mail now get the status, and a TenantAdmin without an edit opt-in gets a 403 on both.
+  -->
+- bec6021: The template `overview` query now uses the same roles as the write handlers: SystemAdmin plus the roles of the `tenantEditable` entries. Before, it was fixed to TenantAdmin and SystemAdmin, so a role that the app opted in saw the screen but got a 403, and a TenantAdmin without an opt-in reached the query and got an empty list.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: overview follows the tenantEditable roles
+  detail: The overview query takes its access from templateEditAccess(policy.tenantEditable). An opted-in role lists exactly the released templates, and a TenantAdmin without an opt-in is refused with a 403, matching the screen visibility and the write handlers.
+  -->
+- cee9e32: Tests now prove that the echoed write event is absent from `dispatcher.write` and `dispatcher.batch` results and from agent tool call results, the entry points used by websocket writes, agent tools and jobs.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: event-free write results proven for non-HTTP entry points
+  detail: Integration tests assert that dispatcher.write, dispatcher.batch and the agent tool dispatch return no event. No runtime change: all of them already pass through the dispatcher masking.
+  -->
+- bec6021: The template `overview` search and the `title` sort now work on the title as the admin sees it. Before, a template seeded with `titleI18nKey` was searched and sorted by its raw key, so searching for "Tilgungsplan" found nothing. The query resolves the key with the locale of the request.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: overview search and sort use the translated title
+  detail: The overview query translates a seeded titleI18nKey with the request locale before it filters by search and sorts by title. A search for the visible title now matches, and the raw key is still searchable.
+  -->
+- 59028a5: An app mounted under a URL prefix gets working default auth pages. `createKumikoApp({ basePath })` passes the prefix to the default nav adapter and exposes it to the auth gates through the new `BasePathProvider` / `useBasePath` (plus the pure `normalizeBasePath`, `stripBasePath`, `prependBasePath`). The default auth pages gate matches `/admin/unlock-account` and friends, and the login screen's default forgot-password and unlock links carry the prefix.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: basePath option for createKumikoApp and the auth pages
+  detail: createKumikoApp accepts basePath. The default auth pages gate matches its paths below the prefix, and the login screen builds its default forgot-password and unlock hrefs with it, so mail links to /admin/unlock-account no longer end on the login screen. New exports BasePathProvider, useBasePath, normalizeBasePath, stripBasePath and prependBasePath.
+  -->
+- d6940f1: The legacy waitlist migration now applies the live field limits (name, email, locale, company, portfolio, message). A source row above a limit is counted as `unreadable` and not imported; `importWaitlistEntry` throws for such an entry. Before, the value was stored and could never pass a later update through the same payload schema. An offlot row whose city, stock, country and notes lines add up beyond the message limit is the typical case.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Waitlist import enforces the live field limits
+  detail: migrateLegacyWaitlist counts a source row with a value above the live field limit as unreadable instead of importing it; importWaitlistEntry throws for it.
+  -->
+- 2602c62: `UserDataRightsHandlers` and `UserDataRightsQueries` list every user-data-rights write and query handler and are exported from the feature and its `/web` entry.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Complete, exported handler name constants
+  detail: UserDataRightsHandlers now covers all eight write handlers and UserDataRightsQueries all five explicit query handlers, and both are exported from user-data-rights and user-data-rights/web. A test compares them with the feature's registered handlers.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [d8f0b95]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ed0b92b]
+- Updated dependencies [641f268]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [1dc3182]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [0fd0f44]
+- Updated dependencies [5b72552]
+- Updated dependencies [768a67e]
+- Updated dependencies [ae805dd]
+- Updated dependencies [6eb3960]
+- Updated dependencies [a407a3c]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [8628ea3]
+- Updated dependencies [7e1bd28]
+- Updated dependencies [ae66401]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [59028a5]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [59028a5]
+- Updated dependencies [a50674e]
+- Updated dependencies [c37831d]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-types@0.389.0
+  - @cosmicdrift/kumiko-testing@0.389.0
+  - @cosmicdrift/kumiko-renderer@0.389.0
+
 ## 0.388.0
 
 ### Minor Changes

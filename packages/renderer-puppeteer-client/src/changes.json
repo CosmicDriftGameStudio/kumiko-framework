@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Render a PDF without storing it",
+    "detail": "renderPdfBytes is the render half of renderPdfBeforeTransaction. Use it when the bytes go straight into a mail or a download and no file or rendered-pdf row should exist."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Conditions on images variables work in the PDF render",

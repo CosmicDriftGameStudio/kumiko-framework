@@ -1,5 +1,43 @@
 [
   {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "captureClosedConnectionError returns a Bun.SQL error",
+    "detail": "The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.",
+    "migration": "Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "e2e tests fail after more than 8 app boots; the per-test client IP no longer disables the HTTP cache",
+    "detail": "The test fixture sent the per-test X-Forwarded-For through context.route, which turns Chromium's HTTP cache off for the whole context, so every page.goto re-downloaded all assets and GET /api/schema. It now uses setExtraHTTPHeaders and the cache stays on. The fixture also counts GET /api/schema per test and fails a passing test that boots the app more than 8 times (default of the new maxAppBootsPerTest fixture option), and closes pages left open (window.open tabs) before the context closes.",
+    "migration": "Seed through tenant.api, tenant.seed and tenant.addUser instead of calling page.goto(APP_BASE_PATH) before every seed; each page.goto reloads the app. runMatrix and runScreenshots boot the app once per test themselves, so they need no change; only your own scenario flows or specs that navigate on purpose raise the budget with test.use({ maxAppBootsPerTest: <n> }). Manual migration, there is no codemod. The X-Forwarded-For header is now sent on every request of the context, including cross-origin ones."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "loginViaUi no longer races the MFA auto-submit",
+    "detail": "The MFA code field submits itself on the sixth digit since 0.388. loginViaUi now fills the code while waiting for the verify response and no longer presses Enter on a field that may already be disabled."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "consoleCallsFromNamespace test helper for silent-log assertions",
+    "detail": "Filters a console spy by logger namespace prefix, so a new or reworded warning from the module under test fails a silent test. The boot-validator, client-ip and settings-hub silent tests use it."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "mockModuleForFile restores module mocks automatically",
+    "detail": "bun's mock.module is process-global, so tests had to copy the real module and restore it by hand in afterAll. The helper does both and can point re-exporting modules back at the real export."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "E2E specs can present stable identities around their own screenshots",
+    "detail": "withPresentedIdentities replaces generated identities in page text and form values, runs the callback and restores the originals in a finally block. The lower-level present and restore functions are exported too."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "setupTestStack split into setup phases",

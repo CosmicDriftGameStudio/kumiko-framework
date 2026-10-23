@@ -1,5 +1,268 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.389.0
+
+### Minor Changes
+
+- c16fa0c: `bundledLists` sets one DataTable `table` block for every list screen and relatedList section of the bundled features.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: bundledLists sets one table block for every bundled list
+  detail: composeFeatures takes bundledLists with a table block and an optional pinFirstColumn flag. The block is mixed into every entityList, projectionList and relatedList section of the bundled features, the foundation features user and tenant as well as the features an app mounts from @cosmicdrift/kumiko-bundled-features, before the boot validator runs. A key the screen sets itself wins, export is left out on relatedList sections, and pinFirstColumn pins the first visible column left where no column is pinned yet. grouping and totals are rejected in the shared block. App screens stay untouched. Features opt in with the new registrar method r.adoptsBundledLists(), which every bundled feature with lists calls and which feature packages such as Enterprise can call for their own lists; app features never do. No migration for apps. The option lives in AppConfig.bundledLists for the managed kumiko/schema.ts and in the run options of runProdApp, runDevApp and runWorkerApp, so kumiko check and the running app see the same screens.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: validateBundledListsOptions and the BundledListsOptions type
+  detail: BundledListsOptions is exported from the types package and the engine barrel. validateBundledListsOptions rejects unknown keys, grouping, totals and pinFirstColumn without table.pinning with a message that names the key, and checks the remaining keys like a screen's own table block.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: MANAGED_PAGES_FEATURE names the feature
+  detail: The barrel exports the MANAGED_PAGES_FEATURE constant so other code can refer to the feature name without a string literal.
+  -->
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: USER_DATA_RIGHTS_FEATURE is exported from the barrel
+  detail: The feature name constant that lived in web/constants.ts is now part of the public barrel.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.adoptsBundledLists() marks features that take the bundledLists block
+  detail: The registrar method r.adoptsBundledLists() marks a feature whose list screens take the app-wide bundledLists block; the flag appears as FeatureDefinition.adoptsBundledLists and in feature-manifest.json, and the feature-ast parser knows the call as an opaque singleton pattern.
+  -->
+- a407a3c: `BootOptionName` shrinks to the options a stack actually requires: `mail`, `kmsMode`, `fileStorage`, `billing`, `featureToggles` and `rateLimit`.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: BootOptionName drops demoMode, seeds and signals
+  detail: No stack declared them in bootRequires, so their boot checks never ran. A name returns together with its check and a test once a stack needs it.
+  migration: no known callers; remove "demoMode", "seeds" and "signals" from bootRequires options
+  -->
+- 080c5e7: Mails sent outside a handler as the system tenant can read their attachments: `SystemWireDeps` carries `filesForTenant`, and `buildSystemChannelContext` builds a channel context with `readAttachment` set.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: buildSystemChannelContext for system tenant mails outside a handler
+  detail: buildSystemChannelContext(deps, { config, secrets }) returns a ChannelContext for the system tenant whose readAttachment reads file and inline attachments. SystemWireDeps (wire hook and runWorkerApp wireComponents) has a new required filesForTenant that deps can pass straight in.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: filesForTenant in SystemWireDeps
+  detail: The wire hook and the worker wireComponents receive filesForTenant, built from the AppContext after buildServer wired it. ApiEntrypoint and WorkerEntrypoint expose that context as entrypoint.context.
+  -->
+
+### Patch Changes
+
+- 1b3a297: Bun.SQL is the only Postgres driver and the postgres-js fork is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bun.SQL replaces postgres-js as the only Postgres driver
+  detail: createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, "disable", "prefer", "require", "verify-ca", "verify-full" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, "postgres" included.
+  migration: Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === "23505" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency
+  detail: DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.
+  migration: Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from "bun", or the DbConnection and DbTx aliases. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: captureClosedConnectionError returns a Bun.SQL error
+  detail: The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.
+  migration: Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The renderer-web stylesheet fallback checks tailwindcss in node_modules
+  detail: canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with "Can't resolve 'tailwindcss'". Such a build skips the fallback stylesheet again.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps pin Bun 1.4.4
+  detail: The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.
+  migration: Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand.
+  -->
+- ed98312: Settle and consume racing on a swept cap reservation book their units again, schema status and baseline use one connection, package lookups no longer auto-install from the registry, and fresh scaffolds build with `bun run build`.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Settle and consume racing on a swept reservation book their units
+  detail: After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: schema status and baseline use one connection, bun-types is a peer dependency
+  detail: kumiko schema status and baseline open a pool of one connection instead of the default size, because Bun.SQL dials every pool connection on the first query. bun-types is now a peer dependency (^1.4.4) of framework, types, server-runtime and dev-server instead of a regular dependency, so install it next to the framework.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Package lookups no longer auto-install from the registry
+  detail: The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded docker-compose raises Postgres max_connections to 300
+  detail: Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Fresh scaffolds build with bun run build
+  detail: create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either.
+  -->
+- 4be1e55: `runProdApp` and `runWorkerApp` accept `databaseWait` (`sleep`, `now`, `log`) to replace the real clock of the boot backoff for the database and KMS waits. Tests use it to cover the retry path and the abort cleanup without real waiting.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Boot database backoff takes an injectable clock
+  detail: The new databaseWait option on runProdApp and runWorkerApp swaps sleep, now and the log sink of the database, KMS and seed waits. A worker boot against an unreachable database is now tested to retry until the deadline, abort with the connection error and close its Redis clients.
+  -->
+- 2c33bac: The default CSP now also carries the hashes of inline scripts in HTML that the app writes into `staticDir` at boot, not only the ones listed in `csp-hashes.json`. Before, pages rendered after `kumiko build` (for example apex landing pages with the lightbox script) were served with a CSP that blocked their inline script. `staticDir` is server-owned, so no hash ever comes from request data.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Default CSP covers inline scripts of HTML written after the build
+  detail: At boot the hashes from csp-hashes.json are merged with the inline scripts found in the HTML files under staticDir, for the default CSP and for hostDispatch. Boot-rendered pages keep their inline scripts working without a custom securityHeaders.csp.
+  -->
+- e83bcf4: The read-only demo gate now also covers WebSocket upgrades. Before, a visitor could log in with the published demo credentials, open a socket on a feature's `r.webSocketRoute` and write through the route's `write` dependency, because the gate only looked at the HTTP method and an upgrade is a GET. With `demoMode.readOnly` set, `webSocketUpgradeFetch` and the fetch handler answer an upgrade with 403 `demo_read_only`. A socket route that must stay available in the demo is listed in `allowedWritePaths`.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Read-only demo mode blocks WebSocket upgrades
+  detail: Upgrade requests count as mutating in the demo read-only gate and get 403 demo_read_only unless the route path is in allowedWritePaths. Socket routes in a read-only demo that need to stay open must be listed there.
+  -->
+- fbae766: `runWorkerApp` and `runDevApp` accept `appOverrides`, merged exactly like in `runProdApp` (env bridge first, validated overrides on top). Before, an app that set tenant model, branding or SEO through `appOverrides` got those values in the API but env or default values in the mail layouts the worker renders and in the dev server. `runProdApp` with `runSingleInstance: false` now also warns to pass `appOverrides` to the worker.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: appOverrides work in runWorkerApp and runDevApp
+  detail: Both boot functions take the same appOverrides option as runProdApp and share its merge, so worker-rendered mails and the dev server resolve the same tenant model, branding and SEO values as the API. The runSingleInstance:false warning names appOverrides next to mail, fileStorage and featureToggles.
+  -->
+- 4be1e55: Boot seeds (admin, shortcut seeds, config and notification-template seeds) are retried with the database backoff when they fail with a transient connection error. Before, a database that dropped out briefly during seeding aborted the whole boot and sent the pod into a restart loop. The retry shares the 1 to 15 second backoff and 90 second deadline of the database wait; validation errors and every other failure stay fatal immediately.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Boot seeds survive a short database outage
+  detail: applyStandardBootSeeds re-runs the idempotent seed sequence with the database backoff on transient connection errors (ECONNREFUSED, connection class 08, too_many_connections) until the 90 second deadline. Non-transient errors still abort the boot at once.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [77a25ac]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [1dc3182]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [8a6508a]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [9253635]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [f75a6dd]
+- Updated dependencies [5b72552]
+- Updated dependencies [bd1b61a]
+- Updated dependencies [5947ab0]
+- Updated dependencies [7d5f95c]
+- Updated dependencies [2dd1de3]
+- Updated dependencies [7336a78]
+- Updated dependencies [768a67e]
+- Updated dependencies [f0c2983]
+- Updated dependencies [c14ccd3]
+- Updated dependencies [ae805dd]
+- Updated dependencies [203085b]
+- Updated dependencies [6eb3960]
+- Updated dependencies [6bb9d66]
+- Updated dependencies [a407a3c]
+- Updated dependencies [9a72476]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [9253635]
+- Updated dependencies [e5fe5f2]
+- Updated dependencies [8628ea3]
+- Updated dependencies [bec6021]
+- Updated dependencies [ae66401]
+- Updated dependencies [bec6021]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [59028a5]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [bec6021]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [59028a5]
+- Updated dependencies [a50674e]
+- Updated dependencies [c37831d]
+- Updated dependencies [d6940f1]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-bundled-features@0.389.0
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-types@0.389.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.389.0
+  - @cosmicdrift/kumiko-renderer@0.389.0
+
 ## 0.388.0
 
 ### Minor Changes

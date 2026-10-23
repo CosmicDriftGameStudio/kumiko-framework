@@ -1,5 +1,41 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "copy-locale reads source files from the owning tenant's storage",
+    "detail": "The copy of linked files uses readFileRefContent with the provider of the fileRef's tenant. A source file whose fileRef row exists but whose bytes cannot be read fails the copy with template_resource_source_unreadable and releases the files already copied. A deleted fileRef is still left out of the copy."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "replaceText explains finds across formatting or placeholders",
+    "detail": "replaceText matches inside single text nodes so formatting stays intact. A find that appears in the block line but crosses a formatting change now fails with text_spans_formatting, and a find with a {{placeholder}} fails with placeholder_not_replaceable, both with translated messages. Only a string that is not in the block at all still gives text_not_found."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "send-test-status follows the tenantEditable roles",
+    "detail": "send-test-status takes its access from templateEditAccess(policy.tenantEditable), like send-test. Roles that may send a test mail now get the status, and a TenantAdmin without an edit opt-in gets a 403 on both."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "overview follows the tenantEditable roles",
+    "detail": "The overview query takes its access from templateEditAccess(policy.tenantEditable). An opted-in role lists exactly the released templates, and a TenantAdmin without an opt-in is refused with a 403, matching the screen visibility and the write handlers."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "overview search and sort use the translated title",
+    "detail": "The overview query translates a seeded titleI18nKey with the request locale before it filters by search and sorts by title. A search for the visible title now matches, and the raw key is still searchable."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "legalContentSeed keeps and can set the content folder",
+    "detail": "seedTextBlock no longer resets the folder of an existing block to null when the seed passes no folder. legalContentSeed takes an optional folder, so apps do not need their own seed loop to keep legal blocks in the SystemAdmin content tree."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Template overrides, key collisions and by-tenant queries",

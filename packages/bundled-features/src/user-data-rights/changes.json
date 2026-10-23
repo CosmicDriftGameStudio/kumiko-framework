@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "USER_DATA_RIGHTS_FEATURE is exported from the barrel",
+    "detail": "The feature name constant that lived in web/constants.ts is now part of the public barrel."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Complete, exported handler name constants",
+    "detail": "UserDataRightsHandlers now covers all eight write handlers and UserDataRightsQueries all five explicit query handlers, and both are exported from user-data-rights and user-data-rights/web. A test compares them with the feature's registered handlers."
+  },
+  {
     "version": "0.384.0",
     "type": "fix",
     "title": "privacy center boot test fixture declares a field stance",

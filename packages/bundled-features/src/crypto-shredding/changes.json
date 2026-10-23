@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Tests pin the erasure write purpose in forget-subject and the forget cleanup",
+    "detail": "A pre-KMS user whose key was already erased still ends deleted, loses its tokens and gets the erased sentinel in the update event."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "The subject file purge reads candidate rows in pages",
+    "detail": "A user owning many records no longer loads them all into memory at once; every page is purged, not only the first."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "forget-subject audit event survives a failing record owner lookup",
