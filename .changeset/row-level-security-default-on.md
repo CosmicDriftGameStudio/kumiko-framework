@@ -16,7 +16,7 @@ type: breaking
 title: rowLevelSecurity defaults to "on"
 migration: |
   Nothing to run by hand: `kumiko schema generate` emits ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table, and the schema apply (the migrate init container in production) creates them. Run `kumiko sync-managed --write` so the managed kumiko/schema.ts reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`.
-  The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; operator tools that touch no tenant rows pass "off" explicitly.
+  The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; tools that touch no tenant rows (schema baseline/status, the KMS key store) pass "off" explicitly, and the operator commands backfill-pii, waitlist-migrate, project and consumer run on an enforcing connection in system scope, so they work against both modes.
   Way back: set `rowLevelSecurity: "off"` in kumiko.config.ts and run `kumiko schema generate`; the generated migration contains DISABLE ROW LEVEL SECURITY and drops the policies. At "off" runProdApp and runWorkerApp log a boot warning.
 -->
 
