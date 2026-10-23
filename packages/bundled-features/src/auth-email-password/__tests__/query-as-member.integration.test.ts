@@ -57,8 +57,7 @@ import {
   tenantMembershipsTable,
 } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-import { seedTenantMembership } from "../../tenant/testing.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing.ts";
+import { seedTenantMembership, updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.ts";
 import {
