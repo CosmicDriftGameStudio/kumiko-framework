@@ -38,6 +38,14 @@ export const UserDataRightsQueries = {
 // `overrides.set(TENANT_MODEL_CONFIG_KEY, "single-user")`.
 export const TENANT_MODEL_CONFIG_KEY = "user-data-rights:config:tenant-model" as const;
 
+export const UserDataRightsJobs = {
+  runExportJobs: "user-data-rights:job:run-export-jobs",
+} as const;
+
+export const UserDataRightsScreens = {
+  exportJobList: "user-data-rights:screen:export-job-list",
+} as const;
+
 export const UserDataRightsHandlers = {
   requestExport: "user-data-rights:write:request-export",
   requestDeletion: "user-data-rights:write:request-deletion",

@@ -7,7 +7,12 @@
 export { type UserDataRightsClientOptions, userDataRightsClient } from "./client-plugin.tsx";
 export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-screen.tsx";
 export { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen.tsx";
-export { UserDataRightsHandlers, UserDataRightsQueries } from "./constants.ts";
+export {
+  UserDataRightsHandlers,
+  UserDataRightsJobs,
+  UserDataRightsQueries,
+  UserDataRightsScreens,
+} from "./constants.ts";
 export { defaultTranslations } from "./default-translations.ts";
 export { formatDate } from "./privacy-center-screen.tsx";
 export { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate.tsx";

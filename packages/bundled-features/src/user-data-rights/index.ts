@@ -35,5 +35,7 @@ export {
   TENANT_MODEL_CONFIG_KEY,
   USER_DATA_RIGHTS_FEATURE,
   UserDataRightsHandlers,
+  UserDataRightsJobs,
   UserDataRightsQueries,
+  UserDataRightsScreens,
 } from "./web/constants.ts";

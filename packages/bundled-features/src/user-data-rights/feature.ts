@@ -80,6 +80,7 @@ import {
   STATUS_OPTION_KEY_PREFIX,
   USER_ME_QUERY,
   UserDataRightsHandlers,
+  UserDataRightsScreens,
 } from "./web/constants.ts";
 import { USER_DATA_RIGHTS_I18N } from "./web/i18n.ts";
 
@@ -334,7 +335,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       id: "export-job-list",
       label: "user-data-rights:nav.exportJobs",
       icon: "download",
-      screen: "user-data-rights:screen:export-job-list",
+      screen: UserDataRightsScreens.exportJobList,
       order: 25,
       access: { roles: ["SystemAdmin"] },
     });
