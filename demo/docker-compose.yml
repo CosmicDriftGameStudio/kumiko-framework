@@ -6,6 +6,8 @@ services:
     # Pinned to the project's own compose-file tag (663/1) — Alpine variant
     # (~90MB vs ~400MB) and a reproducible patch version, bump on PG18 minors.
     image: postgres:18.3-alpine
+    # Bun.SQL dials its whole pool eagerly; the default of 100 is too tight for app + tests.
+    command: postgres -c max_connections=300
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

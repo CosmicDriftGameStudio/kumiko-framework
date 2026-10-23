@@ -113,12 +113,14 @@ if [ "${INPUT_POSTGRES}" = true ]; then
   # fsync/synchronous_commit/full_page_writes off: the container is ephemeral, and with durability on
   # DROP DATABASE forces a synchronous checkpoint that stalls test cleanup for seconds.
   # checkpoint_timeout keeps time-triggered checkpoints out of measured runs.
+  # max_connections=300: Bun.SQL dials all pool connections eagerly; one test stack holds 14 backends,
+  # 4 parallel workers with a second stack plus drop-admin and sibling pools need ~190.
   docker run -d --name "$pg_container" "${run_label_args[@]}" -p "$(publish_arg "${INPUT_POSTGRES_PORT}" 5432)" \
     -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
     --health-cmd="pg_isready -U kumiko -d kumiko_dev -h 127.0.0.1" \
     --health-interval=2s --health-timeout=3s --health-retries=30 \
     "$image" \
-    -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c checkpoint_timeout=1h >/dev/null
+    -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c checkpoint_timeout=1h -c max_connections=300 >/dev/null
   pg_port=$(published_port "$pg_container" 5432)
   for _ in $(seq 1 60); do
     [ "$(docker inspect -f '{{.State.Health.Status}}' "$pg_container" 2>/dev/null)" = healthy ] && break

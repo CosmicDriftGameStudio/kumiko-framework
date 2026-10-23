@@ -14,7 +14,7 @@ export async function runBaselineCommand(ctx: SchemaCliContext): Promise<number>
   const dbUrl = readDatabaseUrlOrReport(out);
   if (dbUrl === undefined) return 1;
   if (!migrationsDirExistsOrReport(ctx)) return 1;
-  const { db, close } = createDbConnection({ url: dbUrl });
+  const { db, close } = createDbConnection({ url: dbUrl, maxConnections: 1 });
   try {
     const result = await baselineMigrations(db, loadMigrationsFromDir(migrationsDir));
     out.log("");
