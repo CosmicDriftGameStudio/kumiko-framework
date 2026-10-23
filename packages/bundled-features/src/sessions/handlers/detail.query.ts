@@ -3,7 +3,7 @@ import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
-import { parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
+import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // Admin single-session inspector — mirrors list.query's decrypt handling for
 // the one-row case. ctx.db (TenantDb) applies tenant-scoping automatically.
@@ -16,6 +16,7 @@ const sessionRowSchema = z.object({
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
   device: parsedDeviceSchema,
+  deviceLabel: z.string().nullable(),
 });
 
 export const createDetailQuery = (adminRoles: readonly string[] = access.admin) =>
@@ -42,6 +43,7 @@ export const createDetailQuery = (adminRoles: readonly string[] = access.admin) 
       const userAgent = row.userAgent
         ? await decryptStoredPii(row.userAgent, "userAgent", "sessions:detail")
         : row.userAgent;
+      const device = parseUserAgent(userAgent);
       return {
         id: row.id,
         userId: row.userId,
@@ -50,7 +52,8 @@ export const createDetailQuery = (adminRoles: readonly string[] = access.admin) 
         revokedAt: row.revokedAt,
         ip: row.ip ? await decryptStoredPii(row.ip, "ip", "sessions:detail") : row.ip,
         userAgent,
-        device: parseUserAgent(userAgent),
+        device,
+        deviceLabel: formatDeviceLabel(device),
       };
     },
   });

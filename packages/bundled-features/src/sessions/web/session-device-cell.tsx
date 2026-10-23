@@ -1,19 +1,17 @@
-// Column renderer for the parsed `device` of a session row, registered via `sessionsClient()`.
+// Column renderer for session devices, registered via `sessionsClient()`. Takes the server-made
+// `deviceLabel` string, or the parsed `device` object for screens that bind that column.
 
 import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { parsedDeviceSchema } from "./user-agent.ts";
+import { formatDeviceLabel, parsedDeviceSchema } from "./user-agent.ts";
+
+function deviceLabelOf(value: unknown): string | null {
+  if (typeof value === "string") return value === "" ? null : value;
+  const parsed = parsedDeviceSchema.safeParse(value);
+  return parsed.success ? formatDeviceLabel(parsed.data) : null;
+}
 
 export function SessionDeviceCell({ value }: ColumnRendererProps): ReactNode {
   const t = useTranslation();
-  const parsed = parsedDeviceSchema.safeParse(value);
-  const device = parsed.success ? parsed.data : null;
-  if (device === null) return t("sessions.device.unknown");
-  const browser =
-    device.browser === null
-      ? null
-      : device.browserMajor === null
-        ? device.browser
-        : `${device.browser} ${device.browserMajor}`;
-  return [browser, device.os].filter((part) => part !== null).join(" · ");
+  return deviceLabelOf(value) ?? t("sessions.device.unknown");
 }

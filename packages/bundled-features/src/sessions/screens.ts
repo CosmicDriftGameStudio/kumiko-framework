@@ -39,7 +39,7 @@ export const createSessionListScreen = (
       refLabelField: "displayName",
     },
     {
-      field: "device",
+      field: "deviceLabel",
       label: i18nKey("sessions.list.col.device"),
       renderer: DEVICE_RENDERER,
     },
@@ -94,7 +94,7 @@ export const createSessionDetailScreen = (
           { field: "createdAt", renderer: { format: "timestamp" } },
           { field: "expiresAt", renderer: { format: "timestamp" } },
           { field: "revokedAt", renderer: { format: "timestamp" } },
-          { field: "device", renderer: DEVICE_RENDERER },
+          { field: "deviceLabel", renderer: DEVICE_RENDERER },
           "ip",
           "userAgent",
         ],
@@ -107,7 +107,7 @@ export const createSessionDetailScreen = (
     createdAt: i18nKey("sessions.detail.field.createdAt"),
     expiresAt: i18nKey("sessions.detail.field.expiresAt"),
     revokedAt: i18nKey("sessions.detail.field.revokedAt"),
-    device: i18nKey("sessions.list.col.device"),
+    deviceLabel: i18nKey("sessions.list.col.device"),
     ip: i18nKey("sessions.detail.field.ip"),
     userAgent: i18nKey("sessions.detail.field.userAgent"),
   },
@@ -120,7 +120,11 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
   type: "projectionList",
   query: SessionQueries.mine,
   columns: [
-    { field: "device", label: i18nKey("sessions.mine.col.userAgent"), renderer: DEVICE_RENDERER },
+    {
+      field: "deviceLabel",
+      label: i18nKey("sessions.mine.col.userAgent"),
+      renderer: DEVICE_RENDERER,
+    },
     { field: "ip", label: i18nKey("sessions.mine.col.ip") },
     {
       field: "current",

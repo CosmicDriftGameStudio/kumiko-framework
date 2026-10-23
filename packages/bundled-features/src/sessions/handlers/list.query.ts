@@ -8,7 +8,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
-import { parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
+import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy
 // has no column-existence check — an unrecognised field just gets
@@ -49,6 +49,7 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
           ip: z.string().nullable(),
           userAgent: z.string().nullable(),
           device: parsedDeviceSchema,
+          deviceLabel: z.string().nullable(),
         }),
       ),
       nextCursor: z.string().nullable(),
@@ -85,6 +86,7 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
           const userAgent = r.userAgent
             ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
             : r.userAgent;
+          const device = parseUserAgent(userAgent);
           return {
             id: r.id,
             userId: r.userId,
@@ -93,7 +95,8 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
             revokedAt: r.revokedAt,
             ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
             userAgent,
-            device: parseUserAgent(userAgent),
+            device,
+            deviceLabel: formatDeviceLabel(device),
           };
         }),
       );

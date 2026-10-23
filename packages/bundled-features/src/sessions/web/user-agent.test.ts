@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseUserAgent } from "./user-agent.ts";
+import { formatDeviceLabel, parseUserAgent } from "./user-agent.ts";
 
 const REAL_USER_AGENTS = [
   {
@@ -65,5 +65,28 @@ describe("parseUserAgent", () => {
   test("a missing user agent yields no device", () => {
     expect(parseUserAgent(null)).toBeNull();
     expect(parseUserAgent("")).toBeNull();
+  });
+});
+
+describe("formatDeviceLabel", () => {
+  test("joins browser with major version and operating system", () => {
+    expect(formatDeviceLabel({ browser: "Chrome", browserMajor: 141, os: "macOS" })).toBe(
+      "Chrome 141 · macOS",
+    );
+  });
+
+  test("leaves the version out when the major is unknown", () => {
+    expect(formatDeviceLabel({ browser: "Firefox", browserMajor: null, os: "Linux" })).toBe(
+      "Firefox · Linux",
+    );
+  });
+
+  test("shows only the operating system when the browser is unknown", () => {
+    expect(formatDeviceLabel({ browser: null, browserMajor: null, os: "Android" })).toBe("Android");
+  });
+
+  test("has no label without a device or without any recognised part", () => {
+    expect(formatDeviceLabel(null)).toBeNull();
+    expect(formatDeviceLabel({ browser: null, browserMajor: null, os: null })).toBeNull();
   });
 });
