@@ -12,9 +12,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetTestTables,
+  seedRowViaEventStore,
+  updateRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -163,8 +168,7 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
   });
 
   test("Lifecycle: pending → running blockt weitere pending-Inserts; nach running → done wieder erlaubt", async () => {
-    // Seeded rows have no event stream, so each state is its own row; the index only looks at status.
-    await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running);
+    const runningJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running);
 
     // A pending insert fails because a running job is also included in the index filter.
     await expectUniqueViolation(
@@ -173,8 +177,13 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
     );
 
     // Once the job is done, the user may start another pending job.
-    await resetTestTables(stack.db, [exportJobsTable]);
-    await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
+    await updateRowViaEventStore(
+      stack.db,
+      { table: exportJobsTable, entity: exportJobEntity, entityName: "exportJob" },
+      { id: runningJobId },
+      { status: EXPORT_JOB_STATUS.Done },
+      { tenantId: TENANT_SYSTEM as TenantId },
+    );
 
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     const rows = await selectMany(stack.db, exportJobsTable);

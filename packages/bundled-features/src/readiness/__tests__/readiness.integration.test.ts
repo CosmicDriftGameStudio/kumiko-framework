@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -359,14 +359,12 @@ describe("readiness:query:status", () => {
       { key: REQUIRED_SECRET_KEY, value: "token-606" },
       admin,
     );
-    await asRawClient(db).unsafe(
-      `DELETE FROM "${eventsTable.tableName}" WHERE type = '${TENANT_SECRET_READ_EVENT}'`,
-    );
+    const secretReadEvents = () => selectMany(db, eventsTable, { type: TENANT_SECRET_READ_EVENT });
+    const readEventsBeforeProbe = await secretReadEvents();
 
     // Probes both branches: set secret (has → true) + missing optional.
     await statusFor(admin);
 
-    const readEvents = await selectMany(db, eventsTable, { type: TENANT_SECRET_READ_EVENT });
-    expect(readEvents).toEqual([]);
+    expect(await secretReadEvents()).toEqual(readEventsBeforeProbe);
   });
 });
