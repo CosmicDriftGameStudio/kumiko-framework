@@ -12,7 +12,7 @@ Row level security at runtime: connections set the tenant or system scope in eve
 feature: framework
 type: improvement
 title: Connections set the row level security scope in every transaction
-detail: createDbConnection takes rowLevelSecurity "off" or "on" (default "off", the connection is unchanged). With "on", every statement and transaction sets kumiko.tenant_id and kumiko.scope transaction-locally from the ambient scope. TenantDb sets its tenant, and the system scope for system-mode TenantDbs, global tables and a granted unsafeRaw. Dispatch sets the user's tenant per command, or the system scope for a system-scoped handler. Event store reads and writes use the stream's tenant. Jobs, the event dispatcher, member resolution, migrations, boot seeds, retention, reindex, blind-index cleanup, the PII backfill, projection apply, auth providers and the tenant lifecycle check run in system scope. A statement without a scope sees no tenant rows. The functions that set a scope (runInRowLevelSecurityScope, runInSystemRowLevelSecurityScope, tenantRowLevelSecurityScope, systemScopedRunner) are not part of the public db subpath; framework packages import them from @cosmicdrift/kumiko-framework/internal/row-level-security. App code reaches the system scope through a system-scoped handler, a job or a granted unsafeRaw.
+detail: createDbConnection takes rowLevelSecurity "off" or "on" (default "off", the connection is unchanged). With "on", every statement and transaction sets kumiko.tenant_id and kumiko.scope transaction-locally from the ambient scope. TenantDb sets its tenant, and the system scope for system-mode TenantDbs, global tables and a granted unsafeRaw. Dispatch sets the user's tenant per command, or the system scope for a system-scoped handler. Event store reads and writes use the stream's tenant. Jobs, the event dispatcher, member resolution, migrations, boot seeds, retention, reindex, blind-index cleanup, the PII backfill, projection apply, auth providers and the tenant lifecycle check run in system scope. A statement without a scope sees no tenant rows. The functions that set a scope (runInRowLevelSecurityScope, runInSystemRowLevelSecurityScope, tenantRowLevelSecurityScope, systemScopedRunner) are not part of the public db subpath; framework packages import them from @cosmicdrift/kumiko-framework/internal/row-level-security, which no guard closes to apps yet. App code reaches the system scope through a system-scoped handler, a job or a granted unsafeRaw.
 -->
 
 <!-- kumiko-changes
@@ -37,7 +37,7 @@ detail: RunProdAppOptions.rowLevelSecurity ("off" by default) sets the mode of e
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: user-data-rights
 type: fix
 title: User data export and forget cleanup run in system scope
 detail: runUserExport and runForgetCleanup walk every tenant of a user, so they enter the system scope themselves instead of depending on the caller's scope. A direct call outside a job no longer exports or erases nothing under row level security "on".
