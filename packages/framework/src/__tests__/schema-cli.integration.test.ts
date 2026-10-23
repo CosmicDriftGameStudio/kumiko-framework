@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS "read_widgets" ("id" uuid PRIMARY KEY);
     expect(code).toBe(1);
     const err = cap.err.join("\n");
     expect(err).toContain("missing columns: note");
-    expect(err).toContain("Fix (missing-table/column-drift)");
+    expect(err).toContain("Fix (missing-table/column-drift/row-level-security-drift)");
     expect(err).not.toContain("Fix (unexpected-table)");
   });
 
@@ -348,7 +348,7 @@ CREATE TABLE IF NOT EXISTS "marketing_waitlist" ("id" uuid PRIMARY KEY);
     expect(err).toContain("marketing_waitlist");
     expect(err).toContain("Fix (unexpected-table)");
     expect(err).toContain("r.storeTable");
-    expect(err).not.toContain("Fix (missing-table/column-drift)");
+    expect(err).not.toContain("Fix (missing-table/column-drift/row-level-security-drift)");
   });
 
   test("no FEATURES export → validateBoot skipped (drift still checked)", async () => {
