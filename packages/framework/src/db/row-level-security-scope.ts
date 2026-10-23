@@ -9,11 +9,6 @@ export type RowLevelSecurityScope =
   | { readonly kind: "tenant"; readonly tenantId: TenantId }
   | { readonly kind: "system"; readonly reason: string };
 
-export const SYSTEM_ROW_LEVEL_SECURITY_SCOPE: RowLevelSecurityScope = {
-  kind: "system",
-  reason: "framework-internal cross-tenant access",
-};
-
 function systemRowLevelSecurityScope(reason: string): RowLevelSecurityScope {
   if (reason.trim() === "") {
     throw new InternalError({
@@ -22,6 +17,10 @@ function systemRowLevelSecurityScope(reason: string): RowLevelSecurityScope {
   }
   return { kind: "system", reason };
 }
+
+export const SYSTEM_ROW_LEVEL_SECURITY_SCOPE: RowLevelSecurityScope = systemRowLevelSecurityScope(
+  "framework-internal cross-tenant access",
+);
 
 function describeRowLevelSecurityScope(scope: RowLevelSecurityScope): string {
   return scope.kind === "system"
