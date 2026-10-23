@@ -13,7 +13,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | Guard | Purpose | Suppression |
 | --- | --- | --- |
 | `check-as-casts` | `as X` cast audit with a baseline regression gate (fails on regressions). | - |
-| `check-complexity` | Complexity check for handler hotspots with a baseline regression guard. | `kumiko-lint-ignore complexity-budget` |
+| `check-complexity` | Complexity check for .ts and .tsx hotspots with a hard cap and a baseline regression guard. | `kumiko-lint-ignore complexity-budget` |
 | `check-licenses` | Licence check over the installed third-party packages of ONE repo. | - |
 | `check-outdated` | Deprecated-dependency check over ONE repo. | - |
 | `check-predicates` | Predicate-extraction check (WARNING, no fail). | - |

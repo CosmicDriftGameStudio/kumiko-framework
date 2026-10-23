@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Complexity check for handler hotspots with a baseline regression guard.
+ * Complexity check for .ts and .tsx hotspots with a hard cap and a baseline regression guard.
  *
  * Computes cyclomatic complexity per function/method (base 1, +1 per decision
  * point: if, for, while, case, catch, &&, ||, ??, ternary). Above the
- * threshold -> hotspot.
+ * threshold -> hotspot. In .tsx, conditional JSX (`cond && <X/>`, ternaries)
+ * counts like any other branch.
  *
  * Baseline regression guard like guard-comment-lang.ts: `.kumiko-complexity-
  * baseline.json` in the repo root pins the frozen hotspot count per file.
@@ -52,11 +53,11 @@ const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
   scope: "source",
-  extensions: ["ts"],
+  extensions: ["ts", "tsx"],
   frameworkWithin: ["packages/*/src/**"],
 };
 
-const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
+const EXCLUDE = /(__tests__|\.test\.(ts|tsx)$|\.integration\.(ts|tsx)$|\.d\.ts$)/;
 
 const COMPLEXITY_THRESHOLD = 15;
 const MAX_REPORTED = 30;
