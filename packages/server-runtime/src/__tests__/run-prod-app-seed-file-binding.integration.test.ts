@@ -85,7 +85,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -118,6 +118,7 @@ describe("runProdApp seed file binding", () => {
     let fileId: string | undefined;
 
     handle = await runProdApp({
+      rowLevelSecurity: "off",
       features: [
         createConfigFeature(),
         createFileFoundationFeature(),
@@ -168,7 +169,7 @@ describe("runProdApp seed file binding", () => {
 
     if (!fileId || !manualId) throw new Error("seed did not run");
 
-    const { db, close } = createDbConnection({ url: TEST_DB_URL });
+    const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
     try {
       const rows = await selectMany(db, fileRefsTable, { tenantId: TENANT_ID });
       expect(rows.find((row) => row.id === fileId)?.entityId).toBe(manualId);

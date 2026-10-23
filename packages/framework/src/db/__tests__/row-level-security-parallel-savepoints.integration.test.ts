@@ -43,12 +43,15 @@ async function insertAfterPause(runner: unknown, label: string, pauseSeconds: nu
 }
 
 async function committedLabels(): Promise<string[]> {
-  return runInSystemRowLevelSecurityScope(async () => {
-    const rows = await asRawClient(testDb.db).unsafe<{ label: string }>(
-      `SELECT label FROM "store_rls_parallel_sp" ORDER BY label`,
-    );
-    return rows.map((row) => row.label);
-  });
+  return runInSystemRowLevelSecurityScope(
+    "test reads rows of all tenants after parallel savepoints",
+    async () => {
+      const rows = await asRawClient(testDb.db).unsafe<{ label: string }>(
+        `SELECT label FROM "store_rls_parallel_sp" ORDER BY label`,
+      );
+      return rows.map((row) => row.label);
+    },
+  );
 }
 
 beforeAll(async () => {

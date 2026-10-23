@@ -5,6 +5,7 @@ import {
   configurePiiSubjectKms,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import { appHookScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createEntityCache,
@@ -70,7 +71,17 @@ function buildProdExtraContext(
   };
 }
 
-async function resolveProdAnonymousAccess(options: RunProdAppOptions, deps: RunProdAppDeps) {
+async function resolveProdAnonymousAccess(
+  options: RunProdAppOptions,
+  requestDeps: RunProdAppDeps,
+  config: ProdBootConfig,
+) {
+  // extraContext services run inside requests and keep the ambient tenant scope; only this
+  // boot-time factory and the registry resolvers get the system scope.
+  const deps: RunProdAppDeps = {
+    ...requestDeps,
+    db: appHookScopedRunner(requestDeps.db, config.rowLevelSecurity),
+  };
   const baseAnonymousAccess =
     typeof options.anonymousAccess === "function"
       ? options.anonymousAccess(deps)
@@ -121,7 +132,7 @@ export async function buildProdRequestContext(
     ...(bootCrypto.configCipher && { configEncryption: bootCrypto.configCipher }),
   };
   const extraContext = buildProdExtraContext(options, config, composed, connections, deps);
-  const resolvedAnonymousAccess = await resolveProdAnonymousAccess(options, deps);
+  const resolvedAnonymousAccess = await resolveProdAnonymousAccess(options, deps, config);
 
   return {
     idempotency,

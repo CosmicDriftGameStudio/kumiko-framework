@@ -39,7 +39,8 @@ afterAll(async () => {
 });
 
 describe("createTenantDb over a pre-scoped runner", () => {
-  const pinned = () => systemScopedRunner(stack.unscopedDb);
+  const pinned = () =>
+    systemScopedRunner(stack.unscopedDb, "test pins a system-scoped runner over the unscoped db");
   const readRaw = (tenantDb: ReturnType<typeof createTenantDb>) =>
     runInRowLevelSecurityScope(tenantRowLevelSecurityScope(admin.tenantId), () =>
       selectMany<{ label: string }>(tenantDbRunner(tenantDb), itemsTable),

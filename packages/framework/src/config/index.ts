@@ -50,7 +50,7 @@ export type AppConfig = {
   readonly validateBootOptions?: AppValidateBootOptions;
   /** One table block for every list of the bundled features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
   readonly bundledLists?: BundledListsOptions;
-  /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "off". */
+  /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 

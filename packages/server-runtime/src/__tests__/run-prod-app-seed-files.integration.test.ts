@@ -78,7 +78,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -120,6 +120,7 @@ async function bootWithSeed(
   extra: Partial<Parameters<typeof runProdApp>[0]> = {},
 ): Promise<void> {
   handle = await runProdApp({
+    rowLevelSecurity: "off",
     features: [
       createConfigFeature(),
       createFileFoundationFeature(),
@@ -148,7 +149,7 @@ async function bootWithSeed(
 }
 
 async function storedFileNames(): Promise<string[]> {
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     const rows = await selectMany(db, fileRefsTable, { tenantId: TENANT_ID });
     return rows.map((row) => row.fileName).sort();

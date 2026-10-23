@@ -38,7 +38,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -68,6 +68,7 @@ describe("runProdApp extraContext deps.env", () => {
   test("carries the FILE_STORAGE_PROVIDER default from the fileStorage option", async () => {
     let seenEnv: RunProdAppDeps["env"] | undefined;
     handle = await runProdApp({
+      rowLevelSecurity: "off",
       features: [createConfigFeature(), createFileFoundationFeature(), createFilesFeature()],
       fileStorage: { provider: "inmemory" },
       envSource: {
@@ -92,6 +93,7 @@ describe("runProdApp extraContext deps.env", () => {
   test("carries the master key provider and config cipher when a KEK is configured", async () => {
     let seen: Pick<RunProdAppDeps, "masterKeyProvider" | "configEncryption"> | undefined;
     handle = await runProdApp({
+      rowLevelSecurity: "off",
       features: [createConfigFeature()],
       envSource: {
         DATABASE_URL: TEST_DB_URL,

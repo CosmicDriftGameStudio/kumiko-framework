@@ -18,7 +18,17 @@ import {
   updateMany,
   upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/db";
-import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  parseTenantId,
+  type Registry,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  isRowLevelSecurityViolation,
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type {
   JobDroppedMeta,
   JobLogEntry,
@@ -77,6 +87,16 @@ const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 // Run rows hang on SYSTEM_TENANT_ID and a null trigger is a cron/system run;
 // job-run-table.ts declares whenAbsent: "tenant" for exactly that case, so the
 // logger must resolve the same subject the entity chain would.
+// Job callbacks run outside any request scope; the tenant tables enforce their rows per tenant, so each write
+// declares the tenant it belongs to.
+function inTenantScope<T>(tenantId: string, work: () => Promise<T>): Promise<T> {
+  const parsed = parseTenantId(tenantId);
+  if (parsed === null) {
+    throw new InternalError({ message: `job run logger got a malformed tenant id "${tenantId}"` });
+  }
+  return runInRowLevelSecurityScope(tenantRowLevelSecurityScope(parsed), work);
+}
+
 function jobRunSubject(triggeredById: string | null): SubjectId {
   return triggeredById === null
     ? { kind: "tenant", tenantId: SYSTEM_TENANT_ID }
@@ -182,7 +202,7 @@ const TENANT_RUN_CONFLICT_KEYS = ["tenantId", "jobName", "bullJobId"] as const;
 function tenantJobFailureTarget(
   jobName: string,
   outcome: JobOutcomeMeta | undefined,
-): Record<string, unknown> | null {
+): { tenantId: string; jobName: string; subject: string | null } | null {
   if (!outcome?.tenantVisible || outcome.tenantId === SYSTEM_TENANT_ID) return null;
   return { tenantId: outcome.tenantId, jobName, subject: outcome.tenantVisible.subject };
 }
@@ -202,19 +222,21 @@ async function recordTenantJobFailure(
   // partial unique indexes (subject NULL vs. set) are no ON CONFLICT target.
   // The lock makes the later of two racing final failures replace the earlier
   // one; the indexes are the backstop against any writer that skips the lock.
-  await transaction(db, async (tx) => {
-    await acquireNamespacedAdvisoryLock(
-      tx,
-      TENANT_JOB_FAILURE_LOCK_NAMESPACE,
-      JSON.stringify([where["tenantId"], where["jobName"], where["subject"]]),
-    );
-    await deleteMany(tx, tenantJobFailuresTable, where);
-    await insertOne(tx, tenantJobFailuresTable, {
-      ...where,
-      messageKey,
-      failedAt: Temporal.Now.instant(),
-    });
-  });
+  await inTenantScope(where.tenantId, () =>
+    transaction(db, async (tx) => {
+      await acquireNamespacedAdvisoryLock(
+        tx,
+        TENANT_JOB_FAILURE_LOCK_NAMESPACE,
+        JSON.stringify([where["tenantId"], where["jobName"], where["subject"]]),
+      );
+      await deleteMany(tx, tenantJobFailuresTable, where);
+      await insertOne(tx, tenantJobFailuresTable, {
+        ...where,
+        messageKey,
+        failedAt: Temporal.Now.instant(),
+      });
+    }),
+  );
 }
 
 async function clearTenantJobFailure(
@@ -225,7 +247,7 @@ async function clearTenantJobFailure(
   const where = tenantJobFailureTarget(jobName, outcome);
   // skip: no tenant-visible target — nothing was ever recorded
   if (!where) return;
-  await deleteMany(db, tenantJobFailuresTable, where);
+  await inTenantScope(where.tenantId, () => deleteMany(db, tenantJobFailuresTable, where));
 }
 
 // Tenant-visible run state. One row per BullMQ job in
@@ -260,28 +282,30 @@ async function recordTenantRunQueued(
   // skip: system-tenant run, no tenant-scoped query reads it
   if (!key) return;
   const now = Temporal.Now.instant();
-  await transaction(db, async (tx) => {
-    // A finished row under the same id is left over from before a Redis reset
-    // (ids restart at 1), not this job. Only rows queued before this BullMQ job
-    // was created qualify: a fast worker can finish before the hook runs (no
-    // queuedAt), and a deduplicated add of an already finished job re-announces
-    // it with a creation time older than its own row. Both rows must stay.
-    await deleteMany(tx, tenantJobRunsTable, {
-      tenantId: key.tenantId,
-      jobName,
-      bullJobId,
-      status: { in: ["completed", "failed"] },
-      queuedAt: { lt: Temporal.Instant.fromEpochMilliseconds(meta.jobCreatedAtMs) },
-    });
-    // DO NOTHING: a fast worker can report the start before this enqueue hook
-    // returns, and a repeated jobId (debounce, fan-out dedup) is the same job.
-    await insertOnConflictDoNothing(
-      tx,
-      tenantJobRunsTable,
-      { ...key, bullJobId, status: "queued", queuedAt: now, updatedAt: now },
-      { conflictKeys: [...TENANT_RUN_CONFLICT_KEYS] },
-    );
-  });
+  await inTenantScope(key.tenantId, () =>
+    transaction(db, async (tx) => {
+      // A finished row under the same id is left over from before a Redis reset
+      // (ids restart at 1), not this job. Only rows queued before this BullMQ job
+      // was created qualify: a fast worker can finish before the hook runs (no
+      // queuedAt), and a deduplicated add of an already finished job re-announces
+      // it with a creation time older than its own row. Both rows must stay.
+      await deleteMany(tx, tenantJobRunsTable, {
+        tenantId: key.tenantId,
+        jobName,
+        bullJobId,
+        status: { in: ["completed", "failed"] },
+        queuedAt: { lt: Temporal.Instant.fromEpochMilliseconds(meta.jobCreatedAtMs) },
+      });
+      // DO NOTHING: a fast worker can report the start before this enqueue hook
+      // returns, and a repeated jobId (debounce, fan-out dedup) is the same job.
+      await insertOnConflictDoNothing(
+        tx,
+        tenantJobRunsTable,
+        { ...key, bullJobId, status: "queued", queuedAt: now, updatedAt: now },
+        { conflictKeys: [...TENANT_RUN_CONFLICT_KEYS] },
+      );
+    }),
+  );
 }
 
 async function recordTenantRunStarted(
@@ -296,14 +320,16 @@ async function recordTenantRunStarted(
   // skip: system-tenant run, no tenant-scoped query reads it
   if (!key) return;
   const now = Temporal.Now.instant();
-  await upsertOnConflict(
-    db,
-    tenantJobRunsTable,
-    { ...key, bullJobId, status: "running", startedAt: now, updatedAt: now },
-    {
-      conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
-      update: { status: "running", startedAt: now, finishedAt: null, updatedAt: now },
-    },
+  await inTenantScope(key.tenantId, () =>
+    upsertOnConflict(
+      db,
+      tenantJobRunsTable,
+      { ...key, bullJobId, status: "running", startedAt: now, updatedAt: now },
+      {
+        conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
+        update: { status: "running", startedAt: now, finishedAt: null, updatedAt: now },
+      },
+    ),
   );
 }
 
@@ -323,11 +349,13 @@ async function recordTenantRunOutcome(
   // A failed attempt BullMQ will retry goes back to waiting: the tenant keeps
   // seeing pending work, not a failure the next attempt may still resolve.
   if (result === "failed" && !outcome.finalAttempt) {
-    await updateMany(
-      db,
-      tenantJobRunsTable,
-      { status: "queued", startedAt: null, finishedAt: null, updatedAt: now },
-      { tenantId: key.tenantId, jobName, bullJobId },
+    await inTenantScope(key.tenantId, () =>
+      updateMany(
+        db,
+        tenantJobRunsTable,
+        { status: "queued", startedAt: null, finishedAt: null, updatedAt: now },
+        { tenantId: key.tenantId, jobName, bullJobId },
+      ),
     );
     // skip: retry pending, the row stays active until the final attempt
     return;
@@ -336,30 +364,32 @@ async function recordTenantRunOutcome(
   // one it replaces. The per-key lock keeps two runs of the same subject that
   // finish together from each missing the other's uncommitted row and leaving
   // both behind.
-  await transaction(db, async (tx) => {
-    await acquireNamespacedAdvisoryLock(
-      tx,
-      TENANT_JOB_RUN_LOCK_NAMESPACE,
-      JSON.stringify([key.tenantId, key.jobName, key.subject]),
-    );
-    // Read under the lock: the run that finishes last in lock order must also carry the
-    // latest finishedAt, otherwise a stale timestamp makes it the row that gets pruned.
-    const finishedAt = Temporal.Now.instant();
-    await upsertOnConflict(
-      tx,
-      tenantJobRunsTable,
-      { ...key, bullJobId, status: result, finishedAt, updatedAt: finishedAt },
-      {
-        conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
-        update: { status: result, finishedAt, updatedAt: finishedAt },
-      },
-    );
-    await deleteMany(tx, tenantJobRunsTable, {
-      ...key,
-      status: { in: ["completed", "failed"] },
-      bullJobId: { ne: bullJobId },
-    });
-  });
+  await inTenantScope(key.tenantId, () =>
+    transaction(db, async (tx) => {
+      await acquireNamespacedAdvisoryLock(
+        tx,
+        TENANT_JOB_RUN_LOCK_NAMESPACE,
+        JSON.stringify([key.tenantId, key.jobName, key.subject]),
+      );
+      // Read under the lock: the run that finishes last in lock order must also carry the
+      // latest finishedAt, otherwise a stale timestamp makes it the row that gets pruned.
+      const finishedAt = Temporal.Now.instant();
+      await upsertOnConflict(
+        tx,
+        tenantJobRunsTable,
+        { ...key, bullJobId, status: result, finishedAt, updatedAt: finishedAt },
+        {
+          conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
+          update: { status: result, finishedAt, updatedAt: finishedAt },
+        },
+      );
+      await deleteMany(tx, tenantJobRunsTable, {
+        ...key,
+        status: { in: ["completed", "failed"] },
+        bullJobId: { ne: bullJobId },
+      });
+    }),
+  );
 }
 
 async function requeueTenantRun(
@@ -373,11 +403,13 @@ async function requeueTenantRun(
   const key = tenantRunKey(jobName, meta.tenantVisibleRun.tenantId, meta.tenantVisibleRun.subject);
   // skip: system-tenant run, no tenant-scoped query reads it
   if (!key) return;
-  await updateMany(
-    db,
-    tenantJobRunsTable,
-    { status: "queued", startedAt: null, finishedAt: null, updatedAt: Temporal.Now.instant() },
-    { tenantId: key.tenantId, jobName, bullJobId },
+  await inTenantScope(key.tenantId, () =>
+    updateMany(
+      db,
+      tenantJobRunsTable,
+      { status: "queued", startedAt: null, finishedAt: null, updatedAt: Temporal.Now.instant() },
+      { tenantId: key.tenantId, jobName, bullJobId },
+    ),
   );
 }
 
@@ -387,20 +419,22 @@ async function dropTenantRunQueued(
   bullJobId: string,
   meta: JobDroppedMeta,
 ): Promise<void> {
-  await deleteMany(db, tenantJobRunsTable, {
-    tenantId: meta.tenantId,
-    jobName,
-    bullJobId,
-    status: "queued",
-  });
+  await inTenantScope(meta.tenantId, () =>
+    deleteMany(db, tenantJobRunsTable, {
+      tenantId: meta.tenantId,
+      jobName,
+      bullJobId,
+      status: "queued",
+    }),
+  );
 }
 
 const log = createFallbackLogger("job-run-logger");
 
 // The tenant run state is an optional side write: a throw here must not
 // fail the enqueue, skip the run-row write or turn a completed run into a
-// BullMQ retry.
-async function isolateTenantRunWrite(
+// BullMQ retry. A row-level-security rejection is logged louder (a missing or wrong tenant scope), never rethrown.
+export async function isolateTenantRunWrite(
   write: () => Promise<void>,
   jobName: string,
   bullJobId: string,
@@ -408,6 +442,13 @@ async function isolateTenantRunWrite(
   try {
     await write();
   } catch (e) {
+    if (isRowLevelSecurityViolation(e)) {
+      log.error(
+        "tenant job run state write rejected by row level security: missing or wrong tenant scope",
+        { jobName, bullJobId },
+      );
+      return;
+    }
     log.error("tenant job run state write failed", {
       jobName,
       bullJobId,
@@ -417,7 +458,8 @@ async function isolateTenantRunWrite(
 }
 
 // The tenant failure record is an optional side write: a throw here must not
-// skip the run-row update or turn a completed run into a BullMQ retry.
+// skip the run-row update or turn a completed run into a BullMQ retry. A row-level-security rejection is
+// logged louder (a missing or wrong tenant scope), never rethrown.
 async function isolateTenantFailureWrite(
   write: () => Promise<void>,
   jobName: string,
@@ -426,6 +468,13 @@ async function isolateTenantFailureWrite(
   try {
     await write();
   } catch (e) {
+    if (isRowLevelSecurityViolation(e)) {
+      log.error(
+        "tenant job failure record write rejected by row level security: missing or wrong tenant scope",
+        { jobName, bullJobId },
+      );
+      return;
+    }
     log.error("tenant job failure record write failed", {
       jobName,
       bullJobId,

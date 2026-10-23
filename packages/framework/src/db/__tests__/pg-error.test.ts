@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   constraintOf,
   extractPgError,
+  isRowLevelSecurityViolation,
   isTableAlreadyExists,
   isUniqueViolation,
 } from "../pg-error.ts";
@@ -61,5 +62,20 @@ describe("isTableAlreadyExists", () => {
 describe("constraintOf", () => {
   test("returns the constraint when present", () => {
     expect(constraintOf(serverError("23505", "users_email_uq"))).toBe("users_email_uq");
+  });
+});
+
+describe("isRowLevelSecurityViolation", () => {
+  test("matches SQLSTATE 42501 directly and through a cause", () => {
+    expect(isRowLevelSecurityViolation(serverError("42501"))).toBe(true);
+    expect(isRowLevelSecurityViolation({ message: "wrapper", cause: serverError("42501") })).toBe(
+      true,
+    );
+  });
+
+  test("rejects other SQLSTATEs and non-errors", () => {
+    expect(isRowLevelSecurityViolation(serverError("23505"))).toBe(false);
+    expect(isRowLevelSecurityViolation(new Error("boom"))).toBe(false);
+    expect(isRowLevelSecurityViolation(undefined)).toBe(false);
   });
 });

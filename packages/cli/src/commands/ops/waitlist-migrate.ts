@@ -68,6 +68,9 @@ export const waitlistMigrateOp = {
 
     const dryRun = ctx.argv.includes("--dry-run");
     const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
+    const { runInSystemRowLevelSecurityScope } = await import(
+      "@cosmicdrift/kumiko-framework/internal/row-level-security"
+    );
     const { db, close } = createDbConnection({ url: checked.databaseUrl });
     let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
     try {
@@ -80,12 +83,16 @@ export const waitlistMigrateOp = {
         allowPlaintextPii: flagValue(ctx.argv, "--allow-plaintext-pii"),
         consequence: "The import would store personal data as plaintext in the event log.",
       });
-      const report = await migrateLegacyWaitlist(db, {
-        from,
-        dryRun,
-        sourceTable: flagValue(ctx.argv, "--source-table") ?? DEFAULT_LEGACY_SOURCE_TABLE[from],
-        defaultLocale: flagValue(ctx.argv, "--locale") ?? DEFAULT_IMPORT_LOCALE,
-      });
+      const report = await runInSystemRowLevelSecurityScope(
+        "operator waitlist migration imports signups into the platform tenant and archives legacy streams",
+        () =>
+          migrateLegacyWaitlist(db, {
+            from,
+            dryRun,
+            sourceTable: flagValue(ctx.argv, "--source-table") ?? DEFAULT_LEGACY_SOURCE_TABLE[from],
+            defaultLocale: flagValue(ctx.argv, "--locale") ?? DEFAULT_IMPORT_LOCALE,
+          }),
+      );
       ctx.out.log("");
       ctx.out.log(
         `  ${dryRun ? "[dry-run] " : ""}waitlist-migrate --from ${from}: read ${report.read}, ${dryRun ? "would create" : "created"} ${report.created}, already present ${report.skipped}, unreadable ${report.unreadable}, legacy streams ${dryRun ? "would archive" : "archived"} ${report.archivedStreams}`,

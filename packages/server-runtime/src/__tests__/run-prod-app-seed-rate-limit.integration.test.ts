@@ -49,7 +49,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -81,6 +81,7 @@ describe("runProdApp seeds and rateLimit", () => {
     const seedUser = createSystemUser(TENANT_ID, ["SystemAdmin"]);
 
     handle = await runProdApp({
+      rowLevelSecurity: "off",
       features: [limitedFeature],
       envSource: {
         DATABASE_URL: TEST_DB_URL,

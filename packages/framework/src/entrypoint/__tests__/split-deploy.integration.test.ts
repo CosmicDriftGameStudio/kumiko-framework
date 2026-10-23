@@ -131,6 +131,7 @@ describe("entrypoint factories", () => {
   test("API entrypoint exposes HTTP app but NOT dispatcher / jobRunner handles", async () => {
     const registry = createRegistry([splitFeature]);
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -151,6 +152,7 @@ describe("entrypoint factories", () => {
     const registry = createRegistry([splitFeature]);
     const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:16379";
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -174,6 +176,7 @@ describe("entrypoint factories", () => {
     const registry = createRegistry([fileJobFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -205,6 +208,7 @@ describe("entrypoint factories", () => {
     const registry = createRegistry([workerWriteFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -243,6 +247,7 @@ describe("entrypoint factories", () => {
     const registry = createRegistry([fileJobFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -269,6 +274,7 @@ describe("entrypoint factories", () => {
     const registry = createRegistry([splitFeature]);
     const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:16379";
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -286,6 +292,7 @@ describe("entrypoint factories", () => {
   test("lifecycle.drain() flips /health/ready to 503 across modes", async () => {
     const registry = createRegistry([splitFeature]);
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -341,6 +348,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
     const registry = createRegistry([laneFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -368,6 +376,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
     const registry = createRegistry([laneFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -391,6 +400,7 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
     const registry = createRegistry([laneFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -429,6 +439,7 @@ describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {
     const registry = createRegistry([workerJobFeature]);
     expect(() =>
       createApiEntrypoint({
+        rowLevelSecurity: "off",
         registry,
         context: { db: testDb.db, redis: testRedis.redis },
         jwtSecret: JWT,
@@ -441,6 +452,7 @@ describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     expect(() =>
       createApiEntrypoint({
+        rowLevelSecurity: "off",
         registry,
         context: { db: testDb.db, redis: testRedis.redis },
         jwtSecret: JWT,
@@ -453,6 +465,7 @@ describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {
     const registry = createRegistry([workerJobFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,

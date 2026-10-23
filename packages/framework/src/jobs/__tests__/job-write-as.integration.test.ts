@@ -184,6 +184,7 @@ describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)
   test("ctx.write is denied — the job's systemUser carries no TenantAdmin role", async () => {
     writeOutcomes.length = 0;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([writeAsProbeFeature]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -211,6 +212,7 @@ describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)
   test("ctx.writeAs(actor) commits and attributes the event to the actor", async () => {
     writeAsOutcomes.length = 0;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([writeAsProbeFeature]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -243,6 +245,7 @@ describe("JobContext.writeAs is gated by the job's identity-switch grant (#3607)
   test("without a grant the switch is refused and nothing is written", async () => {
     writeAsFailures.length = 0;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([writeAsProbeFeature]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -271,6 +274,7 @@ describe("JobContext.writeAs is gated by the job's identity-switch grant (#3607)
     const auditEvents: EscapeHatchUseEvent[] = [];
     const initiator = "22222222-2222-4222-8222-222222222222";
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([writeAsProbeFeature]),
       context: {
         db: testDb.db,
@@ -347,6 +351,7 @@ describe("JobContext.queryAs is gated by the job's identity-switch grant like wr
     jobQueryAsSystemResults.length = 0;
     queryAsFailures.length = 0;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry(features),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,

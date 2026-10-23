@@ -81,6 +81,7 @@ describe("createWorkerEntrypoint auto-wires attachDispatcher() (framework#2044)"
     const registry = createRegistry([writeProbeFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,

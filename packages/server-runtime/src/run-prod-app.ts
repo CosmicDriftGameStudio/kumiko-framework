@@ -83,6 +83,7 @@ import type { Redis } from "ioredis";
 import { runEnvGate } from "./boot/env-gate.ts";
 import { buildEffectiveFeaturesResolver } from "./boot/shared-boot-steps.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
+import { warnIfRowLevelSecurityOff } from "./boot/warn-row-level-security-off.ts";
 import type { BillingBootOption } from "./boot-options/billing-option.ts";
 import type { DemoModeOption } from "./boot-options/demo-mode.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
@@ -409,7 +410,7 @@ export type RunProdAppOptions = {
   readonly validateBootOptions?: ValidateBootOptions;
   /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
   readonly bundledLists?: BundledListsOptions;
-  /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "off". */
+  /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
@@ -780,6 +781,7 @@ async function bootProdApp(
   });
   await assertProdSchemaCurrent(connections.db, options.migrations, log);
   await assertRowLevelSecurityBootState(connections.db, config.rowLevelSecurity);
+  warnIfRowLevelSecurityOff(config.rowLevelSecurity, log);
 
   const requestContext = await buildProdRequestContext(options, config, composed, connections);
   const authWiring = await wireProdAuth(config, composed, connections);
@@ -800,7 +802,7 @@ async function bootProdApp(
     entrypointOptions,
   );
   registerProdShutdownHooks(entrypoint, connections.cacheSync, requestContext.ownedRedisSseBroker);
-  await runProdWireHook(options, composed, connections, entrypoint);
+  await runProdWireHook(options, config, composed, connections, entrypoint);
   await runProdBootSeeds(
     { options, config, composed, connections, requestContext },
     entrypoint,

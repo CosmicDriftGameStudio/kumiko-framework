@@ -98,7 +98,11 @@ export async function runConsumerCli(
     out.err("  DATABASE_URL not set.");
     return 1;
   }
-  const { db, close } = createDbConnection({ url: dbUrl, ...dbConnectionOptionsFromEnv() });
+  const { db, close } = createDbConnection({
+    url: dbUrl,
+    rowLevelSecurity: "off", // consumer state tables carry no tenant_id
+    ...dbConnectionOptionsFromEnv(),
+  });
   try {
     if (sub === "status") {
       const state = await getConsumerState(db, name, instanceId);

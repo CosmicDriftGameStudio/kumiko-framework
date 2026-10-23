@@ -4,7 +4,7 @@ import type {
   PgListenClient,
 } from "@cosmicdrift/kumiko-types/db-connection";
 import { readPositiveIntEnv } from "../utils/env-parse.ts";
-import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
+import { DEFAULT_ROW_LEVEL_SECURITY_MODE, type RowLevelSecurityMode } from "./render-rls-ddl.ts";
 import { enforceRowLevelSecurity } from "./row-level-security-connection.ts";
 
 export type * from "@cosmicdrift/kumiko-types/db-connection";
@@ -66,7 +66,7 @@ function verifiedTls(ssl: NonNullable<BunSqlOptions["tls"]>): NonNullable<BunSql
 
 export function createDbConnection({
   url,
-  rowLevelSecurity = "off",
+  rowLevelSecurity = DEFAULT_ROW_LEVEL_SECURITY_MODE,
   ...options
 }: CreateDbConnectionOptions): DbConnectionHandle {
   const sqlOptions: BunSqlOptions = {};

@@ -223,11 +223,18 @@ export async function runBackfillPii(ctx: CliCommandContext): Promise<number> {
     crypto.configurePiiSubjectKms(wiring.kms);
     crypto.configureBlindIndexKey(wiring.blindIndexKey);
     const registry = createRegistry(config.features);
+    const { runInSystemRowLevelSecurityScope } = await import(
+      "@cosmicdrift/kumiko-framework/internal/row-level-security"
+    );
     const { db, close } = createDbConnection({ url: databaseUrl, maxConnections: 4 });
     try {
-      return args.mode === "rebuild"
-        ? await rebuildPiiProjections(ctx, db, registry, crypto)
-        : await backfillPii(ctx, db, registry, args);
+      return await runInSystemRowLevelSecurityScope(
+        "operator PII backfill rewrites events and projections of every tenant",
+        () =>
+          args.mode === "rebuild"
+            ? rebuildPiiProjections(ctx, db, registry, crypto)
+            : backfillPii(ctx, db, registry, args),
+      );
     } finally {
       await close();
     }

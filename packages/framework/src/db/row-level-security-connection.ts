@@ -1,5 +1,8 @@
 import { InternalError } from "../errors/index.ts";
-import { applyRowLevelSecurityScope } from "./queries/rls-scope.ts";
+import {
+  applyRowLevelSecurityScope,
+  buildRowLevelSecurityScopeQuery,
+} from "./queries/rls-scope.ts";
 import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
 import {
   activeRowLevelSecurityScope,
@@ -152,24 +155,73 @@ function newTransactionState(): TransactionScopeState {
   return { applied: rowLevelSecurityScopeKey(undefined), tail: Promise.resolve() };
 }
 
+const templateOf = (strings: TemplateStringsArray): TemplateStringsArray => strings;
+// Tagged-template statements pipeline behind each other; unsafe() without parameters is sent as a
+// simple query that waits for its own result first (measured 4.1 vs 2.4 roundtrips).
+const BEGIN_TEMPLATE = templateOf`BEGIN`;
+const COMMIT_TEMPLATE = templateOf`COMMIT`;
+
+// Bun queries are lazy: they go out when started, so each one is started explicitly, in order,
+// to pipeline BEGIN, the scope and the statement on one connection.
+function startQuery(build: () => unknown): Promise<unknown> {
+  try {
+    const query = build();
+    if (isHandle(query) && typeof Reflect.get(query, "execute") === "function") {
+      callMethod(query, "execute", []);
+    }
+    return Promise.resolve(query);
+  } catch (error) {
+    // A statement that cannot be built must not stop COMMIT from being queued behind BEGIN.
+    return Promise.reject(error);
+  }
+}
+
+// COMMIT is always queued and the connection is released only after all four settled, so it never
+// returns to the pool inside an open transaction; COMMIT after a failed statement rolls back.
+async function pipelinedScopedTransaction(
+  pool: object,
+  scope: RowLevelSecurityScope | undefined,
+  run: (conn: object) => unknown,
+): Promise<unknown> {
+  const conn = await callMethod(pool, "reserve", []);
+  if (!isHandle(conn)) {
+    throw new InternalError({
+      message: "row-level security: pool.reserve() returned no connection",
+    });
+  }
+  try {
+    const begin = startQuery(() => applyOnTarget(conn, [BEGIN_TEMPLATE]));
+    const setScope = startQuery(() => buildRowLevelSecurityScopeQuery(conn, scope));
+    const statement = startQuery(() => run(conn));
+    const commit = startQuery(() => applyOnTarget(conn, [COMMIT_TEMPLATE]));
+    const [beginResult, scopeResult, statementResult, commitResult] = await Promise.allSettled([
+      begin,
+      setScope,
+      statement,
+      commit,
+    ]);
+    // Without BEGIN or the scope the statement ran unscoped (fails closed) but is not a success.
+    if (beginResult.status === "rejected") throw beginResult.reason;
+    if (scopeResult.status === "rejected") throw scopeResult.reason;
+    if (statementResult.status === "rejected") throw statementResult.reason;
+    if (commitResult.status === "rejected") throw commitResult.reason;
+    return statementResult.value;
+  } finally {
+    callMethod(conn, "release", []);
+  }
+}
+
 // A pool statement under a scope runs as its own short transaction; without a scope it passes
 // through and the policies see no tenant (fail closed), so DDL like CONCURRENTLY keeps working.
 export function enforceRowLevelSecurity<T extends object>(pool: T): T {
-  const inScopedTransaction = (run: (tx: object) => unknown): unknown => {
-    const scope = activeRowLevelSecurityScope();
-    return callMethod(pool, "begin", [
-      async (tx: object) => {
-        await applyRowLevelSecurityScope(tx, scope);
-        return run(tx);
-      },
-    ]);
-  };
+  const inScopedTransaction = (run: (conn: object) => unknown): Promise<unknown> =>
+    pipelinedScopedTransaction(pool, activeRowLevelSecurityScope(), run);
   const proxy = new Proxy(pool, {
     apply(target, _thisArg, args) {
       if (!isTaggedTemplateCall(args) || activeRowLevelSecurityScope() === undefined) {
         return applyOnTarget(target, args);
       }
-      return inScopedTransaction((tx) => applyOnTarget(tx, args));
+      return inScopedTransaction((conn) => applyOnTarget(conn, args));
     },
     get(target, prop) {
       const value = Reflect.get(target, prop, target);
@@ -177,7 +229,17 @@ export function enforceRowLevelSecurity<T extends object>(pool: T): T {
       if (prop === "unsafe" || prop === "file") {
         return (...args: unknown[]) => {
           if (activeRowLevelSecurityScope() === undefined) return callMethod(target, prop, args);
-          return inScopedTransaction((tx) => callMethod(tx, prop, args));
+          if (prop === "file") {
+            // Bun sends file() only after its async file read, i.e. after the pipelined COMMIT.
+            const scope = activeRowLevelSecurityScope();
+            return callMethod(target, "begin", [
+              async (tx: object) => {
+                await applyRowLevelSecurityScope(tx, scope);
+                return callMethod(tx, "file", args);
+              },
+            ]);
+          }
+          return inScopedTransaction((conn) => callMethod(conn, prop, args));
         };
       }
       if (prop === "begin" || prop === "transaction") {

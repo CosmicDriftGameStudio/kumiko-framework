@@ -59,6 +59,7 @@ describe("lane-routing sample", () => {
     const registry = createRegistry([createLaneRoutingFeature()]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,

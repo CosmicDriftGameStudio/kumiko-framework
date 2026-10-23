@@ -39,6 +39,7 @@ afterAll(async () => {
 describe("createApiEntrypoint server options", () => {
   test("errorDocs reaches the server: an app reason links to the app docs", async () => {
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([failingFeature]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -62,6 +63,7 @@ describe("createApiEntrypoint server options", () => {
   test("instanceId reaches the server: the reserved sentinel is rejected at boot", () => {
     expect(() =>
       createApiEntrypoint({
+        rowLevelSecurity: "off",
         registry: createRegistry([failingFeature]),
         context: { db: testDb.db, redis: testRedis.redis },
         jwtSecret: JWT,
@@ -79,6 +81,7 @@ describe("createWorkerEntrypoint server options", () => {
     try {
       expect(() =>
         createWorkerEntrypoint({
+          rowLevelSecurity: "off",
           registry: createRegistry([failingFeature]),
           context: { db: testDb.db, redis: testRedis.redis },
           jwtSecret: JWT,

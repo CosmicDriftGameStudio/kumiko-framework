@@ -80,7 +80,7 @@ const rebuild = (deps: object = {}) =>
   rebuildProjection(projectionName, { db: testDb.db, registry, ...deps });
 const stateOf = () => readRowLevelSecurityState(testDb.db, "public", LIVE_TABLE);
 const liveRows = () =>
-  runInSystemRowLevelSecurityScope(() =>
+  runInSystemRowLevelSecurityScope("test reads the live projection table across all tenants", () =>
     asRawClient(testDb.db).unsafe<Record<string, unknown>>(
       `SELECT * FROM "${LIVE_TABLE}" ORDER BY group_id`,
     ),

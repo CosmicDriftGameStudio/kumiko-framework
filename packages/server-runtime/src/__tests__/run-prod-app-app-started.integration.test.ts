@@ -28,6 +28,7 @@ let handle: ProdAppHandle | undefined;
 
 function bootWith(extraEnv: Record<string, string>): Promise<ProdAppHandle> {
   return runProdApp({
+    rowLevelSecurity: "off",
     features: [],
     envSource: {
       DATABASE_URL: TEST_DB_URL,
@@ -43,7 +44,7 @@ function bootWith(extraEnv: Record<string, string>): Promise<ProdAppHandle> {
 }
 
 async function loadAppStartedEvents() {
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     const events = await Array.fromAsync(streamAllEventsByType(db, APP_INSTANCE_STREAM_TYPE));
     return events.filter((event) => event.type === APP_STARTED_EVENT_TYPE);
@@ -60,7 +61,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);

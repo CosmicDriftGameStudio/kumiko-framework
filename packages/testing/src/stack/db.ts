@@ -86,13 +86,18 @@ async function ensureApplicationRole(admin: DbConnection, url: string): Promise<
   );
 }
 
+// Admin connections below run as superuser for CREATE/DROP DATABASE and never open a tenant scope: "off" is explicit.
 async function adoptPersistentDatabase(
   admin: DbConnection,
   url: string,
   dbName: string,
 ): Promise<void> {
   await transferDatabaseOwnership(admin, dbName, TEST_APPLICATION_ROLE);
-  const owner = createDbConnection({ url: databaseUrlOf(url, dbName), maxConnections: 1 });
+  const owner = createDbConnection({
+    url: databaseUrlOf(url, dbName),
+    maxConnections: 1,
+    rowLevelSecurity: "off", // superuser ownership transfer, no tenant scope
+  });
   try {
     await transferPublicSchemaOwnership(owner.db, TEST_APPLICATION_ROLE);
   } finally {
@@ -129,7 +134,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
 
   const applicationRole = opts.applicationRole === true;
   const owner = applicationRole ? TEST_APPLICATION_ROLE : undefined;
-  const admin = createDbConnection({ url: adminUrl, maxConnections: 1 });
+  const admin = createDbConnection({ url: adminUrl, maxConnections: 1, rowLevelSecurity: "off" });
   try {
     if (applicationRole) await ensureApplicationRole(admin.db, url);
     await provisionDatabase(admin.db, { url, dbName, opts, applicationRole, owner });
@@ -162,7 +167,11 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
       await conn.close();
       await outsideConn.close();
       if (!opts.persistent) {
-        const admin2 = createDbConnection({ url: adminUrl, maxConnections: 1 });
+        const admin2 = createDbConnection({
+          url: adminUrl,
+          maxConnections: 1,
+          rowLevelSecurity: "off",
+        });
         try {
           await dropDatabaseIfExists(admin2.db, dbName);
         } finally {
@@ -198,7 +207,11 @@ export async function buildTestDbTemplate(
   const applicationRole = options.applicationRole === true;
   const url = requireEnv("TEST_DATABASE_URL");
   // One connection, so the session that takes the advisory lock is the one closed below.
-  const admin = createDbConnection({ url: adminUrlOf(url), maxConnections: 1 });
+  const admin = createDbConnection({
+    url: adminUrlOf(url),
+    maxConnections: 1,
+    rowLevelSecurity: "off",
+  });
   try {
     await acquireSessionAdvisoryLock(admin.db, templateDbName);
     // skip: another worker of this run already built it while we waited on the lock
@@ -216,7 +229,7 @@ export async function buildTestDbTemplate(
     const conn = createDbConnection(
       applicationRole
         ? { url: applicationRoleUrlOf(url, buildDbName), maxConnections: 1, rowLevelSecurity: "on" }
-        : { url: databaseUrlOf(url, buildDbName), maxConnections: 1 },
+        : { url: databaseUrlOf(url, buildDbName), maxConnections: 1, rowLevelSecurity: "off" },
     );
     try {
       await buildSchema(conn.db);
@@ -230,7 +243,11 @@ export async function buildTestDbTemplate(
 }
 
 export async function dropTestDbTemplates(baseUrl: string, runId: string): Promise<void> {
-  const admin = createDbConnection({ url: adminUrlOf(baseUrl), maxConnections: 1 });
+  const admin = createDbConnection({
+    url: adminUrlOf(baseUrl),
+    maxConnections: 1,
+    rowLevelSecurity: "off",
+  });
   try {
     for (const name of await listDatabaseNamesWithPrefix(admin.db, testDbTemplatePrefix(runId))) {
       await dropDatabaseIfExists(admin.db, name);

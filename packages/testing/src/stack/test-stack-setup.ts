@@ -13,7 +13,11 @@ import {
   createArchivedStreamsTable,
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
-import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import {
+  appHookScopedRunner,
+  DEFAULT_ROW_LEVEL_SECURITY_MODE,
+  systemScopedRunner,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createRateLimitResolver,
   unsafePushTables,
@@ -339,8 +343,7 @@ export async function buildStackServices(
       ? options.extraContext({
           registry,
           // Services built here are called straight from tests, outside any dispatch scope, like stack.db.
-          db:
-            (options.rowLevelSecurity ?? "on") === "on" ? systemScopedRunner(testDb.db) : testDb.db,
+          db: testCodeDb(options, testDb.db),
           sseBroker,
           redis: testRedis.redis,
         })
@@ -488,6 +491,12 @@ function resolveStackRateLimitFallback(
   });
 }
 
+function testCodeDb<T extends object>(options: TestStackOptions, db: T): T {
+  return (options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE) === "on"
+    ? systemScopedRunner(db, "test stack seeds and reads rows across tenants")
+    : db;
+}
+
 async function resolveStackAnonymousAccess(
   options: TestStackOptions,
   testDb: StackStorage["testDb"],
@@ -495,12 +504,16 @@ async function resolveStackAnonymousAccess(
   services: StackServices,
 ): Promise<Pick<ServerBuildOptions, "anonymousAccess">> {
   const { registry, sseBroker } = services;
+  const hookDb = appHookScopedRunner(
+    testDb.db,
+    options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE,
+  );
   const baseAnon =
     typeof options.anonymousAccess === "function"
-      ? options.anonymousAccess({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
+      ? options.anonymousAccess({ registry, db: hookDb, sseBroker, redis: testRedis.redis })
       : options.anonymousAccess;
   const resolvedAnon = options.enrichAnonymousAccess
-    ? await options.enrichAnonymousAccess(baseAnon, { registry, db: testDb.db })
+    ? await options.enrichAnonymousAccess(baseAnon, { registry, db: hookDb })
     : baseAnon;
   return resolvedAnon ? { anonymousAccess: resolvedAnon } : {};
 }
@@ -610,7 +623,7 @@ function assembleTestStack(
     jwt: server.jwt,
     registry: services.registry,
     // Test code sees every tenant's rows; the services keep the enforced pool.
-    db: (options.rowLevelSecurity ?? "on") === "on" ? systemScopedRunner(testDb.db) : testDb.db,
+    db: testCodeDb(options, testDb.db),
     unscopedDb: testDb.db,
     dbPoolMax: testDb.poolMax,
     redis: testRedis,

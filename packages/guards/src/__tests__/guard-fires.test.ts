@@ -178,6 +178,12 @@ const ENFORCING: Record<string, Violating> = {
     code: 'import { getUnscopedAggregateStreamMaxVersion } from "k";\nexport const v = () => getUnscopedAggregateStreamMaxVersion("a");',
     expectedMessage: /\[getUnscopedAggregateStreamMaxVersion\]/,
   },
+  "Internal-Subpath-Imports Guard": {
+    path: `${PKG}/features/x/scope.ts`,
+    code: 'import { runInSystemRowLevelSecurityScope } from "k";\nexport const run = (why: string) => runInSystemRowLevelSecurityScope(why, async () => 1);',
+    expectedMessage:
+      /\[system-scope-reason\] runInSystemRowLevelSecurityScope needs a non-empty string literal reason/,
+  },
   "Admin-API Guard": {
     path: `${PKG}/features/x/admin.ts`,
     code: 'import { appendRaw } from "k";\nexport async function run(ctx: any) { await appendRaw(ctx, { type: "x" }); }',

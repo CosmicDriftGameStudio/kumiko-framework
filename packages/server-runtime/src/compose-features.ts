@@ -63,6 +63,10 @@ export type ComposeFeaturesOptions = {
   readonly bundledLists?: BundledListsOptions;
 };
 
+// Output of a first composeFeatures pass comes back as app features when a caller composes twice (the app
+// config already composed, boot composes again); those copies are dropped silently, only app-supplied ones warn.
+const composedBundledInstances = new WeakSet<FeatureDefinition>();
+
 export function composeFeatures(
   appFeatures: readonly FeatureDefinition[],
   options: ComposeFeaturesOptions,
@@ -115,6 +119,7 @@ export function composeFeatures(
     // "on unless an operator flips it off at runtime" contract.
     ...(authOptions?.signup !== undefined ? [createAuthSelfRegistrationToggleFeature()] : []),
   ];
+  for (const f of bundled) composedBundledInstances.add(f);
   const bundledNames = new Set(bundled.map((f) => f.name));
   const filteredApp: FeatureDefinition[] = [];
   for (const f of dedupedAppFeatures) {
@@ -123,6 +128,7 @@ export function composeFeatures(
       // need it in APP_FEATURES: the schema CLI and tests compose without
       // authOptions.signup and only get it from there.
       if (f.name === AUTH_SELF_REGISTRATION_FEATURE) continue;
+      if (composedBundledInstances.has(f)) continue;
       // biome-ignore lint/suspicious/noConsole: boot-time UX warning
       console.warn(
         `[composeFeatures] "${f.name}" already auto-mounted via includeBundled — dropping the explicit copy from APP_FEATURES. Remove it from run-config.ts to silence this warning.`,

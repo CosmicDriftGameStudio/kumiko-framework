@@ -7,6 +7,7 @@ import {
   createAllInOneEntrypoint,
   createApiEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
+import { appHookScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observability";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
@@ -55,6 +56,7 @@ export function buildProdEntrypointOptions(
       registry,
       ...requestContext.extraContext,
     },
+    rowLevelSecurity: config.rowLevelSecurity,
     sseBroker: requestContext.sseBroker,
     jwtSecret: config.jwtSecretOrKeyring,
     ...(jwtIssuer && { jwtIssuer }),
@@ -171,6 +173,7 @@ export function registerProdShutdownHooks(
 // route.
 export async function runProdWireHook(
   options: RunProdAppOptions,
+  config: ProdBootConfig,
   composed: ProdComposedFeatures,
   connections: ProdConnections,
   entrypoint: ProdEntrypoint,
@@ -179,7 +182,7 @@ export async function runProdWireHook(
   if (wire) {
     const { bootCrypto } = composed;
     await wire({
-      db: connections.db,
+      db: appHookScopedRunner(connections.db, config.rowLevelSecurity),
       redis: connections.redis,
       registry: composed.registry,
       filesForTenant: makeFilesForTenant(entrypoint.context),

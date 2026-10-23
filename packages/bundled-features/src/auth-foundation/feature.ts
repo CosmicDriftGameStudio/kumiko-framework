@@ -93,7 +93,10 @@ export function createAuthFoundationFeature() {
 
 // Providers run before any tenant or session exists (token verify, host to tenant), so their reads are cross-tenant by nature.
 function systemScopedDeps<T extends AuthProviderBuildDeps>(deps: T): T {
-  return { ...deps, db: systemScopedRunner(deps.db) };
+  return {
+    ...deps,
+    db: systemScopedRunner(deps.db, "auth lookups run before a tenant is established"),
+  };
 }
 
 /**

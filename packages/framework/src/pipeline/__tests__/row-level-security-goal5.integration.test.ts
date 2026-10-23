@@ -156,7 +156,7 @@ describe("enforcement", () => {
       selectMany<{ label: string }>(stack.unscopedDb, itemsTable),
     );
     expect(labelsOf(own)).toEqual(["own"]);
-    const all = await runInSystemRowLevelSecurityScope(() =>
+    const all = await runInSystemRowLevelSecurityScope("test reads items of all tenants", () =>
       selectMany<{ label: string }>(stack.unscopedDb, itemsTable),
     );
     expect(labelsOf(all)).toEqual(["foreign", "own"]);
@@ -164,18 +164,23 @@ describe("enforcement", () => {
 
   test("assertNoActiveRowLevelSecurityScope throws inside a scope and passes outside", async () => {
     expect(() => assertNoActiveRowLevelSecurityScope("probe")).not.toThrow();
-    await runInSystemRowLevelSecurityScope(async () => {
-      expect(() => assertNoActiveRowLevelSecurityScope("probe")).toThrow(/probe.*active/);
-    });
+    await runInSystemRowLevelSecurityScope(
+      "test probes the leak assertion from inside a system scope",
+      async () => {
+        expect(() => assertNoActiveRowLevelSecurityScope("probe")).toThrow(/probe.*active/);
+      },
+    );
   });
 
   test("every framework table with a tenant_id column is enabled, forced and carries both policies", async () => {
-    const tables = await runInSystemRowLevelSecurityScope(() =>
-      asRawClient(stack.unscopedDb).unsafe<{ table_name: string }>(
-        `SELECT table_name FROM information_schema.columns
+    const tables = await runInSystemRowLevelSecurityScope(
+      "test lists tenant-id columns via information_schema",
+      () =>
+        asRawClient(stack.unscopedDb).unsafe<{ table_name: string }>(
+          `SELECT table_name FROM information_schema.columns
          WHERE table_schema = 'public' AND column_name = 'tenant_id' AND table_name LIKE 'kumiko\\_%'
          ORDER BY table_name`,
-      ),
+        ),
     );
     expect(tables.map((row) => row.table_name)).toEqual([
       "kumiko_archived_streams",
@@ -240,7 +245,7 @@ describe("rebuild on a table with row-level security", () => {
         registry: stack.registry,
       });
     const rowsOf = () =>
-      runInSystemRowLevelSecurityScope(() =>
+      runInSystemRowLevelSecurityScope("test reads the maintained counts across all tenants", () =>
         asRawClient(stack.unscopedDb).unsafe(`SELECT * FROM fw4_goal5_counts ORDER BY group_id`),
       );
     await rebuild();

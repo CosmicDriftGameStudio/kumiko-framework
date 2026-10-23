@@ -56,7 +56,7 @@ import {
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
 import { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 import { queryDatabaseNow } from "./queries/database-now.ts";
-import { systemScopedRunner, unscopedRunnerOf } from "./row-level-security-scope.ts";
+import { unsafeRawScopedRunner, unscopedRunnerOf } from "./row-level-security-scope.ts";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
   bindTenantDbRunner,
@@ -291,7 +291,7 @@ function buildUncheckedSystemDb(
     // A granted unsafeRaw is a declared, audited bypass of the TenantDb filter, so row-level security does not narrow it either.
     // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
     report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
-    const runner = systemScopedRunner(withoutExecutorManagedWrites(tenantDbRunner(db)));
+    const runner = unsafeRawScopedRunner(withoutExecutorManagedWrites(tenantDbRunner(db)));
     return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db), false);
   }
 
@@ -836,7 +836,7 @@ function buildTenantDb(
     // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
     report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
     return boundRunner(
-      systemScopedRunner(withoutExecutorManagedWrites(db)),
+      unsafeRawScopedRunner(withoutExecutorManagedWrites(db)),
       personalDataGate,
       projectionRegistry,
       false,

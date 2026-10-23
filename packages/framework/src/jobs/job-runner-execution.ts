@@ -201,7 +201,7 @@ export async function executeJobInSpan(
         ...(parentContext ? { parent: parentContext } : {}),
       },
       () =>
-        runInSystemRowLevelSecurityScope(() =>
+        runInSystemRowLevelSecurityScope("job execution span reads job rows of every tenant", () =>
           runAndRecordJob(scope, run, { requestId, correlationId }),
         ),
     ),

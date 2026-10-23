@@ -29,45 +29,51 @@ export async function nullBlindIndexesForSubject(
   features: ReadonlyMap<string, FeatureDefinition>,
   subjectKey: string,
 ): Promise<void> {
-  return runInSystemRowLevelSecurityScope(async () => {
-    const likePattern = subjectCiphertextLikePattern(subjectKey);
-    const candidates: { tableName: string; lookupable: readonly string[] }[] = [];
-    for (const feature of features.values()) {
-      for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-        const lookupable = collectLookupableFields(entity);
-        if (lookupable.length === 0) continue;
-        // No featureName prefix — the dispatcher builds entity tables without
-        // one (buildEntityTable with no featureName option), the sweep has to
-        // hit the same names.
-        candidates.push({ tableName: resolveTableName(entityName, entity, undefined), lookupable });
+  return runInSystemRowLevelSecurityScope(
+    "blind index nulling for a forgotten subject spans tenants",
+    async () => {
+      const likePattern = subjectCiphertextLikePattern(subjectKey);
+      const candidates: { tableName: string; lookupable: readonly string[] }[] = [];
+      for (const feature of features.values()) {
+        for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+          const lookupable = collectLookupableFields(entity);
+          if (lookupable.length === 0) continue;
+          // No featureName prefix — the dispatcher builds entity tables without
+          // one (buildEntityTable with no featureName option), the sweep has to
+          // hit the same names.
+          candidates.push({
+            tableName: resolveTableName(entityName, entity, undefined),
+            lookupable,
+          });
+        }
       }
-    }
-    // Skip entities whose projection was never migrated — same class as
-    // subjectRowExistsInTenant. A throw here runs AFTER eraseKey
-    // in forget-subject and would leave deterministic bidx columns still
-    // linkable. One batched existence query instead of one
-    // roundtrip per entity.
-    const existing = await existingTableNames(
-      db,
-      candidates.map((c) => c.tableName),
-    );
-    for (const { tableName, lookupable } of candidates) {
-      if (!existing.has(tableName)) continue;
-      // Same hazard for a migrated table that predates a later-added
-      // lookupable field: skip fields whose columns are missing instead of
-      // aborting the sweep for the remaining ones.
-      const columns = await columnNamesOf(db, tableName);
-      for (const fieldName of lookupable) {
-        const snake = toSnakeCase(fieldName);
-        if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
-        await executeRawQuery(
-          db,
-          `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
-          [likePattern],
-        );
+      // Skip entities whose projection was never migrated — same class as
+      // subjectRowExistsInTenant. A throw here runs AFTER eraseKey
+      // in forget-subject and would leave deterministic bidx columns still
+      // linkable. One batched existence query instead of one
+      // roundtrip per entity.
+      const existing = await existingTableNames(
+        db,
+        candidates.map((c) => c.tableName),
+      );
+      for (const { tableName, lookupable } of candidates) {
+        if (!existing.has(tableName)) continue;
+        // Same hazard for a migrated table that predates a later-added
+        // lookupable field: skip fields whose columns are missing instead of
+        // aborting the sweep for the remaining ones.
+        const columns = await columnNamesOf(db, tableName);
+        for (const fieldName of lookupable) {
+          const snake = toSnakeCase(fieldName);
+          if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
+          await executeRawQuery(
+            db,
+            `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
+            [likePattern],
+          );
+        }
       }
-    }
-  });
+    },
+  );
 }
 
 async function existingTableNames(
@@ -104,7 +110,7 @@ export async function subjectRowExistsInTenant(
   subjectId: string,
   tenantId: string,
 ): Promise<boolean> {
-  return runInSystemRowLevelSecurityScope(async () => {
+  return runInSystemRowLevelSecurityScope("subject existence check spans tenants", async () => {
     // Prefetch which self-PII projection tables actually exist — probing a
     // missing relation used to throw (and get swallowed), which both hid
     // real schema bugs and risked poisoning the driver connection for the
@@ -167,7 +173,7 @@ export async function recordRowExistsInTenant(
   recordId: string,
   tenantId: string,
 ): Promise<boolean> {
-  return runInSystemRowLevelSecurityScope(async () => {
+  return runInSystemRowLevelSecurityScope("record existence check spans tenants", async () => {
     const entity = findEntityByExactName(features, entityName);
     if (!entity) return false;
     const tableName = resolveTableName(entityName, entity, undefined);
@@ -192,16 +198,19 @@ export async function recordEventsOwnedExclusivelyByTenant(
   aggregateId: string,
   tenantId: string,
 ): Promise<boolean> {
-  return runInSystemRowLevelSecurityScope(async () => {
-    const rows = await executeRawQueryRead(
-      db,
-      `SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id = $3::uuid
+  return runInSystemRowLevelSecurityScope(
+    "record event ownership check spans tenants",
+    async () => {
+      const rows = await executeRawQueryRead(
+        db,
+        `SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id = $3::uuid
        AND NOT EXISTS (SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id <> $3::uuid)
      LIMIT 1`,
-      [aggregateType, aggregateId, tenantId],
-    );
-    return rows.length > 0;
-  });
+        [aggregateType, aggregateId, tenantId],
+      );
+      return rows.length > 0;
+    },
+  );
 }
 
 // Owning tenant of a record subject's row, for callers that must evaluate
@@ -212,7 +221,7 @@ export async function recordRowOwningTenantId(
   entityName: string,
   recordId: string,
 ): Promise<string | undefined> {
-  return runInSystemRowLevelSecurityScope(async () => {
+  return runInSystemRowLevelSecurityScope("record owner lookup spans tenants", async () => {
     const entity = findEntityByExactName(features, entityName);
     if (!entity) return undefined;
     const tableName = resolveTableName(entityName, entity, undefined);

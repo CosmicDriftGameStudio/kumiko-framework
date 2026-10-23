@@ -26,6 +26,8 @@ import {
   createWorkerEntrypoint,
   type WorkerEntrypoint,
 } from "@cosmicdrift/kumiko-framework/entrypoint";
+import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
@@ -62,6 +64,7 @@ import {
   waitForKmsHealthy,
 } from "./shared-boot-steps.ts";
 import { WAIT_FOR_DATABASE_DEADLINE_MS, waitForDatabase } from "./wait-for-database.ts";
+import { warnIfRowLevelSecurityOff } from "./warn-row-level-security-off.ts";
 import { assertWorkerMetricsOptions } from "./worker-metrics-server.ts";
 
 export type WorkerBootCoreOptions = Omit<RunWorkerAppOptions, "wireComponents">;
@@ -152,7 +155,7 @@ export async function bootWorkerProcess(
   const databaseUrl = requireEnv("DATABASE_URL", envSource, processName);
   const redisUrl = requireEnv("REDIS_URL", envSource, processName);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
-  const rowLevelSecurity = options.rowLevelSecurity ?? "off";
+  const rowLevelSecurity = options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE;
 
   // MUST be composed with the same `includeBundled` as the API process.
   const includeBundled = !!options.includeBundled || profile.authOptions !== undefined;
@@ -266,6 +269,7 @@ export async function bootWorkerProcess(
   configurePiiSubjectKms(options.kms);
   configureBlindIndexKey(options.blindIndexKey);
   const bootLogger = loggerFromExtraContext(resolvedExtraContext);
+  warnIfRowLevelSecurityOff(rowLevelSecurity, bootLogger ?? createFallbackLogger(processName));
   const autoExtraContext = buildBootExtraContext({
     db,
     features,

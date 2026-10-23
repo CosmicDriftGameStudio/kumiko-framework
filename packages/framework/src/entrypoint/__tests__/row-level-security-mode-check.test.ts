@@ -23,13 +23,13 @@ describe("assertEntrypointRowLevelSecurityMode", () => {
     ).not.toThrow();
   });
 
-  test("an undeclared mode means off", () => {
-    expect(() =>
-      assertEntrypointRowLevelSecurityMode(contextWithPoolMode("off"), undefined),
-    ).not.toThrow();
+  test("an undeclared mode means on", () => {
     expect(() =>
       assertEntrypointRowLevelSecurityMode(contextWithPoolMode("on"), undefined),
-    ).toThrow(/rowLevelSecurity is "off" but the database connection runs in "on" mode/);
+    ).not.toThrow();
+    expect(() =>
+      assertEntrypointRowLevelSecurityMode(contextWithPoolMode("off"), undefined),
+    ).toThrow(/rowLevelSecurity is "on" but the database connection runs in "off" mode/);
   });
 
   test("declared on over an off pool throws, naming both modes", () => {

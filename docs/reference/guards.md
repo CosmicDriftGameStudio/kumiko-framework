@@ -43,6 +43,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-i18n-locale-terminology` | Guard: locale bundle values must follow Mandant/Organización terminology. | `kumiko-lint-ignore i18n-locale-terminology` |
 | `guard-i18n-ui-strings` | No hardcoded UI text in app web code: JSX text nodes and label-like string props must go through t("…") keys (guard-i18n-keys then checks that the keys are defined — this guard closes the gap before that: strings that never became keys, e.g. "Loading tenants…"). | `kumiko-lint-ignore i18n-ui-strings` |
 | `guard-import-extensions` | Guard: relative imports in TypeScript sources name the source file (`./foo.ts`), not the emitted one (`./foo.js`). | - |
+| `guard-internal-subpath-imports` | Guard: keeps the row-level-security escape hatches out of consumer code. | - |
 | `guard-lib-test-coverage` | lib/ is the home of extracted logic (computation, parsing, mapping) — the no-logic-in-views guard pushes it there, this guard ensures it is also TESTED at the new location. | `kumiko-lint-ignore lib-test-coverage` |
 | `guard-no-custom-primitives` | Apps no longer build their own UI primitives: components with primitive names (…Card, …Table, …Badge, …Button, …Chart, ProgressBar, MiniStat, …) exist in the framework (usePrimitives() resp. widgets/) — app rebuilds drift visually and cost every migration twice. | `kumiko-lint-ignore no-custom-primitives` |
 | `guard-no-date-api` | Guard: finds Date-API patterns in production code where they are banned. | - |

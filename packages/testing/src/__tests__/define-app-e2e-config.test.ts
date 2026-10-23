@@ -327,7 +327,9 @@ describe("defineAppE2eConfig defaults", () => {
     );
     const originalCwd = process.cwd();
     const savedDatabaseUrl = process.env["DATABASE_URL"];
+    const savedRedisUrl = process.env["REDIS_URL"];
     delete process.env["DATABASE_URL"];
+    delete process.env["REDIS_URL"];
     try {
       process.chdir(appDir);
       const server = defineAppE2eConfig({ port: 1 }).webServer;
@@ -346,6 +348,8 @@ describe("defineAppE2eConfig defaults", () => {
       rmSync(appDir, { recursive: true, force: true });
       if (savedDatabaseUrl === undefined) delete process.env["DATABASE_URL"];
       else process.env["DATABASE_URL"] = savedDatabaseUrl;
+      if (savedRedisUrl === undefined) delete process.env["REDIS_URL"];
+      else process.env["REDIS_URL"] = savedRedisUrl;
     }
   });
 

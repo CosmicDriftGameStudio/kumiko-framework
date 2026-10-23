@@ -133,10 +133,13 @@ export async function appendRawBatch(
 
   verifyContiguousWithinBatch(events);
   // A batch may span tenants (replay, transfer), so its pre-flight reads and the insert are system scoped.
-  await runInSystemRowLevelSecurityScope(async () => {
-    await verifyPredecessors(runner, events);
-    await verifyNoDuplicates(runner, events);
-  });
+  await runInSystemRowLevelSecurityScope(
+    "raw event batch append writes events for arbitrary tenants",
+    async () => {
+      await verifyPredecessors(runner, events);
+      await verifyNoDuplicates(runner, events);
+    },
+  );
 
   const params: unknown[] = [];
   const valuesClauses = events.map((e) => {
@@ -159,11 +162,13 @@ export async function appendRawBatch(
   });
 
   try {
-    await runInSystemRowLevelSecurityScope(() =>
-      runAtomicEventWrite(runner, async (tx) => {
-        await claimXactId(tx);
-        await insertRawEventBatch(tx, valuesClauses.join(", "), params);
-      }),
+    await runInSystemRowLevelSecurityScope(
+      "raw event batch append refreshes stream state across tenants",
+      () =>
+        runAtomicEventWrite(runner, async (tx) => {
+          await claimXactId(tx);
+          await insertRawEventBatch(tx, valuesClauses.join(", "), params);
+        }),
     );
   } catch (e) {
     if (isUniqueViolation(e)) {

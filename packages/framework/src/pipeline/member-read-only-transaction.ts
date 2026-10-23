@@ -79,10 +79,12 @@ export function runInMemberReadOnlyTransaction<T>(
 ): Promise<T> {
   // Only the transaction plumbing (savepoint, SET) runs system-scoped; the caller's fn keeps the dispatch scope it came in with.
   const incoming = activeRowLevelSecurityScope();
-  return runInSystemRowLevelSecurityScope(() =>
-    runInMemberReadOnlyTransactionScoped(ctx, tx, (readOnlyTx) =>
-      runInCapturedRowLevelSecurityScope(incoming, () => fn(readOnlyTx)),
-    ),
+  return runInSystemRowLevelSecurityScope(
+    "member read-only transaction opens its connection under system scope, then restores the caller scope",
+    () =>
+      runInMemberReadOnlyTransactionScoped(ctx, tx, (readOnlyTx) =>
+        runInCapturedRowLevelSecurityScope(incoming, () => fn(readOnlyTx)),
+      ),
   );
 }
 

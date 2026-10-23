@@ -62,30 +62,44 @@ export const consumerCommand: CliCommand = {
       SEARCH_CONSUMER_NAME,
       ...registry.getAllMultiStreamProjections().keys(),
     ];
+    const { runInSystemRowLevelSecurityScope } = await import(
+      "@cosmicdrift/kumiko-framework/internal/row-level-security"
+    );
     const { db, close } = createDbConnection({ url: databaseUrl });
 
     try {
       await createEventConsumerStateTable(db);
-      switch (sub) {
-        case "list":
-          return await listConsumers(ctx, db, registeredConsumerNames, listConsumersWithState);
-        case "status":
-          return await showConsumerStatus(ctx, db, arg, registeredConsumerNames, getConsumerState);
-        case "restart":
-          return await transitionOne(ctx, "restart", arg, "restarted", (name) =>
-            restartConsumer(db, name),
-          );
-        case "disable":
-          return await transitionOne(ctx, "disable", arg, "disabled", (name) =>
-            disableConsumer(db, name),
-          );
-        case "enable":
-          return await transitionOne(ctx, "enable", arg, "enabled", (name) =>
-            enableConsumer(db, name),
-          );
-        case "skip":
-          return await skipOne(ctx, db, arg, skipPoisonEvent);
-      }
+      return await runInSystemRowLevelSecurityScope(
+        "operator consumer tool skips poison events, which reads the events of every tenant",
+        async () => {
+          switch (sub) {
+            case "list":
+              return await listConsumers(ctx, db, registeredConsumerNames, listConsumersWithState);
+            case "status":
+              return await showConsumerStatus(
+                ctx,
+                db,
+                arg,
+                registeredConsumerNames,
+                getConsumerState,
+              );
+            case "restart":
+              return await transitionOne(ctx, "restart", arg, "restarted", (name) =>
+                restartConsumer(db, name),
+              );
+            case "disable":
+              return await transitionOne(ctx, "disable", arg, "disabled", (name) =>
+                disableConsumer(db, name),
+              );
+            case "enable":
+              return await transitionOne(ctx, "enable", arg, "enabled", (name) =>
+                enableConsumer(db, name),
+              );
+            case "skip":
+              return await skipOne(ctx, db, arg, skipPoisonEvent);
+          }
+        },
+      );
     } catch (e) {
       ctx.out.err("");
       ctx.out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);

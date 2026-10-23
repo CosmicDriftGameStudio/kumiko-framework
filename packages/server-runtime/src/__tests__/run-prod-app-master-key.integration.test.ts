@@ -100,7 +100,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -144,6 +144,7 @@ function envWithoutKek(): Record<string, string> {
 
 async function bootApp(withMasterKey: boolean): Promise<ProdAppHandle> {
   const booted = await runProdApp({
+    rowLevelSecurity: "off",
     features,
     envSchema: composeEnvSchema({ features }),
     envSource: envWithoutKek(),
@@ -198,7 +199,7 @@ describe("runProdApp with masterKey and no env KEK", () => {
     expect(listed.status).toBe(200);
     expect(JSON.stringify(listed.body.data)).toContain(NOTE_PLAINTEXT);
 
-    const { db, close } = createDbConnection({ url: TEST_DB_URL });
+    const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
     try {
       const rows = await selectMany<Record<string, unknown>>(
         db,

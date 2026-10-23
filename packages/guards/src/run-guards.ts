@@ -38,6 +38,7 @@ import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
 import { guard as i18nLocaleTerminology } from "./guard-i18n-locale-terminology";
 import { guard as importExtensions } from "./guard-import-extensions";
+import { guard as internalSubpathImports } from "./guard-internal-subpath-imports";
 import { guard as libTestCoverage } from "./guard-lib-test-coverage";
 import { guard as noDateApi } from "./guard-no-date-api";
 import { guard as noDirectFs } from "./guard-no-direct-fs";
@@ -68,6 +69,7 @@ export const GUARDS = [
   noDateApi,
   noTemporalPolyfillImport,
   restrictedSymbols,
+  internalSubpathImports,
   fakeTests,
   noLogicInViews,
   errorReasons,

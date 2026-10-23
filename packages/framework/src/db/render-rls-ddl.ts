@@ -9,6 +9,7 @@ import { quoteIdent } from "./sql-identifier.ts";
 
 export const ROW_LEVEL_SECURITY_MODES = ["off", "on"] as const;
 export type RowLevelSecurityMode = (typeof ROW_LEVEL_SECURITY_MODES)[number];
+export const DEFAULT_ROW_LEVEL_SECURITY_MODE: RowLevelSecurityMode = "on";
 
 export const TENANT_ISOLATION_POLICY = "kumiko_tenant_isolation";
 export const SYSTEM_TENANT_READ_POLICY = "kumiko_system_tenant_read";

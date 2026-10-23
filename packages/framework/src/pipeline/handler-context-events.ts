@@ -305,7 +305,12 @@ function buildHandlerProjectionReader(scope: HandlerContextScope): ProjectionRea
     const where =
       hasTenantColumn(projTable) && !allTenants ? { tenantId: user.tenantId } : undefined;
     const read = () => selectMany<Record<string, unknown>>(dbSource, projTable, where);
-    const rows = await (allTenants ? runInSystemRowLevelSecurityScope(read) : read());
+    const rows = await (allTenants
+      ? runInSystemRowLevelSecurityScope(
+          "handler projection read with allTenants spans every tenant",
+          read,
+        )
+      : read());
     return rows as readonly T[]; // @cast-boundary engine-payload
   };
   return createGatedProjectionReader(
