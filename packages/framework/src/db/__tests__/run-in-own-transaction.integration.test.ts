@@ -9,12 +9,8 @@ import { createBooleanField, createEntity, createTextField } from "../../engine/
 import { AccessDeniedError, InternalError } from "../../errors/index.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
-import {
-  assertPersonalDataWrite,
-  createTenantDb,
-  type PersonalDataGate,
-  runInOwnTransaction,
-} from "../tenant-db.ts";
+import { assertPersonalDataWrite, createTenantDb, type PersonalDataGate } from "../tenant-db.ts";
+import { runInOwnTransaction } from "../tenant-db-scoped-rebind.ts";
 
 const entity = createEntity({
   table: "run_in_own_tx_items",

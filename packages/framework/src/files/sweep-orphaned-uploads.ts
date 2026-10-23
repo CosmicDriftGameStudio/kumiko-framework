@@ -1,7 +1,8 @@
 import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import type { Logger } from "@cosmicdrift/kumiko-types/logger";
 import { selectMany } from "../db/query.ts";
-import { runInOwnTransaction, type TenantDb } from "../db/tenant-db.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
+import { runInOwnTransaction } from "../db/tenant-db-scoped-rebind.ts";
 import { deleteFileRefBytes } from "../derivatives/delete-stored-file.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import { fileUploadLedgerTable, takeUploadLedgerEntry } from "./upload-ledger.ts";

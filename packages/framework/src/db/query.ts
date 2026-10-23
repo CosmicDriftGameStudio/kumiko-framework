@@ -46,6 +46,7 @@ import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
 import { extractTableInfo, type TableInfo } from "./table-info.ts";
 import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
+import { openSerializedSavepoint } from "./transaction-serialization.ts";
 import { buildWhereClause } from "./where-clause.ts";
 
 // table() (dialect) stores the canonical, shadow-proof EntityTableMeta under
@@ -84,7 +85,15 @@ export type RawClientWithBegin = RawClient & {
 
 export function hasBegin(client: RawClient): client is RawClientWithBegin {
   // Tx/savepoint handles can keep a begin() that throws; only savepoint() tells them apart from a pool.
-  return typeof client.begin === "function" && typeof client.savepoint !== "function";
+  return typeof client.begin === "function" && !hasSavepoint(client);
+}
+
+type RawClientWithSavepoint = RawClient & {
+  savepoint: NonNullable<RawClient["savepoint"]>;
+};
+
+function hasSavepoint(client: RawClient): client is RawClientWithSavepoint {
+  return typeof client.savepoint === "function";
 }
 
 function isRawClient(value: unknown): value is RawClient {
@@ -141,12 +150,12 @@ export async function runInSavepoint<T, TRunner extends DbRunner>(
   fn: (sp: TRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(tx);
-  if (typeof raw.savepoint !== "function") {
+  if (!hasSavepoint(raw)) {
     throw new Error(
       "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (Bun.SQL TransactionSQL).",
     );
   }
-  return raw.savepoint((sp) => fn(savepointRunnerOf<TRunner>(sp)));
+  return openSerializedSavepoint(raw, (sp) => fn(savepointRunnerOf<TRunner>(sp)));
 }
 
 // Same error-confinement as runInSavepoint, but for call sites that don't
@@ -187,11 +196,11 @@ export async function runInSavepointIfSupported<T, TRunner extends DbRunner>(
   fn: (sp: TRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(db);
-  if (typeof raw.savepoint !== "function") return fn(savepointRunnerOf<TRunner>(db));
+  if (!hasSavepoint(raw)) return fn(savepointRunnerOf<TRunner>(db));
   // An error from inside fn must never be remapped, even if it carries a closed-connection code.
   let fnStarted = false;
   try {
-    return await raw.savepoint((sp) => {
+    return await openSerializedSavepoint(raw, (sp) => {
       fnStarted = true;
       return fn(savepointRunnerOf<TRunner>(sp));
     });

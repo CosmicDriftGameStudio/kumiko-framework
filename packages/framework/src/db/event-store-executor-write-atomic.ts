@@ -2,31 +2,30 @@ import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-e
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { runnerCanBeginTransaction } from "./query.ts";
-import { runInOwnTransaction } from "./tenant-db.ts";
 import { isBoundTenantDb, tenantDbRunner, tenantDbWritesDeniedReason } from "./tenant-db-runner.ts";
+import { runInOwnSavepoint, runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";
 
 type WriteVerbs = Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore">;
 
 // Aborts the surrounding transaction when a verb returns a failure instead of throwing.
 class RollbackOnFailure extends Error {}
 
-// Pool runners have no savepoint, so append, projection and hooks would otherwise commit as
-// separate autocommit statements. Tx and savepoint runners already provide atomicity.
+// Append, projection and hooks commit or roll back together, also when a handler swallows a failed
+// verb inside its transaction. Savepoints on one tx are serialized, so parallel verbs cannot interleave.
 async function runVerbAtomically<R extends WriteResult>(
   db: TenantDb,
   run: (txDb: TenantDb) => Promise<R>,
 ): Promise<R> {
   // Unbound and denied handles keep their original error, a fresh transaction would reword it.
-  if (
-    !isBoundTenantDb(db) ||
-    tenantDbWritesDeniedReason(db) !== undefined ||
-    !runnerCanBeginTransaction(tenantDbRunner(db))
-  ) {
+  if (!isBoundTenantDb(db) || tenantDbWritesDeniedReason(db) !== undefined) {
     return run(db);
   }
+  const runInOwnScope = runnerCanBeginTransaction(tenantDbRunner(db))
+    ? runInOwnTransaction
+    : runInOwnSavepoint;
   let failure: R | undefined;
   try {
-    return await runInOwnTransaction(db, async (txDb) => {
+    return await runInOwnScope(db, async (txDb) => {
       const result = await run(txDb);
       if (!result.isSuccess) {
         failure = result;

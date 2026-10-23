@@ -1,5 +1,6 @@
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
-import { runInOwnTransaction, type TenantDb } from "../db/tenant-db.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
+import { runInOwnTransaction } from "../db/tenant-db-scoped-rebind.ts";
 import {
   type AnyFileFieldDef,
   isFileField,

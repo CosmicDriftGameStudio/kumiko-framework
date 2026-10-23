@@ -109,7 +109,7 @@ export interface FieldFormatRegistry {
   /** FileRef id (or id array) as a download link with the file name. On a
    *  read-only detail field it renders a file list with download links and an
    *  inline preview for PDFs; elsewhere the raw value is shown.
-   *  `previewOpenByDefault` opens the first file's PDF preview initially. */
+   *  `previewOpenByDefault` opens the newest (last) file's PDF preview initially. */
   file: { readonly previewOpenByDefault?: boolean };
 }
 

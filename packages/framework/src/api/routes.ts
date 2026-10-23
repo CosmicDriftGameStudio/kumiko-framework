@@ -8,11 +8,11 @@ import {
   type KumikoError,
   reraiseAsKumikoError,
   serializeError,
-  toKumikoError,
   ValidationError,
 } from "../errors/index.ts";
 import { createFallbackLogger, scrubLogText, scrubLogValue } from "../logging/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import { wrapToKumiko } from "../pipeline/dispatcher-utils.ts";
 import { isPlainObject } from "../utils/is-plain-object.ts";
 import { stringifyJson } from "../utils/safe-json.ts";
 import { Routes } from "./api-constants.ts";
@@ -290,7 +290,8 @@ function jsonResponse(c: Context, body: unknown, status: ContentfulStatusCode = 
   return c.body(stringifyJson(body), status, { "Content-Type": "application/json" });
 }
 
-const toKumiko = toKumikoError;
+// Query filters with an impossible date fail in Postgres (22007/22008); same 400 as on writes.
+const toKumiko = wrapToKumiko;
 
 // Nesting cap for request payloads — an object-walk, not a string/byte
 // check, since an attacker fully controls whitespace/formatting and a

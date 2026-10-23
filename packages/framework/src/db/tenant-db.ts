@@ -28,7 +28,6 @@ import {
   insertOne as bunInsertOne,
   selectMany as bunSelectMany,
   updateMany as bunUpdateMany,
-  runInNewTransaction,
   type SelectOptions,
   type WhereObject,
 } from "../db/query.ts";
@@ -66,7 +65,9 @@ import {
   tenantDbWritesDeniedError,
   tenantDbWritesDeniedReason,
 } from "./tenant-db-runner.ts";
+import { registerScopedRebinder } from "./tenant-db-scoped-rebind.ts";
 import { upsertTableDenied, upsertTenantRow } from "./tenant-db-upsert.ts";
+import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 type Table = SchemaTable;
 
@@ -145,6 +146,7 @@ function boundRunner(
       return value.bind(target);
     },
   });
+  registerRunnerProxyTarget(proxy, runner);
   if (gate) runnerPersonalDataGates.set(proxy, gate);
   if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
   if (executorManagedWrites) {
@@ -545,10 +547,6 @@ export function reportConventionCrossTenantUse(
   reporter(target);
 }
 
-type OwnTransactionRunner = <T>(fn: (txDb: TenantDb) => Promise<T>) => Promise<T>;
-
-const ownTransactionRebinders = new WeakMap<TenantDb, OwnTransactionRunner>();
-
 export type OutsideTransactionContext = { readonly dbOutsideTransaction: TenantDb | undefined };
 
 export function hasOutsideTransactionDb(
@@ -565,22 +563,6 @@ export function requireOutsideTransactionDb(ctx: OutsideTransactionContext): Ten
     });
   }
   return ctx.dbOutsideTransaction;
-}
-
-export async function runInOwnTransaction<T>(
-  tenantDb: TenantDb,
-  fn: (txDb: TenantDb) => Promise<T>,
-): Promise<T> {
-  const rebind = ownTransactionRebinders.get(tenantDb);
-  if (!rebind) {
-    throw new InternalError({
-      message:
-        "runInOwnTransaction received a TenantDb without a transaction rebinder: either it was not " +
-        "built by createTenantDb, or it is the fail-closed ctx.db/ctx.dbOutsideTransaction of an " +
-        "r.systemScope() handler (use ctx.systemDb.outsideTransaction there).",
-    });
-  }
-  return rebind(fn);
 }
 
 export type CreateTenantDbOptions = {
@@ -1068,19 +1050,12 @@ function buildTenantDb(
     );
     return acknowledged;
   });
-  ownTransactionRebinders.set(tenantDb, async (fn) => {
-    if (grants?.memberReadOnly) {
-      throw new InternalError({
-        message:
-          "runInOwnTransaction: memberReadOnly TenantDb — a fresh transaction would escape " +
-          "the enforced read-only scope.",
-      });
-    }
-    // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since the fresh tx-handle isn't itself registered in runnerPersonalDataGates.
-    const txGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
-    return runInNewTransaction(db, (tx) =>
-      fn(createTenantDb({ db: tx, tenantId, mode, tracer, meter, signal, grants: txGrants })),
-    );
+  // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since a fresh tx-handle isn't itself registered in runnerPersonalDataGates.
+  const scopedGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
+  registerScopedRebinder(tenantDb, {
+    memberReadOnly: grants?.memberReadOnly === true,
+    rebind: (runner) =>
+      createTenantDb({ db: runner, tenantId, mode, tracer, meter, signal, grants: scopedGrants }),
   });
   bindTenantDbRunner(tenantDb, db);
   if (grants?.writesDeniedReason !== undefined) {

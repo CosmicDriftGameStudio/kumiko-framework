@@ -235,7 +235,7 @@ export {
   createTenantDb,
   hasOutsideTransactionDb,
   requireOutsideTransactionDb,
-  runInOwnTransaction,
   SYSTEM_SCOPE_CHECK_BRAND,
   scopeTenantDbToTenant,
 } from "./tenant-db.ts";
+export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

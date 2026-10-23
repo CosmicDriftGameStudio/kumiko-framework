@@ -5,7 +5,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { testTenantId } from "../../../seeding/seed-users.ts";
 import { asRawClient, countWhere, deleteMany, insertMany, transaction } from "../../query.ts";
-import { createTenantDb, runInOwnTransaction } from "../../tenant-db.ts";
+import { createTenantDb } from "../../tenant-db.ts";
+import { runInOwnTransaction } from "../../tenant-db-scoped-rebind.ts";
 import { makeTableMeta, renderCreateTable, uniqueTableName } from "./_helpers.ts";
 
 let testDb: TestDb;

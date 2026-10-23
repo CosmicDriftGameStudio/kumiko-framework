@@ -67,7 +67,7 @@ export function FileValueList({
         <FileValueRow
           key={fileId}
           fileId={fileId}
-          previewOpenInitially={previewOpenByDefault && index === 0}
+          previewOpenInitially={previewOpenByDefault && index === fileIds.length - 1}
           {...(testId !== undefined && { testId: `${testId}-${fileId}` })}
         />
       ))}
