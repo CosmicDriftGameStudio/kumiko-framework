@@ -10,7 +10,6 @@ import {
   type RowLevelSecurityFlags,
   type RowLevelSecurityPolicy,
   renderCreatePolicy,
-  renderRowLevelSecurityFlags,
   type TableRowLevelSecurity,
 } from "../render-rls-ddl.ts";
 import { quoteTableIdent } from "./table-ops.ts";
@@ -117,9 +116,10 @@ export async function restoreRowLevelSecurityState(
   for (const policy of expected.policies) {
     await raw.unsafe(renderCreatePolicy(tableSql, policy));
   }
-  for (const statement of renderRowLevelSecurityFlags(tableSql, expected)) {
-    await raw.unsafe(statement);
-  }
+  // One ALTER TABLE for both flags: each ALTER TABLE is a separate DDL command (and event-trigger firing) on the swap's critical path.
+  await raw.unsafe(
+    `ALTER TABLE ${tableSql} ${expected.enabled ? "ENABLE" : "DISABLE"} ROW LEVEL SECURITY, ${expected.forced ? "FORCE" : "NO FORCE"} ROW LEVEL SECURITY`,
+  );
   const difference = describeRowLevelSecurityDifference(
     expected,
     await readRowLevelSecurityState(tx, "public", tableName),

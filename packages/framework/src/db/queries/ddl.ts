@@ -2,8 +2,9 @@ import type { DbConnection } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient, transaction } from "../query.ts";
-import { renderTableRowLevelSecurityDdl } from "../render-rls-ddl.ts";
+import { renderTableRowLevelSecurityDdl, tenantRowLevelSecurityFor } from "../render-rls-ddl.ts";
 import { quoteIdent } from "../sql-identifier.ts";
+import { type RowLevelSecurityShape, readRowLevelSecurityShape } from "./rls-shape.ts";
 import { quoteTableIdent } from "./table-ops.ts";
 
 // Generic DDL helpers used on the prod-boot path (db/table-push.ts's
@@ -48,6 +49,24 @@ export async function createIndexIfNotExists(
   );
 }
 
+// Policy texts are not compared: a hand-edited kumiko policy is the operator's to keep, and the
+// catalog check of the boot path reports it. Foreign policies are ignored.
+function hasKumikoRowLevelSecurity(
+  state: RowLevelSecurityShape | undefined,
+  meta: EntityTableMeta,
+): boolean {
+  const spec = tenantRowLevelSecurityFor(meta);
+  if (state === undefined || spec === undefined || !state.enabled || !state.forced) return false;
+  return spec.policies.every((expected) =>
+    state.policies.some(
+      (actual) =>
+        actual.name === expected.name &&
+        actual.kind === expected.kind &&
+        actual.command === expected.command,
+    ),
+  );
+}
+
 export async function applyTableRowLevelSecurity(
   db: DbConnection,
   meta: EntityTableMeta,
@@ -55,9 +74,17 @@ export async function applyTableRowLevelSecurity(
   const statements = renderTableRowLevelSecurityDdl(meta);
   // skip: no tenant_id column, nothing to enforce
   if (statements.length === 0) return;
+  // skip: already applied, so a repeated push takes no lock and runs no DDL
+  if (hasKumikoRowLevelSecurity(await readRowLevelSecurityShape(db, meta.tableName), meta)) {
+    return;
+  }
   await transaction(db, async (tx) => {
     // Self-conflicting lock: parallel pushes queue up instead of failing CREATE POLICY with duplicate_object.
     await tx.unsafe(`LOCK TABLE ${quoteIdent(meta.tableName)} IN SHARE ROW EXCLUSIVE MODE`);
+    // skip: a parallel push applied it while this one waited for the lock
+    if (hasKumikoRowLevelSecurity(await readRowLevelSecurityShape(tx, meta.tableName), meta)) {
+      return;
+    }
     for (const statement of statements) await tx.unsafe(statement);
   });
 }

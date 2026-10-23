@@ -135,12 +135,12 @@ async function rawCatalog() {
 }
 
 describe("rebuildProjection keeps row level security", () => {
-  test("carries ENABLE, FORCE, kumiko and hand-written policies over and still enforces them", async () => {
+  test("carries ENABLE, FORCE, kumiko and foreign permissive policies over and still enforces them", async () => {
     await rebuild();
     await applyTableRowLevelSecurity(testDb.db, tableToMeta(perGroupTable));
     const raw = asRawClient(testDb.db);
     await raw.unsafe(
-      `CREATE POLICY handwritten_restrictive ON "${LIVE_TABLE}" AS RESTRICTIVE FOR UPDATE TO PUBLIC USING (true)`,
+      `CREATE POLICY handwritten_permissive ON "${LIVE_TABLE}" AS PERMISSIVE FOR UPDATE TO PUBLIC USING (false)`,
     );
     await raw.unsafe(
       `CREATE POLICY mixed_role_insert ON "${LIVE_TABLE}" AS PERMISSIVE FOR INSERT TO ${MIXED_ROLE} WITH CHECK (true)`,
@@ -159,7 +159,7 @@ describe("rebuildProjection keeps row level security", () => {
     const catalog = await rawCatalog();
     expect(catalog.flags).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
     expect(catalog.policyNames).toEqual([
-      "handwritten_restrictive",
+      "handwritten_permissive",
       "kumiko_system_tenant_read",
       "kumiko_tenant_isolation",
       "mixed_role_insert",
@@ -180,6 +180,24 @@ describe("rebuildProjection keeps row level security", () => {
     );
     expect(visible.sort()).toEqual([admin.tenantId, SYSTEM_TENANT_ID].sort());
     expect(await asProbe(testDb.db, {}, (probe) => visibleTenants(probe, LIVE_TABLE))).toEqual([]);
+  });
+
+  test("refuses a table with a RESTRICTIVE policy and leaves rows, flags and policies untouched", async () => {
+    await applyTableRowLevelSecurity(testDb.db, tableToMeta(perGroupTable));
+    const raw = asRawClient(testDb.db);
+    await rebuild();
+    await raw.unsafe(
+      `CREATE POLICY hidden_rows ON "${LIVE_TABLE}" AS RESTRICTIVE FOR SELECT TO PUBLIC USING (false)`,
+    );
+    const stateBefore = await rlsStateOf();
+    const rowsBefore = await raw.unsafe(`SELECT * FROM "${LIVE_TABLE}" ORDER BY group_id`);
+
+    await expect(rebuild()).rejects.toThrow(
+      new RegExp(`public\\.${LIVE_TABLE}.*hidden_rows \\(RESTRICTIVE SELECT\\)`),
+    );
+
+    expect(await rlsStateOf()).toEqual(stateBefore);
+    expect(await raw.unsafe(`SELECT * FROM "${LIVE_TABLE}" ORDER BY group_id`)).toEqual(rowsBefore);
   });
 
   test("keeps a policy that exists without ENABLE", async () => {

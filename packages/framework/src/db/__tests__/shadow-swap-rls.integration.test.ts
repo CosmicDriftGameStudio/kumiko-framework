@@ -6,24 +6,17 @@ import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbTx } from "../connection.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
+import { assertRebuildableRowLevelSecurity } from "../queries/rebuild-rls-guard.ts";
 import { readRowLevelSecurityState } from "../queries/rls-catalog.ts";
 import {
   buildShadowTable,
-  countColumnDrift,
   ensureRebuildSchema,
   PROJECTION_REBUILD_SCHEMA,
-  refuseRowLevelSecurityFilteredReads,
   swapShadowIntoLive,
 } from "../queries/shadow-swap.ts";
 import { asRawClient } from "../query.ts";
 import { unsafePushTables } from "../table-push.ts";
-import {
-  asProbe,
-  createProbeRole,
-  INSUFFICIENT_PRIVILEGE,
-  PROBE_ROLE,
-  pgCodeOf,
-} from "./rls-probe.ts";
+import { createProbeRole } from "./rls-probe.ts";
 
 function tenantTable(tableName: string) {
   return defineUnmanagedTable({
@@ -141,59 +134,40 @@ describe("swapShadowIntoLive", () => {
   });
 });
 
-describe("refuseRowLevelSecurityFilteredReads", () => {
-  test("a policy-filtered guard read fails instead of seeing no rows", async () => {
-    const meta = tenantTable("store_swap_filtered");
-    await unsafePushTables(testDb.db, { live: meta }, undefined, { rowLevelSecurity: "on" });
-    const raw = asRawClient(testDb.db);
-    const rowId = "00000000-0000-4000-8000-0000000000d1";
-    await raw.unsafe(
-      `INSERT INTO "store_swap_filtered" (id, tenant_id, label) VALUES ($1::uuid, $2::uuid, 'live')`,
-      [rowId, tenantB],
+describe("assertRebuildableRowLevelSecurity", () => {
+  async function pushed(name: string, mode: "on" | "off") {
+    await unsafePushTables(testDb.db, { live: tenantTable(name) }, undefined, {
+      rowLevelSecurity: mode,
+    });
+  }
+  const check = (name: string) =>
+    testDb.db.begin((tx: DbTx) => assertRebuildableRowLevelSecurity(tx, name));
+
+  test("passes for the framework policies, foreign permissive policies and a table without RLS", async () => {
+    await pushed("store_guard_ok", "on");
+    await asRawClient(testDb.db).unsafe(
+      `CREATE POLICY foreign_permissive ON "store_guard_ok" AS PERMISSIVE FOR UPDATE TO PUBLIC USING (false)`,
     );
-    await testDb.db.begin((tx: DbTx) => buildShadowTable(tx, meta));
-    try {
-      const shadowTable = `${PROJECTION_REBUILD_SCHEMA}."store_swap_filtered"`;
-      await raw.unsafe(
-        `INSERT INTO ${shadowTable} (id, tenant_id, label) VALUES ($1::uuid, $2::uuid, 'shadow')`,
-        [rowId, tenantB],
-      );
-      await raw.unsafe(`GRANT USAGE ON SCHEMA ${PROJECTION_REBUILD_SCHEMA} TO ${PROBE_ROLE}`);
-      await raw.unsafe(`GRANT SELECT ON ${shadowTable} TO ${PROBE_ROLE}`);
-      await raw.unsafe(`GRANT SELECT ON "store_swap_filtered" TO ${PROBE_ROLE}`);
-
-      const superuserView = await countColumnDrift(testDb.db, "store_swap_filtered", meta);
-      expect(superuserView.rowCount).toBe(1);
-
-      const filteredView = await asProbe(testDb.db, {}, (_raw, tx) =>
-        countColumnDrift(tx, "store_swap_filtered", meta),
-      );
-      expect(filteredView.rowCount).toBe(0);
-
-      const refusedCode = await asProbe(testDb.db, {}, async (_raw, tx) => {
-        await refuseRowLevelSecurityFilteredReads(tx);
-        return pgCodeOf(countColumnDrift(tx, "store_swap_filtered", meta));
-      });
-      expect(refusedCode).toBe(INSUFFICIENT_PRIVILEGE);
-    } finally {
-      await raw.unsafe(`DROP TABLE IF EXISTS ${PROJECTION_REBUILD_SCHEMA}."store_swap_filtered"`);
-    }
+    await pushed("store_guard_off", "off");
+    await expect(check("store_guard_ok")).resolves.toBeUndefined();
+    await expect(check("store_guard_off")).resolves.toBeUndefined();
   });
 
-  test("a superuser connection is unaffected", async () => {
-    const meta = tenantTable("store_swap_superuser");
-    await unsafePushTables(testDb.db, { live: meta }, undefined, { rowLevelSecurity: "on" });
+  test("rejects a RESTRICTIVE policy and names the table and the policy", async () => {
+    await pushed("store_guard_restrictive", "on");
     await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "store_swap_superuser" (tenant_id, label) VALUES ($1::uuid, 'live')`,
-      [tenantB],
+      `CREATE POLICY hand_restrictive ON "store_guard_restrictive" AS RESTRICTIVE FOR SELECT TO PUBLIC USING (true)`,
     );
-    await testDb.db.begin(async (tx: DbTx) => {
-      await refuseRowLevelSecurityFilteredReads(tx);
-      const rows = await asRawClient(tx).unsafe<{ n: number }>(
-        `SELECT count(*)::int AS n FROM "store_swap_superuser" WHERE tenant_id = $1::uuid`,
-        [tenantB],
-      );
-      expect(rows[0]?.n).toBe(1);
-    });
+    await expect(check("store_guard_restrictive")).rejects.toThrow(
+      /public\.store_guard_restrictive.*hand_restrictive \(RESTRICTIVE SELECT\)/,
+    );
+  });
+
+  test("rejects an enabled table whose tenant isolation policy is missing", async () => {
+    await pushed("store_guard_missing", "on");
+    await asRawClient(testDb.db).unsafe(
+      `DROP POLICY kumiko_tenant_isolation ON "store_guard_missing"`,
+    );
+    await expect(check("store_guard_missing")).rejects.toThrow(/public\.store_guard_missing/);
   });
 });

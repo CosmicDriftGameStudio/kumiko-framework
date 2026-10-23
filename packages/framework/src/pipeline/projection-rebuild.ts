@@ -7,6 +7,7 @@ import {
   markProjectionRebuilding,
   selectEventsForProjectionRebuildBatch,
 } from "../db/queries/projection-rebuild.ts";
+import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
   assertLiveColumnsMatchMeta,
   assertNoBlindIndexLoss,
@@ -17,10 +18,10 @@ import {
   ensureRebuildSchema,
   fenceLiveTable,
   rebuildMetaOrThrow,
-  refuseRowLevelSecurityFilteredReads,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { coerceRow, runInSavepoint, selectMany } from "../db/query.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
@@ -220,7 +221,9 @@ export function rebuildProjection(
   deps: RebuildDeps,
 ): Promise<RebuildResult> {
   return withoutStatementTimeout(deps.db, (db) =>
-    replayProjectionIntoShadow(projectionName, { ...deps, db }),
+    runInSystemRowLevelSecurityScope(() =>
+      replayProjectionIntoShadow(projectionName, { ...deps, db }),
+    ),
   );
 }
 
@@ -309,7 +312,7 @@ async function replayProjectionIntoShadow(
     // inside the tx would roll the whole replay back.
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     await db.begin(async (tx: DbTx) => {
-      await refuseRowLevelSecurityFilteredReads(tx);
+      await assertRebuildableRowLevelSecurity(tx, meta.tableName);
       await markProjectionRebuilding(tx, projectionName);
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
       await buildShadowTable(tx, meta);
