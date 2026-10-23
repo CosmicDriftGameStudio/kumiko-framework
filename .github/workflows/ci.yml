@@ -534,14 +534,20 @@ jobs:
         if: always()
         uses: ./.github/actions/kumiko-services/stop
 
-  # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
-  # umbenennen. Fährt die Playwright-e2e-Suiten aus der Liste unten
-  # sequenziell gegen pg/redis/meili.
-  e2e:
+  # Runs the Playwright e2e suites in two shards on separate runners; the required check is the
+  # `e2e` job below. Two lanes inside one 4-vCPU job were measured first (PR #4003): every suite
+  # stretched 1.6 to 2.1x from CPU contention and the step only fell from 458 s to 426 s, while
+  # setup per runner is about 45 s.
+  e2e-shard:
+    name: e2e (${{ matrix.shard }})
     runs-on: ubuntu-latest
     needs: version-pr-gate
     if: ${{ !cancelled() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [a, b]
     permissions:
       contents: read
       packages: read
@@ -579,25 +585,25 @@ jobs:
           meilisearch-port: "17700"
 
       - name: Run e2e suites
-        # Two lanes in parallel, each sequential: setup is only ~45 s and the suites took 458 s
-        # back to back. Every suite has its own ports (samples/e2e/e2e-ports.ts) and the service
-        # Postgres runs with max_connections=300. Lanes are balanced by measured CI seconds.
-        # All suites run through; a red suite or a crashed lane turns the job red at the end.
+        # Shards are balanced by measured sequential CI seconds (about 230 s each); every suite
+        # appears in exactly one shard. All suites of a shard run through, a red one turns the
+        # shard red at the end.
         env:
+          SHARD: ${{ matrix.shard }}
           CI: "true"
           NODE_ENV: test
           JWT_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           KUMIKO_SECRETS_MASTER_KEY_V1: "j1NOc6cu/65hhvGQU8uVXIy2lWg/SautKnWJ7anWbc4="
         run: |
           set +e
-          lane_a=(
+          shard_a=(
             samples/apps/ui-walkthrough/playwright.config.ts
             samples/apps/use-all-bundled/playwright.config.ts
             e2e/hero-demos/playwright.config.ts
             samples/recipes/apex-landing/playwright.config.ts
             samples/apps/config-demo/playwright.config.ts
           )
-          lane_b=(
+          shard_b=(
             packages/renderer/playwright.config.ts
             samples/apps/styleguide/playwright.config.ts
             samples/apps/showcase/playwright.config.ts
@@ -609,53 +615,33 @@ jobs:
             samples/apps/admin-console/playwright.config.ts
             samples/apps/marketing-demo/playwright.config.ts
           )
+          case "$SHARD" in
+            a) configs=("${shard_a[@]}") ;;
+            b) configs=("${shard_b[@]}") ;;
+            *) echo "unknown shard: $SHARD"; exit 1 ;;
+          esac
 
-          run_lane() {
-            local failed_file="$1"
-            shift
-            : > "$failed_file"
-            local cfg code started
-            for cfg in "$@"; do
-              started=$SECONDS
-              # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
-              # it points outside the repo so the committed docs images stay untouched.
-              local screenshot_env=()
-              if [[ "$cfg" == samples/apps/* ]]; then
-                screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
-              fi
-              env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
-              code=$?
-              # Per-suite seconds are the only way to see lane balance and CPU contention later.
-              echo "=== e2e [$(basename "$failed_file" .txt)] $cfg: $((SECONDS - started))s, exit $code ==="
-              if [ $code -ne 0 ]; then echo "$cfg" >> "$failed_file"; fi
-            done
-          }
-
-          failed_a="$RUNNER_TEMP/e2e-failed-a.txt"
-          failed_b="$RUNNER_TEMP/e2e-failed-b.txt"
-          run_lane "$failed_a" "${lane_a[@]}" &
-          pid_a=$!
-          run_lane "$failed_b" "${lane_b[@]}" &
-          pid_b=$!
-          wait "$pid_a"
-          status_a=$?
-          wait "$pid_b"
-          status_b=$?
-
-          total=$(( ${#lane_a[@]} + ${#lane_b[@]} ))
           failed=()
-          while IFS= read -r cfg; do
-            if [ -n "$cfg" ]; then failed+=("$cfg"); fi
-          done < <(cat "$failed_a" "$failed_b" 2>/dev/null)
+          for cfg in "${configs[@]}"; do
+            started=$SECONDS
+            # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
+            # it points outside the repo so the committed docs images stay untouched.
+            screenshot_env=()
+            if [[ "$cfg" == samples/apps/* ]]; then
+              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
+            fi
+            env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
+            code=$?
+            # Per-suite seconds are what the shard balance is based on.
+            echo "=== e2e [$SHARD] $cfg: $((SECONDS - started))s, exit $code ==="
+            if [ $code -ne 0 ]; then failed+=("$cfg"); fi
+          done
           echo ""
-          echo "=== e2e summary ==="
-          if [ $status_a -ne 0 ] || [ $status_b -ne 0 ]; then
-            echo "a lane crashed (exit lane a: $status_a, lane b: $status_b)"
-          fi
-          if [ ${#failed[@]} -eq 0 ] && [ $status_a -eq 0 ] && [ $status_b -eq 0 ]; then
-            echo "all $total suites passed"
+          echo "=== e2e summary (shard $SHARD) ==="
+          if [ ${#failed[@]} -eq 0 ]; then
+            echo "all ${#configs[@]} suites passed"
           else
-            echo "${#failed[@]}/$total suites failed:"
+            echo "${#failed[@]}/${#configs[@]} suites failed:"
             printf '  %s\n' "${failed[@]}"
             exit 1
           fi
@@ -666,7 +652,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: e2e-screenshots
+          name: e2e-screenshots-${{ matrix.shard }}
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
           retention-days: 7
@@ -677,7 +663,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: e2e-failure-context
+          name: e2e-failure-context-${{ matrix.shard }}
           path: |
             **/test-results/**/error-context.md
             **/test-results/**/test-failed-*.png
@@ -687,6 +673,23 @@ jobs:
       - name: Stop services
         if: always()
         uses: ./.github/actions/kumiko-services/stop
+
+  # Required check of the branch protection: rename only together with it.
+  # A skipped required check counts as passed, so this job runs whenever the
+  # shards were due and passes only if both shards succeeded.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [version-pr-gate, e2e-shard]
+    if: ${{ always() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require both e2e shards
+        env:
+          SHARD_RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          echo "e2e shards: $SHARD_RESULT"
+          test "$SHARD_RESULT" = "success"
 
   coverage-badge:
     # Merged unit+integration+dom lcov → .github/badges/coverage.json auf einem
