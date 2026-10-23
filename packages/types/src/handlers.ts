@@ -995,6 +995,8 @@ export type JobContext = SharedContextFields & {
   // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
   // (`ctx.systemDb`).
   readonly db: TenantDb;
+  // Own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
+  readonly appendEvent: AppendEventFn;
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;

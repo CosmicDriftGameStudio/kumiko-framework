@@ -14,7 +14,6 @@ import type { TenantId } from "../engine/types/identifiers.ts";
 import type {
   AgentRisk,
   AppContext,
-  AppendEventFn,
   AuthClaimsContext,
   HandlerContext,
   JobRunnerRef,
@@ -87,6 +86,7 @@ import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
 import { createGatedIdentitySwitch, isSystemIdentity } from "./system-identity-switch.ts";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache.ts";
 import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.ts";
+import { asTypedAppendEventFn } from "./typed-append-event.ts";
 import { rootWriteOrigin, type WriteOrigin } from "./write-origin.ts";
 
 export type { WriteOrigin } from "./write-origin.ts";
@@ -259,7 +259,7 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
     writeAs: denyMemberResolutionWrite,
     // A resolved member cannot switch identity either — the target would get a normal, writable context.
     queryAs: denyMemberResolutionWrite,
-    appendEvent: denyMemberResolutionWrite as AppendEventFn, // @cast-boundary engine-bridge
+    appendEvent: asTypedAppendEventFn(denyMemberResolutionWrite),
     unsafeAppendEvent: denyMemberResolutionWrite,
     tryAppendEvent: denyMemberResolutionWrite,
     fetchForWriting: denyMemberResolutionWrite,

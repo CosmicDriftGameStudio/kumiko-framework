@@ -22,6 +22,7 @@ import { createEscapeHatchReporter, createMetricsForFactory } from "../observabi
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate, parseWriteOrigin } from "../pipeline/write-origin.ts";
+import { createJobAppendEvent } from "./job-append-event.ts";
 import {
   attemptNumberOf,
   createJobLogger,
@@ -367,6 +368,13 @@ function buildJobContext(
     defer: createJobDefer(jobName, bullJob, token),
     ...scope.context,
     db: jobDb ?? missingDbProxy(jobName),
+    appendEvent: createJobAppendEvent({
+      registry: scope.registry,
+      jobDb,
+      tenantId,
+      systemUser,
+      jobName,
+    }),
     files,
     derivatives,
     ...(notify !== undefined && { notify }),
