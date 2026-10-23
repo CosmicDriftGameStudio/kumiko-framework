@@ -11,9 +11,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
-import { asRawClient, extractPgError, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -57,29 +58,21 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [exportJobsTable]);
+  await resetTestTables(stack.db, [exportJobsTable, eventsTable]);
 });
 
 const NOW = () => getTemporal().Now.instant();
 
-// Bun.SQL throws a PostgresError with the SQLSTATE in errno and the constraint in
-// constraint; extractPgError maps both to code and constraint_name. Pin the constraint name so the test
-// checks only our idempotency constraint, not an unrelated unique violation
-// such as a UUID collision on the id primary key.
+// The executor maps the projection's 23505 to unique_violation with the constraint name in
+// the details. Pin the constraint name so the test checks only our idempotency constraint,
+// not an unrelated unique violation such as a UUID collision on the id primary key.
 async function expectUniqueViolation(
   promise: Promise<unknown>,
   expectedConstraint: string,
 ): Promise<void> {
-  let caught: unknown;
-  try {
-    await promise;
-  } catch (e) {
-    caught = e;
-  }
-  expect(caught).toBeDefined();
-  const pg = extractPgError(caught);
-  expect(pg?.code).toBe("23505");
-  expect(pg?.constraint_name).toBe(expectedConstraint);
+  await expect(promise).rejects.toThrow(
+    new RegExp(`failed: unique_violation .*"constraintName":"${expectedConstraint}"`),
+  );
 }
 
 // Re-exported from the schema as the single source of truth, so renaming the
@@ -103,7 +96,7 @@ async function insertJob(
   if (overrides.bytesWritten !== undefined) {
     values["bytesWritten"] = overrides.bytesWritten;
   }
-  await seedRow(stack.db, exportJobsTable, values);
+  await seedRowViaEventStore(stack.db, exportJobsTable, values);
   return id;
 }
 

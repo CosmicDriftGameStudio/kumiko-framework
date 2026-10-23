@@ -12,7 +12,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -87,9 +87,8 @@ async function seedAlice(
     gracePeriodEnd: Instant | null;
   }> = {},
 ): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: aliceUser.id,
-    tenantId: tenantA,
     email: "alice@example.com",
     passwordHash: "hashed",
     displayName: "Alice",
@@ -358,9 +357,8 @@ describe("Cross-User-Isolation", () => {
       tenantId: tenantA,
       roles: ["Member"],
     });
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: testUserId(43),
-      tenantId: tenantA,
       email: "bob@example.com",
       passwordHash: "hashed",
       displayName: "Bob",

@@ -11,7 +11,7 @@ import {
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { expectSuccess, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectSuccess, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -133,7 +133,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafeCreateEntityTable(stack.db, notificationPreferenceEntity);
   await seedNotificationTemplates(stack.db, stack.registry);
-  await seedRow(stack.db, templateResourcesTable, {
+  await seedRowViaEventStore(stack.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,
     kind: TEXT_BLOCK_KIND,

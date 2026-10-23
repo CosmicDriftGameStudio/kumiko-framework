@@ -31,7 +31,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -293,7 +293,7 @@ describe("download-attempt ip readers with active KMS", () => {
 
   test("the user export carries the job-path attempt with its plaintext ip", async () => {
     await recordOneAttemptPerPath();
-    await seedRow(stack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
       tenantId: tenantA,
       userId: aliceUser.id,
       roles: "[]",

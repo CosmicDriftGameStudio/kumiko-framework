@@ -22,7 +22,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createTestEnvelopeCipher,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -573,7 +573,7 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       roles: ["Member"],
     });
     // Persist Tenant B membership so the auth stack accepts this user.
-    await seedRow(stack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
       tenantId: tenantB,
       userId: String(aliceUser.id),
       roles: "[]",
@@ -606,7 +606,7 @@ describe("download-by-job :: cross-user + cross-tenant", () => {
       tenantId: tenantB,
       roles: ["Member"],
     });
-    await seedRow(stack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
       tenantId: tenantB,
       userId: String(aliceUser.id),
       roles: "[]",

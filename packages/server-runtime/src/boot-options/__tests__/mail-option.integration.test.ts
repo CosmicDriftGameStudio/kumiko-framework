@@ -15,7 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -74,9 +74,8 @@ afterAll(async () => {
 });
 
 async function seedUser(id: string, roles: string): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id,
-    tenantId: SYSTEM_TENANT_ID,
     email: `${id}@example.com`,
     passwordHash: "hashed",
     displayName: id,
@@ -93,13 +92,13 @@ beforeEach(async () => {
   await seedUser(OUTSIDER_ID, '["Member"]');
   await seedUser(SYSADMIN_ID, '["SystemAdmin"]');
   await seedUser(SYSTEM_USER_ID, '["Member"]');
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT_A,
     userId: MEMBER_ID,
     roles: '["Member"]',
   });
   // A membership in another tenant must not open tenant A to the user.
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT_B,
     userId: OUTSIDER_ID,
     roles: '["Member"]',

@@ -15,11 +15,10 @@ import {
   createTextField,
   defineFeature,
   EXT_USER_DATA,
-  SYSTEM_TENANT_ID,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRow, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -36,7 +35,6 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsFeature } from "../feature.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
 
-const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const TENANT_A = "00000000-0000-4000-8000-0000000000f1";
 const ALICE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-0000000000f1";
 const NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-0000000000f1";
@@ -109,9 +107,8 @@ afterAll(async () => {
 test("fw#1611: search purge finds + removes a row's doc even when a delete-hook hard-deletes that row in the same run", async () => {
   const now = getTemporal().Now.instant();
 
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: ALICE_ID,
-    tenantId: TENANT_SYSTEM,
     email: "alice-purge-order@acme.test",
     passwordHash: "hashed",
     displayName: "Alice",
@@ -122,7 +119,7 @@ test("fw#1611: search purge finds + removes a row's doc even when a delete-hook 
     gracePeriodEnd: now.subtract({ hours: 1 }).toString(),
   });
 
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT_A,
     userId: ALICE_ID,
     roles: '["Member"]',

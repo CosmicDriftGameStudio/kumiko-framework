@@ -18,7 +18,7 @@ import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -178,7 +178,7 @@ beforeEach(async () => {
   );
   await resetTestTables(stack.db, [userTable, templateResourcesTable]);
   await seedNotificationTemplates(stack.db, stack.registry);
-  await seedRow(stack.db, templateResourcesTable, {
+  await seedRowViaEventStore(stack.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,
     kind: TEXT_BLOCK_KIND,

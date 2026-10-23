@@ -12,7 +12,7 @@ import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seed
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -213,7 +213,7 @@ beforeEach(async () => {
 });
 
 async function seedTerms(locale: string, content: string): Promise<void> {
-  await seedRow(stack.db, templateResourcesTable, {
+  await seedRowViaEventStore(stack.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,
     kind: TEXT_BLOCK_KIND,

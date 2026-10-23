@@ -26,7 +26,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -917,7 +917,7 @@ describe("invite-accept defense-in-depth (assertAssignableMembershipRoles)", () 
     // (which already validates at request time — see "privilege escalation"
     // below). A DB migration or direct write is the only realistic vector.
     const fakeInvitationId = crypto.randomUUID();
-    await seedRow(stack.db, tenantInvitationsTable, {
+    await seedRowViaEventStore(stack.db, tenantInvitationsTable, {
       id: fakeInvitationId,
       tenantId: TENANT_A_ID,
       email: BOB_EMAIL,

@@ -11,7 +11,7 @@ import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-fra
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -114,7 +114,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(db, tenantMembershipEntity);
   await unsafeCreateEntityTable(db, templateResourceEntity);
   await unsafeCreateEntityTable(db, notificationPreferenceEntity);
-  await seedRow(db, templateResourcesTable, {
+  await seedRowViaEventStore(db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: "billing-terms",
     kind: TEXT_BLOCK_KIND,

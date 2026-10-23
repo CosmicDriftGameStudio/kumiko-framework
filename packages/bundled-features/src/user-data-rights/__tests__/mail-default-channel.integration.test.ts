@@ -6,12 +6,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -129,9 +129,8 @@ beforeEach(async () => {
 
 describe("deletion-executed default mail through the email channel", () => {
   test("a tenant without its own mail provider gets the mail over the app transport, with no attempt row", async () => {
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: USER_ID,
-      tenantId: SYSTEM_TENANT_ID,
       email: ORIGINAL_EMAIL,
       passwordHash: "hashed",
       displayName: "Channel Delete",
@@ -141,7 +140,7 @@ describe("deletion-executed default mail through the email channel", () => {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: past(),
     });
-    await seedRow(stack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
       tenantId: TENANT_WITHOUT_PROVIDER,
       userId: USER_ID,
       roles: '["Member"]',

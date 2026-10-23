@@ -7,7 +7,7 @@ import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -121,7 +121,7 @@ async function seedUser(email: string, password: string): Promise<string> {
 }
 
 async function addMembership(userId: string, tenantId: TenantId, roles: string[]): Promise<void> {
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     userId,
     tenantId,
     roles: JSON.stringify(roles),

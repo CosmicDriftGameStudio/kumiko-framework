@@ -22,14 +22,13 @@ import {
   createImageField,
   createTextField,
   defineFeature,
-  SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
   deriveKey,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -155,9 +154,8 @@ async function seedUser(id: string, overrides: Record<string, unknown> = {}): Pr
   // Drizzle inserts use the schema, including the framework-managed tenantId column.
   // Although the user entity is tenant-agnostic in the domain, the database schema
   // adds tenant_id automatically; tests therefore use SYSTEM_TENANT_ID for user rows.
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id,
-    tenantId: SYSTEM_TENANT_ID,
     email: `user-${id}@example.com`,
     passwordHash: "hashed-password",
     displayName: `User ${id}`,

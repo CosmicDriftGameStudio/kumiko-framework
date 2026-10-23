@@ -24,11 +24,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  type JobContext,
-  SYSTEM_TENANT_ID,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -36,7 +32,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -78,7 +74,6 @@ let stack: TestStack;
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
-const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 
 // Deterministic UUIDs for tests — uses the same helper as
 // user-data-rights-defaults.
@@ -147,9 +142,8 @@ async function seedUser(
     displayName?: string;
   } = {},
 ): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id,
-    tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,
     passwordHash: "hashed",
     displayName: overrides.displayName ?? `User ${id}`,
@@ -162,7 +156,7 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: tenantId,
     userId: userId,
     roles: '["Member"]',
@@ -716,9 +710,8 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     // anonymized the user while leaving the status unchanged, or because of an
     // external migration. Skipping the callback prevents invalid arguments from
     // causing it to fail.
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: ALICE_ID,
-      tenantId: TENANT_SYSTEM,
       email: "",
       passwordHash: "hashed",
       displayName: "Alice",

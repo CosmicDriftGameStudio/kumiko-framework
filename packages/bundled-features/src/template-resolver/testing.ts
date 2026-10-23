@@ -3,7 +3,7 @@
 // No bun:test here — callers register cases with their own test runner.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import type { ResolveRequest, TemplateResource } from "./api.ts";
 import { TemplateNotFoundError } from "./api.ts";
 import { templateResourcesTable } from "./table.ts";
@@ -50,7 +50,7 @@ type SeedTemplateArgs = {
 };
 
 async function seedTemplate(db: DbConnection, args: SeedTemplateArgs): Promise<void> {
-  await seedRow(db, templateResourcesTable, {
+  await seedRowViaEventStore(db, templateResourcesTable, {
     tenantId: args.tenantId,
     slug: args.slug,
     kind: args.kind,

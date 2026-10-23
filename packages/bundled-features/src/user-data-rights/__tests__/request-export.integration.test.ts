@@ -22,7 +22,7 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -237,7 +237,7 @@ describe("export-status :: User-Polling", () => {
   test("liefert NEUESTEN Job zurueck (orderBy desc requestedAt)", async () => {
     const T = getTemporal();
     const oldJobId = "11111111-1111-4111-8111-111111111111";
-    await seedRow(stack.db, exportJobsTable, {
+    await seedRowViaEventStore(stack.db, exportJobsTable, {
       id: oldJobId,
       tenantId: tenantA,
       userId: aliceUser.id,

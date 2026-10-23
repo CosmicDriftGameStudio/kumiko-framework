@@ -53,7 +53,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -115,9 +115,8 @@ beforeEach(async () => {
 });
 
 async function seedAlice(userRowOverrides: Record<string, unknown> = {}): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: alice.id,
-    tenantId: alice.tenantId,
     email: "alice@demo.local",
     passwordHash: "h",
     displayName: "Alice",
@@ -127,7 +126,7 @@ async function seedAlice(userRowOverrides: Record<string, unknown> = {}): Promis
     status: USER_STATUS.Active,
     ...userRowOverrides,
   });
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: tenantId,
     userId: alice.id,
     roles: '["Member"]',
@@ -194,9 +193,8 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     // ueber die Top-Level-db-Connection loescht, der Pfad der in prod
     // unbeaufsichtigt feuert.
     const cronUser = createTestUser({ id: 101, tenantId, roles: ["Member"] });
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: cronUser.id,
-      tenantId,
       email: "cron@demo.local",
       passwordHash: "h",
       displayName: "CronAlice",

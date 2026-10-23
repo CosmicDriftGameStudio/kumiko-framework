@@ -21,7 +21,7 @@ import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../../auth-email-password/index.ts";
@@ -577,7 +577,7 @@ describe("waitlist GDPR", () => {
       passwordHash: "hashed",
       emailVerified: false,
     });
-    await seedRow(stack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
       tenantId: crypto.randomUUID(),
       userId,
       roles: '["Member"]',
@@ -614,9 +614,8 @@ describe("waitlist GDPR", () => {
 
     const userId = crypto.randomUUID();
     const tenantId = crypto.randomUUID();
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: userId,
-      tenantId: SYSTEM_TENANT_ID,
       email,
       passwordHash: "hashed",
       displayName: "Gdpr User",
@@ -626,7 +625,11 @@ describe("waitlist GDPR", () => {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: Temporal.Now.instant().subtract({ minutes: 1 }),
     });
-    await seedRow(stack.db, tenantMembershipsTable, { tenantId, userId, roles: '["Member"]' });
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
+      tenantId,
+      userId,
+      roles: '["Member"]',
+    });
 
     const bundle = await runUserExport({
       db: stack.db,
@@ -669,7 +672,7 @@ describe("waitlist GDPR", () => {
         passwordHash: "hashed",
         emailVerified: true,
       });
-      await seedRow(stack.db, tenantMembershipsTable, {
+      await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
         tenantId: crypto.randomUUID(),
         userId,
         roles: '["Member"]',

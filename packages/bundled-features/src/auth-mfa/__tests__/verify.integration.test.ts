@@ -11,7 +11,7 @@ import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -121,14 +121,13 @@ async function enableMfaFor(
   // (status gate) the way login.write.ts does — auth-mfa never writes a
   // read_users row itself (enableStart/enableConfirm only touch user-mfa),
   // so both need seeding here, not just per-test where a scenario cares.
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     userId: user.id,
     tenantId: user.tenantId,
     roles: JSON.stringify(["User"]),
   });
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: user.id,
-    tenantId: user.tenantId,
     email: `user-${user.id}@example.com`,
     passwordHash: await hashPassword(password),
     displayName: `Test User ${idSeed}`,
@@ -360,7 +359,7 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
 
     // user.tenantId is the shared default test tenant (TestUsers.admin) —
     // restore it to "active" afterwards so later tests reusing it aren't affected.
-    await seedRow(stack.db, tenantTable, {
+    await seedRowViaEventStore(stack.db, tenantTable, {
       id: user.tenantId,
       tenantId: user.tenantId,
       key: `t-${user.tenantId.slice(-8)}`,
