@@ -751,6 +751,6 @@ export function buildEntityTable<E extends EntityDefinition>(
   ) as unknown as EntityTable<E>;
 
   stampEntityTableMeta(built, entity);
-  markExecutorManagedTable(built);
+  markExecutorManagedTable(built, { entityName, entity });
   return built;
 }

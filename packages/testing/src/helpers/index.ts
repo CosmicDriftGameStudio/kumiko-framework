@@ -41,6 +41,7 @@ export {
   deleteRowViaEventStore,
   type EventStoreWriteScope,
   type EventStoreWriteTarget,
+  seedRowViaEventStore,
   updateRowViaEventStore,
 } from "./event-store-writes.ts";
 export { expectErrorIncludes } from "./expect-error.ts";

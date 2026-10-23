@@ -2,16 +2,35 @@ import type {
   ExecutorManagedWriteCapability,
   Writable,
 } from "@cosmicdrift/kumiko-types/executor-brand";
+import type { EntityDefinition } from "../engine/types/index.ts";
 import { AccessDeniedError, InternalError } from "../errors/index.ts";
 import { asEntityTableMeta, tableNameOf } from "./table-introspection.ts";
 
+export type ExecutorManagedEntitySource = {
+  readonly entityName: string;
+  readonly entity: EntityDefinition;
+};
+
 const executorManagedTables = new WeakSet<object>();
 const executorManagedWriteRunners = new WeakSet<object>();
+const entitySourceByTable = new WeakMap<object, ExecutorManagedEntitySource>();
 
-export function markExecutorManagedTable(table: object): void {
+// Projection tables (r.projection) have no entity source; only entity tables can take a created event.
+export function markExecutorManagedTable(
+  table: object,
+  entitySource?: ExecutorManagedEntitySource,
+): void {
   executorManagedTables.add(table);
   const meta = asEntityTableMeta(table);
   if (meta !== undefined) executorManagedTables.add(meta);
+  if (entitySource !== undefined) entitySourceByTable.set(table, entitySource);
+}
+
+export function executorManagedEntitySourceOf(
+  table: unknown,
+): ExecutorManagedEntitySource | undefined {
+  if (typeof table !== "object" || table === null) return undefined;
+  return entitySourceByTable.get(table);
 }
 
 export function isExecutorManagedTable(table: unknown): boolean {

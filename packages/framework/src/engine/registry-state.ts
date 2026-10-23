@@ -97,7 +97,7 @@ export function buildImplicitProjection(
     backingTable !== undefined
       ? resolveBackingTable(entityName, entity, backingTable)
       : buildEntityTable(entityName, entity);
-  markExecutorManagedTable(drizzleTable);
+  markExecutorManagedTable(drizzleTable, { entityName, entity });
   // applyEntityEvent returns ApplyResult, but SingleStreamApplyFn expects
   // Promise<void>. The row is irrelevant during rebuild, so we discard it.
   const handler = async (
