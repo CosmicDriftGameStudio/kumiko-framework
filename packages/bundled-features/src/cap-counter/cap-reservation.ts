@@ -350,6 +350,21 @@ function bookCalendarDelta(
   );
 }
 
+// Asked after a missed or lost claim. A released tombstone committed since the first read does not
+// count: the caller's own tombstone insert then conflicts with it, and the retry claims that row.
+async function hasSettledTombstone(
+  txDb: TenantDb,
+  user: SessionUser,
+  id: string,
+): Promise<boolean> {
+  const settled = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
+    id,
+    tenantId: user.tenantId,
+    settledAt: { ne: null },
+  });
+  return settled !== undefined;
+}
+
 async function settleInTransaction(
   txDb: TenantDb,
   user: SessionUser,
@@ -386,12 +401,10 @@ async function settleInTransaction(
     );
     return booked;
   }
-  // The claim lost to a concurrent settle or release: a tombstone means the amount is booked.
-  if (await txDb.fetchOne<CapReservationRow>(capReservationsTable, ownRow)) {
-    return NOTHING_TO_RELEASE;
-  }
+  if (await hasSettledTombstone(txDb, user, id)) return NOTHING_TO_RELEASE;
   // Row swept or released: its amount was given back, so the full actual amount is booked and a
-  // tombstone makes a repeated settle a no-op. A parallel settle inserting first fails this insert.
+  // tombstone makes a repeated settle a no-op. A parallel settle or consume inserting first fails
+  // this insert.
   // Booking first: a lost counter race returns a result instead of throwing, so the transaction
   // commits and a tombstone written before it would turn the retry into a no-op.
   const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount);
@@ -497,7 +510,7 @@ async function consumeClaimedRow(
 }
 
 // Row already expired away: the units are booked directly and a released tombstone remembers them
-// so a later settle subtracts them. A parallel consume inserting first fails this insert.
+// so a later settle subtracts them. A parallel consume or settle inserting first fails this insert.
 async function consumeWithoutRow(
   txDb: TenantDb,
   user: SessionUser,
@@ -542,7 +555,7 @@ async function consumeInTransaction(
   }
   const claimed = open && (await claimReservationRow(txDb, user, open));
   if (claimed) return consumeClaimedRow(txDb, user, claimed, options);
-  if (await txDb.fetchOne<CapReservationRow>(capReservationsTable, ownRow)) {
+  if (await hasSettledTombstone(txDb, user, id)) {
     throw new CapReservationSettledError(options.capName);
   }
   return consumeWithoutRow(txDb, user, id, options);
