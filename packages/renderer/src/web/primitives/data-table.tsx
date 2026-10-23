@@ -535,7 +535,8 @@ export function DefaultDataTable({
                   getCellTestId?.(row, cardTitleColumn.field) ??
                   `cell-${row.id}-${cardTitleColumn.field}`
                 }
-                className="min-w-0 break-words text-base font-semibold text-foreground"
+                className="min-w-0 truncate text-base font-semibold text-foreground"
+                onPointerEnter={showFullTextOnHover}
               >
                 {cardCell(row, cardTitleColumn)}
               </span>
@@ -623,7 +624,11 @@ export function DefaultDataTable({
         )}
         {hasMenu && (
           // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
-          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <div
+            className="shrink-0"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <RowActionsCell
               row={row}
               actions={menuActions}
