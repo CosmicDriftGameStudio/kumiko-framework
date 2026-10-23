@@ -2,7 +2,7 @@
 // so the static boot check passes and only the runtime gate can stop the write.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -11,7 +11,7 @@ import {
 import * as z from "zod";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { asRawClient, runInSavepoint, selectMany } from "../../db/query.ts";
+import { runInSavepoint, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { brandWritable } from "../../db/table-introspection.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
@@ -24,6 +24,7 @@ import {
 } from "../../engine/index.ts";
 import { SYSTEM_ROLE } from "../../engine/system-user.ts";
 import type { TenantId } from "../../engine/types/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -610,10 +611,13 @@ describe("public-intake runtime gate", () => {
   afterAll(() => stack.cleanup());
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${contactTable.tableName}"`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${probeTable.tableName}"`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${leadTable.tableName}"`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${globalContactTable.tableName}"`);
+    await resetTestTables(stack.db, [
+      contactTable,
+      probeTable,
+      leadTable,
+      globalContactTable,
+      eventsTable,
+    ]);
   });
 
   async function rowCount(): Promise<number> {

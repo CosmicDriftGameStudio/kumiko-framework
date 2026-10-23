@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -20,6 +20,7 @@ import {
   type SaveContext,
 } from "../../engine/index.ts";
 import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
@@ -210,8 +211,7 @@ beforeEach(async () => {
   afterCommitShouldThrow = false;
   parallelismWindows.length = 0;
   stack.events.reset();
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${itemTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${auditTable.tableName}"`);
+  await resetTestTables(stack.db, [itemTable, auditTable, eventsTable]);
 });
 
 describe("POST /api/batch", () => {

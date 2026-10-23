@@ -3,10 +3,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { asRawClient, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -84,9 +85,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${configValuesTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    configValuesTable,
+    eventsTable,
+  ]);
 });
 
 async function seedAndLogin(

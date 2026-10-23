@@ -11,6 +11,7 @@ import {
   defineEntityCreateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   fileRefsTable,
@@ -115,6 +116,7 @@ beforeEach(async () => {
     "read_tenant_memberships",
     fileRefsTable,
     "read_ffc_owned_doc",
+    eventsTable,
   ]);
 });
 

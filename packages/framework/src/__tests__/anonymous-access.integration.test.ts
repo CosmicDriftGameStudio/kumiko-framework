@@ -7,7 +7,7 @@
 // Bun.SQL-only setup. KEIN postgres-js, KEIN setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { readSseFrames } from "@cosmicdrift/kumiko-testing/helpers";
+import { readSseFrames, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -17,7 +17,7 @@ import * as z from "zod";
 import type { AnonymousAccessConfig } from "../api/auth-middleware.ts";
 import { AUTH_COOKIE_BASE } from "../api/session-cookies.ts";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
-import { asRawClient, selectMany } from "../db/query.ts";
+import { selectMany } from "../db/query.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import {
   ANONYMOUS_USER_ID,
@@ -26,6 +26,7 @@ import {
   defineFeature,
   type TenantId,
 } from "../engine/index.ts";
+import { eventsTable } from "../event-store/index.ts";
 import { TestUsers } from "../seeding/seed-users.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -122,8 +123,7 @@ describe("anonymous access — single-tenant default", () => {
   afterAll(() => stack.cleanup());
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${productTable.tableName}"`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${orderTable.tableName}"`);
+    await resetTestTables(stack.db, [productTable, orderTable, eventsTable]);
   });
 
   test("anonymous query succeeds without any auth headers", async () => {

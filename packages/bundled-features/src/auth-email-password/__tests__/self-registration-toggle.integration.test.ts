@@ -12,9 +12,9 @@ import {
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createLateBoundHolder, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -107,8 +107,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${globalFeatureStateTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, globalFeatureStateTable, eventsTable]);
   await runtime.refresh();
   emailTransport.sent.length = 0;
   const allKeys = await stack.redis.redis.keys("signup:*");

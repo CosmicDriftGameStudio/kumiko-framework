@@ -1,12 +1,13 @@
 // Update payloads and preSave hook output may clear an optional stored field
 // with `null`; a required field must keep rejecting it.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
 import {
@@ -64,8 +65,7 @@ describe("update clears optional fields with null", () => {
 
   beforeEach(async () => {
     hookClearsEndpoint = false;
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "update_null_clear_notes"');
+    await resetTestTables(stack.db, [eventsTable, "update_null_clear_notes"]);
   });
 
   async function createNote(extra: Record<string, unknown> = {}): Promise<Created["data"]["data"]> {

@@ -13,6 +13,7 @@ import {
   defineWriteHandler,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -87,7 +88,7 @@ async function seedUser(id: string, roles: string): Promise<void> {
 }
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, "read_tenant_memberships"]);
+  await resetTestTables(stack.db, [userTable, "read_tenant_memberships", eventsTable]);
   await seedUser(MEMBER_ID, '["Member"]');
   await seedUser(OUTSIDER_ID, '["Member"]');
   await seedUser(SYSADMIN_ID, '["SystemAdmin"]');

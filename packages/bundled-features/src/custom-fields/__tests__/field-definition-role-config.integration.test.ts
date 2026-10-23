@@ -7,8 +7,9 @@
 // override can still list what they defined.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -46,8 +47,7 @@ describe("custom-fields — fieldDefinitionWriteRoles (#2296)", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe("DELETE FROM read_custom_field_definitions");
+    await resetTestTables(stack.db, [eventsTable, "read_custom_field_definitions"]);
   });
 
   test("a custom-role user can define, update and delete a tenant field definition", async () => {

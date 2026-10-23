@@ -12,10 +12,11 @@
 //      audit-queries that join events→users actually find the actor.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -51,11 +52,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await resetTestTables(stack.db, [tenantMembershipsTable, tenantTable]);
   // Events stay — the idempotency test below inspects how many .created
   // events exist for the same aggregate-key pair across runs.
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await resetTestTables(stack.db, [eventsTable]);
 });
 
 describe("seedTenant", () => {

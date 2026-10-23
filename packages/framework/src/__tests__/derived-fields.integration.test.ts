@@ -5,12 +5,13 @@
 // Bun.SQL-only setup via setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, selectMany } from "../db/query.ts";
+import { selectMany } from "../db/query.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import {
   createDerivedField,
@@ -21,6 +22,7 @@ import {
   defineEntityListHandler,
   defineFeature,
 } from "../engine/index.ts";
+import { eventsTable } from "../event-store/index.ts";
 import { TestUsers } from "../seeding/seed-users.ts";
 
 // `priceCents` + `name` are stored; the three derived fields are computed from
@@ -69,7 +71,7 @@ describe("EntityDefinition.derivedFields — read-time computed columns", () => 
   afterAll(() => stack.cleanup());
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${gadgetTable.tableName}"`);
+    await resetTestTables(stack.db, [gadgetTable, eventsTable]);
   });
 
   test("list query appends the computed value (gross = net × 1.19)", async () => {

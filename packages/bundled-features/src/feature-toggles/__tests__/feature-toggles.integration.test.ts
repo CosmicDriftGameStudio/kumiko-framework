@@ -23,7 +23,12 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createDefaultCacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createLateBoundHolder,
+  resetTestTables,
+  seedRow,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
   setupTestStack,
@@ -214,14 +219,16 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetAuditTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTrackerTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${globalFeatureStateTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    widgetAuditTable,
+    widgetTable,
+    widgetTrackerTable,
+    globalFeatureStateTable,
+  ]);
   // Wipe the event log + reset every consumer cursor so each test starts
   // from event-id 0. Tests that drain via eventDispatcher.runOnce() need
   // this or they drain a shared backlog and see false-positive counters.
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await resetTestTables(stack.db, [eventsTable]);
   await asRawClient(stack.db).unsafe(
     `UPDATE kumiko_event_consumers SET last_processed_event_id = 0`,
   );

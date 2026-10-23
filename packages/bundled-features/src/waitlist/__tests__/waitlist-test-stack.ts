@@ -3,6 +3,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { getSetCookieValue, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -124,6 +125,7 @@ export async function resetWaitlistTestState(stack: TestStack): Promise<void> {
     tenantTable,
     waitlistEntryTable,
     tenantComplianceProfileTable,
+    eventsTable,
   ]);
   emailTransport.sent.length = 0;
   // The submit bucket is per IP; one test's calls must not push another over the limit.

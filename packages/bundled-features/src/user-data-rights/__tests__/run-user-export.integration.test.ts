@@ -34,6 +34,7 @@ import {
   SYSTEM_TENANT_ID,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -118,6 +119,7 @@ beforeEach(async () => {
     "read_tenant_memberships",
     fileRefsTable,
     tenantInvitationsTable,
+    eventsTable,
   ]);
 });
 

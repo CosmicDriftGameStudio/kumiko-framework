@@ -20,7 +20,7 @@ import {
   nullBlindIndexesForSubject,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetBlindIndexKeyForTests,
@@ -56,7 +56,7 @@ beforeEach(async () => {
   // Fresh adapter per test = fresh key universe. Rows from earlier tests
   // would name subjects this adapter never minted (fail-loud KeyNotFound),
   // so the tables reset alongside the KMS.
-  await resetTestTables(stack.db, ["read_hr_employees", "read_hr_comments"]);
+  await resetTestTables(stack.db, ["read_hr_employees", "read_hr_comments", eventsTable]);
   kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
   // Blind-index key: what runProdApp({ blindIndexKey }) wires in production.

@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   ConfigScopes,
@@ -23,6 +23,7 @@ import {
   createTestEnvelopeCipher,
   getSetCookieValue,
   resetPiiSubjectKmsForTests,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -150,10 +151,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   await stack.redis.flushNamespace();
   // Fresh ids per test: tenant streams survive the DELETEs above.

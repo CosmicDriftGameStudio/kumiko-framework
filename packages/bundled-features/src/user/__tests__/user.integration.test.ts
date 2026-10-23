@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -39,7 +40,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable]);
+  await resetTestTables(stack.db, [userTable, eventsTable]);
 });
 
 // Helper: create a user as SystemAdmin and return its id.

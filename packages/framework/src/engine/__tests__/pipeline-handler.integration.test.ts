@@ -44,6 +44,7 @@
 // surface against an empty ctx mock; this file is the real-stack gate.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -498,7 +499,7 @@ describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatche
     // flaky-in-waiting.
     // biome-ignore lint/suspicious/noExplicitAny: test cast
     await asRawClient(stack.db).unsafe(`DELETE FROM "${(pipelineDemoLogTable as any).tableName}"`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${widgetTable.tableName}"`);
+    await resetTestTables(stack.db, [widgetTable, eventsTable]);
   });
 
   test("HTTP write call goes through dispatcher → pipeline-runner → r.step.return", async () => {

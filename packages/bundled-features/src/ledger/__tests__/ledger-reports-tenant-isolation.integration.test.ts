@@ -6,8 +6,9 @@
 // cross-tenant leak changes the report totals, not just adds zero-sum noise.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -34,10 +35,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_accounts");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_transactions");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_schedules");
+  await resetTestTables(stack.db, [
+    eventsTable,
+    "read_ledger_accounts",
+    "read_ledger_transactions",
+    "read_ledger_schedules",
+  ]);
 });
 
 const tenantA = createTestUser({ roles: ["TenantAdmin"] });

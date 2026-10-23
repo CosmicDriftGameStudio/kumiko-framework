@@ -4,6 +4,7 @@
 // and docs promise. If you change the contract, this is the file that moves.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -11,7 +12,6 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
-import { asRawClient } from "../db/query.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import {
   createEntity,
@@ -27,6 +27,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "../errors/index.ts";
+import { eventsTable } from "../event-store/index.ts";
 import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
@@ -196,7 +197,7 @@ beforeAll(async () => {
 afterAll(async () => stack.cleanup());
 beforeEach(async () => {
   stack.events.reset();
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${itemTable.tableName}"`);
+  await resetTestTables(stack.db, [itemTable, eventsTable]);
 });
 
 // --- Helpers ---

@@ -12,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -49,7 +50,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, tenantMembershipsTable]);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
   await seedTenant(stack.db, { id: tenantId, key: "tenant-kms-members", name: "KMS Tenant" });
 });
 

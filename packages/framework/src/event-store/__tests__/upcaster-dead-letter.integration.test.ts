@@ -7,8 +7,9 @@
 //   - listDeadLetters filters by eventType
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
+import { insertOne, selectMany } from "../../db/query.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import type { StoredEvent } from "../event-store.ts";
 import { eventsTable } from "../events-schema.ts";
@@ -89,8 +90,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await asRawClient(testDb.db).unsafe(`DELETE FROM "${upcasterDeadLetterTable.tableName}"`);
-  await asRawClient(testDb.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await resetTestTables(testDb.db, [upcasterDeadLetterTable, eventsTable]);
 });
 
 describe("upcaster error-policy: throw (default)", () => {

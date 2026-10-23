@@ -24,6 +24,7 @@ import {
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -171,6 +172,7 @@ beforeEach(async () => {
     "read_tenant_memberships",
     tenantRetentionOverrideTable,
     tenantComplianceProfileTable,
+    eventsTable,
   ]);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -474,7 +476,7 @@ describe("notes-history mention-forget cascade", () => {
 
 describe("notes-history mention scoping and export", () => {
   beforeEach(async () => {
-    await resetTestTables(stack.db, ["read_note_entries", "read_note_mentions"]);
+    await resetTestTables(stack.db, ["read_note_entries", "read_note_mentions", eventsTable]);
   });
 
   test("add-note rejects a mention of a user who is not a member of the tenant and stores nothing", async () => {

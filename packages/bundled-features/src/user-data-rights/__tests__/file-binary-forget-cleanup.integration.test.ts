@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { bridgeStub, type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -115,7 +116,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   provider.clear();
-  await resetTestTables(db, [userTable, "read_tenant_memberships", fileRefsTable]);
+  await resetTestTables(db, [userTable, "read_tenant_memberships", fileRefsTable, eventsTable]);
 });
 
 describe("forget-binary-cleanup :: storage.delete fires before row hard-delete", () => {

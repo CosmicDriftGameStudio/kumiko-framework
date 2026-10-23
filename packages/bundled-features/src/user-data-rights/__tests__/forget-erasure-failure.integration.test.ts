@@ -24,6 +24,7 @@ import {
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -119,8 +120,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetEventStore(stack);
   await asRawClient(stack.db).unsafe(`DELETE FROM ${PROBE_TABLE}`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_retention_overrides`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await resetTestTables(stack.db, ["read_tenant_retention_overrides", "read_tenant_memberships"]);
 });
 
 async function seedProbeRow(): Promise<string> {

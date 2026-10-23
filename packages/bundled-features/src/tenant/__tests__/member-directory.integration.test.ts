@@ -7,6 +7,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { REFERENCE_LOOKUP_SOURCES } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -74,7 +75,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, tenantMembershipsTable]);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
   await seedTenant(stack.db, { id: ownTenantId, key: "directory-own", name: "Own Tenant" });
   await seedTenant(stack.db, {
     id: foreignTenantId,

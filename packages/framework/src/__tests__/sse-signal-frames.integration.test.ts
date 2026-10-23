@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -12,9 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
-import { asRawClient } from "../db/query.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature, type TenantId } from "../engine/index.ts";
+import { eventsTable } from "../event-store/index.ts";
 import { TestUsers } from "../seeding/seed-users.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -152,8 +153,7 @@ beforeAll(async () => {
 afterAll(() => stack.cleanup());
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${ledgerTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${bannerTable.tableName}"`);
+  await resetTestTables(stack.db, [ledgerTable, bannerTable, eventsTable]);
 });
 
 describe("GET /api/sse signal-only frames", () => {

@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../../db/query.ts";
 import type { SessionUser } from "../../../engine/index.ts";
 import type { TenantId } from "../../../engine/types/identifiers.ts";
+import { eventsTable } from "../../../event-store/index.ts";
 import { TestUsers } from "../../../seeding/seed-users.ts";
 import type { TokenVerifier } from "../../auth-middleware.ts";
 import {
@@ -61,9 +62,7 @@ describe("POST /api/export/xlsx", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "xl_items"');
-    await asRawClient(stack.db).unsafe('DELETE FROM "xl_customers"');
+    await resetTestTables(stack.db, [eventsTable, "xl_items", "xl_customers"]);
   });
 
   async function createItem(fields: Record<string, unknown>, user: SessionUser = admin) {

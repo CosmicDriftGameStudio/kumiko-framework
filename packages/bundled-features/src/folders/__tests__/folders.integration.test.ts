@@ -19,7 +19,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 
 import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -105,9 +107,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_folders");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_folder_assignments");
+  await resetTestTables(stack.db, [eventsTable, "read_folders", "read_folder_assignments"]);
 });
 
 async function createFolder(name: string, parentId?: string, user = admin): Promise<string> {

@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../../db/query.ts";
+import { eventsTable } from "../../../event-store/index.ts";
 import { TestUsers } from "../../../seeding/seed-users.ts";
 import {
   CREATE_CUSTOMER,
@@ -36,9 +37,7 @@ describe("POST /api/export/xlsx: reference labels and time zones", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "xl_items"');
-    await asRawClient(stack.db).unsafe('DELETE FROM "xl_customers"');
+    await resetTestTables(stack.db, [eventsTable, "xl_items", "xl_customers"]);
   });
 
   async function createCustomer(name: string): Promise<string> {

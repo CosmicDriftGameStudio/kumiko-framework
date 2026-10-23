@@ -11,13 +11,18 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { qn, type TenantId, toKebab } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   fileRefEntity,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetTestTables,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -83,10 +88,12 @@ afterAll(async () => {
 beforeEach(async () => {
   providerA.clear();
   providerB.clear();
-  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_form_drafts");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_config_values");
-  await asRawClient(stack.db).unsafe("DELETE FROM file_refs");
+  await resetTestTables(stack.db, [
+    eventsTable,
+    "read_form_drafts",
+    "read_config_values",
+    "file_refs",
+  ]);
 });
 
 async function saveDraft(

@@ -8,15 +8,16 @@
 // to the default id-ASC order.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { from } from "../../engine/ownership.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const filterNoteEntity = createEntity({
@@ -75,8 +76,7 @@ describe("list() field-level read access gates filter/sort (fw#2629)", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "fa_filter_notes"');
+    await resetTestTables(stack.db, [eventsTable, "fa_filter_notes"]);
   });
 
   const CREATE = "filternotes:write:note:create";

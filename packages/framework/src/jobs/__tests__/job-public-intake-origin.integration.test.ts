@@ -1,7 +1,7 @@
 // Every job here is retries:0 so a gated failure surfaces on the first attempt.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -11,13 +11,14 @@ import { Queue } from "bullmq";
 import * as z from "zod";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { SYSTEM_ROLE } from "../../engine/system-user.ts";
 import type { TenantId } from "../../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
@@ -359,7 +360,7 @@ describe("job/event write-origin inheritance", () => {
   afterAll(() => stack.cleanup());
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${secretTable.tableName}"`);
+    await resetTestTables(stack.db, [secretTable, eventsTable]);
     gatedFailures.length = 0;
   });
 

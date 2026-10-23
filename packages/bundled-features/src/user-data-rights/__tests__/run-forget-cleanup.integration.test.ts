@@ -122,7 +122,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, "read_tenant_memberships", fileRefsTable]);
+  await resetTestTables(stack.db, [
+    userTable,
+    "read_tenant_memberships",
+    fileRefsTable,
+    eventsTable,
+  ]);
 });
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;

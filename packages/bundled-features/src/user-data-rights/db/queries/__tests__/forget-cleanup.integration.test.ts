@@ -4,6 +4,7 @@
 // pipeline; this is the narrow seam for the ambient-global regression).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -29,7 +30,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable]);
+  await resetTestTables(stack.db, [userTable, eventsTable]);
 });
 
 describe("selectUsersDueForForgetCleanup — kumiko-framework#1525: no ambient Temporal global", () => {

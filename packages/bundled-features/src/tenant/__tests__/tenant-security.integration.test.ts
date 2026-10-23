@@ -15,6 +15,7 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   expectErrorIncludes,
   expectSuccess,
+  resetTestTables,
   rolesOf,
   seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -131,12 +132,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    userSessionTable,
+    tenantTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   const keys = await stack.redis.redis.keys("invite:*");
   if (keys.length > 0) await stack.redis.redis.del(...keys);

@@ -14,8 +14,9 @@ import type {
   PostAuthLandingArgs,
   PostAuthLandingResolver,
 } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -114,10 +115,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
   currentResolver = defaultResolver;
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   const signupKeys = await stack.redis.redis.keys("signup:*");
   if (signupKeys.length > 0) await stack.redis.redis.del(...signupKeys);

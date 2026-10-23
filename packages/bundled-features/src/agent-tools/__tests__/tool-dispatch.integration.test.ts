@@ -16,7 +16,9 @@ import {
   defineFeature,
   type EscapeHatchUseEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -219,10 +221,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_vendors");
-  await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_gizmos");
-  await asRawClient(stack.db).unsafe("DELETE FROM agent_tools_test_scribes");
+  await resetTestTables(stack.db, [
+    eventsTable,
+    "agent_tools_test_vendors",
+    "agent_tools_test_gizmos",
+    "agent_tools_test_scribes",
+  ]);
   escapeHatchAuditKinds.length = 0;
 });
 

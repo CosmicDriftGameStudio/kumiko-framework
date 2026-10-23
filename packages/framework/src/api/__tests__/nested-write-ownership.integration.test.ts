@@ -8,6 +8,7 @@
 // setupTestStack + stack.http.write — never createTestDispatcher.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -16,7 +17,7 @@ import {
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { executeRawQuery } from "../../db/queries/raw-sql.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
@@ -25,6 +26,7 @@ import {
   from,
   SYSTEM_TENANT_ID,
 } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 // project2/task2: same-tenant ownership scenario (b/c). ownerId is an
@@ -204,10 +206,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${task2Table.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${task3Table.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${project2Table.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${project3Table.tableName}"`);
+  await resetTestTables(stack.db, [
+    task2Table,
+    task3Table,
+    project2Table,
+    project3Table,
+    eventsTable,
+  ]);
 });
 
 describe("nested-write parent-row ownership check (fw#2861)", () => {

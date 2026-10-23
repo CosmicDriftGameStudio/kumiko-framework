@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../../db/query.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
 import { defineEntityUpdateHandler, defineEntityWriteHandler } from "../entity-handlers.ts";
@@ -80,8 +82,7 @@ describe("excludeFields on the generic create/update handlers", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "exclude_fields_cars"');
+    await resetTestTables(stack.db, [eventsTable, "exclude_fields_cars"]);
   });
 
   async function createCar(): Promise<{ id: string; version: number }> {

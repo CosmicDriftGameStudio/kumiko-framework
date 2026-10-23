@@ -15,9 +15,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -127,10 +129,13 @@ beforeEach(async () => {
   configurePiiSubjectKms(kms);
   configureBlindIndexKey(BIDX_KEY);
 
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   const allKeys = await stack.redis.redis.keys("invite:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);

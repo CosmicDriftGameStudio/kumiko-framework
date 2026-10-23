@@ -35,13 +35,13 @@ import {
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver.ts";
@@ -136,8 +136,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetEventStore(stack);
   await asRawClient(stack.db).unsafe(`DELETE FROM ${TABLE}`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_users`);
+  await resetTestTables(stack.db, ["read_tenant_memberships", "read_users"]);
 });
 
 async function seedScopedRow(rowId: string): Promise<void> {

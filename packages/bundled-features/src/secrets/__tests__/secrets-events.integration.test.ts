@@ -7,13 +7,14 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createEnvMasterKeyProvider,
   type MasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -61,8 +62,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantSecretsTable.tableName}"`);
+  await resetTestTables(stack.db, [eventsTable, tenantSecretsTable]);
 });
 
 describe("tenantSecret lifecycle events", () => {

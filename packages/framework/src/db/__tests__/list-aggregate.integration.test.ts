@@ -2,13 +2,14 @@
 // as the rows, so what a table shows per group always adds up to what the list itself returns.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
 import type { EntityId } from "../../engine/types/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   type AggResult,
@@ -41,9 +42,7 @@ describe("list aggregate", () => {
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "agg_orders"');
-    await asRawClient(stack.db).unsafe('DELETE FROM "agg_customers"');
+    await resetTestTables(stack.db, [eventsTable, "agg_orders", "agg_customers"]);
   });
 
   async function order(fields: Record<string, unknown>, owner = admin.id): Promise<string> {

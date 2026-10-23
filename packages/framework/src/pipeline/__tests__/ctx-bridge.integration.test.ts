@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -6,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { requireOutsideTransactionDb } from "../../db/tenant-db.ts";
 import { runInOwnTransaction } from "../../db/tenant-db-scoped-rebind.ts";
@@ -21,6 +22,7 @@ import {
 } from "../../engine/index.ts";
 import type { HandlerContext } from "../../engine/types/index.ts";
 import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
@@ -322,9 +324,7 @@ beforeEach(async () => {
   afterCommitLog.length = 0;
   afterCommitHookShouldEchoBag = false;
   echoedBagIds.length = 0;
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${bagTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${secretTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${echoTable.tableName}"`);
+  await resetTestTables(stack.db, [bagTable, secretTable, echoTable, eventsTable]);
   // Clear the event-dedup cache — tests re-use entity ids (Postgres sequences
   // reset, each test sees id=1). Without flushing Redis the second test hits
   // a dedup hit on the same handler:id:version:phase key and the hook is

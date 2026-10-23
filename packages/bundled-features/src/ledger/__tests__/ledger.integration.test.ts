@@ -12,9 +12,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
-import { expectError, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectError, expectSuccess, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -42,10 +43,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_accounts");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_transactions");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_schedules");
+  await resetTestTables(stack.db, [
+    eventsTable,
+    "read_ledger_accounts",
+    "read_ledger_transactions",
+    "read_ledger_schedules",
+  ]);
 });
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
