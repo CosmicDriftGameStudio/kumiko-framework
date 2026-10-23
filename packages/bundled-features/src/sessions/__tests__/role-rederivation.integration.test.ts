@@ -2,20 +2,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
-import {
-  asRawClient,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  SYSTEM_TENANT_ID,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -35,6 +28,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
+import { softDeleteUserViaEventStore } from "../../user/testing-event-store.ts";
 import { createSessionsFeature } from "../feature.ts";
 import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.ts";
@@ -98,9 +92,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    userSessionTable,
+    eventsTable,
+  ]);
 });
 
 describe("sessionChecker re-derives roles from the DB on every request", () => {
@@ -149,14 +146,7 @@ describe("sessionChecker refuses a soft-deleted user", () => {
     });
     expect(before.status).toBe(200);
 
-    const deleted = await createEventStoreExecutor(userTable, userEntity, {
-      entityName: "user",
-    }).delete(
-      { id: userId },
-      createSystemUser(SYSTEM_TENANT_ID),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
-    );
-    expect(deleted.isSuccess).toBe(true);
+    await softDeleteUserViaEventStore(stack.db, userId);
 
     const after = await h.authedPost("/api/query", token, {
       type: TenantQueries.invitations,

@@ -5,3 +5,5 @@
 // because they could break development boots when a lockout-test option is added.
 
 export * from "./seeding.ts";
+
+export * from "./testing-event-store.ts";

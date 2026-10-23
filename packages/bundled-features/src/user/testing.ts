@@ -3,3 +3,5 @@
 // and /seeding is the stable home.
 
 export * from "./seeding.ts";
+
+export * from "./testing-event-store.ts";

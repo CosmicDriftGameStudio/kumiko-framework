@@ -1,0 +1,110 @@
+// Test-side writes on event-sourced tables that go through the event store, so
+// the event log and the projection stay consistent. Unlike seed.ts these survive
+// a projection rebuild and fire the same events a handler would.
+
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+  type WhereObject,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+
+type ExecutorArgs = Parameters<typeof createEventStoreExecutor>;
+
+export type EventStoreWriteTarget = {
+  readonly table: ExecutorArgs[0];
+  readonly entity: ExecutorArgs[1];
+  readonly entityName: string;
+};
+
+export type EventStoreWriteScope = {
+  /** Tenant of the acting system user and of the tenant-bound db; defaults to the system tenant. */
+  readonly tenantId?: TenantId;
+  /** Address a stream that lives on another tenant than the actor's. */
+  readonly streamTenantId?: TenantId;
+};
+
+type EntityId = string | number;
+
+function isEntityId(value: unknown): value is EntityId {
+  return typeof value === "string" || typeof value === "number";
+}
+
+async function loadTarget(
+  db: DbConnection,
+  target: EventStoreWriteTarget,
+  where: WhereObject,
+  verb: string,
+): Promise<{ id: EntityId; version: number }> {
+  const row = await fetchOne<Record<string, unknown>>(db, target.table, where);
+  if (!row) {
+    throw new Error(`${verb} ${target.entityName}: no row matches ${JSON.stringify(where)}`);
+  }
+  const { id, version } = row;
+  if (!isEntityId(id)) throw new Error(`${verb} ${target.entityName}: row has no id`);
+  if (typeof version !== "number") {
+    throw new Error(`${verb} ${target.entityName}: row has no numeric version`);
+  }
+  return { id, version };
+}
+
+function writeContext(scope: EventStoreWriteScope | undefined, db: DbConnection) {
+  const tenantId = scope?.tenantId ?? SYSTEM_TENANT_ID;
+  return {
+    user: createSystemUser(tenantId),
+    tenantDb: createTenantDb({ db, tenantId, mode: "system" }),
+    options: scope?.streamTenantId ? { streamTenantId: scope.streamTenantId } : undefined,
+  };
+}
+
+function failedWrite(
+  verb: string,
+  entityName: string,
+  error: { readonly code: string; readonly details?: unknown },
+): Error {
+  return new Error(
+    `${verb} ${entityName} failed: ${error.code} ${JSON.stringify(error.details ?? {})}`,
+  );
+}
+
+export async function updateRowViaEventStore(
+  db: DbConnection,
+  target: EventStoreWriteTarget,
+  where: WhereObject,
+  changes: Readonly<Record<string, unknown>>,
+  scope?: EventStoreWriteScope,
+): Promise<void> {
+  const { id, version } = await loadTarget(db, target, where, "update");
+  const { user, tenantDb, options } = writeContext(scope, db);
+  const executor = createEventStoreExecutor(target.table, target.entity, {
+    entityName: target.entityName,
+  });
+  const result = await executor.update(
+    { id, version, changes: { ...changes } },
+    user,
+    tenantDb,
+    options,
+  );
+  if (!result.isSuccess) throw failedWrite("update", target.entityName, result.error);
+}
+
+export async function deleteRowViaEventStore(
+  db: DbConnection,
+  target: EventStoreWriteTarget,
+  where: WhereObject,
+  scope?: EventStoreWriteScope,
+): Promise<void> {
+  const { id } = await loadTarget(db, target, where, "delete");
+  const { user, tenantDb, options } = writeContext(scope, db);
+  const executor = createEventStoreExecutor(target.table, target.entity, {
+    entityName: target.entityName,
+  });
+  const result = await executor.delete({ id }, user, tenantDb, options);
+  if (!result.isSuccess) throw failedWrite("delete", target.entityName, result.error);
+}
