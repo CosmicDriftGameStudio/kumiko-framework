@@ -59,7 +59,7 @@ import {
   type DocumentToolbarBlock,
   MAIL_DOCUMENT_BLOCKS,
 } from "./document-toolbar-blocks.ts";
-import { createEditorHandle } from "./editor-handle.ts";
+import { useEditorHandleReport } from "./editor-handle.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
 const NO_LABELS: Readonly<Record<string, string>> = {};
@@ -667,12 +667,11 @@ export default function DocumentTiptapEditor({
       // editor instance during that throwaway pass.
       immediatelyRender: false,
       editorProps: { attributes: { id } },
-      onCreate: ({ editor: created }) => onEditorReady?.(createEditorHandle(created)),
-      onDestroy: () => onEditorReady?.(null),
       onUpdate: ({ editor: e }) => onChange(e.getHTML()),
     },
     [extensions],
   );
+  useEditorHandleReport(editor, onEditorReady);
 
   // @tiptap/react v3 does not re-render on selection-only transactions, so
   // active states must come from a subscription.
