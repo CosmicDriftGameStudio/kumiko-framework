@@ -2,8 +2,14 @@ import type { EntityDefinition } from "../engine/types/index.ts";
 import type { DbConnection } from "./connection.ts";
 import { pgTypeToSqlType } from "./dialect.ts";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
-import { alterTableAddColumn, createIndexIfNotExists, executeDdlStatement } from "./queries/ddl.ts";
+import {
+  alterTableAddColumn,
+  applyTableRowLevelSecurity,
+  createIndexIfNotExists,
+  executeDdlStatement,
+} from "./queries/ddl.ts";
 import { renderTableDdl } from "./render-ddl.ts";
+import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
 import { tableExists } from "./schema-inspection.ts";
 import { buildEntityTable, toTableName } from "./table-builder.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";
@@ -81,6 +87,7 @@ export async function unsafePushTables(
   db: DbConnection,
   tables: Record<string, unknown>,
   prevTables?: Record<string, unknown>,
+  options: { readonly rowLevelSecurity?: RowLevelSecurityMode } = {},
 ): Promise<void> {
   const prevMetas = new Map<string, EntityTableMeta>();
   if (prevTables) {
@@ -110,6 +117,7 @@ export async function unsafePushTables(
         await executeDdlStatement(db, stmt);
       }
     }
+    if (options.rowLevelSecurity === "on") await applyTableRowLevelSecurity(db, meta);
   }
 }
 

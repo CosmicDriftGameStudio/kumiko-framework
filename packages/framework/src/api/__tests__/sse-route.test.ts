@@ -615,7 +615,9 @@ describe("sse-route access invalidation", () => {
 
   test("a stream outlasting its JWT ends on its own and releases client and subscription exactly once", async () => {
     const recording = createRecordingBroker();
-    const reader = await openStream(recording, "sid-1", 1);
+    // exp is floor(now) + ttl: with a 1 s TTL the token can expire before the request is
+    // verified, the route never subscribes and the test hangs. 2 s leaves at least 1 s.
+    const reader = await openStream(recording, "sid-1", 2);
     await recording.invalidate;
 
     let done = false;

@@ -28,6 +28,7 @@ import * as z from "zod";
 import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
 import { asRawClient, selectMany, updateMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
@@ -510,7 +511,7 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
     expect(state?.lastProcessedEventId).toBe(cursorBefore ?? 0n);
   });
 
-  test("aborts when the live table has RLS enabled — data survives (fw#2907)", async () => {
+  test("keeps RLS on the live table", async () => {
     const erin = "00000000-0000-4000-8000-000000000e05";
     await updateMany(
       stack.db,
@@ -521,20 +522,26 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: erin, cents: 20_00 }, admin);
     await runFullDispatcher();
 
-    await asRawClient(stack.db).unsafe(
-      `ALTER TABLE "read_mspreb_balance" ENABLE ROW LEVEL SECURITY`,
-    );
+    const raw = asRawClient(stack.db);
+    await raw.unsafe(`ALTER TABLE "read_mspreb_balance" ENABLE ROW LEVEL SECURITY`);
+    await raw.unsafe(`ALTER TABLE "read_mspreb_balance" FORCE ROW LEVEL SECURITY`);
+    await raw.unsafe(`CREATE POLICY mspreb_probe ON "read_mspreb_balance" USING (true)`);
     try {
-      await expect(
-        rebuildMultiStreamProjection(BALANCE_MSP, { db: stack.db, registry: stack.registry }),
-      ).rejects.toThrow(/row level security/);
+      const before = await readRowLevelSecurityState(stack.db, "public", "read_mspreb_balance");
+      expect(before).toMatchObject({ enabled: true, forced: true });
+      expect(before?.policies.map((p) => p.name)).toEqual(["mspreb_probe"]);
 
+      await rebuildMultiStreamProjection(BALANCE_MSP, { db: stack.db, registry: stack.registry });
+
+      expect(await readRowLevelSecurityState(stack.db, "public", "read_mspreb_balance")).toEqual(
+        before,
+      );
       const [row] = await selectMany(stack.db, balanceTable, { customer: erin });
       expect(row).toMatchObject({ invoicesCents: 20_00 });
     } finally {
-      await asRawClient(stack.db).unsafe(
-        `ALTER TABLE "read_mspreb_balance" DISABLE ROW LEVEL SECURITY`,
-      );
+      await raw.unsafe(`DROP POLICY IF EXISTS mspreb_probe ON "read_mspreb_balance"`);
+      await raw.unsafe(`ALTER TABLE "read_mspreb_balance" NO FORCE ROW LEVEL SECURITY`);
+      await raw.unsafe(`ALTER TABLE "read_mspreb_balance" DISABLE ROW LEVEL SECURITY`);
     }
   });
 });

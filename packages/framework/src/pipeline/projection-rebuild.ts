@@ -9,7 +9,6 @@ import {
 } from "../db/queries/projection-rebuild.ts";
 import {
   assertLiveColumnsMatchMeta,
-  assertLiveTableHasNoRowLevelSecurity,
   assertNoBlindIndexLoss,
   assertNoUnreachableLiveRows,
   buildShadowTable,
@@ -18,6 +17,7 @@ import {
   ensureRebuildSchema,
   fenceLiveTable,
   rebuildMetaOrThrow,
+  refuseRowLevelSecurityFilteredReads,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { coerceRow, runInSavepoint, selectMany } from "../db/query.ts";
@@ -309,9 +309,9 @@ async function replayProjectionIntoShadow(
     // inside the tx would roll the whole replay back.
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     await db.begin(async (tx: DbTx) => {
+      await refuseRowLevelSecurityFilteredReads(tx);
       await markProjectionRebuilding(tx, projectionName);
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
-      await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, projectionName);
       await buildShadowTable(tx, meta);
       deps.__test_onBuildShadowTable?.();
 

@@ -11,6 +11,15 @@
 
 import type { Snapshot } from "./migrate-generator.ts";
 import { loadMigrationsFromDir } from "./migrate-runner.ts";
+import {
+  applyRowLevelSecurityStatement,
+  IDENT,
+  type MutableReplayedRowLevelSecurity,
+  type ReplayedRowLevelSecurity,
+  replayedOnlyRowLevelSecurityDrift,
+  rowLevelSecurityDrift,
+  TABLE_REF,
+} from "./replay-rls.ts";
 
 // Migration files comment out destructive ops (DROP TABLE/COLUMN) as
 // `-- DESTRUCTIVE: <stmt>;  -- uncomment + ensure backup` so the real
@@ -34,9 +43,14 @@ export type ReplayedTable = {
   // CREATE TABLE ... AS SELECT * from a source the replay can't resolve: the column set is
   // unknown, so only the table's presence is compared.
   readonly columnsUnknown?: boolean;
+  readonly rowLevelSecurity?: ReplayedRowLevelSecurity;
 };
 
-type MutableReplayedTable = { columns: Set<string>; columnsUnknown?: boolean };
+type MutableReplayedTable = {
+  columns: Set<string>;
+  columnsUnknown?: boolean;
+  rowLevelSecurity?: MutableReplayedRowLevelSecurity;
+};
 
 export type ReplayedSchema = ReadonlyMap<string, ReplayedTable>;
 
@@ -60,11 +74,6 @@ function splitTopLevel(body: string): readonly string[] {
   if (current.trim().length > 0) parts.push(current);
   return parts;
 }
-
-// Identifiers in hand-written migrations aren't always quoted (the generator
-// always quotes, but the header explicitly invites hand-editing) — optional
-// quotes so `CREATE TABLE foo (...)` parses the same as `CREATE TABLE "foo" (...)`.
-const IDENT = `"?([^"\\s(;,.]+)"?`;
 
 function parseColumnNames(body: string): Set<string> {
   const columns = new Set<string>();
@@ -233,7 +242,10 @@ function applyStatement(
   // add-then-drop of the same column (unusual, but not impossible) resolves
   // correctly.
   const alterTable = statement.match(
-    new RegExp(`^ALTER TABLE\\s+${IDENT}\\s+([\\s\\S]*?);?\\s*$`, "i"),
+    new RegExp(
+      `^ALTER TABLE\\s+(?:IF EXISTS\\s+)?(?:ONLY\\s+)?${TABLE_REF}\\s+([\\s\\S]*?);?\\s*$`,
+      "i",
+    ),
   );
   const alterTableName = alterTable?.[1];
   const alterBody = alterTable?.[2];
@@ -316,6 +328,7 @@ export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
   for (const migration of migrations) {
     for (const statement of migration.statements) {
       applyStatement(schema, statement, { file: migration.id });
+      applyRowLevelSecurityStatement(schema, statement, { file: migration.id });
     }
   }
   return schema;
@@ -323,9 +336,31 @@ export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
 
 export type ReplayMismatch = {
   readonly tableName: string;
-  readonly kind: "missing-table" | "unexpected-table" | "column-drift";
+  readonly kind: "missing-table" | "unexpected-table" | "column-drift" | "row-level-security-drift";
   readonly detail: string;
 };
+
+function rowLevelSecurityMismatches(
+  replayed: ReplayedSchema,
+  snapshot: Snapshot,
+): readonly ReplayMismatch[] {
+  const mismatches: ReplayMismatch[] = [];
+  const specs = snapshot.rowLevelSecurity ?? {};
+  for (const { tableName } of snapshot.tables) {
+    const table = replayed.get(tableName);
+    // skip: a missing table is already reported as missing-table
+    if (!table) continue;
+    const spec = Object.hasOwn(specs, tableName) ? specs[tableName] : undefined;
+    const detail =
+      spec === undefined
+        ? replayedOnlyRowLevelSecurityDrift(table.rowLevelSecurity)
+        : rowLevelSecurityDrift(table.rowLevelSecurity, tableName, spec);
+    if (detail !== undefined) {
+      mismatches.push({ tableName, kind: "row-level-security-drift", detail });
+    }
+  }
+  return mismatches;
+}
 
 // Compares what the migration files actually produce (`replayed`) against
 // what `.snapshot.json` claims (`snapshot`) — the check that would have
@@ -362,6 +397,8 @@ export function diffReplayAgainstSnapshot(
       });
     }
   }
+
+  mismatches.push(...rowLevelSecurityMismatches(replayed, snapshot));
 
   for (const tableName of replayed.keys()) {
     if (!snapshotTableNames.has(tableName)) {

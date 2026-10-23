@@ -9,10 +9,10 @@ import {
 } from "../db/queries/event-consumer.ts";
 import {
   assertLiveColumnsMatchMeta,
-  assertLiveTableHasNoRowLevelSecurity,
   buildShadowTable,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
+  refuseRowLevelSecurityFilteredReads,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
@@ -188,13 +188,13 @@ async function replayMultiStreamProjectionIntoShadow(
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     const replayedIds: bigint[] = [];
     await db.begin(async (tx: DbTx) => {
+      await refuseRowLevelSecurityFilteredReads(tx);
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
       const { horizon, gaps: seededGaps } = await selectEventIdHorizonWithMissingRanges(tx);
 
       await assertLiveColumnsMatchMeta(tx, meta, mspName);
-      await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, mspName);
       await buildShadowTable(tx, meta);
 
       const subscribedTypes = Object.keys(msp.apply);

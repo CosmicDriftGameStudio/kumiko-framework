@@ -44,6 +44,7 @@ function checkSchemaDrift(
     ...drift.diff.changedTables.map((t) => t.tableName),
     ...drift.diff.droppedTables,
     ...drift.retiredDrops.map((t) => t.tableName),
+    ...drift.rowLevelSecurityChanges.map((c) => c.tableName),
   ];
   if (pendingTables.length === 0) {
     out.log("  ✓ schema: migrations match the entity definitions");
@@ -51,7 +52,7 @@ function checkSchemaDrift(
   }
   out.err("  ✗ schema drift: entity definitions are ahead of kumiko/migrations.");
   out.err(
-    `    pending — new: ${drift.diff.newTables.length}, changed: ${drift.diff.changedTables.length}, dropped: ${drift.diff.droppedTables.length}`,
+    `    pending — new: ${drift.diff.newTables.length}, changed: ${drift.diff.changedTables.length}, dropped: ${drift.diff.droppedTables.length}, row level security: ${drift.rowLevelSecurityChanges.length}`,
   );
   out.err(`    tables: ${pendingTables.join(", ")}`);
   out.err("    Fix: `kumiko-schema generate <name>`, then commit the migration.");
@@ -106,7 +107,7 @@ function reportMigrationContentMismatches(out: SchemaCliOut, mismatches: ReplayM
   }
   if (mismatches.some((m) => m.kind !== "unexpected-table")) {
     out.err(
-      "    Fix (missing-table/column-drift): a migration file's body doesn't match " +
+      "    Fix (missing-table/column-drift/row-level-security-drift): a migration file's body doesn't match " +
         "what it (or the snapshot) claims — hand-fix the file, or ship a corrective " +
         "migration if it's already applied in prod.",
     );

@@ -9,10 +9,8 @@
 
 import { pgTypeToSqlType } from "./dialect.ts";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
+import { type RowLevelSecurityMode, renderTableRowLevelSecurityDdl } from "./render-rls-ddl.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 
 function renderColumn(col: ColumnMeta): string {
   const parts: string[] = [quoteIdent(col.name), pgTypeToSqlType(col.pgType)];
@@ -38,7 +36,12 @@ export function renderIndex(tableName: string, idx: IndexMeta): string {
   return `CREATE ${kind} IF NOT EXISTS ${quoteIdent(idx.name)} ON ${quoteIdent(tableName)} (${colList})${where};`;
 }
 
-export function renderTableDdl(meta: EntityTableMeta): readonly string[] {
+export type RenderDdlOptions = { readonly rowLevelSecurity?: RowLevelSecurityMode };
+
+export function renderTableDdl(
+  meta: EntityTableMeta,
+  options: RenderDdlOptions = {},
+): readonly string[] {
   const colLines = meta.columns.map(renderColumn);
   const lines: string[] = [...colLines];
   if (meta.compositePrimaryKey !== undefined) {
@@ -47,11 +50,15 @@ export function renderTableDdl(meta: EntityTableMeta): readonly string[] {
   }
   const create = `CREATE TABLE IF NOT EXISTS ${quoteIdent(meta.tableName)} (\n  ${lines.join(",\n  ")}\n);`;
   const indexes = meta.indexes.map((idx) => renderIndex(meta.tableName, idx));
-  return [create, ...indexes];
+  const policies = options.rowLevelSecurity === "on" ? renderTableRowLevelSecurityDdl(meta) : [];
+  return [create, ...indexes, ...policies];
 }
 
-export function renderTablesDdl(metas: readonly EntityTableMeta[]): readonly string[] {
+export function renderTablesDdl(
+  metas: readonly EntityTableMeta[],
+  options: RenderDdlOptions = {},
+): readonly string[] {
   const stmts: string[] = [];
-  for (const m of metas) stmts.push(...renderTableDdl(m));
+  for (const m of metas) stmts.push(...renderTableDdl(m, options));
   return stmts;
 }

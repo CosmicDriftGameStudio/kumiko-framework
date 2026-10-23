@@ -1,5 +1,9 @@
+import type { DbConnection } from "../connection.ts";
+import type { EntityTableMeta } from "../entity-table-meta.ts";
 import type { AnyDb } from "../query.ts";
-import { asRawClient } from "../query.ts";
+import { asRawClient, transaction } from "../query.ts";
+import { renderTableRowLevelSecurityDdl } from "../render-rls-ddl.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { quoteTableIdent } from "./table-ops.ts";
 
 // Generic DDL helpers used on the prod-boot path (db/table-push.ts's
@@ -42,4 +46,18 @@ export async function createIndexIfNotExists(
   await asRawClient(db).unsafe(
     `CREATE ${indexKind} IF NOT EXISTS ${quoteTableIdent(indexName)} ON ${quoteTableIdent(tableName)} (${columnList})${where}`,
   );
+}
+
+export async function applyTableRowLevelSecurity(
+  db: DbConnection,
+  meta: EntityTableMeta,
+): Promise<void> {
+  const statements = renderTableRowLevelSecurityDdl(meta);
+  // skip: no tenant_id column, nothing to enforce
+  if (statements.length === 0) return;
+  await transaction(db, async (tx) => {
+    // Self-conflicting lock: parallel pushes queue up instead of failing CREATE POLICY with duplicate_object.
+    await tx.unsafe(`LOCK TABLE ${quoteIdent(meta.tableName)} IN SHARE ROW EXCLUSIVE MODE`);
+    for (const statement of statements) await tx.unsafe(statement);
+  });
 }
