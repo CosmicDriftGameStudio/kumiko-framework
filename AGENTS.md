@@ -38,6 +38,7 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 | `framework` | Engine, pipeline, API, DB, event store, SSRF-safe egress (`/http`); ships the app-facing `AGENTS.md` |
 | `types` | Engine and DB type contracts without the runtime |
 | `bundled-features` | Ready-made features: tenant, user, auth, files, billing, jobs and more |
+| `feature-ast` | Feature-file AST (parse, patch, render), pattern library and upgrade codemods |
 | `cli`, `dev-server`, `create-kumiko-app` | `kumiko` CLI, dev server and scaffolding, `bun create kumiko-app` |
 | `server-runtime` | Production boot: connections, schema-drift gate, lifecycle |
 | `testing` | Test stack, seeding, preloads, integration runner |
@@ -49,7 +50,7 @@ smallest complete example is [`samples/recipes/golden-path`](samples/recipes/gol
 | `apps/puppeteer-service` | PDF and image rendering service |
 | `samples/recipes/*`, `samples/apps/*` | One tested example per concept, full sample apps |
 
-The full list (18 packages; the five former shims were removed in 0.379.0) is in
+The full list (19 packages; the five former shims were removed in 0.379.0) is in
 [package set](docs/reference/packages.md).
 
 ## Commands
@@ -65,7 +66,7 @@ The full list (18 packages; the five former shims were removed in 0.379.0) is in
 | Types | `bun run typecheck` |
 | Lint | `bunx biome check <files>` |
 | Upgrade an app to the installed version | `bun kumiko-upgrade --apply` |
-| Preview a codemod | `bun packages/framework/src/scripts/codemod/<name>.ts <dir> --check` |
+| Preview a codemod | `bun packages/feature-ast/src/scripts/codemod/<name>.ts <dir> --check` |
 | Regenerate agent docs, sample index | `bun run gen:agent-docs`, `bun run gen:sample-index` |
 
 ## Hard rules
@@ -90,6 +91,6 @@ is no fixed release day. See [stability policy](docs/reference/stability-policy.
 - [App feature structure](docs/reference/app-feature-structure.md)
 - [Stability policy](docs/reference/stability-policy.md)
 - [Design decisions](docs/reference/decisions.md): read before design or architecture changes; append new lasting decisions at the bottom
-- [Package set](docs/reference/packages.md): the 18 packages and where the removed shims went
+- [Package set](docs/reference/packages.md): the 19 packages and where the removed shims went
 - [Feature manifest](packages/create-kumiko-app/feature-manifest.json): bundled features, config and dependencies
 - [App-facing agent guide](packages/framework/AGENTS.md)

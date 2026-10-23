@@ -103,7 +103,7 @@
     },
     {
       "includes": [
-        "packages/framework/src/engine/codemod/pipeline-codemod.ts",
+        "packages/feature-ast/src/codemod/pipeline-codemod.ts",
         "packages/framework/src/logging/utils.ts",
         "packages/create-kumiko-app/**",
         "packages/guards/**",

@@ -20,7 +20,7 @@ import {
 import { ensureTemporalPolyfill } from "./time/index.ts";
 import {
   mergeUpgradeSection,
-  setManualStatusInChangelog,
+  syncResolvedManualStatuses,
   type UpgradeChangelogManual,
 } from "./upgrade-changelog.ts";
 import {
@@ -41,6 +41,7 @@ export { manualEntryId };
 
 const SEMVER_CORE_RE = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
 const CODEMOD_SUBDIR = "scripts/codemod";
+const CODEMOD_PACKAGE_NAME = "@cosmicdrift/kumiko-feature-ast";
 
 export type UpgradeCliOut = {
   readonly log: (line: string) => void;
@@ -251,20 +252,20 @@ export function findFeaturesDirs(cwd: string): string[] {
 }
 
 // Consumer-facing codemod scripts ship inside the published
-// @cosmicdrift/kumiko-framework package (src/scripts/codemod), not at the
+// @cosmicdrift/kumiko-feature-ast package (src/scripts/codemod), not at the
 // git repo root — only the installed package path exists in a consumer's
 // node_modules after a plain npm/bun install.
 export function findCodemodScriptsRoot(repoRoot: string): string | null {
-  const local = join(repoRoot, "packages/framework/src");
+  const local = join(repoRoot, "packages/feature-ast/src");
   if (existsSync(join(local, CODEMOD_SUBDIR))) {
-    // If package.json exists, require it to be kumiko-framework so a generic
-    // monorepo `packages/framework` cannot shadow the installed package.
+    // If package.json exists, require it to be kumiko-feature-ast so a generic
+    // monorepo `packages/feature-ast` cannot shadow the installed package.
     // Missing package.json (test fixtures / incomplete trees) keeps prior behavior.
-    const pkgPath = join(repoRoot, "packages/framework/package.json");
+    const pkgPath = join(repoRoot, "packages/feature-ast/package.json");
     if (existsSync(pkgPath)) {
       try {
         const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
-        if (propertyOf(pkg, "name") === "@cosmicdrift/kumiko-framework") return local;
+        if (propertyOf(pkg, "name") === CODEMOD_PACKAGE_NAME) return local;
         // wrong name → fall through
       } catch {
         // unreadable → fall through
@@ -276,7 +277,7 @@ export function findCodemodScriptsRoot(repoRoot: string): string | null {
 
   let dir = repoRoot;
   for (let i = 0; i < 10; i++) {
-    const nmSrc = join(dir, "node_modules/@cosmicdrift/kumiko-framework/src");
+    const nmSrc = join(dir, "node_modules", CODEMOD_PACKAGE_NAME, "src");
     if (existsSync(join(nmSrc, CODEMOD_SUBDIR))) return nmSrc;
     const parent = join(dir, "..");
     if (parent === dir) break;
@@ -523,18 +524,15 @@ function writeUpgradeChangelog(
 ): void {
   const path = join(targetDir, "CHANGELOG.md");
   const existing = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
-  writeFileSync(
-    path,
-    mergeUpgradeSection(existing, {
-      from: bump.from,
-      to: bump.to,
-      date: Temporal.Now.instant().toString().slice(0, 10),
-      breaking: bump.pending.filter((entry) => entry.type === "breaking"),
-      manual: manualWithStatus(bump.manualEntries, bump.previous),
-      codemods: bump.ran,
-    }),
-    "utf-8",
-  );
+  const merged = mergeUpgradeSection(existing, {
+    from: bump.from,
+    to: bump.to,
+    date: Temporal.Now.instant().toString().slice(0, 10),
+    breaking: bump.pending.filter((entry) => entry.type === "breaking"),
+    manual: manualWithStatus(bump.manualEntries, bump.previous),
+    codemods: bump.ran,
+  });
+  writeFileSync(path, syncResolvedManualStatuses(merged, bump.previous.resolvedManual), "utf-8");
 }
 
 // Records the codemods that already wrote files before a later one failed, so
@@ -654,7 +652,7 @@ async function applyCodemods(
   const codemodScriptsRoot = findCodemodScriptsRoot(repoRoot);
   if (codemodScriptsRoot === null) {
     out.err(
-      `  ✗ could not locate @cosmicdrift/kumiko-framework/src/scripts/codemod — is the framework installed? searched from ${repoRoot} upward`,
+      `  ✗ could not locate @cosmicdrift/kumiko-feature-ast/src/scripts/codemod — is @cosmicdrift/kumiko-cli or @cosmicdrift/kumiko-dev-server installed? searched from ${repoRoot} upward`,
     );
     return 1;
   }
@@ -793,11 +791,7 @@ function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir
   const changelogPath = join(targetDir, "CHANGELOG.md");
   if (existsSync(changelogPath)) {
     const content = readFileSync(changelogPath, "utf-8");
-    writeFileSync(
-      changelogPath,
-      setManualStatusInChangelog(content, resolvedIds, resolution),
-      "utf-8",
-    );
+    writeFileSync(changelogPath, syncResolvedManualStatuses(content, resolvedManual), "utf-8");
   }
   out.log("");
   out.log(`  ✓ Marked ${newlyResolved.length} manual migration(s) as ${resolution}:`);

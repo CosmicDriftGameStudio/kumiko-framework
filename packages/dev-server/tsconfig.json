@@ -9,6 +9,7 @@
   },
   "references": [
     { "path": "../framework" },
+    { "path": "../feature-ast" },
     { "path": "../bundled-features" },
     { "path": "../guards" },
     { "path": "../server-runtime" },

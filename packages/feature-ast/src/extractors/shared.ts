@@ -1,0 +1,387 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import type { CallExpression, ObjectLiteralExpression, VariableDeclaration } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
+import type { ParseError } from "../parse.ts";
+import {
+  findImportBindingForLocalName,
+  findScopedVariableDeclaration,
+  resolveExportedVariable,
+  resolveModuleFile,
+} from "./resolve-import.ts";
+
+export type ExtractOutput<TPattern> =
+  | { readonly kind: "pattern"; readonly pattern: TPattern }
+  | { readonly kind: "error"; readonly error: ParseError };
+
+export function ok<TPattern>(pattern: TPattern): ExtractOutput<TPattern> {
+  return { kind: "pattern", pattern };
+}
+
+export function fail(
+  methodName: string,
+  source: ParseError["source"],
+  reason: string,
+): { readonly kind: "error"; readonly error: ParseError } {
+  return { kind: "error", error: { methodName, source, reason } };
+}
+
+export function readStringLiteralArgs(call: CallExpression): readonly string[] | undefined {
+  const out: string[] = [];
+  for (const arg of call.getArguments()) {
+    const literal = arg.asKind(SyntaxKind.StringLiteral);
+    if (!literal) return undefined;
+    out.push(literal.getLiteralValue());
+  }
+  return out;
+}
+
+export function readBooleanProperty(
+  objectLiteral: Node,
+  propertyName: string,
+): boolean | undefined {
+  const obj = objectLiteral.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj) return undefined;
+  const prop = obj.getProperty(propertyName);
+  if (!prop) return undefined;
+  const assignment = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (!assignment) return undefined;
+  const initializer = assignment.getInitializer();
+  if (!initializer) return undefined;
+  const kind = initializer.getKind();
+  if (kind === SyntaxKind.TrueKeyword) return true;
+  if (kind === SyntaxKind.FalseKeyword) return false;
+  return undefined;
+}
+
+/**
+ * Marks a value the parser could not resolve into a literal (an Identifier
+ * reference, a call expression, ...) while preserving its exact source text.
+ * `renderValue` re-emits `__raw` verbatim instead of re-serializing the
+ * value, so round-tripping a reference like `eventEntity` never expands it
+ * into an inlined object literal.
+ */
+export type RawRefSentinel = { readonly __raw: string };
+
+export function isRawRefSentinel(value: unknown): value is RawRefSentinel {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "__raw" in value &&
+    typeof (value as { __raw: unknown }).__raw === "string"
+  );
+}
+
+// Deep check over arrays/plain objects, the only container shapes
+// readDataLiteralNode produces.
+export function containsRawRefSentinel(value: unknown): boolean {
+  if (isRawRefSentinel(value)) return true;
+  if (Array.isArray(value)) return value.some(containsRawRefSentinel);
+  if (isPlainObject(value)) return Object.values(value).some(containsRawRefSentinel);
+  return false;
+}
+
+export type ReadDataLiteralOptions = {
+  /**
+   * Keep arrow/function-expression values as `__raw` sentinels instead of
+   * failing the whole read. Only for pattern options that are code by
+   * nature (useExtension); data-only definitions (entity, nav) must still
+   * reject functions.
+   */
+  readonly functionValuesAsRaw?: boolean;
+};
+
+export function readDataLiteralNode(node: Node, readOptions: ReadDataLiteralOptions = {}): unknown {
+  const kind = node.getKind();
+  switch (kind) {
+    case SyntaxKind.StringLiteral:
+      return node.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralValue();
+    case SyntaxKind.NoSubstitutionTemplateLiteral:
+      return node.asKindOrThrow(SyntaxKind.NoSubstitutionTemplateLiteral).getLiteralValue();
+    case SyntaxKind.NumericLiteral:
+      return Number(node.asKindOrThrow(SyntaxKind.NumericLiteral).getText());
+    case SyntaxKind.TrueKeyword:
+      return true;
+    case SyntaxKind.FalseKeyword:
+      return false;
+    case SyntaxKind.NullKeyword:
+      return null;
+    case SyntaxKind.PrefixUnaryExpression: {
+      const expr = node.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
+      if (expr.getOperatorToken() !== SyntaxKind.MinusToken) return undefined;
+      const inner = readDataLiteralNode(expr.getOperand(), readOptions);
+      if (typeof inner !== "number") return undefined;
+      return -inner;
+    }
+    case SyntaxKind.ArrayLiteralExpression: {
+      const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
+      const out: unknown[] = [];
+      for (const el of arr.getElements()) {
+        const value = readDataLiteralNode(el, readOptions);
+        if (value === undefined) return undefined;
+        out.push(value);
+      }
+      return out;
+    }
+    case SyntaxKind.ObjectLiteralExpression: {
+      const obj = node.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+      const out: Record<string, unknown> = {};
+      for (const prop of obj.getProperties()) {
+        const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
+        if (!propAssign) return undefined;
+        const initializer = propAssign.getInitializer();
+        if (!initializer) return undefined;
+        const value = readDataLiteralNode(initializer, readOptions);
+        if (value === undefined) return undefined;
+        out[readPropertyKey(propAssign)] = value;
+      }
+      return out;
+    }
+    case SyntaxKind.AsExpression:
+      return readDataLiteralNode(
+        node.asKindOrThrow(SyntaxKind.AsExpression).getExpression(),
+        readOptions,
+      );
+    case SyntaxKind.SatisfiesExpression:
+      return readDataLiteralNode(
+        node.asKindOrThrow(SyntaxKind.SatisfiesExpression).getExpression(),
+        readOptions,
+      );
+    case SyntaxKind.ParenthesizedExpression:
+      return readDataLiteralNode(
+        node.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression(),
+        readOptions,
+      );
+    case SyntaxKind.Identifier:
+    case SyntaxKind.CallExpression:
+    case SyntaxKind.PropertyAccessExpression:
+      // Unresolvable reference (const identifier, factory call, member access).
+      // Keep the exact source text so renderValue can re-emit it verbatim —
+      // resolving/inlining it would silently rewrite the source on the next
+      // parse->render roundtrip (see readDataLiteralNode doc above).
+      return { __raw: node.getText() } satisfies RawRefSentinel;
+    case SyntaxKind.ArrowFunction:
+    case SyntaxKind.FunctionExpression:
+      return readOptions.functionValuesAsRaw
+        ? ({ __raw: node.getText() } satisfies RawRefSentinel)
+        : undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A node's literal string value, or the raw-ref sentinel when it resolves to
+ * an unresolvable identifier/factory-call/member-access (see
+ * readDataLiteralNode). undefined for anything else (number, boolean, ...).
+ */
+export function readStringOrRaw(node: Node): string | RawRefSentinel | undefined {
+  const value = readDataLiteralNode(node);
+  if (typeof value === "string") return value;
+  if (isRawRefSentinel(value)) return value;
+  return undefined;
+}
+
+/**
+ * Like readStringLiteralArgs, but an argument that resolves to a raw-ref
+ * sentinel is kept as that sentinel instead of failing the whole call. Used
+ * where a value stands in for a single name/key and inlining its resolved
+ * string would corrupt the render roundtrip (e.g. `r.requires(someFeature.name)`).
+ */
+export function readStringOrRawArgs(
+  call: CallExpression,
+): readonly (string | RawRefSentinel)[] | undefined {
+  const out: (string | RawRefSentinel)[] = [];
+  for (const arg of call.getArguments()) {
+    const value = readStringOrRaw(arg);
+    if (value === undefined) return undefined;
+    out.push(value);
+  }
+  return out;
+}
+
+export { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+
+export function readPropertyKey(propAssign: import("ts-morph").PropertyAssignment): string {
+  const nameNode = propAssign.getNameNode();
+  const literal = nameNode.asKind(SyntaxKind.StringLiteral);
+  if (literal) return literal.getLiteralValue();
+  return propAssign.getName();
+}
+
+function unwrapLiteralInitializer(node: Node): string | undefined {
+  const literal =
+    node.asKind(SyntaxKind.StringLiteral) ?? node.asKind(SyntaxKind.NoSubstitutionTemplateLiteral);
+  if (literal) return literal.getLiteralValue();
+  const asExpr = node.asKind(SyntaxKind.AsExpression);
+  if (asExpr) return unwrapLiteralInitializer(asExpr.getExpression());
+  const satisfiesExpr = node.asKind(SyntaxKind.SatisfiesExpression);
+  if (satisfiesExpr) return unwrapLiteralInitializer(satisfiesExpr.getExpression());
+  const paren = node.asKind(SyntaxKind.ParenthesizedExpression);
+  if (paren) return unwrapLiteralInitializer(paren.getExpression());
+  return undefined;
+}
+
+// `export declare const NAME: "value"` in a .d.ts has no initializer, only a
+// string-literal type.
+function readDeclaredStringLiteralType(decl: VariableDeclaration): string | undefined {
+  const typeNode = decl.getTypeNode();
+  if (!typeNode || !Node.isLiteralTypeNode(typeNode)) return undefined;
+  const literal = typeNode.getLiteral();
+  return Node.isStringLiteral(literal) ? literal.getLiteralValue() : undefined;
+}
+
+/**
+ * Resolves a bare Identifier to the string value of its declaration's
+ * initializer (`export const EXT_TENANT_DATA = "tenant-data" as const`),
+ * following imports syntactically across files and packages against a
+ * real-filesystem Project without ever building a TypeScript program (see
+ * resolve-import.ts). Only descends into VariableDeclaration initializers; a
+ * function/class/type definition or an unresolvable import yields undefined,
+ * never a throw.
+ */
+function resolveIdentifierToStringLiteral(identifier: Node): string | undefined {
+  const id = identifier.asKind(SyntaxKind.Identifier);
+  if (!id) return undefined;
+  const name = id.getText();
+
+  const scoped = findScopedVariableDeclaration(id, name);
+  if (scoped) {
+    const init = scoped.getInitializer();
+    return init ? unwrapLiteralInitializer(init) : undefined;
+  }
+
+  const binding = findImportBindingForLocalName(id.getSourceFile(), name);
+  if (!binding) return undefined;
+  const targetFile = resolveModuleFile(id.getSourceFile(), binding.moduleSpecifier, {
+    allowDeclarationFiles: true,
+  });
+  if (!targetFile) return undefined;
+  const decl = resolveExportedVariable(targetFile, binding.importedName);
+  if (!decl) return undefined;
+  const init = decl.getInitializer();
+  if (init) return unwrapLiteralInitializer(init);
+  return readDeclaredStringLiteralType(decl);
+}
+
+/**
+ * Resolved name plus, when the source node was an identifier rather than
+ * a string literal, the identifier's exact source text. Mirrors
+ * `RawRefSentinel`'s round-trip contract: extractors that need to re-emit
+ * the original reference (not its resolved value) keep `raw` alongside
+ * `value`; extractors that only need the string keep using
+ * `readNameLiteral`, which discards it.
+ */
+export type NameLiteralRef = { readonly value: string; readonly raw?: string };
+
+/**
+ * Like `readNameLiteral`, but for callers that must preserve an
+ * identifier-authored name across a render → parse round-trip.
+ * `raw` is populated only when the node resolved via an identifier — a
+ * string-literal node has nothing worth preserving beyond its value, and
+ * setting `raw` for it too would make `JSON.stringify(value)` and
+ * `node.getText()` diverge on quote style.
+ */
+export function readNameLiteralRef(node: Node): NameLiteralRef | undefined {
+  const literal = node.asKind(SyntaxKind.StringLiteral);
+  if (literal) return { value: literal.getLiteralValue() };
+  const resolved = resolveIdentifierToStringLiteral(node);
+  if (resolved === undefined) return undefined;
+  return { value: resolved, raw: node.getText() };
+}
+
+/**
+ * A node's string value when it's a string literal, or when it's a bare
+ * Identifier that resolves to one via a `const X = "..."` declaration
+ * (same-file or imported) — the pattern used throughout the framework's
+ * own bundled-features for registrar-call names (`EXT_TENANT_DATA`,
+ * `TENANT_SECRET_READ_EVENT`, ...) instead of repeating string literals.
+ * undefined for anything unresolvable (factory call, member access,
+ * external/ambient identifier) — callers keep their existing ParseError
+ * fallback, no crash. Discards the original identifier text; use
+ * `readNameLiteralRef` when the caller must preserve it for rendering.
+ */
+export function readNameLiteral(node: Node): string | undefined {
+  return readNameLiteralRef(node)?.value;
+}
+
+export function readNameOrRef(node: Node): string | undefined {
+  const literal = readNameLiteral(node);
+  if (literal !== undefined) return literal;
+  const obj = readDataLiteralNode(node);
+  if (isPlainObject(obj) && typeof obj["name"] === "string") return obj["name"];
+  return undefined;
+}
+
+/** Resolve an inline object literal or a same-file `const` that initializes to one. */
+export function resolveSameFileObjectLiteral(node: Node): ObjectLiteralExpression | undefined {
+  const direct = node.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (direct) return direct;
+  const identifier = node.asKind(SyntaxKind.Identifier);
+  if (!identifier) return undefined;
+  const varDecl = findScopedVariableDeclaration(identifier, identifier.getText());
+  return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
+}
+
+export function readObjectPropertyInitializer(
+  obj: ObjectLiteralExpression,
+  propertyName: string,
+): import("ts-morph").Expression | undefined {
+  const prop = obj.getProperty(propertyName);
+  if (!prop) return undefined;
+  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+  if (assign) return assign.getInitializer();
+  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
+  if (shorthand) return shorthand.getNameNode();
+  return undefined;
+}
+
+export function findFunctionLiteral(node: Node): Node | undefined {
+  if (node.getKind() === SyntaxKind.ArrowFunction) return node;
+  if (node.getKind() === SyntaxKind.FunctionExpression) return node;
+  const paren = node.asKind(SyntaxKind.ParenthesizedExpression);
+  if (paren) return findFunctionLiteral(paren.getExpression());
+  return undefined;
+}
+
+export function readNameOrRefOrList(node: Node): string | readonly string[] | undefined {
+  const single = readNameOrRef(node);
+  if (single) return single;
+  const arr = node.asKind(SyntaxKind.ArrayLiteralExpression);
+  if (!arr) return undefined;
+  const out: string[] = [];
+  for (const el of arr.getElements()) {
+    const name = readNameOrRef(el);
+    if (!name) return undefined;
+    out.push(name);
+  }
+  return out;
+}
+
+export function readVarargsOrArrayProp(
+  call: CallExpression,
+  arrayPropName: "features" | "keys",
+): readonly (string | RawRefSentinel)[] | undefined {
+  const args = call.getArguments();
+  if (args.length === 1) {
+    const obj = args[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (obj) {
+      const propInit = obj
+        .getProperty(arrayPropName)
+        ?.asKind(SyntaxKind.PropertyAssignment)
+        ?.getInitializer();
+      if (propInit) {
+        const arr = propInit.asKind(SyntaxKind.ArrayLiteralExpression);
+        if (!arr) return undefined;
+        const out: (string | RawRefSentinel)[] = [];
+        for (const el of arr.getElements()) {
+          const value = readStringOrRaw(el);
+          if (value === undefined) return undefined;
+          out.push(value);
+        }
+        return out;
+      }
+    }
+  }
+  return readStringOrRawArgs(call);
+}

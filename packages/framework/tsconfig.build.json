@@ -11,5 +11,5 @@
     "preserveSymlinks": true,
     "paths": {}
   },
-  "exclude": ["**/__tests__/**", "**/*.test.ts", "src/scripts/**"]
+  "exclude": ["**/__tests__/**", "**/*.test.ts"]
 }

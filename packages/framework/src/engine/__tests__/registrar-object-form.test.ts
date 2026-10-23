@@ -5,7 +5,7 @@ import { defineFeature, type FeatureRegistrar } from "../index.ts";
 // Object-Form is the shape the feature-ast renderer emits for Designer/
 // AI-generated code (`r.entity({ name: "item", ... })` instead of
 // `r.entity("item", { ... })`). The compile
-// checks in feature-ast/__tests__/render-roundtrip.test.ts prove the TYPES
+// checks in packages/feature-ast/src/__tests__/render-roundtrip.test.ts prove the TYPES
 // line up; they never execute the runtime dispatch that unpacks Object-Form
 // back into the same state mutations as the positional form. These tests
 // cover that: one per distinct dispatch shape, asserting object-form and

@@ -1,22 +1,23 @@
 ---
 status: reference
-verified: 2026-10-19
-evidence: "packages/*/package.json (18 directories, none private); .changeset/config.json fixed group; codemod in packages/framework/src/scripts/codemod/package-merge.ts"
+verified: 2026-10-23
+evidence: "packages/*/package.json (19 directories, none private); .changeset/config.json fixed group; codemod in packages/feature-ast/src/scripts/codemod/package-merge.ts"
 ---
 
 # Package set
 
-The framework repo holds 18 package directories, all released in one lockstep version
+The framework repo holds 19 package directories, all released in one lockstep version
 group (`.changeset/config.json`). The five former re-export shims are gone; this page lists
 where their code lives now.
 
-## Real packages (18)
+## Real packages (19)
 
 | Package | Purpose |
 | --- | --- |
 | `@cosmicdrift/kumiko-framework` | Engine, pipeline, API, DB, event store; subpath `/http` is the SSRF-safe egress client |
 | `@cosmicdrift/kumiko-types` | Engine and DB type contracts without the runtime |
 | `@cosmicdrift/kumiko-bundled-features` | Ready-made features (tenant, user, auth, files, billing, jobs and more) |
+| `@cosmicdrift/kumiko-feature-ast` | Feature-file AST (parse, patch, render), the pattern library and the upgrade codemods; subpath `/codemod` is the Bun-only codemod pipeline |
 | `@cosmicdrift/kumiko-cli` | The `kumiko` CLI commands |
 | `@cosmicdrift/kumiko-dev-server` | Dev server, `kumiko-schema`, `kumiko-upgrade`, `kumiko-build` |
 | `create-kumiko-app` | `bun create kumiko-app` scaffolding and the feature manifest |
@@ -52,7 +53,7 @@ bun kumiko codemod package-merge . --write
 ```
 
 `bun kumiko-upgrade --apply` runs it as part of an upgrade. The codemod is described in
-`packages/framework/src/scripts/codemod/README.md`.
+`packages/feature-ast/src/scripts/codemod/README.md`.
 
 ## Apps and samples
 

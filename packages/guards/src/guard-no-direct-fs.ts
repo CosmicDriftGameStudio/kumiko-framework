@@ -103,7 +103,7 @@ const ALLOWLIST: readonly AllowEntry[] = [
   },
   {
     repo: "kumiko-framework",
-    pattern: /^packages\/framework\/src\/engine\/codemod\/pipeline-codemod\.ts$/,
+    pattern: /^packages\/feature-ast\/src\/codemod\/pipeline-codemod\.ts$/,
   },
 
   // server-runtime: prod bundle build + static asset delivery from the

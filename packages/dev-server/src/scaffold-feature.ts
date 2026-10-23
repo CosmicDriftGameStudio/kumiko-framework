@@ -17,7 +17,7 @@ import {
   type FeaturePattern,
   renderFeatureFile,
   type SourceLocation,
-} from "@cosmicdrift/kumiko-framework/engine";
+} from "@cosmicdrift/kumiko-feature-ast";
 
 // =============================================================================
 // Public API

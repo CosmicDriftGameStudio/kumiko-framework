@@ -20,6 +20,7 @@ Each package keeps its own changelog, generated on every release:
 | `@cosmicdrift/kumiko-renderer-mail-html` | [packages/renderer-mail-html/CHANGELOG.md](packages/renderer-mail-html/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-renderer-puppeteer-client` | [packages/renderer-puppeteer-client/CHANGELOG.md](packages/renderer-puppeteer-client/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-document-designer` | [packages/document-designer/CHANGELOG.md](packages/document-designer/CHANGELOG.md) |
+| `@cosmicdrift/kumiko-feature-ast` | [packages/feature-ast/CHANGELOG.md](packages/feature-ast/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-locale-de` | [packages/locale-de/CHANGELOG.md](packages/locale-de/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-locale-es` | [packages/locale-es/CHANGELOG.md](packages/locale-es/CHANGELOG.md) |
 | `@cosmicdrift/kumiko-locale-fr` | [packages/locale-fr/CHANGELOG.md](packages/locale-fr/CHANGELOG.md) |

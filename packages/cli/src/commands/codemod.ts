@@ -39,13 +39,13 @@ async function runCodemod(ctx: CliCommandContext): Promise<number> {
 
   const { resolveCodemodScript } = await import("@cosmicdrift/kumiko-framework/upgrade-cli");
   const scriptField = `scripts/codemod/${name}.ts`;
-  // The project's own install wins; the framework next to this CLI is the fallback.
+  // The project's own install wins; the feature-ast package next to this CLI is the fallback.
   const script =
     resolveCodemodScript(ctx.cwd, scriptField) ??
     resolveCodemodScript(import.meta.dir, scriptField);
   if (script === null) {
     ctx.out.err(
-      "  Codemod script not found. Install @cosmicdrift/kumiko-framework in this project.",
+      "  Codemod script not found. Install @cosmicdrift/kumiko-feature-ast in this project.",
     );
     return 1;
   }

@@ -7,6 +7,7 @@ import {
   type Category,
   categorize,
   collect,
+  getFileDefaultReason,
   legitCountsByPackage,
   loadBaseline,
   reportBaseline,
@@ -197,5 +198,25 @@ describe("legit cast ratchet", () => {
       "packages/renderer:legit-boundary": 1,
       "packages/types:legit-boundary": 1,
     });
+  });
+});
+
+describe("file default reasons", () => {
+  test("feature-ast extractors and parsers default to schema-walk", () => {
+    expect(getFileDefaultReason("/repo/packages/feature-ast/src/extractors/hooks.ts")).toBe(
+      "schema-walk",
+    );
+    expect(getFileDefaultReason("/repo/packages/feature-ast/src/parse.ts")).toBe("schema-walk");
+  });
+
+  test("feature-ast codemods, scripts and the pattern library do not", () => {
+    for (const file of [
+      "/repo/packages/feature-ast/src/codemod/pipeline-codemod.ts",
+      "/repo/packages/feature-ast/src/scripts/codemod/db-factory.ts",
+      "/repo/packages/feature-ast/src/pattern-library/library.ts",
+      "/repo/packages/framework/src/engine/feature-ast/parse.ts",
+    ]) {
+      expect(getFileDefaultReason(file)).toBeNull();
+    }
   });
 });

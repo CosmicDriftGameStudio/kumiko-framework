@@ -18,7 +18,7 @@ export type ChangelogEntry = {
   readonly detail?: string;
   /** Required when type=breaking. Shown in `kumiko upgrade` output. */
   readonly migration?: string;
-  /** Path (relative to packages/framework/src/, under scripts/codemod/) run by `kumiko upgrade --apply`. */
+  /** Path (relative to packages/feature-ast/src/, under scripts/codemod/) run by `kumiko upgrade --apply`. */
   readonly codemod?: string;
   /** The codemod only covers part of the migration: the entry is also recorded as pending manual work after it ran. */
   readonly manualAfterCodemod?: boolean;

@@ -1,3 +1,5 @@
+import type { UpgradeMarkerResolvedManual } from "./upgrade-marker-parse.ts";
+
 // CHANGELOG.md in the app root, written by `kumiko-upgrade --apply`: one
 // "Keep a Changelog" section per bump, newest first.
 export type UpgradeChangelogManual = {
@@ -91,20 +93,22 @@ export function mergeUpgradeSection(
   return [header, renderUpgradeSection(section), ...others].join("\n");
 }
 
-/** Pure string match on the rendered `- [open] <id> · ` prefix, in every section. */
-export function setManualStatusInChangelog(
+/** Pure string match on the rendered `- [open] <id> · ` prefix, in every section; each id gets its own resolution. */
+export function syncResolvedManualStatuses(
   content: string,
-  ids: ReadonlySet<string>,
-  resolution: "migrated" | "not-applicable",
+  resolved: readonly Pick<UpgradeMarkerResolvedManual, "id" | "resolution">[],
 ): string {
+  const resolutionById = new Map(resolved.map((entry) => [entry.id, entry.resolution]));
+  if (resolutionById.size === 0) return content;
+  const openPrefix = "- [open] ";
   return content
     .split("\n")
     .map((line) => {
-      for (const id of ids) {
-        const open = `- [open] ${id} · `;
-        if (line.startsWith(open)) return `- [${resolution}] ${id} · ${line.slice(open.length)}`;
-      }
-      return line;
+      if (!line.startsWith(openPrefix)) return line;
+      const rest = line.slice(openPrefix.length);
+      const idEnd = rest.indexOf(" · ");
+      const resolution = idEnd === -1 ? undefined : resolutionById.get(rest.slice(0, idEnd));
+      return resolution === undefined ? line : `- [${resolution}] ${rest}`;
     })
     .join("\n");
 }

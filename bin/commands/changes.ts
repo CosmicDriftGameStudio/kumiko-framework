@@ -249,7 +249,7 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   const codemod = getStringFlag(args, "codemod");
   const repoRoot = findRepoRoot(ctx.cwd);
   if (codemod && !resolveCodemodScript(repoRoot, codemod)) {
-    ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/framework/src/scripts/codemod/.`);
+    ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/feature-ast/src/scripts/codemod/.`);
     return 1;
   }
   const manualAfterCodemod = getFlag(args, "manual-after-codemod");

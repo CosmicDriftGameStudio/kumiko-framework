@@ -5,7 +5,7 @@
 // aus einer Inline-Datendefinition. Spiegelt die in `docs-strategy.md`
 // skizzierte "Custom-Generator (ts-morph)"-Idee, bleibt aber ohne
 // ts-morph-Abhängigkeit — die Liste hier wird per Hand gepflegt parallel
-// zu `packages/framework/src/engine/feature-ast/patterns.ts`. Wer einen
+// zu `packages/feature-ast/src/patterns.ts`. Wer einen
 // neuen Pattern-Kind in patterns.ts ergänzt, ergänzt das Doc hier im
 // selben PR; sonst rutscht der Pattern-Type ins Doc-Stub-Loch.
 //
@@ -1093,7 +1093,7 @@ ${t.body}
 
 ---
 
-_${labelSource}: \`packages/framework/src/engine/feature-ast/patterns.ts\` → \`${p.tsType}\`_
+_${labelSource}: \`packages/feature-ast/src/patterns.ts\` → \`${p.tsType}\`_
 `;
 }
 
@@ -1170,7 +1170,7 @@ console.log(`✓ Smoke-Validation: alle Pattern-Cross-Links treffen existierende
 // `patterns.ts` erweitert ohne dieses Script zu pflegen.
 const PATTERNS_TS = join(
   REPO_ROOT,
-  "packages/framework/src/engine/feature-ast/patterns.ts",
+  "packages/feature-ast/src/patterns.ts",
 );
 if (existsSync(PATTERNS_TS)) {
   const file = await Bun.file(PATTERNS_TS).text();

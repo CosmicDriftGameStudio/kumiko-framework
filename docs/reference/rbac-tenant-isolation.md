@@ -160,7 +160,7 @@ and the create/update/delete/restore factories) requires SystemAdmin-only `acces
 (`{ roles: ["SystemAdmin"] }`); a looser rule throws at definition time. List and detail
 handlers keep `access` as the only gate. The former `crossTenant: true` option is removed;
 consumers migrate with
-`bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts`
+`bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/migrate-cross-tenant.ts`
 (from a consumer repo), which rewrites the call shapes it can derive a handler name and verb
 from and lists the rest for manual review. The codemod's reason contains a placeholder that
 must be replaced with the real operator use case; a reason that still carries it is rejected.

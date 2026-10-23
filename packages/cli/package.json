@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-feature-ast": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",

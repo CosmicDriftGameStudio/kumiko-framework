@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-03
-evidence: "packages/types/src/feature.ts (SecretKeyDefinition, SecretNamespaceDefinition); packages/framework/src/engine/feature-config-events-jobs.ts (r.secret, r.secretNamespace); packages/bundled-features/src/secrets/write-gate.ts; packages/bundled-features/src/delivery/chat-webhook-sender.ts; packages/bundled-features/src/secrets/__tests__/; packages/framework/src/engine/build-config-feature-schema.ts; packages/renderer/src/app/secrets-edit-body.tsx; packages/renderer/src/app/__tests__/secrets-edit-body-write-roles.test.tsx; packages/framework/src/engine/feature-ast/__tests__/render-roundtrip.test.ts"
+evidence: "packages/types/src/feature.ts (SecretKeyDefinition, SecretNamespaceDefinition); packages/framework/src/engine/feature-config-events-jobs.ts (r.secret, r.secretNamespace); packages/bundled-features/src/secrets/write-gate.ts; packages/bundled-features/src/delivery/chat-webhook-sender.ts; packages/bundled-features/src/secrets/__tests__/; packages/framework/src/engine/build-config-feature-schema.ts; packages/renderer/src/app/secrets-edit-body.tsx; packages/renderer/src/app/__tests__/secrets-edit-body-write-roles.test.tsx; packages/feature-ast/src/__tests__/render-roundtrip.test.ts"
 ---
 
 # Secret keys, secret namespaces and write roles
