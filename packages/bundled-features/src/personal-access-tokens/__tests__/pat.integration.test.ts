@@ -40,10 +40,7 @@ import { deleteMembershipViaEventStore } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, UserHandlers, UserQueries } from "../../user/index.ts";
 import { userEntity } from "../../user/schema/user.ts";
-import {
-  softDeleteUserViaEventStore,
-  updateUserViaEventStore,
-} from "../../user/testing.ts";
+import { softDeleteUserViaEventStore, updateUserViaEventStore } from "../../user/testing.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { revokeAllPatTokensForUser } from "../revoke-for-user.ts";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.ts";
