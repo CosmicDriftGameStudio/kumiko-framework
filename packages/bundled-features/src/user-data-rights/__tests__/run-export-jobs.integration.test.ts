@@ -26,7 +26,7 @@ import {
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -50,6 +50,7 @@ import {
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.ts";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
 import { hashDownloadToken } from "../token-helpers.ts";
+import { changeExportJob } from "./export-job-writes.ts";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -231,11 +232,11 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const twoHoursAgo = T.Instant.fromEpochMilliseconds(Date.now() - 2 * 60 * 60 * 1000);
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       { status: EXPORT_JOB_STATUS.Running, startedAt: twoHoursAgo },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -259,11 +260,11 @@ describe("runExportJobs :: stale-detection", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const justNow = T.Instant.fromEpochMilliseconds(Date.now() - 60 * 1000); // 1min ago
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       { status: EXPORT_JOB_STATUS.Running, startedAt: justNow },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -292,15 +293,15 @@ describe("runExportJobs :: stale-detection", () => {
     // and the ZIP was written before the worker crashed without marking the job done.
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Running,
         startedAt: twoHoursAgo,
         downloadStorageKey: storageKey,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -334,9 +335,9 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
 
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: longAgo,
@@ -344,7 +345,7 @@ describe("runExportJobs :: storage-cleanup", () => {
         downloadStorageKey: storageKey,
         expiresAt: longAgo,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -373,9 +374,9 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([4, 5, 6]));
 
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: oneHourAgo,
@@ -383,7 +384,7 @@ describe("runExportJobs :: storage-cleanup", () => {
         downloadStorageKey: storageKey,
         expiresAt: oneHourAgo,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -405,9 +406,9 @@ describe("runExportJobs :: storage-cleanup", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([7, 8, 9]));
 
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: longAgo,
@@ -415,7 +416,7 @@ describe("runExportJobs :: storage-cleanup", () => {
         downloadStorageKey: storageKey,
         expiresAt: longAgo,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -448,9 +449,9 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([7, 8, 9]));
 
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: longAgo,
@@ -458,7 +459,7 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
         downloadStorageKey: storageKey,
         expiresAt: longAgo,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const metrics = createRecordingMetricsHandle();
@@ -486,16 +487,16 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([4, 5, 6]));
 
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Failed,
         startedAt: longAgo,
         completedAt: longAgo,
         downloadStorageKey: storageKey,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const metrics = createRecordingMetricsHandle();
@@ -523,9 +524,9 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([1, 2, 3]));
 
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Done,
         startedAt: longAgo,
@@ -533,7 +534,7 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
         downloadStorageKey: storageKey,
         expiresAt: longAgo,
       },
-      { id: jobId },
+      tenantA,
     );
 
     const passTime = NOW();
@@ -626,11 +627,11 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();
     const fortyFiveMinAgo = T.Instant.fromEpochMilliseconds(Date.now() - 45 * 60 * 1000);
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       { status: EXPORT_JOB_STATUS.Running, startedAt: fortyFiveMinAgo },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({
@@ -747,12 +748,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // Operator recovery after an email failure flips only the job back to pending;
     // the existing token row remains. Creating a second aggregate for the same
     // jobId would make projection rebuilds collide with the one_per_job index.
-    await updateRows(
-      stack.db,
-      exportJobsTable,
-      { status: EXPORT_JOB_STATUS.Pending },
-      { id: jobId },
-    );
+    await changeExportJob(stack.db, jobId, { status: EXPORT_JOB_STATUS.Pending }, tenantA);
 
     const second = await runExportJobs({
       db: stack.db,
@@ -972,15 +968,15 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // orphaned file left by a worker crash.
     const provider = await buildProvider(tenantA);
     await provider.write(storageKey, new Uint8Array([99, 99, 99]));
-    await updateRows(
+    await changeExportJob(
       stack.db,
-      exportJobsTable,
+      jobId,
       {
         status: EXPORT_JOB_STATUS.Failed,
         downloadStorageKey: storageKey,
         errorMessage: "synthetic crash mid-run",
       },
-      { id: jobId },
+      tenantA,
     );
 
     const result = await runExportJobs({

@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { deleteRows, seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
@@ -353,8 +353,8 @@ describe("legacy waitlist migration", () => {
     await resetWaitlistTestState(stack);
     offlotId = crypto.randomUUID();
     publicstatusId = crypto.randomUUID();
-    await deleteRows(stack.db, offlotTable, {});
-    await deleteRows(stack.db, publicstatusTable, {});
+    await deleteMany(stack.db, offlotTable, {});
+    await deleteMany(stack.db, publicstatusTable, {});
     await seedRow(stack.db, offlotTable, {
       id: offlotId,
       name: "Dealer Dan",

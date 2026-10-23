@@ -2,13 +2,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -117,7 +116,7 @@ describe("sessionChecker — lastSeenAt refresh", () => {
     const { userId } = await h.seedUser("null-refresh@example.com", "pw-long-enough");
     const { sid } = await h.login("null-refresh@example.com", "pw-long-enough");
 
-    await updateRows(stack.db, userSessionTable, { lastSeenAt: null }, { id: sid });
+    await updateMany(stack.db, userSessionTable, { lastSeenAt: null }, { id: sid });
     expect(await readLastSeenAt(sid)).toBeNull();
 
     await callbacks.get().sessionChecker(sid, userId);
@@ -135,7 +134,7 @@ describe("sessionChecker — lastSeenAt refresh", () => {
     const { sid } = await h.login("stale-refresh@example.com", "pw-long-enough");
 
     const stale = Temporal.Now.instant().subtract({ milliseconds: LAST_SEEN_REFRESH_MS + 1_000 });
-    await updateRows(stack.db, userSessionTable, { lastSeenAt: stale }, { id: sid });
+    await updateMany(stack.db, userSessionTable, { lastSeenAt: stale }, { id: sid });
     expect((await readLastSeenAt(sid))?.epochMilliseconds).toBe(stale.epochMilliseconds);
 
     await callbacks.get().sessionChecker(sid, userId);
@@ -153,7 +152,7 @@ describe("sessionChecker — lastSeenAt refresh", () => {
     const { sid } = await h.login("recent-noop@example.com", "pw-long-enough");
 
     const recent = Temporal.Now.instant().subtract({ milliseconds: 1_000 });
-    await updateRows(stack.db, userSessionTable, { lastSeenAt: recent }, { id: sid });
+    await updateMany(stack.db, userSessionTable, { lastSeenAt: recent }, { id: sid });
     const before = await readLastSeenAt(sid);
     expect(before?.epochMilliseconds).toBe(recent.epochMilliseconds);
 

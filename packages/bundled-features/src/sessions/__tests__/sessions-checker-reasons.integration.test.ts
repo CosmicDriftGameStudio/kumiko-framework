@@ -5,12 +5,10 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
-  deleteRows,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -53,7 +51,7 @@ describe("sessions feature — sessionChecker rejection reasons", () => {
 
     // Hard-delete the session row so it's gone from the store (as opposed to
     // soft-revoked). The JWT stays syntactically valid.
-    await deleteRows(stack.db, userSessionTable, { id: sid });
+    await deleteMany(stack.db, userSessionTable, { id: sid });
 
     const res = await h.authedPost("/api/query", token, {
       type: "user:query:user:me",
@@ -107,7 +105,7 @@ describe("sessions feature — sessionChecker rejection reasons", () => {
 
     // Back-date expiresAt so the row is still present + not revoked, just
     // past its window. Simulates what a long-lived JWT would hit.
-    await updateRows(
+    await updateMany(
       stack.db,
       userSessionTable,
       { expiresAt: Temporal.Instant.from("2020-01-01T00:00:00Z") },

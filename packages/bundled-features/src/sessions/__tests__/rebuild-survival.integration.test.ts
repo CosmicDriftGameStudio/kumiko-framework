@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-
 import {
   asRawClient,
   createTenantDb,
   type DbConnection,
   selectMany,
+  updateMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -13,7 +13,7 @@ import {
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
@@ -73,7 +73,7 @@ async function insertRevokedSession(
     ip: "1.2.3.4",
     userAgent: "test-agent",
   });
-  await updateRows(db, userSessionTable, { revokedAt: now }, { id: SID, revokedAt: null });
+  await updateMany(db, userSessionTable, { revokedAt: now }, { id: SID, revokedAt: null });
 }
 
 describe("sessions / store_user_sessions survives projection rebuild", () => {

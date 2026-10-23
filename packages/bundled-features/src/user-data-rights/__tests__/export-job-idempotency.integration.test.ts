@@ -13,7 +13,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 
 import { asRawClient, extractPgError, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -170,29 +170,18 @@ describe("ExportJob :: Partial-UNIQUE-Index", () => {
   });
 
   test("Lifecycle: pending → running blockt weitere pending-Inserts; nach running → done wieder erlaubt", async () => {
-    // Alice pending insert
-    const aliceJobId = await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
-    await updateRows(
-      stack.db,
-      exportJobsTable,
-      { status: EXPORT_JOB_STATUS.Running },
-      { id: aliceJobId },
-    );
+    // Seeded rows have no event stream, so each state is its own row; the index only looks at status.
+    await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Running);
 
-    // A second pending insert still fails because a running job is also included
-    // in the index filter.
+    // A pending insert fails because a running job is also included in the index filter.
     await expectUniqueViolation(
       insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending),
       IDEMPOTENCY_CONSTRAINT,
     );
 
-    // Once the running job finishes (done), the user may start another pending job.
-    await updateRows(
-      stack.db,
-      exportJobsTable,
-      { status: EXPORT_JOB_STATUS.Done },
-      { id: aliceJobId },
-    );
+    // Once the job is done, the user may start another pending job.
+    await resetTestTables(stack.db, [exportJobsTable]);
+    await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Done);
 
     await insertJob(ALICE_ID, EXPORT_JOB_STATUS.Pending);
     const rows = await selectMany(stack.db, exportJobsTable);

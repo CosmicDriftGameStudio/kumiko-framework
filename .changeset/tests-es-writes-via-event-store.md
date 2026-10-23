@@ -1,6 +1,8 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
+"@cosmicdrift/kumiko-cli": patch
 "@cosmicdrift/kumiko-dev-server": patch
+"@cosmicdrift/kumiko-framework": patch
 ---
 
 Integration tests change event-sourced rows through the event store or the real commands instead of writing projection tables.

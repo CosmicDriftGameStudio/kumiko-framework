@@ -22,7 +22,7 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -34,6 +34,7 @@ import { createSessionsFeature } from "../../sessions/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
+import { changeExportJob } from "./export-job-writes.ts";
 
 const REQUEST_EXPORT = "user-data-rights:write:request-export";
 const EXPORT_STATUS = "user-data-rights:query:export-status";
@@ -129,12 +130,7 @@ describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
   test("Klick nach done-Job ist NEUER Job (Audit-Historie wird nicht blockiert)", async () => {
     const first = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     // Simulate the worker by setting status to done; a direct update is acceptable in this test.
-    await updateRows(
-      stack.db,
-      exportJobsTable,
-      { status: EXPORT_JOB_STATUS.Done },
-      { id: first.jobId },
-    );
+    await changeExportJob(stack.db, first.jobId, { status: EXPORT_JOB_STATUS.Done }, tenantA);
 
     const second = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     expect(second.isExisting).toBe(false);

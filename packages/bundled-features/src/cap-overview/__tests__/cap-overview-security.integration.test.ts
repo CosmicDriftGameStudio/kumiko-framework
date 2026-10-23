@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -16,8 +16,9 @@ import {
 } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenant } from "../../tenant/seeding.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createTierEngineFeature,
@@ -366,11 +367,11 @@ describe("cap-overview tenant names under an active PII KMS", () => {
       key: `cap-overview-d-${TENANT_DESTROYED}`,
       name: "Tenant Destroyed",
     });
-    await updateRows(
+    await updateTenantViaEventStore(
       db,
-      tenantTable,
+      TENANT_DESTROYED,
       { status: "destroyed", destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z") },
-      { id: TENANT_DESTROYED },
+      TestUsers.systemAdmin.tenantId,
     );
 
     const options = await stack.http.queryOk<{ rows: readonly { value: string }[] }>(

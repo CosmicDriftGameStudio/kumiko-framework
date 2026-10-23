@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { expectErrorIncludes, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  deleteRowViaEventStore,
+  expectErrorIncludes,
+  updateRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -269,14 +273,22 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       admin,
     );
 
-    // Raw-DB-mark-deleted — we need a soft-deleted row whose status is a
-    // terminal state. If the guard fired, any status write would throw
+    // Executor-level writes skip the guard, so we get a soft-deleted row whose
+    // status is a terminal state. If the guard fired, any status write would throw
     // "Invalid transition: closed → <x>". We want it silently skipped.
-    await updateRows(
+    const ticketTarget = { table: ticketTable, entity: ticketEntity, entityName: "ticket" };
+    await updateRowViaEventStore(
       stack.db,
-      ticketTable,
-      { status: "closed", isDeleted: true },
+      ticketTarget,
       { id: ticket["id"] },
+      { status: "closed" },
+      { tenantId: admin.tenantId },
+    );
+    await deleteRowViaEventStore(
+      stack.db,
+      ticketTarget,
+      { id: ticket["id"] },
+      { tenantId: admin.tenantId },
     );
 
     // Attempting to move a deleted ticket to "open" would normally violate
