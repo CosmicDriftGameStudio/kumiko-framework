@@ -18,7 +18,7 @@
 # 512Mi, growth 1Gi, scale 2Gi). Service hat keinen internen Memory-Cap —
 # OOM-Kill durch K8s ist intended (Pod-restart-policy: Always).
 
-FROM oven/bun:1.4.0-slim AS runtime
+FROM oven/bun:1.4.4-slim AS runtime
 
 # Chromium-Dependencies für Headless-Betrieb. System-chromium (debian-package)
 # statt Puppeteer's prebuilt Chrome for Testing — letzteres ist x86_64-only

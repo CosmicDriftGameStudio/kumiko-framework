@@ -15,8 +15,10 @@ import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
 import { check as primitivesDiscipline } from "./guard-primitives-discipline";
 import { check as rawSql } from "./guard-raw-sql";
 import { check as rendererBoundaries } from "./guard-renderer-boundaries";
+import { check as schemaCliFeatures } from "./guard-schema-cli-features";
 import { check as testStackDrift } from "./guard-test-stack-drift";
 import { check as thinWrappers } from "./guard-thin-wrappers";
+import { check as unsafeArrayParam } from "./guard-unsafe-array-param";
 import { check as upgradeState } from "./guard-upgrade-state";
 
 export const REPO_CHECKS = [
@@ -35,6 +37,8 @@ export const REPO_CHECKS = [
   agentDocsDrift,
   subpathExports,
   guardsDocDrift,
+  unsafeArrayParam,
+  schemaCliFeatures,
 ];
 
 export const REPO_CHECK_FLAGS: readonly string[] = ["--write-baseline"];
