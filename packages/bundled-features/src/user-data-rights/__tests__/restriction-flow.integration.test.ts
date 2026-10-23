@@ -53,7 +53,7 @@ import { createTenantFeature, tenantMembershipsTable } from "../../tenant/index.
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
-import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
+import { updateUserViaEventStore } from "../../user/testing.ts";
 import { UserHandlers } from "../../user/web/constants.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 

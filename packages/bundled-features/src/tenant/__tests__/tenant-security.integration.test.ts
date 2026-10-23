@@ -52,7 +52,7 @@ import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-ta
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../seeding.ts";
-import { updateInvitationViaEventStore } from "../testing-event-store.ts";
+import { updateInvitationViaEventStore } from "../testing.ts";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 const emailTransport = createInMemoryTransport();

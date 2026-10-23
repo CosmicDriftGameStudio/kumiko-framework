@@ -18,7 +18,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenant } from "../../tenant/seeding.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   createTierEngineFeature,

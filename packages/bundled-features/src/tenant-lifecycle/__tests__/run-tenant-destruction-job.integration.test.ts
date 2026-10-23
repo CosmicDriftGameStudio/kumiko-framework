@@ -18,7 +18,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../feature.ts";
 

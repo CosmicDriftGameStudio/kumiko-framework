@@ -34,7 +34,7 @@ import { createTenantFeature } from "../feature.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenantMembership } from "../seeding.ts";
-import { updateTenantViaEventStore } from "../testing-event-store.ts";
+import { updateTenantViaEventStore } from "../testing.ts";
 import { TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 const systemAdmin = TestUsers.systemAdmin;
