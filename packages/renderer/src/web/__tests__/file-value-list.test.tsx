@@ -11,11 +11,13 @@ import { createMockDispatcher, render } from "./test-utils.tsx";
 
 const PDF_ID = "11111111-2222-4333-8444-555555555555";
 const PNG_ID = "66666666-7777-4888-8999-000000000000";
+const NEWER_PDF_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const realFetch = globalThis.fetch;
 
 const METAS: Record<string, { fileName: string; mimeType: string }> = {
   [PDF_ID]: { fileName: "Rechnung-Oktober.pdf", mimeType: "application/pdf" },
   [PNG_ID]: { fileName: "Beleg-Foto.png", mimeType: "image/png" },
+  [NEWER_PDF_ID]: { fileName: "Expose-November.pdf", mimeType: "application/pdf" },
 };
 
 beforeEach(() => {
@@ -65,12 +67,13 @@ describe("FileValueList", () => {
     await waitFor(() => expect(queryByTestId(`file-preview-${PDF_ID}`)).toBeNull());
   });
 
-  test("previewOpenByDefault opens the first file's preview on render, not the others", async () => {
-    const { findByTestId, queryByTestId } = render(
-      <FileValueList fileIds={[PDF_ID, PNG_ID]} previewOpenByDefault testId="files" />,
+  test("previewOpenByDefault opens only the newest file's preview, the last uploaded id", async () => {
+    const { findByTestId, getByTestId, queryByTestId } = render(
+      <FileValueList fileIds={[PDF_ID, NEWER_PDF_ID]} previewOpenByDefault testId="files" />,
     );
-    await findByTestId(`file-preview-${PDF_ID}`);
-    expect(queryByTestId(`file-preview-${PNG_ID}`)).toBeNull();
+    await findByTestId(`file-preview-${NEWER_PDF_ID}`);
+    expect(getByTestId(`files-${PDF_ID}-preview-toggle`)).toBeDefined();
+    expect(queryByTestId(`file-preview-${PDF_ID}`)).toBeNull();
   });
 
   test("without previewOpenByDefault the preview starts closed", async () => {

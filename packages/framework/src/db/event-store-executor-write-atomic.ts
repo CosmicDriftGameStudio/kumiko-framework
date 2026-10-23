@@ -2,8 +2,8 @@ import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-e
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { runnerCanBeginTransaction } from "./query.ts";
-import { runInOwnSavepoint, runInOwnTransaction } from "./tenant-db.ts";
 import { isBoundTenantDb, tenantDbRunner, tenantDbWritesDeniedReason } from "./tenant-db-runner.ts";
+import { runInOwnSavepoint, runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";
 
 type WriteVerbs = Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore">;
 

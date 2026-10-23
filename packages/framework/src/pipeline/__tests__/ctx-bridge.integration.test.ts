@@ -8,7 +8,8 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import { requireOutsideTransactionDb, runInOwnTransaction } from "../../db/tenant-db.ts";
+import { requireOutsideTransactionDb } from "../../db/tenant-db.ts";
+import { runInOwnTransaction } from "../../db/tenant-db-scoped-rebind.ts";
 import {
   access,
   createEntity,
