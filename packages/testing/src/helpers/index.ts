@@ -36,6 +36,12 @@ export {
   generateE2ESpec,
   generateZodFixture,
 } from "./e2e-generator.ts";
+export {
+  deleteRowViaEventStore,
+  type EventStoreWriteScope,
+  type EventStoreWriteTarget,
+  updateRowViaEventStore,
+} from "./event-store-writes.ts";
 export { expectErrorIncludes } from "./expect-error.ts";
 export { describeFileProviderContract } from "./file-provider-contract.ts";
 export {
