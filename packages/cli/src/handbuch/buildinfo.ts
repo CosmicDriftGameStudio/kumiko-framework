@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { findInstalledPackageDir } from "@cosmicdrift/kumiko-server-runtime/resolve-installed-package";
 
 const FRAMEWORK_PACKAGE = "@cosmicdrift/kumiko-framework";
 
@@ -31,12 +32,10 @@ function stringField(record: Record<string, unknown> | undefined, key: string): 
 }
 
 function resolvedFrameworkVersion(repoDir: string): string | undefined {
-  try {
-    const manifest = Bun.resolveSync(`${FRAMEWORK_PACKAGE}/package.json`, repoDir);
-    return stringField(readJson(manifest), "version");
-  } catch {
-    return undefined;
-  }
+  const packageDir = findInstalledPackageDir(FRAMEWORK_PACKAGE, repoDir);
+  return packageDir === undefined
+    ? undefined
+    : stringField(readJson(join(packageDir, "package.json")), "version");
 }
 
 function gitOutput(repoDir: string, args: string[]): string | undefined {

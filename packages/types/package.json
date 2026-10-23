@@ -294,7 +294,8 @@
     "hono": "^4.13.1",
     "temporal-polyfill": "^0.3.2",
     "zod": "^4.4.3",
-    "ioredis": "^5.10.1"
+    "ioredis": "^5.10.1",
+    "bun-types": "^1.4.4"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

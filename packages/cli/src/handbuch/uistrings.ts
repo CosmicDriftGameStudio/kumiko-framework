@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { findInstalledPackageDir } from "@cosmicdrift/kumiko-server-runtime/resolve-installed-package";
 
 export type UiStringSources = {
   repoDir: string;
@@ -183,23 +184,6 @@ export function findMissingUiTerms(
   );
 }
 
-function packageDirectory(packageName: string, fromDir: string): string | undefined {
-  try {
-    // Bare-name resolution fails for packages without a "." export (bundled-features).
-    let current = dirname(Bun.resolveSync(`${packageName}/package.json`, fromDir));
-    while (current !== dirname(current)) {
-      const manifest = join(current, "package.json");
-      if (existsSync(manifest) && JSON.parse(readFileSync(manifest, "utf8")).name === packageName) {
-        return current;
-      }
-      current = dirname(current);
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
 function scanFiles(cwd: string, patterns: readonly string[]): string[] {
   const files = new Set<string>();
   for (const pattern of patterns) {
@@ -273,7 +257,7 @@ export function collectUiStrings(sources: UiStringSources): UiStringMap {
   };
   absorb(scanFiles(sources.repoDir, sources.globs));
   for (const entry of sources.packages) {
-    const directory = packageDirectory(entry.package, sources.repoDir);
+    const directory = findInstalledPackageDir(entry.package, sources.repoDir);
     if (directory) absorb(scanFiles(directory, entry.files), entry.locale);
   }
   return merged;

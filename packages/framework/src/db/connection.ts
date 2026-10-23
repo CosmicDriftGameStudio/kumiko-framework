@@ -82,6 +82,7 @@ export function createDbConnection({
   if (options.lockTimeoutMs !== undefined) serverParameters["lock_timeout"] = options.lockTimeoutMs;
   if (Object.keys(serverParameters).length > 0) sqlOptions.connection = serverParameters;
 
+  // Bun.SQL opens all `max` connections on the first query, so a pool always costs `max` backends.
   const client = new Bun.SQL(url, sqlOptions);
   // A run that never settles (a caller gave up on it via its own timeout) never reaches the
   // sibling's own close; close() ends it so shutdown and DROP DATABASE are not blocked by it.

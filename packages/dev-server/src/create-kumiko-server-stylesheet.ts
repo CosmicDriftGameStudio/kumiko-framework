@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { resolveInstalledSync } from "@cosmicdrift/kumiko-server-runtime/resolve-installed-package";
 import {
   canResolveTailwindStylesheet,
   resolveTailwindCli,
@@ -51,20 +52,20 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
     // silently rather than reporting an error.
     return undefined;
   }
-  try {
-    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer/web/styles.css", process.cwd());
-    if (!canResolveTailwindStylesheet(resolved, { bun: Bun, cwd: process.cwd() })) {
-      return undefined;
-    }
-    return resolved;
-  } catch (err) {
+  const resolved = resolveInstalledSync(
+    "@cosmicdrift/kumiko-renderer/web/styles.css",
+    process.cwd(),
+  );
+  if (resolved === undefined) {
     logError(
       "[kumiko-server] couldn't auto-resolve @cosmicdrift/kumiko-renderer/web/styles.css — " +
         "pass `stylesheet: <path>` or `stylesheet: false` explicitly.",
-      err,
     );
     return undefined;
   }
+  return canResolveTailwindStylesheet(resolved, { bun: Bun, cwd: process.cwd() })
+    ? resolved
+    : undefined;
 }
 
 // The E2E template can only reach an app's own server entry through its env,

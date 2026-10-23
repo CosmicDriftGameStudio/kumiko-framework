@@ -70,6 +70,10 @@
       "types": "./src/renderer-web-fonts.ts",
       "default": "./src/renderer-web-fonts.ts"
     },
+    "./resolve-installed-package": {
+      "types": "./src/resolve-installed-package.ts",
+      "default": "./src/resolve-installed-package.ts"
+    },
     "./resolve-tailwind-cli": {
       "types": "./src/resolve-tailwind-cli.ts",
       "default": "./src/resolve-tailwind-cli.ts"
@@ -97,13 +101,16 @@
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
-    "bun-types": "^1.4.4",
     "ioredis": "^5.10.1",
     "temporal-polyfill": "^0.3.2",
     "zod": "^4.4.3"
   },
+  "peerDependencies": {
+    "bun-types": "^1.4.4"
+  },
   "devDependencies": {
-    "@cosmicdrift/kumiko-testing": "workspace:*"
+    "@cosmicdrift/kumiko-testing": "workspace:*",
+    "bun-types": "^1.4.4"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
@@ -160,6 +167,10 @@
       "./renderer-web-fonts": {
         "types": "./dist/renderer-web-fonts.d.ts",
         "default": "./dist/renderer-web-fonts.js"
+      },
+      "./resolve-installed-package": {
+        "types": "./dist/resolve-installed-package.d.ts",
+        "default": "./dist/resolve-installed-package.js"
       },
       "./resolve-tailwind-cli": {
         "types": "./dist/resolve-tailwind-cli.d.ts",

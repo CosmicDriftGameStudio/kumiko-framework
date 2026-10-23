@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-04
+verified: 2026-10-23
 ---
 
 # Infrastructure requirements by feature
@@ -33,12 +33,17 @@ migrate time.
 
 ### Connection budget
 
-Each app or worker pod opens up to `DATABASE_POOL_MAX` (default 10) connections
-for the main pool plus `DATABASE_OUTSIDE_TX_POOL_MAX` (default 3) for the
-dedicated pool behind `ctx.dbOutsideTransaction` / `ctx.outsideTransaction`, and
-one extra connection for the event dispatcher's LISTEN session. Keep
+Each app or worker pod holds `DATABASE_POOL_MAX` (default 10) connections for
+the main pool plus `DATABASE_OUTSIDE_TX_POOL_MAX` (default 3) for the dedicated
+pool behind `ctx.dbOutsideTransaction` / `ctx.outsideTransaction`, and one extra
+connection for the event dispatcher's LISTEN session. Bun.SQL opens all of a
+pool's connections on its first query, not one at a time under load, so a
+running pod always holds the full sizes. Keep
 `pods × (DATABASE_POOL_MAX + DATABASE_OUTSIDE_TX_POOL_MAX + 1)` below Postgres
-`max_connections`, counting the extra pods of a rolling-update surge.
+`max_connections` minus `superuser_reserved_connections` (default 3), counting
+the extra pods of a rolling-update surge. The migrate step opens its own pool of
+10 while it runs. Work without a statement timeout, such as a projection rebuild
+or a PII backfill, opens up to 4 more on the pod or migrate step that runs it.
 
 ## + Redis
 

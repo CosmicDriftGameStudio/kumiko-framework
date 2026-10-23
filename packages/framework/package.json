@@ -201,7 +201,6 @@
   "dependencies": {
     "@cosmicdrift/kumiko-types": "workspace:*",
     "bullmq": "^5.76.7",
-    "bun-types": "^1.4.4",
     "hono": "^4.13.1",
     "i18next": "^26.1.0",
     "ioredis": "^5.10.1",
@@ -213,6 +212,9 @@
     "uuid": "^14.0.0",
     "write-excel-file": "^4.1.1",
     "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "bun-types": "^1.4.4"
   },
   "devDependencies": {
     "@cosmicdrift/kumiko-testing": "workspace:*",
