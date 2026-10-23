@@ -29,6 +29,7 @@ import {
   selectMany as bunSelectMany,
   updateMany as bunUpdateMany,
   runInNewTransaction,
+  runInSavepointIfSupported,
   type SelectOptions,
   type WhereObject,
 } from "../db/query.ts";
@@ -547,9 +548,26 @@ export function reportConventionCrossTenantUse(
   reporter(target);
 }
 
-type OwnTransactionRunner = <T>(fn: (txDb: TenantDb) => Promise<T>) => Promise<T>;
+// Same tenant, mode and grants on another handle of the connection (own transaction or savepoint).
+type ScopedRebinder = {
+  readonly memberReadOnly: boolean;
+  readonly rebind: (runner: DbRunner) => TenantDb;
+};
 
-const ownTransactionRebinders = new WeakMap<TenantDb, OwnTransactionRunner>();
+const scopedRebinders = new WeakMap<TenantDb, ScopedRebinder>();
+
+function requireScopedRebinder(tenantDb: TenantDb, caller: string): ScopedRebinder {
+  const scoped = scopedRebinders.get(tenantDb);
+  if (!scoped) {
+    throw new InternalError({
+      message:
+        `${caller} received a TenantDb without a transaction rebinder: either it was not ` +
+        "built by createTenantDb, or it is the fail-closed ctx.db/ctx.dbOutsideTransaction of an " +
+        "r.systemScope() handler (use ctx.systemDb.outsideTransaction there).",
+    });
+  }
+  return scoped;
+}
 
 export type OutsideTransactionContext = { readonly dbOutsideTransaction: TenantDb | undefined };
 
@@ -573,16 +591,24 @@ export async function runInOwnTransaction<T>(
   tenantDb: TenantDb,
   fn: (txDb: TenantDb) => Promise<T>,
 ): Promise<T> {
-  const rebind = ownTransactionRebinders.get(tenantDb);
-  if (!rebind) {
+  const scoped = requireScopedRebinder(tenantDb, "runInOwnTransaction");
+  if (scoped.memberReadOnly) {
     throw new InternalError({
       message:
-        "runInOwnTransaction received a TenantDb without a transaction rebinder: either it was not " +
-        "built by createTenantDb, or it is the fail-closed ctx.db/ctx.dbOutsideTransaction of an " +
-        "r.systemScope() handler (use ctx.systemDb.outsideTransaction there).",
+        "runInOwnTransaction: memberReadOnly TenantDb — a fresh transaction would escape " +
+        "the enforced read-only scope.",
     });
   }
-  return rebind(fn);
+  return runInNewTransaction(tenantDbRunner(tenantDb), (tx) => fn(scoped.rebind(tx)));
+}
+
+// A throw inside fn rolls back only fn's statements; the caller's transaction stays usable.
+export async function runInOwnSavepoint<T>(
+  tenantDb: TenantDb,
+  fn: (savepointDb: TenantDb) => Promise<T>,
+): Promise<T> {
+  const scoped = requireScopedRebinder(tenantDb, "runInOwnSavepoint");
+  return runInSavepointIfSupported(tenantDbRunner(tenantDb), (sp) => fn(scoped.rebind(sp)));
 }
 
 export type CreateTenantDbOptions = {
@@ -1070,19 +1096,12 @@ function buildTenantDb(
     );
     return acknowledged;
   });
-  ownTransactionRebinders.set(tenantDb, async (fn) => {
-    if (grants?.memberReadOnly) {
-      throw new InternalError({
-        message:
-          "runInOwnTransaction: memberReadOnly TenantDb — a fresh transaction would escape " +
-          "the enforced read-only scope.",
-      });
-    }
-    // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since the fresh tx-handle isn't itself registered in runnerPersonalDataGates.
-    const txGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
-    return runInNewTransaction(db, (tx) =>
-      fn(createTenantDb({ db: tx, tenantId, mode, tracer, meter, signal, grants: txGrants })),
-    );
+  // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since a fresh tx-handle isn't itself registered in runnerPersonalDataGates.
+  const scopedGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
+  scopedRebinders.set(tenantDb, {
+    memberReadOnly: grants?.memberReadOnly === true,
+    rebind: (runner) =>
+      createTenantDb({ db: runner, tenantId, mode, tracer, meter, signal, grants: scopedGrants }),
   });
   bindTenantDbRunner(tenantDb, db);
   if (grants?.writesDeniedReason !== undefined) {

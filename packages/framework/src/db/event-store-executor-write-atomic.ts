@@ -2,17 +2,16 @@ import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-e
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { runnerCanBeginTransaction } from "./query.ts";
-import { runInOwnTransaction } from "./tenant-db.ts";
+import { runInOwnSavepoint, runInOwnTransaction } from "./tenant-db.ts";
 import { isBoundTenantDb, tenantDbRunner, tenantDbWritesDeniedReason } from "./tenant-db-runner.ts";
-import { runSerializedOnTransaction } from "./transaction-serialization.ts";
 
 type WriteVerbs = Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore">;
 
 // Aborts the surrounding transaction when a verb returns a failure instead of throwing.
 class RollbackOnFailure extends Error {}
 
-// Pool runners would autocommit append, projection and hooks separately. On a tx, parallel verbs
-// queue so a sibling's statements cannot land in another verb's savepoint and vanish with it.
+// Append, projection and hooks commit or roll back together, also when a handler swallows a failed
+// verb inside its transaction. Savepoints on one tx are serialized, so parallel verbs cannot interleave.
 async function runVerbAtomically<R extends WriteResult>(
   db: TenantDb,
   run: (txDb: TenantDb) => Promise<R>,
@@ -21,13 +20,12 @@ async function runVerbAtomically<R extends WriteResult>(
   if (!isBoundTenantDb(db) || tenantDbWritesDeniedReason(db) !== undefined) {
     return run(db);
   }
-  const runner = tenantDbRunner(db);
-  if (!runnerCanBeginTransaction(runner)) {
-    return runSerializedOnTransaction(runner, () => run(db));
-  }
+  const runInOwnScope = runnerCanBeginTransaction(tenantDbRunner(db))
+    ? runInOwnTransaction
+    : runInOwnSavepoint;
   let failure: R | undefined;
   try {
-    return await runInOwnTransaction(db, async (txDb) => {
+    return await runInOwnScope(db, async (txDb) => {
       const result = await run(txDb);
       if (!result.isSuccess) {
         failure = result;

@@ -16,6 +16,7 @@ import {
 } from "../../engine/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import { rebuildProjection } from "../index.ts";
 
 // Handlers that fan out executor writes with Promise.all on ctx.db share one transaction.
 // Every write opens savepoints on it; they must not release or roll back each other's.
@@ -81,6 +82,13 @@ const parallelFeature = defineFeature("pew", (r) => {
     name: "appointment:create",
     schema: z.object({ label: z.string(), day: z.string() }),
     handler: async (event, ctx) => appointmentCrud.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
+
+  r.queryHandler({
+    name: "appointment:on-day",
+    schema: z.object({ day: z.string() }),
+    handler: async (query, ctx) => ctx.db.selectMany(appointmentTable, { day: query.payload.day }),
     access: { roles: ["Admin"] },
   });
 });
@@ -156,9 +164,27 @@ describe("parallel executor writes on one handler transaction", () => {
       "p2-c",
       "p2-taken",
     ]);
-    for (const sibling of ["p2-a", "p2-b", "p2-c"]) {
-      expect(await eventCountMentioning(sibling)).toBe(1);
+    for (const label of ["p2-a", "p2-b", "p2-c", "p2-taken"]) {
+      expect(await eventCountMentioning(label)).toBe(1);
     }
+  });
+
+  test("a swallowed projection failure leaves no orphan event, so a rebuild replays cleanly", async () => {
+    await stack.http.write("pew:write:contact:create-all", { labels: ["p3-taken"] }, admin);
+    const res = await stack.http.write(
+      "pew:write:contact:create-all-tolerant",
+      { labels: ["p3-taken", "p3-a"] },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    expect(lastParallelResults.map((result) => result.isSuccess)).toEqual([false, true]);
+    expect(await eventCountMentioning("p3-taken")).toBe(1);
+
+    await rebuildProjection("pew:projection:contact-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    expect(await labelsWithPrefix(contactTable, "p3-")).toEqual(["p3-a", "p3-taken"]);
   });
 });
 
@@ -176,5 +202,16 @@ describe("invalid date values reaching a date column", () => {
     expect(body.error.code).toBe("validation_error");
     expect(await labelsWithPrefix(appointmentTable, label)).toEqual([]);
     expect(await eventCountMentioning(label)).toBe(0);
+  });
+
+  test("an impossible date in a query filter is a 400 validation error", async () => {
+    const res = await stack.http.query(
+      "pew:query:appointment:on-day",
+      { day: "2026-02-30" },
+      admin,
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe("validation_error");
   });
 });

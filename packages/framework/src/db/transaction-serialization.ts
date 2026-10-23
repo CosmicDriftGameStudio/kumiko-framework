@@ -61,13 +61,6 @@ async function runOnChain<T>(transactionKey: HandleKey, work: () => Promise<T>):
   }
 }
 
-export function runSerializedOnTransaction<T>(
-  transactionHandle: HandleKey,
-  work: () => Promise<T>,
-): Promise<T> {
-  return runOnChain(transactionKeyOf(transactionHandle), work);
-}
-
 export function openSerializedSavepoint<T>(
   transactionHandle: HandleKey & {
     savepoint: <R>(fn: (sp: unknown) => Promise<R>) => Promise<R>;
