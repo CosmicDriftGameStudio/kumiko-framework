@@ -39,6 +39,6 @@ detail: The feature name constant that lived in web/constants.ts is now part of 
 <!-- kumiko-changes
 feature: framework
 type: improvement
-title: r.adoptsBundledLists() and the feature-registrar subpath
-detail: The registrar method r.adoptsBundledLists() marks a feature whose list screens take the app-wide bundledLists block; the flag appears as FeatureDefinition.adoptsBundledLists and in feature-manifest.json, and the feature-ast parser knows the call as an opaque singleton pattern. The FeatureRegistrar, HookDefinition, EntityObjectDefinition and RequiresApi types moved from @cosmicdrift/kumiko-types/feature to the new subpath @cosmicdrift/kumiko-types/feature-registrar; the engine barrel of @cosmicdrift/kumiko-framework keeps exporting them, so apps need no change.
+title: r.adoptsBundledLists() marks features that take the bundledLists block
+detail: The registrar method r.adoptsBundledLists() marks a feature whose list screens take the app-wide bundledLists block; the flag appears as FeatureDefinition.adoptsBundledLists and in feature-manifest.json, and the feature-ast parser knows the call as an opaque singleton pattern.
 -->
