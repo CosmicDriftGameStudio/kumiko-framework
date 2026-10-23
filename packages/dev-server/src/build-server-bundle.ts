@@ -62,7 +62,8 @@ const hasBun = typeof Bun !== "undefined";
 // reference the package at runtime (no native binding, plain HTTP client,
 // but a real runtime import). A production crash in money-horse,
 // "Cannot find package 'meilisearch'", occurred because it used to be in
-// BUILD_ONLY_EXTERNALS instead.
+// BUILD_ONLY_EXTERNALS instead. Its version comes from the framework's
+// peerDependencies range.
 const RUNTIME_EXTERNALS = [
   "@node-rs/argon2",
   "sharp",
@@ -371,8 +372,15 @@ async function resolveRuntimeDepsVersions(
     const parsed = parseJsonOrThrow<{
       dependencies?: Record<string, string>;
       optionalDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
     }>(raw, path);
-    Object.assign(allDeps, parsed.dependencies ?? {}, parsed.optionalDependencies ?? {});
+    // Peers first: a real dependency of the same source overrides a peer range.
+    Object.assign(
+      allDeps,
+      parsed.peerDependencies ?? {},
+      parsed.dependencies ?? {},
+      parsed.optionalDependencies ?? {},
+    );
   }
   // App package.json fills gaps only — pins extraRuntimeExternals without
   // overriding framework-native pins the app may also list.

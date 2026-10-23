@@ -188,6 +188,28 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
     }
   });
 
+  test("pins a runtime external the framework only lists as an optional peer", async () => {
+    const dir = makeFixture();
+    try {
+      const frameworkPkgDir = join(dir, "node_modules/@cosmicdrift/kumiko-framework");
+      mkdirSync(frameworkPkgDir, { recursive: true });
+      writeFileSync(
+        join(frameworkPkgDir, "package.json"),
+        `${JSON.stringify({
+          name: "@cosmicdrift/kumiko-framework",
+          peerDependencies: { meilisearch: "^0.58.0" },
+          peerDependenciesMeta: { meilisearch: { optional: true } },
+        })}\n`,
+      );
+
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+
+      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("prefers node_modules/@cosmicdrift/* over packages/* when both declare a version", async () => {
     // Framework-monorepo checkout: both the installed node_modules package
     // (symlinked in real life, diverging here) and packages/framework exist.

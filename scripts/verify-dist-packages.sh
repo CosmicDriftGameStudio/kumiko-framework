@@ -4,7 +4,8 @@
 # tarball, installs all tarballs into ONE scratch consumer outside the repo
 # (internal @cosmicdrift deps forced onto the local tarballs), then imports
 # every subpath under Node and Bun. Subpaths listed in `kumiko.bunOnlyExports`
-# are the only ones allowed to fail under Node.
+# are the only ones allowed to fail under Node; `kumiko.optionalPeerExports` must
+# fail on both runtimes with "<peer> is not installed." because the peer is not installed.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -114,6 +115,15 @@ for pkg_dir in "${dirs[@]}"; do
 done
 jq -n --argjson deps "$deps" --argjson peers "$peers" '{type: "module", private: true, dependencies: ({"@types/react": "^19.2.14", "@types/react-dom": "^19.2.3", "@types/node": "^24"} + $peers + $deps), overrides: $deps}' >"$consumer/package.json"
 (cd "$consumer" && bun install --omit peer >&2)
+
+# An optional peer that got installed would turn the clean-failure check below into a false negative.
+for pkg_dir in "${dirs[@]}"; do
+  while IFS= read -r peer; do
+    [ -n "$peer" ] || continue
+    [ ! -e "$consumer/node_modules/$peer" ] \
+      || problems+=("optional peer $peer got installed in the consumer; the check cannot prove its subpaths fail cleanly")
+  done < <(jq -r '.kumiko.optionalPeerExports // {} | .[]' "$pkg_dir/package.json")
+done
 
 for i in "${!names[@]}"; do
   name="${names[$i]}"
@@ -230,24 +240,31 @@ import { readFileSync } from "node:fs";
 const [name] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(`./node_modules/${name}/package.json`, "utf8"));
 const bunOnly = new Set(manifest.kumiko?.bunOnlyExports ?? []);
+const optionalPeers = manifest.kumiko?.optionalPeerExports ?? {};
 const isBun = typeof Bun !== "undefined";
 const isJsTarget = (target) => typeof target === "object" && String(target.default).endsWith(".js");
 const keys = Object.keys(manifest.exports).filter((key) => isJsTarget(manifest.exports[key]));
 const failed = [];
 let loaded = 0;
 let bunOnlyFailedAsExpected = 0;
+let optionalPeerFailedAsExpected = 0;
 for (const key of keys) {
   const specifier = key === "." ? name : `${name}/${key.slice(2)}`;
   try {
     await import(specifier);
     loaded++;
+    if (key in optionalPeers) failed.push(`${key}: optional peer ${optionalPeers[key]} is absent but the subpath loads`);
     if (!isBun && bunOnly.has(key)) failed.push(`${key}: listed in bunOnlyExports but loads under Node`);
   } catch (error) {
-    if (!isBun && bunOnly.has(key)) bunOnlyFailedAsExpected++;
-    else failed.push(`${key}: ${String(error?.message ?? error).split("\n")[0]}`);
+    const message = String(error?.message ?? error).split("\n")[0];
+    if (key in optionalPeers) {
+      if (message.startsWith(`${optionalPeers[key]} is not installed.`)) optionalPeerFailedAsExpected++;
+      else failed.push(`${key}: expected "${optionalPeers[key]} is not installed." but got: ${message}`);
+    } else if (!isBun && bunOnly.has(key)) bunOnlyFailedAsExpected++;
+    else failed.push(`${key}: ${message}`);
   }
 }
-console.log(JSON.stringify({ total: keys.length, loaded, bunOnly: bunOnlyFailedAsExpected, failed }));
+console.log(JSON.stringify({ total: keys.length, loaded, bunOnly: bunOnlyFailedAsExpected, optionalPeer: optionalPeerFailedAsExpected, failed }));
 JS
 
 report() {
@@ -264,7 +281,7 @@ report() {
 for name in "${names[@]}"; do
   node_result="$(report node "$name")"
   bun_result="$(report bun "$name")"
-  echo "OK $name: node $(jq -r '"\(.loaded)/\(.total)"' <<<"$node_result") (bun-only $(jq -r .bunOnly <<<"$node_result")), bun $(jq -r '"\(.loaded)/\(.total)"' <<<"$bun_result")" >&2
+  echo "OK $name: node $(jq -r '"\(.loaded)/\(.total)"' <<<"$node_result") (bun-only $(jq -r .bunOnly <<<"$node_result"), optional-peer $(jq -r .optionalPeer <<<"$node_result")), bun $(jq -r '"\(.loaded)/\(.total)"' <<<"$bun_result") (optional-peer $(jq -r .optionalPeer <<<"$bun_result"))" >&2
 done
 
 if [ "${#problems[@]}" -gt 0 ]; then

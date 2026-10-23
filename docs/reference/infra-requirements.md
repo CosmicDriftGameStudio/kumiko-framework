@@ -70,7 +70,11 @@ Only needed if a feature registers a search index
 (`packages/framework/src/search/index.ts`,
 `packages/framework/src/search/meilisearch-adapter.ts`). Without any
 `r.searchIndex(...)` registration in your features, Meilisearch is not
-started and not required.
+started and not required. The `meilisearch` client package is an optional
+peer of `@cosmicdrift/kumiko-framework`: an app that imports
+`@cosmicdrift/kumiko-framework/search/meilisearch` adds it itself
+(`bun add meilisearch@^0.58.0`); without it that import fails with a message
+naming the package.
 
 ## Full-stack deployments
 
