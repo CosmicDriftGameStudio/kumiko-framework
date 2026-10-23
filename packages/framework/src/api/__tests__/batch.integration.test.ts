@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -8,7 +8,7 @@ import {
 import * as z from "zod";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import {
   createEntity,
@@ -263,7 +263,7 @@ describe("POST /api/batch", () => {
 
   test("mid-batch failure: all writes roll back, afterCommit hooks do NOT fire", async () => {
     // Seed with one existing item so we can verify the batch didn't persist anything
-    await seedRow(stack.db, itemTable, {
+    await seedRowViaEventStore(stack.db, itemTable, {
       name: "seed",
       counter: 0,
       tenantId: "00000000-0000-4000-8000-000000000001",
@@ -315,8 +315,7 @@ describe("POST /api/batch", () => {
     expect((auditAfterOk[0] as { action: string }).action).toBe("item_saved");
 
     // Reset — new batch fails mid-way. Both entity rows AND audit rows must roll back.
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${itemTable.tableName}"`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM "${auditTable.tableName}"`);
+    await resetTestTables(stack.db, [itemTable, auditTable, eventsTable]);
 
     const failRes = await stack.http.batch(
       [

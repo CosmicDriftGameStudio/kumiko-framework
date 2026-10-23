@@ -9,7 +9,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -179,7 +179,7 @@ describe("dispatcher-live (integration) — full path against Kumiko server", ()
 
   test("query: dispatches GET-style-POST (Kumiko uses POST for query too), returns data", async () => {
     // Seed a row first.
-    await seedRow(stack.db, itemTable, {
+    await seedRowViaEventStore(stack.db, itemTable, {
       id: generateId(),
       tenantId: admin.tenantId,
       name: "seed",

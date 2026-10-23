@@ -830,7 +830,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       // beforeEach only resets the table once per test, not per loop
       // iteration — without this, a demoted-loser leftover from a prior
       // trial would count as an "other active SystemAdmin" and mask the race.
-      await resetTestTables(stack.db, [userTable]);
+      await resetTestTables(stack.db, [userTable, eventsTable]);
       const adminA = await seedUser({
         email: `race-admin-a-${trial}@example.com`,
         displayName: "Race Admin A",

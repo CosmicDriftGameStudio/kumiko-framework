@@ -9,8 +9,8 @@ import {
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
+  deleteRowViaEventStore,
   expectErrorIncludes,
-  resetTestTables,
   seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -380,7 +380,12 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
       if (result.isSuccess) throw new Error("expected mfa verify to fail");
       expectErrorIncludes(result.error, "invalid_challenge_token");
     } finally {
-      await resetTestTables(stack.db, [tenantTable]);
+      await deleteRowViaEventStore(
+        stack.db,
+        { table: tenantTable, entity: tenantEntity, entityName: "tenant" },
+        { id: user.tenantId },
+        { tenantId: user.tenantId },
+      );
       resetTenantLifecycleGateCacheForTests();
     }
   });

@@ -76,7 +76,8 @@ function failedWrite(
 }
 
 // Same arguments as seedRow, so a seed on an entity table switches over by rename. The row's
-// tenantId picks the acting tenant (and so the stream tenant); global entities act on the system tenant.
+// tenantId picks the acting tenant (and so the stream tenant); seed global entities without one,
+// the executor rejects a tenantId on them.
 export async function seedRowViaEventStore(
   db: DbConnection,
   table: EventStoreWriteTarget["table"],

@@ -18,7 +18,7 @@ import {
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRow, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -125,7 +125,7 @@ test("fw#1611: search purge finds + removes a row's doc even when a delete-hook 
     roles: '["Member"]',
   });
 
-  await seedRow(stack.db, noteTable, {
+  await seedRowViaEventStore(stack.db, noteTable, {
     id: NOTE_ID,
     tenantId: TENANT_A,
     authorId: ALICE_ID,
