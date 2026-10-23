@@ -495,6 +495,7 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+      canDefer: false,
       ...bridgeStub(),
     };
     await job.handler({}, ctx);

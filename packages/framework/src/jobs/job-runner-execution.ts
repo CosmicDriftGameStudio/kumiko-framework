@@ -11,6 +11,7 @@ import type { JobRun } from "./job-runner-context.ts";
 import {
   DEFAULT_MAX_DEFERS,
   HANDLER_DEFER_COUNT_KEY,
+  hasDeferBudgetLeft,
   isJobDeferral,
   priorDeferCountOf,
   readTraceContext,
@@ -78,7 +79,7 @@ async function runJobHandler(
 
 function assertDeferBudget(run: JobRun): void {
   const maxDefers = run.jobDef.maxDefers ?? DEFAULT_MAX_DEFERS;
-  if (priorDeferCountOf(run.rawData, HANDLER_DEFER_COUNT_KEY) >= maxDefers) {
+  if (!hasDeferBudgetLeft(run.rawData, run.jobDef.maxDefers)) {
     // The counter never resets, so a retry would hit the cap again.
     throw new UnrecoverableError(
       `Job "${run.jobName}" was deferred ${maxDefers} times (maxDefers); giving up.`,

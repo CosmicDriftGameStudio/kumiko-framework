@@ -68,7 +68,8 @@ row and the `read_fulfillments` row appear.
 is re-run after `ms` on the same queue job: no retry attempt is used, no failure is logged
 or recorded, and the run log shows only the runs that actually executed. `maxDefers`
 (default 100) bounds it; beyond that the run fails. It needs a queued run: an inline boot
-gate throws.
+gate throws. `context.canDefer` is false in both cases, so the job checks it and calls the
+carrier anyway instead of failing.
 
 ## Test
 
@@ -508,8 +509,9 @@ export function createApiWorkerSplitFeature() {
         }
         const { customerName } = processOrderPayloadSchema.parse(payload);
         // Busy is not a failure: ctx.defer re-runs the job later without burning a retry.
+        // Once the defer budget is used up (or the run is inline), try anyway and let a failure retry.
         const retryAfterMs = carrierRetryAfterMs();
-        if (retryAfterMs > 0) return context.defer(retryAfterMs);
+        if (retryAfterMs > 0 && context.canDefer) return context.defer(retryAfterMs);
         const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {

@@ -1012,6 +1012,8 @@ export type JobContext = SharedContextFields & {
   // attempt, failure callback or failed run record. Capped by `maxDefers` (default 100);
   // beyond it the run fails. Throws when the job runs inline (boot gate, no queue).
   readonly defer: (delayMs: number) => JobDeferral;
+  // False when this run cannot defer (inline run, or the maxDefers budget is used up), so the handler can write its terminal state before giving up.
+  readonly canDefer: boolean;
   // Only present for jobs whose owning feature declares r.systemScope().
   // assertTenantMatch()/acknowledgeCrossTenant() return a TenantDb; a raw,
   // tenant-unfiltered DbRunner instead comes from ctx.systemDb.unsafeRaw(reason)
@@ -1029,12 +1031,8 @@ export type JobContext = SharedContextFields & {
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
-  // The stored event that triggered this job run, when reached via the
-  // job-trigger event consumer (async, at-least-once). Undefined for
-  // cron/manual jobs and for the synchronous handler-QN dispatch path, which
-  // has no stored event to hand over. Use triggerEvent.id (or a header) as
-  // an idempotency key — at-least-once delivery can run the same trigger
-  // more than once.
+  // Set only via the at-least-once job-trigger event consumer (not cron/manual or the sync handler-QN path);
+  // delivery can repeat, so use triggerEvent.id (or a header) as idempotency key.
   readonly triggerEvent?: JobTriggerEvent;
   // Fallback tenant when systemUser doesn't carry it (tenant-less cron
   // jobs). Mirrors AppContext._tenantId — see the tenant-scoping footgun above.

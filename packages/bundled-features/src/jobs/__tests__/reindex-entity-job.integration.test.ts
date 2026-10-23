@@ -135,6 +135,7 @@ describe("reindexEntityJob", () => {
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+      canDefer: false,
       ...bridgeStub(),
     };
     await reindexEntityJob({ entity: "widget" }, ctx);
@@ -188,6 +189,7 @@ describe("reindexEntityJob", () => {
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+      canDefer: false,
       ...bridgeStub(),
     };
     await job.handler({ entity: "widget" }, ctx);
@@ -257,6 +259,7 @@ describe("reindexEntityJob", () => {
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+      canDefer: false,
       ...bridgeStub(),
     };
     await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(
@@ -321,6 +324,7 @@ describe("reindexEntityJob under a server statement_timeout", () => {
         attempt: 1,
         finalAttempt: true,
         defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+        canDefer: false,
         ...bridgeStub(),
       };
       await reindexEntityJob({ entity: "slow-widget" }, ctx);

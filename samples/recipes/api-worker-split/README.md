@@ -60,7 +60,8 @@ row and the `read_fulfillments` row appear.
 is re-run after `ms` on the same queue job: no retry attempt is used, no failure is logged
 or recorded, and the run log shows only the runs that actually executed. `maxDefers`
 (default 100) bounds it; beyond that the run fails. It needs a queued run: an inline boot
-gate throws.
+gate throws. `context.canDefer` is false in both cases, so the job checks it and calls the
+carrier anyway instead of failing.
 
 ## Test
 

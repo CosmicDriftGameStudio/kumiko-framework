@@ -122,6 +122,69 @@ describe("ctx.defer", () => {
     }
   });
 
+  test("ctx.canDefer turns false once maxDefers is used up, so the handler can finish instead of failing", async () => {
+    const canDeferSeen: boolean[] = [];
+    const failures: string[] = [];
+    let completed = 0;
+    const feature = defineFeature("defercan", (r) => {
+      r.job(
+        "budgeted",
+        { trigger: { manual: true }, runOnBoot: true, maxDefers: 2, retries: 0 },
+        async (_payload, ctx) => {
+          canDeferSeen.push(ctx.canDefer);
+          if (ctx.canDefer) return ctx.defer(30);
+        },
+      );
+    });
+    const queueNamePrefix = uniquePrefix("can");
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context: {} satisfies AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobComplete: () => {
+        completed += 1;
+      },
+      onJobFailed: (_name, _id, error) => {
+        failures.push(error);
+      },
+    });
+    try {
+      await runner.start();
+      await waitFor(() => expect(completed).toBe(1));
+      expect(canDeferSeen).toEqual([true, true, false]);
+      expect(failures).toHaveLength(0);
+    } finally {
+      await runner.stop();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
+
+  test("an inline boot gate run sees canDefer false", async () => {
+    const canDeferSeen: boolean[] = [];
+    const feature = defineFeature("defercaninline", (r) => {
+      r.job("gate", { trigger: { manual: true }, bootGate: true }, async (_payload, ctx) => {
+        canDeferSeen.push(ctx.canDefer);
+      });
+    });
+    const queueNamePrefix = uniquePrefix("caninline");
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context: {} satisfies AppContext,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+    });
+    try {
+      await runner.start();
+      expect(canDeferSeen).toEqual([false]);
+    } finally {
+      await runner.stop();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
+
   test("a throwing onJobDeferred hook still defers and records no failure", async () => {
     let runs = 0;
     let failed = 0;
