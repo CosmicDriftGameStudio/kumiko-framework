@@ -3,6 +3,7 @@ import type { TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";
+import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 export type RowLevelSecurityScope =
   | { readonly kind: "tenant"; readonly tenantId: TenantId }
@@ -122,6 +123,7 @@ export function withRowLevelSecurityScope(runner: object, scope: RowLevelSecurit
     },
   });
   scopedRunnerInners.set(proxy, inner);
+  registerRunnerProxyTarget(proxy, inner);
   return proxy;
 }
 

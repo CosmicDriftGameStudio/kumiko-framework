@@ -8,6 +8,7 @@ import {
   rowLevelSecurityScopeKey,
   runInCapturedRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
+import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 const enforcedHandles = new WeakSet<object>();
 
@@ -130,6 +131,7 @@ function transactionHandleProxy<T extends object>(handle: T, state: TransactionS
     },
   });
   enforcedHandles.add(proxy);
+  registerRunnerProxyTarget(proxy, handle);
   return proxy;
 }
 
@@ -190,5 +192,6 @@ export function enforceRowLevelSecurity<T extends object>(pool: T): T {
     },
   });
   enforcedHandles.add(proxy);
+  registerRunnerProxyTarget(proxy, pool);
   return proxy;
 }
