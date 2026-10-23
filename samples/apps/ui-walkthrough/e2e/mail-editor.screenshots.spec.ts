@@ -20,7 +20,9 @@ const EDITOR_URL = `/mail-editor?kind=mail&slug=${encodeURIComponent("billing:no
 
 async function shot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForLoadState("networkidle");
+  // captureScreenshot settles the page itself (best-effort network idle plus the in-flight tracker);
+  // the dev server's /_reload EventSource keeps networkidle from ever being reliable, and every
+  // call site asserts its ready marker first.
   await captureScreenshot(page, name);
 }
 
@@ -106,10 +108,7 @@ test("mail-editor-chrome-rail", async ({ page }) => {
   await expect(preview.getByText("Neue Rechnung").first()).toBeVisible();
   await expect(preview.getByText("weil Sie Kunde bei uns sind")).toBeVisible();
   await expect(preview.locator("body")).not.toContainText("New invoice");
-  // The dev server's live-reload stream (/_reload) stays open, so networkidle does not come back once the
-  // preview frame attaches here; the asserted preview text is the ready signal.
-  await page.evaluate(() => document.fonts.ready);
-  await captureScreenshot(page, "mail-editor-chrome-preview");
+  await shot(page, "mail-editor-chrome-preview");
 });
 
 test("mail-editor-right-rail-fits", async ({ page }) => {

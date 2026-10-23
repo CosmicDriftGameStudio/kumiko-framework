@@ -48,7 +48,6 @@ test("lease-list-empty-desktop", async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto("/lease-list-empty");
   await expect(page.getByText("Mietverträge (Prüfliste)").first()).toBeVisible();
-  await page.waitForLoadState("networkidle");
   await shot(page, "lease-list-empty-desktop");
 });
 
@@ -80,7 +79,6 @@ test.describe("mobile", () => {
     await loginAsAdmin(page);
     await page.goto("/lease-list-empty");
     await expect(page.getByText("Mietverträge (Prüfliste)").first()).toBeVisible();
-    await page.waitForLoadState("networkidle");
     await shot(page, "lease-list-empty-mobile");
   });
 });

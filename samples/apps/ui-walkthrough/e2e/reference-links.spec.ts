@@ -29,7 +29,6 @@ test("reference column links to the referenced lease and shows the placeholder w
   await expect(emptyRow.getByTestId(`cell-${PREDECESSOR_LEASE_ID}-ende`)).toHaveText(
     EMPTY_VALUE_PLACEHOLDER,
   );
-  await page.waitForLoadState("networkidle");
   await link.hover();
   await captureScreenshot(page, "after-4-ref-list");
   await captureScreenshot(page, "after-5-empty");
@@ -48,7 +47,6 @@ test("detail reference field links to the referenced lease", async ({ page }) =>
   const link = page.getByTestId("field-value-vorgaenger").locator("a");
   await expect(link).toHaveText("WE-42");
   await expect(link).toHaveAttribute("href", `/lease-detail-gaps/${PREDECESSOR_LEASE_ID}`);
-  await page.waitForLoadState("networkidle");
   await link.hover();
   await captureScreenshot(page, "after-4-ref-detail");
   await link.click();
