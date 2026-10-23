@@ -39,6 +39,15 @@ export function extractPgError(e: unknown): PgErrorInfo | null {
   return null;
 }
 
+// PG SQLSTATE 22007 invalid_datetime_format and 22008 datetime_field_overflow: the
+// column type rejects the value ("not-a-date", or "2026-02-30" for a date column).
+const INVALID_DATETIME_VALUE_CODES: ReadonlySet<string> = new Set(["22007", "22008"]);
+
+export function isInvalidDateTimeValue(e: unknown): boolean {
+  const code = extractPgError(e)?.code;
+  return code !== undefined && INVALID_DATETIME_VALUE_CODES.has(code);
+}
+
 export function isUniqueViolation(e: unknown): boolean {
   return extractPgError(e)?.code === "23505";
 }

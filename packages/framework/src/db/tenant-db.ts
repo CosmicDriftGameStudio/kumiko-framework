@@ -67,6 +67,7 @@ import {
   tenantDbWritesDeniedReason,
 } from "./tenant-db-runner.ts";
 import { upsertTableDenied, upsertTenantRow } from "./tenant-db-upsert.ts";
+import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 type Table = SchemaTable;
 
@@ -145,6 +146,7 @@ function boundRunner(
       return value.bind(target);
     },
   });
+  registerRunnerProxyTarget(proxy, runner);
   if (gate) runnerPersonalDataGates.set(proxy, gate);
   if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
   if (executorManagedWrites) {

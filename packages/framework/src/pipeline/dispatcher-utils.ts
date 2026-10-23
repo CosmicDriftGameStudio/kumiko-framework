@@ -1,3 +1,4 @@
+import { isInvalidDateTimeValue } from "../db/pg-error.ts";
 import { parseQn, qn } from "../engine/qualified-name.ts";
 import type {
   HandlerRef,
@@ -10,6 +11,7 @@ import {
   type FieldIssue,
   type KumikoError,
   toKumikoError,
+  ValidationError,
   VersionConflictError,
   type WriteErrorInfo,
 } from "../errors/index.ts";
@@ -210,6 +212,10 @@ export function wrapToKumiko(e: unknown): KumikoError {
       },
       { cause: e },
     );
+  }
+  // Payload schemas without z.iso.date() let impossible dates reach the column; that is bad input, not a 500.
+  if (isInvalidDateTimeValue(e)) {
+    return new ValidationError({ fields: [] }, { cause: e instanceof Error ? e : undefined });
   }
   return toKumikoError(e);
 }
