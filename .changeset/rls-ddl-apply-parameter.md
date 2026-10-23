@@ -29,7 +29,7 @@ detail: The replay behind kumiko-schema validate tracks ENABLE and FORCE ROW LEV
 feature: framework
 type: fix
 title: Projection and multi-stream rebuilds no longer abort on tables with row level security
-detail: The shadow swap used to refuse a live table with RLS flags or policies. It now reads them from the catalog under the swap lock, re-applies them to the swapped-in table and fails the rebuild transaction if the result differs. The rebuild transaction runs with row_security off, so a read that a policy would filter fails with 42501 instead of letting the guards see too few rows and the swap drop the hidden ones.
+detail: The shadow swap used to refuse a live table with RLS flags or policies. It now reads them from the catalog under the swap lock, re-applies them to the swapped-in table and fails the rebuild transaction if the result differs. Before the first read, the rebuild checks that the table's policies let its system scope see every row, so the guards never see too few rows and the swap never drops hidden ones.
 -->
 
 <!-- kumiko-changes

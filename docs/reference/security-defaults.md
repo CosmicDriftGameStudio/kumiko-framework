@@ -1,12 +1,12 @@
 ---
 status: reference
-verified: 2026-10-18
-evidence: "packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts"
+verified: 2026-10-23
+evidence: "packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts; packages/framework/src/db/render-rls-ddl.ts, row-level-security-connection.ts, row-level-security-boot-check.ts; packages/framework/src/db/__tests__/row-level-security-scope.integration.test.ts, row-level-security-boot-check.integration.test.ts"
 ---
 
-# Security defaults: CSP and rate limits in `runProdApp`
+# Security defaults: CSP, rate limits and row level security
 
-An app that passes neither `securityHeaders` nor `rateLimit` to `runProdApp` still ships with a Content-Security-Policy and with the L1/L2 rate limits. Opting out is explicit.
+An app that passes neither `securityHeaders` nor `rateLimit` to `runProdApp` still ships with a Content-Security-Policy and with the L1/L2 rate limits. Opting out is explicit. Row level security is a second tenant-isolation layer in Postgres; it is on in tests and in the dev server and off in production unless the app turns it on.
 
 ## Content-Security-Policy
 
@@ -58,3 +58,20 @@ A handler adds its own L3 limit with `rateLimit: { per, limit, windowSeconds }`.
 ## Client IP behind a proxy
 
 The limits are keyed on the client IP. Behind an ingress or load balancer set `trustedProxyHops` (or `KUMIKO_TRUSTED_PROXY_HOPS`) to the number of trusted hops. Without it every request carries the proxy's address, all clients share one bucket and the default limits throttle the whole site at once. In production `runProdApp` refuses to boot when neither is set; pass `0` when the app is exposed directly. Set it to the real hop count only: a higher value lets a client choose its own bucket through `X-Forwarded-For`.
+
+## Row level security
+
+The tenant filter of TenantDb is the first isolation layer. Row level security in Postgres is the second: it also stops raw SQL and a forgotten filter from reading or writing another tenant's rows. One value in `kumiko.config.ts` sets it for every tool and runner:
+
+| `rowLevelSecurity` | Effect |
+|---|---|
+| `"off"` (default) | no policies; boot fails while a table still has row level security enabled |
+| `"on"` | every table with `tenant_id` gets ENABLE and FORCE ROW LEVEL SECURITY and the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read`; every transaction sets `kumiko.tenant_id` or `kumiko.scope = 'system'` |
+
+`setupTestStack` and the dev server default to `"on"` and connect as the role `kumiko_app` (NOSUPERUSER NOBYPASSRLS), which owns the database. `"off"` in their options restores the superuser setup without policies.
+
+With `"on"`, a statement that runs without a scope sees no tenant rows, and an insert for another tenant fails with SQLSTATE 42501. Rows of the system tenant stay readable from every tenant scope. Requests, TenantDb, jobs, the event dispatcher, migrations, seeds and projection rebuilds set the scope themselves; other code that reads tenant tables through a raw connection runs inside `runInSystemRowLevelSecurityScope` from `@cosmicdrift/kumiko-framework/db` or works through a TenantDb.
+
+`kumiko-schema generate`, `validate` and `apply` read the value through the managed `kumiko/schema.ts`; pass `appConfig.rowLevelSecurity` to `runProdApp` (the scaffolded server entry does). With `"on"`, boot fails when the database role has SUPERUSER or BYPASSRLS, because Postgres then skips every policy, and when a tenant table lacks ENABLE, FORCE or one of the two policies. The framework does not change owners or grants in production: create the app role with NOSUPERUSER NOBYPASSRLS as part of the database setup. FORCE makes the policies apply to the table owner as well.
+
+Check it on a database: `SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = '<table>'` shows the flags, `SELECT policyname, permissive, cmd FROM pg_policies WHERE tablename = '<table>'` the policies, and `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` the role.
