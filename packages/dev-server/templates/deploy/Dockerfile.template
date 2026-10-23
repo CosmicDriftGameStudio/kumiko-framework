@@ -11,7 +11,7 @@
 #
 # Build context: repository root (the full source tree is only used in the build stage).
 
-ARG BUN_VERSION=1.4.0
+ARG BUN_VERSION=1.4.4
 {{#hasPrivateGhPackages}}
 # Registry auth for @cosmicdriftgamestudio: CI passes the token as
 # NPM_AUTH_TOKEN via --build-arg. Multi-stage ARG scoping needs the

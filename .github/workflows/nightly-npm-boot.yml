@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.0"
+          bun-version: "1.4.4"
 
       # Deliberately no actions/checkout and no bun-install cache here: this
       # job's entire point is a from-scratch registry install of the

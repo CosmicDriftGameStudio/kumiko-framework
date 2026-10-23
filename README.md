@@ -2,7 +2,7 @@
 
 > An AI-native backend builder. You describe your domain and get the backend for it: schema, auth, audit log, multi-tenancy and realtime updates, as TypeScript code in your own repo.
 
-[![CI](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/CosmicDriftGameStudio/kumiko-framework/badges/.github/badges/coverage.json)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@cosmicdrift/kumiko-framework.svg)](https://www.npmjs.com/package/@cosmicdrift/kumiko-framework) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.4.0-black.svg)](https://bun.sh)
+[![CI](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/CosmicDriftGameStudio/kumiko-framework/badges/.github/badges/coverage.json)](https://github.com/CosmicDriftGameStudio/kumiko-framework/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE) [![npm](https://img.shields.io/npm/v/@cosmicdrift/kumiko-framework.svg)](https://www.npmjs.com/package/@cosmicdrift/kumiko-framework) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.4.4-black.svg)](https://bun.sh)
 
 <details>
 <summary>Other things people say about Kumiko</summary>
@@ -96,7 +96,7 @@ kumiko add feature product-catalog
 
 ### Framework repo (contributors)
 
-You need [Bun](https://bun.sh/) ≥ 1.4.0 and [Docker](https://www.docker.com/) for PostgreSQL, Redis, Meilisearch and MinIO.
+You need [Bun](https://bun.sh/) ≥ 1.4.4 and [Docker](https://www.docker.com/) for PostgreSQL, Redis, Meilisearch and MinIO.
 
 ```bash
 git clone git@github.com:cosmicdriftgamestudio/kumiko-framework.git
