@@ -190,7 +190,7 @@ export function renderManagedTemplates(facts: ManagedAppFacts): readonly Managed
   });
   return [
     ...deploy.files
-      // Managed apps migrate through the k3s release.yml InitContainer; migrate-step.sh is compose-only.
+      // Managed apps migrate through the migrate-db initContainer of the infra _app-deploy.yml; migrate-step.sh is compose-only.
       .filter((file) => file.output !== COMPOSE_ONLY_DEPLOY_FILE)
       .map((file) =>
         marked(`deploy/${file.output}`, file.content, "#", file.output.endsWith(".sh")),

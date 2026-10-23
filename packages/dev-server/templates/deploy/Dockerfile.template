@@ -70,7 +70,7 @@ RUN bun install --production --frozen-lockfile
 COPY --from=build --chown=app:app /app/dist ./dist
 
 # Checked-in SQL migrations for the pre-deploy `kumiko schema apply` step
-# (k3s InitContainer from release.yml, or migrate-step.sh on compose hosts).
+# (migrate-db initContainer of the infra _app-deploy.yml on k3s, or migrate-step.sh on compose hosts).
 # The shipped `kumiko-schema` bin reads `${INIT_CWD}/kumiko/migrations/*.sql`
 # (see ENV INIT_CWD=/app below). kumiko/schema.ts is NOT needed at runtime
 # (only generate reads it; apply is checksum-tracked SQL only).
