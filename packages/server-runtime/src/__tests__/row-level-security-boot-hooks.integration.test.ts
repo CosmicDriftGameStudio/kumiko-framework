@@ -144,4 +144,33 @@ describe("rowLevelSecurity on: boot hooks see a system-scoped db", () => {
     expect(await readNames(factoryDb)).toEqual([ROW_NAME]);
     expect(await readNames(enrichDb)).toEqual([ROW_NAME]);
   });
+
+  // Custom seeds run inside the boot system scope, so the raw boot db sees every tenant.
+  test("runProdApp custom seed reads rows of several tenants with the given db", async () => {
+    const otherName = "second-tenant-row";
+    await seedRow(appStack.db, probeTable, {
+      id: crypto.randomUUID(),
+      tenantId: crypto.randomUUID(),
+      name: otherName,
+    });
+    let seedRead: readonly unknown[] | Error | undefined;
+    const handle = await runProdApp({
+      features: [probeFeature],
+      rowLevelSecurity: "on",
+      kmsMode: { plaintextReason: "test: row level security hook scope focus, not crypto" },
+      envSource: envFor(APP_DB),
+      envSchema: composeEnvSchema({ features: [] }),
+      seeds: [
+        async ({ db }) => {
+          seedRead = await readNames(db);
+        },
+      ],
+      autoListen: false,
+      migrations: false,
+    });
+    stoppers.push(() => handle.stop());
+    expect(Array.isArray(seedRead) ? [...seedRead].sort() : seedRead).toEqual(
+      [ROW_NAME, otherName].sort(),
+    );
+  });
 });
