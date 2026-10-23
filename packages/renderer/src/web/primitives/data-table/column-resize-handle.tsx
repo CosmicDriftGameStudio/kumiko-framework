@@ -79,7 +79,8 @@ export function ColumnResizeHandle({
       aria-valuenow={Math.round(width)}
       aria-valuemin={minWidth}
       aria-valuemax={MAX_COLUMN_WIDTH_PX}
-      aria-label={translate?.("kumiko.list.column.resize", { column: label }) ?? `Resize ${label}`}
+      // title, not aria-label: getByLabel("<column>") would match a resize handle for every column.
+      title={translate?.("kumiko.list.column.resize", { column: label }) ?? `Resize ${label}`}
       tabIndex={0}
       data-testid={`column-resize-${field}`}
       className={HANDLE_CLASS}

@@ -62,11 +62,11 @@ export function ActionsBodyCell({
         stickyActionsCellClass(fillsHeight),
         ROW_FOCUS_RING_CELL_CLASS,
       )}
-      // Action-cell events must not trigger the row click/activation
-      // (typically "Open Detail" — the user wanted the action,
-      // not navigation). We stopPropagation for mouse and
-      // keyboard so a11y stays consistent.
-      onClick={(e) => e.stopPropagation()}
+      // Only under column sizing is the empty cell leftover width that belongs to the row;
+      // otherwise it is padding around the buttons, where a misclick must not open the row.
+      onClick={(e) => {
+        if (!measureContent || e.target !== e.currentTarget) e.stopPropagation();
+      }}
       onKeyDown={(e) => e.stopPropagation()}
     >
       {measureContent ? (
