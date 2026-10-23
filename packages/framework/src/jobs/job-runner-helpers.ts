@@ -261,19 +261,27 @@ export async function startQueueDepthPolling(
   return setInterval(() => void pollQueueDepth(), QUEUE_DEPTH_POLL_INTERVAL_MS);
 }
 
-export function parseRedisOpts(url: string): {
+type RedisConnectionOptions = {
   host: string;
   port: number;
   db?: number | undefined;
-} {
+  username?: string | undefined;
+  password?: string | undefined;
+  tls?: Record<string, never> | undefined;
+};
+
+export function parseRedisOpts(url: string): RedisConnectionOptions {
   const parsed = new URL(url);
-  const result: { host: string; port: number; db?: number | undefined } = {
+  const result: RedisConnectionOptions = {
     host: parsed.hostname,
     port: Number(parsed.port) || 6379,
   };
   if (parsed.pathname.length > 1) {
     result.db = Number(parsed.pathname.slice(1));
   }
+  if (parsed.username) result.username = decodeURIComponent(parsed.username);
+  if (parsed.password) result.password = decodeURIComponent(parsed.password);
+  if (parsed.protocol === "rediss:") result.tls = {};
   return result;
 }
 
