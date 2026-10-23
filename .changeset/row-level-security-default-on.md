@@ -15,7 +15,7 @@ feature: framework
 type: breaking
 title: rowLevelSecurity defaults to "on"
 migration: |
-  Nothing to run by hand: `kumiko schema generate` emits ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table, and the schema apply (the migrate init container in production) creates them. Run `kumiko sync-managed --write` so the managed kumiko/schema.ts reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`.
+  In the app repo, once with the bump: run `kumiko sync-managed --write` (the managed kumiko/schema.ts now reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`), then `kumiko schema generate` and commit the migration. It contains ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table. The schema apply (the migrate init container in production) creates them; there is no manual database step. Without the migration, boot at "on" refuses to start and names the unprotected tables.
   The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; tools that touch no tenant rows (schema baseline/status, the KMS key store) pass "off" explicitly, and the operator commands backfill-pii, waitlist-migrate, project and consumer run on an enforcing connection in system scope, so they work against both modes.
   Way back: set `rowLevelSecurity: "off"` in kumiko.config.ts and run `kumiko schema generate`; the generated migration contains DISABLE ROW LEVEL SECURITY and drops the policies. At "off" runProdApp and runWorkerApp log a boot warning.
 -->
@@ -30,9 +30,11 @@ migration: |
 
 <!-- kumiko-changes
 feature: framework
-type: improvement
+type: breaking
 title: A projection write under a tenant scope can no longer land in another tenant
-detail: applyEntityEvent keeps an ambient tenant scope instead of wrapping every write in a system scope,. Writes for other tenants go through ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature. Replays, rebuilds and global entities still write system scoped.
+migration: |
+  A command that writes an entity row for another tenant through ctx.db now fails with SQLSTATE 42501; move that write to ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature.
+detail: applyEntityEvent keeps an ambient tenant scope instead of wrapping every write in a system scope. Writes for other tenants go through ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature. Replays, rebuilds and global entities still write system scoped.
 -->
 
 <!-- kumiko-changes
