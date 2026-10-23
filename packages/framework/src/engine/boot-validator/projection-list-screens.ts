@@ -4,13 +4,11 @@ import {
 } from "../entity-list-searchability.ts";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import { isEditLayoutScreen } from "../screen-helpers.ts";
-import {
-  type EditRelatedListSection,
-  type FeatureDefinition,
-  type ProjectionListScreenDefinition,
-  type QueryHandlerDef,
-  relatedListGroupHeaderLabel,
-  relatedListGroupKey,
+import type {
+  EditRelatedListSection,
+  FeatureDefinition,
+  ProjectionListScreenDefinition,
+  QueryHandlerDef,
 } from "../types/index.ts";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.ts";
 import { validateListTableAggregateQuery } from "./list-table-aggregate-query.ts";
@@ -285,28 +283,6 @@ function validateRelatedListParentFilter(
   }
 }
 
-// A collapsed group without a header has no toggle, so its rows could never be opened.
-function validateRelatedListGroupBy(prefix: string, section: EditRelatedListSection): void {
-  const groupBy = section.groupBy;
-  if (groupBy !== undefined && section.table?.grouping !== undefined) {
-    throw new Error(
-      `${prefix}: declares both groupBy (groups the loaded page) and table.grouping (groups on the server). Keep one.`,
-    );
-  }
-  const collapsedKey =
-    groupBy?.collapsedWhen === undefined ? undefined : relatedListGroupKey(groupBy.collapsedWhen);
-  if (
-    groupBy !== undefined &&
-    collapsedKey !== undefined &&
-    relatedListGroupHeaderLabel(groupBy, collapsedKey) === undefined
-  ) {
-    throw new Error(
-      `${prefix}: groupBy.collapsedWhen "${collapsedKey}" names a group without a header; ` +
-        `set groupBy.label or groupBy.labels["${collapsedKey}"], or drop collapsedWhen.`,
-    );
-  }
-}
-
 // relatedList sections declare search/facets the same way a projectionList
 // screen does, and hit the same 422 footgun: definePagedQueryHandler doesn't
 // auto-merge params into the handler's own Zod schema, so an
@@ -323,7 +299,6 @@ export function validateRelatedListSectionQueries(features: readonly FeatureDefi
     validateRelatedListSearchable(prefix, section, schema);
     validateRelatedListFacets(prefix, section, schema);
     validateRelatedListParentFilter(prefix, section, schema, handler, featureMap);
-    validateRelatedListGroupBy(prefix, section);
     validateListTableAggregateQuery({ prefix, ...section, handler, featureMap });
   };
   for (const feature of features) {

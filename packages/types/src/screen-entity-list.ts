@@ -4,7 +4,8 @@ import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
 import type { DashboardPanelVisibility } from "./screen-dashboard.ts";
-import type { EditRelatedListSection, ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type { ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type { EntityListExpandableRow } from "./screen-expandable-row.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListColumnPin, ListTableOptions } from "./screen-list-table.ts";
 
@@ -428,15 +429,6 @@ export type RelatedListToolbarAction =
   | (Extract<ToolbarAction, { readonly kind: "drawer" }> & {
       readonly visible?: FieldCondition;
     });
-
-/** Expandable area of an `entityList` row: a relatedList of the row's record.
- *  `id` (tab id) and `countField` (tab badge) have no meaning outside a tabs
- *  layout and are therefore omitted. `kind` stays the discriminator so further
- *  expansion kinds can be added without a breaking change. */
-export type EntityListExpandableRow = Omit<
-  EditRelatedListSection,
-  "id" | "countField" | "table" | "bulkActions"
->;
 
 /** An extra choice on a facet next to the field's own options: a named
  *  bundle of values ("Running" = several statuses) or "no filter" (`values:

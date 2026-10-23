@@ -5,10 +5,7 @@ import type {
 } from "../../../data-table-aggregate-types.ts";
 import type { ListColumnViewModel, ListRowViewModel } from "../../../headless/index.ts";
 import { useOptionalTranslation } from "../../../index.ts";
-import type { DataTableRowGrouping } from "../../../primitives.tsx";
 import { Button as UiButton } from "../../ui/button.tsx";
-import { buildTableItems, type TableItem } from "../data-table-cell.tsx";
-import { RowGroupToggle } from "./row-group-toggle.tsx";
 import { ServerGroupHeader } from "./server-group-header.tsx";
 
 type ServerGroupItem = {
@@ -17,7 +14,7 @@ type ServerGroupItem = {
 };
 
 export type DataTableItem =
-  | TableItem
+  | { readonly kind: "row"; readonly row: ListRowViewModel }
   | ({ readonly kind: "serverGroup" } & ServerGroupItem)
   | ({ readonly kind: "groupMore" } & ServerGroupItem);
 
@@ -26,11 +23,9 @@ export type DataTableBandItem = Exclude<DataTableItem, { readonly kind: "row" }>
 /** Server groups slice the flat `rows` by each group's `rowCount`, in group order. */
 export function buildDataTableItems(
   rows: readonly ListRowViewModel[],
-  rowGrouping: DataTableRowGrouping | undefined,
-  toggledGroups: ReadonlySet<string>,
   serverGroups: DataTableServerGroups | undefined,
 ): readonly DataTableItem[] {
-  if (serverGroups === undefined) return buildTableItems(rows, rowGrouping, toggledGroups);
+  if (serverGroups === undefined) return rows.map((row) => ({ kind: "row", row }));
   const items: DataTableItem[] = [];
   let offset = 0;
   for (const group of serverGroups.groups) {
@@ -46,7 +41,7 @@ export function buildDataTableItems(
 }
 
 function bandGroupKey(item: DataTableBandItem): string {
-  return item.kind === "group" ? item.key : item.group.key;
+  return item.group.key;
 }
 
 export function bandReactKey(item: DataTableBandItem): string {
@@ -91,22 +86,11 @@ function GroupLoadMore({ item }: { readonly item: ServerGroupItem }): ReactNode 
 export function GroupBand({
   item,
   columnOf,
-  onClientToggle,
 }: {
   readonly item: DataTableBandItem;
   readonly columnOf: (field: string) => ListColumnViewModel | undefined;
-  readonly onClientToggle: (key: string) => void;
 }): ReactNode {
   switch (item.kind) {
-    case "group":
-      return (
-        <RowGroupToggle
-          groupKey={item.key}
-          collapsed={item.collapsed}
-          label={item.label}
-          onToggle={onClientToggle}
-        />
-      );
     case "serverGroup":
       return (
         <ServerGroupHeader

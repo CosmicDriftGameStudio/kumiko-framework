@@ -14,7 +14,7 @@ import type {
   RowFieldExtractor,
 } from "./screen-entity-list.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
-import type { ListTableOptions } from "./screen-list-table.ts";
+import type { ListTableGrouping, ListTableOptions } from "./screen-list-table.ts";
 import type { ListFacetSpec } from "./screen-projection.ts";
 
 // --- entityEdit ---
@@ -209,34 +209,19 @@ export type EditExtensionSection = {
   readonly actions?: readonly RowAction[];
 };
 
-/** Rows are grouped by `field` in order of first appearance. Every group gets
- *  a collapsible header. */
-export type RelatedListGroupBy = {
-  readonly field: string;
-  /** Groups whose field value equals this start collapsed; the others start open. */
-  readonly collapsedWhen?: string | number | boolean | null;
-  /** i18n key of the group header. Placeholders: `{count}` rows in the group,
-   *  `{value}` the group's field value, `{lastDate}` the group's latest
-   *  `dateField` value as a locale date. A group with neither `label` nor an
-   *  entry in `labels` renders its rows without a header and never collapses. */
-  readonly label?: string;
-  /** Header i18n key per group value (as string), overriding `label`. */
-  readonly labels?: Readonly<Record<string, string>>;
-  /** Row field (ISO date or timestamp) behind `{lastDate}`. */
-  readonly dateField?: string;
-};
-
-/** Group key of a field value; `collapsedWhen` and row values both go through it. */
+/** Group key of a field value; `collapsedWhen` and server group keys both go through it. */
 export function relatedListGroupKey(value: unknown): string {
   return value === undefined || value === null ? "" : String(value);
 }
 
 export function relatedListGroupHeaderLabel(
-  groupBy: Pick<RelatedListGroupBy, "label" | "labels">,
+  grouping: Pick<ListTableGrouping, "label" | "labels">,
   groupKey: string,
 ): string | undefined {
-  const labels = groupBy.labels;
-  return labels !== undefined && Object.hasOwn(labels, groupKey) ? labels[groupKey] : groupBy.label;
+  const labels = grouping.labels;
+  return labels !== undefined && Object.hasOwn(labels, groupKey)
+    ? labels[groupKey]
+    : grouping.label;
 }
 
 /** Row tint rule: rows where the `FieldCondition` (`{ field, eq }`, `{ field,
@@ -335,8 +320,6 @@ export type EditRelatedListSection = {
   readonly rowActionMode?: RowActionMode;
   /** Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action. Adds a checkbox column and a selection bar; without it the list has no checkboxes. */
   readonly bulkActions?: readonly ListBulkAction[];
-  /** Groups rows by the value of a field under collapsible group headers. */
-  readonly groupBy?: RelatedListGroupBy;
   /** Tints rows whose field matches — a declarative rule, not a function, so
    *  the screen definition stays serializable. */
   readonly rowTone?: RelatedListRowTone;

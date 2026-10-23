@@ -5,15 +5,23 @@ import { useOptionalTranslation } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
 import { TableCell, TableFooter, TableRow } from "../../ui/table.tsx";
 import { NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
+import { stickyActionsCellClass } from "./actions-column.tsx";
 import { MeasureValue, measureKindLabel, measureLabel } from "./measure-value.tsx";
-import type { PinnedCellProps } from "./use-column-pins.ts";
+import { EXPAND_COLUMN_KEY, type PinnedCellProps, SELECT_COLUMN_KEY } from "./use-column-pins.ts";
 
 function measuresOf(totals: DataTableTotals, field: string): readonly DataTableMeasure[] {
   return totals.measures.filter((measure) => measure.field === field);
 }
 
-function fillerKeys(prefix: string, count: number): string[] {
-  return Array.from({ length: count }, (_, position) => `${prefix}-${position}`);
+// Same order as the body row: select before expand.
+function leadingCellKeys(leading: {
+  readonly select: boolean;
+  readonly expand: boolean;
+}): string[] {
+  return [
+    ...(leading.select ? [SELECT_COLUMN_KEY] : []),
+    ...(leading.expand ? [EXPAND_COLUMN_KEY] : []),
+  ];
 }
 
 function totalsLabel(translate: ReturnType<typeof useOptionalTranslation>): string {
@@ -51,23 +59,32 @@ export function TotalsFooterRow({
   columns,
   cellPin,
   leadingCells,
-  trailingCells,
+  actionsCell,
   cellClassName,
 }: {
   readonly totals: DataTableTotals;
   readonly columns: readonly ListColumnViewModel[];
   readonly cellPin: (field: string) => PinnedCellProps;
-  readonly leadingCells: number;
-  readonly trailingCells: number;
+  readonly leadingCells: { readonly select: boolean; readonly expand: boolean };
+  /** Present when the table has an actions column; the cell then sticks like that column. */
+  readonly actionsCell: { readonly fillsHeight: boolean } | undefined;
   readonly cellClassName?: string;
 }): ReactNode {
   const translate = useOptionalTranslation();
   return (
     <TableFooter data-testid="list-totals">
       <TableRow className="hover:bg-transparent">
-        {fillerKeys("lead", leadingCells).map((key) => (
-          <TableCell key={key} />
-        ))}
+        {leadingCellKeys(leadingCells).map((key) => {
+          const pin = cellPin(key);
+          return (
+            <TableCell
+              key={key}
+              data-testid={`list-totals-${key}`}
+              className={pin.className}
+              style={pin.style}
+            />
+          );
+        })}
         {columns.map((column, index) => {
           const measures = measuresOf(totals, column.field);
           const pin = cellPin(column.field);
@@ -91,9 +108,9 @@ export function TotalsFooterRow({
             </TableCell>
           );
         })}
-        {fillerKeys("trail", trailingCells).map((key) => (
-          <TableCell key={key} />
-        ))}
+        {actionsCell !== undefined && (
+          <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight)} />
+        )}
       </TableRow>
     </TableFooter>
   );

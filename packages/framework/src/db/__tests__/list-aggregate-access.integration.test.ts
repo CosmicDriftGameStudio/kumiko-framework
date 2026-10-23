@@ -120,6 +120,25 @@ describe("list aggregate field access", () => {
     expect(asAdmin.groups[0]?.measures).toEqual([12]);
   });
 
+  test("a row-dependent read rule on a money measure limits both its currencies and its sums", async () => {
+    const mine = (amount: number, currency: string) => ({ amount, currency });
+    await order({ title: "a", rowOwnedAmount: mine(10, "EUR"), fieldOwnerId: user.id }, user.id);
+    await order({ title: "b", rowOwnedAmount: mine(4, "EUR"), fieldOwnerId: admin.id }, user.id);
+    await order({ title: "c", rowOwnedAmount: mine(5, "USD"), fieldOwnerId: admin.id }, user.id);
+    const aggregate = { measures: [{ field: "rowOwnedAmount", kind: "sum" }] };
+    const asUser = await stack.http.queryOk<AggResult>(LIST_ORDERS, { aggregate }, user);
+    const asAdmin = await stack.http.queryOk<AggResult>(LIST_ORDERS, { aggregate }, admin);
+    expect(asUser.groups).toEqual([
+      { key: null, count: 3, measures: [[{ currency: "EUR", value: 1000 }]] },
+    ]);
+    expect(asAdmin.groups[0]?.measures).toEqual([
+      [
+        { currency: "EUR", value: 1400 },
+        { currency: "USD", value: 500 },
+      ],
+    ]);
+  });
+
   test("rows hidden by a row-dependent groupBy rule do not fall into the real null group", async () => {
     await order({ title: "A", rowOwnedGroup: "g1", fieldOwnerId: user.id }, user.id);
     await order({ title: "B", fieldOwnerId: user.id }, user.id);

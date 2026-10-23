@@ -513,6 +513,7 @@ export type {
   EscapeHatchTarget,
   EscapeHatchUseEvent,
   EventDef,
+  ExpandableRowGrouping,
   ExtensionOptionsArgs,
   ExtensionOptionsFor,
   FeatureDefinition,

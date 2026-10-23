@@ -29,7 +29,6 @@ import {
   type DataTableProps,
   type DataTableRowAction,
   type DataTableRowActionMode,
-  type DataTableRowGrouping,
   type DataTableTableBlockProps,
   shouldRenderActionsIconOnly,
   usePrimitives,
@@ -119,9 +118,8 @@ export type RenderListProps = {
   /** How the row-action column renders (see `DataTableProps.rowActionMode`). KumikoScreen
    *  derives it from the actions; without it the DataTable uses its adaptive default. */
   readonly rowActionMode?: DataTableRowActionMode;
-  /** Forwarded to `DataTableProps.bulk` / `rowGrouping` / `rowTone`. */
+  /** Forwarded to `DataTableProps.bulk` / `rowTone`. */
   readonly bulk?: DataTableProps["bulk"];
-  readonly rowGrouping?: DataTableRowGrouping;
   readonly rowTone?: DataTableProps["rowTone"];
   /** Toolbar actions in the list header in resolved form. KumikoScreen
    *  builds them from EntityListScreenDefinition.toolbarActions:
@@ -198,7 +196,6 @@ export function RenderList(props: RenderListProps): ReactNode {
     rowActions,
     rowActionMode,
     bulk,
-    rowGrouping,
     rowTone,
     toolbarActions,
     filterFacets,
@@ -622,7 +619,6 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
         {...(bulk !== undefined && { bulk })}
-        {...(rowGrouping !== undefined && { rowGrouping })}
         {...(rowTone !== undefined && { rowTone })}
         {...(filterFacets !== undefined && { filterFacets })}
         {...(filterValues !== undefined && { filterValues })}

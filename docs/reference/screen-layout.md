@@ -91,7 +91,7 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `load` | actionForm | `{ query, idParam?, singleton? }` loads the initial values from a query keyed by the record id (route id, else the clicked row's `id`); URL search params never seed the form. `singleton: true` sends no id, so the query picks the tenant's single row (like projectionDetail `singleton`); it excludes `idParam`, and the boot validator rejects a query that requires input |
 | `rowClick` | row action | `true` on a `navigate` or `drawer` action makes a click on the row body fire it; at most one per list, rejected on projectionDetail header actions |
 | `submitPrefilled` | actionForm, secretMint | `true` enables submit without edits, so values seeded from navigate `params` count as intent |
-| `groupBy`, `rowTone` | relatedList | collapsible row groups and a row tint rule |
+| `table.grouping`, `rowTone` | relatedList | server-side row groups and a row tint rule |
 | `subtitle` | wizard section | line under the step title in the rail |
 | `wizard.aside` | entityEdit layout | `{ upNext: true }` adds an "up next" box |
 | `titleTemplate` | entityEdit | title key with `{field}` placeholders from the form values |
@@ -215,8 +215,8 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 - With `display` set, the row-action column keeps that action inline next to the kebab even in the adaptive layout. Without `display`, nothing changes. `rowActionMode: "inline"` shows every action inline.
 - `display: "responsive"` shows a button with icon and label in the table (768px and up) and only the icon in the narrow card layout, with the label as accessible name and tooltip. An action without a resolvable `icon` stays a labelled button. `"button"`, `"link"` and `"icon"` keep their look on every width.
 - Below 768px, icon-only row actions and the expand arrow have a 44px touch target.
-- relatedList `groupBy: { field, collapsedWhen?, label?, labels?, dateField? }` groups rows in order of first appearance under collapsible headers. The header key takes `{count}`, `{value}` and `{lastDate}`. A group with neither `label` nor a `labels` entry shows its rows without a header and stays open; boot rejects a `collapsedWhen` group without a header. `rowTone` is a field condition plus a tone, for example `{ field: "status", eq: "failed", tone: "bad" }`.
-- A DataTable primitive that has no support for `rowGrouping`, `rowTone` or `filterFacets[].chips` (for example a native renderer) shows the flat list and the default facet control.
+- relatedList and expandableRow group through `table.grouping: { field, label?, labels?, collapsedWhen? }`. Groups, counts and header measures come from the server, so the bound query must accept `aggregate`. Every group gets a header; without `label` or a `labels` entry it shows the group value. An expandableRow takes only `table.grouping` with a fixed `field`, no `userChoice`. The old `groupBy` key is a boot error. `rowTone` is a field condition plus a tone, for example `{ field: "status", eq: "failed", tone: "bad" }`.
+- A DataTable primitive that has no support for `serverGroups`, `rowTone` or `filterFacets[].chips` (for example a native renderer) shows the flat list and the default facet control.
 
 ## Forms
 

@@ -249,7 +249,10 @@ describe("MfaSetupPreauthScreen", () => {
     const input = screen.getByLabelText(/^Code from your authenticator app/);
     expect(input).toHaveProperty("value", "");
     expect(input).toHaveProperty("disabled", false);
-    expect(document.activeElement).toBe(input);
+    // useFocusOnMount focuses in a passive effect, which can run after the banner render.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input);
+    });
   });
 
   // The banner told the user to "start over", but setup stayed

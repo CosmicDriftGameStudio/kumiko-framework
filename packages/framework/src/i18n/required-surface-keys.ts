@@ -14,6 +14,7 @@ import type {
   DashboardScreenDefinition,
   DashboardTextPanel,
   EditFieldSpec,
+  EditRelatedListSection,
   EditWriteFormSection,
   EntityListExpandableRow,
   FeatureDefinition,
@@ -239,7 +240,10 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
   }
 }
 
-function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpandableRow): void {
+function pushRelatedListSectionKeys(
+  out: Set<string>,
+  section: EntityListExpandableRow | EditRelatedListSection,
+): void {
   pushKey(out, section.title);
   pushKey(out, section.description);
   pushKey(out, section.itemNoun);
@@ -248,8 +252,9 @@ function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpanda
     if (normalized.label !== undefined) pushKey(out, normalized.label);
   }
   for (const action of section.rowActions ?? []) pushRowActionKeys(out, action);
-  pushKey(out, section.groupBy?.label);
-  for (const label of Object.values(section.groupBy?.labels ?? {})) pushKey(out, label);
+  const grouping = section.table?.grouping;
+  pushKey(out, grouping?.label);
+  for (const label of Object.values<string>(grouping?.labels ?? {})) pushKey(out, label);
 }
 
 function pushListEmptyStateKeys(

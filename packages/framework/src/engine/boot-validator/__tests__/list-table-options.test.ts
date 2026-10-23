@@ -271,7 +271,9 @@ describe("validateBoot — list table block", () => {
         expandableRow,
       });
     });
-    expect(() => validateBoot([feature])).toThrow(/expandableRow.*does not support a table block/);
+    expect(() => validateBoot([feature])).toThrow(
+      /expandableRow.*supports only table\.grouping, not table\.columnPicker/,
+    );
   });
 });
 

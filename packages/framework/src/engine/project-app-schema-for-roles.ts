@@ -87,6 +87,7 @@ import type {
   EditRelatedListSection,
   EditSectionSpec,
   EntityEditScreenDefinition,
+  EntityListExpandableRow,
   EntityListScreenDefinition,
   MetricNavigate,
   MetricSpec,
@@ -492,12 +493,15 @@ function projectEmptyState(
   return rest;
 }
 
+type ProjectionArgs = [FeatureSchema, IndexedSchema, ReadonlySet<string>];
+function projectRelatedListSection(s: EntityListExpandableRow, ...a: ProjectionArgs): typeof s;
+function projectRelatedListSection(s: EditRelatedListSection, ...a: ProjectionArgs): typeof s;
 function projectRelatedListSection(
-  section: EditRelatedListSection,
+  section: EditRelatedListSection | EntityListExpandableRow,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
-): EditRelatedListSection {
+): EditRelatedListSection | EntityListExpandableRow {
   const { actions, rowActions, toolbarActions, rowClick, emptyState, ...rest } = section;
   const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
   const nextRowActions = projectRowActionArray(rowActions, feature, indices, keptScreenQns);

@@ -16,6 +16,7 @@ import type {
 } from "../types/screen.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
+import { validateRelatedListGroupingRules } from "./related-list-table-rules.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
 import {
   assertWriteHandlerRegistered,
@@ -140,18 +141,11 @@ type RelatedListSectionValidation = {
 // both render a relatedList whose rows come from an arbitrary query.
 function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): void {
   const { featureName, where, section } = args;
-  if (args.screenType === "entityList expandableRow" && Object.hasOwn(section, "table")) {
-    throw new Error(
-      `[Feature ${featureName}] ${where} does not support a table block. ` +
-        `Put table on the entityList screen itself.`,
-    );
-  }
-  if (args.screenType === "entityList expandableRow" && Object.hasOwn(section, "bulkActions")) {
-    throw new Error(
-      `[Feature ${featureName}] ${where} does not support bulkActions. ` +
-        `Put bulkActions on the entityList screen itself.`,
-    );
-  }
+  validateRelatedListGroupingRules(
+    `[Feature ${featureName}] ${where}`,
+    section,
+    args.screenType === "entityList expandableRow",
+  );
   validateListTableOptions(`[Feature ${featureName}] ${where}`, section.table, section.columns);
   if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
   validateListBulkActions(
