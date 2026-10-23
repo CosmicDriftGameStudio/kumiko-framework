@@ -23,6 +23,14 @@ migration: |
 <!-- kumiko-changes
 feature: framework
 type: breaking
+title: Boot hooks with a db dependency get a system-scoped db at rowLevelSecurity "on"
+migration: |
+  No action unless a hook relied on the unscoped pool. The anonymousAccess factory, enrichAnonymousAccess, the runProdApp `wire` hook and runWorkerApp `wireComponents` now receive a system-scoped db, the same in prod, dev and the test stack, so tenant resolution and boot reads see rows across tenants. extraContext factories keep the ambient request scope.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
 title: runInSystemRowLevelSecurityScope and systemScopedRunner take a reason
 migration: |
   Call runInSystemRowLevelSecurityScope("<why this access spans tenants>", fn) and systemScopedRunner(runner, "<reason>"). An empty or whitespace reason throws InternalError; the scope leak assertion names the reason.

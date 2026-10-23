@@ -27,6 +27,10 @@ import type {
 import type { WorkerEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
 import type { ComposedEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  appHookScopedRunner,
+  DEFAULT_ROW_LEVEL_SECURITY_MODE,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import { scrubLogText } from "@cosmicdrift/kumiko-framework/logging";
 import {
@@ -215,6 +219,10 @@ function assertWorkerStackRequirements(options: RunWorkerAppOptions): void {
   );
 }
 
+function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnection {
+  return appHookScopedRunner(db, options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE);
+}
+
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
   const resolvedEnvSource = await resolveGatedEnvSource(options);
@@ -296,7 +304,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
 
   if (options.wireComponents) {
     await options.wireComponents({
-      db,
+      db: wireHookDb(db, options),
       redis,
       registry,
       filesForTenant: makeFilesForTenant(entrypoint.context),

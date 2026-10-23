@@ -802,7 +802,7 @@ async function bootProdApp(
     entrypointOptions,
   );
   registerProdShutdownHooks(entrypoint, connections.cacheSync, requestContext.ownedRedisSseBroker);
-  await runProdWireHook(options, composed, connections, entrypoint);
+  await runProdWireHook(options, config, composed, connections, entrypoint);
   await runProdBootSeeds(
     { options, config, composed, connections, requestContext },
     entrypoint,

@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
+import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";
 import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
@@ -146,6 +147,17 @@ export function withRowLevelSecurityScope(runner: object, scope: RowLevelSecurit
 
 export function systemScopedRunner<T extends object>(runner: T, reason: string): T {
   return withRowLevelSecurityScope(runner, systemRowLevelSecurityScope(reason));
+}
+
+// Boot and tenant-resolution hooks run before any tenant is established, so the enforcing pool
+// would return zero rows; prod, dev and the test stack all hand them this same system scope.
+export function appHookScopedRunner<T extends object>(runner: T, mode: RowLevelSecurityMode): T {
+  return mode === "on"
+    ? systemScopedRunner(
+        runner,
+        "app boot and tenant-resolution hooks run before any tenant is established",
+      )
+    : runner;
 }
 
 export function unsafeRawScopedRunner<T extends object>(runner: T): T {
