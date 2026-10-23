@@ -1,7 +1,16 @@
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { type EnqueuedTaskPromise, ErrorStatusCode, Meilisearch, type Task } from "meilisearch";
+import type { EnqueuedTaskPromise, Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
+import { importOptionalPeer } from "../utils/import-optional-peer.ts";
+import { MEILISEARCH_PEER } from "./meilisearch-peer.ts";
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.ts";
+
+// meilisearch is an optional peer; a static import would fail with the runtime's bare
+// "Cannot find package" error instead of naming the peer and how to install it.
+const { ErrorStatusCode, Meilisearch } = await importOptionalPeer(
+  MEILISEARCH_PEER,
+  () => import("meilisearch"),
+);
 
 // meilisearch's waitTask() RESOLVES (never rejects) once the server task
 // reaches a terminal state, even "failed" — a rejected doc (e.g. an id over

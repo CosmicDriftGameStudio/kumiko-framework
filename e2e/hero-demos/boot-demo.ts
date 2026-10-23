@@ -153,6 +153,13 @@ rmSync(resolve(appDir, "node_modules"), { recursive: true, force: true });
 rmSync(resolve(appDir, "bun.lock"), { force: true });
 console.log("[boot-demo] bun install (tarballs)…");
 execFileSync("bun", ["install"], { cwd: appDir, stdio: "inherit" });
+// Proves the framework boots without its optional meilisearch peer; a hoisted install would hide a static import.
+if (existsSync(resolve(appDir, "node_modules/meilisearch"))) {
+  console.error(
+    "[boot-demo] meilisearch was installed; the framework must boot without its optional peer",
+  );
+  process.exit(1);
+}
 
 writeFileSync(
   resolve(appDir, ".env"),

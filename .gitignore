@@ -39,6 +39,7 @@ playwright-report/
 
 # Codegen-test fixtures (created+removed per test run)
 .tmp-fixtures/
+e2e/hero-demos/.tmp/
 
 # build-prod-bundle / renderer-web-css-relocation integration test mkdtemp dirs
 .inproc-styles-*/
