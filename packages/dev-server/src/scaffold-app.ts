@@ -280,7 +280,7 @@ function renderPackageJson(
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
-        "bun-types": "^1.4.0",
+        "bun-types": "^1.4.4",
         tailwindcss: "^4.3.0",
         typescript: "^6.0.3",
         ...testSetup?.devDependencies,

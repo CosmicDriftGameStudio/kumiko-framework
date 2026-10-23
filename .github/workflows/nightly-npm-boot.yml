@@ -1,6 +1,6 @@
 # Nightly publish-integrity check (#1729). Every other CI job/e2e-suite that
-# exercises a scaffolded app relinks @cosmicdrift/* to file:-pins in the
-# monorepo (e2e/hero-demos/boot-demo.ts's relinkCosmicDriftToWorkspace) —
+# exercises a scaffolded app installs @cosmicdrift/* from tarballs packed
+# from the monorepo HEAD (e2e/hero-demos/boot-demo.ts) —
 # so a broken/unpublished npm release would pass every existing check
 # silently. This job does the opposite: `bun create kumiko-app` exactly as
 # documented in the README, installing the actually-published
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: "1.4.0"
+          bun-version: "1.4.4"
 
       # Deliberately no actions/checkout and no bun-install cache here: this
       # job's entire point is a from-scratch registry install of the

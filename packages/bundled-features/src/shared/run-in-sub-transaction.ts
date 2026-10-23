@@ -1,11 +1,11 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 
 // Per-unit sub-transaction (one user, one purged row), nesting-aware across both db shapes:
-//   - top-level connection (postgres-js Sql) → `.begin` (BEGIN)
-//   - TransactionSql (inside the dispatcher's outer tx, where every
+//   - top-level connection (Bun.SQL pool) → `.begin` (BEGIN)
+//   - TransactionSQL (inside the dispatcher's outer tx, where every
 //     writeHandler already runs) → `.savepoint` (SAVEPOINT)
-// A TransactionSql has no `.begin`, so the previous unconditional `.begin`
-// threw "is not a function" on every user when invoked through the dispatcher
+// A transaction handle cannot begin another transaction, so the previous unconditional `.begin`
+// threw on every user when invoked through the dispatcher
 // (the cron path) → zero deletions in production, while direct-connection tests
 // stayed green. Selecting the available method makes the sub-tx work in both
 // contexts; on throw the savepoint rolls back just this user (others survive).
@@ -21,7 +21,7 @@ export async function runInSubTransaction<T>(
     savepoint?: (f: (tx: DbRunner) => Promise<T>) => Promise<T>;
   };
   // savepoint-first: empirically (Bun 1.3.14, not re-checked on 1.4.0) the
-  // surfaces are NOT mutually exclusive — a TransactionSql exposes begin AND
+  // surfaces are NOT mutually exclusive — a TransactionSQL exposes begin AND
   // savepoint, only the top-level connection has begin alone. begin-first
   // picked the nested BEGIN inside a tx (the incident class above);
   // savepoint-first hits the savepoint there and falls back to begin top-level.

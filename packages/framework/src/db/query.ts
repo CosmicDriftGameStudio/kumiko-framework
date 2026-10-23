@@ -1,4 +1,4 @@
-// Typed query helpers over the postgres-js driver: EntityTableMeta in, rows out.
+// Typed query helpers over the Bun.SQL driver: EntityTableMeta in, rows out.
 //
 // API:
 //   selectMany<T>(db, table, where?, opts?) → readonly T[]
@@ -57,11 +57,11 @@ import { buildWhereClause } from "./where-clause.ts";
 export { asEntityTableMeta, requireEntityTableMeta };
 
 // `db` input accepts three shapes:
-//   1. postgres-js client or transaction handle — native .unsafe (+ .begin on the pool client)
-//   2. wrapper exposing the postgres-js client under `db.$client`
+//   1. Bun.SQL client or transaction handle — native .unsafe (+ .begin on the pool client)
+//   2. wrapper exposing the Bun.SQL client under `db.$client`
 //   3. wrapper exposing it under `tx.session.client`
 // asRawClient extracts a `{unsafe, begin}` surface in every case.
-// begin is optional: postgres-js TransactionSql lacks it (see asRawClient);
+// begin is optional: a Bun.SQL transaction handle cannot start another one (see hasBegin);
 // savepoint/release exist only on tx handles.
 // A pinned connection from reserve(): every statement runs on the same session,
 // which session-level state (advisory locks, BEGIN/COMMIT) depends on.
@@ -92,9 +92,9 @@ function isRawClient(value: unknown): value is RawClient {
 }
 
 export function asRawClient(db: unknown): RawClient {
-  // Direct: postgres-js Sql / TransactionSql. Both
-  // expose `.unsafe`; only Sql has `.begin` — TransactionSql uses
-  // `.savepoint` for nested-tx. We only require `.unsafe` here; callers that
+  // Direct: Bun.SQL pool / transaction handle. Both
+  // expose `.unsafe`; only the pool starts a transaction — a transaction handle uses
+  // `.savepoint` for nesting. We only require `.unsafe` here; callers that
   // need `.begin` (e.g. `transaction()`) verify it themselves.
   if (isRawClient(db)) return db;
   // TenantDb (ctx.db) has no unfiltered escape via asRawClient anymore — fail
@@ -106,14 +106,14 @@ export function asRawClient(db: unknown): RawClient {
         "{ reason } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).",
     );
   }
-  // Wrapper handle: $client = postgres-js Sql.
+  // Wrapper handle: $client = Bun.SQL pool.
   const $client = propertyOf(db, "$client");
   if (isRawClient($client)) return $client;
-  // Wrapper transaction handle: session.client = postgres-js Sql.
+  // Wrapper transaction handle: session.client = Bun.SQL pool.
   const sessionClient = propertyOf(propertyOf(db, "session"), "client");
   if (isRawClient(sessionClient)) return sessionClient;
   throw new Error(
-    "asRawClient: db argument has no .unsafe() — pass a postgres-js Sql or a transaction handle.",
+    "asRawClient: db argument has no .unsafe() — pass a Bun.SQL pool or a transaction handle.",
   );
 }
 
@@ -126,10 +126,10 @@ function savepointRunnerOf<TRunner extends DbRunner>(sp: unknown): TRunner {
   return sp as TRunner;
 }
 
-// postgres.js rejects the WHOLE begin() when any statement inside
-// it errored — even if the JS error was caught (the driver tracks per-block
-// query failures). Error confinement therefore must go through the driver's
-// own savepoint(), not manual SAVEPOINT statements. The callback receives
+// Postgres aborts the whole transaction once a statement inside it errored
+// (25P02 until rollback), even if the JS error was caught. Error confinement
+// therefore goes through the driver's own savepoint(), not manual SAVEPOINT
+// statements. The callback receives
 // the savepoint-scoped tx; run every confined statement on THAT handle.
 export function runInSavepoint<T>(
   tx: ExecutorManagedRunner,
@@ -143,7 +143,7 @@ export async function runInSavepoint<T, TRunner extends DbRunner>(
   const raw = asRawClient(tx);
   if (typeof raw.savepoint !== "function") {
     throw new Error(
-      "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql).",
+      "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (Bun.SQL TransactionSQL).",
     );
   }
   return raw.savepoint((sp) => fn(savepointRunnerOf<TRunner>(sp)));
@@ -157,10 +157,23 @@ export async function runInSavepoint<T, TRunner extends DbRunner>(
 // unit and a failed statement can't poison anything downstream.
 //
 // `.savepoint` being present isn't proof the transaction is still open: a
-// committed TransactionSql-shaped db still exposes `.savepoint`, and calling
-// it fails with PG 25P01 ("no active sql transaction") since there's no
-// BEGIN left to nest into. That is now a programming error, not something
+// committed transaction handle still exposes `.savepoint`, and calling it
+// fails (Bun.SQL: ERR_POSTGRES_INVALID_TRANSACTION_STATE, Postgres: 25P01)
+// since there's no BEGIN left to nest into. That is now a programming error, not something
 // to paper over by re-running `fn` without the savepoint's isolation.
+const CONNECTION_CLOSED_CODE = "ERR_POSTGRES_CONNECTION_CLOSED";
+const SAVEPOINT_ON_COMMITTED_CODES: ReadonlySet<string> = new Set([
+  "25P01",
+  "ERR_POSTGRES_INVALID_TRANSACTION_STATE",
+]);
+
+function isSavepointOnDeadTransactionCode(code: string | undefined): boolean {
+  return (
+    code !== undefined &&
+    (code === CONNECTION_CLOSED_CODE || SAVEPOINT_ON_COMMITTED_CODES.has(code))
+  );
+}
+
 export function runInSavepointIfSupported<T>(
   db: ExecutorManagedRunner,
   fn: (sp: ExecutorManagedRunner) => Promise<T>,
@@ -184,18 +197,18 @@ export async function runInSavepointIfSupported<T, TRunner extends DbRunner>(
     });
   } catch (e) {
     const code = extractPgError(e)?.code;
-    if (!fnStarted && (code === "25P01" || code === "ERR_POSTGRES_CONNECTION_CLOSED")) {
+    if (!fnStarted && isSavepointOnDeadTransactionCode(code)) {
       throw new InternalError({
         message:
-          code === "25P01"
-            ? "runInSavepointIfSupported: savepoint on a transaction that has already committed — " +
-              "this is almost always database work in an afterCommit hook. afterCommit is the default " +
-              "phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction for writes that must " +
-              "roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback."
-            : "runInSavepointIfSupported: the transaction handle's connection is gone — the transaction " +
+          code === CONNECTION_CLOSED_CODE
+            ? "runInSavepointIfSupported: the transaction handle's connection is gone — the transaction " +
               "already committed (almost always database work in an afterCommit hook) or the connection dropped. " +
               "afterCommit is the default phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction " +
-              "for writes that must roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback.",
+              "for writes that must roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback."
+            : "runInSavepointIfSupported: savepoint on a transaction that has already committed — " +
+              "this is almost always database work in an afterCommit hook. afterCommit is the default " +
+              "phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction for writes that must " +
+              "roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback.",
         cause: e instanceof Error ? e : undefined,
       });
     }
@@ -706,7 +719,7 @@ export async function deleteMany(
     operation: "deleteMany",
     table: info.name,
   });
-  // postgres-js reports the affected-row count of a DELETE on the result, no RETURNING needed.
+  // Bun.SQL reports the affected-row count of a DELETE on the result, no RETURNING needed.
   const count = propertyOf(result, "count");
   if (typeof count !== "number") {
     throw new Error(`deleteMany(${info.name}): the driver result carries no affected-row count`);

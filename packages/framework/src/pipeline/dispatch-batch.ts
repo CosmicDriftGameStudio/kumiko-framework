@@ -307,7 +307,7 @@ async function runBatchBody(
   }
 
   // batch() opens its own outer transaction — needs the top-level
-  // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
+  // connection's `.begin()` (a transaction handle cannot begin another one).
   const db = resolveAppPoolDb(ctx);
   if (!db || runsWithoutTransaction) {
     // Without a DB connection (or for a perCommand handler, whose writes open their own transactions)

@@ -9,7 +9,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
-import postgres from "postgres";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { asRawClient } from "../../db/query.ts";
@@ -67,7 +66,8 @@ const feature = defineFeature("perfrebuild", (r) => {
 
 const admin = TestUsers.admin;
 let testDb: BunTestDb;
-let observedDb: ReturnType<typeof postgres>;
+let observedPool: Bun.SQL;
+let observedDb: Bun.SQL;
 const batchReadLimits: unknown[] = [];
 const registry = createRegistry([feature]);
 const qualifiedProjectionName = "perfrebuild:projection:task-count";
@@ -77,20 +77,43 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { perf_rebuild_task_count: taskCountTable });
-  // postgres-js reports every statement through `debug`; the rebuild runs on this
-  // connection so its batch SELECTs can be counted without a production hook.
-  observedDb = postgres(testDatabaseUrl().replace(/\/[^/]+$/, `/${testDb.dbName}`), {
+  // Bun.SQL has no statement hook; the rebuild runs on a proxy that counts the batch SELECTs
+  // issued directly or through begin/reserve/savepoint handles, without a production hook.
+  observedPool = new Bun.SQL(testDatabaseUrl().replace(/\/[^/]+$/, `/${testDb.dbName}`), {
     max: 2,
-    debug: (_connection, query, parameters) => {
-      if (isRebuildBatchRead(query)) batchReadLimits.push(parameters[3]);
-    },
   });
+  observedDb = observeBatchReads(observedPool);
 });
 
 afterAll(async () => {
-  await observedDb.end({ timeout: 5 });
+  await observedPool.close({ timeout: 5 });
   await testDb.cleanup();
 });
+
+const NESTED_HANDLE_METHODS: ReadonlySet<PropertyKey> = new Set(["begin", "savepoint"]);
+
+function observeBatchReads<T extends object>(handle: T): T {
+  return new Proxy(handle, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (typeof value !== "function") return value;
+      if (prop === "unsafe") {
+        return (query: string, parameters?: readonly unknown[]) => {
+          if (isRebuildBatchRead(query)) batchReadLimits.push(parameters?.[3]);
+          return value.call(target, query, parameters);
+        };
+      }
+      if (prop === "reserve") {
+        return async () => observeBatchReads(await value.call(target));
+      }
+      if (NESTED_HANDLE_METHODS.has(prop)) {
+        return (callback: (inner: object) => unknown) =>
+          value.call(target, (inner: object) => callback(observeBatchReads(inner)));
+      }
+      return value.bind(target);
+    },
+  });
+}
 
 function isRebuildBatchRead(query: string): boolean {
   return query.includes('FROM "kumiko_events" e') && query.includes("LIMIT $4");

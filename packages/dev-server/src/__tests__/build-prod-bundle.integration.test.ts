@@ -225,7 +225,9 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
   // A killed child (ETIMEDOUT) used to surface as a bare spawn error; naming the elapsed time and the child's output shows whether the build or the process start stalled.
   function runKumikoBuild(cwd: string): { status: number | null; stdout: string; stderr: string } {
     const startedAt = performance.now();
-    const result = spawnSync("bun", [KUMIKO_BUILD_BIN, cwd], {
+    // The fixtures have no node_modules, and since Bun 1.4.4 a missed resolve auto-installs the
+    // package from the registry; --no-install keeps the build on what is actually installed.
+    const result = spawnSync("bun", ["--no-install", KUMIKO_BUILD_BIN, cwd], {
       encoding: "utf8",
       timeout: BUILD_PROCESS_TIMEOUT_MS,
     });

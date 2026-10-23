@@ -26,7 +26,7 @@ export function registerExecutorManagedWriteRunner(runner: object): void {
 }
 
 // WeakSet.has never reads a property off runner, so a fail-closed guard Proxy stays untouched.
-// postgres.js clients are callable (tagged templates), so a runner can be a function.
+// Bun.SQL clients are callable (tagged templates), so a runner can be a function.
 export function hasExecutorManagedWriteCapability(
   runner: unknown,
 ): runner is ExecutorManagedWriteCapability {

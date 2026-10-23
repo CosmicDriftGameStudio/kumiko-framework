@@ -4,7 +4,7 @@
   "description": "Config-driven, command-based, realtime multi-tenant app framework.",
   "private": true,
   "engines": {
-    "bun": ">=1.4.0"
+    "bun": ">=1.4.4"
   },
   "license": "MIT",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
@@ -86,7 +86,7 @@
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
-    "bun-types": "^1.4.0",
+    "bun-types": "^1.4.4",
     "happy-dom": "^20.11.2",
     "husky": "^9.1.7",
     "ts-morph": "^28.0.0",

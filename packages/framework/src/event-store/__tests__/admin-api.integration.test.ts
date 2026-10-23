@@ -151,7 +151,7 @@ describe("appendRaw — single event", () => {
   });
 
   test("does NOT fire pg_notify on EVENTS_PUBSUB_CHANNEL — contrast with append", async () => {
-    // Open a dedicated LISTEN connection (postgres-js or Bun.SQL); the
+    // Open a dedicated LISTEN connection; the
     // callback is invoked per NOTIFY payload.
     // Postgres delivers notifications in commit order, so a sentinel NOTIFY sent
     // after the control append proves that everything committed before it has

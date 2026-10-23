@@ -87,7 +87,7 @@ function applyMultiSelectFilter(
     // skip: empty candidate list is unsatisfiable
     return;
   }
-  // Bound as text then cast: a JS array makes postgres.js infer boolean[]/int4[]
+  // Bound as text then cast: a JS array makes the driver infer boolean[]/int4[]
   // for client-supplied non-string values, and `boolean[]::jsonb` is rejected
   // (500 on client input). An array value means "contains all of these".
   params.push(JSON.stringify(candidates));

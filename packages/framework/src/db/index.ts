@@ -134,6 +134,7 @@ export {
   constraintOf,
   extractPgError,
   isTableAlreadyExists,
+  isUndefinedTable,
   isUniqueViolation,
   type PgErrorInfo,
 } from "./pg-error.ts";

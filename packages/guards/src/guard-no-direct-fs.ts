@@ -115,6 +115,12 @@ const ALLOWLIST: readonly AllowEntry[] = [
     repo: "kumiko-framework",
     pattern: /^packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,
   },
+  // Tailwind stylesheet check for that build and the dev server: an existence check for
+  // node_modules/tailwindcss above the entry CSS, no request input as a path.
+  {
+    repo: "kumiko-framework",
+    pattern: /^packages\/server-runtime\/src\/resolve-tailwind-cli\.ts$/,
+  },
 
   // create-kumiko-app: Scaffolding-CLI.
   { repo: "kumiko-framework", pattern: /^packages\/create-kumiko-app\/src\/manifest\.ts$/ },

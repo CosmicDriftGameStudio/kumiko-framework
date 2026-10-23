@@ -1,7 +1,10 @@
 // Unit tests for resolveTailwindCli: both failure branches prevent a dev-server crash
 // when the network is unreliable; no Bun or an uninstalled package returns undefined.
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "../resolve-tailwind-cli.ts";
 
 describe("resolveTailwindCli", () => {
@@ -48,33 +51,42 @@ describe("resolveTailwindCli", () => {
 });
 
 describe("canResolveTailwindStylesheet", () => {
-  test("tailwindcss resolvable from entry dir → true", () => {
-    const out = canResolveTailwindStylesheet("/repo/packages/app/src/styles.css", {
-      bun: {
-        resolveSync: (id, from) => {
-          if (id === "tailwindcss" && from === "/repo/packages/app/src") {
-            return "/repo/node_modules/tailwindcss/index.css";
-          }
-          throw new Error("not found");
-        },
-      },
-      cwd: "/repo/packages/app",
+  let root = "";
+  const resolvingBun = { resolveSync: () => "/bun-cache/tailwindcss@4/dist/lib.mjs" };
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "kumiko-tw-resolve-"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("tailwindcss installed in an ancestor node_modules → true", () => {
+    mkdirSync(join(root, "node_modules/tailwindcss"), { recursive: true });
+    writeFileSync(join(root, "node_modules/tailwindcss/package.json"), "{}");
+    const out = canResolveTailwindStylesheet(join(root, "packages/app/src/styles.css"), {
+      bun: resolvingBun,
+      cwd: join(root, "packages/app"),
     });
     expect(out).toBe(true);
   });
 
-  test("tailwindcss not resolvable from entry dir → false", () => {
+  test("no node_modules tree → false even when the Bun resolver auto-installs tailwindcss", () => {
     const out = canResolveTailwindStylesheet(
-      "/cache/@cosmicdrift/kumiko-renderer/src/web/styles.css",
-      {
-        bun: {
-          resolveSync: () => {
-            throw new Error("not found");
-          },
-        },
-        cwd: "/tmp/minimal-fixture",
-      },
+      join(root, "@cosmicdrift/kumiko-renderer/src/web/styles.css"),
+      { bun: resolvingBun, cwd: root },
     );
+    expect(out).toBe(false);
+  });
+
+  test("without Bun → false", () => {
+    mkdirSync(join(root, "node_modules/tailwindcss"), { recursive: true });
+    writeFileSync(join(root, "node_modules/tailwindcss/package.json"), "{}");
+    const out = canResolveTailwindStylesheet(join(root, "src/styles.css"), {
+      bun: undefined,
+      cwd: root,
+    });
     expect(out).toBe(false);
   });
 });

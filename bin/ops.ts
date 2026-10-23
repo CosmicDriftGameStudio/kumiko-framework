@@ -169,9 +169,7 @@ async function loadAppliedFromDb(): Promise<Set<string>> {
     console.error("  DATABASE_URL not set — can't query kumiko_es_operations\n");
     return new Set();
   }
-  const postgresMod = await import("postgres");
-  const postgres = postgresMod.default;
-  const sql = postgres(dbUrl);
+  const sql = new Bun.SQL(dbUrl);
   try {
     const rows = await sql<{ id: string }[]>`
       SELECT id FROM kumiko_es_operations WHERE operation_type = 'seed-migration'
@@ -184,7 +182,7 @@ async function loadAppliedFromDb(): Promise<Set<string>> {
     }
     throw err;
   } finally {
-    await sql.end();
+    await sql.close();
   }
 }
 

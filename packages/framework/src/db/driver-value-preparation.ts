@@ -49,7 +49,9 @@ function prepareDateValue(value: unknown): PreparedValue | undefined {
 // structured values bind directly with an ::jsonb cast; JSON.stringify first
 // would produce a JSON-string scalar instead of the structured value.
 export function prepareJsonbValue(value: unknown): PreparedValue | undefined {
-  if (typeof value === "boolean") {
+  // Bun.SQL types JS numbers as int4/float8 params, which Postgres refuses for a jsonb column.
+  // Non-finite numbers fall through so Postgres rejects them instead of storing JSON null.
+  if (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) {
     return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
   }
   if (typeof value !== "object" || isTemporalInstant(value)) {
@@ -58,7 +60,7 @@ export function prepareJsonbValue(value: unknown): PreparedValue | undefined {
   if (!Array.isArray(value)) {
     return { kind: "param", sql: "::jsonb", bound: value };
   }
-  // All-boolean arrays are inferred as boolean[] by postgres-js; route via text::jsonb.
+  // All-boolean arrays are inferred as boolean[] by the driver; route via text::jsonb.
   if (value.length > 0 && value.every((entry) => typeof entry === "boolean")) {
     return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
   }
@@ -77,7 +79,7 @@ const INTEGER_PG_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 // Postgres rounds sub-millisecond params into timestamptz(3); truncating to ms here keeps the
-// stored instant identical across drivers and equal to what postgres.js sends via Date.
+// stored instant identical across drivers and equal to what a Date param would store.
 export function instantToTimestamptzParam(instant: Temporal.Instant): string {
   return Temporal.Instant.fromEpochMilliseconds(instant.epochMilliseconds).toString();
 }
@@ -89,7 +91,7 @@ function prepareDriverNeutralScalar(
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
     return { kind: "param", sql: "", bound: instantToTimestamptzParam(value) };
   }
-  // postgres.js sends text, so Postgres rejects 3.5 for an integer column instead of rounding it.
+  // Sent as text, so Postgres rejects 3.5 for an integer column instead of rounding it.
   if (typeof value === "number" && pgType !== undefined && INTEGER_PG_TYPES.has(pgType)) {
     return { kind: "param", sql: "", bound: String(value) };
   }

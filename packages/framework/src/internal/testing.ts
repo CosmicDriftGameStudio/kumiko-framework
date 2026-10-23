@@ -32,5 +32,5 @@ export function withExecutorManagedWritesForTests(
     });
   }
   if (isDbRunner(db)) return withExecutorManagedWrites(db);
-  throw new Error("withExecutorManagedWritesForTests: expected a TenantDb or a postgres-js runner");
+  throw new Error("withExecutorManagedWritesForTests: expected a TenantDb or a Bun.SQL runner");
 }

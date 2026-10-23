@@ -65,7 +65,6 @@ import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
-import postgres from "postgres";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
@@ -214,11 +213,11 @@ let prodAppHandles: ProdAppHandle[] = [];
 
 beforeAll(async () => {
   if (!ADMIN_URL) throw new Error("TEST_DATABASE_URL must be set");
-  const adminClient = postgres(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = new Bun.SQL(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
   try {
     await adminClient.unsafe(`CREATE DATABASE "${TEST_DB}"`);
   } finally {
-    await adminClient.end();
+    await adminClient.close();
   }
 });
 

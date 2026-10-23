@@ -99,7 +99,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
     db: conn.db,
     poolMax,
     outsideTransactionDb: outsideConn.db,
-    client: conn.client,
+    client: conn.listenClient,
     dbName,
     cleanup: async () => {
       await conn.close();

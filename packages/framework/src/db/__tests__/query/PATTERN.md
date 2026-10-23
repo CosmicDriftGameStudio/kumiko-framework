@@ -3,7 +3,7 @@
 ## Architektur
 
 ```
-db/connection.ts                      createDbConnection({ url, ... }) — postgres-js
+db/connection.ts                      createDbConnection({ url, ... }) — Bun.SQL
 db/query.ts                           Query-Helper (selectMany, insertOne, asRawClient, ...)
 testing/src/stack/db.ts               createTestDb() — Test-DB via createDbConnection
 testing/src/stack/test-stack.ts       setupTestStack() — baut auf createTestDb
@@ -29,7 +29,7 @@ afterAll(async () => {
 });
 
 test("works", async () => {
-  // stack.db    → postgres-js (asRawClient für .unsafe/.begin)
+  // stack.db    → Bun.SQL (asRawClient für .unsafe/.begin)
   // stack.http  → RequestHelper (writeOk, queryOk, raw)
   // stack.redis → TestRedis
   // stack.events → EventCollector

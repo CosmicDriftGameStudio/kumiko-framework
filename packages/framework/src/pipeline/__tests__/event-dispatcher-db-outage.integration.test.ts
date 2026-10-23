@@ -21,7 +21,6 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import postgres from "postgres";
 import { createDbConnection } from "../../db/connection.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
@@ -174,7 +173,7 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
         .pop()?.value;
     const meter = new RecordingMeter((e) => metricEvents.push(e));
     registerStandardMetrics(meter);
-    const listenClient = postgres(proxiedUrl.toString(), { max: 1 });
+    const listenClient = new Bun.SQL(proxiedUrl.toString(), { max: 1 });
     const dispatcher: EventDispatcher = createEventDispatcher({
       db: proxiedDb.db,
       consumers: [consumer],
@@ -198,8 +197,8 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
       await proxy1.stop();
 
       // Restart the proxy the moment the outage is logged, not on a waitFor poll
-      // step: every failed reconnect while it is down raises postgres.js's
-      // backoff (~3^n/100 s, capped at 20 s) for the pool and the LISTEN client,
+      // step: every failed reconnect while it is down raises the driver's
+      // reconnect backoff for the pool and the LISTEN client,
       // so a poll that overshoots by 1-3 s on a loaded runner stretched recovery
       // past the test budget.
       await logger.lineIncluding("idle pre-check failed");
@@ -231,7 +230,7 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
       expect(observed).toEqual(["before-outage", "after-recovery"]);
     } finally {
       await dispatcher.stop();
-      await listenClient.end({ timeout: 1 });
+      await listenClient.close({ timeout: 1 });
       // Timeout 0 keeps teardown fast: sockets killed mid-query would otherwise
       // wait out the default close grace period.
       await proxiedDb.close();

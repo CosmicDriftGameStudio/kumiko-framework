@@ -6,25 +6,29 @@ import {
   isUniqueViolation,
 } from "../pg-error.ts";
 
+function serverError(errno: string, constraint?: string): Record<string, unknown> {
+  return { code: "ERR_POSTGRES_SERVER_ERROR", errno, constraint };
+}
+
 describe("extractPgError", () => {
-  test("reads code from top-level postgres-js error", () => {
-    const info = extractPgError({ code: "23505", constraint_name: "users_email_uq" });
+  test("reads SQLSTATE and constraint from a top-level Bun.SQL server error", () => {
+    const info = extractPgError(serverError("23505", "users_email_uq"));
     expect(info).toEqual({ code: "23505", constraint_name: "users_email_uq" });
   });
 
-  test("unwraps DrizzleQueryError.cause", () => {
-    const info = extractPgError({
-      message: "wrapper",
-      cause: { code: "23505", constraint_name: "uq" },
-    });
-    expect(info?.code).toBe("23505");
+  test("unwraps a wrapped error's cause", () => {
+    const info = extractPgError({ message: "wrapper", cause: serverError("23505", "uq") });
+    expect(info).toEqual({ code: "23505", constraint_name: "uq" });
   });
 
   test("unwraps a PG error nested deeper than one cause layer", () => {
-    const info = extractPgError({
-      cause: { cause: { code: "25006" } },
-    });
+    const info = extractPgError({ cause: { cause: serverError("25006") } });
     expect(info?.code).toBe("25006");
+  });
+
+  test("keeps client-side error codes visible", () => {
+    const info = extractPgError({ code: "ERR_POSTGRES_CONNECTION_CLOSED" });
+    expect(info).toEqual({ code: "ERR_POSTGRES_CONNECTION_CLOSED", constraint_name: undefined });
   });
 
   test("terminates on a cyclic cause chain", () => {
@@ -40,22 +44,22 @@ describe("extractPgError", () => {
 
 describe("isUniqueViolation", () => {
   test("true for SQLSTATE 23505", () => {
-    expect(isUniqueViolation({ code: "23505" })).toBe(true);
+    expect(isUniqueViolation(serverError("23505"))).toBe(true);
   });
 
   test("false otherwise", () => {
-    expect(isUniqueViolation({ code: "23503" })).toBe(false);
+    expect(isUniqueViolation(serverError("23503"))).toBe(false);
   });
 });
 
 describe("isTableAlreadyExists", () => {
   test("true for SQLSTATE 42P07", () => {
-    expect(isTableAlreadyExists({ code: "42P07" })).toBe(true);
+    expect(isTableAlreadyExists(serverError("42P07"))).toBe(true);
   });
 });
 
 describe("constraintOf", () => {
-  test("returns constraint_name when present", () => {
-    expect(constraintOf({ constraint_name: "users_email_uq" })).toBe("users_email_uq");
+  test("returns the constraint when present", () => {
+    expect(constraintOf(serverError("23505", "users_email_uq"))).toBe("users_email_uq");
   });
 });

@@ -1,8 +1,8 @@
 ---
-status: parked
-verified: 2026-10-18
-evidence: Status-Box (line 572-590): alle Phasen 1-6 'pending'; Phase 0 und 7 'entfällt'. Drizzle-Session pausiert 2026-05-24. Git: commit 59107c3f phase-1 vorarbeit gestartet aber kein weiterer Fortschritt. Preload-/Timeout-Referenzen auf #3078/#3297-Stand korrigiert, kein Fortschritt an den Phasen.
-next: Bun-Migration erst angehen wenn Drizzle-Replacement 2.0 abgeschlossen ist (Sync-Punkt laut Plan)
+status: superseded
+verified: 2026-10-23
+superseded-by: docs/reference/decisions.md
+evidence: The repo moved to Bun for install, test, build and runtime through later PRs rather than through these phases (engines bun >=1.4.4, CI on setup-bun 1.4.4, bun test everywhere). Phase 7 (postgres-js to Bun.SQL) landed with the decision "Bun.SQL is the only Postgres driver" of 2026-10-23. Archived unchanged as history.
 ---
 
 # Bun-Cutover — yarn/vitest/node → bun (test/build/runtime)

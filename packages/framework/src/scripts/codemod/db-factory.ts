@@ -623,7 +623,7 @@ function reportRemovedProviderEnv(
       file: filePath,
       line: node.getStartLineNumber(),
       kind: "call",
-      description: `${REMOVED_ENV_NAME}: the Bun.SQL provider is gone, postgres-js is the only driver`,
+      description: `${REMOVED_ENV_NAME}: DB_PROVIDER is gone, Bun.SQL is the only driver`,
     });
   };
   for (const literal of sourceFile.getDescendantsOfKind(SyntaxKind.StringLiteral)) {

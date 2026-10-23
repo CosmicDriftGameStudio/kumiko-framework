@@ -5,7 +5,8 @@
 // Kept separate from create-kumiko-server.ts so the Bun and resolution-failure
 // branches can be tested under Vitest/Node without booting the server.
 
-import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 type BunResolver = { resolveSync: (id: string, from: string) => string };
 
@@ -28,16 +29,19 @@ export function resolveTailwindCli(deps: ResolveTailwindCliDeps): string | undef
 /** Tailwind v4 resolves `@import "tailwindcss"` relative to the entry
  *  CSS file. Skip renderer-web fallback (or fail build) when peer deps
  *  aren't resolvable from that directory — e.g. Bun cache copies of
- *  `@cosmicdrift/kumiko-renderer/web` outside a hoisted node_modules tree. */
+ *  `@cosmicdrift/kumiko-renderer/web` outside a hoisted node_modules tree.
+ *
+ *  Walks node_modules like Tailwind's own resolver instead of asking
+ *  Bun.resolveSync: without a node_modules tree Bun auto-installs, and from
+ *  1.4.4 on that also resolves tailwindcss next to such a cache copy, which
+ *  Tailwind itself then cannot import. */
 export function canResolveTailwindStylesheet(
   entryCss: string,
   deps: ResolveTailwindCliDeps,
 ): boolean {
   if (deps.bun === undefined) return false;
-  try {
-    deps.bun.resolveSync("tailwindcss", dirname(entryCss));
-    return true;
-  } catch {
-    return false;
+  for (let dir = dirname(entryCss); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, "node_modules", "tailwindcss", "package.json"))) return true;
+    if (dirname(dir) === dir) return false;
   }
 }

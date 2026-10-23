@@ -35,7 +35,7 @@ describe("server statement_timeout", () => {
       .unsafe(`SELECT pg_sleep(${SLEEP_PAST_TIMEOUT_SECONDS})`)
       .then(() => undefined)
       .catch((e: unknown) => e);
-    expect(error).toMatchObject({ code: POSTGRES_QUERY_CANCELED });
+    expect(error).toMatchObject({ errno: POSTGRES_QUERY_CANCELED });
   });
 
   test("withoutStatementTimeout lets the long statement finish and restores the timeout afterwards", async () => {
@@ -78,7 +78,8 @@ describe("withoutStatementTimeout pool lifecycle", () => {
       );
     const queryRan = Promise.withResolvers<void>();
     const run = withoutStatementTimeout(parent.db, async (unbounded) => {
-      await unbounded.unsafe(`SELECT '${marker}'`);
+      // A session advisory lock is only released when its session ends.
+      await unbounded.unsafe(`SELECT '${marker}' FROM pg_advisory_lock(hashtext('${marker}'))`);
       queryRan.resolve();
       await new Promise<never>(() => {});
     });
@@ -90,10 +91,23 @@ describe("withoutStatementTimeout pool lifecycle", () => {
         }),
       ]);
       expect(await backendsOfAbandonedRun()).toHaveLength(1);
+      const [probe] = await client.unsafe<{ acquired: boolean }[]>(
+        "SELECT pg_try_advisory_lock(hashtext($1::text)) AS acquired",
+        [marker],
+      );
+      expect(probe?.acquired).toBe(false);
 
       await parent.close();
 
-      expect(await backendsOfAbandonedRun()).toHaveLength(0);
+      // Bun.SQL's close() can return before Postgres has removed the backend from
+      // pg_stat_activity; the lock wait returns once the abandoned session has ended.
+      await withoutStatementTimeout(db, async (unbounded) => {
+        const rows = await unbounded.unsafe(
+          "SELECT pg_advisory_unlock(hashtext($1::text)) AS released FROM pg_advisory_lock(hashtext($1::text))",
+          [marker],
+        );
+        expect(rows[0]).toMatchObject({ released: true });
+      });
     } finally {
       await parent.close();
     }

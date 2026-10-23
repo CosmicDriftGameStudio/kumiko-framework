@@ -50,7 +50,6 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { Redis } from "ioredis";
-import postgres from "postgres";
 import * as z from "zod";
 import { makeDispatchSystemWrite } from "../extra-routes-deps.ts";
 import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.ts";
@@ -120,11 +119,11 @@ let handles: WorkerAppHandle[] = [];
 
 beforeAll(async () => {
   if (!ADMIN_URL) throw new Error("TEST_DATABASE_URL must be set");
-  const adminClient = postgres(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = new Bun.SQL(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
   try {
     await adminClient.unsafe(`CREATE DATABASE "${TEST_DB}"`);
   } finally {
-    await adminClient.end();
+    await adminClient.close();
   }
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
   const { db, close } = createDbConnection({ url });

@@ -22,7 +22,6 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
-import postgres from "postgres";
 import { type ProdAppHandle, type RunProdAppDeps, runProdApp } from "../run-prod-app.ts";
 
 const TEST_DB = `kumiko_runprod_extractxenv_${Date.now().toString(36)}`;
@@ -33,11 +32,11 @@ let handle: ProdAppHandle | undefined;
 
 beforeAll(async () => {
   if (!ADMIN_URL) throw new Error("TEST_DATABASE_URL must be set");
-  const adminClient = postgres(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = new Bun.SQL(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
   try {
     await adminClient.unsafe(`CREATE DATABASE "${TEST_DB}"`);
   } finally {
-    await adminClient.end();
+    await adminClient.close();
   }
   const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
@@ -57,11 +56,11 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  const adminClient = postgres(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
+  const adminClient = new Bun.SQL(ADMIN_URL.replace(/\/[^/]+$/, "/postgres"));
   try {
     await adminClient.unsafe(`DROP DATABASE IF EXISTS "${TEST_DB}" WITH (FORCE)`);
   } finally {
-    await adminClient.end();
+    await adminClient.close();
   }
 });
 

@@ -5,8 +5,14 @@ import {
   waitUntilDatabaseReachable,
 } from "../wait-for-database";
 
+const SQLSTATE_PATTERN = /^[0-9A-Z]{5}$/;
+
+// Bun.SQL server errors carry the SQLSTATE in `errno`; client and socket errors only a `code`.
 function pgError(code: string): Error {
-  return Object.assign(new Error(`failure ${code}`), { code });
+  const fields = SQLSTATE_PATTERN.test(code)
+    ? { code: "ERR_POSTGRES_SERVER_ERROR", errno: code }
+    : { code };
+  return Object.assign(new Error(`failure ${code}`), fields);
 }
 
 function harness(pingResults: ReadonlyArray<Error | undefined>) {
@@ -46,9 +52,10 @@ describe("isTransientConnectionError", () => {
     "ETIMEDOUT",
     "ENOTFOUND",
     "EAI_AGAIN",
-    "CONNECTION_CLOSED",
-    "CONNECT_TIMEOUT",
-    "CONNECTION_DESTROYED",
+    "ERR_POSTGRES_CONNECTION_CLOSED",
+    "ERR_POSTGRES_CONNECTION_REFUSED",
+    "ERR_POSTGRES_CONNECTION_TIMEOUT",
+    "ERR_POSTGRES_CONNECTION_FAILED",
   ])("%s is transient", (code) => {
     expect(isTransientConnectionError(pgError(code))).toBe(true);
   });
@@ -57,9 +64,11 @@ describe("isTransientConnectionError", () => {
     expect(isTransientConnectionError(pgError(code))).toBe(false);
   });
 
-  test("recognizes plain Node and postgres.js error shapes", () => {
+  test("recognizes plain Node and Bun.SQL error shapes", () => {
     expect(isTransientConnectionError({ code: "ECONNREFUSED" })).toBe(true);
-    expect(isTransientConnectionError({ code: "53300" })).toBe(true);
+    expect(isTransientConnectionError({ code: "ERR_POSTGRES_SERVER_ERROR", errno: "53300" })).toBe(
+      true,
+    );
   });
 
   test("finds the code on a wrapped cause", () => {

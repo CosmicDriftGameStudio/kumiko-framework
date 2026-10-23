@@ -13,8 +13,6 @@
 // in minutes not hours. Each DROP is independent — if one DB is in
 // active use (current test run), that DROP fails and we skip it.
 
-import postgres from "postgres";
-
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`${name} not set (expected in .env)`);
@@ -25,7 +23,7 @@ async function main(): Promise<void> {
   const dryRun = process.argv.includes("--dry-run");
   const url = process.env["TEST_DATABASE_URL"] ?? requireEnv("DATABASE_URL");
   const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
-  const sql = postgres(adminUrl, { max: 1 });
+  const sql = new Bun.SQL(adminUrl, { max: 1 });
 
   try {
     const rows = await sql<{ datname: string }[]>`
@@ -76,7 +74,7 @@ async function main(): Promise<void> {
       }.`,
     );
   } finally {
-    await sql.end();
+    await sql.close();
   }
 }
 

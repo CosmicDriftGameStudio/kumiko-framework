@@ -1,9 +1,8 @@
-// Drizzle wraps postgres-js errors in `DrizzleQueryError`; the original PG
-// error (with SQLSTATE `code` and `constraint_name`) lives in `.cause`. We
-// unwrap both layers so callers don't have to know which layer produced the
-// error. Used by the event-store to distinguish a unique-violation on the
-// aggregate-version index (optimistic-concurrency conflict) from the one on
-// the idempotency-key index (caller-side replay signal).
+// Bun.SQL server errors carry the SQLSTATE in `errno` and the constraint in
+// `constraint` (`code` is the generic ERR_POSTGRES_SERVER_ERROR). Client-side
+// failures have no `errno`, so their `code` (e.g. ERR_POSTGRES_CONNECTION_CLOSED)
+// is returned instead. The `.cause` chain is walked so wrapped errors resolve too.
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 const MAX_CAUSE_DEPTH = 8;
 
@@ -12,24 +11,30 @@ export type PgErrorInfo = {
   readonly constraint_name: string | undefined;
 };
 
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function infoOfLayer(layer: unknown): PgErrorInfo | null {
+  const sqlState = stringOrUndefined(propertyOf(layer, "errno"));
+  if (sqlState !== undefined) {
+    return {
+      code: sqlState,
+      constraint_name: stringOrUndefined(propertyOf(layer, "constraint")),
+    };
+  }
+  const code = stringOrUndefined(propertyOf(layer, "code"));
+  return code === undefined ? null : { code, constraint_name: undefined };
+}
+
 export function extractPgError(e: unknown): PgErrorInfo | null {
-  if (typeof e !== "object" || e === null) return null;
-  const layers: unknown[] = [];
   let current: unknown = e;
   // Depth cap doubles as cycle protection for self-referential causes.
-  while (typeof current === "object" && current !== null && layers.length < MAX_CAUSE_DEPTH) {
-    layers.push(current);
-    // @cast-boundary error-details — DrizzleQueryError wraps PG-error in .cause
-    current = (current as { cause?: unknown }).cause;
-  }
-
-  for (const layer of layers) {
-    // @cast-boundary error-details — postgres-js error shape (code, constraint_name)
-    const code = (layer as { code?: string }).code;
-    const constraintName = (layer as { constraint_name?: string }).constraint_name; // @cast-boundary error-details
-    if (code !== undefined || constraintName !== undefined) {
-      return { code, constraint_name: constraintName };
-    }
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+    if (typeof current !== "object" || current === null) return null;
+    const info = infoOfLayer(current);
+    if (info !== null) return info;
+    current = propertyOf(current, "cause");
   }
   return null;
 }
