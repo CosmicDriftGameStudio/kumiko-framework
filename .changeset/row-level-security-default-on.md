@@ -65,3 +65,10 @@ type: fix
 title: composeFeatures no longer warns about its own bundled copies
 detail: Composing the output of a first composeFeatures pass again drops the earlier bundled instances silently; only copies the app supplied itself still warn.
 -->
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: Scoped pool statements pipeline their transaction
+detail: A pool statement under a row level security scope sends BEGIN, the transaction-local scope, the statement and COMMIT pipelined on one reserved connection instead of waiting for each, which cuts its roundtrips roughly in half. The connection returns to the pool only after COMMIT settled.
+-->
