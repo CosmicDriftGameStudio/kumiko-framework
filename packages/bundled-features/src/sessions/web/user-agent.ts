@@ -56,6 +56,18 @@ const OPERATING_SYSTEM_PATTERNS: readonly {
   { os: "Linux", pattern: /\bLinux\b/ },
 ];
 
+export function formatDeviceLabel(device: ParsedDevice): string | null {
+  if (device === null) return null;
+  const browser =
+    device.browser === null
+      ? null
+      : device.browserMajor === null
+        ? device.browser
+        : `${device.browser} ${device.browserMajor}`;
+  const parts = [browser, device.os].filter((part) => part !== null);
+  return parts.length === 0 ? null : parts.join(" · ");
+}
+
 export function parseUserAgent(userAgent: string | null): ParsedDevice {
   if (userAgent === null || userAgent === "") return null;
   let browser: UserAgentBrowser | null = null;

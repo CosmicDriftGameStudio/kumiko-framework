@@ -3,7 +3,7 @@ import { definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
-import { parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
+import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
 // ONLY the current user's own, currently-live sessions, ordered by most-
@@ -31,6 +31,7 @@ export const mineQuery = definePagedQueryHandler({
         ip: z.string().nullable(),
         userAgent: z.string().nullable(),
         device: parsedDeviceSchema,
+        deviceLabel: z.string().nullable(),
         current: z.boolean(),
       }),
     ),
@@ -57,13 +58,15 @@ export const mineQuery = definePagedQueryHandler({
         const userAgent = r.userAgent
           ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:mine")
           : r.userAgent;
+        const device = parseUserAgent(userAgent);
         return {
           id: r.id,
           createdAt: r.createdAt,
           expiresAt: r.expiresAt,
           ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:mine") : r.ip,
           userAgent,
-          device: parseUserAgent(userAgent),
+          device,
+          deviceLabel: formatDeviceLabel(device),
           current: currentSid === r.id,
         };
       }),
