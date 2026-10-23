@@ -1,4 +1,4 @@
-import type { Queue } from "bullmq";
+import type { JobType, Queue } from "bullmq";
 import { UnrecoverableError } from "bullmq";
 import type {
   AppContext,
@@ -56,6 +56,9 @@ export function laneForJob(def: { readonly runIn?: JobRunIn | undefined }): JobR
 // lane (jobDef.runIn is static), but walking both is cheap and avoids
 // a subtle bug if someone ever reassigns a job to a different lane
 // between deploys while old queue contents are still draining.
+// One getJobs per queue reads the requested lists in a single Lua script, so a job
+// moving from waiting to active between two separate reads can no longer vanish
+// from the count; that gap let a third dispatch pass the cap in CI.
 // `activeOnly` + `self` serve the defer check, which runs inside the job being
 // counted: it must not see waiting jobs or itself, and only counts jobs that
 // became active before it. Without that order, workers that fetch a burst of
@@ -71,15 +74,12 @@ export async function isOverPerTenantLimit(
   } = {},
 ): Promise<boolean> {
   const { queues } = scope;
-  const results = await Promise.all([
-    queues.api.getActive(),
-    queues.worker.getActive(),
-    ...(countFilter.activeOnly ? [] : [queues.api.getWaiting(), queues.worker.getWaiting()]),
-  ]);
+  const types: JobType[] = countFilter.activeOnly ? ["active"] : ["active", "waiting"];
+  const results = await Promise.all([queues.api.getJobs(types), queues.worker.getJobs(types)]);
   let count = 0;
   for (const list of results) {
     for (const j of list) {
-      if (j.name !== jobName) continue;
+      if (j === undefined || j.name !== jobName) continue;
       if (countFilter.self && !isActiveBefore(j, countFilter.self)) continue;
       const t = (j.data as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
       if (t === tenantId) {
