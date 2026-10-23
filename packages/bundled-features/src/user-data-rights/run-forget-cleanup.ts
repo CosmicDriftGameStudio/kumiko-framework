@@ -254,7 +254,10 @@ export function sanitizeReasonForLog(reason: string): string {
 // Cross-tenant by design: the due-user and membership reads on the given runner and raw hook
 // statements must see every tenant, whatever RLS scope the caller (job, operator handler) runs in.
 export function runForgetCleanup(args: RunForgetCleanupArgs): Promise<RunForgetCleanupResult> {
-  return runInSystemRowLevelSecurityScope(() => forgetDueUsers(args));
+  return runInSystemRowLevelSecurityScope(
+    "forget cleanup anonymizes users across all tenants",
+    () => forgetDueUsers(args),
+  );
 }
 
 async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetCleanupResult> {

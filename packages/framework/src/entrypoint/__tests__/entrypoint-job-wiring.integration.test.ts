@@ -94,6 +94,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
     const registry = createRegistry([wiringFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -136,6 +137,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
     const registry = createRegistry([mixedLaneFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -188,6 +190,7 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
     const meter = createPrometheusMeter();
     const observability = { ...createNoopProvider(), meter };
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -257,6 +260,7 @@ describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effect
     const registry = createRegistry([featureGateJobFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
+      rowLevelSecurity: "off",
       registry,
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,

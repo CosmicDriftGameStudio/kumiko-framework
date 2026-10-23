@@ -354,11 +354,14 @@ export function runPiiEventBackfill(
   registry: Registry,
   options: PiiEventBackfillOptions = {},
 ): Promise<PiiEventBackfillResult> {
-  return runInSystemRowLevelSecurityScope(() => {
-    return withoutStatementTimeout(db, (unboundedDb) =>
-      backfillPiiEvents(unboundedDb, registry, options),
-    );
-  });
+  return runInSystemRowLevelSecurityScope(
+    "PII event backfill rewrites events across all tenants",
+    () => {
+      return withoutStatementTimeout(db, (unboundedDb) =>
+        backfillPiiEvents(unboundedDb, registry, options),
+      );
+    },
+  );
 }
 
 async function backfillPiiEvents(

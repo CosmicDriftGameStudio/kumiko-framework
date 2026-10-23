@@ -30,7 +30,7 @@ const tenants = [testTenantId(411), testTenantId(412), testTenantId(413)];
 let testDb: TestDb;
 
 const labelsOf = (): Promise<string[]> =>
-  runInSystemRowLevelSecurityScope(async () =>
+  runInSystemRowLevelSecurityScope("test reads migrated rows of all tenants", async () =>
     (
       await asRawClient(testDb.db).unsafe<{ label: string }>(
         `SELECT label FROM "store_migrate_rls_items" ORDER BY label`,
@@ -41,7 +41,7 @@ const labelsOf = (): Promise<string[]> =>
 beforeAll(async () => {
   testDb = await createTestDb({ applicationRole: true });
   await unsafePushTables(testDb.db, { items: itemsTable });
-  await runInSystemRowLevelSecurityScope(async () => {
+  await runInSystemRowLevelSecurityScope("test seeds rows for several tenants", async () => {
     for (const tenant of tenants) {
       await asRawClient(testDb.db).unsafe(
         `INSERT INTO "store_migrate_rls_items" (tenant_id, label) VALUES ($1::uuid, 'before')`,

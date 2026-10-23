@@ -922,7 +922,10 @@ export function resolveAuthClaimsFn(
   ctx: DispatchContext,
   user: SessionUser,
 ): Promise<Record<string, unknown>> {
-  return runInSystemRowLevelSecurityScope(() => resolveAuthClaimsInScope(ctx, user));
+  return runInSystemRowLevelSecurityScope(
+    "auth claims resolution reads memberships before a tenant is known",
+    () => resolveAuthClaimsInScope(ctx, user),
+  );
 }
 
 async function resolveAuthClaimsInScope(

@@ -335,9 +335,7 @@ describe("scaffoldApp", () => {
     expect(schema).toContain("allAppFeatures(appConfig)");
     expect(schema).toContain("collectTableMetas");
     expect(schema).toContain("export const VALIDATE_BOOT_OPTIONS = appConfig.validateBootOptions;");
-    expect(schema).toContain(
-      'export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity ?? "off";',
-    );
+    expect(schema).toContain("export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;");
 
     // The runners take the same options kumiko.config.ts hands to `kumiko check`.
     for (const entry of ["bin/main.ts", "bin/server.ts"]) {

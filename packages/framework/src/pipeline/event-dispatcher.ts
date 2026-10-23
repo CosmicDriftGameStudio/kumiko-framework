@@ -484,7 +484,10 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       );
     }
     // Per pass, never around start(): the poll loop itself must stay outside any scope.
-    const pass = runInSystemRowLevelSecurityScope(doPass);
+    const pass = runInSystemRowLevelSecurityScope(
+      "event dispatcher pass runs consumers for every tenant",
+      doPass,
+    );
     inFlightPasses.add(pass);
     try {
       return await pass;

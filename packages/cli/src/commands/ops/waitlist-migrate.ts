@@ -68,7 +68,10 @@ export const waitlistMigrateOp = {
 
     const dryRun = ctx.argv.includes("--dry-run");
     const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
-    const { db, close } = createDbConnection({ url: checked.databaseUrl });
+    const { db, close } = createDbConnection({
+      url: checked.databaseUrl,
+      rowLevelSecurity: "off", // one-off operator migration, no tenant scope
+    });
     let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
     try {
       // Without the KMS the executor would write name/email/message as plaintext into the

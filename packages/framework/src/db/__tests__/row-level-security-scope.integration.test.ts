@@ -81,7 +81,7 @@ beforeAll(async () => {
     ...globalTable,
     columns: [...globalTable.columns, { name: "tenant_id", pgType: "uuid", notNull: true }],
   });
-  await runInSystemRowLevelSecurityScope(async () => {
+  await runInSystemRowLevelSecurityScope("test seeds rows for several tenants", async () => {
     for (const tenant of [tenantA, tenantB, SYSTEM_TENANT_ID]) {
       await asRawClient(testDb.db).unsafe(
         `INSERT INTO "store_rls_scope_items" (tenant_id, label) VALUES ($1::uuid, $2)`,
@@ -114,7 +114,11 @@ describe("pool statements", () => {
     expect(await asTenant(tenantA, () => labelsOf(testDb.db))).toEqual(
       [labelOf(tenantA), labelOf(SYSTEM_TENANT_ID)].sort(),
     );
-    expect(await runInSystemRowLevelSecurityScope(() => labelsOf(testDb.db))).toHaveLength(3);
+    expect(
+      await runInSystemRowLevelSecurityScope("test reads rows of all tenants", () =>
+        labelsOf(testDb.db),
+      ),
+    ).toHaveLength(3);
   });
 });
 
@@ -124,7 +128,10 @@ describe("transactions", () => {
       transaction(testDb.db, async (tx) => {
         expect(await labelsOf(tx)).toHaveLength(2);
         await runInSavepoint(tx, async (sp) => {
-          const all = await runInSystemRowLevelSecurityScope(() => labelsOf(sp));
+          const all = await runInSystemRowLevelSecurityScope(
+            "test reads all tenants inside a savepoint",
+            () => labelsOf(sp),
+          );
           expect(all).toHaveLength(3);
         });
         expect(await labelsOf(tx)).not.toContain(labelOf(tenantB));
@@ -137,7 +144,10 @@ describe("transactions", () => {
       transaction(testDb.db, async (tx) => {
         await labelsOf(tx);
         await runInSavepoint(tx, async (sp) => {
-          await runInSystemRowLevelSecurityScope(() => labelsOf(sp));
+          await runInSystemRowLevelSecurityScope(
+            "test reads all tenants inside a rolled-back savepoint",
+            () => labelsOf(sp),
+          );
           throw new Error("roll back the savepoint");
         }).catch(() => undefined);
         expect(await labelsOf(tx)).not.toContain(labelOf(tenantB));
@@ -149,7 +159,10 @@ describe("transactions", () => {
     await transaction(testDb.db, async (tx) => {
       const [first, all, second] = await Promise.all([
         asTenant(tenantA, () => labelsOf(tx)),
-        runInSystemRowLevelSecurityScope(() => labelsOf(tx)),
+        runInSystemRowLevelSecurityScope(
+          "test reads all tenants concurrently with a tenant scope",
+          () => labelsOf(tx),
+        ),
         asTenant(tenantB, () => labelsOf(tx)),
       ]);
       expect(first).toEqual([labelOf(tenantA), labelOf(SYSTEM_TENANT_ID)].sort());
@@ -160,7 +173,10 @@ describe("transactions", () => {
 
   test("a tenant insert after a system statement cannot write another tenant's row", async () => {
     const attempt = transaction(testDb.db, async (tx) => {
-      await runInSystemRowLevelSecurityScope(() => labelsOf(tx));
+      await runInSystemRowLevelSecurityScope(
+        "test reads all tenants before a tenant-scoped write",
+        () => labelsOf(tx),
+      );
       await asTenant(tenantA, () =>
         asRawClient(tx).unsafe(
           `INSERT INTO "store_rls_scope_items" (tenant_id, label) VALUES ($1::uuid, 'forged')`,
@@ -187,7 +203,11 @@ describe("TenantDb", () => {
     const tenantDb = createTenantDb({ db: testDb.db, tenantId: tenantA, mode: "tenant" });
     const expected = [labelOf(tenantA), labelOf(SYSTEM_TENANT_ID)].sort();
     expect(await labels(tenantDb)).toEqual(expected);
-    expect(await runInSystemRowLevelSecurityScope(() => labels(tenantDb))).toEqual(expected);
+    expect(
+      await runInSystemRowLevelSecurityScope("test reads all tenants through the tenant db", () =>
+        labels(tenantDb),
+      ),
+    ).toEqual(expected);
   });
 
   test("system mode sees every tenant", async () => {
@@ -247,9 +267,11 @@ describe("db.global()", () => {
 describe("rowLevelSecurityModeOf", () => {
   test("is on for the enforced pool, its tx handles and scope wrappers", async () => {
     expect(rowLevelSecurityModeOf(testDb.db)).toBe("on");
-    expect(rowLevelSecurityModeOf(withRowLevelSecurityScope(testDb.db, { kind: "system" }))).toBe(
-      "on",
-    );
+    expect(
+      rowLevelSecurityModeOf(
+        withRowLevelSecurityScope(testDb.db, { kind: "system", reason: "test scope wrapper" }),
+      ),
+    ).toBe("on");
     await transaction(testDb.db, async (tx) => {
       expect(rowLevelSecurityModeOf(tx)).toBe("on");
     });

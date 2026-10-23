@@ -340,7 +340,9 @@ export async function buildStackServices(
           registry,
           // Services built here are called straight from tests, outside any dispatch scope, like stack.db.
           db:
-            (options.rowLevelSecurity ?? "on") === "on" ? systemScopedRunner(testDb.db) : testDb.db,
+            (options.rowLevelSecurity ?? "on") === "on"
+              ? systemScopedRunner(testDb.db, "test stack seeds and reads rows across tenants")
+              : testDb.db,
           sseBroker,
           redis: testRedis.redis,
         })
@@ -610,7 +612,10 @@ function assembleTestStack(
     jwt: server.jwt,
     registry: services.registry,
     // Test code sees every tenant's rows; the services keep the enforced pool.
-    db: (options.rowLevelSecurity ?? "on") === "on" ? systemScopedRunner(testDb.db) : testDb.db,
+    db:
+      (options.rowLevelSecurity ?? "on") === "on"
+        ? systemScopedRunner(testDb.db, "test stack seeds and reads rows across tenants")
+        : testDb.db,
     unscopedDb: testDb.db,
     dbPoolMax: testDb.poolMax,
     redis: testRedis,

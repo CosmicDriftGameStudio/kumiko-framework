@@ -310,5 +310,8 @@ function deriveTenantLifecycleResolver(
   }
   // Runs before any tenant context exists and reads the tenant row itself, so it needs system scope.
   return (tenantId) =>
-    runInSystemRowLevelSecurityScope(() => plugin.resolveStatus(tenantId, { db }));
+    runInSystemRowLevelSecurityScope(
+      "tenant lifecycle status is resolved before a tenant scope exists",
+      () => plugin.resolveStatus(tenantId, { db }),
+    );
 }

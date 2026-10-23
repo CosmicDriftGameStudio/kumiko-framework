@@ -55,6 +55,7 @@ export function buildProdEntrypointOptions(
       registry,
       ...requestContext.extraContext,
     },
+    rowLevelSecurity: config.rowLevelSecurity,
     sseBroker: requestContext.sseBroker,
     jwtSecret: config.jwtSecretOrKeyring,
     ...(jwtIssuer && { jwtIssuer }),

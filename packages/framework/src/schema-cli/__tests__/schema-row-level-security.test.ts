@@ -4,8 +4,8 @@ import { parseSchemaRowLevelSecurity } from "../shared.ts";
 const SCHEMA_FILE = "/app/kumiko/schema.ts";
 
 describe("parseSchemaRowLevelSecurity", () => {
-  test("an absent export means off", () => {
-    expect(parseSchemaRowLevelSecurity(undefined, SCHEMA_FILE)).toBe("off");
+  test("an absent export means on", () => {
+    expect(parseSchemaRowLevelSecurity(undefined, SCHEMA_FILE)).toBe("on");
   });
 
   test.each(["on", "off"] as const)("accepts %s", (mode) => {

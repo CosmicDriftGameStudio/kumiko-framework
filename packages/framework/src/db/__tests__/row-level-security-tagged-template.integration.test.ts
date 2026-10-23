@@ -49,7 +49,7 @@ let testDb: TestDb;
 beforeAll(async () => {
   testDb = await createTestDb({ applicationRole: true });
   await unsafePushTables(testDb.db, { items: itemsTable });
-  await runInSystemRowLevelSecurityScope(async () => {
+  await runInSystemRowLevelSecurityScope("test seeds rows for several tenants", async () => {
     for (const tenant of [tenantA, tenantB]) {
       await asRawClient(testDb.db).unsafe(
         `INSERT INTO "store_rls_tagged_items" (tenant_id, label) VALUES ($1::uuid, $2)`,
@@ -98,7 +98,7 @@ describe("index DDL inside an ambient scope", () => {
   test("ensureIdempotencyKeyIndex and ensureMembershipPayloadTenantIndex do not run in a transaction", async () => {
     await createEventsTable(testDb.db);
     await expect(
-      runInSystemRowLevelSecurityScope(async () => {
+      runInSystemRowLevelSecurityScope("test ensures cross-tenant indexes", async () => {
         await ensureIdempotencyKeyIndex(testDb.db);
         await ensureMembershipPayloadTenantIndex(testDb.db);
       }),

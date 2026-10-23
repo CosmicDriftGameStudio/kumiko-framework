@@ -62,7 +62,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -94,6 +94,7 @@ describe("runProdApp seeds", () => {
     let createdId: string | undefined;
 
     handle = await runProdApp({
+      rowLevelSecurity: "off",
       features: [seedProbeFeature],
       envSource: {
         DATABASE_URL: TEST_DB_URL,
@@ -140,7 +141,7 @@ describe("runProdApp seeds", () => {
     expect(res.status).toBe(200);
     expect(JSON.stringify(await res.json())).toContain("seeded-note");
 
-    const { db, close } = createDbConnection({ url: TEST_DB_URL });
+    const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
     try {
       expect(await getStreamVersion(db, createdId, TENANT_ID)).toBeGreaterThan(0);
     } finally {

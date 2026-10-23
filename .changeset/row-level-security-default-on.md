@@ -1,0 +1,57 @@
+---
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-server-runtime": minor
+"@cosmicdrift/kumiko-dev-server": minor
+"@cosmicdrift/kumiko-testing": minor
+"@cosmicdrift/kumiko-cli": minor
+"@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-guards": minor
+---
+
+Postgres row level security is on by default, system scopes carry a mandatory reason, and the event write path keeps the caller's tenant scope.
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: rowLevelSecurity defaults to "on"
+migration: |
+  Nothing to run by hand: `kumiko schema generate` emits ENABLE and FORCE ROW LEVEL SECURITY plus the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read` for every tenant table, and the schema apply (the migrate init container in production) creates them. Run `kumiko sync-managed --write` so the managed kumiko/schema.ts reads `export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity;`.
+  The app's database role must not skip policies; boot refuses it otherwise. Check it as that role with `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user` (both must be false). Callers of createDbConnection without a mode now get "on"; operator tools that touch no tenant rows pass "off" explicitly.
+  Way back: set `rowLevelSecurity: "off"` in kumiko.config.ts and run `kumiko schema generate`; the generated migration contains DISABLE ROW LEVEL SECURITY and drops the policies. At "off" runProdApp and runWorkerApp log a boot warning.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: runInSystemRowLevelSecurityScope and systemScopedRunner take a reason
+migration: |
+  Call runInSystemRowLevelSecurityScope("<why this access spans tenants>", fn) and systemScopedRunner(runner, "<reason>"). An empty or whitespace reason throws InternalError; the scope leak assertion names the reason.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: A projection write under a tenant scope can no longer land in another tenant
+detail: applyEntityEvent keeps an ambient tenant scope instead of wrapping every write in a system scope,. Writes for other tenants go through ctx.systemDb.acknowledgeCrossTenant in an r.systemScope() feature. Replays, rebuilds and global entities still write system scoped.
+-->
+
+<!-- kumiko-changes
+feature: guards
+type: improvement
+title: New guard internal-subpath-imports
+detail: Flags kumiko-framework/internal/* imports outside the framework repo, row level security scope helpers from kumiko-testing/helpers in non-test code, and system scope calls without a literal reason.
+-->
+
+<!-- kumiko-changes
+feature: jobs
+type: fix
+title: Tenant job run rows are written in the tenant's scope
+detail: With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes, and a row-level-security violation is rethrown instead of swallowed.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: composeFeatures no longer warns about its own bundled copies
+detail: Composing the output of a first composeFeatures pass again drops the earlier bundled instances silently; only copies the app supplied itself still warn.
+-->

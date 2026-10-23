@@ -1,4 +1,7 @@
-import type { RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
+import {
+  DEFAULT_ROW_LEVEL_SECURITY_MODE,
+  type RowLevelSecurityMode,
+} from "../db/render-rls-ddl.ts";
 import { rowLevelSecurityModeOf } from "../db/row-level-security-connection.ts";
 import type { AppContext } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
@@ -12,7 +15,7 @@ export function assertEntrypointRowLevelSecurityMode(
 ): void {
   // skip: entrypoint has no db to check
   if (context.db === undefined) return;
-  const expected = declared ?? "off";
+  const expected = declared ?? DEFAULT_ROW_LEVEL_SECURITY_MODE;
   const actual = rowLevelSecurityModeOf(context.db);
   if (actual !== expected) {
     throw new InternalError({

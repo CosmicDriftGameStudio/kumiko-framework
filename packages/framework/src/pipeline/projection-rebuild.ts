@@ -221,7 +221,7 @@ export function rebuildProjection(
   deps: RebuildDeps,
 ): Promise<RebuildResult> {
   return withoutStatementTimeout(deps.db, (db) =>
-    runInSystemRowLevelSecurityScope(() =>
+    runInSystemRowLevelSecurityScope("projection rebuild scans events of all tenants", () =>
       replayProjectionIntoShadow(projectionName, { ...deps, db }),
     ),
   );

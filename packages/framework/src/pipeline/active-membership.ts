@@ -141,8 +141,9 @@ export function resolveActiveMembershipFn(
   tenantId: TenantId,
   policy: ActiveMembershipPolicy,
 ): Promise<ActiveMembershipResult> {
-  return runInSystemRowLevelSecurityScope(() =>
-    resolveActiveMembershipInScope(ctx, userId, tenantId, policy),
+  return runInSystemRowLevelSecurityScope(
+    "active membership lookup runs before the request tenant is established",
+    () => resolveActiveMembershipInScope(ctx, userId, tenantId, policy),
   );
 }
 

@@ -305,7 +305,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   // Per invocation, never around the worker loop: the loop itself must stay outside any scope.
   function handleJob(bullJob: JobInvocation, token?: string): Promise<void> {
-    return runInSystemRowLevelSecurityScope(() => handleJobInScope(bullJob, token));
+    return runInSystemRowLevelSecurityScope("job runner executes jobs of every tenant", () =>
+      handleJobInScope(bullJob, token),
+    );
   }
 
   async function handleJobInScope(bullJob: JobInvocation, token?: string): Promise<void> {

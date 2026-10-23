@@ -147,8 +147,9 @@ export function rebuildMultiStreamProjection(
   deps: MspRebuildDeps,
 ): Promise<RebuildResult> {
   return withoutStatementTimeout(deps.db, (db) =>
-    runInSystemRowLevelSecurityScope(() =>
-      replayMultiStreamProjectionIntoShadow(mspName, { ...deps, db }),
+    runInSystemRowLevelSecurityScope(
+      "multi-stream projection rebuild replays events of all tenants",
+      () => replayMultiStreamProjectionIntoShadow(mspName, { ...deps, db }),
     ),
   );
 }

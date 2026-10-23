@@ -7,9 +7,27 @@ import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
 export type RowLevelSecurityScope =
   | { readonly kind: "tenant"; readonly tenantId: TenantId }
-  | { readonly kind: "system" };
+  | { readonly kind: "system"; readonly reason: string };
 
-export const SYSTEM_ROW_LEVEL_SECURITY_SCOPE: RowLevelSecurityScope = { kind: "system" };
+export const SYSTEM_ROW_LEVEL_SECURITY_SCOPE: RowLevelSecurityScope = {
+  kind: "system",
+  reason: "framework-internal cross-tenant access",
+};
+
+function systemRowLevelSecurityScope(reason: string): RowLevelSecurityScope {
+  if (reason.trim() === "") {
+    throw new InternalError({
+      message: "A system row-level-security scope requires a non-empty reason.",
+    });
+  }
+  return { kind: "system", reason };
+}
+
+function describeRowLevelSecurityScope(scope: RowLevelSecurityScope): string {
+  return scope.kind === "system"
+    ? `system (reason: ${scope.reason})`
+    : rowLevelSecurityScopeKey(scope);
+}
 
 export function tenantRowLevelSecurityScope(tenantId: TenantId): RowLevelSecurityScope {
   return { kind: "tenant", tenantId };
@@ -25,8 +43,8 @@ export function runInRowLevelSecurityScope<T>(scope: RowLevelSecurityScope, fn: 
   return storage.run(scope, fn);
 }
 
-export function runInSystemRowLevelSecurityScope<T>(fn: () => T): T {
-  return storage.run(SYSTEM_ROW_LEVEL_SECURITY_SCOPE, fn);
+export function runInSystemRowLevelSecurityScope<T>(reason: string, fn: () => T): T {
+  return storage.run(systemRowLevelSecurityScope(reason), fn);
 }
 
 // Drivers may invoke callbacks outside the caller's async context; undefined re-enters "no scope".
@@ -65,7 +83,7 @@ export function assertNoActiveRowLevelSecurityScope(startingWhat: string): void 
   // skip: no active scope, nothing leaked
   if (active === undefined) return;
   throw new InternalError({
-    message: `${startingWhat} was started inside an active row-level-security scope (${rowLevelSecurityScopeKey(active)}); long-lived loops must start outside any scope.`,
+    message: `${startingWhat} was started inside an active row-level-security scope (${describeRowLevelSecurityScope(active)}); long-lived loops must start outside any scope.`,
   });
 }
 
@@ -127,6 +145,10 @@ export function withRowLevelSecurityScope(runner: object, scope: RowLevelSecurit
   return proxy;
 }
 
-export function systemScopedRunner<T extends object>(runner: T): T {
-  return withRowLevelSecurityScope(runner, SYSTEM_ROW_LEVEL_SECURITY_SCOPE);
+export function systemScopedRunner<T extends object>(runner: T, reason: string): T {
+  return withRowLevelSecurityScope(runner, systemRowLevelSecurityScope(reason));
+}
+
+export function unsafeRawScopedRunner<T extends object>(runner: T): T {
+  return systemScopedRunner(runner, "granted unsafeRaw bypasses the tenant filter by declaration");
 }

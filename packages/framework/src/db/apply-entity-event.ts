@@ -62,7 +62,11 @@ import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
-import { runInSystemRowLevelSecurityScope } from "./row-level-security-scope.ts";
+import {
+  activeRowLevelSecurityScope,
+  runInSystemRowLevelSecurityScope,
+} from "./row-level-security-scope.ts";
+import { asEntityTableMeta } from "./table-introspection.ts";
 
 type Table = TableColumns;
 
@@ -111,16 +115,27 @@ async function decryptFileReferenceCiphertext(
 /** Applies an auto-event idempotently to the entity table.
  *  Called both during live append (inside the write TX) and during rebuild
  *  (inside the rebuild TX), using identical logic. */
-// The row's tenant comes from the event (payload.tenantId may differ from the stream tenant, global
-// entities live on the system tenant), and the write was authorized before the event existed, so the
-// projection write is system scoped instead of guessing the row's tenant per verb.
+// An ambient tenant scope stays, so a live write cannot land a row in another tenant (row-level security
+// rejects it). Replay, rebuild and boot seeds run without a tenant scope and global tables live on the system
+// tenant, so only those write system scoped.
 export function applyEntityEvent(
   event: StoredEvent,
   table: Table,
   entity: EntityDefinition,
   tx: ExecutorManagedRunner,
 ): Promise<ApplyResult> {
-  return runInSystemRowLevelSecurityScope(() => applyEntityEventInScope(event, table, entity, tx));
+  if (keepsAmbientTenantScope(table)) return applyEntityEventInScope(event, table, entity, tx);
+  return runInSystemRowLevelSecurityScope(
+    "replay, rebuild and global-table projection writes carry no tenant scope of their own",
+    () => applyEntityEventInScope(event, table, entity, tx),
+  );
+}
+
+function keepsAmbientTenantScope(table: Table): boolean {
+  return (
+    activeRowLevelSecurityScope()?.kind === "tenant" &&
+    asEntityTableMeta(table)?.tenancy !== "global"
+  );
 }
 
 async function applyEntityEventInScope(

@@ -7,6 +7,7 @@ import {
   type FeatureDefinition,
   type Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { resolveBootCrypto } from "./boot/boot-crypto.ts";
 import {
@@ -159,7 +160,7 @@ export async function resolveProdBootConfig(
     envSource,
     bootKms,
     databaseUrl,
-    rowLevelSecurity: options.rowLevelSecurity ?? "off",
+    rowLevelSecurity: options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE,
     redisUrl,
     jwtSecret,
     jwtSecretOrKeyring,

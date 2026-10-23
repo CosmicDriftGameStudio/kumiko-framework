@@ -62,7 +62,10 @@ export const consumerCommand: CliCommand = {
       SEARCH_CONSUMER_NAME,
       ...registry.getAllMultiStreamProjections().keys(),
     ];
-    const { db, close } = createDbConnection({ url: databaseUrl });
+    const { db, close } = createDbConnection({
+      url: databaseUrl,
+      rowLevelSecurity: "off" /* operator tool, no tenant scope */,
+    });
 
     try {
       await createEventConsumerStateTable(db);

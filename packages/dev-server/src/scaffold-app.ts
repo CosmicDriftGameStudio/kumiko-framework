@@ -19,6 +19,7 @@ import {
   writeSnapshotJson,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { resolveFrameworkVersion } from "./framework-version.ts";
@@ -945,6 +946,7 @@ async function writeInitMigration(
   const metas = collectTableMetas(composed);
   const result = generateMigration({
     metas,
+    rowLevelSecurity: DEFAULT_ROW_LEVEL_SECURITY_MODE,
     prevSnapshot: null,
     name: "init",
     sequenceNumber: 1,

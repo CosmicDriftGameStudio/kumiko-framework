@@ -7,6 +7,7 @@
 // /api/auth/request-password-reset would dispatch nowhere → 500.
 
 import { describe, expect, spyOn, test } from "bun:test";
+import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -181,6 +182,29 @@ describe("composeFeatures", () => {
         authOptions: { signup: { appUrl: "https://app/signup/complete" } },
       });
       expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("composing the output of composeFeatures again does not warn about its own bundled copies", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const first = composeFeatures([noopFeature], { includeBundled: true });
+      const second = composeFeatures(first, { includeBundled: true });
+      expect(warn).not.toHaveBeenCalled();
+      const names = second.map((f) => f.name);
+      expect(new Set(names).size).toBe(names.length);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("an app-supplied copy of a bundled feature still warns", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      composeFeatures([noopFeature, createConfigFeature()], { includeBundled: true });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('"config"'));
     } finally {
       warn.mockRestore();
     }

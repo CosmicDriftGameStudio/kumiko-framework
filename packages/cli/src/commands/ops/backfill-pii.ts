@@ -223,7 +223,11 @@ export async function runBackfillPii(ctx: CliCommandContext): Promise<number> {
     crypto.configurePiiSubjectKms(wiring.kms);
     crypto.configureBlindIndexKey(wiring.blindIndexKey);
     const registry = createRegistry(config.features);
-    const { db, close } = createDbConnection({ url: databaseUrl, maxConnections: 4 });
+    const { db, close } = createDbConnection({
+      url: databaseUrl,
+      maxConnections: 4,
+      rowLevelSecurity: "off", // operator backfill, no tenant scope
+    });
     try {
       return args.mode === "rebuild"
         ? await rebuildPiiProjections(ctx, db, registry, crypto)

@@ -152,7 +152,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -194,6 +194,7 @@ async function bootWithChatChannels(): Promise<ProdAppHandle> {
   process.env["JWT_SECRET"] = "test-runprod-secret-32-chars-min!!";
   process.env["PORT"] = "0";
   const booted = await runProdApp({
+    rowLevelSecurity: "off",
     features: [
       createConfigFeature(),
       createSecretsFeature(),
@@ -268,7 +269,7 @@ async function announceImmediately(
 // The deferred notify returns no attempt id; the attempt it caused is the channel row
 // that was not there before. Other tests in this DB leave rows of the same channel.
 async function attemptIdsOf(channel: string): Promise<ReadonlySet<string>> {
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     const rows = await selectMany<{ id: string }>(db, deliveryAttemptsTable, { channel });
     return new Set(rows.map((row) => row.id));
@@ -286,7 +287,7 @@ async function newAttemptIdOf(channel: string, before: ReadonlySet<string>): Pro
 async function attemptRow(
   attemptId: string,
 ): Promise<{ status: string; error: string | null } | undefined> {
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     const rows = await selectMany<{ status: string; error: string | null }>(
       db,
@@ -300,7 +301,7 @@ async function attemptRow(
 }
 
 async function attemptEventCount(attemptId: string): Promise<number> {
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     return await getStreamVersion(db, attemptId, TENANT_ID);
   } finally {
@@ -396,7 +397,7 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
 
     expect(status).toBe(200);
     expect(body.data).toEqual({ kind: "deferred" });
-    const { db, close } = createDbConnection({ url: TEST_DB_URL });
+    const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
     try {
       const rows = await selectMany<{ userId: string }>(db, inAppMessagesTable, {});
       expect(rows.map((row) => row.userId).sort()).toEqual(memberIds);

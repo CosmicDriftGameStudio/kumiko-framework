@@ -67,7 +67,10 @@ export const projectCommand: CliCommand = {
     } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
     const registry = createRegistry(config.features);
-    const { db, close } = createDbConnection({ url: databaseUrl });
+    const { db, close } = createDbConnection({
+      url: databaseUrl,
+      rowLevelSecurity: "off" /* operator tool, no tenant scope */,
+    });
     let wiring: Awaited<ReturnType<typeof wireKmsFromEnv>> | undefined;
 
     try {

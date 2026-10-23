@@ -167,7 +167,10 @@ function buildHookDb(
 // Cross-tenant by design: the membership read on the given runner and raw hook statements
 // must see every tenant of the user, whatever RLS scope the caller runs in.
 export function runUserExport(args: RunUserExportArgs): Promise<UserExportBundle> {
-  return runInSystemRowLevelSecurityScope(() => exportUserData(args));
+  return runInSystemRowLevelSecurityScope(
+    "user data export collects the subject's rows from all tenants",
+    () => exportUserData(args),
+  );
 }
 
 async function exportUserData(args: RunUserExportArgs): Promise<UserExportBundle> {

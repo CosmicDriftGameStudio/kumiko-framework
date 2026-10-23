@@ -100,6 +100,7 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
     this.connection = createDbConnection({
       url: options.databaseUrl,
       maxConnections: options.maxConnections ?? 4,
+      rowLevelSecurity: "off", // key tables carry no tenant_id
     });
     this.sql = this.connection.client;
   }
@@ -238,7 +239,11 @@ export async function rewrapSubjectKeys(options: RewrapOptions): Promise<RewrapR
     fromKeks.set(Number(version), decodePlatformKek(kek));
   }
   const batchSize = options.batchSize ?? 200;
-  const connection = createDbConnection({ url: options.databaseUrl, maxConnections: 2 });
+  const connection = createDbConnection({
+    url: options.databaseUrl,
+    maxConnections: 2,
+    rowLevelSecurity: "off", // key tables carry no tenant_id
+  });
   const sql = connection.client;
 
   const failures: Array<{ subjectId: string; reason: string }> = [];

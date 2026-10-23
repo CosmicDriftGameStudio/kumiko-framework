@@ -64,7 +64,11 @@ export async function runStatusCommand(ctx: SchemaCliContext): Promise<number> {
     return 0;
   }
   const local = loadMigrationsFromDir(migrationsDir);
-  const { db, close } = createDbConnection({ url: dbUrl, maxConnections: 1 });
+  const { db, close } = createDbConnection({
+    url: dbUrl,
+    maxConnections: 1,
+    rowLevelSecurity: "off", // journal-only tool: touches no tenant rows
+  });
   try {
     const applied = await fetchAppliedMigrationIds(db);
     out.log("");

@@ -299,7 +299,10 @@ export function bootstrapTenants(
   deps: BootstrapDeps,
   plan: BootstrapPlan,
 ): Promise<BootstrapReport> {
-  return runInSystemRowLevelSecurityScope(() => bootstrapTenantsInScope(deps, plan));
+  return runInSystemRowLevelSecurityScope(
+    "boot tenant bootstrap creates tenants and memberships before any tenant exists",
+    () => bootstrapTenantsInScope(deps, plan),
+  );
 }
 
 async function bootstrapTenantsInScope(

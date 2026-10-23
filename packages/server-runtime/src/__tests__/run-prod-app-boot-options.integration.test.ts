@@ -49,7 +49,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.close();
   }
-  const { db, close } = createDbConnection({ url: TEST_DB_URL });
+  const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -81,6 +81,7 @@ afterAll(async () => {
 
 function authBoot(extra: Partial<RunProdAppOptions>, env: Record<string, string> = {}) {
   return runProdApp({
+    rowLevelSecurity: "off",
     features: [
       createAuthFoundationFeature(),
       createPersonalAccessTokensFeature({ scopes: {} }),
@@ -151,7 +152,7 @@ describe("runProdApp boot options (integration)", () => {
     // Second boot: idempotent, no duplicate user.
     handle = await authBoot({ seeds }, env);
 
-    const { db, close } = createDbConnection({ url: TEST_DB_URL });
+    const { db, close } = createDbConnection({ url: TEST_DB_URL, rowLevelSecurity: "off" });
     try {
       const users = await selectMany<{ email: string; roles: unknown }>(db, userTable, {
         email: SYSADMIN_EMAIL,

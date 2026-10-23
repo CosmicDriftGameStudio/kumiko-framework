@@ -2,7 +2,11 @@ import { existsSync, readdirSync } from "node:fs";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { assertUniqueTableNames, loadSnapshotJson, type renderTablesDdl } from "../db/index.ts";
-import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
+import {
+  DEFAULT_ROW_LEVEL_SECURITY_MODE,
+  ROW_LEVEL_SECURITY_MODES,
+  type RowLevelSecurityMode,
+} from "../db/render-rls-ddl.ts";
 import { isEntityTableMeta } from "../db/table-introspection.ts";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
 
@@ -43,12 +47,12 @@ export type SchemaMod = {
   readonly rowLevelSecurity: RowLevelSecurityMode;
 };
 
-// An absent export means "off"; a typo must not silently switch tenant isolation off.
+// An absent export means the default mode; a typo must not silently switch tenant isolation off.
 export function parseSchemaRowLevelSecurity(
   value: unknown,
   schemaFile: string,
 ): RowLevelSecurityMode {
-  if (value === undefined) return "off";
+  if (value === undefined) return DEFAULT_ROW_LEVEL_SECURITY_MODE;
   if (isOneOf(ROW_LEVEL_SECURITY_MODES, value)) return value;
   throw new Error(
     `Schema file ${schemaFile}: ROW_LEVEL_SECURITY must be one of ${ROW_LEVEL_SECURITY_MODES.join(", ")}, got ${String(value)}.`,

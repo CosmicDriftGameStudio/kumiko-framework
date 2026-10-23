@@ -15,6 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { DEFAULT_ROW_LEVEL_SECURITY_MODE } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   queueRebuildsFromMarkers,
   reportPendingRebuildRun,
@@ -35,7 +36,7 @@ export type SchemaApplyOptions = ComposeFeaturesOptions & {
   readonly features: readonly FeatureDefinition[];
   /** Default INIT_CWD ?? process.cwd(); migrations live under <appCwd>/kumiko/migrations. */
   readonly appCwd?: string;
-  /** Pass appConfig.rowLevelSecurity: on a role the policies bind, migrations and rebuilds only see rows through an "on" connection. Default "off". */
+  /** Pass appConfig.rowLevelSecurity: on a role the policies bind, migrations and rebuilds only see rows through an "on" connection. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
@@ -57,7 +58,7 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
 
   const { db, close } = createDbConnection({
     url: dbUrl,
-    rowLevelSecurity: opts.rowLevelSecurity ?? "off",
+    rowLevelSecurity: opts.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE,
   });
   try {
     // Create infrastructure tables (event store + pipeline state) first; all are

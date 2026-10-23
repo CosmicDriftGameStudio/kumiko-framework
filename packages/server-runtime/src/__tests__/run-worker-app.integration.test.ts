@@ -126,7 +126,7 @@ beforeAll(async () => {
     await adminClient.close();
   }
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-  const { db, close } = createDbConnection({ url });
+  const { db, close } = createDbConnection({ url, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -161,6 +161,7 @@ async function boot(extra?: Partial<Parameters<typeof runWorkerApp>[0]>): Promis
   process.env["JWT_SECRET"] = "test-runworker-secret-32-chars-min!!";
   try {
     const handle = await runWorkerApp({
+      rowLevelSecurity: "off",
       features: [workerProbeFeature],
       migrations: false,
       jobs: { queueNamePrefix: `test-worker-${Date.now().toString(36)}` },
@@ -207,7 +208,7 @@ describe("runWorkerApp", () => {
       },
     });
 
-    const { db, close } = createDbConnection({ url: dbUrl });
+    const { db, close } = createDbConnection({ url: dbUrl, rowLevelSecurity: "off" });
     try {
       const events = await Array.fromAsync(streamAllEventsByType(db, APP_INSTANCE_STREAM_TYPE));
       const mine = events.filter(
@@ -235,7 +236,7 @@ describe("runWorkerApp", () => {
       },
     });
 
-    const { db, close } = createDbConnection({ url: dbUrl });
+    const { db, close } = createDbConnection({ url: dbUrl, rowLevelSecurity: "off" });
     try {
       const state = await getConsumerState(
         db,

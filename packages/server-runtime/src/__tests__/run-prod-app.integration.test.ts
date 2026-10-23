@@ -241,7 +241,7 @@ afterEach(async () => {
 // migration path.
 async function migrateTestDb(): Promise<void> {
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-  const { db, close } = createDbConnection({ url });
+  const { db, close } = createDbConnection({ url, rowLevelSecurity: "off" });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -283,6 +283,7 @@ async function boot(
 
   try {
     const handle = await runProdApp({
+      rowLevelSecurity: "off",
       features: [widgetFeature],
       envSchema: noAppEnvSchema,
       autoListen: false,
@@ -1243,7 +1244,7 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
     expect(result.isSuccess).toBe(true);
 
     const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-    const { db, close } = createDbConnection({ url });
+    const { db, close } = createDbConnection({ url, rowLevelSecurity: "off" });
     try {
       const row = await pollFor(async () => {
         const rows = (await asRawClient(db).unsafe(

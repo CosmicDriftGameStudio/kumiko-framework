@@ -76,6 +76,11 @@ export function isUndefinedTable(e: unknown): boolean {
   return extractPgError(e)?.code === "42P01";
 }
 
+// PG SQLSTATE 42501 insufficient_privilege: a row failing a row-level-security WITH CHECK policy.
+export function isRowLevelSecurityViolation(e: unknown): boolean {
+  return extractPgError(e)?.code === "42501";
+}
+
 export function constraintOf(e: unknown): string | undefined {
   return extractPgError(e)?.constraint_name;
 }
