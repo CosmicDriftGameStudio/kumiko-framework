@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "SMTP authentication is optional",
+    "detail": "authUser is no longer a required key and the SMTP password secret no longer counts as missing in readiness. With an empty user the transport connects without auth, which suits internal relays; with a user set, a missing password still fails the send."
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated mailTransportSmtpFeature constant is removed",

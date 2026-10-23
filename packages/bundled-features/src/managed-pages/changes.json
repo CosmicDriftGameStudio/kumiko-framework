@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "MANAGED_PAGES_FEATURE names the feature",
+    "detail": "The barrel exports the MANAGED_PAGES_FEATURE constant so other code can refer to the feature name without a string literal."
+  },
+  {
     "version": "0.363.0",
     "type": "improvement",
     "title": "Branding screen edits the logo file and readBranding returns logoFile",

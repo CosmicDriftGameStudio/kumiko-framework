@@ -1,5 +1,93 @@
 # @cosmicdrift/kumiko-renderer-puppeteer-client
 
+## 0.389.0
+
+### Minor Changes
+
+- 2602c62: `renderPdfBytes(ctx, { slug, locale, variables })` renders a PDF and returns `fileName`, `pdfBytes`, `pageCount`, `sizeBytes`, `template` and `layout` without storing a file or a rendered-pdf row. `renderPdfBeforeTransaction` now builds on it.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: Render a PDF without storing it
+  detail: renderPdfBytes is the render half of renderPdfBeforeTransaction. Use it when the bytes go straight into a mail or a download and no file or rendered-pdf row should exist.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [77a25ac]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [8a6508a]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [9253635]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [f75a6dd]
+- Updated dependencies [5b72552]
+- Updated dependencies [bd1b61a]
+- Updated dependencies [5947ab0]
+- Updated dependencies [7d5f95c]
+- Updated dependencies [2dd1de3]
+- Updated dependencies [7336a78]
+- Updated dependencies [768a67e]
+- Updated dependencies [f0c2983]
+- Updated dependencies [c14ccd3]
+- Updated dependencies [203085b]
+- Updated dependencies [6bb9d66]
+- Updated dependencies [a407a3c]
+- Updated dependencies [9a72476]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [9253635]
+- Updated dependencies [e5fe5f2]
+- Updated dependencies [8628ea3]
+- Updated dependencies [bec6021]
+- Updated dependencies [bec6021]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [bec6021]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [59028a5]
+- Updated dependencies [a50674e]
+- Updated dependencies [d6940f1]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-bundled-features@0.389.0
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-types@0.389.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.389.0
+
 ## 0.388.0
 
 ### Patch Changes

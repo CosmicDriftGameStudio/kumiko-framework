@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "A failing notifyRecipient SQL statement no longer aborts the submit",
+    "detail": "The resolver receives a ctx whose systemDb runs in a savepoint, so a failed statement is rolled back and the submit answers 200 with the entry stored. Only ctx.systemDb is savepoint-scoped; other ctx handles stay in the handler transaction."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "waitlist purge retry after a failed shred is covered",
+    "detail": "An integration test fails the second key shred of a purge, checks that the entries stay and no audit event is written, and that the retried purge erases every entry and records its audit event. No runtime change."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Waitlist import enforces the live field limits",
+    "detail": "migrateLegacyWaitlist counts a source row with a value above the live field limit as unreadable instead of importing it; importWaitlistEntry throws for it."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Link-on-signup failures, legacy re-run and purge audit order",

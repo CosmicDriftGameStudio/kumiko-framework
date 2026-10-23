@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Tenant destroy keeps user keys of members in other live tenants",
+    "detail": "The subject-keys stage erases user keys only for members without a membership in another tenant whose status is not destroyed. The tenant and tenant-record keys are erased as before."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Destroy sweep keeps a minimum time slice per tenant",

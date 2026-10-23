@@ -1,5 +1,250 @@
 [
   {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "Bun.SQL replaces postgres-js as the only Postgres driver",
+    "detail": "createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, \"disable\", \"prefer\", \"require\", \"verify-ca\", \"verify-full\" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, \"postgres\" included.",
+    "migration": "Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === \"23505\" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "schema status and baseline use one connection, bun-types is a peer dependency",
+    "detail": "kumiko schema status and baseline open a pool of one connection instead of the default size, because Bun.SQL dials every pool connection on the first query. bun-types is now a peer dependency (^1.4.4) of framework, types, server-runtime and dev-server instead of a regular dependency, so install it next to the framework."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "validateBundledListsOptions and the BundledListsOptions type",
+    "detail": "BundledListsOptions is exported from the types package and the engine barrel. validateBundledListsOptions rejects unknown keys, grouping, totals and pinFirstColumn without table.pinning with a message that names the key, and checks the remaining keys like a screen's own table block."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "r.adoptsBundledLists() marks features that take the bundledLists block",
+    "detail": "The registrar method r.adoptsBundledLists() marks a feature whose list screens take the app-wide bundledLists block; the flag appears as FeatureDefinition.adoptsBundledLists and in feature-manifest.json, and the feature-ast parser knows the call as an opaque singleton pattern."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "table block on entityList, projectionList and relatedList",
+    "detail": "The new optional table block (rememberState, resetAll, columnPicker, density with default and userChoice) is validated at boot; unknown keys, hidden columns without columnPicker and invalid density values are rejected. Columns accept hidden: true. Remembered state lives in sessionStorage per tenant and user and is cleared on logout or identity change."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "table.pinning, table.resizing and table.keyboardNavigation, column pinned, width and minWidth",
+    "detail": "The boot validator rejects pinned without table.pinning, a pinned value other than left or right, width or minWidth without table.resizing, values that are not finite numbers above 0, and a minWidth above the width."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "Money list aggregates answer one value per currency",
+    "detail": "A sum, avg, min or max measure over a money field in a list aggregate now answers [{ currency, value }] with value in minor units, one entry per currency in the matching rows, and never adds amounts of different currencies. Before, it answered one plain number over all currencies.",
+    "migration": "code reading measures of a money field from a list aggregate answer (executor.aggregate, answerListAggregate or the list query with aggregate) reads an array of { currency, value } instead of a number; take the entry of the wanted currency, value stays in minor units"
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "table.grouping, table.totals and range facets validated at boot",
+    "detail": "The table block takes grouping ({ field, label?, labels?, collapsedWhen?, userChoice?, fields? }) and totals ([{ field, kind }]). The boot validator checks the fields against the entity or the columns, rejects measures a field type cannot carry and requires the list query to accept aggregate (entityListSchema does; hand-written queries answer it with answerListAggregate). facets.<field>.display \"range\" needs a filterable number, decimal, money or bigInt field."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "bulkActions on entityList, projectionList and relatedList",
+    "detail": "Each entry is { id, rowAction, confirm? } and points at a writeHandler entry of the same screen's rowActions. The boot validator rejects unknown keys, a non-kebab or duplicate id, an unknown rowAction and a rowAction of kind clientAction, navigate or drawer."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "XLSX export for entityList and projectionList via table.export",
+    "detail": "The new table.export block ({ xlsx: true, maxRows? }) is validated at boot and is only accepted on entityList and projectionList. POST /api/export/xlsx runs the list query again with the caller's session, pages through the whole filtered list and answers 413 above maxRows (default 10000, hard cap 100000). Encrypted, sensitive, write-only and unreadable fields and virtual columns are left out of the sheet. Reference columns export the label of the target (joined with commas for multiple references), not the id. Timestamp cells use the browser time zone sent with the request, else the profile zone, else UTC. Personal access tokens are rejected. A projectionList query must honor offset or return nextCursor. Adds the write-excel-file dependency."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Executor writes on a pool runner are atomic",
+    "detail": "executor.create/update/delete/forget/restore on a TenantDb that is not inside a transaction used to run append, projection and custom projections as separate autocommit statements, so a failing projection left an event without its row. They now run in their own transaction, and a returned failure such as version_conflict rolls it back too. Calls inside a handler transaction keep their savepoint behavior. Callers that wrapped executor writes in runInOwnTransaction as a workaround can drop it."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "FeatureRegistrar types moved to @cosmicdrift/kumiko-types/feature-registrar",
+    "migration": "Import FeatureRegistrar, HookDefinition, EntityObjectDefinition and RequiresApi from @cosmicdrift/kumiko-types/feature-registrar or from the engine barrel of @cosmicdrift/kumiko-framework; @cosmicdrift/kumiko-types/feature no longer exports them."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "maxPerTenant counts active and waiting jobs in one snapshot",
+    "detail": "The guard read the active and the waiting list with separate Redis calls, so a job that moved from waiting to active between them was missing from both and a dispatch over the cap got through. It now reads both lists with one getJobs snapshot per queue. The integration tests hold the cap jobs on a release gate instead of sleeping."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "relatedList groupBy replaced by table.grouping",
+    "detail": "The groupBy key on a relatedList section and an entityList expandableRow is removed together with the RelatedListGroupBy type. Both group through table.grouping ({ field, label?, labels?, collapsedWhen? }): groups, counts and header measures come from one aggregate query over all matching rows instead of the loaded page, and each open group loads its own rows. An expandableRow takes only table.grouping with a fixed field; userChoice, fields and every other table option stay boot errors there. The boot validator reports a leftover groupBy with a pointer to table.grouping. ExpandableRowGrouping is the new type of an expandableRow's grouping.",
+    "migration": "move groupBy { field, collapsedWhen, label, labels } to table: { grouping: { field, collapsedWhen, label, labels } }; the bound query must accept aggregate (entityListSchema does, a hand-written query answers it with answerListAggregate). dateField and the {lastDate} placeholder have no replacement on an expandableRow, where totals stay off; on a relatedList a max measure in table.totals shows the latest date. Every group now gets a header: a group without label or labels entry shows its value instead of rendering headerless."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "ctx.loadAggregate can read a single event by version",
+    "detail": "The new atVersion option returns the event at that version of the stream (or nothing), with upcasting and the tenant filter. It cannot be combined with asOf. Workflow resume uses it for event references."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Access invalidation survives a Redis outage",
+    "detail": "The consumer that pushes session, token and membership revocations to open streams does not count failed publishes towards the attempt limit and backs off between them, instead of dying after 10 failed deliveries and silently dropping later revocations. Other failures keep the limit. New EventConsumerErrorPolicy.isTransientError."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "file upload rechecks the record lock when inserting the row",
+    "detail": "POST /files with an entityId reads the stored row again through the inserting transaction and refuses with 409 record_locked when lockedWhen holds. The window between that read and the commit stays open, like for any other write that checks the lock before its own commit."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Meilisearch default upgrade cannot tell a narrowed configure() from an older default",
+    "detail": "A tenant that called configure() with a strict subset of the default attributes gets the full default back after the next process restart, because Meilisearch stores no marker for an explicit configure(). Configure the full attribute set, or a set that contains an attribute outside the default, to keep it."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Cross-tenant-read crons audit once per day, not once per foreign row",
+    "detail": "The process dedup key of a declared system cron hatch includes the target only for global-write (a table). Row targets of cross-tenant-read no longer grow the in-memory map or write one audit event per row."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Failed job-runner start waits for the timed-out boot gate",
+    "detail": "start() now waits a bounded time for an abandoned boot gate before throwing, instead of leaving that to stop(). The scheduler-seen timer is only started after every step that can fail, so no timer outlives a failed start."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "disabled feature no longer removes another feature's workspace with the same id",
+    "detail": "buildAppSchema records which feature owns each workspace and the feature strip removes only the workspaces of the disabled features. Two features that use the same short workspace id keep their own entries."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "upload ledger uses the injected clock",
+    "detail": "createFileUploadLedger and withUploadLedger take an optional now function, and the file provider resolver wires AppContext.clock into it. Without a clock the system time is used as before."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "anonymous save leaves foreign pending uploads unbound",
+    "detail": "Integration test through the real write route with anonymous access, covering the save pipeline path of the pending-upload ownership check."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "Unused ProviderPluginContext helpers removed",
+    "detail": "ProviderPluginContext, providerPluginContextFromHandler and providerPluginContextFromJob are gone. No plugin type or resolver used them, and the type exposed db handles without an audit user. Provider contexts stay the narrow FileProviderContext, MailTransportContext and InboundMailContext.",
+    "migration": "no known callers; use FileProviderContext, MailTransportContext or InboundMailContext"
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "provider selector option labels are unique per owner",
+    "detail": "The selector field id of a provider form is qualified with its owner feature, so the translation keys of its option labels change.",
+    "migration": "move app translation overrides from config:entity:__config-edit__:field:provider:option:<value> to the owner-qualified field id, field:mail-foundation-provider:option:<value> or field:file-foundation-provider:option:<value>"
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "live signals hide row ids from row-filtered roles",
+    "detail": "createSseRoute takes an optional entityRowReadMaps option, built from entity access.read by the server routes. A signed-in connection receives id and version only if the entity has no read ownership map or one of its roles is mapped to all; otherwise the signal carries just the entity and event type so the client refetches."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "write handlers that spread the executor result keep projections and postSave hooks",
+    "detail": "The event is stripped from lifecycle results when the dispatcher masks the response, no longer made non-enumerable on the result, so copying the result does not lose it. Responses still carry no event."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "event-free write results proven for non-HTTP entry points",
+    "detail": "Integration tests assert that dispatcher.write, dispatcher.batch and the agent tool dispatch return no event. No runtime change: all of them already pass through the dispatcher masking."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "reference-data seed adopts rows that have no event stream",
+    "detail": "Rows from installs that seeded reference data by direct insert are re-created under the same id through the executor on the next boot, so updates apply and the rows survive a rebuild. No action is needed; the row id is unchanged, only its version restarts at 1."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "client-errors route keeps an in-memory floor limit",
+    "detail": "The in-memory per-IP limiter now runs in front of the Redis-backed limiter instead of only when no resolver is wired, so a failing resolver can no longer lift the limit on the public client-errors endpoint."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "reindex job batches are no longer cut off by the server statement timeout",
+    "detail": "reindexEntity reads each batch in its own transaction with statement_timeout lifted for that transaction, on the caller's own runner, so the job path through ctx.systemDb.unsafeRaw() keeps its gates."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "files meta batch route is rate limited by id count",
+    "detail": "createFileRoutes takes an optional metaBatchRateLimitResolver, wired by the server from the rate-limit resolver or Redis. A user over 1000 requested ids per minute gets 429 rate_limited; a failing limiter fails open and is reported like the other limiters."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "kumiko-upgrade explains that --apply writes the CHANGELOG",
+    "detail": "The preview run never wrote the upgrade CHANGELOG or the marker, and consumers running it without --apply got no entry and no explanation. It now prints a hint; the exit code is unchanged."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Codemod imports no longer land inside header comments",
+    "detail": "ensureNamedImport appends the new import after the last existing import, so a file with a header comment block keeps the comment intact."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Database now is rounded to milliseconds",
+    "detail": "The Postgres clock read behind readDatabaseNow is cast to timestamptz(3), the precision of events.created_at, so a comparison with a stored event time is exact."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "E2E seeders and signature routes can write with explicit roles",
+    "detail": "dispatchWriteAs on signature route deps and writeAs on the E2E seeder context run a write as the tenant's system user with the \"system\" role plus the given roles, without SystemAdmin. write() keeps running as SystemAdmin."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "List filter on multiple references matches array contents",
+    "detail": "eq, ne and in on a multi-reference field now check jsonb containment instead of scalar equality, and screen filters on such fields allow the equality operators. Consumers no longer need a full scan."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "kumiko-upgrade --resolve updates CHANGELOG.md",
+    "detail": "The Manual migrations lines of every CHANGELOG.md section change from [open] to the chosen resolution for the resolved ids; other entries and files without a CHANGELOG.md are left alone."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "ctx.scheduleAfterRollback for outside-transaction compensation",
+    "detail": "ctx.scheduleAfterRollback(fn) runs fn when the handler transaction does not commit, or when the enclosing savepoint of a nested ctx.write rolls back (after the outer transaction ends). It never runs on commit, errors are logged and do not change the write result, and it is absent outside a transaction scope (perCommand, post-commit, beforeTransaction, member resolution). A failed COMMIT also triggers it, so callbacks must be idempotent and outcome-safe, for example releasing a reservation row that may already be gone."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Tenant-safe upsert on ctx.db",
+    "detail": "ctx.db.upsert(table, values, { conflictTarget, update? }) requires tenantId in conflictTarget and the target to match a declared unique index or primary key. The update only touches the row of the inserted tenant, update may not set tenantId, and the default update leaves conflict, primary-key and tenant columns alone. Event-fed tables are rejected. Replaces unsafeRaw plus upsertOnConflict for tenant-scoped upserts."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "runProdApp passes errorDocs and instanceId to the server",

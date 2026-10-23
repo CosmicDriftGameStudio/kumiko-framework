@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Redirects from /api paths fail at boot",
+    "detail": "Redirects run inside hostDispatch after static files and API routes, so a from of /api or /api/... was silently dead config. Boot validation now throws; the options and README already describe the HTML-fallback scope."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Redirects documented as hostDispatch-only",

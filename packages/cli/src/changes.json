@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "handbuch build no longer wipes its own inputs",
+    "detail": "The out directory is deleted before the build, so it is now rejected when it sits inside the configured repo, a flow source repo or an input directory, not only when it contains one."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "waitlist-migrate encrypts imported personal data or aborts",
+    "detail": "waitlist-migrate wires the PII KMS and blind-index key from the environment before importing. Without them it aborts with a clear message; --allow-plaintext-pii <reason> opts out for apps without subject encryption."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "check, sync-managed and backfill-pii handle failure and subdirectories correctly",

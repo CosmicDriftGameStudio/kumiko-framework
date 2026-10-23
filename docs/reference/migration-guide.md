@@ -2,13 +2,97 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-22
+verified: 2026-10-23
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.389.0
+
+### @cosmicdrift/kumiko-renderer
+
+**DataTable rowGrouping removed**
+
+The client-side rowGrouping prop and the DataTableRowGrouping type are removed from the DataTable contract; grouping runs only through serverGroups. A custom DataTable primitive drops its rowGrouping handling.
+
+**Migration:** delete rowGrouping from custom DataTable primitives and their callers; group lists through table.grouping on the screen
+
+### @cosmicdrift/kumiko-server-runtime
+
+**BootOptionName drops demoMode, seeds and signals**
+
+No stack declared them in bootRequires, so their boot checks never ran. A name returns together with its check and a test once a stack needs it.
+
+**Migration:** no known callers; remove "demoMode", "seeds" and "signals" from bootRequires options
+
+### @cosmicdrift/kumiko-testing
+
+**captureClosedConnectionError returns a Bun.SQL error**
+
+The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.
+
+**Migration:** Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod.
+
+**e2e tests fail after more than 8 app boots; the per-test client IP no longer disables the HTTP cache**
+
+The test fixture sent the per-test X-Forwarded-For through context.route, which turns Chromium's HTTP cache off for the whole context, so every page.goto re-downloaded all assets and GET /api/schema. It now uses setExtraHTTPHeaders and the cache stays on. The fixture also counts GET /api/schema per test and fails a passing test that boots the app more than 8 times (default of the new maxAppBootsPerTest fixture option), and closes pages left open (window.open tabs) before the context closes.
+
+**Migration:** Seed through tenant.api, tenant.seed and tenant.addUser instead of calling page.goto(APP_BASE_PATH) before every seed; each page.goto reloads the app. runMatrix and runScreenshots boot the app once per test themselves, so they need no change; only your own scenario flows or specs that navigate on purpose raise the budget with test.use({ maxAppBootsPerTest: <n> }). Manual migration, there is no codemod. The X-Forwarded-For header is now sent on every request of the context, including cross-origin ones.
+
+### @cosmicdrift/kumiko-types
+
+**DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency**
+
+DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.
+
+**Migration:** Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from "bun", or the DbConnection and DbTx aliases. Manual migration, there is no codemod.
+
+### framework-core
+
+**Bun.SQL replaces postgres-js as the only Postgres driver**
+
+createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, "disable", "prefer", "require", "verify-ca", "verify-full" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, "postgres" included.
+
+**Migration:** Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === "23505" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod.
+
+**Money list aggregates answer one value per currency**
+
+A sum, avg, min or max measure over a money field in a list aggregate now answers [{ currency, value }] with value in minor units, one entry per currency in the matching rows, and never adds amounts of different currencies. Before, it answered one plain number over all currencies.
+
+**Migration:** code reading measures of a money field from a list aggregate answer (executor.aggregate, answerListAggregate or the list query with aggregate) reads an array of { currency, value } instead of a number; take the entry of the wanted currency, value stays in minor units
+
+**FeatureRegistrar types moved to @cosmicdrift/kumiko-types/feature-registrar**
+
+**Migration:** Import FeatureRegistrar, HookDefinition, EntityObjectDefinition and RequiresApi from @cosmicdrift/kumiko-types/feature-registrar or from the engine barrel of @cosmicdrift/kumiko-framework; @cosmicdrift/kumiko-types/feature no longer exports them.
+
+**relatedList groupBy replaced by table.grouping**
+
+The groupBy key on a relatedList section and an entityList expandableRow is removed together with the RelatedListGroupBy type. Both group through table.grouping ({ field, label?, labels?, collapsedWhen? }): groups, counts and header measures come from one aggregate query over all matching rows instead of the loaded page, and each open group loads its own rows. An expandableRow takes only table.grouping with a fixed field; userChoice, fields and every other table option stay boot errors there. The boot validator reports a leftover groupBy with a pointer to table.grouping. ExpandableRowGrouping is the new type of an expandableRow's grouping.
+
+**Migration:** move groupBy { field, collapsedWhen, label, labels } to table: { grouping: { field, collapsedWhen, label, labels } }; the bound query must accept aggregate (entityListSchema does, a hand-written query answers it with answerListAggregate). dateField and the {lastDate} placeholder have no replacement on an expandableRow, where totals stay off; on a relatedList a max measure in table.totals shows the latest date. Every group now gets a header: a group without label or labels entry shows its value instead of rendering headerless.
+
+**Unused ProviderPluginContext helpers removed**
+
+ProviderPluginContext, providerPluginContextFromHandler and providerPluginContextFromJob are gone. No plugin type or resolver used them, and the type exposed db handles without an audit user. Provider contexts stay the narrow FileProviderContext, MailTransportContext and InboundMailContext.
+
+**Migration:** no known callers; use FileProviderContext, MailTransportContext or InboundMailContext
+
+**provider selector option labels are unique per owner**
+
+The selector field id of a provider form is qualified with its owner feature, so the translation keys of its option labels change.
+
+**Migration:** move app translation overrides from config:entity:__config-edit__:field:provider:option:<value> to the owner-qualified field id, field:mail-foundation-provider:option:<value> or field:file-foundation-provider:option:<value>
+
+### sessions
+
+**isPrincipalBlocked is no longer exported from sessions**
+
+The sessions export dropped its re-export of isPrincipalBlocked, which ignored isDeleted. isPrincipalRowBlocked from the user export covers status and isDeleted and is what the session callbacks use.
+
+**Migration:** import isPrincipalRowBlocked (for a user row) or isPrincipalBlocked (for a bare status) from "@cosmicdrift/kumiko-bundled-features/user" instead of the sessions export
 
 ## 0.388.0
 

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Local agent tool errors carry a code",
+    "detail": "dispatchToolCall returns code invalid_tool_call for validation errors and unknown_tool for an unknown tool name, instead of a result without code. TOOL_CALL_ERROR_CODES names both."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "dispatchToolCall documents which failures carry a code",

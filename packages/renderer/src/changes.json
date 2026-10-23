@@ -1,5 +1,114 @@
 [
   {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "DataTable view menu, remembered list state and compact density",
+    "detail": "Lists with a table block show a view menu (columns, density, reset view) and a reset-all button. Remembered query parameters are copied into the URL once; links with explicit parameters win. Compact density uses 32px rows with 4px cell padding. New keys kumiko.list.reset-all and kumiko.list.view.* in all locale packages."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "remembered column pins and widths in the list view state",
+    "detail": "useListTable passes pins, widths, minWidths and keyboardNavigation to the DataTable view options. Pins and widths live in the list-state store next to columns and density; a saved pin set replaces the schema pins, so a user can release a pinned column. New keys kumiko.list.view.pinning, kumiko.list.view.pin-left, kumiko.list.view.pin-right and kumiko.list.column.resize in all locale packages."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "DataTable resize grip, pinned focus ring and bounded widths",
+    "detail": "Column widths stay between minWidth and 2000 px, also when read back from the session. The resize grip shows on header hover and focus and carries aria-valuenow, aria-valuemin and aria-valuemax. Pinned and actions cells repeat the keyboard focus ring, and a pressed pin button is highlighted."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Server-side groups, totals row and number range facet in the DataTable",
+    "detail": "With table.grouping the groups load via one aggregate query; each open group near the viewport loads its rows with the list query plus a group filter, page by page with \"Load more\", at most four groups at once, a collapsed group sends no query. Headers show the server count and measures, the global pager gives way in both pagination modes, and the view menu offers \"Group by\" with userChoice. table.totals renders a live footer row over the filters and search. A range facet shows from/to inputs, keeps <screenId>.f.<field>.min/.max in the URL and sends gte/lte filters, money in minor units. Infinite lists now also start over when a facet changes. New keys kumiko.list.group.*, kumiko.list.measure.*, kumiko.list.totals.label, kumiko.list.range.* and kumiko.list.notice.* in all locale packages."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "DataTable row selection and bulk run",
+    "detail": "With bulkActions the table gets a checkbox column, a header checkbox for the loaded rows (at most 100), a checkbox per card and a bar with \"n selected\" and the actions. A run sends one /api/write per row, at most 4 at a time; rows hidden by the row action's visible are skipped. Cancel stops new writes. A banner shows succeeded, failed, skipped and not run; failed and not-run rows stay selected and the list reloads. With table.keyboardNavigation, Space toggles the focused row. New keys kumiko.list.bulk.* in all locale packages."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "entityList writeHandler row actions keep display",
+    "detail": "entityList built its writeHandler row actions inline and dropped display; it now uses the same builder as projection and related lists."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Export button in the DataTable toolbar",
+    "detail": "Lists with table.export show an Export button next to the view menu. It exports the current search, sort and facets with the visible columns in their order and shows a hint when the list exceeds the row limit. New keys kumiko.list.export, kumiko.list.export-busy, kumiko.list.export-too-many and kumiko.list.export-failed in all locale packages."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "All primary toolbar actions move into the list page header",
+    "detail": "Previously at most one primary toolbar action was promoted, and only when the list had no create button. Now every primary action without a confirm dialog sits in the page header, left of the create button (which stays rightmost), in declaration order. Promoted actions no longer appear in the list toolbar. On phones they become entries of the header overflow menu when a create button is present, so the create button keeps its place."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "renderer { format: \"file\", previewOpenByDefault: true } opens the first PDF preview",
+    "detail": "FileValueList takes a previewOpenByDefault prop, set declaratively through the file renderer spec, so the inline preview of the first file starts open. The preview is only mounted for PDFs. Without the option the toggle behaves as before."
+  },
+  {
+    "version": "0.389.0",
+    "type": "breaking",
+    "title": "DataTable rowGrouping removed",
+    "detail": "The client-side rowGrouping prop and the DataTableRowGrouping type are removed from the DataTable contract; grouping runs only through serverGroups. A custom DataTable primitive drops its rowGrouping handling.",
+    "migration": "delete rowGrouping from custom DataTable primitives and their callers; group lists through table.grouping on the screen"
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "Totals row keeps its leading cells pinned",
+    "detail": "With pinned columns, the empty totals cells under the checkbox and expand columns stick to the left like the cells above them, and the cell under the actions column sticks to the right with the same background."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Success message resolves reference labels by id",
+    "detail": "resolveSuccessMessageParams requests the chosen record by id, so a tenant picked in a tier-admin form with more than 200 tenants is named in the success message instead of showing its raw id. Sources that ignore both inputs keep the previous capped-list behaviour."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Locked fallback chains show the rendered screen in the header",
+    "detail": "When a screen with visibleWhen falls back to another screen that is locked too, the page header and breadcrumb now name the screen that actually renders instead of the locked intermediate fallback."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Provider forms stay usable without secrets access",
+    "detail": "The merged provider form (config keys plus secrets) previously showed only an error banner if the viewer was denied the secrets list. Now the secret fields are left out and host, port, sender and provider choice can still be saved."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "PDF previews keep their document while mounted",
+    "detail": "createBoundedLoadCache now returns { load, retain }. PdfPreview retains its document while mounted, and the cache evicts only unused entries, so a fifth document no longer destroys one that is still rendered."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Leave guard keeps the history clean on Back and Forward",
+    "detail": "Confirming the leave dialog after a browser Back or Forward now uses history.back(), so the target is no longer duplicated in the history stack. Popstate events that arrive while a leave request is open restore the URL and leave the open dialog untouched."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "basePath option for createKumikoApp and the auth pages",
+    "detail": "createKumikoApp accepts basePath. The default auth pages gate matches its paths below the prefix, and the login screen builds its default forgot-password and unlock hrefs with it, so mail links to /admin/unlock-account no longer end on the login screen. New exports BasePathProvider, useBasePath, normalizeBasePath, stripBasePath and prependBasePath."
+  },
+  {
+    "version": "0.389.0",
+    "type": "improvement",
+    "title": "secrets-denied test fixture without a cast",
+    "detail": "The fixture's field map already fits the annotated ConfigEditScreenDefinition, so the cast and its marker are gone. No runtime change."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "List view model and cell formats as tables",

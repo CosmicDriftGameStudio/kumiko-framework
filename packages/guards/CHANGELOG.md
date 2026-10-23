@@ -1,5 +1,154 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.389.0
+
+### Minor Changes
+
+- ed57bf8: New `test-es-fixtures` guard: tests may not write `kumiko_events` or create `read_tenant_memberships` by hand-written SQL.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Guard against hand-made event and membership SQL in tests
+  detail: Flags INSERT INTO / UPDATE kumiko_events and CREATE TABLE read_tenant_memberships in test files. Seed through append() or runSeedWritesAt() and unsafeCreateEntityTable with seedRow instead. Perf bulk seeds and the ordering tests that hold a transaction open are allowlisted.
+  -->
+
+### Patch Changes
+
+- 1b3a297: Bun.SQL is the only Postgres driver and the postgres-js fork is gone.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bun.SQL replaces postgres-js as the only Postgres driver
+  detail: createDbConnection opens a Bun.SQL pool and needs Bun 1.4.4 or newer, the first release that drops a cached statement plan after DDL on the same connection. The handle gains listenClient for LISTEN/NOTIFY. Server errors carry the code ERR_POSTGRES_SERVER_ERROR with the SQLSTATE in errno and the constraint name in constraint; connection failures carry ERR_POSTGRES_CONNECTION_CLOSED, ERR_POSTGRES_CONNECTION_REFUSED, ERR_POSTGRES_CONNECTION_TIMEOUT or ERR_POSTGRES_CONNECTION_FAILED. extractPgError, isUniqueViolation, isTableAlreadyExists, constraintOf and the newly exported isUndefinedTable read that shape. The onNotice option is removed, because Bun.SQL has no notice hook and drops server notices. The ssl option takes Bun's tls value (a boolean, "disable", "prefer", "require", "verify-ca", "verify-full" or a TLS options object); ssl true and a TLS object without rejectUnauthorized still verify the server certificate, as they did with postgres-js. DB_PROVIDER is refused at boot for every non-empty value, "postgres" included.
+  migration: Read SQLSTATE and constraint only through extractPgError or the is* helpers from @cosmicdrift/kumiko-framework/db; a direct err.code === "23505" check or an err.constraint_name read no longer matches. Replace checks for CONNECTION_CLOSED, CONNECTION_ENDED, CONNECTION_DESTROYED or CONNECT_TIMEOUT with the ERR_POSTGRES_CONNECTION_* codes. Drop onNotice from createDbConnection calls. Remove DB_PROVIDER from every environment. Run on Bun 1.4.4 or newer in engines, CI and images. Code that imports postgres itself must declare its own dependency or move to Bun.SQL, since the framework no longer installs it. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: DbConnection, DbTx and PgClient are Bun.SQL types and postgres is no longer a peer dependency
+  detail: DbConnection is SQL | RawDbClient, DbTx is TransactionSQL | RawDbClient and PgClient is SQL from the bun module, so the package type-checks against bun-types instead of postgres. The postgres peer dependency is removed.
+  migration: Remove postgres from your dependencies unless your own code imports it. Annotations that named postgres.Sql or postgres.TransactionSql for framework handles become SQL and TransactionSQL from "bun", or the DbConnection and DbTx aliases. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: captureClosedConnectionError returns a Bun.SQL error
+  detail: The helper opens Bun.SQL pools, so the captured error has the code ERR_POSTGRES_CONNECTION_CLOSED instead of the postgres-js CONNECTION_CLOSED. The client of createTestDb is the connection handle's listenClient, the same Bun.SQL pool as before.
+  migration: Tests that compared the captured error's code with CONNECTION_CLOSED compare with ERR_POSTGRES_CONNECTION_CLOSED or call isClosedConnectionError. Manual migration, there is no codemod.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The renderer-web stylesheet fallback checks tailwindcss in node_modules
+  detail: canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with "Can't resolve 'tailwindcss'". Such a build skips the fallback stylesheet again.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps pin Bun 1.4.4
+  detail: The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.
+  migration: Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand.
+  -->
+- ed98312: Settle and consume racing on a swept cap reservation book their units again, schema status and baseline use one connection, package lookups no longer auto-install from the registry, and fresh scaffolds build with `bun run build`.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Settle and consume racing on a swept reservation book their units
+  detail: After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: schema status and baseline use one connection, bun-types is a peer dependency
+  detail: kumiko schema status and baseline open a pool of one connection instead of the default size, because Bun.SQL dials every pool connection on the first query. bun-types is now a peer dependency (^1.4.4) of framework, types, server-runtime and dev-server instead of a regular dependency, so install it next to the framework.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Package lookups no longer auto-install from the registry
+  detail: The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded docker-compose raises Postgres max_connections to 300
+  detail: Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Fresh scaffolds build with bun run build
+  detail: create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either.
+  -->
+- 77a25ac: `appendMissingDocumentExtractEvent` lets a document-ingest provider catch up a document-extract stream that has its created event but no ready or failed event.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: improvement
+  title: appendMissingDocumentExtractEvent and shared ready/failed payload schemas
+  detail: A provider whose job died after creating the extract calls appendMissingDocumentExtractEvent(deps, existing, fileRefId, { readyEventQn, failedEventQn, mapError }) to append the missing terminal event; it returns appended-ready, appended-failed or already-terminal. documentExtractReadyPayloadSchema and documentExtractFailedPayloadSchema are exported so providers register their own event names with the shared payload shape.
+  -->
+- 74d804f: The pre-push hook recognises its wrapping `scripts/check-wt.sh` by process ancestry instead of the freely settable `KUMIKO_CHECK_WT=1`. Exporting that variable on a normal push no longer skips a tracked `check-wt.sh`, so it cannot quietly reduce the check to the `package.json` scripts. Existing `check-wt.sh` files that still set `KUMIKO_CHECK_WT=1` keep working unchanged.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: pre-push re-entry detection no longer an env switch
+  detail: Before delegating to a tracked scripts/check-wt.sh the hook records its own PID in KUMIKO_CHECK_WT_OWNER and treats a run as re-entry only when that PID is an ancestor of the current process, whether check-wt.sh execs or spawns the hook. KUMIKO_CHECK_WT=1 is ignored, so it cannot skip check-wt.sh; wrappers that still set it need no change.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [641f268]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [5b72552]
+- Updated dependencies [768a67e]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [8628ea3]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [a50674e]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-framework@0.389.0
+
 ## 0.388.0
 
 ### Patch Changes

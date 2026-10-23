@@ -1,5 +1,106 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.389.0
+
+### Patch Changes
+
+- 8a6508a: The layout editor edits the scope of the screen it was opened from. Before, a SystemAdmin who clicked Edit on a system-origin layout row on the tenant screen silently edited and published the system layout for all tenants. The tenant overview now always opens the tenant editor, the platform overview opens the new `platform-layout-editor` screen (SystemAdmin only) for the system layout, the editor asks `layout-source` for `scope` tenant or system, and `layout-source` refuses `scope: "system"` for anyone but a SystemAdmin.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: layout editor scope follows the entry screen
+  detail: The tenant overview opens layout rows in the tenant editor even for a SystemAdmin, so a system-origin row there loads and saves the tenant layout through layout-source with scope tenant and upsert-tenant. The platform overview opens the new platform-layout-editor screen (PLATFORM_LAYOUT_EDITOR_SCREEN_ID) for the system layout. layout-source takes an optional scope and answers 403 to scope system for non-SystemAdmins. templateRowActions now takes { platform }.
+  -->
+- fe7a9b3: The mail editor drops a record pick when the declared variables of the template change. Before, a pick kept travelling with preview and test mail and, once a variable was removed and added again, brought its old value back. A pick for a variable that is not declared is still filtered out of the request.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: mail editor resets the record pick when variables change
+  detail: The picked record values are cleared as soon as the set of declared variables changes, so a removed or renamed variable no longer leaves a stale pick behind and a re-added variable does not revive an old value.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [77a25ac]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [1dc3182]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [8a6508a]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [9253635]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [f75a6dd]
+- Updated dependencies [5b72552]
+- Updated dependencies [bd1b61a]
+- Updated dependencies [5947ab0]
+- Updated dependencies [7d5f95c]
+- Updated dependencies [2dd1de3]
+- Updated dependencies [7336a78]
+- Updated dependencies [768a67e]
+- Updated dependencies [f0c2983]
+- Updated dependencies [c14ccd3]
+- Updated dependencies [ae805dd]
+- Updated dependencies [203085b]
+- Updated dependencies [6eb3960]
+- Updated dependencies [6bb9d66]
+- Updated dependencies [a407a3c]
+- Updated dependencies [9a72476]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [9253635]
+- Updated dependencies [e5fe5f2]
+- Updated dependencies [8628ea3]
+- Updated dependencies [bec6021]
+- Updated dependencies [ae66401]
+- Updated dependencies [bec6021]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [59028a5]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [bec6021]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [59028a5]
+- Updated dependencies [a50674e]
+- Updated dependencies [c37831d]
+- Updated dependencies [d6940f1]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-bundled-features@0.389.0
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-types@0.389.0
+  - @cosmicdrift/kumiko-renderer@0.389.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.389.0
+
 ## 0.388.0
 
 ### Patch Changes

@@ -1,5 +1,165 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.389.0
+
+### Patch Changes
+
+- ed98312: Settle and consume racing on a swept cap reservation book their units again, schema status and baseline use one connection, package lookups no longer auto-install from the registry, and fresh scaffolds build with `bun run build`.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: Settle and consume racing on a swept reservation book their units
+  detail: After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: schema status and baseline use one connection, bun-types is a peer dependency
+  detail: kumiko schema status and baseline open a pool of one connection instead of the default size, because Bun.SQL dials every pool connection on the first query. bun-types is now a peer dependency (^1.4.4) of framework, types, server-runtime and dev-server instead of a regular dependency, so install it next to the framework.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Package lookups no longer auto-install from the registry
+  detail: The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded docker-compose raises Postgres max_connections to 300
+  detail: Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Fresh scaffolds build with bun run build
+  detail: create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either.
+  -->
+- d1355e4: `kumiko handbuch build` now also refuses an `--out` that lies inside a source repo or equals one of the `--texts`, `--shots`, `--web-texts` or `--web-shots` directories.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: handbuch build no longer wipes its own inputs
+  detail: The out directory is deleted before the build, so it is now rejected when it sits inside the configured repo, a flow source repo or an input directory, not only when it contains one.
+  -->
+- d6940f1: `kumiko ops waitlist-migrate` now configures the PII key service from the environment like the app boot (`PLATFORM_KEK`, `SUBJECT_KEYS_DATABASE_URL`, `KUMIKO_BLIND_INDEX_KEY`). Before, it ran without one and wrote name, email and message of every imported entry as plaintext into the event log, out of reach of crypto-shredding. Without the key service it now aborts, unless `--allow-plaintext-pii <reason>` is passed for an app without subject encryption. Legacy offlot rows that hold ciphertext are decrypted with the same key service.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: waitlist-migrate encrypts imported personal data or aborts
+  detail: waitlist-migrate wires the PII KMS and blind-index key from the environment before importing. Without them it aborts with a clear message; --allow-plaintext-pii <reason> opts out for apps without subject encryption.
+  -->
+- 82aeb09: `resolveFrameworkVersion` returns the exact framework version without a caret, and `scaffoldApp` resolves it itself instead of falling back to `"*"`. Freshly scaffolded apps now pass the exact-pin check of `kumiko check managed`. `scaffoldApp` throws when the version cannot be resolved and none is passed.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Scaffolded apps get exact framework pins
+  detail: resolveFrameworkVersion no longer prefixes ^ and scaffoldApp no longer falls back to "*", so a new app is green in kumiko check managed. Without a resolvable version and without an explicit frameworkVersion, scaffoldApp throws.
+  -->
+- Updated dependencies [47ba075]
+- Updated dependencies [1b3a297]
+- Updated dependencies [ed98312]
+- Updated dependencies [c16fa0c]
+- Updated dependencies [ac00e8a]
+- Updated dependencies [7ca1a98]
+- Updated dependencies [95b16ff]
+- Updated dependencies [1b8c7ba]
+- Updated dependencies [7b3c3c0]
+- Updated dependencies [77a25ac]
+- Updated dependencies [d8f0b95]
+- Updated dependencies [e2211ac]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ed0b92b]
+- Updated dependencies [641f268]
+- Updated dependencies [ffbb25e]
+- Updated dependencies [ad0c891]
+- Updated dependencies [947470b]
+- Updated dependencies [1dc3182]
+- Updated dependencies [dd5fd28]
+- Updated dependencies [a50674e]
+- Updated dependencies [8a6508a]
+- Updated dependencies [53e2a0e]
+- Updated dependencies [9253635]
+- Updated dependencies [ab1ca17]
+- Updated dependencies [f75a6dd]
+- Updated dependencies [0fd0f44]
+- Updated dependencies [5b72552]
+- Updated dependencies [bd1b61a]
+- Updated dependencies [5947ab0]
+- Updated dependencies [7d5f95c]
+- Updated dependencies [2dd1de3]
+- Updated dependencies [4be1e55]
+- Updated dependencies [7336a78]
+- Updated dependencies [768a67e]
+- Updated dependencies [f0c2983]
+- Updated dependencies [ed57bf8]
+- Updated dependencies [c14ccd3]
+- Updated dependencies [ae805dd]
+- Updated dependencies [203085b]
+- Updated dependencies [6eb3960]
+- Updated dependencies [2c33bac]
+- Updated dependencies [6bb9d66]
+- Updated dependencies [e83bcf4]
+- Updated dependencies [a407a3c]
+- Updated dependencies [9a72476]
+- Updated dependencies [d8f9c73]
+- Updated dependencies [91fb415]
+- Updated dependencies [9253635]
+- Updated dependencies [e5fe5f2]
+- Updated dependencies [74d804f]
+- Updated dependencies [fbae766]
+- Updated dependencies [8628ea3]
+- Updated dependencies [7e1bd28]
+- Updated dependencies [bec6021]
+- Updated dependencies [ae66401]
+- Updated dependencies [bec6021]
+- Updated dependencies [9253635]
+- Updated dependencies [a50674e]
+- Updated dependencies [82aeb09]
+- Updated dependencies [59028a5]
+- Updated dependencies [5b707a6]
+- Updated dependencies [cee9e32]
+- Updated dependencies [aa83c70]
+- Updated dependencies [bec6021]
+- Updated dependencies [a50674e]
+- Updated dependencies [80399a2]
+- Updated dependencies [59028a5]
+- Updated dependencies [a50674e]
+- Updated dependencies [c37831d]
+- Updated dependencies [d6940f1]
+- Updated dependencies [4be1e55]
+- Updated dependencies [ff84ee4]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [2602c62]
+- Updated dependencies [8449190]
+- Updated dependencies [080c5e7]
+- Updated dependencies [76c95ae]
+  - @cosmicdrift/kumiko-bundled-features@0.389.0
+  - @cosmicdrift/kumiko-framework@0.389.0
+  - @cosmicdrift/kumiko-testing@0.389.0
+  - @cosmicdrift/kumiko-server-runtime@0.389.0
+  - @cosmicdrift/kumiko-guards@0.389.0
+  - @cosmicdrift/kumiko-dev-server@0.389.0
+  - @cosmicdrift/kumiko-renderer@0.389.0
+
 ## 0.388.0
 
 ### Patch Changes

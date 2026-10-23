@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Settle and consume racing on a swept reservation book their units",
+    "detail": "After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it."
+  },
+  {
+    "version": "0.389.0",
+    "type": "fix",
+    "title": "Settle after a sweep survives a lost counter race",
+    "detail": "The amount is booked first and the tombstone written afterwards, so a version conflict on the counter retries the whole settle instead of leaving a tombstone that turns the retry into a no-op and drops the usage from the cap."
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
     "title": "Consume on a released reservation extends its tombstone",
