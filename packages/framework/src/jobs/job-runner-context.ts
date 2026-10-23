@@ -27,6 +27,7 @@ import {
   attemptNumberOf,
   createJobLogger,
   handlerPayloadOf,
+  hasDeferBudgetLeft,
   isFinalAttempt,
   isJobTriggerEvent,
   jobSubjectKey,
@@ -366,6 +367,10 @@ function buildJobContext(
   const triggerEvent = isJobTriggerEvent(rawTriggerEvent) ? rawTriggerEvent : undefined;
   const jobContext: Omit<JobContext, "tz"> = {
     defer: createJobDefer(jobName, bullJob, token),
+    canDefer:
+      token !== undefined &&
+      bullJob.moveToDelayed !== undefined &&
+      hasDeferBudgetLeft(rawData, input.jobDef.maxDefers),
     ...scope.context,
     db: jobDb ?? missingDbProxy(jobName),
     appendEvent: createJobAppendEvent({

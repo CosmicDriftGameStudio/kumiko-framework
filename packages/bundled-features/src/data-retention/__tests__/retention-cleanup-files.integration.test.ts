@@ -569,6 +569,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
+      canDefer: false,
       files: filesCtx(),
       ...bridgeStub(),
     };

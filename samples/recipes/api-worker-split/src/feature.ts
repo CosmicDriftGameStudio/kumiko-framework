@@ -131,8 +131,9 @@ export function createApiWorkerSplitFeature() {
         }
         const { customerName } = processOrderPayloadSchema.parse(payload);
         // Busy is not a failure: ctx.defer re-runs the job later without burning a retry.
+        // Once the defer budget is used up (or the run is inline), try anyway and let a failure retry.
         const retryAfterMs = carrierRetryAfterMs();
-        if (retryAfterMs > 0) return context.defer(retryAfterMs);
+        if (retryAfterMs > 0 && context.canDefer) return context.defer(retryAfterMs);
         const result = await fulfillWrite({
           handlerQn: "orders:write:fulfillment:create",
           payload: {

@@ -384,6 +384,13 @@ export function priorDeferCountOf(data: Record<string, unknown>, key: string): n
   return typeof prior === "number" ? prior : 0;
 }
 
+export function hasDeferBudgetLeft(
+  data: Record<string, unknown>,
+  maxDefers: number | undefined,
+): boolean {
+  return priorDeferCountOf(data, HANDLER_DEFER_COUNT_KEY) < (maxDefers ?? DEFAULT_MAX_DEFERS);
+}
+
 export function handlerPayloadOf(data: Record<string, unknown>): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) {
