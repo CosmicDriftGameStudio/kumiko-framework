@@ -1014,7 +1014,7 @@ function buildTenantDb(
       createTenantDb({ db: runner, tenantId, mode, tracer, meter, signal, grants: scopedGrants }),
   });
   // Framework code reading through the raw runner (executor list/detail) must follow the db's own mode, not the ambient scope.
-  bindTenantDbRunner(tenantDb, mode === "system" ? systemScopedRunner(db) : db);
+  bindTenantDbRunner(tenantDb, db, mode, tenantId);
   if (grants?.writesDeniedReason !== undefined) {
     denyTenantDbWrites(tenantDb, grants.writesDeniedReason);
   }

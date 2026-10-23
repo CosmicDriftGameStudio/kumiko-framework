@@ -1,7 +1,12 @@
-import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import type { TenantDb, TenantDbMode } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { DbRunner } from "./connection.ts";
+import {
+  tenantDbRowLevelSecurityScope,
+  withRowLevelSecurityScope,
+} from "./row-level-security-scope.ts";
 
 const tenantDbRunners = new WeakMap<object, DbRunner>();
 
@@ -13,8 +18,16 @@ export function isDbRunner(value: unknown): value is DbRunner {
   return typeof propertyOf(value, "unsafe") === "function";
 }
 
-export function bindTenantDbRunner(tenantDb: TenantDb, runner: DbRunner): void {
-  tenantDbRunners.set(tenantDb, runner);
+export function bindTenantDbRunner(
+  tenantDb: TenantDb,
+  runner: DbRunner,
+  mode: TenantDbMode,
+  tenantId: TenantId,
+): void {
+  tenantDbRunners.set(
+    tenantDb,
+    withRowLevelSecurityScope(runner, tenantDbRowLevelSecurityScope(mode, tenantId)),
+  );
 }
 
 // WeakMap.get never reads a property off tenantDb — safe even when tenantDb is a
