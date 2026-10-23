@@ -349,6 +349,78 @@ describe("RenderEdit hideActions (host-driven action bar)", () => {
 
     expect(seen.at(-1)?.submitting).toBe(false);
   });
+
+  test("a validation-blocked customSubmit settles in one batch and never emits submitting: true", () => {
+    const customSubmit = mock(
+      (_snapshot: FormSnapshot<TestValues>): Promise<SubmitResult<unknown>> =>
+        Promise.resolve({ validationBlocked: false, isSuccess: true, data: { id: "42" } }),
+    );
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 1, isUrgent: false }}
+          schema={z.object({ title: z.string().min(1), count: z.number(), isUrgent: z.boolean() })}
+          customSubmit={customSubmit}
+          onChange={(state) => seen.push(state)}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    act(() => {
+      void controls?.submit();
+    });
+
+    expect(seen.some((state) => state.submitting)).toBe(false);
+    expect(customSubmit).not.toHaveBeenCalled();
+  });
+
+  test("a second submit while a customSubmit is in flight is ignored", async () => {
+    let resolveSubmit: (() => void) | undefined;
+    const customSubmit = mock(
+      (_snapshot: FormSnapshot<TestValues>): Promise<SubmitResult<unknown>> =>
+        new Promise((resolve) => {
+          resolveSubmit = () =>
+            resolve({ validationBlocked: false, isSuccess: true, data: { id: "42" } });
+        }),
+    );
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1, isUrgent: false }}
+          customSubmit={customSubmit}
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+
+    let firstSubmit: Promise<void> | undefined;
+    let secondSubmit: Promise<void> | undefined;
+    act(() => {
+      firstSubmit = controls?.submit();
+      secondSubmit = controls?.submit();
+    });
+
+    await act(async () => {
+      resolveSubmit?.();
+      await Promise.all([firstSubmit, secondSubmit]);
+    });
+
+    expect(customSubmit).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("RenderEdit fields filter", () => {

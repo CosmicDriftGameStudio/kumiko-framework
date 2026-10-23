@@ -463,6 +463,11 @@ describe("KumikoScreen", () => {
     const banner = await screen.findByTestId("render-edit-form-error");
     expect(banner.textContent).toContain("tasks.errors.blocked-by-a");
     expect(banner.textContent).toContain("tasks.errors.blocked-by-b");
+    expect(screen.getByTestId("render-edit-form-error-key").textContent).toBe(
+      "tasks.errors.blocked-by-a",
+    );
+    const extras = screen.getAllByTestId("render-edit-form-error-extra");
+    expect(extras.map((el) => el.textContent)).toEqual(["tasks.errors.blocked-by-b"]);
   });
 
   test("entityEdit update-mode: abgelehntes Delete ohne Feldfehler zeigt den Top-Level-Key", async () => {
