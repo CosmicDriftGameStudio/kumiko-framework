@@ -15,6 +15,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { executorManagedEntitySourceOf } from "@cosmicdrift/kumiko-framework/internal/testing";
 
 type ExecutorArgs = Parameters<typeof createEventStoreExecutor>;
 
@@ -72,6 +73,35 @@ function failedWrite(
   return new Error(
     `${verb} ${entityName} failed: ${error.code} ${JSON.stringify(error.details ?? {})}`,
   );
+}
+
+// Same arguments as seedRow, so a seed on an entity table switches over by rename. The row's
+// tenantId picks the acting tenant (and so the stream tenant); global entities act on the system tenant.
+export async function seedRowViaEventStore(
+  db: DbConnection,
+  table: EventStoreWriteTarget["table"],
+  values: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  const source = executorManagedEntitySourceOf(table);
+  if (!source) {
+    throw new Error(
+      "seedRowViaEventStore: table is not an event-sourced entity table (buildEntityTable or r.entity); use seedRow",
+    );
+  }
+  const { entity, entityName } = source;
+  const { tenantId, ...payload } = values;
+  if (payload["id"] !== undefined && typeof payload["id"] !== "string") {
+    throw new Error(
+      `seed ${entityName}: id must be a string, the event store would mint a new one`,
+    );
+  }
+  if (tenantId !== undefined && typeof tenantId !== "string") {
+    throw new Error(`seed ${entityName}: tenantId must be a string`);
+  }
+  const { user, tenantDb } = writeContext({ tenantId }, db);
+  const executor = createEventStoreExecutor(table, entity, { entityName });
+  const result = await executor.create(payload, user, tenantDb);
+  if (!result.isSuccess) throw failedWrite("seed", entityName, result.error);
 }
 
 export async function updateRowViaEventStore(

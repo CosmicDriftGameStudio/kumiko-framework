@@ -14,6 +14,10 @@ export { resetBlindIndexKeyForTests } from "../crypto/blind-index.ts";
 export { resetEventPiiCatalogForTests } from "../crypto/event-pii.ts";
 export { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption.ts";
 export { resetEntityFieldEncryptionCacheForTests } from "../db/entity-field-encryption.ts";
+export {
+  type ExecutorManagedEntitySource,
+  executorManagedEntitySourceOf,
+} from "../db/executor-managed-tables.ts";
 
 // Seeds and teardown write read-model rows without events; the capability is the sanctioned test seam.
 export function withExecutorManagedWritesForTests(db: TenantDb): ExecutorManagedTenantDb;
