@@ -16,7 +16,6 @@ import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -42,8 +41,8 @@ import { createSessionCallbacks, type SessionCallbacks } from "../session-callba
 import { sessionCallbacksFromLateBound } from "../testing.ts";
 import { makeSessionHelpers } from "./test-helpers.ts";
 
-// Proves the core DoD: a role change written directly to
-// tenantMembershipsTable takes effect on the very next request made with an
+// Proves the core DoD: a membership role change written through the
+// event-store executor takes effect on the very next request made with an
 // ALREADY-ISSUED, still-live token — no re-login, no JWT expiry needed.
 // Deliberately bypasses update-member-roles.write.ts (which force-revokes
 // the session on a role change) so the effect under test isn't masked by
@@ -122,16 +121,10 @@ describe("sessionChecker re-derives roles from the DB on every request", () => {
     });
     expect(before.status).toBe(403);
 
-    // 3. Elevate the role by writing DIRECTLY to tenantMembershipsTable —
-    //    explicitly NOT via update-member-roles.write.ts, whose
-    //    force-revoke-on-change would kill the very token this test needs
-    //    to keep using.
-    await updateRows(
-      stack.db,
-      tenantMembershipsTable,
-      { roles: JSON.stringify(["Admin"]) },
-      { userId, tenantId: TENANT_A },
-    );
+    // 3. Elevate the role through the event-store executor — explicitly NOT
+    //    via update-member-roles.write.ts, whose force-revoke-on-change would
+    //    kill the very token this test needs to keep using.
+    await h.setMembershipRolesWithoutRevoke(userId, ["Admin"]);
 
     // 4. Same, still-unrevoked, still-unexpired token — the next request
     //    re-derives roles from the DB and now passes the gate.
