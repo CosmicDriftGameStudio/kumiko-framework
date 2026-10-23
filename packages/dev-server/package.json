@@ -78,6 +78,7 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-feature-ast": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",

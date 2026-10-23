@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "generated": "2026-10-22",
-  "totalSuspect": 75,
+  "generated": "2026-10-23",
+  "totalSuspect": 74,
   "perFile": {
     "packages/bundled-features/src/billing-foundation/checkout-core.ts": {
       "SubscriptionProviderPlugin": 1
@@ -106,9 +106,6 @@
     },
     "packages/renderer/src/app/entity-edit-prefill.ts": {
       "PrefillFieldShape": 1
-    },
-    "packages/renderer/src/app/entity-list-screen.tsx": {
-      "{ type?: string; filterable?: boolean; options?: readonly st": 1
     },
     "packages/renderer/src/components/embedded-list-field.tsx": {
       "readonly EmbeddedRow[]": 1

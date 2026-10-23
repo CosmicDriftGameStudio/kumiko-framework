@@ -45,6 +45,12 @@
       "@cosmicdrift/kumiko-document-designer": [
         "./packages/document-designer/src"
       ],
+      "@cosmicdrift/kumiko-feature-ast": [
+        "./packages/feature-ast/src"
+      ],
+      "@cosmicdrift/kumiko-feature-ast/*": [
+        "./packages/feature-ast/src/*"
+      ],
       "@cosmicdrift/kumiko-document-designer/*": [
         "./packages/document-designer/src/*"
       ],
@@ -130,13 +136,13 @@
       "path": "./packages/document-designer"
     },
     {
+      "path": "./packages/feature-ast"
+    },
+    {
       "path": "./packages/renderer-mail-html"
     },
     {
       "path": "./packages/renderer-puppeteer-client"
-    },
-    {
-      "path": "./packages/document-designer"
     },
     {
       "path": "./apps/puppeteer-service"

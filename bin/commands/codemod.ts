@@ -28,7 +28,7 @@ export const codemodCommand = defineCommand({
     const targetDir = dirFlag ? resolvePath(dirFlag) : ctx.cwd;
 
     const { runCodemod } = await import(
-      "../../packages/framework/src/engine/codemod/index"
+      "@cosmicdrift/kumiko-feature-ast/codemod"
     );
 
     if (dryRun) ctx.out.log("\n  🔍 DRY RUN — no files will be modified\n");

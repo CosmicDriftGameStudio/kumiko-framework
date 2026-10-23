@@ -20,7 +20,7 @@ export const upgradeCommand = defineCommand({
     "",
     "--apply runs the codemod referenced by every pending breaking change's",
     "`codemod` field (oldest version first), against --dir (default: cwd).",
-    "Codemods ship inside the installed @cosmicdrift/kumiko-framework package",
+    "Codemods ship inside the installed @cosmicdrift/kumiko-feature-ast package",
     "(src/scripts/codemod/) — --apply works from a plain npm/bun install.",
     "Stops on the first failure; codemods that already ran stay recorded in a partial",
     ".kumiko/upgrade-state.json marker, and a re-run resumes at the failed one.",

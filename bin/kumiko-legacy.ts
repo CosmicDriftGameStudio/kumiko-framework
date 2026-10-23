@@ -1328,7 +1328,7 @@ const commands = {
       const targetDir = dirIdx >= 0 ? resolvePath(Bun.argv[dirIdx + 1]!) : process.cwd();
 
       const { runCodemod } = await import(
-        "../packages/framework/src/engine/codemod/index.ts"
+        "@cosmicdrift/kumiko-feature-ast/codemod"
       );
 
       console.log(dryRun ? "\n  🔍 DRY RUN — no files will be modified\n" : "");

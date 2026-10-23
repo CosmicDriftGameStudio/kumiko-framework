@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseSourceFile, VERSION_HEADER } from "@cosmicdrift/kumiko-framework/engine";
+import { parseSourceFile, VERSION_HEADER } from "@cosmicdrift/kumiko-feature-ast";
 import { Project } from "ts-morph";
 import { scaffoldFeature } from "../scaffold-feature.ts";
 

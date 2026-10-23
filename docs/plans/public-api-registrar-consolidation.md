@@ -30,7 +30,7 @@ Deprecation-Fenster.
 Jede verbleibende Registrar-Methoden-Zusammenlegung (Projektionen, hook/
 entityHook, screen/nav, eventMigration — Schritte 4-8) hat eine parallele
 Repräsentation im Designer-AST-Codegen-System (`kumiko-framework`:
-`packages/framework/src/engine/feature-ast/*` + `pattern-library/*`, Consumer:
+`packages/feature-ast/src/*` (früher `packages/framework/src/engine/feature-ast/*`) + `pattern-library/*`, Consumer:
 `kumiko-enterprise/packages/designer`). Jede Methode dort hat einen eigenen
 Pattern-Typ mit Extractor, Renderer und Formular-Schema für den visuellen
 Feature-Designer.
@@ -69,7 +69,7 @@ kumiko-framework, geparkt, nicht gemerged — kein PR):
 speichert nur den `apiName`, nicht das Provider-Feature. Der Renderer kann
 daraus `requires(provider, { apis })` nicht rekonstruieren, ohne den
 Pattern-Typ selbst umzubauen (Provider-Feld ergänzen, Extractor + Renderer +
-Formular-Schema in `pattern-library/opaque-schemas.ts` anpassen — plus
+Formular-Schema in `packages/feature-ast/src/pattern-library/opaque-schemas.ts` anpassen — plus
 möglicherweise die Designer-UI in kumiko-enterprise). Für den Gewinn (−1
 Methode, `usesApi` war ohnehin schon recht selbsterklärend) lohnt sich diese
 Restrukturierung allein nicht.

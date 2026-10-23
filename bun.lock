@@ -107,6 +107,7 @@
       },
       "dependencies": {
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-feature-ast": "workspace:*",
         "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
@@ -159,6 +160,7 @@
       },
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-feature-ast": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
@@ -192,6 +194,16 @@
         "@types/react": "^19.2.14",
       },
     },
+    "packages/feature-ast": {
+      "name": "@cosmicdrift/kumiko-feature-ast",
+      "version": "0.389.0",
+      "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-types": "workspace:*",
+        "ts-morph": "^28.0.0",
+        "zod": "^4.4.3",
+      },
+    },
     "packages/framework": {
       "name": "@cosmicdrift/kumiko-framework",
       "version": "0.389.0",
@@ -205,7 +217,6 @@
         "meilisearch": "^0.58.0",
         "pino": "^10.3.1",
         "temporal-polyfill": "^0.3.2",
-        "ts-morph": "^28.0.0",
         "uuid": "^14.0.0",
         "write-excel-file": "^4.1.1",
         "zod": "^4.4.3",
@@ -1405,6 +1416,8 @@
     "@cosmicdrift/kumiko-dev-server": ["@cosmicdrift/kumiko-dev-server@workspace:packages/dev-server"],
 
     "@cosmicdrift/kumiko-document-designer": ["@cosmicdrift/kumiko-document-designer@workspace:packages/document-designer"],
+
+    "@cosmicdrift/kumiko-feature-ast": ["@cosmicdrift/kumiko-feature-ast@workspace:packages/feature-ast"],
 
     "@cosmicdrift/kumiko-framework": ["@cosmicdrift/kumiko-framework@workspace:packages/framework"],
 

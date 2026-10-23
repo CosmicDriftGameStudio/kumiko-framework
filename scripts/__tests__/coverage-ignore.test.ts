@@ -44,7 +44,7 @@ describe("isIgnoredCoverageFile", () => {
   test.each([
     "bin/commands/add.ts",
     "scripts/check-app-tsc.ts",
-    "packages/framework/src/scripts/codemod/migrate-db-raw.ts",
+    "packages/feature-ast/src/scripts/codemod/migrate-db-raw.ts",
     "test-setup/env.preload.ts",
     "integration.guard.ts",
     "samples/apps/use-all-bundled/scripts/gen-sample-index.ts",

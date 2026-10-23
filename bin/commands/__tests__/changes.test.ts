@@ -250,7 +250,7 @@ describe("changes add validation and round-trips", () => {
   test("--codemod survives parse and fold", async () => {
     const cwd = tmp({
       ...frameworkFixture(),
-      "packages/framework/src/scripts/codemod/my-codemod.ts": "export {};\n",
+      "packages/feature-ast/src/scripts/codemod/my-codemod.ts": "export {};\n",
     });
 
     const added = await run(cwd, [
@@ -295,7 +295,7 @@ describe("changes add validation and round-trips", () => {
   test("--manual-after-codemod survives parse and fold, and needs --codemod", async () => {
     const cwd = tmp({
       ...frameworkFixture(),
-      "packages/framework/src/scripts/codemod/my-codemod.ts": "export {};\n",
+      "packages/feature-ast/src/scripts/codemod/my-codemod.ts": "export {};\n",
     });
     const baseArgs = ["add", "--breaking", "--title", "Rename the thing", "--migration", "Review", "--feature", "framework"];
 

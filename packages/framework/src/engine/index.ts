@@ -105,6 +105,7 @@ export {
   type RegisterEntityCrudOptions,
 } from "./entity-handlers.ts";
 export { declareEscapeHatch } from "./escape-hatch-declaration.ts";
+export { CODEMOD_PLACEHOLDER_REASON_MARKER } from "./escape-hatch-reason.ts";
 export { type CreateEventDefOptions, createEventDef } from "./event-def.ts";
 export type { EmitCtx } from "./event-helpers.ts";
 export { emitEvent, typedPayload } from "./event-helpers.ts";
@@ -189,50 +190,6 @@ export {
   createTimestampField,
   createTzField,
 } from "./factories.ts";
-// AST inspection + patching pipeline — used by the CLI scaffolder, the
-// Designer (C5), and the AI-Builder (L2). See feature-ast/index.ts
-// for the full surface area; we re-export the most-used types/functions
-// here so consumers can import everything from a single barrel.
-export type {
-  AddEntityArgs,
-  AddHookArgs,
-  AddRelationArgs,
-  AddWriteHandlerArgs,
-  FeaturePatcher,
-  FeaturePattern,
-  FeaturePatternKind,
-  FormFieldLabel,
-  FormFieldSpec,
-  FormInputType,
-  HandlerHeaderUpdate,
-  ParseError,
-  ParseResult,
-  PatternCategory,
-  PatternChange,
-  PatternChangeIssue,
-  PatternChangesParseResult,
-  PatternFormSchema,
-  PatternId,
-  RenderFeatureFileInput,
-  SourceLocation,
-} from "./feature-ast/index.ts";
-export {
-  addPattern,
-  applyChanges,
-  createFeaturePatcher,
-  getPatternSchema,
-  groupByCategory,
-  PATTERN_LIBRARY,
-  parseFeatureFile,
-  parsePatternChanges,
-  parseSourceFile,
-  removePattern,
-  renderFeatureFile,
-  renderPattern,
-  replacePattern,
-  updatePattern,
-  VERSION_HEADER,
-} from "./feature-ast/index.ts";
 export {
   type ChangelogEntry,
   type ChangelogType,

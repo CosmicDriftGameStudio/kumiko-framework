@@ -466,11 +466,11 @@ describe("upgrade command — enterprise package layout", () => {
   });
 });
 
-// Codemod scripts ship inside packages/framework/src/scripts/codemod — the
-// published @cosmicdrift/kumiko-framework package.
+// Codemod scripts ship inside packages/feature-ast/src/scripts/codemod — the
+// published @cosmicdrift/kumiko-feature-ast package.
 const REAL_REPO_ROOT = join(import.meta.dir, "../../../..");
-const REAL_FRAMEWORK_SRC = join(import.meta.dir, "..");
-const REAL_FRAMEWORK_PACKAGE_DIR = join(REAL_FRAMEWORK_SRC, "..");
+const REAL_CODEMOD_SRC = join(import.meta.dir, "../../../feature-ast/src");
+const REAL_CODEMOD_PACKAGE_DIR = join(REAL_CODEMOD_SRC, "..");
 const REAL_CODEMOD = "scripts/codemod/crypto-shredding-testing-move.ts";
 
 function breakingEntryWithCodemod(
@@ -506,7 +506,7 @@ function makeCodemodScriptsFixture(): string {
 describe("resolveCodemodScript", () => {
   test("resolves a real script under scripts/codemod/", () => {
     const resolved = resolveCodemodScript(REAL_REPO_ROOT, REAL_CODEMOD);
-    expect(resolved).toBe(join(REAL_FRAMEWORK_SRC, REAL_CODEMOD));
+    expect(resolved).toBe(join(REAL_CODEMOD_SRC, REAL_CODEMOD));
   });
 
   test("rejects an absolute path", () => {
@@ -561,9 +561,9 @@ describe("resolveCodemodScript", () => {
 
   test("findCodemodScriptsRoot resolves through a hoisted node_modules symlink", () => {
     const cwd = tmp({ "apps/web/package.json": "{}" });
-    const nmPkgDir = join(cwd, "node_modules/@cosmicdrift/kumiko-framework");
+    const nmPkgDir = join(cwd, "node_modules/@cosmicdrift/kumiko-feature-ast");
     mkdirSync(join(nmPkgDir, ".."), { recursive: true });
-    symlinkSync(REAL_FRAMEWORK_SRC.replace(/\/src$/, ""), nmPkgDir, "dir");
+    symlinkSync(REAL_CODEMOD_SRC.replace(/\/src$/, ""), nmPkgDir, "dir");
 
     const root = findCodemodScriptsRoot(join(cwd, "apps/web"));
     expect(root).toBe(join(nmPkgDir, "src"));
@@ -643,16 +643,16 @@ describe("upgrade command — --apply", () => {
     ]);
   });
 
-  test("--apply --dry-run runs a codemod from a node_modules-installed framework package", async () => {
+  test("--apply --dry-run runs a codemod from a node_modules-installed feature-ast package", async () => {
     const consumerRoot = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(
         "scripts/codemod/migrate-db-raw.ts",
       ),
       "app.ts": "export const x = 1;\n",
     });
-    const nmPkgDir = join(consumerRoot, "node_modules/@cosmicdrift/kumiko-framework");
+    const nmPkgDir = join(consumerRoot, "node_modules/@cosmicdrift/kumiko-feature-ast");
     mkdirSync(join(nmPkgDir, ".."), { recursive: true });
-    symlinkSync(REAL_FRAMEWORK_PACKAGE_DIR, nmPkgDir, "dir");
+    symlinkSync(REAL_CODEMOD_PACKAGE_DIR, nmPkgDir, "dir");
     const spy = makeSpyOutput();
 
     const exit = await runUpgradeCli(
@@ -729,7 +729,7 @@ describe("upgrade command — --apply", () => {
       ),
     });
     const failingRepoRoot = tmp({
-      "packages/framework/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
+      "packages/feature-ast/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
     });
     const spy = makeSpyOutput();
 
@@ -783,8 +783,8 @@ describe("upgrade command — --apply", () => {
       }),
     });
     const repoRootWithScripts = tmp({
-      "packages/framework/src/scripts/codemod/ok.ts": "process.exit(0);\n",
-      "packages/framework/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
+      "packages/feature-ast/src/scripts/codemod/ok.ts": "process.exit(0);\n",
+      "packages/feature-ast/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
     });
 
     const exit = await runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, {
@@ -821,8 +821,8 @@ describe("upgrade command — --apply", () => {
       ]),
     });
     const repoRootWithScripts = tmp({
-      "packages/framework/src/scripts/codemod/ok.ts": "process.exit(0);\n",
-      "packages/framework/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
+      "packages/feature-ast/src/scripts/codemod/ok.ts": "process.exit(0);\n",
+      "packages/feature-ast/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
     });
 
     const firstRun = makeSpyOutput();
@@ -883,7 +883,7 @@ describe("upgrade command — --apply", () => {
       ]),
     });
     const repoRootWithScripts = tmp({
-      "packages/framework/src/scripts/codemod/ok.ts": "process.exit(0);\n",
+      "packages/feature-ast/src/scripts/codemod/ok.ts": "process.exit(0);\n",
     });
 
     const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, makeSpyOutput().out, {
@@ -1226,7 +1226,7 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
     expect(changesJsonFiles.length).toBeGreaterThan(0);
 
     const publishedFileEntries = (
-      JSON.parse(readFileSync(join(REAL_FRAMEWORK_PACKAGE_DIR, "package.json"), "utf-8")) as {
+      JSON.parse(readFileSync(join(REAL_CODEMOD_PACKAGE_DIR, "package.json"), "utf-8")) as {
         readonly files: readonly string[];
       }
     ).files;
@@ -1255,7 +1255,7 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
         }
         // Resolving inside the git checkout proves nothing about the npm
         // tarball: the script must also sit under a package.json `files` entry.
-        const relToPackage = relative(REAL_FRAMEWORK_PACKAGE_DIR, resolved);
+        const relToPackage = relative(REAL_CODEMOD_PACKAGE_DIR, resolved);
         const shipped = publishedFileEntries.some(
           (entryPath) => relToPackage === entryPath || relToPackage.startsWith(`${entryPath}/`),
         );

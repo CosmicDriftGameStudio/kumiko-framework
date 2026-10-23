@@ -37,7 +37,7 @@ import {
   PATTERN_LIBRARY,
   type ParseError,
   parseFeatureFile,
-} from "@cosmicdrift/kumiko-framework/engine";
+} from "@cosmicdrift/kumiko-feature-ast";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 // =============================================================================

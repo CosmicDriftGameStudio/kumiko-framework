@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { setManualStatusInChangelog } from "../upgrade-changelog.ts";
+import { syncResolvedManualStatuses } from "../upgrade-changelog.ts";
 
 const CHANGELOG = [
   "# Changelog",
@@ -20,9 +20,9 @@ const CHANGELOG = [
   "",
 ].join("\n");
 
-describe("setManualStatusInChangelog", () => {
+describe("syncResolvedManualStatuses", () => {
   test("rewrites the matching id in every section and nothing else", () => {
-    const result = setManualStatusInChangelog(CHANGELOG, new Set(["id-a"]), "migrated");
+    const result = syncResolvedManualStatuses(CHANGELOG, [{ id: "id-a", resolution: "migrated" }]);
     expect(result).toContain("- [migrated] id-a · 0.2.0 · first\n");
     expect(result).toContain("- [migrated] id-a · 0.1.0 · first again\n");
     expect(result).toContain("- [open] id-b · 0.2.0 · second\n");
@@ -30,12 +30,26 @@ describe("setManualStatusInChangelog", () => {
   });
 
   test("records not-applicable", () => {
-    const result = setManualStatusInChangelog(CHANGELOG, new Set(["id-b"]), "not-applicable");
+    const result = syncResolvedManualStatuses(CHANGELOG, [
+      { id: "id-b", resolution: "not-applicable" },
+    ]);
     expect(result).toContain("- [not-applicable] id-b · 0.2.0 · second\n");
     expect(result).toContain("- [open] id-a · 0.2.0 · first\n");
   });
 
+  test("gives every id its own resolution", () => {
+    const result = syncResolvedManualStatuses(CHANGELOG, [
+      { id: "id-a", resolution: "migrated" },
+      { id: "id-b", resolution: "not-applicable" },
+    ]);
+    expect(result).toContain("- [migrated] id-a · 0.2.0 · first\n");
+    expect(result).toContain("- [not-applicable] id-b · 0.2.0 · second\n");
+    expect(result).toContain("- [migrated] id-a · 0.1.0 · first again\n");
+  });
+
   test("matches ids literally, not as a pattern", () => {
-    expect(setManualStatusInChangelog(CHANGELOG, new Set(["id-."]), "migrated")).toBe(CHANGELOG);
+    expect(syncResolvedManualStatuses(CHANGELOG, [{ id: "id-.", resolution: "migrated" }])).toBe(
+      CHANGELOG,
+    );
   });
 });

@@ -24,10 +24,7 @@
   ],
   "type": "module",
   "kumiko": {
-    "runtime": "runtime",
-    "bunOnlyExports": [
-      "./engine/codemod"
-    ]
+    "runtime": "runtime"
   },
   "exports": {
     "./compliance": {
@@ -59,10 +56,6 @@
     "./env/dry-run": {
       "types": "./src/env/dry-run.ts",
       "default": "./src/env/dry-run.ts"
-    },
-    "./engine/codemod": {
-      "types": "./src/engine/codemod/index.ts",
-      "default": "./src/engine/codemod/index.ts"
     },
     "./errors": {
       "types": "./src/errors/index.ts",
@@ -208,7 +201,6 @@
     "meilisearch": "^0.58.0",
     "pino": "^10.3.1",
     "temporal-polyfill": "^0.3.2",
-    "ts-morph": "^28.0.0",
     "uuid": "^14.0.0",
     "write-excel-file": "^4.1.1",
     "zod": "^4.4.3"
@@ -255,10 +247,6 @@
       "./env/dry-run": {
         "types": "./dist/env/dry-run.d.ts",
         "default": "./dist/env/dry-run.js"
-      },
-      "./engine/codemod": {
-        "types": "./dist/engine/codemod/index.d.ts",
-        "default": "./dist/engine/codemod/index.js"
       },
       "./errors": {
         "types": "./dist/errors/index.d.ts",
@@ -400,7 +388,6 @@
     "kumiko-es-tables.json",
     "presets",
     "src/changes.json",
-    "src/scripts/codemod",
     "README.md",
     "LICENSE",
     "AGENTS.md",

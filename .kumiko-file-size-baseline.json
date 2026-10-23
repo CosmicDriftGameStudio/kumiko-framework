@@ -4,7 +4,7 @@
   "total": 12647,
   "perFile": {
     "packages/framework/src/engine/boot-validator/entity-handler.ts": 1477,
-    "packages/framework/src/engine/feature-ast/pattern-change-schema.ts": 1295,
+    "packages/feature-ast/src/pattern-change-schema.ts": 1295,
     "packages/renderer/src/components/render-edit.tsx": 1877,
     "packages/renderer/src/components/render-field.tsx": 1332,
     "packages/renderer/src/primitives.tsx": 1855,

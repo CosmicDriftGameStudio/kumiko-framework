@@ -87,7 +87,7 @@ export const guard: AstGuard = {
   scan: SCAN,
   hint:
     "Relative imports name the source file: `./foo.js` -> `./foo.ts`, `./Comp.jsx` -> `./Comp.tsx`. " +
-    "Run the import-extensions codemod: `bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/import-extensions.ts . --write`. " +
+    "Run the import-extensions codemod: `bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/import-extensions.ts . --write`. " +
     "The tsconfig needs `allowImportingTsExtensions` (and `rewriteRelativeImportExtensions` when tsc emits).",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];

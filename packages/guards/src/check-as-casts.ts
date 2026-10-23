@@ -329,7 +329,7 @@ const FILE_DEFAULT_REASONS: ReadonlyArray<{
   {
     // Feature-AST extractors cast erased ts-morph parse results to typed feature definitions
     // (EntityDefinition, RelationDef, NavDef, ConfigKeys, …), so every cast is a schema walk.
-    pattern: /\/engine\/feature-ast\//,
+    pattern: /(^|\/)packages\/feature-ast\/src\/(?!scripts\/|codemod\/|pattern-library\/)/,
     boundaryReason: "schema-walk",
   },
 ];
@@ -362,7 +362,7 @@ export function collect(sf: SourceFile): Site[] {
     if (isBridgeOuter(cast)) continue;
     const category = categorize(cast);
     // TypingLossMarker casts (e.g. `as DbRow`) and FileDefault casts
-    // (e.g. feature-ast/extractors.ts → "schema-walk") are boundaries by type
+    // (e.g. feature-ast/src/extractors/*.ts → "schema-walk") are boundaries by type
     // definition / convention — synthetic reason so the unknown-reason check
     // does not fail on them.
     const reason =
