@@ -52,10 +52,11 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsFeature } from "../feature.ts";
 import { exportDownloadTokenEntity } from "../schema/download-token.ts";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
+import { UserDataRightsJobs } from "../web/constants.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000009a1";
 const USER_ID = "00000000-0000-4000-8000-0000000009b1";
-const JOB_QN = "user-data-rights:job:run-export-jobs";
+const JOB_QN = UserDataRightsJobs.runExportJobs;
 
 // App-wide override like money-horse's cashColtConfigResolver: provider=inmemory
 // without a per-tenant config row. The job context carries this resolver, not

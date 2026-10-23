@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { access, type RowAction, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createRegistry,
+  type RowAction,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { computeEditViewModel } from "@cosmicdrift/kumiko-renderer/headless";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
@@ -12,6 +17,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
+import { UserDataRightsJobs, UserDataRightsScreens } from "../web/constants.ts";
 
 // Read-only GDPR inspector screens live IN user-data-rights (the boot-validator
 // forbids cross-feature screen ownership). The validator checks screen structure
@@ -42,6 +48,12 @@ describe("user-data-rights read-only inspector screens", () => {
 
   test("the assembled feature set boot-validates", () => {
     expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("the job and screen QN constants resolve in the registry", () => {
+    const registry = createRegistry(features);
+    expect(registry.getJob(UserDataRightsJobs.runExportJobs)).toBeDefined();
+    expect(registry.getScreen(UserDataRightsScreens.exportJobList)).toBeDefined();
   });
 
   test("ships SystemAdmin-gated list + detail screens", () => {

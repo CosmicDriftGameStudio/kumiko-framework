@@ -25,6 +25,7 @@
 //   3. todoDeleteHook DELETEt alle Rows mit author_id = userId
 //   4. user wird anonymisiert (display_name="(deleted)", email=null)
 
+import { UserDataRightsScreens } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import {
   deleteMany,
   deriveEntityTableMeta,
@@ -182,7 +183,7 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     id: "gdpr-export-jobs",
     label: "GDPR · Export Jobs",
     icon: "shield",
-    screen: "user-data-rights:screen:export-job-list",
+    screen: UserDataRightsScreens.exportJobList,
     access: { roles: ["SystemAdmin"] },
     order: 90,
   });
