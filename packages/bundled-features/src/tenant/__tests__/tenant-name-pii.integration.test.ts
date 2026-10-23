@@ -13,14 +13,10 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { backfillEventPiiEncryption, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  resetPiiSubjectKmsForTests,
-  resetTestTables,
-  updateRows,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -38,6 +34,7 @@ import { createTenantFeature } from "../feature.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenantMembership } from "../seeding.ts";
+import { updateTenantViaEventStore } from "../testing-event-store.ts";
 import { TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 const systemAdmin = TestUsers.systemAdmin;
@@ -195,11 +192,11 @@ describe("tenant.name backfill", () => {
 
   test("a tenant destroyed before the backfill is erased, not encrypted under a fresh key", async () => {
     const tenantId = await createTenant("pii-destroyed", "Destroyed Legacy GmbH");
-    await updateRows(
+    await updateTenantViaEventStore(
       stack.db,
-      tenantTable,
+      tenantId as TenantId,
       { status: "destroyed", destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z") },
-      { id: tenantId },
+      systemAdmin.tenantId,
     );
 
     configurePiiSubjectKms(new InMemoryKmsAdapter());

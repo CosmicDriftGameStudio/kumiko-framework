@@ -17,7 +17,7 @@ import {
   expectSuccess,
   rolesOf,
   seedRow,
-  updateRows,
+  updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -246,11 +246,16 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
       { email: "allowlist@example.com", role: "Editor" },
       tenantAdminA(),
     );
-    await updateRows(
+    await updateRowViaEventStore(
       stack.db,
-      tenantInvitationsTable,
-      { globalRoles: ["SystemAdmin"] },
+      {
+        table: tenantInvitationsTable,
+        entity: tenantInvitationEntity,
+        entityName: "tenant-invitation",
+      },
       { email: "allowlist@example.com" },
+      { globalRoles: ["SystemAdmin"] },
+      { tenantId: TENANT_A_ID },
     );
 
     const [asTenantAdmin] = await stack.http.queryOk<readonly Record<string, unknown>[]>(

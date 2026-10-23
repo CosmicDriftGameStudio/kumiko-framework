@@ -12,11 +12,10 @@ import {
   waitlistImportId,
 } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import { isPiiCiphertext } from "@cosmicdrift/kumiko-framework/crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  deleteRows,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   seedRow,
@@ -93,7 +92,7 @@ describe("kumiko ops waitlist-migrate PII handling (real DB)", () => {
   afterEach(async () => {
     resetPiiSubjectKmsForTests();
     resetBlindIndexKeyForTests();
-    await deleteRows(testDb.db, legacyTable, {});
+    await deleteMany(testDb.db, legacyTable, {});
   });
 
   afterAll(async () => {

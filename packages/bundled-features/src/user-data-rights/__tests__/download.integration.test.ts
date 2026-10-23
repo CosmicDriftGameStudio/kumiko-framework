@@ -23,7 +23,6 @@ import {
   createTestEnvelopeCipher,
   resetTestTables,
   seedRow,
-  updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -51,6 +50,7 @@ import { createUserDataRightsFeature } from "../feature.ts";
 import { runExportJobs } from "../run-export-jobs.ts";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.ts";
 import { exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
+import { changeExportJob, changeExportTokenOfJob } from "./export-job-writes.ts";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;
@@ -188,30 +188,6 @@ function buildProvider(tenantId: string): Promise<FileStorageProvider> {
  * Creates a completed job and token through the real worker path.
  * Returns {jobId, plainToken} for use in tests.
  */
-function changeJob(jobId: string, changes: Record<string, unknown>): Promise<void> {
-  return updateRowViaEventStore(
-    stack.db,
-    { table: exportJobsTable, entity: exportJobEntity, entityName: "export-job" },
-    { id: jobId },
-    changes,
-    { tenantId: tenantA },
-  );
-}
-
-function changeTokenOfJob(jobId: string, changes: Record<string, unknown>): Promise<void> {
-  return updateRowViaEventStore(
-    stack.db,
-    {
-      table: exportDownloadTokensTable,
-      entity: exportDownloadTokenEntity,
-      entityName: "export-download-token",
-    },
-    { jobId },
-    changes,
-    { tenantId: tenantA },
-  );
-}
-
 async function seedDoneJobWithToken(): Promise<{ jobId: string; plainToken: string }> {
   // 1. seed pending Job via real handler
   const requestRes = await stack.http.writeOk<{ jobId: string }>(
@@ -318,7 +294,7 @@ describe("download-by-token :: error paths", () => {
     const longAgo = getTemporal().Instant.fromEpochMilliseconds(
       Date.now() - 365 * 24 * 60 * 60 * 1000,
     );
-    await changeTokenOfJob(jobId, { expiresAt: longAgo });
+    await changeExportTokenOfJob(stack.db, jobId, { expiresAt: longAgo }, tenantA);
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -332,7 +308,7 @@ describe("download-by-token :: error paths", () => {
 
   test("failed Job → 404 download.unavailable", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    await changeJob(jobId, { status: "failed" });
+    await changeExportJob(stack.db, jobId, { status: "failed" }, tenantA);
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -346,7 +322,7 @@ describe("download-by-token :: error paths", () => {
 
   test("storage cleared → 404 download.expired", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
-    await changeJob(jobId, { downloadStorageKey: null });
+    await changeExportJob(stack.db, jobId, { downloadStorageKey: null }, tenantA);
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-token",
@@ -420,7 +396,7 @@ describe("download-by-job :: happy path", () => {
     // The job handler must match the token handler: return 404 + unavailable,
     // not 500.
     const { jobId } = await seedDoneJobWithToken();
-    await changeJob(jobId, { status: "failed" });
+    await changeExportJob(stack.db, jobId, { status: "failed" }, tenantA);
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",
@@ -434,7 +410,7 @@ describe("download-by-job :: happy path", () => {
 
   test("storage cleared (downloadStorageKey null) → 404 download.expired (job-Pfad)", async () => {
     const { jobId } = await seedDoneJobWithToken();
-    await changeJob(jobId, { downloadStorageKey: null });
+    await changeExportJob(stack.db, jobId, { downloadStorageKey: null }, tenantA);
 
     const res = await stack.http.query(
       "user-data-rights:query:download-by-job",

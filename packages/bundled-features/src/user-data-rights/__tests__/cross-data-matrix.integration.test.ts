@@ -15,8 +15,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-
-import { asRawClient, defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, defineUnmanagedTable, deleteMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   EXT_USER_DATA,
@@ -26,7 +25,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { deleteRows, resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -94,7 +93,7 @@ const exportNotes: UserDataExportHook = async (ctx) => {
 };
 
 const deleteNotes: UserDataDeleteHook = async (ctx, _strategy) => {
-  await deleteRows(ctx.db, testNotesTable, {
+  await deleteMany(ctx.db, testNotesTable, {
     tenantId: ctx.tenantId,
     authorId: ctx.userId,
   });
