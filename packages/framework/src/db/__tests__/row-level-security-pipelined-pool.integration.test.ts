@@ -3,6 +3,9 @@
 // statement reuse the same connection, so a leaked scope or open transaction shows up.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "../../engine/types/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
@@ -38,7 +41,18 @@ const SELECT_LABELS = `SELECT label FROM "store_rls_pipelined_items" ORDER BY la
 const SESSION_STATE = `SELECT coalesce(current_setting('kumiko.tenant_id', true), '') AS tenant,
   coalesce(current_setting('kumiko.scope', true), '') AS scope,
   now() <> statement_timestamp() AS in_open_transaction`;
+const SCOPE_STATE = `SELECT current_setting('kumiko.tenant_id', true) AS tenant, coalesce(current_setting('kumiko.scope', true), '') AS scope`;
 const labelOf = (tenantId: string) => `seed-${tenantId}`;
+
+type StateRow = { tenant: string; scope: string };
+type PoolCallStyles = {
+  (strings: TemplateStringsArray): Promise<StateRow[]>;
+  file: (path: string) => Promise<StateRow[]>;
+};
+
+function hasCallStyles(value: unknown): value is PoolCallStyles {
+  return typeof value === "function" && typeof Reflect.get(value, "file") === "function";
+}
 
 let singleDb: TestDb;
 let pairDb: TestDb;
@@ -137,4 +151,34 @@ describe("pipelined pool statements", () => {
     });
     await Promise.all(reads);
   });
+
+  // set_config is transaction-local, so seeing the tenant proves the statement shared the transaction.
+  test.each(["tagged template", "unsafe", "unsafe with params", "file"] as const)(
+    "%s runs inside the scoped transaction",
+    async (style) => {
+      const dir = await mkdtemp(join(tmpdir(), "rls-pipelined-"));
+      const path = join(dir, "state.sql");
+      await writeFile(path, SCOPE_STATE);
+      try {
+        const pool = singleDb.db;
+        if (!hasCallStyles(pool)) throw new Error("expected a callable pool with file()");
+        const sql = asRawClient(pool);
+        const rows = await asTenant(tenantA, async () => {
+          switch (style) {
+            case "tagged template":
+              return pool`SELECT current_setting('kumiko.tenant_id', true) AS tenant, coalesce(current_setting('kumiko.scope', true), '') AS scope`;
+            case "unsafe":
+              return sql.unsafe(SCOPE_STATE);
+            case "unsafe with params":
+              return sql.unsafe(`${SCOPE_STATE} WHERE $1::int = 1`, [1]);
+            case "file":
+              return pool.file(path);
+          }
+        });
+        expect([...rows]).toEqual([{ tenant: tenantA, scope: "" }]);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });

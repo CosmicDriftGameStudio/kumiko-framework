@@ -229,6 +229,16 @@ export function enforceRowLevelSecurity<T extends object>(pool: T): T {
       if (prop === "unsafe" || prop === "file") {
         return (...args: unknown[]) => {
           if (activeRowLevelSecurityScope() === undefined) return callMethod(target, prop, args);
+          if (prop === "file") {
+            // Bun sends file() only after its async file read, i.e. after the pipelined COMMIT.
+            const scope = activeRowLevelSecurityScope();
+            return callMethod(target, "begin", [
+              async (tx: object) => {
+                await applyRowLevelSecurityScope(tx, scope);
+                return callMethod(tx, "file", args);
+              },
+            ]);
+          }
           return inScopedTransaction((conn) => callMethod(conn, prop, args));
         };
       }

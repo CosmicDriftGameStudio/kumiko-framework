@@ -25,7 +25,7 @@ feature: framework
 type: breaking
 title: Boot hooks with a db dependency get a system-scoped db at rowLevelSecurity "on"
 migration: |
-  No action unless a hook relied on the unscoped pool. The anonymousAccess factory, enrichAnonymousAccess, the runProdApp `wire` hook and runWorkerApp `wireComponents` now receive a system-scoped db, the same in prod, dev and the test stack, so tenant resolution and boot reads see rows across tenants. Anything the anonymousAccess factory builds keeps that db at request time and therefore reads across tenants for anonymous callers: filter by the resolved tenant yourself. extraContext factories keep the ambient request scope.
+  No action unless a hook relied on the unscoped pool. The anonymousAccess factory, enrichAnonymousAccess, the runProdApp `wire` hook and runWorkerApp `wireComponents` now receive a system-scoped db, the same in prod, dev and the test stack, so tenant resolution and boot reads see rows across tenants. Anything the anonymousAccess factory builds keeps that db at request time and therefore reads across tenants for anonymous callers: filter by the resolved tenant yourself. In prod, extraContext factories keep the ambient request scope; the test stack and dev still hand them a system-scoped db, so a service that needs cross-tenant reads at request time must scope itself.
 -->
 
 <!-- kumiko-changes
