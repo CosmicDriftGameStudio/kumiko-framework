@@ -9,7 +9,6 @@ import {
 } from "../db/queries/projection-rebuild.ts";
 import {
   assertLiveColumnsMatchMeta,
-  assertLiveTableHasNoRowLevelSecurity,
   assertNoBlindIndexLoss,
   assertNoUnreachableLiveRows,
   buildShadowTable,
@@ -311,7 +310,6 @@ async function replayProjectionIntoShadow(
     await db.begin(async (tx: DbTx) => {
       await markProjectionRebuilding(tx, projectionName);
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
-      await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, projectionName);
       await buildShadowTable(tx, meta);
       deps.__test_onBuildShadowTable?.();
 

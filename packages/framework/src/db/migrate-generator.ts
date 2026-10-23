@@ -19,8 +19,20 @@ import { errorCodeOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guard
 
 import { compareByCodepoint } from "../utils/index.ts";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
+import {
+  diffRowLevelSecurity,
+  type RowLevelSecurityChange,
+  renderRowLevelSecurityChanges,
+} from "./migrate-rls-diff.ts";
 import { renderIndex, renderTableDdl } from "./render-ddl.ts";
+import {
+  isTableRowLevelSecurityRecord,
+  type RowLevelSecurityMode,
+  rowLevelSecurityByTable,
+  type TableRowLevelSecurity,
+} from "./render-rls-ddl.ts";
 import { findRetiredTableDrops, type RetiredFrameworkTable } from "./retired-framework-tables.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 
 const SNAPSHOT_VERSION = 1 as const;
 
@@ -29,6 +41,8 @@ export type Snapshot = {
   // ISO-8601. Optional because hand-written and older snapshots omit it; nothing reads it.
   readonly generatedAt?: string;
   readonly tables: readonly EntityTableMeta[];
+  // Only written with rowLevelSecurity "on"; absent means the app does not use RLS.
+  readonly rowLevelSecurity?: Readonly<Record<string, TableRowLevelSecurity>>;
 };
 
 function isSnapshot(value: unknown): value is Snapshot {
@@ -36,7 +50,9 @@ function isSnapshot(value: unknown): value is Snapshot {
     isPlainObject(value) &&
     value["version"] === SNAPSHOT_VERSION &&
     (value["generatedAt"] === undefined || typeof value["generatedAt"] === "string") &&
-    Array.isArray(value["tables"])
+    Array.isArray(value["tables"]) &&
+    (value["rowLevelSecurity"] === undefined ||
+      isTableRowLevelSecurityRecord(value["rowLevelSecurity"]))
   );
 }
 
@@ -78,7 +94,10 @@ export type SchemaDiff = {
   readonly changedTables: readonly TableDiff[];
 };
 
-export function snapshotFromMetas(metas: readonly EntityTableMeta[]): Snapshot {
+export function snapshotFromMetas(
+  metas: readonly EntityTableMeta[],
+  options: { readonly rowLevelSecurity?: RowLevelSecurityMode } = {},
+): Snapshot {
   // Stable ordering by tableName so the snapshot.json diff in PRs is
   // meaningful (table-add isn't a noisy re-sort of everything). Codepoint, not
   // localeCompare: the snapshot is serialized to byte-exact JSON and the table
@@ -89,6 +108,9 @@ export function snapshotFromMetas(metas: readonly EntityTableMeta[]): Snapshot {
     version: SNAPSHOT_VERSION,
     generatedAt: new Date().toISOString(),
     tables: sorted,
+    ...(options.rowLevelSecurity === "on" && {
+      rowLevelSecurity: rowLevelSecurityByTable(sorted),
+    }),
   };
 }
 
@@ -332,11 +354,25 @@ export function managedChangeRequiresRecreate(td: TableDiff): boolean {
   return describeRecreateReasons(td).length > 0;
 }
 
-// --- SQL-Render ---------------------------------------------------------
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
+export function isRecreatedManagedTable(td: TableDiff): boolean {
+  return td.nextMeta.source === "managed" && managedChangeRequiresRecreate(td);
 }
+
+export function hasNoSchemaChanges(input: {
+  readonly diff: SchemaDiff;
+  readonly retiredDrops: readonly RetiredFrameworkTable[];
+  readonly rowLevelSecurityChanges: readonly RowLevelSecurityChange[];
+}): boolean {
+  return (
+    input.diff.newTables.length === 0 &&
+    input.diff.changedTables.length === 0 &&
+    input.diff.droppedTables.length === 0 &&
+    input.retiredDrops.length === 0 &&
+    input.rowLevelSecurityChanges.length === 0
+  );
+}
+
+// --- SQL-Render ---------------------------------------------------------
 
 function renderColumnInline(col: ColumnMeta): string {
   const parts: string[] = [quoteIdent(col.name), col.pgType];
@@ -447,6 +483,7 @@ export function renderMigrationSql(
     readonly name: string;
     readonly sequenceNumber: number;
     readonly retiredDrops?: readonly RetiredFrameworkTable[];
+    readonly rowLevelSecurityChanges?: readonly RowLevelSecurityChange[];
   },
 ): string {
   const retiredDrops = options.retiredDrops ?? [];
@@ -474,7 +511,7 @@ export function renderMigrationSql(
     lines.push("-- === Changed tables ===");
     for (const td of diff.changedTables) {
       lines.push(`-- ${td.tableName}`);
-      if (td.nextMeta.source === "managed" && managedChangeRequiresRecreate(td)) {
+      if (isRecreatedManagedTable(td)) {
         lines.push("-- managed projection — recreated + rebuilt from events (see .rebuild.json)");
         lines.push(
           `-- WARN: destructive change (${describeRecreateReasons(td).join("; ")}) forces DROP+CREATE + full event replay.`,
@@ -529,6 +566,8 @@ export function renderMigrationSql(
     }
   }
 
+  lines.push(...renderRowLevelSecurityChanges(options.rowLevelSecurityChanges));
+
   if (diff.droppedTables.length > 0) {
     lines.push("-- === Dropped tables ===");
     for (const name of diff.droppedTables) {
@@ -551,10 +590,11 @@ export function renderMigrationSql(
   }
 
   if (
-    diff.newTables.length === 0 &&
-    diff.changedTables.length === 0 &&
-    diff.droppedTables.length === 0 &&
-    retiredDrops.length === 0
+    hasNoSchemaChanges({
+      diff,
+      retiredDrops,
+      rowLevelSecurityChanges: options.rowLevelSecurityChanges ?? [],
+    })
   ) {
     lines.push("-- No schema changes detected.");
   }
@@ -572,6 +612,7 @@ export type GenerateMigrationInput = {
   /** Raw SQL of all earlier migrations, in order — lets the generator decide
    *  whether a retired framework table still needs its executable drop. */
   readonly priorMigrationsSql?: readonly string[];
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
 export type GenerateMigrationOutput = {
@@ -580,6 +621,7 @@ export type GenerateMigrationOutput = {
   readonly snapshot: Snapshot;
   readonly diff: SchemaDiff;
   readonly retiredDrops: readonly RetiredFrameworkTable[];
+  readonly rowLevelSecurityChanges: readonly RowLevelSecurityChange[];
 };
 
 // Shared allowlist for migration names — used by the CLI and by
@@ -614,13 +656,22 @@ export function assertUniqueTableNames(metas: readonly EntityTableMeta[]): void 
 export function generateMigration(input: GenerateMigrationInput): GenerateMigrationOutput {
   assertValidMigrationName(input.name);
   assertUniqueTableNames(input.metas);
-  const nextSnapshot = snapshotFromMetas(input.metas);
+  const nextSnapshot = snapshotFromMetas(input.metas, { rowLevelSecurity: input.rowLevelSecurity });
   const diff = diffSnapshots(input.prevSnapshot, nextSnapshot);
+  const recreatedTables = new Set(
+    diff.changedTables.filter(isRecreatedManagedTable).map((td) => td.tableName),
+  );
+  const rowLevelSecurityChanges = diffRowLevelSecurity(
+    input.prevSnapshot,
+    nextSnapshot,
+    recreatedTables,
+  );
   const retiredDrops = findRetiredTableDrops(input.priorMigrationsSql ?? [], nextSnapshot);
   const sqlContent = renderMigrationSql(diff, {
     name: input.name,
     sequenceNumber: input.sequenceNumber,
     retiredDrops,
+    rowLevelSecurityChanges,
   });
   const seq = input.sequenceNumber.toString().padStart(4, "0");
   return {
@@ -629,5 +680,6 @@ export function generateMigration(input: GenerateMigrationInput): GenerateMigrat
     snapshot: nextSnapshot,
     diff,
     retiredDrops,
+    rowLevelSecurityChanges,
   };
 }

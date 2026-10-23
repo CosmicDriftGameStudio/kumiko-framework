@@ -17,6 +17,7 @@
 // Boundary: the shadow table is rebuilt from EntityTableMeta, so any index NOT
 // expressed in meta (hand-added in a migration) is not reconstructed, and a
 // partial index whose WHERE the renderer can't express is rejected up-front.
+// RLS flags and policies are copied from the live catalog at swap time.
 
 import { isUuid, parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { ProjectionRowIdOf } from "@cosmicdrift/kumiko-types/projection";
@@ -28,6 +29,7 @@ import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
+import { readRowLevelSecurityState, restoreRowLevelSecurityState } from "./rls-catalog.ts";
 import { quoteTableIdent } from "./table-ops.ts";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
@@ -106,40 +108,6 @@ export async function assertLiveColumnsMatchMeta(
     `projection-rebuild "${projectionName}": columns of live table "${meta.tableName}" do not match this process's EntityTableMeta (${detail}). ` +
       "Rebuilding would swap away the difference. Likely cause: this pod runs a build whose registry is behind (or ahead of) the applied migrations — rolling deploy in progress? — or DDL was applied by hand. " +
       "Rebuild aborted; retry from a pod whose code matches the migrated schema.",
-  );
-}
-
-// EntityTableMeta carries no RLS/policies, so the swap would silently drop them.
-export async function assertLiveTableHasNoRowLevelSecurity(
-  tx: AnyDb,
-  tableName: string,
-  projectionName?: string,
-): Promise<void> {
-  const rows = await asRawClient(tx).unsafe<{
-    rls_enabled: boolean;
-    rls_forced: boolean;
-    policy_count: number;
-  }>(
-    `SELECT c.relrowsecurity AS rls_enabled, c.relforcerowsecurity AS rls_forced,
-       (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid) AS policy_count
-     FROM pg_class c
-     JOIN pg_namespace n ON n.oid = c.relnamespace
-     WHERE n.nspname = 'public' AND c.relname = $1`,
-    [tableName],
-  );
-  const row = rows[0];
-  // skip: no live table yet — nothing to have RLS on
-  if (!row) return;
-  // skip: no RLS flags and no policies — nothing the swap could drop
-  if (!row.rls_enabled && !row.rls_forced && row.policy_count === 0) return;
-  const context =
-    projectionName !== undefined ? `projection-rebuild "${projectionName}"` : "shadow swap";
-  throw new Error(
-    `${context}: live table "${tableName}" has row level security (enabled: ${row.rls_enabled}, ` +
-      `forced: ${row.rls_forced}, policies: ${row.policy_count}). The shadow swap rebuilds the table ` +
-      "from EntityTableMeta and would silently drop RLS and every policy. Kumiko does not support RLS " +
-      "on rebuildable tables: drop the RLS flags/policies on this table or exclude it from online " +
-      "rebuild. Rebuild aborted; live table untouched.",
   );
 }
 
@@ -510,11 +478,14 @@ export async function countColumnDrift(
 export async function swapShadowIntoLive(tx: AnyDb, tableName: string): Promise<void> {
   const raw = asRawClient(tx);
   const ident = quoteTableIdent(tableName);
-  // Held before the re-check so a concurrent ENABLE ROW LEVEL SECURITY either commits first
-  // (and is seen) or waits behind the DROP. Without it the catalog read takes no lock, and
-  // the unfenced paths (MSP rebuild, projection with no subscribed events) would drop RLS.
+  // Held before the catalog read so a concurrent ENABLE ROW LEVEL SECURITY / CREATE POLICY either
+  // commits first (and is carried over) or waits behind the DROP.
   await raw.unsafe(`LOCK TABLE public.${ident} IN ACCESS EXCLUSIVE MODE`);
-  await assertLiveTableHasNoRowLevelSecurity(tx, tableName);
+  const live = await readRowLevelSecurityState(tx, "public", tableName);
+  if (live === undefined) {
+    throw new Error(`shadow swap: live table public.${tableName} does not exist`);
+  }
   await raw.unsafe(`DROP TABLE public.${ident}`);
   await raw.unsafe(`ALTER TABLE ${SCHEMA_IDENT}.${ident} SET SCHEMA public`);
+  await restoreRowLevelSecurityState(tx, tableName, live);
 }

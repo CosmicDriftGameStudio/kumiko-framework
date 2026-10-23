@@ -8,6 +8,7 @@ import {
   writeRebuildMarker,
   writeSnapshotJson,
 } from "../db/index.ts";
+import { hasNoSchemaChanges } from "../db/migrate-generator.ts";
 import {
   describeThrown,
   loadPreviousSnapshot,
@@ -58,15 +59,6 @@ function parseGenerateName(ctx: SchemaCliContext): GenerateNameResult {
 
 type GeneratedMigration = ReturnType<typeof generateMigration>;
 
-function isEmptyMigration(result: GeneratedMigration): boolean {
-  return (
-    result.diff.newTables.length === 0 &&
-    result.diff.changedTables.length === 0 &&
-    result.diff.droppedTables.length === 0 &&
-    result.retiredDrops.length === 0
-  );
-}
-
 function writeMigrationFiles(
   migrationsDir: string,
   snapshotPath: string,
@@ -85,7 +77,7 @@ function reportGeneratedMigration(
   out.log("");
   out.log(`  ✓ ${result.filename}`);
   out.log(
-    `    new tables: ${result.diff.newTables.length}, changed: ${result.diff.changedTables.length}, dropped: ${result.diff.droppedTables.length}, retired framework tables dropped: ${result.retiredDrops.length}`,
+    `    new tables: ${result.diff.newTables.length}, changed: ${result.diff.changedTables.length}, dropped: ${result.diff.droppedTables.length}, retired framework tables dropped: ${result.retiredDrops.length}, row level security changes: ${result.rowLevelSecurityChanges.length}`,
   );
   if (rebuildTables.length > 0) {
     out.log(
@@ -113,7 +105,7 @@ export async function runGenerateCommand(ctx: SchemaCliContext): Promise<number>
     priorMigrationsSql: readMigrationSqlTexts(migrationsDir),
   });
 
-  if (isEmptyMigration(result)) {
+  if (hasNoSchemaChanges(result)) {
     out.log("  No schema changes detected — no new migration file written.");
     return 0;
   }

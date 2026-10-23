@@ -11,6 +11,12 @@
 
 import type { Snapshot } from "./migrate-generator.ts";
 import { loadMigrationsFromDir } from "./migrate-runner.ts";
+import {
+  applyRowLevelSecurityStatement,
+  type MutableReplayedRowLevelSecurity,
+  type ReplayedRowLevelSecurity,
+  rowLevelSecurityDrift,
+} from "./replay-rls.ts";
 
 // Migration files comment out destructive ops (DROP TABLE/COLUMN) as
 // `-- DESTRUCTIVE: <stmt>;  -- uncomment + ensure backup` so the real
@@ -34,9 +40,14 @@ export type ReplayedTable = {
   // CREATE TABLE ... AS SELECT * from a source the replay can't resolve: the column set is
   // unknown, so only the table's presence is compared.
   readonly columnsUnknown?: boolean;
+  readonly rowLevelSecurity?: ReplayedRowLevelSecurity;
 };
 
-type MutableReplayedTable = { columns: Set<string>; columnsUnknown?: boolean };
+type MutableReplayedTable = {
+  columns: Set<string>;
+  columnsUnknown?: boolean;
+  rowLevelSecurity?: MutableReplayedRowLevelSecurity;
+};
 
 export type ReplayedSchema = ReadonlyMap<string, ReplayedTable>;
 
@@ -316,6 +327,7 @@ export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
   for (const migration of migrations) {
     for (const statement of migration.statements) {
       applyStatement(schema, statement, { file: migration.id });
+      applyRowLevelSecurityStatement(schema, statement, { file: migration.id });
     }
   }
   return schema;
@@ -323,9 +335,26 @@ export function replayMigrationsDir(migrationsDir: string): ReplayedSchema {
 
 export type ReplayMismatch = {
   readonly tableName: string;
-  readonly kind: "missing-table" | "unexpected-table" | "column-drift";
+  readonly kind: "missing-table" | "unexpected-table" | "column-drift" | "row-level-security-drift";
   readonly detail: string;
 };
+
+function rowLevelSecurityMismatches(
+  replayed: ReplayedSchema,
+  snapshot: Snapshot,
+): readonly ReplayMismatch[] {
+  const mismatches: ReplayMismatch[] = [];
+  for (const [tableName, expected] of Object.entries(snapshot.rowLevelSecurity ?? {})) {
+    const table = replayed.get(tableName);
+    // skip: a missing table is already reported as missing-table
+    if (!table) continue;
+    const detail = rowLevelSecurityDrift(table.rowLevelSecurity, expected);
+    if (detail !== undefined) {
+      mismatches.push({ tableName, kind: "row-level-security-drift", detail });
+    }
+  }
+  return mismatches;
+}
 
 // Compares what the migration files actually produce (`replayed`) against
 // what `.snapshot.json` claims (`snapshot`) — the check that would have
@@ -362,6 +391,8 @@ export function diffReplayAgainstSnapshot(
       });
     }
   }
+
+  mismatches.push(...rowLevelSecurityMismatches(replayed, snapshot));
 
   for (const tableName of replayed.keys()) {
     if (!snapshotTableNames.has(tableName)) {

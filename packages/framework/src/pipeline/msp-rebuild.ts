@@ -9,7 +9,6 @@ import {
 } from "../db/queries/event-consumer.ts";
 import {
   assertLiveColumnsMatchMeta,
-  assertLiveTableHasNoRowLevelSecurity,
   buildShadowTable,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
@@ -194,7 +193,6 @@ async function replayMultiStreamProjectionIntoShadow(
       const { horizon, gaps: seededGaps } = await selectEventIdHorizonWithMissingRanges(tx);
 
       await assertLiveColumnsMatchMeta(tx, meta, mspName);
-      await assertLiveTableHasNoRowLevelSecurity(tx, meta.tableName, mspName);
       await buildShadowTable(tx, meta);
 
       const subscribedTypes = Object.keys(msp.apply);
