@@ -58,12 +58,9 @@ function usePdfDocument(slug: string, requestedLocale: string | undefined, scope
     { id: row?.id ?? "" },
     { enabled: row !== undefined },
   );
-  const detail =
-    detailQuery.data !== null &&
-    detailQuery.data?.slug === slug &&
-    detailQuery.data.locale === locale
-      ? detailQuery.data
-      : null;
+  // useQuery keeps the previous key's data while the next one loads, so a scope or locale
+  // switch would otherwise hand the old row to save and publish.
+  const detail = row !== undefined && detailQuery.data?.id === row.id ? detailQuery.data : null;
 
   const [state, setState] = useState<EditorState | null>(null);
   if (detail !== null && (state === null || state.key !== detail.id)) {

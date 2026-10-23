@@ -31,6 +31,8 @@ type FakeOptions = {
   readonly missingRequired?: readonly string[];
   readonly singleOverride?: boolean;
   readonly puppeteer: "available" | "unavailable" | "unknown-query";
+  readonly tenantOverride?: boolean;
+  readonly holdDetail?: { readonly id: string; readonly until: Promise<void> };
 };
 
 const SLUG = "invoice";
@@ -60,6 +62,21 @@ function detailRow(locale: string) {
     linkedResources: null,
     meta: JSON.stringify({ layoutSlug: "default" }),
     parentTemplateId: null,
+  };
+}
+
+const TENANT_ROW_ID = "tenant-de";
+
+function tenantOverrideRow() {
+  return { ...listRow("de"), id: TENANT_ROW_ID, tenantId: "t-4", scope: "tenant" };
+}
+
+function tenantOverrideDetail() {
+  return {
+    ...detailRow("de"),
+    ...tenantOverrideRow(),
+    content: "<p>Tenant copy</p>",
+    parentTemplateId: "row-de",
   };
 }
 
@@ -96,11 +113,20 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
         const kind = Reflect.get(Object(payload), "kind");
         return {
           isSuccess: true,
-          data: kind === "pdf-layout" ? [] : [listRow("de"), listRow("en")],
+          data:
+            kind === "pdf-layout"
+              ? []
+              : [
+                  listRow("de"),
+                  listRow("en"),
+                  ...(options.tenantOverride === true ? [tenantOverrideRow()] : []),
+                ],
         };
       }
       case TemplateResolverQueries.findById: {
         const id = String(Reflect.get(Object(payload), "id"));
+        if (id === TENANT_ROW_ID) return { isSuccess: true, data: tenantOverrideDetail() };
+        if (options.holdDetail?.id === id) await options.holdDetail.until;
         return { isSuccess: true, data: detailRow(id.replace("row-", "")) };
       }
       case TemplateResolverQueries.validate:
@@ -176,13 +202,13 @@ function renderEditor(
   roles: readonly string[] = ["TenantAdmin"],
 ) {
   const fake = createFakeDispatcher(options);
-  render(
+  const tree = (currentRoles: readonly string[]) => (
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}
       fallbackBundles={[translations]}
     >
       <DispatcherProvider dispatcher={fake.dispatcher}>
-        <UserRolesProvider roles={roles}>
+        <UserRolesProvider roles={currentRoles}>
           <PrimitivesProvider value={defaultPrimitives}>
             <PdfTemplateEditor
               slug={SLUG}
@@ -192,9 +218,10 @@ function renderEditor(
           </PrimitivesProvider>
         </UserRolesProvider>
       </DispatcherProvider>
-    </LocaleProvider>,
+    </LocaleProvider>
   );
-  return fake;
+  const { rerender } = render(tree(roles));
+  return { ...fake, switchRoles: (next: readonly string[]) => rerender(tree(next)) };
 }
 
 async function ready(): Promise<void> {
@@ -290,6 +317,30 @@ describe("PdfTemplateEditor", () => {
     await waitFor(() => expect(screen.queryByText("Unsaved changes")).toBeNull());
     expect((document.getElementById("dd-file-name") as HTMLInputElement).value).toBe("keep-me.pdf");
     expect(switched).toEqual([]);
+  });
+
+  test("after a switch to system scope the tenant detail is not acted on while the system row loads", async () => {
+    let releaseSystemDetail = () => {};
+    const until = new Promise<void>((resolve) => {
+      releaseSystemDetail = resolve;
+    });
+    const editor = renderEditor({
+      puppeteer: "available",
+      tenantOverride: true,
+      holdDetail: { id: "row-de", until },
+    });
+    await ready();
+
+    editor.switchRoles(["SystemAdmin"]);
+    await waitFor(() => expect(screen.queryByTestId("pdf-template-editor")).toBeNull());
+    expect(editor.writes).toEqual([]);
+
+    releaseSystemDetail();
+    await ready();
+    fireEvent.click(buttonsNamed("Publish")[0] as HTMLButtonElement);
+    await waitFor(() => expect(editor.writes.length).toBe(1));
+    expect(editor.writes.map((call) => call.type)).toEqual([TemplateResolverHandlers.upsertSystem]);
+    expect(Reflect.get(Object(editor.writes[0]?.payload), "content")).toBe("<p>Hello</p>");
   });
 
   test("a SystemAdmin opens the tenant customisation drawer with the breakdown", async () => {
