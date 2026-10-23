@@ -744,6 +744,81 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     await waitFor(() => expect(submitted).toEqual(["sess-1"]));
   });
 
+  test.each([
+    ["its errorKey", "sessions.errors.notes-failed", "sessions.errors.notes-failed"],
+    [
+      "the generic save-failed key when none is given",
+      undefined,
+      "A custom field could not be saved.",
+    ],
+  ])(
+    "a failing extension submit shows the banner with %s",
+    async (_label, errorKey, expectedText) => {
+      function RegisteringNotes({ entityId }: { entityId: string | null }): ReactNode {
+        const [dirty, setDirty] = useState(false);
+        useExtensionFormSubmit({
+          dirty,
+          onSubmit: async (ctx) => {
+            void ctx;
+            return { isSuccess: false, ...(errorKey !== undefined && { errorKey }) };
+          },
+        });
+        return (
+          <button type="button" data-testid="notes-touch" onClick={() => setDirty(true)}>
+            {entityId}
+          </button>
+        );
+      }
+      const extensionOnlyScreen: ProjectionDetailScreenDefinition = {
+        ...detailScreen,
+        layout: {
+          sections: [
+            {
+              kind: "extension",
+              title: "Notes",
+              component: { react: { __component: "RegisteringNotes" } },
+              entityName: "user-session",
+            },
+          ],
+        },
+      };
+      const extensionOnlySchema: FeatureSchema = {
+        featureName: "sessions",
+        entities: {},
+        screens: [extensionOnlyScreen],
+      };
+      const dispatcher: Dispatcher = createMockDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+        })) as unknown as Dispatcher["query"],
+      });
+
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <ExtensionSectionsProvider value={{ RegisteringNotes }}>
+            <KumikoScreen
+              schema={extensionOnlySchema}
+              qn="sessions:screen:session-detail"
+              entityId="sess-1"
+            />
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>,
+      );
+
+      await waitFor(() => screen.getByTestId("notes-touch"));
+      const submit = await waitFor(() => screen.getByTestId("render-edit-submit"));
+      expect((submit as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(screen.getByTestId("notes-touch"));
+      await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+      await act(async () => {
+        fireEvent.submit(screen.getByTestId("render-edit-form"));
+      });
+      const banner = await waitFor(() => screen.getByTestId("render-edit-extension-error-key"));
+      expect(banner.textContent).toBe(expectedText);
+    },
+  );
+
   test("a fieldless secretMint form (not a projectionDetail) keeps its submit button enabled", async () => {
     const fieldlessMint: SecretMintScreenDefinition = {
       id: "mint-token",
