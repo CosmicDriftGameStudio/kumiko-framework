@@ -258,6 +258,7 @@ describe("api-worker-split", () => {
   test("API-only: write lands, but the worker-applied read side stays empty", async () => {
     const prefix = uniquePrefix();
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -289,12 +290,14 @@ describe("api-worker-split", () => {
   test("worker joins: consumes the job, applies the projection, writes the result back", async () => {
     const prefix = uniquePrefix();
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       jobs: { redisUrl: redisUrl(), queueNamePrefix: prefix },
     });
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
@@ -336,12 +339,14 @@ describe("api-worker-split", () => {
   test("a busy carrier defers the job without failing it, then the fulfillment lands", async () => {
     const prefix = uniquePrefix();
     const api = createApiEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       jobs: { redisUrl: redisUrl(), queueNamePrefix: prefix },
     });
     const worker = createWorkerEntrypoint({
+      rowLevelSecurity: "off",
       registry: createRegistry([createApiWorkerSplitFeature()]),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
