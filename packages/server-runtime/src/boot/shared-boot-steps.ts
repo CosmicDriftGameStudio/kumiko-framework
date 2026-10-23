@@ -23,6 +23,7 @@ import {
   serverTimeoutOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  type BundledListsOptions,
   collectWriteHandlerQns,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
@@ -59,11 +60,13 @@ export function composeAppFeatures(
   appFeatures: readonly FeatureDefinition[],
   bootFeatures: readonly FeatureDefinition[],
   effectiveAuth: AuthOptionsCarrier | undefined,
+  bundledLists?: BundledListsOptions,
 ): readonly FeatureDefinition[] {
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   return composeFeatures([...appFeatures, ...bootFeatures], {
     includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
+    ...(bundledLists && { bundledLists }),
   });
 }
 

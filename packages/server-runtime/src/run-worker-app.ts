@@ -19,6 +19,7 @@ import type { ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  BundledListsOptions,
   FeatureDefinition,
   Registry,
   ValidateBootOptions,
@@ -95,6 +96,8 @@ export type RunWorkerAppOptions = {
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
+  /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. Must match the API process. */
+  readonly bundledLists?: BundledListsOptions;
   /** Mount the auto-mixed config/user/tenant/auth-email-password features —
    *  MUST match the API process's `includeBundled` value, otherwise API
    *  and worker run with a diverging registry topology. Also controls

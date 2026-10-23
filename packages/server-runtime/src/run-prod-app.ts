@@ -58,7 +58,11 @@ import type {
   SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { FeatureDefinition, ValidateBootOptions } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  BundledListsOptions,
+  FeatureDefinition,
+  ValidateBootOptions,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { AllInOneEntrypoint, ApiEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
 import type { ComposedEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
@@ -399,6 +403,8 @@ export type RunProdAppOptions = {
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
+  /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
+  readonly bundledLists?: BundledListsOptions;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
   /** Ceiling Bun.serve buffers a request body to before any app-level

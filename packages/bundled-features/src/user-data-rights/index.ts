@@ -33,6 +33,7 @@ export {
 } from "./schema/export-job.ts";
 export {
   TENANT_MODEL_CONFIG_KEY,
+  USER_DATA_RIGHTS_FEATURE,
   UserDataRightsHandlers,
   UserDataRightsQueries,
 } from "./web/constants.ts";

@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  type BundledListsOptions,
   type FeatureDefinition,
   findTierResolverUsage,
   type Registry,
@@ -163,6 +164,8 @@ export type RunDevAppOptions = {
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
+  /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
+  readonly bundledLists?: BundledListsOptions;
   /** Browser entry module, bundled to /client.js. Mutually exclusive with
    *  `clientEntries`. */
   readonly clientEntry?: string;

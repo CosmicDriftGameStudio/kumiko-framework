@@ -10,6 +10,7 @@ import {
 } from "../page-render/index.ts";
 import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.ts";
 import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding.ts";
+import { MANAGED_PAGES_FEATURE } from "./constants.ts";
 import { createBrandingQuery } from "./handlers/branding.query.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query.ts";
@@ -153,7 +154,7 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
   const defaultLang = opts.defaultLang ?? "en";
   const allowCustomCss = opts.allowCustomCss ?? false;
 
-  return defineFeature("managed-pages", (r) => {
+  return defineFeature(MANAGED_PAGES_FEATURE, (r) => {
     r.describe(
       "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
     );

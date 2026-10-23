@@ -2,7 +2,7 @@
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
 import type { ValidateBootOptions } from "../engine/boot-validator.ts";
-import type { FeatureDefinition } from "../engine/types/index.ts";
+import type { BundledListsOptions, FeatureDefinition } from "../engine/types/index.ts";
 
 export type AppInfraPorts = {
   readonly postgres?: number;
@@ -46,6 +46,8 @@ export type AppConfig = {
   readonly ports: AppPorts;
   /** Passed to validateBoot by `kumiko check` and, via the app's bin files, by the runners. */
   readonly validateBootOptions?: AppValidateBootOptions;
+  /** One table block for every list of the bundled features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
+  readonly bundledLists?: BundledListsOptions;
 };
 
 export const APP_CONFIG_FILE = "kumiko.config.ts";
