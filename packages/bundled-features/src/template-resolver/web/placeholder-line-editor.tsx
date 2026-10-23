@@ -8,7 +8,7 @@ import { Extension, Node } from "@tiptap/core";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { createVariableView } from "./document-editor-extensions.ts";
 import { DocumentVariable } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
@@ -166,9 +166,7 @@ export default function PlaceholderLineEditor({
 
   const bodyKey = `${epoch}-${readOnly}-${JSON.stringify(stableLabels)}-${stableSystem.join("\n")}`;
   const liveBodyKey = useRef(bodyKey);
-  useEffect(() => {
-    liveBodyKey.current = bodyKey;
-  });
+  liveBodyKey.current = bodyKey;
 
   // TipTap destroys a replaced editor in a deferred timer that can fire after the successor's
   // create; its late null must not delete the successor's handle.
