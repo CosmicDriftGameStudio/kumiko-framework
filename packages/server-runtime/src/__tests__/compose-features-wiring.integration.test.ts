@@ -49,10 +49,11 @@ import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenan
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -268,8 +269,7 @@ describe("composeFeatures wiring — passwordReset", () => {
   });
 
   beforeEach(async () => {
-    await deleteRows(suite.stack.db, userTable, {});
-    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
+    await resetTestTables(suite.stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     suite.emailTransport.sent.length = 0;
   });
 
@@ -336,8 +336,7 @@ describe("composeFeatures wiring — emailVerification", () => {
   });
 
   beforeEach(async () => {
-    await deleteRows(suite.stack.db, userTable, {});
-    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
+    await resetTestTables(suite.stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     suite.emailTransport.sent.length = 0;
   });
 
@@ -376,8 +375,7 @@ describe("composeFeatures wiring — asymmetric activation", () => {
   });
 
   beforeEach(async () => {
-    await deleteRows(suite.stack.db, userTable, {});
-    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
+    await resetTestTables(suite.stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     suite.emailTransport.sent.length = 0;
   });
 
@@ -442,8 +440,7 @@ describe("composeFeatures wiring — accountLockout (kumiko-framework#1627)", ()
   });
 
   afterEach(async () => {
-    await deleteRows(stack.db, userTable, {});
-    await deleteRows(stack.db, tenantMembershipsTable, {});
+    await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     await stack.redis.flushNamespace();
   });
 
@@ -493,8 +490,7 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
   });
 
   afterEach(async () => {
-    await deleteRows(suite.stack.db, userTable, {});
-    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
+    await resetTestTables(suite.stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     suite.emailTransport.sent.length = 0;
   });
 
@@ -542,8 +538,7 @@ describe("composeFeatures wiring — auth.mail convenience locale + secret", () 
   });
 
   beforeEach(async () => {
-    await deleteRows(suite.stack.db, userTable, {});
-    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
+    await resetTestTables(suite.stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     suite.emailTransport.sent.length = 0;
   });
 
