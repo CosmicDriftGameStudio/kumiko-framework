@@ -24,6 +24,7 @@ export type TestStackPreset = "config" | "template-resolver";
 export type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features"> & {
   readonly includeBundled?: boolean;
   readonly authOptions?: ComposeFeaturesOptions["authOptions"];
+  readonly bundledLists?: ComposeFeaturesOptions["bundledLists"];
   readonly presets?: readonly TestStackPreset[];
 };
 
@@ -72,8 +73,18 @@ export async function setupTestStackFromFeatures(
   appFeatures: readonly FeatureDefinition[],
   options: SetupTestStackFromFeaturesOptions = {},
 ): Promise<TestStack> {
-  const { includeBundled = false, authOptions, presets = [], ...stackOptions } = options;
-  const features = composeFeatures(appFeatures, { includeBundled, authOptions });
+  const {
+    includeBundled = false,
+    authOptions,
+    bundledLists,
+    presets = [],
+    ...stackOptions
+  } = options;
+  const features = composeFeatures(appFeatures, {
+    includeBundled,
+    authOptions,
+    ...(bundledLists && { bundledLists }),
+  });
   const extraContext = mergeExtraContext(stackOptions.extraContext, presets);
 
   // Same run-logger wiring as prod, so jobs that declare tenantVisibleFailure

@@ -350,6 +350,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/relations";
 export type {
   ActionFormScreenDefinition,
+  BundledListsOptions,
   ConfigEditScreenDefinition,
   CustomScreenDefinition,
   CustomScreenRoute,
@@ -410,6 +411,7 @@ export type {
   ListPaginationMode,
   ListSortDir,
   ListSortSpec,
+  ListTableOptions,
   MetricNavigate,
   MetricSpec,
   PlatformComponent,

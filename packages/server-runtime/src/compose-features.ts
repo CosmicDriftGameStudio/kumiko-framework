@@ -14,17 +14,10 @@
 // ones (e.g. authClaims hooks on user/tenant).
 
 import {
-  type AccountLockoutOptions,
-  type AccountUnlockOptions,
   AUTH_SELF_REGISTRATION_FEATURE,
   type AuthEmailPasswordOptions,
-  type AuthMailLocale,
   createAuthEmailPasswordFeature,
   createAuthSelfRegistrationToggleFeature,
-  type EmailVerificationOptions,
-  type InviteOptions,
-  type PasswordResetOptions,
-  type SignupOptions,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   AUTH_MFA_FEATURE,
@@ -43,9 +36,16 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { TENANT_LIFECYCLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
-import { dedupeFeatures, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type BundledListsOptions,
+  dedupeFeatures,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { FILES_FEATURE } from "@cosmicdrift/kumiko-framework/files";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { applyBundledListsTable } from "./bundled-lists-table.ts";
+
+export { type AuthOptionsCarrier, buildComposeAuthOptions } from "./compose-auth-options.ts";
 
 export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password
@@ -59,6 +59,8 @@ export type ComposeFeaturesOptions = {
    *  auth-routes.ts but no handler dispatches). Goes hand-in-hand with the
    *  passwordReset block in RunProdAppAuthOptions / RunDevAppAuthOptions. */
   readonly authOptions?: AuthEmailPasswordOptions;
+  /** One table block for every list screen and relatedList of the bundled features; screen-own keys win. */
+  readonly bundledLists?: BundledListsOptions;
 };
 
 export function composeFeatures(
@@ -71,7 +73,8 @@ export function composeFeatures(
   // own createAuthEmailPasswordFeature(...) call, or login silently
   // bypasses MFA. Upgrade if this trips someone: warn here when appFeatures
   // contains AUTH_MFA_FEATURE but includeBundled is false.
-  if (!options.includeBundled) return dedupeFeatures(appFeatures);
+  if (!options.includeBundled)
+    return applyBundledListsTable(dedupeFeatures(appFeatures), options.bundledLists);
 
   // Bundled foundation goes first so its instances carry the runDevApp /
   // runProdApp `authOptions` (passwordReset wiring etc.). App-features that
@@ -134,12 +137,15 @@ export function composeFeatures(
     names.has(FILES_FEATURE) &&
     names.has(TENANT_LIFECYCLE_FEATURE) &&
     !names.has(FILES_TENANT_DATA_FEATURE);
-  return [
-    ...bundled,
-    ...missingAuthMailStack(names),
-    ...filteredApp,
-    ...(needsFilesTenantData ? [createFilesTenantDataFeature()] : []),
-  ];
+  return applyBundledListsTable(
+    [
+      ...bundled,
+      ...missingAuthMailStack(names),
+      ...filteredApp,
+      ...(needsFilesTenantData ? [createFilesTenantDataFeature()] : []),
+    ],
+    options.bundledLists,
+  );
 }
 
 // auth-email-password declares its mails as stored templates, and the boot seed
@@ -152,91 +158,4 @@ function missingAuthMailStack(mountedNames: ReadonlySet<string>): FeatureDefinit
     createRendererFoundationFeature(),
     createRendererMailHtmlFeature(),
   ].filter((feature) => !mountedNames.has(feature.name));
-}
-
-/** Shape of any run{Prod,Dev}App auth block that can carry a
- *  passwordReset/emailVerification config, once resolveAuthMail has resolved
- *  the wrapper's optional hmacSecret into the feature API's required one —
- *  a structural-typed lookup on the auth-only subset is enough. Lets
- *  buildComposeAuthOptions be called with both RunProd- and
- *  RunDev-AuthOptions without building the helper twice. */
-export type AuthOptionsCarrier = {
-  readonly passwordReset?: PasswordResetOptions;
-  readonly emailVerification?: EmailVerificationOptions;
-  readonly signup?: SignupOptions;
-  readonly invite?: InviteOptions;
-  readonly accountUnlock?: AccountUnlockOptions;
-  readonly accountLockout?: AccountLockoutOptions;
-};
-
-/** Builds the authOptions block for composeFeatures from a wrapper auth
- *  block. Passes through ONLY the feature-side fields (hmacSecret,
- *  tokenTtlMinutes, mode) — the mail side (sendResetEmail/appResetUrl)
- *  belongs in the auth-routes config and is wired separately by the
- *  wrapper.
- *
- *  Returns undefined when neither passwordReset nor emailVerification is
- *  set (composeFeatures default-deny: NO handler registered in the
- *  registry, /api/auth/request-password-reset etc. stay 401/404). */
-// All five magic-link flows (reset/verify/signup/invite/unlock) accept the
-// same appUrl shape — a plain string, or a `(locale) => string` function for
-// apps with language-in-path routing (see SignupRequestOptions.appUrl).
-type MailFlowFields = {
-  readonly appUrl: string | ((locale: string) => string);
-  readonly tokenTtlMinutes?: number;
-  readonly appName?: string;
-  readonly locale?: AuthMailLocale;
-};
-
-// The magic-link mail fields shared by all five flows. Conditional spreads omit
-// undefined keys (exactOptionalPropertyTypes) and avoid the property-write that
-// trips noPropertyAccessFromIndexSignature on the type-aliased option shapes.
-// reset/verify layer hmacSecret (+ mode) on top.
-function pickMailFields(src: MailFlowFields): MailFlowFields {
-  return {
-    appUrl: src.appUrl,
-    ...(src.tokenTtlMinutes !== undefined && { tokenTtlMinutes: src.tokenTtlMinutes }),
-    ...(src.appName !== undefined && { appName: src.appName }),
-    ...(src.locale !== undefined && { locale: src.locale }),
-  };
-}
-
-export function buildComposeAuthOptions(
-  auth: AuthOptionsCarrier | undefined,
-): AuthEmailPasswordOptions | undefined {
-  if (!auth) return undefined;
-  const opts: { -readonly [K in keyof AuthEmailPasswordOptions]: AuthEmailPasswordOptions[K] } = {};
-  if (auth.passwordReset) {
-    opts.passwordReset = {
-      hmacSecret: auth.passwordReset.hmacSecret,
-      ...pickMailFields(auth.passwordReset),
-    };
-  }
-  if (auth.emailVerification) {
-    opts.emailVerification = {
-      hmacSecret: auth.emailVerification.hmacSecret,
-      ...pickMailFields(auth.emailVerification),
-      ...(auth.emailVerification.mode !== undefined && { mode: auth.emailVerification.mode }),
-    };
-  }
-  if (auth.signup) {
-    opts.signup = pickMailFields(auth.signup);
-  }
-  if (auth.invite) {
-    opts.invite = pickMailFields(auth.invite);
-  }
-  if (auth.accountUnlock) {
-    opts.accountUnlock = {
-      hmacSecret: auth.accountUnlock.hmacSecret,
-      ...pickMailFields(auth.accountUnlock),
-    };
-  }
-  if (auth.accountLockout) {
-    opts.accountLockout = auth.accountLockout;
-  }
-  return hasAnyAuthFlow(opts) ? opts : undefined;
-}
-
-function hasAnyAuthFlow(opts: AuthEmailPasswordOptions): boolean {
-  return Object.values(opts).some(Boolean);
 }

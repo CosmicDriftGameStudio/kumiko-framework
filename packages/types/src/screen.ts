@@ -299,6 +299,7 @@ export type { EntityListExpandableRow, ExpandableRowGrouping } from "./screen-ex
 export type { ListBulkAction } from "./screen-list-bulk.ts";
 export { LIST_BULK_ACTION_KEYS, MAX_BULK_SELECTION } from "./screen-list-bulk.ts";
 export type {
+  BundledListsOptions,
   ListColumnPin,
   ListTableDensity,
   ListTableExportOptions,

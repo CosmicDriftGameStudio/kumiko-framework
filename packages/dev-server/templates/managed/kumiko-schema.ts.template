@@ -22,6 +22,7 @@ const HAS_AUTH =
 
 export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...CONFIGURED_FEATURES], {
   includeBundled: HAS_AUTH,
+  ...(appConfig.bundledLists && { bundledLists: appConfig.bundledLists }),
 });
 
 // `kumiko check` validates the boot with the options kumiko.config.ts declares.

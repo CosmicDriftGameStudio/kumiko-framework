@@ -200,7 +200,12 @@ export function composeProdFeatures(
   // auth-email-password via composeFeatures, using the same feature list as
   // runDevApp and the per-app schema generator. Build it before any connection
   // so boot mode can validate wiring without opening Postgres or Redis sockets.
-  const features = composeAppFeatures(options.features, bootOptionWiring.features, effectiveAuth);
+  const features = composeAppFeatures(
+    options.features,
+    bootOptionWiring.features,
+    effectiveAuth,
+    options.bundledLists,
+  );
 
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   validateComposedFeatures(features, {

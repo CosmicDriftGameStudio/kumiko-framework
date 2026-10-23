@@ -87,3 +87,10 @@ export type ListTableExportOptions = {
   /** Export is refused above this many rows. Default 10000, hard cap 100000. Encrypted, sensitive and virtual columns are never written. */
   readonly maxRows?: number;
 };
+
+/** One `table` block for every entityList, projectionList and relatedList of the bundled features. A screen's own `table` keys win per key. `grouping` and `totals` are not accepted here. */
+export type BundledListsOptions = {
+  readonly table: ListTableOptions;
+  /** Pins the first column left on every bundled list where no column is pinned. Needs `table.pinning: true`. */
+  readonly pinFirstColumn?: boolean;
+};

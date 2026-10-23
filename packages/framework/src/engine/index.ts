@@ -11,6 +11,7 @@ export {
   TENANT_TEARDOWN_STATUSES,
   type TenantLifecycleStatusPlugin,
 } from "./active-membership.ts";
+export { validateBundledListsOptions } from "./boot-validator/bundled-lists-table.ts";
 export {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
@@ -416,6 +417,7 @@ export type {
   BigIntFieldDef,
   BooleanFieldDef,
   BootOptionName,
+  BundledListsOptions,
   CamelToKebab,
   ChatSendFailureCode,
   ClaimKeyDefinition,
@@ -555,6 +557,7 @@ export type {
   ListPaginationMode,
   ListSortDir,
   ListSortSpec,
+  ListTableOptions,
   LongTextFindability,
   ManyToManyRelation,
   MaxPerTenantOptions,

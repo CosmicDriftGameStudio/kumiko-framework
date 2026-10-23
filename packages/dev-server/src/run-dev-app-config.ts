@@ -161,7 +161,12 @@ export async function resolveDevBootConfig(
     warn: (message) => createFallbackLogger("runDevApp").warn(message),
   });
   const extraRoutes = collectDevExtraRoutes(options, unsubscribeRoutes, wiring);
-  const features = composeAppFeatures(options.features, wiring.features, effectiveAuth);
+  const features = composeAppFeatures(
+    options.features,
+    wiring.features,
+    effectiveAuth,
+    options.bundledLists,
+  );
   return { stackSeeds, wiring, envSource, effectiveAuth, unsubscribeLinks, extraRoutes, features };
 }
 
