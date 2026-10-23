@@ -3,6 +3,7 @@ import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { LifecycleResult, Registry } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
+import { inEventStreamScope } from "../event-store/stream-scope.ts";
 
 // Run custom projections for a save or delete result. Lives INSIDE the
 // transaction that appended the event — a throw from apply() rolls the event
@@ -71,9 +72,12 @@ export async function runProjectionsForEvent(
 ): Promise<void> {
   // skip: this event object was already projected in this write
   if (projectedEvents.has(event)) return;
-  for (const proj of liveProjectionsForEvent(event, registry)) {
-    const applyFn = proj.apply[event.type];
-    if (applyFn) await applyFn(event, withExecutorManagedWrites(tx), proj.table);
-  }
+  // Inline projections write the event's own tenant, which differs from the caller's scope for system-actor events.
+  await inEventStreamScope(event.tenantId, async () => {
+    for (const proj of liveProjectionsForEvent(event, registry)) {
+      const applyFn = proj.apply[event.type];
+      if (applyFn) await applyFn(event, withExecutorManagedWrites(tx), proj.table);
+    }
+  });
   projectedEvents.add(event);
 }

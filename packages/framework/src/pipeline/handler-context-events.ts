@@ -1,5 +1,6 @@
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { hasTenantColumn } from "../db/tenant-db.ts";
 import type {
   AggregateStreamHandle,
@@ -300,11 +301,11 @@ function buildHandlerProjectionReader(scope: HandlerContextScope): ProjectionRea
       });
     }
     const dbSource = requireDbSource(ctx, tx, `ctx.queryProjection("${qualifiedName}")`);
+    const allTenants = queryOptions?.unsafeAllTenants === true;
     const where =
-      hasTenantColumn(projTable) && queryOptions?.unsafeAllTenants !== true
-        ? { tenantId: user.tenantId }
-        : undefined;
-    const rows = await selectMany<Record<string, unknown>>(dbSource, projTable, where);
+      hasTenantColumn(projTable) && !allTenants ? { tenantId: user.tenantId } : undefined;
+    const read = () => selectMany<Record<string, unknown>>(dbSource, projTable, where);
+    const rows = await (allTenants ? runInSystemRowLevelSecurityScope(read) : read());
     return rows as readonly T[]; // @cast-boundary engine-payload
   };
   return createGatedProjectionReader(

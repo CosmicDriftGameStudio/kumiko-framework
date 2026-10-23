@@ -28,6 +28,7 @@ import {
   readPiiBackfillState,
 } from "../db/queries/pii-backfill-state.ts";
 import { upsertOnConflict } from "../db/query.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { tableExists } from "../db/schema-inspection.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { unsafePushTables } from "../db/table-push.ts";
@@ -353,9 +354,11 @@ export function runPiiEventBackfill(
   registry: Registry,
   options: PiiEventBackfillOptions = {},
 ): Promise<PiiEventBackfillResult> {
-  return withoutStatementTimeout(db, (unboundedDb) =>
-    backfillPiiEvents(unboundedDb, registry, options),
-  );
+  return runInSystemRowLevelSecurityScope(() => {
+    return withoutStatementTimeout(db, (unboundedDb) =>
+      backfillPiiEvents(unboundedDb, registry, options),
+    );
+  });
 }
 
 async function backfillPiiEvents(

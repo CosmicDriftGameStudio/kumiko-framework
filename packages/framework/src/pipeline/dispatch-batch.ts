@@ -17,6 +17,7 @@ import {
 import { createFallbackLogger } from "../logging/utils.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import { flushAfterRollback } from "./after-rollback-sink.ts";
+import { runInDispatchScope } from "./dispatch-scope.ts";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
 import { resolveAppPoolDb } from "./dispatch-shared.ts";
 import { executeNestedWrite, executeWrite } from "./dispatch-write.ts";
@@ -86,7 +87,9 @@ async function runReservedCommand(
   const execute = isPerCommandHandler(ctx, cmd.type) ? executeWrite : executeNestedWrite;
   const res = await runAsCommand(toReservedScope(reservations, index, cmd), () =>
     runWithWriteOrigin(origin, () =>
-      execute(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+      runInDispatchScope(ctx.registry, [cmd.type], user, () =>
+        execute(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+      ),
     ),
   );
   rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
@@ -135,15 +138,22 @@ export async function runBatch(
   requestId?: string,
   inheritedOrigin?: WriteOrigin,
 ): Promise<BatchResult> {
-  const current = requestContext.get();
-  if (!current?.signal) {
-    return runBatchBody(ctx, commands, user, requestId, inheritedOrigin);
-  }
-  // Strip the signal: a client disconnect must not roll back a write whose
-  // afterCommit effects would then be lost.
-  const { signal: _signal, ...withoutSignal } = current;
-  return requestContext.run(withoutSignal, () =>
-    runBatchBody(ctx, commands, user, requestId, inheritedOrigin),
+  return runInDispatchScope(
+    ctx.registry,
+    commands.map((command) => command.type),
+    user,
+    () => {
+      const current = requestContext.get();
+      if (!current?.signal) {
+        return runBatchBody(ctx, commands, user, requestId, inheritedOrigin);
+      }
+      // Strip the signal: a client disconnect must not roll back a write whose
+      // afterCommit effects would then be lost.
+      const { signal: _signal, ...withoutSignal } = current;
+      return requestContext.run(withoutSignal, () =>
+        runBatchBody(ctx, commands, user, requestId, inheritedOrigin),
+      );
+    },
   );
 }
 

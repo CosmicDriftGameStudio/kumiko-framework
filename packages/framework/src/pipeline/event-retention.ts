@@ -3,6 +3,7 @@
 import type { DbConnection } from "../db/connection.ts";
 import { lockEventConsumersShareMode } from "../db/queries/event-consumer.ts";
 import { deleteMany, selectMany, transaction } from "../db/query.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { eventsTable } from "../event-store/index.ts";
 import { eventConsumerStateTable } from "./event-consumer-state.ts";
 
@@ -82,88 +83,90 @@ export async function pruneEvents(
   db: DbConnection,
   options: PruneEventsOptions,
 ): Promise<PruneEventsResult> {
-  const cutoff = resolveCutoff(options);
-  if (!options.aggregateTypes || options.aggregateTypes.length === 0) {
-    throw new Error(
-      "pruneEvents: aggregateTypes is required and must be non-empty. Pruning the event log is destructive — name the aggregate types to delete explicitly.",
-    );
-  }
-  if (options.aggregateIds !== undefined && options.aggregateIds.length === 0) {
-    throw new Error("pruneEvents: aggregateIds must be non-empty when set.");
-  }
-  if (
-    options.batchSize !== undefined &&
-    (!Number.isInteger(options.batchSize) || options.batchSize < 1)
-  ) {
-    throw new Error("pruneEvents: batchSize must be a positive integer.");
-  }
-  const aggregateTypes = options.aggregateTypes;
-  const aggregateIds = options.aggregateIds;
-  const dryRun = options.dryRun === true;
-
-  return transaction(db, async (tx) => {
-    // Serialise against consumer-bootstrap INSERTs. Without this, the race
-    // is: prune reads consumers (snapshot misses a consumer bootstrapping
-    // in a parallel tx) → consumer commits its row with
-    // lastProcessedEventId=0 → prune deletes events below its new cursor
-    // → first pass of the new consumer silently skips the deleted events.
-    //
-    // SHARE is the lightest table-mode that conflicts with ROW EXCLUSIVE
-    // (the mode INSERT/UPDATE/DELETE take). Concurrent INSERTs on the
-    // consumer table queue until this TX commits; concurrent UPDATEs
-    // (cursor advances) do too, but prune is measured in milliseconds and
-    // pausing cursor advances for that window is cheap insurance against
-    // a silent data-loss bug.
-    await lockEventConsumersShareMode(tx);
-
-    // Step 1 — collect candidate event ids.
-    const candidates = await selectMany<{ id: bigint }>(
-      tx,
-      eventsTable,
-      {
-        aggregateType: [...aggregateTypes],
-        ...(aggregateIds ? { aggregateId: [...aggregateIds] } : {}),
-        createdAt: { lt: cutoff },
-      },
-      options.batchSize === undefined
-        ? undefined
-        : { orderBy: { col: "id", direction: "asc" }, limit: options.batchSize },
-    );
-
-    if (candidates.length === 0) {
-      return { deletedCount: 0, cutoff, aggregateTypes, dryRun };
+  return runInSystemRowLevelSecurityScope(async () => {
+    const cutoff = resolveCutoff(options);
+    if (!options.aggregateTypes || options.aggregateTypes.length === 0) {
+      throw new Error(
+        "pruneEvents: aggregateTypes is required and must be non-empty. Pruning the event log is destructive — name the aggregate types to delete explicitly.",
+      );
     }
+    if (options.aggregateIds !== undefined && options.aggregateIds.length === 0) {
+      throw new Error("pruneEvents: aggregateIds must be non-empty when set.");
+    }
+    if (
+      options.batchSize !== undefined &&
+      (!Number.isInteger(options.batchSize) || options.batchSize < 1)
+    ) {
+      throw new Error("pruneEvents: batchSize must be a positive integer.");
+    }
+    const aggregateTypes = options.aggregateTypes;
+    const aggregateIds = options.aggregateIds;
+    const dryRun = options.dryRun === true;
 
-    const maxCandidateId = candidates.reduce(
-      (acc, row) => (row.id > acc ? row.id : acc),
-      candidates[0]?.id ?? 0n,
-    );
+    return transaction(db, async (tx) => {
+      // Serialise against consumer-bootstrap INSERTs. Without this, the race
+      // is: prune reads consumers (snapshot misses a consumer bootstrapping
+      // in a parallel tx) → consumer commits its row with
+      // lastProcessedEventId=0 → prune deletes events below its new cursor
+      // → first pass of the new consumer silently skips the deleted events.
+      //
+      // SHARE is the lightest table-mode that conflicts with ROW EXCLUSIVE
+      // (the mode INSERT/UPDATE/DELETE take). Concurrent INSERTs on the
+      // consumer table queue until this TX commits; concurrent UPDATEs
+      // (cursor advances) do too, but prune is measured in milliseconds and
+      // pausing cursor advances for that window is cheap insurance against
+      // a silent data-loss bug.
+      await lockEventConsumersShareMode(tx);
 
-    // Step 2 — safety guard: check every ACTIVE consumer has moved past
-    // the candidate set. Disabled consumers are intentionally excluded —
-    // ops disables them precisely to park them while pruning happens.
-    // The SHARE lock above guarantees this SELECT sees a complete view:
-    // no new consumer can INSERT a fresh-cursor row between here and the
-    // DELETE below.
-    const activeConsumers = await selectMany<{
-      name: string;
-      lastProcessedEventId: bigint;
-    }>(tx, eventConsumerStateTable, { status: { ne: "disabled" } });
+      // Step 1 — collect candidate event ids.
+      const candidates = await selectMany<{ id: bigint }>(
+        tx,
+        eventsTable,
+        {
+          aggregateType: [...aggregateTypes],
+          ...(aggregateIds ? { aggregateId: [...aggregateIds] } : {}),
+          createdAt: { lt: cutoff },
+        },
+        options.batchSize === undefined
+          ? undefined
+          : { orderBy: { col: "id", direction: "asc" }, limit: options.batchSize },
+      );
 
-    for (const consumer of activeConsumers) {
-      if (consumer.lastProcessedEventId < maxCandidateId) {
-        throw new ConsumerLagError(consumer.name, consumer.lastProcessedEventId, maxCandidateId);
+      if (candidates.length === 0) {
+        return { deletedCount: 0, cutoff, aggregateTypes, dryRun };
       }
-    }
 
-    if (dryRun) {
-      return { deletedCount: candidates.length, cutoff, aggregateTypes, dryRun: true };
-    }
+      const maxCandidateId = candidates.reduce(
+        (acc, row) => (row.id > acc ? row.id : acc),
+        candidates[0]?.id ?? 0n,
+      );
 
-    // Step 3 — actual delete, bounded to the candidate set.
-    const candidateIds = candidates.map((c) => c.id);
-    await deleteMany(tx, eventsTable, { id: candidateIds });
+      // Step 2 — safety guard: check every ACTIVE consumer has moved past
+      // the candidate set. Disabled consumers are intentionally excluded —
+      // ops disables them precisely to park them while pruning happens.
+      // The SHARE lock above guarantees this SELECT sees a complete view:
+      // no new consumer can INSERT a fresh-cursor row between here and the
+      // DELETE below.
+      const activeConsumers = await selectMany<{
+        name: string;
+        lastProcessedEventId: bigint;
+      }>(tx, eventConsumerStateTable, { status: { ne: "disabled" } });
 
-    return { deletedCount: candidateIds.length, cutoff, aggregateTypes, dryRun: false };
+      for (const consumer of activeConsumers) {
+        if (consumer.lastProcessedEventId < maxCandidateId) {
+          throw new ConsumerLagError(consumer.name, consumer.lastProcessedEventId, maxCandidateId);
+        }
+      }
+
+      if (dryRun) {
+        return { deletedCount: candidates.length, cutoff, aggregateTypes, dryRun: true };
+      }
+
+      // Step 3 — actual delete, bounded to the candidate set.
+      const candidateIds = candidates.map((c) => c.id);
+      await deleteMany(tx, eventsTable, { id: candidateIds });
+
+      return { deletedCount: candidateIds.length, cutoff, aggregateTypes, dryRun: false };
+    });
   });
 }

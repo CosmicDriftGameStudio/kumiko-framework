@@ -19,6 +19,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbConnection, DbRunner } from "./connection.ts";
+import { applyRowLevelSecurityScope } from "./queries/rls-scope.ts";
 import {
   asRawClient,
   hasBegin,
@@ -26,6 +27,7 @@ import {
   type RawClientWithBegin,
   type ReservedClient,
 } from "./query.ts";
+import { SYSTEM_ROW_LEVEL_SECURITY_SCOPE } from "./row-level-security-scope.ts";
 
 export type Migration = {
   readonly id: string; // filename without .sql
@@ -321,6 +323,8 @@ export async function runMigrations(
         // apply remains stuck in the books.
         await conn.unsafe("BEGIN");
         try {
+          // Transaction-local, so the next migration's BEGIN starts clean; migrations rewrite every tenant's rows.
+          await applyRowLevelSecurityScope(conn, SYSTEM_ROW_LEVEL_SECURITY_SCOPE);
           for (const stmt of m.statements) {
             await conn.unsafe(stmt);
           }

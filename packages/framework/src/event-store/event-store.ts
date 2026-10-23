@@ -35,6 +35,7 @@ import {
 import { eventsTable } from "./events-schema.ts";
 import { toStoredEvent } from "./row-to-stored-event.ts";
 import { currentSeedCreatedAt } from "./seed-clock.ts";
+import { inEventStreamScope } from "./stream-scope.ts";
 
 export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 
@@ -105,22 +106,24 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   const eventVersion = toStore.eventVersion ?? 1;
 
   try {
-    const row = await runAtomicEventWrite(db, async (runner) => {
-      await claimXactId(runner);
-      // Inside the write transaction so a concurrent live append cannot slip
-      // between the check and the insert.
-      if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
-        await assertSeedTimeNotBeforePredecessor(runner, toStore, seedCreatedAt);
-      }
-      const inserted =
-        toStore.expectedVersion === 0
-          ? await insertFirstEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt)
-          : await insertSubsequentEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt);
-      // NOTIFY after the INSERT and inside the same transaction: PG delivers it on
-      // commit, so the dispatcher cannot wake before the row is visible.
-      await notifyPgChannel(runner, EVENTS_PUBSUB_CHANNEL);
-      return inserted;
-    });
+    const row = await inEventStreamScope(toStore.tenantId, () =>
+      runAtomicEventWrite(db, async (runner) => {
+        await claimXactId(runner);
+        // Inside the write transaction so a concurrent live append cannot slip
+        // between the check and the insert.
+        if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
+          await assertSeedTimeNotBeforePredecessor(runner, toStore, seedCreatedAt);
+        }
+        const inserted =
+          toStore.expectedVersion === 0
+            ? await insertFirstEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt)
+            : await insertSubsequentEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt);
+        // NOTIFY after the INSERT and inside the same transaction: PG delivers it on
+        // commit, so the dispatcher cannot wake before the row is visible.
+        await notifyPgChannel(runner, EVENTS_PUBSUB_CHANNEL);
+        return inserted;
+      }),
+    );
 
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
@@ -312,22 +315,24 @@ export async function loadAggregate(
   if (options?.aggregateType === "") {
     throw new Error("loadAggregate: aggregateType must be a non-empty string when provided");
   }
-  if (!options?.includeArchived) {
-    const archived = await isStreamArchived(db, tenantId, aggregateId);
-    if (archived) return [];
-  }
-  const rows = await selectMany<SelectedEvent>(
-    db,
-    eventsTable,
-    {
-      aggregateId,
-      tenantId,
-      ...(options?.aggregateType !== undefined && { aggregateType: options.aggregateType }),
-      ...(options?.atVersion !== undefined && { version: options.atVersion }),
-    },
-    { orderBy: { col: "version", direction: "asc" } },
-  );
-  return rows.map(toStoredEvent);
+  return inEventStreamScope(tenantId, async () => {
+    if (!options?.includeArchived) {
+      const archived = await isStreamArchived(db, tenantId, aggregateId);
+      if (archived) return [];
+    }
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      {
+        aggregateId,
+        tenantId,
+        ...(options?.aggregateType !== undefined && { aggregateType: options.aggregateType }),
+        ...(options?.atVersion !== undefined && { version: options.atVersion }),
+      },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
+    return rows.map(toStoredEvent);
+  });
 }
 
 // Events and the stream's latest version from ONE read, so both come from the same
@@ -344,20 +349,22 @@ export async function loadAggregateForWriting(
   if (options.aggregateType === "") {
     throw new Error("loadAggregateForWriting: aggregateType must be a non-empty string");
   }
-  if (await isStreamArchived(db, tenantId, aggregateId)) {
-    return { events: [], streamVersion: await getStreamVersion(db, aggregateId, tenantId) };
-  }
-  const rows = await selectMany<SelectedEvent>(
-    db,
-    eventsTable,
-    { aggregateId, tenantId },
-    { orderBy: { col: "version", direction: "asc" } },
-  );
-  const all = rows.map(toStoredEvent);
-  return {
-    events: all.filter((e) => e.aggregateType === options.aggregateType),
-    streamVersion: all.at(-1)?.version ?? 0,
-  };
+  return inEventStreamScope(tenantId, async () => {
+    if (await isStreamArchived(db, tenantId, aggregateId)) {
+      return { events: [], streamVersion: await getStreamVersion(db, aggregateId, tenantId) };
+    }
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      { aggregateId, tenantId },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
+    const all = rows.map(toStoredEvent);
+    return {
+      events: all.filter((e) => e.aggregateType === options.aggregateType),
+      streamVersion: all.at(-1)?.version ?? 0,
+    };
+  });
 }
 
 // Load events up to a point in time. Used for asOf queries that reconstruct
@@ -370,17 +377,19 @@ export async function loadAggregateAsOf(
   asOf: Temporal.Instant,
   options?: { readonly includeArchived?: boolean },
 ): Promise<readonly StoredEvent[]> {
-  if (!options?.includeArchived) {
-    const archived = await isStreamArchived(db, tenantId, aggregateId);
-    if (archived) return [];
-  }
-  const rows = await selectMany<SelectedEvent>(
-    db,
-    eventsTable,
-    { aggregateId, tenantId, createdAt: { lte: asOf } },
-    { orderBy: { col: "version", direction: "asc" } },
-  );
-  return rows.map(toStoredEvent);
+  return inEventStreamScope(tenantId, async () => {
+    if (!options?.includeArchived) {
+      const archived = await isStreamArchived(db, tenantId, aggregateId);
+      if (archived) return [];
+    }
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      { aggregateId, tenantId, createdAt: { lte: asOf } },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
+    return rows.map(toStoredEvent);
+  });
 }
 
 // Cheapest possible read of "what's the latest version on this stream?". The
@@ -395,7 +404,7 @@ export async function getStreamVersion(
   aggregateId: string,
   tenantId: TenantId,
 ): Promise<number> {
-  return selectStreamMaxVersion(db, aggregateId, tenantId);
+  return inEventStreamScope(tenantId, () => selectStreamMaxVersion(db, aggregateId, tenantId));
 }
 
 export async function getStreamVersions(
@@ -403,7 +412,7 @@ export async function getStreamVersions(
   aggregateIds: readonly string[],
   tenantId: TenantId,
 ): Promise<Map<string, number>> {
-  return selectStreamMaxVersions(db, aggregateIds, tenantId);
+  return inEventStreamScope(tenantId, () => selectStreamMaxVersions(db, aggregateIds, tenantId));
 }
 
 /** MAX(version) for one aggregate — no tenant filter. SECURITY: existence-oracle,

@@ -289,7 +289,7 @@ describe("reindexEntityJob under a server statement_timeout", () => {
       `ALTER TABLE "read_reindex_job_slow_widgets" RENAME TO "read_reindex_job_slow_widgets_base"`,
     );
     await asRawClient(stack.db).unsafe(
-      `CREATE VIEW "read_reindex_job_slow_widgets" AS
+      `CREATE VIEW "read_reindex_job_slow_widgets" WITH (security_invoker = true) AS
          SELECT *, pg_sleep(${SCAN_SLEEP_SECONDS})::text AS scan_delay FROM "read_reindex_job_slow_widgets_base"`,
     );
 

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
+import { unscopedRunnerOf } from "../../db/row-level-security-scope.ts";
 import { tenantDbRunner } from "../../db/tenant-db-runner.ts";
 import { createRegistry, defineFeature, type Registry } from "../../engine/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
@@ -49,7 +50,8 @@ const systemScopedFeature = defineFeature("jobsystemdb-system", (r) => {
     results.push({
       name: "system",
       present: true,
-      boundToRawDb: tenantDbRunner(checked) === tenantDbRunner(ctx.db),
+      boundToRawDb:
+        unscopedRunnerOf(tenantDbRunner(checked)) === unscopedRunnerOf(tenantDbRunner(ctx.db)),
       foreignTenantThrew,
     });
   });

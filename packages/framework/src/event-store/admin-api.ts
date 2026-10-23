@@ -18,9 +18,11 @@ import {
   insertRawFirstEvent,
   insertRawSubsequentEvent,
 } from "../db/queries/event-store-admin.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import { IdempotentAppendConflictError, VersionConflictError } from "./errors.ts";
 import type { EventMetadata } from "./event-store.ts";
+import { inEventStreamScope } from "./stream-scope.ts";
 
 export type RawEventToAppend = {
   readonly aggregateId: string;
@@ -58,14 +60,16 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
   try {
     // See db/queries/event-store.ts's claimXactId — gap-finality needs a
     // real xact id assigned before this holder's insert.
-    await runAtomicEventWrite(runner, async (tx) => {
-      await claimXactId(tx);
-      if (event.expectedVersion === 0) {
-        await insertRawFirst(tx, event, newVersion, eventVersion);
-      } else {
-        await insertRawSubsequent(tx, event, newVersion, eventVersion);
-      }
-    });
+    await inEventStreamScope(event.tenantId, () =>
+      runAtomicEventWrite(runner, async (tx) => {
+        await claimXactId(tx);
+        if (event.expectedVersion === 0) {
+          await insertRawFirst(tx, event, newVersion, eventVersion);
+        } else {
+          await insertRawSubsequent(tx, event, newVersion, eventVersion);
+        }
+      }),
+    );
   } catch (e) {
     if (isUniqueViolation(e)) {
       throw mapEventUniqueViolation(e, event);
@@ -128,8 +132,11 @@ export async function appendRawBatch(
   if (!firstEvent) return;
 
   verifyContiguousWithinBatch(events);
-  await verifyPredecessors(runner, events);
-  await verifyNoDuplicates(runner, events);
+  // A batch may span tenants (replay, transfer), so its pre-flight reads and the insert are system scoped.
+  await runInSystemRowLevelSecurityScope(async () => {
+    await verifyPredecessors(runner, events);
+    await verifyNoDuplicates(runner, events);
+  });
 
   const params: unknown[] = [];
   const valuesClauses = events.map((e) => {
@@ -152,10 +159,12 @@ export async function appendRawBatch(
   });
 
   try {
-    await runAtomicEventWrite(runner, async (tx) => {
-      await claimXactId(tx);
-      await insertRawEventBatch(tx, valuesClauses.join(", "), params);
-    });
+    await runInSystemRowLevelSecurityScope(() =>
+      runAtomicEventWrite(runner, async (tx) => {
+        await claimXactId(tx);
+        await insertRawEventBatch(tx, valuesClauses.join(", "), params);
+      }),
+    );
   } catch (e) {
     if (isUniqueViolation(e)) {
       // Pre-flight ran but lost a race against a concurrent writer. Rare for

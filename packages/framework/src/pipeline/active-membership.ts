@@ -2,6 +2,7 @@
 // tenant-lifecycle checks so login, switch-tenant and MFA completion can't independently drift.
 
 import type { DbConnection } from "../db/connection.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import {
   isPrincipalStatusPlugin,
   isTenantLifecycleStatusPlugin,
@@ -134,7 +135,18 @@ function isTeardownRejected(
 
 // Order is load-bearing: a non-member must never learn a foreign tenant's
 // lifecycle/blocked state, so membership is resolved and checked FIRST.
-export async function resolveActiveMembershipFn(
+export function resolveActiveMembershipFn(
+  ctx: DispatchContext,
+  userId: string,
+  tenantId: TenantId,
+  policy: ActiveMembershipPolicy,
+): Promise<ActiveMembershipResult> {
+  return runInSystemRowLevelSecurityScope(() =>
+    resolveActiveMembershipInScope(ctx, userId, tenantId, policy),
+  );
+}
+
+async function resolveActiveMembershipInScope(
   ctx: DispatchContext,
   userId: string,
   tenantId: TenantId,

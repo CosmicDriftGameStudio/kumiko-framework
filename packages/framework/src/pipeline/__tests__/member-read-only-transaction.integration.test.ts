@@ -5,7 +5,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import type { DbTx } from "../../db/connection.ts";
 import { asRawClient } from "../../db/query.ts";
+import {
+  activeRowLevelSecurityScope,
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "../../db/row-level-security-scope.ts";
 import { AccessDeniedError, MemberReadTimeoutError } from "../../errors/index.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DispatchContext } from "../dispatch-shared.ts";
 import { runInMemberReadOnlyTransaction } from "../member-read-only-transaction.ts";
 
@@ -36,6 +42,22 @@ describe("runInMemberReadOnlyTransaction", () => {
     expect(
       await runInMemberReadOnlyTransaction(dispatchContext(), undefined, async () => undefined),
     ).toBeUndefined();
+  });
+
+  test("the callback keeps the dispatch scope it was called under, also on the outer-tx path", async () => {
+    const scope = tenantRowLevelSecurityScope(testTenantId(1));
+    const seen = await runInRowLevelSecurityScope(scope, async () => {
+      const pool = await runInMemberReadOnlyTransaction(dispatchContext(), undefined, async () =>
+        activeRowLevelSecurityScope(),
+      );
+      const nested = await testDb.db.begin((outer: DbTx) =>
+        runInMemberReadOnlyTransaction(dispatchContext(), outer, async () =>
+          activeRowLevelSecurityScope(),
+        ),
+      );
+      return { pool, nested };
+    });
+    expect(seen).toEqual({ pool: scope, nested: scope });
   });
 
   test("a write inside the member read is denied and nothing persists", async () => {

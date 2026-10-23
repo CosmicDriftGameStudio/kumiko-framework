@@ -2,6 +2,11 @@ import type { DbTx } from "../db/connection.ts";
 import { extractPgError } from "../db/pg-error.ts";
 import { asRawClient, runInSavepoint, transaction } from "../db/query.ts";
 import {
+  activeRowLevelSecurityScope,
+  runInCapturedRowLevelSecurityScope,
+  runInSystemRowLevelSecurityScope,
+} from "../db/row-level-security-scope.ts";
+import {
   AccessDeniedError,
   InternalError,
   MemberReadTimeoutError,
@@ -67,7 +72,21 @@ async function runInDiscardedReadOnlySavepoint<T>(
   return settled.outcome.value;
 }
 
-export async function runInMemberReadOnlyTransaction<T>(
+export function runInMemberReadOnlyTransaction<T>(
+  ctx: DispatchContext,
+  tx: DbTx | undefined,
+  fn: (readOnlyTx: DbTx) => Promise<T>,
+): Promise<T> {
+  // Only the transaction plumbing (savepoint, SET) runs system-scoped; the caller's fn keeps the dispatch scope it came in with.
+  const incoming = activeRowLevelSecurityScope();
+  return runInSystemRowLevelSecurityScope(() =>
+    runInMemberReadOnlyTransactionScoped(ctx, tx, (readOnlyTx) =>
+      runInCapturedRowLevelSecurityScope(incoming, () => fn(readOnlyTx)),
+    ),
+  );
+}
+
+async function runInMemberReadOnlyTransactionScoped<T>(
   ctx: DispatchContext,
   tx: DbTx | undefined,
   fn: (readOnlyTx: DbTx) => Promise<T>,

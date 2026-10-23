@@ -11,7 +11,7 @@ import {
   type RoleDispatchArgs,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   createSystemUser,
@@ -293,7 +293,15 @@ function isMailingOutcome(outcome: BootstrapInviteOutcome): boolean {
   return outcome === "invited" || outcome === "resent";
 }
 
-export async function bootstrapTenants(
+// A one-shot operator process, not a tenant request: it looks up users, memberships and invitations across tenants.
+export function bootstrapTenants(
+  deps: BootstrapDeps,
+  plan: BootstrapPlan,
+): Promise<BootstrapReport> {
+  return runInSystemRowLevelSecurityScope(() => bootstrapTenantsInScope(deps, plan));
+}
+
+async function bootstrapTenantsInScope(
   deps: BootstrapDeps,
   plan: BootstrapPlan,
 ): Promise<BootstrapReport> {

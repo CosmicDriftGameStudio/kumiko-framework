@@ -15,6 +15,10 @@ import {
 } from "../crypto/index.ts";
 import type { DbConnection } from "../db/connection.ts";
 import { selectMany } from "../db/query.ts";
+import {
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "../db/row-level-security-scope.ts";
 import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import {
   createDerivativesContext,
@@ -246,6 +250,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
+  // These routes read the file table on the root connection, outside the dispatcher, so the caller's tenant scope is opened here.
+  api.use("*", async (c, next) => {
+    const user: SessionUser | undefined = getUser(c);
+    if (user === undefined) return next();
+    return runInRowLevelSecurityScope(tenantRowLevelSecurityScope(user.tenantId), next);
+  });
   const tenantDbFor = (tenantId: TenantId): TenantDb =>
     createProjectingTenantDb(db, tenantId, options.registry);
 

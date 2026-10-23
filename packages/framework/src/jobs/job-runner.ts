@@ -3,6 +3,10 @@ import { DelayedError, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.ts";
 import type { DbConnection } from "../db/connection.ts";
+import {
+  assertNoActiveRowLevelSecurityScope,
+  runInSystemRowLevelSecurityScope,
+} from "../db/row-level-security-scope.ts";
 import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { bridgeStub } from "../engine/bridge-stub.ts";
 import { createSystemUser } from "../engine/system-user.ts";
@@ -299,7 +303,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     getDispatchWriteRef: () => dispatchWriteRef,
   };
 
-  async function handleJob(bullJob: JobInvocation, token?: string): Promise<void> {
+  // Per invocation, never around the worker loop: the loop itself must stay outside any scope.
+  function handleJob(bullJob: JobInvocation, token?: string): Promise<void> {
+    return runInSystemRowLevelSecurityScope(() => handleJobInScope(bullJob, token));
+  }
+
+  async function handleJobInScope(bullJob: JobInvocation, token?: string): Promise<void> {
     const perTenantTarget = perTenantTargetOf(bullJob.name);
     if (perTenantTarget !== undefined) {
       await fanOutPerTenantJob(scope, bullJob, perTenantTarget);
@@ -466,6 +475,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
   const runnerApi: JobRunner = {
     async start(): Promise<void> {
+      assertNoActiveRowLevelSecurityScope("JobRunner worker");
       // skip: enqueuer-only runner — no BullMQ worker, no cron schedules,
       // no boot jobs. The API-process (runLocalJobs=false) lands here; it
       // still holds the queue-clients so dispatch()/handleEvent() can
