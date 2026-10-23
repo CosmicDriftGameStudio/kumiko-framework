@@ -1,12 +1,11 @@
 {
   "format": 1,
   "generated": "2026-10-23",
-  "total": 12647,
+  "total": 11315,
   "perFile": {
-    "packages/framework/src/engine/boot-validator/entity-handler.ts": 1477,
     "packages/feature-ast/src/pattern-change-schema.ts": 1295,
+    "packages/framework/src/engine/boot-validator/entity-handler.ts": 1477,
     "packages/renderer/src/components/render-edit.tsx": 1877,
-    "packages/renderer/src/components/render-field.tsx": 1332,
     "packages/renderer/src/primitives.tsx": 1855,
     "packages/renderer/src/web/widgets/charts.tsx": 1899,
     "packages/types/src/fields.ts": 1290,

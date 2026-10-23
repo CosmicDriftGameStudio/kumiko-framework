@@ -56,7 +56,11 @@ const catalogSchema: FeatureSchema = {
   screens: [widgetCreateScreen],
 };
 
-function makeDispatcher(): Dispatcher & { readonly writes: string[] } {
+// returnsId false mimics a custom create handler whose success payload has no
+// `id`: the record exists, but the reference field cannot select it.
+function makeDispatcher({ returnsId = true }: { readonly returnsId?: boolean } = {}): Dispatcher & {
+  readonly writes: string[];
+} {
   const writes: string[] = [];
   // The lookup query only knows about newly created widgets AFTER the
   // create-write — pins the refetch: without it, the options list (and
@@ -71,7 +75,7 @@ function makeDispatcher(): Dispatcher & { readonly writes: string[] } {
       writes.push(type);
       const id = `widget-${createdIds.length + 1}`;
       createdIds.push(id);
-      return { isSuccess: true, data: { kind: "save", id } };
+      return { isSuccess: true, data: returnsId ? { kind: "save", id } : { kind: "save" } };
     }) as unknown as Dispatcher["write"],
   });
   return { ...dispatcher, writes };
@@ -151,6 +155,39 @@ describe("Reference-field create-in-place (#1681)", () => {
 
     expect(screen.getByTestId("combobox-kumiko-edit-tags").textContent).toContain("widget-1");
     expect(screen.getByTestId("combobox-kumiko-edit-tags").textContent).toContain("widget-2");
+  });
+
+  test("a create without an id closes the dialog, warns and leaves the field empty", async () => {
+    const user = userEvent.setup();
+    const dispatcher = makeDispatcher({ returnsId: false });
+
+    render(
+      <AppFeaturesProvider features={[tasksSchema, catalogSchema]}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={tasksSchema} qn="tasks:screen:task-edit" />
+        </DispatcherProvider>
+      </AppFeaturesProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    await user.click(screen.getByTestId("combobox-kumiko-edit-assignee"));
+    await user.click(await screen.findByTestId("combobox-kumiko-edit-assignee-create"));
+    const nameInput = (await screen.findByTestId("field-name")).querySelector("input");
+    if (!nameInput) throw new Error("expected name input in create dialog");
+    await user.type(nameInput, "Widget A");
+    const submitButtons = screen.getAllByTestId("render-edit-submit");
+    await user.click(submitButtons[submitButtons.length - 1] as HTMLElement);
+
+    await waitFor(() => expect(dispatcher.writes.length).toBe(1));
+    await waitFor(() => expect(screen.queryByTestId("field-name")).toBeNull());
+    expect(
+      await screen.findByText(
+        "Record was created but could not be selected automatically. Please select it manually.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByTestId("combobox-kumiko-edit-assignee").textContent).not.toContain(
+      "widget-1",
+    );
   });
 
   test("Cancel im Create-Dialog schließt ohne write, Reference-Feld bleibt leer", async () => {
