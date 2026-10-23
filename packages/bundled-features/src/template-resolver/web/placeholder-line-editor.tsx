@@ -8,7 +8,7 @@ import { Extension, Node } from "@tiptap/core";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createVariableView } from "./document-editor-extensions.ts";
 import { DocumentVariable } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
@@ -164,9 +164,25 @@ export default function PlaceholderLineEditor({
     setEpoch((current) => current + 1);
   }
 
+  const bodyKey = `${epoch}-${readOnly}-${JSON.stringify(stableLabels)}-${stableSystem.join("\n")}`;
+  const liveBodyKey = useRef(bodyKey);
+  useEffect(() => {
+    liveBodyKey.current = bodyKey;
+  });
+
+  // TipTap destroys a replaced editor in a deferred timer that can fire after the successor's
+  // create; its late null must not delete the successor's handle.
+  const reportEditorReady =
+    onEditorReady === undefined
+      ? undefined
+      : (handle: DocumentEditorHandle | null): void => {
+          if (handle === null && liveBodyKey.current !== bodyKey) return;
+          onEditorReady(handle);
+        };
+
   return (
     <LineEditorBody
-      key={`${epoch}-${readOnly}-${JSON.stringify(stableLabels)}-${stableSystem.join("\n")}`}
+      key={bodyKey}
       id={id}
       initialValue={value}
       onChange={(next) => {
@@ -178,7 +194,7 @@ export default function PlaceholderLineEditor({
       readOnly={readOnly}
       flat={flat}
       placeholder={placeholder}
-      onEditorReady={onEditorReady}
+      onEditorReady={reportEditorReady}
       ariaLabel={ariaLabel}
     />
   );

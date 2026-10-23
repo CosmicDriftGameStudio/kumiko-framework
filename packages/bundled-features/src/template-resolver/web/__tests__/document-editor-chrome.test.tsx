@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   CONTENT_EDITOR_ELEMENT_ID,
   createStaticLocaleResolver,
@@ -352,7 +352,7 @@ describe("onEditorReady lifecycle", () => {
     await waitFor(() => expect(reports.at(-1)).toBeNull());
   });
 
-  test("PlaceholderLineEditor reports null for the replaced editor before the new handle, and again on unmount", async () => {
+  test("PlaceholderLineEditor swallows the replaced editor's null, reports the new handle, and reports null on unmount", async () => {
     const reports: Array<DocumentEditorHandle | null> = [];
     const onEditorReady = (next: DocumentEditorHandle | null): void => {
       reports.push(next);
@@ -371,9 +371,49 @@ describe("onEditorReady lifecycle", () => {
 
     view.rerender(line("loaded later"));
     view.unmount();
-    // Once all four reports arrived the order is settled: the replaced editor reports null before
-    // its successor's handle, so a late null can never wipe the live handle.
-    await waitFor(() => expect(reports).toHaveLength(4));
-    expect(reports.map((report) => report === null)).toEqual([false, true, false, true]);
+    await waitFor(() => expect(reports.at(-1)).toBeNull());
+    await act(async () => {});
+    expect(reports.map((report) => report === null)).toEqual([false, false, true]);
+  });
+
+  describe("with browser timer order", () => {
+    const realSetTimeout = globalThis.setTimeout;
+    afterEach(() => {
+      globalThis.setTimeout = realSetTimeout;
+    });
+
+    // Chrome can fire TipTap's 0 ms create before the 1 ms deferred destroy scheduled earlier;
+    // delaying 1 ms timers forces that order regardless of the runtime's clamping.
+    function fireCreateBeforeDeferredDestroy(): void {
+      globalThis.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) =>
+        realSetTimeout(handler, ms === 1 ? 30 : ms, ...args)) as typeof setTimeout;
+    }
+
+    test("keeps the new handle when a remount's old editor is destroyed late", async () => {
+      fireCreateBeforeDeferredDestroy();
+      const reports: Array<DocumentEditorHandle | null> = [];
+      const changes: string[] = [];
+      const line = (labels: Record<string, string>) => (
+        <PlaceholderLineEditor
+          id="line"
+          aria-label="Line"
+          value="Hello"
+          onChange={(next) => changes.push(next)}
+          variableLabels={labels}
+          onEditorReady={(next) => reports.push(next)}
+        />
+      );
+      const view = render(line({}));
+      await waitFor(() => expect(reports.at(-1)).not.toBeNull());
+
+      view.rerender(line({ name: "Name" }));
+      await waitFor(() => expect(reports.filter((report) => report !== null)).toHaveLength(2));
+      await new Promise((resolve) => realSetTimeout(resolve, 80));
+
+      const live = reports.at(-1);
+      expect(live).not.toBeNull();
+      act(() => live?.insertPlaceholder("name"));
+      await waitFor(() => expect(changes.at(-1)).toContain("{{name}}"));
+    });
   });
 });
