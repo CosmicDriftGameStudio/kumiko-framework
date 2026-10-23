@@ -579,8 +579,10 @@ jobs:
           meilisearch-port: "17700"
 
       - name: Run e2e suites
-        # Sequenziell (eigene webServer-Ports pro Suite, kein Parallel-Bedarf).
-        # Alle Suites laufen durch, eine rote Suite macht den Job am Ende rot.
+        # Two lanes in parallel, each sequential: setup is only ~45 s and the suites took 458 s
+        # back to back. Every suite has its own ports (samples/e2e/e2e-ports.ts) and the service
+        # Postgres runs with max_connections=300. Lanes are balanced by measured CI seconds.
+        # All suites run through; a red suite or a crashed lane turns the job red at the end.
         env:
           CI: "true"
           NODE_ENV: test
@@ -588,42 +590,72 @@ jobs:
           KUMIKO_SECRETS_MASTER_KEY_V1: "j1NOc6cu/65hhvGQU8uVXIy2lWg/SautKnWJ7anWbc4="
         run: |
           set +e
-          configs=(
-            e2e/hero-demos/playwright.config.ts
-            packages/renderer/playwright.config.ts
-            packages/testing/e2e/playwright.config.ts
-            samples/apps/admin-console/playwright.config.ts
-            samples/apps/config-demo/playwright.config.ts
-            samples/apps/marketing-demo/playwright.config.ts
-            samples/apps/showcase/playwright.config.ts
-            samples/apps/styleguide/playwright.config.ts
+          lane_a=(
             samples/apps/ui-walkthrough/playwright.config.ts
             samples/apps/use-all-bundled/playwright.config.ts
-            samples/apps/workspaces/playwright.config.ts
+            e2e/hero-demos/playwright.config.ts
             samples/recipes/apex-landing/playwright.config.ts
-            samples/recipes/record-detail-layout/e2e/playwright.config.ts
-            samples/recipes/wizard-form/e2e/playwright.config.ts
-            samples/recipes/writeform-section/e2e/playwright.config.ts
+            samples/apps/config-demo/playwright.config.ts
           )
+          lane_b=(
+            packages/renderer/playwright.config.ts
+            samples/apps/styleguide/playwright.config.ts
+            samples/apps/showcase/playwright.config.ts
+            packages/testing/e2e/playwright.config.ts
+            samples/recipes/wizard-form/e2e/playwright.config.ts
+            samples/apps/workspaces/playwright.config.ts
+            samples/recipes/record-detail-layout/e2e/playwright.config.ts
+            samples/recipes/writeform-section/e2e/playwright.config.ts
+            samples/apps/admin-console/playwright.config.ts
+            samples/apps/marketing-demo/playwright.config.ts
+          )
+
+          run_lane() {
+            local failed_file="$1"
+            shift
+            : > "$failed_file"
+            local cfg code started
+            for cfg in "$@"; do
+              started=$SECONDS
+              # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
+              # it points outside the repo so the committed docs images stay untouched.
+              local screenshot_env=()
+              if [[ "$cfg" == samples/apps/* ]]; then
+                screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
+              fi
+              env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
+              code=$?
+              # Per-suite seconds are the only way to see lane balance and CPU contention later.
+              echo "=== e2e [$(basename "$failed_file" .txt)] $cfg: $((SECONDS - started))s, exit $code ==="
+              if [ $code -ne 0 ]; then echo "$cfg" >> "$failed_file"; fi
+            done
+          }
+
+          failed_a="$RUNNER_TEMP/e2e-failed-a.txt"
+          failed_b="$RUNNER_TEMP/e2e-failed-b.txt"
+          run_lane "$failed_a" "${lane_a[@]}" &
+          pid_a=$!
+          run_lane "$failed_b" "${lane_b[@]}" &
+          pid_b=$!
+          wait "$pid_a"
+          status_a=$?
+          wait "$pid_b"
+          status_b=$?
+
+          total=$(( ${#lane_a[@]} + ${#lane_b[@]} ))
           failed=()
-          for cfg in "${configs[@]}"; do
-            echo "=== e2e: $cfg ==="
-            # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
-            # it points outside the repo so the committed docs images stay untouched.
-            screenshot_env=()
-            if [[ "$cfg" == samples/apps/* ]]; then
-              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
-            fi
-            env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
-            code=$?
-            if [ $code -ne 0 ]; then failed+=("$cfg"); fi
-          done
+          while IFS= read -r cfg; do
+            if [ -n "$cfg" ]; then failed+=("$cfg"); fi
+          done < <(cat "$failed_a" "$failed_b" 2>/dev/null)
           echo ""
           echo "=== e2e summary ==="
-          if [ ${#failed[@]} -eq 0 ]; then
-            echo "all ${#configs[@]} suites passed"
+          if [ $status_a -ne 0 ] || [ $status_b -ne 0 ]; then
+            echo "a lane crashed (exit lane a: $status_a, lane b: $status_b)"
+          fi
+          if [ ${#failed[@]} -eq 0 ] && [ $status_a -eq 0 ] && [ $status_b -eq 0 ]; then
+            echo "all $total suites passed"
           else
-            echo "${#failed[@]}/${#configs[@]} suites failed:"
+            echo "${#failed[@]}/$total suites failed:"
             printf '  %s\n' "${failed[@]}"
             exit 1
           fi
