@@ -20,6 +20,11 @@ import { errorCodeOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guard
 import { compareByCodepoint } from "../utils/index.ts";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.ts";
 import {
+  diffPrimaryKey,
+  type PrimaryKeyChange,
+  renderPrimaryKeyChange,
+} from "./migrate-primary-key.ts";
+import {
   diffRowLevelSecurity,
   type RowLevelSecurityChange,
   renderRowLevelSecurityChanges,
@@ -82,6 +87,7 @@ export type TableDiff = {
   // changed — recreated via DROP+CREATE rather than silently absorbed into
   // the new snapshot with no emitted DDL.
   readonly changedIndexes: readonly IndexChange[];
+  readonly primaryKeyChanged?: PrimaryKeyChange;
   // Full target meta — carried so the renderer can emit DROP+CREATE for a
   // managed projection whose change cannot apply in-place (see
   // managedChangeRequiresRecreate). Source-discriminator reached via nextMeta.source.
@@ -253,19 +259,23 @@ function compareIndexes(
 }
 
 function hasNoTableChanges(diff: TableDiff): boolean {
-  return [
-    diff.newColumns,
-    diff.droppedColumns,
-    diff.changedColumns,
-    diff.newIndexes,
-    diff.droppedIndexes,
-    diff.changedIndexes,
-  ].every((list) => list.length === 0);
+  return (
+    diff.primaryKeyChanged === undefined &&
+    [
+      diff.newColumns,
+      diff.droppedColumns,
+      diff.changedColumns,
+      diff.newIndexes,
+      diff.droppedIndexes,
+      diff.changedIndexes,
+    ].every((list) => list.length === 0)
+  );
 }
 
 function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff | null {
   const columns = diffByName(columnsByName(prev), columnsByName(next), compareColumns);
   const indexes = diffByName(indexesByName(prev), indexesByName(next), compareIndexes);
+  const primaryKeyChanged = diffPrimaryKey(prev, next);
   const diff: TableDiff = {
     tableName: prev.tableName,
     newColumns: columns.added,
@@ -274,6 +284,7 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
     newIndexes: indexes.added,
     droppedIndexes: indexes.dropped,
     changedIndexes: indexes.changed,
+    ...(primaryKeyChanged && { primaryKeyChanged }),
     nextMeta: next,
   };
   return hasNoTableChanges(diff) ? null : diff;
@@ -346,6 +357,10 @@ function describeRecreateReasons(td: TableDiff): readonly string[] {
     .map((c) => c.name);
   if (typeChanged.length > 0) {
     reasons.push(`column type change: ${typeChanged.join(", ")}`);
+  }
+  if (td.primaryKeyChanged) {
+    const { from, to } = td.primaryKeyChanged;
+    reasons.push(`primary-key change: ${from.columns.join(", ")} → ${to.columns.join(", ")}`);
   }
   return reasons;
 }
@@ -530,6 +545,7 @@ export function renderMigrationSql(
       for (const ch of td.changedColumns) {
         for (const stmt of renderColumnChange(td.tableName, ch)) lines.push(stmt);
       }
+      lines.push(...renderPrimaryKeyChange(td.tableName, td.primaryKeyChanged));
       for (const idx of td.newIndexes) {
         lines.push(renderIndex(td.tableName, idx));
       }
