@@ -43,6 +43,7 @@ import {
   type UserDataExportHook,
   type UserDataExportSnippet,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEscapeHatchReporter,
   UNATTRIBUTED_ACTOR,
@@ -163,7 +164,13 @@ function buildHookDb(
  * **Operator signal:** if bundle.json exceeds 100 MB in the ZIP, trigger
  * telemetry and evaluate a schema refactor.
  */
-export async function runUserExport(args: RunUserExportArgs): Promise<UserExportBundle> {
+// Cross-tenant by design: the membership read on the given runner and raw hook statements
+// must see every tenant of the user, whatever RLS scope the caller runs in.
+export function runUserExport(args: RunUserExportArgs): Promise<UserExportBundle> {
+  return runInSystemRowLevelSecurityScope(() => exportUserData(args));
+}
+
+async function exportUserData(args: RunUserExportArgs): Promise<UserExportBundle> {
   const { db, registry, userId, now } = args;
 
   const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
