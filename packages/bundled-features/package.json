@@ -18,7 +18,9 @@
     "runtime": "runtime",
     "bunOnlyExports": [
       "./template-resolver/testing",
-      "./tenant-lifecycle/testing"
+      "./tenant-lifecycle/testing",
+      "./tenant/testing",
+      "./user/testing"
     ]
   },
   "exports": {

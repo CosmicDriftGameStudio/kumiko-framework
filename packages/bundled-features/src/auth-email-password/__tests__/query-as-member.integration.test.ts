@@ -58,7 +58,7 @@ import {
 } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.ts";
 import {
@@ -68,7 +68,7 @@ import {
   userEntity,
   userTable,
 } from "../../user/index.ts";
-import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
+import { updateUserViaEventStore } from "../../user/testing.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthHandlers } from "../web/constants.ts";
 

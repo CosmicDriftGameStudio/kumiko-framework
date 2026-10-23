@@ -16,11 +16,11 @@ import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
 import { hashPassword } from "../../shared/index.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
-import { setMembershipRolesViaEventStore } from "../../tenant/testing-event-store.ts";
+import { setMembershipRolesViaEventStore } from "../../tenant/testing.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { UserHandlers } from "../../user/index.ts";
 import type { UserStatus } from "../../user/schema/user.ts";
-import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
+import { updateUserViaEventStore } from "../../user/testing.ts";
 import { withMintedSession } from "../testing.ts";
 
 export type LoginResult = {

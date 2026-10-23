@@ -28,7 +28,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { softDeleteUserViaEventStore } from "../../user/testing-event-store.ts";
+import { softDeleteUserViaEventStore } from "../../user/testing.ts";
 import { createSessionsFeature } from "../feature.ts";
 import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
 import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.ts";

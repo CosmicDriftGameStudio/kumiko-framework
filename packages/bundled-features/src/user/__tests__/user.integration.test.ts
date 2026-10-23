@@ -15,7 +15,7 @@ import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../..
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../feature.ts";
 import { userEntity, userTable } from "../schema/user.ts";
-import { softDeleteUserViaEventStore } from "../testing-event-store.ts";
+import { softDeleteUserViaEventStore } from "../testing.ts";
 import { UserErrors, UserHandlers, UserQueries } from "../web/constants.ts";
 
 let stack: TestStack;

@@ -37,7 +37,7 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
+import { updateUserViaEventStore } from "../../user/testing.ts";
 import { base32Decode } from "../base32.ts";
 import { mfaRequiredConfigHandle } from "../config.ts";
 import { createAuthMfaFeature } from "../feature.ts";

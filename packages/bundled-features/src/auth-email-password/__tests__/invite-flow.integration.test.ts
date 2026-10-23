@@ -56,7 +56,7 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
-import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
+import { updateUserViaEventStore } from "../../user/testing.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { storeInviteToken } from "../invite-token-store.ts";
 import { seedUser } from "../seeding.ts";

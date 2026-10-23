@@ -27,7 +27,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { TenantHandlers, TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import {
