@@ -29,6 +29,7 @@ const SCAFFOLD_FILES = [
   "bin/kumiko.ts",
   "src/client.tsx",
   "src/styles.css",
+  "public/index.html",
   ".env.example",
   "docker-compose.yml",
   "kumiko/migrations/0001_init.sql",
@@ -453,6 +454,17 @@ describe("scaffoldApp", () => {
     expect(compose).toContain("POSTGRES_PASSWORD: postgres");
     expect(compose).toContain("image: postgres:");
     expect(compose).toContain("image: redis:");
+    expect(compose).toContain("max_connections=300");
+  });
+
+  test("public/index.html wires the client bundle and stylesheet so `bun run build` finds a template", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const html = readFileSync(join(dest, "public", "index.html"), "utf-8");
+    expect(html).toContain('src="/client.js"');
+    expect(html).toContain('href="/styles.css"');
+    expect(html).toContain("<title>my-shop</title>");
   });
 
   test("README lists the mounted features dynamically", async () => {

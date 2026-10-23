@@ -6,7 +6,7 @@
 // has. `git init` makes it its own repo root for the CLI.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { scaffoldApp } from "@cosmicdrift/kumiko-dev-server";
 import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
@@ -74,5 +74,13 @@ describe("scaffolded app passes kumiko check", () => {
   test("tsc against the framework presets is green", async () => {
     const tsc = await run(["bun", "x", "tsc", "--noEmit", "-p", "."], appDir);
     expect(tsc.code, tsc.output).toBe(0);
+  });
+
+  test("bun run build produces dist/index.html with a hashed client script", async () => {
+    const build = await run(["bun", "run", "build"], appDir);
+    expect(build.code, build.output).toBe(0);
+    const html = readFileSync(join(appDir, "dist", "index.html"), "utf8");
+    expect(html).not.toContain('src="/client.js"');
+    expect(html).toMatch(/<script[^>]+src="\/assets\/[^"]*client-[A-Za-z0-9]+\.js"/);
   });
 });

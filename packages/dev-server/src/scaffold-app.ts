@@ -19,6 +19,7 @@ import {
   writeSnapshotJson,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { resolveFrameworkVersion } from "./framework-version.ts";
 import { isKebabSegment } from "./kebab.ts";
@@ -181,6 +182,10 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(join(destination, "src", "styles.css"), renderStylesCss());
   files.push("src/styles.css");
+
+  mkdirSync(join(destination, "public"), { recursive: true });
+  write(join(destination, "public", "index.html"), renderIndexHtml(options.name));
+  files.push("public/index.html");
 
   write(join(destination, ".env.example"), renderEnvExample(options.name));
   files.push(".env.example");
@@ -700,6 +705,8 @@ services:
     # Pinned to the project's own compose-file tag (663/1) — Alpine variant
     # (~90MB vs ~400MB) and a reproducible patch version, bump on PG18 minors.
     image: postgres:18.3-alpine
+    # Bun.SQL dials its whole pool eagerly; the default of 100 is too tight for app + tests.
+    command: postgres -c max_connections=300
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -810,6 +817,24 @@ Files whose first line reads \`kumiko-managed\` (deploy/, .github/workflows/,
 - \`docker-compose.yml\` — local Postgres + Redis for \`bun dev\`.
 
 For full docs see https://docs.kumiko.rocks.
+`;
+}
+
+// No inline script: CSP is script-src 'self'.
+function renderIndexHtml(appName: string): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content" />
+    <title>${escapeHtml(appName)}</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/client.js"></script>
+  </body>
+</html>
 `;
 }
 
