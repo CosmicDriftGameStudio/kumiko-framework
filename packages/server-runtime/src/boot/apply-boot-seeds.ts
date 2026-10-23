@@ -1,7 +1,7 @@
 import { seedAllConfigValues } from "@cosmicdrift/kumiko-bundled-features/config";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 
 // Single boot-seed entry-point. runDevApp + runProdApp both call this

@@ -11,7 +11,7 @@ import {
   type RoleDispatchArgs,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { fetchOne, runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   createSystemUser,
@@ -19,6 +19,7 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";

@@ -10,9 +10,9 @@
 // Middleware / runProdApp resolve providers from the registry at boot
 // (tokenVerifier/sessionStore) or request-time (tokenVerifier shape match).
 
-import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   validateSessionStoreMultiplicity,
   validateTenantExistenceMultiplicity,

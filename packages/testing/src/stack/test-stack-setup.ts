@@ -6,7 +6,6 @@ import {
   type DbConnection,
   type EntityTableMeta,
   type RowLevelSecurityMode,
-  systemScopedRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine/types";
@@ -14,6 +13,7 @@ import {
   createArchivedStreamsTable,
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createRateLimitResolver,
   unsafePushTables,

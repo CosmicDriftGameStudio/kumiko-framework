@@ -205,13 +205,7 @@ export {
 export { assertRowLevelSecurityBootState } from "./row-level-security-boot-check.ts";
 export { rowLevelSecurityModeOf } from "./row-level-security-connection.ts";
 export type { RowLevelSecurityScope } from "./row-level-security-scope.ts";
-export {
-  assertNoActiveRowLevelSecurityScope,
-  runInRowLevelSecurityScope,
-  runInSystemRowLevelSecurityScope,
-  systemScopedRunner,
-  tenantRowLevelSecurityScope,
-} from "./row-level-security-scope.ts";
+export { assertNoActiveRowLevelSecurityScope } from "./row-level-security-scope.ts";
 export { tableExists } from "./schema-inspection.ts";
 export { withoutStatementTimeout } from "./statement-timeout.ts";
 export {

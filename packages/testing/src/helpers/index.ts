@@ -2,6 +2,12 @@
 // must import nothing from this subpath — the stack builders live in
 // `@cosmicdrift/kumiko-testing/stack`.
 
+// Scope setters for tests that call cross-tenant or tenant functions directly, outside dispatch.
+export {
+  runInRowLevelSecurityScope,
+  runInSystemRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 // The four cache/injection resets stay in their own modules (they close over
 // module-private state) and are only re-exported here — they are out of /crypto
 // and /db. A production call to resetPiiSubjectKmsForTests() silently switches

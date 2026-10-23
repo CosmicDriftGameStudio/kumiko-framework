@@ -1,11 +1,11 @@
 import { withFileProviderResolver } from "@cosmicdrift/kumiko-framework/api";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEsOperationsTable,
   createSeedMigrationContext,
   runPendingSeedMigrations,
 } from "@cosmicdrift/kumiko-framework/es-ops";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createDispatcher,
   createUnlimitedRateLimitResolver,
