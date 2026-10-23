@@ -149,7 +149,7 @@ export type AuthEmailPasswordOptions = {
 };
 
 // Auth feature — email+password login. Depends on the user feature for
-// identity lookups (via ctx.queryAs) and on the tenant feature for
+// identity lookups (via ctx.dispatch.queryAs) and on the tenant feature for
 // membership resolution. No direct imports of foreign tables.
 export function createAuthEmailPasswordFeature(
   opts: AuthEmailPasswordOptions = {},

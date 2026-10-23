@@ -28,7 +28,7 @@ export async function mayMailReceipt(
   try {
     const bucketKey = receiptBucketKey(ctx, email);
     if (bucketKey === undefined) {
-      ctx.log?.warn(
+      ctx.obs.log?.warn(
         "[billing-foundation:termination] no rate-limit digest available, receipt mail withheld",
       );
       return "unavailable";
@@ -39,7 +39,7 @@ export async function mayMailReceipt(
     });
     return decision.allowed ? "allowed" : "limited";
   } catch (error) {
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       `[billing-foundation:termination] receipt rate limiter failed: ${error instanceof Error ? error.message : String(error)}`,
     );
     return "unavailable";

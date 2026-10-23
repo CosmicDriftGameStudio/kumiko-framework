@@ -160,11 +160,13 @@ async function findTerminableTenantIds(
       "anonymous declarant has no session — finds the contract by email via user:find-for-auth and tenant:memberships as a system user; the calling handler declares its own escapeHatch",
   });
   const user = authUserRowSchema.safeParse(
-    await ctx.queryAs(createSystemUser(requestTenantId), UserQueries.findForAuth, { email }),
+    await ctx.dispatch.queryAs(createSystemUser(requestTenantId), UserQueries.findForAuth, {
+      email,
+    }),
   );
   if (!user.success || user.data.isDeleted === true) return [];
   const memberships = membershipRowsSchema.safeParse(
-    await ctx.queryAs(createSystemUser(requestTenantId), TenantQueries.memberships, {
+    await ctx.dispatch.queryAs(createSystemUser(requestTenantId), TenantQueries.memberships, {
       userId: user.data.id,
     }),
   );
@@ -180,7 +182,7 @@ async function findTerminableTenantIds(
   const terminable: string[] = [];
   for (const tenantId of adminTenantIds) {
     const probe = terminableResultSchema.safeParse(
-      await ctx.queryAs(
+      await ctx.dispatch.queryAs(
         createSystemUser(tenantId),
         SubscriptionFoundationQueries.terminableSubscription,
         {},
@@ -205,7 +207,7 @@ export function createRequestContractTerminationHandler(
     ...(consumerProtection.terminationScope === "platform" && { tenantlessAnonymous: true }),
     escapeHatch: {
       reason:
-        "Anonymous declarant has no session — finds the contract by email via ctx.queryAs(system, user:find-for-auth) and tenant:memberships; the tenant written to comes only from those lookups.",
+        "Anonymous declarant has no session — finds the contract by email via ctx.dispatch.queryAs(system, user:find-for-auth) and tenant:memberships; the tenant written to comes only from those lookups.",
     },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
@@ -228,7 +230,7 @@ export function createRequestContractTerminationHandler(
       if (candidates.length === 1 && onlyCandidate !== undefined) {
         matchedTenantId = onlyCandidate;
         const revocation = createRevocationToken();
-        const declared = await ctx.writeAs(
+        const declared = await ctx.dispatch.writeAs(
           createSystemUser(onlyCandidate),
           SubscriptionFoundationHandlers.declareContractTermination,
           {
@@ -253,7 +255,7 @@ export function createRequestContractTerminationHandler(
         }
       } else {
         reasons.push(candidates.length === 0 ? "unmatched" : "ambiguous");
-        const recorded = await ctx.writeAs(
+        const recorded = await ctx.dispatch.writeAs(
           createSystemUser(SYSTEM_TENANT_ID),
           SubscriptionFoundationHandlers.recordUnmatchedContractTermination,
           {
@@ -318,7 +320,7 @@ export function createTerminateContractHandler(
       const { declarationType, terminationKind } = payload;
 
       const caller = authUserRowSchema.safeParse(
-        await ctx.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, {
+        await ctx.dispatch.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, {
           id: event.user.id,
         }),
       );
@@ -332,7 +334,7 @@ export function createTerminateContractHandler(
         });
       }
 
-      const recorded = await ctx.writeAs(
+      const recorded = await ctx.dispatch.writeAs(
         createSystemUser(tenantId),
         SubscriptionFoundationHandlers.recordContractTermination,
         {

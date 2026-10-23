@@ -105,7 +105,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
         // No email address here — this fires on every no-op request, PII
         // must not accumulate in logs just for the "was this toggled off"
         // signal a support ticket needs.
-        ctx.log?.info("signup-request skipped: self-registration disabled");
+        ctx.obs.log?.info("signup-request skipped: self-registration disabled");
         return { isSuccess: true, data: { kind: "no-op" } };
       }
       if (!ctx.redis) {
@@ -153,7 +153,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
             const { entityType, token: grantToken } = event.payload.handover;
             const provider = findSignupHandoverProvider(ctx.registry);
             if (!provider) {
-              ctx.log?.warn(
+              ctx.obs.log?.warn(
                 "signup-request: handover payload present but no signupHandover provider mounted",
               );
             } else {
@@ -167,10 +167,14 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
                 if (verified) {
                   binding = verified;
                 } else {
-                  ctx.log?.warn("signup-request: handover grant did not verify", { entityType });
+                  ctx.obs.log?.warn("signup-request: handover grant did not verify", {
+                    entityType,
+                  });
                 }
               } catch {
-                ctx.log?.warn("signup-request: handover grant verification threw", { entityType });
+                ctx.obs.log?.warn("signup-request: handover grant verification threw", {
+                  entityType,
+                });
               }
             }
           }

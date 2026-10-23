@@ -163,7 +163,7 @@ export type TestStackOptions = {
   persistentDb?: boolean;
   /** Cap on the main app pool (default: driver default). Lets tests saturate it deliberately. */
   dbPoolMax?: number;
-  /** Size of the dedicated pool behind ctx.dbOutsideTransaction / ctx.outsideTransaction. */
+  /** Size of the dedicated pool behind ctx.db.outsideTransaction / ctx.outsideTransaction. */
   outsideTransactionPoolMax?: number;
   /** Forwarded to buildServer — when set, requests without a JWT pass
    *  through as anonymous instead of 401. See AnonymousAccessConfig.

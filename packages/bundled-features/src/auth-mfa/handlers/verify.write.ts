@@ -50,8 +50,8 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
     escapeHatch: {
       grants: ["systemIdentity", "unsafeRaw"],
       reason:
-        "Pre-auth MFA step has no session yet — re-derives it via ctx.queryAs(SYSTEM, " +
-        "user:findForAuth) and ctx.resolveActiveMembership for the user the challenge token names. " +
+        "Pre-auth MFA step has no session yet — re-derives it via ctx.dispatch.queryAs(SYSTEM, " +
+        "user:findForAuth) and ctx.auth.resolveActiveMembership for the user the challenge token names. " +
         "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
         "guest dispatch tenant.",
     },
@@ -151,7 +151,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // the SAME tenant the challenge token already committed to (no
       // "pick a tenant" step here — that already happened at login time).
       const systemUser = createSystemUser(tenantId, ["SystemAdmin"]);
-      const userRow = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
+      const userRow = (await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
         id: userId,
       })) as {
         roles?: string | null;
@@ -179,7 +179,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
 
       // Membership revoked or principal blocked between login and verify —
       // mirror login.write.ts's refusal instead of falling back to globalRoles only.
-      const active = await ctx.resolveActiveMembership(userId, tenantId);
+      const active = await ctx.auth.resolveActiveMembership(userId, tenantId);
       if (active.kind === "rejected") return invalidChallengeToken();
       // buildSessionRoles calls stripForbiddenMembershipRoles to strip reserved
       // roles from the membership portion (globalRoles keeps SystemAdmin) —
@@ -193,7 +193,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
         ...sessionTimezoneField(userRow?.timezone),
         ...sessionLocaleField(userRow?.locale),
       };
-      const claims = await ctx.resolveAuthClaims(baseSession);
+      const claims = await ctx.auth.resolveClaims(baseSession);
       const session: SessionUser =
         Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
 

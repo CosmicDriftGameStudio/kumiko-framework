@@ -64,7 +64,7 @@ for each ts-file in packages/*/features/*/** and features/*/**:
         error({
           file,
           line,
-          message: `Cross-feature import verboten: "${importPath}" gehoert zu Feature "${importFeature}". Nutze ctx.query/write oder Events. Siehe docs/plans/architecture/feature-integration.md`,
+          message: `Cross-feature import verboten: "${importPath}" gehoert zu Feature "${importFeature}". Nutze ctx.dispatch.query/write oder Events. Siehe docs/plans/architecture/feature-integration.md`,
         })
 ```
 
@@ -81,8 +81,8 @@ Escape-Hatch: `// kumiko-lint-ignore cross-feature-import [reason]` Kommentar in
    Schemas. Refactoring von customers bricht orders ohne Warnung.
 
    Alternativen:
-     - ctx.query("customers:query:customer:find", ...)
-     - ctx.write("customers:write:customer:update", ...)
+     - ctx.dispatch.query("customers:query:customer:find", ...)
+     - ctx.dispatch.write("customers:write:customer:update", ...)
      - Event subscribe: r.onEvent("customers:event:changed", handler)
 
    Siehe: docs/plans/architecture/feature-integration.md (Abschnitt 1 + 2)

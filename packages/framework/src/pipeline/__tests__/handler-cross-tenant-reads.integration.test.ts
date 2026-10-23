@@ -117,7 +117,7 @@ const probeFeature = defineFeature(FEATURE, (r) => {
     name: "delegating",
     schema: z.object({ foreignTenantId: z.string() }),
     access: { roles: ["Admin"] },
-    handler: (query, ctx) => ctx.query(`${FEATURE}:query:granted`, query.payload),
+    handler: (query, ctx) => ctx.dispatch.query(`${FEATURE}:query:granted`, query.payload),
   });
 });
 

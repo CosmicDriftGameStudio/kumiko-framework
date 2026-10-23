@@ -8,7 +8,7 @@ export type DueRow = { readonly runId: string; readonly stepIndex: number };
 export const DUE_RUNS_BATCH_SIZE = 100;
 
 // Dedup happens solely via resume-run's VersionConflictError-checked claim
-// (ctx.tryAppendEvent on WORKFLOW_RESUMED) — a second dispatch for the same
+// (ctx.events.tryAppend on WORKFLOW_RESUMED) — a second dispatch for the same
 // row loses that race and no-ops. No row locks: in an autocommit statement
 // they would be released right after the SELECT and guard nothing.
 // `now()` stays the DB clock so job-host clock skew cannot mark rows due early.

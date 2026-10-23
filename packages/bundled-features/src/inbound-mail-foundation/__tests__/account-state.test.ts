@@ -3,15 +3,17 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { MailAccountEventPayload } from "../events.ts";
 import { loadCurrentMailAccountPayload } from "../handlers/account-state.ts";
 
-function ctxWithEvents(
-  payloads: readonly MailAccountEventPayload[],
-): Pick<HandlerContext, "loadAggregate"> {
+function ctxWithEvents(payloads: readonly MailAccountEventPayload[]): {
+  readonly events: Pick<HandlerContext["events"], "load">;
+} {
   return {
-    loadAggregate: async () =>
-      payloads.map((payload) => ({
-        // @cast-boundary test fixture — only `payload` is read by the function under test
-        payload,
-      })) as unknown as Awaited<ReturnType<HandlerContext["loadAggregate"]>>,
+    events: {
+      load: async () =>
+        payloads.map((payload) => ({
+          // @cast-boundary test fixture — only `payload` is read by the function under test
+          payload,
+        })) as unknown as Awaited<ReturnType<HandlerContext["events"]["load"]>>,
+    },
   };
 }
 

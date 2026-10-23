@@ -25,7 +25,7 @@ apiKey: createTextField({ personal: "tenant", find: "secret", writeOnly: true })
 
 - Clients see `true` when a value is set and `null` when it is empty: list, detail, write responses (`data`, `changes`, `previous`), nested children of a write, batch responses and `_refs` of eager-loaded references.
 - Executor reads (`detail` and `list` inside server handlers) and `postSave` / `postQuery` hooks see the plaintext.
-- `ctx.query`, `dispatcher.query`, agent tools and `_refs` see `true` / `null`.
+- `ctx.dispatch.query`, `dispatcher.query`, agent tools and `_refs` see `true` / `null`.
 - `ctx.db` sees the stored ciphertext.
 - The DSGVO user export decrypts encrypted fields but then masks writeOnly fields, so the bundle carries `true` / `null`, never the secret.
 

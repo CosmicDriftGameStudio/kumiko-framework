@@ -107,7 +107,7 @@ async function pushStackSchema(
   // setupTestStack call is ready for writes without needing a manual
   // createEventsTable().
   await createEventsTable(db);
-  // Archive-stream metadata — needed by ctx.appendEvent's archive guard and
+  // Archive-stream metadata — needed by ctx.events.append's archive guard and
   // loadAggregate's default-skip. Idempotent, so production boot running
   // the same call is fine.
   await createArchivedStreamsTable(db);

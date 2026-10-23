@@ -31,7 +31,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     name: "emit-relayed",
     schema: z.object({ value: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "draintestchain",
         type: relayed.name,
@@ -46,7 +46,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     "job-a",
     { trigger: { on: "draintestchain:write:start" }, retries: 0 },
     async (payload, ctx) => {
-      await ctx.write("draintestchain:write:emit-relayed", { value: payload["value"] });
+      await ctx.dispatch.write("draintestchain:write:emit-relayed", { value: payload["value"] });
     },
   );
 

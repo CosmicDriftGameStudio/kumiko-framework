@@ -512,7 +512,7 @@ export function buildExecutorContext(
   }
 
   // Archive guard for the CRUD write paths. Archived streams are read-only —
-  // ctx.appendEvent (append-event-core) already enforces this, but the
+  // ctx.events.append (append-event-core) already enforces this, but the
   // executor appends directly via append() and getStreamVersion() ignores
   // the archive flag, so without this check a PATCH/DELETE on an archived
   // entity would silently land an event and break the read-only contract

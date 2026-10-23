@@ -117,7 +117,7 @@ const testTriggersFeature = defineFeature("workflow-runner-resume-loop-test-trig
   registerEventTrigger(r, idempotentResumeWorkflow);
 });
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -199,14 +199,16 @@ async function runResumeDueRunsJob(): Promise<void> {
     ),
     registry: stack.registry,
     systemUser,
-    log: noopLogger,
     triggeredBy: null,
     attempt: 1,
     finalAttempt: true,
     defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
     canDefer: false,
-    ...bridgeStub({ user: systemUser }),
-    write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser),
+    ...bridgeStub({
+      user: systemUser,
+      log: noopLogger,
+      dispatch: { write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser) },
+    }),
   };
   await job.handler({}, ctx);
 }

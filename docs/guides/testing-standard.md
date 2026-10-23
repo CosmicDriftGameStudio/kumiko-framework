@@ -98,7 +98,7 @@ Seeded data that has to look old (a 90-day uptime strip, a chart with history) i
 ```ts illustration
 const seedBackdatedNote: E2eExtraSeeder = async (ctx) => {
   const createdAt = Temporal.Now.instant().subtract({ hours: 90 * 24 });
-  return runSeedWritesAt(createdAt, async () => ctx.write("notes:write:note:create", { title: "old" }));
+  return runSeedWritesAt(createdAt, async () => ctx.dispatch.write("notes:write:note:create", { title: "old" }));
 };
 ```
 

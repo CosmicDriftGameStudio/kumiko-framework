@@ -50,7 +50,7 @@ beforeAll(async () => {
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafePushTables(stack.db, { configValuesTable });

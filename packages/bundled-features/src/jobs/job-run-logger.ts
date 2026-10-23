@@ -593,7 +593,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       const triggeredById = meta.triggeredById ?? null;
       cachePut(bullJobId, runId, triggeredById);
       // Parse against the registered schema so out-of-dispatcher writes
-      // get the same validation guarantee as ctx.appendEvent. A shape
+      // get the same validation guarantee as ctx.events.append. A shape
       // drift between feature + logger fails loudly at the source
       // instead of silently landing on the table.
       const payload = runStartedSchema.parse({

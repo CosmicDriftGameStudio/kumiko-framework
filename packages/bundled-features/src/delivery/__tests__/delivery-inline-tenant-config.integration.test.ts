@@ -84,7 +84,7 @@ beforeAll(async () => {
       return {
         ...ctx,
         configResolver: resolver,
-        _configAccessorFactory: accessorFactory,
+        configAccessorFactory: accessorFactory,
       };
     },
   });

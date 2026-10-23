@@ -285,7 +285,7 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
           sitemapEntries: opts.sitemapEntries,
           includeLegalPages: opts.includeLegalPages ?? false,
           hasManagedPages: opts.managedPages !== undefined,
-          log: ctx.log,
+          log: ctx.obs.log,
         }),
     );
 

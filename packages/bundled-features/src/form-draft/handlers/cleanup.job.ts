@@ -195,7 +195,7 @@ export async function cleanupDraftsJob(
   // see feature.ts) — nothing to warn about there. A resolver that IS wired but
   // returns something unusable means an admin set an invalid value.
   if (ctx.configResolver && !isValidRetention) {
-    ctx.log?.warn?.(
+    ctx.obs.log?.warn?.(
       `[form-draft:cleanup] configResolver returned invalid retention-days value=${String(resolved)} — falling back to default=${FORM_DRAFT_DEFAULT_RETENTION_DAYS}`,
     );
   }
@@ -223,11 +223,11 @@ export async function cleanupDraftsJob(
       batch,
       db,
       retentionDays,
-      ctx.log,
+      ctx.obs.log,
     );
     for (const id of deferredIds) deferred.add(id);
     for (const row of deletedRows) {
-      await releaseRowFileRefs(row, db, fileProviderResolver, ctx.log);
+      await releaseRowFileRefs(row, db, fileProviderResolver, ctx.obs.log);
     }
     deleted += deletedRows.length;
     // A skipped row is no longer stale, so the next select drops it — a fully
@@ -239,5 +239,5 @@ export async function cleanupDraftsJob(
     )
       break;
   }
-  ctx.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
+  ctx.obs.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
 }

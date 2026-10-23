@@ -72,7 +72,7 @@ describe("startDevJobRunners", () => {
       context: {},
       redisUrl: testRedis.redisUrl,
       queueNamePrefix: `test-lane-default-${crypto.randomUUID()}`,
-      // Construction-only — this job never calls ctx.write/ctx.queryAs, so a
+      // Construction-only — this job never calls ctx.dispatch.write/ctx.dispatch.queryAs, so a
       // dispatcher built against a bare `{}` context is enough to satisfy
       // the (now required) opts.dispatcher without wiring a full stack.
       dispatcher: createDispatcher(registry, {}),
@@ -97,11 +97,11 @@ describe("startDevJobRunners", () => {
 // startDevJobRunners once built its per-lane JobRunners but
 // never called attachDispatcher() on them (unlike createApiEntrypoint /
 // createWorkerEntrypoint / createAllInOneEntrypoint, which all do this
-// automatically) — so ctx.write/ctx.queryAs inside a dev-run job always hit
+// automatically) — so ctx.dispatch.write/ctx.dispatch.queryAs inside a dev-run job always hit
 // the "dispatcher attached — call attachDispatcher() first" stub. This
 // mirrors create-kumiko-server.ts's real wiring (setupTestStack + a separate
 // startDevJobRunners as the lane consumer) and drives a job that calls both
-// ctx.write and ctx.queryAs end-to-end.
+// ctx.dispatch.write and ctx.dispatch.queryAs end-to-end.
 const attachNoteEntity = createEntity({
   table: "job_attach_notes",
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
@@ -146,8 +146,8 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
     async (payload, ctx) => {
       try {
         const { text } = attachJobPayload.parse(payload);
-        const writeResult = await ctx.write("jobattach:write:create", { text });
-        const rows = await ctx.queryAs(TestUsers.admin, "jobattach:query:list", {});
+        const writeResult = await ctx.dispatch.write("jobattach:write:create", { text });
+        const rows = await ctx.dispatch.queryAs(TestUsers.admin, "jobattach:query:list", {});
         attachResults.push({
           writeOk: writeResult.isSuccess,
           rowCount: attachListRows.parse(rows).length,
@@ -166,7 +166,7 @@ describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", (
     attachFailures.length = 0;
   });
 
-  test("a dev-run job's ctx.write and ctx.queryAs both succeed", async () => {
+  test("a dev-run job's ctx.dispatch.write and ctx.dispatch.queryAs both succeed", async () => {
     const attachQueueNamePrefix = `test-attach-dispatcher-${crypto.randomUUID()}`;
     const stack = await setupTestStack({
       features: [attachDispatcherFeature, createJobsFeature()],

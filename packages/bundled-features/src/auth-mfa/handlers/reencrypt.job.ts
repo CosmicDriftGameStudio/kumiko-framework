@@ -163,7 +163,7 @@ export async function mfaReencryptJob(
     const totpClass = classifyStoredEnvelope(envelopeValues.totpSecret, targetVersion);
     const recoveryClass = classifyStoredEnvelope(envelopeValues.recoveryCodes, targetVersion);
     if (totpClass === "unrecognized" || recoveryClass === "unrecognized") {
-      ctx.log?.warn?.(
+      ctx.obs.log?.warn?.(
         `[auth-mfa:reencrypt] row ${row.id} has a field that is not a current-cipher envelope, not re-encryptable`,
       );
       return "failed";
@@ -198,7 +198,7 @@ export async function mfaReencryptJob(
     // the row now holds a fresh write, already fine.
     if (!result.isSuccess) {
       if (result.error.code === "version_conflict") return "skipped";
-      ctx.log?.warn?.(`[auth-mfa:reencrypt] executor rejected row ${row.id}`, {
+      ctx.obs.log?.warn?.(`[auth-mfa:reencrypt] executor rejected row ${row.id}`, {
         code: result.error.code,
       });
       return "failed";
@@ -213,7 +213,7 @@ export async function mfaReencryptJob(
     deadlineAt: deadline,
     signal: ctx.signal,
     onRowError: (row, err) => {
-      ctx.log?.warn?.(`[auth-mfa:reencrypt] failed to re-encrypt row ${row.id}`, { err });
+      ctx.obs.log?.warn?.(`[auth-mfa:reencrypt] failed to re-encrypt row ${row.id}`, { err });
     },
   });
 
@@ -224,5 +224,5 @@ export async function mfaReencryptJob(
     batchesProcessed: outcome.batchesProcessed,
     stoppedReason: outcome.stoppedReason,
   };
-  ctx.log?.info?.(`[auth-mfa:reencrypt] complete: ${JSON.stringify(result)}`);
+  ctx.obs.log?.info?.(`[auth-mfa:reencrypt] complete: ${JSON.stringify(result)}`);
 }

@@ -34,7 +34,7 @@ const feature = defineFeature("avc", (r) => {
       role: z.enum(["first", "second"]),
     }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.aggregateId,
         aggregateType: AGGREGATE_TYPE,
         type: appended.name,
@@ -73,7 +73,7 @@ async function writersBlockedOnRowLock(): Promise<number> {
   return rows[0]?.count ?? 0;
 }
 
-describe("ctx.unsafeAppendEvent version conflict", () => {
+describe("ctx.events.unsafeAppend version conflict", () => {
   test.each([1, 2, 3])(
     "round %i: the losing writer's 409 carries the winner's stream version",
     async () => {

@@ -7,6 +7,7 @@ import type {
   AppendEventArgs,
   FetchForWritingArgs,
   HandlerContext,
+  HandlerEvents,
   SessionUser,
 } from "../engine/types/index.ts";
 import {
@@ -62,7 +63,7 @@ function requireDbSource(
   return dbSource;
 }
 
-// ctx.appendEvent — append a domain event onto a specific aggregate stream
+// ctx.events.append — append a domain event onto a specific aggregate stream
 // in the current tx, then fire matching inline projections. Core logic
 // lives in appendDomainEventCore; this wrapper just locates dbSource +
 // stringifies the SessionUser id for the shared helper.
@@ -76,14 +77,14 @@ async function appendDomainEvent(
   // Sink behind every append surface, so a resolved member stays read-only even via fetchForWriting handles.
   if (isMemberResolutionPrincipal(user)) throw memberResolutionReadOnlyDenied();
   const { registry } = ctx;
-  const dbSource = requireDbSource(ctx, tx, `ctx.appendEvent("${args.type}")`);
+  const dbSource = requireDbSource(ctx, tx, `ctx.events.append("${args.type}")`);
   await appendDomainEventCore(
     {
       registry,
       db: dbSource,
       tenantId: user.tenantId,
       userId: String(user.id),
-      callSiteLabel: "ctx.appendEvent",
+      callSiteLabel: "ctx.events.append",
       callerFeature,
     },
     args,
@@ -103,7 +104,7 @@ function buildTryAppendEvent(scope: HandlerContextScope) {
   return async (args: AppendEventArgs) => {
     if (!tx) {
       throw new InternalError({
-        message: `ctx.tryAppendEvent("${args.type}") requires an active transaction — no tx is threaded through this call.`,
+        message: `ctx.events.tryAppend("${args.type}") requires an active transaction — no tx is threaded through this call.`,
       });
     }
     try {
@@ -114,7 +115,7 @@ function buildTryAppendEvent(scope: HandlerContextScope) {
             db: sp,
             tenantId: user.tenantId,
             userId: String(user.id),
-            callSiteLabel: "ctx.tryAppendEvent",
+            callSiteLabel: "ctx.events.tryAppend",
             callerFeature: registry.getHandlerFeature(type),
           },
           args,
@@ -136,7 +137,7 @@ function buildTryAppendEvent(scope: HandlerContextScope) {
 function buildFetchForWriting(scope: HandlerContextScope) {
   const { ctx, type, user, tx, registry } = scope;
   return async (args: FetchForWritingArgs): Promise<AggregateStreamHandle> => {
-    const dbSource = requireDbSource(ctx, tx, `ctx.fetchForWriting("${args.aggregateId}")`);
+    const dbSource = requireDbSource(ctx, tx, `ctx.events.fetchForWriting("${args.aggregateId}")`);
     // Stream-version authoritative (same policy as CRUD executor + Block 0), read together
     // with the events so the pinned version covers exactly what the handler's rules saw.
     const { events: storedEvents, streamVersion: fetchedVersion } = await loadAggregateForWriting(
@@ -201,9 +202,9 @@ function buildLoadAggregate(scope: HandlerContextScope) {
   const { ctx, user, tx, registry } = scope;
   return async (
     aggregateId: string,
-    loadOptions?: Parameters<HandlerContext["loadAggregate"]>[1],
+    loadOptions?: Parameters<HandlerContext["events"]["load"]>[1],
   ): Promise<readonly StoredEvent[]> => {
-    const dbSource = requireDbSource(ctx, tx, `ctx.loadAggregate("${aggregateId}")`);
+    const dbSource = requireDbSource(ctx, tx, `ctx.events.load("${aggregateId}")`);
     const events = loadOptions?.asOf
       ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
       : await loadAggregate(dbSource, aggregateId, user.tenantId, {
@@ -225,11 +226,7 @@ function buildSnapshotAggregate(scope: HandlerContextScope) {
     readonly state: Record<string, unknown>;
     readonly snapshotVersion?: number;
   }): Promise<void> => {
-    const dbSource = requireDbSource(
-      ctx,
-      tx,
-      `ctx.snapshotAggregate("${snapshotArgs.aggregateId}")`,
-    );
+    const dbSource = requireDbSource(ctx, tx, `ctx.events.snapshot("${snapshotArgs.aggregateId}")`);
     await saveSnapshot(dbSource, {
       aggregateId: snapshotArgs.aggregateId,
       tenantId: user.tenantId,
@@ -252,7 +249,7 @@ function buildLoadAggregateWithSnapshot(scope: HandlerContextScope) {
     initial: TState,
     loadOptions?: Omit<LoadAggregateWithSnapshotOptions, "upcastEvent" | "entityEventVersionOf">,
   ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
-    const dbSource = requireDbSource(ctx, tx, `ctx.loadAggregateWithSnapshot("${aggregateId}")`);
+    const dbSource = requireDbSource(ctx, tx, `ctx.events.loadWithSnapshot("${aggregateId}")`);
     // Upcaster-aware: pass an upcastEvent callback so loadAggregateWithSnapshot
     // walks every delta through the registered chain before invoking the
     // user's (sync) reducer. Async upcasters (DB-enrichment) are awaited
@@ -296,11 +293,11 @@ function buildHandlerProjectionReader(scope: HandlerContextScope): ProjectionRea
       const all = [...singleNames, ...mspNames];
       throw new InternalError({
         message:
-          `ctx.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
+          `ctx.dispatch.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
           `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
       });
     }
-    const dbSource = requireDbSource(ctx, tx, `ctx.queryProjection("${qualifiedName}")`);
+    const dbSource = requireDbSource(ctx, tx, `ctx.dispatch.queryProjection("${qualifiedName}")`);
     const allTenants = queryOptions?.unsafeAllTenants === true;
     const where =
       hasTenantColumn(projTable) && !allTenants ? { tenantId: user.tenantId } : undefined;
@@ -326,26 +323,36 @@ function buildHandlerProjectionReader(scope: HandlerContextScope): ProjectionRea
   );
 }
 
-export function buildEventStoreFacet(scope: HandlerContextScope) {
+// tryAppend keeps its inferred result: it can also report an idempotent-append conflict, which the
+// public TryAppendEventResult (VersionConflict only) does not model yet; the engine-bridge cast
+// in buildHandlerContext is where that gap is tolerated, as before the namespace split.
+type EventsFacet = Omit<HandlerEvents, "tryAppend"> & {
+  readonly tryAppend: ReturnType<typeof buildTryAppendEvent>;
+};
+
+export function buildEventStoreFacet(scope: HandlerContextScope): {
+  readonly events: EventsFacet;
+  readonly queryProjection: ProjectionReader;
+} {
   const { ctx, type, user, tx, registry } = scope;
-  return {
+  const events: EventsFacet = {
     // Strict + unsafe share the same runtime — only the type-surface
     // differs. The strict signature is what's exposed to typed callers;
     // unsafe is the explicit escape-hatch for runtime-pluggable events.
-    appendEvent: asTypedAppendEventFn(async (args: AppendEventArgs) => {
+    append: asTypedAppendEventFn(async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
     }),
-    unsafeAppendEvent: async (args: AppendEventArgs) => {
+    unsafeAppend: async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
     },
-    tryAppendEvent: buildTryAppendEvent(scope),
+    tryAppend: buildTryAppendEvent(scope),
     fetchForWriting: buildFetchForWriting(scope),
-    loadAggregate: buildLoadAggregate(scope),
-    archiveStream: async (
+    load: buildLoadAggregate(scope),
+    archive: async (
       aggregateId: string,
       archiveArgs: { readonly aggregateType: string; readonly reason?: string },
     ): Promise<void> => {
-      const dbSource = requireDbSource(ctx, tx, `ctx.archiveStream("${aggregateId}")`);
+      const dbSource = requireDbSource(ctx, tx, `ctx.events.archive("${aggregateId}")`);
       await archiveStreamHelper(dbSource, {
         tenantId: user.tenantId,
         aggregateId,
@@ -354,16 +361,16 @@ export function buildEventStoreFacet(scope: HandlerContextScope) {
         reason: archiveArgs.reason,
       });
     },
-    restoreStream: async (aggregateId: string): Promise<void> => {
-      const dbSource = requireDbSource(ctx, tx, `ctx.restoreStream("${aggregateId}")`);
+    restore: async (aggregateId: string): Promise<void> => {
+      const dbSource = requireDbSource(ctx, tx, `ctx.events.restore("${aggregateId}")`);
       await restoreStreamHelper(dbSource, user.tenantId, aggregateId);
     },
-    isStreamArchived: async (aggregateId: string): Promise<boolean> => {
-      const dbSource = requireDbSource(ctx, tx, `ctx.isStreamArchived("${aggregateId}")`);
+    isArchived: async (aggregateId: string): Promise<boolean> => {
+      const dbSource = requireDbSource(ctx, tx, `ctx.events.isArchived("${aggregateId}")`);
       return isStreamArchived(dbSource, user.tenantId, aggregateId);
     },
-    snapshotAggregate: buildSnapshotAggregate(scope),
-    loadAggregateWithSnapshot: buildLoadAggregateWithSnapshot(scope),
-    queryProjection: buildHandlerProjectionReader(scope),
+    snapshot: buildSnapshotAggregate(scope),
+    loadWithSnapshot: buildLoadAggregateWithSnapshot(scope),
   };
+  return { events, queryProjection: buildHandlerProjectionReader(scope) };
 }

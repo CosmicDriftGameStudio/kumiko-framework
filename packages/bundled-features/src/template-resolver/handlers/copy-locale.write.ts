@@ -1,7 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
-  type HandlerContext,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
@@ -18,6 +17,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "../linked-resources.ts";
+import type { PrepareContext } from "../store-template-resource.ts";
 import {
   createLinkedResourceCopies,
   prepareLinkedResourceCopiesBeforeTransaction,
@@ -43,7 +43,7 @@ import {
 } from "./template-write.ts";
 
 type CopyScope = "tenant" | "system";
-type WriteCtx = HandlerContext;
+type WriteCtx = PrepareContext;
 
 function readDbFor(ctx: WriteCtx, scope: CopyScope) {
   return scope === "system" ? requireForTenant(ctx, SYSTEM_TENANT_ID).db : ctx.db;

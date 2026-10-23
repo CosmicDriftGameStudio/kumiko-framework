@@ -117,7 +117,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
       tenantId,
       actor: "system",
       sink: ctx._escapeHatchAuditSink,
-      log: ctx.log,
+      log: ctx.obs.log,
     });
   }
 
@@ -229,7 +229,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
       // format) — never a supported re-encrypt input, so fail loudly
       // instead of relying on cipher.decrypt to reject it. Log only the
       // row id, never the value (ciphertext-adjacent).
-      ctx.log?.warn?.(
+      ctx.obs.log?.warn?.(
         `[config:reencrypt] row ${row.id} is not a current-cipher envelope, not re-encryptable`,
       );
       return "failed";
@@ -254,7 +254,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     // holds a fresh envelope written by the set handler — already fine.
     if (!result.isSuccess) {
       if (result.error.code === "version_conflict") return "skipped";
-      ctx.log?.warn?.(`[config:reencrypt] executor rejected row ${row.id}`, {
+      ctx.obs.log?.warn?.(`[config:reencrypt] executor rejected row ${row.id}`, {
         code: result.error.code,
       });
       return "failed";
@@ -269,7 +269,7 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     deadlineAt: deadline,
     signal: ctx.signal,
     onRowError: ({ row }, err) => {
-      ctx.log?.warn?.(`[config:reencrypt] failed to re-encrypt row ${row.id}`, { err });
+      ctx.obs.log?.warn?.(`[config:reencrypt] failed to re-encrypt row ${row.id}`, { err });
     },
   });
 
@@ -279,5 +279,5 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     alreadyCurrent,
     stoppedReason: outcome.stoppedReason,
   };
-  ctx.log?.info?.(`[config:reencrypt] complete: ${JSON.stringify(result)}`);
+  ctx.obs.log?.info?.(`[config:reencrypt] complete: ${JSON.stringify(result)}`);
 };

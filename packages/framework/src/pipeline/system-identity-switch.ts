@@ -13,6 +13,7 @@ import type {
   WriteResult,
 } from "../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.ts";
+import { attachOutsideTransaction } from "./attach-outside-transaction.ts";
 
 export type QueryAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
 export type WriteAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
@@ -20,7 +21,7 @@ export type ResolveActiveMembershipFn = (
   userId: string,
   tenantId: TenantId,
 ) => Promise<ActiveMembershipResult>;
-export type ProjectionReader = HandlerContext["queryProjection"];
+export type ProjectionReader = HandlerContext["dispatch"]["queryProjection"];
 export type IdentitySwitch = { readonly queryAs: QueryAsFn; readonly writeAs: WriteAsFn };
 export type IdentitySwitchAudit = {
   readonly reason: string | undefined;
@@ -87,7 +88,7 @@ export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): 
 export function unsafeAllTenantsDenied(callerLabel: string): AccessDeniedError {
   return new AccessDeniedError({
     message:
-      `${callerLabel} may not call ctx.queryProjection(..., { unsafeAllTenants: true }) — declare ` +
+      `${callerLabel} may not call ctx.dispatch.queryProjection(..., { unsafeAllTenants: true }) — declare ` +
       "r.systemScope() or escapeHatch: { reason } on it",
     details: { reason: FrameworkReasons.unsafeAllTenantsDenied },
   });
@@ -108,7 +109,7 @@ type GatedMemberReaderSource = {
 
 // Reverse-lookup so withHookEscapeHatchGrant can re-gate the SAME ungated pair (and caller) under a narrower grant.
 const sourceByGated = new WeakMap<QueryAsFn | WriteAsFn, GatedIdentitySwitchSource>();
-// Same idea, for ctx.queryAsMember — a single function rather than a pair.
+// Same idea, for ctx.dispatch.queryAsMember — a single function rather than a pair.
 const ungatedMemberReaderByGated = new WeakMap<MemberReader, GatedMemberReaderSource>();
 
 function reportGrantedSwitch(
@@ -152,7 +153,7 @@ export function createGatedIdentitySwitch(
   return gated;
 }
 
-// ctx.queryAsMember's gate: the caller never names the target identity up
+// ctx.dispatch.queryAsMember's gate: the caller never names the target identity up
 // front (it's resolved internally), so this is a flat allow/deny.
 export function createGatedMemberReader(
   callerLabel: string,
@@ -176,10 +177,10 @@ type GatedProjectionReaderSource = {
   readonly report?: EscapeHatchReporter;
 };
 
-// Same idea, for ctx.queryProjection — a single function rather than a pair.
+// Same idea, for ctx.dispatch.queryProjection — a single function rather than a pair.
 const ungatedProjectionReaderByGated = new WeakMap<ProjectionReader, GatedProjectionReaderSource>();
 
-// ctx.queryProjection's gate: only { unsafeAllTenants: true } on a projection with a
+// ctx.dispatch.queryProjection's gate: only { unsafeAllTenants: true } on a projection with a
 // tenant column is grant-checked — a plain call always passes through, tenant-scoped
 // by the projection's own table, and the flag is a no-op on a tenant-less one.
 export function createGatedProjectionReader(
@@ -205,25 +206,22 @@ export function createGatedProjectionReader(
   return gated;
 }
 
-function readIdentitySwitchFn<
-  TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn | MemberReader | ProjectionReader,
->(
-  context: object,
-  key: "queryAs" | "writeAs" | "resolveActiveMembership" | "queryAsMember" | "queryProjection",
-): TFn | undefined {
-  if (!(key in context)) return undefined;
-  const value: unknown = Reflect.get(context, key);
-  return typeof value === "function" ? (value as TFn) : undefined; // @cast-boundary engine-bridge — checked via typeof above
+// Reads own keys only — never touch a property of a resolved value, which may be a Proxy that throws on any get.
+function readMember(namespace: object | undefined, key: string): unknown {
+  if (namespace === undefined || !(key in namespace)) return undefined;
+  return Reflect.get(namespace, key);
 }
 
-// context's own keys only — never touch a property of the resolved value, which may be a Proxy that throws on any get.
-function readDbLikeValue(
-  context: object,
-  key: "db" | "dbOutsideTransaction" | "systemDb",
-): object | undefined {
-  if (!(key in context)) return undefined;
-  const value: unknown = Reflect.get(context, key);
+function readObjectMember(namespace: object | undefined, key: string): object | undefined {
+  const value = readMember(namespace, key);
   return typeof value === "object" && value !== null ? value : undefined;
+}
+
+function readFunctionMember<
+  TFn extends QueryAsFn | WriteAsFn | ResolveActiveMembershipFn | MemberReader | ProjectionReader,
+>(namespace: object | undefined, key: string): TFn | undefined {
+  const value = readMember(namespace, key);
+  return typeof value === "function" ? (value as TFn) : undefined; // @cast-boundary engine-bridge — checked via typeof above
 }
 
 function unavailableIdentitySwitchFn(callerLabel: string, kind: "queryAs" | "writeAs") {
@@ -292,8 +290,8 @@ function gatedIdentitySwitchFields(
   };
 }
 
-// Unlike ctx.resolveActiveMembership (deny-only), a hook's own escapeHatch
-// can grant queryAsMember even when the enclosing handler has none.
+// Unlike ctx.auth.resolveActiveMembership (deny-only), a hook's own escapeHatch
+// can grant dispatch.queryAsMember even when the enclosing handler has none.
 function gatedMemberReaderField(
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
@@ -310,7 +308,7 @@ function gatedMemberReaderField(
   };
 }
 
-// Re-gates ctx.queryProjection under the hook's own escapeHatch, same
+// Re-gates ctx.dispatch.queryProjection under the hook's own escapeHatch, same
 // re-gating rule as the other fields below — see withHookEscapeHatchGrant.
 function gatedProjectionReaderField(
   callerLabel: string,
@@ -331,22 +329,38 @@ function gatedProjectionReaderField(
   };
 }
 
+// A rebound db is a new object, so the outsideTransaction property has to be carried over; an input
+// withUnsafeRawGrant passes through unchanged keeps its own.
+function regatedDb(
+  ctxDb: object,
+  ctxDbOutsideTransaction: object | undefined,
+  rawHatch: EscapeHatchDeclaration | undefined,
+): object {
+  const gatedDb = withUnsafeRawGrant(ctxDb, rawHatch);
+  if (gatedDb !== ctxDb && ctxDbOutsideTransaction) {
+    attachOutsideTransaction(gatedDb, withUnsafeRawGrant(ctxDbOutsideTransaction, rawHatch));
+  }
+  return gatedDb;
+}
+
 export function withHookEscapeHatchGrant<TContext extends object>(
   context: TContext,
   callerLabel: string,
   escapeHatch: EscapeHatchDeclaration | undefined,
 ): TContext {
-  const ctxQueryAs = readIdentitySwitchFn<QueryAsFn>(context, "queryAs");
-  const ctxWriteAs = readIdentitySwitchFn<WriteAsFn>(context, "writeAs");
-  const ctxResolveActiveMembership = readIdentitySwitchFn<ResolveActiveMembershipFn>(
-    context,
+  const dispatch = readObjectMember(context, "dispatch");
+  const auth = readObjectMember(context, "auth");
+  const ctxQueryAs = readFunctionMember<QueryAsFn>(dispatch, "queryAs");
+  const ctxWriteAs = readFunctionMember<WriteAsFn>(dispatch, "writeAs");
+  const ctxResolveActiveMembership = readFunctionMember<ResolveActiveMembershipFn>(
+    auth,
     "resolveActiveMembership",
   );
-  const ctxQueryAsMember = readIdentitySwitchFn<MemberReader>(context, "queryAsMember");
-  const ctxQueryProjection = readIdentitySwitchFn<ProjectionReader>(context, "queryProjection");
-  const ctxDb = readDbLikeValue(context, "db");
-  const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
-  const ctxSystemDb = readDbLikeValue(context, "systemDb");
+  const ctxQueryAsMember = readFunctionMember<MemberReader>(dispatch, "queryAsMember");
+  const ctxQueryProjection = readFunctionMember<ProjectionReader>(dispatch, "queryProjection");
+  const ctxDb = readObjectMember(context, "db");
+  const ctxDbOutsideTransaction = readObjectMember(ctxDb, "outsideTransaction");
+  const ctxSystemDb = readObjectMember(context, "systemDb");
   const identityHatch = escapeHatchFor(escapeHatch, "systemIdentity");
   const rawHatch = escapeHatchFor(escapeHatch, "unsafeRaw");
   if (
@@ -356,7 +370,6 @@ export function withHookEscapeHatchGrant<TContext extends object>(
     !ctxQueryAsMember &&
     !ctxQueryProjection &&
     !ctxDb &&
-    !ctxDbOutsideTransaction &&
     !ctxSystemDb
   ) {
     return context;
@@ -364,24 +377,27 @@ export function withHookEscapeHatchGrant<TContext extends object>(
 
   return {
     ...context,
-    ...gatedIdentitySwitchFields(callerLabel, identityHatch, ctxQueryAs, ctxWriteAs),
-    ...(ctxResolveActiveMembership &&
-      identityHatch === undefined && {
-        resolveActiveMembership: deniedResolveActiveMembership(callerLabel),
-      }),
-    ...gatedMemberReaderField(callerLabel, identityHatch, ctxQueryAsMember),
-    ...gatedProjectionReaderField(callerLabel, identityHatch, ctxQueryProjection),
-    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb, rawHatch) }),
-    ...(ctxDbOutsideTransaction && {
-      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction, rawHatch),
+    ...(dispatch && {
+      dispatch: {
+        ...dispatch,
+        ...gatedIdentitySwitchFields(callerLabel, identityHatch, ctxQueryAs, ctxWriteAs),
+        ...gatedMemberReaderField(callerLabel, identityHatch, ctxQueryAsMember),
+        ...gatedProjectionReaderField(callerLabel, identityHatch, ctxQueryProjection),
+      },
     }),
+    ...(auth &&
+      ctxResolveActiveMembership &&
+      identityHatch === undefined && {
+        auth: { ...auth, resolveActiveMembership: deniedResolveActiveMembership(callerLabel) },
+      }),
+    ...(ctxDb && { db: regatedDb(ctxDb, ctxDbOutsideTransaction, rawHatch) }),
     ...(ctxSystemDb && {
       systemDb: withSystemDbUnsafeRawGrant(ctxSystemDb, rawHatch, callerLabel),
     }),
   };
 }
 
-// Re-gates a hook's own ctx.queryAs/ctx.writeAs/ctx.queryProjection/ctx.db/ctx.dbOutsideTransaction/ctx.systemDb instead of inheriting the handler's grant.
+// Re-gates a hook's own ctx.dispatch.*/ctx.auth.resolveActiveMembership/ctx.db (incl. db.outsideTransaction)/ctx.systemDb instead of inheriting the handler's grant.
 export function bindHookEscapeHatchGrant(
   fn: LifecycleHookFn,
   label: string,

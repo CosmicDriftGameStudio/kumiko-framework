@@ -137,7 +137,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "writeas-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
+      ctx.dispatch.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
         email: "leak-writeas@example.com",
         note: event.payload.note,
       }),
@@ -150,7 +150,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "writeas-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
+      ctx.dispatch.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
         email: "leak-writeas-declared@example.com",
         note: event.payload.note,
       }),
@@ -212,7 +212,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "detour-query",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) =>
-      ctx.write("intakeb:write:create", {
+      ctx.dispatch.write("intakeb:write:create", {
         email: "leak-queryas@example.com",
         note: event.payload.note,
       }),
@@ -223,12 +223,12 @@ const featureA = defineFeature("intakea", (r) => {
     name: "queryas-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) =>
-      // Detour: anonymous root -> ctx.queryAs(SYSTEM) -> that query handler's
-      // own ctx.write. The origin travels with the root call, not the
+      // Detour: anonymous root -> ctx.dispatch.queryAs(SYSTEM) -> that query handler's
+      // own ctx.dispatch.write. The origin travels with the root call, not the
       // identity-switched SYSTEM user, so this must still be blocked.
-      ctx.queryAs(createSystemUser(event.user.tenantId), "intakea:query:detour-query", {
+      ctx.dispatch.queryAs(createSystemUser(event.user.tenantId), "intakea:query:detour-query", {
         note: event.payload.note,
-      }) as ReturnType<typeof ctx.write>,
+      }) as ReturnType<typeof ctx.dispatch.write>,
     access: { roles: ["anonymous"] },
     rateLimit: RATE_LIMIT,
     escapeHatch: {
@@ -239,9 +239,9 @@ const featureA = defineFeature("intakea", (r) => {
     name: "queryas-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) =>
-      ctx.queryAs(createSystemUser(event.user.tenantId), "intakea:query:detour-query", {
+      ctx.dispatch.queryAs(createSystemUser(event.user.tenantId), "intakea:query:detour-query", {
         note: event.payload.note,
-      }) as ReturnType<typeof ctx.write>,
+      }) as ReturnType<typeof ctx.dispatch.write>,
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: RATE_LIMIT,
     escapeHatch: {
@@ -264,7 +264,7 @@ const featureA = defineFeature("intakea", (r) => {
     name: "default-table-writeas-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) =>
-      ctx.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create-lead", {
+      ctx.dispatch.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create-lead", {
         phone: "+49 30 5678",
       }),
     access: { roles: ["anonymous"] },
@@ -355,7 +355,7 @@ const featureA = defineFeature("intakea", (r) => {
     "writeas-detour",
     z.object({ note: z.string() }),
     async function* (query, ctx) {
-      const result = await ctx.writeAs(
+      const result = await ctx.dispatch.writeAs(
         createSystemUser(query.user.tenantId),
         "intakeb:write:create",
         {
@@ -382,7 +382,7 @@ const featureA = defineFeature("intakea", (r) => {
       name: `anonymous-query-writeas-${suffix}`,
       schema: z.object({ note: z.string() }),
       handler: async (event, ctx) =>
-        ctx.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
+        ctx.dispatch.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
           email: "leak-query-root@example.com",
           note: event.payload.note,
         }),
@@ -678,7 +678,7 @@ describe("public-intake runtime gate", () => {
     expect(await rowCount()).toBe(1);
   });
 
-  test("(b) ctx.writeAs(SYSTEM, ...) detour — blocked without declaration", async () => {
+  test("(b) ctx.dispatch.writeAs(SYSTEM, ...) detour — blocked without declaration", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: "intakea:write:writeas-no-declare",
       payload: { note: "x" },
@@ -689,7 +689,7 @@ describe("public-intake runtime gate", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("(b) ctx.writeAs(SYSTEM, ...) detour — allowed once declared", async () => {
+  test("(b) ctx.dispatch.writeAs(SYSTEM, ...) detour — allowed once declared", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: "intakea:write:writeas-declare",
       payload: { note: "x" },
@@ -723,7 +723,7 @@ describe("public-intake runtime gate", () => {
     expect(await rowCount()).toBe(1);
   });
 
-  test("(d) anonymous write -> queryAs(SYSTEM) -> query handler's own ctx.write — blocked without declaration", async () => {
+  test("(d) anonymous write -> queryAs(SYSTEM) -> query handler's own ctx.dispatch.write — blocked without declaration", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: "intakea:write:queryas-no-declare",
       payload: { note: "x" },
@@ -734,7 +734,7 @@ describe("public-intake runtime gate", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("(d) anonymous write -> queryAs(SYSTEM) -> query handler's own ctx.write — allowed once declared", async () => {
+  test("(d) anonymous write -> queryAs(SYSTEM) -> query handler's own ctx.dispatch.write — allowed once declared", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: "intakea:write:queryas-declare",
       payload: { note: "x" },
@@ -894,7 +894,7 @@ describe("public-intake runtime gate", () => {
   });
 
   describe("anonymous stream root", () => {
-    test("a stream handler's ctx.writeAs detour onto foreign PII is blocked", async () => {
+    test("a stream handler's ctx.dispatch.writeAs detour onto foreign PII is blocked", async () => {
       const res = await stack.http.raw("POST", "/api/stream", {
         type: "intakea:stream:writeas-detour",
         payload: { note: "x" },

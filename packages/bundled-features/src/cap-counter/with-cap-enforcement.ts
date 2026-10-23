@@ -12,7 +12,7 @@
 // after a rollback, failure result or failed COMMIT only gives back what is still booked, so an
 // unknown COMMIT outcome cannot under-count. No connection is held across the handler. Rows a
 // crashed process left behind expire after CAP_RESERVATION_TTL_MINUTES and are given back before the
-// next reserve of the same cap. Reached through a nested ctx.write the cap is not reserved, so the
+// next reserve of the same cap. Reached through a nested ctx.dispatch.write the cap is not reserved, so the
 // dispatcher rejects that call unless the top-level batch reserved the same handler.
 //
 // The wrapper spreads the wrapped handler and chains its reserveBeforeTransaction: inner reserves
@@ -25,7 +25,7 @@
 // (enforce-cap.ts).
 
 import type {
-  HandlerContext,
+  ReservationContext,
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -67,7 +67,7 @@ export type CalendarCapDef = {
  *  tier from DB. */
 export type CalendarCapResolver = (
   event: WriteEvent,
-  ctx: HandlerContext,
+  ctx: ReservationContext,
 ) => Promise<CalendarCapDef> | CalendarCapDef;
 
 /**
@@ -111,7 +111,7 @@ export type RollingCapDef = {
 
 export type RollingCapResolver = (
   event: WriteEvent,
-  ctx: HandlerContext,
+  ctx: ReservationContext,
 ) => Promise<RollingCapDef> | RollingCapDef;
 
 /**

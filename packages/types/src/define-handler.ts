@@ -156,7 +156,7 @@ export type StreamHandlerDefinition<
   readonly access: AccessRule;
   readonly rateLimit?: RateLimitDeclaration;
   // Stream handlers can't reach db.global() (that gate is write-only), but
-  // they can still switch identity to SYSTEM via ctx.queryAs — this opts
+  // they can still switch identity to SYSTEM via ctx.dispatch.queryAs — this opts
   // in, same contract as WriteHandlerDefinition.escapeHatch.
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly handler: (

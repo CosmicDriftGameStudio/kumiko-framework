@@ -45,7 +45,7 @@ import {
   access,
   createTenantConfig,
   defineFeature,
-  type HandlerContext,
+  type ReservationContext,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -108,7 +108,7 @@ function isValidTierName(value: string): value is TierName {
   return (TIER_NAMES as readonly string[]).includes(value);
 }
 
-async function resolveTier(ctx: HandlerContext): Promise<TierName> {
+async function resolveTier(ctx: ReservationContext): Promise<TierName> {
   const tenantId = ctx.user?.tenantId;
   if (tenantId) {
     const sub = await getSubscriptionForTenant(ctx, tenantId);
@@ -131,7 +131,7 @@ async function resolveTier(ctx: HandlerContext): Promise<TierName> {
 
 /** Notifier-Factory: bauen einen SoftHitNotifier der die Warnung über
  *  dieselbe mail-foundation an den Tenant-Admin schickt. */
-function buildSoftHitNotifier(ctx: HandlerContext): SoftHitNotifier {
+function buildSoftHitNotifier(ctx: ReservationContext): SoftHitNotifier {
   return async (info) => {
     const transport = await createTransportForTenant(
       ctx,

@@ -11,7 +11,7 @@ import { InternalError } from "../errors/index.ts";
 import { appendDomainEventCore } from "../pipeline/append-event-core.ts";
 import { asTypedAppendEventFn } from "../pipeline/typed-append-event.ts";
 
-const CALL_SITE_LABEL = "job ctx.appendEvent";
+const CALL_SITE_LABEL = "job ctx.events.append";
 
 type JobAppendEventInput = {
   readonly registry: Registry;
@@ -26,13 +26,13 @@ export function createJobAppendEvent(input: JobAppendEventInput): AppendEventFn 
   return asTypedAppendEventFn(async (args: AppendEventArgs) => {
     if (jobDb === undefined) {
       throw new InternalError({
-        message: `Job ${jobName}: ctx.appendEvent needs a tenant db`,
+        message: `Job ${jobName}: ctx.events.append needs a tenant db`,
       });
     }
     const callerFeature = registry.getJobFeature(jobName);
     if (callerFeature === undefined) {
       throw new InternalError({
-        message: `Job ${jobName}: ctx.appendEvent needs an owning feature, none is registered for this job`,
+        message: `Job ${jobName}: ctx.events.append needs an owning feature, none is registered for this job`,
       });
     }
     await runInOwnTransaction(jobDb, (txDb) =>

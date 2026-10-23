@@ -4,12 +4,7 @@ import type { SessionUser, WriteHandlerDef } from "../engine/types/index.ts";
 import { toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { BatchCommand, DispatchContext } from "./dispatch-shared.ts";
-import {
-  applyBeforeTransactionReadOnly,
-  buildHandlerContext,
-  denyTransactionBoundSurfaces,
-  isMemberResolutionPrincipal,
-} from "./dispatch-shared.ts";
+import { buildHandlerContext, isMemberResolutionPrincipal } from "./dispatch-shared.ts";
 import { wrapToKumiko } from "./dispatcher-utils.ts";
 import { runPreHandlerGates } from "./pre-handler-gates.ts";
 import type { WriteOrigin } from "./write-origin.ts";
@@ -31,7 +26,7 @@ export function hasPreTransactionPhase(handler: WriteHandlerDef): boolean {
 }
 
 // One-shot permission per top-level command: the handler that reserved before the transaction
-// consumes it on entry. A capped handler reached any other way (nested ctx.write, writeAs, a
+// consumes it on entry. A capped handler reached any other way (nested ctx.dispatch.write, writeAs, a
 // second execution of the same type) finds it spent and is rejected instead of running unreserved.
 const reservedForCommand = new AsyncLocalStorage<Map<string, ConsumedReservation>>();
 
@@ -121,12 +116,11 @@ export async function reserveBeforeTransaction(
 
       let confirmInTransaction: ReservationConfirm | undefined;
       if (handler.reserveBeforeTransaction) {
-        const handlerContext = await buildHandlerContext(ctx, command.type, user, origin);
+        const reservationContext = await buildHandlerContext(ctx, command.type, user, origin, {
+          phase: "reservation",
+        });
         const handle = toReservationHandle(
-          await handler.reserveBeforeTransaction(
-            event,
-            denyTransactionBoundSurfaces(handlerContext),
-          ),
+          await handler.reserveBeforeTransaction(event, reservationContext),
         );
         if (handle) releases.push(handle.release);
         confirmInTransaction = handle?.confirmInTransaction;
@@ -135,12 +129,9 @@ export async function reserveBeforeTransaction(
       let prepared: unknown;
       if (handler.beforeTransaction) {
         const phaseContext = await buildHandlerContext(ctx, command.type, user, origin, {
-          readOnlyForTenant: true,
+          phase: "beforeTransaction",
         });
-        const phase = await handler.beforeTransaction(
-          event,
-          applyBeforeTransactionReadOnly(phaseContext),
-        );
+        const phase = await handler.beforeTransaction(event, phaseContext);
         if (!phase.isSuccess) {
           await releaseAll(ctx, releases);
           return { isSuccess: false, error: phase.error, failedIndex: index };

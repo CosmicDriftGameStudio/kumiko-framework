@@ -72,14 +72,18 @@ const nestedFeature = defineFeature("rl-nested", (r) => {
   r.queryHandler({
     name: "outer-same-bucket",
     schema: z.object({}),
-    handler: async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-ip", {}) }),
+    handler: async (_event, ctx) => ({
+      inner: await ctx.dispatch.query("rl-nested:query:inner-ip", {}),
+    }),
     access: { roles: ["Admin"] },
     rateLimit: ipLimit,
   });
   r.queryHandler({
     name: "outer-other-bucket",
     schema: z.object({}),
-    handler: async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-user", {}) }),
+    handler: async (_event, ctx) => ({
+      inner: await ctx.dispatch.query("rl-nested:query:inner-user", {}),
+    }),
     access: { roles: ["Admin"] },
     rateLimit: ipLimit,
   });
@@ -94,7 +98,7 @@ const nestedFeature = defineFeature("rl-nested", (r) => {
     name: "outer-stricter-nested",
     schema: z.object({}),
     handler: async (_event, ctx) => ({
-      inner: await ctx.query("rl-nested:query:inner-ip-strict", {}),
+      inner: await ctx.dispatch.query("rl-nested:query:inner-ip-strict", {}),
     }),
     access: { roles: ["Admin"] },
     rateLimit: ipLimit,
@@ -106,7 +110,7 @@ const nestedFeature = defineFeature("rl-nested", (r) => {
       const outcomes: boolean[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          await ctx.query("rl-nested:query:inner-user", {});
+          await ctx.dispatch.query("rl-nested:query:inner-user", {});
           outcomes.push(true);
         } catch {
           outcomes.push(false);

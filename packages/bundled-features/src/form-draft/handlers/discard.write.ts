@@ -87,7 +87,7 @@ export const discardDraftWrite = defineWriteHandler({
       // Binary delete only after commit — in-tx delete would orphan pointers
       // if the surrounding write transaction rolls back after this handler.
       const keys = ownedRefs.map((ref) => ref.storageKey);
-      const log = ctx.log;
+      const log = ctx.obs.log;
       const schedule = ctx.scheduleAfterCommit;
       const release = async (): Promise<void> => {
         await releaseDraftFileRefs(

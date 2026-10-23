@@ -9,10 +9,10 @@
 //   - emitEvent with headers — Marten free key/value metadata
 //   - r.projection — single-stream read model (inline in the write TX)
 //   - r.multiStreamProjection — cross-aggregate async read model
-//   - ctx.loadAggregate with { asOf } — point-in-time aggregate state
-//   - ctx.archiveStream / ctx.restoreStream — Marten ArchiveStream
-//   - ctx.queryProjection — tenant-scoped read of a projection table
-//   - ctx.snapshotAggregate + ctx.loadAggregateWithSnapshot — perf path
+//   - ctx.events.load with { asOf } — point-in-time aggregate state
+//   - ctx.events.archive / ctx.events.restore — Marten ArchiveStream
+//   - ctx.dispatch.queryProjection — tenant-scoped read of a projection table
+//   - ctx.events.snapshot + ctx.events.loadWithSnapshot — perf path
 //     for aggregates with long event tails (O(1) vs O(N) reduce), incl.
 //     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
@@ -339,7 +339,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:archive",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.archiveStream(event.payload.id, { aggregateType: "showcase-invoice" });
+      await ctx.events.archive(event.payload.id, { aggregateType: "showcase-invoice" });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
     access: { roles: ["Admin"] },
@@ -354,14 +354,14 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     handler: async (event, ctx) => {
       // Rebuild the state from the current stream so the snapshot reflects
       // the committed event log, not an in-memory guess. Use the upcaster-
-      // aware ctx.loadAggregate to stay consistent with read-time semantics.
-      const events = await ctx.loadAggregate(event.payload.id);
+      // aware ctx.events.load to stay consistent with read-time semantics.
+      const events = await ctx.events.load(event.payload.id);
       const state: InvoiceState = { ...initialInvoiceState };
       for (const evt of events) {
         reduceInvoice(state, evt);
       }
       const version = events.length > 0 ? (events[events.length - 1]?.version ?? 0) : 0;
-      await ctx.snapshotAggregate({
+      await ctx.events.snapshot({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         version,
@@ -374,13 +374,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
 
   // --- Query handlers ---
 
-  // Live aggregation via ctx.loadAggregate — reduces events into a state
+  // Live aggregation via ctx.events.load — reduces events into a state
   // snapshot. Supports asOf for point-in-time reads.
   r.queryHandler({
     name: "invoice:state",
     schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
     handler: async (query, ctx) => {
-      const events = await ctx.loadAggregate(query.payload.id, {
+      const events = await ctx.events.load(query.payload.id, {
         ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
       const state: InvoiceState = { ...initialInvoiceState };
@@ -405,7 +405,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:fast-state",
     schema: z.object({ id: z.uuid() }),
     handler: async (query, ctx) => {
-      const result = await ctx.loadAggregateWithSnapshot<InvoiceStateRecord>(
+      const result = await ctx.events.loadWithSnapshot<InvoiceStateRecord>(
         query.payload.id,
         (state, evt) => {
           const next: InvoiceStateRecord = { ...state };
@@ -434,7 +434,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     },
   });
 
-  // Read-model query via ctx.queryProjection — auto-tenant-scoped. The
+  // Read-model query via ctx.dispatch.queryProjection — auto-tenant-scoped. The
   // helper collapses the zero-argument "return this projection" pattern
   // into a single call; returns { rows } so the response shape stays
   // consistent with other list handlers.

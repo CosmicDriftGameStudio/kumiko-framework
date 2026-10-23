@@ -496,21 +496,22 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
         appOverrides: new Map([[TENANT_MODEL_CONFIG_KEY, "single-user"]]),
       }),
       systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },
-      log: {
-        info() {},
-        warn() {},
-        error() {},
-        debug() {},
-        child(): JobContext["log"] {
-          return this;
-        },
-      },
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub(),
+      ...bridgeStub({
+        log: {
+          info() {},
+          warn() {},
+          error() {},
+          debug() {},
+          child(): JobContext["obs"]["log"] {
+            return this;
+          },
+        },
+      }),
     };
     await job.handler({}, ctx);
 

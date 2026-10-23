@@ -3,7 +3,7 @@
 //   inbound-message  → read_inbound_messages  (INSERT-ignore, append-only)
 //   mail-thread      → read_mail_threads      (UPSERT, rollup)
 //
-// Apply runs in the same transaction as ctx.unsafeAppendEvent, providing
+// Apply runs in the same transaction as ctx.events.unsafeAppend, providing
 // read-your-own-write without waiting for a dispatcher tick (as in
 // billing-foundation).
 //

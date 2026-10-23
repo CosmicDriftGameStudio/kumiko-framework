@@ -14,6 +14,7 @@ import {
 import { requireForTenant } from "../../shared/index.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import type { LinkedResourceEntry } from "../linked-resources.ts";
+import type { PrepareContext } from "../store-template-resource.ts";
 import {
   attachmentLimitFailure,
   attachmentNeedsMailTemplate,
@@ -48,8 +49,8 @@ export function targetExistsIssue(locale: string): FieldIssue {
   };
 }
 
-type BundleImport = {
-  readonly ctx: HandlerContext;
+type BundleImport<TCtx extends PrepareContext = HandlerContext> = {
+  readonly ctx: TCtx;
   readonly user: SessionUser;
   readonly tenantId: TenantId;
   readonly scope: TemplateWriteScope;
@@ -60,7 +61,7 @@ type BundleImport = {
 type BundleImportStatus = "draft" | "active";
 
 async function collectBundleIssues(
-  args: BundleImport,
+  args: BundleImport<PrepareContext>,
   status: BundleImportStatus,
 ): Promise<readonly FieldIssue[]> {
   const { ctx, tenantId, scope, bundle, overwrite } = args;
@@ -113,7 +114,7 @@ function checkBundleAttachments(bundle: TemplateBundle): WriteResult<null> {
 // beforeTransaction half: validates the bundle and uploads every resource file to the target
 // tenant's storage. A failed or throwing upload releases the ones before it.
 export async function prepareTemplateBundleBeforeTransaction(
-  args: BundleImport & { readonly status: BundleImportStatus },
+  args: BundleImport<PrepareContext> & { readonly status: BundleImportStatus },
 ): Promise<BeforeTransactionResult<PreparedBundleResources>> {
   const refused =
     refuseTenantScopeUnderSystemTenant(args.scope, args.tenantId) ??

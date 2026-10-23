@@ -1,4 +1,4 @@
-// r.defineEvent + ctx.appendEvent strict-mode.
+// r.defineEvent + ctx.events.append strict-mode.
 //
 // Previously, ctx accepted any string as eventType and any value as payload;
 // payload went into the events-table raw, typos surfaced only at consumer-
@@ -9,7 +9,7 @@
 //   2. The payload is validated against the registered Zod schema BEFORE
 //      it hits the events-table. Mismatches throw ValidationError.
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
-//      pass `def.name` to ctx.appendEvent without building the qn manually.
+//      pass `def.name` to ctx.events.append without building the qn manually.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sharedWidgetEntity } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -52,7 +52,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     name: "emit:valid",
     schema: z.object({ userId: z.uuid(), email: z.email() }),
     handler: async (cmd, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: welcome.name,
@@ -68,8 +68,8 @@ const emitterFeature = defineFeature("emitter", (r) => {
     schema: z.object({ userId: z.uuid() }),
     handler: async (cmd, ctx) => {
       // Deliberately NOT passing welcome.name — "emitter:event:not-registered"
-      // was never registered. ctx.appendEvent must reject at the append site.
-      await ctx.unsafeAppendEvent({
+      // was never registered. ctx.events.append must reject at the append site.
+      await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: "emitter:event:not-registered",
@@ -85,7 +85,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     schema: z.object({ userId: z.uuid() }),
     handler: async (cmd, ctx) => {
       // System events skip schema validation, so only the object-shape guard stands between an array and the log.
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: "kumiko:system:test-array-payload",
@@ -101,7 +101,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     schema: z.object({ userId: z.uuid() }),
     handler: async (cmd, ctx) => {
       // userId is correct but email is missing / not an email string.
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: welcome.name,
@@ -119,7 +119,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // "neighbor:event:neighbor-signal" is owned by the neighbor feature.
       // The ownership guard in appendDomainEventCore must reject this append
       // at emit-site — cross-feature emission silently breaks encapsulation.
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
         type: foreignEventName,
@@ -159,7 +159,7 @@ describe("E.3 — r.defineEvent return + registry wiring", () => {
   });
 });
 
-describe("E.3 — ctx.appendEvent strict validation", () => {
+describe("E.3 — ctx.events.append strict validation", () => {
   test("valid append lands in the events-table with the qualified type on the aggregate stream", async () => {
     const userId = generateId();
     const res = await stack.http.write(
@@ -212,7 +212,7 @@ describe("E.3 — payload shape guard", () => {
 });
 
 describe("E.3 — cross-feature ownership guard", () => {
-  test("emitter cannot ctx.appendEvent an event owned by another feature", async () => {
+  test("emitter cannot ctx.events.append an event owned by another feature", async () => {
     // neighbor:event:neighbor-signal is a registered event — but it lives
     // in the neighbor feature, not the emitter. Without the guard the
     // append would succeed silently, attaching a "foreign" event onto the

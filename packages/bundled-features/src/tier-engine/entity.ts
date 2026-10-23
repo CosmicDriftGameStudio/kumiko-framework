@@ -21,7 +21,7 @@ import { type TierAssignmentSource, TierAssignmentSources } from "./web/constant
 // **Intentionally omitted from the entity**
 //   - tenantId: added automatically as a base column.
 //   - validFrom/validTo: redundant for event sourcing (events carry timestamps
-//     natively; time travel uses `ctx.loadAggregate({ asOf })`).
+//     natively; time travel uses `ctx.events.load({ asOf })`).
 //   - addOns: represented by a separate `tier-add-on` entity (1:n relation),
 //     allowing event-sourced Add/Remove events with clear audit granularity
 //     instead of replacing a JSON array.

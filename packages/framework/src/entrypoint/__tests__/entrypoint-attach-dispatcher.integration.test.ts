@@ -2,9 +2,9 @@
 //
 // JobContext.write/queryAs plus JobRunner.attachDispatcher() were added, but
 // left the entrypoint factories unwired: nothing ever called
-// attachDispatcher() on the JobRunners they build, so ctx.write inside a job
+// attachDispatcher() on the JobRunners they build, so ctx.dispatch.write inside a job
 // always hit the throwing stub in production too. This test proves the
-// wiring closes that gap (a job's ctx.write actually commits when run
+// wiring closes that gap (a job's ctx.dispatch.write actually commits when run
 // through a real entrypoint) and that the gap is real (the same job, run
 // against a bare createJobRunner() with no attachDispatcher() call, still
 // throws the stub).
@@ -33,7 +33,7 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
     name: "note",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "write-probe-note",
         type: noted.name,
@@ -45,7 +45,7 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
   });
   r.job("write-via-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     try {
-      const result = await ctx.write("write-probe:write:note", {
+      const result = await ctx.dispatch.write("write-probe:write:note", {
         note: payload["note"] as string,
       });
       writeProbeResults.push({ isSuccess: result.isSuccess });
@@ -76,7 +76,7 @@ function uniquePrefix(label: string): string {
 }
 
 describe("createWorkerEntrypoint auto-wires attachDispatcher() (framework#2044)", () => {
-  test("ctx.write inside a job commits end-to-end through a real entrypoint", async () => {
+  test("ctx.dispatch.write inside a job commits end-to-end through a real entrypoint", async () => {
     writeProbeResults.length = 0;
     const registry = createRegistry([writeProbeFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
@@ -112,7 +112,7 @@ describe("createWorkerEntrypoint auto-wires attachDispatcher() (framework#2044)"
 });
 
 describe("createJobRunner without attachDispatcher() still hits the #2043 stub", () => {
-  test("ctx.write throws — proves the entrypoint's attachDispatcher() call is the thing that makes writes work", async () => {
+  test("ctx.dispatch.write throws — proves the entrypoint's attachDispatcher() call is the thing that makes writes work", async () => {
     writeProbeFailures.length = 0;
     const registry = createRegistry([writeProbeFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;

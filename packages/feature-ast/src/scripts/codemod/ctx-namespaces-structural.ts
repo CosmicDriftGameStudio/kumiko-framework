@@ -90,17 +90,18 @@ export function planBindingPattern(
   plan: EditPlan,
   pattern: ObjectBindingPattern,
   type: Type,
-): void {
+): boolean {
   const moved = collectMovedBindings(plan, pattern, type);
-  if (moved.length === 0) return;
+  if (moved.length === 0) return false;
   const blocker = bindingBlocker(pattern, moved);
   if (blocker !== undefined) {
     plan.flagManual(pattern, blocker);
-    return;
+    return false;
   }
   for (const [namespace, items] of groupByNamespace(moved)) {
     planBindingGroup(plan, pattern, namespace, items);
   }
+  return true;
 }
 
 function planBindingGroup(
@@ -108,7 +109,7 @@ function planBindingGroup(
   pattern: ObjectBindingPattern,
   namespace: string,
   items: readonly MovedItem<BindingElement>[],
-): void {
+): boolean {
   const entry = items.map(({ node, path }) => bindingEntry(path, node.getNameNode().getText()));
   const existing = pattern
     .getElements()
@@ -116,20 +117,21 @@ function planBindingGroup(
   const nested = existing?.getNameNode();
   if (existing !== undefined && !(Node.isObjectBindingPattern(nested) && !hasRest(nested))) {
     plan.flagManual(existing, `${namespace} is already bound next to ${items[0]?.key ?? ""}`);
-    return;
+    return false;
   }
   if (Node.isObjectBindingPattern(nested)) {
     plan.insertIntoList(nested, nested.getElements(), entry.join(", "));
     for (const item of items) plan.deleteListItem(item.node);
   } else {
     const [first, ...rest] = items;
-    if (first === undefined) return;
+    if (first === undefined) return false;
     plan.replaceNode(first.node, `${namespace}: { ${entry.join(", ")} }`);
     for (const item of rest) plan.deleteListItem(item.node);
   }
   for (const item of items) {
     plan.recordRewrite(item.node, `destructured ${item.key} -> ${describePath(item.path)}`);
   }
+  return true;
 }
 
 function hasRest(pattern: ObjectBindingPattern): boolean {
@@ -185,13 +187,14 @@ export function planObjectLiteral(
   plan: EditPlan,
   literal: ObjectLiteralExpression,
   type: Type,
-): void {
+): boolean {
   const moved = collectMovedProperties(plan, literal, type);
-  if (moved.length === 0) return;
+  if (moved.length === 0) return false;
   const spreads = literal.getProperties().filter((property) => Node.isSpreadAssignment(property));
   for (const [namespace, items] of groupByNamespace(moved)) {
     planLiteralGroup(plan, literal, namespace, items, spreads);
   }
+  return true;
 }
 
 function isSideEffectFree(expression: Node): boolean {
@@ -237,9 +240,9 @@ function planLiteralGroup(
   namespace: string,
   items: readonly MovedItem<ObjectLiteralElementLike>[],
   spreads: readonly ObjectLiteralElementLike[],
-): void {
+): boolean {
   const [first, ...rest] = items;
-  if (first === undefined) return;
+  if (first === undefined) return false;
   const entries = items.map(({ node, path }) => literalEntry(plan, node, path));
   const existing = literal.getProperty(namespace);
   const conflicts = conflictingSpreads(spreads, namespace);
@@ -249,12 +252,12 @@ function planLiteralGroup(
       : undefined;
   if (blocker !== undefined) {
     plan.flagManual(first.node, blocker);
-    return;
+    return false;
   }
   const nested = Node.isPropertyAssignment(existing) ? existing.getInitializer() : undefined;
   if (existing !== undefined && namespace === "db" && !Node.isObjectLiteralExpression(nested)) {
     plan.flagManual(existing, `${namespace} is already set to a non-literal next to ${first.key}`);
-    return;
+    return false;
   }
   if (Node.isObjectLiteralExpression(nested)) {
     plan.insertIntoList(nested, nested.getProperties(), joinEntries(entries, ", "));
@@ -275,6 +278,7 @@ function planLiteralGroup(
   for (const item of items) {
     plan.recordRewrite(item.node, `object key ${item.key} -> ${describePath(item.path)}`);
   }
+  return true;
 }
 
 function withSpreads(spreadTexts: readonly string[], entries: readonly EntryText[]): EntryText {

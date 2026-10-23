@@ -4,10 +4,10 @@ import type { TenantDb } from "../../db/index.ts";
 import { hasOutsideTransactionDb, requireOutsideTransactionDb } from "../../db/tenant-db.ts";
 
 test("dbOutsideTransaction stays optional and hasOutsideTransactionDb narrows it", () => {
-  expectTypeOf<HandlerContext["dbOutsideTransaction"]>().toEqualTypeOf<TenantDb | undefined>();
+  expectTypeOf<HandlerContext["db"]["outsideTransaction"]>().toEqualTypeOf<TenantDb | undefined>();
   const narrow = (ctx: HandlerContext) => {
     if (hasOutsideTransactionDb(ctx)) {
-      expectTypeOf(ctx.dbOutsideTransaction).toEqualTypeOf<TenantDb>();
+      expectTypeOf(ctx.db.outsideTransaction).toEqualTypeOf<TenantDb>();
     }
   };
   expectTypeOf(narrow).toBeFunction();

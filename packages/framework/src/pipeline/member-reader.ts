@@ -1,4 +1,4 @@
-// ctx.queryAsMember — reads a query handler as a stored tenant member. The
+// ctx.dispatch.queryAsMember — reads a query handler as a stored tenant member. The
 // resolved SessionUser never leaves this module.
 
 import type { DbConnection, DbTx } from "../db/connection.ts";
@@ -47,7 +47,7 @@ async function resolveMember(
   const dbSource = resolveDbSource(ctx, undefined);
   if (!dbSource) {
     throw new InternalError({
-      message: "ctx.queryAsMember requires a database connection — none is configured.",
+      message: "ctx.dispatch.queryAsMember requires a database connection — none is configured.",
     });
   }
   // resolveDbSource(ctx, undefined) never returns a tx, only AppContext.db.

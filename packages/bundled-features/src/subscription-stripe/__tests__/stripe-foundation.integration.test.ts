@@ -98,7 +98,7 @@ beforeAll(async () => {
     extraContext: ({ db: ctxDb, registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       // Forwarded to every signature extraRoute's verify()/handler() as
       // `deps.secrets` — one webhook route now serves both the factory-
       // fallback scenarios (1–4, no row seeded yet) and the runtime-secret
@@ -660,7 +660,7 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
       extraContext: ({ db: ctxDb, registry }) => ({
         configResolver: resolver,
         configEncryption: encryption,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
         secrets: createSecretsContext({ db: ctxDb, masterKeyProvider, registry: registry }),
       }),
     });

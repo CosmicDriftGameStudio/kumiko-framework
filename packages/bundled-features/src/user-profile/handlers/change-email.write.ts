@@ -24,7 +24,7 @@ function invalidCredentials() {
 
 // Change-email — authenticated, self-only. The user confirms with their
 // current password (re-authentication as with change-password); the new
-// address is written through the user-update handler via ctx.writeAs(system)
+// address is written through the user-update handler via ctx.dispatch.writeAs(system)
 // because `email` is field-level privileged and would otherwise be silently
 // stripped during self-updates. emailVerified is set to false — the app then
 // triggers the verification flow (request-email-verification is public; the
@@ -45,8 +45,8 @@ export const changeEmailWrite = defineWriteHandler({
   escapeHatch: {
     grants: ["systemIdentity"],
     reason:
-      "Reads the caller's own passwordHash via ctx.queryAs(SYSTEM, user:findForAuth), checks " +
-      "email uniqueness the same way, and writes the new email via ctx.writeAs(SYSTEM, " +
+      "Reads the caller's own passwordHash via ctx.dispatch.queryAs(SYSTEM, user:findForAuth), checks " +
+      "email uniqueness the same way, and writes the new email via ctx.dispatch.writeAs(SYSTEM, " +
       "user:update) — field-access on passwordHash/email is privileged-only.",
   },
   // Payload carries the current password.
@@ -56,7 +56,7 @@ export const changeEmailWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     const systemUser = createSystemUser(event.user.tenantId);
 
-    const me = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
+    const me = (await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
       id: event.user.id,
     })) as { id: string; email: string; passwordHash: string | null; version: number } | null; // @cast-boundary db-runner
 
@@ -79,7 +79,9 @@ export const changeEmailWrite = defineWriteHandler({
       );
     }
 
-    const existing = await ctx.queryAs(systemUser, UserQueries.findForAuth, { email: newEmail });
+    const existing = await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
+      email: newEmail,
+    });
     if (existing !== null) {
       return writeFailure(
         new UnprocessableError(UserErrors.emailAlreadyExists, {
@@ -93,7 +95,7 @@ export const changeEmailWrite = defineWriteHandler({
     // backfillUserStreamTenants.
     const writer = createSystemUser(SYSTEM_TENANT_ID);
 
-    const writeRes = await ctx.writeAs(writer, UserHandlers.update, {
+    const writeRes = await ctx.dispatch.writeAs(writer, UserHandlers.update, {
       id: me.id,
       version: me.version,
       changes: { email: newEmail, emailVerified: false },

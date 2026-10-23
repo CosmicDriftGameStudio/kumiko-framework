@@ -7,8 +7,7 @@ const mockWrite = mock();
 const mockWriteAs = mock();
 
 const mockCtx = {
-  write: mockWrite,
-  writeAs: mockWriteAs,
+  dispatch: { write: mockWrite, writeAs: mockWriteAs },
   event: { type: "test", payload: { title: "test" } },
   steps: {},
   scope: {},
@@ -40,7 +39,7 @@ describe("callFeature run", () => {
     mock.clearAllMocks();
   });
 
-  it("calls ctx.write with the resolved payload and handler name", async () => {
+  it("calls ctx.dispatch.write with the resolved payload and handler name", async () => {
     const stepDef = getStep("callFeature");
     mockWrite.mockResolvedValue({
       isSuccess: true,
@@ -62,7 +61,7 @@ describe("callFeature run", () => {
     expect(result).toEqual({ id: "abc-123" });
   });
 
-  it("resolves a function payload resolver before calling ctx.write", async () => {
+  it("resolves a function payload resolver before calling ctx.dispatch.write", async () => {
     const stepDef = getStep("callFeature");
     const payloadFn = mock((ctx: PipelineCtx) => ({
       title: (ctx.event.payload as { title: string }).title,
@@ -78,7 +77,7 @@ describe("callFeature run", () => {
     expect(mockWrite).toHaveBeenCalledWith("feat:write:h", { title: "test" });
   });
 
-  it("calls ctx.writeAs when opts.as is provided", async () => {
+  it("calls ctx.dispatch.writeAs when opts.as is provided", async () => {
     const stepDef = getStep("callFeature");
     const adminUser = { id: "admin-id", tenantId: "t1", roles: ["Admin"] };
     mockWriteAs.mockResolvedValue({

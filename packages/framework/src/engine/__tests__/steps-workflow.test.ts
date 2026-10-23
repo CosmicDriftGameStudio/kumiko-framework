@@ -23,7 +23,7 @@ const asAwaited = (event: string): AwaitedEventType => event as AwaitedEventType
 const mockUnsafeAppendEvent = mock();
 
 const workflowCtx = {
-  unsafeAppendEvent: mockUnsafeAppendEvent,
+  events: { unsafeAppend: mockUnsafeAppendEvent },
   event: { type: "user.signed-up", payload: { email: "test@example.com" } },
   steps: {},
   scope: {},
@@ -35,7 +35,7 @@ const workflowCtx = {
 } as unknown as PipelineCtx;
 
 const nonWorkflowCtx = {
-  unsafeAppendEvent: mockUnsafeAppendEvent,
+  events: { unsafeAppend: mockUnsafeAppendEvent },
   event: { type: "test", payload: { url: "https://hooks.example/test" } },
   steps: {},
   scope: {},

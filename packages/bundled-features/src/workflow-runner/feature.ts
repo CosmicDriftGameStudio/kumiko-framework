@@ -76,7 +76,7 @@ export function createWorkflowRunnerFeature() {
 
           for (const row of dueRows) {
             try {
-              await ctx.write("workflow-runner:write:resume-run", {
+              await ctx.dispatch.write("workflow-runner:write:resume-run", {
                 runId: row.runId,
                 stepIndex: row.stepIndex,
               });
@@ -84,7 +84,7 @@ export function createWorkflowRunnerFeature() {
               // skip: one row's dispatch failing (infra hiccup, not a business
               // outcome — resume-run itself never throws for expected cases)
               // must not stop the rest of this tenant's due rows from resuming.
-              ctx.log.warn(
+              ctx.obs.log.warn(
                 `[workflow-runner:resume-due-runs] runId=${row.runId} stepIndex=${row.stepIndex} dispatch failed: ${String(error)}`,
               );
             }

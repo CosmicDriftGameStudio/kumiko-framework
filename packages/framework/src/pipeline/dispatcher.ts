@@ -58,10 +58,10 @@ export type DispatcherOptions = {
   // Qualified name of the membership-list query handler consulted by
   // dispatcher.resolveActiveMembership. Defaults to TENANT_MEMBERSHIPS_QUERY.
   membershipQuery?: string;
-  // Statement timeout (and, on the pool path, idle-in-transaction timeout) for ctx.queryAsMember
+  // Statement timeout (and, on the pool path, idle-in-transaction timeout) for ctx.dispatch.queryAsMember
   // reads, in whole milliseconds. Defaults to 10000.
   memberReadTimeoutMs?: number;
-  // Own small pool for ctx.dbOutsideTransaction / ctx.outsideTransaction. Sharing the write pool
+  // Own small pool for ctx.db.outsideTransaction / ctx.outsideTransaction. Sharing the write pool
   // deadlocks when pool-max concurrent writes each hold a tx and then wait for a second connection.
   outsideTransactionDb?: DbConnection;
   // Resolves the effective-feature set per tenant — the dispatcher uses
@@ -132,7 +132,7 @@ export type Dispatcher = {
   // tenant switch) — single resolve implementation so callers can't independently drift.
   resolveActiveMembership(userId: string, tenantId: TenantId): Promise<ActiveMembershipResult>;
   // Trusted server surface, ungated like resolveActiveMembership.
-  // Handler/hook ctx.queryAsMember uses buildHandlerContext's own gated reader instead.
+  // Handler/hook ctx.dispatch.queryAsMember uses buildHandlerContext's own gated reader instead.
   createMemberReader(tenantId: TenantId): MemberReader;
 };
 

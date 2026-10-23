@@ -71,14 +71,14 @@ const workflowViewFeature = defineFeature("wfview", (r) => {
     name: "run:record",
     schema: z.object({ runId: z.uuid(), fail: z.boolean() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: WORKFLOW_RUN_STARTED_TYPE,
         payload: { workflowName: "invoice-reminder", triggerEventType: "billing:event:overdue" },
       });
       if (event.payload.fail) {
-        await ctx.unsafeAppendEvent({
+        await ctx.events.unsafeAppend({
           aggregateId: event.payload.runId,
           aggregateType: WORKFLOW_AGGREGATE_TYPE,
           type: WORKFLOW_RUN_FAILED_TYPE,

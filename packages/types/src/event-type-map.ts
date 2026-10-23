@@ -1,6 +1,6 @@
 // Cross-Feature Compile-Time Type Map.
 //
-// Purpose: check ctx.appendEvent / ctx.queryProjection / dispatcher.write against a
+// Purpose: check ctx.events.append / ctx.dispatch.queryProjection / dispatcher.write against a
 // statically known schema image instead of failing only at boot or runtime
 // (zod-validate). The Designer/AI layer benefits immediately: autocomplete knows all
 // event types from all loaded features, and payload-shape mismatches appear in the

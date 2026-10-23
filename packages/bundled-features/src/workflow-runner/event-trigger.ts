@@ -144,7 +144,8 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
               version: event.version,
             },
             ...(idempotencyKey && { idempotencyKey }),
-            handlerCtx: ctx,
+            // The MSP context is still flat; the runner reads the namespaced shape.
+            handlerCtx: { events: { unsafeAppend: ctx.unsafeAppendEvent } },
           });
         } catch (error) {
           // Failures outside the step loop (run-started append) have no step yet, so 0.

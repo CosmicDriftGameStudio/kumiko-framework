@@ -10,9 +10,11 @@ import { LEGAL_REQUIRED_BLOCKS, type LegalRequiredBlock } from "../web/constants
 // object in a unit test all fit.
 export type LegalPagesBootCheckCtx = {
   readonly templateResolver?: TemplateResolverApi;
-  readonly log?: {
-    readonly info?: (msg: string) => void;
-    readonly warn?: (msg: string) => void;
+  readonly obs?: {
+    readonly log?: {
+      readonly info?: (msg: string) => void;
+      readonly warn?: (msg: string) => void;
+    };
   };
 };
 
@@ -42,7 +44,7 @@ export async function runLegalPagesBootCheck(
   }
 
   if (missing.length === 0) {
-    ctx.log?.info?.("legal-pages boot-check: alle Pflicht-Blocks vorhanden");
+    ctx.obs?.log?.info?.("legal-pages boot-check: alle Pflicht-Blocks vorhanden");
   } else {
     const message =
       `legal-pages: missing ${missing.length} required text-block(s) in SYSTEM_TENANT: ` +
@@ -52,6 +54,6 @@ export async function runLegalPagesBootCheck(
     if (process.env["NODE_ENV"] === "production") {
       throw new Error(`Boot-Validation failed: ${message}`);
     }
-    ctx.log?.warn?.(message);
+    ctx.obs?.log?.warn?.(message);
   }
 }

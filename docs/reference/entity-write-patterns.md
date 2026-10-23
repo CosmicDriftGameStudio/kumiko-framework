@@ -101,9 +101,9 @@ projection pass after the handler sees the already-projected event and skips it.
 A `TenantDb` built outside the dispatcher or job runner has no registry bound
 and skips custom projections.
 
-## Versions after `ctx.appendEvent`
+## Versions after `ctx.events.append`
 
-`list` and `detail` of the event-store executor return the stream version as `version`, so a domain event appended via `ctx.appendEvent` does not stale the optimistic-lock base a client sends back on update. Custom queries that read the entity table directly see `row.version`, which lags behind after domain events; use the executor's `list`/`detail` or `getStreamVersion(s)` there.
+`list` and `detail` of the event-store executor return the stream version as `version`, so a domain event appended via `ctx.events.append` does not stale the optimistic-lock base a client sends back on update. Custom queries that read the entity table directly see `row.version`, which lags behind after domain events; use the executor's `list`/`detail` or `getStreamVersion(s)` there.
 
 ## CI guard
 

@@ -22,7 +22,7 @@ function requireScopedRebinder(tenantDb: TenantDb, caller: string): ScopedRebind
     throw new InternalError({
       message:
         `${caller} received a TenantDb without a transaction rebinder: either it was not ` +
-        "built by createTenantDb, or it is the fail-closed ctx.db/ctx.dbOutsideTransaction of an " +
+        "built by createTenantDb, or it is the fail-closed ctx.db/ctx.db.outsideTransaction of an " +
         "r.systemScope() handler (use ctx.systemDb.outsideTransaction there).",
     });
   }

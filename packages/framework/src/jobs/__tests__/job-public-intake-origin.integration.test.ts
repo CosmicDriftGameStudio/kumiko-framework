@@ -100,7 +100,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
   });
 
   r.job("write-foreign", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const result = await ctx.write("secrets:write:create", {
+    const result = await ctx.dispatch.write("secrets:write:create", {
       value: payload["value"] as string, // @cast-boundary test-fixture
     });
     if (!result.isSuccess) {
@@ -248,7 +248,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     name: "definedevent-no-declare",
     schema: z.object({ value: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "jobsx-leak",
         type: "jobsx:event:leaked",
@@ -263,7 +263,7 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     name: "definedevent-declare",
     schema: z.object({ value: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "jobsx-leak",
         type: "jobsx:event:leaked",
@@ -450,7 +450,7 @@ describe("job/event write-origin inheritance", () => {
     expect(gatedFailures).toHaveLength(0);
   });
 
-  test("job's ctx.write into a foreign handler — blocked without declaration", async () => {
+  test("job's ctx.dispatch.write into a foreign handler — blocked without declaration", async () => {
     await expectBlocked(
       "jobsx:write:foreign-no-declare",
       "leak-foreign",
@@ -460,7 +460,7 @@ describe("job/event write-origin inheritance", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("job's ctx.write into a foreign handler — allowed once declared", async () => {
+  test("job's ctx.dispatch.write into a foreign handler — allowed once declared", async () => {
     await expectAllowed("jobsx:write:foreign-declare", "leak-foreign-declared");
     expect(gatedFailures).toHaveLength(0);
   });
@@ -495,7 +495,7 @@ describe("job/event write-origin inheritance", () => {
     expect(gatedFailures).toHaveLength(0);
   });
 
-  test("r.defineEvent job trigger via ctx.appendEvent — blocked without declaration", async () => {
+  test("r.defineEvent job trigger via ctx.events.append — blocked without declaration", async () => {
     await expectBlocked(
       "jobsx:write:definedevent-no-declare",
       "leak-event",
@@ -505,7 +505,7 @@ describe("job/event write-origin inheritance", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("r.defineEvent job trigger via ctx.appendEvent — allowed once declared", async () => {
+  test("r.defineEvent job trigger via ctx.events.append — allowed once declared", async () => {
     await expectAllowed("jobsx:write:definedevent-declare", "leak-event-declared");
     expect(gatedFailures).toHaveLength(0);
   });

@@ -33,7 +33,7 @@ const productFeature = defineFeature("product", (r) => {
     name: "track",
     schema: z.object({ kind: z.string() }),
     handler: async (event, ctx) => {
-      ctx.metrics.inc("tracked_total", { kind: event.payload.kind });
+      ctx.obs.metrics.inc("tracked_total", { kind: event.payload.kind });
       return { isSuccess: true, data: { ok: true } };
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -154,7 +154,7 @@ describe("Observability (integration)", () => {
     expect(dispatcherSpan.attributes["kumiko.feature"]).toBe("product");
   });
 
-  it("feature metric ctx.metrics.inc emits counter.inc with feature prefix", async () => {
+  it("feature metric ctx.obs.metrics.inc emits counter.inc with feature prefix", async () => {
     await stack.http.command("product:write:track", { kind: "premium" }, adminUser);
 
     const counterEvents = provider.metricEvents.filter(
@@ -344,10 +344,10 @@ describe("Observability (integration) — Redis wrapper", () => {
   });
 });
 
-// Pino bridge: ctx.log entries emitted through the real createLogger()
+// Pino bridge: ctx.obs.log entries emitted through the real createLogger()
 // automatically carry the active trace context (traceId + spanId). Genuine
 // end-to-end means: give createLogger a custom destination stream, inject
-// it via extraContext, fire an HTTP request that calls ctx.log inside a
+// it via extraContext, fire an HTTP request that calls ctx.obs.log inside a
 // handler, then parse the captured NDJSON and verify trace fields landed.
 describe("Observability (integration) — Pino trace bridge", () => {
   let stack: TestStack;
@@ -359,7 +359,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
       name: "say",
       schema: z.object({ msg: z.string() }),
       handler: async (event, ctx) => {
-        ctx.log?.info(event.payload.msg, { custom: "field" });
+        ctx.obs.log?.info(event.payload.msg, { custom: "field" });
         return { isSuccess: true, data: { ok: true } };
       },
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -407,7 +407,7 @@ describe("Observability (integration) — Pino trace bridge", () => {
     expect(entry?.["traceId"]).toBe(httpSpan.traceId);
 
     // spanId should match one of the spans in the same trace (most specific
-    // active span when ctx.log is called — typically the dispatcher span).
+    // active span when ctx.obs.log is called — typically the dispatcher span).
     const idsInTrace = provider.spansByTraceId(httpSpan.traceId).map((s) => s.spanId);
     expect(idsInTrace).toContain(entry?.["spanId"]);
   });
@@ -573,9 +573,9 @@ describe("Observability (integration) — error path", () => {
 // declared at defineFeature time and used in QN dispatch types) — buildMetricName
 // normalizes "-" to "_" so registration and lookup resolve to the same name.
 function recordSharedCall(ctx: {
-  metricsFor: (featureName: string) => { inc: (n: string) => void };
+  obs: { metricsFor: (featureName: string) => { inc: (n: string) => void } };
 }) {
-  ctx.metricsFor("shared-lib").inc("call_total");
+  ctx.obs.metricsFor("shared-lib").inc("call_total");
 }
 
 const sharedLibFeature = defineFeature("shared-lib", (r) => {
@@ -600,14 +600,14 @@ const consumerBFeature = defineFeature("consumer-b", (r) => {
     schema: z.object({}),
     handler: async (_event, ctx) => {
       recordSharedCall(ctx);
-      ctx.metricsFor("unregistered-lib").inc("never_total");
+      ctx.obs.metricsFor("unregistered-lib").inc("never_total");
       return { isSuccess: true, data: { ok: true } };
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
 
-describe("Observability (integration) — ctx.metricsFor", () => {
+describe("Observability (integration) — ctx.obs.metricsFor", () => {
   let stack: TestStack;
   let provider: RecordingProvider;
 
@@ -647,7 +647,7 @@ describe("Observability (integration) — ctx.metricsFor", () => {
   });
 });
 
-describe("Observability (integration) — job ctx.metricsFor", () => {
+describe("Observability (integration) — job ctx.obs.metricsFor", () => {
   let stack: TestStack;
   let provider: RecordingProvider;
   let jobDone = false;
@@ -658,8 +658,8 @@ describe("Observability (integration) — job ctx.metricsFor", () => {
 
   const jobMetricsConsumerFeature = defineFeature("job-metrics-consumer", (r) => {
     r.job("record", { trigger: { manual: true } }, async (_payload, ctx) => {
-      ctx.metricsFor("job-metrics-lib").inc("job_call_total");
-      ctx.metricsFor("unregistered-lib").inc("never_total");
+      ctx.obs.metricsFor("job-metrics-lib").inc("job_call_total");
+      ctx.obs.metricsFor("unregistered-lib").inc("never_total");
       jobDone = true;
     });
   });

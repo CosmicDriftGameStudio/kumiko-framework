@@ -26,9 +26,9 @@ import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
-// the inner via ctx.queryAs / ctx.writeAs. We verify:
-//   - ctx.query / ctx.write run under the CURRENT user (field-access filters)
-//   - ctx.queryAs(systemUser) bypasses field-access read filters
+// the inner via ctx.dispatch.queryAs / ctx.dispatch.writeAs. We verify:
+//   - ctx.dispatch.query / ctx.dispatch.write run under the CURRENT user (field-access filters)
+//   - ctx.dispatch.queryAs(systemUser) bypasses field-access read filters
 //   - A writeAs inside a failing outer write rolls back with the outer tx
 //   - afterCommit hooks from writeAs fire exactly once on outer commit
 
@@ -128,7 +128,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       const created = await crud.create({ label: event.payload.label }, event.user, ctx.db);
       if (!created.isSuccess) return created;
 
-      const secretRes = await ctx.writeAs(
+      const secretRes = await ctx.dispatch.writeAs(
         createSystemUser(event.user.tenantId),
         "ctxbridge:write:secret:create",
         {
@@ -148,7 +148,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     escapeHatch: { reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller" },
   });
 
-  // Two inserts, one via ctx.db (tx-bound) and one via ctx.dbOutsideTransaction
+  // Two inserts, one via ctx.db (tx-bound) and one via ctx.db.outsideTransaction
   // (unbound pool), then an unconditional failure. Proves the outside-tx write
   // survives the handler's own rollback while the tx-bound one doesn't.
   r.writeHandler({
@@ -183,16 +183,20 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  // Handler that fetches the secret via ctx.queryAs(system) — proves the
+  // Handler that fetches the secret via ctx.dispatch.queryAs(system) — proves the
   // privileged call returns the token field even though the caller (Admin)
   // couldn't read it themselves.
   r.queryHandler({
     name: "bag:peek-secret",
     schema: z.object({ owner: z.string() }),
     handler: async (query, ctx) => {
-      return ctx.queryAs(createSystemUser(query.user.tenantId), "ctxbridge:query:secret:by-owner", {
-        owner: query.payload.owner,
-      });
+      return ctx.dispatch.queryAs(
+        createSystemUser(query.user.tenantId),
+        "ctxbridge:query:secret:by-owner",
+        {
+          owner: query.payload.owner,
+        },
+      );
     },
     access: { roles: ["Admin"] },
     escapeHatch: { reason: "test fixture: queryAs(SYSTEM) reads the privileged token field" },
@@ -267,7 +271,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     },
   });
 
-  // afterCommit hook on bag that writes a SECOND entity via ctx.write,
+  // afterCommit hook on bag that writes a SECOND entity via ctx.dispatch.write,
   // going through the real event-store append path (crud.create ->
   // runInSavepointIfSupported). Proves the afterCommit context's ctx.db
   // is a live, usable handle rather than the already-committed tx
@@ -283,7 +287,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       // object is always the full HandlerContext — see the comment on
       // AppContext in @cosmicdrift/kumiko-types/handlers. @cast-boundary
       const handlerCtx = ctx as unknown as HandlerContext;
-      const echoRes = await handlerCtx.write("ctxbridge:write:echo:create", { bagId });
+      const echoRes = await handlerCtx.dispatch.write("ctxbridge:write:echo:create", { bagId });
       if (echoRes.isSuccess) echoedBagIds.push(bagId);
     },
     phase: HookPhases.afterCommit,
@@ -332,7 +336,7 @@ beforeEach(async () => {
   await stack.redis.flushNamespace();
 });
 
-describe("ctx.query / ctx.queryAs", () => {
+describe("ctx.dispatch.query / ctx.dispatch.queryAs", () => {
   test("queryAs(system) returns fields that the caller's role cannot read", async () => {
     // Seed via writeAs(system) — the caller Admin can't write the token directly
     const res = await stack.http.write(
@@ -342,7 +346,7 @@ describe("ctx.query / ctx.queryAs", () => {
     );
     expect((await res.json()).isSuccess).toBe(true);
 
-    // Fetch via ctx.queryAs(system) — token comes through because system
+    // Fetch via ctx.dispatch.queryAs(system) — token comes through because system
     // satisfies the field-access read rule on `token`.
     const peeked = await stack.http.queryOk<Record<string, unknown>>(
       "ctxbridge:query:bag:peek-secret",
@@ -353,7 +357,7 @@ describe("ctx.query / ctx.queryAs", () => {
   });
 });
 
-describe("ctx.writeAs shares the outer transaction", () => {
+describe("ctx.dispatch.writeAs shares the outer transaction", () => {
   test("failure in outer write rolls back the writeAs insert too", async () => {
     const res = await stack.http.write(
       "ctxbridge:write:bag:create-with-secret",
@@ -402,7 +406,7 @@ describe("ctx.writeAs shares the outer transaction", () => {
   });
 });
 
-describe("runInOwnTransaction(ctx.dbOutsideTransaction)", () => {
+describe("runInOwnTransaction(ctx.db.outsideTransaction)", () => {
   test("a write inside it survives a handler that throws afterwards", async () => {
     const res = await stack.http.write(
       "ctxbridge:write:bag:outside-transaction-then-throw",
@@ -417,7 +421,7 @@ describe("runInOwnTransaction(ctx.dbOutsideTransaction)", () => {
   });
 });
 
-describe("ctx.dbOutsideTransaction", () => {
+describe("ctx.db.outsideTransaction", () => {
   test("a write through it survives the handler's own transaction rolling back", async () => {
     const res = await stack.http.write(
       "ctxbridge:write:bag:create-outside-tx-then-fail",
@@ -534,7 +538,7 @@ describe("query dispatch surfaces a client abort as 499, not a server fault", ()
 });
 
 describe("afterCommit hook context is usable for real DB work", () => {
-  test("a postSave afterCommit hook can write a second entity via ctx.write", async () => {
+  test("a postSave afterCommit hook can write a second entity via ctx.dispatch.write", async () => {
     afterCommitHookShouldEchoBag = true;
 
     const res = await stack.http.write("ctxbridge:write:bag:create", { label: "echo-me" }, admin);
@@ -543,7 +547,7 @@ describe("afterCommit hook context is usable for real DB work", () => {
     // The effect, not just "no throw": afterCommit hook errors are caught
     // and logged by the framework (dispatch-batch.ts flushAfterCommit), so
     // a broken hook still returns a 200 here. What proves the fix is that
-    // the hook's ctx.write actually landed a row through the event-store
+    // the hook's ctx.dispatch.write actually landed a row through the event-store
     // append path.
     expect(echoedBagIds).toHaveLength(1);
     const [expectedBagId] = echoedBagIds;

@@ -30,7 +30,7 @@ const PAGE_SIZE = "devcfg:config:page-size";
 
 // Reads ctx.config directly — the exact consumption seam mergeConfigResolverDefault
 // wires the dispatcher through. Every other test in this file inspects the returned
-// {configResolver, _configAccessorFactory} object without ever dispatching a handler
+// {configResolver, configAccessorFactory} object without ever dispatching a handler
 // that actually reads ctx.config; a "Boot writes field A, dispatcher expects field B"
 // drift would be invisible to all of them.
 const readPageSizeQuery = defineQueryHandler({
@@ -67,7 +67,7 @@ beforeAll(async () => {
       const bootResolver = createConfigResolver();
       return {
         configResolver: bootResolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, bootResolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, bootResolver),
       };
     },
   });
@@ -134,17 +134,17 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
   });
 
   // Regression: the GDPR export download threw errors.internal in prod because
-  // boot only wired `configResolver`, never `_configAccessorFactory` — so the
+  // boot only wired `configResolver`, never `configAccessorFactory` — so the
   // dispatcher left ctx.config undefined and createFileProviderForTenant threw
   // "ctx.config is missing". The boot now mints the factory.
-  test("boot wiring mints _configAccessorFactory so handlers get ctx.config", () => {
+  test("boot wiring mints configAccessorFactory so handlers get ctx.config", () => {
     const extra = mergeConfigResolverDefault(undefined, stack.registry, {}) as ExtraObj & {
-      readonly _configAccessorFactory?: unknown;
+      readonly configAccessorFactory?: unknown;
     };
-    expect(typeof extra._configAccessorFactory).toBe("function");
+    expect(typeof extra.configAccessorFactory).toBe("function");
   });
 
-  test("_configAccessorFactory uses the EFFECTIVE resolver (caller override wins over env-bridge)", async () => {
+  test("configAccessorFactory uses the EFFECTIVE resolver (caller override wins over env-bridge)", async () => {
     // money-horse pins `file-foundation:config:provider` = "s3-env" via an
     // appOverride on its own configResolver; ctx.config MUST read that override,
     // not the boot default — else the download resolves no provider.
@@ -152,12 +152,12 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
     const extra = mergeConfigResolverDefault({ configResolver: override }, stack.registry, {
       DEVCFG_PAGE_SIZE: "25", // env-bridge default would be 25 — the override must win
     }) as ExtraObj & {
-      readonly _configAccessorFactory: (deps: {
+      readonly configAccessorFactory: (deps: {
         readonly user: { readonly id: string; readonly tenantId: string };
         readonly db: typeof stack.db;
       }) => (key: string) => Promise<unknown>;
     };
-    const accessor = extra._configAccessorFactory({
+    const accessor = extra.configAccessorFactory({
       user: { id: TestUsers.systemAdmin.id, tenantId: TestUsers.systemAdmin.tenantId },
       db: stack.db,
     });
@@ -168,12 +168,12 @@ describe("runDevApp configResolver-default — ENV→app-override bridge", () =>
   });
 
   test("a real dispatch through stack.http resolves ctx.config end-to-end (not the factory called directly)", async () => {
-    // Every test above calls mergeConfigResolverDefault()/_configAccessorFactory
+    // Every test above calls mergeConfigResolverDefault()/configAccessorFactory
     // directly — none go through an actual dispatched request. The original bug
     // this feature guards against ("boot writes configResolver, dispatcher reads
     // a different field") only manifests on a REAL dispatch, where the
     // dispatcher's own wiring (not test code) builds ctx.config from
-    // _configAccessorFactory. This is that missing end-to-end proof.
+    // configAccessorFactory. This is that missing end-to-end proof.
     const res = await stack.http.queryOk<{ pageSize: number | undefined }>(
       "devcfg:query:read-page-size",
       {},

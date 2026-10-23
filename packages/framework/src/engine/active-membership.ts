@@ -10,7 +10,7 @@ import type { TenantId } from "./types/identifiers.ts";
 // with a since-deleted row should not silently treat it as active.
 export type PrincipalStatus = "active" | "blocked" | "unknown";
 
-// Global-roles/timezone/locale snapshot ctx.queryAsMember needs to mint a
+// Global-roles/timezone/locale snapshot ctx.dispatch.queryAsMember needs to mint a
 // resolved principal's SessionUser, without exposing its own table.
 export type PrincipalProfile = {
   readonly globalRoles: readonly string[];
@@ -25,7 +25,7 @@ export type PrincipalStatusPlugin = {
     deps: { readonly db: DbConnection },
   ) => Promise<PrincipalStatus>;
   // Required so a missing provider fails closed (InternalError) instead of
-  // silently minting empty global roles for ctx.queryAsMember.
+  // silently minting empty global roles for ctx.dispatch.queryAsMember.
   readonly resolveProfile: (
     userId: string,
     deps: { readonly db: DbConnection },

@@ -3,7 +3,7 @@
 // Exercises registerWorkflowRunPendingProjection end to end through a real
 // event-dispatcher pass: a test-only writeHandler appends the suspension/
 // resume/terminal event onto the run's workflow-run stream via
-// ctx.unsafeAppendEvent (the same primitive runner.ts uses for
+// ctx.events.unsafeAppend (the same primitive runner.ts uses for
 // run-started/run-completed), stack.eventDispatcher.runOnce() delivers it to
 // the MSP, and the resulting workflow_run_pending rows are asserted against
 // real Postgres rows.
@@ -34,7 +34,7 @@ const admin = TestUsers.admin;
 // generic sendNotification handler in delivery.integration.test.ts. Lets
 // each test pick the suspension/resume/terminal event type + payload it
 // wants to exercise instead of poking eventsTable directly, so the MSP is
-// driven through the same ctx.unsafeAppendEvent + event-dispatcher path
+// driven through the same ctx.events.unsafeAppend + event-dispatcher path
 // runner.ts and event-trigger.ts use in production.
 const testEventsFeature = defineFeature("wr-pending-test", (r) => {
   r.writeHandler({
@@ -45,7 +45,7 @@ const testEventsFeature = defineFeature("wr-pending-test", (r) => {
       payload: z.unknown(),
     }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: event.payload.type,

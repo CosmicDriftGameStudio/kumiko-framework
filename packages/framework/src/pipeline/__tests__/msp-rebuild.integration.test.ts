@@ -167,7 +167,7 @@ const feature = defineFeature("mspreb", (r) => {
         ctx.db,
       );
       if (!res.isSuccess) return res;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
         aggregateType: "msp-reb-invoice",
         type: invoiceBilled.name,
@@ -188,7 +188,7 @@ const feature = defineFeature("mspreb", (r) => {
         ctx.db,
       );
       if (!res.isSuccess) return res;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
         aggregateType: "msp-reb-payment",
         type: paymentReceived.name,

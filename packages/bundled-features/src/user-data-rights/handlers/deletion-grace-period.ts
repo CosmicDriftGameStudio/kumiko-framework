@@ -29,7 +29,7 @@ export async function resolveGracePeriod(
     reason:
       "reads the tenant compliance profile via queryAs(SYSTEM, ...) to compute the grace period end; the calling user's own identity has no read access to that tenant-config projection",
   });
-  const profile = (await ctx.queryAs(
+  const profile = (await ctx.dispatch.queryAs(
     createSystemUser(tenantId),
     "compliance-profiles:query:for-tenant",
     {},

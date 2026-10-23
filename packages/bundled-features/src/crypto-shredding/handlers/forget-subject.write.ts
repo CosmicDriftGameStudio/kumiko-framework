@@ -257,7 +257,7 @@ async function appendDenialAuditEvent(
       new InternalError({
         message:
           "[crypto-shredding] forget-subject denial audit event cannot be appended without " +
-          "ctx.dbOutsideTransaction — dispatch wiring is missing the outside-tx db source.",
+          "ctx.db.outsideTransaction — dispatch wiring is missing the outside-tx db source.",
       }),
     );
   }
@@ -432,7 +432,7 @@ async function appendSubjectForgotten(
   outsideRunner: DbRunner | undefined,
 ): Promise<void> {
   if (!outsideRunner) {
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId,
       aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
       type: SUBJECT_FORGOTTEN_EVENT_NAME,
@@ -521,7 +521,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         denialReasonOf(tenantScopeDenial),
-        ctx.dbOutsideTransaction?.unsafeRaw(),
+        ctx.db.outsideTransaction?.unsafeRaw(),
       );
       return auditFailure ?? tenantScopeDenial;
     }
@@ -537,7 +537,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         TARGET_RECORD_RETENTION_BLOCK_DELETE,
-        ctx.dbOutsideTransaction?.unsafeRaw(),
+        ctx.db.outsideTransaction?.unsafeRaw(),
       );
       return auditFailure ?? retentionDenial;
     }
@@ -575,7 +575,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       await closeUserLoginDoor(
         ctx,
         raw.userId,
-        ctx.dbOutsideTransaction?.unsafeRaw(),
+        ctx.db.outsideTransaction?.unsafeRaw(),
         ctx.db.unsafeRaw(),
       );
     }
@@ -599,7 +599,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         forgottenBy: event.user.id,
         ...(cleanupError !== undefined && { cleanupError }),
       },
-      ctx.dbOutsideTransaction?.unsafeRaw(),
+      ctx.db.outsideTransaction?.unsafeRaw(),
     );
 
     if (cleanupError !== undefined) {

@@ -31,7 +31,7 @@
 //     ai-foundation are BYOK by default and currently have no platform pool
 //     to count. cap-counter is generic: an app owner who wants to use the
 //     counter calls `bookCapUsage(...)` /
-//     `ctx.write(CapCounterHandlers.incrementRolling, ...)` from their own handler.
+//     `ctx.dispatch.write(CapCounterHandlers.incrementRolling, ...)` from their own handler.
 //   - **No reset cron for the calendar period.** It works without one: the
 //     periodStartIso part of the aggregate id rolls over to a fresh counter
 //     at the period boundary. Old rows remain for auditing.
@@ -86,7 +86,7 @@ export function createCapCounterFeature() {
       });
 
       // Custom domain event for the rolling counter. r.defineEvent registers the
-      // schema with the registry; ctx.unsafeAppendEvent in the handler reuses the
+      // schema with the registry; ctx.events.unsafeAppend in the handler reuses the
       // same schema for append-time validation. QN after prefixing:
       // "cap-counter:event:rolling-incremented" (see
       // ROLLING_INCREMENTED_EVENT_QN).

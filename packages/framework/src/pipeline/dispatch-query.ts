@@ -22,7 +22,7 @@ import { handlerAccessError } from "./handler-access-error.ts";
 import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.ts";
 
 // Standalone query execution — used by the public dispatcher.query() and
-// by ctx.query/ctx.queryAs inside handlers. Runs the handler, applies
+// by ctx.dispatch.query/ctx.dispatch.queryAs inside handlers. Runs the handler, applies
 // field-level read filters for the given user, logs the event.
 export async function executeQuery(
   ctx: DispatchContext,
@@ -91,7 +91,7 @@ async function executeQueryInner(
   // downstream (see HandlerContext.includeDeleted) — safe from raw input.
   const includeDeleted = propertyOf(parsed.data, "includeDeleted") === true;
 
-  // A resolved member (ctx.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
+  // A resolved member (ctx.dispatch.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
   return isMemberResolutionPrincipal(user)
     ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
         runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, readOnlyTx),

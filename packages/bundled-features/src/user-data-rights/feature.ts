@@ -622,7 +622,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         const exportDb =
           ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const exportRegistry = ctx.registry;
-        // JobContext carries ctx.meter (raw), not ctx.metrics — that bound
+        // JobContext carries ctx.meter (raw), not ctx.obs.metrics — that bound
         // handle only exists on HandlerContext (built per write/query call
         // in dispatch-shared.ts). Build the same handle explicitly here.
         const exportMetrics = ctx.meter
@@ -689,7 +689,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             appExportDownloadUrl: opts.appExportDownloadUrl,
           }),
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
-          escapeHatchAuditLog: ctx.log,
+          escapeHatchAuditLog: ctx.obs.log,
           actor: ctx.systemUser.id,
           metrics: exportMetrics,
         });
@@ -777,16 +777,16 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
-          escapeHatchAuditLog: ctx.log,
+          escapeHatchAuditLog: ctx.obs.log,
           actor: ctx.systemUser.id,
         });
 
         // Persist each incomplete report on the job-run log. The write
         // handler returns incomplete[] in its response; the cron path used to
         // discard the array (only a console.warn for rolledBack cases).
-        // ctx.log feeds createJobRunLogger → store_job_run_logs.
+        // ctx.obs.log feeds createJobRunLogger → store_job_run_logs.
         for (const entry of forgetResult.incomplete) {
-          ctx.log?.warn?.(
+          ctx.obs.log?.warn?.(
             `[user-data-rights:run-forget-cleanup] incomplete hook ` +
               `userId=${entry.userId} tenantId=${entry.tenantId} ` +
               `entityName=${entry.entityName} rolledBack=${entry.rolledBack} ` +

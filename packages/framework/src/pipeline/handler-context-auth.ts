@@ -1,12 +1,16 @@
 import type { TenantId } from "../engine/types/identifiers.ts";
-import type { MemberReader, SessionUser } from "../engine/types/index.ts";
+import type { HandlerAuth, MemberReader, SessionUser } from "../engine/types/index.ts";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
 import { resolveAuthClaimsFn } from "./dispatch-shared.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 import { createMemberReaderFn } from "./member-reader.ts";
 import { createGatedMemberReader, systemIdentitySwitchDenied } from "./system-identity-switch.ts";
 
-export function buildAuthFacet(scope: HandlerContextScope) {
+export function buildAuthFacet(scope: HandlerContextScope): {
+  readonly auth: HandlerAuth;
+  readonly queryAsMember: MemberReader;
+  readonly hasFeature: (featureName: string) => Promise<boolean>;
+} {
   const { ctx, type, user, tx, hasIdentitySwitchGrant, identitySwitchAudit } = scope;
   const { effectiveFeatures } = ctx;
   // Lazy — creates the reader (which fails closed on SYSTEM_TENANT_ID) only
@@ -21,14 +25,14 @@ export function buildAuthFacet(scope: HandlerContextScope) {
     },
     { ...identitySwitchAudit, tenantId: user.tenantId },
   );
-  return {
+  const auth: HandlerAuth = {
     // Thin pass-through: one resolve impl lives on the dispatcher, the
     // handler surface just forwards the call so both entry points (login
-    // handler via ctx.resolveAuthClaims, switch-tenant route via
+    // handler via ctx.auth.resolveClaims, switch-tenant route via
     // dispatcher.resolveAuthClaims) cannot drift.
-    resolveAuthClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser), // @wrapper-known semantic-alias
+    resolveClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser), // @wrapper-known semantic-alias
 
-    // Thin pass-through, same reasoning as resolveAuthClaims above — one
+    // Thin pass-through, same reasoning as resolveClaims above — one
     // resolve impl lives on the dispatcher so callers can't drift apart.
     // Internally queries memberships as SYSTEM, so it needs the same grant
     // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
@@ -36,7 +40,9 @@ export function buildAuthFacet(scope: HandlerContextScope) {
       if (!hasIdentitySwitchGrant) throw systemIdentitySwitchDenied(`handler "${type}"`);
       return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
     },
-
+  };
+  return {
+    auth,
     // Needs the same grant as a SYSTEM queryAs.
     queryAsMember,
 

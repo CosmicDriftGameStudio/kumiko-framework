@@ -1,7 +1,7 @@
 // Cross-Feature Reactions Sample — Integration Test
 //
 // Proves:
-//   1. ctx.appendEvent persists the domain event into the events-table
+//   1. ctx.events.append persists the domain event into the events-table
 //      inside the same TX as the business write, on the aggregate's own
 //      stream (aggregateType = "pubsub-order", not the legacy "pubsub").
 //   2. The event-dispatcher picks it up and invokes the
@@ -42,7 +42,7 @@ beforeEach(async () => {
   await resetEventStore(stack, ["read_sample_pubsub_orders"]);
 });
 
-describe("cross-feature reactions via ctx.appendEvent + r.multiStreamProjection", () => {
+describe("cross-feature reactions via ctx.events.append + r.multiStreamProjection", () => {
   test("write commits → event on aggregate stream → MSP handler receives it", async () => {
     const data = await stack.http.writeOk(
       "pubsub-orders:write:order:place",

@@ -28,7 +28,7 @@ export function makeUsageQuery(policy: TemplateEditPolicy) {
         { orderBy: { col: "id", direction: "asc" }, limit: MAIL_ROW_LIMIT + 1 },
       );
       if (fetchedRows.length > MAIL_ROW_LIMIT) {
-        ctx.log?.warn("template usage: row limit reached, result is incomplete", {
+        ctx.obs.log?.warn("template usage: row limit reached, result is incomplete", {
           limit: MAIL_ROW_LIMIT,
         });
       }

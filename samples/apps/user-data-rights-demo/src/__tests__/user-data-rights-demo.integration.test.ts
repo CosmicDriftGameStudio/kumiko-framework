@@ -216,6 +216,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       }),
       registry: stack.registry,
       systemUser: createSystemUser(SYSTEM_TENANT_ID),
+      obs: { log: { warn() {} } },
     } as unknown as JobContext);
     const cronRow = (await asRawClient(stack.db).unsafe(
       `SELECT status FROM read_users WHERE id = $1`,

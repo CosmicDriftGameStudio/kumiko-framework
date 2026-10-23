@@ -29,7 +29,7 @@ export const INBOUND_MESSAGE_AGGREGATE_TYPE = "inbound-message" as const;
 export const MAIL_THREAD_AGGREGATE_TYPE = "mail-thread" as const;
 
 // Event-name constants — short forms (for r.defineEvent) and qualified
-// FQNs (for ctx.unsafeAppendEvent and projection-apply keys).
+// FQNs (for ctx.events.unsafeAppend and projection-apply keys).
 export const MAIL_ACCOUNT_CONNECTED_EVENT_SHORT = "mail-account-connected" as const;
 export const MAIL_ACCOUNT_UPDATED_EVENT_SHORT = "mail-account-updated" as const;
 export const MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT = "mail-account-disconnected" as const;

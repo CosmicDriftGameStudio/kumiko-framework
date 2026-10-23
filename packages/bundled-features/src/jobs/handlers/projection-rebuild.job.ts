@@ -36,7 +36,7 @@ export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promi
     registry: ctx.registry,
     ...(skipApplyErrors === true && { errorPolicy: { skipApplyErrors: true } }),
   });
-  ctx.log?.info?.(
+  ctx.obs.log?.info?.(
     `[jobs:projection-rebuild] rebuilt ${projection}: ${result.eventsProcessed} events` +
       `${result.eventsSkipped > 0 ? ` (${result.eventsSkipped} quarantined)` : ""} in ${result.durationMs}ms`,
   );

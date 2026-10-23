@@ -48,28 +48,31 @@ function planPropertyAccess(
   plan: EditPlan,
   counters: Counters,
   access: PropertyAccessExpression,
-): void {
+): boolean {
   const name = access.getName();
-  if (!isMovedMemberName(name)) return;
+  if (!isMovedMemberName(name)) return false;
   const expression = access.getExpression();
   const receiver = receiverOf(expression.getType(), name, pickedContextKind(expression, name));
   if (receiver.kind === "context") counters.contextReceivers += 1;
   const decision = decideMove(receiver, name, isContextNamedReceiver(expression));
   if (decision.status === "manual") plan.flagManual(access, decision.reason);
-  if (decision.status !== "move") return;
+  if (decision.status !== "move") return false;
   const replacement = describePath(decision.path);
   plan.replaceNode(access.getNameNode(), replacement);
   plan.recordRewrite(access, `${name} -> ${replacement}`);
+  return true;
 }
 
-function planElementAccess(plan: EditPlan, access: ElementAccessExpression): void {
+function planElementAccess(plan: EditPlan, access: ElementAccessExpression): boolean {
   const argument = access.getArgumentExpression();
-  if (!Node.isStringLiteral(argument) || !isMovedMemberName(argument.getLiteralText())) return;
+  if (!Node.isStringLiteral(argument) || !isMovedMemberName(argument.getLiteralText()))
+    return false;
   const name = argument.getLiteralText();
   const decision = decideMove(receiverOf(access.getExpression().getType(), name), name, false);
   if (decision.status === "move") {
     plan.flagManual(access, `element access ["${name}"] on a context`);
   }
+  return true;
 }
 
 function literalContextType(literal: ObjectLiteralExpression): Type | undefined {
@@ -97,10 +100,11 @@ function hasMovedKey(literal: ObjectLiteralExpression): boolean {
   });
 }
 
-function planLiteral(plan: EditPlan, literal: ObjectLiteralExpression): void {
-  if (!hasMovedKey(literal)) return;
+function planLiteral(plan: EditPlan, literal: ObjectLiteralExpression): boolean {
+  if (!hasMovedKey(literal)) return false;
   const type = literalContextType(literal);
   if (type !== undefined) planObjectLiteral(plan, literal, type);
+  return true;
 }
 
 function patternType(pattern: Node): Type | undefined {
@@ -112,40 +116,42 @@ function patternType(pattern: Node): Type | undefined {
   return undefined;
 }
 
-function planIndexedAccess(plan: EditPlan, node: IndexedAccessTypeNode): void {
+function planIndexedAccess(plan: EditPlan, node: IndexedAccessTypeNode): boolean {
   const kind = contextKindOfAlias(node.getObjectTypeNode().getType());
   const keys = stringLiteralKeys(node.getIndexTypeNode());
-  if (kind === undefined || keys === undefined) return;
+  if (kind === undefined || keys === undefined) return false;
   const moves = keys.map((key) => ({ key, path: moveOf(kind, key) }));
-  if (moves.every((move) => move.path === undefined)) return;
+  if (moves.every((move) => move.path === undefined)) return false;
   const [only] = moves;
   if (moves.length > 1 || only?.path === undefined) {
     plan.flagManual(node, "indexed access mixing moved and unmoved context members");
-    return;
+    return false;
   }
   const { namespace, leaf } = only.path;
   plan.replaceNode(node, `${node.getObjectTypeNode().getText()}["${namespace}"]["${leaf}"]`);
   plan.recordRewrite(node, `${only.key} -> ${describePath(only.path)} (indexed access)`);
+  return true;
 }
 
-function planPickOmit(plan: EditPlan, node: TypeReferenceNode): void {
+function planPickOmit(plan: EditPlan, node: TypeReferenceNode): boolean {
   const helper = node.getTypeName().getText();
   const [target, keysNode] = node.getTypeArguments();
   if ((helper !== "Pick" && helper !== "Omit") || target === undefined || keysNode === undefined) {
-    return;
+    return false;
   }
   const kind = contextKindOfAlias(target.getType());
   const keys = stringLiteralKeys(keysNode);
-  if (kind === undefined || keys === undefined) return;
+  if (kind === undefined || keys === undefined) return false;
   const mapped = keys.map((key) => moveOf(kind, key)?.namespace ?? key);
-  if (mapped.every((key, index) => key === keys[index])) return;
+  if (mapped.every((key, index) => key === keys[index])) return false;
   if (helper === "Omit") {
     plan.flagManual(node, "Omit of a moved context member");
-    return;
+    return false;
   }
   const unique = [...new Set(mapped)];
   plan.replaceNode(keysNode, unique.map((key) => `"${key}"`).join(" | "));
   plan.recordRewrite(node, "Pick keys mapped to context namespaces");
+  return true;
 }
 
 function importOfHandlerContext(sourceFile: SourceFile): NamedImportNeed | undefined {
@@ -173,15 +179,15 @@ function phaseFunctionOf(node: Node): Node | undefined {
     : undefined;
 }
 
-function planPhaseAnnotation(plan: EditPlan, counters: Counters, node: Node): void {
-  if (!Node.isPropertyAssignment(node) && !Node.isMethodDeclaration(node)) return;
+function planPhaseAnnotation(plan: EditPlan, counters: Counters, node: Node): boolean {
+  if (!Node.isPropertyAssignment(node) && !Node.isMethodDeclaration(node)) return false;
   const phaseContext = PHASE_CONTEXT_BY_PROPERTY.get(node.getName());
   const fn = phaseFunctionOf(node);
-  if (phaseContext === undefined || fn === undefined) return;
+  if (phaseContext === undefined || fn === undefined) return false;
   if (
     !(Node.isArrowFunction(fn) || Node.isFunctionExpression(fn) || Node.isMethodDeclaration(fn))
   ) {
-    return;
+    return false;
   }
   for (const parameter of fn.getParameters()) {
     const annotation = parameter.getTypeNode();
@@ -203,9 +209,10 @@ function planPhaseAnnotation(plan: EditPlan, counters: Counters, node: Node): vo
     plan.replaceNode(annotation.getTypeName(), phaseContext);
     plan.recordRewrite(annotation, `HandlerContext -> ${phaseContext}`);
   }
+  return true;
 }
 
-function dropUnusedHandlerContextImport(sourceFile: SourceFile): void {
+function dropUnusedHandlerContextImport(sourceFile: SourceFile): boolean {
   const stillUsed = sourceFile
     .getDescendantsOfKind(SyntaxKind.Identifier)
     .some(
@@ -213,13 +220,14 @@ function dropUnusedHandlerContextImport(sourceFile: SourceFile): void {
         identifier.getText() === "HandlerContext" &&
         identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) === undefined,
     );
-  if (stillUsed) return;
+  if (stillUsed) return false;
   for (const declaration of sourceFile.getImportDeclarations()) {
     const named = declaration
       .getNamedImports()
       .find((entry) => entry.getName() === "HandlerContext");
     if (named !== undefined) removeNamedImport(sourceFile, declaration, named);
   }
+  return true;
 }
 
 function withImports(output: string, filePath: string, needs: readonly NamedImportNeed[]): string {

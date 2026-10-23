@@ -41,7 +41,7 @@ defineStep<WebhookSendArgs, void>({
     const url = resolveRequired(args.url, ctx);
     const headers = resolveOptional(args.headers, ctx) ?? {};
     const body = resolveOptional(args.body, ctx);
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: randomUUID(),
       aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
       type: STEP_DISPATCH_REQUESTED_TYPE,

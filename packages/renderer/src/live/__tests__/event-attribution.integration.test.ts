@@ -76,7 +76,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
     handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
         aggregateType: "attr-order",
         type: placed.name,
@@ -96,7 +96,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
     handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
         aggregateType: "attr-order",
         type: probed.name,
@@ -116,7 +116,7 @@ const attributionFeature = defineFeature("attribution", (r) => {
     schema: z.object({}),
     handler: async (_event, ctx) => {
       const aggregateId = uuid();
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId,
         aggregateType: "attr-order",
         type: streamed.name,
@@ -128,13 +128,13 @@ const attributionFeature = defineFeature("attribution", (r) => {
   });
 
   // The write happens after the first yield, i.e. in a later it.next() pull; a stream holds no
-  // transaction, so ctx.write runs it as its own command.
+  // transaction, so ctx.dispatch.write runs it as its own command.
   r.streamHandler(
     "order:emit-after-yield",
     z.object({}),
     async function* (_query, ctx) {
       yield "first";
-      await ctx.write(EMIT_STREAMED_HANDLER, {});
+      await ctx.dispatch.write(EMIT_STREAMED_HANDLER, {});
       yield "second";
     },
     { access: { roles: ["Admin"] } },
@@ -196,7 +196,7 @@ async function originOf(type: string): Promise<Origin> {
 }
 
 describe("#3043 — event attribution from the execution scope", () => {
-  test("dispatch path: ctx.appendEvent stamps the handler and its feature", async () => {
+  test("dispatch path: ctx.events.append stamps the handler and its feature", async () => {
     await stack.http.writeOk(PLACE_HANDLER, { item: "widget" }, admin);
 
     expect(await originOf(PLACED)).toMatchObject({

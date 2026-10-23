@@ -203,7 +203,7 @@ describe("files-tenant-data :: job registration", () => {
     await provider.write(orphan, new Uint8Array([1]));
 
     const infoLines: string[] = [];
-    const log: JobContext["log"] = {
+    const log: JobContext["obs"]["log"] = {
       info(message: string) {
         infoLines.push(message);
       },
@@ -225,14 +225,13 @@ describe("files-tenant-data :: job registration", () => {
       }),
       registry: stack.registry,
       systemUser: tenantA,
-      log,
       triggeredBy: null,
       attempt: 1,
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
       _fileProviderResolver: async () => provider,
-      ...bridgeStub(),
+      ...bridgeStub({ log: log }),
     };
 
     await job?.handler({}, ctx);

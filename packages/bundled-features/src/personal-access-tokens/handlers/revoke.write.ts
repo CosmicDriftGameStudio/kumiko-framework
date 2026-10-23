@@ -39,7 +39,7 @@ export const revokePatWrite = defineWriteHandler({
       // see feature.ts). Without this, the access-invalidation consumer
       // never hears about the revoke and an already-open SSE stream
       // authenticated by this exact token survives it.
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: generateId(),
         aggregateType: PAT_REVOKED_AGGREGATE_TYPE,
         type: PAT_REVOKED_EVENT_QN,

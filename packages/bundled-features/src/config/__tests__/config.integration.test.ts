@@ -172,7 +172,7 @@ const probeFeature = defineFeature("probe", (r) => {
     name: "read-config",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      if (!ctx.config) throw new Error("ctx.config not wired — _configAccessorFactory missing");
+      if (!ctx.config) throw new Error("ctx.config not wired — configAccessorFactory missing");
       probe.orders = await ctx.config(ordersFeature.exports.maxOrderCount);
       probe.push = await ctx.config(notificationsFeature.exports.pushEnabled);
       probe.betaEnabled = await ctx.config(configKeyDemoFeature.exports.betaEnabled);
@@ -352,7 +352,7 @@ beforeAll(async () => {
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   db = stack.db;

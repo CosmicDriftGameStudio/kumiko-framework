@@ -9,7 +9,7 @@
 //      with no second append.
 //   2. Type mapping: SubscriptionEvent.type (= normalized by the plugin)
 //      → one of the 5 ES event types.
-//   3. ctx.unsafeAppendEvent — the inline projection materializes the
+//   3. ctx.events.unsafeAppend — the inline projection materializes the
 //      `read_subscriptions` row in the same TX.
 
 import {
@@ -175,7 +175,7 @@ export async function appendSubscriptionEvent(
   //    streams, optimize via snapshot or a per-tenant dedup table as the
   //    idempotency anchor (like cap-counter).
   // ---------------------------------------------------------------
-  const existingEvents = await ctx.loadAggregate(aggId);
+  const existingEvents = await ctx.events.load(aggId);
   const alreadySeen = existingEvents.some((e) => {
     const headers = e.metadata.headers ?? {};
     return (
@@ -191,7 +191,7 @@ export async function appendSubscriptionEvent(
   // late delivery: appending it would roll the row back (a canceled subscription
   // would come back active). Invoice events carry the live state, not a snapshot.
   if (isLateStateEvent(existingEvents, payload)) {
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       `[billing-foundation:process-event] dropped late ${payload.type} ${payload.providerEventId}: a newer provider event is already stored`,
     );
     return { duplicate: false, stale: true, subscriptionAggregateId: aggId };
@@ -260,7 +260,7 @@ export async function appendSubscriptionEvent(
     providerEventId: payload.providerEventId,
     providerName: payload.providerName,
   };
-  await ctx.unsafeAppendEvent({
+  await ctx.events.unsafeAppend({
     aggregateId: aggId,
     aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
     type: esEventType,
@@ -311,7 +311,7 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
       const payload = event.payload as ProcessEventPayload;
       const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
       if (isStaleSubscriptionEvent(current, payload, now())) {
-        ctx.log?.warn(
+        ctx.obs.log?.warn(
           `[billing-foundation:process-event] dropped stale ${payload.type} ${payload.providerEventId}: tenant already tracks another subscription`,
         );
         return {

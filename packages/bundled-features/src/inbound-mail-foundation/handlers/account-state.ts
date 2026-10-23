@@ -13,10 +13,10 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { MailAccountEventPayload } from "../events.ts";
 
 export async function loadCurrentMailAccountPayload(
-  ctx: Pick<HandlerContext, "loadAggregate">,
+  ctx: { readonly events: Pick<HandlerContext["events"], "load"> },
   accountId: string,
 ): Promise<MailAccountEventPayload | undefined> {
-  const events = await ctx.loadAggregate(accountId);
+  const events = await ctx.events.load(accountId);
   const last = events[events.length - 1];
   // @cast-boundary engine-payload — eigene events, shape via defineEvent
   return last?.payload as MailAccountEventPayload | undefined;

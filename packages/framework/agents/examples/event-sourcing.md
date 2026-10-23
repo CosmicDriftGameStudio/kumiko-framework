@@ -17,12 +17,12 @@ blocks Kumiko provides.
 | API | Purpose |
 |---|---|
 | `r.defineEvent(name, schema, { version, migrations })` | Event schema with version number + upcaster chain |
-| `ctx.appendEvent({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
+| `ctx.events.append({ aggregateId, aggregateType, type, payload })` | Domain event on aggregate stream |
 | `r.projection(...)` | Single-stream read model, inline in the write TX |
 | `r.multiStreamProjection(...)` | Cross-aggregate read model, async via dispatcher |
-| `ctx.loadAggregate(id, { asOf })` | Live aggregation with point-in-time |
-| `ctx.archiveStream(id, { aggregateType })` | Archive a stream (Marten `ArchiveStream`) |
-| `ctx.queryProjection(name)` | Tenant-scoped read-model query |
+| `ctx.events.load(id, { asOf })` | Live aggregation with point-in-time |
+| `ctx.events.archive(id, { aggregateType })` | Archive a stream (Marten `ArchiveStream`) |
+| `ctx.dispatch.queryProjection(name)` | Tenant-scoped read-model query |
 
 ## Domain
 
@@ -53,7 +53,7 @@ HTTP POST /api/write { type: "showcase:write:invoice:approve", ... }
          ↓
   writeHandler("invoice:approve")
          ↓ TX begin
-         ctx.appendEvent({ type: "showcase:event:invoice-approved", ... })
+         ctx.events.append({ type: "showcase:event:invoice-approved", ... })
          r.projection("invoice-detail")         ← updates status = "approved"
          ↓ TX commit
          (async)
@@ -1166,7 +1166,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:archive",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.archiveStream(event.payload.id, { aggregateType: "showcase-invoice" });
+      await ctx.events.archive(event.payload.id, { aggregateType: "showcase-invoice" });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
     access: { roles: ["Admin"] },
@@ -1182,13 +1182,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       // Rebuild the state from the current stream so the snapshot reflects
       // the committed event log, not an in-memory guess. Use the upcaster-
       // aware ctx.loadAggregate to stay consistent with read-time semantics.
-      const events = await ctx.loadAggregate(event.payload.id);
+      const events = await ctx.events.load(event.payload.id);
       const state: InvoiceState = { ...initialInvoiceState };
       for (const evt of events) {
         reduceInvoice(state, evt);
       }
       const version = events.length > 0 ? (events[events.length - 1]?.version ?? 0) : 0;
-      await ctx.snapshotAggregate({
+      await ctx.events.snapshot({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
         version,
@@ -1207,7 +1207,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:state",
     schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
     handler: async (query, ctx) => {
-      const events = await ctx.loadAggregate(query.payload.id, {
+      const events = await ctx.events.load(query.payload.id, {
         ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
       const state: InvoiceState = { ...initialInvoiceState };
@@ -1232,7 +1232,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:fast-state",
     schema: z.object({ id: z.uuid() }),
     handler: async (query, ctx) => {
-      const result = await ctx.loadAggregateWithSnapshot<InvoiceStateRecord>(
+      const result = await ctx.events.loadWithSnapshot<InvoiceStateRecord>(
         query.payload.id,
         (state, evt) => {
           const next: InvoiceStateRecord = { ...state };

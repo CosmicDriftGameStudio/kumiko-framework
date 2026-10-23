@@ -44,7 +44,7 @@ Hook-Signaturen in `framework/src/engine/extensions/user-data.ts`:
 
 | Article | Handler | Zweck |
 |---------|---------|-------|
-| Art. 15 | `user-data-rights:query:my-audit-log` | User sieht eigene Framework-Events (account-weit über alle Memberships). Domain-Entities ohne `ctx.appendEvent` erscheinen NICHT — nur im Export-Bundle. |
+| Art. 15 | `user-data-rights:query:my-audit-log` | User sieht eigene Framework-Events (account-weit über alle Memberships). Domain-Entities ohne `ctx.events.append` erscheinen NICHT — nur im Export-Bundle. |
 | Art. 15+20 | `user-data-rights:write:request-export` | Async Job → ZIP mit user-Profil + fileRefs + alle EXT_USER_DATA-Provider-Daten + signed Magic-Link |
 | Art. 17 | `user-data-rights:write:request-deletion` | Soft-Delete mit Grace-Period, anschließend Cron anonymisiert User + cleant Domain-Entities |
 | Art. 17 | `user-data-rights:write:cancel-deletion` | User widerruft seinen Forget-Request während der Grace |

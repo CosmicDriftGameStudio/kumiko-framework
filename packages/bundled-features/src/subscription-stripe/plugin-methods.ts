@@ -169,7 +169,9 @@ export function createStripeCheckoutSession(
       if (!options.providerCustomerId || !isUnknownCustomerStripeError(error)) throw error;
       // Stripe account switch (test -> live) or a customer deleted in the dashboard leaves a
       // stored customer id Stripe no longer knows; checkout creates a fresh customer instead.
-      ctx.log?.warn("subscription-stripe: stored customer unknown to Stripe, retrying without it");
+      ctx.obs.log?.warn(
+        "subscription-stripe: stored customer unknown to Stripe, retrying without it",
+      );
       session = await stripe.checkout.sessions.create(sessionParams(undefined));
     }
 
@@ -383,7 +385,7 @@ async function resolvePricesViaCache(
     } else {
       const message =
         outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
-      ctx.log?.warn("subscription-stripe: prices.retrieve failed", { message });
+      ctx.obs.log?.warn("subscription-stripe: prices.retrieve failed", { message });
     }
   }
 }
@@ -402,7 +404,7 @@ export function createStripeRetrievePrices(runtime: StripeCtxRuntime, cache: Str
       const rawInterval = price.recurring?.interval;
       if (rawInterval && mapped.interval === null && !warnedUnknownIntervalPriceIds.has(priceId)) {
         warnedUnknownIntervalPriceIds.add(priceId);
-        ctx.log?.warn("subscription-stripe: price has an unknown recurring interval", {
+        ctx.obs.log?.warn("subscription-stripe: price has an unknown recurring interval", {
           priceId,
           interval: rawInterval,
         });

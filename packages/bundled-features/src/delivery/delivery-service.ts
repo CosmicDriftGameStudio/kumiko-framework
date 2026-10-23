@@ -15,6 +15,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   assertNotificationVariables,
+  attachOutsideTransaction,
   bridgeStub,
   createSystemUser,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -277,7 +278,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       sink: escapeHatchAuditSink,
       log: logError,
     });
-    // ctx.db/dbOutsideTransaction are tenant-filtered even for a systemScope handler:
+    // ctx.db/db.outsideTransaction are tenant-filtered even for a systemScope handler:
     // the dispatcher closes them off entirely there, so "system" mode would hand this
     // path a cross-tenant read the dispatcher never allows. Cross-tenant reach only
     // exists through the grant-carrying systemDb view below.
@@ -307,13 +308,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         })
       : undefined;
     // Hand-built context, not routed through the dispatcher — this needs both
-    // db and dbOutsideTransaction wired directly.
+    // db (with its outsideTransaction) wired directly.
     // @cast-boundary engine-payload — generic query-handler return for typed convention
     return (await handler.handler(
       { type: tenantUserIdsQuery, payload: { tenantId }, user: systemUser },
       {
-        db: tenantDb,
-        dbOutsideTransaction: tenantDb,
+        db: attachOutsideTransaction(tenantDb, tenantDb),
         systemDb: systemDbSourceTenantDb
           ? createSystemDbView(systemDbSourceTenantDb, undefined, report)
           : undefined,

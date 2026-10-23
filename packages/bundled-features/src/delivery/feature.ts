@@ -206,10 +206,10 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
             const pruned = await runAttemptLogRetention(db, {
               olderThanDays: attemptLogRetentionDays,
             });
-            ctx.log.info("delivery attempt log pruned", pruned);
+            ctx.obs.log.info("delivery attempt log pruned", pruned);
           } catch (error) {
             if (!(error instanceof ConsumerLagError)) throw error;
-            ctx.log.warn("delivery attempt log retention postponed: an event consumer lags", {
+            ctx.obs.log.warn("delivery attempt log retention postponed: an event consumer lags", {
               consumer: error.laggingConsumer,
             });
           }

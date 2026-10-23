@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 
 import { insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
+  attachOutsideTransaction,
   createEntityExecutor,
   createSystemUser,
   defineFeature,
@@ -112,9 +113,9 @@ function otherTenantContext(ctx: HandlerContext, otherTenantId: string): Handler
   return {
     ...rest,
     user: createSystemUser(otherTenantId as TenantId),
-    db: systemDb.acknowledgeCrossTenant("cap-counter reservation test"),
-    dbOutsideTransaction: systemDb.outsideTransaction.acknowledgeCrossTenant(
-      "cap-counter reservation test",
+    db: attachOutsideTransaction(
+      systemDb.acknowledgeCrossTenant("cap-counter reservation test"),
+      systemDb.outsideTransaction.acknowledgeCrossTenant("cap-counter reservation test"),
     ),
   };
 }

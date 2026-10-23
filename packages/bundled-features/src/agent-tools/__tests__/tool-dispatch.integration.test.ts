@@ -103,9 +103,11 @@ const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
     name: "delegate-forget-gizmo-mid",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) =>
-      ctx.write("agent-tools-test-gizmo:write:forget-gizmo-high", { id: event.payload.id }),
+      ctx.dispatch.write("agent-tools-test-gizmo:write:forget-gizmo-high", {
+        id: event.payload.id,
+      }),
     access: { roles: ["Admin"] },
-    description: "Delegates to forget-gizmo-high via ctx.write.",
+    description: "Delegates to forget-gizmo-high via ctx.dispatch.write.",
   });
 
   // Simulates the enterprise "approve" write handler: an outer, mid-risk
@@ -193,8 +195,8 @@ const crossTenantProbeFeature = defineFeature("agent-tools-test-xtr", (r) => {
     name: "delegating",
     schema: z.object({}),
     access: { roles: ["Admin"] },
-    description: "Reaches the granted probe through ctx.query.",
-    handler: (query, ctx) => ctx.query(XTR_PROBE_QN, query.payload),
+    description: "Reaches the granted probe through ctx.dispatch.query.",
+    handler: (query, ctx) => ctx.dispatch.query(XTR_PROBE_QN, query.payload),
   });
 });
 
@@ -331,7 +333,7 @@ describe("dispatchToolCall — the invoked tool is the entry handler, not the su
     expect(await gizmoRowExists(id)).toBe(false);
   });
 
-  test("approve (mid) invoking a mid-risk tool that delegates via ctx.write to the high forget handler is denied", async () => {
+  test("approve (mid) invoking a mid-risk tool that delegates via ctx.dispatch.write to the high forget handler is denied", async () => {
     const id = await createGizmo("survives-delegated-forget");
     const { ok, error } = await stack.http.writeOk<{ ok: boolean; error?: string }>(
       "agent-tools-test-gizmo:write:approve",

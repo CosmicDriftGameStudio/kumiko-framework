@@ -16,12 +16,14 @@ import type {
   AgentRisk,
   AppContext,
   AuthClaimsContext,
+  BeforeTransactionContext,
   HandlerContext,
   JobRunnerRef,
   PayloadRateLimitOption,
   RateLimitDeclaration,
   RateLimitOption,
   Registry,
+  ReservationContext,
   SessionUser,
   WriteResult,
 } from "../engine/types/index.ts";
@@ -77,6 +79,14 @@ import { buildDispatchFacet, createCommitSinks } from "./handler-context-dispatc
 import { buildEventStoreFacet } from "./handler-context-events.ts";
 import { buildNotifyFacet } from "./handler-context-notify.ts";
 import { buildObservabilityFacet } from "./handler-context-observability.ts";
+import {
+  applyBeforeTransactionReadOnly,
+  denyEventStoreSurfaces,
+  denyingJobRunnerProxy,
+  denyTransactionBoundSurfaces,
+  dropOutsideTransaction,
+  withoutTransactionDenied,
+} from "./handler-context-phase-denials.ts";
 import {
   buildPreSaveFragment,
   buildRuntimeFragment,
@@ -137,9 +147,9 @@ export type DispatchContext = {
   // Qualified name of the membership-list query handler consulted by
   // resolveActiveMembershipFn — defaults to TENANT_MEMBERSHIPS_QUERY, overridable via DispatcherOptions.
   membershipQuery: string;
-  // ctx.queryAsMember statement timeout in whole milliseconds.
+  // ctx.dispatch.queryAsMember statement timeout in whole milliseconds.
   memberReadTimeoutMs: number;
-  // Dedicated pool for ctx.dbOutsideTransaction / outsideTransaction. Undefined = share the app pool.
+  // Dedicated pool for ctx.db.outsideTransaction / outsideTransaction. Undefined = share the app pool.
   outsideTransactionDb: DbConnection | undefined;
 };
 
@@ -162,18 +172,20 @@ export function resolveAppPoolDb(ctx: DispatchContext): DbConnection | undefined
 // r.systemScope() handlers must go through ctx.systemDb's guarded methods
 // (assertTenantMatch / acknowledgeCrossTenant) instead of plain ctx.db —
 // "system" mode has no tenant filter at all, so silent ctx.db or
-// ctx.dbOutsideTransaction use there is a cross-tenant leak. HandlerContext
+// ctx.db.outsideTransaction use there is a cross-tenant leak. HandlerContext
 // has no way to make either field optional per handler (isSystem is a
 // runtime-only registry lookup, not a type-level discriminant), so instead
 // of omitting the key we hand back a Proxy that throws on first touch,
 // naming the handler and pointing at the matching ctx.systemDb escape hatch.
+// Only the db guard answers `outsideTransaction` (the inner guard, set by attachOutsideTransaction).
 export function createSystemScopedDbGuard(
   handlerType: string,
-  fieldName: "db" | "dbOutsideTransaction",
+  fieldName: "db" | "db.outsideTransaction",
   hint: string,
 ): TenantDb {
   return new Proxy({} as TenantDb, {
-    get(_target, prop) {
+    get(target, prop) {
+      if (fieldName === "db" && prop === "outsideTransaction") return Reflect.get(target, prop);
       throw new InternalError({
         message:
           `Handler "${handlerType}" is r.systemScope()'d — ctx.${fieldName} is unavailable ` +
@@ -190,16 +202,6 @@ export function isMemberResolutionPrincipal(user: SessionUser): boolean {
 
 async function denyMemberResolutionWrite(): Promise<never> {
   throw memberResolutionReadOnlyDenied();
-}
-
-// JobRunnerRef's declared type only carries handleEvent, but callers
-// routinely bracket-access a fuller runner — a Proxy denies ANY property read.
-function denyingJobRunnerProxy(denied: () => Error = memberResolutionReadOnlyDenied): JobRunnerRef {
-  return new Proxy({} as JobRunnerRef, {
-    get() {
-      throw denied();
-    },
-  });
 }
 
 // Allowlist (not denylist): a method added to the target later stays denied
@@ -247,29 +249,35 @@ const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
 ]);
 
 // Every write/side-effect surface throws, so "no writeAsMember" holds even
-// if a handler tries ctx.write directly on a resolved member principal.
+// if a handler tries ctx.dispatch.write directly on a resolved member principal.
 // Deliberately open: `db` (guarded by the READ ONLY transaction + memberReadOnly grant),
 // and read-only methods of searchAdapter / redis / entityCache (allowlisted).
 export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
+  // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY
+  // transaction, and its `memberReadOnly` grant denies every raw-runner handout.
+  dropOutsideTransaction(handlerContext);
   return {
     ...handlerContext,
-    // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY
-    // transaction, and its `memberReadOnly` grant denies every raw-runner handout.
-    dbOutsideTransaction: undefined,
-    write: denyMemberResolutionWrite,
-    writeAs: denyMemberResolutionWrite,
-    // A resolved member cannot switch identity either — the target would get a normal, writable context.
-    queryAs: denyMemberResolutionWrite,
-    appendEvent: asTypedAppendEventFn(denyMemberResolutionWrite),
-    unsafeAppendEvent: denyMemberResolutionWrite,
-    tryAppendEvent: denyMemberResolutionWrite,
-    fetchForWriting: denyMemberResolutionWrite,
-    archiveStream: denyMemberResolutionWrite,
-    restoreStream: denyMemberResolutionWrite,
-    snapshotAggregate: denyMemberResolutionWrite,
-    queryAsMember: denyMemberResolutionWrite,
+    dispatch: {
+      ...handlerContext.dispatch,
+      write: denyMemberResolutionWrite,
+      writeAs: denyMemberResolutionWrite,
+      // A resolved member cannot switch identity either — the target would get a normal, writable context.
+      queryAs: denyMemberResolutionWrite,
+      queryAsMember: denyMemberResolutionWrite,
+    },
+    events: {
+      ...handlerContext.events,
+      append: asTypedAppendEventFn(denyMemberResolutionWrite),
+      unsafeAppend: denyMemberResolutionWrite,
+      tryAppend: denyMemberResolutionWrite,
+      fetchForWriting: denyMemberResolutionWrite,
+      archive: denyMemberResolutionWrite,
+      restore: denyMemberResolutionWrite,
+      snapshot: denyMemberResolutionWrite,
+    },
+    auth: { ...handlerContext.auth, resolveActiveMembership: denyMemberResolutionWrite },
     forTenant: undefined,
-    resolveActiveMembership: denyMemberResolutionWrite,
     scheduleAfterCommit: () => {
       throw memberResolutionReadOnlyDenied();
     },
@@ -302,72 +310,8 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
   };
 }
 
-function beforeTransactionDenied(surface: string): InternalError {
-  return new InternalError({
-    message: `ctx.${surface} is not available before the transaction; move it into the handler`,
-  });
-}
-
-function withoutTransactionDenied(surface: string): InternalError {
-  return new InternalError({
-    message: `ctx.${surface} is not available without an open transaction; run the write through ctx.write so it gets its own transaction`,
-  });
-}
-
-export function perCommandNestedDenied(targetType: string): InternalError {
-  return new InternalError({
-    message: `handler "${targetType}" runs without a transaction (transaction: "perCommand") and cannot run as a nested write inside an open transaction`,
-  });
-}
-
-function denySurface(buildError: (surface: string) => InternalError, surface: string): () => never {
-  return () => {
-    throw buildError(surface);
-  };
-}
-
-function denyEventStoreSurfaces(
-  handlerContext: HandlerContext,
-  buildError: (surface: string) => InternalError,
-): HandlerContext {
-  return {
-    ...handlerContext,
-    appendEvent: denySurface(buildError, "appendEvent"),
-    unsafeAppendEvent: denySurface(buildError, "unsafeAppendEvent"),
-    tryAppendEvent: denySurface(buildError, "tryAppendEvent"),
-    fetchForWriting: denySurface(buildError, "fetchForWriting"),
-    archiveStream: denySurface(buildError, "archiveStream"),
-    restoreStream: denySurface(buildError, "restoreStream"),
-    snapshotAggregate: denySurface(buildError, "snapshotAggregate"),
-  };
-}
-
-// Reservations write on purpose through the outside-transaction handles, so they keep those but
-// lose every surface bound to the not-yet-open transaction.
-export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): HandlerContext {
-  return {
-    ...denyEventStoreSurfaces(handlerContext, beforeTransactionDenied),
-    write: denySurface(beforeTransactionDenied, "write"),
-    writeAs: denySurface(beforeTransactionDenied, "writeAs"),
-    scheduleAfterCommit: denySurface(beforeTransactionDenied, "scheduleAfterCommit"),
-    scheduleAfterRollback: denySurface(beforeTransactionDenied, "scheduleAfterRollback"),
-    ...(handlerContext.notify && { notify: denySurface(beforeTransactionDenied, "notify") }),
-    ...(handlerContext.jobRunner && {
-      jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),
-    }),
-  };
-}
-
-// The beforeTransaction phase has no write need at all, so it also loses the outside-transaction handles.
-export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): HandlerContext {
-  return {
-    ...denyTransactionBoundSurfaces(handlerContext),
-    dbOutsideTransaction: undefined,
-  };
-}
-
-// inTransaction: ctx.write nests in the open transaction. withoutTransaction: no transaction is open,
-// so ctx.write runs as its own command and ctx.db/event-store writes are denied. postCommit: afterCommit
+// inTransaction: ctx.dispatch.write nests in the open transaction. withoutTransaction: no transaction is open,
+// so ctx.dispatch.write runs as its own command and ctx.db/event-store writes are denied. postCommit: afterCommit
 // hooks, which may write legitimately.
 export type HandlerTransactionScope = "inTransaction" | "withoutTransaction" | "postCommit";
 
@@ -379,25 +323,51 @@ export type BuildHandlerContextOptions = {
   // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
   // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
   outerNotifySink?: AfterCommitHook[];
-  // beforeTransaction phase: ctx.forTenant stays available but every target db denies writes.
-  readOnlyForTenant?: boolean;
+  // Pre-transaction phases of a write handler; ctx.forTenant stays available in beforeTransaction but every target db denies writes.
+  phase?: HandlerPhase;
 };
 
+export type HandlerPhase = "handler" | "reservation" | "beforeTransaction";
+
+type PhaseOptions<TPhase extends HandlerPhase> = BuildHandlerContextOptions & { phase: TPhase };
+
+export function buildHandlerContext(
+  ctx: DispatchContext,
+  type: string,
+  user: SessionUser,
+  origin: WriteOrigin,
+  options: PhaseOptions<"reservation">,
+): Promise<ReservationContext>;
+export function buildHandlerContext(
+  ctx: DispatchContext,
+  type: string,
+  user: SessionUser,
+  origin: WriteOrigin,
+  options: PhaseOptions<"beforeTransaction">,
+): Promise<BeforeTransactionContext>;
+export function buildHandlerContext(
+  ctx: DispatchContext,
+  type: string,
+  user: SessionUser,
+  origin: WriteOrigin,
+  options?: BuildHandlerContextOptions,
+): Promise<HandlerContext>;
 export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
   origin: WriteOrigin,
   options: BuildHandlerContextOptions = {},
-): Promise<HandlerContext> {
+): Promise<HandlerContext | ReservationContext | BeforeTransactionContext> {
   const {
     tx,
     afterCommitHooks,
     includeDeleted,
     outerNotifySink,
-    readOnlyForTenant = false,
+    phase = "handler",
     transactionScope = tx ? "inTransaction" : "withoutTransaction",
   } = options;
+  const readOnlyForTenant = phase === "beforeTransaction";
   const scope = resolveHandlerContextScope({ ctx, type, user, origin, tx, transactionScope });
   const dbFacet = buildHandlerDbFacet(scope);
   const observability = buildObservabilityFacet(scope);
@@ -406,9 +376,12 @@ export async function buildHandlerContext(
   const configFacet = buildConfigFacet(scope, dbFacet.db);
   const forTenantFragment = buildForTenantFragment(scope, dbFacet.exposedDb, readOnlyForTenant);
   const fileFragment = buildFileFragment(scope, dbFacet.db);
-  const dispatchFacet = buildDispatchFacet(scope, sinks);
   const authFacet = buildAuthFacet(scope);
   const eventStoreFacet = buildEventStoreFacet(scope);
+  const dispatchFacet = buildDispatchFacet(scope, sinks, {
+    queryAsMember: authFacet.queryAsMember,
+    queryProjection: eventStoreFacet.queryProjection,
+  });
   const tz = await resolveHandlerTz(scope, configFacet.config);
   const locale = resolveHandlerLocale(scope);
 
@@ -432,15 +405,16 @@ export async function buildHandlerContext(
     // from the dispatcher's own closure to win.
     registry: scope.registry,
     ...dbFacet.fragment,
-    log: observability.log,
+    // Flat log/tracer stay on the runtime object: it doubles as the AppContext that postSave/preDelete/
+    // postDelete/postQuery hooks and lifecycle-pipeline.ts read until the hook context is split.
+    log: observability.obs.log,
+    tracer: observability.obs.tracer,
+    ...observability,
     notify: notifyFacet.notify,
     ...configFacet.fragment,
     ...forTenantFragment,
     ...fileFragment,
     ...buildPreSaveFragment(scope),
-    tracer: observability.tracer,
-    metrics: observability.metrics,
-    metricsFor: observability.metricsFor,
     tz,
     locale,
     ...buildRuntimeFragment(scope),
@@ -452,9 +426,10 @@ export async function buildHandlerContext(
     _tenantId: user.tenantId,
     ...dispatchFacet.scheduleFragment,
     ...(includeDeleted && { includeDeleted: true }),
-    ...dispatchFacet.bridge,
-    ...eventStoreFacet,
-    ...authFacet,
+    dispatch: dispatchFacet.dispatch,
+    events: eventStoreFacet.events,
+    auth: authFacet.auth,
+    hasFeature: authFacet.hasFeature,
   } as HandlerContext; // @cast-boundary engine-bridge
 
   const scopedContext =
@@ -463,9 +438,12 @@ export async function buildHandlerContext(
       : handlerContext;
 
   // A resolved member principal is read-only by construction.
-  return isMemberResolutionPrincipal(user)
+  const memberSafeContext = isMemberResolutionPrincipal(user)
     ? applyMemberResolutionReadOnly(scopedContext)
     : scopedContext;
+  if (phase === "reservation") return denyTransactionBoundSurfaces(memberSafeContext);
+  if (phase === "beforeTransaction") return applyBeforeTransactionReadOnly(memberSafeContext);
+  return memberSafeContext;
 }
 
 // The handler-name prefix keeps a handler from reproducing the digests the

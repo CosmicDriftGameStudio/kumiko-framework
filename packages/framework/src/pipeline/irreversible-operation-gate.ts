@@ -53,7 +53,7 @@ export function assertIrreversibleOperationAllowed(operation: string): void {
     buildMessage: (entryHandler) =>
       `Handler "${entryHandler.qn}" performs an irreversible ${operation} but resolves agent risk ` +
       `"${entryHandler.risk}" — ${highRiskRemedy(entryHandler)}. The ` +
-      "directly called handler must carry it; delegating via ctx.write/writeAs does not.",
+      "directly called handler must carry it; delegating via ctx.dispatch.write/writeAs does not.",
     details: { operation },
   });
 }
@@ -77,7 +77,7 @@ export function assertInstructionFieldWriteAllowed(
       `Handler "${entryHandler.qn}" ${verb}s "${entityName}" field(s) ${fields.join(", ")} ` +
       `flagged readAsInstruction: true but resolves agent risk "${entryHandler.risk}" — ` +
       `${highRiskRemedy(entryHandler)}. The directly called handler must carry ` +
-      "it; delegating via ctx.write/writeAs does not.",
+      "it; delegating via ctx.dispatch.write/writeAs does not.",
     details: { entityName, verb, fields },
   });
 }

@@ -51,7 +51,7 @@ const archFeature = defineFeature("archtest", (r) => {
     name: "item:relabel",
     schema: z.object({ id: z.uuid(), label: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: "arch-item",
         type: labelChanged.name,
@@ -66,7 +66,7 @@ const archFeature = defineFeature("archtest", (r) => {
     name: "item:archive",
     schema: z.object({ id: z.uuid(), reason: z.string().optional() }),
     handler: async (event, ctx) => {
-      await ctx.archiveStream(event.payload.id, {
+      await ctx.events.archive(event.payload.id, {
         aggregateType: "arch-item",
         reason: event.payload.reason,
       });
@@ -79,7 +79,7 @@ const archFeature = defineFeature("archtest", (r) => {
     name: "item:restore",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      await ctx.restoreStream(event.payload.id);
+      await ctx.events.restore(event.payload.id);
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
     access: { roles: ["Admin"] },
@@ -109,14 +109,14 @@ const archFeature = defineFeature("archtest", (r) => {
   r.queryHandler({
     name: "item:events",
     schema: z.object({ id: z.uuid() }),
-    handler: async (query, ctx) => ctx.loadAggregate(query.payload.id),
+    handler: async (query, ctx) => ctx.events.load(query.payload.id),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
   r.queryHandler({
     name: "item:is-archived",
     schema: z.object({ id: z.uuid() }),
-    handler: async (query, ctx) => ctx.isStreamArchived(query.payload.id),
+    handler: async (query, ctx) => ctx.events.isArchived(query.payload.id),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });
@@ -138,7 +138,7 @@ afterEach(async () => {
 });
 
 describe("archiveStream — Marten ArchiveStream equivalent", () => {
-  test("archived stream returns empty from ctx.loadAggregate", async () => {
+  test("archived stream returns empty from ctx.events.load", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       "archtest:write:item:create",
       { label: "alpha" },
@@ -244,7 +244,7 @@ describe("archiveStream — Marten ArchiveStream equivalent", () => {
   // The CRUD executor appends via append() + getStreamVersion(), neither of
   // which consults the archive flag. Without the executor-level guard a
   // PATCH/DELETE would silently land an event on an archived stream — the
-  // read-only contract honoured by ctx.appendEvent would not extend to
+  // read-only contract honoured by ctx.events.append would not extend to
   // entity-CRUD writes. These prove the guard closes that gap on both paths.
   describe("CRUD writes honour the archive guard", () => {
     test("executor.update on an archived stream is rejected, no event lands", async () => {

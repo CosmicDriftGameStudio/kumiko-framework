@@ -28,6 +28,6 @@ export function createStaleRunSweepJob(
       "stale-run sweep marks stuck runs of every tenant as failed",
     ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
     const result = await markStaleJobRunsFailed(db, timeoutHours, queuedRetentionDays);
-    ctx.log?.info?.(`[jobs:stale-run-sweep] complete: ${JSON.stringify(result)}`);
+    ctx.obs.log?.info?.(`[jobs:stale-run-sweep] complete: ${JSON.stringify(result)}`);
   };
 }

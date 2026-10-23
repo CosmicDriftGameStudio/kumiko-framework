@@ -52,15 +52,15 @@ export class EditPlan {
     if (last === undefined) {
       const at = open.getStart() + 1;
       this.add({ start: at, end: at, text: composeText(text, " ", " ") });
-      return;
+    } else {
+      const comma = last.getNextSiblingIfKind(SyntaxKind.CommaToken);
+      const at = (comma ?? last).getEnd();
+      this.add({
+        start: at,
+        end: at,
+        text: comma === undefined ? composeText(text, ", ", "") : composeText(text, " ", ","),
+      });
     }
-    const comma = last.getNextSiblingIfKind(SyntaxKind.CommaToken);
-    const at = (comma ?? last).getEnd();
-    this.add({
-      start: at,
-      end: at,
-      text: comma === undefined ? composeText(text, ", ", "") : composeText(text, " ", ","),
-    });
   }
 
   render(): string {

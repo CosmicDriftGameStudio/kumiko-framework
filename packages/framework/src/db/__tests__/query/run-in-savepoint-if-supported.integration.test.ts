@@ -14,7 +14,7 @@ afterAll(async () => {
 });
 
 describe("runInSavepointIfSupported — already-committed transaction", () => {
-  test("throws InternalError naming afterCommit + dbOutsideTransaction, never runs fn", async () => {
+  test("throws InternalError naming afterCommit + db.outsideTransaction, never runs fn", async () => {
     const db = await getDb();
 
     let committedTx: unknown;
@@ -40,7 +40,7 @@ describe("runInSavepointIfSupported — already-committed transaction", () => {
     expect(caught).toBeInstanceOf(InternalError);
     const message = (caught as Error).message;
     expect(message).toContain("afterCommit");
-    expect(message).toContain("dbOutsideTransaction");
+    expect(message).toContain("db.outsideTransaction");
     expect(fnCalls).toBe(0);
   });
 

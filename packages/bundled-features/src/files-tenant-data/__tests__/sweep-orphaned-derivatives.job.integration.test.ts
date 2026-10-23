@@ -46,7 +46,7 @@ const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 let stack: TestStack;
 let provider: InMemoryFileProvider;
 
-const noopLogger: JobContext["log"] = {
+const noopLogger: JobContext["obs"]["log"] = {
   info() {},
   warn() {},
   error() {},
@@ -61,26 +61,25 @@ const tenantB = TestUsers.otherTenant;
 
 function makeCtx(
   fileProviderResolver?: JobContext["_fileProviderResolver"],
-  log: JobContext["log"] = noopLogger,
+  log: JobContext["obs"]["log"] = noopLogger,
 ): JobContext {
   return {
     db: createTenantDb({ db: stack.db, tenantId: tenantA.tenantId, mode: "tenant" }),
     registry: stack.registry,
     systemUser: tenantA,
-    log,
     triggeredBy: null,
     attempt: 1,
     finalAttempt: true,
     defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
     canDefer: false,
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-    ...bridgeStub(),
+    ...bridgeStub({ log: log }),
   };
 }
 
-function makeCapturingLogger(): { log: JobContext["log"]; infoLines: string[] } {
+function makeCapturingLogger(): { log: JobContext["obs"]["log"]; infoLines: string[] } {
   const infoLines: string[] = [];
-  const log: JobContext["log"] = {
+  const log: JobContext["obs"]["log"] = {
     info(message: string) {
       infoLines.push(message);
     },

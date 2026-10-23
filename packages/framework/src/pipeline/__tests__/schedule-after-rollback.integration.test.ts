@@ -108,7 +108,7 @@ const feature = defineFeature(FEATURE, (r) => {
       ctx.scheduleAfterRollback?.(async () => {
         await runInOwnTransaction(outside, (txDb) => txDb.deleteMany(reservationTable, { label }));
       });
-      await ctx.write(INNER, { label });
+      await ctx.dispatch.write(INNER, { label });
       return writeFailure(new UnprocessableError("handler_rejected"));
     },
     access: { roles: ["Admin"] },
@@ -120,7 +120,7 @@ const feature = defineFeature(FEATURE, (r) => {
     schema: payloadSchema,
     handler: async (event, ctx) => {
       const { label } = event.payload;
-      const inner = await ctx.write(INNER, { label: `${label}-${REJECTED_MARKER}` });
+      const inner = await ctx.dispatch.write(INNER, { label: `${label}-${REJECTED_MARKER}` });
       if (inner.isSuccess) return writeFailure(new UnprocessableError("inner_should_fail"));
       return noteExecutor.create({ title: `${label}-outer` }, event.user, ctx.db);
     },
@@ -131,7 +131,7 @@ const feature = defineFeature(FEATURE, (r) => {
     name: "inner-ok-then-fail",
     schema: payloadSchema,
     handler: async (event, ctx) => {
-      const inner = await ctx.write(INNER, { label: event.payload.label });
+      const inner = await ctx.dispatch.write(INNER, { label: event.payload.label });
       if (!inner.isSuccess) return inner;
       return writeFailure(new UnprocessableError("outer_rejected"));
     },
@@ -183,7 +183,7 @@ describe("ctx.scheduleAfterRollback", () => {
     expect(callbacks).toEqual([]);
   });
 
-  test("a rollback of the outer transaction after ctx.write frees the reservation exactly once", async () => {
+  test("a rollback of the outer transaction after ctx.dispatch.write frees the reservation exactly once", async () => {
     const error = await stack.http.writeErr(
       `${FEATURE}:write:reserve-then-fail`,
       { label: "r1" },

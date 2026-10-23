@@ -412,7 +412,7 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
       const truncated = fetchedRows.length > OVERVIEW_ROW_LIMIT;
       const rows = truncated ? fetchedRows.slice(0, OVERVIEW_ROW_LIMIT) : fetchedRows;
       if (truncated) {
-        ctx.log?.warn("template overview: row limit reached, result is incomplete", {
+        ctx.obs.log?.warn("template overview: row limit reached, result is incomplete", {
           limit: OVERVIEW_ROW_LIMIT,
         });
       }
@@ -434,7 +434,7 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
         ? withOverriddenBy(
             rowsWithUsage,
             tenantOverrideCountsResultSchema.parse(
-              await ctx.query(TemplateResolverQueries.tenantOverrideCounts, {}),
+              await ctx.dispatch.query(TemplateResolverQueries.tenantOverrideCounts, {}),
             ),
           )
         : rowsWithUsage;

@@ -192,7 +192,7 @@ describe("validateAccessDeclarations", () => {
 
   // 2b. escapeHatch reason must be non-empty on a query handler too:
   // query handlers can't reach db.global(), but they can still declare
-  // escapeHatch to switch identity to SYSTEM via ctx.queryAs).
+  // escapeHatch to switch identity to SYSTEM via ctx.dispatch.queryAs).
   test("query handler escapeHatch with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity({ name: "note", ...noteEntity });
@@ -240,7 +240,7 @@ describe("validateAccessDeclarations", () => {
 
   // 2c. escapeHatch reason must be non-empty on a stream handler too — same
   // contract as write/query: streams can't reach db.global(), but they can
-  // still declare escapeHatch to switch identity to SYSTEM via ctx.queryAs.
+  // still declare escapeHatch to switch identity to SYSTEM via ctx.dispatch.queryAs.
   test("stream handler escapeHatch with an empty reason throws, naming the handler", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity({ name: "note", ...noteEntity });

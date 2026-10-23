@@ -18,7 +18,7 @@
 // consumer's `resolverTrust`/anonymousAccess setup, not the host.
 //
 // In `publicTenantResolution: "fileRef"` mode, this handler is also the
-// `ctx.queryAs(createAnonymousUser(fileRefTenantId), ...)` target of
+// `ctx.dispatch.queryAs(createAnonymousUser(fileRefTenantId), ...)` target of
 // publicVariantByFileRefQuery — tenantId there comes from the FileRef row,
 // but this handler's own isPublic gate runs exactly the same either way.
 

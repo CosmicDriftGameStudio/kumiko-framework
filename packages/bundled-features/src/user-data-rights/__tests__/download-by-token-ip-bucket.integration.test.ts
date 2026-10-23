@@ -60,7 +60,7 @@ async function buildStack(trustedProxyHops: number): Promise<TestStack> {
     extraContext: ({ registry }) => ({
       configResolver: resolver,
       configEncryption: encryption,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
     anonymousAccess: { defaultTenantId: tenant },
     trustedProxyHops,

@@ -34,7 +34,7 @@ export type SystemWireDeps = {
   readonly masterKeyProvider?: MasterKeyProvider;
   /** Cipher for `encrypted: true` config keys, same instance and DEK cache as the handlers use. */
   readonly configEncryption?: EnvelopeCipher;
-  /** Same contract as `ctx.metricsFor`: unregistered metric names no-op. */
+  /** Same contract as `ctx.obs.metricsFor`: unregistered metric names no-op. */
   readonly metricsFor: (featureName: string) => MetricsHandle;
   /** Writes through the /api/*-command-dispatcher (same idempotency/job
    *  hooks) as an auto-constructed SystemAdmin of the target tenant,

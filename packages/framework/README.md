@@ -108,7 +108,7 @@ export const taskFeature = defineFeature("tasks", (r) => {
 - **Event-sourced by default.** Every write goes through `createEventStoreExecutor`
   and appends a domain event to the aggregate stream. Auto-generated CRUD
   events (`<entity>.created/updated/deleted/restored`) for record writes,
-  explicit `ctx.appendEvent` for domain events with intent. Projections feed
+  explicit `ctx.events.append` for domain events with intent. Projections feed
   off the stream for same-TX read-after-write consistency.
 - **Async side-effects via cursor.** SSE broadcast, search indexing, and
   feature-registered `r.multiStreamProjection` consumers run on a single

@@ -111,7 +111,7 @@ async function ensureOwnTenant(
 
   const newTenantId = parseTenantId(crypto.randomUUID());
   if (!newTenantId) throw new InternalError({ message: "waitlist:invite: tenant id mint failed" });
-  const created = await ctx.writeAs(createSystemUser(newTenantId), TenantHandlers.create, {
+  const created = await ctx.dispatch.writeAs(createSystemUser(newTenantId), TenantHandlers.create, {
     id: newTenantId,
     key,
     name: entry.company ?? entry.name,
@@ -167,7 +167,7 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
       // inviteCreate is admin-only (no system role); the system variant with an
       // empty globalRoles list is the only in-process path, and a waitlist
       // invite must never grant a global role.
-      const invited = await ctx.writeAs(
+      const invited = await ctx.dispatch.writeAs(
         createSystemUser(target.tenantId),
         AuthHandlers.systemInviteCreate,
         {

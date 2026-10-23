@@ -27,7 +27,7 @@ export const getDraftQuery = defineQueryHandler({
     if (!row.draft) {
       // Schema evolution or a corrupt/erased row: surface it to operators
       // instead of silently making the user's draft vanish.
-      ctx.log?.warn?.(
+      ctx.obs.log?.warn?.(
         `[form-draft:get] stored blob for draftKey=${query.payload.draftKey} failed schema or decryption, treating as absent`,
       );
       return { draft: null };

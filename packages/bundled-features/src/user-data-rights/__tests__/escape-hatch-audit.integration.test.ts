@@ -100,12 +100,12 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
 
     const events: EscapeHatchUseEvent[] = [];
     const systemUser = createSystemUser(TENANT_A);
-    const noopLog: JobContext["log"] = {
+    const noopLog: JobContext["obs"]["log"] = {
       info() {},
       warn() {},
       error() {},
       debug() {},
-      child(): JobContext["log"] {
+      child(): JobContext["obs"]["log"] {
         return this;
       },
     };
@@ -121,7 +121,7 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
       }),
       registry: stack.registry,
       systemUser,
-      log: noopLog,
+      obs: { log: noopLog },
       _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {
         events.push(event);
       },

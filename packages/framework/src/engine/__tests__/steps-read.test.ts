@@ -33,6 +33,7 @@ const mockCtx = {
   event: { type: "test", payload: {} },
   steps: {},
   scope: {},
+  obs: { log: { warn() {} } },
 } as unknown as PipelineCtx;
 
 const reportCalls: Array<{ kind: string; reason: string }> = [];
@@ -66,7 +67,7 @@ describe("foreign where.tenantId narrowing warning", () => {
       return log;
     },
   };
-  const loggingCtx = { ...mockCtx, log } as unknown as PipelineCtx;
+  const loggingCtx = { ...mockCtx, obs: { ...mockCtx.obs, log } } as unknown as PipelineCtx;
 
   beforeEach(() => {
     mock.clearAllMocks();

@@ -136,7 +136,7 @@ export function createPersonalAccessTokensFeature(
 
     // Custom domain-event for cross-instance access-invalidation,
     // mirroring sessions' SESSION_REVOKED_EVENT_SHORT. r.defineEvent
-    // registers the schema so ctx.unsafeAppendEvent (revoke) enforces it at
+    // registers the schema so ctx.events.unsafeAppend (revoke) enforces it at
     // append time. revoke-for-user.ts appends via the low-level append()
     // instead (needs to anchor on SYSTEM_TENANT_ID) — same guarantee via a
     // different path. No projection: the payload IS the read, consumed

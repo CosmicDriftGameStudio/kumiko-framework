@@ -26,6 +26,6 @@ await runDevApp({
   watchDirs: ["./src", "../../../packages/*/src"],
   extraContext: ({ registry }) => ({
     configResolver: resolver,
-    _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+    configAccessorFactory: createConfigAccessorFactory(registry, resolver),
   }),
 });

@@ -119,16 +119,16 @@ async function claimBoundHandover(
 ): Promise<ClaimedHandover | undefined> {
   const provider = findSignupHandoverProvider(ctx.registry);
   if (!provider) {
-    ctx.log?.warn(
+    ctx.obs.log?.warn(
       "signup-confirm: handover binding present but no signupHandover provider mounted",
     );
     return undefined;
   }
   const claim = provider.mintClaim(binding);
-  const claimResult = await ctx.writeAs(session, claim.qualifiedName, claim.payload);
+  const claimResult = await ctx.dispatch.writeAs(session, claim.qualifiedName, claim.payload);
   if (claimResult.isSuccess) return { entityType: binding.entityType, id: binding.rowId };
   if (!isBenignClaimRejection(claimResult.error)) throw reraiseAsKumikoError(claimResult.error);
-  ctx.log?.warn("signup-confirm: handover grant did not redeem", {
+  ctx.obs.log?.warn("signup-confirm: handover grant did not redeem", {
     entityType: binding.entityType,
   });
   return undefined;

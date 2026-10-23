@@ -97,7 +97,7 @@ export type SeedMigrationContext = {
    * user executes it while bypassing access checks. Events have
    * inserted_by_id = SYSTEM_TENANT_ID-user, making them auditable.
    *
-   * The type signature follows existing ctx.writeAs (with payload as unknown).
+   * The type signature follows existing ctx.dispatch.writeAs (with payload as unknown).
    * Type safety comes from handler-specific wrappers in the caller; do not
    * attempt generic magic.
    *

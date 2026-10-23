@@ -1,4 +1,4 @@
-// ctx.snapshotAggregate + ctx.loadAggregateWithSnapshot over HTTP: the
+// ctx.events.snapshot + ctx.events.loadWithSnapshot over HTTP: the
 // snapshot short-circuits the replay, later events are folded on top, and
 // the stored snapshot never leaks across tenants.
 
@@ -43,7 +43,7 @@ const snapshotFeature = defineFeature("snaptest", (r) => {
     name: "counter:tick",
     schema: z.object({ id: z.uuid(), amountCents: z.number().int() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
         aggregateType: AGGREGATE_TYPE,
         type: ticked.name,
@@ -58,11 +58,11 @@ const snapshotFeature = defineFeature("snaptest", (r) => {
     name: "counter:snapshot",
     schema: z.object({ id: z.uuid() }),
     handler: async (event, ctx) => {
-      const events = await ctx.loadAggregate(event.payload.id);
+      const events = await ctx.events.load(event.payload.id);
       const lastEvent = events.at(-1);
       if (!lastEvent) throw new Error("nothing to snapshot");
       const state = events.reduce((acc, evt) => foldTick(acc, evt.payload), INITIAL_STATE);
-      await ctx.snapshotAggregate({
+      await ctx.events.snapshot({
         aggregateId: event.payload.id,
         aggregateType: AGGREGATE_TYPE,
         version: lastEvent.version,
@@ -77,7 +77,7 @@ const snapshotFeature = defineFeature("snaptest", (r) => {
     name: "counter:state",
     schema: z.object({ id: z.uuid() }),
     handler: async (query, ctx) =>
-      ctx.loadAggregateWithSnapshot<CounterState>(
+      ctx.events.loadWithSnapshot<CounterState>(
         query.payload.id,
         (state, evt) => foldTick(state, evt.payload),
         INITIAL_STATE,
@@ -113,7 +113,7 @@ function queryState(user: typeof admin | typeof otherTenantAdmin): Promise<State
   return stack.http.queryOk<StateResult>("snaptest:query:counter:state", { id: counterId }, user);
 }
 
-describe("ctx.snapshotAggregate + ctx.loadAggregateWithSnapshot", () => {
+describe("ctx.events.snapshot + ctx.events.loadWithSnapshot", () => {
   test("starts from the snapshot and folds later events on top", async () => {
     await tick(100);
     await tick(250);

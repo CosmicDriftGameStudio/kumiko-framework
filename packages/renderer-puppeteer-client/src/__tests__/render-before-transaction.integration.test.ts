@@ -161,7 +161,7 @@ beforeAll(async () => {
     dbPoolMax: POOL_MAX,
     extraContext: (deps) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),
   });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");

@@ -1,6 +1,6 @@
 // lockedWhen: a stored row whose state meets the entity condition cannot be
 // changed or deleted through the event-store executor, whatever the calling
-// handler returns (CRUD, custom, nested ctx.write), while the write that sets
+// handler returns (CRUD, custom, nested ctx.dispatch.write), while the write that sets
 // the lock itself passes. A call site opts out per executor call.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
@@ -70,7 +70,7 @@ const lockFeature = defineFeature("lock", (r) => {
   r.writeHandler({
     name: "ticket:rename-nested",
     schema: z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
-    handler: async (event, ctx) => ctx.write("lock:write:ticket:rename", event.payload),
+    handler: async (event, ctx) => ctx.dispatch.write("lock:write:ticket:rename", event.payload),
     ...ROLES,
   });
 
@@ -255,7 +255,7 @@ describe("lockedWhen", () => {
     await expectLocked("lock:write:ticket:rename", { id, version: 1, title: "x" }, id);
   });
 
-  test("a nested ctx.write into a locked record is rejected", async () => {
+  test("a nested ctx.dispatch.write into a locked record is rejected", async () => {
     const id = await createTicket("closed");
     await expectLocked("lock:write:ticket:rename-nested", { id, version: 1, title: "x" }, id);
   });

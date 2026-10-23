@@ -12,7 +12,7 @@ import * as z from "zod";
 // _SHORT/_QN pair mirrors cap-counter's rolling-incremented event:
 //   _SHORT — r.defineEvent(short, schema) in feature.ts, framework prefixes
 //            it to the QN below.
-//   _QN    — ctx.unsafeAppendEvent({ type }) / raw append()'s `type` field.
+//   _QN    — ctx.events.unsafeAppend({ type }) / raw append()'s `type` field.
 export const SESSION_REVOKED_EVENT_SHORT = "session-revoked" as const;
 export const SESSION_REVOKED_EVENT_QN = "sessions:event:session-revoked" as const;
 

@@ -88,7 +88,7 @@ beforeAll(async () => {
       const resolver = createConfigResolver();
       return {
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
         secrets: createSecretsContext({ db, masterKeyProvider, registry: registry }),
       };
     },
@@ -207,7 +207,7 @@ describe("config backing=secrets — fail-loud when secrets unwired", () => {
         const resolver = createConfigResolver();
         return {
           configResolver: resolver,
-          _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+          configAccessorFactory: createConfigAccessorFactory(registry, resolver),
           // No `secrets` — the backing="secrets" path must fail loudly.
         };
       },

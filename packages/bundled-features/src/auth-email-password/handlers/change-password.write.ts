@@ -10,7 +10,7 @@ import { invalidCredentials } from "../errors.ts";
 import { passwordSchema } from "../password-policy.ts";
 
 // Change-password — authenticated. The user supplies their current password
-// (re-auth) and the new one. The new hash is written via ctx.writeAs(system)
+// (re-auth) and the new one. The new hash is written via ctx.dispatch.writeAs(system)
 // against the user feature's update handler; field-access on passwordHash
 // (privileged-only) lets the system identity through.
 export const changePasswordWrite = defineWriteHandler({
@@ -28,8 +28,8 @@ export const changePasswordWrite = defineWriteHandler({
   escapeHatch: {
     grants: ["systemIdentity"],
     reason:
-      "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, ...) " +
-      "and writes the new hash via ctx.writeAs(SYSTEM, user:update) — the caller's own " +
+      "Reads the caller's own passwordHash (privileged-only field) via ctx.dispatch.queryAs(SYSTEM, ...) " +
+      "and writes the new hash via ctx.dispatch.writeAs(SYSTEM, user:update) — the caller's own " +
       "identity can't reach either, field-access on passwordHash is privileged-only.",
   },
   // Payload carries the old and new password.
@@ -40,7 +40,7 @@ export const changePasswordWrite = defineWriteHandler({
     const systemUser = createSystemUser(event.user.tenantId);
 
     // Load self with passwordHash — only visible to the privileged caller.
-    const me = (await ctx.queryAs(systemUser, UserQueries.findForAuth, {
+    const me = (await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
       id: event.user.id,
     })) as { id: number; passwordHash: string | null; version: number } | null; // @cast-boundary db-runner
 
@@ -63,7 +63,7 @@ export const changePasswordWrite = defineWriteHandler({
     // Apply via user feature's update handler — writeAs(system) satisfies
     // the privileged-only write rule on passwordHash. Pass the current version
     // through so optimistic locking still applies end-to-end.
-    const writeRes = await ctx.writeAs(writer, UserHandlers.update, {
+    const writeRes = await ctx.dispatch.writeAs(writer, UserHandlers.update, {
       id: me.id,
       version: me.version,
       changes: { passwordHash: newHash },

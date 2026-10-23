@@ -139,7 +139,7 @@ async function purgeExpiredRows(
   table: PurgeTable,
   where: WhereObject,
   cutoff: Temporal.Instant,
-  ctx: Pick<JobContext, "files" | "log">,
+  ctx: Pick<JobContext, "files" | "obs">,
   readDb: unknown = writer.db,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
@@ -150,7 +150,7 @@ async function purgeExpiredRows(
       where,
       expiredBefore: cutoff,
       files: ctx.files,
-      log: ctx.log,
+      log: ctx.obs.log,
       forgetRow: (id) => forgetRow(writer, id),
     });
   }
@@ -163,7 +163,7 @@ async function forgetExpiredPages(
   source: string,
   table: PurgeTable,
   where: WhereObject,
-  ctx: Pick<JobContext, "log">,
+  ctx: Pick<JobContext, "obs">,
   readDb: unknown,
 ): Promise<void> {
   let afterId: string | undefined;
@@ -180,7 +180,7 @@ async function forgetExpiredPages(
       try {
         await forgetRow(writer, row.id);
       } catch (err) {
-        ctx.log?.warn(
+        ctx.obs.log.warn(
           `[soft-delete-cleanup] ${source} ${row.id} not purged: ${err instanceof Error ? err.message : String(err)}`,
         );
       }

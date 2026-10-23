@@ -134,7 +134,7 @@ export type UncheckedSystemDb = {
    */
   unsafeRaw(reason: string): DbRunner;
   // Same self-check pair as above, but hands back the caller's
-  // ctx.dbOutsideTransaction TenantDb instead of the in-tx one — for
+  // ctx.db.outsideTransaction TenantDb instead of the in-tx one — for
   // durability writes that must survive a rollback of the handler's own
   // transaction. Throws if the dispatch has no outside-transaction source
   // configured (e.g. a hand-built UncheckedSystemDb that only ever passed

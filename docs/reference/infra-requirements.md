@@ -35,7 +35,7 @@ migrate time.
 
 Each app or worker pod holds `DATABASE_POOL_MAX` (default 10) connections for
 the main pool plus `DATABASE_OUTSIDE_TX_POOL_MAX` (default 3) for the dedicated
-pool behind `ctx.dbOutsideTransaction` / `ctx.outsideTransaction`, and one extra
+pool behind `ctx.db.outsideTransaction`, and one extra
 connection for the event dispatcher's LISTEN session. Bun.SQL opens all of a
 pool's connections on its first query, not one at a time under load, so a
 running pod always holds the full sizes. Keep

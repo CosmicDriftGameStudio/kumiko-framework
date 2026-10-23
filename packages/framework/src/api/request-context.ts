@@ -5,7 +5,7 @@ import type { ErrorDocsConfig } from "../errors/docs-url.ts";
 import { generateId } from "../utils/index.ts";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
-// event-dispatcher when it runs an MSP-apply, so ctx.appendEvent downstream
+// event-dispatcher when it runs an MSP-apply, so ctx.events.append downstream
 // automatically stamps the right provenance on every event it writes.
 //
 //   requestId     — unique per HTTP request (or Job run). Log correlation.
@@ -61,12 +61,12 @@ export type RequestContextData = {
   // Only ever a gated origin. Read by job enqueue and event-store.append();
   // dispatch roots never narrow from it, only jobs inherit explicitly.
   readonly writeOrigin?: WriteOrigin;
-  // The handler directly invoked by the dispatcher (not a nested ctx.write/
+  // The handler directly invoked by the dispatcher (not a nested ctx.dispatch.write/
   // writeAs target) — nested dispatches inherit it unchanged, so the
   // irreversible-operation gate always sees the outermost caller's risk.
   readonly entryHandler?: { readonly qn: string; readonly risk: AgentRisk };
   // Rate-limit bucket keys already charged by this entry dispatch. Nested
-  // ctx.query/queryAs/write calls share the entry's set, so one request costs
+  // ctx.dispatch.query/queryAs/write calls share the entry's set, so one request costs
   // one token per bucket however many handlers it fans out to.
   readonly chargedRateLimitBuckets?: Set<string>;
   // Set by the agent-tools dispatch and inherited by every nested dispatch, so an
@@ -125,7 +125,7 @@ export function runWithOrigin<T>(
       correlationId: current?.correlationId ?? requestId,
       feature: origin.feature,
       handler: origin.handler,
-      // The outermost dispatch wins — a nested ctx.write/writeAs must not
+      // The outermost dispatch wins — a nested ctx.dispatch.write/writeAs must not
       // overwrite the entry handler that the irreversible-operation gate reads.
       entryHandler: current?.entryHandler ?? origin.entryHandler,
       chargedRateLimitBuckets: current?.entryHandler

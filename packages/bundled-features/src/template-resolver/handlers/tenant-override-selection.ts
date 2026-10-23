@@ -10,7 +10,9 @@ const tenantIdsSchema = z.array(z.string());
 
 type TenantIdQueryContext = {
   readonly registry: { getQueryHandler(name: string): unknown };
-  readonly query: (name: string, payload: Record<string, never>) => Promise<unknown>;
+  readonly dispatch: {
+    readonly query: (name: string, payload: Record<string, never>) => Promise<unknown>;
+  };
 };
 
 /** Null when the tenant feature is not installed: every tenant row then counts. */
@@ -18,7 +20,9 @@ export async function loadEnabledTenantIds(
   ctx: TenantIdQueryContext,
 ): Promise<ReadonlySet<string> | null> {
   if (ctx.registry.getQueryHandler(TenantQueries.activeTenantIds) === undefined) return null;
-  return new Set(tenantIdsSchema.parse(await ctx.query(TenantQueries.activeTenantIds, {})));
+  return new Set(
+    tenantIdsSchema.parse(await ctx.dispatch.query(TenantQueries.activeTenantIds, {})),
+  );
 }
 
 export type OverrideCandidate = Pick<TemplateResourceRow, "tenantId" | "status" | "version">;

@@ -83,7 +83,7 @@ async function hasOpenEntryForEmail(email: string, ctx: HandlerContext): Promise
 // resolver does not extend the lock. Postgres aborts the whole transaction after a failed
 // statement, even one whose JS error is caught here, so the resolver gets a ctx whose
 // systemDb is bound to its own savepoint: a failing statement rolls back only that.
-// Statements through any other ctx handle (ctx.query, ctx.write) stay in the handler transaction.
+// Statements through any other ctx handle (ctx.dispatch.query, ctx.dispatch.write) stay in the handler transaction.
 async function resolveAdminRecipient(
   opts: WaitlistOptions,
   ctx: HandlerContext,
@@ -103,7 +103,7 @@ async function resolveAdminRecipient(
       return (await opts.notifyRecipient?.({ ...ctx, systemDb: savepointSystemDb })) || null;
     });
   } catch (err) {
-    ctx.log?.warn("[waitlist:submit] admin notice recipient resolution failed", {
+    ctx.obs.log?.warn("[waitlist:submit] admin notice recipient resolution failed", {
       error: err instanceof Error ? err.message : String(err),
     });
     return null;
@@ -121,7 +121,7 @@ async function sendBestEffort(
     }
     await send(ctx.notify);
   } catch (err) {
-    ctx.log?.warn(`[waitlist:submit] ${label} mail failed`, {
+    ctx.obs.log?.warn(`[waitlist:submit] ${label} mail failed`, {
       error: err instanceof Error ? err.message : String(err),
     });
   }

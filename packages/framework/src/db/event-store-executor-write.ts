@@ -247,7 +247,7 @@ export function createWriteVerbs(
     throw error;
   }
 
-  // Stream-version is authoritative, not row.version. `ctx.appendEvent`
+  // Stream-version is authoritative, not row.version. `ctx.events.append`
   // can bump the stream between CRUD writes (domain event on the same
   // aggregate); a stale row.version here would make the next CRUD write
   // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
@@ -432,7 +432,7 @@ export function createWriteVerbs(
       // internal_error at commit time instead of the version_conflict this
       // catch classifies. runInSavepointIfSupported confines the failed
       // INSERT to a nested scope that rolls back on its own (same pattern as
-      // ctx.tryAppendEvent), and falls back to a plain call when the runner
+      // ctx.events.tryAppend), and falls back to a plain call when the runner
       // is a bare pool connection with no active transaction to poison
       // (seeds/tests calling the executor directly).
       const event = await runInSavepointIfSupported(runner, async (sp) =>

@@ -111,7 +111,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
       grants: ["systemIdentity"],
       reason:
         "Anonymous requester has no session — looks up the target user by email via " +
-        "ctx.queryAs(SYSTEM, user:findForAuth) to mint the out-of-band token.",
+        "ctx.dispatch.queryAs(SYSTEM, user:findForAuth) to mint the out-of-band token.",
     },
     description: spec.description,
     handler: async (event, ctx) => {
@@ -128,7 +128,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
       const systemUser = createSystemUser(event.user.tenantId);
 
       const user = parseAuthUserRow(
-        await ctx.queryAs(systemUser, UserQueries.findForAuth, {
+        await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
           email: event.payload.email,
         }),
       );

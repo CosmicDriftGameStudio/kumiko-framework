@@ -6,7 +6,7 @@ import type { PipelineCtx } from "../types/step.ts";
 const mockUnsafeAppendEvent = mock();
 
 const mockCtx = {
-  unsafeAppendEvent: mockUnsafeAppendEvent,
+  events: { unsafeAppend: mockUnsafeAppendEvent },
   event: { type: "test", payload: {} },
   steps: {},
   scope: {},
@@ -42,7 +42,7 @@ describe("aggregate.appendEvent run", () => {
     mock.clearAllMocks();
   });
 
-  it("calls ctx.unsafeAppendEvent with resolved aggregateId and payload", async () => {
+  it("calls ctx.events.unsafeAppend with resolved aggregateId and payload", async () => {
     const stepDef = getStep("aggregate.appendEvent");
     expect(stepDef).toBeDefined();
 

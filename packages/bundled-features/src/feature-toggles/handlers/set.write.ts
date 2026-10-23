@@ -160,7 +160,7 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
       // its config-changed events.
       // unsafeAppendEvent: the strict appendEvent is bound to an app's own event map, which
       // bundled-features cannot see. Schema validation still runs via r.defineEvent("toggle-set", ...).
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: SYSTEM_TENANT_ID,
         aggregateType: FEATURE_TOGGLE_AGGREGATE_TYPE,
         type: FEATURE_TOGGLE_SET_EVENT_NAME,

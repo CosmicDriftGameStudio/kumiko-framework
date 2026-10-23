@@ -80,7 +80,7 @@ Payload-Kopie) + `wakeAt = now()` auf die Zeile — der bestehende
 `resume-due-runs`-Job holt sie beim nächsten Tick ab, genau wie beim
 Timeout-Pfad. Der Subscriber resumt nie selbst (D3: sein Apply-Context hat
 kein `callFeature`/`runStepList`). `resume-run` lädt das awaited Event per
-`ctx.loadAggregate` und seedet dessen Payload als Ergebnis des übersprungenen
+`ctx.events.load` und seedet dessen Payload als Ergebnis des übersprungenen
 `waitForEvent`-Steps (`ctx.steps[awaits.foo]`), damit ein nachfolgender Step per
 Resolver darauf zugreifen kann. Ist das Event nicht mehr ladbar, endet der Run
 mit `workflow.run-failed` und `reason: "awaited_event_unavailable"`; bei einem

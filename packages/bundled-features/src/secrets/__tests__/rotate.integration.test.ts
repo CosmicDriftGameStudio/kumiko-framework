@@ -121,12 +121,12 @@ function silentLogger(): Log {
   return logger;
 }
 
-type RotateJobCtx = Pick<AppContext, "db" | "masterKeyProvider" | "log">;
+type RotateJobCtx = Pick<AppContext, "db" | "masterKeyProvider"> & { obs: { log: Log } };
 function jobCtx(provider: MasterKeyProvider): Parameters<typeof rotateJob>[1] {
   const ctx: RotateJobCtx = {
     db: stack.db,
     masterKeyProvider: provider,
-    log: silentLogger(),
+    obs: { log: silentLogger() },
   };
   return ctx as unknown as Parameters<typeof rotateJob>[1];
 }

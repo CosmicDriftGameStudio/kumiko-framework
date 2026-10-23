@@ -22,8 +22,8 @@ defineStep<CallFeatureArgs, unknown>({
   run: async (args, ctx: PipelineCtx) => {
     const payload = resolveRequired(args.payload, ctx);
     const result = args.as
-      ? await ctx.writeAs(args.as, args.handler, payload)
-      : await ctx.write(args.handler, payload);
+      ? await ctx.dispatch.writeAs(args.as, args.handler, payload)
+      : await ctx.dispatch.write(args.handler, payload);
     if (!result.isSuccess) {
       // Preserve the structured WriteFailure as `cause` so the
       // dispatcher's catch maps it back to a typed error response

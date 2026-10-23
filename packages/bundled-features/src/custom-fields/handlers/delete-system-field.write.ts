@@ -34,7 +34,7 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
     // Cascade-cleanup event — host-entity MSPs remove orphaned values from their
     // customFields jsonb in the same transaction for atomicity.
     if (result.isSuccess) {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId,
         aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
         type: createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name,

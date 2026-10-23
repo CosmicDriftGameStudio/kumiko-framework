@@ -285,7 +285,7 @@ export type TextFieldDef = {
    *  (list/detail/write responses) show `true` = set, `null` = empty. Writes:
    *  `""` or omitted = unchanged, `null` = clear, string = new value.
    *  Server-side: executor reads (detail/list in server handlers) and
-   *  postSave/postQuery hooks see the plaintext; ctx.query, dispatcher.query,
+   *  postSave/postQuery hooks see the plaintext; ctx.dispatch.query, dispatcher.query,
    *  agent tools and `_refs` see true/null; ctx.db sees the ciphertext.
    *  Known limit: masking runs for entity-bound query handlers with array /
    *  {rows} / flat results; an unbound custom query handler that returns

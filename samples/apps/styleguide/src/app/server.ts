@@ -49,6 +49,6 @@ await runDevApp({
   seeds: [seedStyleguideItems, seedAiConnections, seedWorkboardTasks],
   extraContext: ({ registry }) => ({
     configResolver,
-    _configAccessorFactory: createConfigAccessorFactory(registry, configResolver),
+    configAccessorFactory: createConfigAccessorFactory(registry, configResolver),
   }),
 });

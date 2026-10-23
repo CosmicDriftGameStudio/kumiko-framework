@@ -97,7 +97,7 @@ export const setCustomFieldHandler: WriteHandlerDef = {
     // cross-feature augmentation for this event type; the qualified string
     // name is used directly. The value is ALWAYS included in the event
     // (custom fields carry no PII), so replay fully reproduces the projection.
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: payload.entityId,
       aggregateType: payload.entityName,
       type: createCustomFieldsFeature().exports.setEvent.name,

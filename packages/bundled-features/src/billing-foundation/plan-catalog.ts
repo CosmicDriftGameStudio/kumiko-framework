@@ -77,7 +77,7 @@ export async function resolvePlanPrices(
     prices = await plugin.retrievePrices(ctx, allPriceIds);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    ctx.log?.warn("billing-foundation: retrievePrices threw, all plan prices unavailable", {
+    ctx.obs.log?.warn("billing-foundation: retrievePrices threw, all plan prices unavailable", {
       message,
     });
     return result;
@@ -93,7 +93,7 @@ export async function resolvePlanPrices(
       const chosen = active[0];
       if (chosen) result.set(tier, { priceId: chosen.priceId, price: chosen });
     } else if (active.length > 1) {
-      ctx.log?.warn(
+      ctx.obs.log?.warn(
         `billing-foundation: tier "${tier}" has ${active.length} active flat-amount prices — expected exactly one, price stays unavailable`,
       );
     }

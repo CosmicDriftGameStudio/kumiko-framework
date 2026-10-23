@@ -32,7 +32,7 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
       grants: ["systemIdentity"],
       reason:
         "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +
-        "target user via ctx.writeAs(SYSTEM, user:update) to set emailVerified.",
+        "target user via ctx.dispatch.writeAs(SYSTEM, user:update) to set emailVerified.",
     },
     agent: { expose: false },
     handler: async (event, ctx) => {

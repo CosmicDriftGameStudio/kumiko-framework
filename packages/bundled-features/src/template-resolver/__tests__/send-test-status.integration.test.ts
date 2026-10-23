@@ -61,7 +61,7 @@ describe("template-resolver :: send-test-status with an email channel", () => {
       extraContext: (deps) => ({
         ...createDeliveryTestContext(deps),
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
       }),
     });
     await unsafeCreateEntityTable(stack.db, userEntity);

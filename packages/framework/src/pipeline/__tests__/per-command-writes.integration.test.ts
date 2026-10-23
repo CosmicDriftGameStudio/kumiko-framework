@@ -1,5 +1,5 @@
 // Contexts without an open transaction (stream/top-level query handlers, perCommand handlers) send
-// ctx.write through their own top-level command, and their ctx.db / event-store writes throw.
+// ctx.dispatch.write through their own top-level command, and their ctx.db / event-store writes throw.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -107,11 +107,13 @@ const feature = defineFeature(FEATURE, (r) => {
       access: { roles: ["Admin"] },
       transaction: "perCommand",
       handler: async (event, ctx) => {
-        const first = await ctx.write(type("write", "create-note-prepared"), {
+        const first = await ctx.dispatch.write(type("write", "create-note-prepared"), {
           title: event.payload.title,
         });
         if (!first.isSuccess) return first;
-        return ctx.write(type("write", "create-note"), { title: `${event.payload.title}-plain` });
+        return ctx.dispatch.write(type("write", "create-note"), {
+          title: `${event.payload.title}-plain`,
+        });
       },
     }),
   );
@@ -165,7 +167,7 @@ const feature = defineFeature(FEATURE, (r) => {
       handler: async (event, ctx) => {
         const created = await noteExecutor.create({ title: event.payload.title }, ctx.user, ctx.db);
         if (!created.isSuccess) return created;
-        return ctx.write(type("write", "orchestrate"), { title: event.payload.title });
+        return ctx.dispatch.write(type("write", "orchestrate"), { title: event.payload.title });
       },
     }),
   );
@@ -232,9 +234,11 @@ const feature = defineFeature(FEATURE, (r) => {
       access: { roles: ["Admin"] },
       transaction: "perCommand",
       handler: async (event, ctx) => {
-        const first = await ctx.write(type("write", "create-note"), { title: event.payload.title });
+        const first = await ctx.dispatch.write(type("write", "create-note"), {
+          title: event.payload.title,
+        });
         if (!first.isSuccess) return first;
-        return ctx.write(type("write", "fail-always"), { title: event.payload.title });
+        return ctx.dispatch.write(type("write", "fail-always"), { title: event.payload.title });
       },
     }),
   );
@@ -243,7 +247,9 @@ const feature = defineFeature(FEATURE, (r) => {
     "stream-user-write",
     titlePayload,
     async function* (query, ctx) {
-      const res = await ctx.write(type("write", "create-note"), { title: query.payload.title });
+      const res = await ctx.dispatch.write(type("write", "create-note"), {
+        title: query.payload.title,
+      });
       yield res.isSuccess ? "written" : `rejected:${res.error.code}`;
     },
     { access: { roles: ["User"] } },
@@ -254,7 +260,7 @@ const feature = defineFeature(FEATURE, (r) => {
     titlePayload,
     async function* (query, ctx) {
       try {
-        const res = await ctx.writeAs(otherAdmin, type("write", "create-note"), {
+        const res = await ctx.dispatch.writeAs(otherAdmin, type("write", "create-note"), {
           title: query.payload.title,
         });
         yield res.isSuccess ? "written" : `rejected:${res.error.code}`;
@@ -269,7 +275,9 @@ const feature = defineFeature(FEATURE, (r) => {
     "stream-write-per-command",
     titlePayload,
     async function* (query, ctx) {
-      const res = await ctx.write(type("write", "orchestrate"), { title: query.payload.title });
+      const res = await ctx.dispatch.write(type("write", "orchestrate"), {
+        title: query.payload.title,
+      });
       yield res.isSuccess ? "written" : "write-failed";
     },
     { access: { roles: ["Admin"] } },
@@ -279,7 +287,7 @@ const feature = defineFeature(FEATURE, (r) => {
     name: "query-user-write",
     schema: titlePayload,
     handler: async (query, ctx) =>
-      ctx.write(type("write", "create-note"), { title: query.payload.title }),
+      ctx.dispatch.write(type("write", "create-note"), { title: query.payload.title }),
     access: { roles: ["User"] },
   });
 
@@ -287,7 +295,9 @@ const feature = defineFeature(FEATURE, (r) => {
     "stream-write",
     titlePayload,
     async function* (query, ctx) {
-      const res = await ctx.write(type("write", "create-note"), { title: query.payload.title });
+      const res = await ctx.dispatch.write(type("write", "create-note"), {
+        title: query.payload.title,
+      });
       yield res.isSuccess ? "written" : "write-failed";
     },
     { access: { roles: ["Admin"] } },
@@ -317,7 +327,7 @@ const feature = defineFeature(FEATURE, (r) => {
     "stream-append",
     titlePayload,
     async function* (_query, ctx) {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: "00000000-0000-4000-8000-000000000002",
         aggregateType: "note",
         type: "note.created",
@@ -332,7 +342,7 @@ const feature = defineFeature(FEATURE, (r) => {
     name: "query-write",
     schema: titlePayload,
     handler: async (query, ctx) =>
-      ctx.write(type("write", "create-note"), { title: query.payload.title }),
+      ctx.dispatch.write(type("write", "create-note"), { title: query.payload.title }),
     access: { roles: ["Admin"] },
   });
 
@@ -350,7 +360,7 @@ const feature = defineFeature(FEATURE, (r) => {
     name: "query-append",
     schema: titlePayload,
     handler: async (_query, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: "00000000-0000-4000-8000-000000000003",
         aggregateType: "note",
         type: "note.created",
@@ -469,7 +479,7 @@ describe("perCommand handler", () => {
     },
   );
 
-  test("as a nested ctx.write it is rejected and the outer write rolls back", async () => {
+  test("as a nested ctx.dispatch.write it is rejected and the outer write rolls back", async () => {
     const error = await stack.http.writeErr(
       type("write", "nest-per-command"),
       { title: "n" },
@@ -507,7 +517,7 @@ describe("perCommand handler", () => {
   });
 });
 
-describe("ctx.write without an open transaction", () => {
+describe("ctx.dispatch.write without an open transaction", () => {
   test("a stream handler's write commits on its own and fires the afterCommit hook", async () => {
     const body = await consumeStream("stream-write", { title: "streamed" });
 
@@ -544,11 +554,11 @@ describe("ctx.db writes without an open transaction", () => {
 
   test("event appends in stream and query handlers throw", async () => {
     expect(await consumeStream("stream-append", { title: "x" })).toContain(
-      "ctx.unsafeAppendEvent is not available without an open transaction",
+      "ctx.events.unsafeAppend is not available without an open transaction",
     );
     const error = await stack.http.queryErr(type("query", "query-append"), { title: "x" }, admin);
     expect(error.message).toContain(
-      "ctx.unsafeAppendEvent is not available without an open transaction",
+      "ctx.events.unsafeAppend is not available without an open transaction",
     );
     expect(await selectMany(stack.db, eventsTable, {})).toEqual([]);
   });
@@ -577,7 +587,7 @@ describe("ctx.db writes without an open transaction", () => {
   });
 });
 
-describe("ctx.write keeps the caller's gates without an open transaction", () => {
+describe("ctx.dispatch.write keeps the caller's gates without an open transaction", () => {
   test("a non-admin stream handler cannot write to an admin-only handler", async () => {
     const body = await consumeStream("stream-user-write", { title: "sneaky" }, plainUser);
 

@@ -172,7 +172,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       r.defineEvent(PAYMENT_RECEIVED_EVENT_SHORT, paymentEventPayloadSchema, { piiFields: "none" });
 
       // Inline projection: materialized current state in `read_subscriptions`.
-      // Apply runs in the same TX as ctx.unsafeAppendEvent — read-your-own-
+      // Apply runs in the same TX as ctx.events.unsafeAppend — read-your-own-
       // write without a dispatcher tick.
       r.projection({
         name: "subscription",
@@ -260,13 +260,18 @@ export function createBillingFoundationFeature<TTier extends string = string>(
         perTenant: true,
         runOnBoot: true,
         handler: async (_payload, ctx) => {
-          const result = await ctx.write(SubscriptionFoundationHandlers.syncSubscription, {});
+          const result = await ctx.dispatch.write(
+            SubscriptionFoundationHandlers.syncSubscription,
+            {},
+          );
           if (!result.isSuccess) {
             throw new Error(
               `billing-foundation:sync-subscriptions: sync-subscription write failed: ${JSON.stringify(result.error)}`,
             );
           }
-          ctx.log.info(`[billing-foundation:sync-subscriptions] ${JSON.stringify(result.data)}`);
+          ctx.obs.log.info(
+            `[billing-foundation:sync-subscriptions] ${JSON.stringify(result.data)}`,
+          );
         },
       });
 

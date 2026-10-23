@@ -56,7 +56,7 @@ export const disconnectAccountHandler: WriteHandlerDef = {
       providerName: current.provider,
       reason: payload.reason,
     };
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: payload.accountId,
       aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
       type: MAIL_ACCOUNT_DISCONNECTED_EVENT_QN,

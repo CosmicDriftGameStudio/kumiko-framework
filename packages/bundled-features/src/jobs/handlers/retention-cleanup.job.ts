@@ -18,6 +18,6 @@ export function createRetentionCleanupJob(retentionDays: number): JobHandlerFn {
       "store_job_runs retention purges finished runs of every tenant",
     ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
     const result = await deleteStaleJobRuns(db, retentionDays);
-    ctx.log?.info?.(`[jobs:retention-cleanup] complete: ${JSON.stringify(result)}`);
+    ctx.obs.log?.info?.(`[jobs:retention-cleanup] complete: ${JSON.stringify(result)}`);
   };
 }

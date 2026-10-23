@@ -141,7 +141,7 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     expect(job).toBeDefined();
 
     // EXACT production job context: configResolver set, config undefined.
-    // Logging is required because incomplete[] is persisted via ctx.log.warn.
+    // Logging is required because incomplete[] is persisted via ctx.obs.log.warn.
     const jobCtx = {
       db: createTenantDb({
         db: stack.db,
@@ -154,13 +154,15 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
       registry: stack.registry,
       configResolver,
       systemUser: createSystemUser(TENANT_A),
-      log: {
-        info() {},
-        warn() {},
-        error() {},
-        debug() {},
-        child() {
-          return this;
+      obs: {
+        log: {
+          info() {},
+          warn() {},
+          error() {},
+          debug() {},
+          child() {
+            return this;
+          },
         },
       },
     };

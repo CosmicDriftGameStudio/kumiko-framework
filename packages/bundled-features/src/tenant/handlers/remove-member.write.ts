@@ -129,7 +129,7 @@ export const removeMemberWrite = defineWriteHandler({
     // member is logged out but the membership is intact — safe direction.
     const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
     if (revoker) {
-      await ctx.writeAs(createSystemUser(event.payload.tenantId), REVOKE_ALL_SESSIONS_QN, {
+      await ctx.dispatch.writeAs(createSystemUser(event.payload.tenantId), REVOKE_ALL_SESSIONS_QN, {
         userId: event.payload.userId,
         tenantId: event.payload.tenantId,
       });

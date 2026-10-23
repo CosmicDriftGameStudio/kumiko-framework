@@ -244,7 +244,7 @@ beforeAll(async () => {
       ...createDeliveryTestContext(deps),
       templateResolver: createTemplateResolverApi(deps.db, deps.registry),
       configResolver,
-      _configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
     jobs: { consumerLane: "worker", queueNamePrefix: `multi-provider-${generateId()}` },

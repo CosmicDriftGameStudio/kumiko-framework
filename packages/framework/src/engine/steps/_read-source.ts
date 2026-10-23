@@ -43,7 +43,7 @@ export function warnOnNarrowedForeignTenantFilter(
   if (requestedList === undefined) return;
   // skip: every requested tenant is within the caller's scope.
   if (requestedList.every((t) => typeof t === "string" && allowed.includes(t))) return;
-  ctx.log?.warn(
+  ctx.obs.log.warn(
     `${stepKind} "${stepName}": where.tenantId is outside the caller's tenant scope and was narrowed`,
     {
       step: stepKind,

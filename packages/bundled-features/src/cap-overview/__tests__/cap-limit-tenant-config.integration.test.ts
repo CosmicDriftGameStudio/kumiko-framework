@@ -122,7 +122,7 @@ beforeAll(async () => {
       const resolver = createConfigResolver();
       return {
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       };
     },
   });

@@ -104,7 +104,7 @@ export const connectAccountHandler: WriteHandlerDef = {
       providerName: payload.provider,
       reason: "connect_flow",
     };
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: accountId,
       aggregateType: MAIL_ACCOUNT_AGGREGATE_TYPE,
       type: MAIL_ACCOUNT_CONNECTED_EVENT_QN,

@@ -6,14 +6,14 @@ import { userTable } from "../schema/user.ts";
 
 // Privileged auth lookup: returns the full user row — including passwordHash —
 // by email OR id (exactly one, enforced by the schema). Used by the auth
-// features via ctx.queryAs(systemUser, ...).
+// features via ctx.dispatch.queryAs(systemUser, ...).
 //
 // Access is system-only, NOT access.privileged: every query handler is
 // reachable via POST /api/query, and "SystemAdmin" is an assignable app
 // role — privileged would hand any SystemAdmin the raw passwordHash over
 // HTTP. The "system" role can't be minted into a session (only
 // createSystemUser() carries it), so system-only keeps this handler
-// internal to ctx.queryAs(systemUser, ...) callers.
+// internal to ctx.dispatch.queryAs(systemUser, ...) callers.
 export const findForAuthQuery = defineQueryHandler({
   name: "user:find-for-auth",
   schema: z

@@ -51,7 +51,7 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
     name: "note",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
+      await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
         aggregateType: "worker-note",
         type: noted.name,

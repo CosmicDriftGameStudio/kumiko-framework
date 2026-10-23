@@ -394,7 +394,7 @@ export async function loadAggregateAsOf(
 
 // Cheapest possible read of "what's the latest version on this stream?". The
 // CRUD executor uses this as expectedVersion for its append, so a domain
-// event appended via ctx.appendEvent between two CRUD writes doesn't cause
+// event appended via ctx.events.append between two CRUD writes doesn't cause
 // the next CRUD write to fail with version_conflict. Indexed lookup on the
 // existing (aggregate_id, version) unique index. Returns 0 for empty/unknown
 // streams (matches create()'s expectedVersion=0 convention).

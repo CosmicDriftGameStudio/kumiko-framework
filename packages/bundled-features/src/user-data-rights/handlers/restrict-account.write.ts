@@ -12,7 +12,7 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 // POST /api/user/restrict — GDPR Art. 18 account freeze.
 // Flips status=Active → Restricted and revokes all live sessions
-// for the user via cross-feature ctx.writeAs(sessions.revokeAllForUser).
+// for the user via cross-feature ctx.dispatch.writeAs(sessions.revokeAllForUser).
 //
 // Write API behaviour:
 //   - Login is blocked: login.write.ts checks status=Restricted (Atom 3).
@@ -53,7 +53,7 @@ export const restrictAccountWrite = defineWriteHandler({
   },
   escapeHatch: {
     reason:
-      "Revokes all live sessions of the (possibly self-)restricted user via ctx.writeAs(SYSTEM, " +
+      "Revokes all live sessions of the (possibly self-)restricted user via ctx.dispatch.writeAs(SYSTEM, " +
       "sessions:write:user-session:revoke-all-for-user) — that handler's own access gate needs " +
       "privileged roles the acting caller doesn't necessarily have. It also checks the target " +
       "user's membership in the admin's tenant and appends the user lifecycle status change on " +
@@ -112,10 +112,10 @@ export const restrictAccountWrite = defineWriteHandler({
 
     // Cross-feature: all live sessions are revoked; otherwise the user could
     // continue writing with an existing JWT until token expiry.
-    // ctx.writeAs(systemUser, ...) gives the privileged handler the
+    // ctx.dispatch.writeAs(systemUser, ...) gives the privileged handler the
     // System user roles required by its access gate.
     const systemUser = createSystemUser(event.user.tenantId);
-    await ctx.writeAs(systemUser, "sessions:write:user-session:revoke-all-for-user", {
+    await ctx.dispatch.writeAs(systemUser, "sessions:write:user-session:revoke-all-for-user", {
       userId: targetUserId,
     });
 

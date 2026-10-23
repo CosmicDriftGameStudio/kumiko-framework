@@ -50,7 +50,7 @@ async function bootPod(dbName: string, sharedRedisWith?: TestStack): Promise<Tes
     ...(sharedRedisWith && { sharedRedisWith }),
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafePushTables(pod.db, { configValuesTable });

@@ -96,7 +96,7 @@ export async function runResumeLoop(
     if (run.definitionFingerprint !== undefined) {
       const currentFingerprint = computeDefinitionFingerprint(run.workflow);
       if (currentFingerprint !== run.definitionFingerprint) {
-        await handlerCtx.unsafeAppendEvent({
+        await handlerCtx.events.unsafeAppend({
           aggregateId: run.runId,
           aggregateType: WORKFLOW_AGGREGATE_TYPE,
           type: WORKFLOW_RUN_FAILED_TYPE,
@@ -124,7 +124,7 @@ export async function runResumeLoop(
     // no FAILED-event. Stale WAITING-rows in the fetcher result also
     // hit this branch on the second poll-tick.
     try {
-      await handlerCtx.unsafeAppendEvent({
+      await handlerCtx.events.unsafeAppend({
         aggregateId: run.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: WORKFLOW_RESUMED_TYPE,
@@ -176,7 +176,7 @@ export async function runResumeLoop(
       // returned. A second suspension (e.g. `wait` further down the
       // pipeline) leaves the run pending for the next resume-loop tick.
       if (outcome.kind !== "suspended") {
-        await handlerCtx.unsafeAppendEvent({
+        await handlerCtx.events.unsafeAppend({
           aggregateId: run.runId,
           aggregateType: WORKFLOW_AGGREGATE_TYPE,
           type: WORKFLOW_RUN_COMPLETED_TYPE,
@@ -193,7 +193,7 @@ export async function runResumeLoop(
         stepIndex: run.stepIndex,
         error: String(error),
       });
-      await handlerCtx.unsafeAppendEvent({
+      await handlerCtx.events.unsafeAppend({
         aggregateId: run.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,
         type: WORKFLOW_RUN_FAILED_TYPE,

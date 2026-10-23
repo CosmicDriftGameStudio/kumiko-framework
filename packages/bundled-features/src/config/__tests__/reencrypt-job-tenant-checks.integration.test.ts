@@ -137,7 +137,7 @@ function jobCtx(captured: CapturedLog): Parameters<typeof reencryptJob>[1] {
     registry: stack.registry,
     masterKeyProvider: mutableProvider,
     configEncryption: cipher,
-    log: capturingLog(captured),
+    obs: { log: capturingLog(captured) },
   } as unknown as Parameters<typeof reencryptJob>[1]; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/configEncryption/log
 }
 

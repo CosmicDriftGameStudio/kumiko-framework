@@ -78,7 +78,7 @@ beforeAll(async () => {
       });
       return {
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       };
     },
   });

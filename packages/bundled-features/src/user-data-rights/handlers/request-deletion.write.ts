@@ -50,7 +50,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     escapeHatch: {
       grants: ["systemIdentity", "unsafeRaw"],
       reason:
-        "resolveGracePeriod reads the tenant compliance profile via ctx.queryAs(SYSTEM, " +
+        "resolveGracePeriod reads the tenant compliance profile via ctx.dispatch.queryAs(SYSTEM, " +
         "...) to compute the grace period end — the calling user's own identity has no read " +
         "access to that tenant-config projection. startDeletionGracePeriod also appends the " +
         "user lifecycle event on the SYSTEM_TENANT_ID user stream.",

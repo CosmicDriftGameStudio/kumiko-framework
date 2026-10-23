@@ -80,7 +80,7 @@ export function createAddNoteHandler(
           return decryptStoredPii(userRow.displayName, "displayName", "notes-history:add-note");
         });
       } catch (e) {
-        ctx.log?.warn("notes-history: authorName lookup failed", {
+        ctx.obs.log?.warn("notes-history: authorName lookup failed", {
           error: e,
           userId: event.user.id,
         });

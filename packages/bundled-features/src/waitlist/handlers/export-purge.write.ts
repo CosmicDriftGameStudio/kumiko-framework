@@ -21,7 +21,7 @@ const PurgeSchema = z.object({ confirmCount: z.number().int().min(0) }).strict()
 const ExportSchema = z.object({}).strict();
 
 async function appendAudit(ctx: HandlerContext, type: string, count: number): Promise<void> {
-  await ctx.unsafeAppendEvent({
+  await ctx.events.unsafeAppend({
     aggregateId: generateId(),
     aggregateType: WAITLIST_AUDIT_AGGREGATE_TYPE,
     type,

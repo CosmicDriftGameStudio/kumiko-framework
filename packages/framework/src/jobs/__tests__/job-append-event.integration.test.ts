@@ -25,9 +25,9 @@ const noteLogTable = pgTable("read_jobappend_note_log", {
   text: pgText("text").notNull(),
 });
 
-// The fixture event map in this package types ctx.appendEvent to one probe event; same runtime, looser type.
+// The fixture event map in this package types ctx.events.append to one probe event; same runtime, looser type.
 function untypedAppend(ctx: JobContext): UnsafeAppendEventFn {
-  return ctx.appendEvent as unknown as UnsafeAppendEventFn;
+  return ctx.events.append as unknown as UnsafeAppendEventFn;
 }
 
 const admin = TestUsers.admin;

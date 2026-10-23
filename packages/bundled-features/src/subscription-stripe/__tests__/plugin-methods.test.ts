@@ -51,7 +51,7 @@ function ctxRuntime(stripe: Stripe, billingLive = true): StripeCtxRuntime {
   };
 }
 
-const stubCtx = {} as HandlerContext;
+const stubCtx = { obs: { log: { warn() {} } } } as unknown as HandlerContext;
 
 // =============================================================================
 // createCheckoutSession
@@ -584,7 +584,7 @@ describe("createStripeRetrievePrices", () => {
     spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
       stripePrice({ id, recurring: { interval: "biannual", interval_count: 1 } })) as never);
     const warn = mock(() => {});
-    const ctx = { log: { warn } } as unknown as HandlerContext;
+    const ctx = { obs: { log: { warn } } } as unknown as HandlerContext;
     const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
 
     await retrieve(ctx, ["price_pro"]);

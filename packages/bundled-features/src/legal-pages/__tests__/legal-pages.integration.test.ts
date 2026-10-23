@@ -557,7 +557,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     await expect(
       runLegalPagesBootCheck({
         templateResolver: api,
-        log: { info: (m) => infos.push(m), warn: (m) => warns.push(m) },
+        obs: { log: { info: (m) => infos.push(m), warn: (m) => warns.push(m) } },
       }),
     ).resolves.toBeUndefined();
     expect(infos).toHaveLength(1);
@@ -581,7 +581,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       await expect(
         runLegalPagesBootCheck({
           templateResolver: api,
-          log: { warn: (m) => warns.push(m) },
+          obs: { log: { warn: (m) => warns.push(m) } },
         }),
       ).resolves.toBeUndefined();
       expect(warns).toHaveLength(1);
@@ -606,7 +606,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     await withEnv({ NODE_ENV: "development" }, async () => {
       await runLegalPagesBootCheck({
         templateResolver: api,
-        log: { warn: (m) => warns.push(m) },
+        obs: { log: { warn: (m) => warns.push(m) } },
       });
       expect(warns[0]).toContain("missing 1 required text-block(s)");
       expect(warns[0]).toContain("imprint/de");

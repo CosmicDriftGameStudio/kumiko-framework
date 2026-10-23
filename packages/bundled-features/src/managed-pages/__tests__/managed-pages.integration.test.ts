@@ -67,7 +67,7 @@ beforeAll(async () => {
     // branding cascade. Branding keys are not encrypted → no encryption needed.
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   await unsafeCreateEntityTable(stack.db, pageEntity);
@@ -632,7 +632,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
           : new Set(["config", "managed-pages"]),
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafeCreateEntityTable(cssStack.db, pageEntity);
@@ -776,7 +776,7 @@ describe("managed-pages :: resolverTrust authoritative (host-based, wie publicst
       },
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafeCreateEntityTable(authStack.db, pageEntity);

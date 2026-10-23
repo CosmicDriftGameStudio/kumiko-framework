@@ -37,7 +37,6 @@ import {
   CONFIG_WRITE_RESET_TYPE,
   CONFIG_WRITE_SET_TYPE,
   isMemberResolutionPrincipal,
-  perCommandNestedDenied,
   resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
@@ -51,6 +50,7 @@ import {
   prefixValidationPath,
   wrapToKumiko,
 } from "./dispatcher-utils.ts";
+import { perCommandNestedDenied } from "./handler-context-phase-denials.ts";
 import { runPreHandlerGates } from "./pre-handler-gates.ts";
 import {
   type ConsumedReservation,
@@ -176,11 +176,11 @@ async function runLifecycle(
 ): Promise<void> {
   const { lifecycle } = ctx;
   if (!lifecycle) {
-    handlerContext.log?.debug(`runLifecycle: skipping ${type} — no lifecycle pipeline`);
+    handlerContext.obs.log.debug(`runLifecycle: skipping ${type} — no lifecycle pipeline`);
     return;
   }
   if (!isLifecycleResult(data)) {
-    handlerContext.log?.debug(`runLifecycle: skipping ${type} — result is not a lifecycle kind`);
+    handlerContext.obs.log.debug(`runLifecycle: skipping ${type} — result is not a lifecycle kind`);
     return;
   }
   const result = data;
@@ -559,7 +559,7 @@ function resolveWriteEntry(
   if (!handler) return failedStep(writeFailure(new NotFoundError("handler", type)));
 
   // Defense in depth — covers runBatch and a spread-copied user that kept
-  // `origin`, beyond buildHandlerContext's own ctx.write replacement.
+  // `origin`, beyond buildHandlerContext's own ctx.dispatch.write replacement.
   if (isMemberResolutionPrincipal(user)) {
     return failedStep(writeFailure(memberResolutionReadOnlyDenied()));
   }
@@ -594,7 +594,7 @@ async function runWriteGates(
   const parsedPayload = reservation ? reservation.parsedPayload : gates.payload;
 
   // A handler with a pre-transaction phase cannot run that phase from inside an open transaction;
-  // running it without would skip the reservation or the prepared data, so a nested ctx.write of
+  // running it without would skip the reservation or the prepared data, so a nested ctx.dispatch.write of
   // such a handler is rejected instead.
   if (needsPreTransactionPhase && !reservation) {
     return failedStep(

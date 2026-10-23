@@ -187,7 +187,7 @@ export function createSecretsFeature(
     // Read-audit domain-event. Registered here so ops tools + MSPs can
     // discover the type; secrets-context.get parses payloads against
     // `secretReadSchema` at write time because the low-level append() path
-    // skips ctx.appendEvent's schema-validation guard.
+    // skips ctx.events.append's schema-validation guard.
     r.defineEvent("read", secretReadSchema, { piiFields: "none" });
 
     // Per-tenant handlers (set/delete/list) run in the default tenant-scope,

@@ -35,7 +35,7 @@ const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
       } catch {
         dbThrows = true;
       }
-      // Same fail-closed proof for ctx.dbOutsideTransaction — the second,
+      // Same fail-closed proof for ctx.db.outsideTransaction — the second,
       // previously-unguarded door closes. Its guarded escape hatch is
       // ctx.systemDb.outsideTransaction, not ctx.systemDb itself. The guard
       // is a Proxy (truthy), so `?.` here would mask the two regressions
@@ -43,10 +43,10 @@ const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
       // holds a working, unfiltered db" both look identical under `?.`.
       // Check presence without touching a proxy property (`!==` on the field
       // itself doesn't trap), then force the property read separately.
-      const dbOutsideTransactionPresent = ctx.dbOutsideTransaction !== undefined;
+      const dbOutsideTransactionPresent = ctx.db.outsideTransaction !== undefined;
       let dbOutsideTransactionThrows = false;
       try {
-        void ctx.dbOutsideTransaction!.tenantId;
+        void ctx.db.outsideTransaction!.tenantId;
       } catch {
         dbOutsideTransactionThrows = true;
       }
@@ -73,7 +73,7 @@ const tenantScopedFeature = defineFeature("ctxsystemdb-tenant", (r) => {
     handler: async (query, ctx) => ({
       present: ctx.systemDb !== undefined,
       dbWorks: ctx.db.tenantId === query.user.tenantId,
-      dbOutsideTransactionWorks: ctx.dbOutsideTransaction?.tenantId === query.user.tenantId,
+      dbOutsideTransactionWorks: ctx.db.outsideTransaction?.tenantId === query.user.tenantId,
     }),
     access: { roles: ["Admin"] },
   });
@@ -91,7 +91,7 @@ afterAll(async () => {
 });
 
 describe("ctx.systemDb", () => {
-  test("is present for r.systemScope() handlers; ctx.db and ctx.dbOutsideTransaction are both fail-closed there", async () => {
+  test("is present for r.systemScope() handlers; ctx.db and ctx.db.outsideTransaction are both fail-closed there", async () => {
     const result = await stack.http.queryOk<{
       present: boolean;
       tenantIdMatches: boolean;
@@ -108,7 +108,7 @@ describe("ctx.systemDb", () => {
     expect(result.outsideTransactionTenantIdMatches).toBe(true);
   });
 
-  test("is absent for non-system-scoped handlers; ctx.db and ctx.dbOutsideTransaction work normally there", async () => {
+  test("is absent for non-system-scoped handlers; ctx.db and ctx.db.outsideTransaction work normally there", async () => {
     const result = await stack.http.queryOk<{
       present: boolean;
       dbWorks: boolean;

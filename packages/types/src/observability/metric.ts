@@ -1,4 +1,4 @@
-// Metric + Meter contract. Feature code interacts through ctx.metrics
+// Metric + Meter contract. Feature code interacts through ctx.obs.metrics
 // (MetricsHandle); the framework wires Counter/Histogram/Gauge behind that.
 
 export type MetricLabels = Record<string, string | number | boolean>;
@@ -41,11 +41,11 @@ export interface Meter {
   counter(name: string): Counter;
   histogram(name: string): Histogram;
   gauge(name: string): Gauge;
-  // List of registered definitions — used by ctx.metrics to validate labels.
+  // List of registered definitions — used by ctx.obs.metrics to validate labels.
   definitions(): ReadonlyMap<string, MetricDefinition>;
 }
 
-// Public handle for feature code — ctx.metrics.
+// Public handle for feature code — ctx.obs.metrics.
 // Name resolution uses the fully-qualified name (kumiko_<feature>_<short>).
 // The registrar resolves the short name from the calling feature context
 // at boot time; at handler time the map is ready.

@@ -63,7 +63,7 @@ async function writeAttemptEvent(
 ): Promise<void> {
   const { tenantId, ...rest } = entry;
   // Masked here, the only place attempt events are written, so no event or projection row ever holds the full address.
-  // Schema-parse to match ctx.appendEvent's guarantee: a payload drift between
+  // Schema-parse to match ctx.events.append's guarantee: a payload drift between
   // service/job + feature-registration fails loudly here instead of landing on
   // the events-table and crashing a consumer later.
   const payload = deliveryAttemptSchema.parse({

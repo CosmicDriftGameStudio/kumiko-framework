@@ -19,10 +19,10 @@ Three building blocks:
 
 - **`r.defineEvent("name", zodSchema)`** declares the name and payload.
   The qualified name (e.g. `pubsub-orders:event:order-placed`) comes
-  back as `.name` — pass it directly to `ctx.appendEvent`. Events that
-  aren't registered are rejected by `ctx.appendEvent` at the emit site.
+  back as `.name` — pass it directly to `ctx.events.append`. Events that
+  aren't registered are rejected by `ctx.events.append` at the emit site.
 
-- **`ctx.appendEvent({ aggregateId, aggregateType, type, payload })`**
+- **`ctx.events.append({ aggregateId, aggregateType, type, payload })`**
   appends the event onto the aggregate stream within the same TX.
   Version lineage is continued automatically — no synthetic
   `"pubsub"` stream anymore, the event truly lives on the aggregate.
@@ -40,7 +40,7 @@ Three building blocks:
 HTTP → writeHandler
          ↓ TX begin
          orderExecutor.create(...)     ← business row + auto-event (pubsubOrder.created, v1)
-         ctx.appendEvent({...})        ← domain event (pubsub-orders:event:order-placed, v2)
+         ctx.events.append({...})        ← domain event (pubsub-orders:event:order-placed, v2)
          ↓ TX commit
          (async, post-commit)
          event-dispatcher runOnce
@@ -50,7 +50,7 @@ HTTP → writeHandler
 
 ## Migration note
 
-`r.postEvent` was removed in Sprint E.2. `ctx.appendEvent` +
+`r.postEvent` was removed in Sprint E.2. `ctx.events.append` +
 `r.multiStreamProjection` is the unified Marten API for CRUD events,
 domain events, and cross-feature reactions.
 

@@ -127,7 +127,7 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
         attachTo: { entityType: "fieldGadget", fieldName: "photo" },
       });
       if (!stored.isSuccess) return stored;
-      const updated = await ctx.write("form-upload-gadget:write:field-gadget:update", {
+      const updated = await ctx.dispatch.write("form-upload-gadget:write:field-gadget:update", {
         id: event.payload.gadgetId,
         version: event.payload.version,
         changes: { photo: stored.data.id },

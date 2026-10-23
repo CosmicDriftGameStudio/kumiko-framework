@@ -118,7 +118,7 @@ beforeAll(async () => {
     features: [configFeature, cascadeFeature],
     extraContext: ({ registry }) => ({
       configResolver: resolver,
-      _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
   db = stack.db;

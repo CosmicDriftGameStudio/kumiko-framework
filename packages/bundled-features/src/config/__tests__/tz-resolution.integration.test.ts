@@ -38,8 +38,11 @@ const probeFeature = defineFeature("probe", (r) => {
     name: "set-tz-then-fail",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      await ctx.write("config:write:set", { key: "tenant:config:timezone", value: "Asia/Tokyo" });
-      await ctx.write("probe:write:read-tz", {});
+      await ctx.dispatch.write("config:write:set", {
+        key: "tenant:config:timezone",
+        value: "Asia/Tokyo",
+      });
+      await ctx.dispatch.write("probe:write:read-tz", {});
       return writeFailure(new UnprocessableError("rolled_back_on_purpose"));
     },
     access: { roles: ["Admin"] },
@@ -66,7 +69,7 @@ describe("buildHandlerContext ctx.tz resolution", () => {
       features: [createConfigFeature(), tenantFeature, probeFeature],
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafePushTables(stack.db, { configValuesTable });

@@ -391,7 +391,7 @@ export type JobTrigger =
   // Two delivery semantics depend on what `on` resolves to: a write/query-handler
   // QN dispatches synchronously from dispatch-write.ts's afterCommitHooks —
   // effectively once. An r.defineEvent QN (e.g. one an r.multiStreamProjection
-  // appends via ctx.unsafeAppendEvent) dispatches asynchronously through the
+  // appends via ctx.events.unsafeAppend) dispatches asynchronously through the
   // job-trigger event consumer (createJobTriggerEventConsumer,
   // pipeline/system-hooks.ts) — cursor delivery, at-least-once. Handlers
   // triggered on an r.defineEvent QN must be idempotent.

@@ -11,7 +11,7 @@ import { createEntity, createTextField, defineFeature } from "../../engine/index
 import type { HandlerContext, NotifyFactory } from "../../engine/types/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
-// ctx.notify / ctx.scheduleAfterCommit across the ctx.query bridge: a notify raised inside a
+// ctx.notify / ctx.scheduleAfterCommit across the ctx.dispatch.query bridge: a notify raised inside a
 // query called from a write handler must wait for that write's commit, and the post-commit
 // context has no commit sink to schedule on.
 
@@ -69,8 +69,8 @@ const notifyFeature = defineFeature("nfy", (r) => {
     name: "bridge:notify",
     schema: z.object({ rollBack: z.boolean() }),
     handler: async (event, ctx) => {
-      await ctx.query("nfy:query:probe:notify", {});
-      const probe = await ctx.query("nfy:query:probe:schedule", {});
+      await ctx.dispatch.query("nfy:query:probe:notify", {});
+      const probe = await ctx.dispatch.query("nfy:query:probe:schedule", {});
       queryBridgeScheduleType = z.object({ scheduleType: z.string() }).parse(probe).scheduleType;
       if (event.payload.rollBack) throw new Error("outer write fails after the bridged notify");
       return { isSuccess: true as const, data: {} };
@@ -100,7 +100,7 @@ const notifyFeature = defineFeature("nfy", (r) => {
       // Hooks are typed against AppContext; the runtime object is the full HandlerContext. @cast-boundary
       const handlerCtx = ctx as unknown as HandlerContext;
       hookScheduleType = typeof handlerCtx.scheduleAfterCommit;
-      await handlerCtx.write("nfy:write:effect:run", {});
+      await handlerCtx.dispatch.write("nfy:write:effect:run", {});
     },
   });
 });
@@ -128,7 +128,7 @@ beforeEach(async () => {
   await stack.redis.flushNamespace();
 });
 
-describe("ctx.notify inside a ctx.query bridge of a write handler", () => {
+describe("ctx.notify inside a ctx.dispatch.query bridge of a write handler", () => {
   test("a rolled-back outer write leaves no notification behind", async () => {
     const res = await stack.http.write("nfy:write:bridge:notify", { rollBack: true }, admin);
     expect(res.status).toBe(500);
@@ -143,7 +143,7 @@ describe("ctx.notify inside a ctx.query bridge of a write handler", () => {
 });
 
 describe("ctx.scheduleAfterCommit without a live commit sink", () => {
-  test("is absent in the ctx.query bridge context", async () => {
+  test("is absent in the ctx.dispatch.query bridge context", async () => {
     const res = await stack.http.write("nfy:write:bridge:notify", { rollBack: false }, admin);
     expect((await res.json()).isSuccess).toBe(true);
     expect(queryBridgeScheduleType).toBe("undefined");

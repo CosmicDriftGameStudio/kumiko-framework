@@ -79,7 +79,7 @@ describe("without tenant-settings mount", () => {
       features: [createConfigFeature(), invoiceFeature],
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafePushTables(stack.db, { configValuesTable });
@@ -122,7 +122,7 @@ describe("caller-supplied id (#2922)", () => {
       features: [createConfigFeature(), noteFeature],
       extraContext: ({ registry }) => ({
         configResolver: resolver,
-        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+        configAccessorFactory: createConfigAccessorFactory(registry, resolver),
       }),
     });
     await unsafePushTables(stack.db, { configValuesTable });

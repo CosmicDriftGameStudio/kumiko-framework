@@ -70,7 +70,7 @@ export async function startAndRunWorkflow(args: {
     ...(args.idempotencyKey && { idempotencyKey: args.idempotencyKey }),
   };
 
-  await args.handlerCtx.unsafeAppendEvent({
+  await args.handlerCtx.events.unsafeAppend({
     aggregateId: args.runId,
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_STARTED_TYPE,
@@ -97,7 +97,7 @@ export async function startAndRunWorkflow(args: {
     return { outcome: "suspended" };
   }
 
-  await args.handlerCtx.unsafeAppendEvent({
+  await args.handlerCtx.events.unsafeAppend({
     aggregateId: args.runId,
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_COMPLETED_TYPE,

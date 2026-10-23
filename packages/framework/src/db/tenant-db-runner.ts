@@ -57,7 +57,7 @@ export function tenantDbWritesDeniedReason(tenantDb: TenantDb): string | undefin
 
 export function tenantDbWritesDeniedError(operation: string, reason: string): InternalError {
   return new InternalError({
-    message: `${operation}: writes are not available ${reason}; run the write through ctx.write so it gets its own transaction`,
+    message: `${operation}: writes are not available ${reason}; run the write through ctx.dispatch.write so it gets its own transaction`,
   });
 }
 

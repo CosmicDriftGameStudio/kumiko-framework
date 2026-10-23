@@ -1,0 +1,96 @@
+import type { HandlerContext, JobRunnerRef } from "../engine/types/index.ts";
+import { InternalError, memberResolutionReadOnlyDenied } from "../errors/index.ts";
+import { attachOutsideTransaction } from "./attach-outside-transaction.ts";
+
+// Phase denials of the write pipeline: member-resolution, without-transaction and the two
+// pre-transaction phases each strip a different set of ctx surfaces.
+
+// JobRunnerRef's declared type only carries handleEvent, but callers
+// routinely bracket-access a fuller runner — a Proxy denies ANY property read.
+export function denyingJobRunnerProxy(
+  denied: () => Error = memberResolutionReadOnlyDenied,
+): JobRunnerRef {
+  const target: JobRunnerRef = {
+    handleEvent: async () => {
+      throw denied();
+    },
+  };
+  return new Proxy(target, {
+    get() {
+      throw denied();
+    },
+  });
+}
+
+export function dropOutsideTransaction(handlerContext: HandlerContext): void {
+  if (handlerContext.db) attachOutsideTransaction(handlerContext.db, undefined);
+}
+
+function beforeTransactionDenied(surface: string): InternalError {
+  return new InternalError({
+    message: `ctx.${surface} is not available before the transaction; move it into the handler`,
+  });
+}
+
+export function withoutTransactionDenied(surface: string): InternalError {
+  return new InternalError({
+    message: `ctx.${surface} is not available without an open transaction; run the write through ctx.dispatch.write so it gets its own transaction`,
+  });
+}
+
+export function perCommandNestedDenied(targetType: string): InternalError {
+  return new InternalError({
+    message: `handler "${targetType}" runs without a transaction (transaction: "perCommand") and cannot run as a nested write inside an open transaction`,
+  });
+}
+
+function denySurface(buildError: (surface: string) => InternalError, surface: string): () => never {
+  return () => {
+    throw buildError(surface);
+  };
+}
+
+export function denyEventStoreSurfaces(
+  handlerContext: HandlerContext,
+  buildError: (surface: string) => InternalError,
+): HandlerContext {
+  const deny = (surface: string) => denySurface(buildError, `events.${surface}`);
+  return {
+    ...handlerContext,
+    events: {
+      ...handlerContext.events,
+      append: deny("append"),
+      unsafeAppend: deny("unsafeAppend"),
+      tryAppend: deny("tryAppend"),
+      fetchForWriting: deny("fetchForWriting"),
+      archive: deny("archive"),
+      restore: deny("restore"),
+      snapshot: deny("snapshot"),
+    },
+  };
+}
+
+// Reservations write on purpose through the outside-transaction handles, so they keep those but
+// lose every surface bound to the not-yet-open transaction.
+export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): HandlerContext {
+  return {
+    ...denyEventStoreSurfaces(handlerContext, beforeTransactionDenied),
+    dispatch: {
+      ...handlerContext.dispatch,
+      write: denySurface(beforeTransactionDenied, "dispatch.write"),
+      writeAs: denySurface(beforeTransactionDenied, "dispatch.writeAs"),
+    },
+    scheduleAfterCommit: denySurface(beforeTransactionDenied, "scheduleAfterCommit"),
+    scheduleAfterRollback: denySurface(beforeTransactionDenied, "scheduleAfterRollback"),
+    ...(handlerContext.notify && { notify: denySurface(beforeTransactionDenied, "notify") }),
+    ...(handlerContext.jobRunner && {
+      jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),
+    }),
+  };
+}
+
+// The beforeTransaction phase has no write need at all, so it also loses the outside-transaction handles.
+export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): HandlerContext {
+  dropOutsideTransaction(handlerContext);
+  return denyTransactionBoundSurfaces(handlerContext);
+}

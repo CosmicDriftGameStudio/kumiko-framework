@@ -59,7 +59,7 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
       });
     }
 
-    await ctx.unsafeAppendEvent({
+    await ctx.events.unsafeAppend({
       aggregateId: payload.entityId,
       aggregateType: payload.entityName,
       type: createCustomFieldsFeature().exports.clearedEvent.name,

@@ -5,6 +5,7 @@ import type {
   EscapeHatchDeclaration,
   EscapeHatchReporter,
   EscapeHatchTarget,
+  HandlerDb,
 } from "@cosmicdrift/kumiko-types/handlers";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
@@ -381,10 +382,9 @@ function buildUncheckedSystemDb(
 // own tenantId, never a foreign one.
 //
 // dbOutsideTransaction is optional so every existing single-arg call site
-// (jobs/job-runner.ts, tests) keeps compiling — those callers have no
-// outside-tx source to hand in and never needed one. Only
-// buildHandlerContext passes it, which is also the only place `.outsideTransaction`
-// is reachable through `ctx.systemDb`.
+// (jobs/job-runner.ts, tests) keeps compiling — those callers have no outside-tx
+// source to hand in. Only buildHandlerContext passes it, which is also the only
+// place `.outsideTransaction` is reachable through `ctx.systemDb`.
 //
 // Ungated here (the handler's own systemScope() is the grant); a hook's own
 // escapeHatch is layered on afterwards via withSystemDbUnsafeRawGrant. Public
@@ -439,7 +439,7 @@ export type TenantDbGrants = {
   readonly globalWrites?: EscapeHatchDeclaration;
   readonly unsafeRaw?: EscapeHatchDeclaration;
   readonly report?: EscapeHatchReporter;
-  // Set for a resolved member principal (ctx.queryAsMember): no raw DbRunner leaves
+  // Set for a resolved member principal (ctx.dispatch.queryAsMember): no raw DbRunner leaves
   // this TenantDb, so no handler can COMMIT/RELEASE SAVEPOINT out of the READ ONLY scope.
   readonly memberReadOnly?: boolean;
   // Set only for an anonymous root without personalData: "public-intake" (write-origin.ts).
@@ -516,22 +516,22 @@ export function reportConventionCrossTenantUse(
   reporter(target);
 }
 
-export type OutsideTransactionContext = { readonly dbOutsideTransaction: TenantDb | undefined };
+export type OutsideTransactionContext = { readonly db: Pick<HandlerDb, "outsideTransaction"> };
 
 export function hasOutsideTransactionDb(
   ctx: OutsideTransactionContext,
-): ctx is OutsideTransactionContext & { readonly dbOutsideTransaction: TenantDb } {
-  return ctx.dbOutsideTransaction !== undefined;
+): ctx is { readonly db: { readonly outsideTransaction: TenantDb } } {
+  return ctx.db.outsideTransaction !== undefined;
 }
 
 export function requireOutsideTransactionDb(ctx: OutsideTransactionContext): TenantDb {
   if (!hasOutsideTransactionDb(ctx)) {
     throw new InternalError({
       message:
-        "ctx.dbOutsideTransaction is not available in this dispatch phase (member-resolution, before-transaction denial) or metering tenant mode.",
+        "ctx.db.outsideTransaction is not available in this dispatch phase (member-resolution, before-transaction denial) or metering tenant mode.",
     });
   }
-  return ctx.dbOutsideTransaction;
+  return ctx.db.outsideTransaction;
 }
 
 export type CreateTenantDbOptions = {

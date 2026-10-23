@@ -156,7 +156,7 @@ async function releaseIdempotencyKey(ctx: JobContext, p: RenderJobPayload): Prom
   // skip: no idempotency key was claimed for this notification
   if (!p.idempotencyKey) return;
   if (!ctx.redis) {
-    ctx.log.warn("delivery: idempotency key not released, job context has no redis", {
+    ctx.obs.log.warn("delivery: idempotency key not released, job context has no redis", {
       notificationType: p.notificationType,
     });
     return;
@@ -164,7 +164,7 @@ async function releaseIdempotencyKey(ctx: JobContext, p: RenderJobPayload): Prom
   try {
     await ctx.redis.del(deliveryIdempotencyRedisKey(p.tenantId, p.idempotencyKey));
   } catch (err) {
-    ctx.log.warn(`delivery: idempotency key release failed: ${redactedMessageOf(err)}`, {
+    ctx.obs.log.warn(`delivery: idempotency key release failed: ${redactedMessageOf(err)}`, {
       notificationType: p.notificationType,
     });
   }
@@ -225,7 +225,7 @@ async function failAttempt(
   err: unknown,
 ): Promise<never> {
   const message = redactedMessageOf(err);
-  ctx.log.error(`delivery.${p.channelName} ${code}: ${message}`, {
+  ctx.obs.log.error(`delivery.${p.channelName} ${code}: ${message}`, {
     notificationType: p.notificationType,
     channel: p.channelName,
   });

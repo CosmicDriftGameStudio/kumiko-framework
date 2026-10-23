@@ -116,7 +116,7 @@ describe("createJwtHelper.verify — payload validation (KF-2)", () => {
     expect(payload.locale).toBeUndefined();
   });
 
-  // A ctx.queryAsMember-resolved SessionUser must never be minted into a
+  // A ctx.dispatch.queryAsMember-resolved SessionUser must never be minted into a
   // session — it carries no `sid` and is read-only by construction.
   it("refuses to sign a SessionUser with origin set", async () => {
     await expect(jwt.sign({ ...user, origin: "member-resolution" })).rejects.toThrow(

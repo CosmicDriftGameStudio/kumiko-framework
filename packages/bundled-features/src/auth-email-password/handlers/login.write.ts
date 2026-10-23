@@ -216,7 +216,7 @@ export async function gateResolveMembership(
   const globalRoles = parseRoles(found.roles ?? null);
 
   for (const candidate of candidates) {
-    const active = await ctx.resolveActiveMembership(found.id, candidate.tenantId);
+    const active = await ctx.auth.resolveActiveMembership(found.id, candidate.tenantId);
     if (active.kind === "rejected") {
       // A blocked principal is blocked for every tenant, so stop here;
       // not_a_member/tenant_teardown are per-tenant — try the next candidate.
@@ -275,7 +275,7 @@ export async function gateBuildSession(
     ...(timezone !== null && timezone !== undefined && { timezone }),
     ...(locale !== null && locale !== undefined && { locale }),
   };
-  const claims = await ctx.resolveAuthClaims(baseSession);
+  const claims = await ctx.auth.resolveClaims(baseSession);
   const session: SessionUser =
     Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
   return { kind: "auth-session", session };
@@ -284,7 +284,7 @@ export async function gateBuildSession(
 // Login — unauthenticated entry point. The route is wired public (no JWT
 // middleware), dispatching with the framework's anonymous identity for the
 // handler's access check. Everything inside the handler goes through
-// ctx.queryAs(system, ...) so the user feature stays the single owner of its
+// ctx.dispatch.queryAs(system, ...) so the user feature stays the single owner of its
 // table.
 export function createLoginHandler(opts: LoginHandlerOptions = {}) {
   const strictVerification = opts.strictEmailVerification === true;
@@ -305,8 +305,8 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       grants: ["systemIdentity", "unsafeRaw"],
       reason:
         "Unauthenticated login has no caller identity yet — it looks up the user row by " +
-        "email via ctx.queryAs(SYSTEM, ...) and resolves tenant membership via " +
-        "ctx.resolveActiveMembership before a session exists. It also reads the MFA " +
+        "email via ctx.dispatch.queryAs(SYSTEM, ...) and resolves tenant membership via " +
+        "ctx.auth.resolveActiveMembership before a session exists. It also reads the MFA " +
         "enrollment of the tenant named in the signed login/setup token, not the guest " +
         "dispatch tenant, via the mfaStatusChecker callback.",
     },
@@ -318,7 +318,9 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
       const foundRow = parseAuthUserRow(
-        await ctx.queryAs(systemUser, UserQueries.findForAuth, { email: event.payload.email }),
+        await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
+          email: event.payload.email,
+        }),
       );
       if (!foundRow?.passwordHash || foundRow.isDeleted) {
         const unknown = await gateCountUnknownUser(
@@ -352,7 +354,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       if (!statusGate.ok) return statusGate.result;
 
       // Still needed for candidate ORDER (preferred tenant first) in gateResolveMembership.
-      const memberships = (await ctx.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
+      const memberships = (await ctx.dispatch.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
         userId: found.id,
       })) as Array<Membership>; // @cast-boundary db-runner
 

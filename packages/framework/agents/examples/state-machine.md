@@ -927,7 +927,7 @@ export async function loadInvoiceState(
   ctx: HandlerContext,
   id: string,
 ): Promise<InvoiceState | null> {
-  const events = await ctx.loadAggregate(id);
+  const events = await ctx.events.load(id);
   if (events.length === 0) return null;
   const state: InvoiceState = { ...initialInvoiceState };
   for (const evt of events) reduceInvoice(state, evt);
