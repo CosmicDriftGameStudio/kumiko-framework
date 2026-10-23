@@ -17,7 +17,6 @@ import {
   expectSuccess,
   rolesOf,
   seedRow,
-  updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -53,6 +52,7 @@ import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-ta
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../seeding.ts";
+import { updateInvitationViaEventStore } from "../testing-event-store.ts";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../web/constants.ts";
 
 const emailTransport = createInMemoryTransport();
@@ -246,16 +246,11 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
       { email: "allowlist@example.com", role: "Editor" },
       tenantAdminA(),
     );
-    await updateRowViaEventStore(
+    await updateInvitationViaEventStore(
       stack.db,
-      {
-        table: tenantInvitationsTable,
-        entity: tenantInvitationEntity,
-        entityName: "tenant-invitation",
-      },
-      { email: "allowlist@example.com" },
+      "allowlist@example.com",
       { globalRoles: ["SystemAdmin"] },
-      { tenantId: TENANT_A_ID },
+      TENANT_A_ID,
     );
 
     const [asTenantAdmin] = await stack.http.queryOk<readonly Record<string, unknown>[]>(

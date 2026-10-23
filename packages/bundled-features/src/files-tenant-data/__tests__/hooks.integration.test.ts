@@ -151,12 +151,7 @@ async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promi
 // same pattern as tenant-lifecycle's own poison-pill destroy tests.
 async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
   const now = getTemporal().Now.instant();
-  await updateTenantViaEventStore(
-    db,
-    tenantId,
-    { status: "destroying", destroyStartedAt: now },
-    TestUsers.systemAdmin.tenantId,
-  );
+  await updateTenantViaEventStore(db, tenantId, { status: "destroying", destroyStartedAt: now });
   await append(db, {
     aggregateId: tenantId,
     aggregateType: TENANT_AGGREGATE_TYPE,

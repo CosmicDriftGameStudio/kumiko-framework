@@ -37,6 +37,7 @@ export {
   generateZodFixture,
 } from "./e2e-generator.ts";
 export {
+  deleteRowsViaEventStore,
   deleteRowViaEventStore,
   type EventStoreWriteScope,
   type EventStoreWriteTarget,

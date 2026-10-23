@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  deleteRowViaEventStore,
-  expectErrorIncludes,
-  updateRowViaEventStore,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -273,23 +269,14 @@ describe("auto transition guard: per-entity transition map (cache key includes e
       admin,
     );
 
-    // Executor-level writes skip the guard, so we get a soft-deleted row whose
-    // status is a terminal state. If the guard fired, any status write would throw
-    // "Invalid transition: closed → <x>". We want it silently skipped.
-    const ticketTarget = { table: ticketTable, entity: ticketEntity, entityName: "ticket" };
-    await updateRowViaEventStore(
-      stack.db,
-      ticketTarget,
-      { id: ticket["id"] },
-      { status: "closed" },
-      { tenantId: admin.tenantId },
+    // open → closed is a legal move; closed is terminal. If the guard fired on the
+    // deleted row, any status write would throw "Invalid transition: closed → <x>".
+    await stack.http.writeOk(
+      "txguard:write:ticket:update",
+      { id: ticket["id"], changes: { status: "closed" }, version: 1 },
+      admin,
     );
-    await deleteRowViaEventStore(
-      stack.db,
-      ticketTarget,
-      { id: ticket["id"] },
-      { tenantId: admin.tenantId },
-    );
+    await stack.http.writeOk("txguard:write:ticket:delete", { id: ticket["id"] }, admin);
 
     // Attempting to move a deleted ticket to "open" would normally violate
     // "closed → []" (no allowed targets). With the softDelete skip, the

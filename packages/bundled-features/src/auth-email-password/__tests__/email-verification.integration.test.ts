@@ -136,10 +136,6 @@ async function seedUser(opts: {
     },
     systemAdmin,
   );
-  // user:create schema doesn't expose emailVerified (by design — it's a
-  // privileged field only the verify-email flow flips). Tests need a
-  // pre-verified account for "login with verified user" cases, so we flip it
-  // through the event store after create.
   if (opts.emailVerified === true) {
     await updateUserViaEventStore(stack.db, created.id, { emailVerified: true });
   }

@@ -1,9 +1,11 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   deleteRowViaEventStore,
   updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
+import { tenantInvitationEntity, tenantInvitationsTable } from "./invitation-table.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
 import { tenantEntity, tenantTable } from "./schema/tenant.ts";
 
@@ -41,15 +43,34 @@ export function deleteMembershipViaEventStore(db: DbConnection, key: MembershipK
   );
 }
 
-// Tenant-lifecycle and the tenant Admin path write with the tenant itself as actor tenant.
-// A tenant created by seedTenant lives on its creator's stream: pass that tenant as `actorTenantId`.
+// Tenant streams live on the creator's tenant, which is the seed SystemAdmin's for every tenant a test creates.
 export function updateTenantViaEventStore(
   db: DbConnection,
   tenantId: TenantId,
   changes: Readonly<Record<string, unknown>>,
-  actorTenantId: TenantId = tenantId,
+  actorTenantId: TenantId = TestUsers.systemAdmin.tenantId,
 ): Promise<void> {
   return updateRowViaEventStore(db, tenantTarget, { id: tenantId }, changes, {
     tenantId: actorTenantId,
   });
+}
+
+// Invitation streams live on the inviting tenant.
+export function updateInvitationViaEventStore(
+  db: DbConnection,
+  email: string,
+  changes: Readonly<Record<string, unknown>>,
+  tenantId: TenantId,
+): Promise<void> {
+  return updateRowViaEventStore(
+    db,
+    {
+      table: tenantInvitationsTable,
+      entity: tenantInvitationEntity,
+      entityName: "tenant-invitation",
+    },
+    { email },
+    changes,
+    { tenantId },
+  );
 }

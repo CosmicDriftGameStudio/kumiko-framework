@@ -17,7 +17,6 @@ import {
   type JobContext,
   type NotifyFn,
   qn,
-  type SessionUser,
   type TenantId,
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -26,7 +25,6 @@ import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/j
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
-  deleteRowViaEventStore,
   expectSuccess,
   resetBlindIndexKeyForTests,
   waitFor,
@@ -74,7 +72,6 @@ import {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
   notificationAddressOptOutsTable,
-  notificationPreferenceEntity,
   notificationPreferencesTable,
 } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
@@ -85,6 +82,7 @@ import {
   signUnsubscribeToken,
 } from "../unsubscribe.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
+import { deletePreferencesOfUser } from "./preference-writes.ts";
 
 // --- Setup ---
 
@@ -1578,30 +1576,12 @@ describe("flow 13: tenant kill switch", () => {
   });
 });
 
-async function deletePreferencesOf(user: SessionUser): Promise<void> {
-  const rows = await selectMany<{ id: string }>(db, notificationPreferencesTable, {
-    userId: user.id,
-  });
-  for (const row of rows) {
-    await deleteRowViaEventStore(
-      db,
-      {
-        table: notificationPreferencesTable,
-        entity: notificationPreferenceEntity,
-        entityName: "notification-preference",
-      },
-      { id: row.id },
-      { tenantId: user.tenantId },
-    );
-  }
-}
-
 // --- Flow 14: Preference wildcard conflict — deny wins ---
 
 describe("flow 14: wildcard-only preference conflicts resolve deterministically", () => {
   test("conflicting wildcards (type=*, false vs channel=*, true) → disabled wins", async () => {
     // Clean slate for user2 on this type/channel
-    await deletePreferencesOf(user2);
+    await deletePreferencesOfUser(db, user2);
 
     // Wildcard A: disable inApp globally
     await stack.http.writeOk(
@@ -1669,7 +1649,7 @@ describe("flow 14: wildcard-only preference conflicts resolve deterministically"
     expect(inAppEvents.filter((e) => e.data["userId"] === user2.id)).toHaveLength(1);
 
     // Clean up for later tests
-    await deletePreferencesOf(user2);
+    await deletePreferencesOfUser(db, user2);
   });
 });
 

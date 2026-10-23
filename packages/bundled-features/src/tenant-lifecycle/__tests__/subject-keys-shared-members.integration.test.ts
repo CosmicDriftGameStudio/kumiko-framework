@@ -112,12 +112,7 @@ describe("tenant-lifecycle :: subject-keys stage with members of several tenants
     const user = crypto.randomUUID();
     await addMember(doomed, user);
     await addMember(gone, user);
-    await updateTenantViaEventStore(
-      stack.db,
-      gone,
-      { status: "destroyed" },
-      TestUsers.systemAdmin.tenantId,
-    );
+    await updateTenantViaEventStore(stack.db, gone, { status: "destroyed" });
 
     await seedDestroyingTenant(stack.db, doomed);
     expect(await driveDestructionToCompletion(stack, stack.db, doomed)).toBe("destroyed");

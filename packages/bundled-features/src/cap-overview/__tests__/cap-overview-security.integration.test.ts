@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -367,12 +367,10 @@ describe("cap-overview tenant names under an active PII KMS", () => {
       key: `cap-overview-d-${TENANT_DESTROYED}`,
       name: "Tenant Destroyed",
     });
-    await updateTenantViaEventStore(
-      db,
-      TENANT_DESTROYED,
-      { status: "destroyed", destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z") },
-      TestUsers.systemAdmin.tenantId,
-    );
+    await updateTenantViaEventStore(db, TENANT_DESTROYED, {
+      status: "destroyed",
+      destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z"),
+    });
 
     const options = await stack.http.queryOk<{ rows: readonly { value: string }[] }>(
       CapOverviewQueries.tenantOptions,

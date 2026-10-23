@@ -7,6 +7,7 @@ import {
   createTenantDb,
   type DbConnection,
   fetchOne,
+  selectMany,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -107,4 +108,17 @@ export async function deleteRowViaEventStore(
   });
   const result = await executor.delete({ id }, user, tenantDb, options);
   if (!result.isSuccess) throw failedWrite("delete", target.entityName, result.error);
+}
+
+/** Deletes every row matching `where`, each through its own event-store delete. */
+export async function deleteRowsViaEventStore(
+  db: DbConnection,
+  target: EventStoreWriteTarget,
+  where: WhereObject,
+  scope?: EventStoreWriteScope,
+): Promise<void> {
+  const rows = await selectMany<{ id: EntityId }>(db, target.table, where);
+  for (const { id } of rows) {
+    await deleteRowViaEventStore(db, target, { id }, scope);
+  }
 }
