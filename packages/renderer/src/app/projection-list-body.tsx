@@ -1,48 +1,32 @@
-import type {
-  ProjectionListScreenDefinition,
-  RowActionNavigate,
-} from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { ReactNode } from "react";
 import { ListGroupPageBridges } from "../components/list-group-page-bridges.tsx";
-import { RenderList } from "../components/render-list.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { ListRowViewModel, Translate } from "../headless/index.ts";
-import { useListUrlState } from "../hooks/use-list-url-state.ts";
 import { useTranslation } from "../i18n.tsx";
-import { type DataTableFacet, usePrimitives } from "../primitives.tsx";
-import { screenFillsHeight } from "../screen-fills-height.ts";
-import { DrawerHost, useDrawerAction } from "./action-form-body.tsx";
+import { usePrimitives } from "../primitives.tsx";
+import { useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
-import { useListBulk } from "./list-bulk-actions.ts";
-import { isListNarrowed, useListEmptyContent } from "./list-empty-content.ts";
-import {
-  buildFilterFacets,
-  buildFilterPayload,
-  mergeReferenceFacetOptions,
-  resolveProjectionFacetSpecs,
-} from "./list-facets.ts";
 import { useNav } from "./nav.tsx";
-import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim.ts";
-import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
-import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge.tsx";
-import { useReturnHost } from "./return-to.tsx";
+import { renderProjectionDrawerHost } from "./projection-drawer-host.tsx";
 import {
-  buildDefaultEditRowAction,
-  buildProjectionRowActions,
-  buildProjectionToolbarActions,
-  findRowClickAction,
-  runDrawerRowAction,
-  runProjectionRowNavigate,
-} from "./row-actions.ts";
-import { findEditScreenFor } from "./screen-access.ts";
-import { buildListQueryPayload } from "./screen-shared.tsx";
-import { useProjectionDateRange } from "./use-projection-date-range.ts";
-import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
-import { useScreenListTable } from "./use-screen-list-table.ts";
+  renderBadShapeBanner,
+  renderProjectionList,
+  renderQueryRetryBanner,
+} from "./projection-list-render.tsx";
+import { resolveWrappedRowClick } from "./projection-list-row-click.ts";
+import { QueryLoadingBanner } from "./query-state-banners.tsx";
+import { ReferenceFacetBridges } from "./reference-facet-bridge.tsx";
+import { useReturnHost } from "./return-to.tsx";
+import { useProjectionListActions } from "./use-projection-list-actions.ts";
+import { useProjectionListData } from "./use-projection-list-data.ts";
+import { useProjectionListDefinitions } from "./use-projection-list-definitions.ts";
+import { useProjectionListQuery } from "./use-projection-list-query.ts";
+import { listPager } from "./use-screen-list-rows.ts";
 
 // ---- projection-list ----
 
@@ -74,333 +58,108 @@ export function ProjectionListBody({
   const effectiveTranslate = translate ?? t;
   const userRoles = useUserRoles();
   const appFeatures = useAppFeatures();
-  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
-    useDrawerAction(schema);
-  const defaultEditScreen = useMemo(() => {
-    const detailFor = screen.detailFor;
-    if (detailFor === undefined) return undefined;
-    return findEditScreenFor(detailFor, appFeatures, userRoles);
-  }, [appFeatures, screen.detailFor, userRoles]);
-
-  // searchable/sortable/paginated are derived at buildAppSchema time from the
-  // query handler's Zod schema — not authored on the screen.
-  const searchable = screen.searchable ?? false;
-  const sortable = screen.sortable ?? false;
-  const paginated = screen.paginated ?? false;
-  const entity = useMemo(
-    () => synthesizeProjectionEntity(screen.columns, sortable),
-    [screen.columns, sortable],
-  );
-  const listScreen = useMemo(() => synthesizeProjectionScreen(screen), [screen]);
-
-  const urlState = useListUrlState(screen.id);
-  // Gated on the derived capability, not just on whether URL-state happens to
-  // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
-  // screen) must not smuggle a param the query's Zod schema doesn't accept.
-  const activeSearch = searchable ? urlState.q : "";
-  // Same predicate that makes a header clickable: a stale link onto a
-  // sortable:false/unknown column must not reach the server (it answers 400).
-  const urlSort = urlState.sort;
-  const urlSortField = urlSort === null ? undefined : entity.fields[urlSort.field];
-  const urlSortAllowed =
-    urlSortField !== undefined && "sortable" in urlSortField && urlSortField.sortable === true;
-  const activeSort = sortable
-    ? ((urlSortAllowed ? urlSort : null) ?? screen.defaultSort ?? null)
-    : null;
-  const limit = urlState.pageSize ?? screen.pageSize ?? 50;
-  // Pages-mode only (see header comment) — an author-set pagination:
-  // "infinite" on a paginated projectionList is silently a no-op today.
-  const usePager = paginated && (screen.pagination ?? "pages") === "pages";
-
-  // Facets — a projectionList has no entity, so screen.facets is
-  // the only field inventory; resolveProjectionFacetSpecs reshapes +
-  // translates its explicit labels into the same ResolvedFacetSpec the
-  // entityList adapter produces, so both feed the same
-  // buildFilterFacets/buildFilterPayload.
-  const facetSpecs = useMemo(
-    () => resolveProjectionFacetSpecs(screen.facets, effectiveTranslate, schema.featureName),
-    [screen.facets, effectiveTranslate, schema.featureName],
-  );
-  const [projectionReferenceFacetOptions, setProjectionReferenceFacetOptions] = useState<
-    Record<string, readonly ReferenceFacetOption[]>
-  >({});
-  const handleProjectionFacetOptions = useCallback(
-    (field: string, options: readonly ReferenceFacetOption[]) =>
-      setProjectionReferenceFacetOptions((prev) =>
-        prev[field] === options ? prev : { ...prev, [field]: options },
-      ),
-    [],
-  );
-  const resolvedFacetSpecs = useMemo(
-    () => mergeReferenceFacetOptions(facetSpecs, projectionReferenceFacetOptions),
-    [facetSpecs, projectionReferenceFacetOptions],
-  );
-  const filterPayload = useMemo(
-    () =>
-      buildFilterPayload(
-        urlState.filters,
-        (field) => facetSpecs.find((spec) => spec.field === field)?.type,
-      ),
-    [urlState.filters, facetSpecs],
-  );
-
-  const { dateRangePayload, dateRangeFacets, handleDateRangeChange } = useProjectionDateRange(
-    screen.facets,
-    effectiveTranslate,
-    urlState,
-  );
-
-  const queryPayload = useMemo(() => {
-    const payload = buildListQueryPayload({
-      limit,
-      search: activeSearch,
-      sort: activeSort,
-      usePager,
-      page: urlState.page,
-      useInfinite: false,
-      cursor: undefined,
-    });
-    // Gated on screen.filter/screen.facets being declared (not just on
-    // urlState/filterPayload happening to carry a value) — same rule as
-    // activeSearch/activeSort above: a stale URL must not smuggle a param
-    // the bound query's Zod schema doesn't accept.
-    if (screen.filter !== undefined) {
-      payload["filter"] = screen.filter;
-    }
-    if (screen.facets !== undefined && filterPayload.length > 0) {
-      payload["filters"] = filterPayload;
-    }
-    Object.assign(payload, dateRangePayload);
-    return payload;
-  }, [
-    limit,
-    activeSearch,
-    activeSort,
-    usePager,
-    urlState.page,
-    screen.filter,
-    screen.facets,
-    filterPayload,
-    dateRangePayload,
-  ]);
-
-  const facetFilterFields = useMemo(
-    () => (screen.facets ?? []).map((facet) => facet.field),
-    [screen.facets],
-  );
-  const listTable = useScreenListTable({
+  const drawer = useDrawerAction(schema);
+  const { openDrawer } = drawer;
+  const definitions = useProjectionListDefinitions(screen, appFeatures, userRoles);
+  const { defaultEditScreen, searchable, sortable, paginated, entity } = definitions;
+  const query = useProjectionListQuery({
     screen,
     featureName: schema.featureName,
-    payload: queryPayload,
-    filterFields: facetFilterFields,
-    queryType: screen.query,
-    pageSize: limit,
-    paging: usePager ? "offset" : "cursor",
-    translate: effectiveTranslate,
+    effectiveTranslate,
+    entity,
+    searchable,
+    sortable,
+    paginated,
   });
-  const listRows = useScreenListRows({
-    queryType: screen.query,
-    payload: queryPayload,
-    infinite: false,
-    aggregates: listTable.aggregates,
+  const data = useProjectionListData({
+    screen,
+    featureName: schema.featureName,
+    queryPayload: query.queryPayload,
+    limit: query.limit,
+    usePager: query.usePager,
+    effectiveTranslate,
+    resolvedFacetSpecs: query.resolvedFacetSpecs,
   });
+  const { listRows } = data;
   const refreshRows = listRows.refreshAfterWrite;
-
-  const filterFacets = useMemo<DataTableFacet[]>(
-    () => buildFilterFacets(resolvedFacetSpecs),
-    [resolvedFacetSpecs],
-  );
-  // Entity targets: see EntityListBody.runNavigate for why the resolution happens
-  // in the NavApi impl. Unlike there: NO row["id"]
-  // fallback — projectionList rows come from an arbitrary query projection
-  // with no guaranteed "id" field. The boot validator therefore enforces an
-  // explicit entityId for projectionList entity targets. Same helper
-  // relatedList's rowActions reuse (related-list-section.tsx) — a
-  // projectionDetail relatedList row has the identical "no guaranteed id"
-  // shape.
-  const runNavigate = useCallback(
-    (action: RowActionNavigate, row: ListRowViewModel) =>
-      runProjectionRowNavigate(nav, action, row, host),
-    [nav, host],
-  );
-
-  const defaultEditRowAction = useMemo(
-    () => buildDefaultEditRowAction(defaultEditScreen),
-    [defaultEditScreen],
-  );
-
-  const rowActions = useMemo(
-    () =>
-      buildProjectionRowActions({
-        rowActions: screen.rowActions,
-        translate: effectiveTranslate,
-        dispatcher,
-        nav,
-        refetch: refreshRows,
-        openDrawer,
-        defaultEditRowAction,
-        host,
-        clientActions,
-      }),
-    [
-      screen.rowActions,
-      effectiveTranslate,
-      dispatcher,
-      clientActions,
-      nav,
-      refreshRows,
-      openDrawer,
-      defaultEditRowAction,
-      host,
-    ],
-  );
-
-  const toolbarActions = useMemo(
-    () =>
-      buildProjectionToolbarActions({
-        toolbarActions: screen.toolbarActions,
-        translate: effectiveTranslate,
-        dispatcher,
-        nav,
-        refetch: refreshRows,
-        openDrawer,
-        host,
-        access: { appFeatures, userRoles },
-      }),
-    [
-      screen.toolbarActions,
-      effectiveTranslate,
-      nav,
-      host,
-      dispatcher,
-      refreshRows,
-      openDrawer,
-      appFeatures,
-      userRoles,
-    ],
-  );
-  const bulk = useListBulk({
-    bulkActions: screen.bulkActions,
-    rowActions: screen.rowActions,
-    translate: effectiveTranslate,
+  const actions = useProjectionListActions({
+    screen,
+    effectiveTranslate,
     dispatcher,
-    reload: refreshRows,
-  });
-  const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
+    clientActions,
     nav,
     host,
-    dispatcher,
+    refreshRows,
     openDrawer,
-    onWriteSuccess: refreshRows,
+    appFeatures,
+    userRoles,
+    defaultEditScreen,
   });
 
   if (listRows.firstLoad) {
     return <QueryLoadingBanner />;
   }
   if (listRows.error && !listRows.hasData) {
-    return (
-      <QueryErrorBanner
-        error={listRows.error}
-        translate={effectiveTranslate}
-        onRetry={listRows.retry}
-      />
-    );
+    return renderQueryRetryBanner(listRows, listRows.error, effectiveTranslate);
   }
   // A failed refetch keeps the last good data on screen.
-  const refetchErrorBanner = listRows.error ? (
-    <QueryErrorBanner
-      error={listRows.error}
-      translate={effectiveTranslate}
-      onRetry={listRows.retry}
-    />
-  ) : null;
+  const refetchErrorBanner = listRows.error
+    ? renderQueryRetryBanner(listRows, listRows.error, effectiveTranslate)
+    : null;
 
   // listRows.page is typed as PagedRows but the query handler is free to
   // return anything at runtime (a bare array silently rendered an empty
   // table instead of surfacing the mismatch), so the shape is checked.
   if (listRows.page !== null && !Array.isArray(listRows.page.rows)) {
-    return (
-      <Banner padded variant="error" testId="kumiko-screen-projection-list-bad-shape">
-        Screen <Text variant="code">{screen.id}</Text> query{" "}
-        <Text variant="code">{screen.query}</Text> did not return a PagedRows envelope; a
-        projectionList query must return <Text variant="code">{"{ rows, nextCursor }"}</Text>.
-      </Banner>
-    );
+    return renderBadShapeBanner(screen, { Banner, Text });
   }
 
-  const rowClickAction = findRowClickAction(screen.rowActions);
-  const wrappedOnRowClick = rowClickAction
-    ? (row: ListRowViewModel) =>
-        rowClickAction.kind === "drawer"
-          ? runDrawerRowAction(rowClickAction, openDrawer, row)
-          : runNavigate(rowClickAction, row)
-    : onRowClick !== undefined
-      ? (row: ListRowViewModel) => onRowClick(row, listScreen.entity)
-      : undefined;
+  const wrappedOnRowClick = resolveWrappedRowClick({
+    screen,
+    onRowClick,
+    entityName: definitions.listScreen.entity,
+    openDrawer,
+    runNavigate: actions.runNavigate,
+  });
 
   // Same pager-construction as EntityListBody: no Pager UI until the
   // server-provided `total` arrives (guards pagination="pages" without
   // totalCount support).
-  const pager = listPager({ usePager, page: listRows.page, limit, urlState });
+  const pager = listPager({
+    usePager: query.usePager,
+    page: listRows.page,
+    limit: query.limit,
+    urlState: query.urlState,
+  });
 
   return (
     <>
       {refetchErrorBanner}
-      <ListGroupPageBridges {...listTable.aggregates.groupPages} />
-      <ReferenceFacetBridges specs={facetSpecs} onOptions={handleProjectionFacetOptions} />
-      <RenderList
-        screen={listScreen}
-        entity={entity}
-        rows={listRows.rows}
-        featureName={schema.featureName}
-        searchable={searchable}
-        narrowed={isListNarrowed(activeSearch, urlState.filters)}
-        {...(screen.description !== undefined && {
-          description: effectiveTranslate(screen.description),
-        })}
-        {...(emptyContent !== undefined && { emptyContent })}
-        searchValue={urlState.q}
-        onSearchChange={urlState.setQ}
-        sort={activeSort}
-        onSortChange={urlState.setSort}
-        {...(isEmbeddedScreen
-          ? { screenPadding: false, chromeless: true }
-          : { screenPadding: true })}
-        {...(screenFillsHeight(listScreen) && { scrollBody: true })}
-        {...(pager !== undefined && { pager })}
-        {...(rowActions !== undefined && { rowActions })}
-        {...(screen.rowActionMode !== undefined && { rowActionMode: screen.rowActionMode })}
-        {...(bulk !== undefined && { bulk })}
-        {...(toolbarActions !== undefined && { toolbarActions })}
-        {...(translate !== undefined && { translate })}
-        {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
-        {...(filterFacets.length > 0 && {
-          filterFacets,
-          onFilterChange: urlState.setFilter,
-        })}
-        {...(dateRangeFacets.length > 0 && {
-          dateRangeFacets,
-          onDateRangeChange: handleDateRangeChange,
-        })}
-        {...listTable.props}
-        {...((filterFacets.length > 0 || dateRangeFacets.length > 0) && {
-          filterValues: urlState.filters,
-          onFilterReset: urlState.clearFilters,
-        })}
+      <ListGroupPageBridges {...data.listTable.aggregates.groupPages} />
+      <ReferenceFacetBridges
+        specs={query.facetSpecs}
+        onOptions={query.handleProjectionFacetOptions}
       />
-      <DrawerHost
-        schema={schema}
-        drawerAction={drawerAction}
-        drawerScreen={drawerScreen}
-        {...(drawerInitialValues !== undefined && { drawerInitialValues })}
-        userRoles={userRoles}
-        {...(translate !== undefined && { translate })}
-        onClose={closeDrawer}
-        onSuccess={() => {
-          closeDrawer();
-          void refreshRows();
-        }}
-      />
+      {renderProjectionList({
+        schema,
+        screen,
+        translate,
+        effectiveTranslate,
+        isEmbeddedScreen,
+        definitions,
+        query,
+        data,
+        actions,
+        pager,
+        wrappedOnRowClick,
+      })}
+      {renderProjectionDrawerHost({
+        schema,
+        translate,
+        userRoles,
+        drawer,
+        refreshRows,
+      })}
     </>
   );
 }
