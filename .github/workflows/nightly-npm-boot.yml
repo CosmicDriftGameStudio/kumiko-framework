@@ -1,6 +1,6 @@
 # Nightly publish-integrity check (#1729). Every other CI job/e2e-suite that
-# exercises a scaffolded app relinks @cosmicdrift/* to file:-pins in the
-# monorepo (e2e/hero-demos/boot-demo.ts's relinkCosmicDriftToWorkspace) —
+# exercises a scaffolded app installs @cosmicdrift/* from tarballs packed
+# from the monorepo HEAD (e2e/hero-demos/boot-demo.ts) —
 # so a broken/unpublished npm release would pass every existing check
 # silently. This job does the opposite: `bun create kumiko-app` exactly as
 # documented in the README, installing the actually-published
