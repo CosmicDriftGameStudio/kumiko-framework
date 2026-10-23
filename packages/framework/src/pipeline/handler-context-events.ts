@@ -4,7 +4,6 @@ import { hasTenantColumn } from "../db/tenant-db.ts";
 import type {
   AggregateStreamHandle,
   AppendEventArgs,
-  AppendEventFn,
   FetchForWritingArgs,
   HandlerContext,
   SessionUser,
@@ -46,6 +45,7 @@ import {
 } from "./dispatch-shared.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 import { createGatedProjectionReader, type ProjectionReader } from "./system-identity-switch.ts";
+import { asTypedAppendEventFn } from "./typed-append-event.ts";
 
 function requireDbSource(
   ctx: DispatchContext,
@@ -326,9 +326,9 @@ export function buildEventStoreFacet(scope: HandlerContextScope) {
     // Strict + unsafe share the same runtime — only the type-surface
     // differs. The strict signature is what's exposed to typed callers;
     // unsafe is the explicit escape-hatch for runtime-pluggable events.
-    appendEvent: (async (args: AppendEventArgs) => {
+    appendEvent: asTypedAppendEventFn(async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
-    }) as AppendEventFn, // @cast-boundary engine-bridge
+    }),
     unsafeAppendEvent: async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
     },

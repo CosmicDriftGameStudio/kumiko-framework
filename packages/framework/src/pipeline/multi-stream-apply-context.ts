@@ -2,11 +2,12 @@ import type { DerivativesContext } from "@cosmicdrift/kumiko-types/derivatives-t
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import type { SecretsContext } from "@cosmicdrift/kumiko-types/secrets-types";
 import type { DbRunner } from "../db/connection.ts";
-import type { AppendEventArgs, AppendEventFn, Registry, TenantId } from "../engine/types/index.ts";
+import type { AppendEventArgs, Registry, TenantId } from "../engine/types/index.ts";
 import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.ts";
 import { upcastStoredEvents } from "../event-store/upcaster.ts";
 import type { FileContext } from "../files/file-handle.ts";
 import { appendDomainEventCore } from "./append-event-core.ts";
+import { asTypedAppendEventFn } from "./typed-append-event.ts";
 
 export type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 
@@ -47,7 +48,7 @@ export function createMultiStreamApplyContext(
     ...(deps.derivatives ? { derivatives: deps.derivatives } : {}),
     ...(deps.secrets ? { secrets: deps.secrets } : {}),
     ...(deps.jobs ? { jobs: deps.jobs } : {}),
-    appendEvent: (async (args: AppendEventArgs) => {
+    appendEvent: asTypedAppendEventFn(async (args: AppendEventArgs) => {
       await appendDomainEventCore(
         {
           registry: deps.registry,
@@ -59,7 +60,7 @@ export function createMultiStreamApplyContext(
         },
         args,
       );
-    }) as AppendEventFn, // @cast-boundary engine-bridge
+    }),
     unsafeAppendEvent: async (args) => {
       await appendDomainEventCore(
         {
