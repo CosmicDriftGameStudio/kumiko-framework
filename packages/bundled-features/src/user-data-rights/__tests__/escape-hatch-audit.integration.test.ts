@@ -33,6 +33,7 @@ import { createSessionsFeature } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
+import { UserDataRightsJobs } from "../web/constants.ts";
 import { createForgetSeeders } from "./forget-test-helpers.ts";
 
 const FORGET_USER = "ffffffff-ffff-4fff-8fff-000000000001";
@@ -91,7 +92,7 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
   });
 
   test("declared hook's unsafeRaw use is reported with a qualified handler + the job's systemUser as actor", async () => {
-    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeTruthy();
 
     await seed(stack.db).seedForgetUser(FORGET_USER);

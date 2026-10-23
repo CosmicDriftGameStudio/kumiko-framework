@@ -44,6 +44,7 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { createUserDataRightsFeature } from "../feature.ts";
 import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { UserDataRightsHandlers } from "../web/constants.ts";
 import {
   createForgetSeeders,
   createTestFileProviderFeature,
@@ -215,7 +216,7 @@ describe("forget-cleanup through the real dispatcher :: per-user savepoint nests
     readonly errorCount: number;
     readonly errors: ReadonlyArray<{ readonly userId: string; readonly entityName: string }>;
   };
-  const RUN_FORGET = "user-data-rights:write:run-forget-cleanup";
+  const RUN_FORGET = UserDataRightsHandlers.runForgetCleanup;
 
   test("dispatcher POST flips a due user to Deleted (SAVEPOINT inside the outer handler tx)", async () => {
     failDeletes = false;

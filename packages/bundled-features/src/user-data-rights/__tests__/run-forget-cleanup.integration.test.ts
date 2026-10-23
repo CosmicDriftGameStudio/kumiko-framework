@@ -66,6 +66,7 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { createUserDataRightsFeature } from "../feature.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { UserDataRightsHandlers, UserDataRightsJobs } from "../web/constants.ts";
 import {
   decryptEmail,
   emailsIn,
@@ -307,7 +308,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
   }
 
   test("registered job exists + erases through the real JobContext", async () => {
-    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeTruthy();
 
     const CRON_USER = uuid(7);
@@ -342,7 +343,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
   });
 
   test("incomplete hooks are written to ctx.log (job-run audit trail, #1572)", async () => {
-    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeTruthy();
 
     await seedUser(ALICE_ID, {
@@ -1118,11 +1119,7 @@ describe("run-forget-cleanup write handler (manual, risk high) via configuredPii
     await kms.createKey({ kind: "user", userId: ALICE_ID });
     configurePiiSubjectKms(kms);
 
-    await stack.http.writeOk(
-      "user-data-rights:write:run-forget-cleanup",
-      {},
-      TestUsers.systemAdmin,
-    );
+    await stack.http.writeOk(UserDataRightsHandlers.runForgetCleanup, {}, TestUsers.systemAdmin);
 
     const aliceRow = await fetchUser(ALICE_ID);
     expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
@@ -1184,11 +1181,7 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
     });
 
-    await stack.http.writeOk(
-      "user-data-rights:write:run-forget-cleanup",
-      {},
-      TestUsers.systemAdmin,
-    );
+    await stack.http.writeOk(UserDataRightsHandlers.runForgetCleanup, {}, TestUsers.systemAdmin);
 
     expect((await fetchUser(userId))?.status).toBe(USER_STATUS.Deleted);
 

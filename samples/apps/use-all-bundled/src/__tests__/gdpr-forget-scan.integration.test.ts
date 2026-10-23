@@ -6,6 +6,7 @@
 // adapter is never configured for any tenant), so nothing would be indexed to find.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { UserDataRightsHandlers } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { type KumikoServerHandle, runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { seedTenant } from "@cosmicdrift/kumiko-dev-server/testing";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
@@ -203,7 +204,7 @@ describe("GDPR forget leaves no trace", () => {
     await http.writeOk("user-data-rights:write:request-deletion", {}, victim.session);
 
     const forget = await handle.stack.dispatcher.write(
-      "user-data-rights:write:run-forget-cleanup",
+      UserDataRightsHandlers.runForgetCleanup,
       {},
       createSystemUser(SYSTEM_TENANT_ID),
     );

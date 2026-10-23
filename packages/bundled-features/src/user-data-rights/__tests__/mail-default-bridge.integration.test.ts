@@ -51,6 +51,7 @@ import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/mem
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
+import { UserDataRightsJobs } from "../web/constants.ts";
 import {
   emailsIn,
   expectEmailsShredded,
@@ -61,7 +62,7 @@ const TENANT_A = "00000000-0000-4000-8000-0000000006a1";
 const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const USER_ID = "00000000-0000-4000-8000-0000000006b1";
 const ORIGINAL_EMAIL = "bridge-delete@example.test";
-const FORGET_JOB = "user-data-rights:job:run-forget-cleanup";
+const FORGET_JOB = UserDataRightsJobs.runForgetCleanup;
 
 // App-wide override (like money-horse's config resolver): provider=inmemory
 // without a per-tenant config row. The job context carries THIS resolver, not config.

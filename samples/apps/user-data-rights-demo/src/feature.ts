@@ -191,7 +191,7 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     id: "gdpr-download-attempts",
     label: "GDPR · Download Attempts",
     icon: "download",
-    screen: "user-data-rights:screen:download-attempt-list",
+    screen: UserDataRightsScreens.downloadAttemptList,
     access: { roles: ["SystemAdmin"] },
     order: 91,
   });
