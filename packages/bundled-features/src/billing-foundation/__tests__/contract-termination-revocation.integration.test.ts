@@ -276,8 +276,8 @@ function mailsTo(address: string) {
   return emailTransport.sent.filter((mail) => mail.to === address);
 }
 
-function revokeLinkOf(email: string): URL {
-  const html = mailsTo(email)[0]?.html ?? "";
+function revokeLinkOf(email: string, mailIndex = 0): URL {
+  const html = mailsTo(email)[mailIndex]?.html ?? "";
   const href = /href="([^"]*zuruecknehmen[^"]*)"/.exec(html)?.[1];
   expect(href).toBeDefined();
   // The mail HTML entity-encodes the query separators; a mail client decodes them.
@@ -450,7 +450,7 @@ describe("revoke pages", () => {
     expect(await streamEvents(8306, CONTRACT_TERMINATION_REVOKED_EVENT_QN)).toHaveLength(0);
   });
 
-  test("a revocation while the provider cancel is in flight prevents the record and resumes afterwards", async () => {
+  test("a revocation arriving while the provider cancel is in flight waits for the record, then resumes", async () => {
     await seedMatchedAdmin("inflight@example.com", 8307);
     const release = Promise.withResolvers<void>();
     const entered = Promise.withResolvers<void>();
@@ -464,16 +464,62 @@ describe("revoke pages", () => {
     await waitFor(() => mailsTo("inflight@example.com").length > 0);
     const link = revokeLinkOf("inflight@example.com");
 
-    const res = await postRevocation(revokeForm(link));
+    // The record holds the per-tenant lock during the provider cancel, so the revocation only finishes after the release.
+    const revoking = postRevocation(revokeForm(link));
     release.resolve();
+    const res = await revoking;
     await draining;
     await stack.drainJobs();
 
     expect(await res.text()).toContain("Die Kündigung ist zurückgenommen");
     expect(cancelCalls).toEqual(["sub_8307"]);
     expect(resumeCalls).toEqual(["sub_8307"]);
-    expect(await streamEvents(8307, CONTRACT_TERMINATION_REQUESTED_EVENT_QN)).toHaveLength(0);
+    expect(await streamEvents(8307, CONTRACT_TERMINATION_REQUESTED_EVENT_QN)).toHaveLength(1);
     expect(await streamEvents(8307, CONTRACT_TERMINATION_REVOKED_EVENT_QN)).toHaveLength(1);
+  });
+
+  test("revoking one of two period-end cancellations keeps the subscription cancelled until the last one is revoked", async () => {
+    await seedMatchedAdmin("two@example.com", 8310);
+    await declare("two@example.com");
+    await declare("two@example.com");
+    const linkA = revokeLinkOf("two@example.com", 0);
+    const linkB = revokeLinkOf("two@example.com", 1);
+    expect(cancelCalls).toEqual(["sub_8310", "sub_8310"]);
+
+    await postRevocation(revokeForm(linkA));
+    await stack.drainJobs();
+    expect(resumeCalls).toEqual([]);
+    expect(await streamEvents(8310, CONTRACT_TERMINATION_REVOKED_EVENT_QN)).toHaveLength(1);
+
+    await postRevocation(revokeForm(linkB));
+    await stack.drainJobs();
+    expect(resumeCalls).toEqual(["sub_8310"]);
+    expect(await streamEvents(8310, CONTRACT_TERMINATION_REVOKED_EVENT_QN)).toHaveLength(2);
+  });
+
+  test("revoking A while B's provider cancel is in flight does not resume the subscription B cancels", async () => {
+    await seedMatchedAdmin("race@example.com", 8311);
+    await declare("race@example.com");
+    const linkA = revokeLinkOf("race@example.com", 0);
+    const release = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    providerCancelHold = { released: release.promise, entered: () => entered.resolve() };
+
+    const declaringB = await postDeclaration("race@example.com");
+    expect(declaringB.status).toBe(200);
+    const draining = stack.drainJobs();
+    await entered.promise;
+    const revokingA = postRevocation(revokeForm(linkA));
+    release.resolve();
+    const res = await revokingA;
+    await draining;
+    await stack.drainJobs();
+
+    expect(await res.text()).toContain("Die Kündigung ist zurückgenommen");
+    expect(resumeCalls).toEqual([]);
+    expect(cancelCalls).toEqual(["sub_8311", "sub_8311"]);
+    expect(await streamEvents(8311, CONTRACT_TERMINATION_REQUESTED_EVENT_QN)).toHaveLength(2);
+    expect(await streamEvents(8311, CONTRACT_TERMINATION_REVOKED_EVENT_QN)).toHaveLength(1);
   });
 
   test("a provider without resumeSubscription asks the operator to undo the cancellation by hand", async () => {

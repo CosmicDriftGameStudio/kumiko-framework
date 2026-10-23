@@ -39,6 +39,10 @@ import {
   FALLBACK_CONSENT_LOCALE,
 } from "../web/consumer-protection/consent-locale.ts";
 import { notifyOperator } from "./termination-notify.ts";
+import {
+  TERMINATION_PROVIDER_LOCK_KEY,
+  TERMINATION_PROVIDER_LOCK_NAMESPACE,
+} from "./termination-provider-lock.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
 import { isWithinWithdrawalPeriod } from "./withdrawal-period.ts";
 
@@ -189,38 +193,6 @@ function revokedRecordResult(receivedAtIso: string) {
   };
 }
 
-// A revocation that landed during the provider cancel found nothing to take back yet.
-async function takeBackLateRevokedCancel(
-  ctx: HandlerContext,
-  consumerProtection: ConsumerProtectionOptions,
-  args: {
-    readonly payload: z.infer<typeof recordContractTerminationSchema>;
-    readonly tenantId: string;
-    readonly receivedAtIso: string;
-    readonly providerCancel: ProviderCancelOutcome;
-  },
-): Promise<void> {
-  const { payload, tenantId, receivedAtIso, providerCancel } = args;
-  // skip: nothing was cancelled at the provider, nothing to resume
-  if (providerCancel !== "period-end") return;
-  const reasons = await resumeAtProvider(ctx, await getSubscriptionForTenant(ctx, tenantId));
-  // skip: resumed cleanly, the revocation notice already tells the operator
-  if (reasons.length === 0) return;
-  await notifyOperator(ctx, consumerProtection, {
-    locale: payload.locale ?? FALLBACK_CONSENT_LOCALE,
-    requestId: payload.requestId,
-    receivedAtIso,
-    channel: "public",
-    declaration: {
-      declarationType: payload.declarationType,
-      terminationKind: payload.terminationKind,
-    },
-    reasons,
-    tenantId,
-    providerCancel,
-  });
-}
-
 export function createRecordContractTerminationHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
@@ -234,6 +206,11 @@ export function createRecordContractTerminationHandler(
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as z.infer<typeof recordContractTerminationSchema>;
       const tenantId = event.user.tenantId;
+      // The provider cancel/resume and the stream append must not interleave across declarations of the same subscription.
+      await ctx.db.advisoryXactLock(
+        TERMINATION_PROVIDER_LOCK_NAMESPACE,
+        TERMINATION_PROVIDER_LOCK_KEY,
+      );
       if (payload.channel === "public" && payload.when === SubscriptionCancelTimings.immediately) {
         throw new UnprocessableError("immediate_cancel_not_allowed", {
           message:
@@ -277,30 +254,12 @@ export function createRecordContractTerminationHandler(
         effectiveAtIso,
         providerCancel,
       };
-      // Re-fetch after the external call: a webhook appended meanwhile would
-      // otherwise fail the append on a stale expectedVersion although the
-      // provider already cancelled.
+      // Re-fetch after the external call: webhooks append to this stream without the lock, so a
+      // stale expectedVersion would fail the append although the provider already cancelled.
       const streamAfterProviderCall = await ctx.fetchForWriting({
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
-      // A concurrent run with the same requestId may have recorded while we were
-      // at the provider; a second append would duplicate the event and the notice.
-      const recordedMeanwhile = findRecordedTermination(
-        streamAfterProviderCall.events,
-        payload.requestId,
-      );
-      if (recordedMeanwhile) return recordedTerminationResult(recordedMeanwhile);
-      // A revocation that landed during the provider call found no cancel to take back.
-      if (hasRevocation(streamAfterProviderCall.events, payload.requestId)) {
-        await takeBackLateRevokedCancel(ctx, consumerProtection, {
-          payload,
-          tenantId,
-          receivedAtIso,
-          providerCancel,
-        });
-        return revokedRecordResult(receivedAtIso);
-      }
       await streamAfterProviderCall.appendOne({
         type: CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
         payload: recorded,

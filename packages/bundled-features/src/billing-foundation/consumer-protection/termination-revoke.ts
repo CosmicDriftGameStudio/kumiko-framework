@@ -24,6 +24,11 @@ import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from
 import { SubscriptionFoundationHandlers } from "../web/constants.ts";
 import type { ConsentLocale } from "./consent-text.ts";
 import { notifyOperator } from "./termination-notify.ts";
+import { hasOtherOpenProviderCancel } from "./termination-open-cancels.ts";
+import {
+  TERMINATION_PROVIDER_LOCK_KEY,
+  TERMINATION_PROVIDER_LOCK_NAMESPACE,
+} from "./termination-provider-lock.ts";
 import { findRecordedTermination, hasRevocation, resumeAtProvider } from "./termination-record.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
 
@@ -129,6 +134,11 @@ export function createRecordContractTerminationRevocationHandler(
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as z.infer<typeof recordContractTerminationRevocationSchema>;
       const tenantId = event.user.tenantId;
+      // The provider cancel/resume and the stream append must not interleave across declarations of the same subscription.
+      await ctx.db.advisoryXactLock(
+        TERMINATION_PROVIDER_LOCK_NAMESPACE,
+        TERMINATION_PROVIDER_LOCK_KEY,
+      );
       const outcome = (value: RevocationOutcome) => ({
         isSuccess: true as const,
         data: { outcome: value },
@@ -162,7 +172,10 @@ export function createRecordContractTerminationRevocationHandler(
       }
 
       const reasons: OperatorNoticeReason[] = ["revoked"];
-      if (requested?.providerCancel === "period-end") {
+      if (
+        requested?.providerCancel === "period-end" &&
+        !hasOtherOpenProviderCancel(stream.events, payload.requestId)
+      ) {
         reasons.push(...(await resumeAtProvider(ctx, subscription)));
       }
       // Re-fetch after the external call, like record-contract-termination.
@@ -170,17 +183,7 @@ export function createRecordContractTerminationRevocationHandler(
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
-      // A cancel recorded between the first fetch and now was never resumed above.
-      const requestedMeanwhile =
-        requested === undefined
-          ? findRecordedTermination(streamAfterProviderCall.events, payload.requestId)
-          : undefined;
-      if (requestedMeanwhile?.providerCancel === "period-end") {
-        reasons.push(
-          ...(await resumeAtProvider(ctx, await getSubscriptionForTenant(ctx, tenantId))),
-        );
-      }
-      const providerCancel = (requested ?? requestedMeanwhile)?.providerCancel;
+      const providerCancel = requested?.providerCancel;
       const revoked: ContractTerminationRevokedPayload = {
         requestId: payload.requestId,
         revokedAtIso: now.toString(),
