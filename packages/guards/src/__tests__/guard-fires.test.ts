@@ -274,6 +274,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function run(sql: string): unknown;\nexport const seed = () => run("INSERT INTO kumiko_events (id) VALUES (1)");',
     expectedMessage: /raw INSERT INTO kumiko_events/,
   },
+  "Test-ES-Row-Writes Guard": {
+    path: `${PKG}/features/x/__tests__/x.integration.test.ts`,
+    code: 'import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";\ndeclare const db: never;\nexport const run = () => updateRows(db, {} as never, {}, {});',
+    expectedMessage: /updateRows\/deleteRows bypass the event store/,
+  },
   "File Size": {
     path: `${PKG}/features/x/huge.ts`,
     code: "export const line = 1;\n".repeat(2001),
