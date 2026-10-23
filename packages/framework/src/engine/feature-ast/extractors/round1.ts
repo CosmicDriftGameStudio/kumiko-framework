@@ -1,5 +1,6 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import type {
+  AdoptsBundledListsPattern,
   DescribePattern,
   OptionalRequiresPattern,
   ReadsConfigPattern,
@@ -81,6 +82,16 @@ export function extractSystemScope(
 ): ExtractOutput<SystemScopePattern> {
   return ok({
     kind: "systemScope",
+    source: sourceLocationFromNode(call, sourceFile),
+  });
+}
+
+export function extractAdoptsBundledLists(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<AdoptsBundledListsPattern> {
+  return ok({
+    kind: "adoptsBundledLists",
     source: sourceLocationFromNode(call, sourceFile),
   });
 }

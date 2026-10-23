@@ -104,6 +104,9 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       }
       state.toggleableDefault = options.default;
     },
+    adoptsBundledLists(): void {
+      state.adoptsBundledLists = true;
+    },
     uiHints(hints: UiHints): void {
       if (state.uiHints !== undefined) {
         throw new Error(`[Feature ${name}] r.uiHints() called twice — UI hints are declared once`);
@@ -127,6 +130,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     requiredProjections: state.requiredProjections,
     requiredSteps: state.requiredSteps,
     ...(state.toggleableDefault !== undefined && { toggleableDefault: state.toggleableDefault }),
+    ...(state.adoptsBundledLists && { adoptsBundledLists: true as const }),
     ...(state.uiHints !== undefined && { uiHints: state.uiHints }),
     entities: state.entities,
     entityTables: state.entityTables,

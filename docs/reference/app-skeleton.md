@@ -63,8 +63,8 @@ export default defineAppConfig({
   below the root and fails on a port claimed twice, infrastructure ports included.
 - `ports.infra.s3` and `ports.infra.meilisearch` switch the MinIO and Meilisearch
   services on in the managed `ci.yml`.
-- `bundledLists` sets one DataTable `table` block for every list of the bundled
-  features; `kumiko/schema.ts` passes it to `composeFeatures`, the bin files pass
+- `bundledLists` sets one DataTable `table` block for every list of the features
+  that call `r.adoptsBundledLists()` (the bundled features with lists); `kumiko/schema.ts` passes it to `composeFeatures`, the bin files pass
   it to the runners. See `renderer-widget-options.md`.
 
 Until an app calls `defineAppConfig`, the `managed` and `scripts` steps of

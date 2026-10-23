@@ -27,7 +27,6 @@ const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
 // und scaffold-only Features. Gemountete Features gehören nicht hierher.
 const EXPECTED_HELD_BACK = new Set([
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
-  "list-feature-names", // Namensliste der Bundled-Features mit Listen (bundledLists), kein defineFeature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
   "presets", // deprecated feature-bundle helpers (securityBaselineFeatures), kein defineFeature
 ]);

@@ -19,6 +19,7 @@ import { userEditScreen, userListScreen } from "./screens.ts";
 // Membership + tenant-specific roles live in the tenant feature.
 export function createUserFeature(): FeatureDefinition {
   return defineFeature("user", (r) => {
+    r.adoptsBundledLists();
     r.describe(
       "Manages the cross-tenant user identity: the `read_users` table holds each user's email, `displayName`, global `roles`, `emailVerified` flag, and lifecycle `status` (active / restricted / deletionRequested / deleted). Because users exist above any individual tenant, the feature runs with `r.systemScope()` \u2014 membership and tenant-specific roles live in the `tenant` feature instead. Add this feature whenever your app needs a persistent, tenant-agnostic user record that auth and GDPR pipelines can reference.",
     );

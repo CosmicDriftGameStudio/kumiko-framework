@@ -301,6 +301,9 @@ export type FeatureDefinition = {
   // means the feature is always-on (e.g. auth, tenant, user — core infra
   // that would brick the system if switchable).
   readonly toggleableDefault?: boolean;
+  // Set via r.adoptsBundledLists(): the feature takes the app-wide `bundledLists`
+  // block from composeFeatures. App features never set this.
+  readonly adoptsBundledLists?: true;
   // Declarative UI metadata for picker/scaffolder tooling. Set via r.uiHints().
   // Pure manifest-side info — the framework runtime doesn't read it.
   readonly uiHints?: UiHints;
@@ -553,6 +556,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
   // bug — and one nothing catches at boot, so don't.
   toggleable(options: { default: boolean }): void;
+  // Opt the feature's list screens into the app-wide `bundledLists` table block.
+  // For feature packages only; idempotent.
+  adoptsBundledLists(): void;
   // Picker/scaffolder metadata — see UiHints. At most once per feature.
   uiHints(hints: UiHints): void;
 

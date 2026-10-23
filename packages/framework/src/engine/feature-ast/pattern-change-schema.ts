@@ -528,6 +528,13 @@ const describeSchema = z
   })
   .strict();
 
+const adoptsBundledListsSchema = z
+  .object({
+    kind: z.literal("adoptsBundledLists"),
+    source: sourceFieldSchema,
+  })
+  .strict();
+
 const uiHintsSchema = z
   .object({
     kind: z.literal("uiHints"),
@@ -890,6 +897,7 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   toggleable: toggleableSchema,
   describe: describeSchema,
   uiHints: uiHintsSchema,
+  adoptsBundledLists: adoptsBundledListsSchema,
   metric: metricSchema,
   secret: secretSchema,
   secretNamespace: secretNamespaceSchema,
@@ -933,6 +941,7 @@ export const patternSchema = z.discriminatedUnion("kind", [
   toggleableSchema,
   describeSchema,
   uiHintsSchema,
+  adoptsBundledListsSchema,
   metricSchema,
   secretSchema,
   secretNamespaceSchema,
@@ -1047,6 +1056,9 @@ const patternIdSystemScopeSchema = z.object({ kind: z.literal("systemScope") }).
 const patternIdToggleableSchema = z.object({ kind: z.literal("toggleable") }).strict();
 const patternIdDescribeSchema = z.object({ kind: z.literal("describe") }).strict();
 const patternIdUiHintsSchema = z.object({ kind: z.literal("uiHints") }).strict();
+const patternIdAdoptsBundledListsSchema = z
+  .object({ kind: z.literal("adoptsBundledLists") })
+  .strict();
 const patternIdConfigSchema = z.object({ kind: z.literal("config") }).strict();
 const patternIdTranslationsSchema = z.object({ kind: z.literal("translations") }).strict();
 const patternIdAuthClaimsSchema = z.object({ kind: z.literal("authClaims") }).strict();
@@ -1085,6 +1097,7 @@ export const PATTERN_ID_SCHEMAS_BY_KIND = {
   toggleable: patternIdToggleableSchema,
   describe: patternIdDescribeSchema,
   uiHints: patternIdUiHintsSchema,
+  adoptsBundledLists: patternIdAdoptsBundledListsSchema,
   config: patternIdConfigSchema,
   translations: patternIdTranslationsSchema,
   authClaims: patternIdAuthClaimsSchema,
@@ -1121,6 +1134,7 @@ export const patternIdSchema = z.discriminatedUnion("kind", [
   patternIdOptionalRequiresSchema,
   patternIdReadsConfigSchema,
   patternIdSystemScopeSchema,
+  patternIdAdoptsBundledListsSchema,
   patternIdToggleableSchema,
   patternIdDescribeSchema,
   patternIdUiHintsSchema,

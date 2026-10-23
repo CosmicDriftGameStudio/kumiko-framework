@@ -71,6 +71,7 @@
       "name": "audit",
       "description": "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection — the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "tenant",
         "user",
@@ -340,6 +341,7 @@
       "name": "cap-counter",
       "description": "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -363,6 +365,7 @@
       "name": "cap-overview",
       "description": "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; tenant admins (or the roles in `usageVisibleTo`) get their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "tenant",
         "tier-engine",
@@ -745,6 +748,7 @@
       "name": "delivery",
       "description": "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). Inside a write handler the delivery runs after the write has committed (the call returns `{ kind: \"deferred\" }`, a rolled-back write sends nothing); `immediate: true` delivers synchronously and returns `{ kind: \"dispatched\", deliveries }`. It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting — add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route. A notification declared with `unsubscribe: true` gets that link from delivery itself when the service has `unsubscribeLinks` (the `runProdApp` and `runDevApp` option `unsubscribe: { secret }` mounts the routes and wires it; base URL from `auth.publicOrigin`, `auth.mail.baseUrl` or `APP_BASE_URL`): user recipients get a user token, `route` recipients an address token (needs a blind-index key, otherwise no link); a `data.unsubscribeUrl` from the caller wins. `unsubscribe.tenantOrigin: (ctx) => origin | null` points the link at the tenant's own host (subdomain or custom domain, must serve this app's `/api`); null, a throw or a non-https value fall back to the app origin. The token carries the mail's locale, so the confirmation and result pages render in the mail's language. An app serving its own (e.g. legacy) unsubscribe links renders the same result page with `renderUnsubscribeResultPage({ kind, locale })`. To react to a no-account opt-out (e.g. remove the app's own subscriber row), declare `r.job(name, { trigger: { on: DeliveryHandlers.unsubscribeAddress } }, handler)` on a lane the app consumes: it runs after each committed opt-out, also an idempotent repeat, with `unsubscribeAddressPayloadSchema` (`addressHash`, `notificationType`, `channel`) as payload and the tenant in `ctx.triggeredBy.tenantId`; match the subscriber via `hashUnsubscribeAddress(email)`. Declare `unsubscribeUrl` as an optional template variable if the mail body shows it.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "tenant"
       ],
@@ -896,6 +900,7 @@
       "name": "feature-toggles",
       "description": "Persists per-feature enabled/disabled state in the `store_global_feature_state` table and exposes a `set` write-handler plus `list`/`registered` query-handlers so operators can flip features at runtime without redeploying. Each API instance keeps an in-memory `GlobalFeatureToggleRuntime` snapshot (initialize it via `createFeatureToggleRuntime`, pass a `() => runtime` accessor to `createFeatureTogglesFeature`) that the dispatcher gate reads on every request; a `toggle-cache-sync` multi-stream projection with `delivery: \"shared\"` syncs the snapshot across instances whenever a `toggle-set` event is appended.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -1373,6 +1378,7 @@
       "name": "inbound-mail-foundation",
       "description": "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push). The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "tenant-lifecycle"
       ],
@@ -1465,6 +1471,7 @@
       "name": "jobs",
       "description": "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079). A job that declares `tenantVisibleRun` also keeps its run state per tenant and subject in `store_tenant_job_runs` (queued, running, plus the latest completed or failed run, no payload, error text or logs), which the tenant reads through `jobs:query:tenant-runs` (fw#3616); the stale-run sweep fails its stuck `running` rows and drops `queued` rows older than `retentionDays`.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -1760,6 +1767,7 @@
       "name": "managed-pages",
       "description": "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one Markdown `page` per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "config"
       ],
@@ -2089,6 +2097,7 @@
       "name": "personal-access-tokens",
       "description": "Long-lived, revocable Personal Access Tokens for headless HTTP-API access. Stores SHA-256 token hashes in the `store_api_tokens` direct-write table; the plaintext is returned once at creation. `create`/`revoke`/`mine` manage a user's own tokens and `available-scopes` lists the app-declared scope catalog. Bearer tokens carrying the PAT prefix are resolved before jwt.verify (roles resolved live, granted scopes enforced fail-closed at the API boundary) — registered as an auth-foundation tokenVerifier provider, resolved generically by the middleware. Pass { toggleable: { default: false } } to tier-gate the whole feature.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "user",
         "tenant",
@@ -2418,6 +2427,7 @@
       "name": "sessions",
       "description": "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "user",
         "auth-foundation"
@@ -2712,6 +2722,7 @@
       "name": "tags",
       "description": "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Catalog screens are declarative (`entityList` + `entityEdit`) and use convention QNs `tag:{create,update,delete}`; TagManager/TagPicker keep `create-tag`/`update-tag`/`delete-tag`. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -2827,6 +2838,7 @@
       "name": "tenant",
       "description": "Registers the three core multi-tenancy entities — `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) — along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "config"
       ],
@@ -3193,6 +3205,7 @@
       "name": "user",
       "description": "Manages the cross-tenant user identity: the `read_users` table holds each user's email, `displayName`, global `roles`, `emailVerified` flag, and lifecycle `status` (active / restricted / deletionRequested / deleted). Because users exist above any individual tenant, the feature runs with `r.systemScope()` — membership and tenant-specific roles live in the `tenant` feature instead. Add this feature whenever your app needs a persistent, tenant-agnostic user record that auth and GDPR pipelines can reference.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [],
       "optionalRequires": [],
       "configReads": [],
@@ -3220,6 +3233,7 @@
       "name": "user-data-rights",
       "description": "Implements GDPR Art. 15 (access / `my-audit-log` query), Art. 17 (erasure / `request-deletion` + `cancel-deletion`, plus the anonymous email-verified `request-deletion-by-email` + `confirm-deletion-by-token` flow for lockout-safe self-service, + cron cleanup with grace period), Art. 18 (restriction / `restrict-account` + `lift-restriction`), and Art. 20 (portability / async `request-export` → ZIP via `file-foundation`, Magic-Link download) as first-class HTTP handlers and cron jobs. Each domain feature opts in by calling `r.useExtension(EXT_USER_DATA, \"<entity>\", { export, delete })` — the feature then orchestrates the export and forget pipelines across all registered hooks automatically. When `mail-foundation` and a `mail-transport-*` are mounted, it also sends the four GDPR notifications (export ready/failed, deletion requested/executed) itself with no app callback code, rendered in each recipient’s locale. Requires `user`, `data-retention`, `compliance-profiles`, and `sessions`.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "user",
         "data-retention",
@@ -3387,6 +3401,7 @@
       "name": "waitlist",
       "description": "Public waitlist: an anonymous, rate-limited `submit` handler collects name, email and optional company, portfolio and message (a honeypot field and per-email dedupe keep bots and repeat submits out, and the response body is identical whether or not an address was already listed), and mails the submitter a confirmation. SystemAdmins review entries in a list screen and invite or reject them; an invite creates the entrant's own tenant (or joins one shared tenant) and mails an accept link with the configured membership role, never a global role. Entries are platform-wide, their personal data is crypto-shredding-ready, and the EXT_USER_DATA hooks export and erase entries matching a user's email.",
       "toggleableDefault": null,
+      "adoptsBundledLists": true,
       "requires": [
         "tenant",
         "auth-email-password",

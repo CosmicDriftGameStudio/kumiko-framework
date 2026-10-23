@@ -41,6 +41,7 @@ export {
   resolveModuleFile,
 } from "./resolve-import.ts";
 export {
+  extractAdoptsBundledLists,
   extractDescribe,
   extractOptionalRequires,
   extractReadsConfig,

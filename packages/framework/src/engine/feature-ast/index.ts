@@ -63,6 +63,7 @@ export { createFeaturePatcher } from "./patcher.ts";
 export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema.ts";
 export { parsePatternChanges } from "./pattern-change-schema.ts";
 export type {
+  AdoptsBundledListsPattern,
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
