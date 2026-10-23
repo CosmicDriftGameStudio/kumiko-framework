@@ -10,8 +10,9 @@
 // actions column, being unconditionally sticky, pinned itself right over
 // the data column that hadn't scrolled away yet. #2565 replaces the table
 // with one card per row below md instead: every column shows as a
-// label/value pair with no truncation, and actions sit inline instead of
-// behind a scroll edge. The mobile block below used to assert the old
+// label/value pair, and actions sit inline instead of behind a scroll edge. The card
+// title is cut to one line (full text on hover) so a long title never pushes the
+// row menu out. The mobile block below used to assert the old
 // scrolling-table contract and went red the moment #2565 landed
 // (ff39c707d) — rewritten to assert the card contract it actually ships.
 
@@ -98,6 +99,31 @@ test.describe("mobile (< md)", () => {
     const listUrl = page.url();
     await sampleCard.getByRole("button").first().click();
     await expect(page).not.toHaveURL(listUrl);
+  });
+
+  test("task-board at 390px: a title that would wrap is cut to one line and the row menu stays reachable", async ({
+    page,
+  }) => {
+    await page.goto("/task-board");
+    // Beside its status badge this seed title does not fit one line at 390px.
+    const wrappingTitle = "Migrate invoices to new numbering";
+    await expect(page.getByText(wrappingTitle)).toBeVisible();
+
+    const titleCell = page.locator('[data-testid$="-title"]', { hasText: wrappingTitle });
+    await expect(titleCell).toBeVisible();
+    const card = page
+      .locator('[data-testid^="row-"]:not([data-testid*="-action"])')
+      .filter({ has: titleCell });
+    const menuTrigger = card.locator('[data-testid$="-actions-menu"]');
+    await expect(menuTrigger).toBeVisible();
+    await expect(menuTrigger).toBeInViewport({ ratio: 1 });
+
+    const titleBox = await titleCell.boundingBox();
+    const lineHeight = await titleCell.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).lineHeight),
+    );
+    expect(titleBox).not.toBeNull();
+    expect(titleBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(lineHeight * 1.5);
   });
 });
 
