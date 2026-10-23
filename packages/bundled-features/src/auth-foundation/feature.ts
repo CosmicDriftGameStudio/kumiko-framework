@@ -12,6 +12,7 @@
 
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { systemScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   validateSessionStoreMultiplicity,
   validateTenantExistenceMultiplicity,
@@ -90,6 +91,11 @@ export function createAuthFoundationFeature() {
   );
 }
 
+// Providers run before any tenant or session exists (token verify, host to tenant), so their reads are cross-tenant by nature.
+function systemScopedDeps<T extends AuthProviderBuildDeps>(deps: T): T {
+  return { ...deps, db: systemScopedRunner(deps.db) };
+}
+
 /**
  * Tries every registered tokenVerifier provider's shape against `rawToken`
  * in registration order and calls the first match's verifier. Returns null
@@ -104,7 +110,7 @@ export async function resolveTokenVerifier(
   for (const usage of usages) {
     if (!isAuthProviderPlugin(usage.options)) continue;
     if (!tokenShapeMatches(usage.options.shape, rawToken)) continue;
-    const verify = await usage.options.build(deps);
+    const verify = await usage.options.build(systemScopedDeps(deps));
     return verify(rawToken);
   }
   return null;
@@ -125,7 +131,7 @@ export async function resolveSessionStore(
       "[auth-foundation] no sessionStore provider registered — did the boot validator run?",
     );
   }
-  return usage.options.build(deps);
+  return usage.options.build(systemScopedDeps(deps));
 }
 
 export type ResolvedTenantResolver = {
@@ -144,7 +150,7 @@ export async function resolveTenantResolver(
       "[auth-foundation] tenantResolver provider registered without a valid TenantResolverProvider",
     );
   }
-  const resolve = await usage.options.build(deps);
+  const resolve = await usage.options.build(systemScopedDeps(deps));
   return { resolve, trust: usage.options.trust };
 }
 
@@ -159,5 +165,5 @@ export async function resolveTenantExistence(
       "[auth-foundation] tenantExistence provider registered without a valid TenantExistenceProvider",
     );
   }
-  return usage.options.build(deps);
+  return usage.options.build(systemScopedDeps(deps));
 }

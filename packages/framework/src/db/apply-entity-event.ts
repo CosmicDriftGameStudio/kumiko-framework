@@ -62,6 +62,7 @@ import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
+import { runInSystemRowLevelSecurityScope } from "./row-level-security-scope.ts";
 
 type Table = TableColumns;
 
@@ -110,7 +111,19 @@ async function decryptFileReferenceCiphertext(
 /** Applies an auto-event idempotently to the entity table.
  *  Called both during live append (inside the write TX) and during rebuild
  *  (inside the rebuild TX), using identical logic. */
-export async function applyEntityEvent(
+// The row's tenant comes from the event (payload.tenantId may differ from the stream tenant, global
+// entities live on the system tenant), and the write was authorized before the event existed, so the
+// projection write is system scoped instead of guessing the row's tenant per verb.
+export function applyEntityEvent(
+  event: StoredEvent,
+  table: Table,
+  entity: EntityDefinition,
+  tx: ExecutorManagedRunner,
+): Promise<ApplyResult> {
+  return runInSystemRowLevelSecurityScope(() => applyEntityEventInScope(event, table, entity, tx));
+}
+
+async function applyEntityEventInScope(
   event: StoredEvent,
   table: Table,
   entity: EntityDefinition,

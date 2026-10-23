@@ -34,6 +34,7 @@ function checkSchemaDrift(
   const { out, migrationsDir } = ctx;
   const drift = generateMigration({
     metas: schemaMod.entityMetas,
+    rowLevelSecurity: schemaMod.rowLevelSecurity,
     prevSnapshot,
     name: "validate",
     sequenceNumber: nextSequenceNumber(migrationsDir),

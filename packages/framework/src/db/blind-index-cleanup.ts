@@ -21,6 +21,7 @@ import type { DbRunner } from "./connection.ts";
 import { resolveTableName } from "./entity-table-meta.ts";
 import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
+import { runInSystemRowLevelSecurityScope } from "./row-level-security-scope.ts";
 import { columnNamesOf, tableExists } from "./schema-inspection.ts";
 
 export async function nullBlindIndexesForSubject(
@@ -28,43 +29,45 @@ export async function nullBlindIndexesForSubject(
   features: ReadonlyMap<string, FeatureDefinition>,
   subjectKey: string,
 ): Promise<void> {
-  const likePattern = subjectCiphertextLikePattern(subjectKey);
-  const candidates: { tableName: string; lookupable: readonly string[] }[] = [];
-  for (const feature of features.values()) {
-    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const lookupable = collectLookupableFields(entity);
-      if (lookupable.length === 0) continue;
-      // No featureName prefix — the dispatcher builds entity tables without
-      // one (buildEntityTable with no featureName option), the sweep has to
-      // hit the same names.
-      candidates.push({ tableName: resolveTableName(entityName, entity, undefined), lookupable });
+  return runInSystemRowLevelSecurityScope(async () => {
+    const likePattern = subjectCiphertextLikePattern(subjectKey);
+    const candidates: { tableName: string; lookupable: readonly string[] }[] = [];
+    for (const feature of features.values()) {
+      for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+        const lookupable = collectLookupableFields(entity);
+        if (lookupable.length === 0) continue;
+        // No featureName prefix — the dispatcher builds entity tables without
+        // one (buildEntityTable with no featureName option), the sweep has to
+        // hit the same names.
+        candidates.push({ tableName: resolveTableName(entityName, entity, undefined), lookupable });
+      }
     }
-  }
-  // Skip entities whose projection was never migrated — same class as
-  // subjectRowExistsInTenant. A throw here runs AFTER eraseKey
-  // in forget-subject and would leave deterministic bidx columns still
-  // linkable. One batched existence query instead of one
-  // roundtrip per entity.
-  const existing = await existingTableNames(
-    db,
-    candidates.map((c) => c.tableName),
-  );
-  for (const { tableName, lookupable } of candidates) {
-    if (!existing.has(tableName)) continue;
-    // Same hazard for a migrated table that predates a later-added
-    // lookupable field: skip fields whose columns are missing instead of
-    // aborting the sweep for the remaining ones.
-    const columns = await columnNamesOf(db, tableName);
-    for (const fieldName of lookupable) {
-      const snake = toSnakeCase(fieldName);
-      if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
-      await executeRawQuery(
-        db,
-        `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
-        [likePattern],
-      );
+    // Skip entities whose projection was never migrated — same class as
+    // subjectRowExistsInTenant. A throw here runs AFTER eraseKey
+    // in forget-subject and would leave deterministic bidx columns still
+    // linkable. One batched existence query instead of one
+    // roundtrip per entity.
+    const existing = await existingTableNames(
+      db,
+      candidates.map((c) => c.tableName),
+    );
+    for (const { tableName, lookupable } of candidates) {
+      if (!existing.has(tableName)) continue;
+      // Same hazard for a migrated table that predates a later-added
+      // lookupable field: skip fields whose columns are missing instead of
+      // aborting the sweep for the remaining ones.
+      const columns = await columnNamesOf(db, tableName);
+      for (const fieldName of lookupable) {
+        const snake = toSnakeCase(fieldName);
+        if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
+        await executeRawQuery(
+          db,
+          `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
+          [likePattern],
+        );
+      }
     }
-  }
+  });
 }
 
 async function existingTableNames(
@@ -101,40 +104,42 @@ export async function subjectRowExistsInTenant(
   subjectId: string,
   tenantId: string,
 ): Promise<boolean> {
-  // Prefetch which self-PII projection tables actually exist — probing a
-  // missing relation used to throw (and get swallowed), which both hid
-  // real schema bugs and risked poisoning the driver connection for the
-  // rest of the forget TX.
-  const candidateTables: string[] = [];
-  for (const feature of features.values()) {
-    for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const hasSelfPiiField = Object.values(entity.fields).some(isSelfPiiField);
-      if (!hasSelfPiiField) continue;
-      // Subject ids are uuids; comparing one to a serial id column makes
-      // postgres throw (invalid input syntax for integer) mid forget-TX.
-      if (entity.idType === "serial") continue;
-      candidateTables.push(resolveTableName(entityName, entity, undefined));
+  return runInSystemRowLevelSecurityScope(async () => {
+    // Prefetch which self-PII projection tables actually exist — probing a
+    // missing relation used to throw (and get swallowed), which both hid
+    // real schema bugs and risked poisoning the driver connection for the
+    // rest of the forget TX.
+    const candidateTables: string[] = [];
+    for (const feature of features.values()) {
+      for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+        const hasSelfPiiField = Object.values(entity.fields).some(isSelfPiiField);
+        if (!hasSelfPiiField) continue;
+        // Subject ids are uuids; comparing one to a serial id column makes
+        // postgres throw (invalid input syntax for integer) mid forget-TX.
+        if (entity.idType === "serial") continue;
+        candidateTables.push(resolveTableName(entityName, entity, undefined));
+      }
     }
-  }
-  const existing = new Set<string>();
-  for (const tableName of candidateTables) {
-    const rows = await executeRawQueryRead<{ exists: boolean }>(
-      db,
-      `SELECT to_regclass(quote_ident($1)) IS NOT NULL AS exists`,
-      [tableName],
-    );
-    if (rows[0]?.exists === true) existing.add(tableName);
-  }
-  for (const tableName of candidateTables) {
-    if (!existing.has(tableName)) continue;
-    const rows = await executeRawQueryRead(
-      db,
-      `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-      [subjectId, tenantId],
-    );
-    if (rows.length > 0) return true;
-  }
-  return false;
+    const existing = new Set<string>();
+    for (const tableName of candidateTables) {
+      const rows = await executeRawQueryRead<{ exists: boolean }>(
+        db,
+        `SELECT to_regclass(quote_ident($1)) IS NOT NULL AS exists`,
+        [tableName],
+      );
+      if (rows[0]?.exists === true) existing.add(tableName);
+    }
+    for (const tableName of candidateTables) {
+      if (!existing.has(tableName)) continue;
+      const rows = await executeRawQueryRead(
+        db,
+        `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+        [subjectId, tenantId],
+      );
+      if (rows.length > 0) return true;
+    }
+    return false;
+  });
 }
 
 function findEntityByExactName(
@@ -162,16 +167,18 @@ export async function recordRowExistsInTenant(
   recordId: string,
   tenantId: string,
 ): Promise<boolean> {
-  const entity = findEntityByExactName(features, entityName);
-  if (!entity) return false;
-  const tableName = resolveTableName(entityName, entity, undefined);
-  if (!(await tableExists(db, tableName))) return false;
-  const rows = await executeRawQueryRead(
-    db,
-    `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
-    [recordId, tenantId],
-  );
-  return rows.length > 0;
+  return runInSystemRowLevelSecurityScope(async () => {
+    const entity = findEntityByExactName(features, entityName);
+    if (!entity) return false;
+    const tableName = resolveTableName(entityName, entity, undefined);
+    if (!(await tableExists(db, tableName))) return false;
+    const rows = await executeRawQueryRead(
+      db,
+      `SELECT 1 FROM ${quoteIdent(tableName)} WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [recordId, tenantId],
+    );
+    return rows.length > 0;
+  });
 }
 
 // Provenance fallback for record subjects whose projection row is gone (hard
@@ -185,14 +192,16 @@ export async function recordEventsOwnedExclusivelyByTenant(
   aggregateId: string,
   tenantId: string,
 ): Promise<boolean> {
-  const rows = await executeRawQueryRead(
-    db,
-    `SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id = $3::uuid
+  return runInSystemRowLevelSecurityScope(async () => {
+    const rows = await executeRawQueryRead(
+      db,
+      `SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id = $3::uuid
        AND NOT EXISTS (SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id <> $3::uuid)
      LIMIT 1`,
-    [aggregateType, aggregateId, tenantId],
-  );
-  return rows.length > 0;
+      [aggregateType, aggregateId, tenantId],
+    );
+    return rows.length > 0;
+  });
 }
 
 // Owning tenant of a record subject's row, for callers that must evaluate
@@ -203,14 +212,16 @@ export async function recordRowOwningTenantId(
   entityName: string,
   recordId: string,
 ): Promise<string | undefined> {
-  const entity = findEntityByExactName(features, entityName);
-  if (!entity) return undefined;
-  const tableName = resolveTableName(entityName, entity, undefined);
-  if (!(await tableExists(db, tableName))) return undefined;
-  const rows = await executeRawQueryRead<{ tenant_id: string }>(
-    db,
-    `SELECT tenant_id FROM ${quoteIdent(tableName)} WHERE id = $1 LIMIT 1`,
-    [recordId],
-  );
-  return rows[0]?.tenant_id;
+  return runInSystemRowLevelSecurityScope(async () => {
+    const entity = findEntityByExactName(features, entityName);
+    if (!entity) return undefined;
+    const tableName = resolveTableName(entityName, entity, undefined);
+    if (!(await tableExists(db, tableName))) return undefined;
+    const rows = await executeRawQueryRead<{ tenant_id: string }>(
+      db,
+      `SELECT tenant_id FROM ${quoteIdent(tableName)} WHERE id = $1 LIMIT 1`,
+      [recordId],
+    );
+    return rows[0]?.tenant_id;
+  });
 }

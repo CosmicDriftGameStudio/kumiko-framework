@@ -15,6 +15,7 @@ import {
 } from "../migrations/index.ts";
 import { createEventConsumerStateTable, createProjectionStateTable } from "../pipeline/index.ts";
 import {
+  loadRowLevelSecurityModeOrReport,
   migrationsDirExistsOrReport,
   readDatabaseUrlOrReport,
   type SchemaCliContext,
@@ -74,7 +75,9 @@ export async function runApplyCommand(ctx: SchemaCliContext): Promise<number> {
   const dbUrl = readDatabaseUrlOrReport(out);
   if (dbUrl === undefined) return 1;
   if (!migrationsDirExistsOrReport(ctx)) return 1;
-  const { db, close } = createDbConnection({ url: dbUrl });
+  const rowLevelSecurity = await loadRowLevelSecurityModeOrReport(ctx);
+  if (rowLevelSecurity === undefined) return 1;
+  const { db, close } = createDbConnection({ url: dbUrl, rowLevelSecurity });
   let wiring: KmsWiring | undefined;
   try {
     const result = await runMigrationsFromDir(db, migrationsDir);

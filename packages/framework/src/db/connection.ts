@@ -4,6 +4,8 @@ import type {
   PgListenClient,
 } from "@cosmicdrift/kumiko-types/db-connection";
 import { readPositiveIntEnv } from "../utils/env-parse.ts";
+import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
+import { enforceRowLevelSecurity } from "./row-level-security-connection.ts";
 
 export type * from "@cosmicdrift/kumiko-types/db-connection";
 
@@ -21,7 +23,11 @@ export type DbConnectionOptions = {
   readonly lockTimeoutMs?: number;
 };
 
-export type CreateDbConnectionOptions = DbConnectionOptions & { readonly url: string };
+export type CreateDbConnectionOptions = DbConnectionOptions & {
+  readonly url: string;
+  // "on" applies the ambient row-level-security scope to every statement; "off" returns the raw client.
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
+};
 
 export type DbConnectionHandle = {
   db: DbConnection;
@@ -60,6 +66,7 @@ function verifiedTls(ssl: NonNullable<BunSqlOptions["tls"]>): NonNullable<BunSql
 
 export function createDbConnection({
   url,
+  rowLevelSecurity = "off",
   ...options
 }: CreateDbConnectionOptions): DbConnectionHandle {
   const sqlOptions: BunSqlOptions = {};
@@ -83,11 +90,17 @@ export function createDbConnection({
   if (Object.keys(serverParameters).length > 0) sqlOptions.connection = serverParameters;
 
   // Bun.SQL opens all `max` connections on the first query, so a pool always costs `max` backends.
-  const client = new Bun.SQL(url, sqlOptions);
+  const rawClient = new Bun.SQL(url, sqlOptions);
+  const enforced = rowLevelSecurity === "on";
+  const client = enforced ? enforceRowLevelSecurity(rawClient) : rawClient;
   // A run that never settles (a caller gave up on it via its own timeout) never reaches the
   // sibling's own close; close() ends it so shutdown and DROP DATABASE are not blocked by it.
   const openSiblings = new Set<PgClient>();
-  unboundedSiblingFactories.set(client, () => {
+  const registerFactory = (factory: () => UnboundedSiblingPool) => {
+    unboundedSiblingFactories.set(rawClient, factory);
+    if (client !== rawClient) unboundedSiblingFactories.set(client, factory);
+  };
+  registerFactory(() => {
     // Two connections are enough for lock-in-tx plus DDL; the cap keeps parallel rebuilds from exhausting max_connections.
     const sibling = new Bun.SQL(url, {
       ...sqlOptions,
@@ -96,7 +109,7 @@ export function createDbConnection({
     });
     openSiblings.add(sibling);
     return {
-      client: sibling,
+      client: enforced ? enforceRowLevelSecurity(sibling) : sibling,
       close: async (timeoutSeconds) => {
         openSiblings.delete(sibling);
         await sibling.close({ timeout: timeoutSeconds });
@@ -110,8 +123,9 @@ export function createDbConnection({
     listenClient: client,
     close: async () => {
       const timeout = options.closeTimeoutSeconds ?? DEFAULT_DB_CLOSE_TIMEOUT_SECONDS;
+      unboundedSiblingFactories.delete(rawClient);
       unboundedSiblingFactories.delete(client);
-      const pools = [client, ...openSiblings];
+      const pools = [rawClient, ...openSiblings];
       openSiblings.clear();
       const results = await Promise.allSettled(pools.map((pool) => pool.close({ timeout })));
       const failure = results.find((result) => result.status === "rejected");

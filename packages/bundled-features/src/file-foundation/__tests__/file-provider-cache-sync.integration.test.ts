@@ -113,7 +113,7 @@ describe("file provider cache across instances", () => {
 
   beforeAll(async () => {
     patchFileInstanceofForBunTest();
-    sharedDb = await createTestDb();
+    sharedDb = await createTestDb({ applicationRole: true });
     podA = await bootPod();
     podB = await bootPod(podA);
   });

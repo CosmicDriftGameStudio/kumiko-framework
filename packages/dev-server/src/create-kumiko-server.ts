@@ -16,6 +16,10 @@
 // with a different options shape (clientDist, auth config, db url).
 
 import type { AuthRoutesConfig, ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
+import {
+  assertNoActiveRowLevelSecurityScope,
+  type RowLevelSecurityMode,
+} from "@cosmicdrift/kumiko-framework/db";
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import type {
@@ -110,6 +114,8 @@ export type DevHostDispatch = (
 ) => DevHostDispatchResult | Promise<DevHostDispatchResult>;
 
 export type CreateKumikoServerOptions = {
+  /** Row level security of the dev stack, as in prod. Default "on", so tenant-isolation bugs show up in development. */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
   /** Features whose entities, handlers, and screens get wired into the
    *  dev stack. Pass every feature the app is supposed to run. */
   readonly features: readonly FeatureDefinition[];
@@ -261,6 +267,7 @@ function startDevHttpServer(
   stack: TestStack,
 ): BunServer | undefined {
   if (!hasBun) return undefined;
+  assertNoActiveRowLevelSecurityScope("dev server");
   return Bun.serve(
     buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry), {
       upgradeFetch: async (req, env) => stripNoRouteMatchHeader(await stack.app.fetch(req, env)),

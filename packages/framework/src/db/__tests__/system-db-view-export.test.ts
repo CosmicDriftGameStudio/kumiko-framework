@@ -10,6 +10,7 @@ import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import { unsafeRawForDeclaredStep, withSystemDbUnsafeRawGrant } from "../tenant-db.ts";
+import { unscopedRunner } from "./unscoped-runner.ts";
 
 const tenantId = testTenantId(1);
 
@@ -66,7 +67,7 @@ describe("createSystemDbView(...).unsafeRaw", () => {
       viewReports.push({ kind, reason }),
     );
 
-    expect(view.unsafeRaw("x")).toBe(runner);
+    expect(unscopedRunner(view.unsafeRaw("x"))).toBe(runner);
     expect(sourceReports).toEqual([{ kind: "unsafe-raw", reason: "handler declared unsafeRaw" }]);
     expect(viewReports).toEqual([]);
   });

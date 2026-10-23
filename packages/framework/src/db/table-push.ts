@@ -10,6 +10,7 @@ import {
 } from "./queries/ddl.ts";
 import { renderTableDdl } from "./render-ddl.ts";
 import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
+import { rowLevelSecurityModeOf } from "./row-level-security-connection.ts";
 import { tableExists } from "./schema-inspection.ts";
 import { buildEntityTable, toTableName } from "./table-builder.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";
@@ -89,6 +90,7 @@ export async function unsafePushTables(
   prevTables?: Record<string, unknown>,
   options: { readonly rowLevelSecurity?: RowLevelSecurityMode } = {},
 ): Promise<void> {
+  const rowLevelSecurity = options.rowLevelSecurity ?? rowLevelSecurityModeOf(db);
   const prevMetas = new Map<string, EntityTableMeta>();
   if (prevTables) {
     for (const [key, table] of Object.entries(prevTables)) {
@@ -117,7 +119,7 @@ export async function unsafePushTables(
         await executeDdlStatement(db, stmt);
       }
     }
-    if (options.rowLevelSecurity === "on") await applyTableRowLevelSecurity(db, meta);
+    if (rowLevelSecurity === "on") await applyTableRowLevelSecurity(db, meta);
   }
 }
 

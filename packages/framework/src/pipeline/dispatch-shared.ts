@@ -6,6 +6,7 @@ import type {
 import { requestContext, runWithOrigin } from "../api/request-context.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbTx } from "../db/connection.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import type { buildEntityTable } from "../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import type { defineTransitions } from "../engine/state-machine.ts";
@@ -917,7 +918,14 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
   };
 }
 
-export async function resolveAuthClaimsFn(
+export function resolveAuthClaimsFn(
+  ctx: DispatchContext,
+  user: SessionUser,
+): Promise<Record<string, unknown>> {
+  return runInSystemRowLevelSecurityScope(() => resolveAuthClaimsInScope(ctx, user));
+}
+
+async function resolveAuthClaimsInScope(
   ctx: DispatchContext,
   user: SessionUser,
 ): Promise<Record<string, unknown>> {

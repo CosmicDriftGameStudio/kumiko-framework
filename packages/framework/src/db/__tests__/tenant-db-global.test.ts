@@ -15,6 +15,7 @@ import {
   type TenantDb,
   withUnsafeRawGrant,
 } from "../tenant-db.ts";
+import { unscopedRunner } from "./unscoped-runner.ts";
 
 // db.global()'s runtime + write-gate behaviour. No Postgres needed —
 // the stub runner throws on first touch, so a test that reaches it fails loudly
@@ -290,7 +291,7 @@ describe("TenantDb.unsafeRaw()", () => {
         unsafeRaw: { reason: "granted" },
       },
     });
-    expect(tdb.unsafeRaw()).toBe(rawDb);
+    expect(unscopedRunner(tdb.unsafeRaw())).toBe(rawDb);
   });
 
   test("with a valid grant reports unsafe-raw once with the declared reason", () => {
@@ -330,7 +331,7 @@ describe("withUnsafeRawGrant", () => {
     expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
 
     const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant" });
-    expect(rebound.unsafeRaw()).toBe(rawDb);
+    expect(unscopedRunner(rebound.unsafeRaw())).toBe(rawDb);
   });
 
   test("rebinding to undefined makes unsafeRaw throw, even if the original had a grant", () => {
@@ -343,7 +344,7 @@ describe("withUnsafeRawGrant", () => {
         unsafeRaw: { reason: "handler grant" },
       },
     });
-    expect(tdb.unsafeRaw()).toBe(rawDb);
+    expect(unscopedRunner(tdb.unsafeRaw())).toBe(rawDb);
 
     const rebound = withUnsafeRawGrant(tdb, undefined);
     expect(() => rebound.unsafeRaw()).toThrow(AccessDeniedError);
@@ -367,7 +368,7 @@ describe("UncheckedSystemDb.unsafeRaw", () => {
     const rawDb = unreachableRunner();
     const tdb = createTenantDb({ db: rawDb, tenantId: own });
     const sysDb = createUncheckedSystemDb(tdb);
-    expect(sysDb.unsafeRaw("cleanup job")).toBe(rawDb);
+    expect(unscopedRunner(sysDb.unsafeRaw("cleanup job"))).toBe(rawDb);
   });
 
   test("reports unsafe-raw once with the reason", () => {

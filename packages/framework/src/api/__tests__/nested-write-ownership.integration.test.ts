@@ -194,7 +194,9 @@ const tenantAOtherUser = createTestUser({ id: 9114, tenantId: TENANT_A, roles: [
 const tenantBUser = createTestUser({ id: 9113, tenantId: TENANT_B, roles: ["User"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [nestedOwnershipFeature] });
+  // Off on purpose: the fixture simulates a handler bug that returns a foreign tenant's parent row; with
+  // policies the database hides that row first, so the application-level ownership check would never run.
+  stack = await setupTestStack({ features: [nestedOwnershipFeature], rowLevelSecurity: "off" });
   await unsafeCreateEntityTable(stack.db, project2Entity, "project2");
   await unsafeCreateEntityTable(stack.db, task2Entity, "task2");
   await unsafeCreateEntityTable(stack.db, project3Entity, "project3");

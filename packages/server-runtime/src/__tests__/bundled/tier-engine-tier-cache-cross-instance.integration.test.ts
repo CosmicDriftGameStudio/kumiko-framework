@@ -108,7 +108,7 @@ describe("tier cache across instances", () => {
   };
 
   beforeAll(async () => {
-    sharedDb = await createTestDb();
+    sharedDb = await createTestDb({ applicationRole: true });
     podA = await bootPod(sharedDb.dbName);
     podB = await bootPod(sharedDb.dbName, podA.stack);
   });

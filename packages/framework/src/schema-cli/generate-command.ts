@@ -99,6 +99,7 @@ export async function runGenerateCommand(ctx: SchemaCliContext): Promise<number>
   const prevSnapshot = loadPreviousSnapshot(snapshotPath);
   const result = generateMigration({
     metas: schemaMod.entityMetas,
+    rowLevelSecurity: schemaMod.rowLevelSecurity,
     prevSnapshot,
     name: parsed.name,
     sequenceNumber: nextSequenceNumber(migrationsDir),

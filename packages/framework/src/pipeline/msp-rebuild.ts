@@ -7,15 +7,16 @@ import {
   selectSnapshotXmax,
   updateConsumerRebuildCursor,
 } from "../db/queries/event-consumer.ts";
+import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
   assertLiveColumnsMatchMeta,
   buildShadowTable,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
-  refuseRowLevelSecurityFilteredReads,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
@@ -146,7 +147,9 @@ export function rebuildMultiStreamProjection(
   deps: MspRebuildDeps,
 ): Promise<RebuildResult> {
   return withoutStatementTimeout(deps.db, (db) =>
-    replayMultiStreamProjectionIntoShadow(mspName, { ...deps, db }),
+    runInSystemRowLevelSecurityScope(() =>
+      replayMultiStreamProjectionIntoShadow(mspName, { ...deps, db }),
+    ),
   );
 }
 
@@ -188,7 +191,7 @@ async function replayMultiStreamProjectionIntoShadow(
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     const replayedIds: bigint[] = [];
     await db.begin(async (tx: DbTx) => {
-      await refuseRowLevelSecurityFilteredReads(tx);
+      await assertRebuildableRowLevelSecurity(tx, meta.tableName);
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 

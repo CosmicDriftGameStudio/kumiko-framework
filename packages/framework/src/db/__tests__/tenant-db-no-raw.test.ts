@@ -4,8 +4,10 @@ import { InternalError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import { asRawClient } from "../query.ts";
+import { unscopedRunnerOf } from "../row-level-security-scope.ts";
 import { createTenantDb, createUncheckedSystemDb, withUnsafeRawGrant } from "../tenant-db.ts";
 import { tenantDbRunner } from "../tenant-db-runner.ts";
+import { unscopedRunner } from "./unscoped-runner.ts";
 
 // TenantDb.raw is gone from the type; framework-internal callers resolve
 // the bound DbRunner through tenant-db-runner.ts's WeakMap instead.
@@ -39,10 +41,11 @@ describe("TenantDb has no .raw", () => {
 });
 
 describe("tenantDbRunner", () => {
-  test("returns the runner bound at createTenantDb() (identity)", () => {
+  test("returns the runner bound at createTenantDb(), wrapped in the TenantDb's own scope", () => {
     const runner = fakeRunner();
     const tdb = createTenantDb({ db: runner, tenantId });
-    expect(tenantDbRunner(tdb)).toBe(runner);
+    expect(tenantDbRunner(tdb)).not.toBe(runner);
+    expect(unscopedRunnerOf(tenantDbRunner(tdb))).toBe(runner);
   });
 
   test("withUnsafeRawGrant rebinds also resolve to the original runner", () => {
@@ -50,7 +53,7 @@ describe("tenantDbRunner", () => {
     const tdb = createTenantDb({ db: runner, tenantId });
     const regranted = withUnsafeRawGrant(tdb, { reason: "test grant" });
     expect(regranted).not.toBe(tdb);
-    expect(tenantDbRunner(regranted)).toBe(runner);
+    expect(unscopedRunnerOf(tenantDbRunner(regranted))).toBe(runner);
   });
 
   test("throws InternalError for a hand-built object not built by createTenantDb", () => {
@@ -80,7 +83,7 @@ describe("createUncheckedSystemDb(...).unsafeRaw", () => {
     const runner = fakeRunner();
     const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
-    expect(systemDb.unsafeRaw("test reason")).toBe(runner);
+    expect(unscopedRunner(systemDb.unsafeRaw("test reason"))).toBe(runner);
   });
 });
 

@@ -1,6 +1,8 @@
 // The app's single config file (kumiko.config.ts). Type-only imports keep it
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { ValidateBootOptions } from "../engine/boot-validator.ts";
 import type { BundledListsOptions, FeatureDefinition } from "../engine/types/index.ts";
 
@@ -48,6 +50,8 @@ export type AppConfig = {
   readonly validateBootOptions?: AppValidateBootOptions;
   /** One table block for every list of the bundled features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
   readonly bundledLists?: BundledListsOptions;
+  /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "off". */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
 export const APP_CONFIG_FILE = "kumiko.config.ts";
@@ -108,6 +112,14 @@ export function defineAppConfig(config: AppConfig): AppConfig {
     if (!CLIENT_ENTRY_RE.test(entry)) {
       problems.push(`client.entries: "${entry}" must be a relative .ts/.tsx path inside the app`);
     }
+  }
+  if (
+    config.rowLevelSecurity !== undefined &&
+    !isOneOf(ROW_LEVEL_SECURITY_MODES, config.rowLevelSecurity)
+  ) {
+    problems.push(
+      `rowLevelSecurity must be one of ${ROW_LEVEL_SECURITY_MODES.join(", ")}, got ${String(config.rowLevelSecurity)}`,
+    );
   }
   if (problems.length > 0) {
     throw new Error(`defineAppConfig: ${problems.join("; ")}`);

@@ -1,5 +1,6 @@
 import type { Hono, MiddlewareHandler } from "hono";
 import type { DbConnection } from "../db/connection.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import type { Registry } from "../engine/types/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
 import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.ts";
@@ -307,5 +308,7 @@ function deriveTenantLifecycleResolver(
         "auth.resolveTenantLifecycleStatus explicitly.",
     );
   }
-  return (tenantId) => plugin.resolveStatus(tenantId, { db });
+  // Runs before any tenant context exists and reads the tenant row itself, so it needs system scope.
+  return (tenantId) =>
+    runInSystemRowLevelSecurityScope(() => plugin.resolveStatus(tenantId, { db }));
 }

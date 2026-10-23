@@ -2,6 +2,7 @@
 
 import { UnrecoverableError } from "bullmq";
 import { requestContext } from "../api/request-context.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { qnScope } from "../engine/qualified-name.ts";
 import type { JobDeferral } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
@@ -199,7 +200,10 @@ export async function executeJobInSpan(
         },
         ...(parentContext ? { parent: parentContext } : {}),
       },
-      () => runAndRecordJob(scope, run, { requestId, correlationId }),
+      () =>
+        runInSystemRowLevelSecurityScope(() =>
+          runAndRecordJob(scope, run, { requestId, correlationId }),
+        ),
     ),
   );
 }

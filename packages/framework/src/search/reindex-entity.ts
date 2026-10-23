@@ -9,6 +9,7 @@ import type { DbRunner } from "../db/connection.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { runInNewTransaction, runnerCanBeginTransaction } from "../db/query.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import {
   buildSearchDocument,
@@ -85,118 +86,123 @@ export async function reindexEntity(
   tenantId: TenantId,
   options: ReindexEntityOptions = {},
 ): Promise<ReindexEntityResult> {
-  const entity = registry.getEntity(entityName);
-  if (!entity) {
-    throw new Error(`reindexEntity: unknown entity "${entityName}"`);
-  }
-  const searchableFields = registry.getSearchableFields(entityName);
-  const extensions = registry.getSearchPayloadExtensions(entityName);
-  if (searchableFields.length === 0 && extensions.length === 0) {
-    throw new Error(
-      `reindexEntity: entity "${entityName}" has no searchable fields and no search-payload ` +
-        `extensions — nothing to index.`,
-    );
-  }
+  return runInSystemRowLevelSecurityScope(async () => {
+    const entity = registry.getEntity(entityName);
+    if (!entity) {
+      throw new Error(`reindexEntity: unknown entity "${entityName}"`);
+    }
+    const searchableFields = registry.getSearchableFields(entityName);
+    const extensions = registry.getSearchPayloadExtensions(entityName);
+    if (searchableFields.length === 0 && extensions.length === 0) {
+      throw new Error(
+        `reindexEntity: entity "${entityName}" has no searchable fields and no search-payload ` +
+          `extensions — nothing to index.`,
+      );
+    }
 
-  const batchSize = options.batchSize ?? 500;
-  const tableName = resolveTableName(entityName, entity, undefined);
-  const fieldNames = Object.keys(entity.fields);
-  // Soft-deleted rows already left the live index (the .deleted consumer
-  // calls searchAdapter.remove()) — resurrecting them here would make
-  // erased entities findable again.
-  const deletedFilter =
-    entity.softDelete === true ? `AND ${quoteIdent("is_deleted")} IS NOT TRUE` : "";
+    const batchSize = options.batchSize ?? 500;
+    const tableName = resolveTableName(entityName, entity, undefined);
+    const fieldNames = Object.keys(entity.fields);
+    // Soft-deleted rows already left the live index (the .deleted consumer
+    // calls searchAdapter.remove()) — resurrecting them here would make
+    // erased entities findable again.
+    const deletedFilter =
+      entity.softDelete === true ? `AND ${quoteIdent("is_deleted")} IS NOT TRUE` : "";
 
-  const failures: ReindexEntityFailure[] = [];
-  const result = { scannedRows: 0, indexedRows: 0, wouldIndexRows: 0, failures };
+    const failures: ReindexEntityFailure[] = [];
+    const result = { scannedRows: 0, indexedRows: 0, wouldIndexRows: 0, failures };
 
-  let lastId: unknown;
-  // Whether a searchable field lacks a matching read-table column depends
-  // only on the table's column set (rowToState/Object.hasOwn), not on any
-  // particular row's data — every row from the same SELECT * has the same
-  // columns. Check once against the first row instead of every row, so a
-  // dropped/never-migrated column fails fast with one clear error instead
-  // of one identical failures[] entry per scanned row (1M rows → 1M
-  // entries, and the real schema problem is buried in "x failed").
-  let uncheckedSchema = true;
+    let lastId: unknown;
+    // Whether a searchable field lacks a matching read-table column depends
+    // only on the table's column set (rowToState/Object.hasOwn), not on any
+    // particular row's data — every row from the same SELECT * has the same
+    // columns. Check once against the first row instead of every row, so a
+    // dropped/never-migrated column fails fast with one clear error instead
+    // of one identical failures[] entry per scanned row (1M rows → 1M
+    // entries, and the real schema problem is buried in "x failed").
+    let uncheckedSchema = true;
 
-  for (;;) {
-    // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
-    const afterLastId = lastId === undefined ? "" : `AND ${quoteIdent("id")} > $3`;
-    const rows = await readBatchWithoutStatementTimeout(
-      db,
-      `SELECT * FROM ${quoteIdent(tableName)}
+    for (;;) {
+      // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
+      const afterLastId = lastId === undefined ? "" : `AND ${quoteIdent("id")} > $3`;
+      const rows = await readBatchWithoutStatementTimeout(
+        db,
+        `SELECT * FROM ${quoteIdent(tableName)}
         WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter} ${afterLastId}
         ORDER BY ${quoteIdent("id")} ASC
         LIMIT $2`,
-      lastId === undefined ? [tenantId, batchSize] : [tenantId, batchSize, lastId],
-    );
-    const [firstRow] = rows;
-    if (firstRow === undefined) break;
+        lastId === undefined ? [tenantId, batchSize] : [tenantId, batchSize, lastId],
+      );
+      const [firstRow] = rows;
+      if (firstRow === undefined) break;
 
-    if (uncheckedSchema) {
-      uncheckedSchema = false;
-      const sampleState = rowToState(firstRow, fieldNames);
-      const unmappedField = searchableFields.find((fieldName) => !(fieldName in sampleState));
-      if (unmappedField !== undefined) {
-        throw new Error(
-          `reindexEntity: searchable field "${unmappedField}" is not mappable from read-table ` +
-            `column ${quoteIdent(tableName)} — likely a dropped/never-migrated column.`,
-        );
-      }
-    }
-
-    const docs: Array<{ entityId: string; doc: SearchDocument }> = [];
-    for (const row of rows) {
-      result.scannedRows++;
-      const entityId = String(row["id"]);
-      try {
-        const rawState = rowToState(row, fieldNames);
-        // `pii + searchable` fields hold ciphertext on the read-table row —
-        // decrypt the same way the live write-path consumer does. An
-        // erased subject key doesn't throw, it swaps the value for
-        // PII_ERASED_SENTINEL (see decryptSearchableSubjectFields) — check
-        // for that AFTER decrypting, mirroring the softDelete filter above:
-        // resurrecting a crypto-shredded row here would undo
-        // purgeSearchDocumentsForSubject and make it findable again.
-        const state = await decryptSearchableSubjectFields(entityName, rawState, registry);
-        if (hasErasedSearchableSubjectField(entityName, state, registry)) continue;
-        const doc = await buildSearchDocument(entityName, entityId, state, registry);
-        if (doc) docs.push({ entityId, doc });
-      } catch (e) {
-        result.failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
-      }
-    }
-
-    if (!options.dryRun && docs.length > 0) {
-      if (searchAdapter.indexBatch) {
-        try {
-          await searchAdapter.indexBatch(
-            tenantId,
-            docs.map((d) => d.doc),
+      if (uncheckedSchema) {
+        uncheckedSchema = false;
+        const sampleState = rowToState(firstRow, fieldNames);
+        const unmappedField = searchableFields.find((fieldName) => !(fieldName in sampleState));
+        if (unmappedField !== undefined) {
+          throw new Error(
+            `reindexEntity: searchable field "${unmappedField}" is not mappable from read-table ` +
+              `column ${quoteIdent(tableName)} — likely a dropped/never-migrated column.`,
           );
-          result.indexedRows += docs.length;
-        } catch (e) {
-          const reason = e instanceof Error ? e.message : String(e);
-          for (const { entityId } of docs) result.failures.push({ entityId, reason });
         }
-      } else {
-        for (const { entityId, doc } of docs) {
+      }
+
+      const docs: Array<{ entityId: string; doc: SearchDocument }> = [];
+      for (const row of rows) {
+        result.scannedRows++;
+        const entityId = String(row["id"]);
+        try {
+          const rawState = rowToState(row, fieldNames);
+          // `pii + searchable` fields hold ciphertext on the read-table row —
+          // decrypt the same way the live write-path consumer does. An
+          // erased subject key doesn't throw, it swaps the value for
+          // PII_ERASED_SENTINEL (see decryptSearchableSubjectFields) — check
+          // for that AFTER decrypting, mirroring the softDelete filter above:
+          // resurrecting a crypto-shredded row here would undo
+          // purgeSearchDocumentsForSubject and make it findable again.
+          const state = await decryptSearchableSubjectFields(entityName, rawState, registry);
+          if (hasErasedSearchableSubjectField(entityName, state, registry)) continue;
+          const doc = await buildSearchDocument(entityName, entityId, state, registry);
+          if (doc) docs.push({ entityId, doc });
+        } catch (e) {
+          result.failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
+        }
+      }
+
+      if (!options.dryRun && docs.length > 0) {
+        if (searchAdapter.indexBatch) {
           try {
-            await searchAdapter.index(tenantId, doc);
-            result.indexedRows++;
+            await searchAdapter.indexBatch(
+              tenantId,
+              docs.map((d) => d.doc),
+            );
+            result.indexedRows += docs.length;
           } catch (e) {
-            result.failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
+            const reason = e instanceof Error ? e.message : String(e);
+            for (const { entityId } of docs) result.failures.push({ entityId, reason });
+          }
+        } else {
+          for (const { entityId, doc } of docs) {
+            try {
+              await searchAdapter.index(tenantId, doc);
+              result.indexedRows++;
+            } catch (e) {
+              result.failures.push({
+                entityId,
+                reason: e instanceof Error ? e.message : String(e),
+              });
+            }
           }
         }
+      } else if (options.dryRun) {
+        result.wouldIndexRows += docs.length;
       }
-    } else if (options.dryRun) {
-      result.wouldIndexRows += docs.length;
+
+      lastId = rows[rows.length - 1]?.["id"];
+      if (rows.length < batchSize) break;
     }
 
-    lastId = rows[rows.length - 1]?.["id"];
-    if (rows.length < batchSize) break;
-  }
-
-  return result;
+    return result;
+  });
 }

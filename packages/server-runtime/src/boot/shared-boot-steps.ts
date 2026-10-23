@@ -20,6 +20,7 @@ import {
   type DbConnection,
   dbConnectionOptionsFromEnv,
   outsideTransactionPoolOptionsFromEnv,
+  type RowLevelSecurityMode,
   serverTimeoutOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -272,6 +273,7 @@ export async function waitForKmsHealthy(
 export function openDatabasePools(
   databaseUrl: string,
   envSource: Record<string, string | undefined>,
+  rowLevelSecurity: RowLevelSecurityMode,
 ): {
   readonly db: DbConnection;
   readonly closeDb: () => Promise<void>;
@@ -280,11 +282,13 @@ export function openDatabasePools(
 } {
   const { db, close: closeDb } = createDbConnection({
     url: databaseUrl,
+    rowLevelSecurity,
     ...dbConnectionOptionsFromEnv(envSource),
     ...serverTimeoutOptionsFromEnv(envSource),
   });
   const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection({
     url: databaseUrl,
+    rowLevelSecurity,
     ...outsideTransactionPoolOptionsFromEnv(envSource),
     ...serverTimeoutOptionsFromEnv(envSource),
   });

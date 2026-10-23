@@ -471,14 +471,6 @@ export async function countColumnDrift(
   return { rowCount, sample };
 }
 
-// First statement of a rebuild tx. The guards compare live rows and the swap drops the live
-// table, so a policy-filtered view would let the swap delete hidden rows: with row_security off
-// a query that a policy would filter fails with 42501 instead. Superuser, BYPASSRLS and an owner
-// without FORCE are unaffected.
-export async function refuseRowLevelSecurityFilteredReads(tx: DbTx): Promise<void> {
-  await asRawClient(tx).unsafe("SET LOCAL row_security = off");
-}
-
 // Atomic swap, INSIDE the rebuild tx, AFTER replay. Schema-qualified so the
 // active shadow search_path can't redirect them. DROP without CASCADE: if any
 // object depends on the live table the swap fails loud and the whole rebuild

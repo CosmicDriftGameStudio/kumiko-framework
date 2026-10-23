@@ -41,7 +41,6 @@ import {
   memberResolutionReadOnlyDenied,
 } from "../errors/index.ts";
 import {
-  emitDbQuery,
   fallbackEscapeHatchReporter,
   type Meter,
   registerStandardMetrics,
@@ -57,6 +56,7 @@ import {
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.ts";
 import { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 import { queryDatabaseNow } from "./queries/database-now.ts";
+import { systemScopedRunner, unscopedRunnerOf } from "./row-level-security-scope.ts";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.ts";
 import {
   bindTenantDbRunner,
@@ -66,6 +66,7 @@ import {
   tenantDbWritesDeniedReason,
 } from "./tenant-db-runner.ts";
 import { registerScopedRebinder } from "./tenant-db-scoped-rebind.ts";
+import { createTenantDbStatementRunner } from "./tenant-db-statement-runner.ts";
 import { upsertTableDenied, upsertTenantRow } from "./tenant-db-upsert.ts";
 import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 
@@ -287,9 +288,10 @@ function buildUncheckedSystemDb(
           `${gate.deniedCallerLabel} to allow unsafeRaw.`,
       });
     }
+    // A granted unsafeRaw is a declared, audited bypass of the TenantDb filter, so row-level security does not narrow it either.
     // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
     report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
-    const runner = withoutExecutorManagedWrites(tenantDbRunner(db));
+    const runner = systemScopedRunner(withoutExecutorManagedWrites(tenantDbRunner(db)));
     return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db), false);
   }
 
@@ -595,7 +597,8 @@ export function createTenantDataDestroyDb(
 function buildTenantDb(
   options: Omit<CreateTenantDbOptions, "tenantId"> & { readonly tenantId: TenantId | undefined },
 ): TenantDb {
-  const { db, tenantId, mode = "tenant", tracer, meter, signal, grants } = options;
+  const { db: givenDb, tenantId, mode = "tenant", tracer, meter, signal, grants } = options;
+  const db = mode === "system" ? givenDb : unscopedRunnerOf(givenDb);
   if (tenantId === undefined) {
     throw new InternalError({ message: "createTenantDb: tenantId is required" });
   }
@@ -609,54 +612,7 @@ function buildTenantDb(
       ? { ...grants, projectionRegistry }
       : grants;
 
-  function withDbSpan<T>(
-    operation: "select" | "insert" | "update" | "delete",
-    table: Table | EntityTableMeta,
-    runner: () => Promise<T>,
-  ): Promise<T> {
-    signal?.throwIfAborted();
-    if (!tracer && !meter) return runner();
-    const tableName = tableNameOf(table);
-    const start = performance.now();
-    const emitMetric = () => {
-      if (meter) {
-        emitDbQuery(meter, { operation, table: tableName }, (performance.now() - start) / 1000);
-      }
-    };
-
-    if (!tracer) {
-      return (async () => {
-        try {
-          return await runner();
-        } finally {
-          emitMetric();
-        }
-      })();
-    }
-
-    return tracer.withSpan(
-      "db.query",
-      {
-        kind: "client",
-        attributes: {
-          "db.system": "postgresql",
-          "db.operation": operation,
-          "db.table": tableName,
-        },
-      },
-      async (span) => {
-        try {
-          const result = await runner();
-          if (Array.isArray(result)) {
-            span.setAttribute("db.row_count", result.length);
-          }
-          return result;
-        } finally {
-          emitMetric();
-        }
-      },
-    );
-  }
+  const withDbSpan = createTenantDbStatementRunner({ tracer, meter, signal, mode, tenantId });
 
   // Reads see own-tenant rows + reference data (tenantId === SYSTEM_TENANT_ID).
   // Writes never touch reference rows — those are system-mode only.
@@ -880,7 +836,7 @@ function buildTenantDb(
     // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
     report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
     return boundRunner(
-      withoutExecutorManagedWrites(db),
+      systemScopedRunner(withoutExecutorManagedWrites(db)),
       personalDataGate,
       projectionRegistry,
       false,
@@ -1057,7 +1013,8 @@ function buildTenantDb(
     rebind: (runner) =>
       createTenantDb({ db: runner, tenantId, mode, tracer, meter, signal, grants: scopedGrants }),
   });
-  bindTenantDbRunner(tenantDb, db);
+  // Framework code reading through the raw runner (executor list/detail) must follow the db's own mode, not the ambient scope.
+  bindTenantDbRunner(tenantDb, db, mode, tenantId);
   if (grants?.writesDeniedReason !== undefined) {
     denyTenantDbWrites(tenantDb, grants.writesDeniedReason);
   }

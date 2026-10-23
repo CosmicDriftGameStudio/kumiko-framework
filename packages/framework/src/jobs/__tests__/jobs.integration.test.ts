@@ -5,6 +5,7 @@ import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
 import { requestContext } from "../../api/request-context.ts";
+import { unscopedRunnerOf } from "../../db/row-level-security-scope.ts";
 import { tenantDbRunner } from "../../db/tenant-db-runner.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type {
@@ -1022,7 +1023,9 @@ describe("perTenant across multiple runner instances", () => {
         async (_payload, ctx) => {
           log.push({
             tenantId: String(ctx.systemUser.tenantId),
-            runnerTag: tenantDbRunner(ctx.db) as unknown as string, // @cast-boundary test fixture — runner context db is a tag string
+            runnerTag: (
+              unscopedRunnerOf(tenantDbRunner(ctx.db)) as unknown as { runnerTag: string }
+            ).runnerTag, // @cast-boundary test fixture: stub runner carries a tag
           });
         },
       );
@@ -1038,7 +1041,7 @@ describe("perTenant across multiple runner instances", () => {
     const queueNamePrefix = `kumiko-test-multi-cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const runnerA = createJobRunner({
       registry,
-      context: { db: "runner-a" as unknown as AppContext["db"] },
+      context: { db: { runnerTag: "runner-a" } as unknown as AppContext["db"] },
       redisUrl,
       consumerLane: "worker",
       queueNamePrefix,
@@ -1046,7 +1049,7 @@ describe("perTenant across multiple runner instances", () => {
     });
     const runnerB = createJobRunner({
       registry,
-      context: { db: "runner-b" as unknown as AppContext["db"] },
+      context: { db: { runnerTag: "runner-b" } as unknown as AppContext["db"] },
       redisUrl,
       consumerLane: "worker",
       queueNamePrefix,
@@ -1125,7 +1128,8 @@ describe("perTenant across multiple runner instances", () => {
         await sleep(80);
         log.push({
           tenantId: String(ctx.systemUser.tenantId),
-          runnerTag: tenantDbRunner(ctx.db) as unknown as string, // @cast-boundary test fixture — runner context db is a tag string
+          runnerTag: (unscopedRunnerOf(tenantDbRunner(ctx.db)) as unknown as { runnerTag: string })
+            .runnerTag, // @cast-boundary test fixture: stub runner carries a tag
         });
       });
     });
@@ -1139,7 +1143,7 @@ describe("perTenant across multiple runner instances", () => {
     const queueNamePrefix = `kumiko-test-multi-worker-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const runnerA = createJobRunner({
       registry,
-      context: { db: "runner-a" as unknown as AppContext["db"] },
+      context: { db: { runnerTag: "runner-a" } as unknown as AppContext["db"] },
       redisUrl,
       consumerLane: "worker",
       queueNamePrefix,
@@ -1147,7 +1151,7 @@ describe("perTenant across multiple runner instances", () => {
     });
     const runnerB = createJobRunner({
       registry,
-      context: { db: "runner-b" as unknown as AppContext["db"] },
+      context: { db: { runnerTag: "runner-b" } as unknown as AppContext["db"] },
       redisUrl,
       consumerLane: "worker",
       queueNamePrefix,

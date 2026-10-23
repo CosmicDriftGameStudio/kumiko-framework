@@ -1,4 +1,5 @@
 import type { KumikoServeEnv } from "@cosmicdrift/kumiko-framework/api";
+import { assertNoActiveRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { flushEscapeHatchAudits } from "@cosmicdrift/kumiko-framework/pipeline";
 import { installShutdownSignals } from "./boot-options/process-signals.ts";
@@ -128,6 +129,7 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
             "Under Node/vitest pass `autoListen: false` and call the returned `fetch()` directly.",
         );
       }
+      assertNoActiveRowLevelSecurityScope("prod app server");
       handle.server = Bun.serve(
         buildBunServeOptions(
           listenPort,

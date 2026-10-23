@@ -7,7 +7,7 @@ import {
   NO_ROUTE_MATCH_HEADER_NAME,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, rowLevelSecurityModeOf } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getSetCookieValue, readSseFrames } from "@cosmicdrift/kumiko-testing/helpers";
@@ -53,6 +53,19 @@ describe("createKumikoServer", () => {
       `SELECT to_regclass('public.kumiko_server_probe') IS NOT NULL AS "exists"`,
     );
     expect((rows as Array<Record<string, unknown>>)[0]?.["exists"]).toBe(true);
+  });
+
+  test("without a rowLevelSecurity option the server runs its enforced pool as a non-superuser role", async () => {
+    const h = await boot();
+    expect(rowLevelSecurityModeOf(h.stack.unscopedDb)).toBe("on");
+    const rows = await asRawClient(h.stack.unscopedDb).unsafe(
+      "SELECT current_user AS role, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user",
+    );
+    expect((rows as Array<Record<string, unknown>>)[0]).toEqual({
+      role: "kumiko_app",
+      rolsuper: false,
+      rolbypassrls: false,
+    });
   });
 
   test("GET / → HTML + kumiko_auth/kumiko_csrf Set-Cookie", async () => {

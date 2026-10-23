@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runManagedCheckStep } from "../check-managed";
@@ -69,5 +69,30 @@ describe("runScriptsCheckStep when package.json scripts are unreadable", () => {
     writeFileSync(join(repo, "package.json"), JSON.stringify({ name: "app", scripts: 1 }));
 
     await expect(runScriptsCheckStep(out, repo, [])).rejects.toThrow('"scripts" must map');
+  });
+});
+
+describe("runManagedCheckStep on an adopted app", () => {
+  test("fails when kumiko/schema.ts lost its ROW_LEVEL_SECURITY line", async () => {
+    const repo = appRepo({ name: "shop-app", config: DEFINED_CONFIG });
+    const managed = await import("@cosmicdrift/kumiko-dev-server/managed-files");
+    managed.syncManagedFiles(managed.resolveManagedAppFacts({ appRoot: repo, uiRoots: [] }), {
+      write: true,
+      adopt: false,
+    });
+    const schemaPath = join(repo, "kumiko/schema.ts");
+    const original = readFileSync(schemaPath, "utf-8");
+    expect(original).toContain("ROW_LEVEL_SECURITY");
+    writeFileSync(
+      schemaPath,
+      original
+        .split("\n")
+        .filter((line) => !line.includes("ROW_LEVEL_SECURITY"))
+        .join("\n"),
+    );
+
+    const { out, logs } = capture();
+    expect(await runManagedCheckStep(out, repo, [])).toBe(1);
+    expect(logs.join("\n")).toContain("✗ kumiko/schema.ts: differs from the template");
   });
 });

@@ -11,6 +11,7 @@ import {
   validationErrorFromZod,
 } from "../errors/index.ts";
 import { assertNoSecretLeak } from "../secrets/index.ts";
+import { dispatchRowLevelSecurityScope, streamInDispatchScope } from "./dispatch-scope.ts";
 import {
   buildHandlerContext,
   type DispatchContext,
@@ -41,8 +42,12 @@ export async function* executeStream(
   origin: WriteOrigin,
   options?: StreamOptions,
 ): AsyncGenerator<unknown> {
-  yield* runStreamInstrumented(ctx, type, user, () =>
-    executeStreamInner(ctx, type, payload, user, origin, options),
+  const scope = dispatchRowLevelSecurityScope(ctx.registry, [type], user);
+  yield* streamInDispatchScope(
+    scope,
+    runStreamInstrumented(ctx, type, user, () =>
+      executeStreamInner(ctx, type, payload, user, origin, options),
+    ),
   );
 }
 

@@ -37,7 +37,10 @@ export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
+  /** Sees every tenant's rows (system scope) at rowLevelSecurity "on". */
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
+  /** The enforced pool the services use: a statement without a scope sees no tenant row. Same as `db` at "off". */
+  unscopedDb: import("@cosmicdrift/kumiko-framework/db").DbConnection;
   /** Resolved connection pool size of `db`. */
   readonly dbPoolMax: number;
   redis: TestRedis;
@@ -254,6 +257,8 @@ export type TestStackOptions = {
    *  entities across features included). Use it with the app's complete feature
    *  composition; the default only checks what is safe on a feature subset. */
   validateBoot?: "full";
+  /** Postgres tenant isolation, as in prod. "on" (default) runs the stack as the non-bypass role kumiko_app against policies; "off" uses the superuser without policies. */
+  rowLevelSecurity?: import("@cosmicdrift/kumiko-framework/db").RowLevelSecurityMode;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";

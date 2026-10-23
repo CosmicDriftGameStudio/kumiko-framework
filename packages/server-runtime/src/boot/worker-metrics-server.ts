@@ -6,6 +6,7 @@ import {
   isPrometheusMeter,
   type MetricsRouteOptions,
 } from "@cosmicdrift/kumiko-framework/api";
+import { assertNoActiveRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import type { WorkerEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
 import type { ObservabilityProvider } from "@cosmicdrift/kumiko-framework/observability";
 
@@ -42,6 +43,7 @@ export function startWorkerMetricsServer(
   entrypoint: WorkerEntrypoint,
 ): WorkerMetricsServer {
   const app = createMetricsApp(entrypoint.observability.meter, metrics);
+  assertNoActiveRowLevelSecurityScope("worker metrics server");
   const server = Bun.serve({ port: metrics.port, fetch: app.fetch });
   entrypoint.lifecycle.registerShutdownHook("metrics-server", async () => {
     await server.stop();

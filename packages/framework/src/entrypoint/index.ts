@@ -49,6 +49,7 @@ import { buildServer } from "../api/server.ts";
 import { withFileProviderResolver } from "../api/server-wiring.ts";
 import type { SseBroker } from "../api/sse-broker.ts";
 import type { PgClient, PgListenClient } from "../db/connection.ts";
+import type { RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
 import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types/index.ts";
 import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.ts";
@@ -62,6 +63,7 @@ import { dispatcherToWriteRef } from "../pipeline/dispatcher.ts";
 import type { EventDedup, EventDispatcher } from "../pipeline/index.ts";
 import type { LifecycleHooks, SystemHooks } from "../pipeline/lifecycle-pipeline.ts";
 import { resolveCacheSyncBus } from "../redis/cache-sync-bus.ts";
+import { assertEntrypointRowLevelSecurityMode } from "./row-level-security-mode-check.ts";
 
 // Shared fields across all three modes. A caller that swaps between
 // modes can reuse the same options object.
@@ -79,6 +81,8 @@ export type BaseEntrypointOptions = {
   // alongside the framework's.
   readonly lifecycle?: Lifecycle;
   readonly instanceId?: ServerOptions["instanceId"];
+  /** Must equal the mode of `context.db`; default "off". */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
 // Shape the JobRunner block takes in every entrypoint mode. Extracted so
@@ -374,6 +378,7 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 // --- API entrypoint -------------------------------------------------------
 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
+  assertEntrypointRowLevelSecurityMode(options.context, options.rowLevelSecurity);
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
   const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);
@@ -467,6 +472,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 // --- Worker entrypoint ----------------------------------------------------
 
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
+  assertEntrypointRowLevelSecurityMode(options.context, options.rowLevelSecurity);
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
   const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);
@@ -503,6 +509,7 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 // --- All-in-one entrypoint ------------------------------------------------
 
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
+  assertEntrypointRowLevelSecurityMode(options.context, options.rowLevelSecurity);
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
   const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);

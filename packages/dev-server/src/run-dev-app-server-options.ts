@@ -10,6 +10,7 @@ function pickDevClientOptions(options: RunDevAppOptions) {
   return {
     ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
     ...(options.errorDocs && { errorDocs: options.errorDocs }),
+    ...(options.rowLevelSecurity !== undefined && { rowLevelSecurity: options.rowLevelSecurity }),
     ...(options.clientEntries !== undefined && { clientEntries: options.clientEntries }),
     ...(options.hostDispatch !== undefined && { hostDispatch: options.hostDispatch }),
     ...(options.resolvePageHead !== undefined && { resolvePageHead: options.resolvePageHead }),

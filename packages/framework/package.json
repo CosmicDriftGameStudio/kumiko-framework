@@ -172,6 +172,10 @@
       "types": "./src/api/request-context.ts",
       "default": "./src/api/request-context.ts"
     },
+    "./internal/row-level-security": {
+      "types": "./src/internal/row-level-security.ts",
+      "default": "./src/internal/row-level-security.ts"
+    },
     "./internal/stack-support": {
       "types": "./src/internal/stack-support.ts",
       "default": "./src/internal/stack-support.ts"
@@ -368,6 +372,10 @@
       "./internal/request-context": {
         "types": "./dist/api/request-context.d.ts",
         "default": "./dist/api/request-context.js"
+      },
+      "./internal/row-level-security": {
+        "types": "./dist/internal/row-level-security.d.ts",
+        "default": "./dist/internal/row-level-security.js"
       },
       "./internal/stack-support": {
         "types": "./dist/internal/stack-support.d.ts",

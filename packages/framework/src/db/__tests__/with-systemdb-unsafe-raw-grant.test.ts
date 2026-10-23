@@ -9,6 +9,7 @@ import {
   unsafeRawForDeclaredStep,
   withSystemDbUnsafeRawGrant,
 } from "../tenant-db.ts";
+import { unscopedRunner } from "./unscoped-runner.ts";
 
 const tenantId = testTenantId(1);
 
@@ -42,7 +43,7 @@ describe("withSystemDbUnsafeRawGrant", () => {
     const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     const gated = withSystemDbUnsafeRawGrant(systemDb, { reason: "hook reason" }, "hook");
-    expect(gated.unsafeRaw("hook reason")).toBe(runner);
+    expect(unscopedRunner(gated.unsafeRaw("hook reason"))).toBe(runner);
   });
 
   test("repeated rebinding is not stacked — a second rebind reflects only its own grant", () => {
@@ -54,7 +55,7 @@ describe("withSystemDbUnsafeRawGrant", () => {
     expect(() => deniedSecond.unsafeRaw("first")).toThrow(AccessDeniedError);
     // Re-granting from the ORIGINAL systemDb (not stacked through grantedFirst) still works.
     const grantedThird = withSystemDbUnsafeRawGrant(systemDb, { reason: "third" }, "hook-3");
-    expect(grantedThird.unsafeRaw("third")).toBe(runner);
+    expect(unscopedRunner(grantedThird.unsafeRaw("third"))).toBe(runner);
   });
 
   test("the gated runner is registered for unsafeRawForDeclaredStep", () => {
@@ -62,6 +63,6 @@ describe("withSystemDbUnsafeRawGrant", () => {
     const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
     const gated = withSystemDbUnsafeRawGrant(systemDb, { reason: "hook reason" }, "hook");
-    expect(unsafeRawForDeclaredStep(gated, "hook reason")).toBe(runner);
+    expect(unscopedRunner(unsafeRawForDeclaredStep(gated, "hook reason"))).toBe(runner);
   });
 });

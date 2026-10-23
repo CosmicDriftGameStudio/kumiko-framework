@@ -5,6 +5,10 @@ import {
   selectSnapshotXmax,
   selectSnapshotXmin,
 } from "../db/queries/event-consumer.ts";
+import {
+  assertNoActiveRowLevelSecurityScope,
+  runInSystemRowLevelSecurityScope,
+} from "../db/row-level-security-scope.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { AppContext } from "../engine/types/index.ts";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.ts";
@@ -479,7 +483,8 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         "EventDispatcher.runOnce() called before start() — consumer state rows are not registered. Call start() first (production) or ensureRegistered() (tests after truncating kumiko_event_consumers).",
       );
     }
-    const pass = doPass();
+    // Per pass, never around start(): the poll loop itself must stay outside any scope.
+    const pass = runInSystemRowLevelSecurityScope(doPass);
     inFlightPasses.add(pass);
     try {
       return await pass;
@@ -765,6 +770,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   return {
     consumers,
     async start() {
+      assertNoActiveRowLevelSecurityScope("EventDispatcher");
       // skip: already running, idempotent
       if (running) return;
       running = true;

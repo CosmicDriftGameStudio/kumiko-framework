@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { unscopedRunner } from "../../db/__tests__/unscoped-runner.ts";
 import type { DbRunner } from "../../db/connection.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine/index.ts";
@@ -524,7 +525,7 @@ describe("withHookEscapeHatchGrant", () => {
     const hookCtxWithEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "hook's own grant",
     }) as { db: TenantDb };
-    expect(hookCtxWithEscapeHatch.db.unsafeRaw()).toBe(rawDb);
+    expect(unscopedRunner(hookCtxWithEscapeHatch.db.unsafeRaw())).toBe(rawDb);
   });
 
   test("handler-granted queryProjection reader: hook without escapeHatch loses the grant for unsafeAllTenants", async () => {

@@ -38,7 +38,7 @@ export async function connectProdDependencies(
   registerAbortCleanup: RegisterBootAbortCleanup,
   databaseWait?: DatabaseWaitClock,
 ): Promise<ProdConnections> {
-  const { bootKms, databaseUrl, redisUrl, envSource } = config;
+  const { bootKms, databaseUrl, redisUrl, envSource, rowLevelSecurity } = config;
   // KMS health gate: an app configured for crypto-shredding must not boot
   // against an unreachable key store — a silent start would answer every
   // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
@@ -47,7 +47,7 @@ export async function connectProdDependencies(
     await waitForKmsHealthy(bootKms.kms, "runProdApp", databaseWaitDeadline, databaseWait);
   }
 
-  const pools = openDatabasePools(databaseUrl, envSource);
+  const pools = openDatabasePools(databaseUrl, envSource, rowLevelSecurity);
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
   registerAbortCleanup(pools.closeDb);
   registerAbortCleanup(pools.closeOutsideTransactionDb);

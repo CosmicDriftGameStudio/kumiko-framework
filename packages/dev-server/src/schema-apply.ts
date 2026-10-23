@@ -8,7 +8,11 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { createDbConnection, runMigrationsFromDir } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createDbConnection,
+  type RowLevelSecurityMode,
+  runMigrationsFromDir,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -31,6 +35,8 @@ export type SchemaApplyOptions = ComposeFeaturesOptions & {
   readonly features: readonly FeatureDefinition[];
   /** Default INIT_CWD ?? process.cwd(); migrations live under <appCwd>/kumiko/migrations. */
   readonly appCwd?: string;
+  /** Pass appConfig.rowLevelSecurity: on a role the policies bind, migrations and rebuilds only see rows through an "on" connection. Default "off". */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
 export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> {
@@ -49,7 +55,10 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
     return 1;
   }
 
-  const { db, close } = createDbConnection({ url: dbUrl });
+  const { db, close } = createDbConnection({
+    url: dbUrl,
+    rowLevelSecurity: opts.rowLevelSecurity ?? "off",
+  });
   try {
     // Create infrastructure tables (event store + pipeline state) first; all are
     // tableExists-gated and idempotent: on an existing DB this is a no-op, while

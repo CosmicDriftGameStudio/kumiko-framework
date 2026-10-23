@@ -7,6 +7,7 @@ import { filterReadFields } from "../engine/field-access.ts";
 import type { QueryHandlerDef, SessionUser } from "../engine/types/index.ts";
 import { NotFoundError, validationErrorFromZod } from "../errors/index.ts";
 import { assertNoSecretLeak } from "../secrets/index.ts";
+import { runInDispatchScope } from "./dispatch-scope.ts";
 import {
   buildHandlerContext,
   type DispatchContext,
@@ -32,8 +33,10 @@ export async function executeQuery(
   tx?: DbTx,
   outerNotifySink?: AfterCommitHook[],
 ): Promise<unknown> {
-  return runHandlerInstrumented(ctx, type, "query", user, () =>
-    executeQueryInner(ctx, type, payload, user, origin, tx, outerNotifySink),
+  return runInDispatchScope(ctx.registry, [type], user, () =>
+    runHandlerInstrumented(ctx, type, "query", user, () =>
+      executeQueryInner(ctx, type, payload, user, origin, tx, outerNotifySink),
+    ),
   );
 }
 

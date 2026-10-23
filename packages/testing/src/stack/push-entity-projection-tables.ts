@@ -11,7 +11,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 
-type DbHolder = { readonly db: DbConnection };
+// DDL must not run through the system-scoped `db` of a stack: each scoped statement is its own transaction, which CREATE INDEX CONCURRENTLY rejects.
+type DbHolder = { readonly db: DbConnection; readonly unscopedDb?: DbConnection };
+
+function ddlDbOf(stack: DbHolder): DbConnection {
+  return stack.unscopedDb ?? stack.db;
+}
 
 // biome-ignore lint/suspicious/noConsole: stack-internal status logging
 const logInfo = (msg: string): void => console.log(msg);
@@ -45,7 +50,7 @@ export async function pushEntityProjectionTables(
     if (seen.has(proj.table)) continue;
     seen.add(proj.table);
     const physical = schemaTableName(proj.table) ?? tableToMeta(proj.table).tableName;
-    if (!(await tableExists(stack.db, `public.${physical}`))) {
+    if (!(await tableExists(ddlDbOf(stack), `public.${physical}`))) {
       missing[projName] = proj.table;
       continue;
     }
@@ -53,7 +58,7 @@ export async function pushEntityProjectionTables(
   }
 
   if (Object.keys(missing).length > 0) {
-    await unsafePushTables(stack.db, missing);
+    await unsafePushTables(ddlDbOf(stack), missing);
   }
 }
 
@@ -70,11 +75,11 @@ async function syncExistingProjectionTable(
   table: unknown,
 ): Promise<void> {
   const meta = tableToMeta(table);
-  const liveColumns = await columnNamesOf(stack.db, physical);
+  const liveColumns = await columnNamesOf(ddlDbOf(stack), physical);
   const missingColumns = meta.columns.filter((c) => !liveColumns.has(c.name));
   if (missingColumns.length === 0) {
     logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
-    await addMissingIndexes(stack.db, physical, meta.indexes);
+    await addMissingIndexes(ddlDbOf(stack), physical, meta.indexes);
     // skip: table is already in sync, only indexes needed backfilling
     return;
   }
@@ -97,6 +102,6 @@ async function syncExistingProjectionTable(
     `[kumiko-stack] table ${physical} is missing column(s) ` +
       `${missingColumns.map((c) => `"${c.name}"`).join(", ")} — adding`,
   );
-  await addMissingColumns(stack.db, physical, missingColumns);
-  await addMissingIndexes(stack.db, physical, meta.indexes);
+  await addMissingColumns(ddlDbOf(stack), physical, missingColumns);
+  await addMissingIndexes(ddlDbOf(stack), physical, meta.indexes);
 }

@@ -1,7 +1,8 @@
 import { existsSync, readdirSync } from "node:fs";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { assertUniqueTableNames, loadSnapshotJson, type renderTablesDdl } from "../db/index.ts";
+import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import { isEntityTableMeta } from "../db/table-introspection.ts";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
 
@@ -39,7 +40,20 @@ export type SchemaMod = {
   readonly entityMetas: Parameters<typeof renderTablesDdl>[0];
   readonly features?: unknown;
   readonly validateBootOptions?: unknown;
+  readonly rowLevelSecurity: RowLevelSecurityMode;
 };
+
+// An absent export means "off"; a typo must not silently switch tenant isolation off.
+export function parseSchemaRowLevelSecurity(
+  value: unknown,
+  schemaFile: string,
+): RowLevelSecurityMode {
+  if (value === undefined) return "off";
+  if (isOneOf(ROW_LEVEL_SECURITY_MODES, value)) return value;
+  throw new Error(
+    `Schema file ${schemaFile}: ROW_LEVEL_SECURITY must be one of ${ROW_LEVEL_SECURITY_MODES.join(", ")}, got ${String(value)}.`,
+  );
+}
 
 export function describeThrown(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -78,6 +92,7 @@ async function loadSchemaModFromApp(schemaFile: string): Promise<SchemaMod> {
     entityMetas: validMetas,
     features: mod["FEATURES"],
     validateBootOptions: mod["VALIDATE_BOOT_OPTIONS"],
+    rowLevelSecurity: parseSchemaRowLevelSecurity(mod["ROW_LEVEL_SECURITY"], schemaFile),
   };
 }
 
@@ -113,6 +128,16 @@ export async function loadSchemaModOrReport(ctx: SchemaCliContext): Promise<Sche
     out.err(`  ${describeThrown(e)}`);
     return undefined;
   }
+}
+
+// `apply` needs only the mode: migrations and rebuilds on a role that RLS binds see nothing unless
+// the connection runs in system scope, which only an "on" connection sets. Without a schema file
+// (dev CLI against a bare checkout) there is nothing to enforce.
+export async function loadRowLevelSecurityModeOrReport(
+  ctx: SchemaCliContext,
+): Promise<RowLevelSecurityMode | undefined> {
+  if (!existsSync(ctx.schemaFile)) return "off";
+  return (await loadSchemaModOrReport(ctx))?.rowLevelSecurity;
 }
 
 export function readDatabaseUrlOrReport(out: SchemaCliOut): string | undefined {

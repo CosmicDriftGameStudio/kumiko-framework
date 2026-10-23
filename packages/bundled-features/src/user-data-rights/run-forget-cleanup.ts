@@ -56,6 +56,7 @@ import {
   type UserDataDeleteStrategy,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createEscapeHatchReporter,
   UNATTRIBUTED_ACTOR,
@@ -250,9 +251,13 @@ export function sanitizeReasonForLog(reason: string): string {
   return reason.replace(/[\r\n]+/g, " ").slice(0, 500);
 }
 
-export async function runForgetCleanup(
-  args: RunForgetCleanupArgs,
-): Promise<RunForgetCleanupResult> {
+// Cross-tenant by design: the due-user and membership reads on the given runner and raw hook
+// statements must see every tenant, whatever RLS scope the caller (job, operator handler) runs in.
+export function runForgetCleanup(args: RunForgetCleanupArgs): Promise<RunForgetCleanupResult> {
+  return runInSystemRowLevelSecurityScope(() => forgetDueUsers(args));
+}
+
+async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetCleanupResult> {
   const { db, registry, now, sendDeletionExecutedEmail, buildStorageProvider } = args;
   const kms = args.kms ?? configuredPiiSubjectKms();
   const appTenantModel: TenantUserModel = args.tenantModel ?? "multi-user";

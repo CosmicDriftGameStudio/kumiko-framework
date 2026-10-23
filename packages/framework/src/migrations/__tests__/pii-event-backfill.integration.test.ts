@@ -4,6 +4,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { resetBlindIndexKeyForTests } from "../../crypto/blind-index.ts";
 import {
@@ -16,6 +17,7 @@ import {
   type SubjectId,
 } from "../../crypto/index.ts";
 import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.ts";
+import { createDbConnection } from "../../db/connection.ts";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
 import { asRawClient } from "../../db/query.ts";
 import {
@@ -530,11 +532,21 @@ describe("runPiiEventBackfill", () => {
     const contacts = [];
     for (let i = 1; i <= 3; i++) contacts.push(await createContact(i));
     armKms();
-    const raw = asRawClient(stack.db);
+    // Event triggers need a superuser; the stack's pool runs as the enforcing application role.
+    const dbNameRows = await asRawClient(stack.db).unsafe<{ db_name: string }>(
+      "SELECT current_database() AS db_name",
+    );
+    const dbName = String(dbNameRows[0]?.db_name);
+    const superuser = createDbConnection({
+      url: testDatabaseUrl().replace(/\/[^/]+$/, `/${dbName}`),
+      maxConnections: 1,
+    });
+    const raw = asRawClient(superuser.db);
     // A loaded CI database runs DDL slower than a laptop; this event trigger stretches
-    // every ALTER TABLE so the window between a peer's CREATE and its ALTER is reliably hit.
+    // the ALTER TABLE ... ADD COLUMN of the state table, so the window between a peer's CREATE and
+    // its ALTER is reliably hit. The shadow swap's own ALTERs (SET SCHEMA, RLS flags) are not part of the race.
     await raw.unsafe(`CREATE OR REPLACE FUNCTION "test_slow_alter_table"() RETURNS event_trigger
-      LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.3); END $$`);
+      LANGUAGE plpgsql AS $$ BEGIN IF current_query() ILIKE '%ADD COLUMN%' THEN PERFORM pg_sleep(0.3); END IF; END $$`);
     await raw.unsafe(`CREATE EVENT TRIGGER "test_slow_alter_table" ON ddl_command_start
       WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION "test_slow_alter_table"()`);
     const crashes: string[] = [];
@@ -551,6 +563,7 @@ describe("runPiiEventBackfill", () => {
     } finally {
       await raw.unsafe(`DROP EVENT TRIGGER IF EXISTS "test_slow_alter_table"`);
       await raw.unsafe(`DROP FUNCTION IF EXISTS "test_slow_alter_table"()`);
+      await superuser.close();
     }
     expect(crashes).toEqual([]);
     for (const event of await readEvents()) {

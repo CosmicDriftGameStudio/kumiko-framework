@@ -13,6 +13,7 @@ import {
   runnerCanBeginTransaction,
   unsafeReadRetrying,
 } from "../query.ts";
+import { innerOfScopedRunner, outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
@@ -78,8 +79,11 @@ async function indexValidity(
   return rows[0]?.indisvalid;
 }
 
+// Index DDL carries no tenant data and CONCURRENTLY cannot run in a transaction, so both the pinned runner and the ambient scope are left.
 export function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
-  return withoutStatementTimeout(db, buildIdempotencyKeyIndex);
+  return outsideRowLevelSecurityScope(() =>
+    withoutStatementTimeout(innerOfScopedRunner(db) ?? db, buildIdempotencyKeyIndex),
+  );
 }
 
 async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
@@ -130,7 +134,9 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
 // tenant), which no other index covers: without this it scans every event.
 // Same CONCURRENTLY + INVALID-rebuild handling as the idempotency index.
 export function ensureMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
-  return withoutStatementTimeout(db, buildMembershipPayloadTenantIndex);
+  return outsideRowLevelSecurityScope(() =>
+    withoutStatementTimeout(innerOfScopedRunner(db) ?? db, buildMembershipPayloadTenantIndex),
+  );
 }
 
 async function buildMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {

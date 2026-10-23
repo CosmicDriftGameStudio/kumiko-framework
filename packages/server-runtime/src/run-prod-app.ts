@@ -58,6 +58,10 @@ import type {
   SseBroker,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  assertRowLevelSecurityBootState,
+  type RowLevelSecurityMode,
+} from "@cosmicdrift/kumiko-framework/db";
 import type {
   BundledListsOptions,
   FeatureDefinition,
@@ -405,6 +409,8 @@ export type RunProdAppOptions = {
   readonly validateBootOptions?: ValidateBootOptions;
   /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
   readonly bundledLists?: BundledListsOptions;
+  /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "off". */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
   /** Ceiling Bun.serve buffers a request body to before any app-level
@@ -773,6 +779,7 @@ async function bootProdApp(
     cacheSync: connections.cacheSync,
   });
   await assertProdSchemaCurrent(connections.db, options.migrations, log);
+  await assertRowLevelSecurityBootState(connections.db, config.rowLevelSecurity);
 
   const requestContext = await buildProdRequestContext(options, config, composed, connections);
   const authWiring = await wireProdAuth(config, composed, connections);

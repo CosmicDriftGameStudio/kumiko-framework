@@ -523,13 +523,15 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
     await runFullDispatcher();
 
     const raw = asRawClient(stack.db);
-    await raw.unsafe(`ALTER TABLE "read_mspreb_balance" ENABLE ROW LEVEL SECURITY`);
-    await raw.unsafe(`ALTER TABLE "read_mspreb_balance" FORCE ROW LEVEL SECURITY`);
     await raw.unsafe(`CREATE POLICY mspreb_probe ON "read_mspreb_balance" USING (true)`);
     try {
       const before = await readRowLevelSecurityState(stack.db, "public", "read_mspreb_balance");
       expect(before).toMatchObject({ enabled: true, forced: true });
-      expect(before?.policies.map((p) => p.name)).toEqual(["mspreb_probe"]);
+      expect(before?.policies.map((p) => p.name)).toEqual([
+        "kumiko_system_tenant_read",
+        "kumiko_tenant_isolation",
+        "mspreb_probe",
+      ]);
 
       await rebuildMultiStreamProjection(BALANCE_MSP, { db: stack.db, registry: stack.registry });
 
@@ -540,8 +542,6 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
       expect(row).toMatchObject({ invoicesCents: 20_00 });
     } finally {
       await raw.unsafe(`DROP POLICY IF EXISTS mspreb_probe ON "read_mspreb_balance"`);
-      await raw.unsafe(`ALTER TABLE "read_mspreb_balance" NO FORCE ROW LEVEL SECURITY`);
-      await raw.unsafe(`ALTER TABLE "read_mspreb_balance" DISABLE ROW LEVEL SECURITY`);
     }
   });
 });
