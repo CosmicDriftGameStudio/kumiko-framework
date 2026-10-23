@@ -15,7 +15,7 @@
  * Exit 1 on violations, 0 when clean.
  */
 
-import { type SourceFile, SyntaxKind } from "ts-morph";
+import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
 import {
   ALL_REPO_KINDS,
@@ -73,6 +73,18 @@ function isInternalSpecifier(specifier: string): boolean {
   return specifier.startsWith(INTERNAL_PREFIX);
 }
 
+// Literal text of a string argument; for a template with substitutions only its static head.
+function staticSpecifierHead(arg: Node): string | undefined {
+  const kind = arg.getKind();
+  if (kind === SyntaxKind.StringLiteral || kind === SyntaxKind.NoSubstitutionTemplateLiteral) {
+    return arg.getText().slice(1, -1);
+  }
+  if (kind === SyntaxKind.TemplateExpression) {
+    return arg.asKindOrThrow(SyntaxKind.TemplateExpression).getHead().getLiteralText();
+  }
+  return undefined;
+}
+
 function findInternalImports(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
   const report = (line: number, specifier: string): void => {
@@ -88,15 +100,16 @@ function findInternalImports(sf: SourceFile): Finding[] {
     }
   }
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) continue;
+    const callee = call.getExpression();
+    const isDynamicImport = callee.getKind() === SyntaxKind.ImportKeyword;
+    const isRequire = callee.getKind() === SyntaxKind.Identifier && callee.getText() === "require";
+    if (!isDynamicImport && !isRequire) continue;
     const arg = call.getArguments()[0];
     if (arg === undefined) continue;
-    const kind = arg.getKind();
-    if (kind !== SyntaxKind.StringLiteral && kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
-      continue;
+    const specifier = staticSpecifierHead(arg);
+    if (specifier !== undefined && isInternalSpecifier(specifier)) {
+      report(call.getStartLineNumber(), specifier);
     }
-    const specifier = arg.getText().slice(1, -1);
-    if (isInternalSpecifier(specifier)) report(call.getStartLineNumber(), specifier);
   }
   return findings;
 }
@@ -117,6 +130,23 @@ function findTestOnlyScopeImports(sf: SourceFile): Finding[] {
       if (!TEST_ONLY_SCOPE_SYMBOLS.has(name)) continue;
       findings.push({
         line: decl.getStartLineNumber(),
+        message: `[test-only-scope] ${name} from ${TESTING_HELPERS} is allowed in test files only`,
+      });
+    }
+  }
+  const namespaces = new Set<string>();
+  for (const decl of sf.getImportDeclarations()) {
+    if (decl.getModuleSpecifierValue() !== TESTING_HELPERS) continue;
+    const ns = decl.getNamespaceImport();
+    if (ns !== undefined) namespaces.add(ns.getText());
+  }
+  if (namespaces.size > 0) {
+    for (const access of sf.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
+      const name = access.getName();
+      if (!TEST_ONLY_SCOPE_SYMBOLS.has(name)) continue;
+      if (!namespaces.has(access.getExpression().getText())) continue;
+      findings.push({
+        line: access.getStartLineNumber(),
         message: `[test-only-scope] ${name} from ${TESTING_HELPERS} is allowed in test files only`,
       });
     }
@@ -147,13 +177,22 @@ function isNonEmptyStringLiteral(node: { getKind(): SyntaxKind; getText(): strin
   return node.getText().slice(1, -1).trim() !== "";
 }
 
+// `fn(...)` through a local binding (aliases included) or `<namespace>.fn(...)` by property name.
+function reasonSymbolOf(callee: Node, locals: ReadonlyMap<string, string>): string | undefined {
+  if (callee.getKind() === SyntaxKind.Identifier) return locals.get(callee.getText());
+  if (callee.getKind() === SyntaxKind.PropertyAccessExpression) {
+    const name = callee.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName();
+    return Object.hasOwn(REASON_ARG_INDEX, name) ? name : undefined;
+  }
+  return undefined;
+}
+
 function findReasonViolations(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
   const locals = localNamesOf(sf, new Set(Object.keys(REASON_ARG_INDEX)));
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
-    if (callee.getKind() !== SyntaxKind.Identifier) continue;
-    const symbol = locals.get(callee.getText());
+    const symbol = reasonSymbolOf(callee, locals);
     if (symbol === undefined) continue;
     const reasonArg = call.getArguments()[REASON_ARG_INDEX[symbol] ?? 0];
     if (reasonArg !== undefined && isNonEmptyStringLiteral(reasonArg)) continue;

@@ -48,7 +48,7 @@ detail: Flags kumiko-framework/internal/* imports outside the framework repo, ro
 feature: jobs
 type: fix
 title: Tenant job run rows are written in the tenant's scope
-detail: With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes, and a row-level-security violation is rethrown instead of swallowed.
+detail: With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes to the job's tenant and logs a rejected write as a missing row-level-security scope instead of a generic write failure.
 -->
 
 <!-- kumiko-changes

@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -32,6 +33,7 @@ const appFeature = defineFeature("rlsapp", (r) => {
 let testDb: TestDb;
 let testRedis: TestRedis;
 let enqueuer: JobRunner;
+let worker: JobRunner;
 
 beforeAll(async () => {
   testDb = await createTestDb({ applicationRole: true });
@@ -44,17 +46,26 @@ beforeAll(async () => {
     tenantJobRunsTable,
   });
   const { host, port, db } = testRedis.redis.options;
-  enqueuer = createJobRunner({
+  const runnerOptions = {
     registry,
     context: { db: testDb.db },
     redisUrl: `redis://${host}:${port}/${db}`,
     queueNamePrefix: `kumiko-tenant-job-runs-rls-${Date.now()}`,
+  };
+  enqueuer = createJobRunner({
+    ...runnerOptions,
+    ...createJobRunLogger({ db: testDb.db, registry }),
+  });
+  worker = createJobRunner({
+    ...runnerOptions,
+    consumerLane: "worker",
     ...createJobRunLogger({ db: testDb.db, registry }),
   });
   await enqueuer.start();
 });
 
 afterAll(async () => {
+  await worker.stop();
   await enqueuer.stop();
   await testDb.cleanup();
   await testRedis.cleanup();
@@ -71,7 +82,7 @@ describe("tenant job run rows under row level security", () => {
     expect(rows.map((row) => row.status)).toEqual(["queued"]);
   });
 
-  test("an unscoped tenant write through the isolation helper throws instead of vanishing", async () => {
+  test("an unscoped tenant write through the isolation helper is swallowed and the queued row stays", async () => {
     await expect(
       isolateTenantRunWrite(
         async () => {
@@ -85,6 +96,25 @@ describe("tenant job run rows under row level security", () => {
         "rlsapp:job:visible",
         "unscoped",
       ),
-    ).rejects.toThrow(/row-level security/);
+    ).resolves.toBeUndefined();
+    const rows = await runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantA), () =>
+      selectMany<{ bullJobId: string }>(testDb.db, tenantJobRunsTable, {
+        jobName: "rlsapp:job:visible",
+      }),
+    );
+    expect(rows.map((row) => row.bullJobId)).not.toContain("unscoped");
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  test("the worker finishes the run and the completed row lands in the tenant", async () => {
+    await worker.start();
+    await waitFor(async () => {
+      const rows = await runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantA), () =>
+        selectMany<{ status: string }>(testDb.db, tenantJobRunsTable, {
+          jobName: "rlsapp:job:visible",
+        }),
+      );
+      expect(rows.map((row) => row.status)).toEqual(["completed"]);
+    });
   });
 });

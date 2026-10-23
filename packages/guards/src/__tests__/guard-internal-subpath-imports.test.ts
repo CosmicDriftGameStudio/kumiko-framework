@@ -117,3 +117,48 @@ describe("Internal-Subpath-Imports Guard: rule 3 (system scope reason)", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("Internal-Subpath-Imports Guard: bypass forms", () => {
+  test("flags require() and a template import() whose static head is the internal prefix", () => {
+    const violations = run({
+      "/fx/app/src/a.ts": `const m = require("${INTERNAL}");\nvoid m;`,
+      "/fx/app/src/b.ts": `export const z = (n: string) => import(\`${INTERNAL}\${n}\`);`,
+    });
+    expect(violations.map((v) => v.file).sort()).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(violations.every((v) => v.message.includes("[internal-import]"))).toBe(true);
+  });
+
+  test("flags a property-access call without a literal reason", () => {
+    const violations = run({
+      "/fx/fw/packages/x/src/a.ts": `import * as k from "${INTERNAL}";\nk.runInSystemRowLevelSecurityScope(() => 1);\nconst why = "r";\nk.systemScopedRunner({}, why);`,
+    });
+    expect(violations.map((v) => v.message.slice(0, 20))).toEqual([
+      "[system-scope-reason",
+      "[system-scope-reason",
+    ]);
+  });
+
+  test("allows a property-access call with a literal reason", () => {
+    const violations = run({
+      "/fx/fw/packages/x/src/a.ts": `import * as k from "${INTERNAL}";\nk.runInSystemRowLevelSecurityScope("seed all tenants", () => 1);`,
+    });
+    expect(violations).toHaveLength(0);
+  });
+
+  test("flags a namespace import of testing helpers used for a scope helper in production code", () => {
+    const violations = run({
+      "/fx/app/src/a.ts": `import * as h from "${HELPERS}";\nh.runInRowLevelSecurityScope(h.tenantRowLevelSecurityScope("t"), () => 1);`,
+    });
+    expect(violations.map((v) => v.message.slice(0, 17))).toEqual([
+      "[test-only-scope]",
+      "[test-only-scope]",
+    ]);
+  });
+
+  test("allows that namespace usage in a test file", () => {
+    const violations = run({
+      "/fx/app/src/__tests__/a.test.ts": `import * as h from "${HELPERS}";\nh.tenantRowLevelSecurityScope("t");`,
+    });
+    expect(violations).toHaveLength(0);
+  });
+});

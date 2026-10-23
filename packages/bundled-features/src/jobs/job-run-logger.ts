@@ -433,7 +433,7 @@ const log = createFallbackLogger("job-run-logger");
 
 // The tenant run state is an optional side write: a throw here must not
 // fail the enqueue, skip the run-row write or turn a completed run into a
-// BullMQ retry. A row-level-security violation is no outage but a missing scope, so it stays loud.
+// BullMQ retry. A row-level-security rejection is logged louder (a missing or wrong tenant scope), never rethrown.
 export async function isolateTenantRunWrite(
   write: () => Promise<void>,
   jobName: string,
@@ -442,7 +442,13 @@ export async function isolateTenantRunWrite(
   try {
     await write();
   } catch (e) {
-    if (isRowLevelSecurityViolation(e)) throw e;
+    if (isRowLevelSecurityViolation(e)) {
+      log.error(
+        "tenant job run state write rejected by row level security: missing or wrong tenant scope",
+        { jobName, bullJobId },
+      );
+      return;
+    }
     log.error("tenant job run state write failed", {
       jobName,
       bullJobId,
@@ -452,8 +458,8 @@ export async function isolateTenantRunWrite(
 }
 
 // The tenant failure record is an optional side write: a throw here must not
-// skip the run-row update or turn a completed run into a BullMQ retry. A row-level-security violation
-// is a missing scope, so it stays loud.
+// skip the run-row update or turn a completed run into a BullMQ retry. A row-level-security rejection is
+// logged louder (a missing or wrong tenant scope), never rethrown.
 async function isolateTenantFailureWrite(
   write: () => Promise<void>,
   jobName: string,
@@ -462,7 +468,13 @@ async function isolateTenantFailureWrite(
   try {
     await write();
   } catch (e) {
-    if (isRowLevelSecurityViolation(e)) throw e;
+    if (isRowLevelSecurityViolation(e)) {
+      log.error(
+        "tenant job failure record write rejected by row level security: missing or wrong tenant scope",
+        { jobName, bullJobId },
+      );
+      return;
+    }
     log.error("tenant job failure record write failed", {
       jobName,
       bullJobId,
