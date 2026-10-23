@@ -4,12 +4,14 @@
 // HTTP dispatcher (not a hand-fed handler context) so the fix is proven at
 // the layer app authors actually depend on.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { asRawClient } from "../../db/query.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
@@ -133,9 +135,11 @@ describe("preSave hooks — real dispatcher path (#1672)", () => {
   beforeEach(async () => {
     seenIsNew.length = 0;
     hookWritesInvalidCode = false;
-    await asRawClient(stack.db).unsafe('DELETE FROM "presave_wiring_codes"');
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "presave_wiring_contacts"');
+    await resetTestTables(stack.db, [
+      "presave_wiring_codes",
+      eventsTable,
+      "presave_wiring_contacts",
+    ]);
   });
 
   test("create: preSave hook derives displayName before persistence", async () => {

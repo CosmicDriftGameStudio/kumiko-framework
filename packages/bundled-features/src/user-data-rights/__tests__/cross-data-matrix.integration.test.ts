@@ -23,6 +23,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
@@ -151,6 +152,7 @@ beforeEach(async () => {
     tenantMembershipsTable,
     fileRefsTable,
     testNotesTable,
+    eventsTable,
   ]);
 });
 

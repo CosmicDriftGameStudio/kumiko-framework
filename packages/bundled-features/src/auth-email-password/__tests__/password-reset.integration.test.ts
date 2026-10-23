@@ -4,10 +4,15 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -116,9 +121,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    userSessionTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   autoRevokeCalls.length = 0;
 });

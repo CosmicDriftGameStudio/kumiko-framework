@@ -11,7 +11,7 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -21,11 +21,13 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   expectSuccess,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -138,10 +140,7 @@ beforeEach(async () => {
   configureBlindIndexKey(BIDX_KEY);
   emailTransport.sent.length = 0;
 
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, tenantTable, eventsTable]);
   const created = await stack.http.writeOk<{ id: string }>(
     TenantHandlers.create,
     { key: `pii-${randomKeySuffix()}`, name: "PII" },

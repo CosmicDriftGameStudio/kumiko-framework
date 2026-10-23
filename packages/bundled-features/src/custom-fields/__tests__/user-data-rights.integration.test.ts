@@ -33,7 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -179,11 +179,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_t15c_properties`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantRetentionOverrideTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    "read_t15c_properties",
+    "read_custom_field_definitions",
+    userTable,
+    "read_tenant_memberships",
+    tenantRetentionOverrideTable,
+  ]);
 });
 
 async function defineField(fieldKey: string, serializedField: Record<string, unknown>) {

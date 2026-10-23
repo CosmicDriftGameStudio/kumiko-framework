@@ -27,7 +27,9 @@ import {
   defineFeature,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -148,11 +150,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(scopedStack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(scopedStack.db).unsafe("DELETE FROM read_note_entries");
+  await resetTestTables(scopedStack.db, [eventsTable, "read_note_entries"]);
   await asRawClient(scopedStack.db).unsafe(`DELETE FROM ${TEAMS_TABLE}`);
-  await asRawClient(defaultStack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(defaultStack.db).unsafe("DELETE FROM read_note_entries");
+  await resetTestTables(defaultStack.db, [eventsTable, "read_note_entries"]);
 });
 
 async function addNote(stack: TestStack, entityId: string, user: TestUser): Promise<void> {

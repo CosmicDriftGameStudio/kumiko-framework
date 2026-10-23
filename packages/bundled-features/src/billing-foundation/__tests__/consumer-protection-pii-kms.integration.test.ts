@@ -15,7 +15,11 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { resetPiiSubjectKmsForTests, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -172,8 +176,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
   );
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, templateResourcesTable]);
   await seedNotificationTemplates(stack.db, stack.registry);
   await seedRow(stack.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,

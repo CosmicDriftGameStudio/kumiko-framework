@@ -24,7 +24,7 @@ import {
   EXT_USER_DATA_ORDER,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -214,10 +214,12 @@ async function readRow(
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`DELETE FROM ${CF_FIRST.tableName}`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM ${HOST_FIRST.tableName}`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_retention_overrides`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+  await resetTestTables(stack.db, [
+    CF_FIRST.tableName,
+    HOST_FIRST.tableName,
+    "read_tenant_retention_overrides",
+    "read_tenant_memberships",
+  ]);
 });
 
 describe("forget hook-ordering :: redaction runs before owner-nulling regardless of registration order", () => {

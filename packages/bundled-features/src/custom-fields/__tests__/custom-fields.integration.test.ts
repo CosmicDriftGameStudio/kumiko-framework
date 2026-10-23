@@ -27,6 +27,7 @@ import {
   rebuildProjection,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -97,9 +98,11 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean slate per test — event-log + entity-rows.
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_t1_properties`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
+  await resetTestTables(stack.db, [
+    eventsTable,
+    "read_t1_properties",
+    "read_custom_field_definitions",
+  ]);
 });
 
 // --- Helpers ---

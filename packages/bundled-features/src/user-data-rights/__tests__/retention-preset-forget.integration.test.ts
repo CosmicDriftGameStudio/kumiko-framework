@@ -35,6 +35,7 @@ import {
   type FeatureDefinition,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -174,6 +175,7 @@ beforeEach(async () => {
     invoiceTable,
     tenantRetentionOverrideTable,
     tenantComplianceProfileTable,
+    eventsTable,
   ]);
 });
 

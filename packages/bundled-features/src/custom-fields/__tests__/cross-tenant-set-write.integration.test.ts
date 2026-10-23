@@ -7,7 +7,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -16,7 +16,9 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -133,10 +135,11 @@ async function priorityOf(user: SessionUser, id: string): Promise<unknown> {
 
 describe("custom-fields cross-tenant isolation — set/clear write", () => {
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM read_xt_set_properties`);
-    await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
-
+    await resetTestTables(stack.db, [
+      eventsTable,
+      "read_xt_set_properties",
+      "read_custom_field_definitions",
+    ]);
     // Both tenants independently define their own "priority" field and own a row.
     await defineField(adminA, "priority");
     await defineField(adminB, "priority");

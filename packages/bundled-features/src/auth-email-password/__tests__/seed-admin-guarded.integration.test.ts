@@ -17,6 +17,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -67,10 +68,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${eventsTable.tableName}"`);
+  await resetTestTables(stack.db, [tenantMembershipsTable, tenantTable, userTable, eventsTable]);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   configureBlindIndexKey(BLIND_INDEX_KEY_B64);
 });

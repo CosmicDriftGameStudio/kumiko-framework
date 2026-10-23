@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -10,6 +11,7 @@ import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { UnprocessableError, writeFailure } from "../../errors/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const probeEntity = createEntity({
@@ -140,8 +142,7 @@ beforeEach(async () => {
   unprocessableCallCount = 0;
   batchTransientCallCount = 0;
   commitFailureCallCount = 0;
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${probeTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${batchItemTable.tableName}"`);
+  await resetTestTables(stack.db, [probeTable, batchItemTable, eventsTable]);
   await stack.redis.flushNamespace();
 });
 

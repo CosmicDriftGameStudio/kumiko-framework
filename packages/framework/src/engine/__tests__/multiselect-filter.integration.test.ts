@@ -6,6 +6,7 @@
 // multiSelect field must use jsonb containment (`@>`), not scalar equality.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -13,6 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createMultiSelectField, createTextField } from "../factories.ts";
@@ -50,8 +52,7 @@ describe("multiSelect filterable — jsonb containment, not scalar equality (fw#
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "ms_filter_equipment"');
+    await resetTestTables(stack.db, [eventsTable, "ms_filter_equipment"]);
   });
 
   async function seed(): Promise<void> {

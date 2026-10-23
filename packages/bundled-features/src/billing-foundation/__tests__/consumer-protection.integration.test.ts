@@ -9,7 +9,11 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -204,7 +208,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
   );
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
+  await resetTestTables(stack.db, [templateResourcesTable]);
   await seedTerms("de", TERMS_CONTENT_DE);
 });
 

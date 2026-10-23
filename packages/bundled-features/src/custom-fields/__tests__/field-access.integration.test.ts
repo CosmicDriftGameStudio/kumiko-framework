@@ -19,6 +19,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -82,8 +83,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_t15b_properties`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
+  await resetTestTables(stack.db, ["read_t15b_properties", "read_custom_field_definitions"]);
 });
 
 async function defineField(fieldKey: string, serializedField: Record<string, unknown>) {

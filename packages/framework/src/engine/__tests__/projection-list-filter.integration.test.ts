@@ -14,12 +14,13 @@
 // hand-rolled test handler.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
@@ -69,8 +70,7 @@ describe("projectionList filter — real query narrows real rows (fw#2224)", () 
   });
 
   beforeEach(async () => {
-    await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-    await asRawClient(stack.db).unsafe('DELETE FROM "pl_filter_members"');
+    await resetTestTables(stack.db, [eventsTable, "pl_filter_members"]);
   });
 
   async function seed(): Promise<void> {

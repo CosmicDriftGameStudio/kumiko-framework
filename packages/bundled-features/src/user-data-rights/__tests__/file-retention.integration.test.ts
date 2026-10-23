@@ -24,6 +24,7 @@ import {
   createTenantDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -105,6 +106,7 @@ beforeEach(async () => {
     "read_tenant_memberships",
     fileRefsTable,
     tenantRetentionOverrideTable,
+    eventsTable,
   ]);
 });
 

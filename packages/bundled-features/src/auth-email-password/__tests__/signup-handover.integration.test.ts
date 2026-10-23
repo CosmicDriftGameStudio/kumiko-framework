@@ -23,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -164,9 +165,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, tenantTable]);
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, kumiko_snapshots, signup_handover_run, signup_handover_photo, signup_handover_note, file_refs RESTART IDENTITY CASCADE`,
   );

@@ -13,6 +13,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createInMemoryFileProvider,
   type FileStorageProvider,
@@ -127,7 +128,7 @@ afterAll(async () => {
 beforeEach(async () => {
   failDeletes = true;
   base.clear();
-  await resetTestTables(db, [userTable, "read_tenant_memberships", fileRefsTable]);
+  await resetTestTables(db, [userTable, "read_tenant_memberships", fileRefsTable, eventsTable]);
 });
 
 async function fileRowCount(tenantId: string, insertedById: string): Promise<number> {

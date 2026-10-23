@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -6,9 +7,10 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // Two entities in a 1:N relation. The relation is declared with
@@ -83,8 +85,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${taskTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${projectTable.tableName}"`);
+  await resetTestTables(stack.db, [taskTable, projectTable, eventsTable]);
 });
 
 describe("POST /api/write — nested-write (Welle M1)", () => {
