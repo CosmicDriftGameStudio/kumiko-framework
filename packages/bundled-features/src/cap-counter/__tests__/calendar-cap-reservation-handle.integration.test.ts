@@ -454,4 +454,21 @@ describe("calendarCapReservationHandle", () => {
       expect(await readCounterValue(user, capName)).toBe(5);
     }
   });
+
+  test("parallel consumes on a swept, deleted reservation both book their units", async () => {
+    const user = adminFor(3213);
+    const ROUNDS = 5;
+    for (let round = 0; round < ROUNDS; round++) {
+      const capName = `sweep-consume-race-cap-${round}`;
+      const reservationId = await reserve(user, capName, 5);
+      await sweepAfterTtl(user, capName);
+
+      const { responses } = await burst(stack, 2, () =>
+        stack.http.write(CONSUME_QN, { capName, reservationId, units: 2 }, user),
+      );
+
+      expect(responses.map((response) => response.status)).toEqual([200, 200]);
+      expect(await readCounterValue(user, capName)).toBe(4);
+    }
+  });
 });
