@@ -34,11 +34,12 @@ import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenan
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
-  deleteRows,
   expectSuccess,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -120,8 +121,7 @@ describe("composeFeatures wiring — auth-mfa (kumiko-framework#266 Step 6)", ()
   });
 
   beforeEach(async () => {
-    await deleteRows(stack.db, userTable, {});
-    await deleteRows(stack.db, tenantMembershipsTable, {});
+    await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
   });
 
   test("full login-with-MFA flow: password login → mfa-challenge → /auth/mfa/verify → session", async () => {
@@ -224,8 +224,7 @@ describe("composeFeatures wiring — auth-mfa enforcement policy (kumiko-framewo
   });
 
   beforeEach(async () => {
-    await deleteRows(stack.db, userTable, {});
-    await deleteRows(stack.db, tenantMembershipsTable, {});
+    await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     await setPolicy(stack, "optional");
   });
 
