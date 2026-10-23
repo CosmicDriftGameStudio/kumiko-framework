@@ -11,6 +11,7 @@ import {
   unsafeRawForDeclaredStep,
   withUnsafeRawGrant,
 } from "../tenant-db.ts";
+import { unscopedRunner } from "./unscoped-runner.ts";
 
 const tenantId = testTenantId(1);
 const REASON = "declared step forwarding unsafeRaw";
@@ -57,7 +58,7 @@ describe("unsafeRawForDeclaredStep", () => {
       },
     });
 
-    expect(unsafeRawForDeclaredStep(tdb, REASON)).toBe(runner);
+    expect(unscopedRunner(unsafeRawForDeclaredStep(tdb, REASON))).toBe(runner);
     expect(reports).toEqual([{ kind: "unsafe-raw", reason: REASON }]);
   });
 
@@ -105,7 +106,7 @@ describe("unsafeRawForDeclaredStep", () => {
       reports.push({ kind, reason });
     });
 
-    expect(unsafeRawForDeclaredStep(unchecked, REASON)).toBe(runner);
+    expect(unscopedRunner(unsafeRawForDeclaredStep(unchecked, REASON))).toBe(runner);
     expect(reports).toEqual([{ kind: "unsafe-raw", reason: REASON }]);
   });
 
@@ -121,7 +122,7 @@ describe("unsafeRawForDeclaredStep", () => {
     });
     const regranted = withUnsafeRawGrant(tdb, { reason: "rebind grant" });
 
-    expect(unsafeRawForDeclaredStep(regranted, REASON)).toBe(runner);
+    expect(unscopedRunner(unsafeRawForDeclaredStep(regranted, REASON))).toBe(runner);
   });
 });
 

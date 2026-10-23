@@ -188,6 +188,7 @@ export {
 } from "./rebuild-marker.ts";
 export { seedReferenceData } from "./reference-data.ts";
 export { renderTableDdl, renderTablesDdl } from "./render-ddl.ts";
+export { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "./render-rls-ddl.ts";
 export {
   diffReplayAgainstSnapshot,
   type ReplayedSchema,
@@ -201,6 +202,16 @@ export {
   type RetiredFrameworkTable,
   retiredFrameworkTables,
 } from "./retired-framework-tables.ts";
+export { assertRowLevelSecurityBootState } from "./row-level-security-boot-check.ts";
+export { rowLevelSecurityModeOf } from "./row-level-security-connection.ts";
+export type { RowLevelSecurityScope } from "./row-level-security-scope.ts";
+export {
+  assertNoActiveRowLevelSecurityScope,
+  runInRowLevelSecurityScope,
+  runInSystemRowLevelSecurityScope,
+  systemScopedRunner,
+  tenantRowLevelSecurityScope,
+} from "./row-level-security-scope.ts";
 export { tableExists } from "./schema-inspection.ts";
 export { withoutStatementTimeout } from "./statement-timeout.ts";
 export {

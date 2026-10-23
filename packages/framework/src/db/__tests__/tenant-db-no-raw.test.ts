@@ -6,6 +6,7 @@ import type { DbRunner } from "../connection.ts";
 import { asRawClient } from "../query.ts";
 import { createTenantDb, createUncheckedSystemDb, withUnsafeRawGrant } from "../tenant-db.ts";
 import { tenantDbRunner } from "../tenant-db-runner.ts";
+import { unscopedRunner } from "./unscoped-runner.ts";
 
 // TenantDb.raw is gone from the type; framework-internal callers resolve
 // the bound DbRunner through tenant-db-runner.ts's WeakMap instead.
@@ -80,7 +81,7 @@ describe("createUncheckedSystemDb(...).unsafeRaw", () => {
     const runner = fakeRunner();
     const tdb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const systemDb = createUncheckedSystemDb(tdb);
-    expect(systemDb.unsafeRaw("test reason")).toBe(runner);
+    expect(unscopedRunner(systemDb.unsafeRaw("test reason"))).toBe(runner);
   });
 });
 

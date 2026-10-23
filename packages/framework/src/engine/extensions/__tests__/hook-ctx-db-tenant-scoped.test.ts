@@ -7,6 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
+import { unscopedRunner } from "../../../db/__tests__/unscoped-runner.ts";
 import { createTenantDataDestroyDb, createTenantDb } from "../../../db/tenant-db.ts";
 import { testTenantId } from "../../../seeding/seed-users.ts";
 import type { TenantDataHookCtx } from "../tenant-data.ts";
@@ -75,6 +76,6 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
     };
 
     const raw: DbRunner = tenantCtx.db.unsafeRaw();
-    expect(raw).toBe(runner);
+    expect(unscopedRunner(raw)).toBe(runner);
   });
 });

@@ -47,6 +47,10 @@ import {
 import { createEventStoreExecutor } from "../event-store-executor.ts";
 import type { LocatedTimestampRead } from "../located-timestamp.ts";
 import type { MoneyRead } from "../money.ts";
+import {
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "../row-level-security-scope.ts";
 import { buildEntityTable, type EntityRow } from "../table-builder.ts";
 import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
@@ -109,7 +113,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, shapeEntity, "shape");
   await unsafeCreateEntityTable(stack.db, plainEntity, "plain");
-  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
+  tdb = createTenantDb({ db: stack.unscopedDb, tenantId: admin.tenantId });
   configureEntityFieldEncryption(cipher);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -125,7 +129,12 @@ describe("executor.detail()/list() row shape", () => {
     entityName: "shape",
   });
 
-  async function createRow(): Promise<ShapeRow> {
+  const inTenantScope = <T>(fn: () => Promise<T>) =>
+    runInRowLevelSecurityScope(tenantRowLevelSecurityScope(admin.tenantId), fn);
+
+  const createRow = (): Promise<ShapeRow> => inTenantScope(createRowInScope);
+
+  async function createRowInScope(): Promise<ShapeRow> {
     const created = await executor.create(
       {
         title: "t",
@@ -160,7 +169,7 @@ describe("executor.detail()/list() row shape", () => {
 
   test("detail() and list() return the same keys and value kinds", async () => {
     const detail = await createRow();
-    const listed = (await executor.list({ limit: 50 }, admin, tdb)).rows;
+    const listed = (await inTenantScope(() => executor.list({ limit: 50 }, admin, tdb))).rows;
     const fromList = listed.find((r) => r.id === detail.id);
     expect(fromList).toEqual(detail);
   });

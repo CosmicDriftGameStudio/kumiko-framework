@@ -35,6 +35,10 @@ import {
   encryptEntityFieldValues,
   resetEntityFieldEncryptionCacheForTests,
 } from "../entity-field-encryption.ts";
+import {
+  runInRowLevelSecurityScope,
+  tenantRowLevelSecurityScope,
+} from "../row-level-security-scope.ts";
 import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
@@ -381,12 +385,15 @@ describe("enrichWithReferences", () => {
   });
 
   test("ownership-scoped ref entity: the owner sees PII/encrypted fields decrypted", async () => {
-    const [row] = (await enrichWithReferences(
-      [{ id: "l1", ownedContact: OWNED }],
-      leadEntity,
-      resolve,
-      dbA,
-      viewerFor(ownerUser),
+    // The ownership path reads through the raw runner, which follows the dispatch scope a request would carry.
+    const [row] = (await runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantA), () =>
+      enrichWithReferences(
+        [{ id: "l1", ownedContact: OWNED }],
+        leadEntity,
+        resolve,
+        dbA,
+        viewerFor(ownerUser),
+      ),
     )) as EagerloadedRow[];
     const owned = single(row, "ownedContact");
 

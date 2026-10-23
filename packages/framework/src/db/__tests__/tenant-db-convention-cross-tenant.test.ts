@@ -5,6 +5,7 @@ import { InternalError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
 import * as dbIndex from "../index.ts";
+import { unscopedRunnerOf } from "../row-level-security-scope.ts";
 import {
   acknowledgeConventionCrossTenant,
   createTenantDb,
@@ -70,14 +71,14 @@ describe("acknowledgeConventionCrossTenant", () => {
     const regranted = withUnsafeRawGrant(tdb, { reason: "unrelated unsafeRaw grant" });
     const result = acknowledgeConventionCrossTenant(regranted, REASON);
     expect(result.mode).toBe("system");
-    expect(tenantDbRunner(result)).toBe(runner);
+    expect(unscopedRunnerOf(tenantDbRunner(result))).toBe(runner);
   });
 
   test("tenantDbRunner(result) resolves to the original runner", () => {
     const runner = fakeRunner();
     const tdb = createTenantDb({ db: runner, tenantId });
     const result = acknowledgeConventionCrossTenant(tdb, REASON);
-    expect(tenantDbRunner(result)).toBe(runner);
+    expect(unscopedRunnerOf(tenantDbRunner(result))).toBe(runner);
   });
 
   test("db/index.ts does not export acknowledgeConventionCrossTenant", () => {
