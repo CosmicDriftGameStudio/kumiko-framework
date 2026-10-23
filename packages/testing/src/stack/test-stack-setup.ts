@@ -1,7 +1,13 @@
 // @runtime dev
 import { createHash } from "node:crypto";
 import { buildServer, createSseBroker } from "@cosmicdrift/kumiko-framework/api";
-import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import {
+  assertRowLevelSecurityBootState,
+  type DbConnection,
+  type EntityTableMeta,
+  type RowLevelSecurityMode,
+  systemScopedRunner,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine/types";
 import {
@@ -35,6 +41,7 @@ import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import {
   createTestDb,
   ensureTestDbTemplate,
+  TEST_APPLICATION_ROLE,
   TEST_DB_TEMPLATE_RUN_ENV,
   testDbTemplatePrefix,
 } from "./db.ts";
@@ -135,6 +142,7 @@ async function resolveTestDbTemplateName(
   options: TestStackOptions,
   metas: readonly EntityTableMeta[],
   withFileTables: boolean,
+  rowLevelSecurity: RowLevelSecurityMode,
 ): Promise<string | undefined> {
   const runId = process.env[TEST_DB_TEMPLATE_RUN_ENV];
   if (runId === undefined || options.persistentDb === true || options.dbName !== undefined) {
@@ -142,7 +150,14 @@ async function resolveTestDbTemplateName(
   }
   const { renderTablesDdl } = await import("@cosmicdrift/kumiko-framework/db");
   const fingerprint = createHash("sha256")
-    .update(JSON.stringify({ withFileTables, ddl: renderTablesDdl(metas) }))
+    .update(
+      JSON.stringify({
+        withFileTables,
+        rowLevelSecurity,
+        role: rowLevelSecurity === "on" ? TEST_APPLICATION_ROLE : "superuser",
+        ddl: renderTablesDdl(metas, { rowLevelSecurity }),
+      }),
+    )
     .digest("hex")
     .slice(0, 16);
   return `${testDbTemplatePrefix(runId)}${fingerprint}`;
@@ -193,8 +208,17 @@ export async function provisionStackStorage(options: TestStackOptions): Promise<
   const withFileTables = options.files !== undefined;
   const buildStackSchema = (db: DbConnection): Promise<void> =>
     pushStackSchema(db, stackTableMetas, withFileTables);
-  const templateDbName = await resolveTestDbTemplateName(options, stackTableMetas, withFileTables);
-  if (templateDbName !== undefined) await ensureTestDbTemplate(templateDbName, buildStackSchema);
+  const rowLevelSecurity = options.rowLevelSecurity ?? "on";
+  const applicationRole = rowLevelSecurity === "on";
+  const templateDbName = await resolveTestDbTemplateName(
+    options,
+    stackTableMetas,
+    withFileTables,
+    rowLevelSecurity,
+  );
+  if (templateDbName !== undefined) {
+    await ensureTestDbTemplate(templateDbName, buildStackSchema, { applicationRole });
+  }
 
   // Forward db-name/persistent-flag through to createTestDb. The
   // defaults (undefined dbName, persistent:false) keep the legacy
@@ -209,6 +233,7 @@ export async function provisionStackStorage(options: TestStackOptions): Promise<
         outsideTransactionPoolMax: options.outsideTransactionPoolMax,
       }),
       ...(templateDbName !== undefined && { templateDbName }),
+      applicationRole,
     }),
     createTestRedis(
       options.sharedRedisWith && { borrowKeyPrefix: options.sharedRedisWith.redis.keyPrefix },
@@ -219,13 +244,12 @@ export async function provisionStackStorage(options: TestStackOptions): Promise<
   // DB/Redis — the caller never gets the stack object back to call
   // cleanup() itself (same "leaked ephemeral DB" failure class as the later
   // try/catch in setupTestStack, but for setup that runs before that try starts).
-  if (templateDbName === undefined) {
-    try {
-      await buildStackSchema(testDb.db);
-    } catch (error) {
-      await runCleanupsIgnoringErrors([() => testDb.cleanup(), () => testRedis.cleanup()]);
-      throw error;
-    }
+  try {
+    if (templateDbName === undefined) await buildStackSchema(testDb.db);
+    await assertRowLevelSecurityBootState(testDb.db, rowLevelSecurity);
+  } catch (error) {
+    await runCleanupsIgnoringErrors([() => testDb.cleanup(), () => testRedis.cleanup()]);
+    throw error;
   }
   return { testDb, testRedis };
 }
@@ -312,7 +336,14 @@ export async function buildStackServices(
   // tests and break in prod.
   const extraContext =
     typeof options.extraContext === "function"
-      ? options.extraContext({ registry, db: testDb.db, sseBroker, redis: testRedis.redis })
+      ? options.extraContext({
+          registry,
+          // Services built here are called straight from tests, outside any dispatch scope, like stack.db.
+          db:
+            (options.rowLevelSecurity ?? "on") === "on" ? systemScopedRunner(testDb.db) : testDb.db,
+          sseBroker,
+          redis: testRedis.redis,
+        })
       : options.extraContext;
   const appContext = {
     db: testDb.db,
@@ -578,7 +609,9 @@ function assembleTestStack(
     app: server.app,
     jwt: server.jwt,
     registry: services.registry,
-    db: testDb.db,
+    // Test code sees every tenant's rows; the services keep the enforced pool.
+    db: (options.rowLevelSecurity ?? "on") === "on" ? systemScopedRunner(testDb.db) : testDb.db,
+    unscopedDb: testDb.db,
     dbPoolMax: testDb.poolMax,
     redis: testRedis,
     cacheSync,

@@ -28,4 +28,7 @@ export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...CONFIG
 // `kumiko check` validates the boot with the options kumiko.config.ts declares.
 export const VALIDATE_BOOT_OPTIONS = appConfig.validateBootOptions;
 
+// Decides whether `generate` emits row-level-security policies and `apply` runs as a policy-enforced connection.
+export const ROW_LEVEL_SECURITY = appConfig.rowLevelSecurity ?? "off";
+
 export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);

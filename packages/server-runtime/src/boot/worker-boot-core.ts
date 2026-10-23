@@ -12,6 +12,7 @@ import {
   resolvePlatformKeks,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  assertRowLevelSecurityBootState,
   configureEntityFieldEncryption,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -151,6 +152,7 @@ export async function bootWorkerProcess(
   const databaseUrl = requireEnv("DATABASE_URL", envSource, processName);
   const redisUrl = requireEnv("REDIS_URL", envSource, processName);
   const jwtSecretOrKeyring = loadJwtSecretOrKeyring(envSource);
+  const rowLevelSecurity = options.rowLevelSecurity ?? "off";
 
   // MUST be composed with the same `includeBundled` as the API process.
   const includeBundled = !!options.includeBundled || profile.authOptions !== undefined;
@@ -196,6 +198,7 @@ export async function bootWorkerProcess(
   const { db, closeDb, outsideTransactionDb, closeOutsideTransactionDb } = openDatabasePools(
     databaseUrl,
     envSource,
+    rowLevelSecurity,
   );
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
@@ -237,6 +240,16 @@ export async function bootWorkerProcess(
     }
   }
 
+  try {
+    await assertRowLevelSecurityBootState(db, rowLevelSecurity);
+  } catch (err) {
+    await closeDb();
+    await closeOutsideTransactionDb();
+    redis.disconnect();
+    await cacheSync.close();
+    throw err;
+  }
+
   const idempotency = createIdempotencyGuard(redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
   const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
@@ -274,6 +287,7 @@ export async function bootWorkerProcess(
   const jobLogger = jobRunLoggerCallbacks(registry, db);
   const entrypoint = createWorkerEntrypoint({
     registry,
+    rowLevelSecurity,
     context: { db, redis, entityCache, registry, ...extraContext },
     jwtSecret: jwtSecretOrKeyring,
     dispatcherOptions: {

@@ -535,6 +535,7 @@ const kmsWiring =
 await runProdApp({
   features: APP_FEATURES,
   ...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions }),
+  ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),
   envSchema,
   staticDir: "./dist",
   ...kmsWiring,

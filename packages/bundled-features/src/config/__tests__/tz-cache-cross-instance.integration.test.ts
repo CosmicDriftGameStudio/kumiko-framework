@@ -64,7 +64,7 @@ describe("tenant timezone cache across instances", () => {
   let podB: TestStack;
 
   beforeAll(async () => {
-    sharedDb = await createTestDb();
+    sharedDb = await createTestDb({ applicationRole: true });
     podA = await bootPod(sharedDb.dbName);
     podB = await bootPod(sharedDb.dbName, podA);
   });

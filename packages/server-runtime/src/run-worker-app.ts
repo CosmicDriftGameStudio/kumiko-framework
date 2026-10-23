@@ -17,7 +17,7 @@
 
 import type { ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import type {
   BundledListsOptions,
   FeatureDefinition,
@@ -91,6 +91,8 @@ export type WorkerWireDeps = SystemWireDeps & {
 };
 
 export type RunWorkerAppOptions = {
+  /** Row level security mode of every connection; pass appConfig.rowLevelSecurity. Default "off". */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
   /** App-specific features — same array as in the API/all-in-one process,
    *  so the registry + schema stay identical across processes. */
   readonly features: readonly FeatureDefinition[];

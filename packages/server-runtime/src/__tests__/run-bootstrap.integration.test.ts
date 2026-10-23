@@ -22,7 +22,11 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  TEST_APPLICATION_ROLE,
+  type TestStack,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { buildComposeAuthOptions, composeFeatures } from "../compose-features.ts";
 import { runBootstrap } from "../run-bootstrap.ts";
 
@@ -68,13 +72,21 @@ afterAll(async () => {
   await schemaStack.cleanup();
 });
 
+// The stack database is created at "on", so bootstrap connects as the application role like production does.
+function applicationDatabaseUrl(): string {
+  const url = new URL(ADMIN_URL.replace(/\/[^/]+$/, `/${DB_NAME}`));
+  url.username = TEST_APPLICATION_ROLE;
+  return url.toString();
+}
+
 function bootstrapOnce(adminEmail = ROOT_EMAIL) {
   return runBootstrap({
+    rowLevelSecurity: "on",
     features: appFeatures,
     migrations: false,
     allowPlaintextPii: "integration test",
     envSource: {
-      DATABASE_URL: ADMIN_URL.replace(/\/[^/]+$/, `/${DB_NAME}`),
+      DATABASE_URL: applicationDatabaseUrl(),
       REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
       JWT_SECRET: "test-runbootstrap-secret-32-chars-min!",
     },

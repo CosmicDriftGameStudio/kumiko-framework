@@ -1,5 +1,6 @@
 import { withFileProviderResolver } from "@cosmicdrift/kumiko-framework/api";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEsOperationsTable,
   createSeedMigrationContext,
@@ -105,35 +106,38 @@ export async function runProdBootSeeds(
   entrypoint: ProdEntrypoint,
   dispatcherOptions: ProdEntrypointOptions["dispatcherOptions"],
 ): Promise<void> {
-  const { options, config, composed, connections } = run;
-  await applyStandardBootSeeds({
-    db: connections.db,
-    registry: composed.registry,
-    admin: composed.effectiveAuth?.admin,
-    shortcutSeeds: config.bootOptionWiring.shortcutSeeds,
-    cipher: composed.bootCrypto.configCipher,
-    processName: "runProdApp",
-    ...(options.databaseWait && { databaseWait: options.databaseWait }),
+  return runInSystemRowLevelSecurityScope(async () => {
+    const { options, config, composed, connections } = run;
+    await applyStandardBootSeeds({
+      db: connections.db,
+      registry: composed.registry,
+      admin: composed.effectiveAuth?.admin,
+      shortcutSeeds: config.bootOptionWiring.shortcutSeeds,
+      cipher: composed.bootCrypto.configCipher,
+      processName: "runProdApp",
+      ...(options.databaseWait && { databaseWait: options.databaseWait }),
+    });
+    const hasSeeds =
+      config.bootOptionWiring.customSeeds.length > 0 || options.seedsDir !== undefined;
+    const seedContext = hasSeeds ? buildSeedContext(run) : undefined;
+    const seedDispatcher = seedContext
+      ? withSeedErrorContext(
+          createDispatcher(composed.registry, seedContext, {
+            ...dispatcherOptions,
+            lifecycle: entrypoint.lifecycleHooks,
+            ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
+          }),
+        )
+      : undefined;
+    if (seedDispatcher && seedContext) {
+      await runCustomSeeds(run, seedContext, seedDispatcher);
+    }
+    if (
+      seedDispatcher &&
+      options.seedsDir !== undefined &&
+      config.envSource["KUMIKO_SKIP_ES_OPS"] !== "1"
+    ) {
+      await runSeedMigrations(run, options.seedsDir, seedDispatcher);
+    }
   });
-  const hasSeeds = config.bootOptionWiring.customSeeds.length > 0 || options.seedsDir !== undefined;
-  const seedContext = hasSeeds ? buildSeedContext(run) : undefined;
-  const seedDispatcher = seedContext
-    ? withSeedErrorContext(
-        createDispatcher(composed.registry, seedContext, {
-          ...dispatcherOptions,
-          lifecycle: entrypoint.lifecycleHooks,
-          ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
-        }),
-      )
-    : undefined;
-  if (seedDispatcher && seedContext) {
-    await runCustomSeeds(run, seedContext, seedDispatcher);
-  }
-  if (
-    seedDispatcher &&
-    options.seedsDir !== undefined &&
-    config.envSource["KUMIKO_SKIP_ES_OPS"] !== "1"
-  ) {
-    await runSeedMigrations(run, options.seedsDir, seedDispatcher);
-  }
 }

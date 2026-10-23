@@ -4,11 +4,14 @@ export { isClosedConnectionError } from "../db/closed-connection.ts";
 export { createDbConnection } from "../db/connection.ts";
 export {
   acquireSessionAdvisoryLock,
+  createApplicationRole,
   createDatabase,
   databaseExists,
   dropDatabaseIfExists,
   listDatabaseNamesWithPrefix,
   renameDatabase,
+  transferDatabaseOwnership,
+  transferPublicSchemaOwnership,
   truncateTablesRestartIdentity,
 } from "../db/queries/test-stack.ts";
 export type { AnyDb } from "../db/query.ts";

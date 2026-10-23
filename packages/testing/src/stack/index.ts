@@ -18,6 +18,7 @@ export {
   type CreateTestDbOptions,
   createTestDb,
   DEFAULT_TEST_DB_POOL_MAX,
+  TEST_APPLICATION_ROLE,
   type TestDb,
 } from "./db.ts";
 export { drainEventConsumers } from "./drain-event-consumers.ts";

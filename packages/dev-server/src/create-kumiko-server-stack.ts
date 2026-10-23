@@ -62,6 +62,7 @@ function buildDevStackOptions(
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     ...(options.trustedProxyHops !== undefined && { trustedProxyHops: options.trustedProxyHops }),
     ...(options.errorDocs && { errorDocs: options.errorDocs }),
+    ...(options.rowLevelSecurity !== undefined && { rowLevelSecurity: options.rowLevelSecurity }),
     // jobs.consumerLane unset = enqueuer-only; startDevJobRunners is the sole
     // consumer/cron-scheduler per lane, so runOnBoot/cron jobs don't
     // double-fire.
@@ -79,7 +80,7 @@ export async function bootDevStack(
     }…`,
   );
   const stack = await setupTestStack(buildDevStackOptions(options, dbMode));
-  await createEventsTable(stack.db);
+  await createEventsTable(stack.unscopedDb);
   await pushEntityProjectionTables(stack, stack.registry);
 
   // `extraRoutes` is already mounted by setupTestStack's buildServer();

@@ -20,6 +20,7 @@ import {
   TRUSTED_PROXY_HOPS_ENV,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import type { RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import {
   type BundledListsOptions,
   type FeatureDefinition,
@@ -285,6 +286,8 @@ export type RunDevAppOptions = {
   readonly trustedProxyHops?: number;
   /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
   readonly errorDocs?: ErrorDocsConfig;
+  /** Row level security of the dev stack, as in prod. Default "on", so tenant-isolation bugs show up in development. */
+  readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {

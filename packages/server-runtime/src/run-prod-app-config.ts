@@ -1,6 +1,7 @@
 import { EXT_SESSION_STORE } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { loadJwtSecretOrKeyring, TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
+import type { RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   type FeatureDefinition,
@@ -53,6 +54,7 @@ export type ProdBootConfig = {
   readonly envSource: Record<string, string | undefined>;
   readonly bootKms: BootOptionWiring["kms"];
   readonly databaseUrl: string;
+  readonly rowLevelSecurity: RowLevelSecurityMode;
   readonly redisUrl: string;
   readonly jwtSecret: string;
   readonly jwtSecretOrKeyring: ReturnType<typeof loadJwtSecretOrKeyring>;
@@ -157,6 +159,7 @@ export async function resolveProdBootConfig(
     envSource,
     bootKms,
     databaseUrl,
+    rowLevelSecurity: options.rowLevelSecurity ?? "off",
     redisUrl,
     jwtSecret,
     jwtSecretOrKeyring,
