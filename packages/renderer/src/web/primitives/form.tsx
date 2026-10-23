@@ -17,13 +17,20 @@ import {
   useTranslation,
 } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import {
+  type FormFooterModel,
+  footerRowClassName,
+  renderNarrowPinnedFooter,
+  renderPrimaryActionsGroup,
+  renderSecondaryActionsGroup,
+  renderUnsavedStatus,
+} from "./form-footer-parts.tsx";
 import { screenPaddingClassName, screenWidthClassName } from "./layout.tsx";
-import { NarrowPinnedFooter } from "./narrow-pinned-footer.tsx";
-import { STICKY_FOOTER_SAFE_AREA_CLASS, STICKY_FOOTER_SPACER_CLASS } from "./sticky-action-bar.tsx";
+import { STICKY_FOOTER_SPACER_CLASS } from "./sticky-action-bar.tsx";
 import { useKeyboardInset } from "./use-keyboard-inset.ts";
 import { useIsBelowSmViewport } from "./use-narrow-viewport.ts";
 import "../react-css-custom-properties.ts";
-import { cardFooterBorder, cardHeaderBorder } from "./card-styles.ts";
+import { cardHeaderBorder } from "./card-styles.ts";
 import { InsideFormContext, ScreenFormContext, ScreenWidthContext } from "./contexts.tsx";
 
 // Extension sections that render their own <form> via BareFormProvider
@@ -262,10 +269,45 @@ function flattenActionNodes(node: ReactNode): readonly ReactNode[] {
   return Children.toArray(node);
 }
 
-function unsavedStatusText(t: ReturnType<typeof useTranslation>, unsavedCount: number): string {
-  if (unsavedCount === 0) return t("kumiko.form.noUnsavedChanges");
-  if (unsavedCount === 1) return t("kumiko.form.unsaved.one");
-  return t("kumiko.form.unsaved.other", { count: unsavedCount });
+type StickyActionSplit = {
+  readonly renderedActions: ReactNode;
+  readonly renderedSecondary: ReactNode;
+  readonly hasNonPrimaryOverflow: boolean;
+};
+
+function splitStickyActions(
+  stickyActions: boolean | undefined,
+  actions: ReactNode,
+  secondaryActions: ReactNode,
+): StickyActionSplit {
+  // Only split when sticky: the non-sticky (regular, non-wizard) footer must
+  // reproduce the previous DOM exactly (form-action-bar.test.tsx pins
+  // `-actions`/`-actions-secondary` content 1:1 to the `actions`/
+  // `secondaryActions` props).
+  const actionNodes = stickyActions === true ? flattenActionNodes(actions) : undefined;
+  const primaryActionNodes = actionNodes?.filter(isPrimaryStickyAction);
+  const hasPrimaryAction = primaryActionNodes !== undefined && primaryActionNodes.length > 0;
+  // No primary node found among `actions` (e.g. a wizard step with only
+  // secondary buttons): fall back to pinning the whole, unpartitioned
+  // `actions` node instead of splitting it — matches the previous
+  // behaviour where sticky footers always kept `actions` fixed.
+  const nonPrimaryActionNodes = hasPrimaryAction
+    ? actionNodes?.filter((node) => !isPrimaryStickyAction(node))
+    : undefined;
+  const renderedActions =
+    stickyActions === true ? (hasPrimaryAction ? primaryActionNodes : actions) : actions;
+  const hasNonPrimaryOverflow =
+    nonPrimaryActionNodes !== undefined && nonPrimaryActionNodes.length > 0;
+  const renderedSecondary =
+    stickyActions === true && hasPrimaryAction ? (
+      <>
+        {secondaryActions}
+        {nonPrimaryActionNodes}
+      </>
+    ) : (
+      secondaryActions
+    );
+  return { renderedActions, renderedSecondary, hasNonPrimaryOverflow };
 }
 
 // Footer wrapper for DefaultForm's card and chromeless layouts alike — only
@@ -294,33 +336,11 @@ export function FormFooter({
   const isBelowSm = useIsBelowSmViewport();
   const keyboardInset = useKeyboardInset();
   if (actions === undefined && secondaryActions === undefined) return null;
-  // Only split when sticky: the non-sticky (regular, non-wizard) footer must
-  // reproduce the previous DOM exactly (form-action-bar.test.tsx pins
-  // `-actions`/`-actions-secondary` content 1:1 to the `actions`/
-  // `secondaryActions` props).
-  const actionNodes = stickyActions === true ? flattenActionNodes(actions) : undefined;
-  const primaryActionNodes = actionNodes?.filter(isPrimaryStickyAction);
-  const hasPrimaryAction = primaryActionNodes !== undefined && primaryActionNodes.length > 0;
-  // No primary node found among `actions` (e.g. a wizard step with only
-  // secondary buttons): fall back to pinning the whole, unpartitioned
-  // `actions` node instead of splitting it — matches the previous
-  // behaviour where sticky footers always kept `actions` fixed.
-  const nonPrimaryActionNodes = hasPrimaryAction
-    ? actionNodes?.filter((node) => !isPrimaryStickyAction(node))
-    : undefined;
-  const renderedActions =
-    stickyActions === true ? (hasPrimaryAction ? primaryActionNodes : actions) : actions;
-  const hasNonPrimaryOverflow =
-    nonPrimaryActionNodes !== undefined && nonPrimaryActionNodes.length > 0;
-  const renderedSecondary =
-    stickyActions === true && hasPrimaryAction ? (
-      <>
-        {secondaryActions}
-        {nonPrimaryActionNodes}
-      </>
-    ) : (
-      secondaryActions
-    );
+  const { renderedActions, renderedSecondary, hasNonPrimaryOverflow } = splitStickyActions(
+    stickyActions,
+    actions,
+    secondaryActions,
+  );
   const pinned = isPinnedFooter(stickyActions, fillHeight);
   const fixedFooterStyle =
     stickyActions === true && !pinned && isBelowSm && keyboardInset > 0
@@ -329,95 +349,33 @@ export function FormFooter({
   // Below sm the pinned footer swaps to NarrowPinnedFooter; the subtree remounts, so a
   // confirm dialog owned by an action button closes on a breakpoint change (rotate, resize).
   if (pinned && isBelowSm) {
-    return (
-      <NarrowPinnedFooter
-        nodes={[...flattenActionNodes(secondaryActions), ...flattenActionNodes(actions)]}
-        overflowLabel={
-          unsavedCount !== undefined && unsavedCount > 0
-            ? `${t("kumiko.list.row-actions.more")}, ${unsavedStatusText(t, unsavedCount)}`
-            : t("kumiko.list.row-actions.more")
-        }
-        unsavedCount={unsavedCount}
-        unsavedStatus={
-          unsavedCount !== undefined && unsavedCount > 0
-            ? unsavedStatusText(t, unsavedCount)
-            : undefined
-        }
-        testId={testId}
-        keyboardInset={keyboardInset}
-      />
+    return renderNarrowPinnedFooter(
+      { t, testId, unsavedCount },
+      [...flattenActionNodes(secondaryActions), ...flattenActionNodes(actions)],
+      keyboardInset,
     );
   }
+  const model: FormFooterModel = {
+    t,
+    testId,
+    chromeless,
+    stickyActions,
+    fillHeight,
+    unsavedCount,
+    railed,
+    pinned,
+    secondaryActions,
+    renderedSecondary,
+    renderedActions,
+    hasNonPrimaryOverflow,
+    fixedFooterStyle,
+  };
   return (
-    <div
-      className={cn(
-        pinned
-          ? cn(
-              "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6",
-              !railed && "md:pl-10",
-            )
-          : "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
-        !pinned && !chromeless && "px-[var(--card-padding)]",
-        !pinned && !chromeless && cardFooterBorder,
-        !pinned && fillHeight === true && "shrink-0",
-      )}
-    >
-      {unsavedCount !== undefined && (
-        <div
-          data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
-          className={cn(
-            "mr-auto flex min-w-0 items-center gap-2 text-[13px]",
-            // Only the stacked (flex-col-reverse) footer moves the status above the
-            // actions; the pinned single-row footer keeps it on the left.
-            !pinned && "max-sm:order-last",
-            unsavedCount > 0 ? "text-foreground-secondary" : "text-muted-foreground",
-          )}
-        >
-          {unsavedCount > 0 && (
-            <span className="size-1.5 shrink-0 rounded-full bg-status-active" aria-hidden="true" />
-          )}
-          <span className="truncate">{unsavedStatusText(t, unsavedCount)}</span>
-        </div>
-      )}
-      {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
-        <div
-          data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
-          className={cn(
-            // min-h-11: link-variant buttons (Copy link) are h-auto and would fall
-            // below the 24px touch-target minimum on narrow viewports.
-            "flex flex-wrap items-center gap-2 max-sm:[&_button]:min-h-11 max-sm:[&_button]:px-2 max-sm:[&_button]:text-xs",
-            pinned && hasNonPrimaryOverflow && "mr-auto",
-          )}
-        >
-          {renderedSecondary}
-        </div>
-      )}
-      {renderedActions !== undefined && (
-        <div
-          data-testid={testId !== undefined ? `${testId}-actions` : undefined}
-          style={fixedFooterStyle}
-          className={cn(
-            "flex items-center gap-2",
-            pinned
-              ? "shrink-0 max-md:[&>button]:min-h-11"
-              : "flex-wrap max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
-            // Below sm (640px): pin only the primary action to the viewport
-            // bottom instead of normal flow, so a virtual keyboard shrinking
-            // the viewport can't push it out of reach. `fixed`
-            // escapes the card's `overflow-hidden` (only transform/filter/
-            // contain ancestors trap it, confirmed against
-            // AppLayout/SidebarInset — neither sets those).
-            stickyActions === true &&
-              !pinned &&
-              cn(
-                "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:p-4 max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)]",
-                STICKY_FOOTER_SAFE_AREA_CLASS,
-              ),
-          )}
-        >
-          {renderedActions}
-        </div>
-      )}
+    <div className={footerRowClassName(model)}>
+      {unsavedCount !== undefined && renderUnsavedStatus(model, unsavedCount)}
+      {(secondaryActions !== undefined || hasNonPrimaryOverflow) &&
+        renderSecondaryActionsGroup(model)}
+      {renderedActions !== undefined && renderPrimaryActionsGroup(model)}
     </div>
   );
 }

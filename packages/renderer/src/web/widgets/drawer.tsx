@@ -1,12 +1,13 @@
-import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "../../index.ts";
-import { clamp } from "../lib/clamp.ts";
 import { cn } from "../lib/cn.ts";
 import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
 import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet.tsx";
+import { sidePanelClass } from "./drawer-panel-class.ts";
+import { renderMaximizeButton, renderResizeHandle } from "./drawer-resize-controls.tsx";
+import { buildOverlayStyle, buildSheetStyle } from "./drawer-sizing.ts";
 import { DrawerSheetContent } from "./sheet-parts.tsx";
-import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag.ts";
+import { useDrawerResizeHandle, useDrawerResizeState } from "./use-drawer-resize.ts";
 
 // Mirrors primitives/index.tsx's cardFooter + cardFooterBorder (row layout,
 // end-justified actions, top border, panel surface instead of the card
@@ -77,79 +78,6 @@ export type DrawerProps = {
   readonly fillBody?: boolean;
 };
 
-const MIN_WIDTH_PX = 320;
-const MAX_WIDTH_PX = 1000;
-// Must match the static `max(600px,37.5vw)` in floatingSideClass — Tailwind's
-// JIT can't read these at runtime, so the two are kept in sync by hand.
-// 600px (vs. the old 520px floor) gives a two-column field row (e.g.
-// street/number, zip/city) room to breathe, while staying well under half
-// of a 1280px viewport so a narrow window isn't dominated by the drawer.
-// 37.5vw (vs. the old 25vw) keeps that same 600px on a 1280–1600px window
-// (25vw was still under the floor there, making the ratio dead weight up
-// to 2400px) but actually grows past the floor by ~1600px, so a 1920px
-// window — where the two-column row is cramped just as often — lands
-// around 720px instead of being stuck at 600px alongside a 1280px window.
-const DEFAULT_WIDTH_MIN_PX = 600;
-const DEFAULT_WIDTH_VIEWPORT_RATIO = 0.375;
-const DEFAULT_BLUR_PX = 0;
-const DEFAULT_DIM_PERCENT = 20;
-
-function defaultWidthFromViewport(): number {
-  return typeof window === "undefined"
-    ? DEFAULT_WIDTH_MIN_PX
-    : Math.max(DEFAULT_WIDTH_MIN_PX, Math.round(window.innerWidth * DEFAULT_WIDTH_VIEWPORT_RATIO));
-}
-
-function normalizeWidth(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
-
-// Must match the static `max(600px,37.5vw)` in sidePanelClass — Tailwind's
-// JIT can't read DEFAULT_WIDTH_MIN_PX/DEFAULT_WIDTH_VIEWPORT_RATIO at
-// runtime, so the two are kept in sync by hand.
-// Same cap as WIDTH_CLASS: an explicit `width` must not outgrow the viewport.
-const MAX_VIEWPORT_WIDTH = "85vw";
-const WIDTH_CLASS = "w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)]";
-
-// "floating": 32px margin + 32px radius so the panel reads as detached from
-// the viewport edge, unlike the sheet primitive's flush-edge default.
-// "flush" docks it back to that flush-edge default instead, borrowing the
-// vendored Sheet's per-side border (only the edge facing the app content).
-// Below the narrow-viewport breakpoint neither treatment fits — the JS hook
-// decides, not a `sm:` Tailwind prefix, since the resize width below already
-// comes from JS and two decision sources is the bug this avoids.
-function sidePanelClass(
-  side: "left" | "right" | "top" | "bottom",
-  narrow: boolean,
-  variant: "floating" | "flush",
-  belowHeader: boolean,
-): string {
-  if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
-  if (variant === "flush") {
-    switch (side) {
-      // h-full would pin height to 100vh despite the shifted top; h-auto lets inset-y-0 size it.
-      case "left":
-        return `inset-y-0 left-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
-      case "top":
-        return `inset-x-0 ${belowHeader ? "top-(--shell-header-height)" : "top-0"} h-auto max-h-[80vh] border-b shadow-2xl overflow-hidden`;
-      case "bottom":
-        return "inset-x-0 bottom-0 h-auto max-h-[80vh] border-t shadow-2xl overflow-hidden";
-      default:
-        return `inset-y-0 right-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-l shadow-2xl overflow-hidden`;
-    }
-  }
-  switch (side) {
-    case "left":
-      return `inset-y-8 left-8 h-auto ${WIDTH_CLASS} rounded-[2rem] border shadow-2xl overflow-hidden`;
-    case "top":
-      return "inset-x-8 top-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
-    case "bottom":
-      return "inset-x-8 bottom-8 h-auto max-h-[80vh] rounded-[2rem] border shadow-2xl overflow-hidden";
-    default:
-      return `inset-y-8 right-8 h-auto ${WIDTH_CLASS} rounded-[2rem] border shadow-2xl overflow-hidden`;
-  }
-}
-
 const DRAWER_INSET_PROPERTY = {
   left: "--kumiko-drawer-inset-left",
   right: "--kumiko-drawer-inset-right",
@@ -214,69 +142,21 @@ export function Drawer({
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
   const canResize = resize !== undefined && (side === "left" || side === "right");
-  const customWidthStyle =
-    !canResize && !narrow && (side === "left" || side === "right") && width !== undefined
-      ? { width: normalizeWidth(width), maxWidth: MAX_VIEWPORT_WIDTH }
-      : undefined;
-  const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
-  const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;
-  const effectiveMaxWidthPx = () =>
-    typeof window === "undefined"
-      ? maxWidthPx
-      : Math.min(maxWidthPx, Math.round(window.innerWidth * 0.9));
-  const [resizedWidthPx, setResizedWidthPx] = useState(() =>
-    clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
-  );
-  const [maximized, setMaximized] = useState(false);
+  const resizeState = useDrawerResizeState(resize);
   const [sheet, setSheet] = useState<HTMLElement | null>(null);
   usePublishDrawerInset(sheet, side, open && !modal && !narrow);
-  const blurPx = backdrop?.blurPx ?? DEFAULT_BLUR_PX;
-  const dimPercent = backdrop?.dimPercent ?? DEFAULT_DIM_PERCENT;
-  const overlayStyle: React.CSSProperties = {
-    backgroundColor: `rgb(0 0 0 / ${dimPercent}%)`,
-    ...(blurPx > 0 ? { backdropFilter: `blur(${blurPx}px)` } : {}),
-  };
-
-  const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : resizedWidthPx;
-
-  // Inline style because tailwind-merge doesn't dedupe `top-*`/`bottom-*` against the base `inset-y-0`;
-  // style wins over class regardless of generated CSS order.
-  const verticalOffsetStyle: React.CSSProperties | undefined =
-    belowHeader && variant === "flush" && !narrow && (side === "left" || side === "right")
-      ? { top: "var(--shell-header-height)", bottom: 0 }
-      : undefined;
-
-  const widthStyle =
-    canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : customWidthStyle;
-  const sheetStyle: React.CSSProperties | undefined =
-    widthStyle === undefined && verticalOffsetStyle === undefined
-      ? undefined
-      : { ...widthStyle, ...verticalOffsetStyle };
-
-  const handleDrag = usePointerDrag({
-    onStart: () => {
-      setMaximized(false);
-      return { startWidth: effectiveWidthPx };
-    },
-    onMove: ({ startWidth }, { dx }) => {
-      const signedDelta = side === "right" ? -dx : dx;
-      setResizedWidthPx(clamp(startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()));
-    },
+  const overlayStyle = buildOverlayStyle(backdrop);
+  const sheetStyle = buildSheetStyle({
+    side,
+    narrow,
+    canResize,
+    width,
+    effectiveWidthPx: resizeState.effectiveWidthPx,
+    variant,
+    belowHeader,
   });
-  const onHandleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    const keyDelta = arrowKeyDelta(event);
-    if (keyDelta === undefined || keyDelta.dx === 0) return;
-    event.preventDefault();
-    setMaximized(false);
-    const delta = side === "right" ? -keyDelta.dx : keyDelta.dx;
-    // Seed from the currently visible width, not the stale `resizedWidthPx`
-    // state — while maximized, it still holds the pre-maximize value, so a
-    // key press would otherwise jump the drawer back to that old size
-    // instead of resizing relative to what's on screen.
-    setResizedWidthPx((current) =>
-      clamp((maximized ? effectiveWidthPx : current) + delta, minWidthPx, effectiveMaxWidthPx()),
-    );
-  };
+  const handle = useDrawerResizeHandle(side, resizeState);
+  const resizeControls = { t, side, resize: resizeState, handle };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
@@ -298,23 +178,7 @@ export function Drawer({
         )}
         style={sheetStyle}
       >
-        {canResize && !narrow && (
-          <button
-            type="button"
-            onClick={() => setMaximized((m) => !m)}
-            aria-pressed={maximized}
-            aria-label={
-              maximized ? t("kumiko.widget.drawer.restore") : t("kumiko.widget.drawer.maximize")
-            }
-            className="absolute top-4 right-14 z-10 rounded-xs p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
-          >
-            {maximized ? (
-              <Minimize2Icon className="size-4" />
-            ) : (
-              <Maximize2Icon className="size-4" />
-            )}
-          </button>
-        )}
+        {canResize && !narrow && renderMaximizeButton(resizeControls)}
         {(title !== undefined || description !== undefined) && (
           <SheetHeader>
             {title !== undefined && <SheetTitle>{title}</SheetTitle>}
@@ -327,24 +191,7 @@ export function Drawer({
         {footer !== undefined && (
           <SheetFooter className={DRAWER_FOOTER_CLASS}>{footer}</SheetFooter>
         )}
-        {canResize && !narrow && (
-          // biome-ignore lint/a11y/useSemanticElements: <hr> can't carry pointer/keyboard drag interaction or a live width value — a draggable separator needs a div with the ARIA role.
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t("kumiko.widget.drawer.resize")}
-            aria-valuenow={effectiveWidthPx}
-            aria-valuemin={minWidthPx}
-            aria-valuemax={effectiveMaxWidthPx()}
-            tabIndex={0}
-            {...handleDrag}
-            onKeyDown={onHandleKeyDown}
-            className={cn(
-              "absolute inset-y-0 z-10 w-1 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 hover:bg-border",
-              side === "right" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2",
-            )}
-          />
-        )}
+        {canResize && !narrow && renderResizeHandle(resizeControls)}
       </DrawerSheetContent>
     </Sheet>
   );
