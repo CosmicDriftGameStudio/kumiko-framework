@@ -17,7 +17,6 @@ import {
   createTestEnvelopeCipher,
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
@@ -27,6 +26,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../feature.ts";
 import { driveDestructionToCompletion, seedDestroyingTenant } from "../testing.ts";
@@ -112,7 +112,12 @@ describe("tenant-lifecycle :: subject-keys stage with members of several tenants
     const user = crypto.randomUUID();
     await addMember(doomed, user);
     await addMember(gone, user);
-    await updateRows(stack.db, tenantTable, { status: "destroyed" }, { id: gone });
+    await updateTenantViaEventStore(
+      stack.db,
+      gone,
+      { status: "destroyed" },
+      TestUsers.systemAdmin.tenantId,
+    );
 
     await seedDestroyingTenant(stack.db, doomed);
     expect(await driveDestructionToCompletion(stack, stack.db, doomed)).toBe("destroyed");

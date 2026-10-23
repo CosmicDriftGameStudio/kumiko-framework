@@ -11,17 +11,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/observability";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import {
-  createTestEnvelopeCipher,
-  resetTestTables,
-  updateRows,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../feature.ts";
 
@@ -96,7 +93,12 @@ describe("run-tenant-destruction cron", () => {
       { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
       TestUsers.systemAdmin,
     );
-    await updateRows(stack.db, tenantTable, { status: "destroying" }, { id: DUE_TENANT });
+    await updateTenantViaEventStore(
+      stack.db,
+      DUE_TENANT,
+      { status: "destroying" },
+      TestUsers.systemAdmin.tenantId,
+    );
     const usesBefore = meteredUses("unsafe-raw");
 
     await runJob();
@@ -113,14 +115,14 @@ describe("run-tenant-destruction cron", () => {
       { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
       TestUsers.systemAdmin,
     );
-    await updateRows(
+    await updateTenantViaEventStore(
       stack.db,
-      tenantTable,
+      DUE_TENANT,
       {
         status: "destroyRequested",
         gracePeriodEnd: getTemporal().Now.instant().subtract({ hours: 24 }),
       },
-      { id: DUE_TENANT },
+      TestUsers.systemAdmin.tenantId,
     );
 
     await runJob();
@@ -138,14 +140,14 @@ describe("run-tenant-destruction cron", () => {
       { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
       TestUsers.systemAdmin,
     );
-    await updateRows(
+    await updateTenantViaEventStore(
       stack.db,
-      tenantTable,
+      DUE_TENANT,
       {
         status: "destroyRequested",
         gracePeriodEnd: getTemporal().Now.instant().add({ hours: 24 }),
       },
-      { id: DUE_TENANT },
+      TestUsers.systemAdmin.tenantId,
     );
     const usesBefore = meteredUses("unsafe-raw");
 

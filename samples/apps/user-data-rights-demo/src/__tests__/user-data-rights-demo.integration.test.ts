@@ -42,7 +42,6 @@ import {
   runUserExport,
   UserDataRightsJobs,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-
 import { asRawClient, createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -50,10 +49,11 @@ import {
   EXT_USER_DATA,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -106,13 +106,15 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM store_todos`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
+  await resetTestTables(stack.db, [
+    "store_todos",
+    userTable,
+    "read_tenant_memberships",
+    eventsTable,
+  ]);
 });
 
-async function seedAlice(): Promise<void> {
+async function seedAlice(userRowOverrides: Record<string, unknown> = {}): Promise<void> {
   await seedRow(stack.db, userTable, {
     id: alice.id,
     tenantId: alice.tenantId,
@@ -123,6 +125,7 @@ async function seedAlice(): Promise<void> {
     emailVerified: true,
     roles: '["Member"]',
     status: USER_STATUS.Active,
+    ...userRowOverrides,
   });
   await seedRow(stack.db, tenantMembershipsTable, {
     tenantId: tenantId,
@@ -172,19 +175,11 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
   });
 
   test("Schritt 4+5: request-deletion → run-forget-cleanup-Cron → todos weg, user anonymisiert", async () => {
-    await seedAlice();
+    await seedAlice({ status: USER_STATUS.DeletionRequested, gracePeriodEnd: PAST() });
     await stack.http.writeOk(
       TODO_CREATE_QN,
       { title: "vor-deletion-todo", body: "soll weg" },
       alice,
-    );
-
-    await asRawClient(stack.db).unsafe(
-      `
-      UPDATE read_users SET status = $1, grace_period_end = $2::timestamptz
-      WHERE id = $3
-    `,
-      [USER_STATUS.DeletionRequested, PAST().toString(), alice.id],
     );
 
     const forgetCron = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
@@ -209,11 +204,8 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       emailVerified: true,
       roles: '["Member"]',
       status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: PAST(),
     });
-    await asRawClient(stack.db).unsafe(
-      `UPDATE read_users SET grace_period_end = $1::timestamptz WHERE id = $2`,
-      [PAST().toString(), cronUser.id],
-    );
     await forgetCron?.handler({}, {
       // Mirrors the job runner: tenant-filtered db carrying the job's own escapeHatch grant.
       db: createTenantDb({

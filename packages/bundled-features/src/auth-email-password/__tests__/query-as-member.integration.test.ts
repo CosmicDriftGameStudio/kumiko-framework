@@ -32,7 +32,6 @@ import {
   createTestEnvelopeCipher,
   resetTestTables,
   seedRow,
-  updateRows,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -59,6 +58,7 @@ import {
 } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.ts";
 import {
@@ -68,6 +68,7 @@ import {
   userEntity,
   userTable,
 } from "../../user/index.ts";
+import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthHandlers } from "../web/constants.ts";
 
@@ -578,7 +579,7 @@ async function createTenant(id: TenantId): Promise<void> {
 }
 
 async function setTenantStatus(id: TenantId, status: TenantLifecycleStatus): Promise<void> {
-  await updateRows(stack.db, tenantTable, { status }, { id });
+  await updateTenantViaEventStore(stack.db, id, { status }, TestUsers.systemAdmin.tenantId);
   resetTenantLifecycleGateCacheForTests();
 }
 
@@ -749,7 +750,7 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
     await createTenant(TENANT_A);
     const userId = await createUser("restricted@example.com", "pw-long-enough-5");
     await addMembership(userId, TENANT_A);
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+    await updateUserViaEventStore(stack.db, userId, { status: USER_STATUS.Restricted });
 
     const err = await readAsMemberErr(userId, WHOAMI_QN);
     expect(err.code).toBe("access_denied");
@@ -798,7 +799,7 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
     await createTenant(TENANT_A);
     const userId = await createUser("wouldbesystem@example.com", "pw-long-enough-16");
     await addMembership(userId, TENANT_A);
-    await updateRows(stack.db, userTable, { roles: [SYSTEM_ROLE] }, { id: userId });
+    await updateUserViaEventStore(stack.db, userId, { roles: [SYSTEM_ROLE] });
 
     const whoami = (await readAsMember(userId, WHOAMI_QN)) as { roles: readonly string[] };
     expect(whoami.roles).not.toContain(SYSTEM_ROLE);

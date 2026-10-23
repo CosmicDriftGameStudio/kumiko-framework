@@ -7,26 +7,14 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  selectMany,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  type SessionUser,
-  SYSTEM_TENANT_ID,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
-  deleteRows,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -48,9 +36,14 @@ import { userSessionEntity } from "../../sessions/schema/user-session.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { deleteMembershipViaEventStore } from "../../tenant/testing-event-store.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, UserHandlers, UserQueries } from "../../user/index.ts";
-import { userEntity, userTable } from "../../user/schema/user.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import {
+  softDeleteUserViaEventStore,
+  updateUserViaEventStore,
+} from "../../user/testing-event-store.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { revokeAllPatTokensForUser } from "../revoke-for-user.ts";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.ts";
@@ -249,9 +242,7 @@ describe("PAT auth", () => {
     const token = await mintToken(actor);
     const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(ok.status).toBe(200);
-    // tenantMembershipsTable is ES-managed (executor-only branded); deleteRows
-    // is the test-side escape for out-of-band row removal.
-    await deleteRows(stack.db, tenantMembershipsTable, { userId: actor.id });
+    await deleteMembershipViaEventStore(stack.db, { userId: actor.id, tenantId: actor.tenantId });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
   });
@@ -262,7 +253,7 @@ describe("PAT auth", () => {
     const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(ok.status).toBe(200);
 
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Deleted }, { id: actor.id });
+    await updateUserViaEventStore(stack.db, actor.id, { status: USER_STATUS.Deleted });
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
   });
@@ -273,14 +264,7 @@ describe("PAT auth", () => {
     const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(ok.status).toBe(200);
 
-    const deleted = await createEventStoreExecutor(userTable, userEntity, {
-      entityName: "user",
-    }).delete(
-      { id: actor.id },
-      createSystemUser(SYSTEM_TENANT_ID),
-      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
-    );
-    expect(deleted.isSuccess).toBe(true);
+    await softDeleteUserViaEventStore(stack.db, actor.id);
 
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);

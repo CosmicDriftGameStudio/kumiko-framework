@@ -3,11 +3,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import {
-  expectErrorIncludes,
-  resetTestTables,
-  updateRows,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -19,6 +15,7 @@ import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../..
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../feature.ts";
 import { userEntity, userTable } from "../schema/user.ts";
+import { softDeleteUserViaEventStore } from "../testing-event-store.ts";
 import { UserErrors, UserHandlers, UserQueries } from "../web/constants.ts";
 
 let stack: TestStack;
@@ -932,8 +929,7 @@ describe("scenario 6: last active SystemAdmin protection (#2388)", () => {
       roles: ["SystemAdmin"],
     });
 
-    // Soft-delete the second admin directly
-    await updateRows(stack.db, userTable, { isDeleted: true }, { id: softDeletedAdmin.id });
+    await softDeleteUserViaEventStore(stack.db, softDeletedAdmin.id);
 
     // Attempting to demote activeAdmin must fail with 409 because the other is deleted
     const loaded = await stack.http.queryOk<Record<string, unknown>>(

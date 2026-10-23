@@ -32,7 +32,7 @@ import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
-  updateRows,
+  updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -179,7 +179,17 @@ async function seedExpiredTokenForAlice(): Promise<string> {
   const plainToken = result.tokenByJobId.get(jobId);
   if (!plainToken) throw new Error("worker run did not create a download token");
   const longAgo = getTemporal().Instant.fromEpochMilliseconds(Date.now() - 365 * 86_400_000);
-  await updateRows(stack.db, exportDownloadTokensTable, { expiresAt: longAgo }, { jobId });
+  await updateRowViaEventStore(
+    stack.db,
+    {
+      table: exportDownloadTokensTable,
+      entity: exportDownloadTokenEntity,
+      entityName: "export-download-token",
+    },
+    { jobId },
+    { expiresAt: longAgo },
+    { tenantId: tenantA },
+  );
   return plainToken;
 }
 

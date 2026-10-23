@@ -11,11 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  createTestEnvelopeCipher,
-  resetTestTables,
-  updateRows,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -39,6 +35,7 @@ import {
 } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.ts";
 import {
@@ -48,6 +45,7 @@ import {
   userEntity,
   userTable,
 } from "../../user/index.ts";
+import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 
@@ -114,7 +112,7 @@ async function createTenant(id: TenantId): Promise<void> {
 }
 
 async function setTenantStatus(id: TenantId, status: TenantLifecycleStatus): Promise<void> {
-  await updateRows(stack.db, tenantTable, { status }, { id });
+  await updateTenantViaEventStore(stack.db, id, { status }, TestUsers.systemAdmin.tenantId);
   resetTenantLifecycleGateCacheForTests();
 }
 
@@ -170,7 +168,7 @@ describe("switch-tenant :: active-membership building block", () => {
     const userId = await createUser("restricted@example.com", "pw-long-enough-2");
     await addMembership(userId, TENANT_A);
     await addMembership(userId, TENANT_B);
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+    await updateUserViaEventStore(stack.db, userId, { status: USER_STATUS.Restricted });
 
     const token = await tokenFor(userId, TENANT_A);
     const res = await switchTenant(token, TENANT_B);
@@ -246,7 +244,7 @@ describe("login :: active-membership building block", () => {
     await createTenant(TENANT_A);
     const userId = await createUser("restrictedlogin@example.com", "pw-long-enough-5");
     await addMembership(userId, TENANT_A);
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: userId });
+    await updateUserViaEventStore(stack.db, userId, { status: USER_STATUS.Restricted });
 
     const res = await stack.http.raw("POST", "/api/auth/login", {
       email: "restrictedlogin@example.com",
@@ -264,7 +262,7 @@ describe("login :: active-membership building block", () => {
     const userId = await createUser("fallback@example.com", "pw-long-enough-6");
     await addMembership(userId, TENANT_A);
     await addMembership(userId, TENANT_B);
-    await updateRows(stack.db, userTable, { lastActiveTenantId: TENANT_A }, { id: userId });
+    await updateUserViaEventStore(stack.db, userId, { lastActiveTenantId: TENANT_A });
     await setTenantStatus(TENANT_A, "destroying");
 
     const res = await stack.http.raw("POST", "/api/auth/login", {

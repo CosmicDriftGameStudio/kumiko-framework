@@ -2,8 +2,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher, seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -25,6 +30,7 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
+import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { signResetToken } from "../reset-token.ts";
 import { signVerificationToken } from "../verification-token.ts";
@@ -110,8 +116,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
   emailTransport.sent.length = 0;
 });
 
@@ -133,11 +138,10 @@ async function seedUser(opts: {
   );
   // user:create schema doesn't expose emailVerified (by design — it's a
   // privileged field only the verify-email flow flips). Tests need a
-  // pre-verified account for "login with verified user" cases, so we set
-  // it directly via SQL after create. Row.version is left at 1; no
-  // subsequent event-store writes happen on this row in these tests.
+  // pre-verified account for "login with verified user" cases, so we flip it
+  // through the event store after create.
   if (opts.emailVerified === true) {
-    await updateRows(stack.db, userTable, { emailVerified: true }, { id: created.id });
+    await updateUserViaEventStore(stack.db, created.id, { emailVerified: true });
   }
   const tenantId = opts.tenantId ?? "00000000-0000-4000-8000-000000000001";
   await seedTenantMembership(stack.db, {

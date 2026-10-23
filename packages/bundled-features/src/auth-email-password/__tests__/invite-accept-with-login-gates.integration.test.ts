@@ -5,15 +5,15 @@
 // restricted/deleted invitee never gets a session at all.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-
-import {
-  asRawClient,
-  configureEntityFieldEncryption,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { configureEntityFieldEncryption, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -129,11 +129,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userMfaTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    userMfaTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   const allKeys = await stack.redis.redis.keys("invite:*");
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
@@ -324,12 +327,8 @@ describe("invite-accept-with-login: account-status gate", () => {
       locale: "de",
       emailVerified: true,
       roles: "[]",
-      status: USER_STATUS.Active,
+      status: USER_STATUS.Restricted,
     });
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET status = $1 WHERE id = $2`,
-      [USER_STATUS.Restricted, userId],
-    );
 
     const token = await inviteEmail(email, "Editor");
     const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
@@ -369,11 +368,8 @@ describe("invite-accept-with-login: soft-deleted email predecessor (fw#2593)", (
       emailVerified: true,
       roles: "[]",
       status: USER_STATUS.Active,
+      isDeleted: true,
     });
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET is_deleted = true WHERE id = $1`,
-      [deletedUserId],
-    );
 
     await seedRow(stack.db, userTable, {
       id: liveUserId,

@@ -9,7 +9,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
@@ -58,6 +57,7 @@ import { createFilesFeature } from "../../files/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import {
   TENANT_AGGREGATE_TYPE,
@@ -151,11 +151,11 @@ async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promi
 // same pattern as tenant-lifecycle's own poison-pill destroy tests.
 async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
   const now = getTemporal().Now.instant();
-  await updateRows(
+  await updateTenantViaEventStore(
     db,
-    tenantTable,
+    tenantId,
     { status: "destroying", destroyStartedAt: now },
-    { id: tenantId },
+    TestUsers.systemAdmin.tenantId,
   );
   await append(db, {
     aggregateId: tenantId,
