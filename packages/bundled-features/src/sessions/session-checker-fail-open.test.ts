@@ -45,6 +45,36 @@ describe("sessionChecker fail-open on user-lookup throw", () => {
     }
   });
 
+  test("read_users row hard-gone (not soft-deleted) → live, fail-open on a miss", async () => {
+    // If `if (user && ...)` ever regressed to `if (!user || ...)`, a missing
+    // user row would turn this second layer into a global lockout.
+    const db = {} as DbConnection;
+    const cbs = createSessionCallbacks({ db });
+    const sid = "00000000-0000-4000-8000-00000000sid3";
+    const userId = "00000000-0000-4000-8000-00000000usr3";
+    const farFutureMs = Temporal.Now.instant().add({ hours: 1 }).epochMilliseconds;
+
+    const spy = spyOn(bunDb, "fetchOne").mockImplementation((async (_db, table) => {
+      if (table === userSessionTable) {
+        return {
+          userId,
+          revokedAt: null,
+          expiresAt: { epochMilliseconds: farFutureMs },
+        };
+      }
+      if (table === userTable) {
+        return undefined;
+      }
+      throw new Error("unexpected table in sessionChecker spy");
+    }) as FetchOne);
+
+    try {
+      expect(await cbs.sessionChecker(sid, userId)).toBe("live");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   test("control: Restricted user without throw → blocked (spy must hit userTable)", async () => {
     // If the spy somehow skipped the userTable branch, Restricted would still
     // be "live" via fail-open-on-null — this control pins that the throw path
