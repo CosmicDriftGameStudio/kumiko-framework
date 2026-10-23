@@ -949,7 +949,7 @@ async function expectBothPagesServed(target: TestStack, headers: Record<string, 
 }
 
 describe("record-contract-termination with a concurrent run of the same requestId", () => {
-  test("a run that passed the early check while another recorded appends nothing", async () => {
+  test("a second run waits for the first one and neither calls the provider nor appends again", async () => {
     await seedSubscription(8120, "sub_concurrent_record");
     const requestId = generateId();
     const record = () =>
@@ -972,12 +972,16 @@ describe("record-contract-termination with a concurrent run of the same requestI
     const held = record();
     await entered.promise;
 
-    // The second run records the termination while the first one is held.
+    // The second run waits for the per-tenant lock the first one holds, then finds the record.
     providerCancelHold = undefined;
-    expectSuccess(await record());
+    const second = record();
     release.resolve();
     expectSuccess(await held);
+    expectSuccess(await second);
     await stack.drainJobs();
+    expect(
+      cancelCalls.filter((call) => call.providerSubscriptionId === "sub_concurrent_record"),
+    ).toHaveLength(1);
 
     const events = await eventsOf(
       subscriptionAggregateId(testTenantId(8120)),
