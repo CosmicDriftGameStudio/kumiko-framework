@@ -1,52 +1,39 @@
-// Unit tests for resolveTailwindCli: both failure branches prevent a dev-server crash
-// when the network is unreliable; no Bun or an uninstalled package returns undefined.
+// Unit tests for the Tailwind lookups: no Bun or an uninstalled package returns undefined
+// instead of crashing the dev server or triggering a registry auto-install.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "../resolve-tailwind-cli.ts";
 
 describe("resolveTailwindCli", () => {
-  test("ohne Bun-Resolver → undefined (silent skip)", () => {
-    const out = resolveTailwindCli({ bun: undefined, cwd: "/somewhere" });
-    expect(out).toBeUndefined();
+  let root = "";
+  const bun = { resolveSync: () => "unused" };
+
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-tw-cli-")));
   });
 
-  test("Bun.resolveSync wirft → undefined", () => {
-    const out = resolveTailwindCli({
-      bun: {
-        resolveSync: () => {
-          throw new Error("module not found");
-        },
-      },
-      cwd: "/somewhere",
-    });
-    expect(out).toBeUndefined();
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
   });
 
-  test("Bun.resolveSync liefert package.json → absoluter Bin-Pfad", () => {
-    const out = resolveTailwindCli({
-      bun: {
-        resolveSync: () => "/repo/node_modules/@tailwindcss/cli/package.json",
-      },
-      cwd: "/repo",
-    });
-    expect(out).toBe("/repo/node_modules/@tailwindcss/cli/dist/index.mjs");
+  test("installed → absolute bin path under the real package dir", () => {
+    mkdirSync(join(root, "node_modules/@tailwindcss/cli"), { recursive: true });
+    writeFileSync(join(root, "node_modules/@tailwindcss/cli/package.json"), "{}");
+    const out = resolveTailwindCli({ bun, cwd: join(root, "apps/web") });
+    expect(out).toBe(join(root, "node_modules/@tailwindcss/cli/dist/index.mjs"));
   });
 
-  test("Bun-Resolver wird mit korrektem id und cwd aufgerufen", () => {
-    const calls: Array<{ id: string; from: string }> = [];
-    resolveTailwindCli({
-      bun: {
-        resolveSync: (id, from) => {
-          calls.push({ id, from });
-          return "/x/node_modules/@tailwindcss/cli/package.json";
-        },
-      },
-      cwd: "/some/working/dir",
-    });
-    expect(calls).toEqual([{ id: "@tailwindcss/cli/package.json", from: "/some/working/dir" }]);
+  test("not installed → undefined", () => {
+    expect(resolveTailwindCli({ bun, cwd: root })).toBeUndefined();
+  });
+
+  test("without Bun → undefined (silent skip)", () => {
+    mkdirSync(join(root, "node_modules/@tailwindcss/cli"), { recursive: true });
+    writeFileSync(join(root, "node_modules/@tailwindcss/cli/package.json"), "{}");
+    expect(resolveTailwindCli({ bun: undefined, cwd: root })).toBeUndefined();
   });
 });
 

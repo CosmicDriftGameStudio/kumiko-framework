@@ -65,6 +65,7 @@ import {
   RENDERER_WEB_FONTS_DIST_DIR,
   resolveRendererWebFontsDir,
 } from "./renderer-web-fonts.ts";
+import { type BunResolver, resolveInstalledSync } from "./resolve-installed-package.ts";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli.ts";
 
 // Bun runtime check as a module-level constant: every build step (Tailwind via
@@ -636,16 +637,11 @@ function resolveStylesheetEntry(
   // and production builds behave identically.
   if (!clientEntry) return undefined;
 
-  if (!hasBun) return undefined;
-  try {
-    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer/web/styles.css", cwd);
-    if (!canResolveTailwindStylesheet(resolved, { bun: Bun, cwd })) {
-      return undefined;
-    }
-    return { path: resolved, isRendererWebFallback: true };
-  } catch {
+  const resolved = resolveInstalledSync("@cosmicdrift/kumiko-renderer/web/styles.css", cwd);
+  if (resolved === undefined || !canResolveTailwindStylesheet(resolved, { bun: Bun, cwd })) {
     return undefined;
   }
+  return { path: resolved, isRendererWebFallback: true };
 }
 
 // Build-time guard against unstyled production output: when the build falls
@@ -797,13 +793,17 @@ function isTailwindEngine(candidate: TailwindEngineCandidate): candidate is Tail
 
 // Both packages are the CLI's own dependencies, so they resolve from the CLI package directory
 // (same version the CLI would run), not from the app root.
-async function loadTailwindEngine(
-  cliPath: string,
-  bun: { resolveSync: (id: string, from: string) => string },
-): Promise<TailwindEngine> {
-  const cliDir = dirname(bun.resolveSync("@tailwindcss/cli/package.json", dirname(cliPath)));
-  const node: unknown = await import(bun.resolveSync("@tailwindcss/node", cliDir));
-  const oxide: unknown = await import(bun.resolveSync("@tailwindcss/oxide", cliDir));
+async function loadTailwindEngine(cliPath: string, bun: BunResolver): Promise<TailwindEngine> {
+  const cliDir = resolve(cliPath, "..", "..");
+  const importFromCli = (packageName: string): Promise<unknown> => {
+    const entry = resolveInstalledSync(packageName, cliDir, bun);
+    if (entry !== undefined) return import(entry);
+    throw new Error(
+      `[kumiko build] ${packageName} is not installed next to @tailwindcss/cli (${cliDir}).`,
+    );
+  };
+  const node = await importFromCli("@tailwindcss/node");
+  const oxide = await importFromCli("@tailwindcss/oxide");
   const engine: TailwindEngineCandidate = {
     compile: isRecord(node) ? node["compile"] : undefined,
     optimize: isRecord(node) ? node["optimize"] : undefined,
