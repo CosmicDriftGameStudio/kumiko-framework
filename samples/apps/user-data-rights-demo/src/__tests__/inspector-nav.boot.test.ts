@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { UserDataRightsScreens } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { todosFeature } from "../feature";
@@ -40,8 +41,8 @@ describe("user-data-rights-demo inspector nav wire-proof", () => {
     const screens = Object.values(todosFeature.navs).map((n) => n.screen);
     expect(screens).toEqual(
       expect.arrayContaining([
-        "user-data-rights:screen:export-job-list",
-        "user-data-rights:screen:download-attempt-list",
+        UserDataRightsScreens.exportJobList,
+        UserDataRightsScreens.downloadAttemptList,
       ]),
     );
   });

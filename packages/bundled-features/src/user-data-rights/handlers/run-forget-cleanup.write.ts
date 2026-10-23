@@ -17,7 +17,11 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
 import { resolveAppTenantModel } from "../lib/resolve-tenant-model.ts";
 import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
-import { runForgetCleanup, type SendDeletionExecutedEmailFn } from "../run-forget-cleanup.ts";
+import {
+  FORGET_CLEANUP_HANDLER_NAME,
+  runForgetCleanup,
+  type SendDeletionExecutedEmailFn,
+} from "../run-forget-cleanup.ts";
 
 export type RunForgetCleanupOptions = {
   readonly sendDeletionExecutedEmail?: SendDeletionExecutedEmailFn;
@@ -72,7 +76,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
           secrets: ctx.secrets,
           db: forgetDb,
           userId: ctx.user.id,
-          handlerName: "user-data-rights:run-forget-cleanup",
+          handlerName: FORGET_CLEANUP_HANDLER_NAME,
         }),
         ...(opts.sendDeletionExecutedEmail && {
           sendDeletionExecutedEmail: opts.sendDeletionExecutedEmail,

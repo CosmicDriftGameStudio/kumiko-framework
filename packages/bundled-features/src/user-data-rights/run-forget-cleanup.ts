@@ -243,6 +243,9 @@ const HOOK_ORDER_DEFAULT = EXT_USER_DATA_ORDER.DEFAULT;
 // console.warn so a crafted reason can't forge extra log lines, and cap the
 // length against a log-flood. The unsanitized reason still lands in the
 // returned `incomplete` entry untouched.
+// Secret-read audit discriminator, not a QN; the value must stay stable for the audit trail.
+export const FORGET_CLEANUP_HANDLER_NAME = "user-data-rights:run-forget-cleanup" as const;
+
 export function sanitizeReasonForLog(reason: string): string {
   return reason.replace(/[\r\n]+/g, " ").slice(0, 500);
 }

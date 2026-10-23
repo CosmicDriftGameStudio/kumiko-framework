@@ -40,6 +40,7 @@ import {
 import {
   runForgetCleanup,
   runUserExport,
+  UserDataRightsJobs,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 
 import { asRawClient, createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
@@ -186,7 +187,7 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
       [USER_STATUS.DeletionRequested, PAST().toString(), alice.id],
     );
 
-    const forgetCron = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    const forgetCron = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(forgetCron).toBeTruthy();
     const result = await runForgetCleanup({ db: stack.db, registry: stack.registry, now: NOW() });
     expect(result.processedUserIds).toContain(alice.id);

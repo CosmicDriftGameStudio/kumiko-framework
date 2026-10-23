@@ -54,6 +54,8 @@ describe("user-data-rights read-only inspector screens", () => {
     const registry = createRegistry(features);
     expect(registry.getJob(UserDataRightsJobs.runExportJobs)).toBeDefined();
     expect(registry.getScreen(UserDataRightsScreens.exportJobList)).toBeDefined();
+    expect(registry.getJob(UserDataRightsJobs.runForgetCleanup)).toBeDefined();
+    expect(registry.getScreen(UserDataRightsScreens.downloadAttemptList)).toBeDefined();
   });
 
   test("ships SystemAdmin-gated list + detail screens", () => {

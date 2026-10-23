@@ -40,10 +40,12 @@ export const TENANT_MODEL_CONFIG_KEY = "user-data-rights:config:tenant-model" as
 
 export const UserDataRightsJobs = {
   runExportJobs: "user-data-rights:job:run-export-jobs",
+  runForgetCleanup: "user-data-rights:job:run-forget-cleanup",
 } as const;
 
 export const UserDataRightsScreens = {
   exportJobList: "user-data-rights:screen:export-job-list",
+  downloadAttemptList: "user-data-rights:screen:download-attempt-list",
 } as const;
 
 export const UserDataRightsHandlers = {

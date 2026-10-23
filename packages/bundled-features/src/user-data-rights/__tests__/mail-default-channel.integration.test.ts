@@ -49,12 +49,13 @@ import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/mem
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
+import { UserDataRightsJobs } from "../web/constants.ts";
 import { setupSubjectKmsForTest } from "./forget-shredding-test-helpers.ts";
 
 const TENANT_WITHOUT_PROVIDER = "00000000-0000-4000-8000-0000000007a1";
 const USER_ID = "00000000-0000-4000-8000-0000000007b1";
 const ORIGINAL_EMAIL = "channel-delete@example.test";
-const FORGET_JOB = "user-data-rights:job:run-forget-cleanup";
+const FORGET_JOB = UserDataRightsJobs.runForgetCleanup;
 
 const appTransport = createInMemoryTransport();
 // No provider override and no tenant row: the tenant has no mail provider of its own.

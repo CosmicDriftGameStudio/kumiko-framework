@@ -57,7 +57,7 @@ import { createUserFeature, userEntity } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 import { resolveAppTenantModel } from "../lib/resolve-tenant-model.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
-import { TENANT_MODEL_CONFIG_KEY } from "../web/constants.ts";
+import { TENANT_MODEL_CONFIG_KEY, UserDataRightsJobs } from "../web/constants.ts";
 import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const TENANT = "00000000-0000-4000-8000-0000000000c1";
@@ -464,7 +464,7 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
     await seed(stack.db).seedForgetUser(FORGET_USER);
     await seed(stack.db).seedMembership(FORGET_USER, TENANT);
 
-    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeDefined();
     if (!job) return;
 

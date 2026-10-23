@@ -62,6 +62,7 @@ import {
   type SendExportReadyEmailFn,
 } from "./run-export-jobs.ts";
 import {
+  FORGET_CLEANUP_HANDLER_NAME,
   runForgetCleanup,
   type SendDeletionExecutedEmailFn,
   sanitizeReasonForLog,
@@ -742,7 +743,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
                     secrets: ctx.secrets,
                     db: forgetDb,
                     userId: forgetUserId,
-                    handlerName: "user-data-rights:run-forget-cleanup",
+                    handlerName: FORGET_CLEANUP_HANDLER_NAME,
                   }),
                   configFor: (tenantId) =>
                     forgetConfigResolver &&
@@ -772,7 +773,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             secrets: ctx.secrets,
             db: forgetDb,
             userId: forgetUserId,
-            handlerName: "user-data-rights:run-forget-cleanup",
+            handlerName: FORGET_CLEANUP_HANDLER_NAME,
           }),
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,

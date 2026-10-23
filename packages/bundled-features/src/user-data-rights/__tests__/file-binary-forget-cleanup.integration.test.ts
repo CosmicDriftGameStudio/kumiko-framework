@@ -39,6 +39,7 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { createUserDataRightsFeature } from "../feature.ts";
 import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.ts";
 import { runForgetCleanup } from "../run-forget-cleanup.ts";
+import { UserDataRightsJobs } from "../web/constants.ts";
 import {
   createForgetSeeders,
   createTestFileProviderFeature,
@@ -196,7 +197,7 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
     const key = await seed.seedFile(uuid(401), TENANT, userId);
     expect(await provider.exists(key)).toBe(true);
 
-    const job = stack.registry.getJob("user-data-rights:job:run-forget-cleanup");
+    const job = stack.registry.getJob(UserDataRightsJobs.runForgetCleanup);
     expect(job).toBeDefined();
     if (!job) return;
 
