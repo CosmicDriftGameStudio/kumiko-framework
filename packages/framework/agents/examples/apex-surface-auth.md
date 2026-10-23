@@ -141,7 +141,7 @@ import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundle
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -186,9 +186,8 @@ afterAll(async () => {
 beforeEach(async () => {
   verifyCalls.length = 0;
   await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: user.id,
-    tenantId: tenant,
     email: EMAIL,
     passwordHash: "hashed",
     displayName: "User",

@@ -173,7 +173,7 @@ import {
 import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -182,8 +182,6 @@ import {
 import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
-
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
 
 // Each test gets its own tenant and user, so rows from other tests never show up.
 let testNumber = 0;
@@ -231,9 +229,8 @@ function noteId(index: number): string {
 }
 
 async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {}): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: ALICE_ID,
-    tenantId: TENANT_SYSTEM,
     email: ALICE_EMAIL,
     passwordHash: "h",
     displayName: "Alice",
@@ -243,7 +240,7 @@ async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {
     status: opts.status ?? USER_STATUS.Active,
     gracePeriodEnd: opts.gracePeriodEnd ?? null,
   });
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT_A,
     userId: ALICE_ID,
     roles: '["Member"]',
