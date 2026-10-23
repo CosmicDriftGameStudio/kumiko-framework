@@ -29,15 +29,20 @@ function functionWithComplexity(complexity: number, tagged: boolean): string {
   return `${tag}export function big(x: number): number {\n${branches.join("\n")}\n  return -1;\n}\n`;
 }
 
-function analyseFixture(code: string, withBaseline: boolean, compareBaseline = true) {
+function analyseFixture(
+  code: string,
+  withBaseline: boolean,
+  compareBaseline = true,
+  file: string = FILE,
+) {
   const project = new Project({ useInMemoryFileSystem: true });
-  const sf = project.createSourceFile(`/repo/${FILE}`, code);
+  const sf = project.createSourceFile(`/repo/${file}`, code);
   const ratchet = baselineRatchet({
     file: path.join(tempDir, `baseline-${Math.random().toString(36).slice(2)}.json`),
     formatVersion: 1,
     unit: "Complexity-Hotspot(s)",
   });
-  if (withBaseline) ratchet.write({ [FILE]: 1 });
+  if (withBaseline) ratchet.write({ [file]: 1 });
   return analyse([sf], ROOTS, compareBaseline, { ratchet }).violations;
 }
 
@@ -62,5 +67,18 @@ describe("Complexity guard hard cap", () => {
   test("the cap also applies when the baseline comparison is skipped", () => {
     const code = functionWithComplexity(HARD_COMPLEXITY_CAP + 1, true);
     expect(analyseFixture(code, false, false)).toHaveLength(1);
+  });
+
+  test("conditional JSX in a .tsx component counts toward the cap", () => {
+    const file = "packages/a/src/big-screen.tsx";
+    const slots = Array.from(
+      { length: HARD_COMPLEXITY_CAP },
+      (_, i) => `      {x === ${i} && <span>${i}</span>}`,
+    );
+    const code = `export function BigScreen({ x }: { x: number }) {\n  return (\n    <div>\n${slots.join("\n")}\n    </div>\n  );\n}\n`;
+    const violations = analyseFixture(code, false, true, file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ file, neverFrozen: true });
+    expect(violations[0]?.message).toContain(`complexity ${HARD_COMPLEXITY_CAP + 1}`);
   });
 });

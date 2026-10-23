@@ -10,7 +10,7 @@ import {
   SETTLE_MS,
   snapshotOf,
 } from "./pdf-editor-draft.ts";
-import { EMPTY_PDF_META, serializePdfMeta } from "./pdf-meta.ts";
+import { serializePdfMeta } from "./pdf-meta.ts";
 import {
   DOCUMENT_PDF_KIND,
   type PdfPreviewResult,
@@ -70,7 +70,7 @@ function writeActions(input: PdfActionsInput) {
   }
 
   async function persist(): Promise<SaveResult | null> {
-    const draft = current?.draft ?? { content: "", meta: EMPTY_PDF_META };
+    const { draft } = current;
     const parentTemplateId = detail?.scope === "system" ? detail.id : detail?.parentTemplateId;
     const result = await dispatcher.write<SaveResult>(
       scope === "system"
@@ -141,8 +141,6 @@ function pdfActions(input: PdfActionsInput) {
   const { setMode, setBusy, setActionError, setGenerated, autoPrintedFor, setPendingLocale } = s.ui;
 
   async function generatePdf(): Promise<void> {
-    // skip: no editor state to print
-    if (current === null) return;
     setMode("preview");
     setBusy("pdf");
     setActionError(null);
@@ -164,7 +162,7 @@ function pdfActions(input: PdfActionsInput) {
 
   function printOnce(): void {
     // skip: this draft was already printed
-    if (current === null || autoPrintedFor.current === snapshotOf(current.draft)) return;
+    if (autoPrintedFor.current === snapshotOf(current.draft)) return;
     autoPrintedFor.current = snapshotOf(current.draft);
     void generatePdf();
   }

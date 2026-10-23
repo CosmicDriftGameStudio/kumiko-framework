@@ -188,6 +188,15 @@ describe("publish", () => {
     expect(names(run)).toEqual([TemplateResolverHandlers.upsertSystem]);
   });
 
+  // useQuery keeps the previous detail while the system row loads or when the
+  // slug has no system row, so a SystemAdmin can hold a clean tenant detail.
+  test("a system host with a clean tenant detail publishes it through publishSystem", async () => {
+    const run = harness({ scope: "system", detail: { scope: "tenant" }, dirty: false });
+    await run.actions.publish();
+    expect(names(run)).toEqual([TemplateResolverHandlers.publishSystem]);
+    expect(run.writes[0]?.payload).toEqual({ id: "tpl-1" });
+  });
+
   test("a failed save blocks the publish and keeps the save error", async () => {
     const run = harness({ dirty: true, upsertReply: { isSuccess: false, error: failure } });
     await run.actions.publish();
