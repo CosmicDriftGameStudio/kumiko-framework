@@ -93,12 +93,7 @@ describe("run-tenant-destruction cron", () => {
       { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
       TestUsers.systemAdmin,
     );
-    await updateTenantViaEventStore(
-      stack.db,
-      DUE_TENANT,
-      { status: "destroying" },
-      TestUsers.systemAdmin.tenantId,
-    );
+    await updateTenantViaEventStore(stack.db, DUE_TENANT, { status: "destroying" });
     const usesBefore = meteredUses("unsafe-raw");
 
     await runJob();
@@ -115,15 +110,10 @@ describe("run-tenant-destruction cron", () => {
       { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
       TestUsers.systemAdmin,
     );
-    await updateTenantViaEventStore(
-      stack.db,
-      DUE_TENANT,
-      {
-        status: "destroyRequested",
-        gracePeriodEnd: getTemporal().Now.instant().subtract({ hours: 24 }),
-      },
-      TestUsers.systemAdmin.tenantId,
-    );
+    await updateTenantViaEventStore(stack.db, DUE_TENANT, {
+      status: "destroyRequested",
+      gracePeriodEnd: getTemporal().Now.instant().subtract({ hours: 24 }),
+    });
 
     await runJob();
 
@@ -140,15 +130,10 @@ describe("run-tenant-destruction cron", () => {
       { id: DUE_TENANT, key: "due-acme", name: "ACME Corp" },
       TestUsers.systemAdmin,
     );
-    await updateTenantViaEventStore(
-      stack.db,
-      DUE_TENANT,
-      {
-        status: "destroyRequested",
-        gracePeriodEnd: getTemporal().Now.instant().add({ hours: 24 }),
-      },
-      TestUsers.systemAdmin.tenantId,
-    );
+    await updateTenantViaEventStore(stack.db, DUE_TENANT, {
+      status: "destroyRequested",
+      gracePeriodEnd: getTemporal().Now.instant().add({ hours: 24 }),
+    });
     const usesBefore = meteredUses("unsafe-raw");
 
     await runJob();

@@ -3,7 +3,6 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { tenantTable } from "../tenant/index.ts";
@@ -15,12 +14,7 @@ import { runTenantDestructionSweep } from "./run-tenant-destroy.ts";
 // features wired) by seeding the same "destroying" state it would produce.
 export async function seedDestroyingTenant(db: DbConnection, tenantId: TenantId): Promise<void> {
   const now = getTemporal().Now.instant();
-  await updateTenantViaEventStore(
-    db,
-    tenantId,
-    { status: "destroying", destroyStartedAt: now },
-    TestUsers.systemAdmin.tenantId,
-  );
+  await updateTenantViaEventStore(db, tenantId, { status: "destroying", destroyStartedAt: now });
   await append(db, {
     aggregateId: tenantId,
     aggregateType: TENANT_AGGREGATE_TYPE,

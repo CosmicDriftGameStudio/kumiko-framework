@@ -32,7 +32,6 @@ import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
-  updateRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -68,6 +67,7 @@ import { runUserExport } from "../run-user-export.ts";
 import { downloadAttemptEntity, downloadAttemptsTable } from "../schema/download-attempt.ts";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.ts";
 import { exportJobEntity, exportJobsTable } from "../schema/export-job.ts";
+import { changeExportTokenOfJob } from "./export-job-writes.ts";
 import { createForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const DOWNLOAD_BY_JOB = "user-data-rights:query:download-by-job";
@@ -179,17 +179,7 @@ async function seedExpiredTokenForAlice(): Promise<string> {
   const plainToken = result.tokenByJobId.get(jobId);
   if (!plainToken) throw new Error("worker run did not create a download token");
   const longAgo = getTemporal().Instant.fromEpochMilliseconds(Date.now() - 365 * 86_400_000);
-  await updateRowViaEventStore(
-    stack.db,
-    {
-      table: exportDownloadTokensTable,
-      entity: exportDownloadTokenEntity,
-      entityName: "export-download-token",
-    },
-    { jobId },
-    { expiresAt: longAgo },
-    { tenantId: tenantA },
-  );
+  await changeExportTokenOfJob(stack.db, jobId, { expiresAt: longAgo }, tenantA);
   return plainToken;
 }
 

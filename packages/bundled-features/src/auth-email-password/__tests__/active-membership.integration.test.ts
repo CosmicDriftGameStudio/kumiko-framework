@@ -112,7 +112,7 @@ async function createTenant(id: TenantId): Promise<void> {
 }
 
 async function setTenantStatus(id: TenantId, status: TenantLifecycleStatus): Promise<void> {
-  await updateTenantViaEventStore(stack.db, id, { status }, TestUsers.systemAdmin.tenantId);
+  await updateTenantViaEventStore(stack.db, id, { status });
   resetTenantLifecycleGateCacheForTests();
 }
 

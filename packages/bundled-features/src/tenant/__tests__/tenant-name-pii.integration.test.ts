@@ -192,12 +192,10 @@ describe("tenant.name backfill", () => {
 
   test("a tenant destroyed before the backfill is erased, not encrypted under a fresh key", async () => {
     const tenantId = await createTenant("pii-destroyed", "Destroyed Legacy GmbH");
-    await updateTenantViaEventStore(
-      stack.db,
-      tenantId as TenantId,
-      { status: "destroyed", destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z") },
-      systemAdmin.tenantId,
-    );
+    await updateTenantViaEventStore(stack.db, tenantId as TenantId, {
+      status: "destroyed",
+      destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z"),
+    });
 
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     const result = await backfillEventPiiEncryption(stack.db, stack.registry);

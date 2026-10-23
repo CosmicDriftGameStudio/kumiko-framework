@@ -222,9 +222,6 @@ describe("scenario 3: login without membership", () => {
   });
 });
 
-// --- Scenario 3b: login resolves the live account when its email is shared
-// with a soft-deleted row (partial bidx index only covers live rows) ---
-
 describe("scenario 3b: login with an email shared by a soft-deleted row", () => {
   // The DB-level dedup that lets a soft-deleted row and a live row share an
   // email only exists on the blind-index column (see
