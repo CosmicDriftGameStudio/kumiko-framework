@@ -41,7 +41,7 @@ CREATE POLICY "b" ON public."t" FOR SELECT USING (true);
 DROP POLICY IF EXISTS "a" ON "t";
 DROP POLICY IF EXISTS "never_existed" ON "t";`,
     ).get("t")?.rowLevelSecurity;
-    expect([...(state?.policies ?? [])]).toEqual(["b"]);
+    expect([...(state?.policies.keys() ?? [])]).toEqual(["b"]);
   });
 
   test("tracks ENABLE, FORCE and their negations in statement order", () => {
@@ -69,14 +69,31 @@ ALTER TABLE "t" DISABLE ROW LEVEL SECURITY;`),
       `${CREATE_T}
 CREATE POLICY "a" ON "t" USING (true);
 ALTER POLICY "a" ON "t" RENAME TO "b";
-ALTER POLICY "b" ON "t" USING (false);
 ALTER TABLE "t" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "t" RENAME TO "u";`,
     );
     expect(replayed.has("t")).toBe(false);
     const state = replayed.get("u")?.rowLevelSecurity;
-    expect([...(state?.policies ?? [])]).toEqual(["b"]);
+    expect([...(state?.policies.keys() ?? [])]).toEqual(["b"]);
     expect(state?.enabled).toBe(true);
+  });
+
+  test("a rename keeps the definition, ALTER POLICY without RENAME discards it", () => {
+    const policies = (sql: string) =>
+      replaySql(`${CREATE_T}\nCREATE POLICY "a" ON "t" USING (true);\n${sql}`).get("t")
+        ?.rowLevelSecurity?.policies;
+    expect(policies(`ALTER POLICY "a" ON "t" RENAME TO "b";`)?.get("b")).toBe("USING (true)");
+    expect(policies(`ALTER POLICY "a" ON "t" USING (false);`)?.has("a")).toBe(true);
+    expect(policies(`ALTER POLICY "a" ON "t" USING (false);`)?.get("a")).toBeUndefined();
+  });
+
+  test("a policy inside a DO block fails loud", () => {
+    expect(() =>
+      replaySql(`${CREATE_T}\nDO $$ BEGIN CREATE POLICY "a" ON "t" USING (true); END $$;`),
+    ).toThrow(/DO block/);
+    expect(() =>
+      replaySql(`${CREATE_T}\nDO $$ BEGIN ALTER TABLE "t" enable row level security; END $$;`),
+    ).toThrow(/DO block/);
   });
 
   test("state disappears with DROP TABLE", () => {
@@ -140,7 +157,7 @@ describe("row-level-security-drift against the snapshot", () => {
       tableName: "store_items",
       kind: "row-level-security-drift",
     });
-    expect(mismatches[0]?.detail).toContain("missing policies: kumiko_system_tenant_read");
+    expect(mismatches[0]?.detail).toContain("missing policy: kumiko_system_tenant_read");
   });
 
   test("a migration without FORCE reports drift", () => {
@@ -150,6 +167,65 @@ describe("row-level-security-drift against the snapshot", () => {
       .filter((line) => !line.includes("FORCE ROW LEVEL SECURITY"))
       .join("\n");
     expect(mismatchesFor(withoutForce, snapshot)[0]?.detail).toContain("not forced");
+  });
+
+  test("a hand-edited generated policy reports drift", () => {
+    const { sqlContent, snapshot } = generateInitial();
+    const handEdited = sqlContent.replace(
+      /(CREATE POLICY "kumiko_tenant_isolation" ON "store_items" AS PERMISSIVE FOR ALL TO PUBLIC )USING \(.*?\) WITH CHECK \(.*?\);/,
+      "$1USING (true) WITH CHECK (true);",
+    );
+    expect(handEdited).not.toBe(sqlContent);
+    const mismatches = mismatchesFor(handEdited, snapshot);
+    expect(mismatches).toHaveLength(1);
+    expect(mismatches[0]?.detail).toContain("policy kumiko_tenant_isolation deviates");
+  });
+
+  test("an ALTER POLICY on a generated policy reports drift", () => {
+    const { sqlContent, snapshot } = generateInitial();
+    const altered = `${sqlContent}\nALTER POLICY "kumiko_tenant_isolation" ON "store_items" USING (true);\n`;
+    expect(mismatchesFor(altered, snapshot)[0]?.detail).toContain("deviates");
+  });
+
+  test("an extra policy reports drift", () => {
+    const { sqlContent, snapshot } = generateInitial();
+    const extra = `${sqlContent}\nCREATE POLICY "extra" ON "store_items" USING (true);\n`;
+    expect(mismatchesFor(extra, snapshot)[0]?.detail).toContain("unexpected policies: extra");
+  });
+
+  test("RLS in migrations without a snapshot spec reports drift", () => {
+    const { sqlContent } = generateInitial();
+    const plain = generateMigration({
+      metas: [tenantTable("store_items")],
+      prevSnapshot: null,
+      name: "init",
+      sequenceNumber: 1,
+    });
+    const mismatches = mismatchesFor(sqlContent, plain.snapshot);
+    expect(mismatches).toHaveLength(1);
+    expect(mismatches[0]).toMatchObject({
+      tableName: "store_items",
+      kind: "row-level-security-drift",
+    });
+    expect(mismatches[0]?.detail).toContain("no row level security spec");
+  });
+
+  test("a spec for another table does not excuse RLS on this one", () => {
+    const { sqlContent } = generateInitial();
+    const snapshot = generateMigration({
+      metas: [tenantTable("store_items"), tenantTable("store_other")],
+      prevSnapshot: null,
+      name: "init",
+      sequenceNumber: 1,
+    }).snapshot;
+    const withOtherSpec = {
+      ...snapshot,
+      rowLevelSecurity: { store_other: { policies: [] } },
+    };
+    const itemsMismatches = mismatchesFor(sqlContent, withOtherSpec).filter(
+      (m) => m.tableName === "store_items",
+    );
+    expect(itemsMismatches[0]?.detail).toContain("no row level security spec");
   });
 
   test("snapshots without rowLevelSecurity produce no RLS mismatches", () => {

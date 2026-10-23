@@ -13,9 +13,12 @@ import type { Snapshot } from "./migrate-generator.ts";
 import { loadMigrationsFromDir } from "./migrate-runner.ts";
 import {
   applyRowLevelSecurityStatement,
+  IDENT,
   type MutableReplayedRowLevelSecurity,
   type ReplayedRowLevelSecurity,
+  replayedOnlyRowLevelSecurityDrift,
   rowLevelSecurityDrift,
+  TABLE_REF,
 } from "./replay-rls.ts";
 
 // Migration files comment out destructive ops (DROP TABLE/COLUMN) as
@@ -71,11 +74,6 @@ function splitTopLevel(body: string): readonly string[] {
   if (current.trim().length > 0) parts.push(current);
   return parts;
 }
-
-// Identifiers in hand-written migrations aren't always quoted (the generator
-// always quotes, but the header explicitly invites hand-editing) — optional
-// quotes so `CREATE TABLE foo (...)` parses the same as `CREATE TABLE "foo" (...)`.
-const IDENT = `"?([^"\\s(;,.]+)"?`;
 
 function parseColumnNames(body: string): Set<string> {
   const columns = new Set<string>();
@@ -244,7 +242,10 @@ function applyStatement(
   // add-then-drop of the same column (unusual, but not impossible) resolves
   // correctly.
   const alterTable = statement.match(
-    new RegExp(`^ALTER TABLE\\s+${IDENT}\\s+([\\s\\S]*?);?\\s*$`, "i"),
+    new RegExp(
+      `^ALTER TABLE\\s+(?:IF EXISTS\\s+)?(?:ONLY\\s+)?${TABLE_REF}\\s+([\\s\\S]*?);?\\s*$`,
+      "i",
+    ),
   );
   const alterTableName = alterTable?.[1];
   const alterBody = alterTable?.[2];
@@ -344,11 +345,16 @@ function rowLevelSecurityMismatches(
   snapshot: Snapshot,
 ): readonly ReplayMismatch[] {
   const mismatches: ReplayMismatch[] = [];
-  for (const [tableName, expected] of Object.entries(snapshot.rowLevelSecurity ?? {})) {
+  const specs = snapshot.rowLevelSecurity ?? {};
+  for (const { tableName } of snapshot.tables) {
     const table = replayed.get(tableName);
     // skip: a missing table is already reported as missing-table
     if (!table) continue;
-    const detail = rowLevelSecurityDrift(table.rowLevelSecurity, expected);
+    const spec = Object.hasOwn(specs, tableName) ? specs[tableName] : undefined;
+    const detail =
+      spec === undefined
+        ? replayedOnlyRowLevelSecurityDrift(table.rowLevelSecurity)
+        : rowLevelSecurityDrift(table.rowLevelSecurity, tableName, spec);
     if (detail !== undefined) {
       mismatches.push({ tableName, kind: "row-level-security-drift", detail });
     }

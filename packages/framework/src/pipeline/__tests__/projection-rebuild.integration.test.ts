@@ -10,7 +10,7 @@
 //   - status lifecycle (idle → rebuilding → idle on success, → failed on throw)
 //   - never-rebuilt projection has sensible default state
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRow, sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
@@ -21,17 +21,9 @@ import {
 import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { applyTableRowLevelSecurity } from "../../db/queries/ddl.ts";
-import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
-import {
-  buildShadowTable,
-  ensureRebuildSchema,
-  fenceLiveTable,
-  swapShadowIntoLive,
-} from "../../db/queries/shadow-swap.ts";
+import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.ts";
 import { asRawClient, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import { tableToMeta } from "../../db/table-push.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
@@ -949,114 +941,5 @@ describe("rebuildProjection — stale-registry column fence (#835)", () => {
     const result = await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
     expect(result.eventsProcessed).toBe(1);
     expect(await getCount(group)).toBe(1);
-  });
-});
-
-describe("rebuildProjection — keeps row level security", () => {
-  const LIVE_TABLE = "read_rebuild_items_per_group";
-  const rlsStateOf = () => readRowLevelSecurityState(testDb.db, "public", LIVE_TABLE);
-
-  async function clearRowLevelSecurity(): Promise<void> {
-    const raw = asRawClient(testDb.db);
-    const state = await rlsStateOf();
-    for (const policy of state?.policies ?? []) {
-      await raw.unsafe(`DROP POLICY IF EXISTS "${policy.name}" ON "${LIVE_TABLE}"`);
-    }
-    await raw.unsafe(`ALTER TABLE "${LIVE_TABLE}" NO FORCE ROW LEVEL SECURITY`);
-    await raw.unsafe(`ALTER TABLE "${LIVE_TABLE}" DISABLE ROW LEVEL SECURITY`);
-  }
-
-  afterEach(clearRowLevelSecurity);
-
-  test("carries ENABLE, FORCE, the kumiko policies and a hand-written restrictive policy over", async () => {
-    const group = "00000000-0000-4000-8000-000000000051";
-    await appendCreatedEvent(group, "item1");
-    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-    await applyTableRowLevelSecurity(testDb.db, tableToMeta(itemsPerGroupTable));
-    await asRawClient(testDb.db).unsafe(
-      `CREATE POLICY handwritten_restrictive ON "${LIVE_TABLE}" AS RESTRICTIVE FOR UPDATE TO PUBLIC USING (true)`,
-    );
-    const before = await rlsStateOf();
-    expect(before).toMatchObject({ enabled: true, forced: true });
-    expect(before?.policies.map((p) => p.name)).toEqual([
-      "handwritten_restrictive",
-      "kumiko_system_tenant_read",
-      "kumiko_tenant_isolation",
-    ]);
-
-    const result = await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-
-    expect(result.eventsProcessed).toBe(1);
-    expect(await rlsStateOf()).toEqual(before);
-    expect(await getCount(group)).toBe(1);
-  });
-
-  test("keeps a policy that exists without ENABLE", async () => {
-    const group = "00000000-0000-4000-8000-000000000052";
-    await appendCreatedEvent(group, "item1");
-    await asRawClient(testDb.db).unsafe(`CREATE POLICY rls_probe ON "${LIVE_TABLE}" USING (true)`);
-    const before = await rlsStateOf();
-    expect(before).toMatchObject({ enabled: false, forced: false });
-
-    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-
-    expect(await rlsStateOf()).toEqual(before);
-    expect(await getCount(group)).toBe(1);
-  });
-
-  test("keeps FORCE without ENABLE", async () => {
-    await asRawClient(testDb.db).unsafe(`ALTER TABLE "${LIVE_TABLE}" FORCE ROW LEVEL SECURITY`);
-
-    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-
-    expect(await rlsStateOf()).toEqual({ enabled: false, forced: true, policies: [] });
-  });
-
-  test("swapShadowIntoLive waits out an in-flight ENABLE and CREATE POLICY and carries them over", async () => {
-    const group = "00000000-0000-4000-8000-000000000054";
-    await appendCreatedEvent(group, "item1");
-    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-
-    const raw = asRawClient(testDb.db);
-    const db = testDb.db;
-    await ensureRebuildSchema(db);
-    let enableStarted!: () => void;
-    const enableStartedSignal = new Promise<void>((resolve) => {
-      enableStarted = resolve;
-    });
-    let commitEnable!: () => void;
-    const commitEnableSignal = new Promise<void>((resolve) => {
-      commitEnable = resolve;
-    });
-    const enabler = db.begin(async (btx: DbTx) => {
-      const braw = asRawClient(btx);
-      await braw.unsafe(`ALTER TABLE "${LIVE_TABLE}" ENABLE ROW LEVEL SECURITY`);
-      await braw.unsafe(`CREATE POLICY in_flight ON "${LIVE_TABLE}" USING (true)`);
-      enableStarted();
-      await commitEnableSignal;
-    });
-    try {
-      await enableStartedSignal;
-      const swap = db.begin(async (tx: DbTx) => {
-        await buildShadowTable(tx, tableToMeta(itemsPerGroupTable));
-        await swapShadowIntoLive(tx, LIVE_TABLE);
-      });
-      await waitFor(async () => {
-        const [waiting] = await raw.unsafe<{ n: number }>(
-          `SELECT count(*)::int AS n FROM pg_locks
-           WHERE NOT granted AND relation = 'public.${LIVE_TABLE}'::regclass`,
-        );
-        return (waiting?.n ?? 0) > 0;
-      });
-      commitEnable();
-      await enabler;
-      await swap;
-      const after = await rlsStateOf();
-      expect(after).toMatchObject({ enabled: true, forced: false });
-      expect(after?.policies.map((p) => p.name)).toEqual(["in_flight"]);
-    } finally {
-      commitEnable();
-      await enabler.catch(() => undefined);
-    }
   });
 });

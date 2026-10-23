@@ -1,24 +1,31 @@
 // Row level security part of the migration replay: tracks ENABLE/FORCE flags and
-// policy names per table so they can be compared against the snapshot.
+// policy definitions per table so they can be compared against the snapshot.
 
-import type { TableRowLevelSecurity } from "./render-rls-ddl.ts";
+import { renderCreatePolicy, type TableRowLevelSecurity } from "./render-rls-ddl.ts";
+import { quoteIdent } from "./sql-identifier.ts";
+
+// Normalized text after `ON <table>`; undefined once an ALTER POLICY changed it in a way the replay cannot follow.
+export type ReplayedPolicies = ReadonlyMap<string, string | undefined>;
 
 export type ReplayedRowLevelSecurity = {
   readonly enabled: boolean;
   readonly forced: boolean;
-  readonly policies: ReadonlySet<string>;
+  readonly policies: ReplayedPolicies;
 };
 
 export type MutableReplayedRowLevelSecurity = {
   enabled: boolean;
   forced: boolean;
-  policies: Set<string>;
+  policies: Map<string, string | undefined>;
 };
 
 type TableWithRowLevelSecurity = { rowLevelSecurity?: MutableReplayedRowLevelSecurity };
 
-const IDENT = `"?([^"\\s(;,.]+)"?`;
-const TABLE_REF = `(?:"?public"?\\.)?${IDENT}`;
+// Identifiers in hand-written migrations aren't always quoted (the generator
+// always quotes, but the header explicitly invites hand-editing) — optional
+// quotes so `CREATE TABLE foo (...)` parses the same as `CREATE TABLE "foo" (...)`.
+export const IDENT = `"?([^"\\s(;,.]+)"?`;
+export const TABLE_REF = `(?:"?public"?\\.)?${IDENT}`;
 
 const ALTER_TABLE_RE = new RegExp(
   `^ALTER\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?(?:ONLY\\s+)?${TABLE_REF}\\s+([\\s\\S]*?);?\\s*$`,
@@ -26,7 +33,7 @@ const ALTER_TABLE_RE = new RegExp(
 );
 const FLAG_CLAUSE_RE = /\b(ENABLE|DISABLE|NO\s+FORCE|FORCE)\s+ROW\s+LEVEL\s+SECURITY\b/gi;
 const CREATE_POLICY_RE = new RegExp(
-  `^CREATE\\s+POLICY\\s+${IDENT}\\s+ON\\s+${TABLE_REF}(?=[\\s;]|$)`,
+  `^CREATE\\s+POLICY\\s+${IDENT}\\s+ON\\s+${TABLE_REF}(?=[\\s;]|$)([\\s\\S]*)$`,
   "i",
 );
 const DROP_POLICY_RE = new RegExp(
@@ -38,10 +45,15 @@ const ALTER_POLICY_RE = new RegExp(
   "i",
 );
 const RENAME_POLICY_RE = new RegExp(`^\\s*RENAME\\s+TO\\s+${IDENT}\\s*;?\\s*$`, "i");
+const POLICY_OR_RLS_RE = /\bPOLICY\b|ROW\s+LEVEL\s+SECURITY/i;
 const ANY_POLICY_STATEMENT_RE = /^(CREATE|ALTER|DROP)\s+POLICY\b/i;
 
 function stateOf(table: TableWithRowLevelSecurity): MutableReplayedRowLevelSecurity {
-  table.rowLevelSecurity ??= { enabled: false, forced: false, policies: new Set<string>() };
+  table.rowLevelSecurity ??= {
+    enabled: false,
+    forced: false,
+    policies: new Map<string, string | undefined>(),
+  };
   return table.rowLevelSecurity;
 }
 
@@ -65,15 +77,26 @@ function applyFlagClauses(table: TableWithRowLevelSecurity, alterBody: string): 
   }
 }
 
+function normalizePolicyDefinition(text: string): string {
+  return text.replace(/\s+/g, " ").replace(/;\s*$/, "").trim();
+}
+
 function applyAlterPolicy(
   table: TableWithRowLevelSecurity,
   policyName: string,
   alterBody: string,
 ): void {
+  const { policies } = stateOf(table);
   const newName = alterBody.match(RENAME_POLICY_RE)?.[1];
-  if (newName === undefined) return;
-  const state = stateOf(table);
-  if (state.policies.delete(policyName)) state.policies.add(newName);
+  if (newName === undefined) {
+    if (policies.has(policyName)) policies.set(policyName, undefined);
+    // skip: body is not a rename, the altered-flag above is all that is tracked
+    return;
+  }
+  // skip: policy not tracked, nothing to rename
+  if (!policies.has(policyName)) return;
+  policies.set(newName, policies.get(policyName));
+  policies.delete(policyName);
 }
 
 function failUnparsedPolicy(statement: string, file: string): never {
@@ -99,7 +122,9 @@ function tryApplyCreatePolicy(tables: ReplayTables, statement: string): boolean 
   const created = statement.match(CREATE_POLICY_RE);
   if (created?.[1] === undefined || created[2] === undefined) return false;
   const table = tables.get(created[2]);
-  if (table) stateOf(table).policies.add(created[1]);
+  if (table) {
+    stateOf(table).policies.set(created[1], normalizePolicyDefinition(created[3] ?? ""));
+  }
   return true;
 }
 
@@ -136,6 +161,11 @@ export function applyRowLevelSecurityStatement(
   statement: string,
   context: StatementContext,
 ): void {
+  if (/^DO\b/i.test(statement) && POLICY_OR_RLS_RE.test(statement)) {
+    throw new Error(
+      `replayMigrationsDir: ${context.file} changes policies or row level security inside a DO block, which the replay cannot evaluate — write the statements at top level`,
+    );
+  }
   const handled =
     tryApplyAlterTable(tables, statement) ||
     tryApplyCreatePolicy(tables, statement) ||
@@ -146,18 +176,48 @@ export function applyRowLevelSecurityStatement(
   }
 }
 
+function expectedPolicyDefinition(
+  tableName: string,
+  policy: TableRowLevelSecurity["policies"][number],
+): string {
+  const rendered = renderCreatePolicy(quoteIdent(tableName), policy);
+  const definition = rendered.match(CREATE_POLICY_RE)?.[3];
+  if (definition === undefined) {
+    throw new Error(`rendered policy "${policy.name}" is not a CREATE POLICY statement`);
+  }
+  return normalizePolicyDefinition(definition);
+}
+
 export function rowLevelSecurityDrift(
   replayed: ReplayedRowLevelSecurity | undefined,
+  tableName: string,
   expected: TableRowLevelSecurity,
 ): string | undefined {
   const parts: string[] = [];
   if (replayed?.enabled !== true) parts.push("ROW LEVEL SECURITY is not enabled");
   if (replayed?.forced !== true) parts.push("ROW LEVEL SECURITY is not forced");
-  const expectedNames = expected.policies.map((policy) => policy.name);
-  const actualNames = replayed?.policies ?? new Set<string>();
-  const missing = expectedNames.filter((name) => !actualNames.has(name));
-  const unexpected = [...actualNames].filter((name) => !expectedNames.includes(name));
-  if (missing.length > 0) parts.push(`missing policies: ${missing.join(", ")}`);
+  const actual = replayed?.policies ?? new Map<string, string | undefined>();
+  const expectedNames = new Set(expected.policies.map((policy) => policy.name));
+  for (const policy of expected.policies) {
+    if (!actual.has(policy.name)) {
+      parts.push(`missing policy: ${policy.name}`);
+    } else if (actual.get(policy.name) !== expectedPolicyDefinition(tableName, policy)) {
+      parts.push(
+        `policy ${policy.name} deviates from the generated definition (hand-edited or altered)`,
+      );
+    }
+  }
+  const unexpected = [...actual.keys()].filter((name) => !expectedNames.has(name));
   if (unexpected.length > 0) parts.push(`unexpected policies: ${unexpected.join(", ")}`);
   return parts.length > 0 ? parts.join("; ") : undefined;
+}
+
+export function replayedOnlyRowLevelSecurityDrift(
+  replayed: ReplayedRowLevelSecurity | undefined,
+): string | undefined {
+  const hasRowLevelSecurity =
+    replayed !== undefined && (replayed.enabled || replayed.forced || replayed.policies.size > 0);
+  return hasRowLevelSecurity
+    ? "migrations enable row level security or create policies but .snapshot.json has no row level security spec for this table"
+    : undefined;
 }

@@ -22,12 +22,19 @@ detail: With rowLevelSecurity "on", generateMigration adds a Row level security 
 feature: framework
 type: improvement
 title: Migration replay understands CREATE, ALTER and DROP POLICY
-detail: The replay behind kumiko-schema validate tracks ENABLE and FORCE ROW LEVEL SECURITY and policy names per table, follows table renames, and reports row-level-security-drift when the committed SQL does not produce the policies the snapshot expects. An unparsable policy statement fails loudly.
+detail: The replay behind kumiko-schema validate tracks ENABLE and FORCE ROW LEVEL SECURITY and policy definitions per table, follows table renames, and reports row-level-security-drift when the committed SQL does not produce the policies the snapshot expects (missing, extra, altered or hand-edited) or turns on row level security for a table the snapshot has no spec for. An unparsable policy statement, or a policy or row level security change inside a DO block, fails loudly.
 -->
 
 <!-- kumiko-changes
 feature: framework
 type: fix
 title: Projection and multi-stream rebuilds no longer abort on tables with row level security
-detail: The shadow swap used to refuse a live table with RLS flags or policies. It now reads them from the catalog under the swap lock, re-applies them to the swapped-in table and fails the rebuild transaction if the result differs.
+detail: The shadow swap used to refuse a live table with RLS flags or policies. It now reads them from the catalog under the swap lock, re-applies them to the swapped-in table and fails the rebuild transaction if the result differs. The rebuild transaction runs with row_security off, so a read that a policy would filter fails with 42501 instead of letting the guards see too few rows and the swap drop the hidden ones.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: Migration replay parses ALTER TABLE ONLY, IF EXISTS and public. prefixes
+detail: kumiko-schema validate read `ALTER TABLE ONLY "t"` as a change to a table named ONLY and ignored IF EXISTS and a public. prefix; the statement now applies to the named table.
 -->

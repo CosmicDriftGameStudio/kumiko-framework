@@ -12,6 +12,7 @@ import {
   buildShadowTable,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
+  refuseRowLevelSecurityFilteredReads,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
 import { runInSavepoint, selectMany } from "../db/query.ts";
@@ -187,6 +188,7 @@ async function replayMultiStreamProjectionIntoShadow(
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     const replayedIds: bigint[] = [];
     await db.begin(async (tx: DbTx) => {
+      await refuseRowLevelSecurityFilteredReads(tx);
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 

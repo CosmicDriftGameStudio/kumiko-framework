@@ -53,6 +53,7 @@ export async function applyTableRowLevelSecurity(
   meta: EntityTableMeta,
 ): Promise<void> {
   const statements = renderTableRowLevelSecurityDdl(meta);
+  // skip: no tenant_id column, nothing to enforce
   if (statements.length === 0) return;
   await transaction(db, async (tx) => {
     // Self-conflicting lock: parallel pushes queue up instead of failing CREATE POLICY with duplicate_object.

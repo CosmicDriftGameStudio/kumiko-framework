@@ -365,6 +365,32 @@ ALTER TABLE "widgets" OWNER TO app_user;`,
     }
   });
 
+  test("ALTER TABLE ONLY / IF EXISTS / public. change the named table and create no phantom table", () => {
+    const dir = tmpMigrationsDir();
+    try {
+      write(
+        dir,
+        "0001_init.sql",
+        `CREATE TABLE IF NOT EXISTS "widgets" ("id" uuid PRIMARY KEY);
+ALTER TABLE ONLY "widgets" ADD COLUMN "a" text;
+ALTER TABLE IF EXISTS "widgets" ADD COLUMN "b" text;
+ALTER TABLE public."widgets" ADD COLUMN "c" text;
+ALTER TABLE IF EXISTS ONLY public.widgets ADD COLUMN "d" text;`,
+      );
+      const replayed = replayMigrationsDir(dir);
+      expect([...replayed.keys()]).toEqual(["widgets"]);
+      expect([...(replayed.get("widgets")?.columns ?? [])].sort()).toEqual([
+        "a",
+        "b",
+        "c",
+        "d",
+        "id",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("FORCE / NO FORCE ROW LEVEL SECURITY is shape-neutral (fw#2907)", () => {
     const dir = tmpMigrationsDir();
     try {
