@@ -117,6 +117,24 @@ const jobsOverride = defineFeature(JOBS_FEATURE, (r) => {
       ],
     },
   });
+  r.entity({
+    name: "run",
+    ...createEntity({
+      fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+    }),
+  });
+  r.screen({
+    id: "edit",
+    type: "entityEdit",
+    entity: "run",
+    dormant: true,
+    layout: {
+      sections: [
+        { kind: "relatedList", title: "Rows", query: ROWS_QN, columns: ["id", "name"] },
+        { kind: "fields", title: "Fields", fields: ["name"] },
+      ],
+    },
+  });
 });
 
 function screenOf(features: readonly FeatureDefinition[], featureName: string, id: string) {
@@ -139,7 +157,9 @@ function relatedListOf(
   id: string,
 ): EditRelatedListSection {
   const screen = screenOf(features, featureName, id);
-  if (screen.type !== "projectionDetail") throw new Error(`${id} is not a projectionDetail`);
+  if (screen.type !== "projectionDetail" && screen.type !== "entityEdit") {
+    throw new Error(`${id} has no layout sections`);
+  }
   const section = screen.layout.sections.find((s) => s.kind === "relatedList");
   if (section?.kind !== "relatedList") throw new Error(`${id} has no relatedList`);
   return section;
@@ -205,6 +225,13 @@ describe("composeFeatures bundledLists", () => {
       title: "Fields",
       fields: ["name"],
     });
+  });
+
+  test("entityEdit relatedList gets the block without export and the first column pinned", () => {
+    const section = relatedListOf(withJobsOverride(), JOBS_FEATURE, "edit");
+    const { export: _export, ...withoutExport } = FULL.table;
+    expect(section.table).toEqual(withoutExport);
+    expect(section.columns[0]).toEqual({ field: "id", pinned: "left" });
   });
 
   test("pinFirstColumn skips lists with a pinned column or pinning off, keeps object-column keys", () => {

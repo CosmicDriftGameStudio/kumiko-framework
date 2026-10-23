@@ -49,6 +49,7 @@ function withScreenTableDefaults(
       return { ...screen, table, columns: pinFirstColumn(screen.columns, table, options) };
     }
     case "projectionDetail":
+    case "entityEdit":
       return {
         ...screen,
         layout: {
