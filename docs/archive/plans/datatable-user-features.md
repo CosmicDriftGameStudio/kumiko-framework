@@ -1,8 +1,8 @@
 ---
-status: in-progress
+status: shipped
 verified: 2026-10-23
 issue: kumiko-framework#3956
-next: "#3979, danach Doku-Seite und Marketing-News (#3956)"
+evidence: "Released in @cosmicdrift/kumiko-framework 0.389.0 (#3973). Plan #3964; rounds #3967 (R1), #3970 (R2), #3966 (R3), #3981 (R4), #3978 (R5), #3971 (R6); groupBy replacement #3991; bundledLists #3995 and #3996."
 track: framework
 depends: []
 ---
