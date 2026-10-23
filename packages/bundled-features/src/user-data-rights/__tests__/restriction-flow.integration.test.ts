@@ -21,7 +21,6 @@ import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
   resetTestTables,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -54,6 +53,7 @@ import { createTenantFeature, tenantMembershipsTable } from "../../tenant/index.
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
 import { UserHandlers } from "../../user/web/constants.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
 
@@ -129,7 +129,7 @@ async function seedAliceWithMembership(
     actor,
   );
   if (status !== USER_STATUS.Active) {
-    await updateRows(stack.db, userTable, { status }, { id: created.id });
+    await updateUserViaEventStore(stack.db, created.id, { status });
   }
   await seedTenantMembership(stack.db, {
     userId: created.id,

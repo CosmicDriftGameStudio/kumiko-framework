@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
@@ -15,7 +16,7 @@ import {
   getSetCookieValue,
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
-  updateRows,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -34,6 +35,7 @@ import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
+import { softDeleteUserViaEventStore } from "../../user/testing-event-store.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 
@@ -74,8 +76,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
 });
 
 // Helper: seed a full login-ready user (user row + membership).
@@ -245,7 +246,7 @@ describe("scenario 3b: login with an email shared by a soft-deleted row", () => 
       email: "reused-login@example.com",
       password: "original-password-123",
     });
-    await updateRows(stack.db, userTable, { isDeleted: true }, { id: original.id });
+    await softDeleteUserViaEventStore(stack.db, original.id);
 
     const recreated = await seedLoginUser({
       email: "reused-login@example.com",

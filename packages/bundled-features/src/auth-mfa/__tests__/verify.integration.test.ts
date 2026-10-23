@@ -10,6 +10,7 @@ import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
+  resetTestTables,
   seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -93,7 +94,10 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function enableMfaFor(idSeed: number): Promise<{
+async function enableMfaFor(
+  idSeed: number,
+  userRowOverrides: Record<string, unknown> = {},
+): Promise<{
   user: ReturnType<typeof createTestUser>;
   secret: Buffer;
   recoveryCodes: string[];
@@ -132,6 +136,7 @@ async function enableMfaFor(idSeed: number): Promise<{
     emailVerified: true,
     roles: "[]",
     status: USER_STATUS.Active,
+    ...userRowOverrides,
   });
   return { user, secret, recoveryCodes: start.recoveryCodes, password };
 }
@@ -155,11 +160,7 @@ describe("mfa verify — completes a two-step login", () => {
   });
 
   test("a password login followed by MFA verify retains the user's timezone", async () => {
-    const { user, password, secret } = await enableMfaFor(9);
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET timezone = $1 WHERE id = $2`,
-      ["Europe/Berlin", user.id],
-    );
+    const { user, password, secret } = await enableMfaFor(9, { timezone: "Europe/Berlin" });
 
     const loginRes = await stack.http.raw("POST", "/api/auth/login", {
       email: `user-${user.id}@example.com`,
@@ -322,15 +323,8 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
   });
 
   test("account restricted between login and verify → challenge rejected", async () => {
-    const { user, secret } = await enableMfaFor(6);
+    const { user, secret } = await enableMfaFor(6, { status: USER_STATUS.Restricted });
     const challengeToken = challengeFor(user.id, user.tenantId);
-
-    // enableMfaFor already seeded the user row Active — flip it to simulate
-    // a restriction landing between login and verify.
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET status = $1 WHERE id = $2`,
-      [USER_STATUS.Restricted, user.id],
-    );
 
     const err = await stack.http.writeErr(
       AuthMfaHandlers.verify,
@@ -387,10 +381,7 @@ describe("mfa verify — re-checks account state the way login.write.ts does", (
       if (result.isSuccess) throw new Error("expected mfa verify to fail");
       expectErrorIncludes(result.error, "invalid_challenge_token");
     } finally {
-      await asRawClient(stack.db).unsafe(
-        `UPDATE "${tenantTable.tableName}" SET status = $1 WHERE id = $2`,
-        ["active", user.tenantId],
-      );
+      await resetTestTables(stack.db, [tenantTable]);
       resetTenantLifecycleGateCacheForTests();
     }
   });

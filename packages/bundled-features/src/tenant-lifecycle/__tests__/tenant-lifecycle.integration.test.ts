@@ -13,11 +13,7 @@ import {
 import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import {
-  createTestEnvelopeCipher,
-  resetTestTables,
-  updateRows,
-} from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   createComplianceProfilesFeature,
@@ -31,6 +27,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
+import { updateTenantViaEventStore } from "../../tenant/testing-event-store.ts";
 import { TenantHandlers, TenantQueries } from "../../tenant/web/constants.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import {
@@ -251,11 +248,11 @@ describe("tenant-lifecycle :: pipeline abandon / destroyFailed", () => {
     await poisonStack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
     const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
     const now = T.Now.instant();
-    await updateRows(
+    await updateTenantViaEventStore(
       poisonStack.db,
-      tenantTable,
+      tenantAdmin.tenantId,
       { status: "destroying", destroyStartedAt: now },
-      { id: tenantAdmin.tenantId },
+      TestUsers.systemAdmin.tenantId,
     );
     await append(poisonStack.db, {
       aggregateId: tenantAdmin.tenantId,
@@ -495,7 +492,12 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
       { profileKey: "eu-dsgvo" },
       { ...tenantAdmin, tenantId: id },
     );
-    await updateRows(isolationStack.db, tenantTable, { status: "destroying" }, { id });
+    await updateTenantViaEventStore(
+      isolationStack.db,
+      id,
+      { status: "destroying" },
+      TestUsers.systemAdmin.tenantId,
+    );
   }
 
   test("tenant A's poisoned destroy-hook does not block tenant B's sweep progress", async () => {
@@ -653,11 +655,11 @@ describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () =>
   });
 
   test("destroying tenant has no cancel exemption", async () => {
-    await updateRows(
+    await updateTenantViaEventStore(
       derivedStack.db,
-      tenantTable,
+      tenantAdmin.tenantId,
       { status: "destroying" },
-      { id: tenantAdmin.tenantId },
+      TestUsers.systemAdmin.tenantId,
     );
     resetTenantLifecycleGateCacheForTests();
 

@@ -51,19 +51,16 @@ import {
   seedTenantMembership,
 } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import { userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { updateUserViaEventStore } from "@cosmicdrift/kumiko-bundled-features/user/testing";
 
-import {
-  asRawClient,
-  configureEntityFieldEncryption,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { configureEntityFieldEncryption, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
-  deleteRows,
-  updateRows,
+  resetTestTables,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -95,7 +92,7 @@ function extractTokenFromMail(text: string): string {
 }
 
 async function markVerified(userId: string): Promise<void> {
-  await updateRows(stack.db, userTable, { emailVerified: true }, { id: userId });
+  await updateUserViaEventStore(stack.db, userId, { emailVerified: true });
 }
 
 // writeOk drives real HTTP through the auth middleware, so a hand-built
@@ -212,12 +209,15 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  await deleteRows(stack.db, userSessionTable, {});
-  await deleteRows(stack.db, userMfaTable, {});
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    userSessionTable,
+    userMfaTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   for (const pattern of ["signup:*", "invite:*"] as const) {
     const keys = await stack.redis.redis.keys(pattern);

@@ -316,8 +316,6 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);
     try {
-      await seedUser(ALICE_ID, { email: "alice.kms@example.com", displayName: "Alice KMS" });
-      await seedMembership(ALICE_ID, TENANT_A);
       // Read-path test: the columns contain real subject ciphertext, as an
       // executor write would leave them.
       const encrypted = await encryptPiiFieldValues(
@@ -328,10 +326,11 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
         { requestId: "test" },
         { entityName: "user" },
       );
-      await asRawClient(stack.db).unsafe(
-        `UPDATE read_users SET email = $1, display_name = $2 WHERE id = $3`,
-        [String(encrypted["email"]), String(encrypted["displayName"]), ALICE_ID],
-      );
+      await seedUser(ALICE_ID, {
+        email: String(encrypted["email"]),
+        displayName: String(encrypted["displayName"]),
+      });
+      await seedMembership(ALICE_ID, TENANT_A);
 
       const bundle = await runUserExport({
         db: stack.db,
@@ -352,8 +351,6 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
   test("ciphertext without a configured KMS exports an explicit marker, not the blob", async () => {
     const kms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(kms);
-    await seedUser(ALICE_ID, { email: "alice.nokms@example.com" });
-    await seedMembership(ALICE_ID, TENANT_A);
     const encrypted = await encryptPiiFieldValues(
       { id: ALICE_ID, email: "alice.nokms@example.com" },
       userEntity,
@@ -362,10 +359,8 @@ describe("runUserExport :: PII-Subject-Ciphertexte (#820)", () => {
       { requestId: "test" },
       { entityName: "user" },
     );
-    await asRawClient(stack.db).unsafe(`UPDATE read_users SET email = $1 WHERE id = $2`, [
-      String(encrypted["email"]),
-      ALICE_ID,
-    ]);
+    await seedUser(ALICE_ID, { email: String(encrypted["email"]) });
+    await seedMembership(ALICE_ID, TENANT_A);
     resetPiiSubjectKmsForTests();
 
     const bundle = await runUserExport({
@@ -397,9 +392,6 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
     configurePiiSubjectKms(kms);
     configureBlindIndexKey(BIDX_KEY);
 
-    await seedUser(ALICE_ID, { email: INVITE_EMAIL, displayName: "Alice Invite" });
-    await seedMembership(ALICE_ID, TENANT_A);
-
     // seedUser/seedRow does not encrypt — encrypt the user row's email the
     // same way an executor write would, so resolveUserEmail's decryptStoredPii
     // branch runs over real ciphertext, not plaintext it happens to pass through.
@@ -411,10 +403,11 @@ describe("runUserExport :: tenant-invitation PII export (#1937)", () => {
       { requestId: "test" },
       { entityName: "user" },
     );
-    await asRawClient(stack.db).unsafe(`UPDATE read_users SET email = $1 WHERE id = $2`, [
-      String(encryptedUser["email"]),
-      ALICE_ID,
-    ]);
+    await seedUser(ALICE_ID, {
+      email: String(encryptedUser["email"]),
+      displayName: "Alice Invite",
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
     const userRow = await asRawClient(stack.db).unsafe<Record<string, unknown>>(
       `SELECT email FROM read_users WHERE id = $1`,
       [ALICE_ID],

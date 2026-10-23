@@ -24,8 +24,9 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -55,6 +56,7 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
+import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { storeInviteToken } from "../invite-token-store.ts";
 import { seedUser } from "../seeding.ts";
@@ -154,10 +156,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    eventsTable,
+  ]);
   emailTransport.sent.length = 0;
   // Also clears rate-limit buckets: trustedProxyHops defaults to 0, so
   // every call in this file shares one unknown-IP bucket per handler —
@@ -626,10 +631,7 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
   });
 
   test("Bob accepts with a locale → JWT retains the locale", async () => {
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET locale = $1 WHERE id = $2`,
-      ["de-DE", bobId],
-    );
+    await updateUserViaEventStore(stack.db, bobId, { locale: "de-DE" });
     try {
       const token = await inviteEmail(BOB_EMAIL, "Editor");
 
@@ -649,18 +651,12 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
       // Bob is shared across this describe block (other tests rely on his
       // membership state persisting) — restore his locale so later tests
       // don't silently inherit it.
-      await asRawClient(stack.db).unsafe(
-        `UPDATE "${userTable.tableName}" SET locale = NULL WHERE id = $1`,
-        [bobId],
-      );
+      await updateUserViaEventStore(stack.db, bobId, { locale: null });
     }
   });
 
   test("Bob accepts with a timezone → JWT retains the timezone", async () => {
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET timezone = $1 WHERE id = $2`,
-      ["Europe/Berlin", bobId],
-    );
+    await updateUserViaEventStore(stack.db, bobId, { timezone: "Europe/Berlin" });
     try {
       const token = await inviteEmail(BOB_EMAIL, "Editor");
 
@@ -680,10 +676,7 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
       // Bob is shared across this describe block (other tests rely on his
       // membership state persisting) — restore his timezone so later tests
       // don't silently inherit it.
-      await asRawClient(stack.db).unsafe(
-        `UPDATE "${userTable.tableName}" SET timezone = NULL WHERE id = $1`,
-        [bobId],
-      );
+      await updateUserViaEventStore(stack.db, bobId, { timezone: null });
     }
   });
 

@@ -22,9 +22,10 @@ import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenan
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -66,8 +67,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await deleteRows(stack.db, userTable, {});
-  await deleteRows(stack.db, tenantMembershipsTable, {});
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
 });
 
 async function seedUser(email: string, password: string): Promise<{ id: string }> {

@@ -23,10 +23,11 @@ import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { PLAYWRIGHT_DEMO_ENV } from "@cosmicdrift/kumiko-testing/e2e/constants";
-import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -97,8 +98,7 @@ afterAll(async () => {
 
 describe("runDevApp stop releases the late-bound revokers", () => {
   test("a later stack on the same feature instances confirms MFA without reaching the closed database", async () => {
-    await deleteRows(stack.db, userTable, {});
-    await deleteRows(stack.db, tenantMembershipsTable, {});
+    await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
     const created = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       {

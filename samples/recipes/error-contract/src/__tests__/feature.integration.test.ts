@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -111,11 +111,16 @@ describe("ConflictError → 409", () => {
       { totalCents: 100 },
       alice,
     );
-    // Force the row into `paid` via direct DB update. The sample feature
-    // doesn't expose a "place" action, so we can't walk the state machine —
-    // the point of this test is ConflictError semantics, not the transition
-    // path itself.
-    await updateRows(stack.db, orderTable, { status: "paid" }, { id: order.id });
+    // The sample feature doesn't expose a "place" action, so we can't walk the
+    // state machine — the point of this test is ConflictError semantics, not the
+    // transition path itself.
+    await updateRowViaEventStore(
+      stack.db,
+      { table: orderTable, entity: orderEntity, entityName: "order" },
+      { id: order.id },
+      { status: "paid" },
+      { tenantId: alice.tenantId },
+    );
 
     const error = await stack.http.writeErr(
       "orders-lite:write:order:cancel",

@@ -15,7 +15,6 @@ import {
   type MasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { deleteRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -106,8 +105,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Clean up the seeded fixtures so downstream suites don't see them.
-  await deleteRows(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
   await stack.cleanup();
 });
 

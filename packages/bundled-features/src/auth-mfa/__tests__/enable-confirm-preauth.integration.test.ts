@@ -6,15 +6,15 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-
-import {
-  asRawClient,
-  configureEntityFieldEncryption,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { configureEntityFieldEncryption, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestEnvelopeCipher, expectSuccess } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  expectSuccess,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -35,8 +35,9 @@ import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { seedTenantMembership } from "../../tenant/testing.ts";
 import { createUserFeature } from "../../user/feature.ts";
-import { UserHandlers } from "../../user/index.ts";
+import { USER_STATUS, UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
+import { updateUserViaEventStore } from "../../user/testing-event-store.ts";
 import { base32Decode } from "../base32.ts";
 import { mfaRequiredConfigHandle } from "../config.ts";
 import { createAuthMfaFeature } from "../feature.ts";
@@ -113,8 +114,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
+  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
   revokedForUserIds.length = 0;
 });
 
@@ -193,10 +193,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
   test("a stored user timezone survives the preauth-confirm login (fw#1760)", async () => {
     const email = "tz-preauth@example.com";
     const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET timezone = $1 WHERE id = $2`,
-      ["Asia/Tokyo", userId],
-    );
+    await updateUserViaEventStore(stack.db, userId, { timezone: "Asia/Tokyo" });
     const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
 
     const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-confirm", {
@@ -311,10 +308,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
     const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
 
-    await asRawClient(stack.db).unsafe(
-      `UPDATE "${userTable.tableName}" SET "status" = 'restricted' WHERE "id" = $1`,
-      [userId],
-    );
+    await updateUserViaEventStore(stack.db, userId, { status: USER_STATUS.Restricted });
 
     const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-confirm", {
       setupToken,
