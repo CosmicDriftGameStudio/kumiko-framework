@@ -13,7 +13,7 @@ import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -90,9 +90,8 @@ async function seedAlice(
   email: string = ALICE_EMAIL,
   id: string = aliceUser.id,
 ) {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id,
-    tenantId: tenantA,
     email,
     passwordHash: "hashed",
     displayName: "Alice",
@@ -412,9 +411,8 @@ describe("anonymous deletion flow — not configured (kein Secret)", () => {
     });
     await unsafeCreateEntityTable(bareStack.db, userEntity);
     await unsafeCreateEntityTable(bareStack.db, tenantComplianceProfileEntity);
-    await seedRow(bareStack.db, userTable, {
+    await seedRowViaEventStore(bareStack.db, userTable, {
       id: aliceUser.id,
-      tenantId: tenantA,
       email: ALICE_EMAIL,
       passwordHash: "hashed",
       displayName: "Alice",

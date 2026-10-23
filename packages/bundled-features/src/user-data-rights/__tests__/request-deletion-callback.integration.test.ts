@@ -12,7 +12,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -85,9 +85,8 @@ beforeEach(async () => {
 });
 
 async function seedAlice(email: string = "alice@example.com"): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: aliceUser.id,
-    tenantId: tenantA,
     email,
     passwordHash: "hashed",
     displayName: "Alice",
@@ -152,9 +151,8 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
   });
 
   test("422 user_not_in_active_state → callback NICHT gefeuert", async () => {
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: aliceUser.id,
-      tenantId: tenantA,
       email: "alice@example.com",
       passwordHash: "hashed",
       displayName: "Alice",

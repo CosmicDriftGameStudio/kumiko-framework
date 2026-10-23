@@ -4,7 +4,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRow, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetTestTables,
+  seedRows,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -65,9 +69,8 @@ beforeEach(async () => {
 });
 
 async function seedUser(u: typeof alice, email: string): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: u.id,
-    tenantId: u.tenantId,
     email,
     passwordHash: "h",
     displayName: email,

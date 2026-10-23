@@ -28,7 +28,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -54,7 +54,6 @@ let db: DbConnection;
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
-const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
 
 function uuid(suffix: number): string {
   return `aaaaaaaa-aaaa-4aaa-8aaa-${suffix.toString(16).padStart(12, "0")}`;
@@ -111,9 +110,8 @@ beforeEach(async () => {
 });
 
 async function seedForgetUser(id: string): Promise<void> {
-  await seedRow(db, userTable, {
+  await seedRowViaEventStore(db, userTable, {
     id,
-    tenantId: TENANT_SYSTEM,
     email: `user-${id}@example.com`,
     passwordHash: "hashed",
     displayName: `User ${id}`,
@@ -126,7 +124,7 @@ async function seedForgetUser(id: string): Promise<void> {
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await seedRow(db, tenantMembershipsTable, {
+  await seedRowViaEventStore(db, tenantMembershipsTable, {
     tenantId: tenantId,
     userId: userId,
     roles: '["Member"]',

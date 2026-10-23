@@ -12,7 +12,7 @@ import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTestEnvelopeCipher,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -149,9 +149,8 @@ beforeEach(async () => {
   });
 
   aliceId = crypto.randomUUID();
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: aliceId,
-    tenantId: TENANT_A_ID,
     email: ALICE_EMAIL,
     displayName: "Alice",
     passwordHash: await hashPassword("alice-pw-1234"),
@@ -203,9 +202,8 @@ describe("invite-accept-with-login: MFA gate", () => {
     // Real user row matching the synthetic actor's id — invite-accept-with-login
     // reads this row for password/status, gateEnforceMfa reads userMfaEntity
     // by (mfaActor.id, TENANT_A_ID).
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: mfaActor.id,
-      tenantId: TENANT_A_ID,
       email,
       passwordHash: await hashPassword(password),
       displayName: "MFA Invitee",
@@ -258,9 +256,8 @@ describe("invite-accept-with-login: MFA gate", () => {
       mfaActor,
     );
 
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: mfaActor.id,
-      tenantId: TENANT_A_ID,
       email: opts.email,
       passwordHash: await hashPassword(opts.password),
       displayName: "MFA Invitee",
@@ -318,9 +315,8 @@ describe("invite-accept-with-login: account-status gate", () => {
     const password = "restricted-invitee-pw-1234";
     const userId = crypto.randomUUID();
 
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: userId,
-      tenantId: TENANT_A_ID,
       email,
       passwordHash: await hashPassword(password),
       displayName: "Restricted Invitee",
@@ -358,9 +354,8 @@ describe("invite-accept-with-login: soft-deleted email predecessor (fw#2593)", (
     const deletedPassword = "deleted-predecessor-pw-1234";
     const livePassword = "live-successor-pw-5678";
 
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: deletedUserId,
-      tenantId: TENANT_A_ID,
       email,
       passwordHash: await hashPassword(deletedPassword),
       displayName: "Deleted Predecessor",
@@ -371,9 +366,8 @@ describe("invite-accept-with-login: soft-deleted email predecessor (fw#2593)", (
       isDeleted: true,
     });
 
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: liveUserId,
-      tenantId: TENANT_A_ID,
       email,
       passwordHash: await hashPassword(livePassword),
       displayName: "Live Successor",

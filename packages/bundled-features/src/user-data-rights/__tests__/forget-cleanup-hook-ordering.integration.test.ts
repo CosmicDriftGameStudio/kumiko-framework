@@ -24,7 +24,7 @@ import {
   EXT_USER_DATA_ORDER,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { resetTestTables, seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -181,7 +181,7 @@ afterAll(async () => {
 });
 
 async function seedAnonymizeOverride(entityName: string) {
-  await seedProjectionRow(stack.db, tenantRetentionOverrideTable, {
+  await seedRowViaEventStore(stack.db, tenantRetentionOverrideTable, {
     entityName,
     config: JSON.stringify({ keepFor: "0d", strategy: "anonymize" }),
     reason: "test: force anonymize strategy",

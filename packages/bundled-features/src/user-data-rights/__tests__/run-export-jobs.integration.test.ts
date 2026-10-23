@@ -26,7 +26,11 @@ import {
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetTestTables,
+  seedRowViaEventStore,
+  updateRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -95,9 +99,8 @@ beforeEach(async () => {
 
   // Seed the aliceUser row with an email because the worker notification
   // callback retrieves it through lookupUserEmail.
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: String(aliceUser.id),
-    tenantId: tenantA,
     email: "alice@example.com",
     passwordHash: "hashed",
     displayName: "Alice",
@@ -109,6 +112,16 @@ beforeEach(async () => {
 });
 
 const NOW = () => getTemporal().Now.instant();
+
+// An empty email makes lookupUserEmail return null.
+async function clearAliceEmail(): Promise<void> {
+  await updateRowViaEventStore(
+    stack.db,
+    { table: userTable, entity: userEntity, entityName: "user" },
+    { id: String(aliceUser.id) },
+    { email: "" },
+  );
+}
 
 function buildProvider(tenantId: string): Promise<FileStorageProvider> {
   let p = providerPerTenant.get(tenantId);
@@ -884,9 +897,8 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // as the tests above — the callback throws for job A only, proving the
     // throw doesn't kill the batch loop before job B's callback fires.
     const bobUser = createTestUser({ id: 8, tenantId: tenantA, roles: ["Member"] });
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: String(bobUser.id),
-      tenantId: tenantA,
       email: "bob-failed@example.com",
       passwordHash: "h",
       displayName: "Bob",
@@ -928,18 +940,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
   });
 
   test("failed-Job, user ohne email → sendExportFailedEmail skipped (kein Throw)", async () => {
-    await resetTestTables(stack.db, [userTable]);
-    await seedRow(stack.db, userTable, {
-      id: String(aliceUser.id),
-      tenantId: tenantA,
-      email: "", // empty string — lookupUserEmail returns null
-      passwordHash: "hashed",
-      displayName: "Alice",
-      locale: "de",
-      emailVerified: true,
-      roles: '["Member"]',
-      status: USER_STATUS.Active,
-    });
+    await clearAliceEmail();
     const jobId = await seedPendingJob();
     await seedConflictingDownloadToken(jobId);
 
@@ -1079,7 +1080,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   });
 
   async function seedMembership(tenantId: string, userId: string | number) {
-    await seedRow(localStack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(localStack.db, tenantMembershipsTable, {
       tenantId: tenantId,
       userId: String(userId),
       roles: "[]",
@@ -1322,20 +1323,8 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
   });
 
   test("user ohne email → Callback skipped + console.warn (kein Throw)", async () => {
-    // Seed a user row with email=null (override). The worker logs a warning,
-    // skips the callback, and the worker run remains successful.
-    await resetTestTables(stack.db, [userTable]);
-    await seedRow(stack.db, userTable, {
-      id: String(aliceUser.id),
-      tenantId: tenantA,
-      email: "" as string, // empty string — lookupUserEmail returns null
-      passwordHash: "h",
-      displayName: "Alice",
-      locale: "de",
-      emailVerified: true,
-      roles: '["Member"]',
-      status: USER_STATUS.Active,
-    });
+    // The worker logs a warning, skips the callback, and the worker run remains successful.
+    await clearAliceEmail();
     const jobId = await seedPendingJob();
     let callbackInvoked = false;
     await runExportJobs({
@@ -1370,9 +1359,8 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
       tenantId: tenantA,
       roles: ["Member"],
     });
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: String(bobUser.id),
-      tenantId: tenantA,
       email: "bob@example.com",
       passwordHash: "h",
       displayName: "Bob",

@@ -9,7 +9,7 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 
@@ -50,9 +50,8 @@ export interface ForgetSeeders {
 export function createForgetSeeders(db: DbConnection, writer: FileWriter): ForgetSeeders {
   return {
     async seedForgetUser(id) {
-      await seedRow(db, userTable, {
+      await seedRowViaEventStore(db, userTable, {
         id,
-        tenantId: TENANT_SYSTEM,
         email: `user-${id}@example.com`,
         passwordHash: "hashed",
         displayName: `User ${id}`,
@@ -65,7 +64,11 @@ export function createForgetSeeders(db: DbConnection, writer: FileWriter): Forge
     },
 
     async seedMembership(userId, tenantId) {
-      await seedRow(db, tenantMembershipsTable, { tenantId, userId, roles: '["Member"]' });
+      await seedRowViaEventStore(db, tenantMembershipsTable, {
+        tenantId,
+        userId,
+        roles: '["Member"]',
+      });
     },
 
     async seedFile(id, tenantId, insertedById) {

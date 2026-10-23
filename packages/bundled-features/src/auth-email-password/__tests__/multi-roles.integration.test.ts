@@ -13,7 +13,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -101,7 +101,7 @@ async function addMembership(
   tenantId: TenantId,
   roles: readonly string[],
 ): Promise<void> {
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     userId,
     tenantId,
     roles: JSON.stringify(roles),

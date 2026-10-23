@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -142,9 +142,8 @@ async function rawSelect(sql: string, params: unknown[]) {
 }
 
 async function seedUser(id: string): Promise<void> {
-  await seedRow(full.db, userTable, {
+  await seedRowViaEventStore(full.db, userTable, {
     id,
-    tenantId: SYSTEM_TENANT_ID,
     email: `user-${id}@example.com`,
     passwordHash: "hashed-password",
     displayName: `User ${id}`,

@@ -5,7 +5,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -280,7 +280,7 @@ describe("locked template overrides :: side channels stay closed", () => {
     });
     try {
       await unsafeCreateEntityTable(stack.db, templateResourceEntity);
-      await seedRow(stack.db, templateResourcesTable, {
+      await seedRowViaEventStore(stack.db, templateResourcesTable, {
         tenantId,
         slug: USE_SLUG,
         kind: "mail",
@@ -341,7 +341,7 @@ describe("locked template overrides :: side channels stay closed", () => {
         document("locked-ov:doc", "document-pdf", "system doc"),
         systemAdmin,
       );
-      await seedRow(stack.db, templateResourcesTable, {
+      await seedRowViaEventStore(stack.db, templateResourcesTable, {
         tenantId,
         slug: "locked-ov:doc",
         kind: "document-pdf",
@@ -422,7 +422,7 @@ describe("locked template overrides :: a collection does not open system templat
   test("a stored collection row does not shadow the system template, a plain entry is delivered", async () => {
     const stack = await collectionStack();
     try {
-      await seedRow(stack.db, templateResourcesTable, {
+      await seedRowViaEventStore(stack.db, templateResourcesTable, {
         tenantId,
         slug: SHADOWED_SLUG,
         kind: "document-pdf",
@@ -470,7 +470,7 @@ describe("locked template overrides :: public text-block paths follow the same r
     try {
       await unsafeCreateEntityTable(stack.db, templateResourceEntity);
       const block = (blockTenantId: string, slug: string, content: string) =>
-        seedRow(stack.db, templateResourcesTable, {
+        seedRowViaEventStore(stack.db, templateResourcesTable, {
           tenantId: blockTenantId,
           slug,
           kind: "text-block",

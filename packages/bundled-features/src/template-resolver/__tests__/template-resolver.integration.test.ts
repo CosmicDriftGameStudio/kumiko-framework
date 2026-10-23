@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -94,7 +94,7 @@ async function seedTemplate(args: {
   linkedResources?: Record<string, string>;
   parentTemplateId?: string;
 }) {
-  await seedRow(db, templateResourcesTable, {
+  await seedRowViaEventStore(db, templateResourcesTable, {
     tenantId: args.tenantId,
     slug: args.slug,
     kind: args.kind,

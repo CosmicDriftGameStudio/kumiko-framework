@@ -33,7 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
@@ -228,9 +228,8 @@ async function readRow(id: string): Promise<Record<string, unknown> | undefined>
 // the export runner iterates their data. Status active = NOT picked up by
 // runForgetCleanup.
 async function seedActiveUserWithMembership(): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: admin.id,
-    tenantId: TENANT,
     email: `admin@example.com`,
     passwordHash: "hashed",
     displayName: "Admin",
@@ -245,9 +244,8 @@ async function seedActiveUserWithMembership(): Promise<void> {
 // Seed the acting admin as DeletionRequested + grace expired so
 // runForgetCleanup picks them up, with a membership in TENANT.
 async function seedForgetUserWithMembership(): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: admin.id,
-    tenantId: TENANT,
     email: `admin@example.com`,
     passwordHash: "hashed",
     displayName: "Admin",
@@ -261,7 +259,7 @@ async function seedForgetUserWithMembership(): Promise<void> {
 }
 
 async function seedMembership(): Promise<void> {
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT,
     userId: admin.id,
     roles: '["TenantAdmin"]',

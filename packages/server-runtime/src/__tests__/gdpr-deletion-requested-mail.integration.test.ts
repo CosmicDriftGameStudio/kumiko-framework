@@ -38,12 +38,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -110,9 +109,8 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetTestTables(stack.db, [userTable, "read_tenant_memberships", eventsTable]);
   transport.sent.length = 0;
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: alice.id,
-    tenantId: SYSTEM_TENANT_ID,
     email: ALICE_EMAIL,
     passwordHash: "hashed",
     displayName: "Alice",
@@ -121,7 +119,7 @@ beforeEach(async () => {
     roles: '["Member"]',
     status: USER_STATUS.Active,
   });
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT,
     userId: alice.id,
     roles: '["Member"]',

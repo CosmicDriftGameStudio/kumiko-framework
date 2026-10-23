@@ -12,13 +12,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
-import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -72,6 +72,7 @@ const RECIPIENT_EMAIL = "export-cron@example.test";
 
 let stack: TestStack;
 let notifyFactory: unknown;
+let lastFixtureEventId = 0n;
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -115,13 +116,14 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  const raw = asRawClient(stack.db);
-  await raw.unsafe("DELETE FROM read_export_jobs");
-  await raw.unsafe("DELETE FROM read_users");
-  await raw.unsafe("DELETE FROM read_tenant_memberships");
-  await seedRow(stack.db, userTable, {
+  await resetTestTables(stack.db, [
+    exportJobsTable,
+    userTable,
+    tenantMembershipsTable,
+    eventsTable,
+  ]);
+  await seedRowViaEventStore(stack.db, userTable, {
     id: USER_ID,
-    tenantId: TENANT,
     email: RECIPIENT_EMAIL,
     passwordHash: "hashed",
     displayName: "Cron Export",
@@ -130,12 +132,13 @@ beforeEach(async () => {
     roles: '["Member"]',
     status: USER_STATUS.Active,
   });
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT,
     userId: USER_ID,
     roles: '["Member"]',
   });
   emailTransport.sent.length = 0;
+  lastFixtureEventId = await maxEventId();
 });
 
 // Seeds a pending export job through the real request-export handler.
@@ -150,11 +153,18 @@ async function seedPendingJob(): Promise<string> {
 
 registerMailTranslations("de", localeDeBundle);
 
+async function maxEventId(): Promise<bigint> {
+  const events = await selectMany<{ id: bigint | string }>(stack.db, eventsTable, {});
+  return events.reduce((max, event) => (BigInt(event.id) > max ? BigInt(event.id) : max), 0n);
+}
+
 // Serialized rows of the stores a mail send could leak into: the event store
 // and the delivery attempt log (no job row is written on the immediate path).
+// Events up to the fixture checkpoint are the seeds, which carry the address as user data.
 async function persistedDeliveryTraces(): Promise<string> {
+  const events = await selectMany<{ id: bigint | string }>(stack.db, eventsTable, {});
   const rows = [
-    ...(await selectMany(stack.db, eventsTable, {})),
+    ...events.filter((event) => BigInt(event.id) > lastFixtureEventId),
     ...(await selectMany(stack.db, deliveryAttemptsTable, {})),
   ];
   return JSON.stringify(rows, (_key, value) =>

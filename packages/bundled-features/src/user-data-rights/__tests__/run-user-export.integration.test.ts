@@ -29,11 +29,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createSystemUser,
-  SYSTEM_TENANT_ID,
-  type UserDataHookCtx,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -42,7 +38,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -72,7 +68,6 @@ let stack: TestStack;
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_B = "00000000-0000-4000-8000-00000000000b";
-const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 
 function uuid(suffix: number): string {
   return `bbbbbbbb-bbbb-4bbb-8bbb-${suffix.toString(16).padStart(12, "0")}`;
@@ -129,9 +124,8 @@ async function seedUser(
   id: string,
   overrides: { email?: string; displayName?: string; roles?: string } = {},
 ): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id,
-    tenantId: TENANT_SYSTEM,
     email: overrides.email ?? `user-${id}@example.com`,
     passwordHash: "secret-hash-must-not-leak",
     displayName: overrides.displayName ?? `User ${id}`,
@@ -143,7 +137,7 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: tenantId,
     userId: userId,
     roles: '["Member"]',

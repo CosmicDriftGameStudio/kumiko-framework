@@ -31,7 +31,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -182,9 +182,8 @@ afterEach(() => {
 });
 
 async function seedForgottenSubject(): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: SUBJECT_S,
-    tenantId: author.tenantId,
     email: "subject-s@example.com",
     passwordHash: "hashed",
     displayName: "Subject S",
@@ -194,7 +193,7 @@ async function seedForgottenSubject(): Promise<void> {
     status: USER_STATUS.DeletionRequested,
     gracePeriodEnd: pastInstant(),
   });
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: author.tenantId,
     userId: SUBJECT_S,
     roles: '["Member"]',

@@ -23,7 +23,7 @@ import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -182,9 +182,8 @@ beforeEach(async () => {
 });
 
 async function seedUserS(): Promise<void> {
-  await seedRow(stack.db, userTable, {
+  await seedRowViaEventStore(stack.db, userTable, {
     id: SUBJECT_S,
-    tenantId: author.tenantId,
     email: "subject-s@example.com",
     passwordHash: "hashed",
     displayName: "Subject S",
@@ -193,7 +192,7 @@ async function seedUserS(): Promise<void> {
     roles: '["Member"]',
     status: USER_STATUS.Active,
   });
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: author.tenantId,
     userId: SUBJECT_S,
     roles: '["Member"]',

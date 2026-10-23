@@ -13,12 +13,12 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 
 import { isPiiCiphertext } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -59,7 +59,6 @@ import {
 } from "./forget-shredding-test-helpers.ts";
 
 const TENANT_A = "00000000-0000-4000-8000-0000000006a1";
-const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const USER_ID = "00000000-0000-4000-8000-0000000006b1";
 const ORIGINAL_EMAIL = "bridge-delete@example.test";
 const FORGET_JOB = UserDataRightsJobs.runForgetCleanup;
@@ -121,9 +120,8 @@ beforeEach(async () => {
 
 describe("C6 default mail bridge :: forget cron sends deletion-executed without app callback", () => {
   test("registered cron + configResolver(provider=inmemory) → user deleted + mail in inbox", async () => {
-    await seedRow(stack.db, userTable, {
+    await seedRowViaEventStore(stack.db, userTable, {
       id: USER_ID,
-      tenantId: TENANT_SYSTEM,
       email: ORIGINAL_EMAIL,
       passwordHash: "hashed",
       displayName: "Bridge Delete",
@@ -133,7 +131,7 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: past(),
     });
-    await seedRow(stack.db, tenantMembershipsTable, {
+    await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
       tenantId: TENANT_A,
       userId: USER_ID,
       roles: '["Member"]',

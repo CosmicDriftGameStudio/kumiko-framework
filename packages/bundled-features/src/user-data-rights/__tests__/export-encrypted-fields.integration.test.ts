@@ -24,7 +24,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createTestEnvelopeCipher,
   resetEntityFieldEncryptionCacheForTests,
-  seedRow,
+  seedRowViaEventStore,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -94,7 +94,7 @@ beforeAll(async () => {
   ]);
 
   await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
-  await seedRow(stack.db, tenantMembershipsTable, {
+  await seedRowViaEventStore(stack.db, tenantMembershipsTable, {
     tenantId: TENANT,
     userId: USER_ID,
     roles: "[]",

@@ -15,7 +15,11 @@ import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { expectSuccess, resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  expectSuccess,
+  resetTestTables,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -206,7 +210,7 @@ async function resetStack(target: TestStack): Promise<void> {
   );
   await resetTestTables(target.db, [userTable, templateResourcesTable]);
   await seedNotificationTemplates(target.db, target.registry);
-  await seedRow(target.db, templateResourcesTable, {
+  await seedRowViaEventStore(target.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,
     kind: TEXT_BLOCK_KIND,
