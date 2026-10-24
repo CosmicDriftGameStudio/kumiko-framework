@@ -33,7 +33,7 @@ export type MoveDecision =
 
 const UNTOUCHED: MoveDecision = { status: "untouched" };
 
-function isKumikoTypesFile(path: string): boolean {
+export function isKumikoTypesFile(path: string): boolean {
   return path.includes("kumiko-types") || path.includes("packages/types/src");
 }
 

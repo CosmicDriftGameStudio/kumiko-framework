@@ -80,6 +80,16 @@ const CASES: readonly Case[] = [
     ],
   },
   {
+    name: "structural-types",
+    rewrites: 9,
+    manual: [
+      [
+        40,
+        "a structural context type declared in another file reads query, which moved into context namespaces",
+      ],
+    ],
+  },
+  {
     name: "hooks",
     rewrites: 5,
     manual: [[7, "a handler or job context is passed to an AppContext parameter"]],

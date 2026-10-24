@@ -1,0 +1,15 @@
+---
+"@cosmicdrift/kumiko-feature-ast": patch
+---
+
+The ctx-namespaces codemod rewrites hand-written structural context types declared as a type alias, an interface or an intersection, not only inline ones.
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: ctx-namespaces codemod follows structural context types through aliases and intersections
+codemod: scripts/codemod/ctx-namespaces.ts
+detail: A parameter named ctx or context typed by a hand-written structural type such as type PatternQueryContext = { readonly query: ... } was left alone, so the type kept the flat member and every ctx.query call failed to type-check after the context namespaces landed. The codemod now nests the moved members of such an alias, interface, inline literal or intersection of them (readonly query becomes readonly dispatch: { readonly query }) and rewrites the calls in the body, when a handler or job context is passed to that parameter anywhere in the project. A structural type declared in another file is reported as manual.
+migration: |
+  Run kumiko-upgrade --apply again; the ctx-namespaces codemod now picks up structural context parameter types. Types it reports as manual (declared in another file) get their moved members nested by hand.
+-->
