@@ -96,7 +96,9 @@ function membershipOf(tenant: ResolvedTenant, roles: readonly string[]) {
 
 function seedAccount(admin: SeedAdminOptions): DbSeedFn {
   return async (db) => {
-    await seedAdminGuarded(db, admin);
+    // Operator-created account, not a self-registration: under emailVerificationMode "strict"
+    // an unverified seed account could never log in. An explicit `emailVerified` still overrides.
+    await seedAdminGuarded(db, { emailVerified: true, ...admin });
   };
 }
 
