@@ -105,7 +105,7 @@ export type EmailVerificationOptions = {
 // Brute-force protection on the login handler. Omit for the defaults
 // (5 failures → 15-minute lock). Set the dial knobs to override.
 //
-// Storage: Redis (keyed by userId). Without ctx.redis the handler skips
+// Storage: Redis (keyed by userId). Without ctx.services.redis the handler skips
 // lockout entirely — login still works, but brute-force protection falls
 // back to the IP-rate-limiter. Counter is monotonic: only a successful
 // login resets it, so after a lockout expires the next wrong password

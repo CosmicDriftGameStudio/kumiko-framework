@@ -1,5 +1,5 @@
 // File-provider resolution — lives in the framework so the upload routes,
-// `ctx.files`, AND the GDPR export/forget jobs resolve their FileStorageProvider
+// `ctx.services.files`, AND the GDPR export/forget jobs resolve their FileStorageProvider
 // through ONE path. Divergence (uploads writing one store, erasure deleting
 // another) is structurally impossible: there is a single resolver.
 //
@@ -55,7 +55,9 @@ const FEATURE_NAME = "file-foundation";
 export type FileProviderContext = {
   readonly config?: ConfigAccessor;
   readonly registry?: Registry;
-  readonly secrets?: SecretsContext;
+  // Required key: a HandlerContext carries secrets only as services.secrets, so passing one whole is a
+  // type error instead of a silently undefined secret store.
+  readonly secrets: SecretsContext | undefined;
   readonly auditUserId?: string | undefined;
 };
 
@@ -66,7 +68,7 @@ export type FileProviderContext = {
  *
  * **Plugin-Author-Warning:** `ctx` is EXPLICITLY a FileProviderContext, not
  * a full HandlerContext. Fields outside the narrow surface (e.g.
- * `ctx.tx`, `ctx.actor`, `ctx.signal`) are NOT available on the worker path.
+ * `ctx.tx`, `ctx.actor`, `ctx.lifecycle.signal`) are NOT available on the worker path.
  * Casting `ctx as unknown as HandlerContext` fails at runtime on the worker —
  * the crash only appears in production with the first S3 tenant. If a plugin
  * needs fields outside FileProviderContext, extend FileProviderContext

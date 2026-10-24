@@ -2066,7 +2066,7 @@ describe("flow 17: async render→send pipeline", () => {
         {
           db,
           registry: stack.registry,
-          jobRunner: runner,
+          services: { jobRunner: runner, extensions: {} },
           obs: { log: { error: (msg: string) => logged.push(msg) } },
           systemDb: makeSystemDb(admin.tenantId),
         } as unknown as JobContext,
@@ -2105,7 +2105,7 @@ describe("flow 17: async render→send pipeline", () => {
         {
           db,
           registry: stack.registry,
-          jobRunner: failingRunner,
+          services: { jobRunner: failingRunner, extensions: {} },
           obs: { log: { error: (msg: string) => logged.push(msg) } },
           systemDb: makeSystemDb(admin.tenantId),
         } as unknown as JobContext,
@@ -2131,7 +2131,7 @@ describe("flow 17: async render→send pipeline", () => {
     const ctxWithMismatchedSystemDb = {
       db,
       registry: stack.registry,
-      jobRunner: runner,
+      services: { jobRunner: runner, extensions: {} },
       systemDb: makeSystemDb(admin.tenantId),
     } as unknown as JobContext;
 
@@ -2179,7 +2179,7 @@ describe("flow 17: async render→send pipeline", () => {
     const ctxWithoutSystemDb = {
       db,
       registry: stack.registry,
-      jobRunner: runner,
+      services: { jobRunner: runner, extensions: {} },
     } as unknown as JobContext;
 
     await expect(deliveryRenderJob(payload, ctxWithoutSystemDb)).rejects.toThrow(

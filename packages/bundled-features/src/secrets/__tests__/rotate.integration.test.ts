@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { AppContext, JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvMasterKeyProvider,
@@ -121,11 +121,16 @@ function silentLogger(): Log {
   return logger;
 }
 
-type RotateJobCtx = Pick<AppContext, "db" | "masterKeyProvider"> & { obs: { log: Log } };
+type RotateJobCtx = Pick<AppContext, "db"> &
+  Pick<JobContext, "lifecycle"> & {
+    services: Pick<JobContext["services"], "masterKeyProvider">;
+    obs: { log: Log };
+  };
 function jobCtx(provider: MasterKeyProvider): Parameters<typeof rotateJob>[1] {
   const ctx: RotateJobCtx = {
     db: stack.db,
-    masterKeyProvider: provider,
+    services: { masterKeyProvider: provider },
+    lifecycle: {},
     obs: { log: silentLogger() },
   };
   return ctx as unknown as Parameters<typeof rotateJob>[1];

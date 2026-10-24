@@ -52,7 +52,7 @@ describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
     // Mock ctx.db through bun-db's asRawClient surface: the handler calls
     // selectMany(ctx.db.raw, ...) → asRawClient(raw).unsafe(...). We provide
     // empty overrides so the handler passes through the DB path and then
-    // calls ctx.effectiveFeatures, which is observable here.
+    // calls ctx.services.effectiveFeatures, which is observable here.
     const mockDb = {
       unsafe: async () => [] as unknown[],
       begin: async () => undefined,

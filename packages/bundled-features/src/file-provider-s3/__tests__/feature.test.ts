@@ -73,6 +73,8 @@ describe("fileProviderS3Feature — build() guard", () => {
     // missing secret, happy path) depend on the real Config/Secrets pipeline
     // and belong in an S3 integration test (setupTestStack + MinIO), not here.
     // requireNonEmpty validation is covered by foundation-shared/config-helpers.
-    await expect(s3Plugin().build({}, "tenant-x")).rejects.toThrow("ctx.config is missing");
+    await expect(s3Plugin().build({ secrets: undefined }, "tenant-x")).rejects.toThrow(
+      "ctx.config is missing",
+    );
   });
 });

@@ -96,9 +96,9 @@ export type ConfigBacking = "config" | "secrets";
 
 // Minimal read surface the config resolver needs to dispatch a
 // backing="secrets" key to the secrets store, without coupling the engine
-// types to the full SecretsContext. The app's `ctx.secrets` (a SecretsContext)
+// types to the full SecretsContext. The app's `ctx.services.secrets` (a SecretsContext)
 // is structurally assignable. Threaded per-call (not at resolver construction)
-// because the resolver is framework-auto-created while `ctx.secrets` is
+// because the resolver is framework-auto-created while `ctx.services.secrets` is
 // app-provided — only the request context sees both.
 export type ConfigSecretsReader = {
   get(tenantId: TenantId, key: string): Promise<{ readonly reveal: () => string } | undefined>;

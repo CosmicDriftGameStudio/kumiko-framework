@@ -64,7 +64,10 @@ async function readCredentialDocument(
   ctx: InboundMailContext,
   account: MailAccountRecord,
 ): Promise<ImapCredentialDocument> {
-  const secrets = requireSecretsContext(ctx, FEATURE_NAME);
+  const secrets = requireSecretsContext(
+    { secrets: ctx.secrets, auditUserId: ctx.auditUserId },
+    FEATURE_NAME,
+  );
   const secret = await secrets.get(account.tenantId, inboundCredentialSecretKey(account.id));
   if (!secret) {
     throw new InboundAuthError(

@@ -15,7 +15,7 @@ export type { EnvelopeCipher } from "@cosmicdrift/kumiko-types/envelope-cipher-t
 
 export type EnvelopeCipherOptions = {
   // Shared DEK cache — pass the app-wide instance so config/entity reads
-  // amortise KEK unwraps together with ctx.secrets.
+  // amortise KEK unwraps together with ctx.services.secrets.
   readonly dekCache?: DekCache;
 };
 

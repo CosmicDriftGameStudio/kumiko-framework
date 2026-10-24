@@ -95,7 +95,7 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // boot/boot-crypto.ts (envHasMasterKek, resolveBootCrypto), shared with runDevApp.
 // A production misconfiguration (secrets mounted without a KEK) is caught by
 // secretsEnvSchema during boot; without the env-schema path, requireSecretsContext
-// throws with a wiring hint on the first ctx.secrets access. configResolver is only
+// throws with a wiring hint on the first ctx.services.secrets access. configResolver is only
 // wired in auth mode. Exported and pure for unit tests; the caller merges it with
 // app values (the app wins).
 
@@ -199,7 +199,7 @@ function bootCryptoContext(crypto: BootCrypto): Record<string, unknown> {
     ...(crypto.masterKeyProvider && { masterKeyProvider: crypto.masterKeyProvider }),
     // Encrypt/decrypt partner for `encrypted: true` config keys. Wired
     // whenever a master key exists — NOT gated on the secrets feature,
-    // config encryption must work without mounting ctx.secrets.
+    // config encryption must work without mounting ctx.services.secrets.
     ...(crypto.configCipher && { configEncryption: crypto.configCipher }),
   };
 }

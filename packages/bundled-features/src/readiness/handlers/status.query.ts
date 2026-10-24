@@ -36,7 +36,10 @@ export const statusQuery = defineQueryHandler({
 
     // has() is metadata-only: no decryption, no read-audit event — a
     // readiness probe must not pollute the credential-read trail.
-    const secrets = requireSecretsContext(ctx, ReadinessQueries.status);
+    const secrets = requireSecretsContext(
+      { secrets: ctx.services.secrets, user: ctx.user },
+      ReadinessQueries.status,
+    );
     const missingSecrets: ReadinessMissingSecret[] = [];
     for (const [qualifiedName, keyDef] of ctx.registry.getAllSecretKeys()) {
       if (keyDef.required !== true) continue;

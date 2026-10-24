@@ -254,7 +254,7 @@ export function createInboundMailFoundationFeature() {
           const deleteBodyObject = async (bodyRef: string): Promise<void> => {
             if (!providerPromise) {
               providerPromise = createFileProviderForTenant(
-                { config: ctx.config, registry: ctx.registry },
+                { config: ctx.config, registry: ctx.registry, secrets: ctx.services.secrets },
                 tenantId,
               );
             }

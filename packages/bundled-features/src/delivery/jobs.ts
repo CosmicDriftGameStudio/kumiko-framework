@@ -150,19 +150,19 @@ function entryFor(
   };
 }
 
-// Assumes ctx.redis is the handle the service claimed on; runProdApp wires the same
+// Assumes ctx.services.redis is the handle the service claimed on; runProdApp wires the same
 // instance into both.
 async function releaseIdempotencyKey(ctx: JobContext, p: RenderJobPayload): Promise<void> {
   // skip: no idempotency key was claimed for this notification
   if (!p.idempotencyKey) return;
-  if (!ctx.redis) {
+  if (!ctx.services.redis) {
     ctx.obs.log.warn("delivery: idempotency key not released, job context has no redis", {
       notificationType: p.notificationType,
     });
     return;
   }
   try {
-    await ctx.redis.del(deliveryIdempotencyRedisKey(p.tenantId, p.idempotencyKey));
+    await ctx.services.redis.del(deliveryIdempotencyRedisKey(p.tenantId, p.idempotencyKey));
   } catch (err) {
     ctx.obs.log.warn(`delivery: idempotency key release failed: ${redactedMessageOf(err)}`, {
       notificationType: p.notificationType,
@@ -206,7 +206,7 @@ async function addressForAttemptLog(
     return await openRecipientAddress(
       p,
       p.tenantId as TenantId, // @cast-boundary engine-payload — job payload string is the stream tenant
-      ctx.configEncryption,
+      ctx.services.configEncryption,
     );
   } catch {
     return null;
@@ -255,7 +255,7 @@ async function renderStep(p: RenderJobPayload, ctx: JobContext): Promise<void> {
     registry,
     undefined,
     tenantId,
-    ctx.secrets,
+    ctx.services.secrets,
     ctx.config,
     (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
   );
@@ -270,7 +270,7 @@ async function renderStep(p: RenderJobPayload, ctx: JobContext): Promise<void> {
     return failAttempt(ctx, db, registry, p, "render_failed", err);
   }
   try {
-    const jobRunner = ctx["jobRunner"] as JobRunner; // @cast-boundary dynamic-key — dispatch lives on the concrete runner
+    const jobRunner = ctx.services.jobRunner as JobRunner; // @cast-boundary engine-bridge — dispatch lives on the concrete runner
     await jobRunner.dispatch(
       DeliveryJobs.send,
       { ...p, rendered: toSendRendered(rendered) },
@@ -298,13 +298,13 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
     registry,
     undefined,
     tenantId,
-    ctx.secrets,
+    ctx.services.secrets,
     ctx.config,
     (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
   );
 
   try {
-    const address = await openRecipientAddress(p, tenantId, ctx.configEncryption);
+    const address = await openRecipientAddress(p, tenantId, ctx.services.configEncryption);
     const result = await channel.send(address, toMessage(p), channelCtx, p.rendered);
     await appendAttemptEvent(
       db,

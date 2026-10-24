@@ -1,4 +1,4 @@
-// A miniature "billing" feature that reads a Stripe API key from ctx.secrets
+// A miniature "billing" feature that reads a Stripe API key from ctx.services.secrets
 // and simulates a charge. The point is to show how feature code uses the
 // plaintext secret without ever exposing it to clients — the charge endpoint
 // returns { chargeId } but never the apiKey.
@@ -27,7 +27,10 @@ const chargeWrite = defineWriteHandler({
   }),
   access: { roles: ["TenantAdmin", "User"] },
   handler: async (event, ctx) => {
-    const secrets = requireSecretsContext(ctx, "billing:write:charge");
+    const secrets = requireSecretsContext(
+      { secrets: ctx.services.secrets, user: ctx.user },
+      "billing:write:charge",
+    );
     // requireSecretsContext returned a wrapper that auto-fills the audit
     // context (userId + "billing:write:charge") on every .get — the read
     // lands in tenant_secret_reads without the handler having to remember.

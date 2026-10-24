@@ -251,7 +251,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       const limitByTenantAndCap = await resolveLimitsByTenantAndCap(
         listedCaps,
         page,
-        ctx.configFor,
+        ctx.tenants.config,
       );
 
       const rows: TenantCapsListRow[] = page.map((row) => {

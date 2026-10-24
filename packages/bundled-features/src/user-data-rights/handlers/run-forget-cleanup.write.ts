@@ -60,7 +60,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
       const forgetDb = runner as DbConnection; // @cast-boundary db-runner — DbRunner narrows to DbConnection, config reads tolerate the outer tx
       const tenantModel = await resolveAppTenantModel({
         registry: ctx.registry,
-        configResolver: ctx.configResolver,
+        configResolver: ctx.services.configResolver,
         db: forgetDb,
         userId: ctx.user.id,
       });
@@ -69,11 +69,13 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
         registry: ctx.registry,
         now: T.Now.instant(),
         tenantModel,
-        ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
+        ...(ctx.services.searchAdapter !== undefined && {
+          searchAdapter: ctx.services.searchAdapter,
+        }),
         buildStorageProvider: makeTenantStorageProviderResolver({
           registry: ctx.registry,
-          configResolver: ctx.configResolver,
-          secrets: ctx.secrets,
+          configResolver: ctx.services.configResolver,
+          secrets: ctx.services.secrets,
           db: forgetDb,
           userId: ctx.user.id,
           handlerName: FORGET_CLEANUP_HANDLER_NAME,

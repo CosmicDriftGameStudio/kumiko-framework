@@ -37,12 +37,12 @@ export const rateLimitStatus = defineQueryHandler({
     // about the wiring either.
     const denied = bucketAccessDenied(query.payload.bucket, ctx.user);
     if (denied) throw denied;
-    if (!ctx.rateLimit) {
+    if (!ctx.services.rateLimit) {
       throw new UnprocessableError(RateLimitErrors.resolverUnavailable, {
         i18nKey: "rateLimiting.errors.resolverUnavailable",
       });
     }
-    const decision = await ctx.rateLimit.peek(query.payload.bucket, {
+    const decision = await ctx.services.rateLimit.peek(query.payload.bucket, {
       limit: query.payload.limit,
       windowSeconds: query.payload.windowSeconds,
     });

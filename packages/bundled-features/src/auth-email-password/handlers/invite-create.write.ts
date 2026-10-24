@@ -168,7 +168,7 @@ async function issueInvitation(
   ctx: HandlerContext,
   refuseAccepted = false,
 ): Promise<WriteResult<InviteCreateData>> {
-  if (!ctx.redis) {
+  if (!ctx.services.redis) {
     return writeFailure(
       new InternalError({ message: "invite-create requires ctx.redis for token store" }),
     );
@@ -197,7 +197,7 @@ async function issueInvitation(
     const existingVersion = existing["version"] as number; // @cast-boundary db-row
     // At most one live invite token per invitation: invalidate
     // whatever's there before minting the new one.
-    await invalidateExistingInviteToken(ctx.redis, invitationId);
+    await invalidateExistingInviteToken(ctx.services.redis, invitationId);
 
     const updateResult = await executor.update(
       {
@@ -237,7 +237,7 @@ async function issueInvitation(
   }
 
   const token = generateToken();
-  await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
+  await storeInviteToken(ctx.services.redis, { invitationId, token, ttlSeconds });
 
   const locale = request.locale ?? resolveHandlerMailLocale(ctx, opts.locale);
 

@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
-import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { AppContext, JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -55,11 +55,13 @@ beforeEach(async () => {
   await resetTestTables(stack.db, [userSessionTable]);
 });
 
-type JobCtx = Pick<AppContext, "db" | "registry"> & { obs: { log: Log } };
+type JobCtx = Pick<AppContext, "db" | "registry"> &
+  Pick<JobContext, "lifecycle"> & { obs: { log: Log } };
 function jobCtx(): Parameters<typeof cleanupJob>[1] {
   const ctx: JobCtx = {
     db: stack.db,
     registry: stack.registry,
+    lifecycle: {},
     obs: { log: silentLogger() },
   };
   return ctx as unknown as Parameters<typeof cleanupJob>[1];

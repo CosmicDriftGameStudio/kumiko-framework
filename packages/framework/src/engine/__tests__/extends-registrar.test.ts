@@ -14,7 +14,8 @@ import {
   defineFeature,
 } from "../index.ts";
 import type { TenantId } from "../types/identifiers.ts";
-import type { AppContext, SaveContext } from "../types/index.ts";
+import type { SaveContext } from "../types/index.ts";
+import { stubHandlerContext, stubHandlerContextWith } from "./handler-context-stub.ts";
 
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
 const dummySaveContext: SaveContext = {
@@ -207,10 +208,7 @@ describe("extendsRegistrar", () => {
     const createHooks = registry.getPreSaveHooks("fleet:write:vehicle:create");
     expect(createHooks).toHaveLength(1);
     // Hook is wrapped for the SYSTEM gate (system-identity-switch.ts), so it's no longer reference-equal to preSaveFn.
-    const preSaveContext = { previous: {}, isNew: true } as AppContext & {
-      previous: Readonly<Record<string, unknown>>;
-      isNew: boolean;
-    };
+    const preSaveContext = { ...stubHandlerContext(), previous: {}, isNew: true };
     await createHooks[0]?.({ name: "x" }, preSaveContext);
     expect(preSaveFn).toHaveBeenCalledTimes(1);
 
@@ -236,7 +234,7 @@ describe("extendsRegistrar", () => {
     const registry = createRegistry([ext, consumer]);
     const hooks = registry.getEntityPostSaveHooks("vehicle");
     expect(hooks).toHaveLength(1);
-    await hooks[0]?.(dummySaveContext, {} as AppContext);
+    await hooks[0]?.(dummySaveContext, stubHandlerContext());
     expect(postSaveFn).toHaveBeenCalledTimes(1);
   });
 
@@ -281,7 +279,7 @@ describe("extendsRegistrar", () => {
     const hooks = registry.getEntityPostSaveHooks("vehicle");
     expect(hooks).toHaveLength(1);
 
-    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+    await hooks[0]?.(dummySaveContext, stubHandlerContextWith(handlerCtx));
 
     expect(caught).toBeInstanceOf(AccessDeniedError);
     expect(ungatedQueryAs).not.toHaveBeenCalled();

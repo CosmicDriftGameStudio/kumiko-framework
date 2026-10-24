@@ -52,9 +52,9 @@ export const inviteInfoQuery = defineQueryHandler({
     "Anonymous, read-only invite lookup for the invite-acceptance page: reveals the invited " +
     "email and whether an account already exists for it, without consuming the token.",
   handler: async (query, ctx) => {
-    if (!ctx.redis) throwInvalidInviteToken();
+    if (!ctx.services.redis) throwInvalidInviteToken();
 
-    const invitationId = await getInvitationIdForToken(ctx.redis, query.payload.token);
+    const invitationId = await getInvitationIdForToken(ctx.services.redis, query.payload.token);
     if (!invitationId) throwInvalidInviteToken();
 
     type InvitationRow = {

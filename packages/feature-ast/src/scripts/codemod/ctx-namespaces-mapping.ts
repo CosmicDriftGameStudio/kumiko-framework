@@ -5,6 +5,28 @@ export interface NamespacePath {
   readonly leaf: string;
 }
 
+const SERVICE_NAMES: readonly string[] = [
+  "redis",
+  "cacheSync",
+  "jobRunner",
+  "searchAdapter",
+  "entityCache",
+  "secrets",
+  "kms",
+  "files",
+  "derivatives",
+  "configResolver",
+  "configEncryption",
+  "rateLimit",
+  "effectiveFeatures",
+  "masterKeyProvider",
+  "_fileProviderResolver",
+  "_notifyFactory",
+  "_notifyInTransactionFactory",
+  "_notifyAfterCommitFactory",
+  "_escapeHatchAuditSink",
+];
+
 const HANDLER_MOVES: ReadonlyMap<string, NamespacePath> = new Map([
   ["dbOutsideTransaction", { namespace: "db", leaf: "outsideTransaction" }],
   ["appendEvent", { namespace: "events", leaf: "append" }],
@@ -29,6 +51,17 @@ const HANDLER_MOVES: ReadonlyMap<string, NamespacePath> = new Map([
   ["metricsFor", { namespace: "obs", leaf: "metricsFor" }],
   ["tracer", { namespace: "obs", leaf: "tracer" }],
   ["log", { namespace: "obs", leaf: "log" }],
+  ["meter", { namespace: "obs", leaf: "meter" }],
+  ["runPreSave", { namespace: "lifecycle", leaf: "runPreSave" }],
+  ["scheduleAfterCommit", { namespace: "lifecycle", leaf: "afterCommit" }],
+  ["scheduleAfterRollback", { namespace: "lifecycle", leaf: "afterRollback" }],
+  ["signal", { namespace: "lifecycle", leaf: "signal" }],
+  ["configFor", { namespace: "tenants", leaf: "config" }],
+  ["forTenant", { namespace: "tenants", leaf: "writeTarget" }],
+  ...SERVICE_NAMES.map((name): [string, NamespacePath] => [
+    name,
+    { namespace: "services", leaf: name },
+  ]),
 ]);
 
 const JOB_MOVED_NAMES: readonly string[] = [
@@ -39,6 +72,9 @@ const JOB_MOVED_NAMES: readonly string[] = [
   "queryAsMember",
   "log",
   "metricsFor",
+  "meter",
+  "signal",
+  ...SERVICE_NAMES,
 ];
 
 const JOB_MOVES: ReadonlyMap<string, NamespacePath> = new Map(
@@ -66,4 +102,49 @@ export function samePath(
   right: NamespacePath | undefined,
 ): boolean {
   return left?.namespace === right?.namespace && left?.leaf === right?.leaf;
+}
+
+// Flat members a structural parameter may still declare, with where the context carries them now.
+const REMOVED_FLAT_MEMBERS: readonly string[] = ["systemUser", "triggeredBy", "_tenantId"];
+
+export function flatMemberTarget(memberName: string): string | undefined {
+  const path = HANDLER_MOVES.get(memberName);
+  if (path !== undefined) return describePath(path);
+  return REMOVED_FLAT_MEMBERS.includes(memberName)
+    ? "nowhere (removed from HandlerContext)"
+    : undefined;
+}
+
+// Members the new HandlerContext and JobContext carry. A cast over a narrowed context type can read
+// one of them, and that read must never be redirected into services.extensions.
+const CONTEXT_MEMBER_NAMES: ReadonlySet<string> = new Set([
+  "auth",
+  "config",
+  "crossTenantReads",
+  "db",
+  "dispatch",
+  "events",
+  "hasFeature",
+  "includeDeleted",
+  "lifecycle",
+  "locale",
+  "notify",
+  "obs",
+  "rateLimitDigest",
+  "registry",
+  "services",
+  "systemDb",
+  "tenants",
+  "tz",
+  "user",
+  "attempt",
+  "canDefer",
+  "defer",
+  "finalAttempt",
+  "triggerEvent",
+  "triggerName",
+]);
+
+export function isContextMemberName(memberName: string): boolean {
+  return CONTEXT_MEMBER_NAMES.has(memberName);
 }

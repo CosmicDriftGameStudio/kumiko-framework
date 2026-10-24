@@ -91,7 +91,7 @@ export type BootedWorkerProcess = {
   readonly envSource: Record<string, string | undefined>;
   readonly extraContext: Record<string, unknown>;
   readonly entrypoint: WorkerEntrypoint;
-  /** ctx.secrets as wired into the entrypoint (auto-wired when the secrets
+  /** ctx.services.secrets as wired into the entrypoint (auto-wired when the secrets
    *  feature is mounted and a master key exists, or from `extraContext`). */
   readonly secrets?: SecretsContext;
   /** Envelope cipher for `encrypted` config keys, when a master key is wired. */

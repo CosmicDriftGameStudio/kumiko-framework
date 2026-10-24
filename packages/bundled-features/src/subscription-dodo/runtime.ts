@@ -64,11 +64,11 @@ export function createDodoRuntimes(deps: DodoRuntimeDeps): DodoRuntimes {
 
   async function ctxApiKey(ctx: HandlerContext): Promise<string> {
     let key: string | undefined;
-    if (ctx.secrets) {
-      const got = await requireSecretsContext(ctx, SUBSCRIPTION_DODO_FEATURE).get(
-        SYSTEM_TENANT_ID,
-        deps.apiKeyHandle.name,
-      );
+    if (ctx.services.secrets) {
+      const got = await requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        SUBSCRIPTION_DODO_FEATURE,
+      ).get(SYSTEM_TENANT_ID, deps.apiKeyHandle.name);
       key = parseStoredSecret(got?.reveal());
     }
     if (!key && deps.fallback.apiKey && deps.fallback.apiKey.length > 0) {
@@ -102,8 +102,8 @@ export function createDodoRuntimes(deps: DodoRuntimeDeps): DodoRuntimes {
         if (live !== true) return false;
         if (deps.fallback.apiKey !== undefined && deps.fallback.apiKey.length > 0) return true;
         // Existence-only probe on every billing-plans render: must stay un-audited.
-        return ctx.secrets
-          ? await ctx.secrets.has(SYSTEM_TENANT_ID, deps.apiKeyHandle.name)
+        return ctx.services.secrets
+          ? await ctx.services.secrets.has(SYSTEM_TENANT_ID, deps.apiKeyHandle.name)
           : false;
       },
     },

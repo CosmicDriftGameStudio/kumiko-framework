@@ -111,7 +111,7 @@ function uploadToTenant(
   return uploadFileBytesBeforeTransaction(
     {
       db: requireForTenant(ctx, tenantId).db,
-      files: fileContextForTenant(ctx, ctx.user.tenantId, tenantId),
+      services: { files: fileContextForTenant(ctx, ctx.user.tenantId, tenantId) },
       registry: ctx.registry,
       user: { ...user, tenantId },
     },

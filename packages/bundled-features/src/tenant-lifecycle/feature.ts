@@ -151,9 +151,9 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           registry: ctx.registry,
           now,
           log: (message) => ctx.obs.log?.warn(message),
-          fileProviderResolver: ctx._fileProviderResolver,
-          searchAdapter: ctx.searchAdapter,
-          escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          fileProviderResolver: ctx.services._fileProviderResolver,
+          searchAdapter: ctx.services.searchAdapter,
+          escapeHatchAuditSink: ctx.services._escapeHatchAuditSink,
           escapeHatchAuditLog: ctx.obs.log,
           actor: ctx.systemUser.id,
         });

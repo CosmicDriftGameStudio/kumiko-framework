@@ -106,7 +106,8 @@ export function stubCtx(
   config: { readonly billingLive?: boolean; readonly environment?: DodoEnvironment } = {},
 ): HandlerContext {
   return {
-    auditUserId: "tester",
+    services: { extensions: {} },
+    user: { id: "tester" },
     obs: { log: { warn() {} } },
     config: async (handle: ConfigKeyHandle<"text" | "boolean" | "select">) => {
       if (handle.name === BILLING_LIVE_HANDLE.name) return config.billingLive ?? true;

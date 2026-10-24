@@ -556,7 +556,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     const warns: string[] = [];
     await expect(
       runLegalPagesBootCheck({
-        templateResolver: api,
+        services: { extensions: { templateResolver: api } },
         obs: { log: { info: (m) => infos.push(m), warn: (m) => warns.push(m) } },
       }),
     ).resolves.toBeUndefined();
@@ -568,9 +568,9 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   test("missing blocks + NODE_ENV=production → throws mit slug-Liste", async () => {
     const { api } = fakeTemplateResolver([]);
     await withEnv({ NODE_ENV: "production" }, async () => {
-      await expect(runLegalPagesBootCheck({ templateResolver: api })).rejects.toThrow(
-        /Boot-Validation failed.*imprint\/de.*privacy\/de/s,
-      );
+      await expect(
+        runLegalPagesBootCheck({ services: { extensions: { templateResolver: api } } }),
+      ).rejects.toThrow(/Boot-Validation failed.*imprint\/de.*privacy\/de/s);
     });
   });
 
@@ -580,7 +580,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     await withEnv({ NODE_ENV: "development" }, async () => {
       await expect(
         runLegalPagesBootCheck({
-          templateResolver: api,
+          services: { extensions: { templateResolver: api } },
           obs: { log: { warn: (m) => warns.push(m) } },
         }),
       ).resolves.toBeUndefined();
@@ -592,7 +592,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
   });
 
   test("ctx ohne templateResolver → InternalError mit Wiring-Hinweis", async () => {
-    await expect(runLegalPagesBootCheck({})).rejects.toThrow(
+    await expect(runLegalPagesBootCheck({ services: { extensions: {} } })).rejects.toThrow(
       /templateResolver missing.*extraContext/s,
     );
   });
@@ -605,7 +605,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     const warns: string[] = [];
     await withEnv({ NODE_ENV: "development" }, async () => {
       await runLegalPagesBootCheck({
-        templateResolver: api,
+        services: { extensions: { templateResolver: api } },
         obs: { log: { warn: (m) => warns.push(m) } },
       });
       expect(warns[0]).toContain("missing 1 required text-block(s)");
@@ -619,7 +619,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
       { slug: "imprint", lang: "de", title: "I", content: "x" },
       { slug: "privacy", lang: "de", title: "P", content: "x" },
     ]);
-    await runLegalPagesBootCheck({ templateResolver: api });
+    await runLegalPagesBootCheck({ services: { extensions: { templateResolver: api } } });
     expect(calls).toHaveLength(2);
     for (const call of calls) {
       expect(call.tenantId).toBe(SYSTEM_TENANT_ID);
@@ -632,7 +632,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     ]);
     await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(
-        runLegalPagesBootCheck({ templateResolver: api }, [
+        runLegalPagesBootCheck({ services: { extensions: { templateResolver: api } } }, [
           { slug: "imprint", lang: "es" },
           { slug: "privacy", lang: "es" },
         ]),
@@ -647,7 +647,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     ]);
     await withEnv({ NODE_ENV: "production" }, async () => {
       await expect(
-        runLegalPagesBootCheck({ templateResolver: api }, [
+        runLegalPagesBootCheck({ services: { extensions: { templateResolver: api } } }, [
           { slug: "imprint", lang: "es" },
           { slug: "privacy", lang: "es" },
         ]),
@@ -675,10 +675,12 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     // JobContext; runLegalPagesBootCheck only reads templateResolver off it.
     const handler = job.handler as unknown as (
       payload: Record<string, unknown>,
-      ctx: { templateResolver: TemplateResolverApi },
+      ctx: { services: { extensions: { templateResolver: TemplateResolverApi } } },
     ) => Promise<void>;
     await withEnv({ NODE_ENV: "production" }, async () => {
-      await expect(handler({}, { templateResolver: api })).rejects.toThrow(/privacy\/es/);
+      await expect(
+        handler({}, { services: { extensions: { templateResolver: api } } }),
+      ).rejects.toThrow(/privacy\/es/);
     });
   });
 });

@@ -249,7 +249,7 @@ const featureGateJobFeature = defineFeature("featuregate", (r) => {
     "record-features",
     { trigger: { on: "featuregate:write:ping" }, runIn: "worker" },
     async (_payload, context) => {
-      featuresSeenByJob.push(context.effectiveFeatures?.(adminUser.tenantId));
+      featuresSeenByJob.push(context.services.effectiveFeatures?.(adminUser.tenantId));
     },
   );
 });

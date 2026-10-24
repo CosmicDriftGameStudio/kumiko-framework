@@ -38,7 +38,12 @@ bun test
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  attachOutsideTransaction,
+  bridgeStub,
+  type HandlerContext,
+  type SaveContext,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -77,6 +82,16 @@ beforeEach(() => {
   stack.events.reset();
 });
 
+// The cascade hook runs against the same tenant-scoped db a dispatcher would hand it.
+function hookContext(): HandlerContext {
+  const db = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
+  return {
+    ...bridgeStub({ user: admin }),
+    registry: stack.registry,
+    db: attachOutsideTransaction(db, undefined),
+  };
+}
+
 describe("restrict: team cannot be deleted with members", () => {
   test("delete team with members fails", async () => {
     const team = await stack.http.writeOk<SaveContext>(
@@ -105,7 +120,7 @@ describe("restrict: team cannot be deleted with members", () => {
           entityName: "team",
           event: createTestStoredEvent(),
         },
-        { db: stack.db },
+        hookContext(),
       ),
     ).rejects.toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
   });
@@ -128,7 +143,7 @@ describe("restrict: team cannot be deleted with members", () => {
           entityName: "team",
           event: createTestStoredEvent(),
         },
-        { db: stack.db },
+        hookContext(),
       ),
     ).resolves.toBeUndefined();
   });
@@ -178,7 +193,7 @@ describe("cascade: deleting member removes tasks", () => {
         entityName: "member",
         event: createTestStoredEvent(),
       },
-      { db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }) },
+      hookContext(),
     );
 
     // Tasks should be gone

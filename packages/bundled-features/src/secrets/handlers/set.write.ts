@@ -25,9 +25,10 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
     access,
     escapeHatch: { grants: ["unsafeRaw"], reason: JOIN_REQUEST_TRANSACTION_REASON },
     handler: async (event, ctx) => {
-      const secrets = requireSecretsContext(ctx, SecretsHandlers.set).withRunner(
-        ctx.db.unsafeRaw(),
-      );
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        SecretsHandlers.set,
+      ).withRunner(ctx.db.unsafeRaw());
       const { key, value, redactedPreview, hint } = event.payload;
 
       // Preview-priority: explicit payload param > feature-declared redact

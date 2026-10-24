@@ -56,7 +56,7 @@ export const discardDraftWrite = defineWriteHandler({
     // releaseFiles: a successful-submit discard must NOT release — the
     // domain entity the submit just wrote carries the same storageKeys
     // forward (see schemas.ts comment on discardDraftPayloadSchema).
-    const files = ctx.files;
+    const files = ctx.services.files;
     if (files && event.payload.releaseFiles === true) {
       const candidateKeys = collectDraftFileRefKeys(existing.draft);
       // Only storageKeys with a real file_refs row owned by THIS caller are
@@ -88,7 +88,7 @@ export const discardDraftWrite = defineWriteHandler({
       // if the surrounding write transaction rolls back after this handler.
       const keys = ownedRefs.map((ref) => ref.storageKey);
       const log = ctx.obs.log;
-      const schedule = ctx.scheduleAfterCommit;
+      const schedule = ctx.lifecycle.afterCommit;
       const release = async (): Promise<void> => {
         await releaseDraftFileRefs(
           keys,

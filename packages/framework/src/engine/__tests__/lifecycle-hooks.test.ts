@@ -8,6 +8,7 @@ import type {
   PreSaveHookFn,
   SaveContext,
 } from "../types/index.ts";
+import { stubHandlerContext } from "./handler-context-stub.ts";
 
 const stubHandler = async () => ({ isSuccess: true as const, data: null });
 
@@ -146,7 +147,7 @@ describe("preSave hook behavior", () => {
 
     const result = await hook(
       { email: "MARC@TEST.DE" },
-      { previous: { email: "old@test.de" }, isNew: false },
+      { ...stubHandlerContext(), previous: { email: "old@test.de" }, isNew: false },
     );
     expect(result["email"]).toBe("marc@test.de");
   });
@@ -158,7 +159,7 @@ describe("preSave hook behavior", () => {
       return changes;
     };
 
-    await hook({}, { previous: {}, isNew: true });
+    await hook({}, { ...stubHandlerContext(), previous: {}, isNew: true });
     expect(wasNew).toBe(true);
   });
 
@@ -167,7 +168,9 @@ describe("preSave hook behavior", () => {
       throw new Error("blocked_by_policy");
     };
 
-    await expect(hook({}, { previous: {}, isNew: false })).rejects.toThrow("blocked_by_policy");
+    await expect(hook({}, { ...stubHandlerContext(), previous: {}, isNew: false })).rejects.toThrow(
+      "blocked_by_policy",
+    );
   });
 });
 
@@ -188,7 +191,7 @@ describe("postSave hook behavior", () => {
         previous: { email: "new@test.de", status: "Draft" },
         isNew: false,
       },
-      {},
+      stubHandlerContext(),
     );
 
     expect(received?.id).toBe(42);
@@ -217,7 +220,7 @@ describe("postSave hook behavior", () => {
         previous: { status: "Draft" },
         isNew: false,
       },
-      {},
+      stubHandlerContext(),
     );
     expect(shouldSendEmail).toBe(true);
 
@@ -233,7 +236,7 @@ describe("postSave hook behavior", () => {
         previous: { status: "Started" },
         isNew: false,
       },
-      {},
+      stubHandlerContext(),
     );
     expect(shouldSendEmail).toBe(false);
   });
@@ -253,7 +256,7 @@ describe("preDelete hook behavior", () => {
         id: 1,
         data: { email: "delete-me@test.de", hasOrders: true },
       },
-      {},
+      stubHandlerContext(),
     );
     expect(receivedData?.["email"]).toBe("delete-me@test.de");
   });
@@ -266,7 +269,7 @@ describe("preDelete hook behavior", () => {
     await expect(
       hook(
         { kind: "delete", event: createTestStoredEvent(), id: 1, data: { hasOrders: true } },
-        {},
+        stubHandlerContext(),
       ),
     ).rejects.toThrow("has_dependencies");
   });

@@ -23,6 +23,12 @@ import type {
   JobObservability,
   ReservationContext,
 } from "./handler-context-facets.ts";
+import type {
+  ContextServices,
+  HandlerLifecycle,
+  HandlerTenants,
+  JobLifecycle,
+} from "./handler-context-services.ts";
 import type { Logger } from "./logger.ts";
 import type { Meter, Tracer } from "./observability/index.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
@@ -42,6 +48,12 @@ export type {
   JobObservability,
   ReservationContext,
 } from "./handler-context-facets.ts";
+export type {
+  ContextServices,
+  HandlerLifecycle,
+  HandlerTenants,
+  JobLifecycle,
+} from "./handler-context-services.ts";
 
 // --- Access ---
 
@@ -572,126 +584,53 @@ export type TenantWriteTarget = {
   readonly streamTenantId: TenantId | undefined;
 };
 
-// Shared optional fields across all execution contexts
+// The flat wiring fields of AppContext. Handlers and jobs see the service-like ones through
+// ContextServices, the rest through their own namespaces.
 type SharedContextFields = {
   readonly redis?: Redis;
-  // Cross-process cache invalidation. Absent in contexts without a bus; callers treat that as "local only".
   readonly cacheSync?: CacheSyncBus;
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: ConfigResolver;
   readonly config?: ConfigAccessor;
-  /**
-   * Config accessor resolved for ANOTHER tenant, identity = that tenant's system
-   * user (the caller's user-scope config never leaks in). Cross-tenant calls
-   * throw AccessDeniedError unless the caller is a system identity or has the
-   * SystemAdmin role; the caller's own tenant needs no privilege. Present when
-   * the config feature wired its accessor factory.
-   */
+  /** Becomes `ctx.tenants.config`. */
   readonly configFor?: (tenantId: TenantId) => ConfigAccessor;
-  /**
-   * Write target for ANOTHER tenant: a tenant-mode db bound to it plus the
-   * `streamTenantId` to hand the executor, so the event actor stays the
-   * operator. Cross-tenant calls throw AccessDeniedError unless the caller is
-   * SystemAdmin (the tenantIdOverride gate); the caller's own tenant needs no
-   * privilege and yields `streamTenantId: undefined`. Write handlers only;
-   * absent for r.systemScope() handlers and without a db.
-   */
+  /** Becomes `ctx.tenants.writeTarget`. */
   readonly forTenant?: (tenantId: TenantId) => TenantWriteTarget;
   /** Mints the per-request `ctx.config`; set by the boot (`addConfigAccessorFactory`) from the effective `configResolver`, overriding an app-supplied value. */
   readonly configAccessorFactory?: ConfigAccessorFactory;
-  // Encryption round-trip partner for the config feature. Separate from
-  // configResolver so the read-only resolver contract stays clean — the
-  // set handler needs to encrypt on write, the resolver needs to decrypt
-  // on read, and both reach for the same cipher. Wired via extraContext;
-  // run{Prod,Dev}App build it from the secrets master key automatically.
   readonly configEncryption?: import("./envelope-cipher-types.ts").EnvelopeCipher;
-  // Rate-limit resolver. Wired by the framework when the `rate-limiting`
-  // feature is loaded — pipeline reads handler.rateLimit and calls
-  // .enforce() on this resolver before access-check. Absent when the
-  // app didn't load the feature: handlers with rateLimit set are
-  // rejected at boot to surface the misconfig early.
   readonly rateLimit?: import("./rate-limit-types.ts").RateLimitResolver;
-  // Internal: keyed digest for payload-field rate-limit buckets. Set by
-  // buildServer; read only by the dispatcher, never exposed on HandlerContext.
+  // Internal: keyed digest for payload-field rate-limit buckets. Set by buildServer; read only by the dispatcher.
   readonly _rateLimitPayloadDigest?: (value: string) => string;
   readonly searchAdapter?: SearchAdapter;
-  // Binary storage. The dispatcher builds this per-call, bound to the caller's
-  // tenant, from `_fileProviderResolver` (below) — so uploads, ctx.files and the
-  // GDPR jobs all resolve through the same file-foundation provider. Hooks/
-  // handlers use ctx.files.ref(key) instead of receiving binaries in payloads.
   readonly files?: FileContext;
-  // Derive-on-first-use variants (thumbnails, resized/reformatted images) of a
-  // tracked FileRef. Present whenever `files` resolves — see files above.
   readonly derivatives?: DerivativesContext;
-  // Boot-built, per-tenant file-provider resolver. Set by buildServer when a
-  // `file-provider-*` plugin is mounted; the dispatcher reads it to materialise
-  // ctx.files (and the upload routes + MSP-applies use the same resolver).
-  // Resolution runs under system identity for the s3.secretAccessKey read.
   readonly _fileProviderResolver?: FileProviderResolver;
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
-  // Set by the dispatcher inside a write transaction: _notifyFactory bound to the calling job
-  // runner and the outside-tx pool, for code that builds a notify for another user or tenant
-  // (seed hooks) without holding a raw outside-tx connection.
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
-  // Set by the dispatcher: _notifyFactory bound to the calling job runner, for post-commit
-  // delivery of a notify built for another user or tenant (seed hooks).
   readonly _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
-  // Wired at boot when the `audit` feature is mounted; absent → structured warn log.
   readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
-  // Tenant-scoped secrets accessor. Present when the app wired a
-  // MasterKeyProvider at boot. Feature code reads ctx.secrets.get(...)
-  // to pull a plaintext secret; Secret<string> carries the brand that
-  // the response guard rejects on serialization.
   readonly secrets?: import("./secrets-types.ts").SecretsContext;
-  // Raw KEK provider. Present alongside ctx.secrets — needed by the rotation
-  // job which deliberately operates outside the per-call audit trail (it
-  // processes rows system-wide, not a per-user read).
   readonly masterKeyProvider?: import("./secrets-types.ts").MasterKeyProvider;
-  // Subject-key adapter for crypto-shredding (GDPR Art. 17). Present when
-  // the app wired a KmsAdapter at boot; the PII envelope engine and the
-  // forget pipeline reach for it. Absent = crypto-shredding not enabled.
   readonly kms?: import("./kms-adapter-types.ts").KmsAdapter;
-  // Observability: optional at the outer boundary, always populated by the
-  // time a handler receives its ctx (Noop fallback when no provider is
-  // configured, so handler code can call ctx.obs.tracer/ctx.obs.metrics without
-  // defensive checks).
   readonly tracer?: Tracer;
   readonly meter?: Meter;
-  // Cancellation. Aborts when the HTTP client disconnects (mobile back,
-  // tab close). Undefined for non-HTTP entry-points (jobs, MSP-applies).
-  // Long-running handlers (export jobs, multi-step workflows) should
-  // throw `signal.throwIfAborted()` at chunk boundaries; short handlers
-  // can ignore it. Framework primitives (streamAllEventsByType,
-  // rebuildProjection) honour it automatically.
   readonly signal?: AbortSignal;
-  // Effective feature-toggle resolver. Wired by the dispatcher when the
-  // feature-toggles or tier-engine feature is loaded — the lifecycle
-  // pipeline, MSP runner, and ctx.hasFeature all read from this single
-  // source. Per-tenant: tenantId argument enables tier-cuts
-  // where Tenant-A sees Pro features and Tenant-B sees Free features in
-  // the same process. Returns the Set of feature names effectively
-  // enabled for that tenant. Absent = all features on (back-compat).
   readonly effectiveFeatures?: (tenantId: TenantId) => ReadonlySet<string>;
-  // Queue a side-effect to run after the outermost write transaction commits
-  // (same sink as ctx.dispatch.write / dispatch-write lifecycle afterCommit). Seed
-  // helpers and other mid-tx callers use this instead of firing afterCommit
-  // hooks synchronously. Absent outside a write
-  // pipeline — callers fall back to immediate fire (fixture / no-tx paths).
+  /** Becomes `ctx.lifecycle.afterCommit`. */
   readonly scheduleAfterCommit?: (hook: () => Promise<void>) => void;
-  // Runs when the handler transaction (or enclosing savepoint) does not commit, also after a failed COMMIT of
-  // unknown outcome, so write it idempotent and outcome-safe. Present only inside a transaction scope.
+  /** Becomes `ctx.lifecycle.afterRollback`. */
   readonly scheduleAfterRollback?: (hook: () => Promise<void>) => void;
 };
 
-// All optional — used at pipeline/system boundaries.
-// `db` is a DbConnection at the outer boundary (server/stack) and a TenantDb
-// once a HandlerContext has been built — hooks receive the HandlerContext as
-// AppContext, so the union keeps that assignment straightforward.
+// All optional — the flat wiring bag the app hands to the server and the job runner at boot.
 export type AppContext = SharedContextFields & {
+  // Runtime contexts (handler, job, hook) carry `services`; this makes them unassignable to an
+  // AppContext parameter, since a helper reading wiring off it would silently see `undefined`.
+  readonly services?: never;
   readonly db?: DbConnection | TenantDb;
-  // Hooks receive the same HandlerContext as their AppContext, so `db` is fail-closed here too.
   readonly systemDb?: UncheckedSystemDb;
   readonly registry?: Registry;
   readonly systemUser?: SessionUser;
@@ -713,7 +652,7 @@ export type AppContext = SharedContextFields & {
   /** Tenant of the current pipeline call. The dispatcher mirrors
    *  `user.tenantId` here when building HandlerContext so the lifecycle
    *  pipeline and system hooks can access it without the user object.
-   *  `effectiveFeatures(ctx._tenantId)` uses it at hook-filter points. */
+   *  `effectiveFeatures(ctx.user.tenantId)` uses it at hook-filter points. */
   readonly _tenantId?: TenantId;
   /** Boot-configured default locale (BCP-47). Last fallback in ctx.locale's
    *  Request-Locale → Boot-Default chain (dispatch-shared.ts) — used when
@@ -742,7 +681,7 @@ export type AppContext = SharedContextFields & {
 // to the global KumikoEventTypeMap (augmented per app via
 // `declare module "@cosmicdrift/kumiko-framework/engine"`). Code that bypasses the
 // type-map (runtime-pluggable events) uses `unsafeAppendEvent`.
-export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedContextFields & {
+export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   // Tenant-filtered for ordinary handlers. For r.systemScope() handlers this
   // is fail-closed instead (dispatch-shared.ts hands back a guard that
   // throws on first touch) — there's no type-level way to make `db` optional
@@ -761,8 +700,6 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
    *  The value is identical to `event.user`; identity switches still use
    *  `queryAs`/`writeAs`. */
   readonly user: SessionUser;
-  readonly systemUser?: SessionUser;
-  readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   /** Keyed digest for handler-owned rate-limit keys, so Redis never holds a
    *  plaintext or plainly hashed identifier. Scoped to the running handler:
    *  the same input yields a different digest per handler and never matches a
@@ -774,21 +711,6 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // payload's `includeDeleted` field — visibility (tenant/ownership) filters
   // still apply, so this never widens what a user may see beyond the live list.
   readonly includeDeleted?: boolean;
-
-  // Wired by the write dispatcher whenever a lifecycle pipeline is active;
-  // runs the registered `preSave` hooks (+ system preSave hooks) for
-  // `handlerName`, returning the hook-transformed `changes`. Entity CRUD
-  // handlers (create/update) forward this to the executor so preSave hooks
-  // actually run before persistence. A custom
-  // `r.writeHandler` handler that doesn't go through the executor must call
-  // this itself to get preSave semantics — undefined when no lifecycle
-  // pipeline is wired (e.g. bare HandlerContext stubs in unit tests).
-  readonly runPreSave?: (
-    handlerName: string,
-    changes: Record<string, unknown>,
-    previous: Readonly<Record<string, unknown>>,
-    isNew: boolean,
-  ) => Promise<Record<string, unknown>>;
 
   readonly dispatch: HandlerDispatch;
 
@@ -828,6 +750,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly locale: string;
 
   readonly auth: HandlerAuth;
+
+  // Present when the config feature wired its accessor factory.
+  readonly config?: ConfigAccessor;
+  readonly notify?: NotifyFn;
+  readonly services: ContextServices;
+  readonly lifecycle: HandlerLifecycle;
+  readonly tenants: HandlerTenants;
 };
 
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
@@ -859,7 +788,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
 // Returned from a job handler via `return ctx.defer(ms)`; see JobContext.defer.
 export type JobDeferral = { readonly kind: "job-deferral"; readonly delayMs: number };
 
-export type JobContext = SharedContextFields & {
+export type JobContext = {
   // Tenant-filtered to the job's own tenant. Cross-tenant raw access needs
   // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
   // (`ctx.systemDb`).
@@ -898,6 +827,10 @@ export type JobContext = SharedContextFields & {
   // Fallback tenant when systemUser doesn't carry it (tenant-less cron
   // jobs). Mirrors AppContext._tenantId — see the tenant-scoping footgun above.
   readonly _tenantId?: TenantId;
+  readonly config?: ConfigAccessor;
+  readonly notify?: NotifyFn;
+  readonly services: ContextServices;
+  readonly lifecycle: JobLifecycle;
 };
 
 // --- Handler Functions ---
@@ -1411,7 +1344,7 @@ export type WriteHandlerDef = {
    *  transaction opens: no transaction and no connection held, for external I/O and reads only.
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
    *  write before anything is written. A handler with this phase cannot run as a nested ctx.dispatch.write.
-   *  `ctx.forTenant` is available but read-only here: its db denies writes for the own and a
+   *  `ctx.tenants.writeTarget` is available but read-only here: its db denies writes for the own and a
    *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
   /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.dispatch.write/writeAs it

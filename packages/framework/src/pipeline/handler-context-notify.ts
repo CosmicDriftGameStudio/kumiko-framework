@@ -78,7 +78,7 @@ export function buildNotifyFacet(
   const notify = buildNotify(scope, sinks, notifyAfterCommitFactory, notifyInTransactionFactory);
   return {
     notify,
-    factoryFragment: {
+    factoryServices: {
       ...(notifyInTransactionFactory && {
         _notifyInTransactionFactory: notifyInTransactionFactory,
       }),

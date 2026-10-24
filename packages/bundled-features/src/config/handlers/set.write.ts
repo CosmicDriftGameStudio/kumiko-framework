@@ -127,7 +127,7 @@ export const setWrite = defineWriteHandler({
               tenantId,
               event.user.id,
               validateDb,
-              ctx.secrets,
+              ctx.services.secrets,
             );
           },
         });
@@ -146,14 +146,14 @@ export const setWrite = defineWriteHandler({
     // serialization as a config row so the read path round-trips via
     // deserializeValue. system-scope is guaranteed by the boot-guard.
     if (keyDef.backing === "secrets") {
-      if (!ctx.secrets) {
+      if (!ctx.services.secrets) {
         throw new InternalError({
           message:
             `[config:write:set] key "${event.payload.key}" declares backing="secrets" but ` +
             `ctx.secrets is not wired — provide extraContext.secrets (and a MasterKeyProvider).`,
         });
       }
-      await ctx.secrets.set(
+      await ctx.services.secrets.set(
         SYSTEM_TENANT_ID,
         event.payload.key,
         JSON.stringify(event.payload.value),

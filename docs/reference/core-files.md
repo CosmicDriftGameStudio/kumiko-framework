@@ -28,7 +28,7 @@ This means:
 
 - **The same spec always resolves to the same key**, regardless of which code
   path asked for it — a declarative field variant and an imperative
-  `ctx.derivatives.variant()` call with an identical spec share one cached
+  `ctx.services.derivatives.variant()` call with an identical spec share one cached
   render.
 - **Changing the spec changes the key.** There is no manual versioning scheme
   to invent or forget (no `@2x`, no `-v2` suffix bolted on by hand) — widen a
@@ -49,7 +49,7 @@ This means:
    requested name in the field's `variants` map via `Object.hasOwn`, so a
    variant name like `__proto__` is rejected as an unknown name rather than
    resolving through the prototype chain.
-2. **Imperative — `ctx.derivatives.variant(fileRefId, spec, name)`.** For apps
+2. **Imperative — `ctx.services.derivatives.variant(fileRefId, spec, name)`.** For apps
    that track images as their own records rather than as a single field value
    — ordering, a chosen cover image, or region-blur where the blur
    coordinates come from runtime data (e.g. a detected face box) and can't be

@@ -27,16 +27,16 @@ type FileRefRow = {
 // Reads the file behind a template resource. Null when the fileRef is unknown
 // to the caller's tenant or has no bytes.
 export async function readTemplateResource(
-  ctx: Pick<HandlerContext, "db" | "files" | "user">,
+  ctx: Pick<HandlerContext, "db" | "services" | "user">,
   fileRefId: string,
 ): Promise<TemplateResourceFile | null> {
-  if (!ctx.files) return null;
+  if (!ctx.services.files) return null;
   const row = await fetchOne<FileRefRow>(ctx.db, fileRefsTable, {
     id: fileRefId,
     isDeleted: false,
   });
   if (!row) return null;
-  const handle = ctx.files.refFromFileRef(row);
+  const handle = ctx.services.files.refFromFileRef(row);
   if (!(await handle.exists())) return null;
   return { fileName: row.fileName, contentType: row.mimeType, bytes: await handle.read() };
 }
@@ -44,7 +44,7 @@ export async function readTemplateResource(
 // Replaces the whole key map of one row with files that are already stored (bundle import,
 // copy-locale). Single keys go through storePreparedTemplateResource and resource-remove.
 export async function attachTemplateResources(
-  ctx: Pick<HandlerContext, "forTenant">,
+  ctx: Pick<HandlerContext, "tenants">,
   args: {
     readonly user: SessionUser;
     readonly tenantId: TenantId;

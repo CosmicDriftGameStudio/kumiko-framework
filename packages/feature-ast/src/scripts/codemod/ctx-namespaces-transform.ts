@@ -3,14 +3,24 @@ import {
   type IndexedAccessTypeNode,
   Node,
   type ObjectLiteralExpression,
-  Project,
   type PropertyAccessExpression,
   type SourceFile,
   SyntaxKind,
   type Type,
   type TypeReferenceNode,
 } from "ts-morph";
-import { type CodemodResult, ensureNamedImport, removeNamedImport } from "./codemod-support.ts";
+import type { CodemodResult } from "./codemod-support.ts";
+import {
+  Counters,
+  planHookAnnotation,
+  planPhaseAnnotation,
+  withImports,
+} from "./ctx-namespaces-annotations.ts";
+import {
+  planAppContextArguments,
+  planCastedMember,
+  planRemovedMember,
+} from "./ctx-namespaces-contracts.ts";
 import {
   contextKindOfAlias,
   decideMove,
@@ -23,25 +33,10 @@ import { EditPlan } from "./ctx-namespaces-edits.ts";
 import { describePath, isMovedMemberName, moveOf } from "./ctx-namespaces-mapping.ts";
 import { planRenamedMember } from "./ctx-namespaces-rename.ts";
 import { planBindingPattern, planObjectLiteral } from "./ctx-namespaces-structural.ts";
+import { planStructuralArguments } from "./ctx-namespaces-structural-params.ts";
 
 export interface CtxNamespacesResult extends CodemodResult {
   readonly contextReceivers: number;
-}
-
-interface NamedImportNeed {
-  readonly specifier: string;
-  readonly name: string;
-  readonly isTypeOnly: boolean;
-}
-
-const PHASE_CONTEXT_BY_PROPERTY: ReadonlyMap<string, string> = new Map([
-  ["beforeTransaction", "BeforeTransactionContext"],
-  ["reserveBeforeTransaction", "ReservationContext"],
-]);
-
-class Counters {
-  contextReceivers = 0;
-  readonly imports: NamedImportNeed[] = [];
 }
 
 function planPropertyAccess(
@@ -50,9 +45,15 @@ function planPropertyAccess(
   access: PropertyAccessExpression,
 ): boolean {
   const name = access.getName();
+  planRemovedMember(plan, counters, access);
+  planCastedMember(plan, counters, access);
   if (!isMovedMemberName(name)) return false;
   const expression = access.getExpression();
-  const receiver = receiverOf(expression.getType(), name, pickedContextKind(expression, name));
+  const receiver = receiverOf(
+    expression.getType(),
+    name,
+    pickedContextKind(expression, name) ?? counters.pinnedKindOf(expression),
+  );
   if (receiver.kind === "context") counters.contextReceivers += 1;
   const decision = decideMove(receiver, name, isContextNamedReceiver(expression));
   if (decision.status === "manual") plan.flagManual(access, decision.reason);
@@ -154,93 +155,6 @@ function planPickOmit(plan: EditPlan, node: TypeReferenceNode): boolean {
   return true;
 }
 
-function importOfHandlerContext(sourceFile: SourceFile): NamedImportNeed | undefined {
-  for (const declaration of sourceFile.getImportDeclarations()) {
-    const named = declaration
-      .getNamedImports()
-      .find((entry) => entry.getName() === "HandlerContext");
-    if (named !== undefined && named.getAliasNode() === undefined) {
-      return {
-        specifier: declaration.getModuleSpecifierValue(),
-        name: "HandlerContext",
-        isTypeOnly: declaration.isTypeOnly() || named.isTypeOnly(),
-      };
-    }
-  }
-  return undefined;
-}
-
-function phaseFunctionOf(node: Node): Node | undefined {
-  if (Node.isMethodDeclaration(node)) return node;
-  if (!Node.isPropertyAssignment(node)) return undefined;
-  const initializer = node.getInitializer();
-  return Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer)
-    ? initializer
-    : undefined;
-}
-
-function planPhaseAnnotation(plan: EditPlan, counters: Counters, node: Node): boolean {
-  if (!Node.isPropertyAssignment(node) && !Node.isMethodDeclaration(node)) return false;
-  const phaseContext = PHASE_CONTEXT_BY_PROPERTY.get(node.getName());
-  const fn = phaseFunctionOf(node);
-  if (phaseContext === undefined || fn === undefined) return false;
-  if (
-    !(Node.isArrowFunction(fn) || Node.isFunctionExpression(fn) || Node.isMethodDeclaration(fn))
-  ) {
-    return false;
-  }
-  for (const parameter of fn.getParameters()) {
-    const annotation = parameter.getTypeNode();
-    if (
-      !Node.isTypeReference(annotation) ||
-      annotation.getTypeName().getText() !== "HandlerContext"
-    ) {
-      continue;
-    }
-    const imported = importOfHandlerContext(plan.sourceFile);
-    if (imported === undefined) {
-      plan.flagManual(
-        annotation,
-        "HandlerContext annotation of a phase hook is not a named import",
-      );
-      continue;
-    }
-    counters.imports.push({ ...imported, name: phaseContext });
-    plan.replaceNode(annotation.getTypeName(), phaseContext);
-    plan.recordRewrite(annotation, `HandlerContext -> ${phaseContext}`);
-  }
-  return true;
-}
-
-function dropUnusedHandlerContextImport(sourceFile: SourceFile): boolean {
-  const stillUsed = sourceFile
-    .getDescendantsOfKind(SyntaxKind.Identifier)
-    .some(
-      (identifier) =>
-        identifier.getText() === "HandlerContext" &&
-        identifier.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) === undefined,
-    );
-  if (stillUsed) return false;
-  for (const declaration of sourceFile.getImportDeclarations()) {
-    const named = declaration
-      .getNamedImports()
-      .find((entry) => entry.getName() === "HandlerContext");
-    if (named !== undefined) removeNamedImport(sourceFile, declaration, named);
-  }
-  return true;
-}
-
-function withImports(output: string, filePath: string, needs: readonly NamedImportNeed[]): string {
-  if (needs.length === 0) return output;
-  const scratch = new Project({ useInMemoryFileSystem: true, skipAddingFilesFromTsConfig: true });
-  const sourceFile = scratch.createSourceFile(filePath, output);
-  for (const need of needs) {
-    ensureNamedImport(sourceFile, need.specifier, need.name, need.isTypeOnly);
-  }
-  dropUnusedHandlerContextImport(sourceFile);
-  return sourceFile.getFullText();
-}
-
 function visit(plan: EditPlan, counters: Counters, node: Node): void {
   planRenamedMember(plan, node);
   switch (node.getKind()) {
@@ -266,9 +180,27 @@ function visit(plan: EditPlan, counters: Counters, node: Node): void {
     case SyntaxKind.TypeReference:
       planPickOmit(plan, node.asKindOrThrow(SyntaxKind.TypeReference));
       break;
+    default:
+      visitAnnotationSite(plan, counters, node);
+  }
+}
+
+// Hook and phase annotations plus calls that hand a context to an AppContext parameter.
+function visitAnnotationSite(plan: EditPlan, counters: Counters, node: Node): void {
+  switch (node.getKind()) {
     case SyntaxKind.PropertyAssignment:
     case SyntaxKind.MethodDeclaration:
       planPhaseAnnotation(plan, counters, node);
+      break;
+    case SyntaxKind.Parameter:
+      planHookAnnotation(plan, counters, node);
+      break;
+    case SyntaxKind.CallExpression:
+    case SyntaxKind.NewExpression:
+      if (Node.isCallExpression(node) || Node.isNewExpression(node)) {
+        planAppContextArguments(plan, counters, node);
+        planStructuralArguments(plan, counters, node);
+      }
       break;
     default:
       break;
@@ -282,7 +214,7 @@ export function transformCtxNamespaces(sourceFile: SourceFile): CtxNamespacesRes
   const output =
     plan.rewrites.length === 0
       ? plan.source
-      : withImports(plan.render(), sourceFile.getFilePath(), counters.imports);
+      : withImports(plan.render(), sourceFile.getFilePath(), counters);
   return {
     output,
     rewrites: plan.rewrites,

@@ -37,7 +37,7 @@ export const retryWrite = defineWriteHandler({
     }
     const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
-    const jobRunner = ctx["jobRunner"] as JobRunner;
+    const jobRunner = ctx.services.jobRunner as JobRunner;
 
     const run = await fetchOne<JobRunRow>(db, jobRunsTable, { id: event.payload.runId });
 

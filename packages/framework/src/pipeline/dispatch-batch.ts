@@ -19,7 +19,7 @@ import { parseJsonSafe } from "../utils/safe-json.ts";
 import { flushAfterRollback } from "./after-rollback-sink.ts";
 import { runInDispatchScope } from "./dispatch-scope.ts";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
-import { resolveAppPoolDb } from "./dispatch-shared.ts";
+import { buildHandlerContext, resolveAppPoolDb } from "./dispatch-shared.ts";
 import { executeNestedWrite, executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
@@ -189,6 +189,8 @@ async function checkBatchIdempotency(
   return parsed ? { cached: parsed } : {};
 }
 
+const BATCH_HOOKS_CONTEXT_TYPE = "dispatcher:batch-hooks";
+
 async function runBatchBody(
   ctx: DispatchContext,
   commands: readonly BatchCommand[],
@@ -268,7 +270,7 @@ async function runBatchBody(
   // Fires the batch-level system hooks with every successful save/delete
   // context from this run. Called after flushAfterCommit so per-save hooks
   // have all completed first; errors are isolated inside lifecycleHooks.
-  const flushBatchHooksInner = async () => {
+  const flushBatchHooksInner = async (origin: WriteOrigin) => {
     try {
       const saves: SaveContext[] = [];
       const deletes: DeleteContext[] = [];
@@ -278,8 +280,14 @@ async function runBatchBody(
         if (r.data.kind === "save") saves.push(r.data);
         else if (r.data.kind === "delete") deletes.push(r.data);
       }
-      if (saves.length > 0 && lifecycle) await lifecycle.runPostSaveBatch(saves, context);
-      if (deletes.length > 0 && lifecycle) await lifecycle.runPostDeleteBatch(deletes, context);
+      // skip: nothing to flush when there are no lifecycle hooks or no successful save/delete
+      if (!lifecycle || (saves.length === 0 && deletes.length === 0)) return;
+      // Post-commit context: batch hooks may write, but nothing is left to roll back.
+      const hookContext = await buildHandlerContext(ctx, BATCH_HOOKS_CONTEXT_TYPE, user, origin, {
+        transactionScope: "postCommit",
+      });
+      if (saves.length > 0) await lifecycle.runPostSaveBatch(saves, hookContext);
+      if (deletes.length > 0) await lifecycle.runPostDeleteBatch(deletes, hookContext);
     } catch (e) {
       // Batch hooks must never fail the batch — the commit already happened.
       // Pass the raw error so the logger preserves stack + cause chain;
@@ -294,7 +302,7 @@ async function runBatchBody(
     const strictest = origins.find(isPersonalDataGated) ?? origins[0];
     // skip: no command ran, so batch hooks have no saves or deletes to see
     if (!strictest) return;
-    await runWithWriteOrigin(strictest, flushBatchHooksInner);
+    await runWithWriteOrigin(strictest, () => flushBatchHooksInner(strictest));
   };
 
   const perCommandRejection = perCommandBatchRejection(ctx, commands);

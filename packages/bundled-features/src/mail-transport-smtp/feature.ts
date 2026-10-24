@@ -231,7 +231,10 @@ async function buildSmtpTransport(
 }
 
 async function readPassword(ctx: MailTransportContext, tenantId: string): Promise<string> {
-  const secrets = requireSecretsContext(ctx, FEATURE_NAME);
+  const secrets = requireSecretsContext(
+    { secrets: ctx.secrets, auditUserId: ctx.auditUserId },
+    FEATURE_NAME,
+  );
   const branded = await secrets.get(tenantId, SMTP_PASSWORD);
   return requireSecretSet(branded, FEATURE_NAME, SMTP_PASSWORD.name).reveal();
 }

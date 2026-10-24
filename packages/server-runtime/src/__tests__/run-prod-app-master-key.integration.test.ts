@@ -1,6 +1,6 @@
 // An app-supplied `masterKey` provider is the only KEK source: with no
 // KUMIKO_SECRETS_MASTER_KEY_V* in the env, the env-schema parse, the boot
-// probe for `encrypted: true` fields and ctx.secrets all still work. Real
+// probe for `encrypted: true` fields and ctx.services.secrets all still work. Real
 // Postgres + Redis, real /api/write and /api/query calls.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
@@ -67,14 +67,17 @@ const vaultFeature = defineFeature("vault", (r) => {
 
 const SECRET_KEY = "vault:credential";
 
-// ctx.secrets round trip inside one handler, the way a feature consumes it.
+// ctx.services.secrets round trip inside one handler, the way a feature consumes it.
 const secretProbeFeature = defineFeature("secret-probe", (r) => {
   r.writeHandler({
     name: "stash",
     schema: z.object({ value: z.string() }),
     access: { roles: ["TenantAdmin"] },
     handler: async (event, ctx) => {
-      const secrets = requireSecretsContext(ctx, "secret-probe");
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        "secret-probe",
+      );
       await secrets.set(event.user.tenantId, SECRET_KEY, event.payload.value);
       const revealed = (await secrets.get(event.user.tenantId, SECRET_KEY))?.reveal();
       return { isSuccess: true as const, data: { revealed } };

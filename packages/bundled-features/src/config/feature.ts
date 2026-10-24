@@ -111,7 +111,7 @@ export function createConfigAccessorFactory(
 // session reads "config feature not wired into AppContext" instead of a
 // generic "configResolver missing".
 export function requireConfigResolver(ctx: HandlerContext, handlerName: string): ConfigResolver {
-  if (!ctx.configResolver) {
+  if (!ctx.services.configResolver) {
     throw new InternalError({
       message:
         `[${handlerName}] ctx.configResolver missing — pass createConfigAccessorFactory's ` +
@@ -119,7 +119,7 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
         `extraContext.configResolver at boot.`,
     });
   }
-  return ctx.configResolver;
+  return ctx.services.configResolver;
 }
 
 // Config declares r.systemScope() (raw ctx.db is unfiltered across tenants
@@ -156,7 +156,7 @@ export function requireSystemDb(
 // if a handler tries to write an encrypted key without the provider in
 // place, pointing at the exact wiring gap).
 export function requireConfigEncryption(ctx: HandlerContext, handlerName: string): EnvelopeCipher {
-  if (!ctx.configEncryption) {
+  if (!ctx.services.configEncryption) {
     throw new InternalError({
       message:
         `[${handlerName}] ctx.configEncryption missing — at least one config key declares ` +
@@ -165,5 +165,5 @@ export function requireConfigEncryption(ctx: HandlerContext, handlerName: string
         `KUMIKO_SECRETS_MASTER_KEY_V<n>; same instance the resolver was built with).`,
     });
   }
-  return ctx.configEncryption;
+  return ctx.services.configEncryption;
 }

@@ -330,6 +330,8 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         },
       }),
       registry: stack.registry,
+      services: { extensions: {} },
+      lifecycle: {},
       obs: { log },
       systemUser: createSystemUser(TENANT_A),
     };
@@ -379,6 +381,8 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         }),
         registry: stack.registry,
         systemUser: createSystemUser(TENANT_A),
+        services: { extensions: {} },
+        lifecycle: {},
         obs: { log },
       } as unknown as JobContext);
     } finally {

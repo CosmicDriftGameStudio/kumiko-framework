@@ -123,7 +123,6 @@ describe("reindexEntityJob", () => {
     const ctx: JobContext = {
       db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
       registry: stack.registry,
-      searchAdapter: stack.search,
       systemUser: admin,
       systemDb: createSystemDbView(
         createTenantDb({
@@ -141,7 +140,7 @@ describe("reindexEntityJob", () => {
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub({ log: noopLogger }),
+      ...bridgeStub({ services: { searchAdapter: stack.search }, log: noopLogger }),
     };
     await reindexEntityJob({ entity: "widget" }, ctx);
 
@@ -182,7 +181,6 @@ describe("reindexEntityJob", () => {
     const ctx: JobContext = {
       db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
       registry: stack.registry,
-      searchAdapter: stack.search,
       systemUser: admin,
       systemDb: createSystemDbView(
         createTenantDb({
@@ -200,7 +198,7 @@ describe("reindexEntityJob", () => {
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub({ log: noopLogger }),
+      ...bridgeStub({ services: { searchAdapter: stack.search }, log: noopLogger }),
     };
     await job.handler({ entity: "widget" }, ctx);
 
@@ -218,7 +216,7 @@ describe("reindexEntityJob", () => {
         {
           db: stack.db,
           registry: stack.registry,
-          searchAdapter: stack.search,
+          services: { searchAdapter: stack.search, extensions: {} },
         } as unknown as JobContext,
       ),
     ).resolves.toBeUndefined();
@@ -229,7 +227,12 @@ describe("reindexEntityJob", () => {
       reindexEntityJob(
         { entity: "widget" },
         // @cast-boundary test-seam — deliberately no searchAdapter: proves the missing-adapter throw
-        { db: stack.db, registry: stack.registry, systemUser: admin } as unknown as JobContext,
+        {
+          db: stack.db,
+          registry: stack.registry,
+          services: { extensions: {} },
+          systemUser: admin,
+        } as unknown as JobContext,
       ),
     ).rejects.toThrow(/searchAdapter/);
   });
@@ -242,7 +245,7 @@ describe("reindexEntityJob", () => {
         {
           db: stack.db,
           registry: stack.registry,
-          searchAdapter: stack.search,
+          services: { searchAdapter: stack.search, extensions: {} },
           systemUser: admin,
         } as unknown as JobContext,
       ),
@@ -259,7 +262,6 @@ describe("reindexEntityJob", () => {
     const ctx: JobContext = {
       db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
       registry: stack.registry,
-      searchAdapter: stack.search,
       systemUser: admin,
       systemDb: createSystemDbView(
         createTenantDb({
@@ -274,7 +276,7 @@ describe("reindexEntityJob", () => {
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      ...bridgeStub({ log: noopLogger }),
+      ...bridgeStub({ services: { searchAdapter: stack.search }, log: noopLogger }),
     };
     await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(
       /tenant self-check failed/,
@@ -321,7 +323,6 @@ describe("reindexEntityJob under a server statement_timeout", () => {
       const ctx: JobContext = {
         db: createTenantDb({ db: capped.db, tenantId: admin.tenantId }),
         registry: stack.registry,
-        searchAdapter: stack.search,
         systemUser: admin,
         systemDb: createSystemDbView(
           createTenantDb({
@@ -340,7 +341,7 @@ describe("reindexEntityJob under a server statement_timeout", () => {
         finalAttempt: true,
         defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
         canDefer: false,
-        ...bridgeStub({ log: noopLogger }),
+        ...bridgeStub({ services: { searchAdapter: stack.search }, log: noopLogger }),
       };
       await reindexEntityJob({ entity: "slow-widget" }, ctx);
     } finally {

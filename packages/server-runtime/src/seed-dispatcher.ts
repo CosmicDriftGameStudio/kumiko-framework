@@ -31,7 +31,9 @@ export function makeSeedCreateFileRef(deps: {
     createFileRefFromBytes(
       {
         db: createTenantDb({ db, tenantId }),
-        files: fileResolver ? createTenantFileContext(fileResolver, tenantId) : context.files,
+        services: {
+          files: fileResolver ? createTenantFileContext(fileResolver, tenantId) : context.files,
+        },
         registry,
         user: createSystemUser(tenantId),
       },

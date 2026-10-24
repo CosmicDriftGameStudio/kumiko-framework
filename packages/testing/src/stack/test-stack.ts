@@ -64,7 +64,7 @@ export type TestStack = {
   // wires itself (_fileProviderResolver). A dev-server that starts its own
   // lane job-runners beside this stack must hand them THIS, not a
   // `{ db, registry }` literal — that's the drift, and it makes an
-  // event-triggered job reaching for ctx.files die where the request path works.
+  // event-triggered job reaching for ctx.services.files die where the request path works.
   context: AppContext;
   // Present whenever a system consumer (SSE, Search) or
   // r.multiStreamProjection is wired. Tests drain it via runOnce() (or the
@@ -76,7 +76,7 @@ export type TestStack = {
   lifecycle?: Lifecycle;
   // Only set when `options.jobs` is truthy AND ≥1 `r.job(...)` is
   // registered in the mounted features. Lets integration tests call
-  // `stack.jobRunner.dispatch(...)` directly, mirroring `ctx.jobRunner`.
+  // `stack.jobRunner.dispatch(...)` directly, mirroring `ctx.services.jobRunner`.
   jobRunner?: JobRunner;
   // Waits for every in-flight job and its follow-up event-consumer /
   // job-trigger cascade to settle — instead of `waitFor` polling on a
@@ -119,7 +119,7 @@ export type TestStackOptions = {
   /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
   authConfig?: AuthRoutesConfig;
   /** Register a file storage provider so uploads via POST /api/files work and
-   *  `ctx.files.ref(key)` is available to hooks/MSPs. Omit to skip — tests
+   *  `ctx.services.files.ref(key)` is available to hooks/MSPs. Omit to skip — tests
    *  without file handling don't need it. */
   files?: { storageProvider: import("@cosmicdrift/kumiko-framework/files").FileStorageProvider };
   /** Observability provider — omit for NoopProvider (no spans/metrics).
@@ -190,7 +190,7 @@ export type TestStackOptions = {
   ) => Promise<
     import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"] | undefined
   >;
-  /** Opt-in JobRunner wired into ctx.jobRunner and merged into
+  /** Opt-in JobRunner wired into ctx.services.jobRunner and merged into
    *  dispatcherOptions so event-triggered jobs enqueue on commit — mirrors
    *  the prod entrypoint's `buildJobRunnerWithHook`. Unlike prod (which
    *  always builds one), this only builds a runner when `registry.getAllJobs()`

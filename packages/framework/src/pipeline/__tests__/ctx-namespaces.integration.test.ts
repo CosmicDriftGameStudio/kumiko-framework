@@ -92,7 +92,7 @@ const nsFeature = defineFeature(FEATURE, (r) => {
     type: "postSave",
     target: { allOf: note },
     handler: async (_result, context) => {
-      const log = context.log;
+      const log = context.obs.log;
       log?.info("postSave hook reads the flat context log");
       hookLogShapes.push({ isLogger: typeof log?.child === "function" });
     },

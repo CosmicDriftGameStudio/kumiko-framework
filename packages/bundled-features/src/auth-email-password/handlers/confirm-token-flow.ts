@@ -42,7 +42,7 @@ export type ConfirmTokenFlowSpec<TSuccessData> = {
   // other token flows — "reset" vs "verify" keeps cross-flow replay
   // impossible at both layers (HMAC-purpose AND burn-purpose).
   readonly purpose: string;
-  // Used verbatim in the 5xx body when ctx.redis is missing — the feature
+  // Used verbatim in the 5xx body when ctx.services.redis is missing — the feature
   // is misconfigured, not the caller's fault.
   readonly redisRequiredMessage: string;
   // Standard failure returned for every "token can't be consumed" path
@@ -74,10 +74,10 @@ export async function runConfirmTokenFlow<TSuccessData>(
     reason:
       "writes the confirming user's row via UserHandlers.update on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
   });
-  if (!ctx.redis) {
+  if (!ctx.services.redis) {
     return writeFailure(new InternalError({ message: spec.redisRequiredMessage }));
   }
-  const redis: Redis = ctx.redis;
+  const redis: Redis = ctx.services.redis;
 
   const burn = await burnToken(redis, spec.purpose, userId, expiresAtMs);
   if (burn === "already-used") return spec.invalidToken();

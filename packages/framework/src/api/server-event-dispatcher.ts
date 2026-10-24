@@ -96,8 +96,7 @@ export function resolveBaseDbAndSearchAdapter(
 } {
   // @cast-boundary engine-bridge — context.db union narrows to DbConnection here
   const baseDb = context.db as DbConnection | undefined;
-  // @cast-boundary engine-bridge — searchAdapter is an optional context-extension
-  const searchAdapter = (context as { searchAdapter?: SearchAdapter }).searchAdapter;
+  const searchAdapter = context.searchAdapter;
   // Adapter is built before the registry exists (app boot order) — hand it
   // the registry-derived default config here so it can lazily configure
   // each tenant index on first access instead of requiring per-tenant app

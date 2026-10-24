@@ -28,9 +28,11 @@ import { assertSafeStorageKey } from "./types.ts";
 
 export type { CreatedFileRef, UploadedFileBytes };
 
+// `services` mirrors HandlerContext and JobContext, so those pass straight in. A flat `files`
+// member would be optional here and silently read undefined on a context that moved it.
 export type CreateFileRefContext = {
   readonly db: TenantDb;
-  readonly files?: FileContext | undefined;
+  readonly services: { readonly files?: FileContext | undefined };
   readonly registry: Registry;
   readonly user: SessionUser;
 };
@@ -59,7 +61,7 @@ export async function createFileRefFromBytes(
   ctx: CreateFileRefContext,
   input: CreateFileRefInput,
 ): Promise<WriteResult<CreatedFileRef>> {
-  const { files } = ctx;
+  const { files } = ctx.services;
   if (!files) {
     return writeFailure(
       new InternalError({
@@ -107,7 +109,7 @@ export async function createFileRefFromBytes(
 
 export type UploadFileBytesContext = Pick<
   CreateFileRefContext,
-  "db" | "files" | "registry" | "user"
+  "db" | "services" | "registry" | "user"
 >;
 
 function fileRejectedFailure(error: string) {
@@ -124,7 +126,7 @@ export async function uploadFileBytesBeforeTransaction(
   ctx: UploadFileBytesContext,
   input: CreateFileRefInput,
 ): Promise<BeforeTransactionResult<UploadedFileBytes>> {
-  const { files } = ctx;
+  const { files } = ctx.services;
   if (!files) {
     return writeFailure(
       new InternalError({

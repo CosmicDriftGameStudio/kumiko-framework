@@ -35,7 +35,6 @@ import {
 import {
   FeatureDisabledError,
   InternalError,
-  memberResolutionReadOnlyDenied,
   RateLimitError,
   RateLimitUnavailableError,
   type WriteErrorInfo,
@@ -58,6 +57,7 @@ import {
 import { isPlainObject } from "../utils/is-plain-object.ts";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.ts";
 import { configAccessorFactoryOf } from "./config-accessor-factory.ts";
+import { buildContextServices } from "./context-services.ts";
 import { executeQuery } from "./dispatch-query.ts";
 import {
   type AfterCommitHook,
@@ -70,26 +70,22 @@ import {
   resolveHandlerLocale,
   resolveHandlerTz,
 } from "./handler-context-config.ts";
-import {
-  buildFileFragment,
-  buildForTenantFragment,
-  buildHandlerDbFacet,
-} from "./handler-context-db.ts";
+import { buildFileFragment, buildHandlerDbFacet, buildWriteTarget } from "./handler-context-db.ts";
 import { buildDispatchFacet, createCommitSinks } from "./handler-context-dispatch.ts";
 import { buildEventStoreFacet } from "./handler-context-events.ts";
+import { applyMemberResolutionReadOnly } from "./handler-context-member-resolution.ts";
 import { buildNotifyFacet } from "./handler-context-notify.ts";
 import { buildObservabilityFacet } from "./handler-context-observability.ts";
 import {
   applyBeforeTransactionReadOnly,
   denyEventStoreSurfaces,
-  denyingJobRunnerProxy,
   denyTransactionBoundSurfaces,
-  dropOutsideTransaction,
   withoutTransactionDenied,
 } from "./handler-context-phase-denials.ts";
 import {
-  buildPreSaveFragment,
-  buildRuntimeFragment,
+  buildLifecycleSignal,
+  buildPreSave,
+  buildRuntimeServices,
   resolveHandlerContextScope,
 } from "./handler-context-scope.ts";
 import type { IdempotencyGuard } from "./idempotency.ts";
@@ -97,7 +93,6 @@ import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
 import { createGatedIdentitySwitch, isSystemIdentity } from "./system-identity-switch.ts";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache.ts";
 import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.ts";
-import { asTypedAppendEventFn } from "./typed-append-event.ts";
 import { rootWriteOrigin, type WriteOrigin } from "./write-origin.ts";
 
 export type { WriteOrigin } from "./write-origin.ts";
@@ -200,116 +195,6 @@ export function isMemberResolutionPrincipal(user: SessionUser): boolean {
   return user.origin === "member-resolution";
 }
 
-async function denyMemberResolutionWrite(): Promise<never> {
-  throw memberResolutionReadOnlyDenied();
-}
-
-// Allowlist (not denylist): a method added to the target later stays denied
-// until someone decides it is read-only.
-function allowlistedReadOnlyProxy<T extends object>(
-  target: T,
-  allowedMethods: ReadonlySet<string>,
-): T {
-  return new Proxy(target, {
-    get(inner, prop) {
-      if (typeof prop === "string" && allowedMethods.has(prop)) {
-        const method: unknown = Reflect.get(inner, prop, inner);
-        return typeof method === "function" ? method.bind(inner) : method;
-      }
-      // Symbol reads and "then" come from await/Promise.resolve/inspect, not from handler code.
-      if (typeof prop === "symbol" || prop === "then") return undefined;
-      throw memberResolutionReadOnlyDenied();
-    },
-  });
-}
-
-const MEMBER_READ_SEARCH_METHODS: ReadonlySet<string> = new Set(["search"]);
-const MEMBER_READ_ENTITY_CACHE_METHODS: ReadonlySet<string> = new Set(["get", "mget"]);
-const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
-  "get",
-  "mget",
-  "exists",
-  "ttl",
-  "pttl",
-  "strlen",
-  "type",
-  "hget",
-  "hmget",
-  "hgetall",
-  "hexists",
-  "hlen",
-  "sismember",
-  "smembers",
-  "scard",
-  "llen",
-  "lrange",
-  "zscore",
-  "zcard",
-  "zrange",
-]);
-
-// Every write/side-effect surface throws, so "no writeAsMember" holds even
-// if a handler tries ctx.dispatch.write directly on a resolved member principal.
-// Deliberately open: `db` (guarded by the READ ONLY transaction + memberReadOnly grant),
-// and read-only methods of searchAdapter / redis / entityCache (allowlisted).
-export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
-  // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY
-  // transaction, and its `memberReadOnly` grant denies every raw-runner handout.
-  dropOutsideTransaction(handlerContext);
-  return {
-    ...handlerContext,
-    dispatch: {
-      ...handlerContext.dispatch,
-      write: denyMemberResolutionWrite,
-      writeAs: denyMemberResolutionWrite,
-      // A resolved member cannot switch identity either — the target would get a normal, writable context.
-      queryAs: denyMemberResolutionWrite,
-      queryAsMember: denyMemberResolutionWrite,
-    },
-    events: {
-      ...handlerContext.events,
-      append: asTypedAppendEventFn(denyMemberResolutionWrite),
-      unsafeAppend: denyMemberResolutionWrite,
-      tryAppend: denyMemberResolutionWrite,
-      fetchForWriting: denyMemberResolutionWrite,
-      archive: denyMemberResolutionWrite,
-      restore: denyMemberResolutionWrite,
-      snapshot: denyMemberResolutionWrite,
-    },
-    auth: { ...handlerContext.auth, resolveActiveMembership: denyMemberResolutionWrite },
-    forTenant: undefined,
-    scheduleAfterCommit: () => {
-      throw memberResolutionReadOnlyDenied();
-    },
-    scheduleAfterRollback: () => {
-      throw memberResolutionReadOnlyDenied();
-    },
-    // A read as a member gets no system-scope DB, preSave pipeline or file storage.
-    runPreSave: undefined,
-    systemDb: undefined,
-    crossTenantReads: undefined,
-    files: undefined,
-    derivatives: undefined,
-    ...(handlerContext.jobRunner && { jobRunner: denyingJobRunnerProxy() }),
-    ...(handlerContext.notify && { notify: denyMemberResolutionWrite }),
-    ...(handlerContext.searchAdapter && {
-      searchAdapter: allowlistedReadOnlyProxy(
-        handlerContext.searchAdapter,
-        MEMBER_READ_SEARCH_METHODS,
-      ),
-    }),
-    ...(handlerContext.redis && {
-      redis: allowlistedReadOnlyProxy(handlerContext.redis, MEMBER_READ_REDIS_METHODS),
-    }),
-    ...(handlerContext.entityCache && {
-      entityCache: allowlistedReadOnlyProxy(
-        handlerContext.entityCache,
-        MEMBER_READ_ENTITY_CACHE_METHODS,
-      ),
-    }),
-  };
-}
-
 // inTransaction: ctx.dispatch.write nests in the open transaction. withoutTransaction: no transaction is open,
 // so ctx.dispatch.write runs as its own command and ctx.db/event-store writes are denied. postCommit: afterCommit
 // hooks, which may write legitimately.
@@ -323,7 +208,7 @@ export type BuildHandlerContextOptions = {
   // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
   // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
   outerNotifySink?: AfterCommitHook[];
-  // Pre-transaction phases of a write handler; ctx.forTenant stays available in beforeTransaction but every target db denies writes.
+  // Pre-transaction phases of a write handler; ctx.tenants.writeTarget stays available in beforeTransaction but every target db denies writes.
   phase?: HandlerPhase;
 };
 
@@ -374,7 +259,7 @@ export async function buildHandlerContext(
   const sinks = createCommitSinks(afterCommitHooks, transactionScope, outerNotifySink);
   const notifyFacet = buildNotifyFacet(scope, sinks, dbFacet.outsideTxSource);
   const configFacet = buildConfigFacet(scope, dbFacet.db);
-  const forTenantFragment = buildForTenantFragment(scope, dbFacet.exposedDb, readOnlyForTenant);
+  const writeTarget = buildWriteTarget(scope, dbFacet.exposedDb, readOnlyForTenant);
   const fileFragment = buildFileFragment(scope, dbFacet.db);
   const authFacet = buildAuthFacet(scope);
   const eventStoreFacet = buildEventStoreFacet(scope);
@@ -385,46 +270,46 @@ export async function buildHandlerContext(
   const tz = await resolveHandlerTz(scope, configFacet.config);
   const locale = resolveHandlerLocale(scope);
 
-  // The payload-bucket digest is dispatcher-internal; handlers must not be
-  // able to compute bucket keys.
-  const {
-    _rateLimitPayloadDigest: payloadDigest,
-    // Bound to this call's tx: an outer context's factory must not leak into a tx-less one.
-    _notifyInTransactionFactory: _omitOuterNotifyInTransactionFactory,
-    _notifyAfterCommitFactory: _omitOuterNotifyAfterCommitFactory,
-    ...contextForHandler
-  } = scope.context;
+  const { _rateLimitPayloadDigest: payloadDigest } = scope.context;
+  // The final context (after the phase wrappers below) is what preSave hooks must see.
+  const finalContext: { current?: HandlerContext } = {};
+  const runPreSave = buildPreSave(scope, () => {
+    if (finalContext.current === undefined) {
+      throw new InternalError({
+        message: "lifecycle.runPreSave called before the context was built",
+      });
+    }
+    return finalContext.current;
+  });
   const handlerContext = {
-    ...contextForHandler,
-    ...(payloadDigest && { rateLimitDigest: createHandlerBoundDigest(payloadDigest, type) }),
-    ...notifyFacet.factoryFragment,
     // Registry is always the dispatcher's registry — injecting it here lets
     // tests/callers pass `context` without `registry` and still get a valid
-    // HandlerContext. The spread-then-assign order matters: anything in
-    // `context` can be overridden, but we want the authoritative registry
-    // from the dispatcher's own closure to win.
+    // HandlerContext.
     registry: scope.registry,
     ...dbFacet.fragment,
-    // Flat log/tracer stay on the runtime object: it doubles as the AppContext that postSave/preDelete/
-    // postDelete/postQuery hooks and lifecycle-pipeline.ts read until the hook context is split.
-    log: observability.obs.log,
-    tracer: observability.obs.tracer,
+    // The payload-bucket digest is dispatcher-internal; handlers get one bound to their own name.
+    ...(payloadDigest && { rateLimitDigest: createHandlerBoundDigest(payloadDigest, type) }),
     ...observability,
-    notify: notifyFacet.notify,
-    ...configFacet.fragment,
-    ...forTenantFragment,
-    ...fileFragment,
-    ...buildPreSaveFragment(scope),
+    ...(notifyFacet.notify && { notify: notifyFacet.notify }),
+    ...(configFacet.config && { config: configFacet.config }),
+    services: buildContextServices(scope.context, {
+      ...fileFragment,
+      ...buildRuntimeServices(scope),
+      ...notifyFacet.factoryServices,
+    }),
+    lifecycle: {
+      ...(runPreSave && { runPreSave }),
+      ...dispatchFacet.commitHooks,
+      ...buildLifecycleSignal(scope),
+    },
+    tenants: {
+      ...(configFacet.configFor && { config: configFacet.configFor }),
+      ...(writeTarget && { writeTarget }),
+    },
     tz,
     locale,
-    ...buildRuntimeFragment(scope),
-    // ctx.user as a convenience alias for event.user. The intuitive path—"the
-    // context knows its user"—lets handlers avoid writing `event.user.tenantId`
-    // and reduces errors in ctx.user access patterns. It is identical to
-    // event.user; identity switches still use queryAs/writeAs.
+    // ctx.user as a convenience alias for event.user. Identity switches still use queryAs/writeAs.
     user,
-    _tenantId: user.tenantId,
-    ...dispatchFacet.scheduleFragment,
     ...(includeDeleted && { includeDeleted: true }),
     dispatch: dispatchFacet.dispatch,
     events: eventStoreFacet.events,
@@ -441,9 +326,14 @@ export async function buildHandlerContext(
   const memberSafeContext = isMemberResolutionPrincipal(user)
     ? applyMemberResolutionReadOnly(scopedContext)
     : scopedContext;
-  if (phase === "reservation") return denyTransactionBoundSurfaces(memberSafeContext);
-  if (phase === "beforeTransaction") return applyBeforeTransactionReadOnly(memberSafeContext);
-  return memberSafeContext;
+  const phasedContext =
+    phase === "reservation"
+      ? denyTransactionBoundSurfaces(memberSafeContext)
+      : phase === "beforeTransaction"
+        ? applyBeforeTransactionReadOnly(memberSafeContext)
+        : memberSafeContext;
+  finalContext.current = phasedContext;
+  return phasedContext;
 }
 
 // The handler-name prefix keeps a handler from reproducing the digests the

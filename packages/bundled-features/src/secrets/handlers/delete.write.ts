@@ -18,9 +18,10 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
     access,
     escapeHatch: { grants: ["unsafeRaw"], reason: JOIN_REQUEST_TRANSACTION_REASON },
     handler: async (event, ctx) => {
-      const secrets = requireSecretsContext(ctx, SecretsHandlers.delete).withRunner(
-        ctx.db.unsafeRaw(),
-      );
+      const secrets = requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        SecretsHandlers.delete,
+      ).withRunner(ctx.db.unsafeRaw());
       const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, event.payload.key, {
         allowUndeclared: true,
       });

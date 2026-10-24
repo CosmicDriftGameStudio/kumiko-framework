@@ -158,7 +158,8 @@ describe("deletion-executed default mail through the email channel", () => {
         },
       }),
       registry: stack.registry,
-      configResolver,
+      services: { configResolver, extensions: {} },
+      lifecycle: {},
       systemUser: createSystemUser(TENANT_WITHOUT_PROVIDER),
       obs: {
         log: {

@@ -212,7 +212,6 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
         },
       }),
       registry: stack.registry,
-      configResolver: configResolverForJobCtx,
       systemUser: { id: SYSTEM_USER_ID, tenantId: TENANT, roles: ["all"] },
       triggeredBy: null,
       attempt: 1,
@@ -220,6 +219,7 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
       ...bridgeStub({
+        services: { configResolver: configResolverForJobCtx },
         log: {
           info() {},
           warn() {},

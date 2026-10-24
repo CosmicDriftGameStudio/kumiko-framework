@@ -62,11 +62,11 @@ function stubCalendarCtx(rows: { value: number; lastSoftWarnedAt: unknown }[]) {
   return ctx as unknown as Parameters<typeof enforceCap>[0];
 }
 
-function stubRollingCtx(eventPayloads: { amount: number }[]) {
+function stubRollingCtx(eventPayloads: { amount: number }[], omitUser = false) {
   const rows = eventPayloads.map((p) => ({ payload: p, type: ROLLING_INCREMENTED_EVENT_QN }));
   const ctx = {
     db: makeMockDb(rows),
-    user: { tenantId: "tenant-test" },
+    ...(omitUser ? {} : { user: { tenantId: "tenant-test" } }),
   };
   return ctx as unknown as Parameters<typeof enforceRollingCap>[0];
 }
@@ -289,8 +289,7 @@ describe("enforceRollingCap — input validation", () => {
   });
 
   test("missing ctx.user.tenantId → throws clear error", async () => {
-    const ctx = stubRollingCtx([]);
-    delete (ctx as { user?: unknown }).user;
+    const ctx = stubRollingCtx([], true);
     await expect(
       enforceRollingCap(ctx, {
         capName: "x",

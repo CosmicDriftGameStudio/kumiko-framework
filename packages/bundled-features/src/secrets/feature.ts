@@ -70,19 +70,19 @@ export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./
 export const JOIN_REQUEST_TRANSACTION_REASON =
   "the secret write runs on the request transaction so a failing batch rolls it back together with the config writes";
 
-// AppContext carries ctx.secrets via extraContext. requireSecretsContext
+// AppContext carries ctx.services.secrets via extraContext. requireSecretsContext
 // wraps that raw context so every `.get(...)` call automatically includes
 // the current user and handler as audit metadata, preventing feature code
 // from silently bypassing read auditing.
 //
-// The context shape stays minimal: HandlerContext paths (Set/Delete handlers)
-// and FileProviderContext paths (the S3 plugin in the worker) provide the same
-// two fields, so importing the full HandlerContext is unnecessary.
-// Handler contexts carry the caller as ctx.user; provider contexts set
-// auditUserId, which takes precedence.
+// The source shape stays minimal: handler paths pass `{ secrets: ctx.services.secrets,
+// user: ctx.user }`, provider paths (the S3 plugin in the worker) pass `{ secrets, auditUserId }`.
+// `secrets` is a required key on purpose: a whole HandlerContext or JobContext does not carry
+// it flat, so handing one over is a type error instead of a silently undefined secret store.
+// Provider contexts set auditUserId, which takes precedence over the caller in `user`.
 export function requireSecretsContext(
   ctx: {
-    readonly secrets?: SecretsContext;
+    readonly secrets: SecretsContext | undefined;
     readonly auditUserId?: string | undefined;
     readonly user?: { readonly id: string };
   },
@@ -91,7 +91,7 @@ export function requireSecretsContext(
   if (!ctx.secrets) {
     throw new InternalError({
       message:
-        `[${handlerName}] ctx.secrets missing — pass ` +
+        `[${handlerName}] ctx.services.secrets missing — pass ` +
         "createSecretsContext({db, masterKeyProvider, registry}) via extraContext.secrets at boot.",
     });
   }

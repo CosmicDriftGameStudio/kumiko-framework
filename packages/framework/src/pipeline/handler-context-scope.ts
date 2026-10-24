@@ -5,9 +5,16 @@ import {
 } from "@cosmicdrift/kumiko-types/handlers";
 import { type RequestContextData, requestContext } from "../api/request-context.ts";
 import type { DbConnection, DbTx } from "../db/connection.ts";
-import type { AppContext, Registry, SessionUser } from "../engine/types/index.ts";
+import type {
+  AppContext,
+  HandlerContext,
+  HandlerLifecycle,
+  Registry,
+  SessionUser,
+} from "../engine/types/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { createEscapeHatchReporter } from "../observability/index.ts";
+import type { ContextServiceOverrides } from "./context-services.ts";
 import {
   type DispatchContext,
   type HandlerTransactionScope,
@@ -107,36 +114,35 @@ export function resolveHandlerContextScope(input: {
 
 // preSave hooks need `changes`/`previous`/`isNew`, which only exist once
 // a handler actually starts building its write — bound here so entity
-// CRUD handlers (entity-handlers.ts) can forward it to the executor.
-export function buildPreSaveFragment(scope: HandlerContextScope) {
+// CRUD handlers (entity-handlers.ts) can forward it to the executor. The hooks receive the
+// final, phase-wrapped context, so the context is resolved lazily at call time.
+export function buildPreSave(
+  scope: HandlerContextScope,
+  finalContext: () => HandlerContext,
+): HandlerLifecycle["runPreSave"] {
   const { lifecycle } = scope.ctx;
-  return {
-    ...(lifecycle && {
-      runPreSave: (
-        handlerName: string,
-        changes: Record<string, unknown>,
-        previous: Readonly<Record<string, unknown>>,
-        isNew: boolean,
-      ) => lifecycle.runPreSave(handlerName, changes, previous, isNew, scope.context),
-    }),
-  };
+  if (!lifecycle) return undefined;
+  return (handlerName, changes, previous, isNew) =>
+    lifecycle.runPreSave(handlerName, changes, previous, isNew, finalContext());
 }
 
-export function buildRuntimeFragment(scope: HandlerContextScope) {
-  const { ctx, reqCtx } = scope;
-  const { effectiveFeatures, jobRunner } = ctx;
+// Services the dispatcher resolves itself instead of copying from the boot context.
+export function buildRuntimeServices(scope: HandlerContextScope): ContextServiceOverrides {
+  const { effectiveFeatures, jobRunner, cacheSync } = scope.ctx;
   return {
-    // Cancellation signal flows from the HTTP middleware via
-    // requestContext. Conditional spread so non-HTTP entry-points
-    // (jobs, dispatcher MSP-applies) don't get a phantom signal that
-    // would always read aborted=false but feel meaningful.
-    ...(reqCtx?.signal ? { signal: reqCtx.signal } : {}),
-    // Propagate the feature-toggle resolver so the lifecycle pipeline,
-    // MSP runner, and ctx.hasFeature all pull from the same source.
+    // One resolver for the lifecycle pipeline, MSP runner and ctx.hasFeature.
     ...(effectiveFeatures && { effectiveFeatures }),
-    ...(ctx.cacheSync && { cacheSync: ctx.cacheSync }),
-    // Lets write handlers call ctx.jobRunner.dispatch(...) directly, same
+    ...(cacheSync && { cacheSync }),
+    // Lets write handlers call ctx.services.jobRunner.dispatch(...) directly, same
     // as a follow-up job would (test-stack.ts wires the matching runner).
     ...(jobRunner && { jobRunner }),
   };
+}
+
+// Cancellation signal flows from the HTTP middleware via requestContext. Absent for non-HTTP
+// entry points (jobs, dispatcher MSP-applies) so it never reads as a phantom always-live signal.
+export function buildLifecycleSignal(scope: HandlerContextScope): {
+  readonly signal?: AbortSignal;
+} {
+  return scope.reqCtx?.signal ? { signal: scope.reqCtx.signal } : {};
 }

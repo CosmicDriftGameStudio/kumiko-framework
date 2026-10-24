@@ -81,7 +81,9 @@ function jobContext(
   const ctx: JobContext = {
     ...base,
     obs: { ...base.obs, log },
-    ...(jobCipher && { configEncryption: jobCipher }),
+    ...(jobCipher && {
+      services: { ...base.services, configEncryption: jobCipher },
+    }),
   };
   return { ctx, logged };
 }

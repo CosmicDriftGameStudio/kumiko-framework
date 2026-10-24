@@ -193,7 +193,7 @@ export type CreateKumikoServerOptions = {
   readonly anonymousAccess?: TestStackOptions["anonymousAccess"];
   /** File-storage provider forwarded to `setupTestStack`. When set, the
    *  stack mounts the upload routes (POST/GET/DELETE /api/files), exposes
-   *  `ctx.files`, and creates the `file_refs` table. Example:
+   *  `ctx.services.files`, and creates the `file_refs` table. Example:
    *  `{ storageProvider: createInMemoryFileProvider() }`. */
   readonly files?: TestStackOptions["files"];
   /** Feature-toggle resolver forwarded to `setupTestStack`. When set, the

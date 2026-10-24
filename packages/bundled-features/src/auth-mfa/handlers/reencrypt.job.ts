@@ -88,13 +88,13 @@ export async function mfaReencryptJob(
   // hoisted function declarations below capture this — pin the narrowed
   // type explicitly so TS keeps it inside the closures.
   const cipher: EnvelopeCipher = maybeCipher;
-  if (!ctx.masterKeyProvider) {
+  if (!ctx.services.masterKeyProvider) {
     throw new InternalError({
       message:
         "[auth-mfa:reencrypt] ctx.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
     });
   }
-  const provider = ctx.masterKeyProvider;
+  const provider = ctx.services.masterKeyProvider;
   // Undefined = per-subject crypto-shredding isn't configured for this app —
   // both fields are then plain envelope strings, no PII layer to peel.
   const piiKms = configuredPiiSubjectKms();
@@ -211,7 +211,7 @@ export async function mfaReencryptJob(
     migrateRow,
     maxFailures,
     deadlineAt: deadline,
-    signal: ctx.signal,
+    signal: ctx.lifecycle.signal,
     onRowError: (row, err) => {
       ctx.obs.log?.warn?.(`[auth-mfa:reencrypt] failed to re-encrypt row ${row.id}`, { err });
     },

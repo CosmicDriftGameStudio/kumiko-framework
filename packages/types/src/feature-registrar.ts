@@ -460,7 +460,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
 
   // Declare a secret key. Qualified name follows "<feature>:secret:<kebab>"
   // via the QN helper. Returns a typed handle so feature code can pass it
-  // to ctx.secrets.get without retyping the qualified string — same
+  // to ctx.services.secrets.get without retyping the qualified string — same
   // ergonomics as r.config's handle.
   secret(shortName: string, options: SecretOptions): SecretKeyHandle;
   secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle;

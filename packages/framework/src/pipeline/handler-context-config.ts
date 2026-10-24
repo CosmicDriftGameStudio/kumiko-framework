@@ -61,7 +61,7 @@ export function buildConfigFacet(scope: HandlerContextScope, db: TenantDb | unde
         })
       : undefined;
   const configFor = buildConfigFor(scope, configFactory, config);
-  return { config, fragment: { ...(config && { config }), ...(configFor && { configFor }) } };
+  return { config, configFor };
 }
 
 async function readTenantTimezone(

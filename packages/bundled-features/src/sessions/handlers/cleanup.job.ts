@@ -60,7 +60,7 @@ export async function cleanupJob(
   let stoppedReason: SessionCleanupResult["stoppedReason"] = "empty";
 
   while (true) {
-    if (ctx.signal?.aborted) {
+    if (ctx.lifecycle.signal?.aborted) {
       stoppedReason = "signal";
       break;
     }

@@ -39,7 +39,7 @@ async function createPdfFileRef(tenantId: TenantId): Promise<string> {
   const created = await createFileRefFromBytes(
     {
       db: createTenantDb({ db: stack.db, tenantId }),
-      files: filesForTenant()(tenantId),
+      services: { files: filesForTenant()(tenantId) },
       registry: stack.registry,
       user: createSystemUser(tenantId),
     },

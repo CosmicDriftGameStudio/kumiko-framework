@@ -203,7 +203,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
   });
 
   // Proves runBatch strips the request signal: both inserts land and
-  // ctx.signal is undefined even though the request was pre-aborted.
+  // ctx.lifecycle.signal is undefined even though the request was pre-aborted.
   r.writeHandler({
     name: "bag:create-signal-probe",
     schema: z.object({ label: z.string() }),
@@ -214,7 +214,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       await runInOwnTransaction(requireOutsideTransactionDb(ctx), (txDb) =>
         crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, txDb),
       );
-      return { isSuccess: true as const, data: { signalSeen: ctx.signal !== undefined } };
+      return { isSuccess: true as const, data: { signalSeen: ctx.lifecycle.signal !== undefined } };
     },
     access: { roles: ["Admin"] },
   });

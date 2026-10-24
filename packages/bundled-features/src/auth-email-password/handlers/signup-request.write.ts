@@ -108,7 +108,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
         ctx.obs.log?.info("signup-request skipped: self-registration disabled");
         return { isSuccess: true, data: { kind: "no-op" } };
       }
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message: "signup-request requires ctx.redis for the activation-token store",
@@ -125,10 +125,10 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // resend without a fresh `handover` in the payload (the common case:
       // the visitor just retyped their email) must still carry the earlier
       // verified grant over to the new token instead of silently dropping it.
-      const priorBinding = await takeOverSignupHandoverForResend(ctx.redis, email);
+      const priorBinding = await takeOverSignupHandoverForResend(ctx.services.redis, email);
 
       const locale = resolveHandlerMailLocale(ctx, opts.locale);
-      const redis = ctx.redis;
+      const redis = ctx.services.redis;
 
       const issued = await issueSignupActivation({
         redis,

@@ -19,7 +19,7 @@ describeMailTransportContract(
   "mail-transport-inmemory",
   () => ({
     plugin: registeredPlugin(),
-    ctx: {},
+    ctx: { secrets: undefined },
     tenantId: "contract-test-tenant",
     readBack: getInbox,
   }),

@@ -2,7 +2,7 @@
 // entity-cache hit: the cache is keyed by tenant + id, not by caller, so a
 // second user reading an id another user already cached must still be checked
 // against the live host row. The generic detail handler wires no entityCache,
-// so the cached path is reached through a handler that passes ctx.entityCache.
+// so the cached path is reached through a handler that passes ctx.services.entityCache.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
@@ -61,7 +61,7 @@ const feature = defineFeature("detailpr", (r) => {
     handler: async (query, ctx) =>
       createEventStoreExecutor(linkTable, linkEntity, {
         entityName: "link",
-        ...(ctx.entityCache !== undefined && { entityCache: ctx.entityCache }),
+        ...(ctx.services.entityCache !== undefined && { entityCache: ctx.services.entityCache }),
       }).detail(query.payload, query.user, ctx.db, {
         parentVisibility: { entities: ctx.registry.getAllEntities() },
       }),

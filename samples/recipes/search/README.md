@@ -5,7 +5,7 @@ Tenant-scoped full-text search (Meilisearch / in-memory adapter).
 ## What it shows
 
 - `searchable` / `searchWeight` on fields
-- Handler reads via `ctx.searchAdapter`
+- Handler reads via `ctx.services.searchAdapter`
 
 ## Source
 

@@ -114,11 +114,11 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
 
   async function ctxApiKey(ctx: HandlerContext): Promise<string> {
     let key: string | undefined;
-    if (ctx.secrets) {
-      const got = await requireSecretsContext(ctx, SUBSCRIPTION_STRIPE_FEATURE).get(
-        SYSTEM_TENANT_ID,
-        deps.apiKeyHandle.name,
-      );
+    if (ctx.services.secrets) {
+      const got = await requireSecretsContext(
+        { secrets: ctx.services.secrets, user: ctx.user },
+        SUBSCRIPTION_STRIPE_FEATURE,
+      ).get(SYSTEM_TENANT_ID, deps.apiKeyHandle.name);
       key = parseStoredSecret(got?.reveal());
     }
     if (!key && deps.fallback.apiKey && deps.fallback.apiKey.length > 0) {
@@ -167,8 +167,8 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
         if (hasFallbackKey) return true;
         // Existence-only probe — called on every billing-plans page render,
         // must stay un-audited (see SecretsContext.has's own doc comment).
-        return ctx.secrets
-          ? await ctx.secrets.has(SYSTEM_TENANT_ID, deps.apiKeyHandle.name)
+        return ctx.services.secrets
+          ? await ctx.services.secrets.has(SYSTEM_TENANT_ID, deps.apiKeyHandle.name)
           : false;
       },
     },

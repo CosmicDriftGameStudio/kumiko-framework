@@ -9,12 +9,8 @@ import {
 } from "../../pipeline/system-identity-switch.ts";
 import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index.ts";
 import type { TenantId } from "../types/identifiers.ts";
-import type {
-  ActiveMembershipResult,
-  AppContext,
-  PostSaveHookFn,
-  SaveContext,
-} from "../types/index.ts";
+import type { ActiveMembershipResult, PostSaveHookFn, SaveContext } from "../types/index.ts";
+import { stubHandlerContextWith } from "./handler-context-stub.ts";
 
 // r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.
 
@@ -67,7 +63,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     const hooks = registry.getEntityPostSaveHooks("thing");
     expect(hooks).toHaveLength(1);
 
-    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+    await hooks[0]?.(dummySaveContext, stubHandlerContextWith(handlerCtx));
 
     expect(caught).toBeInstanceOf(AccessDeniedError);
     expect(ungatedQueryAs).not.toHaveBeenCalled();
@@ -107,7 +103,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     const hooks = registry.getEntityPostSaveHooks("thing");
     expect(hooks).toHaveLength(1);
 
-    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+    await hooks[0]?.(dummySaveContext, stubHandlerContextWith(handlerCtx));
 
     expect(queryAsResult).toBe("ok");
     expect(ungatedQueryAs).toHaveBeenCalledWith(systemUser, "whoami", {});
@@ -163,7 +159,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     const hooks = registry.getEntityPostSaveHooks("thing");
     expect(hooks).toHaveLength(1);
 
-    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+    await hooks[0]?.(dummySaveContext, stubHandlerContextWith(handlerCtx));
 
     expect(caught).toBeInstanceOf(AccessDeniedError);
     expect((caught as AccessDeniedError).details).toEqual({
@@ -211,7 +207,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     const hooks = registry.getEntityPostSaveHooks("thing");
     expect(hooks).toHaveLength(1);
 
-    await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
+    await hooks[0]?.(dummySaveContext, stubHandlerContextWith(handlerCtx));
 
     expect(caught).toBeInstanceOf(AccessDeniedError);
     expect((caught as AccessDeniedError).details).toEqual({

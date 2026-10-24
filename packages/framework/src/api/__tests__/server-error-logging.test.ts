@@ -73,7 +73,7 @@ const boomFeature = defineFeature("boom", (r) => {
     name: "abort-probe",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      ctx.signal?.throwIfAborted();
+      ctx.lifecycle.signal?.throwIfAborted();
       return { ok: true };
     },
     ...openToAll,
@@ -84,7 +84,7 @@ const boomFeature = defineFeature("boom", (r) => {
     handler: async (_query, ctx) => {
       await Promise.resolve();
       midRequestController.abort();
-      ctx.signal?.throwIfAborted();
+      ctx.lifecycle.signal?.throwIfAborted();
       return { ok: true };
     },
     ...openToAll,
@@ -93,7 +93,7 @@ const boomFeature = defineFeature("boom", (r) => {
     "abort-before-first-yield",
     z.object({}),
     async function* (_query, ctx) {
-      ctx.signal?.throwIfAborted();
+      ctx.lifecycle.signal?.throwIfAborted();
       yield { ok: true };
     },
     openToAll,

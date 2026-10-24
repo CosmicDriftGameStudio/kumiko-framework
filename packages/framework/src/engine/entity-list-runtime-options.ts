@@ -18,7 +18,9 @@ export function entityListRuntime(
   const resolveEntity = (name: string) => ctx.registry.getEntity(name);
   return {
     runtimeOptions: {
-      ...(ctx.searchAdapter !== undefined && { searchAdapter: ctx.searchAdapter }),
+      ...(ctx.services.searchAdapter !== undefined && {
+        searchAdapter: ctx.services.searchAdapter,
+      }),
       ...(ctx.includeDeleted === true && { includeDeleted: true }),
       referenceSearch: { fields: ctx.registry.getSearchableReferences(entityName), resolveEntity },
       referenceSort: { fields: ctx.registry.getSortableReferences(entityName), resolveEntity },

@@ -88,7 +88,7 @@ export type WorkerDeps = {
  *  `lifecycle` for `registerShutdownHook`. */
 export type WorkerWireDeps = SystemWireDeps & {
   readonly lifecycle: WorkerEntrypoint["lifecycle"];
-  /** The worker's ctx.secrets — what `createInboundMailSupervisor` needs as
+  /** The worker's ctx.services.secrets — what `createInboundMailSupervisor` needs as
    *  `providerCtx.secrets` (the IMAP provider reads credentials through it,
    *  with `auditUserId` set to a system identity for the audit trail). Undefined
    *  when the secrets feature is not mounted or no master key is available. */
@@ -118,7 +118,7 @@ export type RunWorkerAppOptions = {
    *  RunProdAppOptions["extraContext"], without sseBroker (the worker
    *  has none — see entrypoint/index.ts's documented SSE limitation). */
   readonly extraContext?: WorkerContextOption;
-  /** MasterKeyProvider replacing the env KEK for ctx.secrets, encrypted
+  /** MasterKeyProvider replacing the env KEK for ctx.services.secrets, encrypted
    *  config keys and `encrypted: true` entity fields; with it set,
    *  `KUMIKO_SECRETS_MASTER_KEY_V1` is not required (see
    *  RunProdAppOptions["masterKey"]). */

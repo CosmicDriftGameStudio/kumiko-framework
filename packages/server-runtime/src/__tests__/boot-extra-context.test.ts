@@ -107,7 +107,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
   test("secrets feature mounted but NO KEK + no override → skipped, no throw (dev DEV_KEY path)", () => {
     // dev wires its own DEV_KEY secrets explicitly; the auto-wire must not
     // eagerly construct an env-provider and crash the boot when no env KEK
-    // exists. ctx.secrets stays unset so the app's explicit wiring wins.
+    // exists. ctx.services.secrets stays unset so the app's explicit wiring wins.
     let ctx: Record<string, unknown> | undefined;
     expect(() => {
       ctx = buildBootExtraContext({

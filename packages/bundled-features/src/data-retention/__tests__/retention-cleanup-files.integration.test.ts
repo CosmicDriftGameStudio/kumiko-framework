@@ -9,7 +9,7 @@
 //     skipped "file_delete_failed") and converges on the next run
 //   - no file storage wired at all → row stays, skipped "missing_file_storage"
 //   - softDelete/anonymize entities with file fields never touch bytes
-//   - the registered cron handler forwards ctx.files, not just direct calls
+//   - the registered cron handler forwards ctx.services.files, not just direct calls
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
@@ -574,8 +574,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       finalAttempt: true,
       defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
       canDefer: false,
-      files: filesCtx(),
-      ...bridgeStub({ log: noopLogger }),
+      ...bridgeStub({ services: { files: filesCtx() }, log: noopLogger }),
     };
     await job.handler({}, ctx);
 

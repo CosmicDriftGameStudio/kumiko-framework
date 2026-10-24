@@ -73,6 +73,7 @@ export function denyEventStoreSurfaces(
 // Reservations write on purpose through the outside-transaction handles, so they keep those but
 // lose every surface bound to the not-yet-open transaction.
 export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): HandlerContext {
+  const { lifecycle, services } = handlerContext;
   return {
     ...denyEventStoreSurfaces(handlerContext, beforeTransactionDenied),
     dispatch: {
@@ -80,17 +81,39 @@ export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): Ha
       write: denySurface(beforeTransactionDenied, "dispatch.write"),
       writeAs: denySurface(beforeTransactionDenied, "dispatch.writeAs"),
     },
-    scheduleAfterCommit: denySurface(beforeTransactionDenied, "scheduleAfterCommit"),
-    scheduleAfterRollback: denySurface(beforeTransactionDenied, "scheduleAfterRollback"),
+    lifecycle: {
+      ...lifecycle,
+      afterCommit: denySurface(beforeTransactionDenied, "lifecycle.afterCommit"),
+      afterRollback: denySurface(beforeTransactionDenied, "lifecycle.afterRollback"),
+    },
     ...(handlerContext.notify && { notify: denySurface(beforeTransactionDenied, "notify") }),
-    ...(handlerContext.jobRunner && {
-      jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),
-    }),
+    services: {
+      ...withoutNotifyFactories(services),
+      ...(services.jobRunner && {
+        jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("services.jobRunner")),
+      }),
+    },
   };
 }
 
-// The beforeTransaction phase has no write need at all, so it also loses the outside-transaction handles.
+// A notify factory builds a working notify, so a phase that denies ctx.notify must drop them too.
+export function withoutNotifyFactories(
+  services: HandlerContext["services"],
+): HandlerContext["services"] {
+  const {
+    _notifyFactory: _factory,
+    _notifyInTransactionFactory: _inTransaction,
+    _notifyAfterCommitFactory: _afterCommit,
+    ...rest
+  } = services;
+  return rest;
+}
+
+// The beforeTransaction phase has no write need at all, so it also loses the outside-transaction
+// handles. systemDb is mutated in place like db: its identity keys the unsafeRaw rebinders, so a
+// spread or proxy would lose them. It is built per call, so no other context shares it.
 export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): HandlerContext {
   dropOutsideTransaction(handlerContext);
+  if (handlerContext.systemDb) attachOutsideTransaction(handlerContext.systemDb, undefined);
   return denyTransactionBoundSurfaces(handlerContext);
 }

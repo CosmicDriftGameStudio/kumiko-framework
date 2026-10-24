@@ -41,7 +41,7 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
     // error instead of breaking silently.
     const fileProviderCtx = {
       secrets: makeRawSecretsContext(),
-      // auditUserId absichtlich undefined
+      auditUserId: undefined,
     };
     expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).toThrow(
       /auditUserId missing/,
@@ -70,11 +70,11 @@ describe("requireSecretsContext :: FileProviderContext surface", () => {
 
   test("throws when secrets is missing (boot-Misconfig)", () => {
     const fileProviderCtx = {
+      secrets: undefined,
       auditUserId: SYSTEM_USER_ID,
-      // secrets absichtlich undefined
     };
     expect(() => requireSecretsContext(fileProviderCtx, "test-handler")).toThrow(
-      /ctx\.secrets missing/,
+      /ctx\.services\.secrets missing/,
     );
   });
 

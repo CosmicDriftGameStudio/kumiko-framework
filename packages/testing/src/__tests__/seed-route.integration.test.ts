@@ -677,7 +677,7 @@ describe("GET /__test/inbox", () => {
       (candidate) => candidate.entityName === "inmemory",
     );
     if (!usage || !isMailTransportPlugin(usage.options)) throw new Error("plugin not registered");
-    const transport = await usage.options.build({}, seeded.id);
+    const transport = await usage.options.build({ secrets: undefined }, seeded.id);
     clearInbox(seeded.id);
     await transport.send({ to: "Alice@example.test", subject: "for alice", html: "<p>a</p>" });
     await transport.send({ to: "bob@example.test", subject: "for bob", html: "<p>b</p>" });
@@ -754,7 +754,7 @@ describe("GET /__test/inbox", () => {
       (candidate) => candidate.entityName === "inmemory",
     );
     if (!usage || !isMailTransportPlugin(usage.options)) throw new Error("plugin not registered");
-    const transport = await usage.options.build({}, seeded.id);
+    const transport = await usage.options.build({ secrets: undefined }, seeded.id);
     clearInbox(seeded.id);
     const to = "both@example.test";
     await transport.send({ to, subject: "tenant-1", html: "<p>1</p>" });

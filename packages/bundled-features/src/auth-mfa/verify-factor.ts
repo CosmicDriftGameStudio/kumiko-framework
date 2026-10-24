@@ -21,7 +21,7 @@ export type MfaFactorVerifyResult =
 // must not verify again within its ±1-step window — otherwise a code an
 // attacker observed once, via phishing proxy or shoulder-surfing, stays
 // usable for ~90s of parallel logins). Omitted where a caller has no
-// ctx.redis available; the code-verify itself still works, just without
+// ctx.services.redis available; the code-verify itself still works, just without
 // replay protection for that call.
 export async function verifyMfaFactor(
   row: UserMfaRow,

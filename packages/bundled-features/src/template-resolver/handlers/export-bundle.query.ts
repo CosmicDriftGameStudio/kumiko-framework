@@ -124,7 +124,7 @@ export const exportBundleQuery = defineQueryHandler({
       }
       const attachment = isFileAttachmentEntry(entry);
       const file = await readTemplateResource(
-        { db: ctx.db, files: ctx.files, user: query.user },
+        { db: ctx.db, services: { files: ctx.services.files, extensions: {} }, user: query.user },
         attachment ? entry.fileRefId : entry,
       );
       if (!file) throw new NotFoundError("template-resource-file", key);

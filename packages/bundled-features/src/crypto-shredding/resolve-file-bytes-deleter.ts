@@ -5,16 +5,16 @@ import type { DeleteFileBytes } from "../shared/index.ts";
 
 const ERROR_CONTEXT = "crypto-shredding:forget-subject";
 
-// The upload resolver, not ctx.files: ctx.files is bound to the acting user's tenant, while a
+// The upload resolver, not ctx.services.files: ctx.services.files is bound to the acting user's tenant, while a
 // subject's rows can live in any tenant. Resolved eagerly so a missing provider surfaces as
 // missing_file_storage instead of a failed delete.
 export function resolveFileBytesDeleter(
   ctx: HandlerContext,
 ): (tenantId: TenantId) => Promise<DeleteFileBytes | undefined> {
   return async (tenantId) => {
-    const resolver = ctx._fileProviderResolver;
+    const resolver = ctx.services._fileProviderResolver;
     if (resolver === undefined) {
-      const own = tenantId === ctx.user.tenantId ? ctx.files : undefined;
+      const own = tenantId === ctx.user.tenantId ? ctx.services.files : undefined;
       return own && ((key) => deleteFileRefBytes(own, { storageKey: key }, ERROR_CONTEXT));
     }
     try {

@@ -76,7 +76,7 @@ export type MetricOptions = Omit<FeatureMetricDef, "shortName">;
 // A feature-declared secret. The fully-qualified name is
 // `<kebab-feature>:secret:<kebab-shortName>`, set by r.secret(). Ops see the
 // qualified name in list / audit; feature code reads it via
-// ctx.secrets.get(tenantId, SecretKeys.stripeKey) with the typed handle.
+// ctx.services.secrets.get(tenantId, SecretKeys.stripeKey) with the typed handle.
 // Reference: docs/reference/secret-keys.md.
 export type SecretKeyDefinition = {
   // Short name inside the feature (e.g. "stripe.apiKey").
@@ -136,7 +136,7 @@ export type SecretNamespaceHandle = {
 };
 
 // Typed reference returned by r.secret(). Lets feature code pass a
-// strongly-named handle to ctx.secrets.get instead of retyping the
+// strongly-named handle to ctx.services.secrets.get instead of retyping the
 // qualified string. Parallels ConfigKeyHandle from the config system.
 export type SecretKeyHandle = {
   readonly name: string;

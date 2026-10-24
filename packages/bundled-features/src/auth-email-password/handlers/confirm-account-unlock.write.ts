@@ -40,7 +40,7 @@ export function createConfirmAccountUnlockHandler(opts: ConfirmAccountUnlockOpti
           }),
         );
       }
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message: "account-unlock requires ctx.redis to clear lockout state",
@@ -54,7 +54,7 @@ export function createConfirmAccountUnlockHandler(opts: ConfirmAccountUnlockOpti
       const verify = verifyUnlockToken(event.payload.token, opts.hmacSecret);
       if (!verify.ok) return invalidUnlockToken();
 
-      await clearLockoutState(ctx.redis, verify.userId);
+      await clearLockoutState(ctx.services.redis, verify.userId);
       return { isSuccess: true, data: { kind: "account-unlocked" as const } };
     },
   });

@@ -283,7 +283,7 @@ export function buildExecutorContext(
     entity.systemStream ? SYSTEM_TENANT_ID : (requestedStreamTenantId ?? user.tenantId);
 
   // Only a system-mode db (r.systemScope() / acknowledged cross-tenant) or a tenant-mode db bound
-  // to exactly that stream tenant (ctx.forTenant) may address another tenant's stream, and only
+  // to exactly that stream tenant (ctx.tenants.writeTarget) may address another tenant's stream, and only
   // the tenant of the row it just loaded.
   const streamTenantOverrideFailure = (
     db: TenantDb,

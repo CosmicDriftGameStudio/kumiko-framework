@@ -6,7 +6,7 @@
 //   1. declarative — GET /api/files/:id/variant/:name resolves a field's
 //      declared variant.
 //   2. imperative — the `set-cover` write-handler calls
-//      ctx.derivatives.variant() directly, with a region-blur.
+//      ctx.services.derivatives.variant() directly, with a region-blur.
 //   3. public route — GET /media/:fileRefId/:variant, default-deny until a
 //      photo is explicitly published.
 

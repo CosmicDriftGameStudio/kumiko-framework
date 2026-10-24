@@ -76,7 +76,7 @@ export function createCapsUsageQuery(
 
       // Override path: limits must read the TARGET tenant's config, not the
       // SystemAdmin caller's.
-      const config = override === undefined ? ctx.config : ctx.configFor?.(targetTenantId);
+      const config = override === undefined ? ctx.config : ctx.tenants.config?.(targetTenantId);
 
       const rows: CapUsageWithMeta[] = await Promise.all(
         caps.map(async (cap) => {

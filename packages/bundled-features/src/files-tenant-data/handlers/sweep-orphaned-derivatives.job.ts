@@ -56,7 +56,7 @@ export async function sweepOrphanedDerivativesJob(
   db: DbConnection,
 ): Promise<void> {
   const payload = sweepOrphanedDerivativesPayloadSchema.parse(rawPayload ?? {});
-  const maybeResolver = ctx._fileProviderResolver;
+  const maybeResolver = ctx.services._fileProviderResolver;
   if (!maybeResolver) {
     ctx.obs.log?.warn(
       "[files-tenant-data:sweep] no _fileProviderResolver wired — nothing to sweep, skipping run",
@@ -140,7 +140,7 @@ export async function sweepOrphanedDerivativesJob(
       { limit: 1 },
     );
     if (owners.length > 0) return "skipped";
-    // Binaries written through ctx.files.ref(key) (and their derive()d
+    // Binaries written through ctx.services.files.ref(key) (and their derive()d
     // variants) never get a fileRef row; an original still sitting in storage
     // means the derivative is not an orphan.
     if (await candidate.provider.exists(candidate.originalKey)) return "skipped";
@@ -158,7 +158,7 @@ export async function sweepOrphanedDerivativesJob(
     migrateRow,
     maxFailures,
     deadlineAt: deadline,
-    signal: ctx.signal,
+    signal: ctx.lifecycle.signal,
     onRowError: (candidate, err) => {
       ctx.obs.log?.warn?.(
         `[files-tenant-data:sweep] failed to delete key=${candidate.key} tenant=${candidate.tenantId}: ${err instanceof Error ? err.message : String(err)}`,

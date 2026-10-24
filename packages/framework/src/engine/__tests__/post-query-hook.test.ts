@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { createEntity, createRegistry, defineFeature } from "../index.ts";
-import type { AppContext, PostQueryHookFn } from "../types/index.ts";
+import type { PostQueryHookFn } from "../types/index.ts";
+import { stubHandlerContext } from "./handler-context-stub.ts";
 
 // The hooks under test never read context (they only transform rows), so a
 // stub at the cast-boundary is sufficient — no real db/redis/registry needed.
-const stubContext = {} as unknown as AppContext;
+const stubContext = stubHandlerContext();
 
 // postQuery hook runs after query-handler execution and before the field-access
 // read filter. Two registration paths:

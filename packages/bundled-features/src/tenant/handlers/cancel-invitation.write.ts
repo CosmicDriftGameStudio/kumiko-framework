@@ -59,7 +59,7 @@ export const cancelInvitationWrite = defineWriteHandler({
       db,
       { id: event.payload.invitationId, version: invitation["version"] as number }, // @cast-boundary db-row
       event.user,
-      ctx.redis,
+      ctx.services.redis,
     );
     if (cancelFailure) return cancelFailure;
 

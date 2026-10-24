@@ -143,7 +143,7 @@ describe("constants — Stripe-event-types die wir mappen", () => {
 //
 // Built directly from the plugin-method constructors (not from
 // createSubscriptionStripeFeature's mounted plugin) — the mounted plugin
-// resolves its Stripe client per-call from ctx.config/ctx.secrets, which
+// resolves its Stripe client per-call from ctx.config/ctx.services.secrets, which
 // can't be spied on from outside. plugin-methods.test.ts already exercises
 // this same runtime-injection pattern for the individual methods.
 

@@ -75,7 +75,12 @@ const testProbeFeature = defineFeature("file-test", (r) => {
         const readConfig = ctx.config;
         if (!readConfig) throw new Error(`${TEST_HANDLER_QN}: ctx.config is missing`);
         const provider = await createFileProviderForTenant(
-          ctx,
+          {
+            config: readConfig,
+            registry: ctx.registry,
+            secrets: ctx.services.secrets,
+            auditUserId: event.user.id,
+          },
           event.user.tenantId,
           TEST_HANDLER_QN,
         );

@@ -65,7 +65,7 @@ export const articlesFeature = defineFeature("blog", (r) => {
     handler: async (event, ctx) => {
       const { slot, reject } = event.payload;
       reservedSlots.add(slot);
-      ctx.scheduleAfterRollback?.(async () => {
+      ctx.lifecycle.afterRollback?.(async () => {
         reservedSlots.delete(slot);
       });
       if (reject) return writeFailure(new UnprocessableError("slot_rejected"));

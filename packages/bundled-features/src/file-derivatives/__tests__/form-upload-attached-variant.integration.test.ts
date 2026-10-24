@@ -141,11 +141,11 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
     name: "render-card",
     schema: z.object({ fileRefId: z.uuid() }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives) {
+      if (!ctx.services.derivatives) {
         return writeFailure(new InternalError({ message: "ctx.derivatives missing" }));
       }
       try {
-        await ctx.derivatives.variant(event.payload.fileRefId, CARD_VARIANT, "card");
+        await ctx.services.derivatives.variant(event.payload.fileRefId, CARD_VARIANT, "card");
         return {
           isSuccess: true as const,
           data: { rendered: true, failedWithInternalError: false },

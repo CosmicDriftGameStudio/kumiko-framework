@@ -33,7 +33,7 @@ export function assertFileStorageProviderForFileFields(
 ): void {
   // File-storage is resolved per-tenant through file-foundation: a mounted
   // `file-provider-*` plugin (inmemory/s3/s3-env) is the single source for
-  // uploads, ctx.files and the GDPR jobs.
+  // uploads, ctx.services.files and the GDPR jobs.
   const hasFileProvider = registry.getExtensionUsages(EXT_FILE_PROVIDER).length > 0;
   // A test/advanced caller may inject the resolver directly on the context
   // (e.g. a static in-memory provider) instead of mounting a provider plugin.

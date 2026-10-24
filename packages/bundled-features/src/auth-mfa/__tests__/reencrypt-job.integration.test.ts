@@ -115,7 +115,8 @@ function jobCtx(): JobContext {
   return {
     db: stack.db,
     registry: stack.registry,
-    masterKeyProvider: mutableProvider,
+    services: { masterKeyProvider: mutableProvider, extensions: {} },
+    lifecycle: {},
     obs: { log: noopLog },
   } as unknown as JobContext; // @cast-boundary test-seam — job only reads db/registry/masterKeyProvider/log
 }
@@ -231,7 +232,8 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       {
         db: stack.db,
         registry: stack.registry,
-        masterKeyProvider: mutableProvider,
+        services: { masterKeyProvider: mutableProvider, extensions: {} },
+        lifecycle: {},
         obs: { log: capturingLog },
       } as unknown as JobContext,
       stack.db,
@@ -309,7 +311,8 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
       {
         db: stack.db,
         registry: stack.registry,
-        masterKeyProvider: mutableProvider,
+        services: { masterKeyProvider: mutableProvider, extensions: {} },
+        lifecycle: {},
         obs: { log: capturingLog },
       } as unknown as JobContext,
       stack.db,

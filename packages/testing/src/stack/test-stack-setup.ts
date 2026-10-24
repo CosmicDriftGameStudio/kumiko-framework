@@ -341,7 +341,7 @@ export async function buildStackServices(
   // it there either (only dispatcherOptions.effectiveFeatures, consumed by
   // the command-dispatcher — see buildJobRunnerWithHook in entrypoint/
   // index.ts). Putting it here would reintroduce the exact test-vs-prod
-  // drift fixed: a job/handler reading `ctx.effectiveFeatures` would pass in
+  // drift fixed: a job/handler reading `ctx.services.effectiveFeatures` would pass in
   // tests and break in prod.
   const extraContext =
     typeof options.extraContext === "function"
@@ -373,7 +373,7 @@ export type StackServices = Awaited<ReturnType<typeof buildStackServices>>;
 type JobFailureTracker = ReturnType<typeof createJobFailureTracker>;
 
 // Built before buildServer() so it can be merged into dispatcherOptions
-// (write handlers' `ctx.jobRunner.dispatch(...)` and the afterCommit
+// (write handlers' `ctx.services.jobRunner.dispatch(...)` and the afterCommit
 // event-trigger hook both need it present at dispatcher-construction
 // time, same as the prod entrypoint's buildJobRunnerWithHook). Uses the
 // test-stack's own ephemeral redis — no separate `redisUrl` seam needed.
@@ -469,7 +469,7 @@ async function configureStackSearch(
 
 // buildServer only auto-wires an L3 RateLimitResolver from
 // `context.redis` — a degradation test that nulls `redis` via
-// extraContext (to exercise a handler's own ctx.redis-down guard) also
+// extraContext (to exercise a handler's own ctx.services.redis-down guard) also
 // silently strips rate-limiting, even though every handler with a
 // `rateLimit` declaration still requires a resolver at dispatch time.
 // Since e7bf543ad, an IP-keyed bucket key is built unconditionally

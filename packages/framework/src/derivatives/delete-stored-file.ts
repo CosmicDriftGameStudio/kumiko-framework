@@ -88,7 +88,7 @@ export async function deleteStoredFileAndDerivatives(
   return failedKeys;
 }
 
-// deleteStoredFileAndDerivatives through ctx.files for a key read from a tenant-filtered fileRef
+// deleteStoredFileAndDerivatives through ctx.services.files for a key read from a tenant-filtered fileRef
 // row. After a tenant handover the key keeps the previous tenant's prefix, which ref() and list()
 // reject; every key the helper deletes is the original or one of its derivatives.
 export function deleteFileRefBytes(

@@ -22,19 +22,21 @@ type FileRefRow = {
   readonly size: number | bigint | string;
 };
 
-// Tenant-bound on purpose: without a resolver `ctx.files` only reaches the storage of the
+// Tenant-bound on purpose: without a resolver `ctx.services.files` only reaches the storage of the
 // context's own tenant (`contextTenantId`), so a request for another tenant's files is
 // undefined instead of silently reading through the wrong tenant's storage.
 export function fileContextForTenant(
   ctx: {
-    readonly _fileProviderResolver?: FileProviderResolver | undefined;
-    readonly files?: FileContext | undefined;
+    readonly services: {
+      readonly _fileProviderResolver?: FileProviderResolver | undefined;
+      readonly files?: FileContext | undefined;
+    };
   },
   contextTenantId: string,
   tenantId: string,
 ): FileContext | undefined {
-  const resolver = ctx._fileProviderResolver;
-  if (resolver === undefined) return tenantId === contextTenantId ? ctx.files : undefined;
+  const resolver = ctx.services._fileProviderResolver;
+  if (resolver === undefined) return tenantId === contextTenantId ? ctx.services.files : undefined;
   return fileContextFromResolver(resolver, tenantId);
 }
 

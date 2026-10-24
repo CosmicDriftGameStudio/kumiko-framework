@@ -1,6 +1,6 @@
 // Runs the real registered export cron job (r.job "run-export-jobs")
 // through the job context, as the production job runner invokes it:
-// `ctx.configResolver` is set (with the app override provider=inmemory), but
+// `ctx.services.configResolver` is set (with the app override provider=inmemory), but
 // there is no per-request `ctx.config` (the HTTP dispatcher creates that).
 //
 // The existing run-export-jobs test passed `buildStorageProvider` manually,
@@ -193,8 +193,8 @@ describe("run-export-jobs cron-context", () => {
         },
       }),
       registry: stack.registry,
-      configResolver,
-      _notifyFactory: notifyFactory,
+      services: { configResolver, _notifyFactory: notifyFactory, extensions: {} },
+      lifecycle: {},
       systemUser: createSystemUser(TENANT),
       obs: { log: { warn() {} } },
       now: getTemporal().Now.instant(),

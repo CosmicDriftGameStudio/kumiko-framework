@@ -77,7 +77,7 @@ export function requireNonEmpty(
 }
 
 /**
- * Narrow a `ctx.secrets.get()` result → set secret. The secrets-counterpart
+ * Narrow a `ctx.services.secrets.get()` result → set secret. The secrets-counterpart
  * to requireNonEmpty: a missing secret is a tenant-configuration gap, not a
  * crash — same 422 contract, so clients route to the settings screen.
  *

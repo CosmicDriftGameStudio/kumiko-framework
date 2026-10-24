@@ -25,7 +25,7 @@ export type CreateDeliveryTestContextOptions = {
   readonly log?: Logger;
   readonly jobRunner?: JobRunner;
   readonly secrets?: SecretsContext;
-  // Seals queued job payload addresses and, like the boot wiring, doubles as the jobs' ctx.configEncryption.
+  // Seals queued job payload addresses and, like the boot wiring, doubles as the jobs' ctx.services.configEncryption.
   readonly addressCipher?: EnvelopeCipher;
   readonly idempotencyRedis?: Redis;
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;

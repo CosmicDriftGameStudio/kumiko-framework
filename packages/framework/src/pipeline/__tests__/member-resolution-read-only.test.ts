@@ -3,11 +3,10 @@
 // is closed only because applyMemberResolutionReadOnly drops systemDb and
 // dbOutsideTransaction — this pins that, plus the write surfaces it neutralizes.
 import { describe, expect, test } from "bun:test";
+import { stubHandlerContext } from "../../engine/__tests__/handler-context-stub.ts";
 import type { HandlerContext } from "../../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons } from "../../errors/index.ts";
-import { applyMemberResolutionReadOnly } from "../dispatch-shared.ts";
-
-const DROPPED_SURFACES = ["systemDb", "crossTenantReads", "runPreSave", "files", "derivatives"];
+import { applyMemberResolutionReadOnly } from "../handler-context-member-resolution.ts";
 
 // [namespace, member] pairs; "notify" is the one denied call that stays top-level.
 const DENIED_CALLS: ReadonlyArray<readonly [string, string]> = [
@@ -25,66 +24,71 @@ const DENIED_CALLS: ReadonlyArray<readonly [string, string]> = [
   ["auth", "resolveActiveMembership"],
 ];
 
-const stubCall = () => "escalated";
+const stubCall = async () => "escalated";
 
-function readOnlyContext(): Record<string, unknown> {
-  const namespaces = Object.fromEntries(
-    ["dispatch", "events", "auth"].map((namespace) => [
-      namespace,
-      Object.fromEntries(
-        DENIED_CALLS.filter(([owner]) => owner === namespace).map(([, member]) => [
-          member,
-          stubCall,
-        ]),
-      ),
-    ]),
-  );
-  const wired = Object.fromEntries(
-    [...DROPPED_SURFACES, "notify", "scheduleAfterCommit", "scheduleAfterRollback"].map((key) => [
-      key,
-      stubCall,
-    ]),
-  );
-  const db = Object.defineProperty({}, "outsideTransaction", {
+// A context wired with every escalation surface a handler could otherwise reach.
+function fullyWiredContext(): HandlerContext {
+  const base = stubHandlerContext();
+  const db = Object.defineProperty(base.db, "outsideTransaction", {
     value: { escalated: true },
     enumerable: false,
     configurable: true,
   });
-  // @cast-boundary test stub — applyMemberResolutionReadOnly only spreads and overwrites.
-  const ctx = {
-    ...wired,
-    ...namespaces,
+  // @cast-boundary test stub — the surfaces below only need to exist, not to work.
+  const stub = <T>(): T => stubCall as unknown as T;
+  return {
+    ...base,
     db,
-    jobRunner: { handleEvent: () => "ran" },
-  } as unknown as HandlerContext;
-  return applyMemberResolutionReadOnly(ctx) as unknown as Record<string, unknown>;
+    systemDb: stub(),
+    crossTenantReads: stub(),
+    notify: stub(),
+    lifecycle: { runPreSave: stub(), afterCommit: stub(), afterRollback: stub() },
+    tenants: { config: stub(), writeTarget: stub() },
+    services: {
+      ...base.services,
+      files: stub(),
+      derivatives: stub(),
+      _fileProviderResolver: stub(),
+      _notifyFactory: stub(),
+      _notifyInTransactionFactory: stub(),
+      _notifyAfterCommitFactory: stub(),
+      jobRunner: { handleEvent: async () => {} },
+      extensions: { custom: "kept" },
+    },
+  };
 }
 
-function readOnlyContextWithRedis(): Record<string, unknown> {
-  const redis = { get: () => "value", set: () => "escalated" };
-  // @cast-boundary test stub — applyMemberResolutionReadOnly only spreads and wraps redis.
-  const ctx = { redis, jobRunner: { handleEvent: () => "ran" } } as unknown as HandlerContext;
-  return applyMemberResolutionReadOnly(ctx) as unknown as Record<string, unknown>;
-}
-
-function surface(readOnly: Record<string, unknown>, key: string): unknown {
-  return readOnly[key];
+function readOnlyContext(): HandlerContext {
+  return applyMemberResolutionReadOnly(fullyWiredContext());
 }
 
 describe("applyMemberResolutionReadOnly", () => {
   test("drops every surface that could reach an unchecked system-scope db", () => {
     const readOnly = readOnlyContext();
 
-    for (const key of DROPPED_SURFACES) {
-      expect(surface(readOnly, key)).toBeUndefined();
-    }
-    expect(Reflect.get(readOnly["db"] as object, "outsideTransaction")).toBeUndefined();
+    expect(readOnly.systemDb).toBeUndefined();
+    expect(readOnly.crossTenantReads).toBeUndefined();
+    expect(readOnly.lifecycle.runPreSave).toBeUndefined();
+    expect(readOnly.tenants.writeTarget).toBeUndefined();
+    expect(readOnly.services.files).toBeUndefined();
+    expect(readOnly.services.derivatives).toBeUndefined();
+    expect(Reflect.get(readOnly.db, "outsideTransaction")).toBeUndefined();
+  });
+
+  test("drops the factories that would rebuild file storage or notify", () => {
+    const { services } = readOnlyContext();
+
+    expect(services._fileProviderResolver).toBeUndefined();
+    expect(services._notifyFactory).toBeUndefined();
+    expect(services._notifyInTransactionFactory).toBeUndefined();
+    expect(services._notifyAfterCommitFactory).toBeUndefined();
   });
 
   test.each([...DENIED_CALLS, ["", "notify"] as const])(
     "%s.%s rejects with the member-resolution reason",
     async (namespace, member) => {
-      const owner = namespace === "" ? readOnlyContext() : surface(readOnlyContext(), namespace);
+      const readOnly = readOnlyContext();
+      const owner = namespace === "" ? readOnly : Reflect.get(readOnly, namespace);
       // @cast-boundary test stub — every denied surface is a call returning a promise.
       const denied = Reflect.get(owner as object, member) as () => Promise<unknown>;
 
@@ -101,27 +105,30 @@ describe("applyMemberResolutionReadOnly", () => {
     },
   );
 
-  test("scheduleAfterCommit, scheduleAfterRollback and the jobRunner proxy throw synchronously", () => {
-    const readOnly = readOnlyContext();
-    // @cast-boundary test stub — sync surfaces, not promise-returning.
-    const schedulers = ["scheduleAfterCommit", "scheduleAfterRollback"].map(
-      (key) => surface(readOnly, key) as () => void,
-    );
-    // @cast-boundary test stub — denyingJobRunnerProxy throws on any property read.
-    const jobRunner = surface(readOnly, "jobRunner") as { handleEvent: unknown };
+  test("lifecycle.afterCommit, lifecycle.afterRollback and the jobRunner proxy throw synchronously", () => {
+    const { lifecycle, services } = readOnlyContext();
+    const { afterCommit, afterRollback } = lifecycle;
 
-    for (const schedule of schedulers) expect(() => schedule()).toThrow(AccessDeniedError);
-    expect(() => jobRunner.handleEvent).toThrow(AccessDeniedError);
+    expect(() => afterCommit?.(async () => {})).toThrow(AccessDeniedError);
+    expect(() => afterRollback?.(async () => {})).toThrow(AccessDeniedError);
+    expect(() => services.jobRunner?.handleEvent).toThrow(AccessDeniedError);
   });
 
   test("allowlisted proxies stay awaitable and inspectable but deny other reads", async () => {
-    const readOnly = readOnlyContextWithRedis();
-    const redis = readOnly["redis"] as object;
+    const redis = { get: () => "value", set: () => "escalated" };
+    const base = stubHandlerContext();
+    // @cast-boundary test stub — only the redis methods under test are present.
+    const wired = { ...base, services: { ...base.services, redis } } as unknown as HandlerContext;
+    const proxied = applyMemberResolutionReadOnly(wired).services.redis;
 
-    expect(Reflect.get(redis, "then")).toBeUndefined();
-    expect(Reflect.get(redis, Symbol.toPrimitive)).toBeUndefined();
-    expect(await Promise.resolve(redis)).toBe(redis);
-    expect(() => Reflect.get(redis, "set")).toThrow(AccessDeniedError);
-    expect(typeof Reflect.get(redis, "get")).toBe("function");
+    expect(Reflect.get(proxied ?? {}, "then")).toBeUndefined();
+    expect(Reflect.get(proxied ?? {}, Symbol.toPrimitive)).toBeUndefined();
+    expect(await Promise.resolve(proxied)).toBe(proxied);
+    expect(() => Reflect.get(proxied ?? {}, "set")).toThrow(AccessDeniedError);
+    expect(typeof Reflect.get(proxied ?? {}, "get")).toBe("function");
+  });
+
+  test("extensions pass through unchanged", () => {
+    expect(readOnlyContext().services.extensions).toEqual({ custom: "kept" });
   });
 });

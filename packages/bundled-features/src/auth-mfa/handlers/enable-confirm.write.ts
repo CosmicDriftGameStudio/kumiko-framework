@@ -63,7 +63,7 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // second seeing invalidSetupToken(). Checked before the TOTP verify
       // for the same reason the other two handlers check it early: fail
       // closed before doing any of the guarded work, not partway through.
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message: "enable-confirm requires ctx.redis for the single-use setup-token burn",
@@ -86,7 +86,12 @@ export function createEnableConfirmHandler(opts: EnableConfirmOptions) {
       // concurrent mfa_already_enabled() write) is meant to leave the burn
       // standing. Add unburnToken here if create-failure retries turn out
       // to matter.
-      const burnResult = await burnToken(ctx.redis, "mfa-setup", event.user.id, verify.expiresAtMs);
+      const burnResult = await burnToken(
+        ctx.services.redis,
+        "mfa-setup",
+        event.user.id,
+        verify.expiresAtMs,
+      );
       if (burnResult === "already-used") return invalidSetupToken();
 
       const existing = await findUserMfaRow(ctx.db, event.user);

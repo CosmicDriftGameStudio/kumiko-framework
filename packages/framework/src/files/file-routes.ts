@@ -105,7 +105,7 @@ export type FileRoutesOptions = {
   // Absent: the route is limited only by the global request limiter.
   readonly metaBatchRateLimitResolver?: RateLimitResolver;
   // Per-tenant provider resolver — resolves through file-foundation so uploads,
-  // ctx.files and the GDPR jobs all hit the same store. Resolution runs under
+  // ctx.services.files and the GDPR jobs all hit the same store. Resolution runs under
   // system identity for the secret-read; request-user authorization is the
   // accessGuard's job below.
   readonly resolveProvider: FileProviderResolver;

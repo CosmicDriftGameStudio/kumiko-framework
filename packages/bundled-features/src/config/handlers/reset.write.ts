@@ -48,14 +48,14 @@ export const resetWrite = defineWriteHandler({
     // backing="secrets": clear the secret from the secrets store. delete() is
     // idempotent (returns false if absent) — mirrors the config no-op contract.
     if (keyDef.backing === "secrets") {
-      if (!ctx.secrets) {
+      if (!ctx.services.secrets) {
         throw new InternalError({
           message:
             `[config:write:reset] key "${event.payload.key}" declares backing="secrets" but ` +
             `ctx.secrets is not wired — provide extraContext.secrets (and a MasterKeyProvider).`,
         });
       }
-      await ctx.secrets.delete(SYSTEM_TENANT_ID, event.payload.key, {
+      await ctx.services.secrets.delete(SYSTEM_TENANT_ID, event.payload.key, {
         deletedBy: event.user.id,
       });
       return { isSuccess: true, data: { key: event.payload.key, scope } };

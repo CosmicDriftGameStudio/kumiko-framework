@@ -3,7 +3,7 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { runConfirmTokenFlow } from "../handlers/confirm-token-flow.ts";
 
-// Pins the "fail-loud when ctx.redis is missing" branch. Without this
+// Pins the "fail-loud when ctx.services.redis is missing" branch. Without this
 // test, a refactor that accidentally drops the redis check would not
 // trip any CI — the remaining assertions (single-use, retry, cross-
 // purpose) all run against a wired Redis and would pass regardless.
@@ -12,7 +12,7 @@ function fakeCtxWithoutRedis(): HandlerContext {
   // Minimal fake ctx for the specific branch under test — the flow
   // returns before touching any other ctx field. `as unknown as` is the
   // established pattern for test-only fakes at system boundaries.
-  return { redis: undefined } as unknown as HandlerContext;
+  return { services: { redis: undefined, extensions: {} } } as unknown as HandlerContext;
 }
 
 function invalidTokenStub() {

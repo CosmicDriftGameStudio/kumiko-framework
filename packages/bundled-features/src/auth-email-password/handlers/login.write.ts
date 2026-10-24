@@ -35,7 +35,7 @@ export type LoginHandlerOptions = {
   readonly strictEmailVerification?: boolean;
   // Brute-force protection: after N wrong-password attempts the account
   // locks for the configured duration. State lives in Redis (see
-  // lockout-store.ts) — if ctx.redis is unset, lockout is skipped and the
+  // lockout-store.ts) — if ctx.services.redis is unset, lockout is skipped and the
   // handler falls back to classic invalid-credentials. Counter is monotonic
   // and only resets on a successful login, so a re-lock after the cooldown
   // happens on the FIRST miss, not the Nth (strict semantic — favours
@@ -123,10 +123,10 @@ export async function gateCountUnknownUser(
   lockoutDurationMinutes: number,
 ): Promise<GateOutcome<undefined>> {
   const subject = unknownEmailLockoutSubject(ctx, email);
-  if (!ctx.redis || subject === undefined) return ok(undefined);
+  if (!ctx.services.redis || subject === undefined) return ok(undefined);
   const locked = await gateEnforceLockout(ctx, subject);
   if (!locked.ok) return locked;
-  await recordFailedAttempt(ctx.redis, subject, maxFailedAttempts, lockoutDurationMinutes);
+  await recordFailedAttempt(ctx.services.redis, subject, maxFailedAttempts, lockoutDurationMinutes);
   return ok(undefined);
 }
 
@@ -138,8 +138,8 @@ export async function gateEnforceLockout(
   ctx: HandlerContext,
   userId: string,
 ): Promise<GateOutcome<undefined>> {
-  if (!ctx.redis) return ok(undefined);
-  const state = await getLockoutState(ctx.redis, userId);
+  if (!ctx.services.redis) return ok(undefined);
+  const state = await getLockoutState(ctx.services.redis, userId);
   if (state?.lockedUntil !== null && state?.lockedUntil !== undefined) {
     const now = Date.now();
     if (state.lockedUntil > now) {
@@ -160,15 +160,20 @@ export async function gateVerifyPassword(
 ): Promise<GateOutcome<undefined>> {
   const passwordOk = await verifyPassword(found.passwordHash, password);
   if (!passwordOk) {
-    if (ctx.redis) {
-      await recordFailedAttempt(ctx.redis, found.id, maxFailedAttempts, lockoutDurationMinutes);
+    if (ctx.services.redis) {
+      await recordFailedAttempt(
+        ctx.services.redis,
+        found.id,
+        maxFailedAttempts,
+        lockoutDurationMinutes,
+      );
     }
     return reject(invalidCredentials());
   }
   // Clear before MFA — MFA has its own attempt-cap; don't password-lock
   // users who occasionally mistype across otherwise-successful logins.
-  if (ctx.redis) {
-    await clearLockoutState(ctx.redis, found.id);
+  if (ctx.services.redis) {
+    await clearLockoutState(ctx.services.redis, found.id);
   }
   return ok(undefined);
 }

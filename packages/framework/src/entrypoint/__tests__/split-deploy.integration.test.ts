@@ -73,10 +73,10 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
 
 // The job-runner is built BEFORE the server, so it used to capture the raw
 // caller context — without the per-tenant file-provider resolver buildServer
-// wires onto it. An event-triggered job reaching for ctx.files then died in
+// wires onto it. An event-triggered job reaching for ctx.services.files then died in
 // the worker while the identical code worked on the request path. Recording
-// `typeof ctx.files?.ref` (not the private `_fileProviderResolver` wire
-// field) pins the observable symptom: a usable ctx.files handle. `ref()`
+// `typeof ctx.services.files?.ref` (not the private `_fileProviderResolver` wire
+// field) pins the observable symptom: a usable ctx.services.files handle. `ref()`
 // itself stays lazy (file-handle.ts) — it never calls the resolver, which
 // this feature's provider intentionally throws in, so the assertion below
 // doesn't need a working provider to be meaningful.
@@ -98,7 +98,7 @@ const fileJobFeature = defineFeature("fileJob", (r) => {
     "read-bytes",
     { trigger: { on: requested.name }, runIn: "worker" },
     async (_payload, ctx) => {
-      jobSawFilesRef.push(typeof ctx.files?.ref);
+      jobSawFilesRef.push(typeof ctx.services.files?.ref);
     },
   );
   // Worker mode refuses to boot without a consumer to drain.

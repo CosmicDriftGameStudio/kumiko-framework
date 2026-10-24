@@ -21,7 +21,7 @@ function stubCtx(opts: {
     db: { fetchOne: opts.fetchOne },
     user: { tenantId: opts.tenantId ?? "tenant-1" },
     config: async () => opts.billingLive ?? true,
-    secrets: { has: async () => opts.apiKeySet ?? true },
+    services: { secrets: { has: async () => opts.apiKeySet ?? true }, extensions: {} },
     // biome-ignore lint/suspicious/noExplicitAny: minimal HandlerContext stub, see runtime.test.ts precedent
   } as any as HandlerContext; // @cast-boundary test-stub — partial ctx
 }

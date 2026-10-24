@@ -28,8 +28,8 @@ export const triggerWrite = defineWriteHandler({
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const registry = ctx.registry;
-    // `jobRunner` is a dynamic context extension — not a core HandlerContext field.
-    const jobRunner = ctx["jobRunner"] as JobRunner; // @cast-boundary dynamic-key
+    // `services.jobRunner` is typed as the handleEvent-only JobRunnerRef; dispatch lives on the concrete runner.
+    const jobRunner = ctx.services.jobRunner as JobRunner; // @cast-boundary engine-bridge
 
     const jobDef = registry.getJob(event.payload.jobName);
     if (!jobDef) {

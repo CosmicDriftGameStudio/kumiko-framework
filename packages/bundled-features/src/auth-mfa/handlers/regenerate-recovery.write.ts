@@ -48,18 +48,18 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
       // afterward.
       //
       // Fail closed, matching verify.write.ts/enable-confirm-preauth.write.ts:
-      // without ctx.redis, verifyMfaFactor's TOTP-replay burn is skipped,
+      // without ctx.services.redis, verifyMfaFactor's TOTP-replay burn is skipped,
       // letting an observed code be replayed within the ±1-step window to
       // regenerate (and thus invalidate) recovery codes — a session-authed
       // route, so pre-unwiring JWTs stay a valid attack path.
-      if (!ctx.redis) {
+      if (!ctx.services.redis) {
         return writeFailure(
           new InternalError({
             message: "regenerate-recovery (mfa) requires ctx.redis for TOTP replay protection",
           }),
         );
       }
-      const replay = { redis: ctx.redis, userId: event.user.id };
+      const replay = { redis: ctx.services.redis, userId: event.user.id };
       const verify = await verifyMfaFactor(row, event.payload.code, replay);
       if (!verify.ok) return invalidTotpCode();
 

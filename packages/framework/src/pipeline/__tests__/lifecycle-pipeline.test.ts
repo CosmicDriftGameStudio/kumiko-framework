@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
+import { stubHandlerContext } from "../../engine/__tests__/handler-context-stub.ts";
 import {
   createEntity,
   createRegistry,
@@ -69,7 +70,7 @@ describe("runPreSave", () => {
     });
 
     const pipeline = createLifecycleHooks(registry);
-    await pipeline.runPreSave("test:write:user", { email: "x" }, {}, true, {});
+    await pipeline.runPreSave("test:write:user", { email: "x" }, {}, true, stubHandlerContext());
     expect(calls).toEqual(["a", "b"]);
   });
 
@@ -86,7 +87,7 @@ describe("runPreSave", () => {
       { email: "MARC@TEST.DE" },
       {},
       true,
-      {},
+      stubHandlerContext(),
     );
     expect(result["email"]).toBe("marc@test.de");
   });
@@ -116,7 +117,7 @@ describe("runPreSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPreSave("test:write:user", {}, {}, true, {});
+    await pipeline.runPreSave("test:write:user", {}, {}, true, stubHandlerContext());
     expect(calls).toEqual(["feature", "system"]);
   });
 
@@ -146,7 +147,7 @@ describe("runPreSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPreSave("test:write:user", {}, {}, true, {});
+    await pipeline.runPreSave("test:write:user", {}, {}, true, stubHandlerContext());
     expect(calls).toEqual(["a", "b"]);
   });
 
@@ -160,9 +161,9 @@ describe("runPreSave", () => {
     });
 
     const pipeline = createLifecycleHooks(registry);
-    await expect(pipeline.runPreSave("test:write:user", {}, {}, true, {})).rejects.toThrow(
-      "blocked",
-    );
+    await expect(
+      pipeline.runPreSave("test:write:user", {}, {}, true, stubHandlerContext()),
+    ).rejects.toThrow("blocked");
   });
 });
 
@@ -206,7 +207,7 @@ describe("runPostSave", () => {
     };
 
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPostSave("test:write:user", savectx, {});
+    await pipeline.runPostSave("test:write:user", savectx, stubHandlerContext());
     expect(calls).toEqual(["feature", "search", "sse", "audit"]);
   });
 
@@ -236,7 +237,7 @@ describe("runPostSave", () => {
 
       const pipeline = createLifecycleHooks(registry, systemHooks);
       // Should not throw
-      await pipeline.runPostSave("test:write:user", savectx, {});
+      await pipeline.runPostSave("test:write:user", savectx, stubHandlerContext());
 
       // System hook still ran despite feature hook failure
       expect(calls).toContain("search-ran");
@@ -279,7 +280,7 @@ describe("runPostSave", () => {
       };
 
       const pipeline = createLifecycleHooks(registry, systemHooks);
-      await pipeline.runPostSave("test:write:user", savectx, {});
+      await pipeline.runPostSave("test:write:user", savectx, stubHandlerContext());
 
       expect(calls).toEqual(["sse-ran", "audit-ran"]);
     } finally {
@@ -325,11 +326,11 @@ describe("runPostSave phase routing", () => {
     const registry = createRegistry([feature]);
     const pipeline = createLifecycleHooks(registry);
 
-    await pipeline.runPostSave("phases:write:user", savectx, {}, "inTransaction");
+    await pipeline.runPostSave("phases:write:user", savectx, stubHandlerContext(), "inTransaction");
     expect(calls).toEqual(["inTx"]);
 
     calls.length = 0;
-    await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+    await pipeline.runPostSave("phases:write:user", savectx, stubHandlerContext(), "afterCommit");
     expect(calls).toEqual(["afterCommit"]);
   });
 
@@ -355,7 +356,7 @@ describe("runPostSave phase routing", () => {
     const pipeline = createLifecycleHooks(registry);
 
     await expect(
-      pipeline.runPostSave("phases:write:user", savectx, {}, "inTransaction"),
+      pipeline.runPostSave("phases:write:user", savectx, stubHandlerContext(), "inTransaction"),
     ).rejects.toThrow("inTx-hook-boom");
   });
 
@@ -390,7 +391,7 @@ describe("runPostSave phase routing", () => {
       const pipeline = createLifecycleHooks(registry);
 
       // Must not throw — errors are swallowed + logged
-      await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+      await pipeline.runPostSave("phases:write:user", savectx, stubHandlerContext(), "afterCommit");
 
       // Subsequent hooks still fire (failure in one hook doesn't block the rest)
       expect(afterRan).toEqual(["second"]);
@@ -435,11 +436,11 @@ describe("runPostSave phase routing", () => {
     };
     const pipeline = createLifecycleHooks(registry, systemHooks);
 
-    await pipeline.runPostSave("phases:write:user", savectx, {}, "inTransaction");
+    await pipeline.runPostSave("phases:write:user", savectx, stubHandlerContext(), "inTransaction");
     expect(calls).toEqual(["audit"]);
 
     calls.length = 0;
-    await pipeline.runPostSave("phases:write:user", savectx, {}, "afterCommit");
+    await pipeline.runPostSave("phases:write:user", savectx, stubHandlerContext(), "afterCommit");
     expect(calls).toEqual(["sse"]);
   });
 });
@@ -477,7 +478,7 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
         type: "postSave",
         target: { allOf: "widget" },
         handler: async (_result, ctx) => {
-          calls.push({ tenant: ctx._tenantId ?? "no-tenant" });
+          calls.push({ tenant: ctx.user.tenantId });
         },
       });
     });
@@ -505,29 +506,30 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
     const effectiveFeatures = (tenantId: TenantId) =>
       tenantId === tenantA ? new Set(["feat-a", "feat-b"]) : new Set(["feat-a"]);
 
-    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
-      _tenantId: tenantA,
-      effectiveFeatures,
-    });
-    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
-      _tenantId: tenantB,
-      effectiveFeatures,
-    });
+    await pipeline.runPostSave(
+      "feat-a:write:widget:create",
+      baseSaveCtx,
+      stubHandlerContext({ tenantId: tenantA, effectiveFeatures }),
+    );
+    await pipeline.runPostSave(
+      "feat-a:write:widget:create",
+      baseSaveCtx,
+      stubHandlerContext({ tenantId: tenantB, effectiveFeatures }),
+    );
 
     expect(calls).toEqual([{ tenant: tenantA }]);
   });
 
-  test("ctx without _tenantId → hook fires (legacy back-compat: undefined = skip filter)", async () => {
-    // System-jobs / boot-time pipeline-calls have no user → no _tenantId.
+  test("ctx without an effectiveFeatures resolver → hook fires (undefined = skip filter)", async () => {
+    // Apps and boot-time pipeline calls without toggles wire no resolver.
     // currentEffectiveFeatures returns undefined; registry filterByPhase
-    // treats undefined as "skip filter" → all hooks fire (back-compat).
+    // treats undefined as "skip filter" → all hooks fire.
     const { registry, calls } = setupTwoFeatures();
     const pipeline = createLifecycleHooks(registry);
 
-    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {});
+    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, stubHandlerContext());
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.tenant).toBe("no-tenant");
   });
 
   test("effectiveFeatures wird PRO call konsultiert (kein staler Cache zwischen runPostSave-aufrufen)", async () => {
@@ -539,15 +541,17 @@ describe("Sprint 8a: per-tenant entity-hook filter", () => {
     const enabled = new Set<string>(["feat-a", "feat-b"]);
     const effectiveFeatures = (_tenantId: TenantId) => enabled;
 
-    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
-      _tenantId: tenantA,
-      effectiveFeatures,
-    });
+    await pipeline.runPostSave(
+      "feat-a:write:widget:create",
+      baseSaveCtx,
+      stubHandlerContext({ tenantId: tenantA, effectiveFeatures }),
+    );
     enabled.delete("feat-b");
-    await pipeline.runPostSave("feat-a:write:widget:create", baseSaveCtx, {
-      _tenantId: tenantA,
-      effectiveFeatures,
-    });
+    await pipeline.runPostSave(
+      "feat-a:write:widget:create",
+      baseSaveCtx,
+      stubHandlerContext({ tenantId: tenantA, effectiveFeatures }),
+    );
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.tenant).toBe(tenantA);
@@ -638,7 +642,7 @@ describe("runPreDelete", () => {
       ],
     };
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPreDelete("test:write:user", deletectx, {});
+    await pipeline.runPreDelete("test:write:user", deletectx, stubHandlerContext());
     expect(calls).toEqual(["handler", "entity", "system"]);
   });
 
@@ -667,9 +671,9 @@ describe("runPreDelete", () => {
     });
     const registry = createRegistry([feature]);
     const pipeline = createLifecycleHooks(registry);
-    await expect(pipeline.runPreDelete("test:write:user", deletectx, {})).rejects.toThrow(
-      "blocked-delete",
-    );
+    await expect(
+      pipeline.runPreDelete("test:write:user", deletectx, stubHandlerContext()),
+    ).rejects.toThrow("blocked-delete");
   });
 
   test("system hook with a non-inTransaction phase is skipped", async () => {
@@ -688,7 +692,7 @@ describe("runPreDelete", () => {
       ],
     };
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPreDelete("test:write:user", deletectx, {});
+    await pipeline.runPreDelete("test:write:user", deletectx, stubHandlerContext());
     expect(calls).toEqual([]);
   });
 });
@@ -731,7 +735,7 @@ describe("runPostDelete", () => {
       ],
     };
     const pipeline = createLifecycleHooks(registry, systemHooks);
-    await pipeline.runPostDelete("test:write:user", deletectx, {});
+    await pipeline.runPostDelete("test:write:user", deletectx, stubHandlerContext());
     expect(calls).toEqual(["feature", "system"]);
   });
 
@@ -762,7 +766,7 @@ describe("runPostDelete", () => {
     const registry = createRegistry([feature]);
     const pipeline = createLifecycleHooks(registry);
     await expect(
-      pipeline.runPostDelete("test:write:user", deletectx, {}, "inTransaction"),
+      pipeline.runPostDelete("test:write:user", deletectx, stubHandlerContext(), "inTransaction"),
     ).rejects.toThrow("postDelete-inTx-boom");
   });
 });
@@ -772,8 +776,12 @@ describe("runPostDelete", () => {
 describe("runPostSaveBatch / runPostDeleteBatch", () => {
   test("no batch hooks registered → resolves without throwing", async () => {
     const pipeline = createLifecycleHooks(makeRegistry());
-    await expect(pipeline.runPostSaveBatch([savectx], {})).resolves.toBeUndefined();
-    await expect(pipeline.runPostDeleteBatch([deletectx], {})).resolves.toBeUndefined();
+    await expect(
+      pipeline.runPostSaveBatch([savectx], stubHandlerContext()),
+    ).resolves.toBeUndefined();
+    await expect(
+      pipeline.runPostDeleteBatch([deletectx], stubHandlerContext()),
+    ).resolves.toBeUndefined();
     // Should not throw — nothing registered.
   });
 
@@ -791,7 +799,7 @@ describe("runPostSaveBatch / runPostDeleteBatch", () => {
       ],
     };
     const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
-    await pipeline.runPostSaveBatch([savectx], {});
+    await pipeline.runPostSaveBatch([savectx], stubHandlerContext());
     expect(seen).toEqual([[savectx]]);
   });
 
@@ -809,7 +817,7 @@ describe("runPostSaveBatch / runPostDeleteBatch", () => {
       ],
     };
     const pipeline = createLifecycleHooks(makeRegistry(), systemHooks);
-    await pipeline.runPostDeleteBatch([deletectx], {});
+    await pipeline.runPostDeleteBatch([deletectx], stubHandlerContext());
     expect(seen).toEqual([[deletectx]]);
   });
 
@@ -819,14 +827,14 @@ describe("runPostSaveBatch / runPostDeleteBatch", () => {
       (hooks: { name: string; priority: number; fn: () => Promise<void> }[]) =>
         ({ postSaveBatch: hooks }) satisfies SystemHooks,
       (pipeline: ReturnType<typeof createLifecycleHooks>) =>
-        pipeline.runPostSaveBatch([savectx], {}),
+        pipeline.runPostSaveBatch([savectx], stubHandlerContext()),
     ],
     [
       "postDeleteBatch",
       (hooks: { name: string; priority: number; fn: () => Promise<void> }[]) =>
         ({ postDeleteBatch: hooks }) satisfies SystemHooks,
       (pipeline: ReturnType<typeof createLifecycleHooks>) =>
-        pipeline.runPostDeleteBatch([deletectx], {}),
+        pipeline.runPostDeleteBatch([deletectx], stubHandlerContext()),
     ],
   ])(
     "one %s hook throwing doesn't stop the others (Promise.allSettled) — logged, never thrown",

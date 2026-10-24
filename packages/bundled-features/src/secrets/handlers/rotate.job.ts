@@ -61,13 +61,13 @@ export async function rotateJob(
   db: DbConnection,
 ): Promise<void> {
   const payload = rawPayload as RotateJobPayload; // @cast-boundary engine-payload
-  if (!ctx.masterKeyProvider) {
+  if (!ctx.services.masterKeyProvider) {
     throw new InternalError({
       message:
         "[secrets:rotate] ctx.masterKeyProvider missing — wire it via extraContext.masterKeyProvider at boot.",
     });
   }
-  const provider = ctx.masterKeyProvider;
+  const provider = ctx.services.masterKeyProvider;
   const batchSize = payload.batchSize ?? DEFAULT_BATCH_SIZE;
   const maxFailures = payload.maxFailures ?? DEFAULT_MAX_FAILURES;
   const deadline = payload.maxDurationMs
@@ -155,7 +155,7 @@ export async function rotateJob(
     migrateRow,
     maxFailures,
     deadlineAt: deadline,
-    signal: ctx.signal,
+    signal: ctx.lifecycle.signal,
     onRowError: (row, err) => {
       ctx.obs.log?.warn?.(`[secrets:rotate] failed to rotate row ${row.id}`, { err });
     },

@@ -9,7 +9,7 @@
 //      resolves + caches the variant behind the auth-gated
 //      `GET /api/files/:id/variant/:name` route, no handler code needed.
 //   2. Imperative — the `set-cover` write-handler calls
-//      `ctx.derivatives.variant()` directly. This is for apps that track
+//      `ctx.services.derivatives.variant()` directly. This is for apps that track
 //      images as their own records (ordering, a chosen cover image) and for
 //      region-blur, whose coordinates are runtime data that can't live in a
 //      static field declaration.
@@ -88,13 +88,13 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
         .optional(),
     }),
     handler: async (event, ctx) => {
-      if (!ctx.derivatives) {
+      if (!ctx.services.derivatives) {
         return writeFailure(
           new InternalError({ message: "ctx.derivatives missing — is file-derivatives mounted?" }),
         );
       }
       const { fileRefId, blurRegion } = event.payload;
-      const result = await ctx.derivatives.variant(
+      const result = await ctx.services.derivatives.variant(
         fileRefId,
         {
           maxEdge: 800,

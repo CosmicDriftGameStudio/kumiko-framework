@@ -18,10 +18,10 @@ const apiKey = r.secret("apiKey", {
   writeRoles: ["TenantAdmin"],
 });
 
-await ctx.secrets.get(tenantId, apiKey);
+await ctx.services.secrets.get(tenantId, apiKey);
 ```
 
-The qualified name is `<feature>:secret:<kebab-short-name>`, here `billing:secret:api-key` for a feature named `billing`. Feature code passes the returned handle to `ctx.secrets.get`, so it never retypes the string. Fixed keys show up on the generated secrets screen in the settings hub.
+The qualified name is `<feature>:secret:<kebab-short-name>`, here `billing:secret:api-key` for a feature named `billing`. Feature code passes the returned handle to `ctx.services.secrets.get`, so it never retypes the string. Fixed keys show up on the generated secrets screen in the settings hub.
 
 ## Runtime-named keys: `r.secretNamespace`
 
@@ -48,7 +48,7 @@ webhookAuth.keyFor("crm"); // "step-dispatcher:webhook-auth.crm"
 
 `valueSchema` on `r.secret` or `r.secretNamespace` is a `ZodType<string>` that `secrets:write:set` runs on the value, after the key and write-role checks. A failing value gets 400 `secrets.errors.invalidValue` on field `value`; the response carries neither the value nor Zod's issues.
 
-- Only new writes through the secrets API are checked. Stored secrets stay as they are, and feature code writing through `ctx.secrets.set` is not checked.
+- Only new writes through the secrets API are checked. Stored secrets stay as they are, and feature code writing through `ctx.services.secrets.set` is not checked.
 - `secrets:write:delete` ignores it.
 
 The chat channels use it to reject a bad address when it is created: the webhook secrets of `channel-slack`, `channel-discord` and `channel-teams` must pass the channel's host allowlist (Discord also the `/api/webhooks/` path), the Telegram bot token must look like `<bot id>:<secret>`. The same checks are exported for app code: `checkChatWebhookTarget`, `chatWebhookUrlSchema` and `resolveChatWebhookTarget` from `delivery`, `isTelegramChatId` and `isTelegramBotToken` from `channel-telegram`.
@@ -65,6 +65,6 @@ Each chat channel exports its key, so apps do not retype the strings: `SLACK_SEC
 - Without `writeRoles`, the handler access alone decides.
 - An empty list throws in `defineFeature`, because no user could ever satisfy it.
 - A user who passes the handler access but holds none of the write roles gets 403 `secrets.errors.writeDenied`.
-- The check covers the HTTP and dispatcher path. Feature code that writes through `ctx.secrets.set` is trusted and not checked.
+- The check covers the HTTP and dispatcher path. Feature code that writes through `ctx.services.secrets.set` is trusted and not checked.
 
 The generated secrets screen hides fixed keys the current user cannot write, so nobody fills in a field that the server would reject. Whether a write goes through is still decided by the server check above.

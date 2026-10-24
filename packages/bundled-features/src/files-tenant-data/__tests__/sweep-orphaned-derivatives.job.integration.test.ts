@@ -60,7 +60,7 @@ const tenantA = TestUsers.admin;
 const tenantB = TestUsers.otherTenant;
 
 function makeCtx(
-  fileProviderResolver?: JobContext["_fileProviderResolver"],
+  fileProviderResolver?: JobContext["services"]["_fileProviderResolver"],
   log: JobContext["obs"]["log"] = noopLogger,
 ): JobContext {
   return {
@@ -72,8 +72,10 @@ function makeCtx(
     finalAttempt: true,
     defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
     canDefer: false,
-    ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
-    ...bridgeStub({ log: log }),
+    ...bridgeStub({
+      log,
+      ...(fileProviderResolver && { services: { _fileProviderResolver: fileProviderResolver } }),
+    }),
   };
 }
 

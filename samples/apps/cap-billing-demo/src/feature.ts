@@ -40,6 +40,7 @@ import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-
 import {
   createMailFoundationFeature,
   createTransportForTenant,
+  type MailTransportContext,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import {
   access,
@@ -52,6 +53,19 @@ import { z } from "zod";
 import { DEMO_TIER_MAP, TIER_NAMES, type TierName } from "./tier-map";
 
 const FEATURE_NAME = "newsletter";
+
+// The transport factory takes a narrow context (it also runs in the worker), so the handler's
+// secrets live under services and are handed over explicitly.
+function mailContextOf(
+  ctx: Pick<ReservationContext, "config" | "registry" | "services" | "user">,
+): MailTransportContext {
+  return {
+    config: ctx.config,
+    registry: ctx.registry,
+    secrets: ctx.services.secrets,
+    auditUserId: ctx.user.id,
+  };
+}
 const NEWSLETTER_CAP = "newsletters-per-month";
 
 // =============================================================================
@@ -71,7 +85,7 @@ const innerSendHandler: WriteHandlerDef = {
   handler: async (event, ctx) => {
     const payload = event.payload as z.infer<typeof sendSchema>;
     const transport = await createTransportForTenant(
-      ctx,
+      mailContextOf(ctx),
       event.user.tenantId,
       "newsletter:write:send",
     );
@@ -134,7 +148,7 @@ async function resolveTier(ctx: ReservationContext): Promise<TierName> {
 function buildSoftHitNotifier(ctx: ReservationContext): SoftHitNotifier {
   return async (info) => {
     const transport = await createTransportForTenant(
-      ctx,
+      mailContextOf(ctx),
       info.tenantId,
       "newsletter:soft-hit-notifier",
     );

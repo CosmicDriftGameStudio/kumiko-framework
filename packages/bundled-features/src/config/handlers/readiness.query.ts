@@ -106,7 +106,7 @@ export async function collectMissingRequiredConfig(
     user.tenantId,
     user.id,
     db,
-    ctx.secrets,
+    ctx.services.secrets,
   );
   for (const [qualifiedKey, keyDef] of candidates) {
     // Deliberately the unredacted cascade value: readiness asks "does this

@@ -10,7 +10,7 @@ import type { TenantId } from "./identifiers.ts";
 // but the nominal typing stops it from landing in an HTTP response by
 // accident — a response-serializer guard + the reveal() cost make the leak
 // intentional. Framework code that sees `Secret<string>` knows the caller
-// has already gone through the audited ctx.secrets.get path.
+// has already gone through the audited ctx.services.secrets.get path.
 //
 // Registered symbol, matching KUMIKO_*_SYMBOL in schema-table-types.ts. A
 // plain Symbol() is per-copy: two resolved copies of this package brand with
@@ -126,7 +126,7 @@ export type SecretAuditContext = {
 // r.secret call updates all references through the import graph.
 export type SecretKeyRef = string | { readonly name: string };
 
-// The ctx.secrets contract. Concrete implementation lives in bundled-features
+// The ctx.services.secrets contract. Concrete implementation lives in bundled-features
 // (createSecretsContext) where the DB and MasterKeyProvider are known. This
 // lean interface is what the framework's HandlerContext carries so engine
 // code can talk about it without pulling in bundled-features.

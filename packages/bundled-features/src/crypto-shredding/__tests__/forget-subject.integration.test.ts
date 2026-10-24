@@ -276,7 +276,7 @@ describe("crypto-shredding :: forget-subject", () => {
   });
 });
 
-// forget-subject's ctx.searchAdapter wiring (forget-subject.write.ts
+// forget-subject's ctx.services.searchAdapter wiring (forget-subject.write.ts
 // → purgeSearchDocumentsForSubject) had zero end-to-end coverage — a broken
 // extension registration would silently turn the whole GDPR search purge
 // into a no-op. Own stack (own entity feature) so it doesn't perturb the

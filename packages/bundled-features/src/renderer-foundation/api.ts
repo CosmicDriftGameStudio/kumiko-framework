@@ -87,12 +87,12 @@ function indexByKind(plugins: ReadonlyArray<RendererPlugin>): Map<RenderKind, Re
 // Single source of truth for handlers that require renderer-foundation.
 // The pattern mirrors requireTemplateResolver + requireTextContent.
 export function requireRendererFoundation(
-  ctx: { readonly rendererFoundation?: RendererFoundationApi } | object,
+  ctx: { readonly services: { readonly extensions: Readonly<Record<string, unknown>> } },
   callerName: string,
 ): RendererFoundationApi {
   // @cast-boundary engine-bridge — rendererFoundation kommt per extraContext
-  // from the app bootstrap.
-  const api = (ctx as { rendererFoundation?: RendererFoundationApi }).rendererFoundation;
+  // from the app bootstrap and lands in services.extensions; the framework does not know its type.
+  const api = ctx.services.extensions["rendererFoundation"] as RendererFoundationApi | undefined;
   if (!api) {
     throw new InternalError({
       message:
